@@ -1,0 +1,7 @@
+# Compiler/linker output.
+#
+*.o
+*.d
+*.so
+*.a
+core
