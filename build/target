@@ -1,0 +1,69 @@
+// file      : build/target -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#include <string>
+#include <vector>
+#include <functional>
+
+namespace build
+{
+  class target;
+  typedef std::vector<std::reference_wrapper<target>> targets;
+
+  class target
+  {
+  public:
+    target (std::string n): name_ (n) {}
+
+    const std::string&
+    name () const {return name_;}
+
+    const targets&
+    prerequisites () const {return prerequisites_;}
+
+    targets&
+    prerequisites () {return prerequisites_;}
+
+    void
+    prerequisite (target& t) {prerequisites_.push_back (t);}
+
+  public:
+    typedef bool (*rule_type) (target&, const targets&);
+
+    rule_type
+    rule () const {return rule_;}
+
+    void
+    rule (rule_type r) {rule_ = r;}
+
+  private:
+    target (const target&) = delete;
+    target& operator= (const target&) = delete;
+
+  private:
+    std::string name_;
+    targets prerequisites_;
+    rule_type rule_ {0};
+  };
+
+  class exe: public target
+  {
+    using target::target;
+  };
+
+  class obj: public target
+  {
+    using target::target;
+  };
+
+  class hxx: public target
+  {
+    using target::target;
+  };
+
+  class cxx: public target
+  {
+    using target::target;
+  };
+}
