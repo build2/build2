@@ -1,0 +1,67 @@
+// file      : build/process -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PROCESS
+#define BUILD_PROCESS
+
+#ifndef _WIN32
+#  include <sys/types.h> // pid_t
+#endif
+
+#include <cassert>
+#include <system_error>
+
+namespace build
+{
+
+  struct process_error: std::system_error
+  {
+    process_error (int e, bool child)
+        : system_error (e, std::system_category ()), child_ (child) {}
+
+    bool
+    child () const {return child_;}
+
+  private:
+    bool child_;
+  };
+
+  struct process
+  {
+    // Start another process using the specified command line. Connect the
+    // newly created process' stdin to out_fd. Also if connect_* are true,
+    // connect the created process' stdout and stderr to in_*fd. Throw
+    // process_error if anything goes wrong.
+    //
+    // Note that some of the exceptions (e.g., if exec() failed) can be
+    // thrown in the child version of us.
+    //
+    process (char const* args[],
+             bool connect_stdin = false,
+             bool connect_stderr = false,
+             bool connect_stdout = false);
+
+    // Wait for the process to terminate. Return true if the process
+    // terminated normally and with the zero exit status. Throw
+    // process_error if anything goes wrong.
+    //
+    bool
+    wait ();
+
+    ~process () {assert (id == 0);}
+
+#ifndef _WIN32
+    typedef pid_t id_type;
+#else
+    typedef void* id_type; // Win32 HANDLE.
+#endif
+
+    id_type id;
+    int out_fd; // Write to this fd to send to the new process' stdin.
+    int in_efd; // Read from this fd to receive from the new process' stderr.
+    int in_ofd; // Read from this fd to receive from the new process' stdout.
+  };
+}
+
+#endif // BUILD_PROCESS

@@ -2,9 +2,12 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
+#ifndef BUILD_TARGET
+#define BUILD_TARGET
+
 #include <string>
 #include <vector>
-#include <functional>
+#include <functional> // std::reference_wrapper
 
 namespace build
 {
@@ -29,7 +32,7 @@ namespace build
     prerequisite (target& t) {prerequisites_.push_back (t);}
 
   public:
-    typedef bool (*rule_type) (target&, const targets&);
+    typedef bool (*rule_type) (target&);
 
     rule_type
     rule () const {return rule_;}
@@ -67,3 +70,5 @@ namespace build
     using target::target;
   };
 }
+
+#endif // BUILD_TARGET

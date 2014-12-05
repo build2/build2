@@ -1,0 +1,52 @@
+// file      : build/timestamp -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TIMESTAMP
+#define BUILD_TIMESTAMP
+
+#include <chrono>
+#include <string>
+#include <iosfwd>
+
+namespace build
+{
+  // On all three main platforms that we target (GNU/Linux, Windows (both
+  // VC++ and GCC/MinGW64), and MacOS X) with recent C++ runtimes,
+  // system_clock has nanoseconds resolution and counts from the UNIX
+  // epoch. The latter is important since struct stat also returns times
+  // based on UNIX epoch.
+  //
+  // The underlying type for nanoseconds duration is signed integer type
+  // of at least 64 bits (currently int64_t). Because it is signed, we
+  // will overflow in year 2262 but by then the underlying type will
+  // most likely have changed to something larger than 64-bit.
+  //
+  // So to support other platforms that could possibly use a different
+  // system_clock resolutions (e.g., microseconds), we actually not going
+  // to assume anywhere (except perhaps timestamp.cxx) that we are dealing
+  // with nanoseconds or the 64-bit underlying type.
+  //
+  using std::chrono::system_clock;
+
+  using timestamp = system_clock::time_point;
+  using duration = system_clock::duration;
+
+  const timestamp timestamp_unknown {duration {-1}};
+  const timestamp timestamp_nonexistent {duration {0}};
+
+  std::ostream&
+  operator<< (std::ostream&, timestamp);
+
+  std::ostream&
+  operator<< (std::ostream&, duration);
+
+  // Returns timestamp_nonexistent if the entry at the specified path
+  // does not exist. All other errors are reported by throwing
+  // std::system_error.
+  //
+  timestamp
+  path_timestamp (const std::string&);
+};
+
+#endif // BUILD_TIMESTAMP
