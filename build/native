@@ -1,0 +1,31 @@
+// file      : build/native -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_NATIVE
+#define BUILD_NATIVE
+
+#include <build/target>
+
+namespace build
+{
+  class exe: public file
+  {
+  public:
+    using file::file;
+
+  public: virtual const type_info& type_id () const {return ti_;}
+  protected: static const type_info ti_;
+  };
+
+  class obj: public file
+  {
+  public:
+    using file::file;
+
+  public: virtual const type_info& type_id () const {return ti_;}
+  protected: static const type_info ti_;
+  };
+}
+
+#endif // BUILD_NATIVE

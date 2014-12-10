@@ -7,11 +7,21 @@
 
 #include <string>
 #include <vector>
-#include <functional> // std::reference_wrapper
+#include <functional> // function, reference_wrapper
+#include <typeindex>
+#include <iosfwd>
+#include <cassert>
+
+#include <build/path>
+#include <build/timestamp>
 
 namespace build
 {
   class target;
+
+  enum class target_state {unknown, uptodate, updated, failed};
+  typedef std::function<target_state (target&)> recipe;
+
   typedef std::vector<std::reference_wrapper<target>> targets;
 
   class target
@@ -32,42 +42,112 @@ namespace build
     prerequisite (target& t) {prerequisites_.push_back (t);}
 
   public:
-    typedef bool (*rule_type) (target&);
+    typedef build::recipe recipe_type;
 
-    rule_type
-    rule () const {return rule_;}
+    const recipe_type&
+    recipe () const {return recipe_;}
 
     void
-    rule (rule_type r) {rule_ = r;}
+    recipe (recipe_type r) {assert (!recipe_); recipe_ = r;}
+
+  public:
+    target_state
+    state () const {return state_;}
+
+    void
+    state (target_state s) {state_ = s;}
 
   private:
     target (const target&) = delete;
     target& operator= (const target&) = delete;
 
+  public:
+    struct type_info
+    {
+      std::type_index id;
+      const char* name;
+      const type_info* base;
+    };
+
+    virtual const type_info&
+    type_id () const = 0;
+
+  protected:
+    static const type_info ti_;
+
   private:
     std::string name_;
     targets prerequisites_;
-    rule_type rule_ {0};
+    recipe_type recipe_;
+    target_state state_ {target_state::unknown};
   };
 
-  class exe: public target
+  std::ostream&
+  operator<< (std::ostream&, const target&);
+
+  // Modification time-based target.
+  //
+  class mtime_target: public target
   {
+  public:
     using target::target;
+
+    timestamp
+    mtime () const
+    {
+      if (mtime_ == timestamp_unknown)
+        mtime_ = load_mtime ();
+
+      return mtime_;
+    }
+
+    void
+    mtime (timestamp mt) {mtime_ = mt;}
+
+  protected:
+    virtual timestamp
+    load_mtime () const = 0;
+
+  protected: static const type_info ti_;
+
+  private:
+    mutable timestamp mtime_ {timestamp_unknown};
   };
 
-  class obj: public target
+  // Filesystem path-bases target.
+  //
+  class path_target: public mtime_target
   {
-    using target::target;
+  public:
+    using mtime_target::mtime_target;
+
+    typedef build::path path_type;
+
+    const path_type&
+    path () const {return path_;}
+
+    void
+    path (path_type p) {assert (path_.empty ()); path_ = p;}
+
+  protected:
+    virtual timestamp
+    load_mtime () const;
+
+  protected: static const type_info ti_;
+
+  private:
+    path_type path_;
   };
 
-  class hxx: public target
+  // File target.
+  //
+  class file: public path_target
   {
-    using target::target;
-  };
+  public:
+    using path_target::path_target;
 
-  class cxx: public target
-  {
-    using target::target;
+  public: virtual const type_info& type_id () const {return ti_;}
+  protected: static const type_info ti_;
   };
 }
 

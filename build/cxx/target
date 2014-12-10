@@ -1,0 +1,52 @@
+// file      : build/cxx/target -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CXX_TARGET
+#define BUILD_CXX_TARGET
+
+#include <build/target>
+
+namespace build
+{
+  namespace cxx
+  {
+    class hxx: public file
+    {
+    public:
+      using file::file;
+
+    public: virtual const type_info& type_id () const {return ti_;}
+    protected: static const type_info ti_;
+    };
+
+    class ixx: public file
+    {
+    public:
+      using file::file;
+
+    public: virtual const type_info& type_id () const {return ti_;}
+    protected: static const type_info ti_;
+    };
+
+    class txx: public file
+    {
+    public:
+      using file::file;
+
+    public: virtual const type_info& type_id () const {return ti_;}
+    protected: static const type_info ti_;
+    };
+
+    class cxx: public file
+    {
+    public:
+      using file::file;
+
+    public: virtual const type_info& type_id () const {return ti_;}
+    protected: static const type_info ti_;
+    };
+  }
+}
+
+#endif // BUILD_CXX_TARGET

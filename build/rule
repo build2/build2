@@ -1,0 +1,39 @@
+// file      : build/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_RULE
+#define BUILD_RULE
+
+#include <typeindex>
+#include <functional>     // reference_wrapper
+#include <unordered_map>
+
+#include <build/target>
+
+namespace build
+{
+  class rule
+  {
+  public:
+    virtual recipe
+    match (target&) const = 0;
+  };
+
+  typedef std::unordered_multimap<std::type_index,
+                                  std::reference_wrapper<rule>> rule_map;
+
+  extern rule_map rules;
+
+  class default_path_rule: public rule
+  {
+  public:
+    virtual recipe
+    match (target&) const;
+
+    static target_state
+    update (target&);
+  };
+}
+
+#endif // BUILD_RULE

@@ -9,6 +9,8 @@
 #include <string>
 #include <iosfwd>
 
+#include <build/path>
+
 namespace build
 {
   // On all three main platforms that we target (GNU/Linux, Windows (both
@@ -46,7 +48,7 @@ namespace build
   // std::system_error.
   //
   timestamp
-  path_timestamp (const std::string&);
+  path_mtime (const path&);
 };
 
 #endif // BUILD_TIMESTAMP

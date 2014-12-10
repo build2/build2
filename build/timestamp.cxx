@@ -41,10 +41,10 @@ namespace build
   constexpr int nsec (...) {return 0;}
 
   timestamp
-  path_timestamp (const std::string& p)
+  path_mtime (const path& p)
   {
     struct stat s;
-    if (stat (p.c_str (), &s) != 0)
+    if (stat (p.string ().c_str (), &s) != 0)
     {
       if (errno == ENOENT || errno == ENOTDIR)
         return timestamp_nonexistent;
@@ -108,18 +108,37 @@ namespace build
     time_t t (system_clock::to_time_t (ts));
 
     const char* fmt (nullptr);
+    const char* unt ("nanoseconds");
     if (t >= 365 * 12 * 24 * 60 * 60)
+    {
       fmt = "%Y-%m-%d %H:%M:%S";
+      unt = "years";
+    }
     else if (t >= 12 * 24 * 60* 60)
+    {
       fmt = "%m-%d %H:%M:%S";
+      unt = "months";
+    }
     else if (t >= 24 * 60* 60)
+    {
       fmt = "%d %H:%M:%S";
+      unt = "days";
+    }
     else if (t >= 60 * 60)
+    {
       fmt = "%H:%M:%S";
+      unt = "hours";
+    }
     else if (t >= 60)
+    {
       fmt = "%M:%S";
+      unt = "minutes";
+    }
     else if (t >= 1)
+    {
       fmt = "%S";
+      unt = "seconds";
+    }
 
     if (fmt != nullptr)
     {
@@ -129,7 +148,7 @@ namespace build
 
       char buf[20]; // YYYY-MM-DD HH:MM:SS\0
       if (strftime (buf, sizeof (buf), fmt, &tm) == 0)
-        return os << "<beyond 9999 years>";
+        return os << "<beyond 9999>";
 
       os << buf;
     }
@@ -141,10 +160,14 @@ namespace build
 
     if (ns != nanoseconds::zero ())
     {
-      os << '.';
-      os.width (9);
-      os.fill ('0');
-      os << ns.count ();
+      if (fmt != nullptr)
+      {
+        os << '.';
+        os.width (9);
+        os.fill ('0');
+      }
+
+      os << ns.count () << ' ' << unt;
     }
     else if (fmt == 0)
       os << '0';
