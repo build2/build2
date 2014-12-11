@@ -22,6 +22,10 @@ namespace build
   bool
   match (target& t)
   {
+    // Because we match the target first and then prerequisites,
+    // any additional dependency information injected by the rule
+    // will be covered as well.
+    //
     if (!t.recipe ())
     {
       for (auto ti (&t.type_id ());
@@ -44,7 +48,7 @@ namespace build
 
       if (!t.recipe ())
       {
-        cerr << "error: no rule to build target " << t << endl;
+        cerr << "error: no rule to update target " << t << endl;
         return false;
       }
     }
@@ -132,11 +136,7 @@ main (int argc, char* argv[])
   cxx::cxx bd_cxx ("bd");
   bd_cxx.path (path ("bd.cxx"));
 
-  hxx target ("target");
-  target.path (path ("target"));
-
   bd_o.prerequisite (bd_cxx);
-  bd_o.prerequisite (target);
 
   //
   //
