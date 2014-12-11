@@ -1,0 +1,55 @@
+// file      : build/token -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TOKEN
+#define BUILD_TOKEN
+
+#include <string>
+#include <cstddef> // size_t
+#include <cstdint> // uint64_t
+#include <cassert>
+#include <utility> // move
+
+namespace build
+{
+  enum class token_type {eos, name, punctuation};
+  enum class token_punctuation {newline, colon, lcbrace, rcbrace};
+
+  class token
+  {
+  public:
+    token_type
+    type () const {return t_;}
+
+    std::string const&
+    name () const {assert (t_ == token_type::name); return n_;}
+
+    token_punctuation
+    punctuation () const {assert (t_ == token_type::punctuation); return p_;}
+
+    std::uint64_t line () const {return l_;}
+    std::uint64_t column () const {return c_;}
+
+  public:
+    token (std::uint64_t l, std::uint64_t c)
+        : t_ (token_type::eos), l_ (l), c_ (c) {}
+
+    token (std::string n, std::uint64_t l, std::uint64_t c)
+        : t_ (token_type::name), n_ (std::move (n)), l_ (l), c_ (c) {}
+
+    token (token_punctuation p, std::uint64_t l, std::uint64_t c)
+        : t_ (token_type::punctuation), p_ (p), l_ (l), c_ (c) {}
+
+  private:
+    token_type t_;
+
+    token_punctuation p_;
+    std::string n_;
+
+    std::uint64_t l_;
+    std::uint64_t c_;
+  };
+}
+
+#endif // BUILD_TOKEN

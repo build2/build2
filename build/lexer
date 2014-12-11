@@ -1,0 +1,98 @@
+// file      : build/lexer -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_LEXER
+#define BUILD_LEXER
+
+#include <string>
+#include <iosfwd>
+#include <cstdint> // uint64_t
+#include <exception>
+
+#include <build/token>
+
+namespace build
+{
+  // The handler must assume the diagnostics has already been issued.
+  //
+  struct lexer_error: std::exception {};
+
+  class lexer
+  {
+  public:
+    lexer (std::istream& is, const std::string& name)
+        : is_ (is), name_ (name) {}
+
+    token
+    next ();
+
+    // Character interface.
+    //
+  private:
+    class xchar
+    {
+    public:
+      typedef std::char_traits<char> traits_type;
+      typedef traits_type::int_type int_type;
+      typedef traits_type::char_type char_type;
+
+      xchar (int_type v, std::uint64_t l, std::uint64_t c)
+          : v_ (v), l_ (l), c_ (c) {}
+
+      operator char_type () const {return static_cast<char_type> (v_);}
+
+      int_type
+      value () const {return v_;}
+
+      std::uint64_t line () const {return l_;}
+      std::uint64_t column () const {return c_;}
+
+    private:
+      int_type v_;
+      std::uint64_t l_;
+      std::uint64_t c_;
+    };
+
+    xchar
+    peek ();
+
+    xchar
+    get ();
+
+    void
+    unget (const xchar&);
+
+    // Tests.
+    //
+    bool
+    is_eos (const xchar& c) const
+    {
+      return c.value () == xchar::traits_type::eof ();
+    }
+
+  private:
+    xchar
+    escape ();
+
+    void
+    skip_spaces ();
+
+    token
+    name (xchar);
+
+  private:
+    std::istream& is_;
+    std::string name_;
+
+    std::uint64_t l_ {1};
+    std::uint64_t c_ {1};
+
+    bool eos_ {false};
+
+    bool unget_ {false};
+    xchar buf_ {0, 0, 0};
+  };
+}
+
+#endif // BUILD_LEXER

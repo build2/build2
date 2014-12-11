@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <cassert>
+#include <fstream>
 #include <iostream>
 #include <typeinfo>
 #include <system_error>
@@ -14,6 +15,9 @@
 #include <build/rule>
 #include <build/process>
 #include <build/diagnostics>
+
+#include <build/token>
+#include <build/lexer>
 
 using namespace std;
 
@@ -132,6 +136,64 @@ main (int argc, char* argv[])
   //
   tzset ();
 
+  // Parse buildfile.
+  //
+  path bf ("buildfile");
+
+  ifstream ifs (bf.string ().c_str ());
+  if (!ifs.is_open ())
+  {
+    cerr << "error: unable to open " << bf << " in read mode" << endl;
+    return 1;
+  }
+
+  ifs.exceptions (ifstream::failbit | ifstream::badbit);
+  lexer l (ifs, bf.string ());
+
+  try
+  {
+    for (token t (l.next ());; t = l.next ())
+    {
+      cout << t.line () << ':' << t.column () << ": ";
+
+      switch (t.type ())
+      {
+      case token_type::eos: cout << "<eos>"; break;
+      case token_type::punctuation:
+        {
+          switch (t.punctuation ())
+          {
+          case token_punctuation::newline: cout << "\\n"; break;
+          case token_punctuation::colon:   cout << ':'; break;
+          case token_punctuation::lcbrace: cout << '{'; break;
+          case token_punctuation::rcbrace: cout << '}'; break;
+          }
+          break;
+        }
+      case token_type::name: cout << '\'' << t.name () << '\''; break;
+      }
+
+      cout << endl;
+
+      if (t.type () == token_type::eos)
+        break;
+    }
+  }
+  catch (const lexer_error&)
+  {
+    return 1; // Diagnostics has already been issued.
+  }
+  catch (const std::ios_base::failure&)
+  {
+    cerr << "error: failed to read from " << bf << endl;
+    return 1;
+  }
+
+  return 0;
+
+
+  // Register rules.
+  //
   cxx::link cxx_link;
   rules.emplace (typeid (exe), cxx_link);
 
