@@ -14,6 +14,7 @@
 
 #include <build/process>
 #include <build/timestamp>
+#include <build/diagnostics>
 
 using namespace std;
 
@@ -63,11 +64,7 @@ namespace build
 
       // Inject additional prerequisites.
       //
-      // @@ If this failed, saying that the rule did not match is
-      //    not quite correct.
-      //
-      if (!inject_prerequisites (o, *s))
-        return recipe ();
+      inject_prerequisites (o, *s);
 
       return recipe (&update);
     }
@@ -114,12 +111,12 @@ namespace build
       return r;
     }
 
-    bool compile::
+    void compile::
     inject_prerequisites (obj& o, const cxx& s) const
     {
       const char* args[] = {
         "g++-4.9",
-        "-std=c++11",
+        "-std=c++14",
         "-I..",
         "-M",
         "-MG",      // Treat missing headers as generated.
@@ -130,7 +127,6 @@ namespace build
       try
       {
         process pr (args, false, false, true);
-        bool r (true);
 
         __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
         istream is (&fb);
@@ -142,27 +138,24 @@ namespace build
 
           if (is.fail () && !is.eof ())
           {
-            cerr << "warning: io error while parsing output" << endl;
-            r = false;
-            break;
+            cerr << "error: io error while parsing g++ -M output" << endl;
+            throw error ();
           }
 
           size_t p (0);
 
           if (first)
           {
-            // Empty output usually means the wait() call below will return
+            // Empty output should mean the wait() call below will return
             // false.
             //
             if (l.empty ())
-            {
-              r = false;
               break;
-            }
 
-            first = false;
             assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
             next (l, (p = 3)); // Skip the source file.
+
+            first = false;
           }
 
           while (p != l.size ())
@@ -185,20 +178,24 @@ namespace build
           }
         }
 
-        //@@ Any diagnostics if wait() returns false. Or do we assume
-        //   the child process issued something?
+        // We assume the child process issued some diagnostics.
         //
-        return pr.wait () && r;
+        if (!pr.wait ())
+          throw error ();
       }
       catch (const process_error& e)
       {
-        cerr << "warning: unable to execute '" << args[0] << "': " <<
+        cerr << "error: unable to execute '" << args[0] << "': " <<
           e.what () << endl;
 
+        // In a multi-threaded program that fork()'ed but did not exec(),
+        // it is unwise to try to do any kind of cleanup (like unwinding
+        // the stack and running destructors).
+        //
         if (e.child ())
           exit (1);
 
-        return false;
+        throw error ();
       }
     }
 
@@ -243,7 +240,7 @@ namespace build
 
       const char* args[] = {
         "g++-4.9",
-        "-std=c++11",
+        "-std=c++14",
         "-I..",
         "-c",
         "-o", o.path ().string ().c_str (),
@@ -272,8 +269,12 @@ namespace build
         cerr << "error: unable to execute '" << args[0] << "': " <<
           e.what () << endl;
 
+        // In a multi-threaded program that fork()'ed but did not exec(),
+        // it is unwise to try to do any kind of cleanup (like unwinding
+        // the stack and running destructors).
+        //
         if (e.child ())
-          throw; // Let caller terminate us quickly without causing a scene.
+          exit (1);
 
         return target_state::failed;
       }
@@ -356,7 +357,7 @@ namespace build
       if (!u)
         return target_state::uptodate;
 
-      vector<const char*> args {"g++-4.9", "-std=c++11", "-o"};
+      vector<const char*> args {"g++-4.9", "-std=c++14", "-o"};
 
       args.push_back (e.path ().string ().c_str ());
 
@@ -390,8 +391,12 @@ namespace build
         cerr << "error: unable to execute '" << args[0] << "': " <<
           e.what () << endl;
 
+        // In a multi-threaded program that fork()'ed but did not exec(),
+        // it is unwise to try to do any kind of cleanup (like unwinding
+        // the stack and running destructors).
+        //
         if (e.child ())
-          throw; // Let caller terminate us quickly without causing a scene.
+          exit (1);
 
         return target_state::failed;
       }

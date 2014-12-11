@@ -1,0 +1,54 @@
+// file      : build/diagnostics -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_DIAGNOSTICS
+#define BUILD_DIAGNOSTICS
+
+#include <tuple>
+#include <utility>
+#include <exception>
+
+namespace build
+{
+  // Throw this exception to terminate the build. The handler should
+  // assume that the diagnostics has already been issued.
+  //
+  class error: public std::exception {};
+
+  // Call a function if there is an exception.
+  //
+  template <typename F, typename T>
+  struct exception_guard;
+
+  template <typename F, typename... A>
+  inline exception_guard<F, std::tuple<A&&...>>
+  make_exception_guard (F f, A&&... a)
+  {
+    return exception_guard<F, std::tuple<A&&...>> (
+      std::move (f), std::forward_as_tuple (a...));
+  }
+
+  template <typename F, typename... A>
+  struct exception_guard<F, std::tuple<A...>>
+  {
+    typedef std::tuple<A...> T;
+
+    exception_guard (F f, T a): f_ (std::move (f)), a_ (std::move (a)) {}
+    ~exception_guard ()
+    {
+      if (std::uncaught_exception ())
+        call (std::index_sequence_for<A...> ());
+    }
+
+  private:
+    template <std::size_t... I>
+    void
+    call (std::index_sequence<I...>) {f_ (std::get<I> (a_)...);}
+
+    F f_;
+    T a_;
+  };
+}
+
+#endif // BUILD_DIAGNOSTICS

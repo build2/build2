@@ -28,7 +28,7 @@ namespace build
       update (target&);
 
     private:
-      bool
+      void
       inject_prerequisites (obj&, const cxx&) const;
     };
 

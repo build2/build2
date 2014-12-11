@@ -5,7 +5,6 @@
 #include <time.h> // tzset()
 
 #include <vector>
-#include <cstdlib>      // exit
 #include <cassert>
 #include <iostream>
 #include <typeinfo>
@@ -14,6 +13,7 @@
 #include <build/target>
 #include <build/rule>
 #include <build/process>
+#include <build/diagnostics>
 
 using namespace std;
 
@@ -38,7 +38,21 @@ namespace build
         {
           const rule& ru (rs.first->second);
 
-          if (recipe re = ru.match (t))
+          recipe re;
+
+          {
+            auto g (
+              make_exception_guard (
+                [] (target& t)
+                {
+                  cerr << "info: while matching a rule for target " << t << endl;
+                },
+                t));
+
+            re = ru.match (t);
+          }
+
+          if (re)
           {
             t.recipe (re);
             break;
@@ -83,21 +97,23 @@ namespace build
       }
     }
 
-    try
+    const recipe& r (t.recipe ());
+
     {
-      t.state ((ts = t.recipe () (t)));
-      assert (ts != target_state::unknown);
-      return ts;
+      auto g (
+        make_exception_guard (
+          [] (target& t)
+          {
+            cerr << "info: while building target " << t << endl;
+          },
+          t));
+
+      ts = r (t);
     }
-    catch (const process_error& e)
-    {
-      // Take care of failed children. In a multi-threaded program that
-      // fork()'ed but did not exec(), it is unwise to try to do any kind
-      // of cleanup (like unwinding the stack and running destructors).
-      //
-      assert (e.child ());
-      exit (1);
-    }
+
+    assert (ts != target_state::unknown);
+    t.state (ts);
+    return ts;
   }
 }
 
@@ -140,24 +156,36 @@ main (int argc, char* argv[])
 
   //
   //
-  if (!match (bd))
-    return 1; // Diagnostics has already been issued.
-
-  switch (update (bd))
+  try
   {
-  case target_state::uptodate:
+    if (!match (bd))
+      return 1; // Diagnostics has already been issued.
+
+    switch (update (bd))
     {
-      cerr << "info: target " << bd << " is up to date" << endl;
+    case target_state::uptodate:
+      {
+        cerr << "info: target " << bd << " is up to date" << endl;
+        break;
+      }
+    case target_state::updated:
       break;
+    case target_state::failed:
+      {
+        cerr << "error: failed to update target " << bd << endl;
+        return 1;
+      }
+    case target_state::unknown:
+      assert (false);
     }
-  case target_state::updated:
-    break;
-  case target_state::failed:
-    {
-      cerr << "error: failed to update target " << bd << endl;
-      return 1;
-    }
-  case target_state::unknown:
-    assert (false);
+  }
+  catch (const error&)
+  {
+    return 1; // Diagnostics has already been issued.
+  }
+  catch (const std::exception& e)
+  {
+    cerr << "error: " << e.what () << endl;
+    return 1;
   }
 }
