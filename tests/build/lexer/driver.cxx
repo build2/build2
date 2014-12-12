@@ -71,6 +71,8 @@ main ()
           tokens ({"foo", ":", "\n", "bar", ""}));
 }
 
+ostream cnull (nullptr);
+
 static tokens
 lex (const char* s)
 {
@@ -78,7 +80,7 @@ lex (const char* s)
   istringstream is (s);
 
   is.exceptions (istream::failbit | istream::badbit);
-  lexer l (is, "");
+  lexer l (is, "", cnull);
 
   try
   {

@@ -28,6 +28,12 @@ namespace build
     token_punctuation
     punctuation () const {assert (t_ == token_type::punctuation); return p_;}
 
+    bool
+    is (token_punctuation p) const
+    {
+      return t_ == token_type::punctuation && p_ == p;
+    }
+
     std::uint64_t line () const {return l_;}
     std::uint64_t column () const {return c_;}
 

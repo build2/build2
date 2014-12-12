@@ -16,8 +16,8 @@
 #include <build/process>
 #include <build/diagnostics>
 
-#include <build/token>
 #include <build/lexer>
+#include <build/parser>
 
 using namespace std;
 
@@ -148,38 +148,17 @@ main (int argc, char* argv[])
   }
 
   ifs.exceptions (ifstream::failbit | ifstream::badbit);
-  lexer l (ifs, bf.string ());
+  parser p;
 
   try
   {
-    for (token t (l.next ());; t = l.next ())
-    {
-      cout << t.line () << ':' << t.column () << ": ";
-
-      switch (t.type ())
-      {
-      case token_type::eos: cout << "<eos>"; break;
-      case token_type::punctuation:
-        {
-          switch (t.punctuation ())
-          {
-          case token_punctuation::newline: cout << "\\n"; break;
-          case token_punctuation::colon:   cout << ':'; break;
-          case token_punctuation::lcbrace: cout << '{'; break;
-          case token_punctuation::rcbrace: cout << '}'; break;
-          }
-          break;
-        }
-      case token_type::name: cout << '\'' << t.name () << '\''; break;
-      }
-
-      cout << endl;
-
-      if (t.type () == token_type::eos)
-        break;
-    }
+    p.parse (ifs, bf);
   }
   catch (const lexer_error&)
+  {
+    return 1; // Diagnostics has already been issued.
+  }
+  catch (const parser_error&)
   {
     return 1; // Diagnostics has already been issued.
   }

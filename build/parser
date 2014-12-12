@@ -1,0 +1,55 @@
+// file      : build/parser -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PARSER
+#define BUILD_PARSER
+
+#include <string>
+#include <iosfwd>
+#include <exception>
+
+#include <build/path>
+
+namespace build
+{
+  class token;
+  enum class token_type;
+  class lexer;
+
+  // The handler must assume the diagnostics has already been issued.
+  //
+  struct parser_error: std::exception {};
+
+  class parser
+  {
+  public:
+    parser (std::ostream& diag): diag_ (diag) {}
+
+    void
+    parse (std::istream&, const path&);
+
+    // Recursive descent parser.
+    //
+  private:
+    void
+    names (token&, token_type&);
+
+    // Utilities.
+    //
+  private:
+    void
+    next (token&, token_type&);
+
+    std::ostream&
+    error (const token&);
+
+  private:
+    std::ostream& diag_;
+
+    lexer* lexer_;
+    const path* path_;
+  };
+}
+
+#endif // BUILD_PARSER

@@ -56,10 +56,7 @@ namespace build
     if (!is_eos (c))
       return c;
 
-    if (!name_.empty ())
-      cerr << name_ << ':' << c.line () << ':' << c.column () << ": error: " <<
-        "unterminated escape sequence" << endl;
-
+    error (c) << "unterminated escape sequence" << endl;
     throw lexer_error ();
   }
 
@@ -218,5 +215,12 @@ namespace build
     //
     buf_ = c;
     unget_ = true;
+  }
+
+  ostream& lexer::
+  error (const xchar& c)
+  {
+    return diag_ << name_ << ':' << c.line () << ':' <<
+      c.column () << ": error: ";
   }
 }

@@ -21,11 +21,8 @@ namespace build
   class lexer
   {
   public:
-    // If name is empty, then no diagnostics is issued, just lexer_error
-    // is thrown (use for testing).
-    //
-    lexer (std::istream& is, const std::string& name)
-        : is_ (is), name_ (name) {}
+    lexer (std::istream& is, const std::string& name, std::ostream& diag)
+        : is_ (is), name_ (name), diag_ (diag) {}
 
     token
     next ();
@@ -74,6 +71,8 @@ namespace build
       return c.value () == xchar::traits_type::eof ();
     }
 
+    // Scanner.
+    //
   private:
     xchar
     escape ();
@@ -84,9 +83,16 @@ namespace build
     token
     name (xchar);
 
+    // Utilities.
+    //
+  private:
+    std::ostream&
+    error (const xchar&);
+
   private:
     std::istream& is_;
     std::string name_;
+    std::ostream& diag_;
 
     std::uint64_t l_ {1};
     std::uint64_t c_ {1};
