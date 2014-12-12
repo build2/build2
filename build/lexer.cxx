@@ -56,8 +56,10 @@ namespace build
     if (!is_eos (c))
       return c;
 
-    cerr << name_ << ':' << c.line () << ':' << c.column () << ": error: " <<
-      "unterminated escape sequence" << endl;
+    if (!name_.empty ())
+      cerr << name_ << ':' << c.line () << ':' << c.column () << ": error: " <<
+        "unterminated escape sequence" << endl;
+
     throw lexer_error ();
   }
 
