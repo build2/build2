@@ -45,6 +45,23 @@ main ()
   assert (!parse ("{foo{:"));
   assert (!parse ("foo: bar:"));
   assert (!parse ("exe{foo:"));
+
+  // Directory scope.
+  //
+  assert (parse ("test/:\n{\n}"));
+  assert (parse ("test/:\n{\n}\n"));
+  assert (parse ("test/:\n{\nfoo:bar\n}"));
+  assert (parse ("test/:\n{\nfoo:bar\n}"));
+  assert (parse ("test/:\n{\nmore/:\n{\n}\n}"));
+  assert (parse ("test/:\n{\nmore/:\n{\nfoo:{bar baz}\n}\n}"));
+
+  assert (!parse ("test/:\n{"));
+  assert (!parse ("test/:\n{\n"));
+  assert (!parse ("test/:\n{\n:"));
+  assert (!parse ("test/:\n{\n} foo: bar\n"));
+  assert (!parse ("test/ foo:\n{\n}"));
+  assert (!parse ("test foo/:\n{\n}"));
+  assert (!parse ("test/ foo/:\n{\n}"));
 }
 
 ostream cnull (nullptr);
@@ -56,6 +73,7 @@ parse (const char* s)
 
   is.exceptions (istream::failbit | istream::badbit);
   parser p (cnull);
+  //parser p (cerr);
 
   try
   {

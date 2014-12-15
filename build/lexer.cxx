@@ -19,7 +19,7 @@ namespace build
     uint64_t ln (c.line ()), cn (c.column ());
 
     if (is_eos (c))
-      return token (ln, cn);
+      return token (token_type::eos, ln, cn);
 
     switch (c)
     {
@@ -27,19 +27,19 @@ namespace build
       //
     case '\n':
       {
-        return token (token_punctuation::newline, ln, cn);
+        return token (token_type::newline, ln, cn);
       }
     case ':':
       {
-        return token (token_punctuation::colon, ln, cn);
+        return token (token_type::colon, ln, cn);
       }
     case '{':
       {
-        return token (token_punctuation::lcbrace, ln, cn);
+        return token (token_type::lcbrace, ln, cn);
       }
     case '}':
       {
-        return token (token_punctuation::rcbrace, ln, cn);
+        return token (token_type::rcbrace, ln, cn);
       }
     }
 

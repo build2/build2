@@ -13,8 +13,15 @@
 
 namespace build
 {
-  enum class token_type {eos, name, punctuation};
-  enum class token_punctuation {newline, colon, lcbrace, rcbrace};
+  enum class token_type
+  {
+    eos,
+    name,
+    newline,
+    colon,
+    lcbrace,
+    rcbrace
+  };
 
   class token
   {
@@ -25,32 +32,18 @@ namespace build
     std::string const&
     name () const {assert (t_ == token_type::name); return n_;}
 
-    token_punctuation
-    punctuation () const {assert (t_ == token_type::punctuation); return p_;}
-
-    bool
-    is (token_punctuation p) const
-    {
-      return t_ == token_type::punctuation && p_ == p;
-    }
-
     std::uint64_t line () const {return l_;}
     std::uint64_t column () const {return c_;}
 
   public:
-    token (std::uint64_t l, std::uint64_t c)
-        : t_ (token_type::eos), l_ (l), c_ (c) {}
+    token (token_type t, std::uint64_t l, std::uint64_t c)
+        : t_ (t), l_ (l), c_ (c) {}
 
     token (std::string n, std::uint64_t l, std::uint64_t c)
         : t_ (token_type::name), n_ (std::move (n)), l_ (l), c_ (c) {}
 
-    token (token_punctuation p, std::uint64_t l, std::uint64_t c)
-        : t_ (token_type::punctuation), p_ (p), l_ (l), c_ (c) {}
-
   private:
     token_type t_;
-
-    token_punctuation p_;
     std::string n_;
 
     std::uint64_t l_;

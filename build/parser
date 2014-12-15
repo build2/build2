@@ -6,6 +6,7 @@
 #define BUILD_PARSER
 
 #include <string>
+#include <vector>
 #include <iosfwd>
 #include <exception>
 
@@ -32,13 +33,26 @@ namespace build
     // Recursive descent parser.
     //
   private:
+    typedef std::vector<std::string> names;
+
     void
-    names (token&, token_type&);
+    parse_clause (token&, token_type&);
+
+    names
+    parse_names (token& t, token_type& tt)
+    {
+      names ns;
+      parse_names (t, tt, ns);
+      return ns;
+    }
+
+    void
+    parse_names (token&, token_type&, names&);
 
     // Utilities.
     //
   private:
-    void
+    token_type
     next (token&, token_type&);
 
     std::ostream&

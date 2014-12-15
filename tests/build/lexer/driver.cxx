@@ -91,17 +91,10 @@ lex (const char* s)
       switch (t.type ())
       {
       case token_type::eos: v= ""; break;
-      case token_type::punctuation:
-        {
-          switch (t.punctuation ())
-          {
-          case token_punctuation::newline: v = "\n"; break;
-          case token_punctuation::colon:   v = ":"; break;
-          case token_punctuation::lcbrace: v = "{"; break;
-          case token_punctuation::rcbrace: v = "}"; break;
-          }
-          break;
-        }
+      case token_type::newline: v = "\n"; break;
+      case token_type::colon:   v = ":"; break;
+      case token_type::lcbrace: v = "{"; break;
+      case token_type::rcbrace: v = "}"; break;
       case token_type::name: v = t.name ().c_str (); break;
       }
 
