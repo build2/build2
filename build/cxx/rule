@@ -12,12 +12,13 @@
 
 namespace build
 {
+  class scope;
+
   namespace cxx
   {
     // @@ Can't we do match(obj&) and then registration code extracts
     // that. And no virtuals.
     //
-
     class compile: public rule
     {
     public:
@@ -29,7 +30,7 @@ namespace build
 
     private:
       void
-      inject_prerequisites (obj&, const cxx&) const;
+      inject_prerequisites (obj&, const cxx&, scope&) const;
     };
 
     class link: public rule

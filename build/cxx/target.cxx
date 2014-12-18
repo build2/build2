@@ -10,11 +10,16 @@ namespace build
 {
   namespace cxx
   {
-    using type_info = target::type_info;
+    const target_type hxx::static_type {
+      typeid (hxx), "hxx", &file::static_type, &target_factory<hxx>};
 
-    const type_info hxx::ti_ {typeid (hxx), "hxx", &file::ti_};
-    const type_info ixx::ti_ {typeid (ixx), "ixx", &file::ti_};
-    const type_info txx::ti_ {typeid (txx), "txx", &file::ti_};
-    const type_info cxx::ti_ {typeid (cxx), "cxx", &file::ti_};
+    const target_type ixx::static_type {
+      typeid (ixx), "ixx", &file::static_type, &target_factory<ixx>};
+
+    const target_type txx::static_type {
+      typeid (txx), "txx", &file::static_type, &target_factory<txx>};
+
+    const target_type cxx::static_type {
+      typeid (cxx), "cxx", &file::static_type, &target_factory<cxx>};
   }
 }

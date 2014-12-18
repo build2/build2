@@ -5,8 +5,11 @@
 #ifndef BUILD_TARGET
 #define BUILD_TARGET
 
+#include <set>
+#include <map>
 #include <string>
 #include <vector>
+#include <memory>     // unique_ptr
 #include <functional> // function, reference_wrapper
 #include <typeindex>
 #include <iosfwd>
@@ -15,6 +18,8 @@
 
 #include <build/path>
 #include <build/timestamp>
+#include <build/prerequisite>
+#include <build/utility>       // compare_c_string, compare_pointer_target
 
 namespace build
 {
@@ -23,24 +28,29 @@ namespace build
   enum class target_state {unknown, uptodate, updated, failed};
   typedef std::function<target_state (target&)> recipe;
 
-  typedef std::vector<std::reference_wrapper<target>> targets;
+  struct target_type
+  {
+    std::type_index id;
+    const char* name;
+    const target_type* base;
+    target* (*const factory) (std::string, path);
+  };
 
   class target
   {
   public:
-    target (std::string n): name_ (std::move (n)) {}
+    target (std::string n, path d)
+        : name (std::move (n)), directory (std::move (d)) {}
 
-    const std::string&
-    name () const {return name_;}
+    const std::string name;
+    const path directory; // Absolute and normalized.
 
-    const targets&
-    prerequisites () const {return prerequisites_;}
+  public:
+    typedef
+    std::vector<std::reference_wrapper<prerequisite>>
+    prerequisites_type;
 
-    targets&
-    prerequisites () {return prerequisites_;}
-
-    void
-    prerequisite (target& t) {prerequisites_.push_back (t);}
+    prerequisites_type prerequisites;
 
   public:
     typedef build::recipe recipe_type;
@@ -63,28 +73,50 @@ namespace build
     target& operator= (const target&) = delete;
 
   public:
-    struct type_info
-    {
-      std::type_index id;
-      const char* name;
-      const type_info* base;
-    };
-
-    virtual const type_info&
-    type_id () const = 0;
-
-  protected:
-    static const type_info ti_;
+    virtual const target_type& type () const = 0;
+    static const target_type static_type;
 
   private:
-    std::string name_;
-    targets prerequisites_;
     recipe_type recipe_;
     target_state state_ {target_state::unknown};
   };
 
   std::ostream&
   operator<< (std::ostream&, const target&);
+
+  inline bool
+  operator< (const target& x, const target& y)
+  {
+    std::type_index tx (typeid (x)), ty (typeid (y));
+
+    return
+      (tx < ty) ||
+      (tx == ty && x.name < y.name) ||
+      (tx == ty && x.name == y.name && x.directory < y.directory);
+  }
+
+  typedef std::set<std::unique_ptr<target>, compare_pointer_target> target_set;
+  extern target_set targets;
+  extern target* default_target;
+
+  class target_type_map: public std::map<
+    const char*,
+    std::reference_wrapper<const target_type>,
+    compare_c_string>
+  {
+  public:
+    void
+    insert (const target_type& tt) {emplace (tt.name, tt);}
+  };
+
+  extern target_type_map target_types;
+
+  template <typename T>
+  target*
+  target_factory (std::string n, path d)
+  {
+    return new T (std::move (n), std::move (d));
+  }
 
   // Modification time-based target.
   //
@@ -109,7 +141,8 @@ namespace build
     virtual timestamp
     load_mtime () const = 0;
 
-  protected: static const type_info ti_;
+  public:
+    static const target_type static_type;
 
   private:
     mutable timestamp mtime_ {timestamp_unknown};
@@ -134,7 +167,8 @@ namespace build
     virtual timestamp
     load_mtime () const;
 
-  protected: static const type_info ti_;
+  public:
+    static const target_type static_type;
 
   private:
     path_type path_;
@@ -147,8 +181,9 @@ namespace build
   public:
     using path_target::path_target;
 
-  public: virtual const type_info& type_id () const {return ti_;}
-  protected: static const type_info ti_;
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
   };
 }
 

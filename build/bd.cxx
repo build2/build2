@@ -11,8 +11,11 @@
 #include <typeinfo>
 #include <system_error>
 
+#include <build/scope>
 #include <build/target>
+#include <build/prerequisite>
 #include <build/rule>
+#include <build/algorithm>
 #include <build/process>
 #include <build/diagnostics>
 
@@ -24,7 +27,7 @@ using namespace std;
 namespace build
 {
   bool
-  match (target& t)
+  match_recursive (target& t)
   {
     // Because we match the target first and then prerequisites,
     // any additional dependency information injected by the rule
@@ -32,48 +35,23 @@ namespace build
     //
     if (!t.recipe ())
     {
-      for (auto ti (&t.type_id ());
-           ti != nullptr && !t.recipe ();
-           ti = ti->base)
-      {
-        for (auto rs (rules.equal_range (ti->id));
-             rs.first != rs.second;
-             ++rs.first)
-        {
-          const rule& ru (rs.first->second);
-
-          recipe re;
-
-          {
-            auto g (
-              make_exception_guard (
-                [] (target& t)
-                {
-                  cerr << "info: while matching a rule for target " << t << endl;
-                },
-                t));
-
-            re = ru.match (t);
-          }
-
-          if (re)
-          {
-            t.recipe (re);
-            break;
-          }
-        }
-      }
-
-      if (!t.recipe ())
+      if (!match (t))
       {
         cerr << "error: no rule to update target " << t << endl;
         return false;
       }
     }
 
-    for (target& p: t.prerequisites ())
+    for (prerequisite& p: t.prerequisites)
     {
-      if (!match (p))
+      // Resolve prerequisite to target (prerequisite search). We
+      // do this after matching since the rule can alter search
+      // paths.
+      //
+      if (p.target == nullptr)
+        search (p);
+
+      if (!match_recursive (*p.target))
       {
         cerr << "info: required by " << t << endl;
         return false;
@@ -90,11 +68,13 @@ namespace build
 
     target_state ts;
 
-    for (target& p: t.prerequisites ())
+    for (prerequisite& p: t.prerequisites)
     {
-      if (p.state () == target_state::unknown)
+      target& pt (*p.target);
+
+      if (pt.state () == target_state::unknown)
       {
-        p.state ((ts = update (p)));
+        pt.state ((ts = update (pt)));
 
         if (ts == target_state::failed)
           return ts;
@@ -119,6 +99,25 @@ namespace build
     t.state (ts);
     return ts;
   }
+
+  void
+  dump ()
+  {
+    for (const auto& pt: targets)
+    {
+      target& t (*pt);
+
+      cout << t << ':';
+
+      for (const auto& p: t.prerequisites)
+      {
+        cout << ' ' << p;
+      }
+
+      cout << endl;
+    }
+  }
+
 }
 
 #include <build/native>
@@ -136,6 +135,18 @@ main (int argc, char* argv[])
   //
   tzset ();
 
+  // Register target types.
+  //
+  target_types.insert (file::static_type);
+
+  target_types.insert (exe::static_type);
+  target_types.insert (obj::static_type);
+
+  target_types.insert (cxx::cxx::static_type);
+  target_types.insert (cxx::hxx::static_type);
+  target_types.insert (cxx::ixx::static_type);
+  target_types.insert (cxx::txx::static_type);
+
   // Parse buildfile.
   //
   path bf ("buildfile");
@@ -148,11 +159,11 @@ main (int argc, char* argv[])
   }
 
   ifs.exceptions (ifstream::failbit | ifstream::badbit);
-  parser p;
+  parser p (cerr);
 
   try
   {
-    p.parse (ifs, bf);
+    p.parse (ifs, bf, scopes[path::current ()]);
   }
   catch (const lexer_error&)
   {
@@ -168,8 +179,7 @@ main (int argc, char* argv[])
     return 1;
   }
 
-  return 0;
-
+  dump ();
 
   // Register rules.
   //
@@ -182,38 +192,35 @@ main (int argc, char* argv[])
   default_path_rule path_exists;
   rules.emplace (typeid (path_target), path_exists);
 
+  // Build.
   //
-  //
-  using namespace build::cxx;
+  if (default_target == nullptr)
+  {
+    cerr << "error: no default target" << endl;
+    return 1;
+  }
 
-  exe bd ("bd");
-  obj bd_o ("bd");
-  bd.prerequisite (bd_o);
-
-  cxx::cxx bd_cxx ("bd");
-  bd_cxx.path (path ("bd.cxx"));
-
-  bd_o.prerequisite (bd_cxx);
-
-  //
-  //
   try
   {
-    if (!match (bd))
+    target& d (*default_target);
+
+    if (!match_recursive (d))
       return 1; // Diagnostics has already been issued.
 
-    switch (update (bd))
+    //dump ();
+
+    switch (update (d))
     {
     case target_state::uptodate:
       {
-        cerr << "info: target " << bd << " is up to date" << endl;
+        cerr << "info: target " << d << " is up to date" << endl;
         break;
       }
     case target_state::updated:
       break;
     case target_state::failed:
       {
-        cerr << "error: failed to update target " << bd << endl;
+        cerr << "error: failed to update target " << d << endl;
         return 1;
       }
     case target_state::unknown:

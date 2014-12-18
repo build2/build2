@@ -1,1 +1,17 @@
-exe{bd}: obj{bd target}
+exe{bd}: obj{bd algorithm scope parser lexer target prerequisite rule \
+  native cxx/target cxx/rule process timestamp path}
+
+obj{bd}: cxx{bd}
+obj{algorithm}: cxx{algorithm}
+obj{scope}: cxx{scope}
+obj{parser}: cxx{parser}
+obj{lexer}: cxx{lexer}
+obj{target}: cxx{target}
+obj{prerequisite}: cxx{prerequisite}
+obj{rule}: cxx{rule}
+obj{native}: cxx{native}
+obj{cxx/target}: cxx{cxx/target}
+obj{cxx/rule}: cxx{cxx/rule}
+obj{process}: cxx{process}
+obj{timestamp}: cxx{timestamp}
+obj{path}: cxx{path}

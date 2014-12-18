@@ -8,12 +8,16 @@
 #include <string>
 #include <vector>
 #include <iosfwd>
+#include <utility>   // std::move
 #include <exception>
+
 
 #include <build/path>
 
 namespace build
 {
+  class scope;
+
   class token;
   enum class token_type;
   class lexer;
@@ -28,12 +32,21 @@ namespace build
     parser (std::ostream& diag): diag_ (diag) {}
 
     void
-    parse (std::istream&, const path&);
+    parse (std::istream&, const path&, scope&);
 
     // Recursive descent parser.
     //
   private:
-    typedef std::vector<std::string> names;
+    struct name_type
+    {
+      name_type (std::string t, std::string n)
+          : type (std::move (t)), name (std::move (n)) {}
+
+      std::string type; // Empty if untyped.
+      std::string name;
+    };
+
+    typedef std::vector<name_type> names;
 
     void
     parse_clause (token&, token_type&);
@@ -42,12 +55,12 @@ namespace build
     parse_names (token& t, token_type& tt)
     {
       names ns;
-      parse_names (t, tt, ns);
+      parse_names (t, tt, ns, nullptr);
       return ns;
     }
 
     void
-    parse_names (token&, token_type&, names&);
+    parse_names (token&, token_type&, names&, const std::string* type);
 
     // Utilities.
     //
@@ -63,6 +76,7 @@ namespace build
 
     lexer* lexer_;
     const path* path_;
+    scope* scope_;
   };
 }
 

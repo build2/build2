@@ -16,8 +16,9 @@ namespace build
     public:
       using file::file;
 
-    public: virtual const type_info& type_id () const {return ti_;}
-    protected: static const type_info ti_;
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
     };
 
     class ixx: public file
@@ -25,8 +26,9 @@ namespace build
     public:
       using file::file;
 
-    public: virtual const type_info& type_id () const {return ti_;}
-    protected: static const type_info ti_;
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
     };
 
     class txx: public file
@@ -34,8 +36,9 @@ namespace build
     public:
       using file::file;
 
-    public: virtual const type_info& type_id () const {return ti_;}
-    protected: static const type_info ti_;
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
     };
 
     class cxx: public file
@@ -43,8 +46,9 @@ namespace build
     public:
       using file::file;
 
-    public: virtual const type_info& type_id () const {return ti_;}
-    protected: static const type_info ti_;
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
     };
   }
 }

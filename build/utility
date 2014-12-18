@@ -1,0 +1,27 @@
+// file      : build/utility -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_UTILITY
+#define BUILD_UTILITY
+
+#include <cstring> // strcmp
+
+namespace build
+{
+  struct compare_c_string
+  {
+    bool operator() (const char* x, const char* y) const
+    {
+      return std::strcmp (x, y) < 0;
+    }
+  };
+
+  struct compare_pointer_target
+  {
+    template <typename P>
+    bool operator() (const P& x, const P& y) const {return *x < *y;}
+  };
+}
+
+#endif // BUILD_UTILITY

@@ -1,0 +1,20 @@
+// file      : build/algorithm -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_ALGORITHM
+#define BUILD_ALGORITHM
+
+namespace build
+{
+  class target;
+  class prerequisite;
+
+  target*
+  search (prerequisite&);
+
+  bool
+  match (target&);
+}
+
+#endif // BUILD_ALGORITHM

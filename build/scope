@@ -1,0 +1,59 @@
+// file      : build/scope -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_SCOPE
+#define BUILD_SCOPE
+
+#include <map>
+
+#include <build/path>
+#include <build/prerequisite>
+
+namespace build
+{
+  class scope
+  {
+  public:
+    typedef build::path path_type;
+
+    const path_type&
+    path () const {return i_->first;} // Absolute and normalized.
+
+  private:
+    friend class scope_map;
+
+    typedef std::map<path_type, scope>::const_iterator iterator;
+
+    scope () = default;
+
+    void
+    init (const iterator& i) {i_ = i;}
+
+  public:
+    prerequisite_set prerequisites;
+
+  private:
+    iterator i_;
+  };
+
+  class scope_map: std::map<path, scope>
+  {
+  public:
+    scope&
+    operator[] (const path& k)
+    {
+      auto i (emplace (k, scope ()));
+      auto& r (i.first->second);
+
+      if (i.second)
+        r.init (i.first);
+
+      return r;
+    }
+  };
+
+  extern scope_map scopes;
+}
+
+#endif // BUILD_SCOPE

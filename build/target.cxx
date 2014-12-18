@@ -15,8 +15,14 @@ namespace build
   ostream&
   operator<< (ostream& os, const target& t)
   {
-    return os << t.type_id ().name << '{' << t.name () << '}';
+    // @@ TODO: need to come up with a relative (to current) path.
+
+    return os << t.type ().name << '{' << t.name << '}';
   }
+
+  target_set targets;
+  target* default_target = nullptr;
+  target_type_map target_types;
 
   // path_target
   //
@@ -27,12 +33,15 @@ namespace build
     return path_mtime (path_);
   }
 
-  using type_info = target::type_info;
+  const target_type target::static_type {
+    typeid (target), "target", nullptr, nullptr};
 
-  const type_info target::ti_ {typeid (target), "target", nullptr};
-  const type_info mtime_target::ti_ {
-    typeid (mtime_target), "mtime_target", &target::ti_};
-  const type_info path_target::ti_ {
-    typeid (path_target), "path_target", &mtime_target::ti_};
-  const type_info file::ti_ {typeid (file), "file", &path_target::ti_};
+  const target_type mtime_target::static_type {
+    typeid (mtime_target), "mtime_target", &target::static_type, nullptr};
+
+  const target_type path_target::static_type {
+    typeid (path_target), "path_target", &mtime_target::static_type, nullptr};
+
+  const target_type file::static_type {
+    typeid (file), "file", &path_target::static_type, &target_factory<file>};
 }

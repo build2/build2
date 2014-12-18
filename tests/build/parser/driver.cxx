@@ -7,6 +7,10 @@
 #include <iostream>
 
 #include <build/path>
+#include <build/scope>
+#include <build/target>
+#include <build/native>
+
 #include <build/lexer>
 #include <build/parser>
 
@@ -19,6 +23,10 @@ parse (const char*);
 int
 main ()
 {
+  target_types.insert (file::static_type);
+  target_types.insert (exe::static_type);
+  target_types.insert (obj::static_type);
+
   assert (parse (""));
   assert (parse ("foo:"));
   assert (parse ("foo bar:"));
@@ -36,7 +44,7 @@ main ()
   assert (parse ("exe{foo bar}:"));
   assert (parse ("{exe{foo bar}}:"));
   assert (parse ("exe{{foo bar} fox}:"));
-  assert (parse ("exe{foo}: obj{bar baz} biz.o lib{fox}"));
+  assert (parse ("exe{foo}: obj{bar baz} biz.o file{fox}"));
 
   assert (!parse (":"));
   assert (!parse ("foo"));
@@ -77,7 +85,7 @@ parse (const char* s)
 
   try
   {
-    p.parse (is, path ());
+    p.parse (is, path (), scopes[path::current ()]);
   }
   catch (const parser_error&)
   {

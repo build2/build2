@@ -1,0 +1,53 @@
+// file      : build/prerequisite -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PREREQUISITE
+#define BUILD_PREREQUISITE
+
+#include <set>
+#include <string>
+#include <iosfwd>
+#include <utility>    // move
+#include <typeindex>
+
+#include <build/path>
+
+namespace build
+{
+  class scope;
+  class target;
+  class target_type;
+
+  class prerequisite
+  {
+  public:
+    typedef build::target target_type;
+    typedef build::target_type target_type_type;
+    typedef build::scope scope_type;
+
+    prerequisite (const target_type_type& t,
+                  std::string n,
+                  path d,
+                  scope_type& s)
+        : type (t), name (std::move (n)), directory (std::move (d)),
+          scope (s), target (0) {}
+
+  public:
+    const target_type_type& type;
+    const std::string name;
+    const path directory; // Normalized absolute or relative (to scope).
+    scope_type& scope;
+    target_type* target; // NULL if not yet resolved.
+  };
+
+  std::ostream&
+  operator<< (std::ostream&, const prerequisite&);
+
+  bool
+  operator< (const prerequisite&, const prerequisite&);
+
+  typedef std::set<prerequisite> prerequisite_set;
+}
+
+#endif // BUILD_PREREQUISITE

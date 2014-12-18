@@ -12,6 +12,8 @@
 
 #include <ext/stdio_filebuf.h>
 
+#include <build/scope>
+#include <build/algorithm>
 #include <build/process>
 #include <build/timestamp>
 #include <build/diagnostics>
@@ -45,26 +47,47 @@ namespace build
 
       // See if we have a source file.
       //
-      const cxx* s (nullptr);
-      for (const target& p: t.prerequisites ())
+      prerequisite* sp (nullptr);
+      for (prerequisite& p: t.prerequisites)
       {
-        if ((s = dynamic_cast<const cxx*> (&p)) != nullptr)
+        if (p.type.id == typeid (cxx))
+        {
+          sp = &p;
           break;
+        }
       }
 
-      if (s == nullptr)
+      if (sp == nullptr)
+      {
+        cout << "no source file" << endl;
         return recipe ();
+      }
 
       // Derive object file name from target name.
       //
       obj& o (dynamic_cast<obj&> (t));
 
       if (o.path ().empty ())
-        o.path (path (o.name () + ".o"));
+        o.path (o.directory / path (o.name + ".o"));
 
-      // Inject additional prerequisites.
+      // Resolve prerequisite to target and match it to a rule. We need
+      // this in order to get the source file path for prerequisite
+      // injections.
       //
-      inject_prerequisites (o, *s);
+      cxx* st (
+        dynamic_cast<cxx*> (
+          sp->target != nullptr ? sp->target : search (*sp)));
+
+      if (st != nullptr)
+      {
+        if (st->recipe () || build::match (*st))
+        {
+          // Don't bother if the file does not exist.
+          //
+          if (st->mtime () != timestamp_nonexistent)
+            inject_prerequisites (o, *st, sp->scope);
+        }
+      }
 
       return recipe (&update);
     }
@@ -112,13 +135,13 @@ namespace build
     }
 
     void compile::
-    inject_prerequisites (obj& o, const cxx& s) const
+    inject_prerequisites (obj& o, const cxx& s, scope& ds) const
     {
       const char* args[] = {
         "g++-4.9",
         "-std=c++14",
         "-I..",
-        "-M",
+        "-MM",      //@@ TMP -M
         "-MG",      // Treat missing headers as generated.
         "-MQ", "*", // Quoted target (older version can't handle empty name).
         s.path ().string ().c_str (),
@@ -142,7 +165,7 @@ namespace build
             throw error ();
           }
 
-          size_t p (0);
+          size_t pos (0);
 
           if (first)
           {
@@ -153,28 +176,47 @@ namespace build
               break;
 
             assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
-            next (l, (p = 3)); // Skip the source file.
+            next (l, (pos = 3)); // Skip the source file.
 
             first = false;
           }
 
-          while (p != l.size ())
+          while (pos != l.size ())
           {
-            path d (next (l, p));
+            path file (next (l, pos));
+            file.normalize ();
 
-            // If there is no extension (e.g., std C++ headers), then
-            // assume it is a header. Otherwise, let the normall
-            // mechanism to figure the type from the extension.
+            // If there is no extension (e.g., standard C++ headers),
+            // then assume it is a header. Otherwise, let the standard
+            // mechanism derive the type from the extension.
             //
 
             // @@ TODO:
             //
-            // - memory leak
 
-            hxx& h (*new hxx (d.leaf ().base ().string ()));
-            h.path (d);
+            // Split the name into its directory part and the name part.
+            // Here we assume the name part is a valid filesystem name.
+            //
+            path d (file.directory ());
+            string n (file.leaf ().base ().string ());
 
-            o.prerequisite (h);
+            // Find or insert.
+            //
+            auto r (ds.prerequisites.emplace (
+                      hxx::static_type, move (n), move (d), ds));
+
+            auto& p (const_cast<prerequisite&> (*r.first));
+
+            // Resolve to target so that we can assign its path.
+            //
+            path_target& t (
+              dynamic_cast<path_target&> (
+                p.target != nullptr ? *p.target : *search (p)));
+
+            if (t.path ().empty ())
+              t.path (file);
+
+            o.prerequisites.push_back (p);
           }
         }
 
@@ -208,14 +250,16 @@ namespace build
       bool u (mt == timestamp_nonexistent);
       const cxx* s (nullptr);
 
-      for (const target& p: t.prerequisites ())
+      for (const prerequisite& p: t.prerequisites)
       {
+        const target& pt (*p.target);
+
         // Assume all our prerequisites are mtime-based (checked in
         // match()).
         //
         if (!u)
         {
-          const auto& mtp (dynamic_cast<const mtime_target&> (p));
+          const auto& mtp (dynamic_cast<const mtime_target&> (pt));
           timestamp mp (mtp.mtime ());
 
           // What do we do if timestamps are equal? This can happen, for
@@ -229,7 +273,7 @@ namespace build
         }
 
         if (s == nullptr)
-          s = dynamic_cast<const cxx*> (&p);
+          s = dynamic_cast<const cxx*> (&pt);
 
         if (u && s != nullptr)
           break;
@@ -241,6 +285,7 @@ namespace build
       const char* args[] = {
         "g++-4.9",
         "-std=c++14",
+        "-g",
         "-I..",
         "-c",
         "-o", o.path ().string ().c_str (),
@@ -300,14 +345,17 @@ namespace build
 
       // See if we have at least one object file.
       //
-      const obj* o (nullptr);
-      for (const target& p: t.prerequisites ())
+      prerequisite* op (nullptr);
+      for (prerequisite& p: t.prerequisites)
       {
-        if ((o = dynamic_cast<const obj*> (&p)) != nullptr)
+        if (p.type.id == typeid (obj))
+        {
+          op = &p;
           break;
+        }
       }
 
-      if (o == nullptr)
+      if (op == nullptr)
         return recipe ();
 
       // Derive executable file name from target name.
@@ -315,7 +363,7 @@ namespace build
       exe& e (dynamic_cast<exe&> (t));
 
       if (e.path ().empty ())
-        e.path (path (e.name ()));
+        e.path (e.directory / path (e.name));
 
       return recipe (&update);
     }
@@ -333,12 +381,14 @@ namespace build
 
       bool u (mt == timestamp_nonexistent);
 
-      for (const target& p: t.prerequisites ())
+      for (const prerequisite& p: t.prerequisites)
       {
+        const target& pt (*p.target);
+
         // Assume all our prerequisites are mtime-based (checked in
         // match()).
         //
-        const auto& mtp (dynamic_cast<const mtime_target&> (p));
+        const auto& mtp (dynamic_cast<const mtime_target&> (pt));
         timestamp mp (mtp.mtime ());
 
         // What do we do if timestamps are equal? This can happen, for
@@ -357,13 +407,13 @@ namespace build
       if (!u)
         return target_state::uptodate;
 
-      vector<const char*> args {"g++-4.9", "-std=c++14", "-o"};
+      vector<const char*> args {"g++-4.9", "-std=c++14", "-g", "-o"};
 
       args.push_back (e.path ().string ().c_str ());
 
-      for (const target& p: t.prerequisites ())
+      for (const prerequisite& p: t.prerequisites)
       {
-        const obj& o (dynamic_cast<const obj&> (p));
+        const obj& o (dynamic_cast<const obj&> (*p.target));
         args.push_back (o.path ().string ().c_str ());
       }
 
