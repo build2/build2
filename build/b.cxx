@@ -1,4 +1,4 @@
-// file      : build/bd.cxx -*- C++ -*-
+// file      : build/b.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 

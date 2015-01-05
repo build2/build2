@@ -1,7 +1,7 @@
-exe{bd1}: obj{bd algorithm scope parser lexer target prerequisite rule \
+exe{b1}: obj{b algorithm scope parser lexer target prerequisite rule \
   native context cxx/target cxx/rule process timestamp path}
 
-obj{bd}: cxx{bd}
+obj{b}: cxx{b}
 obj{algorithm}: cxx{algorithm}
 obj{scope}: cxx{scope}
 obj{parser}: cxx{parser}
