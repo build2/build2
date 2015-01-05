@@ -1,0 +1,22 @@
+// file      : build/context -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CONTEXT
+#define BUILD_CONTEXT
+
+#include <build/path>
+
+namespace build
+{
+  extern path work;
+  extern path home;
+
+  extern path src_root;
+  extern path out_root;
+
+  extern path src_base;
+  extern path out_base;
+}
+
+#endif // BUILD_CONTEXT

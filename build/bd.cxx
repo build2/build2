@@ -2,7 +2,13 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
-#include <time.h> // tzset()
+#include <time.h>      // tzset()
+#include <string.h>    // strerror()
+
+#include <stdlib.h>    // getenv()
+#include <unistd.h>    // getuid()
+#include <sys/types.h> // uid_t
+#include <pwd.h>       // struct passwd, getpwuid()
 
 #include <vector>
 #include <cassert>
@@ -18,6 +24,7 @@
 #include <build/algorithm>
 #include <build/process>
 #include <build/diagnostics>
+#include <build/context>
 
 #include <build/lexer>
 #include <build/parser>
@@ -146,6 +153,59 @@ main (int argc, char* argv[])
   target_types.insert (cxx::hxx::static_type);
   target_types.insert (cxx::ixx::static_type);
   target_types.insert (cxx::txx::static_type);
+
+  // Figure out directories: work, home, and {src,out}_{root,base}.
+  //
+  work = path::current ();
+
+  if (const char* h = getenv ("HOME"))
+    home = path (h);
+  else
+  {
+    struct passwd* pw (getpwuid (getuid ()));
+
+    if (pw == nullptr)
+    {
+      const char* msg (strerror (errno));
+      cerr << "error: unable to determine home directory: " << msg << endl;
+      return 1;
+    }
+
+    home = path (pw->pw_dir);
+  }
+
+  //@@ Must be normalized.
+  //
+  out_base = work;
+  src_base = out_base;
+
+  // The project's root directory is the one that contains the build/
+  // sub-directory which contains the pre.build file.
+  //
+  for (path d (src_base); !d.root () && d != home; d = d.directory ())
+  {
+    path f (d / path ("build/pre.build"));
+    if (path_mtime (f) != timestamp_nonexistent)
+    {
+      src_root = d;
+      break;
+    }
+  }
+
+  if (src_root.empty ())
+  {
+    src_root = src_base;
+    out_root = out_base;
+  }
+  else
+    out_root = out_base.directory (src_base.leaf (src_root));
+
+  cerr << "work dir: " << work << endl;
+  cerr << "home dir: " << home << endl;
+  cerr << "out_base: " << out_base << endl;
+  cerr << "src_base: " << src_base << endl;
+  cerr << "out_root: " << out_root << endl;
+  cerr << "src_root: " << src_root << endl;
 
   // Parse buildfile.
   //

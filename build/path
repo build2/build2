@@ -224,11 +224,25 @@ namespace build
     basic_path
     leaf () const;
 
+    // Return the path without the specified directory part. Throws
+    // invalid_path if the directory is not a prefix of *this. Expects
+    // both paths to be normalized.
+    //
+    basic_path
+    leaf (basic_path const&) const;
+
     // Return the directory part of the path or empty path if
     // there is no directory.
     //
     basic_path
     directory () const;
+
+    // Return the directory part of the path without the specified
+    // leaf part. Throws invalid_path if the leaf is not a suffix of
+    // *this. Expects both paths to be normalized.
+    //
+    basic_path
+    directory (basic_path const&) const;
 
     // Return the path without the extension, if any.
     //
@@ -297,7 +311,7 @@ namespace build
     }
 
   public:
-    string_type
+    const string_type&
     string () const
     {
       return path_;

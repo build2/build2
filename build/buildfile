@@ -1,5 +1,5 @@
-exe{bd}: obj{bd algorithm scope parser lexer target prerequisite rule \
-  native cxx/target cxx/rule process timestamp path}
+exe{bd1}: obj{bd algorithm scope parser lexer target prerequisite rule \
+  native context cxx/target cxx/rule process timestamp path}
 
 obj{bd}: cxx{bd}
 obj{algorithm}: cxx{algorithm}
@@ -10,6 +10,7 @@ obj{target}: cxx{target}
 obj{prerequisite}: cxx{prerequisite}
 obj{rule}: cxx{rule}
 obj{native}: cxx{native}
+obj{context}: cxx{context}
 obj{cxx/target}: cxx{cxx/target}
 obj{cxx/rule}: cxx{cxx/rule}
 obj{process}: cxx{process}

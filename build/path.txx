@@ -104,6 +104,46 @@ namespace build
   }
 
   template <typename C>
+  basic_path<C> basic_path<C>::
+  leaf (basic_path<C> const& d) const
+  {
+    size_type n (d.path_.size ());
+
+    if (n == 0)
+      return *this;
+
+    size_type m (path_.size ());
+
+    if (m < n || path_.compare (0, n, d.path_) != 0)
+      throw invalid_basic_path<C> (path_);
+
+    if (n != m)
+      n++; // Skip the directory separator.
+
+    return basic_path (path_.c_str () + n, m - n);
+  }
+
+  template <typename C>
+  basic_path<C> basic_path<C>::
+  directory (basic_path<C> const& l) const
+  {
+    size_type n (l.path_.size ());
+
+    if (n == 0)
+      return *this;
+
+    size_type m (path_.size ());
+
+    if (m < n || path_.compare (m - n, n, l.path_) != 0)
+      throw invalid_basic_path<C> (path_);
+
+    if (n != m)
+      n++; // Skip the directory separator.
+
+    return basic_path (path_.c_str (), m - n);
+  }
+
+  template <typename C>
   basic_path<C>& basic_path<C>::
   normalize ()
   {
