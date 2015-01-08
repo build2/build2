@@ -23,6 +23,8 @@ namespace build
   target*
   search (prerequisite& p)
   {
+    tracer tr ("search");
+
     assert (p.target == nullptr);
 
     //@@ TODO for now we just default to the directory scope.
@@ -36,7 +38,7 @@ namespace build
       d.normalize ();
     }
 
-    //@@ TODO would be nice to first check if this target is
+    //@@ TODO: would be nice to first check if this target is
     //   already in the set before allocating a new instance.
 
     // Find or insert.
@@ -45,8 +47,9 @@ namespace build
       targets.emplace (
         unique_ptr<target> (p.type.factory (p.name, move (d)))));
 
-    //if (r.second)
-    //  cout << "new target for prerequsite " << p << " " << d << endl;
+    trace (4, [&]{
+        tr << (r.second ? "new" : "existing") << " target " << **r.first
+           << " for prerequsite " << p;});
 
     return (p.target = r.first->get ());
   }

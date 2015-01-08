@@ -6,7 +6,9 @@
 
 #include <ostream>
 
+#include <build/scope>
 #include <build/target> // target_type
+#include <build/context>
 
 using namespace std;
 
@@ -15,9 +17,36 @@ namespace build
   ostream&
   operator<< (ostream& os, const prerequisite& p)
   {
-    // @@ TODO: need to come up with a relative (to current) path.
+    if (p.target != nullptr)
+      os << *p.target;
+    else
+    {
+      os << p.type.name << '{';
 
-    return os << p.type.name << '{' << p.name << '}';
+      // Print scope unless the directory is absolute.
+      //
+      if (!p.directory.absolute ())
+      {
+        string s (diagnostic_string (p.scope.path ()));
+
+        if (!s.empty ())
+          os << s << path::traits::directory_separator << ": ";
+      }
+
+      // Print directory.
+      //
+      if (!p.directory.empty ())
+      {
+        string s (diagnostic_string (p.directory));
+
+        if (!s.empty ())
+          os << s << path::traits::directory_separator;
+      }
+
+      os << p.name << '}';
+    }
+
+    return os;
   }
 
   bool

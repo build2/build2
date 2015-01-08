@@ -5,6 +5,9 @@
 #ifndef BUILD_CONTEXT
 #define BUILD_CONTEXT
 
+#include <string>
+#include <ostream>
+
 #include <build/path>
 
 namespace build
@@ -17,6 +20,24 @@ namespace build
 
   extern path src_base;
   extern path out_base;
+
+  // If possible, translate an absolute, normalized path into relative to
+  // the work directory.
+  //
+  path
+  translate (const path&);
+
+  // In addition to calling translate() above, this function also uses
+  // shorter notations such as ~/.
+  //
+  std::string
+  diagnostic_string (const path&);
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const path& p)
+  {
+    return os << diagnostic_string (p);
+  }
 }
 
 #endif // BUILD_CONTEXT

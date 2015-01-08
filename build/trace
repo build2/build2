@@ -1,0 +1,71 @@
+// file      : build/trace -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TRACE
+#define BUILD_TRACE
+
+#include <cstdint>
+#include <iostream>
+
+namespace build
+{
+  // 1 - command lines to update explicit targets (e.g., .o)
+  // 2 - command lines to update implicit targets (e.g., .d)
+  // 3 - things didn't work out (e.g., rule did not match)
+  // 4 - additional information
+  // 5 - more additional information
+  //
+  extern std::uint8_t verb;
+
+  struct tracer
+  {
+    explicit
+    tracer (const char* name): name_ (name) {}
+
+    struct record
+    {
+      ~record () {if (!empty_) std::cerr << std::endl;}
+
+      template <typename T>
+      std::ostream&
+      operator<< (const T& x) const
+      {
+        return std::cerr << x;
+      }
+
+      // Movable-only type.
+      //
+      explicit record (bool e = true): empty_ (e) {}
+      record (record&& r) {empty_ = r.empty_; r.empty_ = true;}
+      record& operator= (record&& r) {empty_ = r.empty_; r.empty_ = true;}
+
+      record (const record&) = delete;
+      record& operator= (const record&) = delete;
+
+    private:
+      mutable bool empty_;
+    };
+
+    template <typename T>
+    record
+    operator<< (const T& x) const
+    {
+      std::cerr << "trace: " << name_ << ": " << x;
+      return record (false);
+    }
+
+  private:
+    const char* name_;
+  };
+
+  template <typename F>
+  inline void
+  trace (std::uint8_t level, const F& f)
+  {
+    if (verb >= level)
+      f ();
+  }
+}
+
+#endif // BUILD_TRACE

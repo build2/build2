@@ -6,6 +6,8 @@
 
 #include <ostream>
 
+#include <build/context>
+
 using namespace std;
 
 namespace build
@@ -15,9 +17,19 @@ namespace build
   ostream&
   operator<< (ostream& os, const target& t)
   {
-    // @@ TODO: need to come up with a relative (to current) path.
+    os << t.type ().name << '{';
 
-    return os << t.type ().name << '{' << t.name << '}';
+    if (!t.directory.empty ())
+    {
+      string s (diagnostic_string (t.directory));
+
+      if (!s.empty ())
+        os << s << path::traits::directory_separator;
+    }
+
+    os << t.name << '}';
+
+    return os;
   }
 
   target_set targets;

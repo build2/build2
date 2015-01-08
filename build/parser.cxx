@@ -243,6 +243,7 @@ namespace build
               if (p.relative ())
                 p = prev.path () / p;
 
+              p.normalize ();
               scope_ = &scopes[p];
 
               // A directory scope can contain anything that a top level can.

@@ -6,8 +6,11 @@
 #define BUILD_DIAGNOSTICS
 
 #include <tuple>
+#include <vector>
 #include <utility>
 #include <exception>
+
+#include <build/trace>
 
 namespace build
 {
@@ -15,6 +18,17 @@ namespace build
   // assume that the diagnostics has already been issued.
   //
   class error: public std::exception {};
+
+  // Print process commmand line.
+  //
+  void
+  print_process (const char* const* args);
+
+  inline void
+  print_process (const std::vector<const char*>& args)
+  {
+    print_process (args.data ());
+  }
 
   // Call a function if there is an exception.
   //

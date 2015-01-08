@@ -1,0 +1,8 @@
+exe{driver}: obj{driver ../../../build/lexer}
+
+obj{driver}: cxx{driver}
+
+../../../build/:
+{
+  obj{lexer}: cxx{lexer}
+}

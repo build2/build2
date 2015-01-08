@@ -110,6 +110,8 @@ namespace build
   void
   dump ()
   {
+    cout << endl;
+
     for (const auto& pt: targets)
     {
       target& t (*pt);
@@ -123,6 +125,8 @@ namespace build
 
       cout << endl;
     }
+
+    cout << endl;
   }
 
 }
@@ -138,9 +142,15 @@ using namespace build;
 int
 main (int argc, char* argv[])
 {
+  tracer tr ("main");
+
   // Initialize time conversion data that is used by localtime_r().
   //
   tzset ();
+
+  // Trace verbosity.
+  //
+  verb = 5;
 
   // Register target types.
   //
@@ -200,12 +210,15 @@ main (int argc, char* argv[])
   else
     out_root = out_base.directory (src_base.leaf (src_root));
 
-  cerr << "work dir: " << work << endl;
-  cerr << "home dir: " << home << endl;
-  cerr << "out_base: " << out_base << endl;
-  cerr << "src_base: " << src_base << endl;
-  cerr << "out_root: " << out_root << endl;
-  cerr << "src_root: " << src_root << endl;
+  if (verb >= 4)
+  {
+    tr << "work dir: " << work.string ();
+    tr << "home dir: " << home.string ();
+    tr << "out_base: " << out_base.string ();
+    tr << "src_base: " << src_base.string ();
+    tr << "out_root: " << out_root.string ();
+    tr << "src_root: " << src_root.string ();
+  }
 
   // Parse buildfile.
   //
@@ -267,7 +280,7 @@ main (int argc, char* argv[])
     if (!match_recursive (d))
       return 1; // Diagnostics has already been issued.
 
-    //dump ();
+    dump ();
 
     switch (update (d))
     {

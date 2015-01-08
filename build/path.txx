@@ -117,8 +117,12 @@ namespace build
     if (m < n || path_.compare (0, n, d.path_) != 0)
       throw invalid_basic_path<C> (path_);
 
-    if (n != m)
-      n++; // Skip the directory separator.
+    if (n != m
+#ifndef _WIN32
+        && !d.root ()
+#endif
+    )
+      n++; // Skip the directory separator (unless it is POSIX root).
 
     return basic_path (path_.c_str () + n, m - n);
   }
@@ -141,6 +145,28 @@ namespace build
       n++; // Skip the directory separator.
 
     return basic_path (path_.c_str (), m - n);
+  }
+
+  template <typename C>
+  basic_path<C> basic_path<C>::
+  relative (basic_path<C> d) const
+  {
+    basic_path r;
+
+    for (;; d = d.directory ())
+    {
+      if (sub (d))
+        break;
+
+      r /= path ("..");
+
+      // Roots of the paths do not match.
+      //
+      if (d.root ())
+        throw invalid_basic_path<C> (path_);
+    }
+
+    return r / leaf (d);
   }
 
   template <typename C>

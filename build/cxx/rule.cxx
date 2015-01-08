@@ -17,6 +17,7 @@
 #include <build/process>
 #include <build/timestamp>
 #include <build/diagnostics>
+#include <build/context>
 
 using namespace std;
 
@@ -29,6 +30,8 @@ namespace build
     recipe compile::
     match (target& t) const
     {
+      tracer tr ("cxx::compile::match");
+
       // @@ TODO:
       //
       // - check prerequisites: single source file
@@ -59,7 +62,7 @@ namespace build
 
       if (sp == nullptr)
       {
-        cout << "no source file" << endl;
+        trace (3, [&]{tr << "no c++ source file for target " << t;});
         return recipe ();
       }
 
@@ -137,15 +140,26 @@ namespace build
     void compile::
     inject_prerequisites (obj& o, const cxx& s, scope& ds) const
     {
+      tracer tr ("cxx::compile::inject_prerequisites");
+
+      // We are using absolute source file path in order to get
+      // absolute paths in the result.
+      //
       const char* args[] = {
         "g++-4.9",
         "-std=c++14",
-        "-I..",
-        "-MM",      //@@ TMP -M
+        "-I", src_root.string ().c_str (),
+        "-MM",       //@@ -M
         "-MG",      // Treat missing headers as generated.
         "-MQ", "*", // Quoted target (older version can't handle empty name).
         s.path ().string ().c_str (),
         nullptr};
+
+      if (verb >= 2)
+        print_process (args);
+
+      if (verb >= 5)
+        tr << "target: " << o;
 
       try
       {
@@ -185,6 +199,9 @@ namespace build
           {
             path file (next (l, pos));
             file.normalize ();
+
+            if (verb >= 5)
+              tr << "prerequisite path: " << file.string ();
 
             // If there is no extension (e.g., standard C++ headers),
             // then assume it is a header. Otherwise, let the standard
@@ -282,17 +299,26 @@ namespace build
       if (!u)
         return target_state::uptodate;
 
+      // Translate paths to relative (to working directory) ones. This
+      // results in easier to read diagnostics.
+      //
+      path ro (translate (o.path ()));
+      path rs (translate (s->path ()));
+
       const char* args[] = {
         "g++-4.9",
         "-std=c++14",
         "-g",
-        "-I..",
+        "-I", src_root.string ().c_str (),
         "-c",
-        "-o", o.path ().string ().c_str (),
-        s->path ().string ().c_str (),
+        "-o", ro.string ().c_str (),
+        rs.string ().c_str (),
         nullptr};
 
-      cerr << "c++ " << *s << endl;
+      if (verb >= 1)
+        print_process (args);
+      else
+        cerr << "c++ " << *s << endl;
 
       try
       {
@@ -407,19 +433,29 @@ namespace build
       if (!u)
         return target_state::uptodate;
 
+      // Translate paths to relative (to working directory) ones. This
+      // results in easier to read diagnostics.
+      //
+      path re (translate (e.path ()));
+      vector<path> ro;
+
       vector<const char*> args {"g++-4.9", "-std=c++14", "-g", "-o"};
 
-      args.push_back (e.path ().string ().c_str ());
+      args.push_back (re.string ().c_str ());
 
       for (const prerequisite& p: t.prerequisites)
       {
         const obj& o (dynamic_cast<const obj&> (*p.target));
-        args.push_back (o.path ().string ().c_str ());
+        ro.push_back (translate (o.path ()));
+        args.push_back (ro.back ().string ().c_str ());
       }
 
       args.push_back (nullptr);
 
-      cerr << "ld " << e << endl;
+      if (verb >= 1)
+        print_process (args);
+      else
+        cerr << "ld " << e << endl;
 
       try
       {
