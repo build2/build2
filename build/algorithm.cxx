@@ -45,13 +45,34 @@ namespace build
     //
     auto r (
       targets.emplace (
-        unique_ptr<target> (p.type.factory (p.name, move (d)))));
+        unique_ptr<target> (p.type.factory (move (d), p.name, p.ext))));
+
+    target& t (**r.first);
 
     trace (4, [&]{
-        tr << (r.second ? "new" : "existing") << " target " << **r.first
+        tr << (r.second ? "new" : "existing") << " target " << t
            << " for prerequsite " << p;});
 
-    return (p.target = r.first->get ());
+    // Update extension if the existing target has it unspecified.
+    //
+    if (t.ext != p.ext)
+    {
+      trace (4, [&]{
+          tracer::record r (tr);
+          r << "assuming target " << t << " is the same as the one with ";
+          if (p.ext == nullptr)
+            r << "unspecified extension";
+          else if (p.ext->empty ())
+            r << "no extension";
+          else
+            r << "extension " << *p.ext;
+        });
+
+      if (p.ext != nullptr)
+        t.ext = p.ext;
+    }
+
+    return (p.target = &t);
   }
 
   bool

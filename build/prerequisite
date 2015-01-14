@@ -12,6 +12,7 @@
 #include <typeindex>
 
 #include <build/path>
+#include <build/utility> // extension_pool
 
 namespace build
 {
@@ -27,18 +28,20 @@ namespace build
     typedef build::scope scope_type;
 
     prerequisite (const target_type_type& t,
-                  std::string n,
                   path d,
+                  std::string n,
+                  const std::string* e,
                   scope_type& s)
-        : type (t), name (std::move (n)), directory (std::move (d)),
+        : type (t), directory (std::move (d)), name (std::move (n)), ext (e),
           scope (s), target (0) {}
 
   public:
     const target_type_type& type;
+    const path directory;   // Normalized absolute or relative (to scope).
     const std::string name;
-    const path directory; // Normalized absolute or relative (to scope).
+    const std::string* ext; // NULL if unspecified.
     scope_type& scope;
-    target_type* target; // NULL if not yet resolved.
+    target_type* target;    // NULL if not yet resolved.
   };
 
   std::ostream&

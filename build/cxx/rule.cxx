@@ -211,18 +211,39 @@ namespace build
             // @@ TODO:
             //
 
-            // Split the name into its directory part and the name part.
-            // Here we assume the name part is a valid filesystem name.
+            // Split the name into its directory part, the name part, and
+            // extension. Here we can assume the name part is a valid
+            // filesystem name.
             //
             path d (file.directory ());
             string n (file.leaf ().base ().string ());
+            const char* es (file.extension ());
+            const string* e (&extension_pool.find (es != nullptr ? es : ""));
 
             // Find or insert.
             //
             auto r (ds.prerequisites.emplace (
-                      hxx::static_type, move (n), move (d), ds));
+                      hxx::static_type, move (d), move (n), e, ds));
 
             auto& p (const_cast<prerequisite&> (*r.first));
+
+            // Update extension if the existing prerequisite has it
+            // unspecified.
+            //
+            if (p.ext != e)
+            {
+              trace (4, [&]{
+                  tracer::record r (tr);
+                  r << "assuming prerequisite " << p << " is the same as the "
+                    << "one with ";
+                  if (e->empty ())
+                    r << "no extension";
+                  else
+                    r << "extension " << *e;
+                });
+
+              p.ext = e;
+            }
 
             // Resolve to target so that we can assign its path.
             //

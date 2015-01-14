@@ -13,6 +13,7 @@
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
+#include <build/diagnostics>
 
 using namespace std;
 
@@ -49,6 +50,8 @@ namespace build
   void parser::
   parse_clause (token& t, token_type& tt)
   {
+    tracer tr ("parser::parse_clause");
+
     while (tt != type::eos)
     {
       // We always start with one or more names.
@@ -93,13 +96,14 @@ namespace build
 
             const target_type& ti (i->second);
 
-            // We need to split the name into its directory part (if any)
-            // and the name part. We cannot assume the name part is a
-            // valid filesystem name so we will have to do the splitting
-            // manually.
+            // We need to split the path into its directory part (if any)
+            // the name part, and the extension (if any). We cannot assume
+            // the name part is a valid filesystem name so we will have
+            // to do the splitting manually.
             //
             path d;
             string n;
+            const string* e (nullptr);
 
             {
               path::size_type i (path::traits::rfind_separator (pn.name));
@@ -112,6 +116,16 @@ namespace build
                 n.assign (pn.name, i + 1, string::npos);
                 d.normalize ();
               }
+
+              // Extract extension.
+              //
+              string::size_type j (n.rfind ('.'));
+
+              if (j != string::npos)
+              {
+                e = &extension_pool.find (n.c_str () + j + 1);
+                n.resize (j);
+              }
             }
 
             //cout << "prerequisite " << tt << " " << n << " " << d << endl;
@@ -119,15 +133,39 @@ namespace build
             // Find or insert.
             //
             auto r (scope_->prerequisites.emplace (
-                      ti, move (n), move (d), *scope_));
+                      ti, move (d), move (n), e, *scope_));
 
-            ps.push_back (const_cast<prerequisite&> (*r.first));
+            auto& p (const_cast<prerequisite&> (*r.first));
+
+            // Update extension if the existing prerequisite has it
+            // unspecified.
+            //
+            if (p.ext != e)
+            {
+              trace (4, [&]{
+                  tracer::record r (tr);
+                  r << "assuming prerequisite " << p << " is the same as the "
+                    << "one with ";
+                  if (e == nullptr)
+                    r << "unspecified extension";
+                  else if (e->empty ())
+                    r << "no extension";
+                  else
+                    r << "extension " << *e;
+                });
+
+              if (e != nullptr)
+                p.ext = e;
+            }
+
+            ps.push_back (p);
           }
 
           for (auto& tn: tns)
           {
             path d;
             string n;
+            const string* e (nullptr);
 
             // The same deal as in handling prerequisites above.
             //
@@ -148,6 +186,16 @@ namespace build
                   d = scope_->path () / d;
 
                 d.normalize ();
+              }
+
+              // Extract extension.
+              //
+              string::size_type j (n.rfind ('.'));
+
+              if (j != string::npos)
+              {
+                e = &extension_pool.find (n.c_str () + j + 1);
+                n.resize (j);
               }
             }
 
@@ -178,11 +226,31 @@ namespace build
             //
             auto r (
               targets.emplace (
-                unique_ptr<target> (ti.factory (move (n), move (d)))));
+                unique_ptr<target> (ti.factory (move (d), move (n), e))));
 
             target& t (**r.first);
 
-            t.prerequisites = ps; //@@ TODO: move is last target.
+            // Update extension if the existing target has it unspecified.
+            //
+            if (t.ext != e)
+            {
+              trace (4, [&]{
+                  tracer::record r (tr);
+                  r << "assuming target " << t << " is the same as the "
+                    << "one with ";
+                  if (e == nullptr)
+                    r << "unspecified extension";
+                  else if (e->empty ())
+                    r << "no extension";
+                  else
+                    r << "extension " << *e;
+                });
+
+              if (e != nullptr)
+                t.ext = e;
+            }
+
+            t.prerequisites = ps; //@@ TODO: move if last target.
 
             if (default_target == nullptr)
               default_target = &t;

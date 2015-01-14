@@ -34,9 +34,11 @@ namespace build
         return std::cerr << x;
       }
 
+      explicit record (tracer& t): empty_ (false) {t.begin ();}
+      explicit record (bool e = true): empty_ (e) {}
+
       // Movable-only type.
       //
-      explicit record (bool e = true): empty_ (e) {}
       record (record&& r) {empty_ = r.empty_; r.empty_ = true;}
       record& operator= (record&& r) {empty_ = r.empty_; r.empty_ = true;}
 
@@ -51,8 +53,15 @@ namespace build
     record
     operator<< (const T& x) const
     {
-      std::cerr << "trace: " << name_ << ": " << x;
+      begin ();
+      std::cerr << x;
       return record (false);
+    }
+
+    void
+    begin () const
+    {
+      std::cerr << "trace: " << name_ << ": ";
     }
 
   private:

@@ -2,9 +2,9 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
-#include <ostream>
-
 #include <build/context>
+
+#include <ostream>
 
 using namespace std;
 

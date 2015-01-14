@@ -27,7 +27,12 @@ namespace build
         os << s << path::traits::directory_separator;
     }
 
-    os << t.name << '}';
+    os << t.name;
+
+    if (t.ext != nullptr)
+      os << '.' << *t.ext;
+
+    os << '}';
 
     return os;
   }

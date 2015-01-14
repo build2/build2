@@ -19,7 +19,7 @@
 #include <build/path>
 #include <build/timestamp>
 #include <build/prerequisite>
-#include <build/utility>       // compare_c_string, compare_pointer_target
+#include <build/utility>       // compare_*, extension_pool
 
 namespace build
 {
@@ -33,17 +33,18 @@ namespace build
     std::type_index id;
     const char* name;
     const target_type* base;
-    target* (*const factory) (std::string, path);
+    target* (*const factory) (path, std::string, const std::string*);
   };
 
   class target
   {
   public:
-    target (std::string n, path d)
-        : name (std::move (n)), directory (std::move (d)) {}
+    target (path d, std::string n, const std::string* e)
+        : directory (std::move (d)), name (std::move (n)), ext (e) {}
 
+    const path directory;   // Absolute and normalized.
     const std::string name;
-    const path directory; // Absolute and normalized.
+    const std::string* ext; // Extension, NULL means unspecified.
 
   public:
     typedef
@@ -89,10 +90,18 @@ namespace build
   {
     std::type_index tx (typeid (x)), ty (typeid (y));
 
+    //@@ TODO: use compare() to compare once.
+
+    // Unspecified and specified extension are assumed equal. The
+    // extension strings are from the pool, so we can just compare
+    // pointers.
+    //
     return
       (tx < ty) ||
       (tx == ty && x.name < y.name) ||
-      (tx == ty && x.name == y.name && x.directory < y.directory);
+      (tx == ty && x.name == y.name && x.directory < y.directory) ||
+      (tx == ty && x.name == y.name && x.directory == y.directory &&
+       x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
   }
 
   typedef std::set<std::unique_ptr<target>, compare_pointer_target> target_set;
@@ -113,9 +122,9 @@ namespace build
 
   template <typename T>
   target*
-  target_factory (std::string n, path d)
+  target_factory (path d, std::string n, const std::string* e)
   {
-    return new T (std::move (n), std::move (d));
+    return new T (std::move (d), std::move (n), e);
   }
 
   // Modification time-based target.

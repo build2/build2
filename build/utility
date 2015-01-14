@@ -5,7 +5,10 @@
 #ifndef BUILD_UTILITY
 #define BUILD_UTILITY
 
+#include <string>
+#include <unordered_set>
 #include <cstring> // strcmp
+
 
 namespace build
 {
@@ -22,6 +25,16 @@ namespace build
     template <typename P>
     bool operator() (const P& x, const P& y) const {return *x < *y;}
   };
+
+  // Pools (@@ perhaps move into a separate header).
+  //
+  struct string_pool: std::unordered_set<std::string>
+  {
+    const std::string&
+    find (const char* s) {return *emplace (s).first;}
+  };
+
+  extern string_pool extension_pool;
 }
 
 #endif // BUILD_UTILITY

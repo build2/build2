@@ -43,7 +43,12 @@ namespace build
           os << s << path::traits::directory_separator;
       }
 
-      os << p.name << '}';
+      os << p.name;
+
+      if (p.ext != nullptr)
+        os << '.' << *p.ext;
+
+      os << '}';
     }
 
     return os;
@@ -52,10 +57,19 @@ namespace build
   bool
   operator< (const prerequisite& x, const prerequisite& y)
   {
+    //@@ TODO: use compare() to compare once.
+
+    // Unspecified and specified extension are assumed equal. The
+    // extension strings are from the pool, so we can just compare
+    // pointers.
+    //
     return
       (x.type.id < y.type.id) ||
       (x.type.id == y.type.id && x.name < y.name) ||
       (x.type.id == y.type.id && x.name == y.name &&
-       x.directory < y.directory);
+       x.directory < y.directory) ||
+      (x.type.id == y.type.id && x.name == y.name &&
+       x.directory == y.directory &&
+       x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
   }
 }

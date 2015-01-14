@@ -259,6 +259,11 @@ namespace build
     basic_path
     base () const;
 
+    // Return the extension or NULL if not present.
+    //
+    const C*
+    extension () const;
+
     // Return a path relative to the specified path that is equivalent
     // to *this. Throws invalid_path if a relative path cannot be derived
     // (e.g., paths are on different drives on Windows).

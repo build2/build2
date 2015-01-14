@@ -1,5 +1,6 @@
 exe{b1}: obj{b algorithm scope parser lexer trace target prerequisite rule \
-  native context diagnostics cxx/target cxx/rule process timestamp path}
+  native context diagnostics cxx/target cxx/rule process timestamp path \
+  utility}
 
 obj{b}: cxx{b}
 obj{algorithm}: cxx{algorithm}
@@ -18,3 +19,4 @@ obj{cxx/rule}: cxx{cxx/rule}
 obj{process}: cxx{process}
 obj{timestamp}: cxx{timestamp}
 obj{path}: cxx{path}
+obj{utility}: cxx{utility}
