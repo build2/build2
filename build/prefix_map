@@ -1,0 +1,119 @@
+// file      : build/prefix_map -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PREFIX_MAP
+#define BUILD_PREFIX_MAP
+
+#include <map>
+#include <string>
+#include <utility>   // move()
+#include <algorithm> // min()
+
+namespace build
+{
+  template <typename K>
+  struct compare_prefix;
+
+  template <typename C>
+  struct compare_prefix<std::basic_string<C>>
+  {
+    typedef std::basic_string<C> K;
+
+    typedef C char_type;
+    typedef typename K::size_type size_type;
+    typedef typename K::traits_type traits_type;
+
+    explicit
+    compare_prefix (C d): d_ (d) {}
+
+    bool
+    operator() (const K& x, const K& y) const
+    {
+      return compare (x.c_str (), x.size (), y.c_str (), y.size ()) < 0;
+    }
+
+    // Note: doesn't check for k.size () being at least p.size ().
+    //
+    bool
+    prefix (const K& p, const K& k) const
+    {
+      size_type pn (p.size ());
+      return compare (
+        p.c_str (), pn, k.c_str (), pn == k.size () ? pn : pn + 1) == 0;
+    }
+
+    int
+    compare (const C* x, size_type xn,
+             const C* y, size_type yn) const
+    {
+      size_type n (std::min (xn, yn));
+      int r (traits_type::compare (x, y, n));
+
+      if (r == 0)
+      {
+        // Pretend there is the delimiter characters at the end of the
+        // shorter string.
+        //
+        char xc (xn > n ? x[n] : (xn++, d_));
+        char yc (yn > n ? y[n] : (yn++, d_));
+        r = traits_type::compare (&xc, &yc, 1);
+
+        // If we are still equal, then compare the lengths.
+        //
+        if (r == 0)
+          r = (xn == yn ? 0 : (xn < yn ? -1 : 1));
+      }
+
+      return r;
+    }
+
+  private:
+    C d_;
+  };
+
+  // A map of hierarchical "paths", e.g., 'foo.bar' or 'foo/bar' with
+  // the ability to retrieve a range of entries that have a specific
+  // prefix. The '.' and '/' above are the delimiter characters.
+  //
+  // Implementation-wise, the idea is to pretend that each key ends
+  // with the delimiter. This way we automatically avoid matching
+  // 'foobar' as having a prefix 'foo'.
+  //
+  template <typename M>
+  struct prefix_map_impl: M
+  {
+    typedef M map_type;
+    typedef typename map_type::key_type key_type;
+    typedef typename map_type::value_type value_type;
+    typedef typename map_type::key_compare compare_type;
+
+    typedef typename map_type::iterator iterator;
+    typedef typename map_type::const_iterator const_iterator;
+
+    explicit
+    prefix_map_impl (typename compare_type::char_type delimiter)
+      : map_type (compare_type (delimiter)) {}
+
+    prefix_map_impl (std::initializer_list<value_type> init,
+                     typename compare_type::char_type delimiter)
+      : map_type (std::move (init), compare_type (delimiter)) {}
+
+    std::pair<iterator, iterator>
+    find (const key_type&);
+
+    std::pair<const_iterator, const_iterator>
+    find (const key_type&) const;
+  };
+
+  template <typename K, typename T>
+  using prefix_map = prefix_map_impl<std::map<K, T, compare_prefix<K>>>;
+
+  template <typename K, typename T>
+  using prefix_multimap =
+    prefix_map_impl<std::multimap<K, T, compare_prefix<K>>>;
+}
+
+#include <build/prefix_map.txx>
+
+#endif // BUILD_PREFIX_MAP
