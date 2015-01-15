@@ -15,7 +15,7 @@ namespace build
   // default_path_rule
   //
   recipe default_path_rule::
-  match (target& t) const
+  match (target& t, bool, std::string&) const
   {
     // @@ TODO:
     //

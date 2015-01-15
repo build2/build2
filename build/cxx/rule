@@ -23,7 +23,7 @@ namespace build
     {
     public:
       virtual recipe
-      match (target&) const;
+      match (target&, bool single, std::string& hint) const;
 
       static target_state
       update (target&);
@@ -37,7 +37,7 @@ namespace build
     {
     public:
       virtual recipe
-      match (target&) const;
+      match (target&, bool single, std::string& hint) const;
 
       static target_state
       update (target&);

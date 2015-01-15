@@ -5,11 +5,13 @@
 #ifndef BUILD_RULE
 #define BUILD_RULE
 
+#include <string>
 #include <typeindex>
 #include <functional>     // reference_wrapper
 #include <unordered_map>
 
 #include <build/target>
+#include <build/prefix_map>
 
 namespace build
 {
@@ -17,11 +19,12 @@ namespace build
   {
   public:
     virtual recipe
-    match (target&) const = 0;
+    match (target&, bool single, std::string& hint) const = 0;
   };
 
-  typedef std::unordered_multimap<std::type_index,
-                                  std::reference_wrapper<rule>> rule_map;
+  typedef std::unordered_map<
+    std::type_index,
+    prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>> rule_map;
 
   extern rule_map rules;
 
@@ -29,7 +32,7 @@ namespace build
   {
   public:
     virtual recipe
-    match (target&) const;
+    match (target&, bool single, std::string& hint) const;
 
     static target_state
     update (target&);

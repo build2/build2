@@ -257,13 +257,13 @@ main (int argc, char* argv[])
   // Register rules.
   //
   cxx::link cxx_link;
-  rules.emplace (typeid (exe), cxx_link);
+  rules[typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
 
   cxx::compile cxx_compile;
-  rules.emplace (typeid (obj), cxx_compile);
+  rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
 
   default_path_rule path_exists;
-  rules.emplace (typeid (path_target), path_exists);
+  rules[typeid (path_target)].emplace ("", path_exists);
 
   // Build.
   //

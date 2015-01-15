@@ -28,7 +28,7 @@ namespace build
     // compile
     //
     recipe compile::
-    match (target& t) const
+    match (target& t, bool single, std::string& hint) const
     {
       tracer tr ("cxx::compile::match");
 
@@ -375,7 +375,7 @@ namespace build
     // link
     //
     recipe link::
-    match (target& t) const
+    match (target& t, bool single, std::string& hint) const
     {
       // @@ TODO:
       //
