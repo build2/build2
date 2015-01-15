@@ -5,7 +5,7 @@
 namespace build
 {
   template <typename M>
-  auto prefix_map_impl<M>::
+  auto prefix_map_common<M>::
   find (const key_type& k) -> std::pair<iterator, iterator>
   {
     std::pair<iterator, iterator> r;
@@ -23,7 +23,7 @@ namespace build
   }
 
   template <typename M>
-  auto prefix_map_impl<M>::
+  auto prefix_map_common<M>::
   find (const key_type& k) const -> std::pair<const_iterator, const_iterator>
   {
     std::pair<const_iterator, const_iterator> r;
