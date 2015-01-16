@@ -39,10 +39,11 @@ namespace build
   private:
     struct name_type
     {
-      name_type (std::string t, std::string n)
-          : type (std::move (t)), name (std::move (n)) {}
+      name_type (std::string t, path d, std::string n)
+          : type (std::move (t)), dir (std::move (d)), name (std::move (n)) {}
 
       std::string type; // Empty if untyped.
+      path dir;
       std::string name;
     };
 
@@ -55,12 +56,13 @@ namespace build
     parse_names (token& t, token_type& tt)
     {
       names ns;
-      parse_names (t, tt, ns, nullptr);
+      parse_names (t, tt, ns, nullptr, nullptr);
       return ns;
     }
 
     void
-    parse_names (token&, token_type&, names&, const std::string* type);
+    parse_names (token&, token_type&, names&,
+                 const path* dir, const std::string* type);
 
     // Utilities.
     //

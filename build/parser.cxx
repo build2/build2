@@ -101,7 +101,7 @@ namespace build
             // the name part is a valid filesystem name so we will have
             // to do the splitting manually.
             //
-            path d;
+            path d (pn.dir);
             string n;
             const string* e (nullptr);
 
@@ -112,10 +112,11 @@ namespace build
                 n = move (pn.name); // NOTE: steal!
               else
               {
-                d = path (pn.name, i);
+                d /= path (pn.name, i);
                 n.assign (pn.name, i + 1, string::npos);
-                d.normalize ();
               }
+
+              d.normalize ();
 
               // Extract extension.
               //
@@ -139,7 +140,7 @@ namespace build
 
           for (auto& tn: tns)
           {
-            path d;
+            path d (tn.dir);
             string n;
             const string* e (nullptr);
 
@@ -149,15 +150,17 @@ namespace build
               path::size_type i (path::traits::rfind_separator (tn.name));
 
               if (i == string::npos)
-              {
-                d = scope_->path (); // Already normalized.
                 n = move (tn.name); // NOTE: steal!
-              }
               else
               {
-                d = path (tn.name, i);
+                d /= path (tn.name, i);
                 n.assign (tn.name, i + 1, string::npos);
+              }
 
+              if (d.empty ())
+                d = scope_->path (); // Already normalized.
+              else
+              {
                 if (d.relative ())
                   d = scope_->path () / d;
 
@@ -305,16 +308,16 @@ namespace build
   }
 
   void parser::
-  parse_names (token& t, type& tt, names& ns, const string* tp)
+  parse_names (token& t, type& tt, names& ns, const path* dp, const string* tp)
   {
     for (bool first (true);; first = false)
     {
-      // Untyped name group, e.g., '{foo bar}'.
+      // Untyped name group without a directory prefix, e.g., '{foo bar}'.
       //
       if (tt == type::lcbrace)
       {
         next (t, tt);
-        parse_names (t, tt, ns, tp);
+        parse_names (t, tt, ns, dp, tp);
 
         if (tt != type::rcbrace)
         {
@@ -332,18 +335,51 @@ namespace build
       {
         string name (t.name ()); //@@ move?
 
-        // See if this is a type name, that is, it is followed by '{'.
+        // See if this is a type name, directory prefix, or both. That is,
+        // it is followed by '{'.
         //
         if (next (t, tt) == type::lcbrace)
         {
-          if (tp != nullptr)
+          string::size_type p (name.rfind ('/')), n (name.size () - 1);
+
+          if (p != n && tp != nullptr)
           {
             error (t) << "nested type name '" << name << "'" << endl;
             throw parser_error ();
           }
 
+          path d1;
+          const path* dp1 (dp);
+
+          string t1;
+          const string* tp1 (tp);
+
+          if (p == string::npos) // type
+            tp1 = &name;
+          else if (p == n) // directory
+          {
+            if (dp == nullptr)
+              d1 = path (name);
+            else
+              d1 = *dp / path (name);
+
+            dp1 = &d1;
+          }
+          else // both
+          {
+            t1.assign (name, p + 1, n - p);
+
+            if (dp == nullptr)
+              d1 = path (name, 0, p + 1);
+            else
+              d1 = *dp / path (name, 0, p + 1);
+
+            dp1 = &d1;
+            tp1 = &t1;
+          }
+
           next (t, tt);
-          parse_names (t, tt, ns, &name);
+          parse_names (t, tt, ns, dp1, tp1);
 
           if (tt != type::rcbrace)
           {
@@ -355,7 +391,9 @@ namespace build
           continue;
         }
 
-        ns.emplace_back ((tp != nullptr ? *tp : string ()), move (name));
+        ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                         (dp != nullptr ? *dp : path ()),
+                         move (name));
         continue;
       }
 

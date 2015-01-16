@@ -181,6 +181,12 @@ namespace build
       init ();
     }
 
+    basic_path (const string_type& s, size_type p, size_type n)
+        : path_ (s, p, n)
+    {
+      init ();
+    }
+
     void
     swap (basic_path& p)
     {

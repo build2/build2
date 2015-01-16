@@ -54,6 +54,12 @@ main ()
   assert (!parse ("foo: bar:"));
   assert (!parse ("exe{foo:"));
 
+  // Directory prefix.
+  //
+  assert (parse ("../{foo}: ../{bar}"));
+  assert (parse ("../exe{foo}: ../obj{bar}"));
+  assert (!parse ("../exe{exe{foo}}:"));
+
   // Directory scope.
   //
   assert (parse ("test/:\n{\n}"));

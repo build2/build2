@@ -1,0 +1,2 @@
+exe{driver}: cxx{driver ../../../build/{lexer parser scope target native \
+  prerequisite context diagnostics trace utility path timestamp}}
