@@ -304,10 +304,23 @@ namespace build
       return basic_path (path_ + s);
     }
 
+    basic_path
+    operator+ (C c) const
+    {
+      return basic_path (path_ + c);
+    }
+
     basic_path&
     operator+= (string_type const& s)
     {
       path_ += s;
+      return *this;
+    }
+
+    basic_path&
+    operator+= (C c)
+    {
+      path_ += c;
       return *this;
     }
 

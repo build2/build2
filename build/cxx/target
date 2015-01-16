@@ -50,6 +50,28 @@ namespace build
       virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
     };
+
+    //@@ TMP
+    //
+    class h: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
+    };
+
+    class c: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
+    };
   }
 }
 

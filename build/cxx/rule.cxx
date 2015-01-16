@@ -4,10 +4,11 @@
 
 #include <build/cxx/rule>
 
-#include <cstddef>  // size_t
-#include <cstdlib>  // exit
 #include <string>
 #include <vector>
+#include <cstddef>  // size_t
+#include <cstdlib>  // exit
+#include <utility>  // move()
 #include <iostream>
 
 #include <ext/stdio_filebuf.h>
@@ -27,8 +28,8 @@ namespace build
   {
     // compile
     //
-    recipe compile::
-    match (target& t, bool single, std::string& hint) const
+    void* compile::
+    match (target& t, const string&) const
     {
       tracer tr ("cxx::compile::match");
 
@@ -48,24 +49,21 @@ namespace build
       //   of dependency info.
       //
 
-      // See if we have a source file.
+      // See if we have a C++ source file.
       //
-      prerequisite* sp (nullptr);
       for (prerequisite& p: t.prerequisites)
       {
         if (p.type.id == typeid (cxx))
-        {
-          sp = &p;
-          break;
-        }
+          return &p;
       }
 
-      if (sp == nullptr)
-      {
-        trace (3, [&]{tr << "no c++ source file for target " << t;});
-        return recipe ();
-      }
+      trace (3, [&]{tr << "no c++ source file for target " << t;});
+      return nullptr;
+    }
 
+    recipe compile::
+    select (target& t, void* v) const
+    {
       // Derive object file name from target name.
       //
       obj& o (dynamic_cast<obj&> (t));
@@ -77,9 +75,10 @@ namespace build
       // this in order to get the source file path for prerequisite
       // injections.
       //
+      prerequisite* sp (static_cast<prerequisite*> (v));
       cxx* st (
         dynamic_cast<cxx*> (
-          sp->target != nullptr ? sp->target : search (*sp)));
+          sp->target != nullptr ? sp->target : &search (*sp)));
 
       if (st != nullptr)
       {
@@ -92,7 +91,7 @@ namespace build
         }
       }
 
-      return recipe (&update);
+      return &update;
     }
 
     // Return the next make prerequisite starting from the specified
@@ -222,37 +221,18 @@ namespace build
 
             // Find or insert.
             //
-            auto r (ds.prerequisites.emplace (
-                      hxx::static_type, move (d), move (n), e, ds));
-
-            auto& p (const_cast<prerequisite&> (*r.first));
-
-            // Update extension if the existing prerequisite has it
-            // unspecified.
-            //
-            if (p.ext != e)
-            {
-              trace (4, [&]{
-                  tracer::record r (tr);
-                  r << "assuming prerequisite " << p << " is the same as the "
-                    << "one with ";
-                  if (e->empty ())
-                    r << "no extension";
-                  else
-                    r << "extension " << *e;
-                });
-
-              p.ext = e;
-            }
+            prerequisite& p (
+              ds.prerequisites.insert (
+                hxx::static_type, move (d), move (n), e, ds, tr).first);
 
             // Resolve to target so that we can assign its path.
             //
             path_target& t (
               dynamic_cast<path_target&> (
-                p.target != nullptr ? *p.target : *search (p)));
+                p.target != nullptr ? *p.target : search (p)));
 
             if (t.path ().empty ())
-              t.path (file);
+              t.path (move (file));
 
             o.prerequisites.push_back (p);
           }
@@ -374,9 +354,11 @@ namespace build
 
     // link
     //
-    recipe link::
-    match (target& t, bool single, std::string& hint) const
+    void* link::
+    match (target& t, const string& hint) const
     {
+      tracer tr ("cxx::link::match");
+
       // @@ TODO:
       //
       // - check prerequisites: object files, libraries
@@ -387,23 +369,53 @@ namespace build
       // - if there is no .o, are we going to check if the one derived
       //   from target exist or can be built? If we do that, then it
       //   probably makes sense to try other rules first (two passes).
-      //   What if there is a library. Probably ok if .a, not is .so.
+      //   What if there is a library. Probably ok if .a, not if .so.
       //
 
-      // See if we have at least one object file.
+      // Scan prerequisites and see if we can work with what we've got.
       //
-      prerequisite* op (nullptr);
+      bool seen_cxx (false), seen_c (false), seen_obj (false);
+
       for (prerequisite& p: t.prerequisites)
       {
-        if (p.type.id == typeid (obj))
+        if (p.type.id == typeid (cxx))
         {
-          op = &p;
-          break;
+          if (!seen_cxx)
+            seen_cxx = true;
+        }
+        else if (p.type.id == typeid (c))
+        {
+          if (!seen_c)
+            seen_c = true;
+        }
+        else if (p.type.id == typeid (obj))
+        {
+          if (!seen_obj)
+            seen_obj = true;
+        }
+        else
+        {
+          trace (3, [&]{tr << "unexpected prerequisite type " << p.type;});
+          return nullptr;
         }
       }
 
-      if (op == nullptr)
-        return recipe ();
+      // We will only chain C source if there is also C++ source or we
+      // we explicitly asked to.
+      //
+      if (seen_c && !seen_cxx && hint < "cxx")
+      {
+        trace (3, [&]{tr << "c prerequisite(s) without c++ or hint";});
+        return nullptr;
+      }
+
+      return seen_cxx || seen_c || seen_obj ? &t : nullptr;
+    }
+
+    recipe link::
+    select (target& t, void*) const
+    {
+      tracer tr ("cxx::link::select");
 
       // Derive executable file name from target name.
       //
@@ -412,7 +424,102 @@ namespace build
       if (e.path ().empty ())
         e.path (e.directory / path (e.name));
 
-      return recipe (&update);
+      // Do rule chaining for C and C++ source files.
+      //
+      // @@ OPT: match() could indicate whether this is necesssary.
+      //
+      for (auto& pr: t.prerequisites)
+      {
+        prerequisite& cp (pr);
+
+        if (cp.type.id != typeid (c) && cp.type.id != typeid (cxx))
+          continue;
+
+        // Come up with the obj{} prerequisite. The c(xx){} prerequisite
+        // directory can be relative (to the scope) or absolute. If it is
+        // relative, then we use it as is. If it is absolute, then translate
+        // it to the corresponding directory under out_root. While the
+        // c(xx){} directory is most likely under src_root, it is also
+        // possible it is under out_root (e.g., generated source).
+        //
+        path d;
+        if (cp.directory.relative () || cp.directory.sub (out_root))
+          d = cp.directory;
+        else
+        {
+          if (!cp.directory.sub (src_root))
+          {
+            cerr << "error: out of project prerequisite " << cp << endl;
+            cerr << "info: specify corresponding obj{} target explicitly"
+                 << endl;
+            throw error ();
+          }
+
+          d = out_root / cp.directory.leaf (src_root);
+        }
+
+        prerequisite& op (
+          cp.scope.prerequisites.insert (
+            obj::static_type, move (d), cp.name, nullptr, cp.scope, tr).first);
+
+        // Resolve this prerequisite to target.
+        //
+        target& ot (search (op));
+
+        // If this target already exists, then it needs to be "compatible"
+        // with what we doing.
+        //
+        bool add (true);
+        for (prerequisite& p: ot.prerequisites)
+        {
+          // Ignore some known target types (headers).
+          //
+          if (p.type.id == typeid (h) ||
+              cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
+                                             p.type.id == typeid (ixx) ||
+                                             p.type.id == typeid (txx)))
+            continue;
+
+          if (p.type.id == typeid (cxx))
+          {
+            // We need to make sure they are the same which we can only
+            // do by comparing the targets to which they resolve.
+            //
+            target* t (p.target != nullptr ? p.target : &search (p));
+            target* ct (cp.target != nullptr ? cp.target : &search (cp));
+
+            if (t == ct)
+            {
+              add = false;
+              continue; // Check the rest of the prerequisites.
+            }
+          }
+
+          cerr << "error: synthesized target for prerequisite " << cp
+               << " would be incompatible with existing target " << ot
+               << endl;
+
+          if (p.type.id == typeid (cxx))
+            cerr << "info: existing prerequsite " << p << " does not "
+                 << "match " << cp << endl;
+          else
+            cerr << "info: unknown existing prerequsite " << p << endl;
+
+          cerr << "info: specify corresponding obj{} target explicitly"
+               << endl;
+
+          throw error ();
+        }
+
+        if (add)
+          ot.prerequisites.push_back (cp);
+
+        // Change the exe{} target's prerequsite from cxx{} to obj{}.
+        //
+        pr = op;
+      }
+
+      return &update;
     }
 
     target_state link::

@@ -19,6 +19,7 @@ namespace build
   class scope;
   class target;
   class target_type;
+  class tracer;
 
   class prerequisite
   {
@@ -50,7 +51,16 @@ namespace build
   bool
   operator< (const prerequisite&, const prerequisite&);
 
-  typedef std::set<prerequisite> prerequisite_set;
+  struct prerequisite_set: std::set<prerequisite>
+  {
+    std::pair<prerequisite&, bool>
+    insert (const target_type&,
+            path dir,
+            std::string name,
+            const std::string* ext,
+            scope&,
+            tracer&);
+  };
 }
 
 #endif // BUILD_PREREQUISITE

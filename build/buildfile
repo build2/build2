@@ -1,22 +1,4 @@
-exe{b1}: obj{b algorithm scope parser lexer trace target prerequisite rule \
+exe{b1}: cxx{b algorithm scope parser lexer trace target prerequisite rule \
   native context diagnostics cxx/target cxx/rule process timestamp path \
   utility}
 
-obj{b}: cxx{b}
-obj{algorithm}: cxx{algorithm}
-obj{scope}: cxx{scope}
-obj{parser}: cxx{parser}
-obj{lexer}: cxx{lexer}
-obj{trace}: cxx{trace}
-obj{target}: cxx{target}
-obj{prerequisite}: cxx{prerequisite}
-obj{rule}: cxx{rule}
-obj{native}: cxx{native}
-obj{context}: cxx{context}
-obj{diagnostics}: cxx{diagnostics}
-obj{cxx/target}: cxx{cxx/target}
-obj{cxx/rule}: cxx{cxx/rule}
-obj{process}: cxx{process}
-obj{timestamp}: cxx{timestamp}
-obj{path}: cxx{path}
-obj{utility}: cxx{utility}

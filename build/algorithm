@@ -10,7 +10,7 @@ namespace build
   class target;
   class prerequisite;
 
-  target*
+  target&
   search (prerequisite&);
 
   bool

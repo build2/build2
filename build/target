@@ -12,7 +12,7 @@
 #include <memory>     // unique_ptr
 #include <functional> // function, reference_wrapper
 #include <typeindex>
-#include <iosfwd>
+#include <ostream>
 #include <cassert>
 #include <utility>    // move
 
@@ -35,6 +35,12 @@ namespace build
     const target_type* base;
     target* (*const factory) (path, std::string, const std::string*);
   };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const target_type& tt)
+  {
+    return os << tt.name;
+  }
 
   class target
   {
@@ -104,7 +110,16 @@ namespace build
        x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
   }
 
-  typedef std::set<std::unique_ptr<target>, compare_pointer_target> target_set;
+  struct target_set: std::set<std::unique_ptr<target>, compare_pointer_target>
+  {
+    std::pair<target&, bool>
+    insert (const target_type&,
+            path dir,
+            std::string name,
+            const std::string* ext,
+            tracer&);
+  };
+
   extern target_set targets;
   extern target* default_target;
 
@@ -170,7 +185,7 @@ namespace build
     path () const {return path_;}
 
     void
-    path (path_type p) {assert (path_.empty ()); path_ = p;}
+    path (path_type p) {assert (path_.empty ()); path_ = std::move (p);}
 
   protected:
     virtual timestamp

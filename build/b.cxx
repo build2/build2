@@ -159,6 +159,9 @@ main (int argc, char* argv[])
   target_types.insert (exe::static_type);
   target_types.insert (obj::static_type);
 
+  target_types.insert (cxx::h::static_type);
+  target_types.insert (cxx::c::static_type);
+
   target_types.insert (cxx::cxx::static_type);
   target_types.insert (cxx::hxx::static_type);
   target_types.insert (cxx::ixx::static_type);

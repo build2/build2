@@ -128,35 +128,11 @@ namespace build
               }
             }
 
-            //cout << "prerequisite " << tt << " " << n << " " << d << endl;
-
             // Find or insert.
             //
-            auto r (scope_->prerequisites.emplace (
-                      ti, move (d), move (n), e, *scope_));
-
-            auto& p (const_cast<prerequisite&> (*r.first));
-
-            // Update extension if the existing prerequisite has it
-            // unspecified.
-            //
-            if (p.ext != e)
-            {
-              trace (4, [&]{
-                  tracer::record r (tr);
-                  r << "assuming prerequisite " << p << " is the same as the "
-                    << "one with ";
-                  if (e == nullptr)
-                    r << "unspecified extension";
-                  else if (e->empty ())
-                    r << "no extension";
-                  else
-                    r << "extension " << *e;
-                });
-
-              if (e != nullptr)
-                p.ext = e;
-            }
+            prerequisite& p (
+              scope_->prerequisites.insert (
+                ti, move (d), move (n), e, *scope_, tr).first);
 
             ps.push_back (p);
           }
@@ -217,40 +193,11 @@ namespace build
 
             const target_type& ti (i->second);
 
-            //@@ TODO would be nice to first check if this target is
-            //   already in the set before allocating a new instance.
-
-            //cout << "target " << tt << " " << n << " " << d << endl;
-
             // Find or insert.
             //
-            auto r (
-              targets.emplace (
-                unique_ptr<target> (ti.factory (move (d), move (n), e))));
+            target& t (targets.insert (ti, move (d), move (n), e, tr).first);
 
-            target& t (**r.first);
-
-            // Update extension if the existing target has it unspecified.
-            //
-            if (t.ext != e)
-            {
-              trace (4, [&]{
-                  tracer::record r (tr);
-                  r << "assuming target " << t << " is the same as the "
-                    << "one with ";
-                  if (e == nullptr)
-                    r << "unspecified extension";
-                  else if (e->empty ())
-                    r << "no extension";
-                  else
-                    r << "extension " << *e;
-                });
-
-              if (e != nullptr)
-                t.ext = e;
-            }
-
-            t.prerequisites = ps; //@@ TODO: move if last target.
+            t.prerequisites = ps; //@@ OPT: move if last target.
 
             if (default_target == nullptr)
               default_target = &t;

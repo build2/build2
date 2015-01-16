@@ -18,8 +18,11 @@ namespace build
   class rule
   {
   public:
+    virtual void*
+    match (target&, const std::string& hint) const = 0;
+
     virtual recipe
-    match (target&, bool single, std::string& hint) const = 0;
+    select (target&, void*) const = 0;
   };
 
   typedef std::unordered_map<
@@ -31,8 +34,11 @@ namespace build
   class default_path_rule: public rule
   {
   public:
+    virtual void*
+    match (target&, const std::string& hint) const;
+
     virtual recipe
-    match (target&, bool single, std::string& hint) const;
+    select (target&, void*) const;
 
     static target_state
     update (target&);

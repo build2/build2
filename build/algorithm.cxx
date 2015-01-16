@@ -20,7 +20,7 @@ using namespace std;
 
 namespace build
 {
-  target*
+  target&
   search (prerequisite& p)
   {
     tracer tr ("search");
@@ -38,41 +38,16 @@ namespace build
       d.normalize ();
     }
 
-    //@@ TODO: would be nice to first check if this target is
-    //   already in the set before allocating a new instance.
-
     // Find or insert.
     //
-    auto r (
-      targets.emplace (
-        unique_ptr<target> (p.type.factory (move (d), p.name, p.ext))));
-
-    target& t (**r.first);
+    auto r (targets.insert (p.type, move (d), p.name, p.ext, tr));
 
     trace (4, [&]{
-        tr << (r.second ? "new" : "existing") << " target " << t
+        tr << (r.second ? "new" : "existing") << " target " << r.first
            << " for prerequsite " << p;});
 
-    // Update extension if the existing target has it unspecified.
-    //
-    if (t.ext != p.ext)
-    {
-      trace (4, [&]{
-          tracer::record r (tr);
-          r << "assuming target " << t << " is the same as the one with ";
-          if (p.ext == nullptr)
-            r << "unspecified extension";
-          else if (p.ext->empty ())
-            r << "no extension";
-          else
-            r << "extension " << *p.ext;
-        });
-
-      if (p.ext != nullptr)
-        t.ext = p.ext;
-    }
-
-    return (p.target = &t);
+    p.target = &r.first;
+    return r.first;
   }
 
   bool
@@ -92,22 +67,17 @@ namespace build
       const auto& rules (i->second); // Name map.
 
       string hint; // @@ TODO
-      bool single;
 
       auto rs (hint.empty ()
                ? make_pair (rules.begin (), rules.end ())
                : rules.find (hint));
 
-      for (auto i (rs.first); i != rs.second;)
+      for (auto i (rs.first); i != rs.second; ++i)
       {
         const string& n (i->first);
         const rule& ru (i->second);
 
-        if (i++ == rs.first)
-          single = (i == rs.second);
-
-        recipe re;
-        string h (hint);
+        void* m;
         {
           auto g (
             make_exception_guard (
@@ -118,42 +88,21 @@ namespace build
               },
               t, n));
 
-          // If the rule matches, then it updates the hint with the one we
-          // need to use when checking for ambiguity.
-          //
-          re = ru.match (t, single, h);
+          m = ru.match (t, hint);
         }
 
-        if (re)
+        if (m != nullptr)
         {
-          t.recipe (re);
-
-          // If the returned hint is more "general" than what we had,
-          // then narrow it back down.
+          // Do the ambiguity test.
           //
-          if (h < hint)
-            h = hint;
-
-          // Do the ambiguity test unless it is an unambiguous match (the
-          // hint is the rule's full name).
-          //
-          if (h == n)
-            break;
-
-          auto rs1 (h == hint
-                    ? make_pair (i, rs.second) // Continue iterating.
-                    : rules.find (h));
-
           bool ambig (false);
 
-          // See if any other rules match.
-          //
-          for (auto i (rs1.first); i != rs1.second; ++i)
+          for (++i; i != rs.second; ++i)
           {
             const string& n1 (i->first);
             const rule& ru1 (i->second);
 
-            string h1 (h);
+            void* m1;
             {
               auto g (
                 make_exception_guard (
@@ -164,19 +113,11 @@ namespace build
                   },
                   t, n1));
 
-              re = ru1.match (t, false, h1);
+              m1 = ru1.match (t, hint);
             }
 
-            if (re)
+            if (m1 != nullptr)
             {
-              // A subsequent rule cannot return a more specific hint.
-              // Remember, the hint returning mechanism is here to
-              // indicate that only a class of rules that perform a
-              // similar rule chaining transformation may apply (e.g.,
-              // cxx.gnu and cxx.clang).
-              //
-              assert (h1 <= h);
-
               if (!ambig)
               {
                 cerr << "error: multiple rules matching target " << t << endl;
@@ -194,6 +135,7 @@ namespace build
             throw error ();
           }
 
+          t.recipe (ru.select (t, m));
           break;
         }
       }

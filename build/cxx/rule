@@ -22,8 +22,11 @@ namespace build
     class compile: public rule
     {
     public:
+      virtual void*
+      match (target&, const std::string& hint) const;
+
       virtual recipe
-      match (target&, bool single, std::string& hint) const;
+      select (target&, void*) const;
 
       static target_state
       update (target&);
@@ -36,8 +39,11 @@ namespace build
     class link: public rule
     {
     public:
+      virtual void*
+      match (target&, const std::string& hint) const;
+
       virtual recipe
-      match (target&, bool single, std::string& hint) const;
+      select (target&, void*) const;
 
       static target_state
       update (target&);

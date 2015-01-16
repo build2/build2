@@ -4,6 +4,7 @@
 
 #include <build/rule>
 
+#include <utility>  // move()
 #include <iostream>
 
 using namespace std;
@@ -14,24 +15,45 @@ namespace build
 
   // default_path_rule
   //
-  recipe default_path_rule::
-  match (target& t, bool, std::string&) const
+  void* default_path_rule::
+  match (target& t, const string&) const
   {
     // @@ TODO:
     //
     // - need to assign path somehow. Get (potentially several)
     //   extensions from target type? Maybe target type should
     //   generate a list of potential paths that we can try here.
+    //   What if none of them exist, which one do we use? Should
+    //   there be a default extension, perhaps configurable via
+    //   a variable?
     //
 
     path_target& pt (dynamic_cast<path_target&> (t));
 
-    // @@ TMP: derive file name by appending target name as an extension.
-    //
     if (pt.path ().empty ())
-      pt.path (t.directory / path (pt.name + '.' + pt.type ().name));
+    {
+      path p (t.directory / path (pt.name));
 
-    return pt.mtime () != timestamp_nonexistent ? &update : nullptr;
+      // @@ TMP: derive file name by appending target name as an extension?
+      //
+      const string& e (pt.ext != nullptr ? *pt.ext : pt.type ().name);
+
+      if (!e.empty ())
+      {
+        p += '.';
+        p += e;
+      }
+
+      pt.path (move (p));
+    }
+
+    return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
+  }
+
+  recipe default_path_rule::
+  select (target&, void*) const
+  {
+    return &update;
   }
 
   target_state default_path_rule::

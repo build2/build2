@@ -21,5 +21,11 @@ namespace build
 
     const target_type cxx::static_type {
       typeid (cxx), "cxx", &file::static_type, &target_factory<cxx>};
+
+    const target_type h::static_type {
+      typeid (h), "h", &file::static_type, &target_factory<h>};
+
+    const target_type c::static_type {
+      typeid (c), "c", &file::static_type, &target_factory<c>};
   }
 }

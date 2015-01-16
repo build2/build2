@@ -1,2 +1,1 @@
-exe{driver}: obj{driver}
-obj{driver}: cxx{driver}
+exe{driver}: cxx{driver}
