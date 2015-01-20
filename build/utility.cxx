@@ -8,5 +8,7 @@ using namespace std;
 
 namespace build
 {
+  bool exception_unwinding_dtor = false;
+
   string_pool extension_pool;
 }

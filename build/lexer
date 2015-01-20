@@ -11,18 +11,14 @@
 #include <exception>
 
 #include <build/token>
+#include <build/diagnostics>
 
 namespace build
 {
-  // The handler must assume the diagnostics has already been issued.
-  //
-  struct lexer_error: std::exception {};
-
   class lexer
   {
   public:
-    lexer (std::istream& is, const std::string& name, std::ostream& diag)
-        : is_ (is), name_ (name), diag_ (diag) {}
+    lexer (std::istream& is, const std::string& name): is_ (is), fail (name) {}
 
     token
     next ();
@@ -83,16 +79,23 @@ namespace build
     token
     name (xchar);
 
-    // Utilities.
+    // Diagnostics.
     //
   private:
-    std::ostream&
-    error (const xchar&);
+    struct fail_mark_base: build::fail_mark_base<failed>
+    {
+      fail_mark_base (const std::string& n): name_ (n) {}
+
+      location_prologue
+      operator() (const xchar&) const;
+
+      std::string name_;
+    };
+    typedef diag_mark<fail_mark_base> fail_mark;
 
   private:
     std::istream& is_;
-    std::string name_;
-    std::ostream& diag_;
+    fail_mark fail;
 
     std::uint64_t l_ {1};
     std::uint64_t c_ {1};

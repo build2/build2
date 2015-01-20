@@ -22,6 +22,9 @@ lex (const char*);
 int
 main ()
 {
+  ostream cnull (nullptr);
+  diag_stream = &cnull;
+
   // Whitespaces.
   //
   assert (lex ("") == tokens ({""}));
@@ -71,8 +74,6 @@ main ()
           tokens ({"foo", ":", "\n", "bar", ""}));
 }
 
-ostream cnull (nullptr);
-
 static tokens
 lex (const char* s)
 {
@@ -80,7 +81,7 @@ lex (const char* s)
   istringstream is (s);
 
   is.exceptions (istream::failbit | istream::badbit);
-  lexer l (is, "", cnull);
+  lexer l (is, "");
 
   try
   {
@@ -106,7 +107,7 @@ lex (const char* s)
         break;
     }
   }
-  catch (const lexer_error&)
+  catch (const failed&)
   {
     r.push_back ("<lexer error>");
   }

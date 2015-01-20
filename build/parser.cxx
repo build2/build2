@@ -5,7 +5,6 @@
 #include <build/parser>
 
 #include <memory>   // unique_ptr
-#include <iostream>
 
 #include <build/token>
 #include <build/lexer>
@@ -29,9 +28,9 @@ namespace build
   void parser::
   parse (istream& is, const path& p, scope& s)
   {
-    lexer l (is, p.string (), diag_);
+    lexer l (is, p.string ());
     lexer_ = &l;
-    path_ = &p;
+    fail.path_ = &p;
     scope_ = &s;
 
     token t (type::eos, 0, 0);
@@ -41,16 +40,13 @@ namespace build
     parse_clause (t, tt);
 
     if (tt != type::eos)
-    {
-      error (t) << "unexpected " << t << endl;
-      throw parser_error ();
-    }
+      fail (t) << "unexpected " << t;
   }
 
   void parser::
   parse_clause (token& t, token_type& tt)
   {
-    tracer tr ("parser::parse_clause");
+    tracer trace ("parser::parse_clause");
 
     while (tt != type::eos)
     {
@@ -90,8 +86,7 @@ namespace build
             {
               //@@ TODO name (or better yet, type) location
 
-              error (t) << "unknown prerequisite type '" << tt << "'" << endl;
-              throw parser_error ();
+              fail (t) << "unknown prerequisite type " << tt;
             }
 
             const target_type& ti (i->second);
@@ -133,7 +128,7 @@ namespace build
             //
             prerequisite& p (
               scope_->prerequisites.insert (
-                ti, move (d), move (n), e, *scope_, tr).first);
+                ti, move (d), move (n), e, *scope_, trace).first);
 
             ps.push_back (p);
           }
@@ -190,15 +185,16 @@ namespace build
             {
               //@@ TODO name (or better yet, type) location
 
-              error (t) << "unknown target type '" << tt << "'" << endl;
-              throw parser_error ();
+              fail (t) << "unknown target type " << tt;
             }
 
             const target_type& ti (i->second);
 
             // Find or insert.
             //
-            target& t (targets.insert (ti, move (d), move (n), e, tr).first);
+            target& t (
+              targets.insert (
+                ti, move (d), move (n), e, trace).first);
 
             t.prerequisites = ps; //@@ OPT: move if last target.
 
@@ -209,10 +205,7 @@ namespace build
           if (tt == type::newline)
             next (t, tt);
           else if (tt != type::eos)
-          {
-            error (t) << "expected newline instead of " << t << endl;
-            throw parser_error ();
-          }
+            fail (t) << "expected newline instead of " << t;
 
           continue;
         }
@@ -226,10 +219,7 @@ namespace build
             // Should be on its own line.
             //
             if (next (t, tt) != type::newline)
-            {
-              error (t) << "expected newline after '{'" << endl;
-              throw parser_error ();
-            }
+              fail (t) << "expected newline after {";
 
             // See if this is a directory or target scope. Different
             // things can appear inside depending on which one it is.
@@ -243,8 +233,7 @@ namespace build
                 {
                   // @@ TODO: point to name.
                   //
-                  error (t) << "multiple names in directory scope" << endl;
-                  throw parser_error ();
+                  fail (t) << "multiple names in directory scope";
                 }
 
                 dir = true;
@@ -276,20 +265,14 @@ namespace build
             }
 
             if (tt != type::rcbrace)
-            {
-              error (t) << "expected '}' instead of " << t << endl;
-              throw parser_error ();
-            }
+              fail (t) << "expected '}' instead of " << t;
 
             // Should be on its own line.
             //
             if (next (t, tt) == type::newline)
               next (t, tt);
             else if (tt != type::eos)
-            {
-              error (t) << "expected newline after '}'" << endl;
-              throw parser_error ();
-            }
+              fail (t) << "expected newline after }";
           }
 
           continue;
@@ -298,12 +281,10 @@ namespace build
         if (tt == type::eos)
           continue;
 
-        error (t) << "expected newline insetad of " << t << endl;
-        throw parser_error ();
+        fail (t) << "expected newline insetad of " << t;
       }
 
-      error (t) << "unexpected " << t << endl;
-      throw parser_error ();
+      fail (t) << "unexpected " << t;
     }
   }
 
@@ -320,10 +301,7 @@ namespace build
         parse_names (t, tt, ns, dp, tp);
 
         if (tt != type::rcbrace)
-        {
-          error (t) << "expected '}' instead of " << t << endl;
-          throw parser_error ();
-        }
+          fail (t) << "expected '}' instead of " << t;
 
         next (t, tt);
         continue;
@@ -343,10 +321,7 @@ namespace build
           string::size_type p (name.rfind ('/')), n (name.size () - 1);
 
           if (p != n && tp != nullptr)
-          {
-            error (t) << "nested type name '" << name << "'" << endl;
-            throw parser_error ();
-          }
+            fail (t) << "nested type name " << name;
 
           path d1;
           const path* dp1 (dp);
@@ -382,10 +357,7 @@ namespace build
           parse_names (t, tt, ns, dp1, tp1);
 
           if (tt != type::rcbrace)
-          {
-            error (t) << "expected '}' instead of " << t << endl;
-            throw parser_error ();
-          }
+            fail (t) << "expected '}' instead of " << t;
 
           next (t, tt);
           continue;
@@ -400,8 +372,7 @@ namespace build
       if (!first)
         break;
 
-      error (t) << "expected name instead of " << t << endl;
-      throw parser_error ();
+      fail (t) << "expected name instead of " << t;
     }
   }
 
@@ -413,11 +384,11 @@ namespace build
     return tt;
   }
 
-  ostream& parser::
-  error (const token& t)
+  location_prologue parser::fail_mark_base::
+  operator() (const token& t) const
   {
-    return diag_ << path_->string () << ':' << t.line () << ':' <<
-      t.column () << ": error: ";
+    return build::fail_mark_base<failed>::operator() (
+      location (path_->string ().c_str (), t.line (), t.column ()));
   }
 
   // Output the token type and value in a format suitable for diagnostics.
@@ -429,10 +400,10 @@ namespace build
     {
     case token_type::eos:     os << "<end-of-stream>"; break;
     case token_type::newline: os << "<newline>"; break;
-    case token_type::colon:   os << "':'"; break;
-    case token_type::lcbrace: os << "'{'"; break;
-    case token_type::rcbrace: os << "'}'"; break;
-    case token_type::name:    os << '\'' << t.name () << '\''; break;
+    case token_type::colon:   os << ":"; break;
+    case token_type::lcbrace: os << "{"; break;
+    case token_type::rcbrace: os << "}"; break;
+    case token_type::name:    os << t.name (); break;
     }
 
     return os;

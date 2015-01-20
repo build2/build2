@@ -13,13 +13,13 @@
 
 #include <build/path>
 #include <build/utility> // extension_pool
+#include <build/diagnostics>
 
 namespace build
 {
   class scope;
   class target;
   class target_type;
-  class tracer;
 
   class prerequisite
   {

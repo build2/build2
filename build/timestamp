@@ -38,10 +38,10 @@ namespace build
   const timestamp timestamp_nonexistent {duration {0}};
 
   std::ostream&
-  operator<< (std::ostream&, timestamp);
+  operator<< (std::ostream&, const timestamp&);
 
   std::ostream&
-  operator<< (std::ostream&, duration);
+  operator<< (std::ostream&, const duration&);
 
   // Returns timestamp_nonexistent if the entry at the specified path
   // does not exist. All other errors are reported by throwing

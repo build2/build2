@@ -1,4 +1,3 @@
-exe{b1}: cxx{b algorithm scope parser lexer trace target prerequisite rule \
+exe{b1}: cxx{b algorithm scope parser lexer target prerequisite rule \
   native context diagnostics cxx/target cxx/rule process timestamp path \
   utility}
-

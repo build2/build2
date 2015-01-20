@@ -13,7 +13,7 @@
 #include <vector>
 #include <cassert>
 #include <fstream>
-#include <iostream>
+#include <iostream>  //@@ TMP, for dump()
 #include <typeinfo>
 #include <system_error>
 
@@ -25,6 +25,7 @@
 #include <build/process>
 #include <build/diagnostics>
 #include <build/context>
+#include <build/utility>
 
 #include <build/lexer>
 #include <build/parser>
@@ -44,7 +45,7 @@ namespace build
     {
       if (!match (t))
       {
-        cerr << "error: no rule to update target " << t << endl;
+        error << "no rule to update target " << t;
         return false;
       }
     }
@@ -60,7 +61,7 @@ namespace build
 
       if (!match_recursive (*p.target))
       {
-        cerr << "info: required by " << t << endl;
+        info << "required by " << t;
         return false;
       }
     }
@@ -73,7 +74,10 @@ namespace build
   {
     assert (t.state () == target_state::unknown);
 
-    target_state ts;
+    auto g (
+      make_exception_guard (
+        [](target& t){info << "while building target " << t;},
+        t));
 
     for (prerequisite& p: t.prerequisites)
     {
@@ -81,26 +85,19 @@ namespace build
 
       if (pt.state () == target_state::unknown)
       {
-        pt.state ((ts = update (pt)));
+        target_state ts (update (pt));
 
         if (ts == target_state::failed)
           return ts;
       }
     }
 
+    // @@ Why do we indicate failure via code rather than throw? Now
+    //    there is no diagnostics via exception_guard above.
+
     const recipe& r (t.recipe ());
 
-    {
-      auto g (
-        make_exception_guard (
-          [] (target& t)
-          {
-            cerr << "info: while building target " << t << endl;
-          },
-          t));
-
-      ts = r (t);
-    }
+    target_state ts (r (t));
 
     assert (ts != target_state::unknown);
     t.state (ts);
@@ -142,142 +139,128 @@ using namespace build;
 int
 main (int argc, char* argv[])
 {
-  tracer tr ("main");
-
-  // Initialize time conversion data that is used by localtime_r().
-  //
-  tzset ();
-
-  // Trace verbosity.
-  //
-  verb = 5;
-
-  // Register target types.
-  //
-  target_types.insert (file::static_type);
-
-  target_types.insert (exe::static_type);
-  target_types.insert (obj::static_type);
-
-  target_types.insert (cxx::h::static_type);
-  target_types.insert (cxx::c::static_type);
-
-  target_types.insert (cxx::cxx::static_type);
-  target_types.insert (cxx::hxx::static_type);
-  target_types.insert (cxx::ixx::static_type);
-  target_types.insert (cxx::txx::static_type);
-
-  // Figure out directories: work, home, and {src,out}_{root,base}.
-  //
-  work = path::current ();
-
-  if (const char* h = getenv ("HOME"))
-    home = path (h);
-  else
-  {
-    struct passwd* pw (getpwuid (getuid ()));
-
-    if (pw == nullptr)
-    {
-      const char* msg (strerror (errno));
-      cerr << "error: unable to determine home directory: " << msg << endl;
-      return 1;
-    }
-
-    home = path (pw->pw_dir);
-  }
-
-  //@@ Must be normalized.
-  //
-  out_base = work;
-  src_base = out_base;
-
-  // The project's root directory is the one that contains the build/
-  // sub-directory which contains the pre.build file.
-  //
-  for (path d (src_base); !d.root () && d != home; d = d.directory ())
-  {
-    path f (d / path ("build/pre.build"));
-    if (path_mtime (f) != timestamp_nonexistent)
-    {
-      src_root = d;
-      break;
-    }
-  }
-
-  if (src_root.empty ())
-  {
-    src_root = src_base;
-    out_root = out_base;
-  }
-  else
-    out_root = out_base.directory (src_base.leaf (src_root));
-
-  if (verb >= 4)
-  {
-    tr << "work dir: " << work.string ();
-    tr << "home dir: " << home.string ();
-    tr << "out_base: " << out_base.string ();
-    tr << "src_base: " << src_base.string ();
-    tr << "out_root: " << out_root.string ();
-    tr << "src_root: " << src_root.string ();
-  }
-
-  // Parse buildfile.
-  //
-  path bf ("buildfile");
-
-  ifstream ifs (bf.string ().c_str ());
-  if (!ifs.is_open ())
-  {
-    cerr << "error: unable to open " << bf << " in read mode" << endl;
-    return 1;
-  }
-
-  ifs.exceptions (ifstream::failbit | ifstream::badbit);
-  parser p (cerr);
-
   try
   {
-    p.parse (ifs, bf, scopes[path::current ()]);
-  }
-  catch (const lexer_error&)
-  {
-    return 1; // Diagnostics has already been issued.
-  }
-  catch (const parser_error&)
-  {
-    return 1; // Diagnostics has already been issued.
-  }
-  catch (const std::ios_base::failure&)
-  {
-    cerr << "error: failed to read from " << bf << endl;
-    return 1;
-  }
+    tracer trace ("main");
 
-  dump ();
+    // Initialize time conversion data that is used by localtime_r().
+    //
+    tzset ();
 
-  // Register rules.
-  //
-  cxx::link cxx_link;
-  rules[typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+    // Trace verbosity.
+    //
+    verb = 5;
 
-  cxx::compile cxx_compile;
-  rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+    // Register target types.
+    //
+    target_types.insert (file::static_type);
 
-  default_path_rule path_exists;
-  rules[typeid (path_target)].emplace ("", path_exists);
+    target_types.insert (exe::static_type);
+    target_types.insert (obj::static_type);
 
-  // Build.
-  //
-  if (default_target == nullptr)
-  {
-    cerr << "error: no default target" << endl;
-    return 1;
-  }
+    target_types.insert (cxx::h::static_type);
+    target_types.insert (cxx::c::static_type);
 
-  try
-  {
+    target_types.insert (cxx::cxx::static_type);
+    target_types.insert (cxx::hxx::static_type);
+    target_types.insert (cxx::ixx::static_type);
+    target_types.insert (cxx::txx::static_type);
+
+    // Figure out directories: work, home, and {src,out}_{root,base}.
+    //
+    work = path::current ();
+
+    if (const char* h = getenv ("HOME"))
+      home = path (h);
+    else
+    {
+      struct passwd* pw (getpwuid (getuid ()));
+
+      if (pw == nullptr)
+      {
+        const char* msg (strerror (errno));
+        fail << "unable to determine home directory: " << msg;
+      }
+
+      home = path (pw->pw_dir);
+    }
+
+    //@@ Must be normalized.
+    //
+    out_base = work;
+    src_base = out_base;
+
+    // The project's root directory is the one that contains the build/
+    // sub-directory which contains the pre.build file.
+    //
+    for (path d (src_base); !d.root () && d != home; d = d.directory ())
+    {
+      path f (d / path ("build/pre.build"));
+      if (path_mtime (f) != timestamp_nonexistent)
+      {
+        src_root = d;
+        break;
+      }
+    }
+
+    if (src_root.empty ())
+    {
+      src_root = src_base;
+      out_root = out_base;
+    }
+    else
+      out_root = out_base.directory (src_base.leaf (src_root));
+
+    if (verb >= 4)
+    {
+      trace << "work dir: " << work.string ();
+      trace << "home dir: " << home.string ();
+      trace << "out_base: " << out_base.string ();
+      trace << "src_base: " << src_base.string ();
+      trace << "out_root: " << out_root.string ();
+      trace << "src_root: " << src_root.string ();
+    }
+
+    // Parse buildfile.
+    //
+    path bf ("buildfile");
+
+    ifstream ifs (bf.string ().c_str ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << bf;
+
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+    parser p;
+
+    try
+    {
+      p.parse (ifs, bf, scopes[path::current ()]);
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << bf;
+    }
+
+    dump ();
+
+    // Register rules.
+    //
+    cxx::link cxx_link;
+    rules[typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+
+    cxx::compile cxx_compile;
+    rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+
+    default_path_rule path_exists;
+    rules[typeid (path_target)].emplace ("", path_exists);
+
+    // Build.
+    //
+    if (default_target == nullptr)
+    {
+      fail << "no default target";
+    }
+
     target& d (*default_target);
 
     if (!match_recursive (d))
@@ -289,27 +272,26 @@ main (int argc, char* argv[])
     {
     case target_state::uptodate:
       {
-        cerr << "info: target " << d << " is up to date" << endl;
+        info << "target " << d << " is up to date";
         break;
       }
     case target_state::updated:
       break;
     case target_state::failed:
       {
-        cerr << "error: failed to update target " << d << endl;
-        return 1;
+        fail << "failed to update target " << d;
       }
     case target_state::unknown:
       assert (false);
     }
   }
-  catch (const error&)
+  catch (const failed&)
   {
     return 1; // Diagnostics has already been issued.
   }
   catch (const std::exception& e)
   {
-    cerr << "error: " << e.what () << endl;
+    error << e.what ();
     return 1;
   }
 }

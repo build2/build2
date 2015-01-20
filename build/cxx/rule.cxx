@@ -9,7 +9,6 @@
 #include <cstddef>  // size_t
 #include <cstdlib>  // exit
 #include <utility>  // move()
-#include <iostream>
 
 #include <ext/stdio_filebuf.h>
 
@@ -31,7 +30,7 @@ namespace build
     void* compile::
     match (target& t, const string&) const
     {
-      tracer tr ("cxx::compile::match");
+      tracer trace ("cxx::compile::match");
 
       // @@ TODO:
       //
@@ -57,7 +56,7 @@ namespace build
           return &p;
       }
 
-      trace (3, [&]{tr << "no c++ source file for target " << t;});
+      level3 ([&]{trace << "no c++ source file for target " << t;});
       return nullptr;
     }
 
@@ -139,7 +138,7 @@ namespace build
     void compile::
     inject_prerequisites (obj& o, const cxx& s, scope& ds) const
     {
-      tracer tr ("cxx::compile::inject_prerequisites");
+      tracer trace ("cxx::compile::inject_prerequisites");
 
       // We are using absolute source file path in order to get
       // absolute paths in the result.
@@ -157,8 +156,7 @@ namespace build
       if (verb >= 2)
         print_process (args);
 
-      if (verb >= 5)
-        tr << "target: " << o;
+      level5 ([&]{trace << "target: " << o;});
 
       try
       {
@@ -173,10 +171,7 @@ namespace build
           getline (is, l);
 
           if (is.fail () && !is.eof ())
-          {
-            cerr << "error: io error while parsing g++ -M output" << endl;
-            throw error ();
-          }
+            fail << "io error while parsing g++ -M output";
 
           size_t pos (0);
 
@@ -199,8 +194,7 @@ namespace build
             path file (next (l, pos));
             file.normalize ();
 
-            if (verb >= 5)
-              tr << "prerequisite path: " << file.string ();
+            level5 ([&]{trace << "prerequisite path: " << file.string ();});
 
             // If there is no extension (e.g., standard C++ headers),
             // then assume it is a header. Otherwise, let the standard
@@ -223,7 +217,7 @@ namespace build
             //
             prerequisite& p (
               ds.prerequisites.insert (
-                hxx::static_type, move (d), move (n), e, ds, tr).first);
+                hxx::static_type, move (d), move (n), e, ds, trace).first);
 
             // Resolve to target so that we can assign its path.
             //
@@ -241,12 +235,11 @@ namespace build
         // We assume the child process issued some diagnostics.
         //
         if (!pr.wait ())
-          throw error ();
+          throw failed ();
       }
       catch (const process_error& e)
       {
-        cerr << "error: unable to execute '" << args[0] << "': " <<
-          e.what () << endl;
+        error << "unable to execute " << args[0] << ": " << e.what ();
 
         // In a multi-threaded program that fork()'ed but did not exec(),
         // it is unwise to try to do any kind of cleanup (like unwinding
@@ -255,7 +248,7 @@ namespace build
         if (e.child ())
           exit (1);
 
-        throw error ();
+        throw failed ();
       }
     }
 
@@ -319,7 +312,7 @@ namespace build
       if (verb >= 1)
         print_process (args);
       else
-        cerr << "c++ " << *s << endl;
+        text << "c++ " << *s;
 
       try
       {
@@ -338,8 +331,7 @@ namespace build
       }
       catch (const process_error& e)
       {
-        cerr << "error: unable to execute '" << args[0] << "': " <<
-          e.what () << endl;
+        error << "unable to execute " << args[0] << ": " << e.what ();
 
         // In a multi-threaded program that fork()'ed but did not exec(),
         // it is unwise to try to do any kind of cleanup (like unwinding
@@ -357,7 +349,7 @@ namespace build
     void* link::
     match (target& t, const string& hint) const
     {
-      tracer tr ("cxx::link::match");
+      tracer trace ("cxx::link::match");
 
       // @@ TODO:
       //
@@ -395,7 +387,7 @@ namespace build
         }
         else
         {
-          trace (3, [&]{tr << "unexpected prerequisite type " << p.type;});
+          level3 ([&]{trace << "unexpected prerequisite type " << p.type;});
           return nullptr;
         }
       }
@@ -405,7 +397,7 @@ namespace build
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
-        trace (3, [&]{tr << "c prerequisite(s) without c++ or hint";});
+        level3 ([&]{trace << "c prerequisite(s) without c++ or hint";});
         return nullptr;
       }
 
@@ -415,7 +407,7 @@ namespace build
     recipe link::
     select (target& t, void*) const
     {
-      tracer tr ("cxx::link::select");
+      tracer trace ("cxx::link::select");
 
       // Derive executable file name from target name.
       //
@@ -449,10 +441,8 @@ namespace build
         {
           if (!cp.directory.sub (src_root))
           {
-            cerr << "error: out of project prerequisite " << cp << endl;
-            cerr << "info: specify corresponding obj{} target explicitly"
-                 << endl;
-            throw error ();
+            fail << "out of project prerequisite " << cp <<
+              info << "specify corresponding obj{} target explicitly";
           }
 
           d = out_root / cp.directory.leaf (src_root);
@@ -460,7 +450,12 @@ namespace build
 
         prerequisite& op (
           cp.scope.prerequisites.insert (
-            obj::static_type, move (d), cp.name, nullptr, cp.scope, tr).first);
+            obj::static_type,
+            move (d),
+            cp.name,
+            nullptr,
+            cp.scope,
+            trace).first);
 
         // Resolve this prerequisite to target.
         //
@@ -495,20 +490,18 @@ namespace build
             }
           }
 
-          cerr << "error: synthesized target for prerequisite " << cp
-               << " would be incompatible with existing target " << ot
-               << endl;
+          diag_record r;
+
+          r << fail << "synthesized target for prerequisite " << cp
+            << " would be incompatible with existing target " << ot;
 
           if (p.type.id == typeid (cxx))
-            cerr << "info: existing prerequsite " << p << " does not "
-                 << "match " << cp << endl;
+            r << info << "existing prerequsite " << p << " does not "
+              << "match " << cp;
           else
-            cerr << "info: unknown existing prerequsite " << p << endl;
+            r << info << "unknown existing prerequsite " << p;
 
-          cerr << "info: specify corresponding obj{} target explicitly"
-               << endl;
-
-          throw error ();
+          r << info << "specify corresponding obj{} target explicitly";
         }
 
         if (add)
@@ -583,7 +576,7 @@ namespace build
       if (verb >= 1)
         print_process (args);
       else
-        cerr << "ld " << e << endl;
+        text << "ld " << e;
 
       try
       {
@@ -602,8 +595,7 @@ namespace build
       }
       catch (const process_error& e)
       {
-        cerr << "error: unable to execute '" << args[0] << "': " <<
-          e.what () << endl;
+        error << "unable to execute " << args[0] << ": " << e.what ();
 
         // In a multi-threaded program that fork()'ed but did not exec(),
         // it is unwise to try to do any kind of cleanup (like unwinding

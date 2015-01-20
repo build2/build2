@@ -9,10 +9,9 @@
 #include <vector>
 #include <iosfwd>
 #include <utility>   // std::move
-#include <exception>
-
 
 #include <build/path>
+#include <build/diagnostics>
 
 namespace build
 {
@@ -22,15 +21,11 @@ namespace build
   enum class token_type;
   class lexer;
 
-  // The handler must assume the diagnostics has already been issued.
-  //
-  struct parser_error: std::exception {};
-
   class parser
   {
   public:
-    parser (std::ostream& diag): diag_ (diag) {}
-
+    // Issues diagnostics and throws failed in case of an error.
+    //
     void
     parse (std::istream&, const path&, scope&);
 
@@ -70,14 +65,22 @@ namespace build
     token_type
     next (token&, token_type&);
 
-    std::ostream&
-    error (const token&);
+    // Diagnostics.
+    //
+  private:
+    struct fail_mark_base: build::fail_mark_base<failed>
+    {
+      location_prologue
+      operator() (const token&) const;
+
+      const path* path_;
+    };
+    typedef diag_mark<fail_mark_base> fail_mark;
 
   private:
-    std::ostream& diag_;
+    fail_mark fail;
 
     lexer* lexer_;
-    const path* path_;
     scope* scope_;
   };
 }

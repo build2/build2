@@ -7,13 +7,13 @@
 #include <memory>   // unique_ptr
 #include <utility>  // move
 #include <cassert>
-#include <iostream>
 
 #include <build/path>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
 #include <build/rule>
+#include <build/utility>
 #include <build/diagnostics>
 
 using namespace std;
@@ -23,7 +23,7 @@ namespace build
   target&
   search (prerequisite& p)
   {
-    tracer tr ("search");
+    tracer trace ("search");
 
     assert (p.target == nullptr);
 
@@ -40,11 +40,10 @@ namespace build
 
     // Find or insert.
     //
-    auto r (targets.insert (p.type, move (d), p.name, p.ext, tr));
+    auto r (targets.insert (p.type, move (d), p.name, p.ext, trace));
 
-    trace (4, [&]{
-        tr << (r.second ? "new" : "existing") << " target " << r.first
-           << " for prerequsite " << p;});
+    level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
+                      << r.first << " for prerequsite " << p;});
 
     p.target = &r.first;
     return r.first;
@@ -81,10 +80,9 @@ namespace build
         {
           auto g (
             make_exception_guard (
-              [] (target& t, const string& n)
+              [](target& t, const string& n)
               {
-                cerr << "info: while matching rule " << n
-                     << " for target " << t << endl;
+                info << "while matching rule " << n << " for target " << t;
               },
               t, n));
 
@@ -97,6 +95,8 @@ namespace build
           //
           bool ambig (false);
 
+          diag_record dr;
+
           for (++i; i != rs.second; ++i)
           {
             const string& n1 (i->first);
@@ -106,10 +106,10 @@ namespace build
             {
               auto g (
                 make_exception_guard (
-                  [] (target& t, const string& n1)
+                  [](target& t, const string& n1)
                   {
-                    cerr << "info: while matching rule " << n1
-                         << " for target " << t << endl;
+                    info << "while matching rule " << n1 << " for target "
+                         << t;
                   },
                   t, n1));
 
@@ -120,23 +120,22 @@ namespace build
             {
               if (!ambig)
               {
-                cerr << "error: multiple rules matching target " << t << endl;
-                cerr << "info: rule " << n << " matches" << endl;
+                dr << fail << "multiple rules matching target " << t
+                   << info << "rule " << n << " matches";
                 ambig = true;
               }
 
-              cerr << "info: rule " << n1 << " also matches" << endl;
+              dr << info << "rule " << n1 << " also matches";
             }
           }
 
-          if (ambig)
+          if (!ambig)
           {
-            cerr << "info: use rule hint to disambiguate this match" << endl;
-            throw error ();
+            t.recipe (ru.select (t, m));
+            break;
           }
-
-          t.recipe (ru.select (t, m));
-          break;
+          else
+            dr << info << "use rule hint to disambiguate this match";
         }
       }
     }

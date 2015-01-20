@@ -82,7 +82,7 @@ namespace build
           std::string name,
           const std::string* ext,
           scope& s,
-          tracer& tr) -> pair<prerequisite&, bool>
+          tracer& trace) -> pair<prerequisite&, bool>
   {
     //@@ OPT: would be nice to somehow first check if this prerequisite is
     //   already in the set before allocating a new instance.
@@ -96,8 +96,8 @@ namespace build
     //
     if (p.ext != ext)
     {
-      trace (4, [&]{
-          tracer::record r (tr);
+      level4 ([&]{
+          diag_record r (trace);
           r << "assuming prerequisite " << p << " is the same as the "
             << "one with ";
           if (ext == nullptr)

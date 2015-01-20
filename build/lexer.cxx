@@ -4,8 +4,6 @@
 
 #include <build/lexer>
 
-#include <iostream>
-
 using namespace std;
 
 namespace build
@@ -56,8 +54,7 @@ namespace build
     if (!is_eos (c))
       return c;
 
-    error (c) << "unterminated escape sequence" << endl;
-    throw lexer_error ();
+    fail (c) << "unterminated escape sequence";
   }
 
   void lexer::
@@ -217,10 +214,10 @@ namespace build
     unget_ = true;
   }
 
-  ostream& lexer::
-  error (const xchar& c)
+  location_prologue lexer::fail_mark_base::
+  operator() (const xchar& c) const
   {
-    return diag_ << name_ << ':' << c.line () << ':' <<
-      c.column () << ": error: ";
+    return build::fail_mark_base<failed>::operator() (
+      location (name_.c_str (), c.line (), c.column ()));
   }
 }

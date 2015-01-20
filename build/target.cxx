@@ -43,7 +43,7 @@ namespace build
           path dir,
           std::string name,
           const std::string* ext,
-          tracer& tr) -> pair<target&, bool>
+          tracer& trace) -> pair<target&, bool>
   {
     //@@ OPT: would be nice to somehow first check if this target is
     //   already in the set before allocating a new instance.
@@ -60,8 +60,8 @@ namespace build
     //
     if (t.ext != ext)
     {
-      trace (4, [&]{
-          tracer::record r (tr);
+      level4 ([&]{
+          diag_record r (trace);
           r << "assuming target " << t << " is the same as the one with ";
           if (ext == nullptr)
             r << "unspecified extension";

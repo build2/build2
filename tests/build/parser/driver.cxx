@@ -23,6 +23,9 @@ parse (const char*);
 int
 main ()
 {
+  ostream cnull (nullptr);
+  diag_stream = &cnull;
+
   target_types.insert (file::static_type);
   target_types.insert (exe::static_type);
   target_types.insert (obj::static_type);
@@ -78,22 +81,19 @@ main ()
   assert (!parse ("test/ foo/:\n{\n}"));
 }
 
-ostream cnull (nullptr);
-
 static bool
 parse (const char* s)
 {
   istringstream is (s);
 
   is.exceptions (istream::failbit | istream::badbit);
-  parser p (cnull);
-  //parser p (cerr);
+  parser p;
 
   try
   {
     p.parse (is, path (), scopes[path::current ()]);
   }
-  catch (const parser_error&)
+  catch (const failed&)
   {
     return false;
   }

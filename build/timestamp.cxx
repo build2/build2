@@ -58,7 +58,7 @@ namespace build
   }
 
   ostream&
-  operator<< (ostream& os, timestamp ts)
+  operator<< (ostream& os, const timestamp& ts)
   {
     // @@ replace with put_time()
     //
@@ -97,7 +97,7 @@ namespace build
   }
 
   ostream&
-  operator<< (ostream& os, duration d)
+  operator<< (ostream& os, const duration& d)
   {
     // @@ replace with put_time()
     //

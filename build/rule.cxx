@@ -5,7 +5,8 @@
 #include <build/rule>
 
 #include <utility>  // move()
-#include <iostream>
+
+#include <build/diagnostics>
 
 using namespace std;
 
@@ -74,9 +75,9 @@ namespace build
       {
         if (mt < mtp->mtime ())
         {
-          cerr << "error: no rule to update target " << t << endl
-               << "info: prerequisite " << pt << " is ahead of " << t <<
-            " by " << (mtp->mtime () - mt) << endl;
+          error << "no rule to update target " << t <<
+            info << "prerequisite " << pt << " is ahead of " << t
+                << " by " << (mtp->mtime () - mt);
 
           return target_state::failed;
         }
@@ -87,9 +88,9 @@ namespace build
         //
         if (pt.state () == target_state::updated)
         {
-          cerr << "error: no rule to update target " << t << endl
-               << "info: prerequisite " << pt << " is ahead of " << t <<
-            " because it was updated" << endl;
+          error << "no rule to update target " << t <<
+            info << "prerequisite " << pt << " is ahead of " << t
+                << " because it was updated";
 
           return target_state::failed;
         }
