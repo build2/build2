@@ -8,22 +8,23 @@
 #include <string>
 #include <vector>
 #include <iosfwd>
-#include <utility>   // std::move
+#include <utility>       // std::move
+#include <unordered_set>
 
 #include <build/path>
+#include <build/token>
 #include <build/diagnostics>
 
 namespace build
 {
   class scope;
-
-  class token;
-  enum class token_type;
   class lexer;
 
   class parser
   {
   public:
+    parser (): fail (&path_) {}
+
     // Issues diagnostics and throws failed in case of an error.
     //
     void
@@ -47,6 +48,15 @@ namespace build
     void
     parse_clause (token&, token_type&);
 
+    void
+    parse_print (token&, token_type&);
+
+    void
+    parse_source (token&, token_type&);
+
+    void
+    parse_include (token&, token_type&);
+
     names
     parse_names (token& t, token_type& tt)
     {
@@ -65,23 +75,23 @@ namespace build
     token_type
     next (token&, token_type&);
 
+    token_type
+    peek ();
+
     // Diagnostics.
     //
   private:
-    struct fail_mark_base: build::fail_mark_base<failed>
-    {
-      location_prologue
-      operator() (const token&) const;
-
-      const path* path_;
-    };
-    typedef diag_mark<fail_mark_base> fail_mark;
+    const fail_mark<failed> fail;
 
   private:
-    fail_mark fail;
-
+    const std::string* path_; // Path processed by diagnostic_string().
     lexer* lexer_;
     scope* scope_;
+
+    token peek_ {token_type::eos, 0, 0};
+    bool peeked_ {false};
+
+    std::unordered_set<path> include_;
   };
 }
 

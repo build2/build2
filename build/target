@@ -209,6 +209,20 @@ namespace build
     virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
   };
+
+  // Directory alias/action target. Note that it is not mtime-based.
+  // Rather it is meant to represent a group of targets. For actual
+  // filesystem directory (creation), see fsdir.
+  //
+  class dir: public target
+  {
+  public:
+    using target::target;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
 }
 
 #endif // BUILD_TARGET

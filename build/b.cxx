@@ -154,6 +154,7 @@ main (int argc, char* argv[])
     // Register target types.
     //
     target_types.insert (file::static_type);
+    target_types.insert (dir::static_type);
 
     target_types.insert (exe::static_type);
     target_types.insert (obj::static_type);
@@ -225,7 +226,7 @@ main (int argc, char* argv[])
     //
     path bf ("buildfile");
 
-    ifstream ifs (bf.string ().c_str ());
+    ifstream ifs (bf.string ());
     if (!ifs.is_open ())
       fail << "unable to open " << bf;
 
@@ -251,8 +252,11 @@ main (int argc, char* argv[])
     cxx::compile cxx_compile;
     rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
 
-    default_path_rule path_exists;
-    rules[typeid (path_target)].emplace ("", path_exists);
+    dir_rule dir_r;
+    rules[typeid (dir)].emplace ("", dir_r);
+
+    path_rule path_r;
+    rules[typeid (path_target)].emplace ("", path_r);
 
     // Build.
     //

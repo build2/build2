@@ -31,7 +31,22 @@ namespace build
 
   extern rule_map rules;
 
-  class default_path_rule: public rule
+  // Fallback rule that check that the path exists.
+  //
+  class path_rule: public rule
+  {
+  public:
+    virtual void*
+    match (target&, const std::string& hint) const;
+
+    virtual recipe
+    select (target&, void*) const;
+
+    static target_state
+    update (target&);
+  };
+
+  class dir_rule: public rule
   {
   public:
     virtual void*

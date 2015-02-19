@@ -385,6 +385,19 @@ namespace build
   */
 }
 
+namespace std
+{
+  template <typename C>
+  struct hash<build::basic_path<C>>: hash<basic_string<C>>
+  {
+    size_t
+    operator() (const build::basic_path<C>& p) const
+    {
+      return hash<basic_string<C>>::operator() (p.string ());
+    }
+  };
+}
+
 #include <build/path.ixx>
 #include <build/path.txx>
 

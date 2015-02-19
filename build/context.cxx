@@ -5,6 +5,7 @@
 #include <build/context>
 
 #include <ostream>
+#include <cassert>
 
 using namespace std;
 
@@ -18,6 +19,20 @@ namespace build
 
   path src_base;
   path out_base;
+
+  path
+  src_out (const path& o)
+  {
+    assert (o.sub (out_root));
+    return src_root / o.leaf (out_root);
+  }
+
+  path
+  out_src (const path& s)
+  {
+    assert (s.sub (src_root));
+    return out_root / s.leaf (src_root);
+  }
 
   path
   translate (const path& p)

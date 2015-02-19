@@ -1,0 +1,8 @@
+source
+source sourcee1
+source sourcee1 ../source/sourcee2
+nested/:
+{
+  source sourcee3
+  source ../sourcee1
+}

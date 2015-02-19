@@ -1,0 +1,9 @@
+include
+include includee1
+include includee1 ../include/includee2 # includee1 is skipped
+include nested/includee3
+nested/:
+{
+  include includee5
+  include ../includee2 # skipped
+}

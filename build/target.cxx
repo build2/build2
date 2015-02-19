@@ -11,6 +11,11 @@ using namespace std;
 
 namespace build
 {
+  // target_type
+  //
+  const target_type*
+  resolve_target_type (const std::string name);
+
   // target
   //
   ostream&
@@ -23,7 +28,12 @@ namespace build
       string s (diagnostic_string (t.directory));
 
       if (!s.empty ())
-        os << s << path::traits::directory_separator;
+      {
+        os << s;
+
+        if (!t.name.empty ())
+          os << path::traits::directory_separator;
+      }
     }
 
     os << t.name;
@@ -79,7 +89,6 @@ namespace build
   }
 
   target_set targets;
-
   target* default_target = nullptr;
   target_type_map target_types;
 
@@ -103,4 +112,7 @@ namespace build
 
   const target_type file::static_type {
     typeid (file), "file", &path_target::static_type, &target_factory<file>};
+
+  const target_type dir::static_type {
+    typeid (dir), "dir", &target::static_type, &target_factory<dir>};
 }

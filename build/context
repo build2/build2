@@ -21,6 +21,15 @@ namespace build
   extern path src_base;
   extern path out_base;
 
+  // Return the src/out directory corresponding to the given out/src. The
+  // passed directory should be a sub-directory of out/src_root.
+  //
+  path
+  src_out (const path&);
+
+  path
+  out_src (const path&);
+
   // If possible, translate an absolute, normalized path into relative to
   // the work directory.
   //

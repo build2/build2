@@ -14,9 +14,9 @@ namespace build
 {
   rule_map rules;
 
-  // default_path_rule
+  // path_rule
   //
-  void* default_path_rule::
+  void* path_rule::
   match (target& t, const string&) const
   {
     // @@ TODO:
@@ -51,13 +51,13 @@ namespace build
     return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
   }
 
-  recipe default_path_rule::
+  recipe path_rule::
   select (target&, void*) const
   {
     return &update;
   }
 
-  target_state default_path_rule::
+  target_state path_rule::
   update (target& t)
   {
     // Make sure the target is not older than any of its prerequisites.
@@ -95,6 +95,34 @@ namespace build
           return target_state::failed;
         }
       }
+    }
+
+    return target_state::uptodate;
+  }
+
+  // dir_rule
+  //
+  void* dir_rule::
+  match (target& t, const string&) const
+  {
+    return &t;
+  }
+
+  recipe dir_rule::
+  select (target&, void*) const
+  {
+    return &update;
+  }
+
+  target_state dir_rule::
+  update (target& t)
+  {
+    for (const prerequisite& p: t.prerequisites)
+    {
+      auto ts (p.target->state ());
+
+      if (ts != target_state::uptodate)
+        return ts; // updated or failed
     }
 
     return target_state::uptodate;

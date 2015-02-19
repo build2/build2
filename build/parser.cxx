@@ -5,6 +5,9 @@
 #include <build/parser>
 
 #include <memory>   // unique_ptr
+#include <fstream>
+#include <utility>  // move()
+#include <iostream>
 
 #include <build/token>
 #include <build/lexer>
@@ -13,6 +16,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/diagnostics>
+#include <build/context>
 
 using namespace std;
 
@@ -23,14 +27,37 @@ namespace build
   ostream&
   operator<< (ostream&, const token&);
 
+  static location
+  get_location (const token&, const void*);
+
   typedef token_type type;
+
+  // Given a target or prerequisite name, figure out its type, taking
+  // into account extensions, trailing '/', or anything else that might
+  // be relevant.
+  //
+  static const char*
+  find_target_type (const string& n, const string* e)
+  {
+    // Empty name or a name ending with a directory separator
+    // signifies a directory.
+    //
+    if (n.empty () || path::traits::is_separator (n.back ()))
+      return "dir";
+
+    //@@ TODO: derive type from extension.
+    //
+    return "file";
+  }
 
   void parser::
   parse (istream& is, const path& p, scope& s)
   {
+    string ds (diagnostic_string (p));
+    path_ = &ds;
+
     lexer l (is, p.string ());
     lexer_ = &l;
-    fail.path_ = &p;
     scope_ = &s;
 
     token t (type::eos, 0, 0);
@@ -46,176 +73,62 @@ namespace build
   void parser::
   parse_clause (token& t, token_type& tt)
   {
-    tracer trace ("parser::parse_clause");
+    tracer trace ("parser::parse_clause", &path_);
 
     while (tt != type::eos)
     {
       // We always start with one or more names.
       //
-      if (tt != type::name && tt != type::lcbrace)
+      if (tt != type::name && tt != type::lcbrace && tt != type::colon)
         break; // Something else. Let our caller handle that.
 
-      names tns (parse_names (t, tt));
+      // See if this is one of the keywords.
+      //
+      if (tt == type::name)
+      {
+        const string& n (t.name ());
+
+        if (n == "print")
+        {
+          // @@ Is this the only place where it is valid? Probably also
+          // in var namespace.
+          //
+          next (t, tt);
+          parse_print (t, tt);
+          continue;
+        }
+        else if (n == "source")
+        {
+          next (t, tt);
+          parse_source (t, tt);
+          continue;
+        }
+        else if (n == "include")
+        {
+          next (t, tt);
+          parse_include (t, tt);
+          continue;
+        }
+      }
+
+      // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
+      //
+      names tns (tt != type::colon
+                 ? parse_names (t, tt)
+                 : names({name_type ("", path (), "")}));
 
       if (tt == type::colon)
       {
         next (t, tt);
 
-        // Dependency declaration.
-        //
-        if (tt == type::name || tt == type::lcbrace)
-        {
-          names pns (parse_names (t, tt));
-
-          // Prepare the prerequisite list.
-          //
-          target::prerequisites_type ps;
-          ps.reserve (pns.size ());
-
-          for (auto& pn: pns)
-          {
-            // Resolve prerequisite type.
-            //
-            //@@ TODO: derive type from extension, factor to common function
-            //
-            const char* tt (pn.type.empty () ? "file" : pn.type.c_str ());
-
-            auto i (target_types.find (tt));
-
-            if (i == target_types.end ())
-            {
-              //@@ TODO name (or better yet, type) location
-
-              fail (t) << "unknown prerequisite type " << tt;
-            }
-
-            const target_type& ti (i->second);
-
-            // We need to split the path into its directory part (if any)
-            // the name part, and the extension (if any). We cannot assume
-            // the name part is a valid filesystem name so we will have
-            // to do the splitting manually.
-            //
-            path d (pn.dir);
-            string n;
-            const string* e (nullptr);
-
-            {
-              path::size_type i (path::traits::rfind_separator (pn.name));
-
-              if (i == string::npos)
-                n = move (pn.name); // NOTE: steal!
-              else
-              {
-                d /= path (pn.name, i);
-                n.assign (pn.name, i + 1, string::npos);
-              }
-
-              d.normalize ();
-
-              // Extract extension.
-              //
-              string::size_type j (n.rfind ('.'));
-
-              if (j != string::npos)
-              {
-                e = &extension_pool.find (n.c_str () + j + 1);
-                n.resize (j);
-              }
-            }
-
-            // Find or insert.
-            //
-            prerequisite& p (
-              scope_->prerequisites.insert (
-                ti, move (d), move (n), e, *scope_, trace).first);
-
-            ps.push_back (p);
-          }
-
-          for (auto& tn: tns)
-          {
-            path d (tn.dir);
-            string n;
-            const string* e (nullptr);
-
-            // The same deal as in handling prerequisites above.
-            //
-            {
-              path::size_type i (path::traits::rfind_separator (tn.name));
-
-              if (i == string::npos)
-                n = move (tn.name); // NOTE: steal!
-              else
-              {
-                d /= path (tn.name, i);
-                n.assign (tn.name, i + 1, string::npos);
-              }
-
-              if (d.empty ())
-                d = scope_->path (); // Already normalized.
-              else
-              {
-                if (d.relative ())
-                  d = scope_->path () / d;
-
-                d.normalize ();
-              }
-
-              // Extract extension.
-              //
-              string::size_type j (n.rfind ('.'));
-
-              if (j != string::npos)
-              {
-                e = &extension_pool.find (n.c_str () + j + 1);
-                n.resize (j);
-              }
-            }
-
-            // Resolve target type.
-            //
-            //@@ TODO: derive type from extension
-            //
-            const char* tt (tn.type.empty () ? "file" : tn.type.c_str ());
-
-            auto i (target_types.find (tt));
-
-            if (i == target_types.end ())
-            {
-              //@@ TODO name (or better yet, type) location
-
-              fail (t) << "unknown target type " << tt;
-            }
-
-            const target_type& ti (i->second);
-
-            // Find or insert.
-            //
-            target& t (
-              targets.insert (
-                ti, move (d), move (n), e, trace).first);
-
-            t.prerequisites = ps; //@@ OPT: move if last target.
-
-            if (default_target == nullptr)
-              default_target = &t;
-          }
-
-          if (tt == type::newline)
-            next (t, tt);
-          else if (tt != type::eos)
-            fail (t) << "expected newline instead of " << t;
-
-          continue;
-        }
-
         if (tt == type::newline)
         {
-          // See if we have a directory/target scope.
+          // See if this is a directory/target scope.
           //
-          if (next (t, tt) == type::lcbrace)
+          if (peek () == type::lcbrace)
           {
+            next (t, tt);
+
             // Should be on its own line.
             //
             if (next (t, tt) != type::newline)
@@ -273,7 +186,180 @@ namespace build
               next (t, tt);
             else if (tt != type::eos)
               fail (t) << "expected newline after }";
+
+            continue;
           }
+
+          // If this is not a scope, then it is a target without any
+          // prerequisites.
+          //
+        }
+
+        // Dependency declaration.
+        //
+        if (tt == type::name || tt == type::lcbrace || tt == type::newline)
+        {
+          names pns (tt != type::newline ? parse_names (t, tt) : names ());
+
+          // Prepare the prerequisite list.
+          //
+          target::prerequisites_type ps;
+          ps.reserve (pns.size ());
+
+          for (auto& pn: pns)
+          {
+            // We need to split the path into its directory part (if any)
+            // the name part, and the extension (if any). We cannot assume
+            // the name part is a valid filesystem name so we will have
+            // to do the splitting manually.
+            //
+            path d (pn.dir);
+            string n;
+            const string* e (nullptr);
+
+            {
+              path::size_type i (path::traits::rfind_separator (pn.name));
+
+              if (i == string::npos)
+                n = move (pn.name); // NOTE: steal!
+              else
+              {
+                d /= path (pn.name, i);
+                n.assign (pn.name, i + 1, string::npos);
+              }
+
+              // Handle '.' and '..'.
+              //
+              if (n == ".")
+                n.clear ();
+              else if (n == "..")
+              {
+                d /= path (n);
+                n.clear ();
+              }
+
+              d.normalize ();
+
+              // Extract extension.
+              //
+              string::size_type j (n.rfind ('.'));
+
+              if (j != string::npos)
+              {
+                e = &extension_pool.find (n.c_str () + j + 1);
+                n.resize (j);
+              }
+            }
+
+            // Resolve prerequisite type.
+            //
+            const char* tt (pn.type.empty ()
+                            ? find_target_type (n, e)
+                            : pn.type.c_str ());
+
+            auto i (target_types.find (tt));
+
+            if (i == target_types.end ())
+            {
+              //@@ TODO name (or better yet, type) location
+
+              fail (t) << "unknown prerequisite type " << tt;
+            }
+
+            const target_type& ti (i->second);
+
+            // Find or insert.
+            //
+            prerequisite& p (
+              scope_->prerequisites.insert (
+                ti, move (d), move (n), e, *scope_, trace).first);
+
+            ps.push_back (p);
+          }
+
+          for (auto& tn: tns)
+          {
+            path d (tn.dir);
+            string n;
+            const string* e (nullptr);
+
+            // The same deal as in handling prerequisites above.
+            //
+            {
+              path::size_type i (path::traits::rfind_separator (tn.name));
+
+              if (i == string::npos)
+                n = move (tn.name); // NOTE: steal!
+              else
+              {
+                d /= path (tn.name, i);
+                n.assign (tn.name, i + 1, string::npos);
+              }
+
+              // Handle '.' and '..'.
+              //
+              if (n == ".")
+                n.clear ();
+              else if (n == "..")
+              {
+                d /= path (n);
+                n.clear ();
+              }
+
+              if (d.empty ())
+                d = scope_->path (); // Already normalized.
+              else
+              {
+                if (d.relative ())
+                  d = scope_->path () / d;
+
+                d.normalize ();
+              }
+
+              // Extract extension.
+              //
+              string::size_type j (n.rfind ('.'));
+
+              if (j != string::npos)
+              {
+                e = &extension_pool.find (n.c_str () + j + 1);
+                n.resize (j);
+              }
+            }
+
+            // Resolve target type.
+            //
+            const char* tt (tn.type.empty ()
+                            ? find_target_type (n, e)
+                            : tn.type.c_str ());
+
+            auto i (target_types.find (tt));
+
+            if (i == target_types.end ())
+            {
+              //@@ TODO name (or better yet, type) location
+
+              fail (t) << "unknown target type " << tt;
+            }
+
+            const target_type& ti (i->second);
+
+            // Find or insert.
+            //
+            target& t (
+              targets.insert (
+                ti, move (d), move (n), e, trace).first);
+
+            t.prerequisites = ps; //@@ OPT: move if last target.
+
+            if (default_target == nullptr)
+              default_target = &t;
+          }
+
+          if (tt == type::newline)
+            next (t, tt);
+          else if (tt != type::eos)
+            fail (t) << "expected newline instead of " << t;
 
           continue;
         }
@@ -281,11 +367,152 @@ namespace build
         if (tt == type::eos)
           continue;
 
-        fail (t) << "expected newline insetad of " << t;
+        fail (t) << "expected newline instead of " << t;
       }
 
       fail (t) << "unexpected " << t;
     }
+  }
+
+  void parser::
+  parse_source (token& t, token_type& tt)
+  {
+    tracer trace ("parser::parse_source", &path_);
+
+    // The rest should be a list of paths to buildfiles.
+    //
+    for (; tt != type::newline && tt != type::eos; next (t, tt))
+    {
+      if (tt != type::name)
+        fail (t) << "expected buildfile to source instead of " << t;
+
+      path p (t.name ());
+
+      // If the path is relative then use the src directory corresponding
+      // to the current directory scope.
+      //
+      if (p.relative ())
+        p = src_out (scope_->path ()) / p;
+
+      ifstream ifs (p.string ());
+
+      if (!ifs.is_open ())
+        fail (t) << "unable to open " << p;
+
+      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
+      level4 ([&]{trace (t) << "entering " << p;});
+
+      string ds (diagnostic_string (p));
+      const string* op (path_);
+      path_ = &ds;
+
+      lexer l (ifs, p.string ());
+      lexer* ol (lexer_);
+      lexer_ = &l;
+
+      next (t, tt);
+      parse_clause (t, tt);
+
+      if (tt != type::eos)
+        fail (t) << "unexpected " << t;
+
+      level4 ([&]{trace (t) << "leaving " << p;});
+
+      lexer_ = ol;
+      path_ = op;
+    }
+
+    if (tt != type::eos)
+      next (t, tt); // Swallow newline.
+  }
+
+  void parser::
+  parse_include (token& t, token_type& tt)
+  {
+    tracer trace ("parser::parse_include", &path_);
+
+    // The rest should be a list of paths to buildfiles.
+    //
+    for (; tt != type::newline && tt != type::eos; next (t, tt))
+    {
+      if (tt != type::name)
+        fail (t) << "expected buildfile to include instead of " << t;
+
+      path p (t.name ());
+      bool in_out (false);
+
+      if (p.absolute ())
+      {
+        p.normalize ();
+
+        // Make sure the path is in this project. Include is only meant
+        // to be used for intra-project inclusion.
+        //
+        if (!p.sub (src_root) && !(in_out = p.sub (out_root)))
+          fail (t) << "out of project include " << p;
+      }
+      else
+      {
+        // Use the src directory corresponding to the current directory scope.
+        //
+        p = src_out (scope_->path ()) / p;
+        p.normalize ();
+      }
+
+      if (!include_.insert (p).second)
+      {
+        level4 ([&]{trace (t) << "skipping already included " << p;});
+        continue;
+      }
+
+      ifstream ifs (p.string ());
+
+      if (!ifs.is_open ())
+        fail (t) << "unable to open " << p;
+
+      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
+      level4 ([&]{trace (t) << "entering " << p;});
+
+      string ds (diagnostic_string (p));
+      const string* op (path_);
+      path_ = &ds;
+
+      lexer l (ifs, p.string ());
+      lexer* ol (lexer_);
+      lexer_ = &l;
+
+      scope* os (scope_);
+      scope_ = &scopes[(in_out ? p : out_src (p)).directory ()];
+
+      next (t, tt);
+      parse_clause (t, tt);
+
+      if (tt != type::eos)
+        fail (t) << "unexpected " << t;
+
+      level4 ([&]{trace (t) << "leaving " << p;});
+
+      scope_ = os;
+      lexer_ = ol;
+      path_ = op;
+    }
+
+    if (tt != type::eos)
+      next (t, tt); // Swallow newline.
+  }
+
+  void parser::
+  parse_print (token& t, token_type& tt)
+  {
+    for (; tt != type::newline && tt != type::eos; next (t, tt))
+      cout << t;
+
+    cout << endl;
+
+    if (tt != type::eos)
+      next (t, tt); // Swallow newline.
   }
 
   void parser::
@@ -372,23 +599,48 @@ namespace build
       if (!first)
         break;
 
-      fail (t) << "expected name instead of " << t;
+      if (tt == type::rcbrace) // Empty name, e.g., dir{}.
+      {
+        ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                         (dp != nullptr ? *dp : path ()),
+                         "");
+        break;
+      }
+      else
+        fail (t) << "expected name instead of " << t;
     }
   }
 
   token_type parser::
   next (token& t, token_type& tt)
   {
-    t = lexer_->next ();
+    if (!peeked_)
+      t = lexer_->next ();
+    else
+    {
+      t = move (peek_);
+      peeked_ = false;
+    }
+
     tt = t.type ();
     return tt;
   }
 
-  location_prologue parser::fail_mark_base::
-  operator() (const token& t) const
+  token_type parser::
+  peek ()
   {
-    return build::fail_mark_base<failed>::operator() (
-      location (path_->string ().c_str (), t.line (), t.column ()));
+    if (!peeked_)
+      peek_ = lexer_->next ();
+
+    return peek_.type ();
+  }
+
+  static location
+  get_location (const token& t, const void* data)
+  {
+    assert (data != nullptr);
+    const string& p (**static_cast<const string* const*> (data));
+    return location (p.c_str (), t.line (), t.column ());
   }
 
   // Output the token type and value in a format suitable for diagnostics.
