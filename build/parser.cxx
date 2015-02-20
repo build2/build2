@@ -64,16 +64,16 @@ namespace build
     type tt;
     next (t, tt);
 
-    parse_clause (t, tt);
+    clause (t, tt);
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
   }
 
   void parser::
-  parse_clause (token& t, token_type& tt)
+  clause (token& t, token_type& tt)
   {
-    tracer trace ("parser::parse_clause", &path_);
+    tracer trace ("parser::clause", &path_);
 
     while (tt != type::eos)
     {
@@ -94,28 +94,28 @@ namespace build
           // in var namespace.
           //
           next (t, tt);
-          parse_print (t, tt);
+          print (t, tt);
           continue;
         }
         else if (n == "source")
         {
           next (t, tt);
-          parse_source (t, tt);
+          source (t, tt);
           continue;
         }
         else if (n == "include")
         {
           next (t, tt);
-          parse_include (t, tt);
+          include (t, tt);
           continue;
         }
       }
 
       // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
       //
-      names tns (tt != type::colon
-                 ? parse_names (t, tt)
-                 : names({name_type ("", path (), "")}));
+      names_type tns (tt != type::colon
+                      ? names (t, tt)
+                      : names_type ({name_type ("", path (), "")}));
 
       if (tt == type::colon)
       {
@@ -168,7 +168,7 @@ namespace build
 
               // A directory scope can contain anything that a top level can.
               //
-              parse_clause (t, tt);
+              clause (t, tt);
 
               scope_ = &prev;
             }
@@ -199,7 +199,7 @@ namespace build
         //
         if (tt == type::name || tt == type::lcbrace || tt == type::newline)
         {
-          names pns (tt != type::newline ? parse_names (t, tt) : names ());
+          names_type pns (tt != type::newline ? names (t, tt) : names_type ());
 
           // Prepare the prerequisite list.
           //
@@ -375,9 +375,9 @@ namespace build
   }
 
   void parser::
-  parse_source (token& t, token_type& tt)
+  source (token& t, token_type& tt)
   {
-    tracer trace ("parser::parse_source", &path_);
+    tracer trace ("parser::source", &path_);
 
     // The rest should be a list of paths to buildfiles.
     //
@@ -412,7 +412,7 @@ namespace build
       lexer_ = &l;
 
       next (t, tt);
-      parse_clause (t, tt);
+      clause (t, tt);
 
       if (tt != type::eos)
         fail (t) << "unexpected " << t;
@@ -428,9 +428,9 @@ namespace build
   }
 
   void parser::
-  parse_include (token& t, token_type& tt)
+  include (token& t, token_type& tt)
   {
-    tracer trace ("parser::parse_include", &path_);
+    tracer trace ("parser::include", &path_);
 
     // The rest should be a list of paths to buildfiles.
     //
@@ -487,7 +487,7 @@ namespace build
       scope_ = &scopes[(in_out ? p : out_src (p)).directory ()];
 
       next (t, tt);
-      parse_clause (t, tt);
+      clause (t, tt);
 
       if (tt != type::eos)
         fail (t) << "unexpected " << t;
@@ -504,7 +504,7 @@ namespace build
   }
 
   void parser::
-  parse_print (token& t, token_type& tt)
+  print (token& t, token_type& tt)
   {
     for (; tt != type::newline && tt != type::eos; next (t, tt))
       cout << t;
@@ -516,7 +516,7 @@ namespace build
   }
 
   void parser::
-  parse_names (token& t, type& tt, names& ns, const path* dp, const string* tp)
+  names (token& t, type& tt, names_type& ns, const path* dp, const string* tp)
   {
     for (bool first (true);; first = false)
     {
@@ -525,7 +525,7 @@ namespace build
       if (tt == type::lcbrace)
       {
         next (t, tt);
-        parse_names (t, tt, ns, dp, tp);
+        names (t, tt, ns, dp, tp);
 
         if (tt != type::rcbrace)
           fail (t) << "expected '}' instead of " << t;
@@ -581,7 +581,7 @@ namespace build
           }
 
           next (t, tt);
-          parse_names (t, tt, ns, dp1, tp1);
+          names (t, tt, ns, dp1, tp1);
 
           if (tt != type::rcbrace)
             fail (t) << "expected '}' instead of " << t;

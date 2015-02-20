@@ -43,31 +43,31 @@ namespace build
       std::string name;
     };
 
-    typedef std::vector<name_type> names;
+    typedef std::vector<name_type> names_type;
 
     void
-    parse_clause (token&, token_type&);
+    clause (token&, token_type&);
 
     void
-    parse_print (token&, token_type&);
+    print (token&, token_type&);
 
     void
-    parse_source (token&, token_type&);
+    source (token&, token_type&);
 
     void
-    parse_include (token&, token_type&);
+    include (token&, token_type&);
 
-    names
-    parse_names (token& t, token_type& tt)
+    names_type
+    names (token& t, token_type& tt)
     {
-      names ns;
-      parse_names (t, tt, ns, nullptr, nullptr);
+      names_type ns;
+      names (t, tt, ns, nullptr, nullptr);
       return ns;
     }
 
     void
-    parse_names (token&, token_type&, names&,
-                 const path* dir, const std::string* type);
+    names (token&, token_type&, names_type&,
+           const path* dir, const std::string* type);
 
     // Utilities.
     //
