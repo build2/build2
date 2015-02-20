@@ -26,7 +26,7 @@ namespace build
 
       // Print scope unless the directory is absolute.
       //
-      if (!p.directory.absolute ())
+      if (!p.dir.absolute ())
       {
         string s (diagnostic_string (p.scope.path ()));
 
@@ -36,9 +36,9 @@ namespace build
 
       // Print directory.
       //
-      if (!p.directory.empty ())
+      if (!p.dir.empty ())
       {
-        string s (diagnostic_string (p.directory));
+        string s (diagnostic_string (p.dir));
 
         if (!s.empty ())
           os << s << path::traits::directory_separator;
@@ -67,10 +67,8 @@ namespace build
     return
       (x.type.id < y.type.id) ||
       (x.type.id == y.type.id && x.name < y.name) ||
-      (x.type.id == y.type.id && x.name == y.name &&
-       x.directory < y.directory) ||
-      (x.type.id == y.type.id && x.name == y.name &&
-       x.directory == y.directory &&
+      (x.type.id == y.type.id && x.name == y.name && x.dir < y.dir) ||
+      (x.type.id == y.type.id && x.name == y.name && x.dir == y.dir &&
        x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
   }
 

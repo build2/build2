@@ -33,12 +33,12 @@ namespace build
                   std::string n,
                   const std::string* e,
                   scope_type& s)
-        : type (t), directory (std::move (d)), name (std::move (n)), ext (e),
+        : type (t), dir (std::move (d)), name (std::move (n)), ext (e),
           scope (s), target (0) {}
 
   public:
     const target_type_type& type;
-    const path directory;   // Normalized absolute or relative (to scope).
+    const path dir;         // Normalized absolute or relative (to scope).
     const std::string name;
     const std::string* ext; // NULL if unspecified.
     scope_type& scope;

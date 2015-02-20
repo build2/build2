@@ -30,11 +30,11 @@ namespace build
     //@@ TODO for now we just default to the directory scope.
     //
     path d;
-    if (p.directory.absolute ())
-      d = p.directory; // Already normalized.
+    if (p.dir.absolute ())
+      d = p.dir; // Already normalized.
     else
     {
-      d = p.scope.path () / p.directory;
+      d = p.scope.path () / p.dir;
       d.normalize ();
     }
 

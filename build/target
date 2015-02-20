@@ -46,9 +46,9 @@ namespace build
   {
   public:
     target (path d, std::string n, const std::string* e)
-        : directory (std::move (d)), name (std::move (n)), ext (e) {}
+        : dir (std::move (d)), name (std::move (n)), ext (e) {}
 
-    const path directory;   // Absolute and normalized.
+    const path dir;         // Absolute and normalized.
     const std::string name;
     const std::string* ext; // Extension, NULL means unspecified.
 
@@ -105,8 +105,8 @@ namespace build
     return
       (tx < ty) ||
       (tx == ty && x.name < y.name) ||
-      (tx == ty && x.name == y.name && x.directory < y.directory) ||
-      (tx == ty && x.name == y.name && x.directory == y.directory &&
+      (tx == ty && x.name == y.name && x.dir < y.dir) ||
+      (tx == ty && x.name == y.name && x.dir == y.dir &&
        x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
   }
 

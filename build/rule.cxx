@@ -33,7 +33,7 @@ namespace build
 
     if (pt.path ().empty ())
     {
-      path p (t.directory / path (pt.name));
+      path p (t.dir / path (pt.name));
 
       // @@ TMP: derive file name by appending target name as an extension?
       //

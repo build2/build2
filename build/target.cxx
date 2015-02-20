@@ -23,9 +23,9 @@ namespace build
   {
     os << t.type ().name << '{';
 
-    if (!t.directory.empty ())
+    if (!t.dir.empty ())
     {
-      string s (diagnostic_string (t.directory));
+      string s (diagnostic_string (t.dir));
 
       if (!s.empty ())
       {

@@ -68,7 +68,7 @@ namespace build
       obj& o (dynamic_cast<obj&> (t));
 
       if (o.path ().empty ())
-        o.path (o.directory / path (o.name + ".o"));
+        o.path (o.dir / path (o.name + ".o"));
 
       // Resolve prerequisite to target and match it to a rule. We need
       // this in order to get the source file path for prerequisite
@@ -418,7 +418,7 @@ namespace build
       exe& e (dynamic_cast<exe&> (t));
 
       if (e.path ().empty ())
-        e.path (e.directory / path (e.name));
+        e.path (e.dir / path (e.name));
 
       // Do rule chaining for C and C++ source files.
       //
@@ -439,17 +439,17 @@ namespace build
         // possible it is under out_root (e.g., generated source).
         //
         path d;
-        if (cp.directory.relative () || cp.directory.sub (out_root))
-          d = cp.directory;
+        if (cp.dir.relative () || cp.dir.sub (out_root))
+          d = cp.dir;
         else
         {
-          if (!cp.directory.sub (src_root))
+          if (!cp.dir.sub (src_root))
           {
             fail << "out of project prerequisite " << cp <<
               info << "specify corresponding obj{} target explicitly";
           }
 
-          d = out_root / cp.directory.leaf (src_root);
+          d = out_root / cp.dir.leaf (src_root);
         }
 
         prerequisite& op (
