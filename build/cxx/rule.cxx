@@ -208,6 +208,10 @@ namespace build
             // extension. Here we can assume the name part is a valid
             // filesystem name.
             //
+            // Note that if the file has no extension, we record an empty
+            // extension rather than NULL (which would signify that the
+            // extension needs to be added).
+            //
             path d (file.directory ());
             string n (file.leaf ().base ().string ());
             const char* es (file.extension ());

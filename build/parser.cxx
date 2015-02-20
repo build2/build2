@@ -242,12 +242,12 @@ namespace build
 
               // Extract extension.
               //
-              string::size_type j (n.rfind ('.'));
+              string::size_type j (path::traits::find_extension (n));
 
               if (j != string::npos)
               {
-                e = &extension_pool.find (n.c_str () + j + 1);
-                n.resize (j);
+                e = &extension_pool.find (n.c_str () + j);
+                n.resize (j - 1);
               }
             }
 
@@ -318,12 +318,12 @@ namespace build
 
               // Extract extension.
               //
-              string::size_type j (n.rfind ('.'));
+              string::size_type j (path::traits::find_extension (n));
 
               if (j != string::npos)
               {
-                e = &extension_pool.find (n.c_str () + j + 1);
-                n.resize (j);
+                e = &extension_pool.find (n.c_str () + j);
+                n.resize (j - 1);
               }
             }
 

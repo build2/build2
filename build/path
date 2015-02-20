@@ -74,6 +74,33 @@ namespace build
       return string_type::npos;
     }
 
+    static size_type
+    find_extension (string_type const& s)
+    {
+      size_type i (s.size ());
+
+      for (; i > 0; --i)
+      {
+        C c (s[i - 1]);
+
+        if (c == '.')
+          break;
+
+        if (is_separator (c))
+        {
+          i = 0;
+          break;
+        }
+      }
+
+      // Weed out paths like ".txt" (and "/.txt") and "txt.".
+      //
+      if (i > 1 && !is_separator (s[i - 2]) && i != s.size ())
+        return i - 1;
+      else
+        return string_type::npos;
+    }
+
     static int
     compare (string_type const& l, string_type const& r)
     {

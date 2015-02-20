@@ -34,62 +34,6 @@ namespace build
       : basic_path ();
   }
 
-  template <typename C>
-  basic_path<C> basic_path<C>::
-  base () const
-  {
-    size_type i (path_.size ());
-
-    for (; i > 0; --i)
-    {
-      if (path_[i - 1] == '.')
-        break;
-
-      if (traits::is_separator (path_[i - 1]))
-      {
-        i = 0;
-        break;
-      }
-    }
-
-    // Weed out paths like ".txt" and "/.txt"
-    //
-    if (i > 1 && !traits::is_separator (path_[i - 2]))
-    {
-      return basic_path (path_.c_str (), i - 1);
-    }
-    else
-      return *this;
-  }
-
-  template <typename C>
-  const C* basic_path<C>::
-  extension () const
-  {
-    size_type i (path_.size ());
-
-    for (; i > 0; --i)
-    {
-      if (path_[i - 1] == '.')
-        break;
-
-      if (traits::is_separator (path_[i - 1]))
-      {
-        i = 0;
-        break;
-      }
-    }
-
-    // Weed out paths like ".txt" and "/.txt"
-    //
-    if (i > 1 && !traits::is_separator (path_[i - 2]))
-    {
-      return path_.c_str () + i;
-    }
-    else
-      return nullptr;
-  }
-
 #ifdef _WIN32
   template <typename C>
   typename basic_path<C>::string_type basic_path<C>::

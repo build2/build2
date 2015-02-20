@@ -57,6 +57,22 @@ namespace build
     return *this;
   }
 
+  template <typename C>
+  inline basic_path<C> basic_path<C>::
+  base () const
+  {
+    size_type p (traits::find_extension (path_));
+    return p != string_type::npos ? basic_path (path_.c_str (), p) : *this;
+  }
+
+  template <typename C>
+  inline const C* basic_path<C>::
+  extension () const
+  {
+    size_type p (traits::find_extension (path_));
+    return p != string_type::npos ? path_.c_str () + p + 1 : nullptr;
+  }
+
 #ifndef _WIN32
   template <typename C>
   inline typename basic_path<C>::string_type basic_path<C>::

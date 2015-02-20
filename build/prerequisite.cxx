@@ -46,7 +46,7 @@ namespace build
 
       os << p.name;
 
-      if (p.ext != nullptr)
+      if (p.ext != nullptr && !p.ext->empty ())
         os << '.' << *p.ext;
 
       os << '}';

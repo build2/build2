@@ -38,7 +38,7 @@ namespace build
 
     os << t.name;
 
-    if (t.ext != nullptr)
+    if (t.ext != nullptr && !t.ext->empty ())
       os << '.' << *t.ext;
 
     os << '}';
