@@ -150,6 +150,21 @@ namespace build
       return nullptr;
   }
 
+  // dir target
+  //
+  static target*
+  search_alias (prerequisite& p)
+  {
+    // For an alias/action we don't want to silently create a target
+    // since it will do nothing and it most likely not what the author
+    // intended.
+    //
+    if (target* t = search_existing_target (p))
+      return t;
+
+    fail << "no explicit target for prerequisite " << p;
+  }
+
   // type info
   //
 
@@ -195,6 +210,6 @@ namespace build
     "dir",
     &target::static_type,
     &target_factory<dir>,
-    target::static_type.search
+    &search_alias
   };
 }

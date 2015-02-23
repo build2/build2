@@ -182,10 +182,10 @@ main (int argc, char* argv[])
     rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
 
     dir_rule dir_r;
-    rules[typeid (dir)].emplace ("", dir_r);
+    rules[typeid (dir)].emplace ("dir", dir_r);
 
     path_rule path_r;
-    rules[typeid (path_target)].emplace ("", path_r);
+    rules[typeid (path_target)].emplace ("path", path_r);
 
     // Build.
     //
