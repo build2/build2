@@ -1,0 +1,20 @@
+// file      : build/types -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TYPES
+#define BUILD_TYPES
+
+#include <vector>
+
+#include <build/path>
+
+namespace build
+{
+  // Commonly-used types.
+  //
+
+  typedef std::vector<path> paths;
+}
+
+#endif // BUILD_TYPES

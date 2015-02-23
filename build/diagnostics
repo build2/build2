@@ -14,8 +14,27 @@
 #include <exception>
 #include <type_traits>
 
+#include <build/path>
+
 namespace build
 {
+  // Throw this exception to terminate the build. The handler should
+  // assume that the diagnostics has already been issued.
+  //
+  class failed: public std::exception {};
+
+  // In addition to calling relative_work(), this function also uses
+  // shorter notations such as ~/.
+  //
+  std::string
+  diag_relative_work (const path&);
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const path& p)
+  {
+    return os << diag_relative_work (p);
+  }
+
   // Print process commmand line.
   //
   void
@@ -26,11 +45,6 @@ namespace build
   {
     print_process (args.data ());
   }
-
-  // Throw this exception to terminate the build. The handler should
-  // assume that the diagnostics has already been issued.
-  //
-  class failed: public std::exception {};
 
   // Trace verbosity level.
   //

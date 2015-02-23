@@ -5,7 +5,6 @@
 #ifndef BUILD_TARGET
 #define BUILD_TARGET
 
-#include <set>
 #include <map>
 #include <string>
 #include <vector>
@@ -17,6 +16,7 @@
 #include <utility>    // move
 
 #include <build/path>
+#include <build/key-set>
 #include <build/timestamp>
 #include <build/prerequisite>
 #include <build/utility>       // compare_*, extension_pool
@@ -26,6 +26,9 @@ namespace build
   class target;
 
   enum class target_state {unknown, uptodate, updated, failed};
+
+  // Note: should throw rather than returning target_state::failed.
+  //
   typedef std::function<target_state (target&)> recipe;
 
   struct target_type
@@ -34,6 +37,7 @@ namespace build
     const char* name;
     const target_type* base;
     target* (*const factory) (path, std::string, const std::string*);
+    target* (*const search) (prerequisite&);
   };
 
   inline std::ostream&
@@ -91,33 +95,61 @@ namespace build
   std::ostream&
   operator<< (std::ostream&, const target&);
 
-  inline bool
-  operator< (const target& x, const target& y)
+  struct target_set
   {
-    std::type_index tx (typeid (x)), ty (typeid (y));
+    struct key
+    {
+      mutable const std::type_index* type;
+      mutable const path* dir;
+      mutable const std::string* name;
+      mutable const std::string** ext;
 
-    //@@ TODO: use compare() to compare once.
+      friend bool
+      operator< (const key& x, const key& y)
+      {
+        //@@ TODO: use compare() to compare once.
 
-    // Unspecified and specified extension are assumed equal. The
-    // extension strings are from the pool, so we can just compare
-    // pointers.
-    //
-    return
-      (tx < ty) ||
-      (tx == ty && x.name < y.name) ||
-      (tx == ty && x.name == y.name && x.dir < y.dir) ||
-      (tx == ty && x.name == y.name && x.dir == y.dir &&
-       x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
-  }
+        // Unspecified and specified extension are assumed equal. The
+        // extension strings are from the pool, so we can just compare
+        // pointers.
+        //
+        return
+          (*x.type < *y.type) ||
+          (*x.type == *y.type && *x.name < *y.name) ||
+          (*x.type == *y.type && *x.name == *y.name && *x.dir < *y.dir) ||
+          (*x.type == *y.type && *x.name == *y.name && *x.dir == *y.dir &&
+           *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
+      }
+    };
 
-  struct target_set: std::set<std::unique_ptr<target>, compare_pointer_target>
-  {
+    typedef std::map<key, std::unique_ptr<target>> map;
+    typedef map_iterator_adapter<map::const_iterator> iterator;
+
+    iterator
+    find (const key& k, tracer& trace) const;
+
+    iterator
+    find (const std::type_index& type,
+          const path& dir,
+          const std::string& name,
+          const std::string*& ext,
+          tracer& trace) const
+    {
+      return find (key {&type, &dir, &name, &ext}, trace);
+    }
+
+    iterator begin () const {return map_.begin ();}
+    iterator end () const {return map_.end ();}
+
     std::pair<target&, bool>
     insert (const target_type&,
             path dir,
             std::string name,
             const std::string* ext,
             tracer&);
+
+  private:
+    map map_;
   };
 
   extern target_set targets;
@@ -172,7 +204,7 @@ namespace build
     mutable timestamp mtime_ {timestamp_unknown};
   };
 
-  // Filesystem path-bases target.
+  // Filesystem path-based target.
   //
   class path_target: public mtime_target
   {

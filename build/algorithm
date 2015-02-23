@@ -5,16 +5,58 @@
 #ifndef BUILD_ALGORITHM
 #define BUILD_ALGORITHM
 
+#include <build/target>
+#include <build/timestamp>
+
 namespace build
 {
-  class target;
   class prerequisite;
 
+  // The default prerequsite search implementation. It first calls the
+  // target-type-specific search function. If that doesn't yeld anything,
+  // it creates a new target.
+  //
   target&
   search (prerequisite&);
 
-  bool
+  // Match a rule to the target with ambiguity detection.
+  //
+  void
   match (target&);
+
+  // The default prerequisite search and match implementation. It calls
+  // search() and then match() for each prerequisite in a loop.
+  //
+  void
+  search_and_match (target&);
+
+  target_state
+  update (target&);
+
+  // The default prerequisite update implementation. It calls update()
+  // for each prerequisite in a loop. Returns target_state::updated
+  // if any of them were updated and target_state::uptodate otherwise.
+  //
+  target_state
+  update_prerequisites (target&);
+
+  // A version of the above that also determines whether the target
+  // needs updating based on the passed timestamp.
+  //
+  bool
+  update_prerequisites (target&, const timestamp&);
+
+  // Another version of the above that does two extra things for the
+  // caller: it determines whether the target needs updating based
+  // on the passed timestamp and, if so, finds a prerequisite of the
+  // specified type.
+  //
+  template <typename T>
+  T*
+  update_prerequisites (target&, const timestamp&);
 }
+
+#include <build/algorithm.ixx>
+#include <build/algorithm.txx>
 
 #endif // BUILD_ALGORITHM

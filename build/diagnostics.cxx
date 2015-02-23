@@ -6,12 +6,31 @@
 
 #include <iostream>
 
+#include <build/context>
 #include <build/utility>
 
 using namespace std;
 
 namespace build
 {
+  string
+  diag_relative_work (const path& p)
+  {
+    if (p.absolute ())
+    {
+      path rp (relative_work (p));
+
+#ifndef _WIN32
+      if (rp.absolute () && rp.sub (home))
+        return "~/" + rp.leaf (home).string ();
+#endif
+
+      return rp.string ();
+    }
+
+    return p.string ();
+  }
+
   void
   print_process (const char* const* args)
   {

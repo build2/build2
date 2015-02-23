@@ -13,6 +13,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/rule>
+#include <build/search>
 #include <build/utility>
 #include <build/diagnostics>
 
@@ -23,37 +24,17 @@ namespace build
   target&
   search (prerequisite& p)
   {
-    tracer trace ("search");
-
     assert (p.target == nullptr);
 
-    //@@ TODO for now we just default to the directory scope.
-    //
-    path d;
-    if (p.dir.absolute ())
-      d = p.dir; // Already normalized.
-    else
-    {
-      d = p.scope.path () / p.dir;
-      d.normalize ();
-    }
+    if (target* t = p.type.search (p))
+      return *t;
 
-    // Find or insert.
-    //
-    auto r (targets.insert (p.type, move (d), p.name, p.ext, trace));
-
-    level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
-                      << r.first << " for prerequsite " << p;});
-
-    p.target = &r.first;
-    return r.first;
+    return create_new_target (p);
   }
 
-  bool
-  match (target& t)
+  void
+  match_impl (target& t)
   {
-    assert (!t.recipe ());
-
     for (auto tt (&t.type ());
          tt != nullptr && !t.recipe ();
          tt = tt->base)
@@ -131,6 +112,14 @@ namespace build
 
           if (!ambig)
           {
+            auto g (
+              make_exception_guard (
+                [](target& t, const string& n)
+                {
+                  info << "while selecting rule " << n << " for target " << t;
+                },
+                t, n));
+
             t.recipe (ru.select (t, m));
             break;
           }
@@ -140,6 +129,106 @@ namespace build
       }
     }
 
-    return bool (t.recipe ());
+    if (!t.recipe ())
+      fail << "no rule to update target " << t;
+  }
+
+  void
+  search_and_match (target& t)
+  {
+    for (prerequisite& p: t.prerequisites)
+    {
+      if (p.target == nullptr)
+        search (p);
+
+      match (*p.target);
+    }
+  }
+
+  target_state
+  update (target& t)
+  {
+    // Implementation with some multi-threading ideas in mind.
+    //
+    switch (target_state ts = t.state ())
+    {
+    case target_state::unknown:
+      {
+        t.state (target_state::failed); // So the rule can just throw.
+
+        auto g (
+          make_exception_guard (
+            [](target& t){info << "while updating target " << t;},
+            t));
+
+        ts = t.recipe () (t);
+        assert (ts != target_state::unknown && ts != target_state::failed);
+        t.state (ts);
+        return ts;
+      }
+    case target_state::uptodate:
+    case target_state::updated:
+      return ts;
+    case target_state::failed:
+      throw failed ();
+    }
+  }
+
+  target_state
+  update_prerequisites (target& t)
+  {
+    target_state ts (target_state::uptodate);
+
+    for (const prerequisite& p: t.prerequisites)
+    {
+      assert (p.target != nullptr);
+
+      if (update (*p.target) != target_state::uptodate)
+        ts = target_state::updated;
+    }
+
+    return ts;
+  }
+
+  bool
+  update_prerequisites (target& t, const timestamp& mt)
+  {
+    bool u (mt == timestamp_nonexistent);
+
+    for (const prerequisite& p: t.prerequisites)
+    {
+      assert (p.target != nullptr);
+      target& pt (*p.target);
+
+      target_state ts (update (pt));
+
+      if (!u)
+      {
+        // If this is an mtime-based target, then compare timestamps.
+        //
+        if (auto mpt = dynamic_cast<const mtime_target*> (&pt))
+        {
+          timestamp mp (mpt->mtime ());
+
+          // What do we do if timestamps are equal? This can happen, for
+          // example, on filesystems that don't have subsecond resolution.
+          // There is not much we can do here except detect the case where
+          // the prerequisite was updated in this run which means the
+          // target must be out of date.
+          //
+          if (mt < mp || mt == mp && ts == target_state::updated)
+            u = true;
+        }
+        else
+        {
+          // Otherwise we assume the prerequisite is newer if it was updated.
+          //
+          if (ts == target_state::updated)
+            u = true;
+        }
+      }
+    }
+
+    return u;
   }
 }

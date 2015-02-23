@@ -34,76 +34,6 @@ using namespace std;
 
 namespace build
 {
-  bool
-  match_recursive (target& t)
-  {
-    // Because we match the target first and then prerequisites,
-    // any additional dependency information injected by the rule
-    // will be covered as well.
-    //
-    if (!t.recipe ())
-    {
-      if (!match (t))
-      {
-        error << "no rule to update target " << t;
-        return false;
-      }
-    }
-
-    for (prerequisite& p: t.prerequisites)
-    {
-      // Resolve prerequisite to target (prerequisite search). We
-      // do this after matching since the rule can alter search
-      // paths.
-      //
-      if (p.target == nullptr)
-        search (p);
-
-      if (!match_recursive (*p.target))
-      {
-        info << "required by " << t;
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  target_state
-  update (target& t)
-  {
-    assert (t.state () == target_state::unknown);
-
-    auto g (
-      make_exception_guard (
-        [](target& t){info << "while building target " << t;},
-        t));
-
-    for (prerequisite& p: t.prerequisites)
-    {
-      target& pt (*p.target);
-
-      if (pt.state () == target_state::unknown)
-      {
-        target_state ts (update (pt));
-
-        if (ts == target_state::failed)
-          return ts;
-      }
-    }
-
-    // @@ Why do we indicate failure via code rather than throw? Now
-    //    there is no diagnostics via exception_guard above.
-
-    const recipe& r (t.recipe ());
-
-    target_state ts (r (t));
-
-    assert (ts != target_state::unknown);
-    t.state (ts);
-    return ts;
-  }
-
   void
   dump ()
   {
@@ -125,7 +55,6 @@ namespace build
 
     cout << endl;
   }
-
 }
 
 #include <build/native>
@@ -261,14 +190,11 @@ main (int argc, char* argv[])
     // Build.
     //
     if (default_target == nullptr)
-    {
       fail << "no default target";
-    }
 
     target& d (*default_target);
 
-    if (!match_recursive (d))
-      return 1; // Diagnostics has already been issued.
+    match (d);
 
     dump ();
 
@@ -282,9 +208,6 @@ main (int argc, char* argv[])
     case target_state::updated:
       break;
     case target_state::failed:
-      {
-        fail << "failed to update target " << d;
-      }
     case target_state::unknown:
       assert (false);
     }

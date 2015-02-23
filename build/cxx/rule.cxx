@@ -35,14 +35,10 @@ namespace build
       // @@ TODO:
       //
       // - check prerequisites: single source file
-      // - check prerequisites: the rest are headers (issue warning at v=1?)
-      // - if path already assigned, verify extension
+      // - check prerequisites: the rest are headers (other ignorable?)
+      // - if path already assigned, verify extension?
       //
       // @@ Q:
-      //
-      // - if there is no .cxx, are we going to check if the one derived
-      //   from target exist or can be built? If we do that, then it
-      //   probably makes sense to try other rules first (two passes).
       //
       // - Wouldn't it make sense to cache source file? Careful: unloading
       //   of dependency info.
@@ -70,25 +66,18 @@ namespace build
       if (o.path ().empty ())
         o.path (o.dir / path (o.name + ".o"));
 
-      // Resolve prerequisite to target and match it to a rule. We need
-      // this in order to get the source file path for prerequisite
-      // injections.
+      // Search and match all the existing prerequisites. The injection
+      // code (below) takes care of the ones it is adding.
       //
-      prerequisite* sp (static_cast<prerequisite*> (v));
-      cxx* st (
-        dynamic_cast<cxx*> (
-          sp->target != nullptr ? sp->target : &search (*sp)));
+      search_and_match (t);
 
-      if (st != nullptr)
-      {
-        if (st->recipe () || build::match (*st))
-        {
-          // Don't bother if the file does not exist.
-          //
-          if (st->mtime () != timestamp_nonexistent)
-            inject_prerequisites (o, *st, sp->scope);
-        }
-      }
+      // Inject additional prerequisites.
+      //
+      auto& sp (*static_cast<prerequisite*> (v));
+      auto& st (dynamic_cast<cxx&> (*sp.target));
+
+      if (st.mtime () != timestamp_nonexistent)
+        inject_prerequisites (o, st, sp.scope);
 
       return &update;
     }
@@ -141,7 +130,8 @@ namespace build
       tracer trace ("cxx::compile::inject_prerequisites");
 
       // We are using absolute source file path in order to get
-      // absolute paths in the result.
+      // absolute paths in the result. @@ We will also have to
+      // use absolute -I paths to guarantee that.
       //
       const char* args[] = {
         "g++-4.9",
@@ -191,18 +181,12 @@ namespace build
 
           while (pos != l.size ())
           {
-            path file (next (l, pos));
-            file.normalize ();
+            path f (next (l, pos));
+            f.normalize ();
 
-            level5 ([&]{trace << "prerequisite path: " << file.string ();});
+            assert (f.absolute ()); // Logic below depends on this.
 
-            // If there is no extension (e.g., standard C++ headers),
-            // then assume it is a header. Otherwise, let the standard
-            // mechanism derive the type from the extension.
-            //
-
-            // @@ TODO:
-            //
+            level5 ([&]{trace << "prerequisite path: " << f.string ();});
 
             // Split the name into its directory part, the name part, and
             // extension. Here we can assume the name part is a valid
@@ -212,27 +196,37 @@ namespace build
             // extension rather than NULL (which would signify that the
             // extension needs to be added).
             //
-            path d (file.directory ());
-            string n (file.leaf ().base ().string ());
-            const char* es (file.extension ());
+            path d (f.directory ());
+            string n (f.leaf ().base ().string ());
+            const char* es (f.extension ());
             const string* e (&extension_pool.find (es != nullptr ? es : ""));
 
-            // Find or insert.
+            // Find or insert prerequisite.
+            //
+            // If there is no extension (e.g., standard C++ headers),
+            // then assume it is a header. Otherwise, let the standard
+            // mechanism derive the type from the extension. @@ TODO.
             //
             prerequisite& p (
               ds.prerequisites.insert (
                 hxx::static_type, move (d), move (n), e, ds, trace).first);
 
-            // Resolve to target so that we can assign its path.
+            o.prerequisites.push_back (p);
+
+            // Resolve to target.
             //
             path_target& t (
               dynamic_cast<path_target&> (
                 p.target != nullptr ? *p.target : search (p)));
 
+            // Assign path.
+            //
             if (t.path ().empty ())
-              t.path (move (file));
+              t.path (move (f));
 
-            o.prerequisites.push_back (p);
+            // Match to a rule.
+            //
+            build::match (t);
           }
         }
 
@@ -260,48 +254,16 @@ namespace build
     update (target& t)
     {
       obj& o (dynamic_cast<obj&> (t));
-      timestamp mt (o.mtime ());
+      cxx* s (update_prerequisites<cxx> (o, o.mtime ()));
 
-      bool u (mt == timestamp_nonexistent);
-      const cxx* s (nullptr);
-
-      for (const prerequisite& p: t.prerequisites)
-      {
-        const target& pt (*p.target);
-
-        // Assume all our prerequisites are mtime-based (checked in
-        // match()).
-        //
-        if (!u)
-        {
-          const auto& mtp (dynamic_cast<const mtime_target&> (pt));
-          timestamp mp (mtp.mtime ());
-
-          // What do we do if timestamps are equal? This can happen, for
-          // example, on filesystems that don't have subsecond resolution.
-          // There is not much we can do here except detect the case where
-          // the prerequisite was updated in this run which means the
-          // target must be out of date.
-          //
-          if (mt < mp || mt == mp && mtp.state () == target_state::updated)
-            u = true;
-        }
-
-        if (s == nullptr)
-          s = dynamic_cast<const cxx*> (&pt);
-
-        if (u && s != nullptr)
-          break;
-      }
-
-      if (!u)
+      if (s == nullptr)
         return target_state::uptodate;
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path ro (translate (o.path ()));
-      path rs (translate (s->path ()));
+      path ro (relative_work (o.path ()));
+      path rs (relative_work (s->path ()));
 
       const char* args[] = {
         "g++-4.9",
@@ -323,7 +285,7 @@ namespace build
         process pr (args);
 
         if (!pr.wait ())
-          return target_state::failed;
+          throw failed ();
 
         // Should we go to the filesystem and get the new mtime? We
         // know the file has been modified, so instead just use the
@@ -344,7 +306,7 @@ namespace build
         if (e.child ())
           exit (1);
 
-        return target_state::failed;
+        throw failed ();
       }
     }
 
@@ -358,14 +320,14 @@ namespace build
       // @@ TODO:
       //
       // - check prerequisites: object files, libraries
-      // - if path already assigned, verify extension
+      // - if path already assigned, verify extension?
       //
       // @@ Q:
       //
       // - if there is no .o, are we going to check if the one derived
-      //   from target exist or can be built? If we do that, then it
-      //   probably makes sense to try other rules first (two passes).
+      //   from target exist or can be built? A: No.
       //   What if there is a library. Probably ok if .a, not if .so.
+      //   (i.e., a utility library).
       //
 
       // Scan prerequisites and see if we can work with what we've got.
@@ -374,7 +336,7 @@ namespace build
 
       for (prerequisite& p: t.prerequisites)
       {
-        if (p.type.id == typeid (cxx))
+        if (p.type.id == typeid (cxx)) // @@ Should use is_a (add to p.type).
         {
           if (!seen_cxx)
             seen_cxx = true;
@@ -396,8 +358,8 @@ namespace build
         }
       }
 
-      // We will only chain C source if there is also C++ source or we
-      // we explicitly asked to.
+      // We will only chain a C source if there is also a C++ source or we
+      // we explicitly told to.
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
@@ -420,20 +382,27 @@ namespace build
       if (e.path ().empty ())
         e.path (e.dir / path (e.name));
 
-      // Do rule chaining for C and C++ source files.
-      //
-      // @@ OPT: match() could indicate whether this is necesssary.
+      // Process prerequisited: do rule chaining for C and C++ source
+      // files as well as search and match.
       //
       for (auto& pr: t.prerequisites)
       {
-        prerequisite& cp (pr);
+        prerequisite& p (pr);
 
-        if (cp.type.id != typeid (c) && cp.type.id != typeid (cxx))
+        if (p.type.id != typeid (c) && p.type.id != typeid (cxx))
+        {
+          if (p.target == nullptr)
+            search (p);
+
+          build::match (*p.target);
           continue;
+        }
+
+        prerequisite& cp (p);
 
         // Come up with the obj{} prerequisite. The c(xx){} prerequisite
         // directory can be relative (to the scope) or absolute. If it is
-        // relative, then we use it as is. If it is absolute, then translate
+        // relative, then use it as is. If it is absolute, then translate
         // it to the corresponding directory under out_root. While the
         // c(xx){} directory is most likely under src_root, it is also
         // possible it is under out_root (e.g., generated source).
@@ -444,10 +413,8 @@ namespace build
         else
         {
           if (!cp.dir.sub (src_root))
-          {
             fail << "out of project prerequisite " << cp <<
               info << "specify corresponding obj{} target explicitly";
-          }
 
           d = out_root / cp.dir.leaf (src_root);
         }
@@ -466,9 +433,19 @@ namespace build
         target& ot (search (op));
 
         // If this target already exists, then it needs to be "compatible"
-        // with what we doing.
+        // with what we are doing here.
         //
-        bool add (true);
+        // This gets a bit tricky. We need to make sure the source files
+        // are the same which we can only do by comparing the targets to
+        // which they resolve. But we cannot search the ot's prerequisites
+        // -- only the rule that matches can. Note, however, that if all
+        // this works out, then our next step is to search and match the
+        // re-written prerequisite (which points to ot). If things don't
+        // work out, then we fail, in which case searching and matching
+        // speculatively doesn't really hurt.
+        //
+        //
+        prerequisite* cp1 (nullptr);
         for (prerequisite& p: ot.prerequisites)
         {
           // Ignore some known target types (headers).
@@ -481,35 +458,35 @@ namespace build
 
           if (p.type.id == typeid (cxx))
           {
-            // We need to make sure they are the same which we can only
-            // do by comparing the targets to which they resolve.
-            //
-            target* t (p.target != nullptr ? p.target : &search (p));
-            target* ct (cp.target != nullptr ? cp.target : &search (cp));
-
-            if (t == ct)
-            {
-              add = false;
-              continue; // Check the rest of the prerequisites.
-            }
+            cp1 = &p; // Check the rest of the prerequisites.
+            continue;
           }
 
-          diag_record r;
-
-          r << fail << "synthesized target for prerequisite " << cp
-            << " would be incompatible with existing target " << ot;
-
-          if (p.type.id == typeid (cxx))
-            r << info << "existing prerequsite " << p << " does not "
-              << "match " << cp;
-          else
-            r << info << "unknown existing prerequsite " << p;
-
-          r << info << "specify corresponding obj{} target explicitly";
+          fail << "synthesized target for prerequisite " << cp
+               << " would be incompatible with existing target " << ot <<
+            info << "unknown existing prerequsite type " << p <<
+            info << "specify corresponding obj{} target explicitly";
         }
 
-        if (add)
+        if (cp1 != nullptr)
+        {
+          build::match (ot); // Now cp1 should be resolved.
+
+          if (cp.target == nullptr)
+            search (cp); // Our own prerequisite, so this is ok.
+
+          if (cp.target != cp1->target)
+            fail << "synthesized target for prerequisite " << cp
+                 << " would be incompatible with existing target " << ot <<
+              info << "existing prerequsite " << *cp1 << " does not "
+                 << "match " << cp <<
+              info << "specify corresponding obj{} target explicitly";
+        }
+        else
+        {
           ot.prerequisites.push_back (cp);
+          build::match (ot);
+        }
 
         // Change the exe{} target's prerequsite from cxx{} to obj{}.
         //
@@ -528,40 +505,14 @@ namespace build
       //
 
       exe& e (dynamic_cast<exe&> (t));
-      timestamp mt (e.mtime ());
 
-      bool u (mt == timestamp_nonexistent);
-
-      for (const prerequisite& p: t.prerequisites)
-      {
-        const target& pt (*p.target);
-
-        // Assume all our prerequisites are mtime-based (checked in
-        // match()).
-        //
-        const auto& mtp (dynamic_cast<const mtime_target&> (pt));
-        timestamp mp (mtp.mtime ());
-
-        // What do we do if timestamps are equal? This can happen, for
-        // example, on filesystems that don't have subsecond resolution.
-        // There is not much we can do here except detect the case where
-        // the prerequisite was updated in this run which means the
-        // target must be out of date.
-        //
-        if (mt < mp || mt == mp && mtp.state () == target_state::updated)
-        {
-          u = true;
-          break;
-        }
-      }
-
-      if (!u)
+      if (!update_prerequisites (e, e.mtime ()))
         return target_state::uptodate;
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path re (translate (e.path ()));
+      path re (relative_work (e.path ()));
       vector<path> ro;
 
       vector<const char*> args {"g++-4.9", "-std=c++14", "-g", "-o"};
@@ -571,7 +522,7 @@ namespace build
       for (const prerequisite& p: t.prerequisites)
       {
         const obj& o (dynamic_cast<const obj&> (*p.target));
-        ro.push_back (translate (o.path ()));
+        ro.push_back (relative_work (o.path ()));
         args.push_back (ro.back ().string ().c_str ());
       }
 
@@ -587,7 +538,7 @@ namespace build
         process pr (args.data ());
 
         if (!pr.wait ())
-          return target_state::failed;
+          throw failed ();
 
         // Should we go to the filesystem and get the new mtime? We
         // know the file has been modified, so instead just use the
@@ -608,7 +559,7 @@ namespace build
         if (e.child ())
           exit (1);
 
-        return target_state::failed;
+        throw failed ();
       }
     }
   }

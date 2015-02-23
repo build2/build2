@@ -1,0 +1,41 @@
+// file      : build/key_set -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_KEY_SET
+#define BUILD_KEY_SET
+
+namespace build
+{
+  // Google the "Emulating Boost.MultiIndex with Standard Containers" blog
+  // post for deatils.
+  //
+
+  template <typename T>
+  struct set_key
+  {
+    mutable const T* p;
+
+    set_key (const T* v = 0): p (v) {}
+    bool operator< (const set_key& x) const {return *p < *x.p;}
+  };
+
+  template <typename I>
+  struct map_iterator_adapter: I
+  {
+    typedef const typename I::value_type::second_type value_type;
+    typedef value_type* pointer;
+    typedef value_type& reference;
+
+    map_iterator_adapter () {}
+    map_iterator_adapter (I i): I (i) {}
+
+    map_iterator_adapter&
+    operator= (I i) {static_cast<I&> (*this) = i; return *this;}
+
+    reference operator* () const {return I::operator* ().second;}
+    pointer operator-> () const {return &I::operator-> ()->second;}
+  };
+}
+
+#endif // BUILD_KEY_SET

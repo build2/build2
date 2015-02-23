@@ -35,7 +35,7 @@ namespace build
   }
 
   path
-  translate (const path& p)
+  relative_work (const path& p)
   {
     if (p.sub (work))
       return p.leaf (work);
@@ -48,23 +48,5 @@ namespace build
       return p.relative (work);
 
     return p;
-  }
-
-  std::string
-  diagnostic_string (const path& p)
-  {
-    if (p.absolute ())
-    {
-      path rp (translate (p));
-
-#ifndef _WIN32
-      if (rp.absolute () && rp.sub (home))
-        return "~/" + rp.leaf (home).string ();
-#endif
-
-      return rp.string ();
-    }
-
-    return p.string ();
   }
 }

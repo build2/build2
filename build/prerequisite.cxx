@@ -28,7 +28,7 @@ namespace build
       //
       if (!p.dir.absolute ())
       {
-        string s (diagnostic_string (p.scope.path ()));
+        string s (diag_relative_work (p.scope.path ()));
 
         if (!s.empty ())
           os << s << path::traits::directory_separator << ": ";
@@ -38,7 +38,7 @@ namespace build
       //
       if (!p.dir.empty ())
       {
-        string s (diagnostic_string (p.dir));
+        string s (diag_relative_work (p.dir));
 
         if (!s.empty ())
           os << s << path::traits::directory_separator;

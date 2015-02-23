@@ -6,6 +6,7 @@
 
 #include <utility>  // move()
 
+#include <build/algorithm>
 #include <build/diagnostics>
 
 using namespace std;
@@ -21,21 +22,16 @@ namespace build
   {
     // @@ TODO:
     //
-    // - need to assign path somehow. Get (potentially several)
-    //   extensions from target type? Maybe target type should
-    //   generate a list of potential paths that we can try here.
-    //   What if none of them exist, which one do we use? Should
-    //   there be a default extension, perhaps configurable via
-    //   a variable?
+    // - need to try all the target-type-specific extensions, just
+    //   like search_existing_file().
     //
-
     path_target& pt (dynamic_cast<path_target&> (t));
 
     if (pt.path ().empty ())
     {
       path p (t.dir / path (pt.name));
 
-      // @@ TMP: derive file name by appending target name as an extension?
+      // @@ TMP: target name as an extension.
       //
       const string& e (pt.ext != nullptr ? *pt.ext : pt.type ().name);
 
@@ -45,6 +41,10 @@ namespace build
         p += e;
       }
 
+      // While strictly speaking we shouldn't do this in match(),
+      // no other rule should ever be ambiguous with this fallback
+      // one.
+      //
       pt.path (move (p));
     }
 
@@ -52,8 +52,12 @@ namespace build
   }
 
   recipe path_rule::
-  select (target&, void*) const
+  select (target& t, void*) const
   {
+    // Search and match all the prerequisites.
+    //
+    search_and_match (t);
+
     return &update;
   }
 
@@ -62,38 +66,32 @@ namespace build
   {
     // Make sure the target is not older than any of its prerequisites.
     //
-    path_target& pt (dynamic_cast<path_target&> (t));
-    timestamp mt (pt.mtime ());
+    timestamp mt (dynamic_cast<path_target&> (t).mtime ());
 
     for (const prerequisite& p: t.prerequisites)
     {
-      const target& pt (*p.target); // Should be resolved at this stage.
+      target& pt (*p.target);
+      target_state ts (update (pt));
 
-      // If this is an mtime-based target, then simply compare timestamps.
+      // If this is an mtime-based target, then compare timestamps.
       //
-      if (auto mtp = dynamic_cast<const mtime_target*> (&pt))
+      if (auto mpt = dynamic_cast<const mtime_target*> (&pt))
       {
-        if (mt < mtp->mtime ())
-        {
-          error << "no rule to update target " << t <<
-            info << "prerequisite " << pt << " is ahead of " << t
-                << " by " << (mtp->mtime () - mt);
+        timestamp mp (mpt->mtime ());
 
-          return target_state::failed;
-        }
+        if (mt < mp)
+          fail << "no recipe to update target " << t <<
+            info << "prerequisite " << pt << " is ahead of " << t
+               << " by " << (mp - mt);
       }
       else
       {
         // Otherwise we assume the prerequisite is newer if it was updated.
         //
-        if (pt.state () == target_state::updated)
-        {
-          error << "no rule to update target " << t <<
+        if (ts == target_state::updated)
+          fail << "no recipe to update target " << t <<
             info << "prerequisite " << pt << " is ahead of " << t
-                << " because it was updated";
-
-          return target_state::failed;
-        }
+               << " because it was updated";
       }
     }
 
@@ -109,22 +107,18 @@ namespace build
   }
 
   recipe dir_rule::
-  select (target&, void*) const
+  select (target& t, void*) const
   {
+    search_and_match (t);
     return &update;
   }
 
   target_state dir_rule::
   update (target& t)
   {
-    for (const prerequisite& p: t.prerequisites)
-    {
-      auto ts (p.target->state ());
-
-      if (ts != target_state::uptodate)
-        return ts; // updated or failed
-    }
-
-    return target_state::uptodate;
+    // Return updated if any of our prerequsites were updated and
+    // uptodate otherwise.
+    //
+    return update_prerequisites (t);
   }
 }

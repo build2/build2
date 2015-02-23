@@ -53,8 +53,8 @@ namespace build
   void parser::
   parse (istream& is, const path& p, scope& s)
   {
-    string ds (diagnostic_string (p));
-    path_ = &ds;
+    string rw (diag_relative_work (p));
+    path_ = &rw;
 
     lexer l (is, p.string ());
     lexer_ = &l;
@@ -403,9 +403,9 @@ namespace build
 
       level4 ([&]{trace (t) << "entering " << p;});
 
-      string ds (diagnostic_string (p));
+      string rw (diag_relative_work (p));
       const string* op (path_);
-      path_ = &ds;
+      path_ = &rw;
 
       lexer l (ifs, p.string ());
       lexer* ol (lexer_);
@@ -475,9 +475,9 @@ namespace build
 
       level4 ([&]{trace (t) << "entering " << p;});
 
-      string ds (diagnostic_string (p));
+      string rw (diag_relative_work (p));
       const string* op (path_);
-      path_ = &ds;
+      path_ = &rw;
 
       lexer l (ifs, p.string ());
       lexer* ol (lexer_);

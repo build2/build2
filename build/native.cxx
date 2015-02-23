@@ -8,9 +8,21 @@ using namespace std;
 
 namespace build
 {
-  const target_type exe::static_type {
-    typeid (exe), "exe", &file::static_type, &target_factory<exe>};
+  const target_type exe::static_type
+  {
+    typeid (exe),
+    "exe",
+    &file::static_type,
+    &target_factory<exe>,
+    file::static_type.search
+  };
 
-  const target_type obj::static_type {
-    typeid (obj), "obj", &file::static_type, &target_factory<obj>};
+  const target_type obj::static_type
+  {
+    typeid (obj),
+    "obj",
+    &file::static_type,
+    &target_factory<obj>,
+    file::static_type.search
+  };
 }
