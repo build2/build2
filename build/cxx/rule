@@ -26,7 +26,7 @@ namespace build
       match (target&, const std::string& hint) const;
 
       virtual recipe
-      select (target&, void*) const;
+      apply (target&, void*) const;
 
       static target_state
       update (target&);
@@ -43,7 +43,7 @@ namespace build
       match (target&, const std::string& hint) const;
 
       virtual recipe
-      select (target&, void*) const;
+      apply (target&, void*) const;
 
       static target_state
       update (target&);

@@ -22,7 +22,7 @@ namespace build
     match (target&, const std::string& hint) const = 0;
 
     virtual recipe
-    select (target&, void*) const = 0;
+    apply (target&, void*) const = 0;
   };
 
   typedef std::unordered_map<
@@ -40,7 +40,7 @@ namespace build
     match (target&, const std::string& hint) const;
 
     virtual recipe
-    select (target&, void*) const;
+    apply (target&, void*) const;
 
     static target_state
     update (target&);
@@ -53,7 +53,7 @@ namespace build
     match (target&, const std::string& hint) const;
 
     virtual recipe
-    select (target&, void*) const;
+    apply (target&, void*) const;
 
     static target_state
     update (target&);

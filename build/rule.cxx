@@ -52,7 +52,7 @@ namespace build
   }
 
   recipe path_rule::
-  select (target& t, void*) const
+  apply (target& t, void*) const
   {
     // Search and match all the prerequisites.
     //
@@ -107,7 +107,7 @@ namespace build
   }
 
   recipe dir_rule::
-  select (target& t, void*) const
+  apply (target& t, void*) const
   {
     search_and_match (t);
     return &update;

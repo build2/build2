@@ -57,7 +57,7 @@ namespace build
     }
 
     recipe compile::
-    select (target& t, void* v) const
+    apply (target& t, void* v) const
     {
       // Derive object file name from target name.
       //
@@ -371,9 +371,9 @@ namespace build
     }
 
     recipe link::
-    select (target& t, void*) const
+    apply (target& t, void*) const
     {
-      tracer trace ("cxx::link::select");
+      tracer trace ("cxx::link::apply");
 
       // Derive executable file name from target name.
       //

@@ -116,11 +116,11 @@ namespace build
               make_exception_guard (
                 [](target& t, const string& n)
                 {
-                  info << "while selecting rule " << n << " for target " << t;
+                  info << "while applying rule " << n << " for target " << t;
                 },
                 t, n));
 
-            t.recipe (ru.select (t, m));
+            t.recipe (ru.apply (t, m));
             break;
           }
           else
