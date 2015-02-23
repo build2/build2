@@ -1,4 +1,4 @@
-// file      : build/prefix_map.txx -*- C++ -*-
+// file      : build/prefix-map.txx -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 

@@ -1,4 +1,4 @@
-// file      : build/prefix_map -*- C++ -*-
+// file      : build/prefix-map -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
@@ -135,6 +135,6 @@ namespace build
     prefix_map_impl<std::multimap<K, T, compare_prefix<K>>, D>;
 }
 
-#include <build/prefix_map.txx>
+#include <build/prefix-map.txx>
 
 #endif // BUILD_PREFIX_MAP

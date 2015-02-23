@@ -11,7 +11,7 @@
 #include <unordered_map>
 
 #include <build/target>
-#include <build/prefix_map>
+#include <build/prefix-map>
 
 namespace build
 {

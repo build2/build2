@@ -1,4 +1,4 @@
-// file      : tests/build/prefix_map/driver.cxx -*- C++ -*-
+// file      : tests/build/prefix-map/driver.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
@@ -6,7 +6,7 @@
 #include <cassert>
 #include <iostream>
 
-#include <build/prefix_map>
+#include <build/prefix-map>
 
 using namespace std;
 using namespace build;
