@@ -44,13 +44,10 @@ namespace build
       if (i == rules.end ()) // No rules registered for this target type.
         continue;
 
-      const auto& rules (i->second); // Name map.
+      const auto& rules (i->second); // Hint map.
 
       string hint; // @@ TODO
-
-      auto rs (hint.empty ()
-               ? make_pair (rules.begin (), rules.end ())
-               : rules.find (hint));
+      auto rs (rules.find (hint));
 
       for (auto i (rs.first); i != rs.second; ++i)
       {

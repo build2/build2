@@ -35,7 +35,8 @@ main ()
 
     {
       auto r (m.find (""));
-      assert (r.first == r.second);
+      assert (r.first != r.second && r.first->second == 1 &&
+              ++r.first == r.second);
     }
 
     {
@@ -70,7 +71,9 @@ main ()
 
     {
       auto r (m.find (""));
-      assert (r.first == r.second);
+      assert (r.first != r.second && r.first->second == 2 &&
+              ++r.first != r.second && r.first->second == 1 &&
+              ++r.first == r.second);
     }
 
     {
@@ -112,11 +115,6 @@ main ()
        {"foo", 2}, {"fooa", 3}, {"foo.bar", 4}, {"foo.fox", 5},
        {"xoo", 5}},
       '.');
-
-    {
-      auto r (m.find (""));
-      assert (r.first == r.second);
-    }
 
     {
       auto r (m.find ("fo"));

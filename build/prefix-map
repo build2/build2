@@ -39,8 +39,9 @@ namespace build
     prefix (const K& p, const K& k) const
     {
       size_type pn (p.size ());
-      return compare (
-        p.c_str (), pn, k.c_str (), pn == k.size () ? pn : pn + 1) == 0;
+      return pn == 0 || // Empty key is always a prefix.
+        compare (
+          p.c_str (), pn, k.c_str (), pn == k.size () ? pn : pn + 1) == 0;
     }
 
     int
@@ -75,6 +76,11 @@ namespace build
   // A map of hierarchical "paths", e.g., 'foo.bar' or 'foo/bar' with
   // the ability to retrieve a range of entries that have a specific
   // prefix. The '.' and '/' above are the delimiter characters.
+  //
+  // Note that as a special rule, the default implementation of
+  // compare_prefix treats empty key as everyone's prefix even if
+  // the paths don't start with the delimiter (useful to represent
+  // a "root path").
   //
   // Implementation-wise, the idea is to pretend that each key ends
   // with the delimiter. This way we automatically avoid matching
