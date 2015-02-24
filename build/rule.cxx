@@ -4,15 +4,13 @@
 
 #include <build/rule>
 
-#include <string.h>    // strerror_r()
-#include <sys/stat.h>  // mkdir()
-#include <sys/types.h> // mkdir()
-
-#include <utility>  // move()
+#include <utility>      // move()
+#include <system_error>
 
 #include <build/algorithm>
 #include <build/diagnostics>
 #include <build/timestamp>
+#include <build/mkdir>
 
 using namespace std;
 
@@ -169,13 +167,14 @@ namespace build
     else
       text << "mkdir " << t; //@@ Probably only show if [show]?
 
-    if (mkdir (d.string ().c_str (), 0777) != 0)
+    try
     {
-      char b[512];
-      const char* m (strerror_r (errno, b, sizeof (b)) == 0
-                     ? b
-                     : "error message too long");
-      fail << "mkdir: unable to create directory " << d.string () << ": " << m;
+      mkdir (d);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to create directory " << d.string () << ": "
+           << e.what ();
     }
 
     return target_state::updated;
