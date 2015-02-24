@@ -5,9 +5,8 @@
 #ifndef BUILD_SCOPE
 #define BUILD_SCOPE
 
-#include <map>
-
 #include <build/path>
+#include <build/path-map>
 #include <build/prerequisite>
 
 namespace build
@@ -23,7 +22,7 @@ namespace build
   private:
     friend class scope_map;
 
-    typedef std::map<path_type, scope>::const_iterator iterator;
+    typedef path_map<scope>::const_iterator iterator;
 
     scope () = default;
 
@@ -37,7 +36,7 @@ namespace build
     iterator i_;
   };
 
-  class scope_map: std::map<path, scope>
+  class scope_map: path_map<scope>
   {
   public:
     scope&

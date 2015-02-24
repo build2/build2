@@ -30,7 +30,7 @@ namespace build
       {
         string s (diag_relative_work (p.scope.path ()));
 
-        if (!s.empty ())
+        if (!s.empty () && s.back () != path::traits::directory_separator)
           os << s << path::traits::directory_separator << ": ";
       }
 
@@ -40,7 +40,7 @@ namespace build
       {
         string s (diag_relative_work (p.dir));
 
-        if (!s.empty ())
+        if (!s.empty () && s.back () != path::traits::directory_separator)
           os << s << path::traits::directory_separator;
       }
 

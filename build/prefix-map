@@ -44,6 +44,7 @@ namespace build
           p.c_str (), pn, k.c_str (), pn == k.size () ? pn : pn + 1) == 0;
     }
 
+  protected:
     int
     compare (const C* x, size_type xn,
              const C* y, size_type yn) const

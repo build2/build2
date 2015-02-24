@@ -58,7 +58,7 @@ namespace build
   basic_path<C>& basic_path<C>::
   operator/= (basic_path<C> const& r)
   {
-    if (r.absolute ())
+    if (r.absolute () && !path_.empty ()) // Allow ('' / '/foo').
       throw invalid_basic_path<C> (r.path_);
 
     if (path_.empty () || r.path_.empty ())

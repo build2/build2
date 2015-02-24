@@ -152,6 +152,16 @@ main (int argc, char* argv[])
       trace << "src_root: " << src_root.string ();
     }
 
+    // Create root scope. For Win32 we use the empty path since there
+    // is no such "real" root path. On POSIX, however, this is a real
+    // path. See the comment in <build/path-map> for details.
+    //
+#ifdef _WIN32
+    root_scope = &scopes[path ()];
+#else
+    root_scope = &scopes[path ("/")];
+#endif
+
     // Parse buildfile.
     //
     path bf ("buildfile");

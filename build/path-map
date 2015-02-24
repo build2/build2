@@ -1,0 +1,77 @@
+// file      : build/path-map -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PATH_MAP
+#define BUILD_PATH_MAP
+
+#include <build/path>
+#include <build/prefix-map>
+
+namespace build
+{
+  // prefix_map for paths
+  //
+  // The paths should be normalized.
+  //
+  // Note that the path's representation of POSIX root ('/') is
+  // inconsistent in that we have a trailing delimiter at the end of
+  // the path (its "proper" representation would have been an empty
+  // string but that would have clashed with empty paths). To work
+  // around this snag, this implementation, during key comparison,
+  // detects '/' and treats it as empty. Note that the map will
+  // still store the key as you have first inserted it. So if you
+  // want a particular representation, pre-populate the map with
+  // it.
+  //
+  template <typename C>
+  struct compare_prefix<basic_path<C>>: compare_prefix<std::basic_string<C>>
+  {
+    typedef basic_path<C> K;
+
+    typedef C char_type;
+    typedef std::basic_string<C> string_type;
+    typedef compare_prefix<std::basic_string<C>> base;
+
+    explicit
+    compare_prefix (C d): base (d) {}
+
+    bool
+    operator() (const K& x, const K& y) const
+    {
+      const auto& xs (x.string ());
+      const auto& ys (y.string ());
+
+#ifdef _WIN32
+      return base::compare (xs.c_str (),
+                            xs.size (),
+                            ys.c_str (),
+                            ys.size ()) < 0;
+#else
+      return base::compare (xs.c_str (),
+                            x.root () ? 0 : xs.size (),
+                            ys.c_str (),
+                            y.root () ? 0 : ys.size ()) < 0;
+#endif
+    }
+
+    bool
+    prefix (const K& p, const K& k) const
+    {
+      const auto& ps (p.string ());
+      const auto& ks (k.string ());
+
+#ifdef _WIN32
+      return base::prefix (ps, ks);
+#else
+      return base::prefix (p.root () ? string_type () : ps,
+                           k.root () ? string_type () : ks);
+#endif
+    }
+  };
+
+  template <typename T>
+  using path_map = prefix_map<path, T, path::traits::directory_separator>;
+}
+
+#endif // BUILD_PATH_MAP

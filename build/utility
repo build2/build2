@@ -12,7 +12,6 @@
 #include <exception>
 #include <unordered_set>
 
-
 namespace build
 {
   struct compare_c_string

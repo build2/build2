@@ -33,7 +33,7 @@ namespace build
       {
         os << s;
 
-        if (!t.name.empty ())
+        if (!t.name.empty () && s.back () != path::traits::directory_separator)
           os << path::traits::directory_separator;
       }
     }

@@ -158,8 +158,15 @@ namespace build
             if (dir)
             {
               scope& prev (*scope_);
-              path p (tns[0].name);
 
+              // On Win32 translate the root path to the special empty path.
+              // Search for root_scope for details.
+              //
+#ifdef _WIN32
+              path p (tns[0].name != "/" ? path (tns[0].name) : path ());
+#else
+              path p (tns[0].name);
+#endif
               if (p.relative ())
                 p = prev.path () / p;
 
@@ -197,9 +204,14 @@ namespace build
 
         // Dependency declaration.
         //
-        if (tt == type::name || tt == type::lcbrace || tt == type::newline)
+        if (tt == type::name    ||
+            tt == type::lcbrace ||
+            tt == type::newline ||
+            tt == type::eos)
         {
-          names_type pns (tt != type::newline ? names (t, tt) : names_type ());
+          names_type pns (tt != type::newline && tt != type::eos
+                          ? names (t, tt)
+                          : names_type ());
 
           // Prepare the prerequisite list.
           //
@@ -224,7 +236,7 @@ namespace build
                 n = move (pn.name); // NOTE: steal!
               else
               {
-                d /= path (pn.name, i);
+                d /= path (pn.name, i != 0 ? i : 1); // Special case: "/".
                 n.assign (pn.name, i + 1, string::npos);
               }
 
@@ -292,7 +304,7 @@ namespace build
                 n = move (tn.name); // NOTE: steal!
               else
               {
-                d /= path (tn.name, i);
+                d /= path (tn.name, i != 0 ? i : 1); // Special case: "/".
                 n.assign (tn.name, i + 1, string::npos);
               }
 
@@ -630,7 +642,10 @@ namespace build
   peek ()
   {
     if (!peeked_)
+    {
       peek_ = lexer_->next ();
+      peeked_ = true;
+    }
 
     return peek_.type ();
   }
