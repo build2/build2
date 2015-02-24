@@ -255,6 +255,23 @@ namespace build
     virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
   };
+
+  // While a filesystem directory is mtime-based, the semantics is
+  // not very useful in our case. In particular, if another target
+  // depends on fsdir{}, then all that's desired is the creation of
+  // the directory if it doesn't already exist. In particular, we
+  // don't want to update the target just because some unrelated
+  // entry was created in that directory.
+  //
+  class fsdir: public target
+  {
+  public:
+    using target::target;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
 }
 
 #endif // BUILD_TARGET

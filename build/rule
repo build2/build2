@@ -58,6 +58,19 @@ namespace build
     static target_state
     update (target&);
   };
+
+  class fsdir_rule: public rule
+  {
+  public:
+    virtual void*
+    match (target&, const std::string& hint) const;
+
+    virtual recipe
+    apply (target&, void*) const;
+
+    static target_state
+    update (target&);
+  };
 }
 
 #endif // BUILD_RULE

@@ -84,6 +84,7 @@ main (int argc, char* argv[])
     //
     target_types.insert (file::static_type);
     target_types.insert (dir::static_type);
+    target_types.insert (fsdir::static_type);
 
     target_types.insert (exe::static_type);
     target_types.insert (obj::static_type);
@@ -164,7 +165,7 @@ main (int argc, char* argv[])
 
     try
     {
-      p.parse (ifs, bf, scopes[path::current ()]);
+      p.parse (ifs, bf, scopes[out_base]);
     }
     catch (const std::ios_base::failure&)
     {
@@ -183,6 +184,9 @@ main (int argc, char* argv[])
 
     dir_rule dir_r;
     rules[typeid (dir)].emplace ("dir", dir_r);
+
+    fsdir_rule fsdir_r;
+    rules[typeid (fsdir)].emplace ("fsdir", fsdir_r);
 
     path_rule path_r;
     rules[typeid (path_target)].emplace ("path", path_r);

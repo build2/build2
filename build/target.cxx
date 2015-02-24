@@ -212,4 +212,13 @@ namespace build
     &target_factory<dir>,
     &search_alias
   };
+
+  const target_type fsdir::static_type
+  {
+    typeid (fsdir),
+    "fsdir",
+    &target::static_type,
+    &target_factory<fsdir>,
+    target::static_type.search
+  };
 }

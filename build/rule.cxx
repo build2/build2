@@ -4,10 +4,15 @@
 
 #include <build/rule>
 
+#include <string.h>    // strerror_r()
+#include <sys/stat.h>  // mkdir()
+#include <sys/types.h> // mkdir()
+
 #include <utility>  // move()
 
 #include <build/algorithm>
 #include <build/diagnostics>
+#include <build/timestamp>
 
 using namespace std;
 
@@ -120,5 +125,59 @@ namespace build
     // uptodate otherwise.
     //
     return update_prerequisites (t);
+  }
+
+  // fsdir_rule
+  //
+  void* fsdir_rule::
+  match (target& t, const string&) const
+  {
+    return &t;
+  }
+
+  recipe fsdir_rule::
+  apply (target& t, void*) const
+  {
+    // Let's not allow any prerequisites for this target since it
+    // doesn't make much sense. The sole purpose of this target type
+    // is to create a directory.
+    //
+    if (!t.prerequisites.empty ())
+      fail << "no prerequisites allowed for target " << t;
+
+    return &update;
+  }
+
+  target_state fsdir_rule::
+  update (target& t)
+  {
+    path d (t.dir / path (t.name));
+
+    // Add the extension back if it was specified.
+    //
+    if (t.ext != nullptr)
+    {
+      d += '.';
+      d += *t.ext;
+    }
+
+    if (path_mtime (d) != timestamp_nonexistent)
+      return target_state::uptodate;
+
+    if (verb >= 1)
+      text << "mkdir " << d.string ();
+    else
+      text << "mkdir " << t; //@@ Probably only show if [show]?
+
+    if (mkdir (d.string ().c_str (), 0777) != 0)
+    {
+      char b[512];
+      const char* m (strerror_r (errno, b, sizeof (b)) == 0
+                     ? b
+                     : "error message too long");
+      fail << "mkdir: unable to create directory " << d.string () << ": " << m;
+    }
+
+    return target_state::updated;
   }
 }
