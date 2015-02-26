@@ -6,7 +6,7 @@ namespace build
 {
   template <typename M>
   auto prefix_map_common<M>::
-  find (const key_type& k) -> std::pair<iterator, iterator>
+  find_prefix (const key_type& k) -> std::pair<iterator, iterator>
   {
     std::pair<iterator, iterator> r;
     r.first = this->lower_bound (k);
@@ -24,7 +24,8 @@ namespace build
 
   template <typename M>
   auto prefix_map_common<M>::
-  find (const key_type& k) const -> std::pair<const_iterator, const_iterator>
+  find_prefix (const key_type& k) const ->
+    std::pair<const_iterator, const_iterator>
   {
     std::pair<const_iterator, const_iterator> r;
     r.first = this->lower_bound (k);

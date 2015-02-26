@@ -108,10 +108,10 @@ namespace build
       : map_type (std::move (init), compare_type (delimiter)) {}
 
     std::pair<iterator, iterator>
-    find (const key_type&);
+    find_prefix (const key_type&);
 
     std::pair<const_iterator, const_iterator>
-    find (const key_type&) const;
+    find_prefix (const key_type&) const;
   };
 
   template <typename M, typename prefix_map_common<M>::char_type D = 0>

@@ -7,6 +7,7 @@
 
 #include <build/path>
 #include <build/path-map>
+#include <build/variable>
 #include <build/prerequisite>
 
 namespace build
@@ -19,6 +20,9 @@ namespace build
     const path_type&
     path () const {return i_->first;} // Absolute and normalized.
 
+    scope&
+    parent () const {return *parent_;}
+
   private:
     friend class scope_map;
 
@@ -27,32 +31,41 @@ namespace build
     scope () = default;
 
     void
-    init (const iterator& i) {i_ = i;}
+    init (const iterator& i, scope* p) {i_ = i; parent_ = p;}
+
+    void
+    parent (scope& p) {parent_ = &p;}
 
   public:
+    variable_map variables;
     prerequisite_set prerequisites;
 
   private:
     iterator i_;
+    scope* parent_;
   };
 
   class scope_map: path_map<scope>
   {
   public:
+    // Note that we assume the first insertion into the map is that
+    // of the root scope.
+    //
+
     scope&
-    operator[] (const path& k)
-    {
-      auto i (emplace (k, scope ()));
-      auto& r (i.first->second);
+    operator[] (const path&);
 
-      if (i.second)
-        r.init (i.first);
+    // Find the most qualified scope that encompasses this path.
+    //
+    scope&
+    find (const path&);
 
-      return r;
-    }
+  private:
+    typedef path_map<scope> base;
   };
 
   extern scope_map scopes;
+  extern scope* root_scope;
 }
 
 #endif // BUILD_SCOPE

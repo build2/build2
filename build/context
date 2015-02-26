@@ -21,9 +21,6 @@ namespace build
   extern path src_base;
   extern path out_base;
 
-  class scope;
-  extern scope* root_scope;
-
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
   //

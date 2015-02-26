@@ -1,0 +1,19 @@
+// file      : build/variable -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_VARIABLE
+#define BUILD_VARIABLE
+
+#include <build/prefix-map>
+
+namespace build
+{
+  // @@ TODO:
+  // - pool names?
+  //
+
+  typedef prefix_map<std::string, std::string, '.'> variable_map;
+}
+
+#endif // BUILD_VARIABLE

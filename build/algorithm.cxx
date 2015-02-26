@@ -47,7 +47,7 @@ namespace build
       const auto& rules (i->second); // Hint map.
 
       string hint; // @@ TODO
-      auto rs (rules.find (hint));
+      auto rs (rules.find_prefix (hint));
 
       for (auto i (rs.first); i != rs.second; ++i)
       {

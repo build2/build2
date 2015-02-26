@@ -20,8 +20,6 @@ namespace build
   path src_base;
   path out_base;
 
-  scope* root_scope;
-
   path
   src_out (const path& o)
   {
