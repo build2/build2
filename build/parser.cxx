@@ -7,6 +7,7 @@
 #include <memory>   // unique_ptr
 #include <fstream>
 #include <utility>  // move()
+#include <iterator> // make_move_iterator()
 #include <iostream>
 
 #include <build/token>
@@ -15,6 +16,7 @@
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
+#include <build/variable>
 #include <build/diagnostics>
 #include <build/context>
 
@@ -113,9 +115,9 @@ namespace build
 
       // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
       //
-      names_type tns (tt != type::colon
-                      ? names (t, tt)
-                      : names_type ({name_type ("", path (), "")}));
+      names_type ns (tt != type::colon
+                     ? names (t, tt)
+                     : names_type ({name ("")}));
 
       if (tt == type::colon)
       {
@@ -138,11 +140,11 @@ namespace build
             // things can appear inside depending on which one it is.
             //
             bool dir (false);
-            for (const auto& n: tns)
+            for (const auto& n: ns)
             {
-              if (n.type.empty () && n.name.back () == '/')
+              if (n.type.empty () && n.value.back () == '/')
               {
-                if (tns.size () != 1)
+                if (ns.size () != 1)
                 {
                   // @@ TODO: point to name.
                   //
@@ -163,9 +165,9 @@ namespace build
               // Search for root_scope for details.
               //
 #ifdef _WIN32
-              path p (tns[0].name != "/" ? path (tns[0].name) : path ());
+              path p (ns[0].value != "/" ? path (ns[0].value) : path ());
 #else
-              path p (tns[0].name);
+              path p (ns[0].value);
 #endif
               if (p.relative ())
                 p = prev.path () / p;
@@ -230,14 +232,16 @@ namespace build
             const string* e (nullptr);
 
             {
-              path::size_type i (path::traits::rfind_separator (pn.name));
+              string& v (pn.value);
+
+              path::size_type i (path::traits::rfind_separator (v));
 
               if (i == string::npos)
-                n = move (pn.name); // NOTE: steal!
+                n = move (v); // NOTE: steal!
               else
               {
-                d /= path (pn.name, i != 0 ? i : 1); // Special case: "/".
-                n.assign (pn.name, i + 1, string::npos);
+                d /= path (v, i != 0 ? i : 1); // Special case: "/".
+                n.assign (v, i + 1, string::npos);
               }
 
               // Handle '.' and '..'.
@@ -289,7 +293,7 @@ namespace build
             ps.push_back (p);
           }
 
-          for (auto& tn: tns)
+          for (auto& tn: ns)
           {
             path d (tn.dir);
             string n;
@@ -298,14 +302,16 @@ namespace build
             // The same deal as in handling prerequisites above.
             //
             {
-              path::size_type i (path::traits::rfind_separator (tn.name));
+              string& v (tn.value);
+
+              path::size_type i (path::traits::rfind_separator (v));
 
               if (i == string::npos)
-                n = move (tn.name); // NOTE: steal!
+                n = move (v); // NOTE: steal!
               else
               {
-                d /= path (tn.name, i != 0 ? i : 1); // Special case: "/".
-                n.assign (tn.name, i + 1, string::npos);
+                d /= path (v, i != 0 ? i : 1); // Special case: "/".
+                n.assign (v, i + 1, string::npos);
               }
 
               // Handle '.' and '..'.
@@ -380,6 +386,83 @@ namespace build
           continue;
 
         fail (t) << "expected newline instead of " << t;
+      }
+
+      // Variable assignment.
+      //
+      if (tt == type::equal || tt == type::plus_equal)
+      {
+        bool assign (tt == type::equal);
+
+        // LHS should be a single, simple name.
+        //
+        if (ns.size () != 1 || !ns[0].type.empty () || !ns[0].dir.empty ())
+          fail << "variable name expected before " << t;
+
+        next (t, tt);
+
+        names_type vns (tt != type::newline && tt != type::eos
+                        ? names (t, tt)
+                        : names_type ());
+
+        // Enter the variable.
+        //
+        string name;
+        if (ns[0].value.front () == '.') // Fully qualified name.
+          name.assign (ns[0].value, 1, string::npos);
+        else
+          //@@ TODO: append namespace if any.
+          name = move (ns[0].value);
+
+        const variable& var (variable_pool.find (move (name)));
+
+        if (assign)
+        {
+          value_ptr& val (scope_->variables[var]);
+
+          if (val == nullptr) // Initialization.
+          {
+            val.reset (new list_value (*scope_, move (vns)));
+          }
+          else // Assignment.
+          {
+            //@@ TODO: assuming it is a list.
+            //
+            dynamic_cast<list_value&> (*val).data = move (vns);
+          }
+        }
+        else
+        {
+          //@@ TODO: assuming it is a list.
+          //
+          list_value* val (dynamic_cast<list_value*> ((*scope_)[var]));
+
+          if (val == nullptr) // Initialization.
+          {
+            list_value_ptr nval (new list_value (*scope_, move (vns)));
+            scope_->variables.emplace (var, move (nval));
+          }
+          else if (&val->scope != scope_) // Append to value from parent scope.
+          {
+            list_value_ptr nval (new list_value (*scope_, val->data));
+            val = nval.get (); // Append.
+            scope_->variables.emplace (var, move (nval));
+          }
+
+          // Append.
+          //
+          if (val != nullptr)
+            val->data.insert (val->data.end (),
+                              make_move_iterator (vns.begin ()),
+                              make_move_iterator (vns.end ()));
+        }
+
+        if (tt == type::newline)
+          next (t, tt);
+        else if (tt != type::eos)
+          fail (t) << "expected newline instead of " << t;
+
+        continue;
       }
 
       fail (t) << "unexpected " << t;
@@ -670,6 +753,7 @@ namespace build
     case token_type::colon:   os << ":"; break;
     case token_type::lcbrace: os << "{"; break;
     case token_type::rcbrace: os << "}"; break;
+    case token_type::equal:   os << "="; break;
     case token_type::name:    os << t.name (); break;
     }
 

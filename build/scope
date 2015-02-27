@@ -20,8 +20,17 @@ namespace build
     const path_type&
     path () const {return i_->first;} // Absolute and normalized.
 
-    scope&
-    parent () const {return *parent_;}
+    scope*
+    parent () const {return parent_;}
+
+    // Variable lookup.
+    //
+  public:
+    value*
+    operator[] (const variable&);
+
+    value*
+    operator[] (const std::string& name);
 
   private:
     friend class scope_map;
@@ -45,7 +54,7 @@ namespace build
     scope* parent_;
   };
 
-  class scope_map: path_map<scope>
+  class scope_map: public path_map<scope>
   {
   public:
     // Note that we assume the first insertion into the map is that

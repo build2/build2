@@ -5,15 +5,119 @@
 #ifndef BUILD_VARIABLE
 #define BUILD_VARIABLE
 
+#include <string>
+#include <memory>        // unique_ptr
+#include <utility>       // move()
+#include <typeindex>
+#include <unordered_set>
+
+#include <build/name>
 #include <build/prefix-map>
 
 namespace build
 {
-  // @@ TODO:
-  // - pool names?
-  //
+  class scope;
+  struct value;
 
-  typedef prefix_map<std::string, std::string, '.'> variable_map;
+  struct value_type
+  {
+    std::type_index id;
+    value* (*const factory) ();
+  };
+
+  // variable
+  //
+  // The two variables are considered the same if they have the same name.
+  //
+  struct variable
+  {
+    explicit
+    variable (std::string n): name (std::move (n)), type (nullptr) {}
+
+    std::string name;
+    const value_type* type; // If NULL, then this variable has no fixed type.
+  };
+
+  inline bool
+  operator== (const variable& x, const variable& y) {return x.name == y.name;}
+
+  typedef std::reference_wrapper<const variable> variable_cref;
+
+  // value
+  //
+  struct value
+  {
+    typedef build::scope scope_type;
+
+    virtual
+    ~value () = default;
+
+    value (scope_type& s): scope (s) {}
+
+    scope_type& scope; // Scope to which this value belongs.
+  };
+  typedef std::unique_ptr<value> value_ptr;
+
+  struct list_value: value
+  {
+    list_value (scope_type& s, names d): value (s), data (std::move (d)) {}
+
+    names data;
+  };
+  typedef std::unique_ptr<list_value> list_value_ptr;
+}
+
+namespace std
+{
+  template <>
+  struct hash<build::variable>: hash<string>
+  {
+    size_t
+    operator() (const build::variable& v) const noexcept
+    {
+      return hash<string>::operator() (v.name);
+    }
+  };
+}
+
+namespace build
+{
+  // variable_pool
+  //
+  struct variable_set: std::unordered_set<variable>
+  {
+    // @@ Need to check/set type?
+    //
+    const variable&
+    find (std::string name) {return *emplace (std::move (name)).first;}
+  };
+
+  extern variable_set variable_pool;
+
+  // variable_map
+  //
+  template <>
+  struct compare_prefix<variable_cref>: compare_prefix<std::string>
+  {
+    typedef compare_prefix<std::string> base;
+
+    explicit
+    compare_prefix (char d): base (d) {}
+
+    bool
+    operator() (const variable& x, const variable& y) const
+    {
+      return base::operator() (x.name, y.name);
+    }
+
+    bool
+    prefix (const variable& p, const variable& k) const
+    {
+      return base::prefix (p.name, k.name);
+    }
+  };
+
+  typedef prefix_map<variable_cref, value_ptr, '.'> variable_map;
 }
 
 #endif // BUILD_VARIABLE

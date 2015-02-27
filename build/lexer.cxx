@@ -39,6 +39,17 @@ namespace build
       {
         return token (token_type::rcbrace, ln, cn);
       }
+    case '=':
+      {
+        return token (token_type::equal, ln, cn);
+      }
+    case '+':
+      {
+        if (get () != '=')
+          fail (c) << "expected = after +";
+
+        return token (token_type::plus_equal, ln, cn);
+      }
     }
 
     // Otherwise it is a name.
@@ -121,10 +132,12 @@ namespace build
       case ' ':
       case '\t':
       case '\n':
+      case '#':
       case ':':
       case '{':
       case '}':
-      case '#':
+      case '=':
+      case '+':
         {
           break;
         }

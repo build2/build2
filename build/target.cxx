@@ -29,7 +29,7 @@ namespace build
     {
       string s (diag_relative_work (t.dir));
 
-      if (!s.empty ())
+      if (s != ".")
       {
         os << s;
 

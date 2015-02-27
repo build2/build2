@@ -8,6 +8,30 @@ using namespace std;
 
 namespace build
 {
+  // scope
+  //
+  value* scope::
+  operator[] (const string& name)
+  {
+    const variable& var (variable_pool.find (name));
+    return (*this)[var];
+  }
+
+  value* scope::
+  operator[] (const variable& var)
+  {
+    for (scope* s (this); s != nullptr; s = s->parent ())
+    {
+      auto i (s->variables.find (var));
+      if (i != s->variables.end ())
+        return i->second.get ();
+    }
+
+    return nullptr;
+  }
+
+  // scope_map
+  //
   scope_map scopes;
   scope* root_scope;
 
@@ -32,8 +56,8 @@ namespace build
         // between it and our parent.
         //
         if (p == nullptr)
-          p = &c;
-        else if (p != &c) // A scope with an intermediate parent.
+          p = c.parent ();
+        else if (p != c.parent ()) // A scope with an intermediate parent.
           continue;
 
         c.parent (s);
@@ -44,7 +68,7 @@ namespace build
       // root scope).
       //
       if (p == nullptr && size () != 1)
-        p = &find (k);
+        p = &find (k.directory ());
 
       s.init (er.first, p);
     }
@@ -67,12 +91,12 @@ namespace build
 
     for (path d (k.directory ());; d = d.directory ())
     {
-      auto i (base::find (k));
+      auto i (base::find (d));
 
       if (i != end ())
         return i->second;
 
-      assert (d.empty ()); // We should have the root scope.
+      assert (!d.empty ()); // We should have the root scope.
     }
   }
 }

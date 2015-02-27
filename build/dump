@@ -1,0 +1,14 @@
+// file      : build/dump -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_DUMP
+#define BUILD_DUMP
+
+namespace build
+{
+  void
+  dump_scopes ();
+}
+
+#endif // BUILD_DUMP

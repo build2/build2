@@ -26,6 +26,7 @@
 #include <build/diagnostics>
 #include <build/context>
 #include <build/utility>
+#include <build/dump>
 
 #include <build/lexer>
 #include <build/parser>
@@ -182,6 +183,7 @@ main (int argc, char* argv[])
       fail << "failed to read from " << bf;
     }
 
+    dump_scopes ();
     dump ();
 
     // Register rules.

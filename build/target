@@ -13,7 +13,7 @@
 #include <typeindex>
 #include <ostream>
 #include <cassert>
-#include <utility>    // move
+#include <utility>    // move()
 
 #include <build/path>
 #include <build/key-set>
@@ -49,6 +49,9 @@ namespace build
   class target
   {
   public:
+    virtual
+    ~target () = default;
+
     target (path d, std::string n, const std::string* e)
         : dir (std::move (d)), name (std::move (n)), ext (e) {}
 

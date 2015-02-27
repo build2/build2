@@ -24,7 +24,8 @@ namespace build
   class failed: public std::exception {};
 
   // In addition to calling relative_work(), this function also uses
-  // shorter notations such as ~/.
+  // shorter notations such as '~/'. If the path is the same as work,
+  // it returns '.'.
   //
   std::string
   diag_relative_work (const path&);

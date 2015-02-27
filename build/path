@@ -418,7 +418,7 @@ namespace std
   struct hash<build::basic_path<C>>: hash<basic_string<C>>
   {
     size_t
-    operator() (const build::basic_path<C>& p) const
+    operator() (const build::basic_path<C>& p) const noexcept
     {
       return hash<basic_string<C>>::operator() (p.string ());
     }

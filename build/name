@@ -1,0 +1,43 @@
+// file      : build/name -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_NAME
+#define BUILD_NAME
+
+#include <string>
+#include <vector>
+#include <iosfwd>
+#include <utility> // move()
+
+#include <build/path>
+
+namespace build
+{
+  // A name is what we operate on by default. Depending on the context,
+  // it can be interpreted as a target or prerequisite name. A name
+  // without a type and directory can be used to represent any text.
+  //
+  struct name
+  {
+    explicit
+    name (std::string v): value (std::move (v)) {}
+
+    name (std::string t, path d, std::string v)
+        : type (std::move (t)), dir (std::move (d)), value (std::move (v)) {}
+
+    std::string type;
+    path dir;
+    std::string value;
+  };
+
+  typedef std::vector<name> names;
+
+  std::ostream&
+  operator<< (std::ostream&, const name&);
+
+  std::ostream&
+  operator<< (std::ostream&, const names&);
+}
+
+#endif // BUILD_NAME

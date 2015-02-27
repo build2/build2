@@ -6,13 +6,12 @@
 #define BUILD_PARSER
 
 #include <string>
-#include <vector>
 #include <iosfwd>
-#include <utility>       // std::move
 #include <unordered_set>
 
 #include <build/path>
 #include <build/token>
+#include <build/name>
 #include <build/diagnostics>
 
 namespace build
@@ -33,17 +32,7 @@ namespace build
     // Recursive descent parser.
     //
   private:
-    struct name_type
-    {
-      name_type (std::string t, path d, std::string n)
-          : type (std::move (t)), dir (std::move (d)), name (std::move (n)) {}
-
-      std::string type; // Empty if untyped.
-      path dir;
-      std::string name;
-    };
-
-    typedef std::vector<name_type> names_type;
+    typedef build::names names_type;
 
     void
     clause (token&, token_type&);

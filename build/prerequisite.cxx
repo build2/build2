@@ -30,8 +30,15 @@ namespace build
       {
         string s (diag_relative_work (p.scope.path ()));
 
-        if (!s.empty () && s.back () != path::traits::directory_separator)
-          os << s << path::traits::directory_separator << ": ";
+        if (s != ".")
+        {
+          os << s;
+
+          if (s.back () != path::traits::directory_separator)
+            os << path::traits::directory_separator;
+
+          os << ": ";
+        }
       }
 
       // Print directory.
@@ -40,8 +47,14 @@ namespace build
       {
         string s (diag_relative_work (p.dir));
 
-        if (!s.empty () && s.back () != path::traits::directory_separator)
-          os << s << path::traits::directory_separator;
+        if (s != ".")
+        {
+          os << s;
+
+          if (!p.name.empty () &&
+              s.back () != path::traits::directory_separator)
+            os << path::traits::directory_separator;
+        }
       }
 
       os << p.name;

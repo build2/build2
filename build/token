@@ -20,7 +20,9 @@ namespace build
     newline,
     colon,
     lcbrace,
-    rcbrace
+    rcbrace,
+    equal,
+    plus_equal
   };
 
   class token

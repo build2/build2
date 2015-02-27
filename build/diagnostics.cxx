@@ -18,6 +18,9 @@ namespace build
   {
     if (p.absolute ())
     {
+      if (p == work)
+        return ".";
+
       path rp (relative_work (p));
 
 #ifndef _WIN32
