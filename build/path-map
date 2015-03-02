@@ -29,12 +29,12 @@ namespace build
   {
     typedef basic_path<C> K;
 
-    typedef C char_type;
+    typedef C delimiter_type;
     typedef std::basic_string<C> string_type;
     typedef compare_prefix<std::basic_string<C>> base;
 
     explicit
-    compare_prefix (C d): base (d) {}
+    compare_prefix (delimiter_type d): base (d) {}
 
     bool
     operator() (const K& x, const K& y) const

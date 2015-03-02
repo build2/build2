@@ -14,10 +14,10 @@ using namespace build;
 int
 main ()
 {
-  typedef prefix_map<string, int> pm;
+  typedef prefix_map<string, int, '.'> pm;
 
   {
-    const pm m ('.');
+    const pm m;
 
     {
       auto r (m.find_prefix (""));
@@ -31,7 +31,7 @@ main ()
   }
 
   {
-    pm m {{{"foo", 1}}, '.'};
+    pm m {{{"foo", 1}}};
 
     {
       auto r (m.find_prefix (""));
@@ -67,7 +67,7 @@ main ()
   }
 
   {
-    pm m {{{"foo", 1}, {"bar", 2}}, '.'};
+    pm m {{{"foo", 1}, {"bar", 2}}};
 
     {
       auto r (m.find_prefix (""));
@@ -113,8 +113,7 @@ main ()
     pm m (
       {{"boo", 1},
        {"foo", 2}, {"fooa", 3}, {"foo.bar", 4}, {"foo.fox", 5},
-       {"xoo", 5}},
-      '.');
+       {"xoo", 5}});
 
     {
       auto r (m.find_prefix ("fo"));

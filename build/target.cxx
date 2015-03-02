@@ -159,10 +159,12 @@ namespace build
     // since it will do nothing and it most likely not what the author
     // intended.
     //
-    if (target* t = search_existing_target (p))
-      return t;
+    target* t (search_existing_target (p));
 
-    fail << "no explicit target for prerequisite " << p;
+    if (t == nullptr)
+      fail << "no explicit target for prerequisite " << p;
+
+    return t;
   }
 
   // type info

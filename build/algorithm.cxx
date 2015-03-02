@@ -54,7 +54,7 @@ namespace build
         const string& n (i->first);
         const rule& ru (i->second);
 
-        void* m;
+        void* m (nullptr);
         {
           auto g (
             make_exception_guard (

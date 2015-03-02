@@ -12,6 +12,19 @@
 
 namespace build
 {
+  // A map of hierarchical "paths", e.g., 'foo.bar' or 'foo/bar' with
+  // the ability to retrieve a range of entries that have a specific
+  // prefix. The '.' and '/' above are the delimiter characters.
+  //
+  // Note that as a special rule, the default implementation of
+  // compare_prefix treats empty key as everyone's prefix even if
+  // the paths don't start with the delimiter (useful to represent
+  // a "root path").
+  //
+  // Implementation-wise, the idea is to pretend that each key ends
+  // with the delimiter. This way we automatically avoid matching
+  // 'foobar' as having a prefix 'foo'.
+  //
   template <typename K>
   struct compare_prefix;
 
@@ -20,12 +33,12 @@ namespace build
   {
     typedef std::basic_string<C> K;
 
-    typedef C char_type;
+    typedef C delimiter_type;
     typedef typename K::size_type size_type;
     typedef typename K::traits_type traits_type;
 
     explicit
-    compare_prefix (C d): d_ (d) {}
+    compare_prefix (delimiter_type d): d_ (d) {}
 
     bool
     operator() (const K& x, const K& y) const
@@ -71,22 +84,9 @@ namespace build
     }
 
   private:
-    C d_;
+    delimiter_type d_;
   };
 
-  // A map of hierarchical "paths", e.g., 'foo.bar' or 'foo/bar' with
-  // the ability to retrieve a range of entries that have a specific
-  // prefix. The '.' and '/' above are the delimiter characters.
-  //
-  // Note that as a special rule, the default implementation of
-  // compare_prefix treats empty key as everyone's prefix even if
-  // the paths don't start with the delimiter (useful to represent
-  // a "root path").
-  //
-  // Implementation-wise, the idea is to pretend that each key ends
-  // with the delimiter. This way we automatically avoid matching
-  // 'foobar' as having a prefix 'foo'.
-  //
   template <typename M>
   struct prefix_map_common: M
   {
@@ -94,18 +94,17 @@ namespace build
     typedef typename map_type::key_type key_type;
     typedef typename map_type::value_type value_type;
     typedef typename map_type::key_compare compare_type;
-    typedef typename compare_type::char_type char_type;
+    typedef typename compare_type::delimiter_type delimiter_type;
 
     typedef typename map_type::iterator iterator;
     typedef typename map_type::const_iterator const_iterator;
 
     explicit
-    prefix_map_common (char_type delimiter)
-      : map_type (compare_type (delimiter)) {}
+    prefix_map_common (delimiter_type d)
+        : map_type (compare_type (d)) {}
 
-    prefix_map_common (std::initializer_list<value_type> init,
-                       char_type delimiter)
-      : map_type (std::move (init), compare_type (delimiter)) {}
+    prefix_map_common (std::initializer_list<value_type> i, delimiter_type d)
+        : map_type (std::move (i), compare_type (d)) {}
 
     std::pair<iterator, iterator>
     find_prefix (const key_type&);
@@ -114,30 +113,24 @@ namespace build
     find_prefix (const key_type&) const;
   };
 
-  template <typename M, typename prefix_map_common<M>::char_type D = 0>
+  template <typename M, typename prefix_map_common<M>::delimiter_type D>
   struct prefix_map_impl: prefix_map_common<M>
   {
     typedef typename prefix_map_common<M>::value_type value_type;
 
     prefix_map_impl (): prefix_map_common<M> (D) {}
-    prefix_map_impl (std::initializer_list<value_type> init)
-        : prefix_map_common<M> (std::move (init), D) {}
-  };
-
-  template <typename M>
-  struct prefix_map_impl<M, 0>: prefix_map_common<M>
-  {
-    using prefix_map_common<M>::prefix_map_common;
+    prefix_map_impl (std::initializer_list<value_type> i)
+        : prefix_map_common<M> (std::move (i), D) {}
   };
 
   template <typename K,
             typename T,
-            typename compare_prefix<K>::char_type D = 0>
+            typename compare_prefix<K>::delimiter_type D>
   using prefix_map = prefix_map_impl<std::map<K, T, compare_prefix<K>>, D>;
 
   template <typename K,
             typename T,
-            typename compare_prefix<K>::char_type D = 0>
+            typename compare_prefix<K>::delimiter_type D>
   using prefix_multimap =
     prefix_map_impl<std::multimap<K, T, compare_prefix<K>>, D>;
 }
