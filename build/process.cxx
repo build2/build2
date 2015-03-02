@@ -79,7 +79,7 @@ namespace build
     {
       // Parent. Close the other ends of the pipes.
       //
-      if ((in && close (out_fd[0])) == -1  ||
+      if ((in && close (out_fd[0]) == -1)  ||
           (err && close (in_efd[1]) == -1) ||
           (out && close (in_ofd[1]) == -1))
         throw process_error (errno, false);

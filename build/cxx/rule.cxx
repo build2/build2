@@ -451,9 +451,9 @@ namespace build
           // Ignore some known target types (headers).
           //
           if (p.type.id == typeid (h) ||
-              cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
-                                             p.type.id == typeid (ixx) ||
-                                             p.type.id == typeid (txx)))
+              (cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
+                                              p.type.id == typeid (ixx) ||
+                                              p.type.id == typeid (txx))))
             continue;
 
           if (p.type.id == typeid (cxx))

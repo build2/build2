@@ -748,13 +748,14 @@ namespace build
   {
     switch (t.type ())
     {
-    case token_type::eos:     os << "<end-of-stream>"; break;
-    case token_type::newline: os << "<newline>"; break;
-    case token_type::colon:   os << ":"; break;
-    case token_type::lcbrace: os << "{"; break;
-    case token_type::rcbrace: os << "}"; break;
-    case token_type::equal:   os << "="; break;
-    case token_type::name:    os << t.name (); break;
+    case token_type::eos:        os << "<end-of-stream>"; break;
+    case token_type::newline:    os << "<newline>"; break;
+    case token_type::colon:      os << ":"; break;
+    case token_type::lcbrace:    os << "{"; break;
+    case token_type::rcbrace:    os << "}"; break;
+    case token_type::equal:      os << "="; break;
+    case token_type::plus_equal: os << "+="; break;
+    case token_type::name:       os << t.name (); break;
     }
 
     return os;

@@ -62,10 +62,10 @@ namespace build
   {
     xchar c (get ());
 
-    if (!is_eos (c))
-      return c;
+    if (is_eos (c))
+      fail (c) << "unterminated escape sequence";
 
-    fail (c) << "unterminated escape sequence";
+    return c;
   }
 
   void lexer::

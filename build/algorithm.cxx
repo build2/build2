@@ -213,7 +213,7 @@ namespace build
           // the prerequisite was updated in this run which means the
           // target must be out of date.
           //
-          if (mt < mp || mt == mp && ts == target_state::updated)
+          if (mt < mp || (mt == mp && ts == target_state::updated))
             u = true;
         }
         else
