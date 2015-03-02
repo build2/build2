@@ -111,9 +111,11 @@ namespace build
 
     // Context-dependent lexing mode. In the value mode we don't treat
     // certain characters (e.g., +, =) as special so that we can use
-    // them in the variable values, e.g., 'foo = g++'.
+    // them in the variable values, e.g., 'foo = g++'. In contrast,
+    // in the variable mode, we restrict certain character (e.g., /)
+    // from appearing in the name.
     //
-    enum class mode {normal, value};
+    enum class mode {normal, value, variable};
     mode mode_ {mode::normal};
   };
 }

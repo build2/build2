@@ -67,6 +67,13 @@ namespace build
     token_type
     peek ();
 
+    const token&
+    peeked () const
+    {
+      assert (peeked_);
+      return peek_;
+    }
+
     // Diagnostics.
     //
   private:

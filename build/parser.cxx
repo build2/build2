@@ -81,7 +81,10 @@ namespace build
     {
       // We always start with one or more names.
       //
-      if (tt != type::name && tt != type::lcbrace && tt != type::colon)
+      if (tt != type::name    &&
+          tt != type::lcbrace && // Untyped name group: '{foo ...'
+          tt != type::dollar  && // Variable expansion: '$foo ...'
+          tt != type::colon)     // Empty name: ': ...'
         break; // Something else. Let our caller handle that.
 
       // See if this is one of the keywords.
@@ -187,7 +190,7 @@ namespace build
             }
 
             if (tt != type::rcbrace)
-              fail (t) << "expected '}' instead of " << t;
+              fail (t) << "expected } instead of " << t;
 
             // Should be on its own line.
             //
@@ -208,6 +211,7 @@ namespace build
         //
         if (tt == type::name    ||
             tt == type::lcbrace ||
+            tt == type::dollar  ||
             tt == type::newline ||
             tt == type::eos)
         {
@@ -397,7 +401,7 @@ namespace build
         // LHS should be a single, simple name.
         //
         if (ns.size () != 1 || !ns[0].type.empty () || !ns[0].dir.empty ())
-          fail << "variable name expected before " << t;
+          fail (t) << "variable name expected before " << t;
 
         next (t, tt);
 
@@ -613,33 +617,55 @@ namespace build
   void parser::
   names (token& t, type& tt, names_type& ns, const path* dp, const string* tp)
   {
+    // Buffer that is used to collect the complete name in case of an
+    // unseparated variable expansion, e.g., 'foo$bar$(baz)fox'. The
+    // idea is to concatenate all the individual parts in this buffer
+    // and then re-inject it into the loop as a single token.
+    //
+    string concat;
+
     for (bool first (true);; first = false)
     {
-      // Untyped name group without a directory prefix, e.g., '{foo bar}'.
+      // If the accumulating buffer is not empty, then we have two options:
+      // continue accumulating or inject. We inject if the next token is
+      // not a name or var expansion or if it is separated.
       //
-      if (tt == type::lcbrace)
+      if (!concat.empty () &&
+          ((tt != type::name && tt != type::dollar) || peeked ().separated ()))
       {
-        next (t, tt);
-        names (t, tt, ns, dp, tp);
-
-        if (tt != type::rcbrace)
-          fail (t) << "expected '}' instead of " << t;
-
-        next (t, tt);
-        continue;
+        tt = type::name;
+        t = token (move (concat), true, t.line (), t.column ());
+        concat.clear ();
       }
+      else if (!first)
+        next (t, tt);
 
       // Name.
       //
       if (tt == type::name)
       {
         string name (t.name ()); //@@ move?
+        tt = peek ();
+
+        // Should we accumulate? If the buffer is not empty, then
+        // we continue accumulating (the case where we are separated
+        // should have been handled by the injection code above). If
+        // the next token is a var expansion and it is not separated,
+        // then we need to start accumulating.
+        //
+        if (!concat.empty () ||                              // Continue.
+            (tt == type::dollar && !peeked ().separated ())) // Start.
+        {
+          concat += name;
+          continue;
+        }
 
         // See if this is a type name, directory prefix, or both. That is,
         // it is followed by '{'.
         //
-        if (next (t, tt) == type::lcbrace)
+        if (tt == type::lcbrace)
         {
+          next (t, tt);
           string::size_type p (name.rfind ('/')), n (name.size () - 1);
 
           if (p != n && tp != nullptr)
@@ -679,15 +705,147 @@ namespace build
           names (t, tt, ns, dp1, tp1);
 
           if (tt != type::rcbrace)
-            fail (t) << "expected '}' instead of " << t;
+            fail (t) << "expected } instead of " << t;
 
-          next (t, tt);
+          tt = peek ();
           continue;
         }
 
         ns.emplace_back ((tp != nullptr ? *tp : string ()),
                          (dp != nullptr ? *dp : path ()),
                          move (name));
+        continue;
+      }
+
+      // Untyped name group without a directory prefix, e.g., '{foo bar}'.
+      //
+      if (tt == type::lcbrace)
+      {
+        next (t, tt);
+        names (t, tt, ns, dp, tp);
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected } instead of " << t;
+
+        tt = peek ();
+        continue;
+      }
+
+      // Variable expansion.
+      //
+      if (tt == type::dollar)
+      {
+        next (t, tt);
+
+        bool paren (tt == type::lparen);
+        if (paren)
+          next (t, tt);
+
+        if (tt != type::name)
+          fail (t) << "variable name expected instead of " << t;
+
+        string n;
+        if (t.name ().front () == '.') // Fully qualified name.
+          n.assign (t.name (), 1, string::npos);
+        else
+          //@@ TODO: append namespace if any.
+          n = t.name ();
+
+        //@@ TODO: assuming it is a list.
+        //
+        const variable& var (variable_pool.find (move (n)));
+        list_value* val (dynamic_cast<list_value*> ((*scope_)[var]));
+
+        // Undefined namespaces variables are not allowed.
+        //
+        if (val == nullptr && var.name.find ('.') != string::npos)
+          fail (t) << "undefined namespace variable " << var.name;
+
+        if (paren)
+        {
+          next (t, tt);
+
+          if (tt != type::rparen)
+            fail (t) << "expected ) instead of " << t;
+        }
+
+        tt = peek ();
+
+        if (val == nullptr || val->data.empty ())
+          continue;
+
+        // Should we accumulate? If the buffer is not empty, then
+        // we continue accumulating (the case where we are separated
+        // should have been handled by the injection code above). If
+        // the next token is a name or var expansion and it is not
+        // separated, then we need to start accumulating.
+        //
+        if (!concat.empty () ||                       // Continue.
+            ((tt == type::name || tt == type::dollar) // Start.
+             && !peeked ().separated ()))
+        {
+          // This should be a simple value. The token still points
+          // to the name (or closing paren).
+          //
+          if (val->data.size () > 1)
+            fail (t) << "concatenating expansion of " << var.name
+                     << " contains multiple values";
+
+          const name& n (val->data[0]);
+
+          if (!n.type.empty ())
+            fail (t) << "concatenating expansion of " << var.name
+                     << " contains type";
+
+          if (!n.dir.empty ())
+            fail (t) << "concatenating expansion of " << var.name
+                     << " contains directory";
+
+          concat += n.value;
+
+          text << "concat: " << concat;
+        }
+        else
+        {
+          // Copy the names from the variable into the resulting name list
+          // while doing sensible things with the types and directories.
+          //
+          for (const name& n: val->data)
+          {
+            const path* dp1 (dp);
+            const string* tp1 (tp);
+
+            path d1;
+            if (!n.dir.empty ())
+            {
+              if (dp != nullptr)
+              {
+                if (n.dir.absolute ())
+                  fail (t) << "nested absolute directory " << n.dir.string ()
+                           << " in variable expansion";
+
+                d1 = *dp / n.dir;
+                dp1 = &d1;
+              }
+              else
+                dp1 = &n.dir;
+            }
+
+            if (!n.type.empty ())
+            {
+              if (tp == nullptr)
+                tp1 = &n.type;
+              else
+                fail (t) << "nested type name " << n.type << " in variable "
+                         << "expansion";
+            }
+
+            ns.emplace_back ((tp1 != nullptr ? *tp1 : string ()),
+                             (dp1 != nullptr ? *dp1 : path ()),
+                             n.value);
+          }
+        }
+
         continue;
       }
 
@@ -748,13 +906,16 @@ namespace build
   {
     switch (t.type ())
     {
-    case token_type::eos:        os << "<end-of-stream>"; break;
+    case token_type::eos:        os << "<end-of-file>"; break;
     case token_type::newline:    os << "<newline>"; break;
     case token_type::colon:      os << ":"; break;
     case token_type::lcbrace:    os << "{"; break;
     case token_type::rcbrace:    os << "}"; break;
     case token_type::equal:      os << "="; break;
     case token_type::plus_equal: os << "+="; break;
+    case token_type::dollar:     os << "$"; break;
+    case token_type::lparen:     os << "("; break;
+    case token_type::rparen:     os << ")"; break;
     case token_type::name:       os << t.name (); break;
     }
 

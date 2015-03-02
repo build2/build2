@@ -40,6 +40,19 @@ namespace build
       {
         return token (token_type::rcbrace, sep, ln, cn);
       }
+    case '$':
+      {
+        mode_ = mode::variable; // The next name is lexed in the var mode.
+        return token (token_type::dollar, sep, ln, cn);
+      }
+    case '(':
+      {
+        return token (token_type::lparen, sep, ln, cn);
+      }
+    case ')':
+      {
+        return token (token_type::rparen, sep, ln, cn);
+      }
     }
 
     // The following characters are not treated as special in the
@@ -107,6 +120,24 @@ namespace build
           break;
       }
 
+      // While these extra characters are treated as the name end in
+      // the variable mode.
+      //
+      if (mode_ == mode::variable)
+      {
+        switch (c)
+        {
+        case '/':
+          {
+            done = true;
+            break;
+          }
+        }
+
+        if (done)
+          break;
+      }
+
       switch (c)
       {
       case ' ':
@@ -115,6 +146,9 @@ namespace build
       case '#':
       case '{':
       case '}':
+      case '$':
+      case '(':
+      case ')':
         {
           done = true;
           break;
@@ -136,6 +170,9 @@ namespace build
       if (done)
         break;
     }
+
+    if (mode_ == mode::variable)
+      mode_ = mode::normal;
 
     return token (lexeme, sep, ln, cn);
   }

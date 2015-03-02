@@ -22,7 +22,10 @@ namespace build
     lcbrace,
     rcbrace,
     equal,
-    plus_equal
+    plus_equal,
+    dollar,
+    lparen,
+    rparen,
   };
 
   class token
