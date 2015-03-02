@@ -62,7 +62,7 @@ namespace build
     lexer_ = &l;
     scope_ = &s;
 
-    token t (type::eos, 0, 0);
+    token t (type::eos, false, 0, 0);
     type tt;
     next (t, tt);
 

@@ -77,7 +77,7 @@ namespace build
     lexer* lexer_;
     scope* scope_;
 
-    token peek_ {token_type::eos, 0, 0};
+    token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};
 
     std::unordered_set<path> include_;

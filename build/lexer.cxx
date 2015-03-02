@@ -11,13 +11,13 @@ namespace build
   token lexer::
   next ()
   {
-    skip_spaces ();
+    bool sep (skip_spaces ());
 
     xchar c (get ());
     uint64_t ln (c.line ()), cn (c.column ());
 
     if (is_eos (c))
-      return token (token_type::eos, ln, cn);
+      return token (token_type::eos, sep, ln, cn);
 
     switch (c)
     {
@@ -30,15 +30,15 @@ namespace build
         if (mode_ == mode::value)
           mode_ = mode::normal;
 
-        return token (token_type::newline, ln, cn);
+        return token (token_type::newline, sep, ln, cn);
       }
     case '{':
       {
-        return token (token_type::lcbrace, ln, cn);
+        return token (token_type::lcbrace, sep, ln, cn);
       }
     case '}':
       {
-        return token (token_type::rcbrace, ln, cn);
+        return token (token_type::rcbrace, sep, ln, cn);
       }
     }
 
@@ -53,12 +53,12 @@ namespace build
       {
       case ':':
         {
-          return token (token_type::colon, ln, cn);
+          return token (token_type::colon, sep, ln, cn);
         }
       case '=':
         {
           mode_ = mode::value;
-          return token (token_type::equal, ln, cn);
+          return token (token_type::equal, sep, ln, cn);
         }
       case '+':
         {
@@ -66,79 +66,18 @@ namespace build
             fail (c) << "expected = after +";
 
           mode_ = mode::value;
-          return token (token_type::plus_equal, ln, cn);
+          return token (token_type::plus_equal, sep, ln, cn);
         }
       }
     }
 
     // Otherwise it is a name.
     //
-    return name (c);
-  }
-
-  lexer::xchar lexer::
-  escape ()
-  {
-    xchar c (get ());
-
-    if (is_eos (c))
-      fail (c) << "unterminated escape sequence";
-
-    return c;
-  }
-
-  void lexer::
-  skip_spaces ()
-  {
-    xchar c (peek ());
-    bool start (c.column () == 1);
-
-    for (; !is_eos (c); c = peek ())
-    {
-      switch (c)
-      {
-      case ' ':
-      case '\t':
-        break;
-      case '\n':
-        {
-          // Skip empty lines.
-          //
-          if (start)
-            break;
-
-          return;
-        }
-      case '#':
-        {
-          get ();
-
-          // Read until newline or eos.
-          //
-          for (c = peek (); !is_eos (c) && c != '\n'; c = peek ())
-            get ();
-          continue;
-        }
-      case '\\':
-        {
-          get ();
-
-          if (peek () == '\n')
-            break;
-
-          unget (c);
-          // Fall through.
-        }
-      default:
-        return; // Not a space.
-      }
-
-      get ();
-    }
+    return name (c, sep);
   }
 
   token lexer::
-  name (xchar c)
+  name (xchar c, bool sep)
   {
     uint64_t ln (c.line ()), cn (c.column ());
     string lexeme;
@@ -198,7 +137,83 @@ namespace build
         break;
     }
 
-    return token (lexeme, ln, cn);
+    return token (lexeme, sep, ln, cn);
+  }
+
+  bool lexer::
+  skip_spaces ()
+  {
+    bool r (false);
+
+    xchar c (peek ());
+    bool start (c.column () == 1);
+
+    for (; !is_eos (c); c = peek ())
+    {
+      switch (c)
+      {
+      case ' ':
+      case '\t':
+        {
+          r = true;
+          break;
+        }
+      case '\n':
+        {
+          // Skip empty lines.
+          //
+          if (start)
+          {
+            r = false;
+            break;
+          }
+
+          return r;
+        }
+      case '#':
+        {
+          get ();
+
+          // Read until newline or eos.
+          //
+          for (c = peek (); !is_eos (c) && c != '\n'; c = peek ())
+            get ();
+
+          r = true;
+          continue;
+        }
+      case '\\':
+        {
+          get ();
+
+          if (peek () == '\n')
+          {
+            r = true;
+            break;
+          }
+
+          unget (c);
+          // Fall through.
+        }
+      default:
+        return r; // Not a space.
+      }
+
+      get ();
+    }
+
+    return r;
+  }
+
+  lexer::xchar lexer::
+  escape ()
+  {
+    xchar c (get ());
+
+    if (is_eos (c))
+      fail (c) << "unterminated escape sequence";
+
+    return c;
   }
 
   lexer::xchar lexer::

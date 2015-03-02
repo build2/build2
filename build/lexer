@@ -20,11 +20,11 @@ namespace build
   public:
     lexer (std::istream& is, const std::string& name): is_ (is), fail (name) {}
 
+    // Scanner.
+    //
     token
     next ();
 
-    // Character interface.
-    //
   private:
     class xchar
     {
@@ -50,6 +50,22 @@ namespace build
       std::uint64_t c_;
     };
 
+    token
+    name (xchar, bool separated);
+
+    // Return true we have seen any spaces. Skipped empty lines don't
+    // count. In other words, we are only interested in spaces that
+    // are on the same line as the following non-space character.
+    //
+    bool
+    skip_spaces ();
+
+    xchar
+    escape ();
+
+    // Character interface.
+    //
+  private:
     xchar
     peek ();
 
@@ -66,18 +82,6 @@ namespace build
     {
       return c.value () == xchar::traits_type::eof ();
     }
-
-    // Scanner.
-    //
-  private:
-    xchar
-    escape ();
-
-    void
-    skip_spaces ();
-
-    token
-    name (xchar);
 
     // Diagnostics.
     //
