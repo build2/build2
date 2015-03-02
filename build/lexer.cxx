@@ -25,11 +25,12 @@ namespace build
       //
     case '\n':
       {
+        // Restore the normal mode at the end of the line.
+        //
+        if (mode_ == mode::value)
+          mode_ = mode::normal;
+
         return token (token_type::newline, ln, cn);
-      }
-    case ':':
-      {
-        return token (token_type::colon, ln, cn);
       }
     case '{':
       {
@@ -39,16 +40,34 @@ namespace build
       {
         return token (token_type::rcbrace, ln, cn);
       }
-    case '=':
-      {
-        return token (token_type::equal, ln, cn);
-      }
-    case '+':
-      {
-        if (get () != '=')
-          fail (c) << "expected = after +";
+    }
 
-        return token (token_type::plus_equal, ln, cn);
+    // The following characters are not treated as special in the
+    // value mode.
+    //
+    if (mode_ != mode::value)
+    {
+      // NOTE: remember to update name() if adding new punctuations.
+      //
+      switch (c)
+      {
+      case ':':
+        {
+          return token (token_type::colon, ln, cn);
+        }
+      case '=':
+        {
+          mode_ = mode::value;
+          return token (token_type::equal, ln, cn);
+        }
+      case '+':
+        {
+          if (get () != '=')
+            fail (c) << "expected = after +";
+
+          mode_ = mode::value;
+          return token (token_type::plus_equal, ln, cn);
+        }
       }
     }
 
@@ -127,35 +146,56 @@ namespace build
 
     for (c = peek (); !is_eos (c); c = peek ())
     {
+      bool done (false);
+
+      // The following characters are not treated as special in the
+      // value mode.
+      //
+      if (mode_ != mode::value)
+      {
+        switch (c)
+        {
+        case ':':
+        case '=':
+        case '+':
+          {
+            done = true;
+            break;
+          }
+        }
+
+        if (done)
+          break;
+      }
+
       switch (c)
       {
       case ' ':
       case '\t':
       case '\n':
       case '#':
-      case ':':
       case '{':
       case '}':
-      case '=':
-      case '+':
         {
+          done = true;
           break;
         }
       case '\\':
         {
           get ();
           lexeme += escape ();
-          continue;
+          break;
         }
       default:
         {
           get ();
           lexeme += c;
-          continue;
+          break;
         }
       }
 
-      break;
+      if (done)
+        break;
     }
 
     return token (lexeme, ln, cn);

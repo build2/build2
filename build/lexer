@@ -100,10 +100,17 @@ namespace build
     std::uint64_t l_ {1};
     std::uint64_t c_ {1};
 
-    bool eos_ {false};
-
     bool unget_ {false};
     xchar buf_ {0, 0, 0};
+
+    bool eos_ {false};
+
+    // Context-dependent lexing mode. In the value mode we don't treat
+    // certain characters (e.g., +, =) as special so that we can use
+    // them in the variable values, e.g., 'foo = g++'.
+    //
+    enum class mode {normal, value};
+    mode mode_ {mode::normal};
   };
 }
 
