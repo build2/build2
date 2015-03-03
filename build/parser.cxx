@@ -435,14 +435,20 @@ namespace build
   {
     tracer trace ("parser::source", &path_);
 
-    // The rest should be a list of paths to buildfiles.
+    // The rest should be a list of buildfiles. Parse them as names
+    // to get variable expansion and directory prefixes.
     //
-    for (; tt != type::newline && tt != type::eos; next (t, tt))
-    {
-      if (tt != type::name)
-        fail (t) << "expected buildfile to source instead of " << t;
+    location l (get_location (t, &path_));
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
 
-      path p (t.name ());
+    for (name& n: ns)
+    {
+      // Construct the buildfile path.
+      //
+      path p (move (n.dir));
+      p /= path (move (n.value));
 
       // If the path is relative then use the src directory corresponding
       // to the current directory scope.
@@ -453,7 +459,7 @@ namespace build
       ifstream ifs (p.string ());
 
       if (!ifs.is_open ())
-        fail (t) << "unable to open " << p;
+        fail (l) << "unable to open " << p;
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
@@ -467,6 +473,8 @@ namespace build
       lexer* ol (lexer_);
       lexer_ = &l;
 
+      token t (type::eos, false, 0, 0);
+      type tt;
       next (t, tt);
       clause (t, tt);
 
@@ -479,8 +487,10 @@ namespace build
       path_ = op;
     }
 
-    if (tt != type::eos)
-      next (t, tt); // Swallow newline.
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
   }
 
   void parser::
@@ -488,16 +498,33 @@ namespace build
   {
     tracer trace ("parser::include", &path_);
 
-    // The rest should be a list of paths to buildfiles.
+    // The rest should be a list of buildfiles. Parse them as names
+    // to get variable expansion and directory prefixes.
     //
-    for (; tt != type::newline && tt != type::eos; next (t, tt))
+    location l (get_location (t, &path_));
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
+
+    for (name& n: ns)
     {
-      if (tt != type::name)
-        fail (t) << "expected buildfile to include instead of " << t;
+      // Construct the buildfile path. If it is a directory, then append
+      // 'buildfile'.
+      //
+      path p (move (n.dir));
+      if (n.value.empty ())
+        p /= path ("buildfile");
+      else
+      {
+        bool d (path::traits::is_separator (n.value.back ())
+                || n.type == "dir");
 
-      path p (t.name ());
+        p /= path (move (n.value));
+        if (d)
+          p /= path ("buildfile");
+      }
+
       bool in_out (false);
-
       if (p.absolute ())
       {
         p.normalize ();
@@ -506,7 +533,7 @@ namespace build
         // to be used for intra-project inclusion.
         //
         if (!p.sub (src_root) && !(in_out = p.sub (out_root)))
-          fail (t) << "out of project include " << p;
+          fail (l) << "out of project include " << p;
       }
       else
       {
@@ -518,14 +545,14 @@ namespace build
 
       if (!include_.insert (p).second)
       {
-        level4 ([&]{trace (t) << "skipping already included " << p;});
+        level4 ([&]{trace (l) << "skipping already included " << p;});
         continue;
       }
 
       ifstream ifs (p.string ());
 
       if (!ifs.is_open ())
-        fail (t) << "unable to open " << p;
+        fail (l) << "unable to open " << p;
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
@@ -545,6 +572,8 @@ namespace build
       target* odt (default_target_);
       default_target_ = nullptr;
 
+      token t (type::eos, false, 0, 0);
+      type tt;
       next (t, tt);
       clause (t, tt);
 
@@ -561,8 +590,10 @@ namespace build
       path_ = op;
     }
 
-    if (tt != type::eos)
-      next (t, tt); // Swallow newline.
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
   }
 
   void parser::

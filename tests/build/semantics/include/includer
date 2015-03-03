@@ -7,3 +7,4 @@ nested/:
   include includee5
   include ../includee2 # skipped
 }
+:

@@ -1,0 +1,4 @@
+d=path/ prefix-map/
+
+.: $d
+include $d
