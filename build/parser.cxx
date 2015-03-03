@@ -36,20 +36,82 @@ namespace build
 
   // Given a target or prerequisite name, figure out its type, taking
   // into account extensions, trailing '/', or anything else that might
-  // be relevant.
+  // be relevant. Also process the name (in place) by extracting the
+  // extension, adjusting dir/value, etc.
   //
-  static const char*
-  find_target_type (const string& n, const string* e)
+  const target_type&
+  find_target_type (name& n, const location& l, const string*& ext)
   {
-    // Empty name or a name ending with a directory separator
-    // signifies a directory.
-    //
-    if (n.empty () || path::traits::is_separator (n.back ()))
-      return "dir";
+    string& v (n.value);
 
-    //@@ TODO: derive type from extension.
+    // First determine the target type.
     //
-    return "file";
+    const char* tt;
+    if (n.type.empty ())
+    {
+      // Empty name, '.' and '..', or a name ending with a directory
+      // separator signifies a directory.
+      //
+      if (v.empty () || v == "." || v == ".." ||
+          path::traits::is_separator (v.back ()))
+        tt = "dir";
+      else
+        //@@ TODO: derive type from extension.
+        //
+        tt = "file";
+    }
+    else
+      tt = n.type.c_str ();
+
+    auto i (target_types.find (tt));
+    if (i == target_types.end ())
+      fail (l) << "unknown target type " << tt;
+
+    const target_type& ti (i->second);
+
+    ext = nullptr;
+
+    // Directories require special name processing. If we find that more
+    // targets deviate, then we should make this target-type-specific.
+    //
+    if (ti.id == dir::static_type.id || ti.id == fsdir::static_type.id)
+    {
+      // The canonical representation of a directory name is with empty
+      // value.
+      //
+      if (!v.empty ())
+      {
+        n.dir /= path (v); // Move name value to dir.
+        v.clear ();
+      }
+    }
+    else
+    {
+      // Split the path into its directory part (if any) the name part,
+      // and the extension (if any). We cannot assume the name part is
+      // a valid filesystem name so we will have to do the splitting
+      // manually.
+      //
+      path::size_type i (path::traits::rfind_separator (v));
+
+      if (i != string::npos)
+      {
+        n.dir /= path (v, i != 0 ? i : 1); // Special case: "/".
+        v = string (v, i + 1, string::npos);
+      }
+
+      // Extract the extension.
+      //
+      string::size_type j (path::traits::find_extension (v));
+
+      if (j != string::npos)
+      {
+        ext = &extension_pool.find (v.c_str () + j);
+        v.resize (j - 1);
+      }
+    }
+
+    return ti;
   }
 
   void parser::
@@ -61,6 +123,7 @@ namespace build
     lexer l (is, p.string ());
     lexer_ = &l;
     scope_ = &s;
+    default_target_ = nullptr;
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -70,6 +133,8 @@ namespace build
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
+
+    process_default_target (t);
   }
 
   void parser::
@@ -118,6 +183,7 @@ namespace build
 
       // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
       //
+      location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
                      ? names (t, tt)
                      : names_type ({name ("")}));
@@ -215,6 +281,7 @@ namespace build
             tt == type::newline ||
             tt == type::eos)
         {
+          location ploc (get_location (t, &path_));
           names_type pns (tt != type::newline && tt != type::eos
                           ? names (t, tt)
                           : names_type ());
@@ -226,156 +293,46 @@ namespace build
 
           for (auto& pn: pns)
           {
-            // We need to split the path into its directory part (if any)
-            // the name part, and the extension (if any). We cannot assume
-            // the name part is a valid filesystem name so we will have
-            // to do the splitting manually.
-            //
-            path d (pn.dir);
-            string n;
-            const string* e (nullptr);
+            const string* e;
+            const target_type& ti (find_target_type (pn, ploc, e));
 
-            {
-              string& v (pn.value);
-
-              path::size_type i (path::traits::rfind_separator (v));
-
-              if (i == string::npos)
-                n = move (v); // NOTE: steal!
-              else
-              {
-                d /= path (v, i != 0 ? i : 1); // Special case: "/".
-                n.assign (v, i + 1, string::npos);
-              }
-
-              // Handle '.' and '..'.
-              //
-              if (n == ".")
-                n.clear ();
-              else if (n == "..")
-              {
-                d /= path (n);
-                n.clear ();
-              }
-
-              d.normalize ();
-
-              // Extract extension.
-              //
-              string::size_type j (path::traits::find_extension (n));
-
-              if (j != string::npos)
-              {
-                e = &extension_pool.find (n.c_str () + j);
-                n.resize (j - 1);
-              }
-            }
-
-            // Resolve prerequisite type.
-            //
-            const char* tt (pn.type.empty ()
-                            ? find_target_type (n, e)
-                            : pn.type.c_str ());
-
-            auto i (target_types.find (tt));
-
-            if (i == target_types.end ())
-            {
-              //@@ TODO name (or better yet, type) location
-
-              fail (t) << "unknown prerequisite type " << tt;
-            }
-
-            const target_type& ti (i->second);
+            pn.dir.normalize ();
 
             // Find or insert.
             //
             prerequisite& p (
               scope_->prerequisites.insert (
-                ti, move (d), move (n), e, *scope_, trace).first);
+                ti, move (pn.dir), move (pn.value), e, *scope_, trace).first);
 
             ps.push_back (p);
           }
 
           for (auto& tn: ns)
           {
-            path d (tn.dir);
-            string n;
-            const string* e (nullptr);
+            const string* e;
+            const target_type& ti (find_target_type (tn, nloc, e));
+            path& d (tn.dir);
 
-            // The same deal as in handling prerequisites above.
-            //
+            if (d.empty ())
+              d = scope_->path (); // Already normalized.
+            else
             {
-              string& v (tn.value);
+              if (d.relative ())
+                d = scope_->path () / d;
 
-              path::size_type i (path::traits::rfind_separator (v));
-
-              if (i == string::npos)
-                n = move (v); // NOTE: steal!
-              else
-              {
-                d /= path (v, i != 0 ? i : 1); // Special case: "/".
-                n.assign (v, i + 1, string::npos);
-              }
-
-              // Handle '.' and '..'.
-              //
-              if (n == ".")
-                n.clear ();
-              else if (n == "..")
-              {
-                d /= path (n);
-                n.clear ();
-              }
-
-              if (d.empty ())
-                d = scope_->path (); // Already normalized.
-              else
-              {
-                if (d.relative ())
-                  d = scope_->path () / d;
-
-                d.normalize ();
-              }
-
-              // Extract extension.
-              //
-              string::size_type j (path::traits::find_extension (n));
-
-              if (j != string::npos)
-              {
-                e = &extension_pool.find (n.c_str () + j);
-                n.resize (j - 1);
-              }
+              d.normalize ();
             }
-
-            // Resolve target type.
-            //
-            const char* tt (tn.type.empty ()
-                            ? find_target_type (n, e)
-                            : tn.type.c_str ());
-
-            auto i (target_types.find (tt));
-
-            if (i == target_types.end ())
-            {
-              //@@ TODO name (or better yet, type) location
-
-              fail (t) << "unknown target type " << tt;
-            }
-
-            const target_type& ti (i->second);
 
             // Find or insert.
             //
             target& t (
               targets.insert (
-                ti, move (d), move (n), e, trace).first);
+                ti, move (tn.dir), move (tn.value), e, trace).first);
 
             t.prerequisites = ps; //@@ OPT: move if last target.
 
-            if (default_target == nullptr)
-              default_target = &t;
+            if (default_target_ == nullptr)
+              default_target_ = &t;
           }
 
           if (tt == type::newline)
@@ -585,14 +542,20 @@ namespace build
       scope* os (scope_);
       scope_ = &scopes[(in_out ? p : out_src (p)).directory ()];
 
+      target* odt (default_target_);
+      default_target_ = nullptr;
+
       next (t, tt);
       clause (t, tt);
 
       if (tt != type::eos)
         fail (t) << "unexpected " << t;
 
+      process_default_target (t);
+
       level4 ([&]{trace (t) << "leaving " << p;});
 
+      default_target_ = odt;
       scope_ = os;
       lexer_ = ol;
       path_ = op;
@@ -862,6 +825,47 @@ namespace build
       else
         fail (t) << "expected name instead of " << t;
     }
+  }
+
+  void parser::
+  process_default_target (token& t)
+  {
+    tracer trace ("parser::process_default_target", &path_);
+
+    // The logic is as follows: if we have an explicit current directory
+    // target, then that's the default target. Otherwise, we take the
+    // first target and use it as a prerequisite to create an implicit
+    // current directory target, effectively making it the default
+    // target via an alias. If there are no targets in this buildfile,
+    // then we don't do anything.
+    //
+    if (default_target_ == nullptr ||      // No targets in this buildfile.
+        targets.find (dir::static_type.id, // Explicit current dir target.
+                      scope_->path (),
+                      "",
+                      nullptr,
+                      trace) != targets.end ())
+      return;
+
+    target& dt (*default_target_);
+
+    level4 ([&]{trace (t) << "creating current directory alias for " << dt;});
+
+    target& ct (
+      targets.insert (
+        dir::static_type, scope_->path (), "", nullptr, trace).first);
+
+    prerequisite& p (
+      scope_->prerequisites.insert (
+        dt.type (),
+        dt.dir,
+        dt.name,
+        dt.ext,
+        *scope_, // Doesn't matter which scope since dir is absolute.
+        trace).first);
+
+    p.target = &dt;
+    ct.prerequisites.push_back (p);
   }
 
   token_type parser::

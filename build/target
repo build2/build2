@@ -135,10 +135,11 @@ namespace build
     find (const std::type_index& type,
           const path& dir,
           const std::string& name,
-          const std::string*& ext,
+          const std::string* ext,
           tracer& trace) const
     {
-      return find (key {&type, &dir, &name, &ext}, trace);
+      const std::string* e (ext);
+      return find (key {&type, &dir, &name, &e}, trace);
     }
 
     iterator begin () const {return map_.begin ();}
@@ -156,7 +157,6 @@ namespace build
   };
 
   extern target_set targets;
-  extern target* default_target;
 
   class target_type_map: public std::map<
     const char*,

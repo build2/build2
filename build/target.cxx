@@ -113,7 +113,6 @@ namespace build
   }
 
   target_set targets;
-  target* default_target = nullptr;
   target_type_map target_types;
 
   // path_target

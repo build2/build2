@@ -67,6 +67,7 @@ namespace build
     for (const path& d: sp)
     {
       path f (d / p.dir / path (p.name));
+      f.normalize ();
 
       // @@ TMP: use target name as an extension.
       //

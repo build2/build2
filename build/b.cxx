@@ -205,20 +205,21 @@ main (int argc, char* argv[])
 
     // Build.
     //
-    if (default_target == nullptr)
-      fail << "no default target";
+    auto i (targets.find (dir::static_type.id, out_base, "", nullptr, trace));
+    if (i == targets.end ())
+      fail << "no targets in " << bf;
 
-    target& d (*default_target);
+    target& t (**i);
 
-    match (d);
+    match (t);
 
     dump ();
 
-    switch (update (d))
+    switch (update (t))
     {
     case target_state::uptodate:
       {
-        info << "target " << d << " is up to date";
+        info << "target " << t << " is up to date";
         break;
       }
     case target_state::updated:
