@@ -15,28 +15,34 @@ namespace build
   ostream&
   operator<< (ostream& os, const name& n)
   {
-    if (!n.type.empty ())
+    bool ht (!n.type.empty ());
+    bool hv (!n.value.empty ());
+
+    if (ht)
       os << n.type << '{';
 
     if (!n.dir.empty ())
     {
       string s (diag_relative_work (n.dir));
 
-      if (s != ".")
+      // If both type and value are empty, there will be nothing printed.
+      //
+      if (s != "." || (!ht && !hv))
       {
         os << s;
 
-        if (!n.value.empty () &&
-            s.back () != path::traits::directory_separator)
+        // Add the directory separator unless it is already there
+        // or we have type but no value. The idea is to print foo/
+        // or dir{foo}.
+        //
+        if (s.back () != path::traits::directory_separator && (hv || !ht))
           os << path::traits::directory_separator;
       }
-      else if (n.value.empty () && n.type.empty ())
-        os << s; // Otherwise nothing gets printed.
     }
 
     os << n.value;
 
-    if (!n.type.empty ())
+    if (ht)
       os << '}';
 
     return os;

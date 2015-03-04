@@ -35,9 +35,9 @@ namespace build
   typedef token_type type;
 
   // Given a target or prerequisite name, figure out its type, taking
-  // into account extensions, trailing '/', or anything else that might
-  // be relevant. Also process the name (in place) by extracting the
-  // extension, adjusting dir/value, etc.
+  // into account extensions, special names (e.g., '.' and '..'), or
+  // anything else that might be relevant. Also process the name (in
+  // place) by extracting the extension, adjusting dir/value, etc.
   //
   const target_type&
   find_target_type (name& n, const location& l, const string*& ext)
@@ -49,11 +49,9 @@ namespace build
     const char* tt;
     if (n.type.empty ())
     {
-      // Empty name, '.' and '..', or a name ending with a directory
-      // separator signifies a directory.
+      // Empty name or '.' and '..' signify a directory.
       //
-      if (v.empty () || v == "." || v == ".." ||
-          path::traits::is_separator (v.back ()))
+      if (v.empty () || v == "." || v == "..")
         tt = "dir";
       else
         //@@ TODO: derive type from extension.
@@ -189,7 +187,7 @@ namespace build
       location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
                      ? names (t, tt)
-                     : names_type ({name ("")}));
+                     : names_type ({name ("dir", path (), string ())}));
 
       if (tt == type::colon)
       {
@@ -214,7 +212,9 @@ namespace build
             bool dir (false);
             for (const auto& n: ns)
             {
-              if (n.type.empty () && n.value.back () == '/')
+              // A name represents directory as an empty value.
+              //
+              if (n.type.empty () && n.value.empty ())
               {
                 if (ns.size () != 1)
                 {
@@ -233,14 +233,8 @@ namespace build
             {
               scope& prev (*scope_);
 
-              // On Win32 translate the root path to the special empty path.
-              // Search for root_scope for details.
-              //
-#ifdef _WIN32
-              path p (ns[0].value != "/" ? path (ns[0].value) : path ());
-#else
-              path p (ns[0].value);
-#endif
+              path p (move (ns[0].dir)); // Steal.
+
               if (p.relative ())
                 p = prev.path () / p;
 
@@ -676,13 +670,15 @@ namespace build
           continue;
         }
 
+        string::size_type p (name.rfind ('/'));
+        string::size_type n (name.size () - 1);
+
         // See if this is a type name, directory prefix, or both. That is,
         // it is followed by '{'.
         //
         if (tt == type::lcbrace)
         {
           next (t, tt);
-          string::size_type p (name.rfind ('/')), n (name.size () - 1);
 
           if (p != n && tp != nullptr)
             fail (t) << "nested type name " << name;
@@ -727,9 +723,36 @@ namespace build
           continue;
         }
 
-        ns.emplace_back ((tp != nullptr ? *tp : string ()),
-                         (dp != nullptr ? *dp : path ()),
-                         move (name));
+        // If it ends with a directory separator, then it is a directory.
+        // Note that at this stage we don't treat '.' and '..' as special
+        // (unless they are specified with a directory separator) because
+        // then we would have ended up treating '.: ...' as a directory
+        // scope. Instead, this is handled higher up, in find_target_type().
+        //
+        // @@ TODO: and not quoted
+        //
+        if (p == n)
+        {
+          // On Win32 translate the root path to the special empty path.
+          // Search for root_scope for details.
+          //
+#ifdef _WIN32
+          path dir (name != "/" ? path (name) : path ());
+#else
+          path dir (name);
+#endif
+          if (dp != nullptr)
+            dir = *dp / dir;
+
+          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                           move (dir),
+                           string ());
+        }
+        else
+          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                           (dp != nullptr ? *dp : path ()),
+                           move (name));
+
         continue;
       }
 
