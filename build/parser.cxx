@@ -125,6 +125,9 @@ namespace build
     scope_ = &s;
     default_target_ = nullptr;
 
+    out_root_ = &s["out_root"].as<const path&> ();
+    src_root_ = &s["src_root"].as<const path&> ();
+
     token t (type::eos, false, 0, 0);
     type tt;
     next (t, tt);
@@ -394,28 +397,28 @@ namespace build
         }
         else
         {
-          //@@ TODO: assuming it is a list.
-          //
-          list_value* val (dynamic_cast<list_value*> ((*scope_)[var]));
+          if (auto val = (*scope_)[var])
+          {
+            //@@ TODO: assuming it is a list.
+            //
+            list_value* lv (&val.as<list_value&> ());
 
-          if (val == nullptr) // Initialization.
+            if (&lv->scope != scope_) // Append to value from parent scope?
+            {
+              list_value_ptr nval (new list_value (*scope_, lv->data));
+              lv = nval.get (); // Append to.
+              scope_->variables.emplace (var, move (nval));
+            }
+
+            lv->data.insert (lv->data.end (),
+                             make_move_iterator (vns.begin ()),
+                             make_move_iterator (vns.end ()));
+          }
+          else // Initialization.
           {
             list_value_ptr nval (new list_value (*scope_, move (vns)));
             scope_->variables.emplace (var, move (nval));
           }
-          else if (&val->scope != scope_) // Append to value from parent scope.
-          {
-            list_value_ptr nval (new list_value (*scope_, val->data));
-            val = nval.get (); // Append.
-            scope_->variables.emplace (var, move (nval));
-          }
-
-          // Append.
-          //
-          if (val != nullptr)
-            val->data.insert (val->data.end (),
-                              make_move_iterator (vns.begin ()),
-                              make_move_iterator (vns.end ()));
         }
 
         if (tt == type::newline)
@@ -454,7 +457,7 @@ namespace build
       // to the current directory scope.
       //
       if (p.relative ())
-        p = src_out (scope_->path ()) / p;
+        p = src_out (scope_->path (), *out_root_, *src_root_) / p;
 
       ifstream ifs (p.string ());
 
@@ -532,14 +535,14 @@ namespace build
         // Make sure the path is in this project. Include is only meant
         // to be used for intra-project inclusion.
         //
-        if (!p.sub (src_root) && !(in_out = p.sub (out_root)))
+        if (!p.sub (*src_root_) && !(in_out = p.sub (*out_root_)))
           fail (l) << "out of project include " << p;
       }
       else
       {
         // Use the src directory corresponding to the current directory scope.
         //
-        p = src_out (scope_->path ()) / p;
+        p = src_out (scope_->path (), *out_root_, *src_root_) / p;
         p.normalize ();
       }
 
@@ -547,6 +550,22 @@ namespace build
       {
         level4 ([&]{trace (l) << "skipping already included " << p;});
         continue;
+      }
+
+      // Determine new bases.
+      //
+      path out_base;
+      path src_base;
+
+      if (in_out)
+      {
+        out_base = p.directory ();
+        src_base = src_out (out_base, *out_root_, *src_root_);
+      }
+      else
+      {
+        src_base = p.directory ();
+        out_base = out_src (src_base, *out_root_, *src_root_);
       }
 
       ifstream ifs (p.string ());
@@ -567,7 +586,10 @@ namespace build
       lexer_ = &l;
 
       scope* os (scope_);
-      scope_ = &scopes[(in_out ? p : out_src (p)).directory ()];
+      scope_ = &scopes[out_base];
+
+      scope_->variables["out_base"] = move (out_base);
+      scope_->variables["src_base"] = move (src_base);
 
       target* odt (default_target_);
       default_target_ = nullptr;
@@ -745,14 +767,12 @@ namespace build
           //@@ TODO: append namespace if any.
           n = t.name ();
 
-        //@@ TODO: assuming it is a list.
-        //
         const variable& var (variable_pool.find (move (n)));
-        list_value* val (dynamic_cast<list_value*> ((*scope_)[var]));
+        auto val ((*scope_)[var]);
 
         // Undefined namespaces variables are not allowed.
         //
-        if (val == nullptr && var.name.find ('.') != string::npos)
+        if (!val && var.name.find ('.') != string::npos)
           fail (t) << "undefined namespace variable " << var.name;
 
         if (paren)
@@ -765,7 +785,14 @@ namespace build
 
         tt = peek ();
 
-        if (val == nullptr || val->data.empty ())
+        if (!val)
+          continue;
+
+        //@@ TODO: assuming it is a list.
+        //
+        const list_value& lv (val.as<list_value&> ());
+
+        if (lv.data.empty ())
           continue;
 
         // Should we accumulate? If the buffer is not empty, then
@@ -778,33 +805,36 @@ namespace build
             ((tt == type::name || tt == type::dollar) // Start.
              && !peeked ().separated ()))
         {
-          // This should be a simple value. The token still points
-          // to the name (or closing paren).
+          // This should be a simple value or a simple directory. The
+          // token still points to the name (or closing paren).
           //
-          if (val->data.size () > 1)
+          if (lv.data.size () > 1)
             fail (t) << "concatenating expansion of " << var.name
                      << " contains multiple values";
 
-          const name& n (val->data[0]);
+          const name& n (lv.data[0]);
 
           if (!n.type.empty ())
             fail (t) << "concatenating expansion of " << var.name
                      << " contains type";
 
           if (!n.dir.empty ())
-            fail (t) << "concatenating expansion of " << var.name
-                     << " contains directory";
+          {
+            if (!n.value.empty ())
+              fail (t) << "concatenating expansion of " << var.name
+                       << " contains directory";
 
-          concat += n.value;
-
-          text << "concat: " << concat;
+            concat += n.dir.string ();
+          }
+          else
+            concat += n.value;
         }
         else
         {
           // Copy the names from the variable into the resulting name list
           // while doing sensible things with the types and directories.
           //
-          for (const name& n: val->data)
+          for (const name& n: lv.data)
           {
             const path* dp1 (dp);
             const string* tp1 (tp);

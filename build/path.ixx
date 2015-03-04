@@ -59,6 +59,19 @@ namespace build
 
   template <typename C>
   inline basic_path<C> basic_path<C>::
+  root_directory () const
+  {
+    return absolute ()
+#ifdef _WIN32
+      ? path (path_, 2)
+#else
+      ? path ("/")
+#endif
+      : path ();
+  }
+
+  template <typename C>
+  inline basic_path<C> basic_path<C>::
   base () const
   {
     size_type p (traits::find_extension (path_));

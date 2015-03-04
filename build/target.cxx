@@ -141,7 +141,7 @@ namespace build
     if (p.dir.relative ())
     {
       paths sp;
-      sp.push_back (src_out (p.scope.path ())); // src_base
+      sp.push_back (src_out (p.scope.path (), p.scope)); // src_base
 
       return search_existing_file (p, sp);
     }

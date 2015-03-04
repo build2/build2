@@ -92,6 +92,9 @@ namespace build
     scope* scope_;
     target* default_target_;
 
+    const path* out_root_;
+    const path* src_root_;
+
     token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};
 

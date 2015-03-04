@@ -21,14 +21,31 @@ namespace build
       if (p == work)
         return ".";
 
-      path rp (relative_work (p));
-
 #ifndef _WIN32
-      if (rp.absolute () && rp.sub (home))
-        return "~/" + rp.leaf (home).string ();
+      if (p == home)
+        return "~";
 #endif
 
-      return rp.string ();
+      path rw (relative_work (p));
+
+#ifndef _WIN32
+      if (rw.relative ())
+      {
+        // See if the original path with the ~/ shortcut is better
+        // that the relative to work.
+        //
+        if (p.sub (home))
+        {
+          path rh (p.leaf (home));
+          if (rw.string ().size () > rh.string ().size () + 2) // 2 for '~/'
+            return "~/" + rh.string ();
+        }
+      }
+      else if (rw.sub (home))
+        return "~/" + rw.leaf (home).string ();
+#endif
+
+      return rw.string ();
     }
 
     return p.string ();

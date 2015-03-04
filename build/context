@@ -12,26 +12,28 @@
 
 namespace build
 {
+  class scope;
+
   extern path work;
   extern path home;
-
-  extern path src_root;
-  extern path out_root;
-
-  extern path src_base;
-  extern path out_base;
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
   //
   path
-  src_out (const path&);
+  src_out (const path& out, scope&);
 
   path
-  out_src (const path&);
+  src_out (const path& out, const path& out_root, const path& src_root);
 
-  // If possible, translate an absolute, normalized path into relative to
-  // the work directory.
+  path
+  out_src (const path& src, scope&);
+
+  path
+  out_src (const path& src, const path& out_root, const path& src_root);
+
+  // If possible and beneficial, translate an absolute, normalized path
+  // into relative to the work directory.
   //
   path
   relative_work (const path&);

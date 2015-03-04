@@ -26,18 +26,18 @@ namespace build
     // Variable lookup.
     //
   public:
-    value*
-    operator[] (const variable&);
+    value_proxy
+    operator[] (const std::string&);
 
-    value*
-    operator[] (const std::string& name);
+    value_proxy
+    operator[] (const variable&);
 
   private:
     friend class scope_map;
 
     typedef path_map<scope>::const_iterator iterator;
 
-    scope () = default;
+    scope (): variables (*this) {}
 
     void
     init (const iterator& i, scope* p) {i_ = i; parent_ = p;}

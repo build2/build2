@@ -287,6 +287,12 @@ namespace build
     basic_path
     directory (basic_path const&) const;
 
+    // Return the root directory of the path or empty path if
+    // the directory is not absolute.
+    //
+    basic_path
+    root_directory () const;
+
     // Return the path without the extension, if any.
     //
     basic_path

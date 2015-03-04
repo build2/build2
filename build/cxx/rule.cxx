@@ -136,7 +136,7 @@ namespace build
       const char* args[] = {
         "g++-4.9",
         "-std=c++14",
-        "-I", src_root.string ().c_str (),
+        "-I", ds["src_root"].as<const path&> ().string ().c_str (),
         "-MM",       //@@ -M
         "-MG",      // Treat missing headers as generated.
         "-MQ", "*", // Quoted target (older version can't handle empty name).
@@ -269,7 +269,7 @@ namespace build
         "g++-4.9",
         "-std=c++14",
         "-g",
-        "-I", src_root.string ().c_str (),
+        "-I", o.prerequisites[0].get ().scope["src_root"].as<const path&> ().string ().c_str (),
         "-c",
         "-o", ro.string ().c_str (),
         rs.string ().c_str (),
@@ -382,7 +382,13 @@ namespace build
       if (e.path ().empty ())
         e.path (e.dir / path (e.name));
 
-      // Process prerequisited: do rule chaining for C and C++ source
+      // We may need the project roots for rule chaining (see below).
+      // We will resolve them lazily only if needed.
+      //
+      const path* out_root (nullptr);
+      const path* src_root (nullptr);
+
+      // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
       for (auto& pr: t.prerequisites)
@@ -398,6 +404,17 @@ namespace build
           continue;
         }
 
+        if (out_root == nullptr)
+        {
+          // Which scope shall we use to resolve the roots? Unlikely,
+          // but possible, the prerequisite is from a different project
+          // altogether. So we are going to use the target's project.
+          //
+          scope& s (scopes.find (e.dir));
+          out_root = &s["out_root"].as<const path&> ();
+          src_root = &s["src_root"].as<const path&> ();
+        }
+
         prerequisite& cp (p);
 
         // Come up with the obj{} prerequisite. The c(xx){} prerequisite
@@ -408,15 +425,15 @@ namespace build
         // possible it is under out_root (e.g., generated source).
         //
         path d;
-        if (cp.dir.relative () || cp.dir.sub (out_root))
+        if (cp.dir.relative () || cp.dir.sub (*out_root))
           d = cp.dir;
         else
         {
-          if (!cp.dir.sub (src_root))
+          if (!cp.dir.sub (*src_root))
             fail << "out of project prerequisite " << cp <<
               info << "specify corresponding obj{} target explicitly";
 
-          d = out_root / cp.dir.leaf (src_root);
+          d = *out_root / cp.dir.leaf (*src_root);
         }
 
         prerequisite& op (

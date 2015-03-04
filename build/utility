@@ -12,8 +12,17 @@
 #include <exception>
 #include <unordered_set>
 
+#include <build/path>
+
 namespace build
 {
+  // Empty string and path.
+  //
+  extern const std::string empty_string;
+  extern const path empty_path;
+
+  // Comparators.
+  //
   struct compare_c_string
   {
     bool operator() (const char* x, const char* y) const

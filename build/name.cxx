@@ -30,6 +30,8 @@ namespace build
             s.back () != path::traits::directory_separator)
           os << path::traits::directory_separator;
       }
+      else if (n.value.empty () && n.type.empty ())
+        os << s; // Otherwise nothing gets printed.
     }
 
     os << n.value;

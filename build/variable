@@ -8,9 +8,11 @@
 #include <string>
 #include <memory>        // unique_ptr
 #include <utility>       // move()
+#include <cassert>
 #include <typeindex>
 #include <unordered_set>
 
+#include <build/path>
 #include <build/name>
 #include <build/prefix-map>
 
@@ -62,9 +64,90 @@ namespace build
   {
     list_value (scope_type& s, names d): value (s), data (std::move (d)) {}
 
+    list_value (scope_type& s, std::string d)
+        : value (s)
+    {
+      data.emplace_back (std::move (d));
+    }
+
+    // Note: stored in name as a directory.
+    //
+    list_value (scope_type& s, path d)
+        : value (s)
+    {
+      data.emplace_back (std::move (d));
+    }
+
     names data;
   };
   typedef std::unique_ptr<list_value> list_value_ptr;
+
+  // value_proxy
+  //
+  struct value_proxy
+  {
+    explicit operator bool () const {return p != nullptr && *p != nullptr;}
+    explicit operator value_ptr& () const {return *p;}
+
+    // Get interface. See available specializations below.
+    //
+    template <typename T>
+    T
+    as () const = delete;
+
+    // Set interface.
+    //
+    const value_proxy&
+    operator= (value_ptr v) const
+    {
+      assert (v == nullptr || &v->scope == s);
+      *p = std::move (v);
+      return *this;
+    }
+
+    const value_proxy&
+    operator= (std::string v) const
+    {
+      // In most cases this is used to initialize a new variable, so
+      // don't bother trying to optimize for the case where p is not
+      // NULL.
+      //
+      p->reset (new list_value (*s, std::move (v)));
+      return *this;
+    }
+
+    // Note: stored in name as a directory.
+    //
+    const value_proxy&
+    operator= (path v) const
+    {
+      p->reset (new list_value (*s, std::move (v)));
+      return *this;
+    }
+
+    // Implementation details.
+    //
+    explicit
+    value_proxy (value_ptr* p, scope* s): p (p), s (s) {}
+
+  protected:
+    value_ptr* p;
+    scope* s;
+  };
+
+  template <>
+  list_value& value_proxy::
+  as<list_value&> () const;
+
+  template <>
+  const std::string& value_proxy::
+  as<const std::string&> () const;
+
+  // Note: get the name's directory.
+  //
+  template <>
+  const path& value_proxy::
+  as<const path&> () const;
 }
 
 namespace std
@@ -117,7 +200,28 @@ namespace build
     }
   };
 
-  typedef prefix_map<variable_cref, value_ptr, '.'> variable_map;
+  struct variable_map: prefix_map<variable_cref, value_ptr, '.'>
+  {
+    typedef prefix_map<variable_cref, value_ptr, '.'> base;
+
+    value_proxy
+    operator[] (const std::string& v)
+    {
+      return operator[] (variable_pool.find (v));
+    }
+
+    value_proxy
+    operator[] (const variable& v)
+    {
+      return value_proxy (&base::operator[] (v), &scope_);
+    }
+
+    explicit
+    variable_map (scope& s): scope_ (s) {}
+
+  private:
+    scope& scope_; // Scope to which this map belongs (and all its value).
+  };
 }
 
 #endif // BUILD_VARIABLE

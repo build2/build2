@@ -98,7 +98,7 @@ main (int argc, char* argv[])
     target_types.insert (cxx::ixx::static_type);
     target_types.insert (cxx::txx::static_type);
 
-    // Figure out directories: work, home, and {src,out}_{root,base}.
+    // Figure out work and home directories.
     //
     work = path::current ();
 
@@ -117,40 +117,10 @@ main (int argc, char* argv[])
       home = path (pw->pw_dir);
     }
 
-    //@@ Must be normalized.
-    //
-    out_base = work;
-    src_base = out_base;
-
-    // The project's root directory is the one that contains the build/
-    // sub-directory which contains the pre.build file.
-    //
-    for (path d (src_base); !d.root () && d != home; d = d.directory ())
-    {
-      path f (d / path ("build/pre.build"));
-      if (path_mtime (f) != timestamp_nonexistent)
-      {
-        src_root = d;
-        break;
-      }
-    }
-
-    if (src_root.empty ())
-    {
-      src_root = src_base;
-      out_root = out_base;
-    }
-    else
-      out_root = out_base.directory (src_base.leaf (src_root));
-
     if (verb >= 4)
     {
       trace << "work dir: " << work.string ();
       trace << "home dir: " << home.string ();
-      trace << "out_base: " << out_base.string ();
-      trace << "src_base: " << src_base.string ();
-      trace << "out_root: " << out_root.string ();
-      trace << "src_root: " << src_root.string ();
     }
 
     // Create root scope. For Win32 we use the empty path since there
@@ -162,6 +132,60 @@ main (int argc, char* argv[])
 #else
     root_scope = &scopes[path ("/")];
 #endif
+
+    // Figure out {src,out}_{root,base}. Note that all the paths must be
+    // normalized.
+    //
+    //@@ Must be normalized.
+    //
+    path out_base (work);
+    path src_base (out_base); //@@ TMP
+
+    path src_root;
+    path out_root;
+
+    // The project's root directory is the one that contains the build/
+    // sub-directory which contains the pre.build file.
+    //
+    for (path d (src_base); !d.root () && d != home; d = d.directory ())
+    {
+      if (path_mtime (d / path ("build/pre.build")) != timestamp_nonexistent)
+      {
+        src_root = d;
+        break;
+      }
+    }
+
+    // If there is no such sub-directory, assume this is a simple project
+    // with src_root being the same as src_base.
+    //
+    if (src_root.empty ())
+    {
+      src_root = src_base;
+      out_root = out_base;
+    }
+    else
+      out_root = out_base.directory (src_base.leaf (src_root));
+
+    if (verb >= 4)
+    {
+      trace << "out_base: " << out_base.string ();
+      trace << "src_base: " << src_base.string ();
+      trace << "out_root: " << out_root.string ();
+      trace << "src_root: " << src_root.string ();
+    }
+
+    // Create project root and base scopes, set the corresponding
+    // variables.
+    //
+    scope& proot_scope (scopes[out_root]);
+    scope& pbase_scope (scopes[out_base]);
+
+    proot_scope.variables["out_root"] = move (out_root);
+    proot_scope.variables["src_root"] = move (src_root);
+
+    pbase_scope.variables["out_base"] = out_base;
+    pbase_scope.variables["src_base"] = src_base;
 
     // Parse buildfile.
     //
@@ -176,7 +200,7 @@ main (int argc, char* argv[])
 
     try
     {
-      p.parse (ifs, bf, scopes[out_base]);
+      p.parse (ifs, bf, pbase_scope);
     }
     catch (const std::ios_base::failure&)
     {

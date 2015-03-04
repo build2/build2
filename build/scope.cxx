@@ -10,24 +10,24 @@ namespace build
 {
   // scope
   //
-  value* scope::
+  value_proxy scope::
   operator[] (const string& name)
   {
     const variable& var (variable_pool.find (name));
-    return (*this)[var];
+    return operator[] (var);
   }
 
-  value* scope::
+  value_proxy scope::
   operator[] (const variable& var)
   {
     for (scope* s (this); s != nullptr; s = s->parent ())
     {
       auto i (s->variables.find (var));
       if (i != s->variables.end ())
-        return i->second.get ();
+        return value_proxy (&i->second, s);
     }
 
-    return nullptr;
+    return value_proxy (nullptr, nullptr);
   }
 
   // scope_map
@@ -45,30 +45,36 @@ namespace build
     {
       scope* p (nullptr);
 
-      // Update scopes of which we are a new parent.
-      //
-      for (auto r (find_prefix (k)); r.first != r.second; ++r.first)
-      {
-        scope& c (r.first->second);
-
-        // The first scope of which we are a parent is the least
-        // (shortest) one which means there is no other scope
-        // between it and our parent.
-        //
-        if (p == nullptr)
-          p = c.parent ();
-        else if (p != c.parent ()) // A scope with an intermediate parent.
-          continue;
-
-        c.parent (s);
-      }
-
-      // We couldn't get the parent from one of its old children
-      // so we have to find it ourselves (unless this is is the
+      // Update scopes of which we are a new parent (unless this is the
       // root scope).
       //
-      if (p == nullptr && size () != 1)
-        p = &find (k.directory ());
+      if (size () > 1)
+      {
+        // The first entry is ourselves.
+        //
+        auto r (find_prefix (k));
+        for (++r.first; r.first != r.second; ++r.first)
+        {
+          scope& c (r.first->second);
+
+          // The first scope of which we are a parent is the least
+          // (shortest) one which means there is no other scope
+          // between it and our parent.
+          //
+          if (p == nullptr)
+            p = c.parent ();
+          else if (p != c.parent ()) // A scope with an intermediate parent.
+            continue;
+
+          c.parent (s);
+        }
+
+        // We couldn't get the parent from one of its old children
+        // so we have to find it ourselves.
+        //
+        if (p == nullptr)
+          p = &find (k.directory ());
+      }
 
       s.init (er.first, p);
     }
