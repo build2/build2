@@ -191,6 +191,12 @@ namespace build
 
       if (tt == type::colon)
       {
+        // While '{}:' means empty name, '{$x}:' where x is empty list
+        // means empty list.
+        //
+        if (ns.empty ())
+          fail (t) << "target expected before :";
+
         next (t, tt);
 
         if (tt == type::newline)
@@ -625,14 +631,30 @@ namespace build
   }
 
   void parser::
-  names (token& t, type& tt, names_type& ns, const path* dp, const string* tp)
+  names (token& t,
+         type& tt,
+         names_type& ns,
+         size_t pair,
+         const path* dp,
+         const string* tp)
   {
+    // If pair is not 0, then it is an index + 1 of the first half of
+    // the pair for which we are parsing the second halves, e.g.,
+    // a={b c d{e f} {}}.
+    //
+
     // Buffer that is used to collect the complete name in case of an
     // unseparated variable expansion, e.g., 'foo$bar$(baz)fox'. The
     // idea is to concatenate all the individual parts in this buffer
     // and then re-inject it into the loop as a single token.
     //
     string concat;
+
+    // Number of names in the last group. This is used to detect when
+    // we need to add an empty first pair element (e.g., {=y}) or when
+    // we have a for now unsupported multi-name LHS (e.g., {x y}=z).
+    //
+    size_t count (0);
 
     for (bool first (true);; first = false)
     {
@@ -714,7 +736,14 @@ namespace build
           }
 
           next (t, tt);
-          names (t, tt, ns, dp1, tp1);
+          count = ns.size ();
+          names (t, tt,
+                 ns,
+                 (pair != 0
+                  ? pair
+                  : (ns.empty () || !ns.back ().pair ? 0 : ns.size ())),
+                 dp1, tp1);
+          count = ns.size () - count;
 
           if (tt != type::rcbrace)
             fail (t) << "expected } instead of " << t;
@@ -722,6 +751,12 @@ namespace build
           tt = peek ();
           continue;
         }
+
+        // If we are a second half of a pair, add another first half
+        // unless this is the first instance.
+        //
+        if (pair != 0 && pair != ns.size ())
+          ns.push_back (ns[pair - 1]);
 
         // If it ends with a directory separator, then it is a directory.
         // Note that at this stage we don't treat '.' and '..' as special
@@ -753,20 +788,7 @@ namespace build
                            (dp != nullptr ? *dp : path ()),
                            move (name));
 
-        continue;
-      }
-
-      // Untyped name group without a directory prefix, e.g., '{foo bar}'.
-      //
-      if (tt == type::lcbrace)
-      {
-        next (t, tt);
-        names (t, tt, ns, dp, tp);
-
-        if (tt != type::rcbrace)
-          fail (t) << "expected } instead of " << t;
-
-        tt = peek ();
+        count = 1;
         continue;
       }
 
@@ -887,20 +909,91 @@ namespace build
                          << "expansion";
             }
 
+            // If we are a second half of a pair.
+            //
+            if (pair != 0)
+            {
+              // Check that there are no nested pairs.
+              //
+              if (n.pair)
+                fail (t) << "nested pair in variable expansion";
+
+              // And add another first half unless this is the first instance.
+              //
+              if (pair != ns.size ())
+                ns.push_back (ns[pair - 1]);
+            }
+
             ns.emplace_back ((tp1 != nullptr ? *tp1 : string ()),
                              (dp1 != nullptr ? *dp1 : path ()),
                              n.value);
           }
+
+          count = lv.data.size ();
         }
 
+        continue;
+      }
+
+      // Untyped name group without a directory prefix, e.g., '{foo bar}'.
+      //
+      if (tt == type::lcbrace)
+      {
+        next (t, tt);
+        count = ns.size ();
+        names (t, tt,
+               ns,
+               (pair != 0
+                ? pair
+                : (ns.empty () || !ns.back ().pair ? 0 : ns.size ())),
+               dp, tp);
+        count = ns.size () - count;
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected } instead of " << t;
+
+        tt = peek ();
+        continue;
+      }
+
+      // A pair separator (only in the pair mode).
+      //
+      if (tt == type::equal && lexer_->mode () == lexer_mode::pairs)
+      {
+        if (pair != 0)
+          fail (t) << "nested pair on the right hand side of a pair";
+
+        if (count > 1)
+          fail (t) << "multiple names on the left hand side of a pair";
+
+        if (count == 0)
+        {
+          // Empty LHS, (e.g., {=y}), create an empty name.
+          //
+          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                           (dp != nullptr ? *dp : path ()),
+                           "");
+          count = 1;
+        }
+
+        ns.back ().pair = true;
+        tt = peek ();
         continue;
       }
 
       if (!first)
         break;
 
+      // Our caller expected this to be a name.
+      //
       if (tt == type::rcbrace) // Empty name, e.g., dir{}.
       {
+        // If we are a second half of a pair, add another first half
+        // unless this is the first instance.
+        //
+        if (pair != 0 && pair != ns.size ())
+          ns.push_back (ns[pair - 1]);
+
         ns.emplace_back ((tp != nullptr ? *tp : string ()),
                          (dp != nullptr ? *dp : path ()),
                          "");
@@ -908,6 +1001,15 @@ namespace build
       }
       else
         fail (t) << "expected name instead of " << t;
+    }
+
+    // Handle the empty RHS in a pair, (e.g., {y=}).
+    //
+    if (!ns.empty () && ns.back ().pair)
+    {
+      ns.emplace_back ((tp != nullptr ? *tp : string ()),
+                       (dp != nullptr ? *dp : path ()),
+                       "");
     }
   }
 

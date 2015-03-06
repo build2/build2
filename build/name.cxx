@@ -17,6 +17,7 @@ namespace build
   {
     bool ht (!n.type.empty ());
     bool hv (!n.value.empty ());
+    bool hd (false);
 
     if (ht)
       os << n.type << '{';
@@ -37,6 +38,8 @@ namespace build
         //
         if (s.back () != path::traits::directory_separator && (hv || !ht))
           os << path::traits::directory_separator;
+
+        hd = true;
       }
     }
 
@@ -45,14 +48,21 @@ namespace build
     if (ht)
       os << '}';
 
+    if (!ht && !hv && !hd)
+      os << "{}"; // Nothing got printed.
+
     return os;
   }
 
   ostream&
   operator<< (ostream& os, const names& ns)
   {
-    for (auto b (ns.begin ()), i (b), e (ns.end ()); i != e; ++i)
-      os << (i != b ? " " : "") << *i;
+    for (auto i (ns.begin ()), e (ns.end ()); i != e; )
+    {
+      const name& n (*i);
+      ++i;
+      os << n << (n.pair ? "=" : (i != e ? " " : ""));
+    }
 
     return os;
   }

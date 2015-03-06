@@ -51,12 +51,13 @@ namespace build
     names (token& t, token_type& tt)
     {
       names_type ns;
-      names (t, tt, ns, nullptr, nullptr);
+      names (t, tt, ns, 0, nullptr, nullptr);
       return ns;
     }
 
     void
-    names (token&, token_type&, names_type&,
+    names (token&, token_type&,
+           names_type&, std::size_t pair,
            const path* dir, const std::string* type);
 
     // Utilities.

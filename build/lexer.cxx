@@ -11,6 +11,12 @@ namespace build
   token lexer::
   next ()
   {
+    if (mode_ != next_mode_)
+    {
+      prev_mode_ = mode_;
+      mode_ = next_mode_;
+    }
+
     bool sep (skip_spaces ());
 
     xchar c (get ());
@@ -27,8 +33,8 @@ namespace build
       {
         // Restore the normal mode at the end of the line.
         //
-        if (mode_ == mode::value)
-          mode_ = mode::normal;
+        if (mode_ == lexer_mode::value || mode_ == lexer_mode::pairs)
+          mode_ = next_mode_ = lexer_mode::normal;
 
         return token (token_type::newline, sep, ln, cn);
       }
@@ -42,7 +48,10 @@ namespace build
       }
     case '$':
       {
-        mode_ = mode::variable; // The next name is lexed in the var mode.
+        // The following name is lexed in the variable mode.
+        //
+        next_mode_ = lexer_mode::variable;
+
         return token (token_type::dollar, sep, ln, cn);
       }
     case '(':
@@ -56,9 +65,9 @@ namespace build
     }
 
     // The following characters are not treated as special in the
-    // value mode.
+    // value or pairs mode.
     //
-    if (mode_ != mode::value)
+    if (mode_ != lexer_mode::value && mode_ != lexer_mode::pairs)
     {
       // NOTE: remember to update name() if adding new punctuations.
       //
@@ -68,18 +77,35 @@ namespace build
         {
           return token (token_type::colon, sep, ln, cn);
         }
-      case '=':
-        {
-          mode_ = mode::value;
-          return token (token_type::equal, sep, ln, cn);
-        }
       case '+':
         {
           if (get () != '=')
             fail (c) << "expected = after +";
 
-          mode_ = mode::value;
+          next_mode_ = lexer_mode::value;
           return token (token_type::plus_equal, sep, ln, cn);
+        }
+      }
+    }
+
+    // The following characters are not treated as special in the
+    // value mode.
+    //
+    if (mode_ != lexer_mode::value)
+    {
+      // NOTE: remember to update name() if adding new punctuations.
+      //
+      switch (c)
+      {
+      case '=':
+        {
+          // Unless we are already in the pairs mode, switch to the
+          // value mode.
+          //
+          if (next_mode_ != lexer_mode::pairs)
+            next_mode_ = lexer_mode::value;
+
+          return token (token_type::equal, sep, ln, cn);
         }
       }
     }
@@ -101,15 +127,32 @@ namespace build
       bool done (false);
 
       // The following characters are not treated as special in the
-      // value mode.
+      // value or pairs mode.
       //
-      if (mode_ != mode::value)
+      if (mode_ != lexer_mode::value && mode_ != lexer_mode::pairs)
       {
         switch (c)
         {
         case ':':
-        case '=':
         case '+':
+          {
+            done = true;
+            break;
+          }
+        }
+
+        if (done)
+          break;
+      }
+
+      // The following characters are not treated as special in the
+      // value mode.
+      //
+      if (mode_ != lexer_mode::value)
+      {
+        switch (c)
+        {
+        case '=':
           {
             done = true;
             break;
@@ -123,7 +166,7 @@ namespace build
       // While these extra characters are treated as the name end in
       // the variable mode.
       //
-      if (mode_ == mode::variable)
+      if (mode_ == lexer_mode::variable)
       {
         switch (c)
         {
@@ -171,8 +214,8 @@ namespace build
         break;
     }
 
-    if (mode_ == mode::variable)
-      mode_ = mode::normal;
+    if (mode_ == lexer_mode::variable)
+      next_mode_ = prev_mode_;
 
     return token (lexeme, sep, ln, cn);
   }
