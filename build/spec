@@ -1,0 +1,58 @@
+// file      : build/spec -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_SPEC
+#define BUILD_SPEC
+
+#include <string>
+#include <vector>
+#include <iosfwd>
+#include <utility> // move()
+
+#include <build/path>
+#include <build/name>
+
+namespace build
+{
+  struct targetspec
+  {
+    targetspec (path sr, name t)
+        : src_root (std::move (sr)), target (std::move (t)) {}
+
+    path src_root;
+    name target;  // target.dir is out_root.
+  };
+
+  struct opspec: std::vector<targetspec>
+  {
+    opspec () = default;
+    opspec (std::string o): operation (std::move (o)) {}
+
+    std::string operation;
+  };
+
+  struct metaopspec: std::vector<opspec>
+  {
+    metaopspec () = default;
+    metaopspec (std::string mo): meta_operation (std::move (mo)) {}
+
+    std::string meta_operation;
+  };
+
+  typedef std::vector<metaopspec> buildspec;
+
+  std::ostream&
+  operator<< (std::ostream&, const targetspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const opspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const metaopspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const buildspec&);
+}
+
+#endif // BUILD_SPEC

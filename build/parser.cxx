@@ -4,6 +4,8 @@
 
 #include <build/parser>
 
+#include <cctype>   // is{alpha alnum}()
+
 #include <memory>   // unique_ptr
 #include <fstream>
 #include <utility>  // move()
@@ -113,12 +115,12 @@ namespace build
   }
 
   void parser::
-  parse (istream& is, const path& p, scope& s)
+  parse_buildfile (istream& is, const path& p, scope& s)
   {
     string rw (diag_relative_work (p));
     path_ = &rw;
 
-    lexer l (is, p.string ());
+    lexer l (is, rw);
     lexer_ = &l;
     scope_ = &s;
     default_target_ = nullptr;
@@ -472,7 +474,7 @@ namespace build
       const string* op (path_);
       path_ = &rw;
 
-      lexer l (ifs, p.string ());
+      lexer l (ifs, rw);
       lexer* ol (lexer_);
       lexer_ = &l;
 
@@ -581,7 +583,7 @@ namespace build
       const string* op (path_);
       path_ = &rw;
 
-      lexer l (ifs, p.string ());
+      lexer l (ifs, rw);
       lexer* ol (lexer_);
       lexer_ = &l;
 
@@ -1011,6 +1013,188 @@ namespace build
                        (dp != nullptr ? *dp : path ()),
                        "");
     }
+  }
+
+  // Buildspec parsing.
+  //
+
+  buildspec parser::
+  parse_buildspec (istream& is, const std::string& name)
+  {
+    path_ = &name;
+
+    lexer l (is, name);
+    lexer_ = &l;
+    scope_ = root_scope;
+
+    // Turn on pairs recognition (e.g., src_root/=out_root/exe{foo bar}).
+    //
+    lexer_->mode (lexer_mode::pairs);
+
+    token t (type::eos, false, 0, 0);
+    type tt;
+    next (t, tt);
+
+    return buildspec_clause (t, tt, type::eos);
+  }
+
+  static bool
+  opname (const name& n)
+  {
+    // First it has to be a non-empty simple name.
+    //
+    if (n.pair || !n.type.empty () || !n.dir.empty () || n.value.empty ())
+      return false;
+
+    // C identifier.
+    //
+    for (size_t i (0); i != n.value.size (); ++i)
+    {
+      char c (n.value[i]);
+      if (c != '_' && !(i != 0 ? isalnum (c) : isalpha (c)))
+        return false;
+    }
+
+    return true;
+  }
+
+  buildspec parser::
+  buildspec_clause (token& t, token_type& tt, token_type tt_end)
+  {
+    buildspec bs;
+
+    while (tt != tt_end)
+    {
+      // We always start with one or more names.
+      //
+      if (tt != type::name    &&
+          tt != type::lcbrace && // Untyped name group: '{foo ...'
+          tt != type::dollar  && // Variable expansion: '$foo ...'
+          tt != type::equal)     // Empty pair LHS: '=foo ...'
+        fail (t) << "operation or target expected instead of " << t;
+
+      location l (get_location (t, &path_)); // Start of names.
+
+      // This call will produce zero or more names and should stop
+      // at either tt_end or '('.
+      //
+      names_type ns (names (t, tt));
+      size_t targets (ns.size ());
+
+      if (tt == type::lparen)
+      {
+        if (targets == 0 || !opname (ns.back ()))
+          fail (t) << "operation name expected before (";
+
+        targets--; // Last one is an operation name.
+      }
+
+      // Group all the targets into a single operation. In other
+      // words, 'foo bar' is equivalent to 'build(foo bar)'.
+      //
+      if (targets != 0)
+      {
+        if (bs.empty () || !bs.back ().meta_operation.empty ())
+          bs.push_back (metaopspec ()); // Empty (default) meta operation.
+
+        metaopspec& mo (bs.back ());
+
+        for (auto i (ns.begin ()), e (i + targets); i != e; ++i)
+        {
+          if (opname (*i))
+            mo.push_back (opspec (move (i->value)));
+          else
+          {
+            // Do we have the src_root?
+            //
+            path src_root;
+            if (i->pair)
+            {
+              if (!i->type.empty ())
+                fail (l) << "expected target src_root instead of " << *i;
+
+              src_root = move (i->dir);
+
+              if (!i->value.empty ())
+                src_root /= path (move (i->value));
+
+              ++i;
+              assert (i != e);
+            }
+
+            if (mo.empty () || !mo.back ().operation.empty ())
+              mo.push_back (opspec ()); // Empty (default) operation.
+
+            opspec& os (mo.back ());
+            os.emplace_back (move (src_root), move (*i));
+          }
+        }
+      }
+
+      // Handle the operation.
+      //
+      if (tt == type::lparen)
+      {
+        // Inside '(' and ')' we have another buildspec.
+        //
+        next (t, tt);
+        location l (get_location (t, &path_)); // Start of nested names.
+        buildspec nbs (buildspec_clause (t, tt, type::rparen));
+
+        // Merge the nested buildspec into ours. But first determine
+        // if we are an operation or meta-operation and do some sanity
+        // checks.
+        //
+        bool meta (false);
+        for (const metaopspec& mo: nbs)
+        {
+          if (!mo.meta_operation.empty ())
+            fail (l) << "nested meta-operation " << mo.meta_operation;
+
+          if (!meta)
+          {
+            for (const opspec& o: mo)
+            {
+              if (!o.operation.empty ())
+              {
+                meta = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // No nested meta-operations means we should have a single
+        // metaopspec object with empty meta-operation name.
+        //
+        assert (nbs.size () == 1);
+        metaopspec& nmo (nbs.back ());
+
+        if (meta)
+        {
+          nmo.meta_operation = move (ns.back ().value);
+          bs.push_back (move (nmo));
+        }
+        else
+        {
+          // Since we are not a meta-operation, the nested buildspec
+          // should be just a bunch of targets.
+          //
+          assert (nmo.size () == 1);
+          opspec& no (nmo.back ());
+
+          if (bs.empty () || !bs.back ().meta_operation.empty ())
+            bs.push_back (metaopspec ()); // Empty (default) meta operation.
+
+          no.operation = move (ns.back ().value);
+          bs.back ().push_back (move (no));
+        }
+
+        next (t, tt); // Done with ')'.
+      }
+    }
+
+    return bs;
   }
 
   void parser::

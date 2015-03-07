@@ -13,10 +13,12 @@
 #include <vector>
 #include <cassert>
 #include <fstream>
+#include <sstream>
 #include <iostream>  //@@ TMP, for dump()
 #include <typeinfo>
 #include <system_error>
 
+#include <build/spec>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
@@ -133,6 +135,45 @@ main (int argc, char* argv[])
     root_scope = &scopes[path ("/")];
 #endif
 
+    root_scope->variables["work"] = work;
+    root_scope->variables["home"] = home;
+
+    // Parse the buildspec.
+    //
+    buildspec bspec;
+    {
+      // Merge all the individual buildspec arguments into a single
+      // string. Instead, we could also parse them individually (
+      // and merge the result). The benefit of doing it this way
+      // is potentially better diagnostics (i.e., we could have
+      // used <buildspec-1>, <buildspec-2> to give the idea about
+      // which argument is invalid).
+      //
+      string s;
+      for (int i (1); i != argc;)
+      {
+        s += argv[i];
+        if (++i != argc)
+          s += ' ';
+      }
+
+      istringstream is (s);
+      is.exceptions (ifstream::failbit | ifstream::badbit);
+      parser p;
+
+      try
+      {
+        bspec = p.parse_buildspec (is, "<buildspec>");
+      }
+      catch (const std::ios_base::failure&)
+      {
+        fail << "failed to parse buildspec string";
+      }
+    }
+
+    if (verb >= 4)
+      trace << "buildspec: " << bspec;
+
     // Figure out {src,out}_{root,base}. Note that all the paths must be
     // normalized.
     //
@@ -200,7 +241,7 @@ main (int argc, char* argv[])
 
     try
     {
-      p.parse (ifs, bf, pbase_scope);
+      p.parse_buildfile (ifs, bf, pbase_scope);
     }
     catch (const std::ios_base::failure&)
     {

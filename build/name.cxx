@@ -19,9 +19,8 @@ namespace build
     bool hv (!n.value.empty ());
     bool hd (false);
 
-    if (ht)
-      os << n.type << '{';
-
+    // Print the directory before type.
+    //
     if (!n.dir.empty ())
     {
       string s (diag_relative_work (n.dir));
@@ -32,20 +31,24 @@ namespace build
       {
         os << s;
 
-        // Add the directory separator unless it is already there
-        // or we have type but no value. The idea is to print foo/
-        // or dir{foo}.
+        // Add the directory separator unless it is already there.
         //
-        if (s.back () != path::traits::directory_separator && (hv || !ht))
+        if (s.back () != path::traits::directory_separator)
           os << path::traits::directory_separator;
 
         hd = true;
       }
     }
 
+    if (ht)
+      os << n.type;
+
+    if (ht || (hd && hv))
+      os << '{';
+
     os << n.value;
 
-    if (ht)
+    if (ht || (hd && hv))
       os << '}';
 
     if (!ht && !hv && !hd)

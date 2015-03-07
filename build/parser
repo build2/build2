@@ -12,6 +12,7 @@
 #include <build/path>
 #include <build/token>
 #include <build/name>
+#include <build/spec>
 #include <build/diagnostics>
 
 namespace build
@@ -25,10 +26,13 @@ namespace build
   public:
     parser (): fail (&path_) {}
 
-    // Issues diagnostics and throws failed in case of an error.
+    // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse (std::istream&, const path&, scope&);
+    parse_buildfile (std::istream&, const path&, scope&);
+
+    buildspec
+    parse_buildspec (std::istream&, const std::string& name);
 
     // Recursive descent parser.
     //
@@ -59,6 +63,11 @@ namespace build
     names (token&, token_type&,
            names_type&, std::size_t pair,
            const path* dir, const std::string* type);
+
+    // Buildspec.
+    //
+    buildspec
+    buildspec_clause (token&, token_type&, token_type end);
 
     // Utilities.
     //
