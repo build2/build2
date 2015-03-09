@@ -7,7 +7,6 @@
 
 #include <string>
 #include <iosfwd>
-#include <unordered_set>
 
 #include <build/path>
 #include <build/token>
@@ -29,7 +28,7 @@ namespace build
     // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse_buildfile (std::istream&, const path&, scope&);
+    parse_buildfile (std::istream&, const path&, scope& base, scope& root);
 
     buildspec
     parse_buildspec (std::istream&, const std::string& name);
@@ -99,7 +98,8 @@ namespace build
   private:
     const std::string* path_; // Path processed by diagnostic_string().
     lexer* lexer_;
-    scope* scope_;
+    scope* scope_; // Current base scope (out_base).
+    scope* root_;  // Current root scope (out_root).
     target* default_target_;
 
     const path* out_root_;
@@ -107,8 +107,6 @@ namespace build
 
     token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};
-
-    std::unordered_set<path> include_;
   };
 }
 

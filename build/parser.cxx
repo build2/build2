@@ -37,18 +37,19 @@ namespace build
   typedef token_type type;
 
   void parser::
-  parse_buildfile (istream& is, const path& p, scope& s)
+  parse_buildfile (istream& is, const path& p, scope& base, scope& root)
   {
     string rw (diag_relative_work (p));
     path_ = &rw;
 
     lexer l (is, rw);
     lexer_ = &l;
-    scope_ = &s;
+    scope_ = &base;
+    root_ = &root;
     default_target_ = nullptr;
 
-    out_root_ = &s["out_root"].as<const path&> ();
-    src_root_ = &s["src_root"].as<const path&> ();
+    out_root_ = &root["out_root"].as<const path&> ();
+    src_root_ = &root["src_root"].as<const path&> ();
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -477,7 +478,7 @@ namespace build
         p.normalize ();
       }
 
-      if (!include_.insert (p).second)
+      if (!root_->buildfiles.insert (p).second)
       {
         level4 ([&]{trace (l) << "skipping already included " << p;});
         continue;
@@ -955,7 +956,7 @@ namespace build
 
     lexer l (is, name);
     lexer_ = &l;
-    scope_ = root_scope;
+    scope_ = root_ = root_scope;
 
     // Turn on pairs recognition (e.g., src_root/=out_root/exe{foo bar}).
     //

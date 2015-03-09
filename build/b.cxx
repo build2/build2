@@ -269,7 +269,7 @@ main (int argc, char* argv[])
 
           if (verb >= 4)
           {
-            trace << tn;
+            trace << tn << ':';
             trace << "  out_base: " << out_base.string ();
             trace << "  src_base: " << src_base.string ();
             trace << "  out_root: " << out_root.string ();
@@ -293,6 +293,16 @@ main (int argc, char* argv[])
           //
           path bf (src_base / path ("buildfile"));
 
+          // Check if this buildfile has already been loaded.
+          //
+          if (!proot_scope.buildfiles.insert (bf).second)
+          {
+            level4 ([&]{trace << "skipping already loaded " << bf;});
+            continue;
+          }
+
+          level4 ([&]{trace << "loading " << bf;});
+
           ifstream ifs (bf.string ());
           if (!ifs.is_open ())
             fail << "unable to open " << bf;
@@ -302,7 +312,7 @@ main (int argc, char* argv[])
 
           try
           {
-            p.parse_buildfile (ifs, bf, pbase_scope);
+            p.parse_buildfile (ifs, bf, pbase_scope, proot_scope);
           }
           catch (const std::ios_base::failure&)
           {

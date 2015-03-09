@@ -127,8 +127,8 @@ namespace build
 
     bool eos_ {false};
     lexer_mode mode_ {lexer_mode::normal};
-    lexer_mode next_mode_; // Mode to switch to for the next token.
-    lexer_mode prev_mode_; // Mode to return to after this mode expires.
+    lexer_mode next_mode_ {lexer_mode::normal}; // Switch to for next token.
+    lexer_mode prev_mode_; // Return to after current mode expires.
   };
 }
 
