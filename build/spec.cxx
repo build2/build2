@@ -15,9 +15,9 @@ namespace build
   ostream&
   operator<< (ostream& os, const targetspec& s)
   {
-    if (!s.src_root.empty ())
+    if (!s.src_base.empty ())
     {
-      string d (diag_relative_work (s.src_root));
+      string d (diag_relative_work (s.src_base));
 
       if (d != ".")
       {

@@ -17,11 +17,13 @@ namespace build
 {
   struct targetspec
   {
-    targetspec (path sr, name t)
-        : src_root (std::move (sr)), target (std::move (t)) {}
+    explicit
+    targetspec (name t): target (std::move (t)) {}
+    targetspec (path sb, name t)
+        : src_base (std::move (sb)), target (std::move (t)) {}
 
-    path src_root;
-    name target;  // target.dir is out_root.
+    path src_base;
+    name target;
   };
 
   struct opspec: std::vector<targetspec>

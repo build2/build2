@@ -19,6 +19,7 @@
 #include <system_error>
 
 #include <build/spec>
+#include <build/name>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
@@ -171,81 +172,144 @@ main (int argc, char* argv[])
       }
     }
 
-    if (verb >= 4)
-      trace << "buildspec: " << bspec;
+    level4 ([&]{trace << "buildspec: " << bspec;});
 
-    // Figure out {src,out}_{root,base}. Note that all the paths must be
-    // normalized.
+    // Load all the buildfiles.
     //
-    //@@ Must be normalized.
-    //
-    path out_base (work);
-    path src_base (out_base); //@@ TMP
+    if (bspec.empty ())
+      bspec.push_back (metaopspec ()); // Default meta-operation.
 
-    path src_root;
-    path out_root;
-
-    // The project's root directory is the one that contains the build/
-    // sub-directory which contains the pre.build file.
-    //
-    for (path d (src_base); !d.root () && d != home; d = d.directory ())
+    for (metaopspec& ms: bspec)
     {
-      if (path_mtime (d / path ("build/pre.build")) != timestamp_nonexistent)
+      if (ms.empty ())
+        ms.push_back (opspec ()); // Default operation.
+
+      for (opspec& os: ms)
       {
-        src_root = d;
-        break;
+        if (os.empty ())
+          // Default target: dir{}.
+          //
+          os.push_back (targetspec (name ("dir", path (), string ())));
+
+        for (targetspec& ts: os)
+        {
+          name& tn (ts.target);
+
+          // First figure out the out_base of this target. The logic
+          // is as follows: if a directory was specified in any form,
+          // then that's the out_base. Otherwise, we check if the name
+          // value has a directory prefix. This has a good balance of
+          // control and the expected result in most cases.
+          //
+          path out_base (tn.dir);
+          if (out_base.empty ())
+          {
+            // See if there is a directory part in value. We cannot
+            // assume it is a valid filesystem name so we will have
+            // to do the splitting manually.
+            //
+            path::size_type i (path::traits::rfind_separator (tn.value));
+
+            if (i != string::npos)
+              out_base = path (tn.value, i != 0 ? i : 1); // Special case: "/".
+          }
+
+          if (out_base.relative ())
+            out_base = work / out_base;
+
+          out_base.normalize ();
+
+          path& src_base (ts.src_base);
+          if (src_base.empty ())
+          {
+            //@@ TODO: Configured case: find out_root (looking for
+            //   "build/bootstrap.build" or some such), then src_root
+            //   (stored in this file). Need to also detect the in-tree
+            //   build.
+            //
+
+            // If that doesn't work out (e.g., the first build), then
+            // default to the working directory as src_base.
+            //
+            src_base = work;
+          }
+
+          if (src_base.relative ())
+            src_base = work / src_base;
+
+          src_base.normalize ();
+
+          path src_root;
+          path out_root;
+
+          // The project's root directory is the one that contains the build/
+          // sub-directory which contains the pre.build file.
+          //
+          for (path d (src_base), f ("build/pre.build");
+               !d.root () && d != home;
+               d = d.directory ())
+          {
+            if (path_mtime (d / f) != timestamp_nonexistent)
+            {
+              src_root = d;
+              break;
+            }
+          }
+
+          // If there is no such sub-directory, assume this is a simple
+          // project with src_root being the same as src_base.
+          //
+          if (src_root.empty ())
+          {
+            src_root = src_base;
+            out_root = out_base;
+          }
+          else
+            out_root = out_base.directory (src_base.leaf (src_root));
+
+          if (verb >= 4)
+          {
+            trace << tn;
+            trace << "  out_base: " << out_base.string ();
+            trace << "  src_base: " << src_base.string ();
+            trace << "  out_root: " << out_root.string ();
+            trace << "  src_root: " << src_root.string ();
+          }
+
+          // Create project root and base scopes, set the corresponding
+          // variables. Note that we might already have all of this set
+          // up as a result of one of the preceding target processing.
+          //
+          scope& proot_scope (scopes[out_root]);
+          scope& pbase_scope (scopes[out_base]);
+
+          proot_scope.variables["out_root"] = move (out_root);
+          proot_scope.variables["src_root"] = move (src_root);
+
+          pbase_scope.variables["out_base"] = out_base;
+          pbase_scope.variables["src_base"] = src_base;
+
+          // Parse the buildfile.
+          //
+          path bf (src_base / path ("buildfile"));
+
+          ifstream ifs (bf.string ());
+          if (!ifs.is_open ())
+            fail << "unable to open " << bf;
+
+          ifs.exceptions (ifstream::failbit | ifstream::badbit);
+          parser p;
+
+          try
+          {
+            p.parse_buildfile (ifs, bf, pbase_scope);
+          }
+          catch (const std::ios_base::failure&)
+          {
+            fail << "failed to read from " << bf;
+          }
+        }
       }
-    }
-
-    // If there is no such sub-directory, assume this is a simple project
-    // with src_root being the same as src_base.
-    //
-    if (src_root.empty ())
-    {
-      src_root = src_base;
-      out_root = out_base;
-    }
-    else
-      out_root = out_base.directory (src_base.leaf (src_root));
-
-    if (verb >= 4)
-    {
-      trace << "out_base: " << out_base.string ();
-      trace << "src_base: " << src_base.string ();
-      trace << "out_root: " << out_root.string ();
-      trace << "src_root: " << src_root.string ();
-    }
-
-    // Create project root and base scopes, set the corresponding
-    // variables.
-    //
-    scope& proot_scope (scopes[out_root]);
-    scope& pbase_scope (scopes[out_base]);
-
-    proot_scope.variables["out_root"] = move (out_root);
-    proot_scope.variables["src_root"] = move (src_root);
-
-    pbase_scope.variables["out_base"] = out_base;
-    pbase_scope.variables["src_base"] = src_base;
-
-    // Parse buildfile.
-    //
-    path bf ("buildfile");
-
-    ifstream ifs (bf.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << bf;
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
-
-    try
-    {
-      p.parse_buildfile (ifs, bf, pbase_scope);
-    }
-    catch (const std::ios_base::failure&)
-    {
-      fail << "failed to read from " << bf;
     }
 
     dump_scopes ();
@@ -268,30 +332,93 @@ main (int argc, char* argv[])
     path_rule path_r;
     rules[typeid (path_target)].emplace ("path", path_r);
 
-    // Build.
+    // Do the operations. We do meta-operations and operations sequentially
+    // (no parallelism).
     //
-    auto i (targets.find (dir::static_type.id, out_base, "", nullptr, trace));
-    if (i == targets.end ())
-      fail << "no targets in " << bf;
-
-    target& t (**i);
-
-    match (t);
-
-    dump ();
-
-    switch (update (t))
+    for (metaopspec& ms: bspec)
     {
-    case target_state::uptodate:
+      for (opspec& os: ms)
       {
-        info << "target " << t << " is up to date";
-        break;
+        // But multiple targets in the same operation can be done in
+        // parallel.
+        //
+        vector<reference_wrapper<target>> tgs;
+        tgs.reserve (os.size ());
+
+        // First resolve and match all the targets. We don't want to
+        // start building before we know how for all the targets in
+        // this operation.
+        //
+        for (targetspec& ts: os)
+        {
+          name& tn (ts.target);
+          const location l ("<buildspec>", 1, 0); //@@ TODO
+
+          const string* e;
+          const target_type* ti (target_types.find (tn, e));
+
+          if (ti == nullptr)
+            fail (l) << "unknown target type " << tn.type;
+
+          // If the directory is relative, assume it is relative to work
+          // (must be consistent with how we derive out_base).
+          //
+          path& d (tn.dir);
+
+          if (d.relative ())
+            d = work / d;
+
+          d.normalize ();
+
+          target_set::key tk {ti, &d, &tn.value, &e};
+          auto i (targets.find (tk, trace));
+          if (i == targets.end ())
+            fail (l) << "unknown target " << tk;
+
+          target& t (**i);
+
+          if (!t.recipe ())
+          {
+            level4 ([&]{trace << "matching target " << t;});
+            match (t);
+          }
+
+          tgs.push_back (t);
+        }
+
+        dump ();
+
+        // Now build.
+        //
+        for (target& t: tgs)
+        {
+          // The target might have already been updated indirectly. We
+          // still want to inform the user about its status since they
+          // requested its update explicitly.
+          //
+          target_state s (t.state ());
+          if (s == target_state::unknown)
+          {
+            level4 ([&]{trace << "updating target " << t;});
+            s = update (t);
+          }
+
+          switch (s)
+          {
+          case target_state::uptodate:
+            {
+              info << "target " << t << " is up to date";
+              break;
+            }
+          case target_state::updated:
+            break;
+          case target_state::failed:
+            //@@ This could probably happen in a parallel build.
+          case target_state::unknown:
+            assert (false);
+          }
+        }
       }
-    case target_state::updated:
-      break;
-    case target_state::failed:
-    case target_state::unknown:
-      assert (false);
     }
   }
   catch (const failed&)

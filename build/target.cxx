@@ -13,39 +13,12 @@ using namespace std;
 
 namespace build
 {
-  // target_type
-  //
-  const target_type*
-  resolve_target_type (const std::string name);
-
   // target
   //
   ostream&
   operator<< (ostream& os, const target& t)
   {
-    os << t.type ().name << '{';
-
-    if (!t.dir.empty ())
-    {
-      string s (diag_relative_work (t.dir));
-
-      if (s != ".")
-      {
-        os << s;
-
-        if (!t.name.empty () && s.back () != path::traits::directory_separator)
-          os << path::traits::directory_separator;
-      }
-    }
-
-    os << t.name;
-
-    if (t.ext != nullptr && !t.ext->empty ())
-      os << '.' << *t.ext;
-
-    os << '}';
-
-    return os;
+    return os << target_set::key {&t.type (), &t.dir, &t.name, &t.ext};
   }
 
   static target*
@@ -59,6 +32,8 @@ namespace build
 
   // target_set
   //
+  target_set targets;
+
   auto target_set::
   find (const key& k, tracer& trace) const -> iterator
   {
@@ -99,21 +74,124 @@ namespace build
           const std::string* ext,
           tracer& trace)
   {
-    iterator i (find (key {&tt.id, &dir, &name, &ext}, trace));
+    iterator i (find (key {&tt, &dir, &name, &ext}, trace));
 
     if (i != end ())
       return pair<target&, bool> (**i, false);
 
     unique_ptr<target> t (tt.factory (move (dir), move (name), ext));
     i = map_.emplace (
-      make_pair (key {&tt.id, &t->dir, &t->name, &t->ext},
+      make_pair (key {&tt, &t->dir, &t->name, &t->ext},
                  move (t))).first;
 
     return pair<target&, bool> (**i, true);
   }
 
-  target_set targets;
+  ostream&
+  operator<< (ostream& os, const target_set::key& k)
+  {
+    os << k.type->name << '{';
+
+    if (!k.dir->empty ())
+    {
+      string s (diag_relative_work (*k.dir));
+
+      if (s != ".")
+      {
+        os << s;
+
+        if (!k.name->empty () &&
+            s.back () != path::traits::directory_separator)
+          os << path::traits::directory_separator;
+      }
+    }
+
+    os << *k.name;
+
+    if (*k.ext != nullptr && !(*k.ext)->empty ())
+      os << '.' << **k.ext;
+
+    os << '}';
+
+    return os;
+  }
+
+  //
+  //
   target_type_map target_types;
+
+  const target_type* target_type_map::
+  find (name& n, const string*& ext) const
+  {
+    ext = nullptr;
+
+    string& v (n.value);
+
+    // First determine the target type.
+    //
+    const char* tt;
+    if (n.type.empty ())
+    {
+      // Empty name or '.' and '..' signify a directory.
+      //
+      if (v.empty () || v == "." || v == "..")
+        tt = "dir";
+      else
+        //@@ TODO: derive type from extension.
+        //
+        tt = "file";
+    }
+    else
+      tt = n.type.c_str ();
+
+    auto i (find (tt));
+    if (i == end ())
+      return nullptr;
+
+    const target_type& ti (i->second);
+
+    // Directories require special name processing. If we find that more
+    // targets deviate, then we should make this target-type-specific.
+    //
+    if (ti.id == dir::static_type.id || ti.id == fsdir::static_type.id)
+    {
+      // The canonical representation of a directory name is with empty
+      // value.
+      //
+      if (!v.empty ())
+      {
+        n.dir /= path (v); // Move name value to dir.
+        v.clear ();
+      }
+    }
+    else
+    {
+      // Split the path into its directory part (if any) the name part,
+      // and the extension (if any). We cannot assume the name part is
+      // a valid filesystem name so we will have to do the splitting
+      // manually.
+      //
+      path::size_type i (path::traits::rfind_separator (v));
+
+      if (i != string::npos)
+      {
+        n.dir /= path (v, i != 0 ? i : 1); // Special case: "/".
+        v = string (v, i + 1, string::npos);
+      }
+
+      // Extract the extension.
+      //
+      string::size_type j (path::traits::find_extension (v));
+
+      if (j != string::npos)
+      {
+        ext = &extension_pool.find (v.c_str () + j + 1);
+        v.resize (j);
+      }
+    }
+
+    return &ti;
+  }
 
   // path_target
   //

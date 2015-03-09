@@ -41,7 +41,7 @@ namespace build
       }
     }
 
-    auto i (targets.find (p.type.id, d, p.name, p.ext, trace));
+    auto i (targets.find (p.type, d, p.name, p.ext, trace));
 
     if (i == targets.end ())
       return 0;

@@ -36,84 +36,6 @@ namespace build
 
   typedef token_type type;
 
-  // Given a target or prerequisite name, figure out its type, taking
-  // into account extensions, special names (e.g., '.' and '..'), or
-  // anything else that might be relevant. Also process the name (in
-  // place) by extracting the extension, adjusting dir/value, etc.
-  //
-  const target_type&
-  find_target_type (name& n, const location& l, const string*& ext)
-  {
-    string& v (n.value);
-
-    // First determine the target type.
-    //
-    const char* tt;
-    if (n.type.empty ())
-    {
-      // Empty name or '.' and '..' signify a directory.
-      //
-      if (v.empty () || v == "." || v == "..")
-        tt = "dir";
-      else
-        //@@ TODO: derive type from extension.
-        //
-        tt = "file";
-    }
-    else
-      tt = n.type.c_str ();
-
-    auto i (target_types.find (tt));
-    if (i == target_types.end ())
-      fail (l) << "unknown target type " << tt;
-
-    const target_type& ti (i->second);
-
-    ext = nullptr;
-
-    // Directories require special name processing. If we find that more
-    // targets deviate, then we should make this target-type-specific.
-    //
-    if (ti.id == dir::static_type.id || ti.id == fsdir::static_type.id)
-    {
-      // The canonical representation of a directory name is with empty
-      // value.
-      //
-      if (!v.empty ())
-      {
-        n.dir /= path (v); // Move name value to dir.
-        v.clear ();
-      }
-    }
-    else
-    {
-      // Split the path into its directory part (if any) the name part,
-      // and the extension (if any). We cannot assume the name part is
-      // a valid filesystem name so we will have to do the splitting
-      // manually.
-      //
-      path::size_type i (path::traits::rfind_separator (v));
-
-      if (i != string::npos)
-      {
-        n.dir /= path (v, i != 0 ? i : 1); // Special case: "/".
-        v = string (v, i + 1, string::npos);
-      }
-
-      // Extract the extension.
-      //
-      string::size_type j (path::traits::find_extension (v));
-
-      if (j != string::npos)
-      {
-        ext = &extension_pool.find (v.c_str () + j);
-        v.resize (j - 1);
-      }
-    }
-
-    return ti;
-  }
-
   void parser::
   parse_buildfile (istream& is, const path& p, scope& s)
   {
@@ -299,7 +221,10 @@ namespace build
           for (auto& pn: pns)
           {
             const string* e;
-            const target_type& ti (find_target_type (pn, ploc, e));
+            const target_type* ti (target_types.find (pn, e));
+
+            if (ti == nullptr)
+              fail (ploc) << "unknown target type " << pn.type;
 
             pn.dir.normalize ();
 
@@ -307,7 +232,7 @@ namespace build
             //
             prerequisite& p (
               scope_->prerequisites.insert (
-                ti, move (pn.dir), move (pn.value), e, *scope_, trace).first);
+                *ti, move (pn.dir), move (pn.value), e, *scope_, trace).first);
 
             ps.push_back (p);
           }
@@ -315,7 +240,11 @@ namespace build
           for (auto& tn: ns)
           {
             const string* e;
-            const target_type& ti (find_target_type (tn, nloc, e));
+            const target_type* ti (target_types.find (tn, e));
+
+            if (ti == nullptr)
+              fail (nloc) << "unknown target type " << tn.type;
+
             path& d (tn.dir);
 
             if (d.empty ())
@@ -332,7 +261,7 @@ namespace build
             //
             target& t (
               targets.insert (
-                ti, move (tn.dir), move (tn.value), e, trace).first);
+                *ti, move (tn.dir), move (tn.value), e, trace).first);
 
             t.prerequisites = ps; //@@ OPT: move if last target.
 
@@ -764,7 +693,8 @@ namespace build
         // Note that at this stage we don't treat '.' and '..' as special
         // (unless they are specified with a directory separator) because
         // then we would have ended up treating '.: ...' as a directory
-        // scope. Instead, this is handled higher up, in find_target_type().
+        // scope. Instead, this is handled higher up the processing chain,
+        // in target_types::find().
         //
         // @@ TODO: and not quoted
         //
@@ -1097,36 +1027,36 @@ namespace build
         if (bs.empty () || !bs.back ().meta_operation.empty ())
           bs.push_back (metaopspec ()); // Empty (default) meta operation.
 
-        metaopspec& mo (bs.back ());
+        metaopspec& ms (bs.back ());
 
         for (auto i (ns.begin ()), e (i + targets); i != e; ++i)
         {
           if (opname (*i))
-            mo.push_back (opspec (move (i->value)));
+            ms.push_back (opspec (move (i->value)));
           else
           {
-            // Do we have the src_root?
+            // Do we have the src_base?
             //
-            path src_root;
+            path src_base;
             if (i->pair)
             {
               if (!i->type.empty ())
-                fail (l) << "expected target src_root instead of " << *i;
+                fail (l) << "expected target src_base instead of " << *i;
 
-              src_root = move (i->dir);
+              src_base = move (i->dir);
 
               if (!i->value.empty ())
-                src_root /= path (move (i->value));
+                src_base /= path (move (i->value));
 
               ++i;
               assert (i != e);
             }
 
-            if (mo.empty () || !mo.back ().operation.empty ())
-              mo.push_back (opspec ()); // Empty (default) operation.
+            if (ms.empty () || !ms.back ().operation.empty ())
+              ms.push_back (opspec ()); // Empty (default) operation.
 
-            opspec& os (mo.back ());
-            os.emplace_back (move (src_root), move (*i));
+            opspec& os (ms.back ());
+            os.emplace_back (move (src_base), move (*i));
           }
         }
       }
@@ -1146,16 +1076,16 @@ namespace build
         // checks.
         //
         bool meta (false);
-        for (const metaopspec& mo: nbs)
+        for (const metaopspec& nms: nbs)
         {
-          if (!mo.meta_operation.empty ())
-            fail (l) << "nested meta-operation " << mo.meta_operation;
+          if (!nms.meta_operation.empty ())
+            fail (l) << "nested meta-operation " << nms.meta_operation;
 
           if (!meta)
           {
-            for (const opspec& o: mo)
+            for (const opspec& nos: nms)
             {
-              if (!o.operation.empty ())
+              if (!nos.operation.empty ())
               {
                 meta = true;
                 break;
@@ -1181,13 +1111,13 @@ namespace build
           // should be just a bunch of targets.
           //
           assert (nmo.size () == 1);
-          opspec& no (nmo.back ());
+          opspec& nos (nmo.back ());
 
           if (bs.empty () || !bs.back ().meta_operation.empty ())
             bs.push_back (metaopspec ()); // Empty (default) meta operation.
 
-          no.operation = move (ns.back ().value);
-          bs.back ().push_back (move (no));
+          nos.operation = move (ns.back ().value);
+          bs.back ().push_back (move (nos));
         }
 
         next (t, tt); // Done with ')'.
@@ -1210,7 +1140,7 @@ namespace build
     // then we don't do anything.
     //
     if (default_target_ == nullptr ||      // No targets in this buildfile.
-        targets.find (dir::static_type.id, // Explicit current dir target.
+        targets.find (dir::static_type,    // Explicit current dir target.
                       scope_->path (),
                       "",
                       nullptr,

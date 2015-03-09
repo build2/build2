@@ -74,6 +74,8 @@ namespace build
       return string_type::npos;
     }
 
+    // Return the position of '.' or npos if there is no extension.
+    //
     static size_type
     find_extension (string_type const& s)
     {

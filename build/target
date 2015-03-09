@@ -18,6 +18,7 @@
 #include <build/path>
 #include <build/key-set>
 #include <build/timestamp>
+#include <build/name>
 #include <build/prerequisite>
 #include <build/utility>       // compare_*, extension_pool
 
@@ -102,14 +103,17 @@ namespace build
   {
     struct key
     {
-      mutable const std::type_index* type;
+      mutable const target_type* type;
       mutable const path* dir;
       mutable const std::string* name;
-      mutable const std::string** ext;
+      mutable const std::string* const* ext;
 
       friend bool
       operator< (const key& x, const key& y)
       {
+        const std::type_index& xt (x.type->id);
+        const std::type_index& yt (y.type->id);
+
         //@@ TODO: use compare() to compare once.
 
         // Unspecified and specified extension are assumed equal. The
@@ -117,10 +121,10 @@ namespace build
         // pointers.
         //
         return
-          (*x.type < *y.type) ||
-          (*x.type == *y.type && *x.name < *y.name) ||
-          (*x.type == *y.type && *x.name == *y.name && *x.dir < *y.dir) ||
-          (*x.type == *y.type && *x.name == *y.name && *x.dir == *y.dir &&
+          (xt < yt) ||
+          (xt == yt && *x.name < *y.name) ||
+          (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
+          (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
            *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
       }
     };
@@ -132,7 +136,7 @@ namespace build
     find (const key& k, tracer& trace) const;
 
     iterator
-    find (const std::type_index& type,
+    find (const target_type& type,
           const path& dir,
           const std::string& name,
           const std::string* ext,
@@ -156,6 +160,9 @@ namespace build
     map map_;
   };
 
+  std::ostream&
+  operator<< (std::ostream&, const target_set::key&);
+
   extern target_set targets;
 
   class target_type_map: public std::map<
@@ -164,8 +171,23 @@ namespace build
     compare_c_string>
   {
   public:
+    typedef std::map<const char*,
+                     std::reference_wrapper<const target_type>,
+                     compare_c_string> base;
+
     void
     insert (const target_type& tt) {emplace (tt.name, tt);}
+
+    using base::find;
+
+    // Given a name, figure out its type, taking into account extensions,
+    // special names (e.g., '.' and '..'), or anything else that might be
+    // relevant. Also process the name (in place) by extracting the
+    // extension, adjusting dir/value, etc (note that the dir is not
+    // necessarily normalized). Return NULL if not found.
+    //
+    const target_type*
+    find (name&, const std::string*& ext) const;
   };
 
   extern target_type_map target_types;
