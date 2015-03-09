@@ -1025,7 +1025,7 @@ namespace build
       //
       if (targets != 0)
       {
-        if (bs.empty () || !bs.back ().meta_operation.empty ())
+        if (bs.empty () || !bs.back ().name.empty ())
           bs.push_back (metaopspec ()); // Empty (default) meta operation.
 
         metaopspec& ms (bs.back ());
@@ -1053,7 +1053,7 @@ namespace build
               assert (i != e);
             }
 
-            if (ms.empty () || !ms.back ().operation.empty ())
+            if (ms.empty () || !ms.back ().name.empty ())
               ms.push_back (opspec ()); // Empty (default) operation.
 
             opspec& os (ms.back ());
@@ -1079,14 +1079,14 @@ namespace build
         bool meta (false);
         for (const metaopspec& nms: nbs)
         {
-          if (!nms.meta_operation.empty ())
-            fail (l) << "nested meta-operation " << nms.meta_operation;
+          if (!nms.name.empty ())
+            fail (l) << "nested meta-operation " << nms.name;
 
           if (!meta)
           {
             for (const opspec& nos: nms)
             {
-              if (!nos.operation.empty ())
+              if (!nos.name.empty ())
               {
                 meta = true;
                 break;
@@ -1103,7 +1103,7 @@ namespace build
 
         if (meta)
         {
-          nmo.meta_operation = move (ns.back ().value);
+          nmo.name = move (ns.back ().value);
           bs.push_back (move (nmo));
         }
         else
@@ -1114,10 +1114,10 @@ namespace build
           assert (nmo.size () == 1);
           opspec& nos (nmo.back ());
 
-          if (bs.empty () || !bs.back ().meta_operation.empty ())
+          if (bs.empty () || !bs.back ().name.empty ())
             bs.push_back (metaopspec ()); // Empty (default) meta operation.
 
-          nos.operation = move (ns.back ().value);
+          nos.name = move (ns.back ().value);
           bs.back ().push_back (move (nos));
         }
 

@@ -14,7 +14,8 @@
 #include <cassert>
 #include <fstream>
 #include <sstream>
-#include <iostream>  //@@ TMP, for dump()
+#include <iterator> // make_move_iterator()
+#include <iostream> //@@ TMP, for dump()
 #include <typeinfo>
 #include <system_error>
 
@@ -100,6 +101,17 @@ main (int argc, char* argv[])
     target_types.insert (cxx::hxx::static_type);
     target_types.insert (cxx::ixx::static_type);
     target_types.insert (cxx::txx::static_type);
+
+    // Enter built-in meta-operation and operation names. Loading of
+    // the buildfiles can result in additional names being added (via
+    // module loading).
+    //
+    meta_operations.emplace ("perform"); // Default.
+    meta_operations.emplace ("configure");
+    meta_operations.emplace ("disfigure");
+
+    operations.emplace ("update"); // Default.
+    operations.emplace ("clean");
 
     // Figure out work and home directories.
     //
@@ -193,7 +205,7 @@ main (int argc, char* argv[])
 
         for (targetspec& ts: os)
         {
-          name& tn (ts.target);
+          name& tn (ts.name);
 
           // First figure out the out_base of this target. The logic
           // is as follows: if a directory was specified in any form,
@@ -325,6 +337,103 @@ main (int argc, char* argv[])
     dump_scopes ();
     dump ();
 
+    // At this stage we know all the names of meta-operations and
+    // operations so "lift" names that we assumed (from buildspec
+    // syntax) were operations but are actually meta-operations.
+    // Also convert empty names (which means they weren't explicitly
+    // specified) to the defaults and verify that all the names are
+    // known.
+    //
+    for (auto mi (bspec.begin ()); mi != bspec.end (); ++mi)
+    {
+      metaopspec& ms (*mi);
+      const location l ("<buildspec>", 1, 0); //@@ TODO
+
+      for (auto oi (ms.begin ()); oi != ms.end (); ++oi)
+      {
+        opspec& os (*oi);
+        const location l ("<buildspec>", 1, 0); //@@ TODO
+
+        if (os.name.empty ())
+        {
+          os.name = "update";
+          continue;
+        }
+
+        if (meta_operations.count (os.name))
+        {
+          if (!ms.name.empty ())
+            fail (l) << "nested meta-operation " << os.name;
+
+          // The easy case is when the metaopspec contains a
+          // single opspec (us). In this case we can just move
+          // the name.
+          //
+          if (ms.size () == 1)
+          {
+            ms.name = move (os.name);
+            os.name = "update";
+            continue;
+          }
+          // The hard case is when there are other operations that
+          // need to keep their original meta-operation. In this
+          // case we have to "split" the metaopspec, in the worst
+          // case scenario, into three parts: prefix, us, and suffix.
+          //
+          else
+          {
+            if (oi != ms.begin ()) // We have a prefix of opspec's.
+            {
+              // Keep the prefix in the original metaopspec and move
+              // the suffix into a new one that is inserted after the
+              // prefix. Then simply let the loop finish with the prefix
+              // and naturally move to the suffix (in other words, we
+              // are reducing this case to the one without a prefix).
+              //
+              metaopspec suffix;
+              suffix.insert (suffix.end (),
+                             make_move_iterator (oi),
+                             make_move_iterator (ms.end ()));
+              ms.resize (oi - ms.begin ());
+
+              mi = bspec.insert (++mi, move (suffix)); // Insert after prefix.
+              --mi; // Move back to prefix.
+              break;
+            }
+
+            // We are the first element and have a suffix of opspec's
+            // (otherwise one of the previous cases would have matched).
+            //
+            assert (oi == ms.begin () && (oi + 1) != ms.end ());
+
+            // Move this opspec into a new metaopspec and insert it before
+            // the current one. Then continue with the next opspec.
+            //
+            metaopspec prefix (move (os.name));
+            os.name = "update";
+            prefix.push_back (move (os));
+            ms.erase (oi);
+
+            mi = bspec.insert (mi, move (prefix)); // Insert before suffix.
+            break; // Restart inner loop: outer loop ++ moves back to suffix.
+          }
+        }
+
+        if (!operations.count (os.name))
+          fail (l) << "unknown operation " << os.name;
+      }
+
+      // Note: using mi rather than ms since ms is invalidated by above
+      // insert()'s.
+      //
+      if (mi->name.empty ())
+        mi->name = "perform";
+      else if (!meta_operations.count (mi->name))
+        fail (l) << "unknown meta-operation " << mi->name;
+    }
+
+    level4 ([&]{trace << "buildspec: " << bspec;});
+
     // Register rules.
     //
     cxx::link cxx_link;
@@ -341,6 +450,7 @@ main (int argc, char* argv[])
 
     path_rule path_r;
     rules[typeid (path_target)].emplace ("path", path_r);
+
 
     // Do the operations. We do meta-operations and operations sequentially
     // (no parallelism).
@@ -361,7 +471,7 @@ main (int argc, char* argv[])
         //
         for (targetspec& ts: os)
         {
-          name& tn (ts.target);
+          name& tn (ts.name);
           const location l ("<buildspec>", 1, 0); //@@ TODO
 
           const string* e;

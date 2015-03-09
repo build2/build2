@@ -17,29 +17,31 @@ namespace build
 {
   struct targetspec
   {
+    typedef build::name name_type;
+
     explicit
-    targetspec (name t): target (std::move (t)) {}
-    targetspec (path sb, name t)
-        : src_base (std::move (sb)), target (std::move (t)) {}
+    targetspec (name_type n): name (std::move (n)) {}
+    targetspec (path sb, name_type n)
+        : src_base (std::move (sb)), name (std::move (n)) {}
 
     path src_base;
-    name target;
+    name_type name;
   };
 
   struct opspec: std::vector<targetspec>
   {
     opspec () = default;
-    opspec (std::string o): operation (std::move (o)) {}
+    opspec (std::string n): name (std::move (n)) {}
 
-    std::string operation;
+    std::string name;
   };
 
   struct metaopspec: std::vector<opspec>
   {
     metaopspec () = default;
-    metaopspec (std::string mo): meta_operation (std::move (mo)) {}
+    metaopspec (std::string n): name (std::move (n)) {}
 
-    std::string meta_operation;
+    std::string name;
   };
 
   typedef std::vector<metaopspec> buildspec;

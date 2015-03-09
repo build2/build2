@@ -32,26 +32,26 @@ namespace build
       }
     }
 
-    os << s.target;
+    os << s.name;
     return os;
   }
 
   ostream&
   operator<< (ostream& os, const opspec& s)
   {
-    bool ho (!s.operation.empty ());
+    bool hn (!s.name.empty ());
     bool ht (!s.empty ());
 
-    //os << s.operation;
-    os << (ho ? "\"" : "") << s.operation << (ho ? "\"" : "");
+    //os << s.name;
+    os << (hn ? "\"" : "") << s.name << (hn ? "\"" : "");
 
-    if (ho && ht)
+    if (hn && ht)
       os << '(';
 
     for (auto b (s.begin ()), i (b); i != s.end (); ++i)
       os << (i != b ? " " : "") << *i;
 
-    if (ho && ht)
+    if (hn && ht)
       os << ')';
 
     return os;
@@ -60,19 +60,19 @@ namespace build
   ostream&
   operator<< (ostream& os, const metaopspec& s)
   {
-    bool hm (!s.meta_operation.empty ());
+    bool hn (!s.name.empty ());
     bool ho (!s.empty ());
 
-    //os << s.meta_operation;
-    os << (hm ? "\'" : "") << s.meta_operation << (hm ? "\'" : "");
+    //os << s.name;
+    os << (hn ? "\'" : "") << s.name << (hn ? "\'" : "");
 
-    if (hm && ho)
+    if (hn && ho)
       os << '(';
 
     for (auto b (s.begin ()), i (b); i != s.end (); ++i)
       os << (i != b ? " " : "") << *i;
 
-    if (hm && ho)
+    if (hn && ho)
       os << ')';
 
     return os;
