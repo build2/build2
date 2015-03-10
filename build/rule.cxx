@@ -16,12 +16,13 @@ using namespace std;
 
 namespace build
 {
-  rule_map rules;
+  operation_rule_map rules;
+  const target_rule_map* current_rules;
 
   // path_rule
   //
   void* path_rule::
-  match (target& t, const string&) const
+  match (action a, target& t, const string&) const
   {
     // @@ TODO:
     //
@@ -55,17 +56,17 @@ namespace build
   }
 
   recipe path_rule::
-  apply (target& t, void*) const
+  apply (action a, target& t, void*) const
   {
     // Search and match all the prerequisites.
     //
-    search_and_match (t);
+    search_and_match (a, t);
 
     return &update;
   }
 
   target_state path_rule::
-  update (target& t)
+  update (action a, target& t)
   {
     // Make sure the target is not older than any of its prerequisites.
     //
@@ -74,7 +75,7 @@ namespace build
     for (const prerequisite& p: t.prerequisites)
     {
       target& pt (*p.target);
-      target_state ts (update (pt));
+      target_state ts (update (a, pt));
 
       // If this is an mtime-based target, then compare timestamps.
       //
@@ -89,52 +90,52 @@ namespace build
       }
       else
       {
-        // Otherwise we assume the prerequisite is newer if it was updated.
+        // Otherwise we assume the prerequisite is newer if it was changed.
         //
-        if (ts == target_state::updated)
+        if (ts == target_state::changed)
           fail << "no recipe to update target " << t <<
             info << "prerequisite " << pt << " is ahead of " << t
                << " because it was updated";
       }
     }
 
-    return target_state::uptodate;
+    return target_state::unchanged;
   }
 
   // dir_rule
   //
   void* dir_rule::
-  match (target& t, const string&) const
+  match (action a, target& t, const string&) const
   {
     return &t;
   }
 
   recipe dir_rule::
-  apply (target& t, void*) const
+  apply (action a, target& t, void*) const
   {
-    search_and_match (t);
+    search_and_match (a, t);
     return &update;
   }
 
   target_state dir_rule::
-  update (target& t)
+  update (action a, target& t)
   {
-    // Return updated if any of our prerequsites were updated and
-    // uptodate otherwise.
+    // Return changed if any of our prerequsites were updated and
+    // unchanged otherwise.
     //
-    return update_prerequisites (t);
+    return execute_prerequisites (a, t);
   }
 
   // fsdir_rule
   //
   void* fsdir_rule::
-  match (target& t, const string&) const
+  match (action a, target& t, const string&) const
   {
     return &t;
   }
 
   recipe fsdir_rule::
-  apply (target& t, void*) const
+  apply (action a, target& t, void*) const
   {
     // Let's not allow any prerequisites for this target since it
     // doesn't make much sense. The sole purpose of this target type
@@ -147,7 +148,7 @@ namespace build
   }
 
   target_state fsdir_rule::
-  update (target& t)
+  update (action a, target& t)
   {
     path d (t.dir / path (t.name));
 
@@ -160,7 +161,7 @@ namespace build
     }
 
     if (path_mtime (d) != timestamp_nonexistent)
-      return target_state::uptodate;
+      return target_state::unchanged;
 
     if (verb >= 1)
       text << "mkdir " << d.string ();
@@ -177,6 +178,6 @@ namespace build
            << e.what ();
     }
 
-    return target_state::updated;
+    return target_state::changed;
   }
 }

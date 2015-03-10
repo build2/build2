@@ -33,21 +33,36 @@ namespace build
   }
 
   void
-  match_impl (target& t)
+  match_impl (action a, target& t)
   {
     for (auto tt (&t.type ());
-         tt != nullptr && !t.recipe ();
+         tt != nullptr && !t.recipe (a);
          tt = tt->base)
     {
-      auto i (rules.find (tt->id));
+      auto i (current_rules->find (tt->id));
 
-      if (i == rules.end ()) // No rules registered for this target type.
-        continue;
+      if (i == current_rules->end () || i->second.empty ())
+        continue; // No rules registered for this target type, try base.
 
       const auto& rules (i->second); // Hint map.
 
-      string hint; // @@ TODO
-      auto rs (rules.find_prefix (hint));
+      // @@ TODO
+      //
+      // Different rules can be used for different operations (update
+      // vs test is a good example). So, at some point, we will probably
+      // have to support a list of hints or even an operation-hint map
+      // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
+      // but we want the foo rule instead). This is also the place where
+      // the '{build clean}=cxx' construct (which we currently do not
+      // support) can come handy.
+      //
+      // Also, ignore the hint (that is most likely ment for a different
+      // operation) if this is a unique match.
+      //
+      string hint;
+      auto rs (rules.size () == 1
+               ? make_pair (rules.begin (), rules.end ())
+               : rules.find_prefix (hint));
 
       for (auto i (rs.first); i != rs.second; ++i)
       {
@@ -64,7 +79,7 @@ namespace build
               },
               t, n));
 
-          m = ru.match (t, hint);
+          m = ru.match (a, t, hint);
         }
 
         if (m != nullptr)
@@ -91,7 +106,7 @@ namespace build
                   },
                   t, n1));
 
-              m1 = ru1.match (t, hint);
+              m1 = ru1.match (a, t, hint);
             }
 
             if (m1 != nullptr)
@@ -117,7 +132,7 @@ namespace build
                 },
                 t, n));
 
-            t.recipe (ru.apply (t, m));
+            t.recipe (a, ru.apply (a, t, m));
             break;
           }
           else
@@ -126,24 +141,24 @@ namespace build
       }
     }
 
-    if (!t.recipe ())
+    if (!t.recipe (a))
       fail << "no rule to update target " << t;
   }
 
   void
-  search_and_match (target& t)
+  search_and_match (action a, target& t)
   {
     for (prerequisite& p: t.prerequisites)
     {
       if (p.target == nullptr)
         search (p);
 
-      match (*p.target);
+      match (a, *p.target);
     }
   }
 
   target_state
-  update (target& t)
+  execute (action a, target& t)
   {
     // Implementation with some multi-threading ideas in mind.
     //
@@ -158,13 +173,13 @@ namespace build
             [](target& t){info << "while updating target " << t;},
             t));
 
-        ts = t.recipe () (t);
+        ts = t.recipe (a) (a, t);
         assert (ts != target_state::unknown && ts != target_state::failed);
         t.state (ts);
         return ts;
       }
-    case target_state::uptodate:
-    case target_state::updated:
+    case target_state::unchanged:
+    case target_state::changed:
       return ts;
     case target_state::failed:
       throw failed ();
@@ -172,34 +187,34 @@ namespace build
   }
 
   target_state
-  update_prerequisites (target& t)
+  execute_prerequisites (action a, target& t)
   {
-    target_state ts (target_state::uptodate);
+    target_state ts (target_state::unchanged);
 
     for (const prerequisite& p: t.prerequisites)
     {
       assert (p.target != nullptr);
 
-      if (update (*p.target) != target_state::uptodate)
-        ts = target_state::updated;
+      if (execute (a, *p.target) != target_state::unchanged)
+        ts = target_state::changed;
     }
 
     return ts;
   }
 
   bool
-  update_prerequisites (target& t, const timestamp& mt)
+  execute_prerequisites (action a, target& t, const timestamp& mt)
   {
-    bool u (mt == timestamp_nonexistent);
+    bool e (mt == timestamp_nonexistent);
 
     for (const prerequisite& p: t.prerequisites)
     {
       assert (p.target != nullptr);
       target& pt (*p.target);
 
-      target_state ts (update (pt));
+      target_state ts (execute (a, pt));
 
-      if (!u)
+      if (!e)
       {
         // If this is an mtime-based target, then compare timestamps.
         //
@@ -210,22 +225,22 @@ namespace build
           // What do we do if timestamps are equal? This can happen, for
           // example, on filesystems that don't have subsecond resolution.
           // There is not much we can do here except detect the case where
-          // the prerequisite was updated in this run which means the
-          // target must be out of date.
+          // the prerequisite was changed in this run which means the
+          // action must be executed on the target as well.
           //
-          if (mt < mp || (mt == mp && ts == target_state::updated))
-            u = true;
+          if (mt < mp || (mt == mp && ts == target_state::changed))
+            e = true;
         }
         else
         {
-          // Otherwise we assume the prerequisite is newer if it was updated.
+          // Otherwise we assume the prerequisite is newer if it was changed.
           //
-          if (ts == target_state::updated)
-            u = true;
+          if (ts == target_state::changed)
+            e = true;
         }
       }
     }
 
-    return u;
+    return e;
   }
 }

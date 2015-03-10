@@ -28,7 +28,7 @@ namespace build
     // compile
     //
     void* compile::
-    match (target& t, const string&) const
+    match (action a, target& t, const string&) const
     {
       tracer trace ("cxx::compile::match");
 
@@ -57,7 +57,7 @@ namespace build
     }
 
     recipe compile::
-    apply (target& t, void* v) const
+    apply (action a, target& t, void* v) const
     {
       // Derive object file name from target name.
       //
@@ -69,7 +69,7 @@ namespace build
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.
       //
-      search_and_match (t);
+      search_and_match (a, t);
 
       // Inject additional prerequisites.
       //
@@ -77,7 +77,7 @@ namespace build
       auto& st (dynamic_cast<cxx&> (*sp.target));
 
       if (st.mtime () != timestamp_nonexistent)
-        inject_prerequisites (o, st, sp.scope);
+        inject_prerequisites (a, o, st, sp.scope);
 
       return &update;
     }
@@ -125,7 +125,7 @@ namespace build
     }
 
     void compile::
-    inject_prerequisites (obj& o, const cxx& s, scope& ds) const
+    inject_prerequisites (action a, obj& o, const cxx& s, scope& ds) const
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
@@ -226,7 +226,7 @@ namespace build
 
             // Match to a rule.
             //
-            build::match (t);
+            build::match (a, t);
           }
         }
 
@@ -251,13 +251,13 @@ namespace build
     }
 
     target_state compile::
-    update (target& t)
+    update (action a, target& t)
     {
       obj& o (dynamic_cast<obj&> (t));
-      cxx* s (update_prerequisites<cxx> (o, o.mtime ()));
+      cxx* s (execute_prerequisites<cxx> (a, o, o.mtime ()));
 
       if (s == nullptr)
-        return target_state::uptodate;
+        return target_state::unchanged;
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
@@ -293,7 +293,7 @@ namespace build
         // subseconds precision.
         //
         o.mtime (system_clock::now ());
-        return target_state::updated;
+        return target_state::changed;
       }
       catch (const process_error& e)
       {
@@ -313,7 +313,7 @@ namespace build
     // link
     //
     void* link::
-    match (target& t, const string& hint) const
+    match (action a, target& t, const string& hint) const
     {
       tracer trace ("cxx::link::match");
 
@@ -371,7 +371,7 @@ namespace build
     }
 
     recipe link::
-    apply (target& t, void*) const
+    apply (action a, target& t, void*) const
     {
       tracer trace ("cxx::link::apply");
 
@@ -400,7 +400,7 @@ namespace build
           if (p.target == nullptr)
             search (p);
 
-          build::match (*p.target);
+          build::match (a, *p.target);
           continue;
         }
 
@@ -487,7 +487,7 @@ namespace build
 
         if (cp1 != nullptr)
         {
-          build::match (ot); // Now cp1 should be resolved.
+          build::match (a, ot); // Now cp1 should be resolved.
 
           if (cp.target == nullptr)
             search (cp); // Our own prerequisite, so this is ok.
@@ -502,7 +502,7 @@ namespace build
         else
         {
           ot.prerequisites.push_back (cp);
-          build::match (ot);
+          build::match (a, ot);
         }
 
         // Change the exe{} target's prerequsite from cxx{} to obj{}.
@@ -514,7 +514,7 @@ namespace build
     }
 
     target_state link::
-    update (target& t)
+    update (action a, target& t)
     {
       // @@ Q:
       //
@@ -523,8 +523,8 @@ namespace build
 
       exe& e (dynamic_cast<exe&> (t));
 
-      if (!update_prerequisites (e, e.mtime ()))
-        return target_state::uptodate;
+      if (!execute_prerequisites (a, e, e.mtime ()))
+        return target_state::unchanged;
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
@@ -563,7 +563,7 @@ namespace build
         // subseconds precision.
         //
         e.mtime (system_clock::now ());
-        return target_state::updated;
+        return target_state::changed;
       }
       catch (const process_error& e)
       {

@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include <build/target>
+#include <build/operation>
 #include <build/prefix-map>
 
 namespace build
@@ -19,17 +20,20 @@ namespace build
   {
   public:
     virtual void*
-    match (target&, const std::string& hint) const = 0;
+    match (action, target&, const std::string& hint) const = 0;
 
     virtual recipe
-    apply (target&, void*) const = 0;
+    apply (action, target&, void*) const = 0;
   };
 
-  typedef std::unordered_map<
+  using target_rule_map = std::unordered_map<
     std::type_index,
-    prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>> rule_map;
+    prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>>;
 
-  extern rule_map rules;
+  using operation_rule_map = std::unordered_map<std::string, target_rule_map>;
+
+  extern operation_rule_map rules;
+  extern const target_rule_map* current_rules; // Rules for current operation.
 
   // Fallback rule that check that the path exists.
   //
@@ -37,39 +41,39 @@ namespace build
   {
   public:
     virtual void*
-    match (target&, const std::string& hint) const;
+    match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (target&, void*) const;
+    apply (action, target&, void*) const;
 
     static target_state
-    update (target&);
+    update (action, target&);
   };
 
   class dir_rule: public rule
   {
   public:
     virtual void*
-    match (target&, const std::string& hint) const;
+    match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (target&, void*) const;
+    apply (action, target&, void*) const;
 
     static target_state
-    update (target&);
+    update (action, target&);
   };
 
   class fsdir_rule: public rule
   {
   public:
     virtual void*
-    match (target&, const std::string& hint) const;
+    match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (target&, void*) const;
+    apply (action, target&, void*) const;
 
     static target_state
-    update (target&);
+    update (action, target&);
   };
 }
 

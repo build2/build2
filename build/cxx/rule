@@ -23,30 +23,30 @@ namespace build
     {
     public:
       virtual void*
-      match (target&, const std::string& hint) const;
+      match (action a, target&, const std::string& hint) const;
 
       virtual recipe
-      apply (target&, void*) const;
+      apply (action a, target&, void*) const;
 
       static target_state
-      update (target&);
+      update (action a, target&);
 
     private:
       void
-      inject_prerequisites (obj&, const cxx&, scope&) const;
+      inject_prerequisites (action a, obj&, const cxx&, scope&) const;
     };
 
     class link: public rule
     {
     public:
       virtual void*
-      match (target&, const std::string& hint) const;
+      match (action a, target&, const std::string& hint) const;
 
       virtual recipe
-      apply (target&, void*) const;
+      apply (action a, target&, void*) const;
 
       static target_state
-      update (target&);
+      update (action a, target&);
     };
   }
 }

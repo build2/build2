@@ -7,7 +7,6 @@
 
 #include <string>
 #include <ostream>
-#include <unordered_set>
 
 #include <build/path>
 
@@ -17,9 +16,6 @@ namespace build
 
   extern path work;
   extern path home;
-
-  extern std::unordered_set<std::string> meta_operations;
-  extern std::unordered_set<std::string> operations;
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.

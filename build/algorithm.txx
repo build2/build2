@@ -6,7 +6,7 @@ namespace build
 {
   template <typename T>
   T*
-  update_prerequisites (target& t, const timestamp& mt)
+  execute_prerequisites (action a, target& t, const timestamp& mt)
   {
     //@@ Can factor the bulk of it into a non-template code. Can
     // either do a function template that will do dynamic_cast check
@@ -14,16 +14,16 @@ namespace build
     //
 
     T* r (nullptr);
-    bool u (mt == timestamp_nonexistent);
+    bool e (mt == timestamp_nonexistent);
 
     for (const prerequisite& p: t.prerequisites)
     {
       assert (p.target != nullptr);
       target& pt (*p.target);
 
-      target_state ts (update (pt));
+      target_state ts (execute (a, pt));
 
-      if (!u)
+      if (!e)
       {
         // If this is an mtime-based target, then compare timestamps.
         //
@@ -34,18 +34,18 @@ namespace build
           // What do we do if timestamps are equal? This can happen, for
           // example, on filesystems that don't have subsecond resolution.
           // There is not much we can do here except detect the case where
-          // the prerequisite was updated in this run which means the
-          // target must be out of date.
+          // the prerequisite was changed in this run which means the
+          // action must be executed on the target as well.
           //
-          if (mt < mp || (mt == mp && ts == target_state::updated))
-            u = true;
+          if (mt < mp || (mt == mp && ts == target_state::changed))
+            e = true;
         }
         else
         {
-          // Otherwise we assume the prerequisite is newer if it was updated.
+          // Otherwise we assume the prerequisite is newer if it was changed.
           //
-          if (ts == target_state::updated)
-            u = true;
+          if (ts == target_state::changed)
+            e = true;
         }
       }
 
@@ -54,6 +54,6 @@ namespace build
     }
 
     assert (r != nullptr);
-    return u ? r : nullptr;
+    return e ? r : nullptr;
   }
 }

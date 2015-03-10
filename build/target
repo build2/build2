@@ -19,6 +19,7 @@
 #include <build/key-set>
 #include <build/timestamp>
 #include <build/name>
+#include <build/operation>
 #include <build/prerequisite>
 #include <build/utility>       // compare_*, extension_pool
 
@@ -26,11 +27,11 @@ namespace build
 {
   class target;
 
-  enum class target_state {unknown, uptodate, updated, failed};
+  enum class target_state {unknown, unchanged, changed, failed};
 
   // Note: should throw rather than returning target_state::failed.
   //
-  typedef std::function<target_state (target&)> recipe;
+  typedef std::function<target_state (action, target&)> recipe;
 
   struct target_type
   {
@@ -71,10 +72,19 @@ namespace build
     typedef build::recipe recipe_type;
 
     const recipe_type&
-    recipe () const {return recipe_;}
+    recipe (action_id a) const {return action_ == a ? recipe_ : empty_recipe_;}
 
     void
-    recipe (recipe_type r) {assert (!recipe_); recipe_ = r;}
+    recipe (action_id a, recipe_type r)
+    {
+      assert (action_ != a || !recipe_);
+      action_ = a;
+      recipe_ = r;
+
+      // Also reset the target state.
+      //
+      state_ = target_state::unknown;
+    }
 
   public:
     target_state
@@ -92,7 +102,9 @@ namespace build
     static const target_type static_type;
 
   private:
+    action_id action_ {0}; // Action id of this target recipe.
     recipe_type recipe_;
+    static const recipe_type empty_recipe_;
     target_state state_ {target_state::unknown};
   };
 

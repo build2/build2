@@ -15,6 +15,8 @@ namespace build
 {
   // target
   //
+  const recipe target::empty_recipe_;
+
   ostream&
   operator<< (ostream& os, const target& t)
   {

@@ -16,9 +16,6 @@ namespace build
   path work;
   path home;
 
-  unordered_set<string> meta_operations;
-  unordered_set<string> operations;
-
   path
   src_out (const path& out, scope& s)
   {

@@ -6,11 +6,15 @@
 #define BUILD_UTILITY
 
 #include <tuple>
+#include <limits> // numeric_limits
 #include <string>
+#include <vector>
 #include <utility>
-#include <cstring> // strcmp
+#include <cstring> // strcmp()
+#include <cassert>
 #include <exception>
 #include <unordered_set>
+#include <unordered_map>
 
 #include <build/path>
 
@@ -94,6 +98,53 @@ namespace build
   };
 
   extern string_pool extension_pool;
+
+  // A pool of strings in which each string is assigned an individual
+  // index (or id) of type I (e.g., uint8_t, uint16_t, etc., depending
+  // on how many entries are expected). Index value 0 is reserved to
+  // indicate the no entry condition.
+  //
+  template <typename I>
+  struct string_table
+  {
+    // Find existing or insert new.
+    //
+    I
+    insert (const std::string& s)
+    {
+      std::size_t i (vec_.size () + 1);
+      auto r (map_.emplace (s, static_cast<I> (i)));
+
+      if (r.second)
+      {
+        assert (i <= std::numeric_limits<I>::max ());
+        vec_.push_back (&r.first->first);
+      }
+
+      return r.first->second;
+    }
+
+    // Find existing.
+    //
+    I
+    find (const std::string& s) const
+    {
+      auto i (map_.find (s));
+      return i != map_.end () ? i->second : 0;
+    }
+
+    // Reverse lookup.
+    //
+    const std::string&
+    operator[] (I i) const {assert (i > 0); return *vec_[i - 1];}
+
+    I
+    size () const {return static_cast<I> (vec_.size ());}
+
+  private:
+    std::unordered_map<std::string, I> map_;
+    std::vector<const std::string*> vec_;
+  };
 }
 
 #endif // BUILD_UTILITY

@@ -5,12 +5,12 @@
 namespace build
 {
   void
-  match_impl (target&);
+  match_impl (action, target&);
 
   inline void
-  match (target& t)
+  match (action a, target& t)
   {
-    if (!t.recipe ())
-      match_impl (t);
+    if (!t.recipe (a))
+      match_impl (a, t);
   }
 }

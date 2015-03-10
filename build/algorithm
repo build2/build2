@@ -6,6 +6,7 @@
 #define BUILD_ALGORITHM
 
 #include <build/target>
+#include <build/operation>
 #include <build/timestamp>
 
 namespace build
@@ -19,41 +20,44 @@ namespace build
   target&
   search (prerequisite&);
 
-  // Match a rule to the target with ambiguity detection.
+  // Match a rule to the action/target with ambiguity detection.
   //
   void
-  match (target&);
+  match (action, target&);
 
   // The default prerequisite search and match implementation. It calls
   // search() and then match() for each prerequisite in a loop.
   //
   void
-  search_and_match (target&);
+  search_and_match (action, target&);
 
-  target_state
-  update (target&);
-
-  // The default prerequisite update implementation. It calls update()
-  // for each prerequisite in a loop. Returns target_state::updated
-  // if any of them were updated and target_state::uptodate otherwise.
+  // Execute the action on target, assuming a rule has been matched
+  // and the recipe for this action has been set.
   //
   target_state
-  update_prerequisites (target&);
+  execute (action, target&);
 
-  // A version of the above that also determines whether the target
-  // needs updating based on the passed timestamp.
+  // The default prerequisite execute implementation. It calls execute()
+  // for each prerequisite in a loop. Returns target_state::changed
+  // if any of them were changed and target_state::unchanged otherwise.
+  //
+  target_state
+  execute_prerequisites (action, target&);
+
+  // A version of the above that also determines whether the action
+  // needs to be executed on the target based on the passed timestamp.
   //
   bool
-  update_prerequisites (target&, const timestamp&);
+  execute_prerequisites (action, target&, const timestamp&);
 
   // Another version of the above that does two extra things for the
-  // caller: it determines whether the target needs updating based
-  // on the passed timestamp and, if so, finds a prerequisite of the
-  // specified type.
+  // caller: it determines whether the action needs to be executed on
+  // the target based on the passed timestamp and, if so, finds a
+  // prerequisite of the specified type (e.g., source file).
   //
   template <typename T>
   T*
-  update_prerequisites (target&, const timestamp&);
+  execute_prerequisites (action, target&, const timestamp&);
 }
 
 #include <build/algorithm.ixx>

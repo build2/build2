@@ -19,8 +19,10 @@
 #include <typeinfo>
 #include <system_error>
 
-#include <build/spec>
+#include <build/path>
 #include <build/name>
+#include <build/spec>
+#include <build/operation>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
@@ -102,16 +104,17 @@ main (int argc, char* argv[])
     target_types.insert (cxx::ixx::static_type);
     target_types.insert (cxx::txx::static_type);
 
-    // Enter built-in meta-operation and operation names. Loading of
-    // the buildfiles can result in additional names being added (via
-    // module loading).
+    // Enter built-in meta-operation and operation names into tables.
+    // Note that the order of registration should match the id constants;
+    // see <operation> for details. Loading of the buildfiles can result
+    // in additional names being added (via module loading).
     //
-    meta_operations.emplace ("perform"); // Default.
-    meta_operations.emplace ("configure");
-    meta_operations.emplace ("disfigure");
+    meta_operations.insert ("perform"); // Default.
+    meta_operations.insert ("configure");
+    meta_operations.insert ("disfigure");
 
-    operations.emplace ("update"); // Default.
-    operations.emplace ("clean");
+    operations.insert ("update"); // Default.
+    operations.insert ("clean");
 
     // Figure out work and home directories.
     //
@@ -334,6 +337,12 @@ main (int argc, char* argv[])
       }
     }
 
+    // We store the combined action id in uint8_t; see <operation> for
+    // details.
+    //
+    assert (operations.size () <= 128);
+    assert (meta_operations.size () <= 128);
+
     dump_scopes ();
     dump ();
 
@@ -360,7 +369,7 @@ main (int argc, char* argv[])
           continue;
         }
 
-        if (meta_operations.count (os.name))
+        if (meta_operations.find (os.name) != 0)
         {
           if (!ms.name.empty ())
             fail (l) << "nested meta-operation " << os.name;
@@ -419,7 +428,7 @@ main (int argc, char* argv[])
           }
         }
 
-        if (!operations.count (os.name))
+        if (operations.find (os.name) == 0)
           fail (l) << "unknown operation " << os.name;
       }
 
@@ -428,7 +437,7 @@ main (int argc, char* argv[])
       //
       if (mi->name.empty ())
         mi->name = "perform";
-      else if (!meta_operations.count (mi->name))
+      else if (meta_operations.find (mi->name) == 0)
         fail (l) << "unknown meta-operation " << mi->name;
     }
 
@@ -437,19 +446,24 @@ main (int argc, char* argv[])
     // Register rules.
     //
     cxx::link cxx_link;
-    rules[typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+    rules["update"][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+    rules["clean"][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
 
     cxx::compile cxx_compile;
-    rules[typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+    rules["update"][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+    rules["clean"][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
 
     dir_rule dir_r;
-    rules[typeid (dir)].emplace ("dir", dir_r);
+    rules["update"][typeid (dir)].emplace ("dir", dir_r);
+    rules["clean"][typeid (dir)].emplace ("dir", dir_r);
 
     fsdir_rule fsdir_r;
-    rules[typeid (fsdir)].emplace ("fsdir", fsdir_r);
+    rules["update"][typeid (fsdir)].emplace ("fsdir", fsdir_r);
+    rules["clean"][typeid (fsdir)].emplace ("fsdir", fsdir_r);
 
     path_rule path_r;
-    rules[typeid (path_target)].emplace ("path", path_r);
+    rules["update"][typeid (path_target)].emplace ("path", path_r);
+    rules["clean"][typeid (path_target)].emplace ("path", path_r);
 
 
     // Do the operations. We do meta-operations and operations sequentially
@@ -459,8 +473,12 @@ main (int argc, char* argv[])
     {
       for (opspec& os: ms)
       {
-        // But multiple targets in the same operation can be done in
-        // parallel.
+        current_rules = &rules[os.name];
+        action act (meta_operations.find (ms.name), operations.find (os.name));
+
+        level4 ([&]{trace << ms.name << " " << os.name << " " << act;});
+
+        // Multiple targets in the same operation can be done in parallel.
         //
         vector<reference_wrapper<target>> tgs;
         tgs.reserve (os.size ());
@@ -497,10 +515,10 @@ main (int argc, char* argv[])
 
           target& t (**i);
 
-          if (!t.recipe ())
+          if (!t.recipe (act))
           {
             level4 ([&]{trace << "matching target " << t;});
-            match (t);
+            match (act, t);
           }
 
           tgs.push_back (t);
@@ -520,17 +538,17 @@ main (int argc, char* argv[])
           if (s == target_state::unknown)
           {
             level4 ([&]{trace << "updating target " << t;});
-            s = update (t);
+            s = execute (act, t);
           }
 
           switch (s)
           {
-          case target_state::uptodate:
+          case target_state::unchanged:
             {
               info << "target " << t << " is up to date";
               break;
             }
-          case target_state::updated:
+          case target_state::changed:
             break;
           case target_state::failed:
             //@@ This could probably happen in a parallel build.
