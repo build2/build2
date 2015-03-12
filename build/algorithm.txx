@@ -18,9 +18,10 @@ namespace build
 
     for (const prerequisite& p: t.prerequisites)
     {
-      assert (p.target != nullptr);
-      target& pt (*p.target);
+      if (p.target == nullptr) // Skip ignored.
+        continue;
 
+      target& pt (*p.target);
       target_state ts (execute (a, pt));
 
       if (!e)

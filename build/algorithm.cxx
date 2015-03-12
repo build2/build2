@@ -7,6 +7,7 @@
 #include <memory>   // unique_ptr
 #include <utility>  // move
 #include <cassert>
+#include <system_error>
 
 #include <build/path>
 #include <build/scope>
@@ -15,6 +16,7 @@
 #include <build/rule>
 #include <build/search>
 #include <build/utility>
+#include <build/filesystem>
 #include <build/diagnostics>
 
 using namespace std;
@@ -22,7 +24,7 @@ using namespace std;
 namespace build
 {
   target&
-  search (prerequisite& p)
+  search_impl (prerequisite& p)
   {
     assert (p.target == nullptr);
 
@@ -149,24 +151,33 @@ namespace build
   search_and_match (action a, target& t)
   {
     for (prerequisite& p: t.prerequisites)
-    {
-      if (p.target == nullptr)
-        search (p);
+      match (a, search (p));
+  }
 
-      match (a, *p.target);
+  void
+  search_and_match (action a, target& t, const path& d)
+  {
+    for (prerequisite& p: t.prerequisites)
+    {
+      target& pt (search (p));
+
+      if (pt.dir.sub (d))
+        match (a, pt);
+      else
+        p.target = nullptr; // Ignore.
     }
   }
 
   target_state
-  execute (action a, target& t)
+  execute_impl (action a, target& t)
   {
     // Implementation with some multi-threading ideas in mind.
     //
-    switch (target_state ts = t.state ())
+    switch (target_state ts = t.state)
     {
     case target_state::unknown:
       {
-        t.state (target_state::failed); // So the rule can just throw.
+        t.state = target_state::failed; // So the rule can just throw.
 
         auto g (
           make_exception_guard (
@@ -175,12 +186,17 @@ namespace build
 
         ts = t.recipe (a) (a, t);
         assert (ts != target_state::unknown && ts != target_state::failed);
-        t.state (ts);
+
+        // The recipe may have set the target's state manually.
+        //
+        if (t.state == target_state::failed)
+          t.state = ts;
+
         return ts;
       }
     case target_state::unchanged:
     case target_state::changed:
-      return ts;
+      assert (false); // Should have been handled by inline execute().
     case target_state::failed:
       throw failed ();
     }
@@ -193,9 +209,12 @@ namespace build
 
     for (const prerequisite& p: t.prerequisites)
     {
-      assert (p.target != nullptr);
+      if (p.target == nullptr) // Skip ignored.
+        continue;
 
-      if (execute (a, *p.target) != target_state::unchanged)
+      target& pt (*p.target);
+
+      if (execute (a, pt) != target_state::unchanged)
         ts = target_state::changed;
     }
 
@@ -209,9 +228,10 @@ namespace build
 
     for (const prerequisite& p: t.prerequisites)
     {
-      assert (p.target != nullptr);
-      target& pt (*p.target);
+      if (p.target == nullptr) // Skip ignored.
+        continue;
 
+      target& pt (*p.target);
       target_state ts (execute (a, pt));
 
       if (!e)
@@ -242,5 +262,58 @@ namespace build
     }
 
     return e;
+  }
+
+  target_state
+  perform_clean_file (action a, target& t)
+  {
+    // The reverse order of update: first delete the file, then clean
+    // prerequisites.
+    //
+    file& ft (dynamic_cast<file&> (t));
+    const path& f (ft.path ());
+
+    rmfile_status rs;
+
+    // We don't want to print the command if we couldn't delete the
+    // file because it does not exist (just like we don't print the
+    // update command if the file is up to date). This makes the
+    // below code a bit ugly.
+    //
+    try
+    {
+      rs = try_rmfile (f);
+    }
+    catch (const system_error& e)
+    {
+      if (verb >= 1)
+        text << "rm " << f.string ();
+      else
+        text << "rm " << t;
+
+      fail << "unable to delete file " << f.string () << ": " << e.what ();
+    }
+
+    if (rs == rmfile_status::success)
+    {
+      if (verb >= 1)
+        text << "rm " << f.string ();
+      else
+        text << "rm " << t;
+    }
+
+    // Update timestamp in case there are operations after us that
+    // could use the information.
+    //
+    ft.mtime (timestamp_nonexistent);
+
+    // Clean prerequisites.
+    //
+    target_state ts (target_state::unchanged);
+
+    if (!t.prerequisites.empty ())
+      ts = execute_prerequisites (a, t);
+
+    return rs == rmfile_status::success ? target_state::changed : ts;
   }
 }

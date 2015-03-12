@@ -515,11 +515,8 @@ main (int argc, char* argv[])
 
           target& t (**i);
 
-          if (!t.recipe (act))
-          {
-            level4 ([&]{trace << "matching target " << t;});
-            match (act, t);
-          }
+          level4 ([&]{trace << "matching target " << t;});
+          match (act, t);
 
           tgs.push_back (t);
         }
@@ -530,18 +527,9 @@ main (int argc, char* argv[])
         //
         for (target& t: tgs)
         {
-          // The target might have already been updated indirectly. We
-          // still want to inform the user about its status since they
-          // requested its update explicitly.
-          //
-          target_state s (t.state ());
-          if (s == target_state::unknown)
-          {
-            level4 ([&]{trace << "updating target " << t;});
-            s = execute (act, t);
-          }
+          level4 ([&]{trace << "updating target " << t;});
 
-          switch (s)
+          switch (execute (act, t))
           {
           case target_state::unchanged:
             {
@@ -552,7 +540,7 @@ main (int argc, char* argv[])
             break;
           case target_state::failed:
             //@@ This could probably happen in a parallel build.
-          case target_state::unknown:
+          default:
             assert (false);
           }
         }

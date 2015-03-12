@@ -35,7 +35,8 @@ namespace build
   extern operation_rule_map rules;
   extern const target_rule_map* current_rules; // Rules for current operation.
 
-  // Fallback rule that check that the path exists.
+  // Fallback rule that on update verifies that the path exists and is
+  // not older than any of its prerequisites.
   //
   class path_rule: public rule
   {
@@ -47,7 +48,7 @@ namespace build
     apply (action, target&, void*) const;
 
     static target_state
-    update (action, target&);
+    perform_update (action, target&);
   };
 
   class dir_rule: public rule
@@ -58,9 +59,6 @@ namespace build
 
     virtual recipe
     apply (action, target&, void*) const;
-
-    static target_state
-    update (action, target&);
   };
 
   class fsdir_rule: public rule
@@ -73,7 +71,10 @@ namespace build
     apply (action, target&, void*) const;
 
     static target_state
-    update (action, target&);
+    perform_update (action, target&);
+
+    static target_state
+    perform_clean (action, target&);
   };
 }
 

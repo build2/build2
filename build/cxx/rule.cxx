@@ -69,17 +69,34 @@ namespace build
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.
       //
-      search_and_match (a, t);
-
-      // Inject additional prerequisites.
+      // When cleaning, ignore prerequisites that are not in the same
+      // or a subdirectory of ours.
       //
-      auto& sp (*static_cast<prerequisite*> (v));
-      auto& st (dynamic_cast<cxx&> (*sp.target));
+      switch (a.operation ())
+      {
+      case update_id: search_and_match (a, t); break;
+      case clean_id:  search_and_match (a, t, t.dir); break;
+      default:        assert (false);
+      }
 
-      if (st.mtime () != timestamp_nonexistent)
-        inject_prerequisites (a, o, st, sp.scope);
+      // Inject additional prerequisites. For now we only do it for
+      // update.
+      //
+      if (a.operation () == update_id)
+      {
+        auto& sp (*static_cast<prerequisite*> (v));
+        auto& st (dynamic_cast<cxx&> (*sp.target));
 
-      return &update;
+        if (st.mtime () != timestamp_nonexistent)
+          inject_prerequisites (a, o, st, sp.scope);
+      }
+
+      switch (a)
+      {
+      case perform_update_id: return &perform_update;
+      case perform_clean_id: return &perform_clean_file;
+      default: return noop_recipe;
+      }
     }
 
     // Return the next make prerequisite starting from the specified
@@ -215,9 +232,7 @@ namespace build
 
             // Resolve to target.
             //
-            path_target& t (
-              dynamic_cast<path_target&> (
-                p.target != nullptr ? *p.target : search (p)));
+            path_target& t (dynamic_cast<path_target&> (search (p)));
 
             // Assign path.
             //
@@ -251,7 +266,7 @@ namespace build
     }
 
     target_state compile::
-    update (action a, target& t)
+    perform_update (action a, target& t)
     {
       obj& o (dynamic_cast<obj&> (t));
       cxx* s (execute_prerequisites<cxx> (a, o, o.mtime ()));
@@ -359,7 +374,7 @@ namespace build
       }
 
       // We will only chain a C source if there is also a C++ source or we
-      // we explicitly told to.
+      // were explicitly told to.
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
@@ -397,10 +412,15 @@ namespace build
 
         if (p.type.id != typeid (c) && p.type.id != typeid (cxx))
         {
-          if (p.target == nullptr)
-            search (p);
+          // The same logic as in search_and_match().
+          //
+          target& pt (search (p));
 
-          build::match (a, *p.target);
+          if (a.operation () == clean_id && !pt.dir.sub (e.dir))
+            p.target = nullptr; // Ignore.
+          else
+            build::match (a, pt);
+
           continue;
         }
 
@@ -449,6 +469,26 @@ namespace build
         //
         target& ot (search (op));
 
+        // If we are cleaning, check that this target is in the same or
+        // a subdirectory of ours.
+        //
+        // If it is not, then we are effectively leaving the prerequisites
+        // half-rewritten (we only rewrite those that we should clean).
+        // What will happen if, say, after clean we have update? Well,
+        // update will come and finish the rewrite process (it will even
+        // reuse op that we have created but then ignored). So all is good.
+        //
+        if (a.operation () == clean_id && !ot.dir.sub (e.dir))
+        {
+          // If we shouldn't clean obj{}, then it is fair to assume
+          // we shouldn't clean cxx{} either (generated source will
+          // be in the same directory as obj{} and if not, well, go
+          // and find yourself another build system).
+          //
+          p.target = nullptr; // Skip.
+          continue;
+        }
+
         // If this target already exists, then it needs to be "compatible"
         // with what we are doing here.
         //
@@ -460,7 +500,6 @@ namespace build
         // re-written prerequisite (which points to ot). If things don't
         // work out, then we fail, in which case searching and matching
         // speculatively doesn't really hurt.
-        //
         //
         prerequisite* cp1 (nullptr);
         for (prerequisite& p: ot.prerequisites)
@@ -488,9 +527,7 @@ namespace build
         if (cp1 != nullptr)
         {
           build::match (a, ot); // Now cp1 should be resolved.
-
-          if (cp.target == nullptr)
-            search (cp); // Our own prerequisite, so this is ok.
+          search (cp);          // Our own prerequisite, so this is ok.
 
           if (cp.target != cp1->target)
             fail << "synthesized target for prerequisite " << cp
@@ -510,11 +547,16 @@ namespace build
         pr = op;
       }
 
-      return &update;
+      switch (a)
+      {
+      case perform_update_id: return &perform_update;
+      case perform_clean_id: return &perform_clean_file;
+      default: return noop_recipe;
+      }
     }
 
     target_state link::
-    update (action a, target& t)
+    perform_update (action a, target& t)
     {
       // @@ Q:
       //

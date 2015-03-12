@@ -1,0 +1,40 @@
+// file      : build/filesystem -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_FILESYSTEM
+#define BUILD_FILESYSTEM
+
+#include <sys/types.h> // mode_t
+
+#include <build/path>
+
+namespace build
+{
+  // Note that you should probably use the default mode 0777 and let
+  // the umask mechanism adjust it to the user's preferences. Errors
+  // are reported by throwing std::system_error.
+  //
+  void
+  mkdir (const path&, mode_t = 0777);
+
+  // Try to remove the directory returning not_exist if it does not
+  // exist and not_empty if it is not empty. All other errors are
+  // reported by throwing std::system_error.
+  //
+  enum class rmdir_status {success, not_exist, not_empty};
+
+  rmdir_status
+  try_rmdir (const path&);
+
+  // Try to remove the file (or symbolic link) returning not_exist if
+  // it does not exist. All other errors are reported by throwing
+  // std::system_error.
+  //
+  enum class rmfile_status {success, not_exist};
+
+  rmfile_status
+  try_rmfile (const path&);
+}
+
+#endif // BUILD_FILESYSTEM

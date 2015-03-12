@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <memory>     // unique_ptr
+#include <cstddef>    // size_t
 #include <functional> // function, reference_wrapper
 #include <typeindex>
 #include <ostream>
@@ -27,12 +28,43 @@ namespace build
 {
   class target;
 
+  // Target state.
+  //
   enum class target_state {unknown, unchanged, changed, failed};
 
-  // Note: should throw rather than returning target_state::failed.
+  // Recipe.
   //
-  typedef std::function<target_state (action, target&)> recipe;
+  // The returned target state should be either changed or unchanged.
+  // If there is an error, then the recipe should throw rather than
+  // returning failed.
+  //
+  // The recipe execution protocol is as follows: before executing
+  // the recipe, the caller sets the target's state to failed. If
+  // the recipe returns normally and the target's state is still
+  // failed, then the caller sets it to the returned value. This
+  // means that the recipe can set the target's state manually to
+  // some other value. For example, setting it to unknown will
+  // result in the recipe to be executed again if this target is
+  // a prerequisite of another target. Note that in this case the
+  // returned by the recipe value is still used (by the caller) as
+  // the resulting target state for this execution of the recipe.
+  //
+  using recipe_function = target_state (action, target&);
+  using recipe = std::function<recipe_function>;
 
+  // Commonly-used recipes. The default recipe executes the action
+  // on all the prerequisites in a loop, skipping ignored (see the
+  // execute_prerequisites() in <algorithm> for details).
+  //
+  extern const recipe empty_recipe;
+  extern const recipe noop_recipe;
+  extern const recipe default_recipe;
+
+  target_state
+  noop_recipe_function (action, target&);
+
+  // Target type.
+  //
   struct target_type
   {
     std::type_index id;
@@ -69,29 +101,47 @@ namespace build
     prerequisites_type prerequisites;
 
   public:
+    target_state state;
+
+    // Number of direct targets that depend on this target in the current
+    // action. It is incremented during the match phase and then decremented
+    // during execution, before running the recipe. As a result, the recipe
+    // can detect the last chance (i.e., last dependent) to execute the
+    // command ("front-running" vs "back-running" recipes).
+    //
+    // Note that setting a new recipe (which happens when we match the rule
+    // and which in turn is triggered by the first dependent) clears this
+    // counter. However, if the previous action was the same as the current,
+    // then the existing recipe is reused. In this case, however, the counter
+    // should have been decremented to 0 naturally, as part of the previous
+    // action execution.
+    //
+    std::size_t dependents;
+
+  public:
     typedef build::recipe recipe_type;
 
     const recipe_type&
-    recipe (action_id a) const {return action_ == a ? recipe_ : empty_recipe_;}
+    recipe (action_id a) const {return action_ == a ? recipe_ : empty_recipe;}
 
     void
     recipe (action_id a, recipe_type r)
     {
       assert (action_ != a || !recipe_);
       action_ = a;
-      recipe_ = r;
+      recipe_ = std::move (r);
 
-      // Also reset the target state.
+      // Also reset the target state. If this is a noop recipe, then
+      // mark the target unchanged so that we don't waste time executing
+      // the recipe.
       //
-      state_ = target_state::unknown;
+      recipe_function** f (recipe_.target<recipe_function*> ());
+      state = (f == nullptr || *f != &noop_recipe_function)
+        ? target_state::unknown
+        : target_state::unchanged;
+
+      dependents = 0;
     }
-
-  public:
-    target_state
-    state () const {return state_;}
-
-    void
-    state (target_state s) {state_ = s;}
 
   private:
     target (const target&) = delete;
@@ -102,10 +152,8 @@ namespace build
     static const target_type static_type;
 
   private:
-    action_id action_ {0}; // Action id of this target recipe.
+    action_id action_ {0}; // Action id of this recipe.
     recipe_type recipe_;
-    static const recipe_type empty_recipe_;
-    target_state state_ {target_state::unknown};
   };
 
   std::ostream&

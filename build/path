@@ -255,7 +255,8 @@ namespace build
 
     // Return true if *this is a sub-path of the specified path (i.e.,
     // the specified path is a prefix). Expects both paths to be
-    // normalized.
+    // normalized. Note that this function returns true if the paths
+    // are equal.
     //
     bool
     sub (const basic_path& p) const

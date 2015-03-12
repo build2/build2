@@ -7,16 +7,29 @@
 #include <build/scope>
 #include <build/search>
 #include <build/context>
+#include <build/algorithm>   // execute_prerequisites()
 #include <build/diagnostics>
 
 using namespace std;
 
 namespace build
 {
+  // recipe
+  //
+  const recipe empty_recipe;
+  const recipe noop_recipe (&noop_recipe_function);
+  const recipe default_recipe (
+    static_cast<recipe_function*> (&execute_prerequisites));
+
+  target_state
+  noop_recipe_function (action, target&)
+  {
+    assert (false); // We shouldn't be called, see target::recipe().
+    return target_state::unchanged;
+  }
+
   // target
   //
-  const recipe target::empty_recipe_;
-
   ostream&
   operator<< (ostream& os, const target& t)
   {

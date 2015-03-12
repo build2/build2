@@ -31,6 +31,12 @@ namespace build
   void
   search_and_match (action, target&);
 
+  // As above but ignores (does not match) prerequsites that are not
+  // in the same or a subdirectory of dir.
+  //
+  void
+  search_and_match (action, target&, const path& dir);
+
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set.
   //
@@ -38,8 +44,10 @@ namespace build
   execute (action, target&);
 
   // The default prerequisite execute implementation. It calls execute()
-  // for each prerequisite in a loop. Returns target_state::changed
-  // if any of them were changed and target_state::unchanged otherwise.
+  // on each non-ignored (NULL target) prerequisite in a loop. Returns
+  // target_state::changed if any of them were changed and
+  // target_state::unchanged otherwise. Note that this function can be
+  // used as a recipe.
   //
   target_state
   execute_prerequisites (action, target&);
@@ -53,11 +61,17 @@ namespace build
   // Another version of the above that does two extra things for the
   // caller: it determines whether the action needs to be executed on
   // the target based on the passed timestamp and, if so, finds a
-  // prerequisite of the specified type (e.g., source file).
+  // prerequisite of the specified type (e.g., a source file).
   //
   template <typename T>
   T*
   execute_prerequisites (action, target&, const timestamp&);
+
+  // Standard perform(clean) action implementation for the file target
+  // or derived.
+  //
+  target_state
+  perform_clean_file (action, target&);
 }
 
 #include <build/algorithm.ixx>
