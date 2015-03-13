@@ -44,9 +44,10 @@ namespace build
   execute (action, target&);
 
   // The default prerequisite execute implementation. It calls execute()
-  // on each non-ignored (NULL target) prerequisite in a loop. Returns
-  // target_state::changed if any of them were changed and
-  // target_state::unchanged otherwise. Note that this function can be
+  // on each non-ignored (non-NULL target) prerequisite in a loop.
+  // Returns target_state::changed if any of them were changed and
+  // target_state::unchanged otherwise. It treats targets with postponed
+  // execution the same as ignored. Note that this function can be
   // used as a recipe.
   //
   target_state

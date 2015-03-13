@@ -30,13 +30,13 @@ namespace build
 
   // Target state.
   //
-  enum class target_state {unknown, unchanged, changed, failed};
+  enum class target_state {unknown, postponed, unchanged, changed, failed};
 
   // Recipe.
   //
-  // The returned target state should be either changed or unchanged.
-  // If there is an error, then the recipe should throw rather than
-  // returning failed.
+  // The returned target state should be changed, unchanged, or
+  // postponed. If there is an error, then the recipe should throw
+  // rather than returning failed.
   //
   // The recipe execution protocol is as follows: before executing
   // the recipe, the caller sets the target's state to failed. If
@@ -44,10 +44,13 @@ namespace build
   // failed, then the caller sets it to the returned value. This
   // means that the recipe can set the target's state manually to
   // some other value. For example, setting it to unknown will
-  // result in the recipe to be executed again if this target is
-  // a prerequisite of another target. Note that in this case the
+  // result in the recipe to be executed again if this target is a
+  // prerequisite of another target. Note that in this case the
   // returned by the recipe value is still used (by the caller) as
   // the resulting target state for this execution of the recipe.
+  // Returning postponed from the last call to the recipe means
+  // that the action could not be executed at this time (see fsdir
+  // clean for an example).
   //
   using recipe_function = target_state (action, target&);
   using recipe = std::function<recipe_function>;
@@ -107,7 +110,7 @@ namespace build
     // action. It is incremented during the match phase and then decremented
     // during execution, before running the recipe. As a result, the recipe
     // can detect the last chance (i.e., last dependent) to execute the
-    // command ("front-running" vs "back-running" recipes).
+    // command (see alsoe first/last execution modes in <operation>).
     //
     // Note that setting a new recipe (which happens when we match the rule
     // and which in turn is triggered by the first dependent) clears this

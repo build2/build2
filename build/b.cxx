@@ -480,7 +480,7 @@ main (int argc, char* argv[])
 
         // Multiple targets in the same operation can be done in parallel.
         //
-        vector<reference_wrapper<target>> tgs;
+        vector<reference_wrapper<target>> tgs, psp;
         tgs.reserve (os.size ());
 
         // First resolve and match all the targets. We don't want to
@@ -531,11 +531,43 @@ main (int argc, char* argv[])
 
           switch (execute (act, t))
           {
+          case target_state::postponed:
+            {
+              info << "target " << t << " is postponed";
+              psp.push_back (t);
+              break;
+            }
           case target_state::unchanged:
             {
               info << "target " << t << " is up to date";
               break;
             }
+          case target_state::changed:
+            break;
+          case target_state::failed:
+            //@@ This could probably happen in a parallel build.
+          default:
+            assert (false);
+          }
+        }
+
+        // Re-examine postponed targets.
+        //
+        for (target& t: psp)
+        {
+          switch (t.state)
+          {
+          case target_state::postponed:
+            {
+              info << "target " << t << " unable to do at this time";
+              break;
+            }
+          case target_state::unchanged:
+            {
+              info << "target " << t << " is up to date";
+              break;
+            }
+          case target_state::unknown: // Assume something was done to it.
           case target_state::changed:
             break;
           case target_state::failed:

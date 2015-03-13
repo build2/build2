@@ -250,10 +250,7 @@ namespace build
     // Wait until the last dependent to get an empty directory.
     //
     if (t.dependents != 0)
-    {
-      t.state = target_state::unknown;
-      return target_state::unchanged;
-    }
+      return target_state::postponed;
 
     // The reverse order of update: first delete this directory,
     // then clean prerequisites (e.g., delete parent directories).
@@ -311,6 +308,14 @@ namespace build
     if (!t.prerequisites.empty ())
       ts = execute_prerequisites (a, t);
 
-    return rs == rmdir_status::success ? target_state::changed : ts;
+    // If we couldn't remove the directory, return postponed meaning
+    // that the operation could not be performed at this time.
+    //
+    switch (rs)
+    {
+    case rmdir_status::success: return target_state::changed;
+    case rmdir_status::not_empty: return target_state::postponed;
+    default: return ts;
+    }
   }
 }

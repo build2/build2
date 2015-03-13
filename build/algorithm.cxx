@@ -176,6 +176,7 @@ namespace build
     switch (target_state ts = t.state)
     {
     case target_state::unknown:
+    case target_state::postponed:
       {
         t.state = target_state::failed; // So the rule can just throw.
 
@@ -196,7 +197,8 @@ namespace build
       }
     case target_state::unchanged:
     case target_state::changed:
-      assert (false); // Should have been handled by inline execute().
+      // Should have been handled by inline execute().
+      assert (false);
     case target_state::failed:
       throw failed ();
     }
@@ -214,7 +216,7 @@ namespace build
 
       target& pt (*p.target);
 
-      if (execute (a, pt) != target_state::unchanged)
+      if (execute (a, pt) == target_state::changed)
         ts = target_state::changed;
     }
 
