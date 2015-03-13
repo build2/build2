@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include <build/key-set>
+#include <build/map-key>
 #include <build/path>
 
 namespace build
@@ -211,7 +211,7 @@ namespace build
     size () const {return static_cast<I> (vec_.size ());}
 
   private:
-    using key_type = set_key<std::string>;
+    using key_type = map_key<std::string>;
     using value_type = string_table_element<I, D>;
     using map_type = std::unordered_map<key_type, value_type>;
     using traits = string_table_traits<D>;

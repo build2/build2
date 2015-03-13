@@ -1,9 +1,9 @@
-// file      : build/key-set -*- C++ -*-
+// file      : build/map-key -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD_KEY_SET
-#define BUILD_KEY_SET
+#ifndef BUILD_MAP_KEY
+#define BUILD_MAP_KEY
 
 #include <utility>    // declval()
 #include <functional> // hash
@@ -15,13 +15,13 @@ namespace build
   //
 
   template <typename T>
-  struct set_key
+  struct map_key
   {
     mutable const T* p;
 
-    set_key (const T* v = 0): p (v) {}
-    bool operator< (const set_key& x) const {return *p < *x.p;}
-    bool operator== (const set_key& x) const {return *p == *x.p;}
+    map_key (const T* v = 0): p (v) {}
+    bool operator< (const map_key& x) const {return *p < *x.p;}
+    bool operator== (const map_key& x) const {return *p == *x.p;}
   };
 
   template <typename I>
@@ -45,10 +45,10 @@ namespace build
 namespace std
 {
   template <typename T>
-  struct hash<build::set_key<T>>: hash<T>
+  struct hash<build::map_key<T>>: hash<T>
   {
     size_t
-    operator() (build::set_key<T> x) const
+    operator() (build::map_key<T> x) const
       noexcept (noexcept (declval<hash<T>> () (*x.p)))
     {
       return hash<T>::operator() (*x.p);
@@ -56,4 +56,4 @@ namespace std
   };
 }
 
-#endif // BUILD_KEY_SET
+#endif // BUILD_MAP_KEY

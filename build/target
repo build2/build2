@@ -17,7 +17,7 @@
 #include <utility>    // move()
 
 #include <build/path>
-#include <build/key-set>
+#include <build/map-key>       // map_iterator_adapter
 #include <build/timestamp>
 #include <build/name>
 #include <build/operation>
