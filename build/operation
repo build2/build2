@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <iosfwd>
 
-#include <build/utility> // string_table
+#include <build/string-table>
 
 namespace build
 {
