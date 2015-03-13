@@ -223,6 +223,25 @@ namespace build
     return ts;
   }
 
+  target_state
+  reverse_execute_prerequisites (action a, target& t)
+  {
+    target_state ts (target_state::unchanged);
+
+    for (const prerequisite& p: reverse_iterate (t.prerequisites))
+    {
+      if (p.target == nullptr) // Skip ignored.
+        continue;
+
+      target& pt (*p.target);
+
+      if (execute (a, pt) == target_state::changed)
+        ts = target_state::changed;
+    }
+
+    return ts;
+  }
+
   bool
   execute_prerequisites (action a, target& t, const timestamp& mt)
   {
@@ -314,7 +333,7 @@ namespace build
     target_state ts (target_state::unchanged);
 
     if (!t.prerequisites.empty ())
-      ts = execute_prerequisites (a, t);
+      ts = reverse_execute_prerequisites (a, t);
 
     return rs == rmfile_status::success ? target_state::changed : ts;
   }

@@ -53,6 +53,11 @@ namespace build
   target_state
   execute_prerequisites (action, target&);
 
+  // As above but iterates over the prerequisites in reverse.
+  //
+  target_state
+  reverse_execute_prerequisites (action, target&);
+
   // A version of the above that also determines whether the action
   // needs to be executed on the target based on the passed timestamp.
   //

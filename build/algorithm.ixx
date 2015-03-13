@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
+#include <build/context>
+
 namespace build
 {
   target&
@@ -37,7 +39,15 @@ namespace build
     {
     case target_state::unchanged:
     case target_state::changed: return t.state;
-    default: return execute_impl (a, t);
+    default:
+      {
+        // Handle the "last" execution mode.
+        //
+        if (current_mode == execution_mode::last && t.dependents != 0)
+          return (t.state = target_state::postponed);
+
+        return execute_impl (a, t);
+      }
     }
   }
 }

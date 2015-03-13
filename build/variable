@@ -9,6 +9,7 @@
 #include <memory>        // unique_ptr
 #include <utility>       // move()
 #include <cassert>
+#include <functional>    // hash
 #include <typeindex>
 #include <unordered_set>
 

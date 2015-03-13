@@ -18,7 +18,6 @@ using namespace std;
 namespace build
 {
   operation_rule_map rules;
-  const target_rule_map* current_rules;
 
   // path_rule
   //
@@ -247,11 +246,6 @@ namespace build
   target_state fsdir_rule::
   perform_clean (action a, target& t)
   {
-    // Wait until the last dependent to get an empty directory.
-    //
-    if (t.dependents != 0)
-      return target_state::postponed;
-
     // The reverse order of update: first delete this directory,
     // then clean prerequisites (e.g., delete parent directories).
     //
@@ -306,7 +300,7 @@ namespace build
     target_state ts (target_state::unchanged);
 
     if (!t.prerequisites.empty ())
-      ts = execute_prerequisites (a, t);
+      ts = reverse_execute_prerequisites (a, t);
 
     // If we couldn't remove the directory, return postponed meaning
     // that the operation could not be performed at this time.

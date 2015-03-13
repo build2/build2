@@ -58,10 +58,71 @@ namespace build
   const action_id perform_update_id = (perform_id << 4) | update_id;
   const action_id perform_clean_id  = (perform_id << 4) | clean_id;
 
-  // Meta/operation id tables.
+  // Recipe execution mode.
   //
-  using meta_operation_table = string_table<meta_operation_id>;
-  using operation_table = string_table<operation_id>;
+  // When a target is a prerequisite of another target, its recipe can be
+  // executed before the dependent's recipe (the normal case) or after.
+  // We will call these "front" and "back" execution modes, respectively
+  // (think "the prerequisite is 'front-running' the dependent").
+  //
+  // There could also be several dependent targets and the prerequisite's
+  // recipe can be execute as part of the first dependent (the normal
+  // case) or last (or for all/some of them; see the recipe execution
+  // protocol in <target>). We will call these "first" and "last"
+  // execution modes, respectively.
+  //
+  // Now you may be having a hard time imagining where a mode other than
+  // the normal one (first/front) could be useful. An the answer is,
+  // compensating or inverse operations such as clean, uninstall, etc.
+  // If we use the last/back mode for, say, clean, then we will remove
+  // targets in the order inverse to the way they were updated. While
+  // this sounds like an elegant idea, are there any practical benefits
+  // of doing it this way. As it turns out there is (at least) one: when
+  // we are removing a directory (see fsdir{}), we want to do it after
+  // all the targets that depend on it (such as files, sub-directories)
+  // were removed. If we do it before, then the directory won't be empty
+  // yet.
+  //
+  // It appears that this execution mode is dictated by the essence of
+  // the operation. Constructive operations (those that "do") seem to
+  // naturally use the first/front mode. That is, we need to "do" the
+  // prerequisite first before we can "do" the dependent. While the
+  // destructive ones (those that "undo") seem to need last/back. That
+  // is, we need to "undo" all the dependents before we can "undo" the
+  // prerequisite (say, we need to remove all the files before we can
+  // remove their directory).
+  //
+  // If you noticed the parallel with the way C++ construction and
+  // destruction works for base/derived object then you earned a gold
+  // star!
+  //
+  // Note that the front/back mode is realized in the dependen's recipe
+  // (which is another indication that it is a property of the operation).
+  //
+  enum class execution_mode {first, last};
+
+  // Meta/operation tables.
+  //
+  struct meta_operation_info
+  {
+    const std::string name;
+
+    const std::string&
+    key () const {return name;} // string_table interface.
+  };
+
+  struct operation_info
+  {
+    const std::string name;
+    const execution_mode mode;
+
+    const std::string&
+    key () const {return name;} // string_table interface.
+  };
+
+  using meta_operation_table = string_table<meta_operation_id,
+                                            meta_operation_info>;
+  using operation_table = string_table<operation_id, operation_info>;
 
   extern meta_operation_table meta_operations;
   extern operation_table operations;

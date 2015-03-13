@@ -56,8 +56,11 @@ namespace build
   using recipe = std::function<recipe_function>;
 
   // Commonly-used recipes. The default recipe executes the action
-  // on all the prerequisites in a loop, skipping ignored (see the
-  // execute_prerequisites() in <algorithm> for details).
+  // on all the prerequisites in a loop, skipping ignored. Specially,
+  // for actions with the "first" execution mode, it calls
+  // execute_prerequisites() while for those with the "last" mode --
+  // reverse_execute_prerequisites(); see <operation>, <algorithm>
+  // for details.
   //
   extern const recipe empty_recipe;
   extern const recipe noop_recipe;
@@ -110,7 +113,7 @@ namespace build
     // action. It is incremented during the match phase and then decremented
     // during execution, before running the recipe. As a result, the recipe
     // can detect the last chance (i.e., last dependent) to execute the
-    // command (see alsoe first/last execution modes in <operation>).
+    // command (see also the first/last execution modes in <operation>).
     //
     // Note that setting a new recipe (which happens when we match the rule
     // and which in turn is triggered by the first dependent) clears this

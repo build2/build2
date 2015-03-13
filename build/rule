@@ -33,7 +33,6 @@ namespace build
   using operation_rule_map = std::unordered_map<std::string, target_rule_map>;
 
   extern operation_rule_map rules;
-  extern const target_rule_map* current_rules; // Rules for current operation.
 
   // Fallback rule that on update verifies that the path exists and is
   // not older than any of its prerequisites.

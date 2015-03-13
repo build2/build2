@@ -109,12 +109,12 @@ main (int argc, char* argv[])
     // see <operation> for details. Loading of the buildfiles can result
     // in additional names being added (via module loading).
     //
-    meta_operations.insert ("perform"); // Default.
-    meta_operations.insert ("configure");
-    meta_operations.insert ("disfigure");
+    meta_operations.insert (meta_operation_info {"perform"});
+    meta_operations.insert (meta_operation_info {"configure"});
+    meta_operations.insert (meta_operation_info {"disfigure"});
 
-    operations.insert ("update"); // Default.
-    operations.insert ("clean");
+    operations.insert (operation_info {"update", execution_mode::first});
+    operations.insert (operation_info {"clean", execution_mode::last});
 
     // Figure out work and home directories.
     //
@@ -473,8 +473,10 @@ main (int argc, char* argv[])
     {
       for (opspec& os: ms)
       {
-        current_rules = &rules[os.name];
         action act (meta_operations.find (ms.name), operations.find (os.name));
+
+        current_mode = operations[act.operation ()].mode;
+        current_rules = &rules[os.name];
 
         level4 ([&]{trace << ms.name << " " << os.name << " " << act;});
 

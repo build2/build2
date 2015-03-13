@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <build/key-set>
 #include <build/path>
 
 namespace build
@@ -40,6 +41,36 @@ namespace build
     template <typename P>
     bool operator() (const P& x, const P& y) const {return *x < *y;}
   };
+
+  // Support for reverse iteration using range-based for-loop:
+  //
+  // for (... : reverse_iterate (x)) ...
+  //
+  template <typename T>
+  class reverse_range
+  {
+    T& x_;
+
+  public:
+    reverse_range (T& x): x_ (x) {}
+
+    auto begin () const -> decltype (this->x_.rbegin ())
+    {
+      return x_.rbegin ();
+    }
+
+    auto end () const -> decltype (this->x_.rend ())
+    {
+      return x_.rend ();
+    }
+  };
+
+  template <typename T>
+  inline reverse_range<T>
+  reverse_iterate (T& x)
+  {
+    return reverse_range<T> (x);
+  }
 
   // Call a function if there is an exception.
   //
@@ -99,51 +130,94 @@ namespace build
 
   extern string_pool extension_pool;
 
-  // A pool of strings in which each string is assigned an individual
-  // index (or id) of type I (e.g., uint8_t, uint16_t, etc., depending
-  // on how many entries are expected). Index value 0 is reserved to
-  // indicate the no entry condition.
+  // A pool of strings and, optionally, other accompanying data in which
+  // each entry is assigned an individual index (or id) of type I (e.g.,
+  // uint8_t, uint16_t, etc., depending on how many entries are expected).
+  // Index value 0 is reserved to indicate the no entry condition.
   //
+  template <typename I, typename D>
+  struct string_table_element
+  {
+    const I i;
+    const D d;
+  };
+
   template <typename I>
+  struct string_table_element<I, std::string>
+  {
+    const I i;
+    const std::string d;
+  };
+
+  template <typename D>
+  struct string_table_traits
+  {
+    // By default, look for the key() function in D. But you can
+    // also specialize this class template.
+    //
+    static const std::string&
+    key (const D& d) {return d.key ();}
+  };
+
+  template <>
+  struct string_table_traits<std::string>
+  {
+    static const std::string&
+    key (const std::string& d) {return d;}
+  };
+
+  template <typename I, typename D = std::string>
   struct string_table
   {
-    // Find existing or insert new.
+    // Insert new entry unless one already exists.
     //
     I
-    insert (const std::string& s)
+    insert (const D& d)
     {
       std::size_t i (vec_.size () + 1);
-      auto r (map_.emplace (s, static_cast<I> (i)));
+
+      // Note: move(d) would be tricky since key still points to it.
+      //
+      auto r (map_.emplace (
+                key_type (&traits::key (d)),
+                value_type {static_cast<I> (i), d}));
 
       if (r.second)
       {
         assert (i <= std::numeric_limits<I>::max ());
-        vec_.push_back (&r.first->first);
+
+        r.first->first.p = &traits::key (r.first->second.d); // Update key.
+        vec_.push_back (r.first);
       }
 
-      return r.first->second;
+      return r.first->second.i;
     }
 
     // Find existing.
     //
     I
-    find (const std::string& s) const
+    find (const std::string& k) const
     {
-      auto i (map_.find (s));
-      return i != map_.end () ? i->second : 0;
+      auto i (map_.find (key_type (&k)));
+      return i != map_.end () ? i->second.i : 0;
     }
 
     // Reverse lookup.
     //
-    const std::string&
-    operator[] (I i) const {assert (i > 0); return *vec_[i - 1];}
+    const D&
+    operator[] (I i) const {assert (i > 0); return vec_[i - 1]->second.d;}
 
     I
     size () const {return static_cast<I> (vec_.size ());}
 
   private:
-    std::unordered_map<std::string, I> map_;
-    std::vector<const std::string*> vec_;
+    using key_type = set_key<std::string>;
+    using value_type = string_table_element<I, D>;
+    using map_type = std::unordered_map<key_type, value_type>;
+    using traits = string_table_traits<D>;
+
+    map_type map_;
+    std::vector<typename map_type::const_iterator> vec_;
   };
 }
 

@@ -7,8 +7,9 @@
 
 #include <string>
 #include <ostream>
-#include <utility> // move
+#include <utility>    // move
 #include <exception>
+#include <functional> // hash
 
 namespace build
 {

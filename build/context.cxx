@@ -16,6 +16,9 @@ namespace build
   path work;
   path home;
 
+  execution_mode current_mode;
+  const target_rule_map* current_rules;
+
   path
   src_out (const path& out, scope& s)
   {

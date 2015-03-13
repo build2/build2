@@ -5,6 +5,9 @@
 #ifndef BUILD_KEY_SET
 #define BUILD_KEY_SET
 
+#include <utility>    // declval()
+#include <functional> // hash
+
 namespace build
 {
   // Google the "Emulating Boost.MultiIndex with Standard Containers" blog
@@ -18,6 +21,7 @@ namespace build
 
     set_key (const T* v = 0): p (v) {}
     bool operator< (const set_key& x) const {return *p < *x.p;}
+    bool operator== (const set_key& x) const {return *p == *x.p;}
   };
 
   template <typename I>
@@ -35,6 +39,20 @@ namespace build
 
     reference operator* () const {return I::operator* ().second;}
     pointer operator-> () const {return &I::operator-> ()->second;}
+  };
+}
+
+namespace std
+{
+  template <typename T>
+  struct hash<build::set_key<T>>: hash<T>
+  {
+    size_t
+    operator() (build::set_key<T> x) const
+      noexcept (noexcept (declval<hash<T>> () (*x.p)))
+    {
+      return hash<T>::operator() (*x.p);
+    }
   };
 }
 

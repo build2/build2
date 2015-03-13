@@ -9,6 +9,8 @@
 #include <ostream>
 
 #include <build/path>
+#include <build/rule>
+#include <build/operation>
 
 namespace build
 {
@@ -16,6 +18,11 @@ namespace build
 
   extern path work;
   extern path home;
+
+  // Current action (meta/operation).
+  //
+  extern execution_mode current_mode;
+  extern const target_rule_map* current_rules;
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
