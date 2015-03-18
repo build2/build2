@@ -5,7 +5,9 @@
 #ifndef BUILD_SCOPE
 #define BUILD_SCOPE
 
+#include <functional>    // function
 #include <unordered_set>
+#include <unordered_map>
 
 #include <build/path>
 #include <build/path-map>
@@ -57,6 +59,19 @@ namespace build
     //
     std::unordered_set<path_type> buildfiles;
 
+
+    // A map of buildfiles to trigger functions that are executed when
+    // such files are sourced. The path is is assumed to be relative to
+    // the src directory corresponding to this scope.
+    //
+    // The passed path is the actual, absolute buildfile path. If the
+    // returned value is true, then the file is sourced. If false --
+    // the file is ignored. Note that currently triggers can only be
+    // registered on the project root scope.
+    //
+    using trigger_type = std::function<bool (scope&, const path_type&)>;
+    std::unordered_map<path_type, trigger_type> triggers;
+
   private:
     iterator i_;
     scope* parent_;
@@ -68,9 +83,11 @@ namespace build
     // Note that we assume the first insertion into the map is that
     // of the root scope.
     //
+    std::pair<scope&, bool>
+    insert (const path&);
 
     scope&
-    operator[] (const path&);
+    operator[] (const path& p) {return insert (p).first;}
 
     // Find the most qualified scope that encompasses this path.
     //

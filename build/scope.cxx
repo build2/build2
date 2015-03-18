@@ -35,8 +35,8 @@ namespace build
   scope_map scopes;
   scope* root_scope;
 
-  scope& scope_map::
-  operator[] (const path& k)
+  pair<scope&, bool> scope_map::
+  insert (const path& k)
   {
     auto er (emplace (k, scope ()));
     scope& s (er.first->second);
@@ -79,7 +79,7 @@ namespace build
       s.init (er.first, p);
     }
 
-    return s;
+    return pair<scope&, bool> (s, er.second);
   }
 
   // Find the most qualified scope that encompasses this path.

@@ -1,0 +1,22 @@
+// file      : build/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_MODULE
+#define BUILD_MODULE
+
+#include <string>
+#include <unordered_map>
+
+namespace build
+{
+  class scope;
+  class location;
+
+  using module_load_function = void (scope& root, scope& base, const location&);
+  using module_map = std::unordered_map<std::string, module_load_function*>;
+
+  extern module_map modules;
+}
+
+#endif // BUILD_MODULE

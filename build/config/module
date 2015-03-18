@@ -1,0 +1,19 @@
+// file      : build/config/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CONFIG_MODULE
+#define BUILD_CONFIG_MODULE
+
+#include <build/module>
+
+namespace build
+{
+  namespace config
+  {
+    void
+    load (scope&, scope&, const location&);
+  }
+}
+
+#endif // BUILD_CONFIG_MODULE

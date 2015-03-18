@@ -19,6 +19,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/variable>
+#include <build/module>
 #include <build/diagnostics>
 #include <build/context>
 
@@ -49,7 +50,13 @@ namespace build
     default_target_ = nullptr;
 
     out_root_ = &root["out_root"].as<const path&> ();
-    src_root_ = &root["src_root"].as<const path&> ();
+
+    // During bootstrap we may not know src_root yet.
+    //
+    {
+      auto v (root["src_root"]);
+      src_root_ = v ? &v.as<const path&> () : nullptr;
+    }
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -103,6 +110,12 @@ namespace build
         {
           next (t, tt);
           include (t, tt);
+          continue;
+        }
+        else if (n == "load")
+        {
+          next (t, tt);
+          load (t, tt);
           continue;
         }
       }
@@ -388,8 +401,23 @@ namespace build
       // If the path is relative then use the src directory corresponding
       // to the current directory scope.
       //
-      if (p.relative ())
+      if (src_root_ != nullptr && p.relative ())
         p = src_out (scope_->path (), *out_root_, *src_root_) / p;
+
+      p.normalize ();
+
+      // See if there is a trigger for this path.
+      //
+      if (src_root_ != nullptr && p.sub (*src_root_))
+      {
+        auto i (root_->triggers.find (p.leaf (*src_root_)));
+
+        if (i != root_->triggers.end () && !i->second (*root_, p))
+        {
+          level4 ([&]{trace (l) << "trigger instructed to skip " << p;});
+          continue;
+        }
+      }
 
       ifstream ifs (p.string ());
 
@@ -420,6 +448,21 @@ namespace build
 
       lexer_ = ol;
       path_ = op;
+
+      // If src_root is unknown (happens during bootstrap), reload it
+      // in case the just sourced buildfile set it. This way, once it
+      // is set, all the parser mechanism that were disabled (like
+      // relative file source'ing) will start working. Note that they
+      // will still be disabled inside the file that set src_root. For
+      // this to work we would need to keep a reference to the value
+      // stored in the variable plus the update would need to update
+      // the value in place (see value_proxy).
+      //
+      if (src_root_ == nullptr)
+      {
+        auto v ((*root_)["src_root"]);
+        src_root_ = v ? &v.as<const path&> () : nullptr;
+      }
     }
 
     if (tt == type::newline)
@@ -432,6 +475,9 @@ namespace build
   include (token& t, token_type& tt)
   {
     tracer trace ("parser::include", &path_);
+
+    if (src_root_ == nullptr)
+      fail (t) << "inclusion during bootstrap";
 
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
@@ -542,6 +588,41 @@ namespace build
       scope_ = os;
       lexer_ = ol;
       path_ = op;
+    }
+
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
+  }
+
+  void parser::
+  load (token& t, token_type& tt)
+  {
+    tracer trace ("parser::load", &path_);
+
+    // The rest should be a list of module names. Parse them as names
+    // to get variable expansion, etc.
+    //
+    location l (get_location (t, &path_));
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
+
+    for (name& n: ns)
+    {
+      // For now it should be a simple name.
+      //
+      if (!n.type.empty () || !n.dir.empty ())
+        fail (l) << "module name expected instead of " << n;
+
+      const string& name (n.value);
+      auto i (modules.find (name));
+
+      if (i == modules.end ())
+        fail (l) << "unknown module " << name;
+
+      i->second (*root_, *scope_, l);
     }
 
     if (tt == type::newline)

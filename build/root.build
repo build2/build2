@@ -1,0 +1,4 @@
+print root.build
+load config
+source build/config.build
+

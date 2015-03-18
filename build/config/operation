@@ -1,0 +1,17 @@
+// file      : build/config/operation -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CONFIG_OPERATION
+#define BUILD_CONFIG_OPERATION
+
+#include <build/operation>
+
+namespace build
+{
+  namespace config
+  {
+  }
+}
+
+#endif // BUILD_CONFIG_OPERATION

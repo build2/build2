@@ -27,6 +27,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/rule>
+#include <build/module>
 #include <build/algorithm>
 #include <build/process>
 #include <build/diagnostics>
@@ -62,6 +63,115 @@ namespace build
 
     cout << endl;
   }
+
+  inline bool
+  is_src_root (const path& d)
+  {
+    return path_mtime (d / path ("build/root.build")) !=
+      timestamp_nonexistent;
+  }
+
+  inline bool
+  is_out_root (const path& d)
+  {
+    return path_mtime (d / path ("build/bootstrap/src-root.build")) !=
+      timestamp_nonexistent;
+  }
+
+  // Given an src_base directory, look for the project's src_root
+  // based on the presence of known special files. Return empty
+  // path if not found.
+  //
+  path
+  find_src_root (const path& b)
+  {
+    for (path d (b); !d.root () && d != home; d = d.directory ())
+    {
+      if (is_src_root (d))
+        return d;
+    }
+
+    return path ();
+  }
+
+  // The same but for out. Note that we also check whether a
+  // directory happens to be src_root, in case this is an in-
+  // tree build.
+  //
+  path
+  find_out_root (const path& b)
+  {
+    for (path d (b); !d.root () && d != home; d = d.directory ())
+    {
+      if (is_out_root (d) || is_src_root (d))
+        return d;
+    }
+
+    return path ();
+  }
+
+  void
+  bootstrap (scope& rs)
+  {
+    tracer trace ("bootstrap");
+
+    path bf (rs.path () / path ("build/bootstrap/src-root.build"));
+
+    if (path_mtime (bf) == timestamp_nonexistent)
+      return;
+
+    //@@ TODO: if bootstrap files can source other bootstrap files
+    //   (the way to express dependecies), then we need a way to
+    //   prevent multiple sourcing.
+    //
+
+    level4 ([&]{trace << "loading " << bf;});
+
+    ifstream ifs (bf.string ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << bf;
+
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+    parser p;
+
+    try
+    {
+      p.parse_buildfile (ifs, bf, rs, rs);
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << bf;
+    }
+  }
+
+  void
+  root_pre (scope& rs, const path& src_root)
+  {
+    tracer trace ("root_pre");
+
+    path bf (src_root / path ("build/root.build"));
+
+    if (path_mtime (bf) == timestamp_nonexistent)
+      return;
+
+    level4 ([&]{trace << "loading " << bf;});
+
+    ifstream ifs (bf.string ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << bf;
+
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+    parser p;
+
+    try
+    {
+      p.parse_buildfile (ifs, bf, rs, rs);
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << bf;
+    }
+  }
 }
 
 #include <build/native>
@@ -69,6 +179,7 @@ namespace build
 #include <build/cxx/target>
 #include <build/cxx/rule>
 
+#include <build/config/module>
 
 using namespace build;
 
@@ -86,6 +197,10 @@ main (int argc, char* argv[])
     // Trace verbosity.
     //
     verb = 5;
+
+    // Register modules.
+    //
+    modules["config"] = &config::load;
 
     // Register target types.
     //
@@ -234,53 +349,128 @@ main (int argc, char* argv[])
 
           out_base.normalize ();
 
-          path& src_base (ts.src_base);
-          if (src_base.empty ())
-          {
-            //@@ TODO: Configured case: find out_root (looking for
-            //   "build/bootstrap.build" or some such), then src_root
-            //   (stored in this file). Need to also detect the in-tree
-            //   build.
-            //
-
-            // If that doesn't work out (e.g., the first build), then
-            // default to the working directory as src_base.
-            //
-            src_base = work;
-          }
-
-          if (src_base.relative ())
-            src_base = work / src_base;
-
-          src_base.normalize ();
-
+          // The order in which we determine the roots depends on whether
+          // src_base was specified explicitly. There will also be a few
+          // cases where we are guessing things that can turn out wrong.
+          // Keep track of that so that we can issue more extensive
+          // diagnostics for such cases.
+          //
+          bool guessing (false);
           path src_root;
           path out_root;
 
-          // The project's root directory is the one that contains the build/
-          // sub-directory which contains the pre.build file.
-          //
-          for (path d (src_base), f ("build/pre.build");
-               !d.root () && d != home;
-               d = d.directory ())
+          path& src_base (ts.src_base); // Update it in buildspec.
+
+          if (!src_base.empty ())
           {
-            if (path_mtime (d / f) != timestamp_nonexistent)
+            if (src_base.relative ())
+              src_base = work / src_base;
+
+            src_base.normalize ();
+
+            // If the src_base was explicitly specified, search for src_root.
+            //
+            src_root = find_src_root (src_base);
+
+            // If not found, assume this is a simple project with src_root
+            // being the same as src_base.
+            //
+            if (src_root.empty ())
             {
-              src_root = d;
-              break;
+              src_root = src_base;
+              out_root = out_base;
+            }
+            else
+              // Calculate out_root based on src_root/src_base.
+              //
+              out_root = out_base.directory (src_base.leaf (src_root));
+          }
+          else
+          {
+            // If no src_base was explicitly specified, search for out_root.
+            //
+            out_root = find_out_root (out_base);
+
+            // If not found (i.e., we have no idea where the roots are),
+            // then this can mean two things: an in-tree build of a
+            // simple project or a fresh out-of-tree build. Assume this
+            // is the former and set out_root to out_base. If we are
+            // wrong (most likely) and this is the latter, then things
+            // will go badly when we try to load the buildfile.
+            //
+            if (out_root.empty ())
+            {
+              src_root = src_base = out_root = out_base;
+              guessing = true;
             }
           }
 
-          // If there is no such sub-directory, assume this is a simple
-          // project with src_root being the same as src_base.
+          // Now we know out_root and, if it was explicitly specified,
+          // src_root. The next step is to create the root scope and
+          // load the bootstrap files, if any. Note that we might already
+          // have done this as a result of one of the preceding target
+          // processing.
           //
-          if (src_root.empty ())
+          auto rsp (scopes.insert (out_root));
+          scope& rs (rsp.first);
+
+          if (rsp.second)
           {
-            src_root = src_base;
-            out_root = out_base;
+            rs.variables["out_root"] = out_root;
+            bootstrap (rs);
           }
-          else
-            out_root = out_base.directory (src_base.leaf (src_root));
+
+          // See if the bootstrap process set src_root.
+          //
+          {
+            auto v (rs.variables["src_root"]);
+
+            if (v)
+            {
+              // If we also have src_root specified by the user, make
+              // sure they match.
+              //
+              const path& p (v.as<const path&> ());
+
+              if (src_root.empty ())
+                src_root = p;
+              else if (src_root != p)
+                fail << "bootstrapped src_root " << p << " does not match "
+                     << "specified " << src_root;
+            }
+            else
+            {
+              // Bootstrap didn't produce src_root.
+              //
+              if (src_root.empty ())
+              {
+                // If it also wasn't explicitly specified, see if it is
+                // the same as out_root.
+                //
+                if (is_src_root (out_root))
+                  src_root = out_root;
+                else
+                {
+                  // If not, then assume we are running from src_base
+                  // and calculate src_root based on out_root/out_base.
+                  // Note that this is different from the above case
+                  // were we couldn't determine either root.
+                  //
+                  src_base = work;
+                  src_root = src_base.directory (out_base.leaf (out_root));
+                  guessing = true;
+                }
+              }
+
+              v = src_root;
+            }
+          }
+
+          // At this stage we should have both roots and out_base figured
+          // out. If src_base is still undetermined, calculate it.
+          //
+          if (src_base.empty ())
+            src_base = src_root / out_base.leaf (out_root);
 
           if (verb >= 4)
           {
@@ -291,18 +481,18 @@ main (int argc, char* argv[])
             trace << "  src_root: " << src_root.string ();
           }
 
-          // Create project root and base scopes, set the corresponding
-          // variables. Note that we might already have all of this set
-          // up as a result of one of the preceding target processing.
+          // Load project's root[-pre].build.
           //
-          scope& proot_scope (scopes[out_root]);
-          scope& pbase_scope (scopes[out_base]);
+          root_pre (rs, src_root);
 
-          proot_scope.variables["out_root"] = move (out_root);
-          proot_scope.variables["src_root"] = move (src_root);
+          // Create the base scope. Note that its existence doesn't
+          // mean it was already processed as a base scope; it can
+          // be the same as root.
+          //
+          scope& bs (scopes[out_base]);
 
-          pbase_scope.variables["out_base"] = out_base;
-          pbase_scope.variables["src_base"] = src_base;
+          bs.variables["out_base"] = out_base;
+          bs.variables["src_base"] = src_base;
 
           // Parse the buildfile.
           //
@@ -310,7 +500,7 @@ main (int argc, char* argv[])
 
           // Check if this buildfile has already been loaded.
           //
-          if (!proot_scope.buildfiles.insert (bf).second)
+          if (!rs.buildfiles.insert (bf).second)
           {
             level4 ([&]{trace << "skipping already loaded " << bf;});
             continue;
@@ -320,14 +510,20 @@ main (int argc, char* argv[])
 
           ifstream ifs (bf.string ());
           if (!ifs.is_open ())
-            fail << "unable to open " << bf;
+          {
+            diag_record dr;
+            dr << fail << "unable to open " << bf;
+            if (guessing)
+              dr << info << "consider explicitly specifying src_base "
+                 << "for " << tn;
+          }
 
           ifs.exceptions (ifstream::failbit | ifstream::badbit);
           parser p;
 
           try
           {
-            p.parse_buildfile (ifs, bf, pbase_scope, proot_scope);
+            p.parse_buildfile (ifs, bf, bs, rs);
           }
           catch (const std::ios_base::failure&)
           {
