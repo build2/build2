@@ -8,6 +8,8 @@
 #include <build/scope>
 #include <build/diagnostics>
 
+#include <build/config/operation>
+
 using namespace std;
 
 namespace build
@@ -28,12 +30,18 @@ namespace build
     {
       tracer trace ("config::load");
 
-      if (&root != &base)
-        fail (l) << "config module must be loaded in project root scope";
-
       //@@ TODO: avoid multiple loads (generally, for modules).
       //
       level4 ([&]{trace << "for " << root.path () << '/';});
+
+      if (&root != &base)
+        fail (l) << "config module must be loaded in project root scope";
+
+      // Register meta-operations.
+      //
+      if (root.meta_operations.insert (configure) != configure_id ||
+          root.meta_operations.insert (disfigure) != disfigure_id)
+        fail (l) << "config module must be loaded before other modules";
 
       // Register the build/config.build loading trigger.
       //

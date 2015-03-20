@@ -33,6 +33,7 @@
 #include <build/diagnostics>
 #include <build/context>
 #include <build/utility>
+#include <build/filesystem>
 #include <build/dump>
 
 #include <build/lexer>
@@ -67,15 +68,14 @@ namespace build
   inline bool
   is_src_root (const path& d)
   {
-    return path_mtime (d / path ("build/root.build")) !=
-      timestamp_nonexistent;
+    return file_exists (d / path ("build/bootstrap.build")) ||
+      file_exists (d / path ("build/root.build"));
   }
 
   inline bool
   is_out_root (const path& d)
   {
-    return path_mtime (d / path ("build/bootstrap/src-root.build")) !=
-      timestamp_nonexistent;
+    return file_exists (d / path ("build/bootstrap/src-root.build"));
   }
 
   // Given an src_base directory, look for the project's src_root
@@ -111,13 +111,33 @@ namespace build
   }
 
   void
-  bootstrap (scope& rs)
+  load (const path& buildfile, scope& root, scope& base)
   {
-    tracer trace ("bootstrap");
+    ifstream ifs (buildfile.string ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << buildfile;
 
-    path bf (rs.path () / path ("build/bootstrap/src-root.build"));
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+    parser p;
 
-    if (path_mtime (bf) == timestamp_nonexistent)
+    try
+    {
+      p.parse_buildfile (ifs, buildfile, root, base);
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << buildfile;
+    }
+  }
+
+  void
+  bootstrap_out (scope& root)
+  {
+    tracer trace ("bootstrap_out");
+
+    path bf (root.path () / path ("build/bootstrap/src-root.build"));
+
+    if (!file_exists (bf))
       return;
 
     //@@ TODO: if bootstrap files can source other bootstrap files
@@ -126,51 +146,35 @@ namespace build
     //
 
     level4 ([&]{trace << "loading " << bf;});
-
-    ifstream ifs (bf.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << bf;
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
-
-    try
-    {
-      p.parse_buildfile (ifs, bf, rs, rs);
-    }
-    catch (const std::ios_base::failure&)
-    {
-      fail << "failed to read from " << bf;
-    }
+    load (bf, root, root);
   }
 
   void
-  root_pre (scope& rs, const path& src_root)
+  bootstrap_src (scope& root, const path& src_root)
+  {
+    tracer trace ("bootstrap_src");
+
+    path bf (src_root / path ("build/bootstrap.build"));
+
+    if (!file_exists (bf))
+      return;
+
+    level4 ([&]{trace << "loading " << bf;});
+    load (bf, root, root);
+  }
+
+  void
+  root_pre (scope& root, const path& src_root)
   {
     tracer trace ("root_pre");
 
     path bf (src_root / path ("build/root.build"));
 
-    if (path_mtime (bf) == timestamp_nonexistent)
+    if (!file_exists (bf))
       return;
 
     level4 ([&]{trace << "loading " << bf;});
-
-    ifstream ifs (bf.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << bf;
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
-
-    try
-    {
-      p.parse_buildfile (ifs, bf, rs, rs);
-    }
-    catch (const std::ios_base::failure&)
-    {
-      fail << "failed to read from " << bf;
-    }
+    load (bf, root, root);
   }
 }
 
@@ -219,17 +223,27 @@ main (int argc, char* argv[])
     target_types.insert (cxx::ixx::static_type);
     target_types.insert (cxx::txx::static_type);
 
-    // Enter built-in meta-operation and operation names into tables.
-    // Note that the order of registration should match the id constants;
-    // see <operation> for details. Loading of the buildfiles can result
-    // in additional names being added (via module loading).
+    // Register rules.
     //
-    meta_operations.insert (meta_operation_info {"perform"});
-    meta_operations.insert (meta_operation_info {"configure"});
-    meta_operations.insert (meta_operation_info {"disfigure"});
+    cxx::link cxx_link;
+    rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+    rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
 
-    operations.insert (operation_info {"update", execution_mode::first});
-    operations.insert (operation_info {"clean", execution_mode::last});
+    cxx::compile cxx_compile;
+    rules[update_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+    rules[clean_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+
+    dir_rule dir_r;
+    rules[update_id][typeid (dir)].emplace ("dir", dir_r);
+    rules[clean_id][typeid (dir)].emplace ("dir", dir_r);
+
+    fsdir_rule fsdir_r;
+    rules[update_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
+    rules[clean_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
+
+    path_rule path_r;
+    rules[update_id][typeid (path_target)].emplace ("path", path_r);
+    rules[clean_id][typeid (path_target)].emplace ("path", path_r);
 
     // Figure out work and home directories.
     //
@@ -314,12 +328,29 @@ main (int argc, char* argv[])
       if (ms.empty ())
         ms.push_back (opspec ()); // Default operation.
 
+      meta_operation_id mid (0); // Not yet translated.
+      const meta_operation_info* mif (nullptr);
+
       for (opspec& os: ms)
       {
+        const location l ("<buildspec>", 1, 0); //@@ TODO
+
         if (os.empty ())
           // Default target: dir{}.
           //
           os.push_back (targetspec (name ("dir", path (), string ())));
+
+        operation_id oid (0); // Not yet translated.
+        const operation_info* oif (nullptr);
+
+        action act (0, 0); // Not yet initialized.
+
+        // We do meta-operation and operation batches sequentially (no
+        // parallelism). But multiple targets in an operation batch
+        // can be done in parallel.
+        //
+        vector<reference_wrapper<target>> tgs;
+        tgs.reserve (os.size ());
 
         for (targetspec& ts: os)
         {
@@ -407,17 +438,29 @@ main (int argc, char* argv[])
 
           // Now we know out_root and, if it was explicitly specified,
           // src_root. The next step is to create the root scope and
-          // load the bootstrap files, if any. Note that we might already
-          // have done this as a result of one of the preceding target
-          // processing.
+          // load the out_root bootstrap files, if any. Note that we
+          // might already have done this as a result of one of the
+          // preceding target processing.
           //
           auto rsp (scopes.insert (out_root));
           scope& rs (rsp.first);
 
           if (rsp.second)
           {
+            // Enter built-in meta-operation and operation names. Note that
+            // the order of registration should match the id constants; see
+            // <operation> for details. Loading of modules (via the src_root
+            // bootstrap; see below) can result in additional names being
+            // added.
+            //
+            rs.meta_operations.insert (perform);
+
+            rs.operations.insert (default_);
+            rs.operations.insert (update);
+            rs.operations.insert (clean);
+
             rs.variables["out_root"] = out_root;
-            bootstrap (rs);
+            bootstrap_out (rs);
           }
 
           // See if the bootstrap process set src_root.
@@ -472,9 +515,133 @@ main (int argc, char* argv[])
           if (src_base.empty ())
             src_base = src_root / out_base.leaf (out_root);
 
+          // Now that we have src_root, load the src_root bootstrap file,
+          // if there is one. Again, we might have already done that.
+          //
+          if (rsp.second)
+            bootstrap_src (rs, src_root);
+
+          // The src bootstrap should have loaded all the modules that
+          // may add new meta/operations. So at this stage they should
+          // all be known. We store the combined action id in uint8_t;
+          // see <operation> for details.
+          //
+          assert (rs.operations.size () <= 128);
+          assert (rs.meta_operations.size () <= 128);
+
+          // Since we now know all the names of meta-operations and
+          // operations, "lift" names that we assumed (from buildspec
+          // syntax) were operations but are actually meta-operations.
+          // Also convert empty names (which means they weren't explicitly
+          // specified) to the defaults and verify that all the names are
+          // known.
+          //
+          {
+            const auto& mn (ms.name);
+            const auto& on (os.name);
+
+            meta_operation_id m (0);
+            operation_id o (0);
+
+            if (!on.empty ())
+            {
+              m = rs.meta_operations.find (on);
+
+              if (m != 0)
+              {
+                if (!mn.empty ())
+                  fail (l) << "nested meta-operation " << mn
+                           << '(' << on << ')';
+              }
+              else
+              {
+                o = rs.operations.find (on);
+
+                if (o == 0)
+                  fail (l) << "unknown operation " << on;
+              }
+            }
+
+            if (!mn.empty ())
+            {
+              m = rs.meta_operations.find (mn);
+
+              if (m == 0)
+                fail (l) << "unknown meta-operation " << mn;
+            }
+
+            // The default meta-operation is perform. The default
+            // operation is assigned by the meta-operation below.
+            //
+            if (m == 0)
+              m = perform_id;
+
+            // If this is the first target in the meta-operation batch,
+            // then set the batch meta-operation id.
+            //
+            if (mid == 0)
+            {
+              //@@ meta-operation batch_pre
+              //
+
+              mid = m;
+              mif = &rs.meta_operations[m].get ();
+
+              level4 ([&]{trace << "start meta-operation batch " << mif->name
+                                << ", id " << static_cast<uint16_t> (mid);});
+            }
+            //
+            // Otherwise, check that all the targets in a meta-operation
+            // batch have the same meta-operation implementation.
+            //
+            else
+            {
+              if (mid > rs.meta_operations.size () ||     // Not a valid index.
+                  mif != &rs.meta_operations[mid].get ()) // Not the same impl.
+                fail (l) << "different meta-operation implementations "
+                         << "in a meta-operation batch";
+            }
+
+            // If this is the first target in the operation batch, then set
+            // the batch operation id.
+            //
+            if (oid == 0)
+            {
+              //@@ operation batch_pre; translate operation (pass
+              //   default_id for 0).
+
+              if (o == 0)
+                o = update_id; // @@ TMP; if no batch_pre
+
+              oid = o;
+              oif = &rs.operations[o].get ();
+
+              act = action (mid, oid);
+
+              current_mode = oif->mode;
+              current_rules = &rules[o];
+
+              level4 ([&]{trace << "start operation batch " << oif->name
+                                << ", id " << static_cast<uint16_t> (oid);});
+            }
+            //
+            // Similar to meta-operations, check that all the targets in
+            // an operation batch have the same operation implementation.
+            //
+            else
+            {
+              if (oid > rs.operations.size () ||     // Not a valid index.
+                  oif != &rs.operations[oid].get ()) // Not the same impl.
+                fail (l) << "different operation implementations "
+                         << "in an operation batch";
+            }
+          }
+
+          //@@ target pre_load; may request skipping loading
+
           if (verb >= 4)
           {
-            trace << tn << ':';
+            trace << "target " << tn << ':';
             trace << "  out_base: " << out_base.string ();
             trace << "  src_base: " << src_base.string ();
             trace << "  out_root: " << out_root.string ();
@@ -483,7 +650,8 @@ main (int argc, char* argv[])
 
           // Load project's root[-pre].build.
           //
-          root_pre (rs, src_root);
+          if (rsp.second)
+            root_pre (rs, src_root);
 
           // Create the base scope. Note that its existence doesn't
           // mean it was already processed as a base scope; it can
@@ -500,232 +668,83 @@ main (int argc, char* argv[])
 
           // Check if this buildfile has already been loaded.
           //
-          if (!rs.buildfiles.insert (bf).second)
+          if (rs.buildfiles.insert (bf).second)
           {
-            level4 ([&]{trace << "skipping already loaded " << bf;});
-            continue;
-          }
+            level4 ([&]{trace << "loading " << bf;});
 
-          level4 ([&]{trace << "loading " << bf;});
-
-          ifstream ifs (bf.string ());
-          if (!ifs.is_open ())
-          {
-            diag_record dr;
-            dr << fail << "unable to open " << bf;
-            if (guessing)
-              dr << info << "consider explicitly specifying src_base "
-                 << "for " << tn;
-          }
-
-          ifs.exceptions (ifstream::failbit | ifstream::badbit);
-          parser p;
-
-          try
-          {
-            p.parse_buildfile (ifs, bf, bs, rs);
-          }
-          catch (const std::ios_base::failure&)
-          {
-            fail << "failed to read from " << bf;
-          }
-        }
-      }
-    }
-
-    // We store the combined action id in uint8_t; see <operation> for
-    // details.
-    //
-    assert (operations.size () <= 128);
-    assert (meta_operations.size () <= 128);
-
-    dump_scopes ();
-    dump ();
-
-    // At this stage we know all the names of meta-operations and
-    // operations so "lift" names that we assumed (from buildspec
-    // syntax) were operations but are actually meta-operations.
-    // Also convert empty names (which means they weren't explicitly
-    // specified) to the defaults and verify that all the names are
-    // known.
-    //
-    for (auto mi (bspec.begin ()); mi != bspec.end (); ++mi)
-    {
-      metaopspec& ms (*mi);
-      const location l ("<buildspec>", 1, 0); //@@ TODO
-
-      for (auto oi (ms.begin ()); oi != ms.end (); ++oi)
-      {
-        opspec& os (*oi);
-        const location l ("<buildspec>", 1, 0); //@@ TODO
-
-        if (os.name.empty ())
-        {
-          os.name = "update";
-          continue;
-        }
-
-        if (meta_operations.find (os.name) != 0)
-        {
-          if (!ms.name.empty ())
-            fail (l) << "nested meta-operation " << os.name;
-
-          // The easy case is when the metaopspec contains a
-          // single opspec (us). In this case we can just move
-          // the name.
-          //
-          if (ms.size () == 1)
-          {
-            ms.name = move (os.name);
-            os.name = "update";
-            continue;
-          }
-          // The hard case is when there are other operations that
-          // need to keep their original meta-operation. In this
-          // case we have to "split" the metaopspec, in the worst
-          // case scenario, into three parts: prefix, us, and suffix.
-          //
-          else
-          {
-            if (oi != ms.begin ()) // We have a prefix of opspec's.
+            ifstream ifs (bf.string ());
+            if (!ifs.is_open ())
             {
-              // Keep the prefix in the original metaopspec and move
-              // the suffix into a new one that is inserted after the
-              // prefix. Then simply let the loop finish with the prefix
-              // and naturally move to the suffix (in other words, we
-              // are reducing this case to the one without a prefix).
-              //
-              metaopspec suffix;
-              suffix.insert (suffix.end (),
-                             make_move_iterator (oi),
-                             make_move_iterator (ms.end ()));
-              ms.resize (oi - ms.begin ());
-
-              mi = bspec.insert (++mi, move (suffix)); // Insert after prefix.
-              --mi; // Move back to prefix.
-              break;
+              diag_record dr;
+              dr << fail << "unable to open " << bf;
+              if (guessing)
+                dr << info << "consider explicitly specifying src_base "
+                   << "for " << tn;
             }
 
-            // We are the first element and have a suffix of opspec's
-            // (otherwise one of the previous cases would have matched).
-            //
-            assert (oi == ms.begin () && (oi + 1) != ms.end ());
+            ifs.exceptions (ifstream::failbit | ifstream::badbit);
+            parser p;
 
-            // Move this opspec into a new metaopspec and insert it before
-            // the current one. Then continue with the next opspec.
-            //
-            metaopspec prefix (move (os.name));
-            os.name = "update";
-            prefix.push_back (move (os));
-            ms.erase (oi);
+            try
+            {
+              p.parse_buildfile (ifs, bf, rs, bs);
+            }
+            catch (const std::ios_base::failure&)
+            {
+              fail << "failed to read from " << bf;
+            }
+          }
+          else
+            level4 ([&]{trace << "skipping already loaded " << bf;});
 
-            mi = bspec.insert (mi, move (prefix)); // Insert before suffix.
-            break; // Restart inner loop: outer loop ++ moves back to suffix.
+          //@@ target post_load
+
+          // Next resolve and match the target. We don't want to start
+          // building before we know how to for all the targets in this
+          // operation batch.
+          //
+          {
+            const string* e;
+            const target_type* ti (target_types.find (tn, e));
+
+            if (ti == nullptr)
+              fail (l) << "unknown target type " << tn.type;
+
+            // If the directory is relative, assume it is relative to work
+            // (must be consistent with how we derived out_base above).
+            //
+            path& d (tn.dir);
+
+            if (d.relative ())
+              d = work / d;
+
+            d.normalize ();
+
+            target_set::key tk {ti, &d, &tn.value, &e};
+            auto i (targets.find (tk, trace));
+            if (i == targets.end ())
+              fail (l) << "unknown target " << tk;
+
+            target& t (**i);
+
+            //@@ dump
+
+            level4 ([&]{trace << "matching target " << t;});
+            match (act, t);
+
+            //@@ dump
+
+            tgs.push_back (t);
           }
         }
 
-        if (operations.find (os.name) == 0)
-          fail (l) << "unknown operation " << os.name;
-      }
-
-      // Note: using mi rather than ms since ms is invalidated by above
-      // insert()'s.
-      //
-      if (mi->name.empty ())
-        mi->name = "perform";
-      else if (meta_operations.find (mi->name) == 0)
-        fail (l) << "unknown meta-operation " << mi->name;
-    }
-
-    level4 ([&]{trace << "buildspec: " << bspec;});
-
-    // Register rules.
-    //
-    cxx::link cxx_link;
-    rules["update"][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-    rules["clean"][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-
-    cxx::compile cxx_compile;
-    rules["update"][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules["clean"][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
-
-    dir_rule dir_r;
-    rules["update"][typeid (dir)].emplace ("dir", dir_r);
-    rules["clean"][typeid (dir)].emplace ("dir", dir_r);
-
-    fsdir_rule fsdir_r;
-    rules["update"][typeid (fsdir)].emplace ("fsdir", fsdir_r);
-    rules["clean"][typeid (fsdir)].emplace ("fsdir", fsdir_r);
-
-    path_rule path_r;
-    rules["update"][typeid (path_target)].emplace ("path", path_r);
-    rules["clean"][typeid (path_target)].emplace ("path", path_r);
-
-
-    // Do the operations. We do meta-operations and operations sequentially
-    // (no parallelism).
-    //
-    for (metaopspec& ms: bspec)
-    {
-      for (opspec& os: ms)
-      {
-        action act (meta_operations.find (ms.name), operations.find (os.name));
-
-        current_mode = operations[act.operation ()].mode;
-        current_rules = &rules[os.name];
-
-        level4 ([&]{trace << ms.name << " " << os.name << " " << act;});
-
-        // Multiple targets in the same operation can be done in parallel.
+        // Now build collecting postponed targets (to be re-examined).
         //
-        vector<reference_wrapper<target>> tgs, psp;
-        tgs.reserve (os.size ());
+        vector<reference_wrapper<target>> psp;
 
-        // First resolve and match all the targets. We don't want to
-        // start building before we know how for all the targets in
-        // this operation.
-        //
-        for (targetspec& ts: os)
-        {
-          name& tn (ts.name);
-          const location l ("<buildspec>", 1, 0); //@@ TODO
-
-          const string* e;
-          const target_type* ti (target_types.find (tn, e));
-
-          if (ti == nullptr)
-            fail (l) << "unknown target type " << tn.type;
-
-          // If the directory is relative, assume it is relative to work
-          // (must be consistent with how we derive out_base).
-          //
-          path& d (tn.dir);
-
-          if (d.relative ())
-            d = work / d;
-
-          d.normalize ();
-
-          target_set::key tk {ti, &d, &tn.value, &e};
-          auto i (targets.find (tk, trace));
-          if (i == targets.end ())
-            fail (l) << "unknown target " << tk;
-
-          target& t (**i);
-
-          level4 ([&]{trace << "matching target " << t;});
-          match (act, t);
-
-          tgs.push_back (t);
-        }
-
-        dump ();
-
-        // Now build.
-        //
         for (target& t: tgs)
         {
-          level4 ([&]{trace << "updating target " << t;});
+          level4 ([&]{trace << "executing target " << t;});
 
           switch (execute (act, t))
           {
@@ -737,7 +756,7 @@ main (int argc, char* argv[])
             }
           case target_state::unchanged:
             {
-              info << "target " << t << " is up to date";
+              info << "target " << t << " is unchanged";
               break;
             }
           case target_state::changed:
@@ -757,12 +776,12 @@ main (int argc, char* argv[])
           {
           case target_state::postponed:
             {
-              info << "target " << t << " unable to do at this time";
+              info << "unable to execute target " << t << " at this time";
               break;
             }
           case target_state::unchanged:
             {
-              info << "target " << t << " is up to date";
+              info << "target " << t << " is unchanged";
               break;
             }
           case target_state::unknown: // Assume something was done to it.
@@ -774,7 +793,17 @@ main (int argc, char* argv[])
             assert (false);
           }
         }
+
+        level4 ([&]{trace << "end operation batch " << oif->name
+                          << ", id " << static_cast<uint16_t> (oid);});
+
+        //@@ operation batch_post
       }
+
+      level4 ([&]{trace << "end meta-operation batch " << mif->name
+                        << ", id " << static_cast<uint16_t> (mid);});
+
+      //@@ meta-operation batch_post
     }
   }
   catch (const failed&)

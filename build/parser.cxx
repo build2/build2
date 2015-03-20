@@ -38,7 +38,7 @@ namespace build
   typedef token_type type;
 
   void parser::
-  parse_buildfile (istream& is, const path& p, scope& base, scope& root)
+  parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
     string rw (diag_relative_work (p));
     path_ = &rw;

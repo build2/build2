@@ -19,6 +19,9 @@ namespace build
               << ')';
   }
 
-  meta_operation_table meta_operations;
-  operation_table operations;
+  meta_operation_info perform {"perform"};
+
+  operation_info default_ {"<default>", execution_mode::first};
+  operation_info update {"update", execution_mode::first};
+  operation_info clean {"clean", execution_mode::last};
 }

@@ -220,7 +220,7 @@ namespace build
 
     const path& d (t.dir); // Everything is in t.dir.
 
-    if (path_mtime (d) == timestamp_nonexistent)
+    if (!dir_exists (d))
     {
       if (verb >= 1)
         text << "mkdir " << d.string ();

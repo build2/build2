@@ -6,8 +6,9 @@
 #define BUILD_OPERATION
 
 #include <string>
-#include <cstdint>
 #include <iosfwd>
+#include <cstdint>
+#include <functional> // reference_wrapper
 
 #include <build/string-table>
 
@@ -49,11 +50,13 @@ namespace build
   // Id constants for build-in operations.
   //
   const meta_operation_id perform_id   = 1;
-  const meta_operation_id configure_id = 2;
-  const meta_operation_id disfigure_id = 3;
 
-  const operation_id update_id = 1;
-  const operation_id clean_id  = 2;
+  // The default operation is a special marker that can be used to
+  // indicate that no operation was explicitly specified by the user.
+  //
+  const operation_id default_id = 1;
+  const operation_id update_id = 2;
+  const operation_id clean_id  = 3;
 
   const action_id perform_update_id = (perform_id << 4) | update_id;
   const action_id perform_clean_id  = (perform_id << 4) | clean_id;
@@ -101,31 +104,52 @@ namespace build
   //
   enum class execution_mode {first, last};
 
-  // Meta/operation tables.
+  // Meta/operation info.
   //
   struct meta_operation_info
   {
     const std::string name;
-
-    const std::string&
-    key () const {return name;} // string_table interface.
   };
+
+  // Built-in meta-operations.
+  //
+  extern meta_operation_info perform;
 
   struct operation_info
   {
     const std::string name;
     const execution_mode mode;
-
-    const std::string&
-    key () const {return name;} // string_table interface.
   };
 
-  using meta_operation_table = string_table<meta_operation_id,
-                                            meta_operation_info>;
-  using operation_table = string_table<operation_id, operation_info>;
+  // Build-in operations.
+  //
+  extern operation_info default_;
+  extern operation_info update;
+  extern operation_info clean;
 
-  extern meta_operation_table meta_operations;
-  extern operation_table operations;
+  // Meta/operation tables.
+  //
+  using meta_operation_table = string_table<
+    meta_operation_id,
+    std::reference_wrapper<const meta_operation_info>>;
+
+  using operation_table = string_table<
+    operation_id,
+    std::reference_wrapper<const operation_info>>;
+
+  template <>
+  struct string_table_traits<std::reference_wrapper<const meta_operation_info>>
+  {
+    static const std::string&
+    key (const meta_operation_info& x) {return x.name;}
+  };
+
+  template <>
+  struct string_table_traits<std::reference_wrapper<const operation_info>>
+  {
+    static const std::string&
+    key (const operation_info& x) {return x.name;}
+  };
 }
 
 #endif // BUILD_OPERATION

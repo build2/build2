@@ -33,14 +33,7 @@ namespace build
   };
 
   template <typename D>
-  struct string_table_traits
-  {
-    // By default, look for the key() function in D. But you can
-    // also specialize this class template.
-    //
-    static const std::string&
-    key (const D& d) {return d.key ();}
-  };
+  struct string_table_traits;
 
   template <>
   struct string_table_traits<std::string>

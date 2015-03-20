@@ -1,4 +1,6 @@
+cxx = cxx/{target rule}
+config = config/{operation module}
+
 exe{b1}: cxx{b algorithm parser lexer name operation spec scope variable \
   target prerequisite rule module native context search diagnostics \
-  config/module cxx/target cxx/rule process timestamp path utility \
-  filesystem dump}
+  process timestamp path utility filesystem dump $config $cxx}

@@ -30,7 +30,7 @@ namespace build
     std::type_index,
     prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>>;
 
-  using operation_rule_map = std::unordered_map<std::string, target_rule_map>;
+  using operation_rule_map = std::unordered_map<operation_id, target_rule_map>;
 
   extern operation_rule_map rules;
 

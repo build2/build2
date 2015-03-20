@@ -1,0 +1,5 @@
+print bootstrap.build
+
+project_name = build2
+
+load config

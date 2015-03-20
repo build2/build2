@@ -11,6 +11,19 @@
 
 namespace build
 {
+  // Return true if the path is to an existing directory. Note that
+  // this function resolves symlinks.
+  //
+  bool
+  dir_exists (const path&);
+
+  // Return true if the path is to an existing regular file. Note that
+  // this function resolves symlinks.
+  //
+  bool
+  file_exists (const path&);
+
+
   // Note that you should probably use the default mode 0777 and let
   // the umask mechanism adjust it to the user's preferences. Errors
   // are reported by throwing std::system_error.

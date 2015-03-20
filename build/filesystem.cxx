@@ -4,8 +4,9 @@
 
 #include <build/filesystem>
 
-#include <unistd.h>   // rmdir(), unlink()
-#include <sys/stat.h> // mkdir()
+#include <unistd.h>    // rmdir(), unlink()
+#include <sys/types.h> // stat
+#include <sys/stat.h>  // stat, lstat(), S_IS*, mkdir()
 
 #include <system_error>
 
@@ -13,6 +14,36 @@ using namespace std;
 
 namespace build
 {
+  bool
+  dir_exists (const path& p)
+  {
+    struct stat s;
+    if (::lstat (p.string ().c_str (), &s) != 0)
+    {
+      if (errno == ENOENT || errno == ENOTDIR)
+        return false;
+      else
+        throw system_error (errno, system_category ());
+    }
+
+    return S_ISDIR (s.st_mode);
+  }
+
+  bool
+  file_exists (const path& p)
+  {
+    struct stat s;
+    if (::lstat (p.string ().c_str (), &s) != 0)
+    {
+      if (errno == ENOENT || errno == ENOTDIR)
+        return false;
+      else
+        throw system_error (errno, system_category ());
+    }
+
+    return S_ISREG (s.st_mode);
+  }
+
   void
   mkdir (const path& p, mode_t m)
   {

@@ -10,5 +10,7 @@ namespace build
 {
   namespace config
   {
+    meta_operation_info configure {"configure"};
+    meta_operation_info disfigure {"disfigure"};
   }
 }

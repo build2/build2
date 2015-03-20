@@ -28,7 +28,7 @@ namespace build
     // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse_buildfile (std::istream&, const path&, scope& base, scope& root);
+    parse_buildfile (std::istream&, const path&, scope& root, scope& base);
 
     buildspec
     parse_buildspec (std::istream&, const std::string& name);

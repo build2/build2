@@ -13,6 +13,7 @@
 #include <build/path-map>
 #include <build/variable>
 #include <build/prerequisite>
+#include <build/operation>
 
 namespace build
 {
@@ -53,12 +54,17 @@ namespace build
     variable_map variables;
     prerequisite_set prerequisites;
 
+    // Meta/operations supported by this project (set on the project
+    // root scope only).
+    //
+    meta_operation_table meta_operations;
+    operation_table operations;
+
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against project root scope while
     // imported -- against the overall root scope (root_scope).
     //
     std::unordered_set<path_type> buildfiles;
-
 
     // A map of buildfiles to trigger functions that are executed when
     // such files are sourced. The path is is assumed to be relative to
