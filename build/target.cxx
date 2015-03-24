@@ -40,7 +40,7 @@ namespace build
   ostream&
   operator<< (ostream& os, const target& t)
   {
-    return os << target_set::key {&t.type (), &t.dir, &t.name, &t.ext};
+    return os << target_key {&t.type (), &t.dir, &t.name, &t.ext};
   }
 
   static target*
@@ -57,7 +57,7 @@ namespace build
   target_set targets;
 
   auto target_set::
-  find (const key& k, tracer& trace) const -> iterator
+  find (const target_key& k, tracer& trace) const -> iterator
   {
     iterator i (map_.find (k));
 
@@ -96,21 +96,21 @@ namespace build
           const std::string* ext,
           tracer& trace)
   {
-    iterator i (find (key {&tt, &dir, &name, &ext}, trace));
+    iterator i (find (target_key {&tt, &dir, &name, &ext}, trace));
 
     if (i != end ())
       return pair<target&, bool> (**i, false);
 
     unique_ptr<target> t (tt.factory (move (dir), move (name), ext));
     i = map_.emplace (
-      make_pair (key {&tt, &t->dir, &t->name, &t->ext},
+      make_pair (target_key {&tt, &t->dir, &t->name, &t->ext},
                  move (t))).first;
 
     return pair<target&, bool> (**i, true);
   }
 
   ostream&
-  operator<< (ostream& os, const target_set::key& k)
+  operator<< (ostream& os, const target_key& k)
   {
     os << k.type->name << '{';
 

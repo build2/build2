@@ -13,8 +13,8 @@ namespace build
   class scope;
   class location;
 
-  using module_load_function = void (scope& root, scope& base, const location&);
-  using module_map = std::unordered_map<std::string, module_load_function*>;
+  using module_init_function = void (scope& root, scope& base, const location&);
+  using module_map = std::unordered_map<std::string, module_init_function*>;
 
   extern module_map modules;
 }

@@ -25,6 +25,9 @@ namespace build
     const path_type&
     path () const {return i_->first;} // Absolute and normalized.
 
+    const path_type&
+    src_path () const {return *src_path_;} // Corresponding src path.
+
     scope*
     parent () const {return parent_;}
 
@@ -36,6 +39,8 @@ namespace build
 
     value_proxy
     operator[] (const variable&);
+
+    const path_type* src_path_ {nullptr}; // Cached src_{root,base} var value.
 
   private:
     friend class scope_map;
@@ -61,7 +66,7 @@ namespace build
     operation_table operations;
 
     // Set of buildfiles already loaded for this scope. The included
-    // buildfiles are checked against project root scope while
+    // buildfiles are checked against the project's root scope while
     // imported -- against the overall root scope (root_scope).
     //
     std::unordered_set<path_type> buildfiles;

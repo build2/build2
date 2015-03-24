@@ -165,41 +165,46 @@ namespace build
   std::ostream&
   operator<< (std::ostream&, const target&);
 
+  // Light-weight (by being shallow-pointing) target key.
+  //
+  struct target_key
+  {
+    mutable const target_type* type;
+    mutable const path* dir;
+    mutable const std::string* name;
+    mutable const std::string* const* ext;
+
+    friend bool
+    operator< (const target_key& x, const target_key& y)
+    {
+      const std::type_index& xt (x.type->id);
+      const std::type_index& yt (y.type->id);
+
+      //@@ TODO: use compare() to compare once.
+
+      // Unspecified and specified extension are assumed equal. The
+      // extension strings are from the pool, so we can just compare
+      // pointers.
+      //
+      return
+        (xt < yt) ||
+        (xt == yt && *x.name < *y.name) ||
+        (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
+        (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
+         *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
+    }
+  };
+
+  std::ostream&
+  operator<< (std::ostream&, const target_key&);
+
   struct target_set
   {
-    struct key
-    {
-      mutable const target_type* type;
-      mutable const path* dir;
-      mutable const std::string* name;
-      mutable const std::string* const* ext;
-
-      friend bool
-      operator< (const key& x, const key& y)
-      {
-        const std::type_index& xt (x.type->id);
-        const std::type_index& yt (y.type->id);
-
-        //@@ TODO: use compare() to compare once.
-
-        // Unspecified and specified extension are assumed equal. The
-        // extension strings are from the pool, so we can just compare
-        // pointers.
-        //
-        return
-          (xt < yt) ||
-          (xt == yt && *x.name < *y.name) ||
-          (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
-          (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
-           *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
-      }
-    };
-
-    typedef std::map<key, std::unique_ptr<target>> map;
+    typedef std::map<target_key, std::unique_ptr<target>> map;
     typedef map_iterator_adapter<map::const_iterator> iterator;
 
     iterator
-    find (const key& k, tracer& trace) const;
+    find (const target_key& k, tracer& trace) const;
 
     iterator
     find (const target_type& type,
@@ -209,7 +214,7 @@ namespace build
           tracer& trace) const
     {
       const std::string* e (ext);
-      return find (key {&type, &dir, &name, &e}, trace);
+      return find (target_key {&type, &dir, &name, &e}, trace);
     }
 
     iterator begin () const {return map_.begin ();}
@@ -225,9 +230,6 @@ namespace build
   private:
     map map_;
   };
-
-  std::ostream&
-  operator<< (std::ostream&, const target_set::key&);
 
   extern target_set targets;
 

@@ -10,11 +10,8 @@
 #include <sys/types.h> // uid_t
 #include <pwd.h>       // struct passwd, getpwuid()
 
-#include <vector>
-#include <cassert>
-#include <fstream>
 #include <sstream>
-#include <iterator> // make_move_iterator()
+#include <cassert>
 #include <iostream> //@@ TMP, for dump()
 #include <typeinfo>
 #include <system_error>
@@ -27,6 +24,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/rule>
+#include <build/file>
 #include <build/module>
 #include <build/algorithm>
 #include <build/process>
@@ -34,9 +32,6 @@
 #include <build/context>
 #include <build/utility>
 #include <build/filesystem>
-#include <build/dump>
-
-#include <build/lexer>
 #include <build/parser>
 
 using namespace std;
@@ -110,31 +105,9 @@ namespace build
     return path ();
   }
 
-  void
-  load (const path& buildfile, scope& root, scope& base)
-  {
-    ifstream ifs (buildfile.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << buildfile;
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
-
-    try
-    {
-      p.parse_buildfile (ifs, buildfile, root, base);
-    }
-    catch (const std::ios_base::failure&)
-    {
-      fail << "failed to read from " << buildfile;
-    }
-  }
-
-  void
+  static void
   bootstrap_out (scope& root)
   {
-    tracer trace ("bootstrap_out");
-
     path bf (root.path () / path ("build/bootstrap/src-root.build"));
 
     if (!file_exists (bf))
@@ -142,39 +115,28 @@ namespace build
 
     //@@ TODO: if bootstrap files can source other bootstrap files
     //   (the way to express dependecies), then we need a way to
-    //   prevent multiple sourcing.
+    //   prevent multiple sourcing. We handle it here but we still
+    //   need something like source_once (once [scope] source).
     //
-
-    level4 ([&]{trace << "loading " << bf;});
-    load (bf, root, root);
+    source_once (bf, root, root);
   }
 
-  void
-  bootstrap_src (scope& root, const path& src_root)
+  static void
+  bootstrap_src (scope& root)
   {
     tracer trace ("bootstrap_src");
 
-    path bf (src_root / path ("build/bootstrap.build"));
+    path bf (root.src_path () / path ("build/bootstrap.build"));
 
     if (!file_exists (bf))
       return;
 
-    level4 ([&]{trace << "loading " << bf;});
-    load (bf, root, root);
-  }
-
-  void
-  root_pre (scope& root, const path& src_root)
-  {
-    tracer trace ("root_pre");
-
-    path bf (src_root / path ("build/root.build"));
-
-    if (!file_exists (bf))
-      return;
-
-    level4 ([&]{trace << "loading " << bf;});
-    load (bf, root, root);
+    // We assume that bootstrap out cannot load this file explicitly. It
+    // feels wrong to allow this since that makes the whole bootstrap
+    // process hard to reason about. But we may try to bootstrap the
+    // same root scope multiple time.
+    //
+    source_once (bf, root, root);
   }
 }
 
@@ -204,7 +166,7 @@ main (int argc, char* argv[])
 
     // Register modules.
     //
-    modules["config"] = &config::load;
+    modules["config"] = &config::init;
 
     // Register target types.
     //
@@ -303,7 +265,7 @@ main (int argc, char* argv[])
       }
 
       istringstream is (s);
-      is.exceptions (ifstream::failbit | ifstream::badbit);
+      is.exceptions (istringstream::failbit | istringstream::badbit);
       parser p;
 
       try
@@ -318,8 +280,6 @@ main (int argc, char* argv[])
 
     level4 ([&]{trace << "buildspec: " << bspec;});
 
-    // Load all the buildfiles.
-    //
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
 
@@ -335,9 +295,7 @@ main (int argc, char* argv[])
       {
         const location l ("<buildspec>", 1, 0); //@@ TODO
 
-        if (os.empty ())
-          // Default target: dir{}.
-          //
+        if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", path (), string ())));
 
         operation_id oid (0); // Not yet translated.
@@ -349,7 +307,7 @@ main (int argc, char* argv[])
         // parallelism). But multiple targets in an operation batch
         // can be done in parallel.
         //
-        vector<reference_wrapper<target>> tgs;
+        action_targets tgs;
         tgs.reserve (os.size ());
 
         for (targetspec& ts: os)
@@ -442,26 +400,25 @@ main (int argc, char* argv[])
           // might already have done this as a result of one of the
           // preceding target processing.
           //
-          auto rsp (scopes.insert (out_root));
-          scope& rs (rsp.first);
+          scope& rs (scopes[out_root]);
 
-          if (rsp.second)
+          // Enter built-in meta-operation and operation names. Note that
+          // the order of registration should match the id constants; see
+          // <operation> for details. Loading of modules (via the src_root
+          // bootstrap; see below) can result in additional names being
+          // added.
+          //
+          if (rs.meta_operations.empty ())
           {
-            // Enter built-in meta-operation and operation names. Note that
-            // the order of registration should match the id constants; see
-            // <operation> for details. Loading of modules (via the src_root
-            // bootstrap; see below) can result in additional names being
-            // added.
-            //
-            rs.meta_operations.insert (perform);
+            assert (rs.meta_operations.insert (perform) == perform_id);
 
-            rs.operations.insert (default_);
-            rs.operations.insert (update);
-            rs.operations.insert (clean);
-
-            rs.variables["out_root"] = out_root;
-            bootstrap_out (rs);
+            assert (rs.operations.insert (default_) == default_id);
+            assert (rs.operations.insert (update) == update_id);
+            assert (rs.operations.insert (clean) == clean_id);
           }
+
+          rs.variables["out_root"] = out_root;
+          bootstrap_out (rs);
 
           // See if the bootstrap process set src_root.
           //
@@ -507,6 +464,8 @@ main (int argc, char* argv[])
 
               v = src_root;
             }
+
+            rs.src_path_ = &v.as<const path&> ();
           }
 
           // At this stage we should have both roots and out_base figured
@@ -516,10 +475,9 @@ main (int argc, char* argv[])
             src_base = src_root / out_base.leaf (out_root);
 
           // Now that we have src_root, load the src_root bootstrap file,
-          // if there is one. Again, we might have already done that.
+          // if there is one.
           //
-          if (rsp.second)
-            bootstrap_src (rs, src_root);
+          bootstrap_src (rs);
 
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should
@@ -581,14 +539,14 @@ main (int argc, char* argv[])
             //
             if (mid == 0)
             {
-              //@@ meta-operation batch_pre
-              //
-
               mid = m;
-              mif = &rs.meta_operations[m].get ();
+              mif = &rs.meta_operations[mid].get ();
 
               level4 ([&]{trace << "start meta-operation batch " << mif->name
                                 << ", id " << static_cast<uint16_t> (mid);});
+
+              if (mif->meta_operation_pre != nullptr)
+                mif->meta_operation_pre ();
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -607,22 +565,32 @@ main (int argc, char* argv[])
             //
             if (oid == 0)
             {
-              //@@ operation batch_pre; translate operation (pass
-              //   default_id for 0).
-
               if (o == 0)
-                o = update_id; // @@ TMP; if no batch_pre
+                o = default_id;
 
-              oid = o;
               oif = &rs.operations[o].get ();
+
+              level4 ([&]{trace << "start operation batch " << oif->name
+                                << ", id " << static_cast<uint16_t> (o);});
+
+              // Allow the meta-operation to translate the operation.
+              //
+              if (mif->operation_pre != nullptr)
+                oid = mif->operation_pre (o);
+              else // Otherwise translate default to update.
+                oid = (o == default_id ? update_id : o);
+
+              if (o != oid)
+              {
+                oif = &rs.operations[oid].get ();
+                level4 ([&]{trace << "operation translated to " << oif->name
+                                  << ", id " << static_cast<uint16_t> (oid);});
+              }
 
               act = action (mid, oid);
 
               current_mode = oif->mode;
-              current_rules = &rules[o];
-
-              level4 ([&]{trace << "start operation batch " << oif->name
-                                << ", id " << static_cast<uint16_t> (oid);});
+              current_rules = &rules[oid];
             }
             //
             // Similar to meta-operations, check that all the targets in
@@ -637,8 +605,6 @@ main (int argc, char* argv[])
             }
           }
 
-          //@@ target pre_load; may request skipping loading
-
           if (verb >= 4)
           {
             trace << "target " << tn << ':';
@@ -648,56 +614,19 @@ main (int argc, char* argv[])
             trace << "  src_root: " << src_root.string ();
           }
 
-          // Load project's root[-pre].build.
-          //
-          if (rsp.second)
-            root_pre (rs, src_root);
-
-          // Create the base scope. Note that its existence doesn't
-          // mean it was already processed as a base scope; it can
-          // be the same as root.
-          //
-          scope& bs (scopes[out_base]);
-
-          bs.variables["out_base"] = out_base;
-          bs.variables["src_base"] = src_base;
-
-          // Parse the buildfile.
-          //
           path bf (src_base / path ("buildfile"));
 
-          // Check if this buildfile has already been loaded.
+          // If we were guessing src_base, check that the buildfile
+          // exists and if not, issue more detailed diagnostics.
           //
-          if (rs.buildfiles.insert (bf).second)
-          {
-            level4 ([&]{trace << "loading " << bf;});
+          if (guessing && !file_exists (bf))
+            fail << bf << " does not exist"
+                 << info << "consider explicitly specifying src_base "
+                 << "for " << tn;
 
-            ifstream ifs (bf.string ());
-            if (!ifs.is_open ())
-            {
-              diag_record dr;
-              dr << fail << "unable to open " << bf;
-              if (guessing)
-                dr << info << "consider explicitly specifying src_base "
-                   << "for " << tn;
-            }
-
-            ifs.exceptions (ifstream::failbit | ifstream::badbit);
-            parser p;
-
-            try
-            {
-              p.parse_buildfile (ifs, bf, rs, bs);
-            }
-            catch (const std::ios_base::failure&)
-            {
-              fail << "failed to read from " << bf;
-            }
-          }
-          else
-            level4 ([&]{trace << "skipping already loaded " << bf;});
-
-          //@@ target post_load
+          // Load the buildfile.
+          //
+          mif->load (bf, rs, out_base, src_base, l);
 
           // Next resolve and match the target. We don't want to start
           // building before we know how to for all the targets in this
@@ -720,79 +649,16 @@ main (int argc, char* argv[])
 
             d.normalize ();
 
-            target_set::key tk {ti, &d, &tn.value, &e};
-            auto i (targets.find (tk, trace));
-            if (i == targets.end ())
-              fail (l) << "unknown target " << tk;
-
-            target& t (**i);
-
-            //@@ dump
-
-            level4 ([&]{trace << "matching target " << t;});
-            match (act, t);
-
-            //@@ dump
-
-            tgs.push_back (t);
+            mif->match (act, target_key {ti, &d, &tn.value, &e}, l, tgs);
           }
         }
 
-        // Now build collecting postponed targets (to be re-examined).
+        // Now execute the action on the list of targets.
         //
-        vector<reference_wrapper<target>> psp;
+        mif->execute (act, tgs);
 
-        for (target& t: tgs)
-        {
-          level4 ([&]{trace << "executing target " << t;});
-
-          switch (execute (act, t))
-          {
-          case target_state::postponed:
-            {
-              info << "target " << t << " is postponed";
-              psp.push_back (t);
-              break;
-            }
-          case target_state::unchanged:
-            {
-              info << "target " << t << " is unchanged";
-              break;
-            }
-          case target_state::changed:
-            break;
-          case target_state::failed:
-            //@@ This could probably happen in a parallel build.
-          default:
-            assert (false);
-          }
-        }
-
-        // Re-examine postponed targets.
-        //
-        for (target& t: psp)
-        {
-          switch (t.state)
-          {
-          case target_state::postponed:
-            {
-              info << "unable to execute target " << t << " at this time";
-              break;
-            }
-          case target_state::unchanged:
-            {
-              info << "target " << t << " is unchanged";
-              break;
-            }
-          case target_state::unknown: // Assume something was done to it.
-          case target_state::changed:
-            break;
-          case target_state::failed:
-            //@@ This could probably happen in a parallel build.
-          default:
-            assert (false);
-          }
-        }
+        if (mif->operation_post != nullptr)
+          mif->operation_post (oid);
 
         level4 ([&]{trace << "end operation batch " << oif->name
                           << ", id " << static_cast<uint16_t> (oid);});
@@ -800,10 +666,11 @@ main (int argc, char* argv[])
         //@@ operation batch_post
       }
 
+      if (mif->meta_operation_post != nullptr)
+        mif->meta_operation_post ();
+
       level4 ([&]{trace << "end meta-operation batch " << mif->name
                         << ", id " << static_cast<uint16_t> (mid);});
-
-      //@@ meta-operation batch_post
     }
   }
   catch (const failed&)

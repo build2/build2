@@ -12,7 +12,7 @@ namespace build
   namespace config
   {
     void
-    load (scope&, scope&, const location&);
+    init (scope&, scope&, const location&);
   }
 }
 

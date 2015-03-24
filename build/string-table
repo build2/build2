@@ -67,6 +67,9 @@ namespace build
     I
     size () const {return static_cast<I> (vec_.size ());}
 
+    bool
+    empty () const {return vec_.empty ();}
+
   private:
     using key_type = map_key<std::string>;
     using value_type = string_table_element<I, D>;

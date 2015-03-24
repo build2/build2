@@ -26,24 +26,24 @@ namespace build
     }
 
     void
-    load (scope& root, scope& base, const location& l)
+    init (scope& root, scope& base, const location& l)
     {
-      tracer trace ("config::load");
+      tracer trace ("config::init");
 
-      //@@ TODO: avoid multiple loads (generally, for modules).
+      //@@ TODO: avoid multiple inits (generally, for modules).
       //
       level4 ([&]{trace << "for " << root.path () << '/';});
 
       if (&root != &base)
-        fail (l) << "config module must be loaded in project root scope";
+        fail (l) << "config module must be initialized in project root scope";
 
       // Register meta-operations.
       //
       if (root.meta_operations.insert (configure) != configure_id ||
           root.meta_operations.insert (disfigure) != disfigure_id)
-        fail (l) << "config module must be loaded before other modules";
+        fail (l) << "config module must be initialized before other modules";
 
-      // Register the build/config.build loading trigger.
+      // Register the build/config.build sourcing trigger.
       //
       root.triggers[path ("build/config.build")] = &trigger;
     }

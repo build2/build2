@@ -1,0 +1,36 @@
+// file      : build/file -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_FILE
+#define BUILD_FILE
+
+#include <build/path>
+
+namespace build
+{
+  class scope;
+
+  void
+  source (const path& buildfile, scope& root, scope& base);
+
+  // As above but first check if this buildfile has already been
+  // sourced for the base scope.
+  //
+  void
+  source_once (const path& buildfile, scope& root, scope& base);
+
+  // As above but checks against the specified scope rather than base.
+  //
+  void
+  source_once (const path& buildfile, scope& root, scope& base, scope& once);
+
+  // Load project's root[-pre].build unless already loaded.
+  //
+  void
+  root_pre (scope& root);
+}
+
+#include <build/file.ixx>
+
+#endif // BUILD_FILE

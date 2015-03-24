@@ -51,7 +51,7 @@ namespace build
     include (token&, token_type&);
 
     void
-    load (token&, token_type&);
+    using_ (token&, token_type&);
 
     names_type
     names (token& t, token_type& tt)

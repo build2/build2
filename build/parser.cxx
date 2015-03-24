@@ -112,10 +112,10 @@ namespace build
           include (t, tt);
           continue;
         }
-        else if (n == "load")
+        else if (n == "using")
         {
           next (t, tt);
-          load (t, tt);
+          using_ (t, tt);
           continue;
         }
       }
@@ -567,7 +567,8 @@ namespace build
       scope_ = &scopes[out_base];
 
       scope_->variables["out_base"] = move (out_base);
-      scope_->variables["src_base"] = move (src_base);
+      auto v (scope_->variables["src_base"] = move (src_base));
+      scope_->src_path_ = &v.as<const path&> ();
 
       target* odt (default_target_);
       default_target_ = nullptr;
@@ -597,9 +598,9 @@ namespace build
   }
 
   void parser::
-  load (token& t, token_type& tt)
+  using_ (token& t, token_type& tt)
   {
-    tracer trace ("parser::load", &path_);
+    tracer trace ("parser::using", &path_);
 
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
