@@ -227,6 +227,9 @@ namespace build
             const std::string* ext,
             tracer&);
 
+    void
+    clear () {map_.clear ();}
+
   private:
     map map_;
   };

@@ -60,6 +60,7 @@ namespace build
 
   void
   match (action a,
+         scope&,
          const target_key& tk,
          const location& l,
          action_targets& ts)
@@ -72,12 +73,14 @@ namespace build
 
     target& t (**i);
 
-    //@@ dump
+    if (verb >= 5)
+      dump ();
 
     level4 ([&]{trace << "matching " << t;});
     match (a, t);
 
-    //@@ dump
+    if (verb >= 5)
+      dump ();
 
     ts.push_back (&t);
   }

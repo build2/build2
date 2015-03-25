@@ -8,6 +8,9 @@
 namespace build
 {
   void
+  dump ();
+
+  void
   dump_scopes ();
 }
 

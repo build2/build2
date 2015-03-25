@@ -44,11 +44,25 @@ namespace build
     return S_ISREG (s.st_mode);
   }
 
-  void
-  mkdir (const path& p, mode_t m)
+  mkdir_status
+  try_mkdir (const path& p, mode_t m)
   {
+    mkdir_status r (mkdir_status::success);
+
     if (::mkdir (p.string ().c_str (), m) != 0)
-      throw system_error (errno, system_category ());
+    {
+      int e (errno);
+
+      // EEXIST means the path already exists but not necessarily as
+      // a directory.
+      //
+      if (e == EEXIST && dir_exists (p))
+        return mkdir_status::already_exists;
+      else
+        throw system_error (e, system_category ());
+    }
+
+    return r;
   }
 
   rmdir_status

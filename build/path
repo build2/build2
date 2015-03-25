@@ -257,13 +257,18 @@ namespace build
     // Return true if *this is a sub-path of the specified path (i.e.,
     // the specified path is a prefix). Expects both paths to be
     // normalized. Note that this function returns true if the paths
-    // are equal.
+    // are equal. Empty path is considered a prefix of any path.
     //
     bool
-    sub (const basic_path& p) const
-    {
-      return path_.compare (0, p.path_.size (), p.path_) == 0;
-    }
+    sub (const basic_path&) const;
+
+    // Return true if *this is a super-path of the specified path (i.e.,
+    // the specified path is a suffix). Expects both paths to be
+    // normalized. Note that this function returns true if the paths
+    // are equal. Empty path is considered a suffix of any path.
+    //
+    bool
+    sup (const basic_path&) const;
 
   public:
     // Return the path without the directory part.

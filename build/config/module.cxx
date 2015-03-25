@@ -28,14 +28,16 @@ namespace build
     void
     init (scope& root, scope& base, const location& l)
     {
-      tracer trace ("config::init");
-
       //@@ TODO: avoid multiple inits (generally, for modules).
       //
-      level4 ([&]{trace << "for " << root.path () << '/';});
+
+      tracer trace ("config::init");
 
       if (&root != &base)
         fail (l) << "config module must be initialized in project root scope";
+
+      const path& out_root (root.path ());
+      level4 ([&]{trace << "for " << out_root << '/';});
 
       // Register meta-operations.
       //
@@ -45,7 +47,7 @@ namespace build
 
       // Register the build/config.build sourcing trigger.
       //
-      root.triggers[path ("build/config.build")] = &trigger;
+      root.triggers[out_root / path ("build/config.build")] = &trigger;
     }
   }
 }

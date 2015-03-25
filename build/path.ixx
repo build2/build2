@@ -48,6 +48,43 @@ namespace build
   }
 
   template <typename C>
+  inline bool basic_path<C>::
+  sub (const basic_path& p) const
+  {
+    size_type n (p.path_.size ());
+
+    if (n == 0)
+      return true;
+
+    size_type m (path_.size ());
+
+    // The second condition guards against the /foo-bar vs /foo case.
+    //
+    return m >= n && path_.compare (0, n, p.path_) == 0 &&
+      (traits::is_separator (p.path_.back ()) || // p ends with a separator
+       m == n                                 || // *this == p
+       traits::is_separator (path_[n]));         // next char is a separator
+  }
+
+  template <typename C>
+  inline bool basic_path<C>::
+  sup (const basic_path& p) const
+  {
+    size_type n (p.path_.size ());
+
+    if (n == 0)
+      return true;
+
+    size_type m (path_.size ());
+
+    // The second condition guards against the /foo-bar vs bar case.
+    //
+    return m >= n && path_.compare (m - n, n, p.path_) == 0 &&
+      (m == n                                   || // *this == p
+       traits::is_separator (path_[m - n - 1]));   // prev char is a separator
+  }
+
+  template <typename C>
   inline basic_path<C>& basic_path<C>::
   complete ()
   {

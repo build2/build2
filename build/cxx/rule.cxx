@@ -74,15 +74,20 @@ namespace build
       //
       switch (a.operation ())
       {
+      case default_id:
       case update_id: search_and_match (a, t); break;
       case clean_id:  search_and_match (a, t, t.dir); break;
       default:        assert (false);
       }
 
-      // Inject additional prerequisites. For now we only do it for
-      // update.
+      // Inject dependency on the output directory.
       //
-      if (a.operation () == update_id)
+      inject_parent_fsdir (a, t);
+
+      // Inject additional prerequisites. For now we only do it for
+      // update and default.
+      //
+      if (a.operation () == update_id || a.operation () == default_id)
       {
         auto& sp (*static_cast<prerequisite*> (v));
         auto& st (dynamic_cast<cxx&> (*sp.target));
@@ -95,7 +100,7 @@ namespace build
       {
       case perform_update_id: return &perform_update;
       case perform_clean_id: return &perform_clean_file;
-      default: return noop_recipe;
+      default: return default_recipe; // Forward to prerequisites.
       }
     }
 
@@ -366,7 +371,7 @@ namespace build
           if (!seen_obj)
             seen_obj = true;
         }
-        else
+        else if (p.type.id != typeid (fsdir))
         {
           level3 ([&]{trace << "unexpected prerequisite type " << p.type;});
           return nullptr;
@@ -547,11 +552,15 @@ namespace build
         pr = op;
       }
 
+      // Inject dependency on the output directory.
+      //
+      inject_parent_fsdir (a, t);
+
       switch (a)
       {
       case perform_update_id: return &perform_update;
       case perform_clean_id: return &perform_clean_file;
-      default: return noop_recipe;
+      default: return default_recipe; // Forward to prerequisites.
       }
     }
 
@@ -580,9 +589,11 @@ namespace build
 
       for (const prerequisite& p: t.prerequisites)
       {
-        const obj& o (dynamic_cast<const obj&> (*p.target));
-        ro.push_back (relative_work (o.path ()));
-        args.push_back (ro.back ().string ().c_str ());
+        if (const obj* o = dynamic_cast<const obj*> (p.target))
+        {
+          ro.push_back (relative_work (o->path ()));
+          args.push_back (ro.back ().string ().c_str ());
+        }
       }
 
       args.push_back (nullptr);

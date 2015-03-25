@@ -6,8 +6,10 @@
 
 #include <ostream>
 #include <cassert>
+#include <system_error>
 
 #include <build/scope>
+#include <build/diagnostics>
 
 using namespace std;
 
@@ -18,6 +20,61 @@ namespace build
 
   execution_mode current_mode;
   const target_rule_map* current_rules;
+
+  void
+  reset ()
+  {
+    targets.clear ();
+    scopes.clear ();
+    variable_pool.clear ();
+
+    // Create root scope. For Win32 we use the empty path since there
+    // is no such "real" root path. On POSIX, however, this is a real
+    // path. See the comment in <build/path-map> for details.
+    //
+#ifdef _WIN32
+    root_scope = &scopes[path ()];
+#else
+    root_scope = &scopes[path ("/")];
+#endif
+
+    root_scope->variables["work"] = work;
+    root_scope->variables["home"] = home;
+  }
+
+  mkdir_status
+  mkdir (const path& d)
+  {
+    // We don't want to print the command if the directory already
+    // exists. This makes the below code a bit ugly.
+    //
+    mkdir_status ms;
+
+    try
+    {
+      ms = try_mkdir (d);
+    }
+    catch (const system_error& e)
+    {
+      if (verb >= 1)
+        text << "mkdir " << d.string ();
+      else
+        text << "mkdir " << d;
+
+      fail << "unable to create directory " << d.string () << ": "
+           << e.what ();
+    }
+
+    if (ms == mkdir_status::success)
+    {
+      if (verb >= 1)
+        text << "mkdir " << d.string ();
+      else
+        text << "mkdir " << d;
+    }
+
+    return ms;
+  }
 
   path
   src_out (const path& out, scope& s)

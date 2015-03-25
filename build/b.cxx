@@ -38,28 +38,6 @@ using namespace std;
 
 namespace build
 {
-  void
-  dump ()
-  {
-    cout << endl;
-
-    for (const auto& pt: targets)
-    {
-      target& t (*pt);
-
-      cout << t << ':';
-
-      for (const auto& p: t.prerequisites)
-      {
-        cout << ' ' << p;
-      }
-
-      cout << endl;
-    }
-
-    cout << endl;
-  }
-
   inline bool
   is_src_root (const path& d)
   {
@@ -94,14 +72,15 @@ namespace build
   // tree build.
   //
   path
-  find_out_root (const path& b)
+  find_out_root (const path& b, bool& src)
   {
     for (path d (b); !d.root () && d != home; d = d.directory ())
     {
-      if (is_out_root (d) || is_src_root (d))
+      if ((src = is_src_root (d)) || is_out_root (d))
         return d;
     }
 
+    src = false;
     return path ();
   }
 
@@ -121,7 +100,9 @@ namespace build
     source_once (bf, root, root);
   }
 
-  static void
+  // Return true if we loaded anything.
+  //
+  static bool
   bootstrap_src (scope& root)
   {
     tracer trace ("bootstrap_src");
@@ -129,7 +110,7 @@ namespace build
     path bf (root.src_path () / path ("build/bootstrap.build"));
 
     if (!file_exists (bf))
-      return;
+      return false;
 
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -137,6 +118,7 @@ namespace build
     // same root scope multiple time.
     //
     source_once (bf, root, root);
+    return true;
   }
 }
 
@@ -162,7 +144,7 @@ main (int argc, char* argv[])
 
     // Trace verbosity.
     //
-    verb = 5;
+    verb = 4;
 
     // Register modules.
     //
@@ -188,22 +170,27 @@ main (int argc, char* argv[])
     // Register rules.
     //
     cxx::link cxx_link;
+    rules[default_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
     rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
     rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
 
     cxx::compile cxx_compile;
+    rules[default_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
     rules[update_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
     rules[clean_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
 
     dir_rule dir_r;
+    rules[default_id][typeid (dir)].emplace ("dir", dir_r);
     rules[update_id][typeid (dir)].emplace ("dir", dir_r);
     rules[clean_id][typeid (dir)].emplace ("dir", dir_r);
 
     fsdir_rule fsdir_r;
+    rules[default_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
     rules[update_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
     rules[clean_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
 
     path_rule path_r;
+    rules[default_id][typeid (path_target)].emplace ("path", path_r);
     rules[update_id][typeid (path_target)].emplace ("path", path_r);
     rules[clean_id][typeid (path_target)].emplace ("path", path_r);
 
@@ -232,18 +219,9 @@ main (int argc, char* argv[])
       trace << "home dir: " << home.string ();
     }
 
-    // Create root scope. For Win32 we use the empty path since there
-    // is no such "real" root path. On POSIX, however, this is a real
-    // path. See the comment in <build/path-map> for details.
+    // Initialize the dependency state.
     //
-#ifdef _WIN32
-    root_scope = &scopes[path ()];
-#else
-    root_scope = &scopes[path ("/")];
-#endif
-
-    root_scope->variables["work"] = work;
-    root_scope->variables["home"] = home;
+    reset ();
 
     // Parse the buildspec.
     //
@@ -291,6 +269,8 @@ main (int argc, char* argv[])
       meta_operation_id mid (0); // Not yet translated.
       const meta_operation_info* mif (nullptr);
 
+      bool lifted (false); // See below.
+
       for (opspec& os: ms)
       {
         const location l ("<buildspec>", 1, 0); //@@ TODO
@@ -309,6 +289,21 @@ main (int argc, char* argv[])
         //
         action_targets tgs;
         tgs.reserve (os.size ());
+
+        // If the previous operation was lifted to meta-operation,
+        // end the meta-operation batch.
+        //
+        if (lifted)
+        {
+          if (mif->meta_operation_post != nullptr)
+            mif->meta_operation_post ();
+
+          level4 ([&]{trace << "end meta-operation batch " << mif->name
+                            << ", id " << static_cast<uint16_t> (mid);});
+
+          mid = 0;
+          lifted = false;
+        }
 
         for (targetspec& ts: os)
         {
@@ -378,27 +373,56 @@ main (int argc, char* argv[])
           {
             // If no src_base was explicitly specified, search for out_root.
             //
-            out_root = find_out_root (out_base);
+            bool src;
+            out_root = find_out_root (out_base, src);
 
             // If not found (i.e., we have no idea where the roots are),
             // then this can mean two things: an in-tree build of a
-            // simple project or a fresh out-of-tree build. Assume this
-            // is the former and set out_root to out_base. If we are
-            // wrong (most likely) and this is the latter, then things
-            // will go badly when we try to load the buildfile.
+            // simple project or a fresh out-of-tree build. To test for
+            // the latter, try to find src_root starting from work. If
+            // we can't, then assume it is the former case.
             //
             if (out_root.empty ())
             {
-              src_root = src_base = out_root = out_base;
+              src_root = find_src_root (work);
+
+              if (!src_root.empty ())
+              {
+                src_base = work;
+
+                if (src_root != src_base)
+                {
+                  try
+                  {
+                    out_root = out_base.directory (src_base.leaf (src_root));
+                  }
+                  catch (const invalid_path&)
+                  {
+                    fail << "out_base directory suffix does not match src_base"
+                         << info << "src_base is " << src_base.string ()
+                         << info << "src_root is " << src_root.string ()
+                         << info << "out_base is " << out_base.string ()
+                         << info << "consider explicitly specifying src_base "
+                         << "for " << tn;
+                  }
+                }
+                else
+                  out_root = out_base;
+              }
+              else
+                src_root = src_base = out_root = out_base;
+
               guessing = true;
             }
+            else if (src)
+              src_root = out_root;
           }
 
-          // Now we know out_root and, if it was explicitly specified,
-          // src_root. The next step is to create the root scope and
-          // load the out_root bootstrap files, if any. Note that we
-          // might already have done this as a result of one of the
-          // preceding target processing.
+          // Now we know out_root and, if it was explicitly specified
+          // or the same as out_root, src_root. The next step is to
+          // create the root scope and load the out_root bootstrap
+          // files, if any. Note that we might already have done this
+          // as a result of one of the preceding target processing.
           //
           scope& rs (scopes[out_root]);
 
@@ -418,9 +442,17 @@ main (int argc, char* argv[])
           }
 
           rs.variables["out_root"] = out_root;
+
+          // If we know src_root, add that variable as well. This could
+          // be of use to the bootstrap file (other than src-root.build,
+          // which, BTW, doesn't need to exist if src_root == out_root).
+          //
+          if (!src_root.empty ())
+            rs.variables["src_root"] = src_root;
+
           bootstrap_out (rs);
 
-          // See if the bootstrap process set src_root.
+          // See if the bootstrap process set/changed src_root.
           //
           {
             auto v (rs.variables["src_root"]);
@@ -453,8 +485,6 @@ main (int argc, char* argv[])
                 {
                   // If not, then assume we are running from src_base
                   // and calculate src_root based on out_root/out_base.
-                  // Note that this is different from the above case
-                  // were we couldn't determine either root.
                   //
                   src_base = work;
                   src_root = src_base.directory (out_base.leaf (out_root));
@@ -477,7 +507,7 @@ main (int argc, char* argv[])
           // Now that we have src_root, load the src_root bootstrap file,
           // if there is one.
           //
-          bootstrap_src (rs);
+          bool bootstrapped (bootstrap_src (rs));
 
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should
@@ -510,13 +540,47 @@ main (int argc, char* argv[])
                 if (!mn.empty ())
                   fail (l) << "nested meta-operation " << mn
                            << '(' << on << ')';
+
+                if (!lifted) // If this is the first target.
+                {
+                  // End the previous meta-operation batch if there was one
+                  // and start a new one.
+                  //
+                  if (mid != 0)
+                  {
+                    assert (oid == 0);
+
+                    if (mif->meta_operation_post != nullptr)
+                      mif->meta_operation_post ();
+
+                    level4 ([&]{trace << "end meta-operation batch "
+                                      << mif->name << ", id "
+                                      << static_cast<uint16_t> (mid);});
+
+                    mid = 0;
+                  }
+
+                  lifted = true; // Flag to also end it; see above.
+                }
               }
               else
               {
                 o = rs.operations.find (on);
 
                 if (o == 0)
-                  fail (l) << "unknown operation " << on;
+                {
+                  diag_record dr;
+                  dr << fail (l) << "unknown operation " << on;
+
+                  // If we guessed src_root and didn't load anything during
+                  // bootstrap, then this is probably a meta-operation that
+                  // would have been added by the module if src_root was
+                  // correct.
+                  //
+                  if (guessing && !bootstrapped)
+                    dr << info << "consider explicitly specifying src_base "
+                       << "for " << tn;
+                }
               }
             }
 
@@ -525,7 +589,16 @@ main (int argc, char* argv[])
               m = rs.meta_operations.find (mn);
 
               if (m == 0)
-                fail (l) << "unknown meta-operation " << mn;
+              {
+                diag_record dr;
+                dr << fail (l) << "unknown meta-operation " << mn;
+
+                // Same idea as for the operation case above.
+                //
+                if (guessing && !bootstrapped)
+                  dr << info << "consider explicitly specifying src_base "
+                     << "for " << tn;
+              }
             }
 
             // The default meta-operation is perform. The default
@@ -649,7 +722,7 @@ main (int argc, char* argv[])
 
             d.normalize ();
 
-            mif->match (act, target_key {ti, &d, &tn.value, &e}, l, tgs);
+            mif->match (act, rs, target_key {ti, &d, &tn.value, &e}, l, tgs);
           }
         }
 
@@ -662,8 +735,6 @@ main (int argc, char* argv[])
 
         level4 ([&]{trace << "end operation batch " << oif->name
                           << ", id " << static_cast<uint16_t> (oid);});
-
-        //@@ operation batch_post
       }
 
       if (mif->meta_operation_post != nullptr)
@@ -677,9 +748,11 @@ main (int argc, char* argv[])
   {
     return 1; // Diagnostics has already been issued.
   }
+  /*
   catch (const std::exception& e)
   {
     error << e.what ();
     return 1;
   }
+  */
 }

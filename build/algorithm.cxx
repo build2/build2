@@ -7,7 +7,6 @@
 #include <memory>   // unique_ptr
 #include <utility>  // move
 #include <cassert>
-#include <system_error>
 
 #include <build/path>
 #include <build/scope>
@@ -16,7 +15,6 @@
 #include <build/rule>
 #include <build/search>
 #include <build/utility>
-#include <build/filesystem>
 #include <build/diagnostics>
 
 using namespace std;
@@ -168,6 +166,41 @@ namespace build
     }
   }
 
+  void
+  inject_parent_fsdir (action a, target& t)
+  {
+    tracer trace ("inject_parent_fsdir");
+
+    scope& s (scopes.find (t.dir));
+
+    if (auto v = s["out_root"]) // Could be outside any project.
+    {
+      const path& out_root (v.as<const path&> ());
+
+      // If t is a directory (name is empty), say foo/bar/, then
+      // t is bar and its parent directory is foo/.
+      //
+      const path& d (t.name.empty () ? t.dir.directory () : t.dir);
+
+      if (d.sub (out_root) && d != out_root)
+      {
+        level5 ([&]{trace << "injecting prerequisite for " << t;});
+
+        prerequisite& pp (
+          s.prerequisites.insert (
+            fsdir::static_type,
+            d,
+            string (),
+            nullptr,
+            s,
+            trace).first);
+
+        t.prerequisites.push_back (pp);
+        match (a, search (pp));
+      }
+    }
+  }
+
   target_state
   execute_impl (action a, target& t)
   {
@@ -292,36 +325,8 @@ namespace build
     // prerequisites.
     //
     file& ft (dynamic_cast<file&> (t));
-    const path& f (ft.path ());
 
-    rmfile_status rs;
-
-    // We don't want to print the command if we couldn't delete the
-    // file because it does not exist (just like we don't print the
-    // update command if the file is up to date). This makes the
-    // below code a bit ugly.
-    //
-    try
-    {
-      rs = try_rmfile (f);
-    }
-    catch (const system_error& e)
-    {
-      if (verb >= 1)
-        text << "rm " << f.string ();
-      else
-        text << "rm " << t;
-
-      fail << "unable to delete file " << f.string () << ": " << e.what ();
-    }
-
-    if (rs == rmfile_status::success)
-    {
-      if (verb >= 1)
-        text << "rm " << f.string ();
-      else
-        text << "rm " << t;
-    }
+    bool r (rmfile (ft.path (), ft) == rmfile_status::success);
 
     // Update timestamp in case there are operations after us that
     // could use the information.
@@ -335,6 +340,6 @@ namespace build
     if (!t.prerequisites.empty ())
       ts = reverse_execute_prerequisites (a, t);
 
-    return rs == rmfile_status::success ? target_state::changed : ts;
+    return r ? target_state::changed : ts;
   }
 }

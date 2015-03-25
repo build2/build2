@@ -277,7 +277,11 @@ namespace build
               targets.insert (
                 *ti, move (tn.dir), move (tn.value), e, trace).first);
 
-            t.prerequisites = ps; //@@ OPT: move if last target.
+            //@@ OPT: move if last/single target (common cases).
+            //
+            t.prerequisites.insert (t.prerequisites.end (),
+                                    ps.begin (),
+                                    ps.end ());
 
             if (default_target_ == nullptr)
               default_target_ = &t;
@@ -408,9 +412,8 @@ namespace build
 
       // See if there is a trigger for this path.
       //
-      if (src_root_ != nullptr && p.sub (*src_root_))
       {
-        auto i (root_->triggers.find (p.leaf (*src_root_)));
+        auto i (root_->triggers.find (p));
 
         if (i != root_->triggers.end () && !i->second (*root_, p))
         {

@@ -7,6 +7,7 @@
 #include <utility>      // move()
 #include <system_error>
 
+#include <build/scope>
 #include <build/algorithm>
 #include <build/diagnostics>
 #include <build/timestamp>
@@ -78,9 +79,7 @@ namespace build
         return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
       }
     default:
-      {
-        return &t;
-      }
+      return &t;
     }
   }
 
@@ -156,13 +155,15 @@ namespace build
   apply (action a, target& t, void*) const
   {
     // When cleaning, ignore prerequisites that are not in the same
-    // or a subdirectory of ours.
+    // or a subdirectory of ours. For default, we don't do anything
+    // other than letting our prerequisites do their thing.
     //
     switch (a.operation ())
     {
+    case default_id:
     case update_id: search_and_match (a, t); break;
-    case clean_id:  search_and_match (a, t, t.dir); break;
-    default:        assert (false);
+    case clean_id: search_and_match (a, t, t.dir); break;
+    default: assert (false);
     }
 
     return default_recipe;
@@ -181,29 +182,34 @@ namespace build
   {
     switch (a.operation ())
     {
+    // For default, we don't do anything other than letting our
+    // prerequisites do their thing.
+    //
+    case default_id:
     case update_id:
-      {
-        search_and_match (a, t);
-        break;
-      }
+      search_and_match (a, t);
+      break;
+    // For clean, ignore prerequisites that are not in the same or a
+    // subdirectory of ours (if t.dir is foo/bar/, then "we" are bar
+    // and our directory is foo/). Just meditate on it a bit and you
+    // will see the light.
+    //
     case clean_id:
-      {
-        // Ignore prerequisites that are not in the same or a subdirectory
-        // of ours (if t.dir is foo/bar/, then "we" are bar and our directory
-        // is foo/). Just meditate on it a bit and you will see the light.
-        //
-        search_and_match (a, t, t.dir.root () ? t.dir : t.dir.directory ());
-        break;
-      }
+      search_and_match (a, t, t.dir.root () ? t.dir : t.dir.directory ());
+      break;
     default:
       assert (false);
     }
+
+    // Inject dependency on the parent directory.
+    //
+    inject_parent_fsdir (a, t);
 
     switch (a)
     {
     case perform_update_id: return &perform_update;
     case perform_clean_id: return &perform_clean;
-    default: return noop_recipe;
+    default: return default_recipe; // Forward to prerequisites.
     }
   }
 
@@ -220,6 +226,11 @@ namespace build
 
     const path& d (t.dir); // Everything is in t.dir.
 
+    // Generally, it is probably correct to assume that in the majority
+    // of cases the directory will already exist. If so, then we are
+    // going to get better performance by first checking if it indeed
+    // exists. See try_mkdir() for details.
+    //
     if (!dir_exists (d))
     {
       if (verb >= 1)
@@ -229,7 +240,7 @@ namespace build
 
       try
       {
-        mkdir (d);
+        try_mkdir (d);
       }
       catch (const system_error& e)
       {
@@ -249,53 +260,7 @@ namespace build
     // The reverse order of update: first delete this directory,
     // then clean prerequisites (e.g., delete parent directories).
     //
-    const path& d (t.dir); // Everything is in t.dir.
-    bool w (d == work); // Don't try to delete working directory.
-
-    rmdir_status rs;
-
-    // We don't want to print the command if we couldn't delete the
-    // directory because it does not exist (just like we don't print
-    // mkdir if it already exists) or if it is not empty. This makes
-    // the below code a bit ugly.
-    //
-    try
-    {
-      rs = !w ? try_rmdir (d) : rmdir_status::not_empty;
-    }
-    catch (const system_error& e)
-    {
-      if (verb >= 1)
-        text << "rmdir " << d.string ();
-      else
-        text << "rmdir " << t;
-
-      fail << "unable to delete directory " << d.string () << ": "
-           << e.what ();
-    }
-
-    switch (rs)
-    {
-    case rmdir_status::success:
-      {
-        if (verb >= 1)
-          text << "rmdir " << d.string ();
-        else
-          text << "rmdir " << t;
-
-        break;
-      }
-    case rmdir_status::not_empty:
-      {
-        if (verb >= 1)
-          text << "directory " << d.string () << " is "
-               << (w ? "cwd" : "not empty") << ", not removing";
-
-        break;
-      }
-    case rmdir_status::not_exist:
-      break;
-    }
+    rmdir_status rs (rmdir (t.dir, t));
 
     target_state ts (target_state::unchanged);
 

@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include <build/scope>
+#include <build/target>
 #include <build/variable>
 #include <build/diagnostics>
 
@@ -16,6 +17,28 @@ using namespace std;
 
 namespace build
 {
+  void
+  dump ()
+  {
+    cout << endl;
+
+    for (const auto& pt: targets)
+    {
+      target& t (*pt);
+
+      cout << t << ':';
+
+      for (const auto& p: t.prerequisites)
+      {
+        cout << ' ' << p;
+      }
+
+      cout << endl;
+    }
+
+    cout << endl;
+  }
+
   static void
   dump_scope (scope& p, scope_map::iterator& i, string& ind)
   {

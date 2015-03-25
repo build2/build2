@@ -135,6 +135,7 @@ namespace build
                   const location&);
 
     void (*match) (action,
+                   scope& root,
                    const target_key&,
                    const location&,
                    action_targets&);
@@ -167,7 +168,7 @@ namespace build
   // that does just that and adds a pointer to the target to the list.
   //
   void
-  match (action, const target_key&, const location&, action_targets&);
+  match (action, scope&, const target_key&, const location&, action_targets&);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate

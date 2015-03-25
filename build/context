@@ -11,10 +11,12 @@
 #include <build/path>
 #include <build/rule>
 #include <build/operation>
+#include <build/filesystem>
 
 namespace build
 {
   class scope;
+  class file;
 
   extern path work;
   extern path home;
@@ -23,6 +25,41 @@ namespace build
   //
   extern execution_mode current_mode;
   extern const target_rule_map* current_rules;
+
+  // Reset the dependency state. In particular, this removes all the
+  // targets, scopes, and variable names.
+  //
+  void
+  reset ();
+
+  // Create the directory and print the standard diagnostics. Note that
+  // this implementation is not suitable if it is expected that the
+  // directory will exist in the majority of case and performance is
+  // important. See the fsdir{} rule for details.
+  //
+  mkdir_status
+  mkdir (const path&);
+
+  // Remove the file and print the standard diagnostics. The second
+  // argument is only used in diagnostics, to print the target name.
+  // Passing the path for target will result in the relative path
+  // being printed.
+  //
+  template <typename T>
+  rmfile_status
+  rmfile (const path&, const T& target);
+
+  inline rmfile_status
+  rmfile (const path& f) {return rmfile (f, f);}
+
+  // Similar to rmfile() but for directories.
+  //
+  template <typename T>
+  rmdir_status
+  rmdir (const path&, const T& target);
+
+  inline rmdir_status
+  rmdir (const path& d) {return rmdir (d, d);}
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
@@ -45,5 +82,7 @@ namespace build
   path
   relative_work (const path&);
 }
+
+#include <build/context.txx>
 
 #endif // BUILD_CONTEXT

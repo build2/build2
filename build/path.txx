@@ -84,10 +84,10 @@ namespace build
     if (n == 0)
       return *this;
 
-    size_type m (path_.size ());
-
-    if (m < n || path_.compare (0, n, d.path_) != 0)
+    if (!sub (d))
       throw invalid_basic_path<C> (path_);
+
+    size_type m (path_.size ());
 
     if (n != m
 #ifndef _WIN32
@@ -108,10 +108,10 @@ namespace build
     if (n == 0)
       return *this;
 
-    size_type m (path_.size ());
-
-    if (m < n || path_.compare (m - n, n, l.path_) != 0)
+    if (!sup (l))
       throw invalid_basic_path<C> (path_);
+
+    size_type m (path_.size ());
 
     if (n != m)
       n++; // Skip the directory separator.

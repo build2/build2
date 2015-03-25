@@ -37,6 +37,13 @@ namespace build
   void
   search_and_match (action, target&, const path& dir);
 
+  // Inject dependency on the parent directory fsdir{}, unless it is
+  // the project's out_root (or is outside of any project; think, for
+  // example, install directories).
+  //
+  void
+  inject_parent_fsdir (action, target&);
+
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set.
   //

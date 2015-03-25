@@ -31,7 +31,9 @@ namespace build
     scope*
     parent () const {return parent_;}
 
-    // Variable lookup.
+    // Variable lookup. Note that this find, not find or insert like
+    // in the variable_map, because we also search in outer scopes.
+    // For the latter use the variables map directly.
     //
   public:
     value_proxy
@@ -72,13 +74,12 @@ namespace build
     std::unordered_set<path_type> buildfiles;
 
     // A map of buildfiles to trigger functions that are executed when
-    // such files are sourced. The path is is assumed to be relative to
-    // the src directory corresponding to this scope.
+    // such files are sourced. The path must be absolute and normalized.
     //
-    // The passed path is the actual, absolute buildfile path. If the
-    // returned value is true, then the file is sourced. If false --
-    // the file is ignored. Note that currently triggers can only be
-    // registered on the project root scope.
+    // The passed path is the buildfile. If the returned value is true,
+    // then the file is sourced. If false -- the file is ignored. Note
+    // that currently triggers can only be registered on the project's
+    // root scope.
     //
     using trigger_type = std::function<bool (scope&, const path_type&)>;
     std::unordered_map<path_type, trigger_type> triggers;
