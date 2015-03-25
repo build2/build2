@@ -318,14 +318,25 @@ main (int argc, char* argv[])
           path out_base (tn.dir);
           if (out_base.empty ())
           {
-            // See if there is a directory part in value. We cannot
-            // assume it is a valid filesystem name so we will have
-            // to do the splitting manually.
-            //
-            path::size_type i (path::traits::rfind_separator (tn.value));
+            const string& v (tn.value);
 
-            if (i != string::npos)
-              out_base = path (tn.value, i != 0 ? i : 1); // Special case: "/".
+            // Handle a few common cases as special: empty name, '.',
+            // '..', as well as dir{foo/bar} (without trailing '/').
+            // This code must be consistent with target_type_map::find().
+            //
+            if (v.empty () || v == "." || v == ".." || tn.type == "dir")
+              out_base = path (v);
+            else
+            {
+              // See if there is a directory part in value. We cannot
+              // assume it is a valid filesystem name so we will have
+              // to do the splitting manually.
+              //
+              path::size_type i (path::traits::rfind_separator (v));
+
+              if (i != string::npos)
+                out_base = path (v, i != 0 ? i : 1); // Special case: "/".
+            }
           }
 
           if (out_base.relative ())
