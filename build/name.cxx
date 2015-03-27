@@ -24,7 +24,7 @@ namespace build
 
     if (!n.dir.empty ())
     {
-      string s (diag_relative_work (n.dir));
+      string s (diag_relative (n.dir));
 
       // If both type and value are empty, there will be nothing printed.
       //

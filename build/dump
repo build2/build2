@@ -9,9 +9,6 @@ namespace build
 {
   void
   dump ();
-
-  void
-  dump_scopes ();
 }
 
 #endif // BUILD_DUMP

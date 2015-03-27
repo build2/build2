@@ -4,6 +4,7 @@
 
 #include <build/dump>
 
+#include <set>
 #include <string>
 #include <cassert>
 #include <iostream>
@@ -11,53 +12,54 @@
 #include <build/scope>
 #include <build/target>
 #include <build/variable>
+#include <build/context>
 #include <build/diagnostics>
 
 using namespace std;
 
 namespace build
 {
-  void
-  dump ()
+  static void
+  dump_target (const target& t)
   {
-    cout << endl;
+    cerr << t << ':';
 
-    for (const auto& pt: targets)
+    for (const prerequisite& p: t.prerequisites)
     {
-      target& t (*pt);
-
-      cout << t << ':';
-
-      for (const auto& p: t.prerequisites)
-      {
-        cout << ' ' << p;
-      }
-
-      cout << endl;
+      cerr << ' ' << p;
     }
-
-    cout << endl;
   }
 
   static void
-  dump_scope (scope& p, scope_map::iterator& i, string& ind)
+  dump_scope (scope& p,
+              scope_map::iterator& i,
+              string& ind,
+              set<const target*>& rts)
   {
-    string d (diag_relative_work (p.path ()));
+    string d (diag_relative (p.path ()));
 
     if (d.back () != path::traits::directory_separator)
       d += '/';
 
     cerr << ind << d << ":" << endl
-         << ind << '{' << endl;
+         << ind << '{';
+
+    const path* orb (relative_base);
+    relative_base = &p.path ();
 
     ind += "  ";
 
+    bool vb (false), sb (false); // Variable/scope block.
+
+    // Variables.
+    //
     for (const auto& e: p.variables)
     {
       const variable& var (e.first);
       const value_ptr& val (e.second);
 
-      cerr << ind << var.name << " = ";
+      cerr << endl
+           << ind << var.name << " = ";
 
       if (val == nullptr)
         cerr << "[undefined]";
@@ -68,28 +70,90 @@ namespace build
         cerr << dynamic_cast<list_value&> (*val).data;
       }
 
-      cerr << endl;
+      vb = true;
     }
 
-    // Print nested scopes of which we are a parent.
+    // Nested scopes of which we are a parent.
     //
     for (auto e (scopes.end ()); i != e && i->second.parent () == &p; )
     {
+      if (vb)
+      {
+        cerr << endl;
+        vb = false;
+      }
+
+      if (sb)
+        cerr << endl; // Extra newline between scope blocks.
+
+      cerr << endl;
       scope& s (i->second);
-      dump_scope (s, ++i, ind);
+      dump_scope (s, ++i, ind, rts);
+
+      sb = true;
+    }
+
+    // Targets.
+    //
+    for (const auto& pt: targets)
+    {
+      const target& t (*pt);
+      const scope* ts (&scopes.find (t.dir));
+
+      bool f (false);
+
+      if (ts == &p)
+      {
+        // If this is the ultimate root scope, check that this target
+        // hasn't been handled by the src logic below.
+        //
+        f = (ts != root_scope || rts.find (&t) == rts.end ());
+      }
+      // If this target is in the ultimate root scope and we have a
+      // corresponding src directory (i.e., we are a scope inside a
+      // project), check whether this target is in our src.
+      //
+      else if (ts == root_scope && p.src_path_ != nullptr)
+      {
+        if (t.dir.sub (p.src_path ()))
+        {
+          // Check that it hasn't already been handled by a more qualified
+          // scope.
+          //
+          f = rts.insert (&t).second;
+        }
+      }
+
+      if (!f)
+        continue;
+
+      if (vb || sb)
+      {
+        cerr << endl;
+        vb = sb = false;
+      }
+
+      cerr << endl
+           << ind;
+      dump_target (t);
     }
 
     ind.resize (ind.size () - 2);
-    cerr << ind << '}' << endl;
+    relative_base = orb;
+
+    cerr << endl
+         << ind << '}';
   }
 
   void
-  dump_scopes ()
+  dump ()
   {
     string ind;
+    set<const target*> rts;
     auto i (scopes.begin ());
     scope& r (i->second); // Root scope.
     assert (&r == root_scope);
-    dump_scope (r, ++i, ind);
+    dump_scope (r, ++i, ind, rts);
+    cerr << endl;
   }
 }

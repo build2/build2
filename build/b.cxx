@@ -144,7 +144,7 @@ main (int argc, char* argv[])
 
     // Trace verbosity.
     //
-    verb = 4;
+    verb = 5;
 
     // Register modules.
     //

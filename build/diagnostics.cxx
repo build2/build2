@@ -14,11 +14,13 @@ using namespace std;
 namespace build
 {
   string
-  diag_relative_work (const path& p)
+  diag_relative (const path& p)
   {
+    const path& b (*relative_base);
+
     if (p.absolute ())
     {
-      if (p == work)
+      if (p == b)
         return ".";
 
 #ifndef _WIN32
@@ -26,26 +28,26 @@ namespace build
         return "~";
 #endif
 
-      path rw (relative_work (p));
+      path rb (relative (p));
 
 #ifndef _WIN32
-      if (rw.relative ())
+      if (rb.relative ())
       {
         // See if the original path with the ~/ shortcut is better
-        // that the relative to work.
+        // that the relative to base.
         //
         if (p.sub (home))
         {
           path rh (p.leaf (home));
-          if (rw.string ().size () > rh.string ().size () + 2) // 2 for '~/'
+          if (rb.string ().size () > rh.string ().size () + 2) // 2 for '~/'
             return "~/" + rh.string ();
         }
       }
-      else if (rw.sub (home))
-        return "~/" + rw.leaf (home).string ();
+      else if (rb.sub (home))
+        return "~/" + rb.leaf (home).string ();
 #endif
 
-      return rw.string ();
+      return rb.string ();
     }
 
     return p.string ();

@@ -28,7 +28,7 @@ namespace build
       //
       if (!p.dir.absolute ())
       {
-        string s (diag_relative_work (p.scope.path ()));
+        string s (diag_relative (p.scope.path ()));
 
         if (s != ".")
         {
@@ -45,7 +45,7 @@ namespace build
       //
       if (!p.dir.empty ())
       {
-        string s (diag_relative_work (p.dir));
+        string s (diag_relative (p.dir));
 
         if (s != ".")
         {

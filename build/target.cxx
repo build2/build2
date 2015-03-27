@@ -116,7 +116,7 @@ namespace build
 
     if (!k.dir->empty ())
     {
-      string s (diag_relative_work (*k.dir));
+      string s (diag_relative (*k.dir));
 
       if (s != ".")
       {

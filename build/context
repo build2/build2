@@ -77,10 +77,18 @@ namespace build
   out_src (const path& src, const path& out_root, const path& src_root);
 
   // If possible and beneficial, translate an absolute, normalized path
-  // into relative to the work directory.
+  // into relative to the relative_base directory, which is normally
+  // work.
   //
   path
-  relative_work (const path&);
+  relative (const path&);
+
+  // By default this points to work. Setting this to something else
+  // should only be done in tightly controlled, non-parallel
+  // situations (see dump). If base is empty, then relative()
+  // returns the original path.
+  //
+  extern const path* relative_base;
 }
 
 #include <build/context.txx>

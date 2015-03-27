@@ -17,7 +17,7 @@ namespace build
   {
     if (!s.src_base.empty ())
     {
-      string d (diag_relative_work (s.src_base));
+      string d (diag_relative (s.src_base));
 
       if (d != ".")
       {

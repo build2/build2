@@ -40,7 +40,7 @@ namespace build
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
-    string rw (diag_relative_work (p));
+    string rw (diag_relative (p)); // Relative to work.
     path_ = &rw;
 
     lexer l (is, rw);
@@ -431,7 +431,7 @@ namespace build
 
       level4 ([&]{trace (t) << "entering " << p;});
 
-      string rw (diag_relative_work (p));
+      string rw (diag_relative (p)); // Relative to work.
       const string* op (path_);
       path_ = &rw;
 
@@ -558,7 +558,7 @@ namespace build
 
       level4 ([&]{trace (t) << "entering " << p;});
 
-      string rw (diag_relative_work (p));
+      string rw (diag_relative (p)); // Relative to work.
       const string* op (path_);
       path_ = &rw;
 

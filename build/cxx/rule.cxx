@@ -282,8 +282,8 @@ namespace build
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path ro (relative_work (o.path ()));
-      path rs (relative_work (s->path ()));
+      path ro (relative (o.path ()));
+      path rs (relative (s->path ()));
 
       const char* args[] = {
         "g++-4.9",
@@ -580,7 +580,7 @@ namespace build
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path re (relative_work (e.path ()));
+      path re (relative (e.path ()));
       vector<path> ro;
 
       vector<const char*> args {"g++-4.9", "-std=c++14", "-g", "-o"};
@@ -591,7 +591,7 @@ namespace build
       {
         if (const obj* o = dynamic_cast<const obj*> (p.target))
         {
-          ro.push_back (relative_work (o->path ()));
+          ro.push_back (relative (o->path ()));
           args.push_back (ro.back ().string ().c_str ());
         }
       }

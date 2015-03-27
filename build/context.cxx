@@ -106,13 +106,20 @@ namespace build
     return out_root / s.leaf (src_root);
   }
 
-  path
-  relative_work (const path& p)
-  {
-    if (p.sub (work))
-      return p.leaf (work);
+  const path* relative_base = &work;
 
-    // If work is a sub-path of {src,out}_root and this path is also a
+  path
+  relative (const path& p)
+  {
+    const path& b (*relative_base);
+
+    if (b.empty ())
+      return p;
+
+    if (p.sub (b))
+      return p.leaf (b);
+
+    // If base is a sub-path of {src,out}_root and this path is also a
     // sub-path of it, then use '..' to form a relative path.
     //
     // Don't think this is a good heuristic. For example, why shouldn't
@@ -125,9 +132,9 @@ namespace build
       return p.relative (work);
     */
 
-    if (p.root_directory () == work.root_directory ())
+    if (p.root_directory () == b.root_directory ())
     {
-      path r (p.relative (work));
+      path r (p.relative (b));
 
       if (r.string ().size () < p.string ().size ())
         return r;

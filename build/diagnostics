@@ -23,17 +23,17 @@ namespace build
   //
   class failed: public std::exception {};
 
-  // In addition to calling relative_work(), this function also uses
-  // shorter notations such as '~/'. If the path is the same as work,
-  // it returns '.'.
+  // In addition to calling relative(), this function also uses shorter
+  // notations such as '~/'. If the path is the same as base, it returns
+  // '.'.
   //
   std::string
-  diag_relative_work (const path&);
+  diag_relative (const path&);
 
   inline std::ostream&
   operator<< (std::ostream& os, const path& p)
   {
-    return os << diag_relative_work (p);
+    return os << diag_relative (p);
   }
 
   // Print process commmand line.
