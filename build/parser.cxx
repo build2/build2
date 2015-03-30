@@ -27,11 +27,6 @@ using namespace std;
 
 namespace build
 {
-  // Output the token type and value in a format suitable for diagnostics.
-  //
-  ostream&
-  operator<< (ostream&, const token&);
-
   static location
   get_location (const token&, const void*);
 
@@ -68,6 +63,21 @@ namespace build
       fail (t) << "unexpected " << t;
 
     process_default_target (t);
+  }
+
+  token parser::
+  parse_variable (lexer& l, scope& s, string name, token_type kind)
+  {
+    path_ = &l.name ();
+    lexer_ = &l;
+    scope_ = &s;
+
+    token t (type::eos, false, 0, 0);
+    type tt;
+    next (t, tt);
+
+    variable (t, tt, name, kind);
+    return t;
   }
 
   void parser::
@@ -305,21 +315,11 @@ namespace build
       //
       if (tt == type::equal || tt == type::plus_equal)
       {
-        bool assign (tt == type::equal);
-
         // LHS should be a single, simple name.
         //
         if (ns.size () != 1 || !ns[0].type.empty () || !ns[0].dir.empty ())
           fail (t) << "variable name expected before " << t;
 
-        next (t, tt);
-
-        names_type vns (tt != type::newline && tt != type::eos
-                        ? names (t, tt)
-                        : names_type ());
-
-        // Enter the variable.
-        //
         string name;
         if (ns[0].value.front () == '.') // Fully qualified name.
           name.assign (ns[0].value, 1, string::npos);
@@ -327,48 +327,9 @@ namespace build
           //@@ TODO: append namespace if any.
           name = move (ns[0].value);
 
-        const variable& var (variable_pool.find (move (name)));
-
-        if (assign)
-        {
-          value_ptr& val (scope_->variables[var]);
-
-          if (val == nullptr) // Initialization.
-          {
-            val.reset (new list_value (*scope_, move (vns)));
-          }
-          else // Assignment.
-          {
-            //@@ TODO: assuming it is a list.
-            //
-            dynamic_cast<list_value&> (*val).data = move (vns);
-          }
-        }
-        else
-        {
-          if (auto val = (*scope_)[var])
-          {
-            //@@ TODO: assuming it is a list.
-            //
-            list_value* lv (&val.as<list_value&> ());
-
-            if (&lv->scope != scope_) // Append to value from parent scope?
-            {
-              list_value_ptr nval (new list_value (*scope_, lv->data));
-              lv = nval.get (); // Append to.
-              scope_->variables.emplace (var, move (nval));
-            }
-
-            lv->data.insert (lv->data.end (),
-                             make_move_iterator (vns.begin ()),
-                             make_move_iterator (vns.end ()));
-          }
-          else // Initialization.
-          {
-            list_value_ptr nval (new list_value (*scope_, move (vns)));
-            scope_->variables.emplace (var, move (nval));
-          }
-        }
+        type kind (tt);
+        next (t, tt);
+        variable (t, tt, move (name), kind);
 
         if (tt == type::newline)
           next (t, tt);
@@ -648,6 +609,61 @@ namespace build
   }
 
   void parser::
+  variable (token& t, token_type& tt, string name, token_type kind)
+  {
+    bool assign (kind == type::equal);
+
+    names_type vns (tt != type::newline && tt != type::eos
+                    ? names (t, tt)
+                    : names_type ());
+
+    // Enter the variable.
+    //
+    const auto& var (variable_pool.find (move (name)));
+
+    if (assign)
+    {
+      value_ptr& val (scope_->variables[var]);
+
+      if (val == nullptr) // Initialization.
+      {
+        val.reset (new list_value (*scope_, move (vns)));
+      }
+      else // Assignment.
+      {
+        //@@ TODO: assuming it is a list.
+        //
+        dynamic_cast<list_value&> (*val).data = move (vns);
+      }
+    }
+    else
+    {
+      if (auto val = (*scope_)[var])
+      {
+        //@@ TODO: assuming it is a list.
+        //
+        list_value* lv (&val.as<list_value&> ());
+
+        if (&lv->scope != scope_) // Append to value from parent scope?
+        {
+          list_value_ptr nval (new list_value (*scope_, lv->data));
+          lv = nval.get (); // Append to.
+          scope_->variables.emplace (var, move (nval));
+        }
+
+        lv->data.insert (lv->data.end (),
+                         make_move_iterator (vns.begin ()),
+                         make_move_iterator (vns.end ()));
+      }
+      else // Initialization.
+      {
+        list_value_ptr nval (new list_value (*scope_, move (vns)));
+        scope_->variables.emplace (var, move (nval));
+      }
+    }
+  }
+
+  void parser::
   names (token& t,
          type& tt,
          names_type& ns,
@@ -830,7 +846,7 @@ namespace build
           //@@ TODO: append namespace if any.
           n = t.name ();
 
-        const variable& var (variable_pool.find (move (n)));
+        const auto& var (variable_pool.find (move (n)));
         auto val ((*scope_)[var]);
 
         // Undefined namespaces variables are not allowed.
@@ -1288,29 +1304,5 @@ namespace build
     assert (data != nullptr);
     const string& p (**static_cast<const string* const*> (data));
     return location (p.c_str (), t.line (), t.column ());
-  }
-
-  // Output the token type and value in a format suitable for diagnostics.
-  //
-  ostream&
-  operator<< (ostream& os, const token& t)
-  {
-    switch (t.type ())
-    {
-    case token_type::eos:            os << "<end-of-file>"; break;
-    case token_type::newline:        os << "<newline>"; break;
-    case token_type::pair_separator: os << "<pair separator>"; break;
-    case token_type::colon:          os << ":"; break;
-    case token_type::lcbrace:        os << "{"; break;
-    case token_type::rcbrace:        os << "}"; break;
-    case token_type::equal:          os << "="; break;
-    case token_type::plus_equal:     os << "+="; break;
-    case token_type::dollar:         os << "$"; break;
-    case token_type::lparen:         os << "("; break;
-    case token_type::rparen:         os << ")"; break;
-    case token_type::name:           os << t.name (); break;
-    }
-
-    return os;
   }
 }

@@ -12,7 +12,6 @@
 
 #include <sstream>
 #include <cassert>
-#include <iostream> //@@ TMP, for dump()
 #include <typeinfo>
 #include <system_error>
 
@@ -32,6 +31,9 @@
 #include <build/context>
 #include <build/utility>
 #include <build/filesystem>
+
+#include <build/token>
+#include <build/lexer>
 #include <build/parser>
 
 using namespace std;
@@ -223,6 +225,40 @@ main (int argc, char* argv[])
     //
     reset ();
 
+    // Parse command line variables. They should come before the
+    // buildspec.
+    //
+    int argi (1);
+    for (; argi != argc; argi++)
+    {
+      const char* s (argv[argi]);
+
+      istringstream is (s);
+      is.exceptions (istringstream::failbit | istringstream::badbit);
+      lexer l (is, "<cmdline>");
+      token t (l.next ());
+
+      if (t.type () == token_type::eos)
+        continue; // Whitespace-only argument.
+
+      // Unless this is a name followed by = or +=, assume it is
+      // a start of the buildspec.
+      //
+      if (t.type () != token_type::name)
+        break;
+
+      token_type tt (l.next ().type ());
+
+      if (tt != token_type::equal && tt != token_type::plus_equal)
+        break;
+
+      parser p;
+      t = p.parse_variable (l, *root_scope, t.name (), tt);
+
+      if (t.type () != token_type::eos)
+        fail << "unexpected " << t << " in variable " << s;
+    }
+
     // Parse the buildspec.
     //
     buildspec bspec;
@@ -235,10 +271,10 @@ main (int argc, char* argv[])
       // which argument is invalid).
       //
       string s;
-      for (int i (1); i != argc;)
+      for (; argi != argc;)
       {
-        s += argv[i];
-        if (++i != argc)
+        s += argv[argi];
+        if (++argi != argc)
           s += ' ';
       }
 

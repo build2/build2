@@ -33,6 +33,9 @@ namespace build
     buildspec
     parse_buildspec (std::istream&, const std::string& name);
 
+    token
+    parse_variable (lexer&, scope&, std::string name, token_type kind);
+
     // Recursive descent parser.
     //
   private:
@@ -52,6 +55,9 @@ namespace build
 
     void
     using_ (token&, token_type&);
+
+    void
+    variable (token&, token_type&, std::string name, token_type kind);
 
     names_type
     names (token& t, token_type& tt)

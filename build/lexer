@@ -30,6 +30,9 @@ namespace build
   public:
     lexer (std::istream& is, const std::string& name): is_ (is), fail (name) {}
 
+    const std::string&
+    name () const {return fail.name_;}
+
     // Note: sets mode for the next token. If mode is pairs, then
     // the second argument specifies the separator character.
     //
