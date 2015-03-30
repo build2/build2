@@ -976,7 +976,7 @@ namespace build
 
       // A pair separator (only in the pair mode).
       //
-      if (tt == type::equal && lexer_->mode () == lexer_mode::pairs)
+      if (tt == type::pair_separator)
       {
         if (pair != 0)
           fail (t) << "nested pair on the right hand side of a pair";
@@ -1043,9 +1043,10 @@ namespace build
     lexer_ = &l;
     scope_ = root_ = root_scope;
 
-    // Turn on pairs recognition (e.g., src_root/=out_root/exe{foo bar}).
+    // Turn on pairs recognition with '@' as the pair separator (e.g.,
+    // src_root/@out_root/exe{foo bar}).
     //
-    lexer_->mode (lexer_mode::pairs);
+    lexer_->mode (lexer_mode::pairs, '@');
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -1084,9 +1085,9 @@ namespace build
       // We always start with one or more names.
       //
       if (tt != type::name    &&
-          tt != type::lcbrace && // Untyped name group: '{foo ...'
-          tt != type::dollar  && // Variable expansion: '$foo ...'
-          tt != type::equal)     // Empty pair LHS: '=foo ...'
+          tt != type::lcbrace &&      // Untyped name group: '{foo ...'
+          tt != type::dollar  &&      // Variable expansion: '$foo ...'
+          tt != type::pair_separator) // Empty pair LHS: '=foo ...'
         fail (t) << "operation or target expected instead of " << t;
 
       location l (get_location (t, &path_)); // Start of names.
@@ -1296,17 +1297,18 @@ namespace build
   {
     switch (t.type ())
     {
-    case token_type::eos:        os << "<end-of-file>"; break;
-    case token_type::newline:    os << "<newline>"; break;
-    case token_type::colon:      os << ":"; break;
-    case token_type::lcbrace:    os << "{"; break;
-    case token_type::rcbrace:    os << "}"; break;
-    case token_type::equal:      os << "="; break;
-    case token_type::plus_equal: os << "+="; break;
-    case token_type::dollar:     os << "$"; break;
-    case token_type::lparen:     os << "("; break;
-    case token_type::rparen:     os << ")"; break;
-    case token_type::name:       os << t.name (); break;
+    case token_type::eos:            os << "<end-of-file>"; break;
+    case token_type::newline:        os << "<newline>"; break;
+    case token_type::pair_separator: os << "<pair separator>"; break;
+    case token_type::colon:          os << ":"; break;
+    case token_type::lcbrace:        os << "{"; break;
+    case token_type::rcbrace:        os << "}"; break;
+    case token_type::equal:          os << "="; break;
+    case token_type::plus_equal:     os << "+="; break;
+    case token_type::dollar:         os << "$"; break;
+    case token_type::lparen:         os << "("; break;
+    case token_type::rparen:         os << ")"; break;
+    case token_type::name:           os << t.name (); break;
     }
 
     return os;

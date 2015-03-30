@@ -64,6 +64,11 @@ namespace build
       }
     }
 
+    // Handle pair separator.
+    //
+    if (mode_ == lexer_mode::pairs && c == pair_separator_)
+      return token (token_type::pair_separator, sep, ln, cn);
+
     // The following characters are not treated as special in the
     // value or pairs mode.
     //
@@ -85,26 +90,9 @@ namespace build
           next_mode_ = lexer_mode::value;
           return token (token_type::plus_equal, sep, ln, cn);
         }
-      }
-    }
-
-    // The following characters are not treated as special in the
-    // value mode.
-    //
-    if (mode_ != lexer_mode::value)
-    {
-      // NOTE: remember to update name() if adding new punctuations.
-      //
-      switch (c)
-      {
       case '=':
         {
-          // Unless we are already in the pairs mode, switch to the
-          // value mode.
-          //
-          if (next_mode_ != lexer_mode::pairs)
-            next_mode_ = lexer_mode::value;
-
+          next_mode_ = lexer_mode::value;
           return token (token_type::equal, sep, ln, cn);
         }
       }
@@ -126,6 +114,11 @@ namespace build
     {
       bool done (false);
 
+      // Handle pair separator.
+      //
+      if (mode_ == lexer_mode::pairs && c == pair_separator_)
+        break;
+
       // The following characters are not treated as special in the
       // value or pairs mode.
       //
@@ -135,23 +128,6 @@ namespace build
         {
         case ':':
         case '+':
-          {
-            done = true;
-            break;
-          }
-        }
-
-        if (done)
-          break;
-      }
-
-      // The following characters are not treated as special in the
-      // value mode.
-      //
-      if (mode_ != lexer_mode::value)
-      {
-        switch (c)
-        {
         case '=':
           {
             done = true;
