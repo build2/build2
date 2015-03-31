@@ -28,18 +28,18 @@ namespace build
     scopes.clear ();
     variable_pool.clear ();
 
-    // Create root scope. For Win32 we use the empty path since there
-    // is no such "real" root path. On POSIX, however, this is a real
-    // path. See the comment in <build/path-map> for details.
+    // Create global scope. For Win32 we use the empty path since there
+    // is no "real" root path. On POSIX, however, this is a real path.
+    // See the comment in <build/path-map> for details.
     //
 #ifdef _WIN32
-    root_scope = &scopes[path ()];
+    global_scope = &scopes[path ()];
 #else
-    root_scope = &scopes[path ("/")];
+    global_scope = &scopes[path ("/")];
 #endif
 
-    root_scope->variables["work"] = work;
-    root_scope->variables["home"] = home;
+    global_scope->variables["work"] = work;
+    global_scope->variables["home"] = home;
   }
 
   mkdir_status

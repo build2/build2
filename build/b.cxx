@@ -253,7 +253,7 @@ main (int argc, char* argv[])
         break;
 
       parser p;
-      t = p.parse_variable (l, *root_scope, t.name (), tt);
+      t = p.parse_variable (l, *global_scope, t.name (), tt);
 
       if (t.type () != token_type::eos)
         fail << "unexpected " << t << " in variable " << s;

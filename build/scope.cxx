@@ -33,7 +33,7 @@ namespace build
   // scope_map
   //
   scope_map scopes;
-  scope* root_scope;
+  scope* global_scope;
 
   pair<scope&, bool> scope_map::
   insert (const path& k)
@@ -46,7 +46,7 @@ namespace build
       scope* p (nullptr);
 
       // Update scopes of which we are a new parent (unless this is the
-      // root scope).
+      // global scope).
       //
       if (size () > 1)
       {
@@ -102,7 +102,7 @@ namespace build
       if (i != end ())
         return i->second;
 
-      assert (!d.empty ()); // We should have the root scope.
+      assert (!d.empty ()); // We should have the global scope.
     }
   }
 }

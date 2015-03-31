@@ -803,7 +803,7 @@ namespace build
         if (p == n)
         {
           // On Win32 translate the root path to the special empty path.
-          // Search for root_scope for details.
+          // Search for global_scope for details.
           //
 #ifdef _WIN32
           path dir (name != "/" ? path (name) : path ());
@@ -1057,7 +1057,7 @@ namespace build
 
     lexer l (is, name);
     lexer_ = &l;
-    scope_ = root_ = root_scope;
+    scope_ = root_ = global_scope;
 
     // Turn on pairs recognition with '@' as the pair separator (e.g.,
     // src_root/@out_root/exe{foo bar}).

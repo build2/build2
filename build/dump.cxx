@@ -104,16 +104,16 @@ namespace build
 
       if (ts == &p)
       {
-        // If this is the ultimate root scope, check that this target
-        // hasn't been handled by the src logic below.
+        // If this is the global scope, check that this target hasn't
+        // been handled by the src logic below.
         //
-        f = (ts != root_scope || rts.find (&t) == rts.end ());
+        f = (ts != global_scope || rts.find (&t) == rts.end ());
       }
-      // If this target is in the ultimate root scope and we have a
-      // corresponding src directory (i.e., we are a scope inside a
-      // project), check whether this target is in our src.
+      // If this target is in the global scope and we have a corresponding
+      // src directory (i.e., we are a scope inside a project), check
+      // whether this target is in our src.
       //
-      else if (ts == root_scope && p.src_path_ != nullptr)
+      else if (ts == global_scope && p.src_path_ != nullptr)
       {
         if (t.dir.sub (p.src_path ()))
         {
@@ -151,9 +151,9 @@ namespace build
     string ind;
     set<const target*> rts;
     auto i (scopes.begin ());
-    scope& r (i->second); // Root scope.
-    assert (&r == root_scope);
-    dump_scope (r, ++i, ind, rts);
+    scope& g (i->second); // Global scope.
+    assert (&g == global_scope);
+    dump_scope (g, ++i, ind, rts);
     cerr << endl;
   }
 }

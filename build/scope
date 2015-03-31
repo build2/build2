@@ -61,15 +61,15 @@ namespace build
     variable_map variables;
     prerequisite_set prerequisites;
 
-    // Meta/operations supported by this project (set on the project
-    // root scope only).
+    // Meta/operations supported by this project (set on the root
+    // scope only).
     //
     meta_operation_table meta_operations;
     operation_table operations;
 
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against the project's root scope while
-    // imported -- against the overall root scope (root_scope).
+    // imported -- against the global scope (global_scope).
     //
     std::unordered_set<path_type> buildfiles;
 
@@ -93,7 +93,7 @@ namespace build
   {
   public:
     // Note that we assume the first insertion into the map is that
-    // of the root scope.
+    // of the global scope.
     //
     std::pair<scope&, bool>
     insert (const path&);
@@ -111,7 +111,7 @@ namespace build
   };
 
   extern scope_map scopes;
-  extern scope* root_scope;
+  extern scope* global_scope;
 }
 
 #endif // BUILD_SCOPE
