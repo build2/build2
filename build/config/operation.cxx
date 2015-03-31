@@ -65,6 +65,56 @@ namespace build
     }
 
     static void
+    save_config (const path& out_root)
+    {
+      path f (out_root / config_file);
+
+      if (verb >= 1)
+        text << "config::save_config " << f.string ();
+      else
+        text << "save " << f;
+
+      try
+      {
+        ofstream ofs (f.string ());
+        if (!ofs.is_open ())
+          fail << "unable to open " << f;
+
+        ofs.exceptions (ofstream::failbit | ofstream::badbit);
+
+        // Save all the variables in the config. namespace that are set
+        // on the project's root scope.
+        //
+        scope& r (scopes.find (out_root));
+
+        /*
+        r.variables["config"] = "default interactive";
+        r.variables["config.cxx"] = "g++-4.9";
+        r.variables["config.cxx.options"] = "-O3 -g";
+        */
+
+        for (auto p (r.variables.find_namespace ("config"));
+             p.first != p.second;
+             ++p.first)
+        {
+          const variable& var (p.first->first);
+          const value& val (*p.first->second);
+
+          //@@ TODO: assuming list
+          //
+          const list_value& lv (dynamic_cast<const list_value&> (val));
+
+          ofs << var.name << " = " << lv.data << endl;
+          text << var.name << " = " << lv.data;
+        }
+      }
+      catch (const ios_base::failure&)
+      {
+        fail << "failed to write to " << f;
+      }
+    }
+
+    static void
     configure_execute (action a, const action_targets& ts)
     {
       tracer trace ("configure_execute");
@@ -98,6 +148,10 @@ namespace build
           //
           if (out_root != src_root)
             save_src_root (out_root, src_root);
+
+          // Save config.build.
+          //
+          save_config (out_root);
         }
         else
         {

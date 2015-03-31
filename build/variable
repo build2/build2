@@ -217,6 +217,18 @@ namespace build
       return value_proxy (&base::operator[] (v), &scope_);
     }
 
+    std::pair<iterator, iterator>
+    find_namespace (const std::string& ns)
+    {
+      return find_prefix (variable_pool.find (ns));
+    }
+
+    std::pair<const_iterator, const_iterator>
+    find_namespace (const std::string& ns) const
+    {
+      return find_prefix (variable_pool.find (ns));
+    }
+
     explicit
     variable_map (scope& s): scope_ (s) {}
 

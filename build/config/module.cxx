@@ -6,6 +6,7 @@
 
 #include <build/path>
 #include <build/scope>
+#include <build/filesystem>
 #include <build/diagnostics>
 
 #include <build/config/operation>
@@ -20,9 +21,8 @@ namespace build
     trigger (scope&, const path& p)
     {
       tracer trace ("config::trigger");
-
       level4 ([&]{trace << "intercepted sourcing of " << p;});
-      return false;
+      return file_exists (p);
     }
 
     void
