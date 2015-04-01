@@ -82,30 +82,43 @@ namespace build
 
         ofs.exceptions (ofstream::failbit | ofstream::badbit);
 
-        // Save all the variables in the config. namespace that are set
+        // Save all the variables in the config namespace that are set
         // on the project's root scope.
         //
         scope& r (scopes.find (out_root));
-
-        /*
-        r.variables["config"] = "default interactive";
-        r.variables["config.cxx"] = "g++-4.9";
-        r.variables["config.cxx.options"] = "-O3 -g";
-        */
 
         for (auto p (r.variables.find_namespace ("config"));
              p.first != p.second;
              ++p.first)
         {
           const variable& var (p.first->first);
-          const value& val (*p.first->second);
+          const value_ptr& pval (p.first->second);
 
-          //@@ TODO: assuming list
+          // Warn the user if the value that we are saving differs
+          // from the one they specified on the command line.
           //
-          const list_value& lv (dynamic_cast<const list_value&> (val));
+          if (auto gval = (*global_scope)[var])
+          {
+            if (!pval || !pval->compare (gval.as<const value&> ()))
+              warn << "variable " << var.name << " configured value "
+                   << "differs from command line value" <<
+                info << "reconfigure the project to use command line value";
+          }
 
-          ofs << var.name << " = " << lv.data << endl;
-          text << var.name << " = " << lv.data;
+          if (pval)
+          {
+            //@@ TODO: assuming list
+            //
+            const list_value& lv (dynamic_cast<const list_value&> (*pval));
+
+            ofs << var.name << " = " << lv.data << endl;
+            text << var.name << " = " << lv.data;
+          }
+          else
+          {
+            ofs << var.name << " =" << endl; // @@ TODO: [undefined]
+            text << var.name << " = [undefined]";
+          }
         }
       }
       catch (const ios_base::failure&)

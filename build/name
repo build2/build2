@@ -39,6 +39,15 @@ namespace build
     bool pair {false};
   };
 
+  inline bool
+  operator== (const name& x, const name& y)
+  {
+    return x.type == y.type && x.dir == y.dir && x.value == y.value;
+  }
+
+  inline bool
+  operator!= (const name& x, const name& y) {return !(x == y);}
+
   typedef std::vector<name> names;
 
   std::ostream&

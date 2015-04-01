@@ -63,6 +63,9 @@ namespace build
     virtual value_ptr
     clone (scope_type& s) const = 0;
 
+    virtual bool
+    compare (const value&) const = 0;
+
     virtual
     ~value () = default;
   };
@@ -88,8 +91,15 @@ namespace build
       data.emplace_back (std::move (d));
     }
 
-    value_ptr
+    virtual value_ptr
     clone (scope_type& s) const {return value_ptr (new list_value (s, data));}
+
+    virtual bool
+    compare (const value& v) const
+    {
+      const list_value* lv (dynamic_cast<const list_value*> (&v));
+      return lv != nullptr && data == lv->data;
+    }
   };
   typedef std::unique_ptr<list_value> list_value_ptr;
 
@@ -114,49 +124,18 @@ namespace build
     // Set interface.
     //
     const value_proxy&
-    operator= (value_ptr v) const
-    {
-      assert (v == nullptr || &v->scope == s);
-      *p = std::move (v);
-      return *this;
-    }
+    operator= (value_ptr) const;
 
     const value_proxy&
-    operator= (const value_proxy& v) const
-    {
-      if (this != &v)
-      {
-        if (v)
-        {
-          const value_ptr& vp (v);
-          *p = vp->clone (*s);
-        }
-        else
-          p->reset ();
-      }
-
-      return *this;
-    }
+    operator= (const value_proxy&) const;
 
     const value_proxy&
-    operator= (std::string v) const
-    {
-      // In most cases this is used to initialize a new variable, so
-      // don't bother trying to optimize for the case where p is not
-      // NULL.
-      //
-      p->reset (new list_value (*s, std::move (v)));
-      return *this;
-    }
+    operator= (std::string) const;
 
     // Note: stored in name as a directory.
     //
     const value_proxy&
-    operator= (path v) const
-    {
-      p->reset (new list_value (*s, std::move (v)));
-      return *this;
-    }
+    operator= (path) const;
 
     // Implementation details.
     //
@@ -167,6 +146,14 @@ namespace build
     value_ptr* p;
     scope_type* s;
   };
+
+  template <>
+  inline value& value_proxy::
+  as<value&> () const {return **p;}
+
+  template <>
+  inline const value& value_proxy::
+  as<const value&> () const {return **p;}
 
   template <>
   list_value& value_proxy::
@@ -180,7 +167,7 @@ namespace build
   const std::string& value_proxy::
   as<const std::string&> () const;
 
-  // Note: get the name's directory.
+  // Note: get the name's dir.
   //
   template <>
   const path& value_proxy::
@@ -272,5 +259,7 @@ namespace build
     scope& scope_; // Scope to which this map belongs (and all its value).
   };
 }
+
+#include <build/variable.ixx>
 
 #endif // BUILD_VARIABLE

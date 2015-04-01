@@ -104,31 +104,41 @@ namespace build
       //
       // These are optional so all we need to do is "import" them
       // into the root scope if they were specified on the command
-      // line.
+      // line and set them to empty if unspecified (the last part
+      // is important for the "configured as undefined" vs
+      // "unconfigured" logic).
       //
       if (auto val = root["config.cxx.poptions"])
       {
         if (&val.scope () == global_scope)
           root.variables["config.cxx.poptions"] = val;
       }
+      else
+        root.variables["config.cxx.poptions"]; // Undefined.
 
       if (auto val = root["config.cxx.coptions"])
       {
         if (&val.scope () == global_scope)
           root.variables["config.cxx.coptions"] = val;
       }
+      else
+        root.variables["config.cxx.coptions"]; // Undefined.
 
       if (auto val = root["config.cxx.loptions"])
       {
         if (&val.scope () == global_scope)
           root.variables["config.cxx.loptions"] = val;
       }
+      else
+        root.variables["config.cxx.loptions"]; // Undefined.
 
       if (auto val = root["config.cxx.libs"])
       {
         if (&val.scope () == global_scope)
           root.variables["config.cxx.libs"] = val;
       }
+      else
+        root.variables["config.cxx.libs"]; // Undefined.
     }
   }
 }
