@@ -48,21 +48,30 @@ namespace build
 
   // value
   //
+  struct value;
+  typedef std::unique_ptr<value> value_ptr;
+
   struct value
   {
     typedef build::scope scope_type;
 
-    virtual
-    ~value () = default;
+    scope_type& scope; // Scope to which this value belongs.
 
+  public:
     value (scope_type& s): scope (s) {}
 
-    scope_type& scope; // Scope to which this value belongs.
+    virtual value_ptr
+    clone (scope_type& s) const = 0;
+
+    virtual
+    ~value () = default;
   };
-  typedef std::unique_ptr<value> value_ptr;
 
   struct list_value: value
   {
+    names data;
+
+  public:
     list_value (scope_type& s, names d): value (s), data (std::move (d)) {}
 
     list_value (scope_type& s, std::string d)
@@ -79,7 +88,8 @@ namespace build
       data.emplace_back (std::move (d));
     }
 
-    names data;
+    value_ptr
+    clone (scope_type& s) const {return value_ptr (new list_value (s, data));}
   };
   typedef std::unique_ptr<list_value> list_value_ptr;
 
@@ -87,8 +97,13 @@ namespace build
   //
   struct value_proxy
   {
+    typedef build::scope scope_type;
+
     explicit operator bool () const {return p != nullptr && *p != nullptr;}
     explicit operator value_ptr& () const {return *p;}
+
+    scope_type&
+    scope () const {return *s;}
 
     // Get interface. See available specializations below.
     //
@@ -103,6 +118,23 @@ namespace build
     {
       assert (v == nullptr || &v->scope == s);
       *p = std::move (v);
+      return *this;
+    }
+
+    const value_proxy&
+    operator= (const value_proxy& v) const
+    {
+      if (this != &v)
+      {
+        if (v)
+        {
+          const value_ptr& vp (v);
+          *p = vp->clone (*s);
+        }
+        else
+          p->reset ();
+      }
+
       return *this;
     }
 
@@ -129,16 +161,20 @@ namespace build
     // Implementation details.
     //
     explicit
-    value_proxy (value_ptr* p, scope* s): p (p), s (s) {}
+    value_proxy (value_ptr* p, scope_type* s): p (p), s (s) {}
 
   protected:
     value_ptr* p;
-    scope* s;
+    scope_type* s;
   };
 
   template <>
   list_value& value_proxy::
   as<list_value&> () const;
+
+  template <>
+  inline const list_value& value_proxy::
+  as<const list_value&> () const {return as<list_value&> ();}
 
   template <>
   const std::string& value_proxy::

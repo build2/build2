@@ -133,9 +133,8 @@ namespace build
         {
           mkdir (out_root);
           mkdir (out_root / build_dir);
+          mkdir (out_root / bootstrap_dir);
         }
-
-        mkdir (out_root / bootstrap_dir);
 
         // We distinguish between a complete configure and operation-
         // specific.
@@ -223,14 +222,14 @@ namespace build
           level4 ([&]{trace << "completely disfiguring " << out_root;});
 
           rmfile (out_root / config_file);
-          rmfile (out_root / src_root_file);
-
-          // Clean up the directories.
-          //
-          rmdir (out_root / bootstrap_dir);
 
           if (out_root != src_root)
           {
+            rmfile (out_root / src_root_file);
+
+            // Clean up the directories.
+            //
+            rmdir (out_root / bootstrap_dir);
             rmdir (out_root / build_dir);
 
             if (rmdir (out_root) == rmdir_status::not_empty)

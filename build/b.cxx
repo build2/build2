@@ -128,6 +128,7 @@ namespace build
 
 #include <build/cxx/target>
 #include <build/cxx/rule>
+#include <build/cxx/module>
 
 #include <build/config/module>
 
@@ -151,6 +152,7 @@ main (int argc, char* argv[])
     // Register modules.
     //
     modules["config"] = &config::init;
+    modules["cxx"] = &cxx::init;
 
     // Register target types.
     //

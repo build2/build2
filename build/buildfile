@@ -1,4 +1,4 @@
-cxx = cxx/{target rule}
+cxx = cxx/{target rule module}
 config = config/{operation module}
 
 exe{b1}: cxx{b algorithm name operation spec scope variable target \

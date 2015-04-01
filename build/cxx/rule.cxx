@@ -9,6 +9,7 @@
 #include <cstddef>  // size_t
 #include <cstdlib>  // exit
 #include <utility>  // move()
+#include <istream>
 
 #include <ext/stdio_filebuf.h>
 
@@ -25,6 +26,36 @@ namespace build
 {
   namespace cxx
   {
+    static void
+    append_options (vector<const char*>& args, scope& s, const char* var)
+    {
+      if (auto val = s[var])
+      {
+        for (const name& n: val.as<const list_value&> ().data)
+        {
+          if (!n.type.empty () || !n.dir.empty ())
+            fail << "expected option instead of " << n <<
+              info << "in variable " << var;
+
+          args.push_back (n.value.c_str ());
+        }
+      }
+    }
+
+    static void
+    append_std (vector<const char*>& args, scope& s, string& opt)
+    {
+      if (auto val = s["cxx.std"])
+      {
+        const string& v (val.as<const string&> ());
+
+        // @@ Need to translate 11 to 0x for older versions.
+        //
+        opt = "-std=c++" + v;
+        args.push_back (opt.c_str ());
+      }
+    }
+
     // compile
     //
     void* compile::
@@ -151,19 +182,39 @@ namespace build
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      // We are using absolute source file path in order to get
-      // absolute paths in the result. @@ We will also have to
-      // use absolute -I paths to guarantee that.
+      scope& ts (scopes.find (o.path ()));
+      const string& cxx (ts["config.cxx"].as<const string&> ());
+
+      vector<const char*> args {cxx.c_str ()};
+
+      append_options (args, ts, "config.cxx.poptions");
+      append_options (args, ts, "cxx.poptions");
+
+      // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
+      // Or maybe they are not C++ options? Common options?
       //
-      const char* args[] = {
-        "g++-4.9",
-        "-std=c++14",
-        "-I", ds["src_root"].as<const path&> ().string ().c_str (),
-        "-MM",       //@@ -M
-        "-MG",      // Treat missing headers as generated.
-        "-MQ", "*", // Quoted target (older version can't handle empty name).
-        s.path ().string ().c_str (),
-        nullptr};
+      append_options (args, ts, "config.cxx.coptions");
+
+      string std; // Storage.
+      append_std (args, ts, std);
+
+      append_options (args, ts, "cxx.coptions");
+
+      args.push_back ("-MM"); // @@ Change to -M
+      args.push_back ("-MG"); // Treat missing headers as generated.
+      args.push_back ("-MQ"); // Quoted target name.
+      args.push_back ("*");   // Old versions can't handle empty target name.
+
+      // We are using absolute source file path in order to get
+      // absolute paths in the result. Any relative paths in the
+      // result are non-existent generated headers.
+      //
+      // @@ We will also have to use absolute -I paths to guarantee
+      // that.
+      //
+      args.push_back (s.path ().string ().c_str ());
+
+      args.push_back (nullptr);
 
       if (verb >= 2)
         print_process (args);
@@ -172,7 +223,7 @@ namespace build
 
       try
       {
-        process pr (args, false, false, true);
+        process pr (args.data (), false, false, true);
 
         __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
         istream is (&fb);
@@ -285,15 +336,28 @@ namespace build
       path ro (relative (o.path ()));
       path rs (relative (s->path ()));
 
-      const char* args[] = {
-        "g++-4.9",
-        "-std=c++14",
-        "-g",
-        "-I", o.prerequisites[0].get ().scope["src_root"].as<const path&> ().string ().c_str (),
-        "-c",
-        "-o", ro.string ().c_str (),
-        rs.string ().c_str (),
-        nullptr};
+      scope& ts (scopes.find (o.path ()));
+      const string& cxx (ts["config.cxx"].as<const string&> ());
+
+      vector<const char*> args {cxx.c_str ()};
+
+      append_options (args, ts, "config.cxx.poptions");
+      append_options (args, ts, "cxx.poptions");
+
+      append_options (args, ts, "config.cxx.coptions");
+
+      string std; // Storage.
+      append_std (args, ts, std);
+
+      append_options (args, ts, "cxx.coptions");
+
+      args.push_back ("-o");
+      args.push_back (ro.string ().c_str ());
+
+      args.push_back ("-c");
+      args.push_back (rs.string ().c_str ());
+
+      args.push_back (nullptr);
 
       if (verb >= 1)
         print_process (args);
@@ -302,7 +366,7 @@ namespace build
 
       try
       {
-        process pr (args);
+        process pr (args.data ());
 
         if (!pr.wait ())
           throw failed ();
@@ -509,9 +573,10 @@ namespace build
         prerequisite* cp1 (nullptr);
         for (prerequisite& p: ot.prerequisites)
         {
-          // Ignore some known target types (headers).
+          // Ignore some known target types (fsdir, headers).
           //
-          if (p.type.id == typeid (h) ||
+          if (p.type.id == typeid (fsdir) ||
+              p.type.id == typeid (h)     ||
               (cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
                                               p.type.id == typeid (ixx) ||
                                               p.type.id == typeid (txx))))
@@ -583,9 +648,23 @@ namespace build
       path re (relative (e.path ()));
       vector<path> ro;
 
-      vector<const char*> args {"g++-4.9", "-std=c++14", "-g", "-o"};
+      scope& ts (scopes.find (e.path ()));
+      const string& cxx (ts["config.cxx"].as<const string&> ());
 
+      vector<const char*> args {cxx.c_str ()};
+
+      append_options (args, ts, "config.cxx.coptions");
+
+      string std; // Storage.
+      append_std (args, ts, std);
+
+      append_options (args, ts, "cxx.coptions");
+
+      args.push_back ("-o");
       args.push_back (re.string ().c_str ());
+
+      append_options (args, ts, "config.cxx.loptions");
+      append_options (args, ts, "cxx.loptions");
 
       for (const prerequisite& p: t.prerequisites)
       {
@@ -595,6 +674,9 @@ namespace build
           args.push_back (ro.back ().string ().c_str ());
         }
       }
+
+      append_options (args, ts, "config.cxx.libs");
+      append_options (args, ts, "cxx.libs");
 
       args.push_back (nullptr);
 

@@ -1,1 +1,6 @@
 source $out_root/build/config.build
+
+using cxx
+
+cxx.std = 14
+cxx.poptions += -I$src_root
