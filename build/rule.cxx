@@ -125,7 +125,7 @@ namespace build
         timestamp mp (mpt->mtime ());
 
         if (mt < mp)
-          fail << "no recipe to update target " << t <<
+          fail << "no recipe to " << diag_do (a, t) <<
             info << "prerequisite " << pt << " is ahead of " << t
                << " by " << (mp - mt);
       }
@@ -134,7 +134,7 @@ namespace build
         // Otherwise we assume the prerequisite is newer if it was changed.
         //
         if (ts == target_state::changed)
-          fail << "no recipe to update target " << t <<
+          fail << "no recipe to " << diag_do (a, t) <<
             info << "prerequisite " << pt << " is ahead of " << t
                << " because it was updated";
       }

@@ -4,8 +4,12 @@
 
 #include <build/diagnostics>
 
+#include <sstream>
 #include <iostream>
 
+#include <build/scope>
+#include <build/target>
+#include <build/operation>
 #include <build/context>
 #include <build/utility>
 
@@ -51,6 +55,101 @@ namespace build
     }
 
     return p.string ();
+  }
+
+  // diag_do(), etc.
+  //
+  string
+  diag_do (const action& a, const target& t)
+  {
+    // @@ root scope
+    //
+    scope& root (
+      scopes.find (
+        scopes.find (t.dir)["out_root"].as<const path&> ()));
+
+    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
+    const operation_info& oi (root.operations[a.operation ()]);
+
+    ostringstream os;
+
+    // perform(update(x))   -> "update x"
+    // configure(update(x)) -> "configure updating x"
+    //
+    if (mi.name_do.empty ())
+      os << oi.name_do << ' ';
+    else
+    {
+      os << mi.name_do << ' ';
+
+      if (!oi.name_doing.empty ())
+        os << oi.name_doing << ' ';
+    }
+
+    os << t;
+    return os.str ();
+  }
+
+  string
+  diag_doing (const action& a, const target& t)
+  {
+    // @@ root scope
+    //
+    scope& root (
+      scopes.find (
+        scopes.find (t.dir)["out_root"].as<const path&> ()));
+
+    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
+    const operation_info& oi (root.operations[a.operation ()]);
+
+    ostringstream os;
+
+    // perform(update(x))   -> "updating x"
+    // configure(update(x)) -> "configuring updating x"
+    //
+    if (!mi.name_doing.empty ())
+      os << mi.name_doing << ' ';
+
+    if (!oi.name_doing.empty ())
+      os << oi.name_doing << ' ';
+
+    os << t;
+    return os.str ();
+  }
+
+  string
+  diag_already_done (const action& a, const target& t)
+  {
+    // @@ root scope
+    //
+    scope& root (
+      scopes.find (
+        scopes.find (t.dir)["out_root"].as<const path&> ()));
+
+    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
+    const operation_info& oi (root.operations[a.operation ()]);
+
+    ostringstream os;
+
+    // perform(update(x))   -> "x is already up to date"
+    // configure(update(x)) -> "updating x is already configured"
+    //
+    if (mi.name_already_done.empty ())
+    {
+      os << t;
+
+      if (!oi.name_already_done.empty ())
+        os << " is already " << oi.name_already_done;
+    }
+    else
+    {
+      if (!oi.name_doing.empty ())
+        os << oi.name_doing << ' ';
+
+      os << t << " is already " << mi.name_already_done;
+    }
+
+    return os.str ();
   }
 
   void

@@ -173,6 +173,9 @@ namespace build
 
     meta_operation_info configure {
       "configure",
+      "configure",
+      "configuring",
+      "configured",
       nullptr, // meta-operation pre
       &configure_operation_pre,
       &load,   // normal load
@@ -272,6 +275,9 @@ namespace build
 
     meta_operation_info disfigure {
       "disfigure",
+      "disfigure",
+      "disfiguring",
+      "disfigured",
       nullptr, // meta-operation pre
       &disfigure_operation_pre,
       &disfigure_load,

@@ -98,19 +98,19 @@ namespace build
     {
       target& t (*static_cast<target*> (v));
 
-      level4 ([&]{trace << "executing target " << t;});
+      level4 ([&]{trace << diag_doing (a, t);});
 
       switch (execute (a, t))
       {
       case target_state::postponed:
         {
-          info << "target " << t << " is postponed";
+          info << diag_doing (a, t) << " is postponed";
           psp.push_back (t);
           break;
         }
       case target_state::unchanged:
         {
-          info << "target " << t << " is unchanged";
+          info << diag_already_done (a, t);
           break;
         }
       case target_state::changed:
@@ -130,12 +130,12 @@ namespace build
       {
       case target_state::postponed:
         {
-          info << "unable to execute target " << t << " at this time";
+          info << "unable to " << diag_do (a, t) << " at this time";
           break;
         }
       case target_state::unchanged:
         {
-          info << "target " << t << " is unchanged";
+          info << diag_already_done (a, t);
           break;
         }
       case target_state::unknown: // Assume something was done to it.
@@ -151,6 +151,9 @@ namespace build
 
   meta_operation_info perform {
     "perform",
+    "",
+    "",
+    "",
     nullptr, // meta-operation pre
     nullptr, // operation pre
     &load,
@@ -162,7 +165,26 @@ namespace build
 
   // operations
   //
-  operation_info default_ {"<default>", execution_mode::first};
-  operation_info update {"update", execution_mode::first};
-  operation_info clean {"clean", execution_mode::last};
+  operation_info default_ {
+    "<default>",
+    "",
+    "",
+    "",
+    execution_mode::first
+  };
+
+  operation_info update {
+    "update",
+    "update",
+    "updating",
+    "up to date",
+    execution_mode::first
+  };
+
+  operation_info clean {
+    "clean",
+    "clean",
+    "cleaning",
+    "clean",
+    execution_mode::last};
 }

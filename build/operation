@@ -122,6 +122,13 @@ namespace build
   {
     const std::string name;
 
+    // Name derivatives for diagnostics. If empty, then the meta-
+    // operation need not be mentioned.
+    //
+    const std::string name_do;           // E.g., [to] 'configure'.
+    const std::string name_doing;        // E.g., [while] 'configuring'.
+    const std::string name_already_done; // E.g., [already] 'configured'.
+
     void (*meta_operation_pre) (); // Start of meta-operation batch.
     operation_id (*operation_pre) (operation_id); // Start of operation batch.
 
@@ -184,6 +191,17 @@ namespace build
   struct operation_info
   {
     const std::string name;
+
+    // Name derivatives for diagnostics. Note that unlike meta-operations,
+    // these can only be empty for the default operation (id 1), And
+    // meta-operations that make use of the default operation shall not
+    // have empty derivatives (failed which only target name will be
+    // printed).
+    //
+    const std::string name_do;           // E.g., [to] 'update'.
+    const std::string name_doing;        // E.g., [while] 'updating'.
+    const std::string name_already_done; // E.g., [already] 'up to date'.
+
     const execution_mode mode;
   };
 

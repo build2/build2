@@ -36,6 +36,21 @@ namespace build
     return os << diag_relative (p);
   }
 
+  // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
+  // and "updating exe{foo} already configured".
+  //
+  struct action;
+  class target;
+
+  std::string
+  diag_do (const action&, const target&);
+
+  std::string
+  diag_doing (const action&, const target&);
+
+  std::string
+  diag_already_done (const action&, const target&);
+
   // Print process commmand line.
   //
   void

@@ -73,11 +73,12 @@ namespace build
         {
           auto g (
             make_exception_guard (
-              [](target& t, const string& n)
+              [](action a, target& t, const string& n)
               {
-                info << "while matching rule " << n << " for target " << t;
+                info << "while matching rule " << n << " to "
+                     << diag_do (a, t);
               },
-              t, n));
+              a, t, n));
 
           m = ru.match (a, t, hint);
         }
@@ -99,12 +100,12 @@ namespace build
             {
               auto g (
                 make_exception_guard (
-                  [](target& t, const string& n1)
+                  [](action a, target& t, const string& n1)
                   {
-                    info << "while matching rule " << n1 << " for target "
-                         << t;
+                    info << "while matching rule " << n1 << " to "
+                         << diag_do (a, t);
                   },
-                  t, n1));
+                  a, t, n1));
 
               m1 = ru1.match (a, t, hint);
             }
@@ -113,7 +114,7 @@ namespace build
             {
               if (!ambig)
               {
-                dr << fail << "multiple rules matching target " << t
+                dr << fail << "multiple rules matching " << diag_doing (a, t)
                    << info << "rule " << n << " matches";
                 ambig = true;
               }
@@ -126,11 +127,12 @@ namespace build
           {
             auto g (
               make_exception_guard (
-                [](target& t, const string& n)
+                [](action a, target& t, const string& n)
                 {
-                  info << "while applying rule " << n << " for target " << t;
+                  info << "while applying rule " << n << " to "
+                       << diag_do (a, t);
                 },
-                t, n));
+                a, t, n));
 
             t.recipe (a, ru.apply (a, t, m));
             break;
@@ -142,7 +144,7 @@ namespace build
     }
 
     if (!t.recipe (a))
-      fail << "no rule to update target " << t;
+      fail << "no rule to " << diag_do (a, t);
   }
 
   void
@@ -215,8 +217,8 @@ namespace build
 
         auto g (
           make_exception_guard (
-            [](target& t){info << "while updating target " << t;},
-            t));
+            [](action a, target& t){info << "while " << diag_doing (a, t);},
+            a, t));
 
         ts = t.recipe (a) (a, t);
         assert (ts != target_state::unknown && ts != target_state::failed);
