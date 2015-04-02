@@ -1,7 +1,13 @@
 cxx = cxx/{target rule module}
 config = config/{operation module}
 
-exe{b1}: cxx{b algorithm name operation spec scope variable target \
+exe{b b-prev}: cxx{b algorithm name operation spec scope variable target \
   prerequisite rule file module native context search diagnostics \
   token lexer parser process timestamp path utility filesystem dump \
-  $config $cxx}
+  options $config $cxx}
+
+.: exe{b b-prev}
+
+#@@ TODO
+#
+# cli --include-with-brackets --include-prefix build --guard-prefix BUILD --hxx-suffix "" options.cli
