@@ -64,7 +64,7 @@ namespace build
 
   // Trace verbosity level.
   //
-  uint8_t verb;
+  uint16_t verb;
 
   // Diagnostic facility, base infrastructure.
   //

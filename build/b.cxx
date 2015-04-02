@@ -13,6 +13,7 @@
 #include <sstream>
 #include <cassert>
 #include <typeinfo>
+#include <iostream>
 #include <system_error>
 
 #include <build/path>
@@ -35,6 +36,8 @@
 #include <build/token>
 #include <build/lexer>
 #include <build/parser>
+
+#include <build/options>
 
 using namespace std;
 
@@ -141,13 +144,39 @@ main (int argc, char* argv[])
   {
     tracer trace ("main");
 
-    // Initialize time conversion data that is used by localtime_r().
+    cli::argv_scanner scan (argc, argv, true);
+    options ops (scan);
+
+    // Version.
     //
-    tzset ();
+    if (ops.version ())
+    {
+      cout << "build2 0.0.0" << endl
+           << "Copyright (c) 2014-2015 Code Synthesis Tools CC" << endl
+           << "This is free software released under the MIT license. " << endl;
+      return 0;
+    }
+
+    // Help.
+    //
+    if (ops.help ())
+    {
+      ostream& o (cout);
+
+      o << "Usage: " << argv[0] << " [options] [variables] [buildspec]" << endl
+        << "Options:" << endl;
+
+      options::print_usage (o);
+      return 0;
+    }
 
     // Trace verbosity.
     //
-    verb = 5;
+    verb = ops.verbose () > 0 ? ops.verbose () : (ops.v () ? 1 : 0);
+
+    // Initialize time conversion data that is used by localtime_r().
+    //
+    tzset ();
 
     // Register modules.
     //

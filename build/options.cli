@@ -1,0 +1,24 @@
+// file      : build/options.cli
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+include <cstdint>;
+
+class options
+{
+  bool --help {"Print usage information and exit."};
+  bool --version {"Print version and exit."};
+
+  bool -v
+  {
+    "Print actual commands being executed. This is equivalent to
+     \cb{--verbose 1}."
+  };
+
+  std::uint16_t --verbose = 0
+  {
+    "<level>",
+    "Set the diagnostics verbosity to a level between 0 (disabled) and
+     5 (lots of information). @@ Need to document further."
+  };
+};
