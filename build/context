@@ -32,12 +32,25 @@ namespace build
   void
   reset ();
 
+  // The dual interface wrapper for the {mk,rm}{file,dir}() functions
+  // below that allows you to use it as a true/false return or a more
+  // detailed enum from <filesystem>
+  //
+  template <typename T>
+  struct fs_status
+  {
+    T v;
+    fs_status (T v): v (v) {};
+    operator T () const {return v;}
+    explicit operator bool () const {return v == T::success;}
+  };
+
   // Create the directory and print the standard diagnostics. Note that
   // this implementation is not suitable if it is expected that the
   // directory will exist in the majority of case and performance is
   // important. See the fsdir{} rule for details.
   //
-  mkdir_status
+  fs_status<mkdir_status>
   mkdir (const path&);
 
   // Remove the file and print the standard diagnostics. The second
@@ -46,19 +59,19 @@ namespace build
   // being printed.
   //
   template <typename T>
-  rmfile_status
+  fs_status<rmfile_status>
   rmfile (const path&, const T& target);
 
-  inline rmfile_status
+  inline fs_status<rmfile_status>
   rmfile (const path& f) {return rmfile (f, f);}
 
   // Similar to rmfile() but for directories.
   //
   template <typename T>
-  rmdir_status
+  fs_status<rmdir_status>
   rmdir (const path&, const T& target);
 
-  inline rmdir_status
+  inline fs_status<rmdir_status>
   rmdir (const path& d) {return rmdir (d, d);}
 
   // Return the src/out directory corresponding to the given out/src. The

@@ -9,7 +9,7 @@
 namespace build
 {
   template <typename T>
-  rmfile_status
+  fs_status<rmfile_status>
   rmfile (const path& f, const T& t)
   {
     // We don't want to print the command if we couldn't remove the
@@ -45,7 +45,7 @@ namespace build
   }
 
   template <typename T>
-  rmdir_status
+  fs_status<rmdir_status>
   rmdir (const path& d, const T& t)
   {
     bool w (d == work); // Don't try to remove working directory.

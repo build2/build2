@@ -42,7 +42,7 @@ namespace build
     global_scope->variables["home"] = home;
   }
 
-  mkdir_status
+  fs_status<mkdir_status>
   mkdir (const path& d)
   {
     // We don't want to print the command if the directory already

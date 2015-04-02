@@ -92,7 +92,7 @@ namespace build
           throw failed ();
         }
 
-        text << "toolchain version " << ver;
+        //text << "toolchain version " << ver;
 
         // Set on the project root.
         //

@@ -112,12 +112,12 @@ namespace build
             const list_value& lv (dynamic_cast<const list_value&> (*pval));
 
             ofs << var.name << " = " << lv.data << endl;
-            text << var.name << " = " << lv.data;
+            //text << var.name << " = " << lv.data;
           }
           else
           {
             ofs << var.name << " =" << endl; // @@ TODO: [undefined]
-            text << var.name << " = [undefined]";
+            //text << var.name << " = [undefined]";
           }
         }
       }
@@ -230,6 +230,8 @@ namespace build
         const path& out_root (root.path ());
         const path& src_root (root.src_path ());
 
+        bool m (false); // Keep track of whether we actually did anything.
+
         // We distinguish between a complete disfigure and operation-
         // specific.
         //
@@ -237,26 +239,48 @@ namespace build
         {
           level4 ([&]{trace << "completely disfiguring " << out_root;});
 
-          rmfile (out_root / config_file);
+          m = rmfile (out_root / config_file) || m;
 
           if (out_root != src_root)
           {
-            rmfile (out_root / src_root_file);
+            m = rmfile (out_root / src_root_file) || m;
 
             // Clean up the directories.
             //
-            rmdir (out_root / bootstrap_dir);
-            rmdir (out_root / build_dir);
+            m = rmdir (out_root / bootstrap_dir) || m;
+            m = rmdir (out_root / build_dir) || m;
 
-            if (rmdir (out_root) == rmdir_status::not_empty)
-              warn << "directory " << out_root.string () << " is "
-                   << (out_root == work
-                       ? "current working directory"
-                       : "not empty") << ", not removing";
+            switch (rmdir (out_root))
+            {
+            case rmdir_status::not_empty:
+              {
+                warn << "directory " << out_root.string () << " is "
+                     << (out_root == work
+                         ? "current working directory"
+                         : "not empty") << ", not removing";
+                break;
+              }
+            case rmdir_status::success:
+              m = true;
+            default:
+              break;
+            }
           }
         }
         else
         {
+        }
+
+        if (!m)
+        {
+          // Create a dir{$out_root/} target to signify the project's
+          // root in diagnostics. Not very clean but seems harmless.
+          //
+          target& t (
+            targets.insert (
+              dir::static_type, out_root, "", nullptr, trace).first);
+
+          info << diag_already_done (a, t);
         }
       }
     }

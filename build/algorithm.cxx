@@ -328,7 +328,7 @@ namespace build
     //
     file& ft (dynamic_cast<file&> (t));
 
-    bool r (rmfile (ft.path (), ft) == rmfile_status::success);
+    bool r (rmfile (ft.path (), ft));
 
     // Update timestamp in case there are operations after us that
     // could use the information.
