@@ -110,7 +110,7 @@ namespace build
   target&
   create_new_target (prerequisite& p)
   {
-    tracer trace ("search_new_target");
+    tracer trace ("create_new_target");
 
     assert (p.target == nullptr);
 

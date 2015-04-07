@@ -23,6 +23,9 @@ namespace build
 
   // Current action (meta/operation).
   //
+  extern const meta_operation_info* current_mif;
+  extern const operation_info* current_oif;
+
   extern execution_mode current_mode;
   extern const target_rule_map* current_rules;
 

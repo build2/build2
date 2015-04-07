@@ -18,6 +18,8 @@ namespace build
   path work;
   path home;
 
+  const meta_operation_info* current_mif;
+  const operation_info* current_oif;
   execution_mode current_mode;
   const target_rule_map* current_rules;
 
@@ -79,17 +81,15 @@ namespace build
   path
   src_out (const path& out, scope& s)
   {
-    return src_out (out,
-                    s["out_root"].as<const path&> (),
-                    s["src_root"].as<const path&> ());
+    scope& rs (*s.root_scope ());
+    return src_out (out, rs.path (), rs.src_path ());
   }
 
   path
   out_src (const path& src, scope& s)
   {
-    return out_src (src,
-                    s["out_root"].as<const path&> (),
-                    s["src_root"].as<const path&> ());
+    scope& rs (*s.root_scope ());
+    return out_src (src, rs.path (), rs.src_path ());
   }
 
   path

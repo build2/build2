@@ -502,7 +502,7 @@ main (int argc, char* argv[])
           // files, if any. Note that we might already have done this
           // as a result of one of the preceding target processing.
           //
-          scope& rs (scopes[out_root]);
+          scope& rs (scopes.insert (out_root, true).first);
 
           // Enter built-in meta-operation and operation names. Note that
           // the order of registration should match the id constants; see
@@ -740,6 +740,8 @@ main (int argc, char* argv[])
 
               act = action (mid, oid);
 
+              current_mif = mif;
+              current_oif = oif;
               current_mode = oif->mode;
               current_rules = &rules[oid];
             }

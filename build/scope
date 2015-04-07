@@ -29,7 +29,18 @@ namespace build
     src_path () const {return *src_path_;} // Corresponding src path.
 
     scope*
-    parent () const {return parent_;}
+    parent_scope () const {return parent_;}
+
+    // Root scope of this scope or NULL if this scope is not (yet)
+    // in any (known) project. Note that if the scope itself is
+    // root, then this function return this. To get to the outer
+    // root, query the root scope of the parent.
+    //
+    scope*
+    root_scope () const {return root_;}
+
+    bool
+    root () const {return root_ == this;}
 
     // Variable lookup. Note that this find, not find or insert like
     // in the variable_map, because we also search in outer scopes.
@@ -43,19 +54,6 @@ namespace build
     operator[] (const variable&);
 
     const path_type* src_path_ {nullptr}; // Cached src_{root,base} var value.
-
-  private:
-    friend class scope_map;
-
-    typedef path_map<scope>::const_iterator iterator;
-
-    scope (): variables (*this) {}
-
-    void
-    init (const iterator& i, scope* p) {i_ = i; parent_ = p;}
-
-    void
-    parent (scope& p) {parent_ = &p;}
 
   public:
     variable_map variables;
@@ -85,8 +83,14 @@ namespace build
     std::unordered_map<path_type, trigger_type> triggers;
 
   private:
+    friend class scope_map;
+    typedef path_map<scope>::const_iterator iterator;
+
+    scope (): variables (*this) {}
+
     iterator i_;
     scope* parent_;
+    scope* root_;
   };
 
   class scope_map: public path_map<scope>
@@ -96,10 +100,10 @@ namespace build
     // of the global scope.
     //
     std::pair<scope&, bool>
-    insert (const path&);
+    insert (const path&, bool root);
 
     scope&
-    operator[] (const path& p) {return insert (p).first;}
+    operator[] (const path& p) {return insert (p, false).first;}
 
     // Find the most qualified scope that encompasses this path.
     //

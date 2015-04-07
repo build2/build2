@@ -75,7 +75,7 @@ namespace build
 
     // Nested scopes of which we are a parent.
     //
-    for (auto e (scopes.end ()); i != e && i->second.parent () == &p; )
+    for (auto e (scopes.end ()); i != e && i->second.parent_scope () == &p; )
     {
       if (vb)
       {
@@ -98,7 +98,7 @@ namespace build
     for (const auto& pt: targets)
     {
       const target& t (*pt);
-      const scope* ts (&scopes.find (t.dir));
+      const scope* ts (&t.base_scope ());
 
       bool f (false);
 

@@ -100,6 +100,19 @@ namespace build
     const std::string* ext; // Extension, NULL means unspecified.
 
   public:
+    // Most qualified scope that contains this target.
+    //
+    scope&
+    base_scope () const;
+
+    // Root scope of a project that contains this target. Note that
+    // a target can be out of any (known) project root in which case
+    // NULL is returned.
+    //
+    scope*
+    root_scope () const;
+
+  public:
     typedef
     std::vector<std::reference_wrapper<prerequisite>>
     prerequisites_type;

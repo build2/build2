@@ -20,7 +20,7 @@ namespace build
   value_proxy scope::
   operator[] (const variable& var)
   {
-    for (scope* s (this); s != nullptr; s = s->parent ())
+    for (scope* s (this); s != nullptr; s = s->parent_scope ())
     {
       auto i (s->variables.find (var));
       if (i != s->variables.end ())
@@ -36,7 +36,7 @@ namespace build
   scope* global_scope;
 
   pair<scope&, bool> scope_map::
-  insert (const path& k)
+  insert (const path& k, bool root)
   {
     auto er (emplace (k, scope ()));
     scope& s (er.first->second);
@@ -45,8 +45,8 @@ namespace build
     {
       scope* p (nullptr);
 
-      // Update scopes of which we are a new parent (unless this is the
-      // global scope).
+      // Update scopes of which we are a new parent/root (unless this
+      // is the global scope).
       //
       if (size () > 1)
       {
@@ -62,11 +62,13 @@ namespace build
           // between it and our parent.
           //
           if (p == nullptr)
-            p = c.parent ();
-          else if (p != c.parent ()) // A scope with an intermediate parent.
-            continue;
+            p = c.parent_;
 
-          c.parent (s);
+          if (root)
+            c.root_ = &s;
+
+          if (p == c.parent_) // A scope without an intermediate parent.
+            c.parent_ = &s;
         }
 
         // We couldn't get the parent from one of its old children
@@ -76,7 +78,22 @@ namespace build
           p = &find (k.directory ());
       }
 
-      s.init (er.first, p);
+      s.i_ = er.first;
+      s.parent_ = p;
+      s.root_ = root ? &s : (p != nullptr ? p->root_ : nullptr);
+    }
+    else if (root && !s.root ())
+    {
+      // Upgrade to root scope.
+      //
+      auto r (find_prefix (k));
+      for (++r.first; r.first != r.second; ++r.first)
+      {
+        scope& c (r.first->second);
+        c.root_ = &s;
+      }
+
+      s.root_ = &s;
     }
 
     return pair<scope&, bool> (s, er.second);

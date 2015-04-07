@@ -173,11 +173,11 @@ namespace build
   {
     tracer trace ("inject_parent_fsdir");
 
-    scope& s (scopes.find (t.dir));
+    scope& s (t.base_scope ());
 
-    if (auto v = s["out_root"]) // Could be outside any project.
+    if (scope* rs = s.root_scope ()) // Could be outside any project.
     {
-      const path& out_root (v.as<const path&> ());
+      const path& out_root (rs->path ());
 
       // If t is a directory (name is empty), say foo/bar/, then
       // t is bar and its parent directory is foo/.

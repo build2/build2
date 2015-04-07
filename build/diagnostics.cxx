@@ -60,16 +60,10 @@ namespace build
   // diag_do(), etc.
   //
   string
-  diag_do (const action& a, const target& t)
+  diag_do (const action&, const target& t)
   {
-    // @@ root scope
-    //
-    scope& root (
-      scopes.find (
-        scopes.find (t.dir)["out_root"].as<const path&> ()));
-
-    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
-    const operation_info& oi (root.operations[a.operation ()]);
+    const meta_operation_info& mi (*current_mif);
+    const operation_info& oi (*current_oif);
 
     ostringstream os;
 
@@ -91,16 +85,10 @@ namespace build
   }
 
   string
-  diag_doing (const action& a, const target& t)
+  diag_doing (const action&, const target& t)
   {
-    // @@ root scope
-    //
-    scope& root (
-      scopes.find (
-        scopes.find (t.dir)["out_root"].as<const path&> ()));
-
-    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
-    const operation_info& oi (root.operations[a.operation ()]);
+    const meta_operation_info& mi (*current_mif);
+    const operation_info& oi (*current_oif);
 
     ostringstream os;
 
@@ -118,16 +106,10 @@ namespace build
   }
 
   string
-  diag_already_done (const action& a, const target& t)
+  diag_already_done (const action&, const target& t)
   {
-    // @@ root scope
-    //
-    scope& root (
-      scopes.find (
-        scopes.find (t.dir)["out_root"].as<const path&> ()));
-
-    const meta_operation_info& mi (root.meta_operations[a.meta_operation ()]);
-    const operation_info& oi (root.operations[a.operation ()]);
+    const meta_operation_info& mi (*current_mif);
+    const operation_info& oi (*current_oif);
 
     ostringstream os;
 

@@ -37,6 +37,20 @@ namespace build
 
   // target
   //
+  scope& target::
+  base_scope () const
+  {
+    return scopes.find (dir);
+  }
+
+  scope* target::
+  root_scope () const
+  {
+    // This is tricky to cache so we do the lookup for now.
+    //
+    return scopes.find (dir).root_scope ();
+  }
+
   ostream&
   operator<< (ostream& os, const target& t)
   {
@@ -97,16 +111,17 @@ namespace build
           tracer& trace)
   {
     iterator i (find (target_key {&tt, &dir, &name, &ext}, trace));
+    bool r (i == end ());
 
-    if (i != end ())
-      return pair<target&, bool> (**i, false);
+    if (r)
+    {
+      unique_ptr<target> pt (tt.factory (move (dir), move (name), ext));
+      i = map_.emplace (
+        make_pair (target_key {&tt, &pt->dir, &pt->name, &pt->ext},
+                   move (pt))).first;
+    }
 
-    unique_ptr<target> t (tt.factory (move (dir), move (name), ext));
-    i = map_.emplace (
-      make_pair (target_key {&tt, &t->dir, &t->name, &t->ext},
-                 move (t))).first;
-
-    return pair<target&, bool> (**i, true);
+    return pair<target&, bool> (**i, r);
   }
 
   ostream&

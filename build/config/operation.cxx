@@ -65,8 +65,9 @@ namespace build
     }
 
     static void
-    save_config (const path& out_root)
+    save_config (scope& r)
     {
+      const path& out_root (r.path ());
       path f (out_root / config_file);
 
       if (verb >= 1)
@@ -85,8 +86,6 @@ namespace build
         // Save all the variables in the config namespace that are set
         // on the project's root scope.
         //
-        scope& r (scopes.find (out_root));
-
         for (auto p (r.variables.find_namespace ("config"));
              p.first != p.second;
              ++p.first)
@@ -135,10 +134,13 @@ namespace build
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
-        scope& s (scopes.find (t.dir));
+        scope* rs (t.root_scope ());
 
-        const path& out_root (s["out_root"].as<const path&> ());
-        const path& src_root (s["src_root"].as<const path&> ());
+        if (rs == nullptr)
+          fail << "out of project target " << t;
+
+        const path& out_root (rs->path ());
+        const path& src_root (rs->src_path ());
 
         // Make sure the directories exist.
         //
@@ -163,7 +165,7 @@ namespace build
 
           // Save config.build.
           //
-          save_config (out_root);
+          save_config (*rs);
         }
         else
         {

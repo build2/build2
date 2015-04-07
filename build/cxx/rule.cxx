@@ -182,18 +182,19 @@ namespace build
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      scope& ts (scopes.find (o.path ()));
-      const string& cxx (ts["config.cxx"].as<const string&> ());
+      scope& ts (o.base_scope ());
+      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, ts, "config.cxx.poptions");
+      append_options (args, rs, "config.cxx.poptions");
       append_options (args, ts, "cxx.poptions");
 
       // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
       // Or maybe they are not C++ options? Common options?
       //
-      append_options (args, ts, "config.cxx.coptions");
+      append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
       append_std (args, ts, std);
@@ -333,18 +334,19 @@ namespace build
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path ro (relative (o.path ()));
-      path rs (relative (s->path ()));
+      path relo (relative (o.path ()));
+      path rels (relative (s->path ()));
 
-      scope& ts (scopes.find (o.path ()));
-      const string& cxx (ts["config.cxx"].as<const string&> ());
+      scope& ts (o.base_scope ());
+      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, ts, "config.cxx.poptions");
+      append_options (args, rs, "config.cxx.poptions");
       append_options (args, ts, "cxx.poptions");
 
-      append_options (args, ts, "config.cxx.coptions");
+      append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
       append_std (args, ts, std);
@@ -352,10 +354,10 @@ namespace build
       append_options (args, ts, "cxx.coptions");
 
       args.push_back ("-o");
-      args.push_back (ro.string ().c_str ());
+      args.push_back (relo.string ().c_str ());
 
       args.push_back ("-c");
-      args.push_back (rs.string ().c_str ());
+      args.push_back (rels.string ().c_str ());
 
       args.push_back (nullptr);
 
@@ -495,13 +497,14 @@ namespace build
 
         if (out_root == nullptr)
         {
-          // Which scope shall we use to resolve the roots? Unlikely,
+          // Which scope shall we use to resolve the root? Unlikely,
           // but possible, the prerequisite is from a different project
           // altogether. So we are going to use the target's project.
           //
-          scope& s (scopes.find (e.dir));
-          out_root = &s["out_root"].as<const path&> ();
-          src_root = &s["src_root"].as<const path&> ();
+          scope* rs (e.root_scope ());
+          assert (rs != nullptr); // Shouldn't have matched.
+          out_root = &rs->path ();
+          src_root = &rs->src_path ();
         }
 
         prerequisite& cp (p);
@@ -645,15 +648,16 @@ namespace build
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path re (relative (e.path ()));
-      vector<path> ro;
+      path rele (relative (e.path ()));
+      vector<path> relo;
 
-      scope& ts (scopes.find (e.path ()));
-      const string& cxx (ts["config.cxx"].as<const string&> ());
+      scope& ts (e.base_scope ());
+      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, ts, "config.cxx.coptions");
+      append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
       append_std (args, ts, std);
@@ -661,21 +665,21 @@ namespace build
       append_options (args, ts, "cxx.coptions");
 
       args.push_back ("-o");
-      args.push_back (re.string ().c_str ());
+      args.push_back (rele.string ().c_str ());
 
-      append_options (args, ts, "config.cxx.loptions");
+      append_options (args, rs, "config.cxx.loptions");
       append_options (args, ts, "cxx.loptions");
 
       for (const prerequisite& p: t.prerequisites)
       {
         if (const obj* o = dynamic_cast<const obj*> (p.target))
         {
-          ro.push_back (relative (o->path ()));
-          args.push_back (ro.back ().string ().c_str ());
+          relo.push_back (relative (o->path ()));
+          args.push_back (relo.back ().string ().c_str ());
         }
       }
 
-      append_options (args, ts, "config.cxx.libs");
+      append_options (args, rs, "config.cxx.libs");
       append_options (args, ts, "cxx.libs");
 
       args.push_back (nullptr);
