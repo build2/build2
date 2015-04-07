@@ -42,9 +42,9 @@ namespace build
     bool
     root () const {return root_ == this;}
 
-    // Variable lookup. Note that this find, not find or insert like
-    // in the variable_map, because we also search in outer scopes.
-    // For the latter use the variables map directly.
+    // Variable lookup. Note that this is find, not find or insert like
+    // in the variable_map, because we also search in outer scopes. For
+    // the latter use the variables map directly.
     //
   public:
     value_proxy
@@ -57,6 +57,10 @@ namespace build
 
   public:
     variable_map variables;
+
+    const variable_map&
+    ro_variables () const {return variables;}
+
     prerequisite_set prerequisites;
 
     // Meta/operations supported by this project (set on the root

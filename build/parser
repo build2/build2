@@ -83,6 +83,9 @@ namespace build
     void
     process_default_target (token&);
 
+    void
+    create_inner_roots (const path&);
+
     // Lexer.
     //
   private:

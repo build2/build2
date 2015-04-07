@@ -64,10 +64,10 @@ namespace build
           if (p == nullptr)
             p = c.parent_;
 
-          if (root)
+          if (root && c.root_ == p->root_) // No intermediate root.
             c.root_ = &s;
 
-          if (p == c.parent_) // A scope without an intermediate parent.
+          if (p == c.parent_) // No intermediate parent.
             c.parent_ = &s;
         }
 
@@ -90,7 +90,9 @@ namespace build
       for (++r.first; r.first != r.second; ++r.first)
       {
         scope& c (r.first->second);
-        c.root_ = &s;
+
+        if (c.root_ == s.root_) // No intermediate root.
+          c.root_ = &s;
       }
 
       s.root_ = &s;

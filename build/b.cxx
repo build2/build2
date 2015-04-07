@@ -89,41 +89,39 @@ namespace build
     return path ();
   }
 
+  // Create and bootstrap outer root scopes, if any. Loading is
+  // done by root_pre().
+  //
   static void
-  bootstrap_out (scope& root)
+  create_outer_roots (scope& root)
   {
-    path bf (root.path () / path ("build/bootstrap/src-root.build"));
+    auto v (root.ro_variables ()["amalgamation"]);
 
-    if (!file_exists (bf))
+    if (!v)
       return;
 
-    //@@ TODO: if bootstrap files can source other bootstrap files
-    //   (the way to express dependecies), then we need a way to
-    //   prevent multiple sourcing. We handle it here but we still
-    //   need something like source_once (once [scope] source).
+    const path& d (v.as<const path&> ());
+    path out_root (root.path () / d);
+    path src_root (root.src_path () / d);
+    out_root.normalize ();
+    src_root.normalize ();
+
+    scope& rs (create_root (out_root, src_root));
+
+    bootstrap_out (rs);
+
+    // Check if the bootstrap process changed src_root.
     //
-    source_once (bf, root, root);
-  }
+    const path& p (rs.variables["src_root"].as<const path&> ());
 
-  // Return true if we loaded anything.
-  //
-  static bool
-  bootstrap_src (scope& root)
-  {
-    tracer trace ("bootstrap_src");
+    if (src_root != p)
+      fail << "bootstrapped src_root " << p << " does not match "
+           << "amalgamated " << src_root;
 
-    path bf (root.src_path () / path ("build/bootstrap.build"));
+    rs.src_path_ = &p;
 
-    if (!file_exists (bf))
-      return false;
-
-    // We assume that bootstrap out cannot load this file explicitly. It
-    // feels wrong to allow this since that makes the whole bootstrap
-    // process hard to reason about. But we may try to bootstrap the
-    // same root scope multiple time.
-    //
-    source_once (bf, root, root);
-    return true;
+    bootstrap_src (rs);
+    create_outer_roots (rs);
   }
 }
 
@@ -502,31 +500,11 @@ main (int argc, char* argv[])
           // files, if any. Note that we might already have done this
           // as a result of one of the preceding target processing.
           //
-          scope& rs (scopes.insert (out_root, true).first);
-
-          // Enter built-in meta-operation and operation names. Note that
-          // the order of registration should match the id constants; see
-          // <operation> for details. Loading of modules (via the src_root
-          // bootstrap; see below) can result in additional names being
-          // added.
-          //
-          if (rs.meta_operations.empty ())
-          {
-            assert (rs.meta_operations.insert (perform) == perform_id);
-
-            assert (rs.operations.insert (default_) == default_id);
-            assert (rs.operations.insert (update) == update_id);
-            assert (rs.operations.insert (clean) == clean_id);
-          }
-
-          rs.variables["out_root"] = out_root;
-
-          // If we know src_root, add that variable as well. This could
+          // If we know src_root, set that variable as well. This could
           // be of use to the bootstrap file (other than src-root.build,
           // which, BTW, doesn't need to exist if src_root == out_root).
           //
-          if (!src_root.empty ())
-            rs.variables["src_root"] = src_root;
+          scope& rs (create_root (out_root, src_root));
 
           bootstrap_out (rs);
 
@@ -586,6 +564,34 @@ main (int argc, char* argv[])
           // if there is one.
           //
           bool bootstrapped (bootstrap_src (rs));
+
+          // Check that out_root that we have found is the innermost root
+          // for this project. If it is not, then it means we are trying
+          // to load a disfigured sub-project and that we do not support.
+          // Why don't we support it? Because things are already complex
+          // enough here.
+          //
+          if (auto v = rs.ro_variables ()["subprojects"])
+          {
+            for (const name& n: v.as<const list_value&> ().data)
+            {
+              // Should be a list of directories.
+              //
+              if (!n.type.empty () || !n.value.empty () || n.dir.empty ())
+                fail << "expected directory in subprojects variable "
+                     << "instead of " << n;
+
+              if (out_base.sub (out_root / n.dir))
+                fail << tn << " is in a subproject of " << out_root <<
+                  info << "explicitly specify src_base for this target";
+            }
+          }
+
+          // Create and bootstrap outer roots if any. Loading is done
+          // by root_pre() (that would normally be called by the meta-
+          // operation's load() callback below).
+          //
+          create_outer_roots (rs);
 
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should

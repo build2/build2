@@ -25,6 +25,23 @@ namespace build
   void
   source_once (const path& buildfile, scope& root, scope& base, scope& once);
 
+  // Create project's root scope. Only set the src_root variable is the
+  // passed src_root value is not empty.
+  //
+  scope&
+  create_root (const path& out_root, const path& src_root);
+
+  // Bootstrap the project's root scope, the out part.
+  //
+  void
+  bootstrap_out (scope& root);
+
+  // Bootstrap the project's root scope, the src part. Return true if
+  // we loaded anything.
+  //
+  bool
+  bootstrap_src (scope& root);
+
   // Load project's root[-pre].build unless already loaded.
   //
   void

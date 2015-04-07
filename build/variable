@@ -240,6 +240,23 @@ namespace build
       return value_proxy (&base::operator[] (v), &scope_);
     }
 
+    value_proxy
+    operator[] (const std::string& v) const
+    {
+      return operator[] (variable_pool.find (v));
+    }
+
+    value_proxy
+    operator[] (const variable& v) const
+    {
+      auto i (find (v));
+      return i != end ()
+        // @@ To do this properly we seem to need ro_value_proxy.
+        //
+        ? value_proxy (&const_cast<value_ptr&> (i->second), &scope_)
+        : value_proxy (nullptr, nullptr);
+    }
+
     std::pair<iterator, iterator>
     find_namespace (const std::string& ns)
     {

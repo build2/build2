@@ -20,6 +20,7 @@
 #include <build/prerequisite>
 #include <build/variable>
 #include <build/module>
+#include <build/file>
 #include <build/diagnostics>
 #include <build/context>
 
@@ -44,12 +45,12 @@ namespace build
     root_ = &root;
     default_target_ = nullptr;
 
-    out_root_ = &root["out_root"].as<const path&> ();
+    out_root_ = &root.ro_variables ()["out_root"].as<const path&> ();
 
     // During bootstrap we may not know src_root yet.
     //
     {
-      auto v (root["src_root"]);
+      auto v (root.ro_variables ()["src_root"]);
       src_root_ = v ? &v.as<const path&> () : nullptr;
     }
 
@@ -435,6 +436,65 @@ namespace build
       fail (t) << "expected newline instead of " << t;
   }
 
+  // Create, bootstrap, and load outer root scopes, if any. Also
+  // update the parser state to point to the innermost root scope.
+  //
+  void parser::
+  create_inner_roots (const path& out_base)
+  {
+    auto v (root_->ro_variables ()["subprojects"]);
+
+    if (!v)
+      return;
+
+    for (const name& n: v.as<const list_value&> ().data)
+    {
+      // Should be a list of directories.
+      //
+      if (!n.type.empty () || !n.value.empty () || n.dir.empty ())
+        fail << "expected directory in subprojects variable "
+             << "instead of " << n;
+
+      path out_root (*out_root_ / n.dir);
+
+      if (!out_base.sub (out_root))
+        continue;
+
+      path src_root (*src_root_ / n.dir);
+      scope& rs (create_root (out_root, src_root));
+
+      bootstrap_out (rs);
+
+      // Check if the bootstrap process changed src_root.
+      //
+      const path& p (rs.variables["src_root"].as<const path&> ());
+
+      if (src_root != p)
+        fail << "bootstrapped src_root " << p << " does not match "
+             << "subproject " << src_root;
+
+      rs.src_path_ = &p;
+
+      bootstrap_src (rs);
+
+      // Load the root scope.
+      //
+      root_pre (rs);
+
+      // Update parser state.
+      //
+      root_ = &rs;
+      out_root_ = &rs.variables["out_root"].as<const path&> ();
+      src_root_ = &p;
+
+      // See if there are more inner roots.
+      //
+      create_inner_roots (out_base);
+
+      break; // Can only be in one sub-project.
+    }
+  }
+
   void parser::
   include (token& t, token_type& tt)
   {
@@ -510,6 +570,12 @@ namespace build
         out_base = out_src (src_base, *out_root_, *src_root_);
       }
 
+      // Create, bootstrap and load root scope(s) of subproject(s) that
+      // this out_base belongs to.
+      //
+      scope* ors (root_);
+      create_inner_roots (out_base);
+
       ifstream ifs (p.string ());
 
       if (!ifs.is_open ())
@@ -553,6 +619,13 @@ namespace build
       scope_ = os;
       lexer_ = ol;
       path_ = op;
+
+      if (root_ != ors)
+      {
+        root_ = ors;
+        out_root_ = &root_->ro_variables ()["out_root"].as<const path&> ();
+        src_root_ = &root_->ro_variables ()["src_root"].as<const path&> ();
+      }
     }
 
     if (tt == type::newline)
