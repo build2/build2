@@ -7,7 +7,6 @@ namespace build
   inline const value_proxy& value_proxy::
   operator= (value_ptr v) const
   {
-    assert (v == nullptr || &v->scope == s);
     *p = std::move (v);
     return *this;
   }
@@ -18,7 +17,7 @@ namespace build
     if (this != &v)
     {
       if (v)
-        *p = v.as<const value&> ().clone (*s);
+        *p = v.as<const value&> ().clone ();
       else
         p->reset ();
     }
@@ -33,14 +32,14 @@ namespace build
     // don't bother trying to optimize for the case where p is not
     // NULL.
     //
-    p->reset (new list_value (*s, std::move (v)));
+    p->reset (new list_value (std::move (v)));
     return *this;
   }
 
   inline const value_proxy& value_proxy::
   operator= (path v) const
   {
-    p->reset (new list_value (*s, std::move (v)));
+    p->reset (new list_value (std::move (v)));
     return *this;
   }
 }

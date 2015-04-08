@@ -53,15 +53,9 @@ namespace build
 
   struct value
   {
-    typedef build::scope scope_type;
-
-    scope_type& scope; // Scope to which this value belongs.
-
   public:
-    value (scope_type& s): scope (s) {}
-
     virtual value_ptr
-    clone (scope_type& s) const = 0;
+    clone () const = 0;
 
     virtual bool
     compare (const value&) const = 0;
@@ -75,24 +69,15 @@ namespace build
     names data;
 
   public:
-    list_value (scope_type& s, names d): value (s), data (std::move (d)) {}
-
-    list_value (scope_type& s, std::string d)
-        : value (s)
-    {
-      data.emplace_back (std::move (d));
-    }
+    list_value (names d): data (std::move (d)) {}
+    list_value (std::string d) {data.emplace_back (std::move (d));}
 
     // Note: stored in name as a directory.
     //
-    list_value (scope_type& s, path d)
-        : value (s)
-    {
-      data.emplace_back (std::move (d));
-    }
+    list_value (path d) {data.emplace_back (std::move (d));}
 
     virtual value_ptr
-    clone (scope_type& s) const {return value_ptr (new list_value (s, data));}
+    clone () const {return value_ptr (new list_value (data));}
 
     virtual bool
     compare (const value& v) const
@@ -112,8 +97,7 @@ namespace build
     explicit operator bool () const {return p != nullptr && *p != nullptr;}
     explicit operator value_ptr& () const {return *p;}
 
-    scope_type&
-    scope () const {return *s;}
+    scope_type* scope;
 
     // Get interface. See available specializations below.
     //
@@ -139,12 +123,10 @@ namespace build
 
     // Implementation details.
     //
-    explicit
-    value_proxy (value_ptr* p, scope_type* s): p (p), s (s) {}
+    value_proxy (value_ptr* p, scope_type* s): p (p), scope (s) {}
 
-  protected:
+  private:
     value_ptr* p;
-    scope_type* s;
   };
 
   template <>

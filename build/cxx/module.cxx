@@ -49,7 +49,7 @@ namespace build
 
         if (val)
         {
-          if (&val.scope () != global_scope)
+          if (val.scope != global_scope)
             break; // A value from config.build.
 
           v = val.as<const string&> ();
@@ -110,7 +110,7 @@ namespace build
       //
       if (auto val = root["config.cxx.poptions"])
       {
-        if (&val.scope () == global_scope)
+        if (val.scope == global_scope)
           root.variables["config.cxx.poptions"] = val;
       }
       else
@@ -118,7 +118,7 @@ namespace build
 
       if (auto val = root["config.cxx.coptions"])
       {
-        if (&val.scope () == global_scope)
+        if (val.scope == global_scope)
           root.variables["config.cxx.coptions"] = val;
       }
       else
@@ -126,7 +126,7 @@ namespace build
 
       if (auto val = root["config.cxx.loptions"])
       {
-        if (&val.scope () == global_scope)
+        if (val.scope == global_scope)
           root.variables["config.cxx.loptions"] = val;
       }
       else
@@ -134,7 +134,7 @@ namespace build
 
       if (auto val = root["config.cxx.libs"])
       {
-        if (&val.scope () == global_scope)
+        if (val.scope == global_scope)
           root.variables["config.cxx.libs"] = val;
       }
       else

@@ -700,7 +700,7 @@ namespace build
 
       if (val == nullptr) // Initialization.
       {
-        val.reset (new list_value (*scope_, move (vns)));
+        val.reset (new list_value (move (vns)));
       }
       else // Assignment.
       {
@@ -717,9 +717,9 @@ namespace build
         //
         list_value* lv (&val.as<list_value&> ());
 
-        if (&lv->scope != scope_) // Append to value from parent scope?
+        if (val.scope != scope_) // Append to value from parent scope?
         {
-          list_value_ptr nval (new list_value (*scope_, lv->data));
+          list_value_ptr nval (new list_value (lv->data));
           lv = nval.get (); // Append to.
           scope_->variables.emplace (var, move (nval));
         }
@@ -730,7 +730,7 @@ namespace build
       }
       else // Initialization.
       {
-        list_value_ptr nval (new list_value (*scope_, move (vns)));
+        list_value_ptr nval (new list_value (move (vns)));
         scope_->variables.emplace (var, move (nval));
       }
     }
