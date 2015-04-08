@@ -127,10 +127,65 @@ namespace build
     }
 
     static void
+    configure_project (action a, scope& root)
+    {
+      tracer trace ("configure_project");
+
+      const path& out_root (root.path ());
+      const path& src_root (root.src_path ());
+
+      // Make sure the directories exist.
+      //
+      if (out_root != src_root)
+      {
+        mkdir (out_root);
+        mkdir (out_root / build_dir);
+        mkdir (out_root / bootstrap_dir);
+      }
+
+      // We distinguish between a complete configure and operation-
+      // specific.
+      //
+      if (a.operation () == default_id)
+      {
+        level4 ([&]{trace << "completely configuring " << out_root;});
+
+        // Save src-root.build unless out_root is the same as src.
+        //
+        if (out_root != src_root)
+          save_src_root (out_root, src_root);
+
+        // Save config.build.
+        //
+        save_config (root);
+      }
+      else
+      {
+      }
+
+      // Configure subprojects that have been loaded.
+      //
+      if (auto v = root.ro_variables ()["subprojects"])
+      {
+        for (const name& n: v.as<const list_value&> ().data)
+        {
+          path out_nroot (out_root / n.dir);
+          scope& nroot (scopes.find (out_nroot));
+
+          // @@ Strictly speaking we need to check whether the config
+          // module was loaded for this subproject.
+          //
+          if (nroot.path () != out_nroot) // This subproject was not loaded.
+            continue;
+
+          configure_project (a, nroot);
+        }
+      }
+    }
+
+    static void
     configure_execute (action a, const action_targets& ts)
     {
-      tracer trace ("configure_execute");
-
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
@@ -139,37 +194,7 @@ namespace build
         if (rs == nullptr)
           fail << "out of project target " << t;
 
-        const path& out_root (rs->path ());
-        const path& src_root (rs->src_path ());
-
-        // Make sure the directories exist.
-        //
-        if (out_root != src_root)
-        {
-          mkdir (out_root);
-          mkdir (out_root / build_dir);
-          mkdir (out_root / bootstrap_dir);
-        }
-
-        // We distinguish between a complete configure and operation-
-        // specific.
-        //
-        if (a.operation () == default_id)
-        {
-          level4 ([&]{trace << "completely configuring " << out_root;});
-
-          // Save src-root.build unless out_root is the same as src.
-          //
-          if (out_root != src_root)
-            save_src_root (out_root, src_root);
-
-          // Save config.build.
-          //
-          save_config (*rs);
-        }
-        else
-        {
-        }
+        configure_project (a, *rs);
       }
     }
 
