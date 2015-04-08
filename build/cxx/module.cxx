@@ -105,8 +105,8 @@ namespace build
       // These are optional so all we need to do is "import" them
       // into the root scope if they were specified on the command
       // line and set them to empty if unspecified (the last part
-      // is important for the "configured as undefined" vs
-      // "unconfigured" logic).
+      // is important to distinguish between the "configured as
+      // undefined" and "not configured" cases).
       //
       if (auto val = root["config.cxx.poptions"])
       {
