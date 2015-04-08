@@ -104,41 +104,57 @@ namespace build
       //
       // These are optional so all we need to do is "import" them
       // into the root scope if they were specified on the command
-      // line and set them to empty if unspecified (the last part
+      // line and set them to NULL if unspecified (the last part
       // is important to distinguish between the "configured as
-      // undefined" and "not configured" cases).
+      // unspecified" and "not configured" cases).
       //
-      if (auto val = root["config.cxx.poptions"])
       {
-        if (val.scope == global_scope)
-          root.variables["config.cxx.poptions"] = val;
-      }
-      else
-        root.variables["config.cxx.poptions"]; // Undefined.
+        auto v (root["config.cxx.poptions"]);
 
-      if (auto val = root["config.cxx.coptions"])
-      {
-        if (val.scope == global_scope)
-          root.variables["config.cxx.coptions"] = val;
+        if (v.defined ())
+        {
+          if (v.scope == global_scope)
+            root.variables["config.cxx.poptions"] = v;
+        }
+        else
+          root.variables["config.cxx.poptions"]; // Set to NULL.
       }
-      else
-        root.variables["config.cxx.coptions"]; // Undefined.
 
-      if (auto val = root["config.cxx.loptions"])
       {
-        if (val.scope == global_scope)
-          root.variables["config.cxx.loptions"] = val;
-      }
-      else
-        root.variables["config.cxx.loptions"]; // Undefined.
+        auto v (root["config.cxx.coptions"]);
 
-      if (auto val = root["config.cxx.libs"])
-      {
-        if (val.scope == global_scope)
-          root.variables["config.cxx.libs"] = val;
+        if (v.defined ())
+        {
+          if (v.scope == global_scope)
+            root.variables["config.cxx.coptions"] = v;
+        }
+        else
+          root.variables["config.cxx.coptions"]; // Set to NULL.
       }
-      else
-        root.variables["config.cxx.libs"]; // Undefined.
+
+      {
+        auto v (root["config.cxx.loptions"]);
+
+        if (v.defined ())
+        {
+          if (v.scope == global_scope)
+            root.variables["config.cxx.loptions"] = v;
+        }
+        else
+          root.variables["config.cxx.loptions"]; // Set to NULL.
+      }
+
+      {
+        auto v (root["config.cxx.libs"]);
+
+        if (v.defined ())
+        {
+          if (v.scope == global_scope)
+            root.variables["config.cxx.libs"] = v;
+        }
+        else
+          root.variables["config.cxx.libs"]; // Set to NULL.
+      }
     }
   }
 }

@@ -99,13 +99,13 @@ namespace build
           //
           if (auto gval = (*global_scope)[var])
           {
-            if (!pval || !pval->compare (gval.as<const value&> ()))
+            if (pval == nullptr || !pval->compare (gval.as<const value&> ()))
               warn << "variable " << var.name << " configured value "
                    << "differs from command line value" <<
                 info << "reconfigure the project to use command line value";
           }
 
-          if (pval)
+          if (pval != nullptr)
           {
             //@@ TODO: assuming list
             //
@@ -116,8 +116,8 @@ namespace build
           }
           else
           {
-            ofs << var.name << " =" << endl; // @@ TODO: [undefined]
-            //text << var.name << " = [undefined]";
+            ofs << var.name << " = #[null]" << endl; // @@ TODO: [null]
+            //text << var.name << " = [null]";
           }
         }
       }

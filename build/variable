@@ -90,11 +90,19 @@ namespace build
 
   // value_proxy
   //
+  // A variable can be undefined, null, or contain some actual value.
+  //
   struct value_proxy
   {
     typedef build::scope scope_type;
 
-    explicit operator bool () const {return p != nullptr && *p != nullptr;}
+    bool
+    defined () const {return p != nullptr;}
+
+    bool
+    null () const {return *p == nullptr;}
+
+    explicit operator bool () const {return defined () && !null ();}
     explicit operator value_ptr& () const {return *p;}
 
     scope_type* scope;
