@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include <build/scope>
+#include <build/file>
 #include <build/context>
 #include <build/filesystem>
 #include <build/diagnostics>
@@ -246,6 +247,89 @@ namespace build
       ts.push_back (&root);
     }
 
+    static bool
+    disfigure_project (action a, scope& root)
+    {
+      tracer trace ("disfigure_project");
+
+      bool m (false); // Keep track of whether we actually did anything.
+
+      const path& out_root (root.path ());
+      const path& src_root (root.src_path ());
+
+      // Disfigure subprojects. Since we don't load buildfiles during
+      // disfigure, we do it for all known subprojects.
+      //
+      if (auto v = root.ro_variables ()["subprojects"])
+      {
+        for (const name& n: v.as<const list_value&> ().data)
+        {
+          // Create and bootstrap subproject's root scope.
+          //
+          path out_nroot (out_root / n.dir);
+          path src_nroot (src_root / n.dir);
+          scope& nroot (create_root (out_nroot, src_nroot));
+
+          bootstrap_out (nroot);
+
+          // Check if the bootstrap process changed src_root.
+          //
+          const path& p (nroot.variables["src_root"].as<const path&> ());
+
+          if (src_nroot != p)
+            fail << "bootstrapped src_root " << p << " does not match "
+                 << "subproject " << src_nroot;
+
+          nroot.src_path_ = &p;
+
+          bootstrap_src (nroot);
+
+          m = disfigure_project (a, nroot) || m;
+        }
+      }
+
+      // We distinguish between a complete disfigure and operation-
+      // specific.
+      //
+      if (a.operation () == default_id)
+      {
+        level4 ([&]{trace << "completely disfiguring " << out_root;});
+
+        m = rmfile (out_root / config_file) || m;
+
+        if (out_root != src_root)
+        {
+          m = rmfile (out_root / src_root_file) || m;
+
+          // Clean up the directories.
+          //
+          m = rmdir (out_root / bootstrap_dir) || m;
+          m = rmdir (out_root / build_dir) || m;
+
+          switch (rmdir (out_root))
+          {
+          case rmdir_status::not_empty:
+            {
+              warn << "directory " << out_root.string () << " is "
+                   << (out_root == work
+                       ? "current working directory"
+                       : "not empty") << ", not removing";
+              break;
+            }
+          case rmdir_status::success:
+            m = true;
+          default:
+            break;
+          }
+        }
+      }
+      else
+      {
+      }
+
+      return m;
+    }
+
     static void
     disfigure_execute (action a, const action_targets& ts)
     {
@@ -254,58 +338,15 @@ namespace build
       for (void* v: ts)
       {
         scope& root (*static_cast<scope*> (v));
-        const path& out_root (root.path ());
-        const path& src_root (root.src_path ());
 
-        bool m (false); // Keep track of whether we actually did anything.
-
-        // We distinguish between a complete disfigure and operation-
-        // specific.
-        //
-        if (a.operation () == default_id)
-        {
-          level4 ([&]{trace << "completely disfiguring " << out_root;});
-
-          m = rmfile (out_root / config_file) || m;
-
-          if (out_root != src_root)
-          {
-            m = rmfile (out_root / src_root_file) || m;
-
-            // Clean up the directories.
-            //
-            m = rmdir (out_root / bootstrap_dir) || m;
-            m = rmdir (out_root / build_dir) || m;
-
-            switch (rmdir (out_root))
-            {
-            case rmdir_status::not_empty:
-              {
-                warn << "directory " << out_root.string () << " is "
-                     << (out_root == work
-                         ? "current working directory"
-                         : "not empty") << ", not removing";
-                break;
-              }
-            case rmdir_status::success:
-              m = true;
-            default:
-              break;
-            }
-          }
-        }
-        else
-        {
-        }
-
-        if (!m)
+        if (!disfigure_project (a, root))
         {
           // Create a dir{$out_root/} target to signify the project's
           // root in diagnostics. Not very clean but seems harmless.
           //
           target& t (
             targets.insert (
-              dir::static_type, out_root, "", nullptr, trace).first);
+              dir::static_type, root.path (), "", nullptr, trace).first);
 
           info << diag_already_done (a, t);
         }
