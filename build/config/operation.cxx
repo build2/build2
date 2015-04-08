@@ -66,9 +66,9 @@ namespace build
     }
 
     static void
-    save_config (scope& r)
+    save_config (scope& root)
     {
-      const path& out_root (r.path ());
+      const path& out_root (root.path ());
       path f (out_root / config_file);
 
       if (verb >= 1)
@@ -84,10 +84,22 @@ namespace build
 
         ofs.exceptions (ofstream::failbit | ofstream::badbit);
 
+        ofs << "# Created automatically by the config module, but" << endl
+            << "# feel free to edit." << endl
+            << "#" << endl;
+
+        if (auto v = root.ro_variables ()["amalgamation"])
+        {
+          const path& d (v.as<const path&> ());
+
+          ofs << "# Base configuration inherited from " << d << "/ ." << endl
+              << "#" << endl;
+        }
+
         // Save all the variables in the config namespace that are set
         // on the project's root scope.
         //
-        for (auto p (r.variables.find_namespace ("config"));
+        for (auto p (root.variables.find_namespace ("config"));
              p.first != p.second;
              ++p.first)
         {
