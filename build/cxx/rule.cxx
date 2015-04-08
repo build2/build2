@@ -31,7 +31,7 @@ namespace build
     {
       if (auto val = s[var])
       {
-        for (const name& n: val.as<const list_value&> ().data)
+        for (const name& n: val.as<const list_value&> ())
         {
           if (!n.type.empty () || !n.dir.empty ())
             fail << "expected option instead of " << n <<

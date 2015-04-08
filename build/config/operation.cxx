@@ -123,8 +123,8 @@ namespace build
             //
             const list_value& lv (dynamic_cast<const list_value&> (*pval));
 
-            ofs << var.name << " = " << lv.data << endl;
-            //text << var.name << " = " << lv.data;
+            ofs << var.name << " = " << lv << endl;
+            //text << var.name << " = " << lv;
           }
           else
           {
@@ -180,7 +180,7 @@ namespace build
       //
       if (auto v = root.ro_variables ()["subprojects"])
       {
-        for (const name& n: v.as<const list_value&> ().data)
+        for (const name& n: v.as<const list_value&> ())
         {
           path out_nroot (out_root / n.dir);
           scope& nroot (scopes.find (out_nroot));
@@ -274,7 +274,7 @@ namespace build
       //
       if (auto v = root.ro_variables ()["subprojects"])
       {
-        for (const name& n: v.as<const list_value&> ().data)
+        for (const name& n: v.as<const list_value&> ())
         {
           // Create and bootstrap subproject's root scope.
           //

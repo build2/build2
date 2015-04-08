@@ -447,7 +447,7 @@ namespace build
     if (!v)
       return;
 
-    for (const name& n: v.as<const list_value&> ().data)
+    for (const name& n: v.as<const list_value&> ())
     {
       // Should be a list of directories.
       //
@@ -706,7 +706,7 @@ namespace build
       {
         //@@ TODO: assuming it is a list.
         //
-        dynamic_cast<list_value&> (*val).data = move (vns);
+        dynamic_cast<list_value&> (*val) = move (vns);
       }
     }
     else
@@ -719,14 +719,14 @@ namespace build
 
         if (val.scope != scope_) // Append to value from parent scope?
         {
-          list_value_ptr nval (new list_value (lv->data));
+          list_value_ptr nval (new list_value (*lv));
           lv = nval.get (); // Append to.
           scope_->variables.emplace (var, move (nval));
         }
 
-        lv->data.insert (lv->data.end (),
-                         make_move_iterator (vns.begin ()),
-                         make_move_iterator (vns.end ()));
+        lv->insert (lv->end (),
+                    make_move_iterator (vns.begin ()),
+                    make_move_iterator (vns.end ()));
       }
       else // Initialization.
       {
@@ -944,7 +944,7 @@ namespace build
         //
         const list_value& lv (val.as<list_value&> ());
 
-        if (lv.data.empty ())
+        if (lv.empty ())
           continue;
 
         // Should we accumulate? If the buffer is not empty, then
@@ -960,11 +960,11 @@ namespace build
           // This should be a simple value or a simple directory. The
           // token still points to the name (or closing paren).
           //
-          if (lv.data.size () > 1)
+          if (lv.size () > 1)
             fail (t) << "concatenating expansion of " << var.name
                      << " contains multiple values";
 
-          const name& n (lv.data[0]);
+          const name& n (lv[0]);
 
           if (!n.type.empty ())
             fail (t) << "concatenating expansion of " << var.name
@@ -986,7 +986,7 @@ namespace build
           // Copy the names from the variable into the resulting name list
           // while doing sensible things with the types and directories.
           //
-          for (const name& n: lv.data)
+          for (const name& n: lv)
           {
             const path* dp1 (dp);
             const string* tp1 (tp);
@@ -1036,7 +1036,7 @@ namespace build
                              n.value);
           }
 
-          count = lv.data.size ();
+          count = lv.size ();
         }
 
         continue;

@@ -64,26 +64,24 @@ namespace build
     ~value () = default;
   };
 
-  struct list_value: value
+  struct list_value: value, names
   {
-    names data;
-
   public:
-    list_value (names d): data (std::move (d)) {}
-    list_value (std::string d) {data.emplace_back (std::move (d));}
+    list_value (names d): names (std::move (d)) {}
+    list_value (std::string d) {emplace_back (std::move (d));}
 
     // Note: stored in name as a directory.
     //
-    list_value (path d) {data.emplace_back (std::move (d));}
+    list_value (path d) {emplace_back (std::move (d));}
 
     virtual value_ptr
-    clone () const {return value_ptr (new list_value (data));}
+    clone () const {return value_ptr (new list_value (*this));}
 
     virtual bool
     compare (const value& v) const
     {
       const list_value* lv (dynamic_cast<const list_value*> (&v));
-      return lv != nullptr && data == lv->data;
+      return lv != nullptr && static_cast<const names&> (*this) == *lv;
     }
   };
   typedef std::unique_ptr<list_value> list_value_ptr;

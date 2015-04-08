@@ -573,7 +573,7 @@ main (int argc, char* argv[])
           //
           if (auto v = rs.ro_variables ()["subprojects"])
           {
-            for (const name& n: v.as<const list_value&> ().data)
+            for (const name& n: v.as<const list_value&> ())
             {
               // Should be a list of directories.
               //

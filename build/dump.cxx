@@ -62,12 +62,12 @@ namespace build
            << ind << var.name << " = ";
 
       if (val == nullptr)
-        cerr << "[undefined]";
+        cerr << "[null]";
       else
       {
         //@@ TODO: assuming it is a list.
         //
-        cerr << dynamic_cast<list_value&> (*val).data;
+        cerr << dynamic_cast<list_value&> (*val);
       }
 
       vb = true;

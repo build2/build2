@@ -28,12 +28,12 @@ namespace build
   as<const string&> () const
   {
     const list_value& lv (as<list_value&> ());
-    assert (lv.data.size () < 2);
+    assert (lv.size () < 2);
 
-    if (lv.data.empty ())
+    if (lv.empty ())
       return empty_string;
 
-    const name& n (lv.data.front ());
+    const name& n (lv.front ());
 
     assert (n.type.empty () && n.dir.empty ());
     return n.value;
@@ -46,12 +46,12 @@ namespace build
   as<const path&> () const
   {
     const list_value& lv (as<list_value&> ());
-    assert (lv.data.size () < 2);
+    assert (lv.size () < 2);
 
-    if (lv.data.empty ())
+    if (lv.empty ())
       return empty_path;
 
-    const name& n (lv.data.front ());
+    const name& n (lv.front ());
 
     assert (n.type.empty () && n.value.empty ());
     return n.dir;
