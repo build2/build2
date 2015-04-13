@@ -54,6 +54,12 @@ namespace build
     include (token&, token_type&);
 
     void
+    import (token&, token_type&);
+
+    void
+    export_ (token&, token_type&);
+
+    void
     using_ (token&, token_type&);
 
     void
@@ -80,11 +86,13 @@ namespace build
     // Utilities.
     //
   private:
-    void
-    process_default_target (token&);
+    // Switch to new root scope and return the previous one.
+    //
+    scope*
+    switch_root (scope*);
 
     void
-    create_inner_roots (const path&);
+    process_default_target (token&);
 
     // Lexer.
     //
@@ -112,10 +120,9 @@ namespace build
     lexer* lexer_;
     scope* scope_; // Current base scope (out_base).
     scope* root_;  // Current root scope (out_root).
-    target* default_target_;
-
     const path* out_root_;
     const path* src_root_;
+    target* default_target_;
 
     token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};

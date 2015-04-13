@@ -14,7 +14,7 @@
 #include <exception>
 #include <type_traits>
 
-#include <build/path>
+#include <build/path> // <build/path-io> included at the end.
 
 namespace build
 {
@@ -29,12 +29,6 @@ namespace build
   //
   std::string
   diag_relative (const path&);
-
-  inline std::ostream&
-  operator<< (std::ostream& os, const path& p)
-  {
-    return os << diag_relative (p);
-  }
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} already configured".
@@ -362,5 +356,7 @@ namespace build
 
   extern const fail_mark<failed> fail;
 }
+
+#include <build/path-io>
 
 #endif // BUILD_DIAGNOSTICS

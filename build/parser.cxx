@@ -42,17 +42,9 @@ namespace build
     lexer l (is, rw);
     lexer_ = &l;
     scope_ = &base;
-    root_ = &root;
+    root_ = nullptr;
+    switch_root (&root);
     default_target_ = nullptr;
-
-    out_root_ = &root.ro_variables ()["out_root"].as<const path&> ();
-
-    // During bootstrap we may not know src_root yet.
-    //
-    {
-      auto v (root.ro_variables ()["src_root"]);
-      src_root_ = v ? &v.as<const path&> () : nullptr;
-    }
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -123,6 +115,18 @@ namespace build
           include (t, tt);
           continue;
         }
+        else if (n == "import")
+        {
+          next (t, tt);
+          import (t, tt);
+          continue;
+        }
+        else if (n == "export")
+        {
+          next (t, tt);
+          export_ (t, tt);
+          continue;
+        }
         else if (n == "using")
         {
           next (t, tt);
@@ -186,6 +190,8 @@ namespace build
 
             if (dir)
             {
+              // Directory scope.
+              //
               scope& prev (*scope_);
 
               path p (move (ns[0].dir)); // Steal.
@@ -196,10 +202,19 @@ namespace build
               p.normalize ();
               scope_ = &scopes[p];
 
+              // If this is a known project root scope, switch the
+              // parser state to use it.
+              //
+              scope* ors (switch_root (scope_->root () ? scope_ : root_));
+
+              if (ors != root_)
+                level4 ([&]{trace (nloc) << "switching to root scope " << p;});
+
               // A directory scope can contain anything that a top level can.
               //
               clause (t, tt);
 
+              switch_root (ors);
               scope_ = &prev;
             }
             else
@@ -425,7 +440,7 @@ namespace build
       //
       if (src_root_ == nullptr)
       {
-        auto v ((*root_)["src_root"]);
+        auto v (root_->ro_variables ()["src_root"]);
         src_root_ = v ? &v.as<const path&> () : nullptr;
       }
     }
@@ -434,65 +449,6 @@ namespace build
       next (t, tt);
     else if (tt != type::eos)
       fail (t) << "expected newline instead of " << t;
-  }
-
-  // Create, bootstrap, and load outer root scopes, if any. Also
-  // update the parser state to point to the innermost root scope.
-  //
-  void parser::
-  create_inner_roots (const path& out_base)
-  {
-    auto v (root_->ro_variables ()["subprojects"]);
-
-    if (!v)
-      return;
-
-    for (const name& n: v.as<const list_value&> ())
-    {
-      // Should be a list of directories.
-      //
-      if (!n.type.empty () || !n.value.empty () || n.dir.empty ())
-        fail << "expected directory in subprojects variable "
-             << "instead of " << n;
-
-      path out_root (*out_root_ / n.dir);
-
-      if (!out_base.sub (out_root))
-        continue;
-
-      path src_root (*src_root_ / n.dir);
-      scope& rs (create_root (out_root, src_root));
-
-      bootstrap_out (rs);
-
-      // Check if the bootstrap process changed src_root.
-      //
-      const path& p (rs.variables["src_root"].as<const path&> ());
-
-      if (src_root != p)
-        fail << "bootstrapped src_root " << p << " does not match "
-             << "subproject " << src_root;
-
-      rs.src_path_ = &p;
-
-      bootstrap_src (rs);
-
-      // Load the root scope.
-      //
-      root_pre (rs);
-
-      // Update parser state.
-      //
-      root_ = &rs;
-      out_root_ = &rs.variables["out_root"].as<const path&> ();
-      src_root_ = &p;
-
-      // See if there are more inner roots.
-      //
-      create_inner_roots (out_base);
-
-      break; // Can only be in one sub-project.
-    }
   }
 
   void parser::
@@ -570,11 +526,14 @@ namespace build
         out_base = out_src (src_base, *out_root_, *src_root_);
       }
 
-      // Create, bootstrap and load root scope(s) of subproject(s) that
-      // this out_base belongs to.
+      // Create and bootstrap root scope(s) of subproject(s) that
+      // this out_base belongs to. If any were created, load them
+      // and update parser state.
       //
-      scope* ors (root_);
-      create_inner_roots (out_base);
+      scope* ors (switch_root (&create_bootstrap_inner (*root_, out_base)));
+
+      if (root_ != ors)
+        load_root_pre (*root_); // Loads outer roots recursively.
 
       ifstream ifs (p.string ());
 
@@ -620,12 +579,79 @@ namespace build
       lexer_ = ol;
       path_ = op;
 
-      if (root_ != ors)
-      {
-        root_ = ors;
-        out_root_ = &root_->ro_variables ()["out_root"].as<const path&> ();
-        src_root_ = &root_->ro_variables ()["src_root"].as<const path&> ();
-      }
+      switch_root (ors);
+    }
+
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
+  }
+
+  void parser::
+  import (token& t, token_type& tt)
+  {
+    tracer trace ("parser::import", &path_);
+
+    if (src_root_ == nullptr)
+      fail (t) << "import during bootstrap";
+
+    // The rest should be a list of projects and/or targets. Parse
+    // them as names to get variable expansion and directory prefixes.
+    //
+    location l (get_location (t, &path_));
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
+
+    for (name& n: ns)
+    {
+      // For now we only support project names.
+      //
+      if (!n.simple ())
+        fail (l) << "project name expected instead of " << n;
+
+
+      build::import (*scope_, n, l);
+    }
+
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
+  }
+
+  void parser::
+  export_ (token& t, token_type& tt)
+  {
+    tracer trace ("parser::export", &path_);
+
+    scope* ps (scope_->parent_scope ());
+
+    // This should be temp_scope.
+    //
+    if (ps == nullptr || ps->path () != scope_->path ())
+      fail (t) << "export outside export stub";
+
+    // The rest should be a list of variables. Parse them as names
+    // to get variable expansion.
+    //
+    location l (get_location (t, &path_));
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
+
+    for (name& n: ns)
+    {
+      if (!n.simple ())
+        fail (l) << "variable name expected instead of " << n;
+
+      const auto& var (variable_pool.find (n.value));
+
+      if (auto val = scope_->ro_variables ()[var])
+        ps->variables[var] = val; //@@ Move?
+      else
+        fail (l) << "undefined exported variable " << var.name;
     }
 
     if (tt == type::newline)
@@ -672,10 +698,11 @@ namespace build
   void parser::
   print (token& t, token_type& tt)
   {
-    for (; tt != type::newline && tt != type::eos; next (t, tt))
-      cout << t;
+    names_type ns (tt != type::newline && tt != type::eos
+                   ? names (t, tt)
+                   : names_type ());
 
-    cout << endl;
+    cout << ns << endl;
 
     if (tt != type::eos)
       next (t, tt); // Swallow newline.
@@ -1301,6 +1328,29 @@ namespace build
     }
 
     return bs;
+  }
+
+  scope* parser::
+  switch_root (scope* nr)
+  {
+    scope* r (root_);
+
+    if (nr != root_)
+    {
+      root_ = nr;
+
+      // During bootstrap we may not know src_root yet. We are also
+      // not using the scopes's path() and src_path() since pointers
+      // to their return values are not guaranteed to be stable (and,
+      // in fact, path()'s is not).
+      //
+      out_root_ = &root_->ro_variables ()["out_root"].as<const path&> ();
+
+      auto v (root_->ro_variables ()["src_root"]);
+      src_root_ = v ? &v.as<const path&> () : nullptr;
+    }
+
+    return r;
   }
 
   void parser::

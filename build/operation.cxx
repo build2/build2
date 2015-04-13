@@ -41,7 +41,7 @@ namespace build
   {
     // Load project's root[-pre].build.
     //
-    root_pre (root);
+    load_root_pre (root);
 
     // Create the base scope. Note that its existence doesn't
     // mean it was already processed as a base scope; it can

@@ -43,19 +43,6 @@ using namespace std;
 
 namespace build
 {
-  inline bool
-  is_src_root (const path& d)
-  {
-    return file_exists (d / path ("build/bootstrap.build")) ||
-      file_exists (d / path ("build/root.build"));
-  }
-
-  inline bool
-  is_out_root (const path& d)
-  {
-    return file_exists (d / path ("build/bootstrap/src-root.build"));
-  }
-
   // Given an src_base directory, look for the project's src_root
   // based on the presence of known special files. Return empty
   // path if not found.
@@ -87,41 +74,6 @@ namespace build
 
     src = false;
     return path ();
-  }
-
-  // Create and bootstrap outer root scopes, if any. Loading is
-  // done by root_pre().
-  //
-  static void
-  create_outer_roots (scope& root)
-  {
-    auto v (root.ro_variables ()["amalgamation"]);
-
-    if (!v)
-      return;
-
-    const path& d (v.as<const path&> ());
-    path out_root (root.path () / d);
-    path src_root (root.src_path () / d);
-    out_root.normalize ();
-    src_root.normalize ();
-
-    scope& rs (create_root (out_root, src_root));
-
-    bootstrap_out (rs);
-
-    // Check if the bootstrap process changed src_root.
-    //
-    const path& p (rs.variables["src_root"].as<const path&> ());
-
-    if (src_root != p)
-      fail << "bootstrapped src_root " << p << " does not match "
-           << "amalgamated " << src_root;
-
-    rs.src_path_ = &p;
-
-    bootstrap_src (rs);
-    create_outer_roots (rs);
   }
 }
 
@@ -588,10 +540,10 @@ main (int argc, char* argv[])
           }
 
           // Create and bootstrap outer roots if any. Loading is done
-          // by root_pre() (that would normally be called by the meta-
-          // operation's load() callback below).
+          // by load_root_pre() (that would normally be called by the
+          // meta-operation's load() callback below).
           //
-          create_outer_roots (rs);
+          create_bootstrap_outer (rs);
 
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should

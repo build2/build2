@@ -7,7 +7,6 @@
 #include <set>
 #include <string>
 #include <cassert>
-#include <iostream>
 
 #include <build/scope>
 #include <build/target>
@@ -20,29 +19,30 @@ using namespace std;
 namespace build
 {
   static void
-  dump_target (const target& t)
+  dump_target (ostream& os, const target& t)
   {
-    cerr << t << ':';
+    os << t << ':';
 
     for (const prerequisite& p: t.prerequisites)
     {
-      cerr << ' ' << p;
+      os << ' ' << p;
     }
   }
 
   static void
-  dump_scope (scope& p,
+  dump_scope (ostream& os,
+              scope& p,
               scope_map::iterator& i,
               string& ind,
               set<const target*>& rts)
   {
-    string d (diag_relative (p.path ()));
+    string d (relative (p.path ()).string ());
 
     if (d.back () != path::traits::directory_separator)
       d += '/';
 
-    cerr << ind << d << ":" << endl
-         << ind << '{';
+    os << ind << d << ":" << endl
+       << ind << '{';
 
     const path* orb (relative_base);
     relative_base = &p.path ();
@@ -58,16 +58,16 @@ namespace build
       const variable& var (e.first);
       const value_ptr& val (e.second);
 
-      cerr << endl
-           << ind << var.name << " = ";
+      os << endl
+         << ind << var.name << " = ";
 
       if (val == nullptr)
-        cerr << "[null]";
+        os << "[null]";
       else
       {
         //@@ TODO: assuming it is a list.
         //
-        cerr << dynamic_cast<list_value&> (*val);
+        os << dynamic_cast<list_value&> (*val);
       }
 
       vb = true;
@@ -79,16 +79,16 @@ namespace build
     {
       if (vb)
       {
-        cerr << endl;
+        os << endl;
         vb = false;
       }
 
       if (sb)
-        cerr << endl; // Extra newline between scope blocks.
+        os << endl; // Extra newline between scope blocks.
 
-      cerr << endl;
+      os << endl;
       scope& s (i->second);
-      dump_scope (s, ++i, ind, rts);
+      dump_scope (os, s, ++i, ind, rts);
 
       sb = true;
     }
@@ -129,31 +129,34 @@ namespace build
 
       if (vb || sb)
       {
-        cerr << endl;
+        os << endl;
         vb = sb = false;
       }
 
-      cerr << endl
-           << ind;
-      dump_target (t);
+      os << endl
+         << ind;
+      dump_target (os, t);
     }
 
     ind.resize (ind.size () - 2);
     relative_base = orb;
 
-    cerr << endl
-         << ind << '}';
+    os << endl
+       << ind << '}';
   }
 
   void
   dump ()
   {
-    string ind;
-    set<const target*> rts;
     auto i (scopes.begin ());
     scope& g (i->second); // Global scope.
     assert (&g == global_scope);
-    dump_scope (g, ++i, ind, rts);
-    cerr << endl;
+
+    string ind;
+    set<const target*> rts;
+
+    ostream& os (*diag_stream);
+    dump_scope (os, g, ++i, ind, rts);
+    os << endl;
   }
 }

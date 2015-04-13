@@ -6,10 +6,18 @@
 #define BUILD_FILE
 
 #include <build/path>
+#include <build/name>
 
 namespace build
 {
   class scope;
+  struct location;
+
+  bool
+  is_src_root (const path&);
+
+  bool
+  is_out_root (const path&);
 
   void
   source (const path& buildfile, scope& root, scope& base);
@@ -25,7 +33,7 @@ namespace build
   void
   source_once (const path& buildfile, scope& root, scope& base, scope& once);
 
-  // Create project's root scope. Only set the src_root variable is the
+  // Create project's root scope. Only set the src_root variable if the
   // passed src_root value is not empty.
   //
   scope&
@@ -42,10 +50,28 @@ namespace build
   bool
   bootstrap_src (scope& root);
 
-  // Load project's root[-pre].build unless already loaded.
+  // Create and bootstrap outer root scopes, if any. Loading is
+  // done by load_root_pre() below.
   //
   void
-  root_pre (scope& root);
+  create_bootstrap_outer (scope& root);
+
+  // Create and bootstrap inner root scopes between root and base,
+  // if any. Return the innermost created root scope or root if
+  // none were created. Loading is done by load_root_pre() below.
+  //
+  scope&
+  create_bootstrap_inner (scope& root, const path& out_base);
+
+  // Load project's root[-pre].build unless already loaded. Also
+  // make sure all outer root scopes are loaded prior to loading
+  // this root scope.
+  //
+  void
+  load_root_pre (scope& root);
+
+  void
+  import (scope& base, const name&, const location&);
 }
 
 #include <build/file.ixx>

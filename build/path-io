@@ -1,0 +1,22 @@
+// file      : build/path-io -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_PATH_IO
+#define BUILD_PATH_IO
+
+#include <ostream>
+
+#include <build/path>
+#include <build/diagnostics>
+
+namespace build
+{
+  inline std::ostream&
+  operator<< (std::ostream& os, const path& p)
+  {
+    return os << (&os == diag_stream ? diag_relative (p) : p.string ());
+  }
+}
+
+#endif // BUILD_PATH_IO

@@ -33,6 +33,16 @@ namespace build
     name (std::string t, path d, std::string v)
         : type (std::move (t)), dir (std::move (d)), value (std::move (v)) {}
 
+    bool
+    empty () const {type.empty () && dir.empty () && value.empty ();}
+
+    bool
+    simple () const {return type.empty () && dir.empty ();}
+
+    bool
+    directory () const
+    {return type.empty () && !dir.empty () && value.empty ();}
+
     std::string type;
     path dir;
     std::string value;
