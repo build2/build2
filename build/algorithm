@@ -35,7 +35,7 @@ namespace build
   // in the same or a subdirectory of dir.
   //
   void
-  search_and_match (action, target&, const path& dir);
+  search_and_match (action, target&, const dir_path& dir);
 
   // Inject dependency on the parent directory fsdir{}, unless it is
   // the project's out_root (or is outside of any project; think, for

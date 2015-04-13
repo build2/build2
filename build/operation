@@ -137,8 +137,8 @@ namespace build
     //
     void (*load) (const path& buildfile,
                   scope& root,
-                  const path& out_base,
-                  const path& src_base,
+                  const dir_path& out_base,
+                  const dir_path& src_base,
                   const location&);
 
     void (*match) (action,
@@ -167,8 +167,8 @@ namespace build
   void
   load (const path& buildfile,
         scope& root,
-        const path& out_base,
-        const path& src_base,
+        const dir_path& out_base,
+        const dir_path& src_base,
         const location&);
 
   // Resolve and match the target. This is the default implementation

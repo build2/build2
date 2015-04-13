@@ -20,12 +20,10 @@ namespace build
   class scope
   {
   public:
-    typedef build::path path_type;
-
-    const path_type&
+    const dir_path&
     path () const {return i_->first;} // Absolute and normalized.
 
-    const path_type&
+    const dir_path&
     src_path () const {return *src_path_;} // Corresponding src path.
 
     scope*
@@ -53,7 +51,7 @@ namespace build
     value_proxy
     operator[] (const variable&);
 
-    const path_type* src_path_ {nullptr}; // Cached src_{root,base} var value.
+    const dir_path* src_path_ {nullptr}; // Cached src_{root,base} var value.
 
   public:
     variable_map variables;
@@ -68,6 +66,8 @@ namespace build
     //
     meta_operation_table meta_operations;
     operation_table operations;
+
+    typedef build::path path_type;
 
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against the project's root scope while
@@ -90,7 +90,7 @@ namespace build
     friend class scope_map;
     friend class temp_scope;
 
-    typedef path_map<scope>::const_iterator iterator;
+    typedef dir_path_map<scope>::const_iterator iterator;
 
     scope (): variables (*this) {}
 
@@ -113,25 +113,36 @@ namespace build
     temp_scope (scope& p) {i_ = p.i_; parent_ = &p; root_ = p.root_;}
   };
 
-  class scope_map: public path_map<scope>
+  class scope_map: public dir_path_map<scope>
   {
   public:
     // Note that we assume the first insertion into the map is that
     // of the global scope.
     //
     std::pair<scope&, bool>
-    insert (const path&, bool root);
+    insert (const dir_path&, bool root);
 
     scope&
-    operator[] (const path& p) {return insert (p, false).first;}
+    operator[] (const dir_path& p) {return insert (p, false).first;}
 
     // Find the most qualified scope that encompasses this path.
     //
     scope&
-    find (const path&);
+    find (const dir_path&);
+
+    scope&
+    find (const path& p)
+    {
+      // Natural thing to do here would be to call find (p.directory ()).
+      // However, there could be a situation where the passed path is a
+      // directory (i.e., the calling code does not know what it is dealing
+      // with), so let's use the whole path.
+      //
+      return find (dir_path (p.string ()));
+    }
 
   private:
-    typedef path_map<scope> base;
+    typedef dir_path_map<scope> base;
   };
 
   extern scope_map scopes;

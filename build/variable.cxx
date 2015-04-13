@@ -39,17 +39,15 @@ namespace build
     return n.value;
   }
 
-  // Note: get the name's directory.
-  //
   template <>
-  const path& value_proxy::
-  as<const path&> () const
+  const dir_path& value_proxy::
+  as<const dir_path&> () const
   {
     const list_value& lv (as<list_value&> ());
     assert (lv.size () < 2);
 
     if (lv.empty ())
-      return empty_path;
+      return empty_dir_path;
 
     const name& n (lv.front ());
 

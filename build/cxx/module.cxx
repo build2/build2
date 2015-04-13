@@ -33,8 +33,8 @@ namespace build
 
       //@@ TODO: need to register target types, rules here instead of main().
 
-      const path& out_root (root.path ());
-      level4 ([&]{trace << "for " << out_root << '/';});
+      const dir_path& out_root (root.path ());
+      level4 ([&]{trace << "for " << out_root;});
 
       // Configure.
       //

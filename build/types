@@ -15,6 +15,7 @@ namespace build
   //
 
   typedef std::vector<path> paths;
+  typedef std::vector<dir_path> dir_paths;
 }
 
 #endif // BUILD_TYPES

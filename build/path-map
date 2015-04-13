@@ -24,10 +24,10 @@ namespace build
   // want a particular representation, pre-populate the map with
   // it.
   //
-  template <typename C>
-  struct compare_prefix<basic_path<C>>: compare_prefix<std::basic_string<C>>
+  template <typename C, typename K>
+  struct compare_prefix<basic_path<C, K>>: compare_prefix<std::basic_string<C>>
   {
-    typedef basic_path<C> K;
+    typedef basic_path<C, K> key_type;
 
     typedef C delimiter_type;
     typedef std::basic_string<C> string_type;
@@ -37,7 +37,7 @@ namespace build
     compare_prefix (delimiter_type d): base (d) {}
 
     bool
-    operator() (const K& x, const K& y) const
+    operator() (const key_type& x, const key_type& y) const
     {
       const auto& xs (x.string ());
       const auto& ys (y.string ());
@@ -56,7 +56,7 @@ namespace build
     }
 
     bool
-    prefix (const K& p, const K& k) const
+    prefix (const key_type& p, const key_type& k) const
     {
       const auto& ps (p.string ());
       const auto& ks (k.string ());
@@ -72,6 +72,10 @@ namespace build
 
   template <typename T>
   using path_map = prefix_map<path, T, path::traits::directory_separator>;
+
+  template <typename T>
+  using dir_path_map =
+    prefix_map<dir_path, T, dir_path::traits::directory_separator>;
 }
 
 #endif // BUILD_PATH_MAP

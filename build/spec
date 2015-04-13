@@ -21,10 +21,10 @@ namespace build
 
     explicit
     targetspec (name_type n): name (std::move (n)) {}
-    targetspec (path sb, name_type n)
+    targetspec (dir_path sb, name_type n)
         : src_base (std::move (sb)), name (std::move (n)) {}
 
-    path src_base;
+    dir_path src_base;
     name_type name;
   };
 

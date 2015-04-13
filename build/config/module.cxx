@@ -36,8 +36,8 @@ namespace build
       if (&root != &base)
         fail (l) << "config module must be initialized in project root scope";
 
-      const path& out_root (root.path ());
-      level4 ([&]{trace << "for " << out_root << '/';});
+      const dir_path& out_root (root.path ());
+      level4 ([&]{trace << "for " << out_root;});
 
       // Register meta-operations.
       //

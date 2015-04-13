@@ -17,19 +17,10 @@ namespace build
   {
     if (!s.src_base.empty ())
     {
-      string d (diag_relative (s.src_base));
+      string d (diag_relative (s.src_base, false));
 
-      if (d != ".")
-      {
-        os << d;
-
-        // Add the directory separator unless it is already there.
-        //
-        if (d.back () != path::traits::directory_separator)
-          os << path::traits::directory_separator;
-
-        os << '=';
-      }
+      if (!d.empty ())
+        os << d << '@';
     }
 
     os << s.name;

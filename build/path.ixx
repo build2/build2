@@ -25,30 +25,30 @@ namespace build
   }
 #endif
 
-  template <typename C>
-  inline bool basic_path<C>::
+  template <typename C, typename K>
+  inline bool basic_path<C, K>::
   absolute () const
   {
 #ifdef _WIN32
-    return path_.size () > 1 && path_[1] == ':';
+    return this->path_.size () > 1 && this->path_[1] == ':';
 #else
-    return !path_.empty () && traits::is_separator (path_[0]);
+    return !this->path_.empty () && traits::is_separator (this->path_[0]);
 #endif
   }
 
-  template <typename C>
-  inline bool basic_path<C>::
+  template <typename C, typename K>
+  inline bool basic_path<C, K>::
   root () const
   {
 #ifdef _WIN32
-    return path_.size () == 2 && path_[1] == ':';
+    return this->path_.size () == 2 && this->path_[1] == ':';
 #else
-    return path_.size () == 1 && traits::is_separator (path_[0]);
+    return this->path_.size () == 1 && traits::is_separator (this->path_[0]);
 #endif
   }
 
-  template <typename C>
-  inline bool basic_path<C>::
+  template <typename C, typename K>
+  inline bool basic_path<C, K>::
   sub (const basic_path& p) const
   {
     size_type n (p.path_.size ());
@@ -56,18 +56,18 @@ namespace build
     if (n == 0)
       return true;
 
-    size_type m (path_.size ());
+    size_type m (this->path_.size ());
 
     // The second condition guards against the /foo-bar vs /foo case.
     //
-    return m >= n && path_.compare (0, n, p.path_) == 0 &&
+    return m >= n && this->path_.compare (0, n, p.path_) == 0 &&
       (traits::is_separator (p.path_.back ()) || // p ends with a separator
        m == n                                 || // *this == p
-       traits::is_separator (path_[n]));         // next char is a separator
+       traits::is_separator (this->path_[n]));   // next char is a separator
   }
 
-  template <typename C>
-  inline bool basic_path<C>::
+  template <typename C, typename K>
+  inline bool basic_path<C, K>::
   sup (const basic_path& p) const
   {
     size_type n (p.path_.size ());
@@ -75,17 +75,17 @@ namespace build
     if (n == 0)
       return true;
 
-    size_type m (path_.size ());
+    size_type m (this->path_.size ());
 
     // The second condition guards against the /foo-bar vs bar case.
     //
-    return m >= n && path_.compare (m - n, n, p.path_) == 0 &&
-      (m == n                                   || // *this == p
-       traits::is_separator (path_[m - n - 1]));   // prev char is a separator
+    return m >= n && this->path_.compare (m - n, n, p.path_) == 0 &&
+      (m == n                                   ||     // *this == p
+       traits::is_separator (this->path_[m - n - 1])); // prev char separator
   }
 
-  template <typename C>
-  inline basic_path<C>& basic_path<C>::
+  template <typename C, typename K>
+  inline basic_path<C, K>& basic_path<C, K>::
   complete ()
   {
     if (relative ())
@@ -94,38 +94,40 @@ namespace build
     return *this;
   }
 
-  template <typename C>
-  inline basic_path<C> basic_path<C>::
+  template <typename C, typename K>
+  inline typename basic_path<C, K>::dir_type basic_path<C, K>::
   root_directory () const
   {
     return absolute ()
 #ifdef _WIN32
-      ? path (path_, 2)
+      ? dir_type (this->path_, 2)
 #else
-      ? path ("/")
+      ? dir_type ("/")
 #endif
-      : path ();
+      : dir_type ();
   }
 
-  template <typename C>
-  inline basic_path<C> basic_path<C>::
+  template <typename C, typename K>
+  inline basic_path<C, K> basic_path<C, K>::
   base () const
   {
-    size_type p (traits::find_extension (path_));
-    return p != string_type::npos ? basic_path (path_.c_str (), p) : *this;
+    size_type p (traits::find_extension (this->path_));
+    return p != string_type::npos
+      ? basic_path (this->path_.c_str (), p)
+      : *this;
   }
 
-  template <typename C>
-  inline const C* basic_path<C>::
+  template <typename C, typename K>
+  inline const C* basic_path<C, K>::
   extension () const
   {
-    size_type p (traits::find_extension (path_));
-    return p != string_type::npos ? path_.c_str () + p + 1 : nullptr;
+    size_type p (traits::find_extension (this->path_));
+    return p != string_type::npos ? this->path_.c_str () + p + 1 : nullptr;
   }
 
 #ifndef _WIN32
-  template <typename C>
-  inline typename basic_path<C>::string_type basic_path<C>::
+  template <typename C, typename K>
+  inline typename basic_path<C, K>::string_type basic_path<C, K>::
   posix_string () const
   {
     return string ();

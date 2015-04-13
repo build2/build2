@@ -57,6 +57,24 @@ namespace build
     return p.string ();
   }
 
+  string
+  diag_relative (const dir_path& d, bool cur)
+  {
+    string r (diag_relative (static_cast<const path&> (d)));
+
+    // Translate "." to empty.
+    //
+    if (!cur && d.absolute () && r == ".")
+      r.clear ();
+
+    // Add trailing '/'.
+    //
+    if (!r.empty () && !dir_path::traits::is_separator (r.back ()))
+      r += '/';
+
+    return r;
+  }
+
   // diag_do(), etc.
   //
   string

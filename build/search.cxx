@@ -27,7 +27,7 @@ namespace build
 
     // Look for an existing target in this prerequisite's directory scope.
     //
-    path d;
+    dir_path d;
     if (p.dir.absolute ())
       d = p.dir; // Already normalized.
     else
@@ -56,7 +56,7 @@ namespace build
   }
 
   target*
-  search_existing_file (prerequisite& p, const paths& sp)
+  search_existing_file (prerequisite& p, const dir_paths& sp)
   {
     tracer trace ("search_existing_file");
 
@@ -64,7 +64,7 @@ namespace build
 
     // Go over paths and extension looking for a file.
     //
-    for (const path& d: sp)
+    for (const dir_path& d: sp)
     {
       path f (d / p.dir / path (p.name));
       f.normalize ();
@@ -116,7 +116,7 @@ namespace build
 
     // We default to the target in this prerequisite's directory scope.
     //
-    path d;
+    dir_path d;
     if (p.dir.absolute ())
       d = p.dir; // Already normalized.
     else

@@ -15,8 +15,8 @@ using namespace std;
 
 namespace build
 {
-  path work;
-  path home;
+  dir_path work;
+  dir_path home;
 
   const meta_operation_info* current_mif;
   const operation_info* current_oif;
@@ -35,9 +35,9 @@ namespace build
     // See the comment in <build/path-map> for details.
     //
 #ifdef _WIN32
-    global_scope = &scopes[path ()];
+    global_scope = &scopes[dir_path ()];
 #else
-    global_scope = &scopes[path ("/")];
+    global_scope = &scopes[dir_path ("/")];
 #endif
 
     global_scope->variables["work"] = work;
@@ -45,7 +45,7 @@ namespace build
   }
 
   fs_status<mkdir_status>
-  mkdir (const path& d)
+  mkdir (const dir_path& d)
   {
     // We don't want to print the command if the directory already
     // exists. This makes the below code a bit ugly.
@@ -78,68 +78,35 @@ namespace build
     return ms;
   }
 
-  path
-  src_out (const path& out, scope& s)
+  dir_path
+  src_out (const dir_path& out, scope& s)
   {
     scope& rs (*s.root_scope ());
     return src_out (out, rs.path (), rs.src_path ());
   }
 
-  path
-  out_src (const path& src, scope& s)
+  dir_path
+  out_src (const dir_path& src, scope& s)
   {
     scope& rs (*s.root_scope ());
     return out_src (src, rs.path (), rs.src_path ());
   }
 
-  path
-  src_out (const path& o, const path& out_root, const path& src_root)
+  dir_path
+  src_out (const dir_path& o,
+           const dir_path& out_root, const dir_path& src_root)
   {
     assert (o.sub (out_root));
     return src_root / o.leaf (out_root);
   }
 
-  path
-  out_src (const path& s, const path& out_root, const path& src_root)
+  dir_path
+  out_src (const dir_path& s,
+           const dir_path& out_root, const dir_path& src_root)
   {
     assert (s.sub (src_root));
     return out_root / s.leaf (src_root);
   }
 
-  const path* relative_base = &work;
-
-  path
-  relative (const path& p)
-  {
-    const path& b (*relative_base);
-
-    if (b.empty ())
-      return p;
-
-    if (p.sub (b))
-      return p.leaf (b);
-
-    // If base is a sub-path of {src,out}_root and this path is also a
-    // sub-path of it, then use '..' to form a relative path.
-    //
-    // Don't think this is a good heuristic. For example, why shouldn't
-    // we display paths from imported projects as relative if they are
-    // more readable than absolute?
-    //
-    /*
-    if ((work.sub (src_root) && p.sub (src_root)) ||
-        (work.sub (out_root) && p.sub (out_root)))
-      return p.relative (work);
-    */
-
-    if (p.root_directory () == b.root_directory ())
-    {
-      path r (p.relative (b));
-
-      if (r.string ().size () < p.string ().size ())
-        return r;
-    }
-
-    return p;
-  }
+  const dir_path* relative_base = &work;
 }

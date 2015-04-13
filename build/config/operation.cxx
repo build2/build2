@@ -18,8 +18,8 @@ namespace build
 {
   namespace config
   {
-    static const path build_dir ("build");
-    static const path bootstrap_dir ("build/bootstrap");
+    static const dir_path build_dir ("build");
+    static const dir_path bootstrap_dir ("build/bootstrap");
 
     static const path config_file ("build/config.build");
     static const path src_root_file ("build/bootstrap/src-root.build");
@@ -36,7 +36,7 @@ namespace build
     }
 
     static void
-    save_src_root (const path& out_root, const path& src_root)
+    save_src_root (const dir_path& out_root, const dir_path& src_root)
     {
       path f (out_root / src_root_file);
 
@@ -57,7 +57,7 @@ namespace build
         //
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
-            << "src_root = " << src_root.string () << '/' << endl;
+            << "src_root = " << src_root << endl;
       }
       catch (const ios_base::failure&)
       {
@@ -68,7 +68,7 @@ namespace build
     static void
     save_config (scope& root)
     {
-      const path& out_root (root.path ());
+      const dir_path& out_root (root.path ());
       path f (out_root / config_file);
 
       if (verb >= 1)
@@ -90,7 +90,7 @@ namespace build
 
         if (auto v = root.ro_variables ()["amalgamation"])
         {
-          const path& d (v.as<const path&> ());
+          const dir_path& d (v.as<const dir_path&> ());
 
           ofs << "# Base configuration inherited from " << d << "/ ." << endl
               << "#" << endl;
@@ -144,8 +144,8 @@ namespace build
     {
       tracer trace ("configure_project");
 
-      const path& out_root (root.path ());
-      const path& src_root (root.src_path ());
+      const dir_path& out_root (root.path ());
+      const dir_path& src_root (root.src_path ());
 
       // Make sure the directories exist.
       //
@@ -182,7 +182,7 @@ namespace build
       {
         for (const name& n: v.as<const list_value&> ())
         {
-          path out_nroot (out_root / n.dir);
+          dir_path out_nroot (out_root / n.dir);
           scope& nroot (scopes.find (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config
@@ -239,8 +239,8 @@ namespace build
     static void
     disfigure_load (const path& bf,
                     scope&,
-                    const path&,
-                    const path&,
+                    const dir_path&,
+                    const dir_path&,
                     const location&)
     {
       tracer trace ("disfigure_load");
@@ -266,8 +266,8 @@ namespace build
 
       bool m (false); // Keep track of whether we actually did anything.
 
-      const path& out_root (root.path ());
-      const path& src_root (root.src_path ());
+      const dir_path& out_root (root.path ());
+      const dir_path& src_root (root.src_path ());
 
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
@@ -278,15 +278,16 @@ namespace build
         {
           // Create and bootstrap subproject's root scope.
           //
-          path out_nroot (out_root / n.dir);
-          path src_nroot (src_root / n.dir);
+          dir_path out_nroot (out_root / n.dir);
+          dir_path src_nroot (src_root / n.dir);
           scope& nroot (create_root (out_nroot, src_nroot));
 
           bootstrap_out (nroot);
 
           // Check if the bootstrap process changed src_root.
           //
-          const path& p (nroot.variables["src_root"].as<const path&> ());
+          const dir_path& p (
+            nroot.variables["src_root"].as<const dir_path&> ());
 
           if (src_nroot != p)
             fail << "bootstrapped src_root " << p << " does not match "

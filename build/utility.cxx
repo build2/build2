@@ -10,6 +10,7 @@ namespace build
 {
   const string empty_string;
   const path empty_path;
+  const dir_path empty_dir_path;
 
   bool exception_unwinding_dtor = false;
 

@@ -28,9 +28,9 @@ namespace build
     name (std::string v): value (std::move (v)) {}
 
     explicit
-    name (path d): dir (std::move (d)) {}
+    name (dir_path d): dir (std::move (d)) {}
 
-    name (std::string t, path d, std::string v)
+    name (std::string t, dir_path d, std::string v)
         : type (std::move (t)), dir (std::move (d)), value (std::move (v)) {}
 
     bool
@@ -44,9 +44,9 @@ namespace build
     {return type.empty () && !dir.empty () && value.empty ();}
 
     std::string type;
-    path dir;
+    dir_path dir;
     std::string value;
-    bool pair {false};
+    bool pair {false}; // Store pair symbol for printing?
   };
 
   inline bool

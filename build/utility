@@ -20,6 +20,7 @@ namespace build
   //
   extern const std::string empty_string;
   extern const path empty_path;
+  extern const dir_path empty_dir_path;
 
   // Comparators.
   //

@@ -15,41 +15,27 @@ namespace build
   ostream&
   operator<< (ostream& os, const name& n)
   {
-    bool ht (!n.type.empty ());
-    bool hv (!n.value.empty ());
-    bool hd (false);
+    // If the value is empty, then we want to print the directory
+    // inside {}, e.g., dir{bar/}, not bar/dir{}. We also want to
+    // print {} for an empty name.
+    //
+    bool d (!n.dir.empty ());
+    bool v (!n.value.empty ());
+    bool t (!n.type.empty () || (!d && !v));
 
-    if (ht)
+    if (v)
+      os << n.dir;
+
+    if (t)
       os << n.type << '{';
 
-    if (!n.dir.empty ())
-    {
-      string s (diag_relative (n.dir));
+    if (v)
+      os << n.value;
+    else
+      os << n.dir;
 
-      // If both type and value are empty, there will be nothing printed.
-      //
-      if (s != "." || (!ht && !hv))
-      {
-        os << s;
-
-        // Add the directory separator unless it is already there
-        // or we have type but no value. The idea is to print foo/
-        // or dir{foo}.
-        //
-        if (s.back () != path::traits::directory_separator && (hv || !ht))
-          os << path::traits::directory_separator;
-
-        hd = true;
-      }
-    }
-
-    os << n.value;
-
-    if (ht)
+    if (t)
       os << '}';
-
-    if (!ht && !hv && !hd)
-      os << "{}"; // Nothing got printed.
 
     return os;
   }

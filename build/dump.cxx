@@ -25,7 +25,12 @@ namespace build
 
     for (const prerequisite& p: t.prerequisites)
     {
-      os << ' ' << p;
+      os << ' ';
+
+      if (p.target != nullptr)
+        os << *p.target;
+      else
+        os << p;
     }
   }
 
@@ -36,15 +41,14 @@ namespace build
               string& ind,
               set<const target*>& rts)
   {
-    string d (relative (p.path ()).string ());
-
-    if (d.back () != path::traits::directory_separator)
-      d += '/';
-
-    os << ind << d << ":" << endl
+    // We don't want the extra notations (e.g., ~/) provided by
+    // diag_relative() since we want the path to be relative to
+    // the outer scope.
+    //
+    os << ind << relative (p.path ()) << ":" << endl
        << ind << '{';
 
-    const path* orb (relative_base);
+    const dir_path* orb (relative_base);
     relative_base = &p.path ();
 
     ind += "  ";

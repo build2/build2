@@ -140,7 +140,7 @@ namespace build
       location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
                      ? names (t, tt)
-                     : names_type ({name ("dir", path (), string ())}));
+                     : names_type ({name ("dir", dir_path (), string ())}));
 
       if (tt == type::colon)
       {
@@ -194,7 +194,7 @@ namespace build
               //
               scope& prev (*scope_);
 
-              path p (move (ns[0].dir)); // Steal.
+              dir_path p (move (ns[0].dir)); // Steal.
 
               if (p.relative ())
                 p = prev.path () / p;
@@ -441,7 +441,7 @@ namespace build
       if (src_root_ == nullptr)
       {
         auto v (root_->ro_variables ()["src_root"]);
-        src_root_ = v ? &v.as<const path&> () : nullptr;
+        src_root_ = v ? &v.as<const dir_path&> () : nullptr;
       }
     }
 
@@ -512,8 +512,8 @@ namespace build
 
       // Determine new bases.
       //
-      path out_base;
-      path src_base;
+      dir_path out_base;
+      dir_path src_base;
 
       if (in_out)
       {
@@ -557,7 +557,7 @@ namespace build
 
       scope_->variables["out_base"] = move (out_base);
       auto v (scope_->variables["src_base"] = move (src_base));
-      scope_->src_path_ = &v.as<const path&> ();
+      scope_->src_path_ = &v.as<const dir_path&> ();
 
       target* odt (default_target_);
       default_target_ = nullptr;
@@ -768,7 +768,7 @@ namespace build
          type& tt,
          names_type& ns,
          size_t pair,
-         const path* dp,
+         const dir_path* dp,
          const string* tp)
   {
     // If pair is not 0, then it is an index + 1 of the first half of
@@ -838,8 +838,8 @@ namespace build
           if (p != n && tp != nullptr)
             fail (t) << "nested type name " << name;
 
-          path d1;
-          const path* dp1 (dp);
+          dir_path d1;
+          const dir_path* dp1 (dp);
 
           string t1;
           const string* tp1 (tp);
@@ -849,9 +849,9 @@ namespace build
           else if (p == n) // directory
           {
             if (dp == nullptr)
-              d1 = path (name);
+              d1 = dir_path (name);
             else
-              d1 = *dp / path (name);
+              d1 = *dp / dir_path (name);
 
             dp1 = &d1;
           }
@@ -860,9 +860,9 @@ namespace build
             t1.assign (name, p + 1, n - p);
 
             if (dp == nullptr)
-              d1 = path (name, 0, p + 1);
+              d1 = dir_path (name, 0, p + 1);
             else
-              d1 = *dp / path (name, 0, p + 1);
+              d1 = *dp / dir_path (name, 0, p + 1);
 
             dp1 = &d1;
             tp1 = &t1;
@@ -906,9 +906,9 @@ namespace build
           // Search for global_scope for details.
           //
 #ifdef _WIN32
-          path dir (name != "/" ? path (name) : path ());
+          dir_path dir (name != "/" ? dir_path (name) : dir_path ());
 #else
-          path dir (name);
+          dir_path dir (name);
 #endif
           if (dp != nullptr)
             dir = *dp / dir;
@@ -919,7 +919,7 @@ namespace build
         }
         else
           ns.emplace_back ((tp != nullptr ? *tp : string ()),
-                           (dp != nullptr ? *dp : path ()),
+                           (dp != nullptr ? *dp : dir_path ()),
                            move (name));
 
         count = 1;
@@ -1015,10 +1015,10 @@ namespace build
           //
           for (const name& n: lv)
           {
-            const path* dp1 (dp);
+            const dir_path* dp1 (dp);
             const string* tp1 (tp);
 
-            path d1;
+            dir_path d1;
             if (!n.dir.empty ())
             {
               if (dp != nullptr)
@@ -1059,7 +1059,7 @@ namespace build
             }
 
             ns.emplace_back ((tp1 != nullptr ? *tp1 : string ()),
-                             (dp1 != nullptr ? *dp1 : path ()),
+                             (dp1 != nullptr ? *dp1 : dir_path ()),
                              n.value);
           }
 
@@ -1105,7 +1105,7 @@ namespace build
           // Empty LHS, (e.g., {=y}), create an empty name.
           //
           ns.emplace_back ((tp != nullptr ? *tp : string ()),
-                           (dp != nullptr ? *dp : path ()),
+                           (dp != nullptr ? *dp : dir_path ()),
                            "");
           count = 1;
         }
@@ -1129,7 +1129,7 @@ namespace build
           ns.push_back (ns[pair - 1]);
 
         ns.emplace_back ((tp != nullptr ? *tp : string ()),
-                         (dp != nullptr ? *dp : path ()),
+                         (dp != nullptr ? *dp : dir_path ()),
                          "");
         break;
       }
@@ -1142,7 +1142,7 @@ namespace build
     if (!ns.empty () && ns.back ().pair)
     {
       ns.emplace_back ((tp != nullptr ? *tp : string ()),
-                       (dp != nullptr ? *dp : path ()),
+                       (dp != nullptr ? *dp : dir_path ()),
                        "");
     }
   }
@@ -1240,7 +1240,7 @@ namespace build
           {
             // Do we have the src_base?
             //
-            path src_base;
+            dir_path src_base;
             if (i->pair)
             {
               if (!i->type.empty ())
@@ -1249,7 +1249,7 @@ namespace build
               src_base = move (i->dir);
 
               if (!i->value.empty ())
-                src_base /= path (move (i->value));
+                src_base /= dir_path (move (i->value));
 
               ++i;
               assert (i != e);
@@ -1344,10 +1344,10 @@ namespace build
       // to their return values are not guaranteed to be stable (and,
       // in fact, path()'s is not).
       //
-      out_root_ = &root_->ro_variables ()["out_root"].as<const path&> ();
+      out_root_ = &root_->ro_variables ()["out_root"].as<const dir_path&> ();
 
       auto v (root_->ro_variables ()["src_root"]);
-      src_root_ = v ? &v.as<const path&> () : nullptr;
+      src_root_ = v ? &v.as<const dir_path&> () : nullptr;
     }
 
     return r;

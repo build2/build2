@@ -20,7 +20,7 @@ namespace build
   // Search for an existing file in the specified list of search paths.
   //
   target*
-  search_existing_file (prerequisite&, const paths&);
+  search_existing_file (prerequisite&, const dir_paths&);
 
   // Create a new target in this prerequisite's directory scope.
   //

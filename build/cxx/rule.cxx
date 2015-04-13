@@ -270,7 +270,7 @@ namespace build
             // extension rather than NULL (which would signify that the
             // extension needs to be added).
             //
-            path d (f.directory ());
+            dir_path d (f.directory ());
             string n (f.leaf ().base ().string ());
             const char* es (f.extension ());
             const string* e (&extension_pool.find (es != nullptr ? es : ""));
@@ -471,8 +471,8 @@ namespace build
       // We may need the project roots for rule chaining (see below).
       // We will resolve them lazily only if needed.
       //
-      const path* out_root (nullptr);
-      const path* src_root (nullptr);
+      const dir_path* out_root (nullptr);
+      const dir_path* src_root (nullptr);
 
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
@@ -516,7 +516,7 @@ namespace build
         // c(xx){} directory is most likely under src_root, it is also
         // possible it is under out_root (e.g., generated source).
         //
-        path d;
+        dir_path d;
         if (cp.dir.relative () || cp.dir.sub (*out_root))
           d = cp.dir;
         else

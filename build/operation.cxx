@@ -35,8 +35,8 @@ namespace build
   void
   load (const path& bf,
         scope& root,
-        const path& out_base,
-        const path& src_base,
+        const dir_path& out_base,
+        const dir_path& src_base,
         const location&)
   {
     // Load project's root[-pre].build.
@@ -51,7 +51,7 @@ namespace build
 
     base.variables["out_base"] = out_base;
     auto v (base.variables["src_base"] = src_base);
-    base.src_path_ = &v.as<const path&> ();
+    base.src_path_ = &v.as<const dir_path&> ();
 
     // Load the buildfile unless it has already been loaded.
     //

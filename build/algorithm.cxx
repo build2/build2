@@ -155,7 +155,7 @@ namespace build
   }
 
   void
-  search_and_match (action a, target& t, const path& d)
+  search_and_match (action a, target& t, const dir_path& d)
   {
     for (prerequisite& p: t.prerequisites)
     {
@@ -177,12 +177,12 @@ namespace build
 
     if (scope* rs = s.root_scope ()) // Could be outside any project.
     {
-      const path& out_root (rs->path ());
+      const dir_path& out_root (rs->path ());
 
       // If t is a directory (name is empty), say foo/bar/, then
       // t is bar and its parent directory is foo/.
       //
-      const path& d (t.name.empty () ? t.dir.directory () : t.dir);
+      const dir_path& d (t.name.empty () ? t.dir.directory () : t.dir);
 
       if (d.sub (out_root) && d != out_root)
       {

@@ -18,52 +18,38 @@ namespace build
   ostream&
   operator<< (ostream& os, const prerequisite& p)
   {
-    if (p.target != nullptr)
-      os << *p.target;
-    else
+    // Print scope unless the prerequisite's directory is absolute.
+    //
+    if (!p.dir.absolute ())
     {
-      os << p.type.name << '{';
+      string s (diag_relative (p.scope.path (), false));
 
-      // Print scope unless the directory is absolute.
-      //
-      if (!p.dir.absolute ())
-      {
-        string s (diag_relative (p.scope.path ()));
+      if (!s.empty ())
+        os << s << ':';
+    }
 
-        if (s != ".")
-        {
-          os << s;
+    // If the name is empty, then we want to print the directory
+    // inside {}, e.g., dir{bar/}, not bar/dir{}.
+    //
+    bool n (!p.name.empty ());
+    string d (diag_relative (p.dir, false));
 
-          if (s.back () != path::traits::directory_separator)
-            os << path::traits::directory_separator;
+    if (n)
+      os << d;
 
-          os << ": ";
-        }
-      }
+    os << p.type.name << '{';
 
-      // Print directory.
-      //
-      if (!p.dir.empty ())
-      {
-        string s (diag_relative (p.dir));
-
-        if (s != ".")
-        {
-          os << s;
-
-          if (!p.name.empty () &&
-              s.back () != path::traits::directory_separator)
-            os << path::traits::directory_separator;
-        }
-      }
-
+    if (n)
+    {
       os << p.name;
 
       if (p.ext != nullptr && !p.ext->empty ())
         os << '.' << *p.ext;
-
-      os << '}';
     }
+    else
+      os << d;
+
+    os << '}';
 
     return os;
   }
@@ -89,7 +75,7 @@ namespace build
   //
   auto prerequisite_set::
   insert (const target_type& tt,
-          path dir,
+          dir_path dir,
           std::string name,
           const std::string* ext,
           scope& s,

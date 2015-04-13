@@ -6,43 +6,43 @@
 
 namespace build
 {
-  template <typename C>
-  basic_path<C> basic_path<C>::
+  template <typename C, typename K>
+  basic_path<C, K> basic_path<C, K>::
   leaf () const
   {
-    size_type p (traits::rfind_separator (path_));
+    size_type p (traits::rfind_separator (this->path_));
 
     return p != string_type::npos
-      ? basic_path (path_.c_str () + p + 1, path_.size () - p - 1)
+      ? basic_path (this->path_.c_str () + p + 1, this->path_.size () - p - 1)
       : *this;
   }
 
-  template <typename C>
-  basic_path<C> basic_path<C>::
+  template <typename C, typename K>
+  typename basic_path<C, K>::dir_type basic_path<C, K>::
   directory () const
   {
     if (root ())
-      return basic_path ();
+      return dir_type ();
 
-    size_type p (traits::rfind_separator (path_));
+    size_type p (traits::rfind_separator (this->path_));
 
     // Include the trailing slash so that we get correct behavior
     // if directory is root.
     //
     return p != string_type::npos
-      ? basic_path (path_.c_str (), p + 1)
-      : basic_path ();
+      ? dir_type (this->path_.c_str (), p + 1)
+      : dir_type ();
   }
 
 #ifdef _WIN32
-  template <typename C>
-  typename basic_path<C>::string_type basic_path<C>::
+  template <typename C, typename K>
+  typename basic_path<C, K>::string_type basic_path<C, K>::
   posix_string () const
   {
     if (absolute ())
-      throw invalid_basic_path<C> (path_);
+      throw invalid_basic_path<C> (this->path_);
 
-    string_type r (path_);
+    string_type r (this->path_);
 
     // Translate Windows-style separators to the POSIX ones.
     //
@@ -54,30 +54,29 @@ namespace build
   }
 #endif
 
-  template <typename C>
-  basic_path<C>& basic_path<C>::
-  operator/= (basic_path<C> const& r)
+  template <typename C, typename K>
+  basic_path<C, K>& basic_path<C, K>::
+  operator/= (basic_path<C, K> const& r)
   {
-    if (r.absolute () && !path_.empty ()) // Allow ('' / '/foo').
+    if (r.absolute () && !this->path_.empty ()) // Allow ('' / '/foo').
       throw invalid_basic_path<C> (r.path_);
 
-    if (path_.empty () || r.path_.empty ())
+    if (this->path_.empty () || r.path_.empty ())
     {
-      path_ += r.path_;
+      this->path_ += r.path_;
       return *this;
     }
 
-    if (!traits::is_separator (path_[path_.size () - 1]))
-      path_ += traits::directory_separator;
+    if (!traits::is_separator (this->path_[this->path_.size () - 1]))
+      this->path_ += traits::directory_separator;
 
-    path_ += r.path_;
-
+    this->path_ += r.path_;
     return *this;
   }
 
-  template <typename C>
-  basic_path<C> basic_path<C>::
-  leaf (basic_path<C> const& d) const
+  template <typename C, typename K>
+  basic_path<C, K> basic_path<C, K>::
+  leaf (basic_path<C, K> const& d) const
   {
     size_type n (d.path_.size ());
 
@@ -85,9 +84,9 @@ namespace build
       return *this;
 
     if (!sub (d))
-      throw invalid_basic_path<C> (path_);
+      throw invalid_basic_path<C> (this->path_);
 
-    size_type m (path_.size ());
+    size_type m (this->path_.size ());
 
     if (n != m
 #ifndef _WIN32
@@ -96,32 +95,32 @@ namespace build
     )
       n++; // Skip the directory separator (unless it is POSIX root).
 
-    return basic_path (path_.c_str () + n, m - n);
+    return basic_path (this->path_.c_str () + n, m - n);
   }
 
-  template <typename C>
-  basic_path<C> basic_path<C>::
-  directory (basic_path<C> const& l) const
+  template <typename C, typename K>
+  typename basic_path<C, K>::dir_type basic_path<C, K>::
+  directory (basic_path<C, K> const& l) const
   {
     size_type n (l.path_.size ());
 
     if (n == 0)
-      return *this;
+      return dir_type (this->path_);
 
     if (!sup (l))
-      throw invalid_basic_path<C> (path_);
+      throw invalid_basic_path<C> (this->path_);
 
-    size_type m (path_.size ());
+    size_type m (this->path_.size ());
 
     if (n != m)
       n++; // Skip the directory separator.
 
-    return basic_path (path_.c_str (), m - n);
+    return dir_type (this->path_.c_str (), m - n);
   }
 
-  template <typename C>
-  basic_path<C> basic_path<C>::
-  relative (basic_path<C> d) const
+  template <typename C, typename K>
+  basic_path<C, K> basic_path<C, K>::
+  relative (basic_path<C, K> d) const
   {
     basic_path r;
 
@@ -130,19 +129,19 @@ namespace build
       if (sub (d))
         break;
 
-      r /= path ("..");
+      r /= basic_path ("..");
 
       // Roots of the paths do not match.
       //
       if (d.root ())
-        throw invalid_basic_path<C> (path_);
+        throw invalid_basic_path<C> (this->path_);
     }
 
     return r / leaf (d);
   }
 
-  template <typename C>
-  basic_path<C>& basic_path<C>::
+  template <typename C, typename K>
+  basic_path<C, K>& basic_path<C, K>::
   normalize ()
   {
     if (empty ())
@@ -153,11 +152,11 @@ namespace build
     typedef std::vector<string_type> paths;
     paths ps;
 
-    for (size_type b (0), e (traits::find_separator (path_)),
-           n (path_.size ());;
-         e = traits::find_separator (path_, b))
+    for (size_type b (0), e (traits::find_separator (this->path_)),
+           n (this->path_.size ());;
+         e = traits::find_separator (this->path_, b))
     {
-      string_type s (path_, b, e == string_type::npos ? e : e - b);
+      string_type s (this->path_, b, e == string_type::npos ? e : e - b);
       ps.push_back (s);
 
       if (e == string_type::npos)
@@ -165,7 +164,7 @@ namespace build
 
       ++e;
 
-      while (e < n && traits::is_separator (path_[e]))
+      while (e < n && traits::is_separator (this->path_[e]))
         ++e;
 
       if (e == n)
@@ -200,7 +199,7 @@ namespace build
             // Cannot go past the root directory.
             //
             if (abs && r.size () == 1)
-              throw invalid_basic_path<C> (path_);
+              throw invalid_basic_path<C> (this->path_);
 
             r.pop_back ();
             continue;
@@ -227,19 +226,31 @@ namespace build
     if (p.empty () && !r.empty ())
       p += traits::directory_separator; // Root directory.
 
-    path_.swap (p);
+    this->path_.swap (p);
     return *this;
   }
 
-  template <typename C>
-  void basic_path<C>::
+  template <typename C, typename K>
+  void basic_path<C, K>::
+  current (basic_path const& p)
+  {
+    const string_type& s (p.string ());
+
+    if (s.empty ())
+      throw invalid_basic_path<char> (s);
+
+    traits::current (s);
+  }
+
+  template <typename C, typename K>
+  void basic_path<C, K>::
   init ()
   {
     // Strip trailing slashes except for the case where the single
     // slash represents the root directory.
     //
-    size_type n (path_.size ());
-    for (; n > 1 && traits::is_separator (path_[n - 1]); --n) ;
-    path_.resize (n);
+    size_type n (this->path_.size ());
+    for (; n > 1 && traits::is_separator (this->path_[n - 1]); --n) ;
+    this->path_.resize (n);
   }
 }

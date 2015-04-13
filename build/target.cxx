@@ -105,7 +105,7 @@ namespace build
 
   pair<target&, bool> target_set::
   insert (const target_type& tt,
-          path dir,
+          dir_path dir,
           std::string name,
           const std::string* ext,
           tracer& trace)
@@ -127,26 +127,26 @@ namespace build
   ostream&
   operator<< (ostream& os, const target_key& k)
   {
+    // If the name is empty, then we want to print the directory
+    // inside {}, e.g., dir{bar/}, not bar/dir{}.
+    //
+    bool n (!k.name->empty ());
+    string d (diag_relative (*k.dir, false));
+
+    if (n)
+      os << d;
+
     os << k.type->name << '{';
 
-    if (!k.dir->empty ())
+    if (n)
     {
-      string s (diag_relative (*k.dir));
+      os << *k.name;
 
-      if (s != ".")
-      {
-        os << s;
-
-        if (!k.name->empty () &&
-            s.back () != path::traits::directory_separator)
-          os << path::traits::directory_separator;
-      }
+      if (*k.ext != nullptr && !(*k.ext)->empty ())
+        os << '.' << **k.ext;
     }
-
-    os << *k.name;
-
-    if (*k.ext != nullptr && !(*k.ext)->empty ())
-      os << '.' << **k.ext;
+    else
+      os << d;
 
     os << '}';
 
@@ -197,7 +197,7 @@ namespace build
       //
       if (!v.empty ())
       {
-        n.dir /= path (v); // Move name value to dir.
+        n.dir /= dir_path (v); // Move name value to dir.
         v.clear ();
       }
     }
@@ -212,7 +212,7 @@ namespace build
 
       if (i != string::npos)
       {
-        n.dir /= path (v, i != 0 ? i : 1); // Special case: "/".
+        n.dir /= dir_path (v, i != 0 ? i : 1); // Special case: "/".
         v = string (v, i + 1, string::npos);
       }
 
@@ -255,7 +255,7 @@ namespace build
     //
     if (p.dir.relative ())
     {
-      paths sp;
+      dir_paths sp;
       sp.push_back (src_out (p.scope.path (), p.scope)); // src_base
 
       return search_existing_file (p, sp);

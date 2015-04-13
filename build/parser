@@ -76,7 +76,7 @@ namespace build
     void
     names (token&, token_type&,
            names_type&, std::size_t pair,
-           const path* dir, const std::string* type);
+           const dir_path* dir, const std::string* type);
 
     // Buildspec.
     //
@@ -116,12 +116,12 @@ namespace build
     const fail_mark<failed> fail;
 
   private:
-    const std::string* path_; // Path processed by diagnostic_string().
+    const std::string* path_; // Path processed by diag_relative().
     lexer* lexer_;
     scope* scope_; // Current base scope (out_base).
     scope* root_;  // Current root scope (out_root).
-    const path* out_root_;
-    const path* src_root_;
+    const dir_path* out_root_;
+    const dir_path* src_root_;
     target* default_target_;
 
     token peek_ {token_type::eos, false, 0, 0};

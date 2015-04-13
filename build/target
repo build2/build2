@@ -76,7 +76,7 @@ namespace build
     std::type_index id;
     const char* name;
     const target_type* base;
-    target* (*const factory) (path, std::string, const std::string*);
+    target* (*const factory) (dir_path, std::string, const std::string*);
     target* (*const search) (prerequisite&);
   };
 
@@ -92,10 +92,10 @@ namespace build
     virtual
     ~target () = default;
 
-    target (path d, std::string n, const std::string* e)
+    target (dir_path d, std::string n, const std::string* e)
         : dir (std::move (d)), name (std::move (n)), ext (e) {}
 
-    const path dir;         // Absolute and normalized.
+    const dir_path dir;     // Absolute and normalized.
     const std::string name;
     const std::string* ext; // Extension, NULL means unspecified.
 
@@ -183,7 +183,7 @@ namespace build
   struct target_key
   {
     mutable const target_type* type;
-    mutable const path* dir;
+    mutable const dir_path* dir;
     mutable const std::string* name;
     mutable const std::string* const* ext;
 
@@ -221,7 +221,7 @@ namespace build
 
     iterator
     find (const target_type& type,
-          const path& dir,
+          const dir_path& dir,
           const std::string& name,
           const std::string* ext,
           tracer& trace) const
@@ -235,7 +235,7 @@ namespace build
 
     std::pair<target&, bool>
     insert (const target_type&,
-            path dir,
+            dir_path dir,
             std::string name,
             const std::string* ext,
             tracer&);
@@ -278,7 +278,7 @@ namespace build
 
   template <typename T>
   target*
-  target_factory (path d, std::string n, const std::string* e)
+  target_factory (dir_path d, std::string n, const std::string* e)
   {
     return new T (std::move (d), std::move (n), e);
   }

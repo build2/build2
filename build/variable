@@ -69,10 +69,7 @@ namespace build
   public:
     list_value (names d): names (std::move (d)) {}
     list_value (std::string d) {emplace_back (std::move (d));}
-
-    // Note: stored in name as a directory.
-    //
-    list_value (path d) {emplace_back (std::move (d));}
+    list_value (dir_path d) {emplace_back (std::move (d));}
 
     virtual value_ptr
     clone () const {return value_ptr (new list_value (*this));}
@@ -122,10 +119,8 @@ namespace build
     const value_proxy&
     operator= (std::string) const;
 
-    // Note: stored in name as a directory.
-    //
     const value_proxy&
-    operator= (path) const;
+    operator= (dir_path) const;
 
     // Implementation details.
     //
@@ -155,11 +150,9 @@ namespace build
   const std::string& value_proxy::
   as<const std::string&> () const;
 
-  // Note: get the name's dir.
-  //
   template <>
-  const path& value_proxy::
-  as<const path&> () const;
+  const dir_path& value_proxy::
+  as<const dir_path&> () const;
 }
 
 namespace std

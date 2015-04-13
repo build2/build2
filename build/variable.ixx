@@ -37,7 +37,7 @@ namespace build
   }
 
   inline const value_proxy& value_proxy::
-  operator= (path v) const
+  operator= (dir_path v) const
   {
     p->reset (new list_value (std::move (v)));
     return *this;

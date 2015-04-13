@@ -14,10 +14,10 @@ namespace build
   struct location;
 
   bool
-  is_src_root (const path&);
+  is_src_root (const dir_path&);
 
   bool
-  is_out_root (const path&);
+  is_out_root (const dir_path&);
 
   void
   source (const path& buildfile, scope& root, scope& base);
@@ -37,7 +37,7 @@ namespace build
   // passed src_root value is not empty.
   //
   scope&
-  create_root (const path& out_root, const path& src_root);
+  create_root (const dir_path& out_root, const dir_path& src_root);
 
   // Bootstrap the project's root scope, the out part.
   //
@@ -61,7 +61,7 @@ namespace build
   // none were created. Loading is done by load_root_pre() below.
   //
   scope&
-  create_bootstrap_inner (scope& root, const path& out_base);
+  create_bootstrap_inner (scope& root, const dir_path& out_base);
 
   // Load project's root[-pre].build unless already loaded. Also
   // make sure all outer root scopes are loaded prior to loading

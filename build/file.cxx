@@ -16,14 +16,14 @@ using namespace std;
 namespace build
 {
   bool
-  is_src_root (const path& d)
+  is_src_root (const dir_path& d)
   {
     return file_exists (d / path ("build/bootstrap.build")) ||
       file_exists (d / path ("build/root.build"));
   }
 
   bool
-  is_out_root (const path& d)
+  is_out_root (const dir_path& d)
   {
     return file_exists (d / path ("build/bootstrap/src-root.build"));
   }
@@ -67,7 +67,7 @@ namespace build
   }
 
   scope&
-  create_root (const path& out_root, const path& src_root)
+  create_root (const dir_path& out_root, const dir_path& src_root)
   {
     scope& rs (scopes.insert (out_root, true).first);
 
@@ -96,7 +96,7 @@ namespace build
         v = out_root;
       else
       {
-        const path& p (v.as<const path&> ());
+        const dir_path& p (v.as<const dir_path&> ());
 
         if (p != out_root)
           fail << "new out_root " << out_root << " does not match "
@@ -112,7 +112,7 @@ namespace build
         v = src_root;
       else
       {
-        const path& p (v.as<const path&> ());
+        const dir_path& p (v.as<const dir_path&> ());
 
         if (p != src_root)
           fail << "new src_root " << src_root << " does not match "
@@ -166,9 +166,9 @@ namespace build
     if (!v)
       return;
 
-    const path& d (v.as<const path&> ());
-    path out_root (root.path () / d);
-    path src_root (root.src_path () / d);
+    const dir_path& d (v.as<const dir_path&> ());
+    dir_path out_root (root.path () / d);
+    dir_path src_root (root.src_path () / d);
     out_root.normalize ();
     src_root.normalize ();
 
@@ -178,7 +178,7 @@ namespace build
 
     // Check if the bootstrap process changed src_root.
     //
-    const path& p (rs.variables["src_root"].as<const path&> ());
+    const dir_path& p (rs.variables["src_root"].as<const dir_path&> ());
 
     if (src_root != p)
       fail << "bootstrapped src_root " << p << " does not match "
@@ -191,7 +191,7 @@ namespace build
   }
 
   scope&
-  create_bootstrap_inner (scope& root, const path& out_base)
+  create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
     if (auto v = root.ro_variables ()["subprojects"])
     {
@@ -203,19 +203,19 @@ namespace build
           fail << "expected directory in subprojects variable "
                << "instead of " << n;
 
-        path out_root (root.path () / n.dir);
+        dir_path out_root (root.path () / n.dir);
 
         if (!out_base.sub (out_root))
           continue;
 
-        path src_root (root.src_path () / n.dir);
+        dir_path src_root (root.src_path () / n.dir);
         scope& rs (create_root (out_root, src_root));
 
         bootstrap_out (rs);
 
         // Check if the bootstrap process changed src_root.
         //
-        const path& p (rs.variables["src_root"].as<const path&> ());
+        const dir_path& p (rs.variables["src_root"].as<const dir_path&> ());
 
         if (src_root != p)
           fail << "bootstrapped src_root " << p << " does not match "
@@ -270,13 +270,13 @@ namespace build
         info << "consider explicitly configuring its out_root via the "
                << var.name << " command line variable";
 
-    const path& out_root (val.as<const path&> ());
+    const dir_path& out_root (val.as<const dir_path&> ());
 
     // Bootstrap the imported root scope. This is pretty similar to
     // what we do in main() except that here we don't try to guess
     // src_root.
     //
-    path src_root (is_src_root (out_root) ? out_root : path ());
+    dir_path src_root (is_src_root (out_root) ? out_root : dir_path ());
     scope& root (create_root (out_root, src_root));
 
     bootstrap_out (root);
@@ -285,7 +285,7 @@ namespace build
     //
     if (auto v = root.ro_variables ()["src_root"])
     {
-      const path& p (v.as<const path&> ());
+      const dir_path& p (v.as<const dir_path&> ());
 
       if (!src_root.empty () && p != src_root)
         fail << "bootstrapped src_root " << p << " does not match "

@@ -36,7 +36,7 @@ namespace build
   scope* global_scope;
 
   pair<scope&, bool> scope_map::
-  insert (const path& k, bool root)
+  insert (const dir_path& k, bool root)
   {
     auto er (emplace (k, scope ()));
     scope& s (er.first->second);
@@ -104,7 +104,7 @@ namespace build
   // Find the most qualified scope that encompasses this path.
   //
   scope& scope_map::
-  find (const path& k)
+  find (const dir_path& k)
   {
     // Normally we would have a scope for the full path so try
     // that before making any copies.
@@ -114,7 +114,7 @@ namespace build
     if (i != end ())
       return i->second;
 
-    for (path d (k.directory ());; d = d.directory ())
+    for (dir_path d (k.directory ());; d = d.directory ())
     {
       auto i (base::find (d));
 

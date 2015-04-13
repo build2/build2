@@ -47,33 +47,33 @@ namespace build
   // based on the presence of known special files. Return empty
   // path if not found.
   //
-  path
-  find_src_root (const path& b)
+  dir_path
+  find_src_root (const dir_path& b)
   {
-    for (path d (b); !d.root () && d != home; d = d.directory ())
+    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
       if (is_src_root (d))
         return d;
     }
 
-    return path ();
+    return dir_path ();
   }
 
   // The same but for out. Note that we also check whether a
   // directory happens to be src_root, in case this is an in-
   // tree build.
   //
-  path
-  find_out_root (const path& b, bool& src)
+  dir_path
+  find_out_root (const dir_path& b, bool& src)
   {
-    for (path d (b); !d.root () && d != home; d = d.directory ())
+    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
       if ((src = is_src_root (d)) || is_out_root (d))
         return d;
     }
 
     src = false;
-    return path ();
+    return dir_path ();
   }
 }
 
@@ -179,10 +179,10 @@ main (int argc, char* argv[])
 
     // Figure out work and home directories.
     //
-    work = path::current ();
+    work = dir_path::current ();
 
     if (const char* h = getenv ("HOME"))
-      home = path (h);
+      home = dir_path (h);
     else
     {
       struct passwd* pw (getpwuid (getuid ()));
@@ -193,13 +193,13 @@ main (int argc, char* argv[])
         fail << "unable to determine home directory: " << msg;
       }
 
-      home = path (pw->pw_dir);
+      home = dir_path (pw->pw_dir);
     }
 
     if (verb >= 4)
     {
-      trace << "work dir: " << work.string ();
-      trace << "home dir: " << home.string ();
+      trace << "work dir: " << work;
+      trace << "home dir: " << home;
     }
 
     // Initialize the dependency state.
@@ -293,7 +293,7 @@ main (int argc, char* argv[])
         const location l ("<buildspec>", 1, 0); //@@ TODO
 
         if (os.empty ()) // Default target: dir{}.
-          os.push_back (targetspec (name ("dir", path (), string ())));
+          os.push_back (targetspec (name ("dir", dir_path (), string ())));
 
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);
@@ -332,7 +332,7 @@ main (int argc, char* argv[])
           // value has a directory prefix. This has a good balance of
           // control and the expected result in most cases.
           //
-          path out_base (tn.dir);
+          dir_path out_base (tn.dir);
           if (out_base.empty ())
           {
             const string& v (tn.value);
@@ -342,7 +342,7 @@ main (int argc, char* argv[])
             // This code must be consistent with target_type_map::find().
             //
             if (v.empty () || v == "." || v == ".." || tn.type == "dir")
-              out_base = path (v);
+              out_base = dir_path (v);
             else
             {
               // See if there is a directory part in value. We cannot
@@ -352,7 +352,7 @@ main (int argc, char* argv[])
               path::size_type i (path::traits::rfind_separator (v));
 
               if (i != string::npos)
-                out_base = path (v, i != 0 ? i : 1); // Special case: "/".
+                out_base = dir_path (v, i != 0 ? i : 1); // Special case: "/".
             }
           }
 
@@ -368,10 +368,10 @@ main (int argc, char* argv[])
           // diagnostics for such cases.
           //
           bool guessing (false);
-          path src_root;
-          path out_root;
+          dir_path src_root;
+          dir_path out_root;
 
-          path& src_base (ts.src_base); // Update it in buildspec.
+          dir_path& src_base (ts.src_base); // Update it in buildspec.
 
           if (!src_base.empty ())
           {
@@ -427,9 +427,9 @@ main (int argc, char* argv[])
                   catch (const invalid_path&)
                   {
                     fail << "out_base directory suffix does not match src_base"
-                         << info << "src_base is " << src_base.string ()
-                         << info << "src_root is " << src_root.string ()
-                         << info << "out_base is " << out_base.string ()
+                         << info << "src_base is " << src_base
+                         << info << "src_root is " << src_root
+                         << info << "out_base is " << out_base
                          << info << "consider explicitly specifying src_base "
                          << "for " << tn;
                   }
@@ -470,7 +470,7 @@ main (int argc, char* argv[])
               // If we also have src_root specified by the user, make
               // sure they match.
               //
-              const path& p (v.as<const path&> ());
+              const dir_path& p (v.as<const dir_path&> ());
 
               if (src_root.empty ())
                 src_root = p;
@@ -503,7 +503,7 @@ main (int argc, char* argv[])
               v = src_root;
             }
 
-            rs.src_path_ = &v.as<const path&> ();
+            rs.src_path_ = &v.as<const dir_path&> ();
           }
 
           // At this stage we should have both roots and out_base figured
@@ -719,10 +719,10 @@ main (int argc, char* argv[])
           if (verb >= 4)
           {
             trace << "target " << tn << ':';
-            trace << "  out_base: " << out_base.string ();
-            trace << "  src_base: " << src_base.string ();
-            trace << "  out_root: " << out_root.string ();
-            trace << "  src_root: " << src_root.string ();
+            trace << "  out_base: " << out_base;
+            trace << "  src_base: " << src_base;
+            trace << "  out_root: " << out_root;
+            trace << "  src_root: " << src_root;
           }
 
           path bf (src_base / path ("buildfile"));
@@ -753,7 +753,7 @@ main (int argc, char* argv[])
             // If the directory is relative, assume it is relative to work
             // (must be consistent with how we derived out_base above).
             //
-            path& d (tn.dir);
+            dir_path& d (tn.dir);
 
             if (d.relative ())
               d = work / d;

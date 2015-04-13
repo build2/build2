@@ -14,7 +14,8 @@
 #include <exception>
 #include <type_traits>
 
-#include <build/path> // <build/path-io> included at the end.
+#include <build/path>
+#include <build/path-io>
 
 namespace build
 {
@@ -24,11 +25,16 @@ namespace build
   class failed: public std::exception {};
 
   // In addition to calling relative(), this function also uses shorter
-  // notations such as '~/'. If the path is the same as base, it returns
-  // '.'.
+  // notations such as '~/'.
   //
   std::string
   diag_relative (const path&);
+
+  // As above but also adds trailing '/'. If the path is the same as
+  // base, returns "./" if current is true and empty string otherwise.
+  //
+  std::string
+  diag_relative (const dir_path&, bool current = true);
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} already configured".
@@ -356,7 +362,5 @@ namespace build
 
   extern const fail_mark<failed> fail;
 }
-
-#include <build/path-io>
 
 #endif // BUILD_DIAGNOSTICS

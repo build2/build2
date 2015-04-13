@@ -18,8 +18,8 @@ namespace build
   class scope;
   class file;
 
-  extern path work;
-  extern path home;
+  extern dir_path work;
+  extern dir_path home;
 
   // Current action (meta/operation).
   //
@@ -54,7 +54,7 @@ namespace build
   // important. See the fsdir{} rule for details.
   //
   fs_status<mkdir_status>
-  mkdir (const path&);
+  mkdir (const dir_path&);
 
   // Remove the file and print the standard diagnostics. The second
   // argument is only used in diagnostics, to print the target name.
@@ -72,39 +72,42 @@ namespace build
   //
   template <typename T>
   fs_status<rmdir_status>
-  rmdir (const path&, const T& target);
+  rmdir (const dir_path&, const T& target);
 
   inline fs_status<rmdir_status>
-  rmdir (const path& d) {return rmdir (d, d);}
+  rmdir (const dir_path& d) {return rmdir (d, d);}
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
   //
-  path
-  src_out (const path& out, scope&);
+  dir_path
+  src_out (const dir_path& out, scope&);
 
-  path
-  src_out (const path& out, const path& out_root, const path& src_root);
+  dir_path
+  src_out (const dir_path& out,
+           const dir_path& out_root, const dir_path& src_root);
 
-  path
-  out_src (const path& src, scope&);
+  dir_path
+  out_src (const dir_path& src, scope&);
 
-  path
-  out_src (const path& src, const path& out_root, const path& src_root);
+  dir_path
+  out_src (const dir_path& src,
+           const dir_path& out_root, const dir_path& src_root);
 
   // If possible and beneficial, translate an absolute, normalized path
   // into relative to the relative_base directory, which is normally
   // work.
   //
-  path
-  relative (const path&);
+  template <typename K>
+  basic_path<char, K>
+  relative (const basic_path<char, K>&);
 
   // By default this points to work. Setting this to something else
   // should only be done in tightly controlled, non-parallel
   // situations (see dump). If base is empty, then relative()
   // returns the original path.
   //
-  extern const path* relative_base;
+  extern const dir_path* relative_base;
 }
 
 #include <build/context.txx>

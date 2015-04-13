@@ -14,9 +14,6 @@
 namespace build
 {
   template <typename C>
-  class basic_path;
-
-  template <typename C>
   struct path_traits
   {
     typedef std::basic_string<C> string_type;
@@ -125,6 +122,15 @@ namespace build
       return ln < rn ? -1 : (ln > rn ? 1 : 0);
     }
 
+    // Get/set current working directory. Throw std::system_error
+    // to report the underlying OS errors.
+    //
+    static string_type
+    current ();
+
+    static void
+    current (string_type const&);
+
   private:
 #ifdef _WIN32
     static C
@@ -135,10 +141,35 @@ namespace build
   template <typename C>
   class invalid_basic_path;
 
-  typedef basic_path<char> path;
+  template <typename C, typename K>
+  class basic_path;
+
+  template <typename C>
+  class path_data;
+
+  template <typename C>
+  struct dir_path_kind;
+
+  template <typename C>
+  struct any_path_kind
+  {
+    typedef path_data<C> base_type;
+    typedef basic_path<C, dir_path_kind<C>> dir_type;
+  };
+
+  template <typename C>
+  struct dir_path_kind
+  {
+    typedef basic_path<C, any_path_kind<C>> base_type;
+    typedef basic_path<C, dir_path_kind<C>> dir_type;
+  };
+
+  typedef basic_path<char, any_path_kind<char>> path;
+  typedef basic_path<char, dir_path_kind<char>> dir_path;
   typedef invalid_basic_path<char> invalid_path;
 
-  typedef basic_path<wchar_t> wpath;
+  typedef basic_path<wchar_t, any_path_kind<wchar_t>> wpath;
+  typedef basic_path<wchar_t, dir_path_kind<wchar_t>> dir_wpath;
   typedef invalid_basic_path<wchar_t> invalid_wpath;
 
   //
@@ -171,66 +202,68 @@ namespace build
   };
 
   template <typename C>
-  class basic_path
+  class path_data
+  {
+  public:
+    typedef std::basic_string<C> string_type;
+
+    path_data () = default;
+
+    explicit
+    path_data (string_type s): path_ (std::move (s)) {}
+
+  protected:
+    string_type path_;
+  };
+
+  template <typename C, typename K>
+  class basic_path: public K::base_type
   {
   public:
     typedef std::basic_string<C> string_type;
     typedef typename string_type::size_type size_type;
 
+    typedef typename K::base_type base_type;
+    typedef typename K::dir_type dir_type;
+
     typedef path_traits<C> traits;
 
     // Construct special empty path.
     //
-    basic_path ()
-    {
-    }
+    basic_path () = default;
 
     explicit
-    basic_path (C const* s)
-        : path_ (s)
-    {
-      init ();
-    }
+    basic_path (C const* s): base_type (s) {init ();}
 
     basic_path (C const* s, size_type n)
-        : path_ (s, n)
-    {
-      init ();
-    }
+        : base_type (string_type (s, n)) {init ();}
 
     explicit
-    basic_path (string_type s)
-        : path_ (std::move (s))
-    {
-      init ();
-    }
+    basic_path (string_type s): base_type (std::move (s)) {init ();}
 
     basic_path (const string_type& s, size_type n)
-        : path_ (s, 0, n)
-    {
-      init ();
-    }
+        : base_type (string_type (s, 0, n)) {init ();}
 
     basic_path (const string_type& s, size_type p, size_type n)
-        : path_ (s, p, n)
-    {
-      init ();
-    }
+        : base_type (string_type (s, p, n)) {init ();}
 
     void
     swap (basic_path& p)
     {
-      path_.swap (p.path_);
+      this->path_.swap (p.path_);
     }
 
     void
     clear ()
     {
-      path_.clear ();
+      this->path_.clear ();
     }
 
-    static basic_path
-    current ();
+    // Get/set current working directory. Throw std::system_error
+    // to report the underlying OS errors.
+    //
+    static dir_type
+    current () {return dir_type (traits::current ());}
 
     static void
     current (basic_path const&);
@@ -239,7 +272,7 @@ namespace build
     bool
     empty () const
     {
-      return path_.empty ();
+      return this->path_.empty ();
     }
 
     bool
@@ -286,20 +319,20 @@ namespace build
     // Return the directory part of the path or empty path if
     // there is no directory.
     //
-    basic_path
+    dir_type
     directory () const;
 
     // Return the directory part of the path without the specified
     // leaf part. Throws invalid_path if the leaf is not a suffix of
     // *this. Expects both paths to be normalized.
     //
-    basic_path
+    dir_type
     directory (basic_path const&) const;
 
     // Return the root directory of the path or empty path if
     // the directory is not absolute.
     //
-    basic_path
+    dir_type
     root_directory () const;
 
     // Return the path without the extension, if any.
@@ -335,40 +368,32 @@ namespace build
     complete ();
 
   public:
-    basic_path
-    operator/ (basic_path const& x) const
-    {
-      basic_path r (*this);
-      r /= x;
-      return r;
-    }
-
     basic_path&
     operator/= (basic_path const&);
 
     basic_path
     operator+ (string_type const& s) const
     {
-      return basic_path (path_ + s);
+      return basic_path (this->path_ + s);
     }
 
     basic_path
     operator+ (C c) const
     {
-      return basic_path (path_ + c);
+      return basic_path (this->path_ + c);
     }
 
     basic_path&
     operator+= (string_type const& s)
     {
-      path_ += s;
+      this->path_ += s;
       return *this;
     }
 
     basic_path&
     operator+= (C c)
     {
-      path_ += c;
+      this->path_ += c;
       return *this;
     }
 
@@ -378,7 +403,7 @@ namespace build
     bool
     operator== (basic_path const& x) const
     {
-      return traits::compare (path_, x.path_) == 0;
+      return traits::compare (this->path_, x.path_) == 0;
     }
 
     bool
@@ -390,14 +415,14 @@ namespace build
     bool
     operator< (basic_path const& x) const
     {
-      return traits::compare (path_, x.path_) < 0;
+      return traits::compare (this->path_, x.path_) < 0;
     }
 
   public:
     const string_type&
     string () const
     {
-      return path_;
+      return this->path_;
     }
 
     // If possible, return a POSIX representation of the path. For example,
@@ -412,15 +437,36 @@ namespace build
   private:
     void
     init ();
-
-  private:
-    string_type path_;
   };
 
-  /*
+  template <typename C, typename K>
+  inline basic_path<C, K>
+  operator/ (basic_path<C, K> const& x, basic_path<C, K> const& y)
+  {
+    basic_path<C, K> r (x);
+    r /= y;
+    return r;
+  }
+
+  // Additional operators for certain path kind combinations.
+  //
   template <typename C>
+  inline basic_path<C, any_path_kind<C>>
+  operator/ (basic_path<C, dir_path_kind<C>> const& x,
+             basic_path<C, any_path_kind<C>> const& y)
+  {
+    basic_path<C, any_path_kind<C>> r (x);
+    r /= y;
+    return r;
+  }
+
+  // IO
+  //
+
+  /*
+  template <typename C, typename K>
   inline std::basic_ostream<C>&
-  operator<< (std::basic_ostream<C>& os, basic_path<C> const& p)
+  operator<< (std::basic_ostream<C>& os, basic_path<C, K> const& p)
   {
     return os << p.string ();
   }
@@ -429,11 +475,11 @@ namespace build
 
 namespace std
 {
-  template <typename C>
-  struct hash<build::basic_path<C>>: hash<basic_string<C>>
+  template <typename C, typename K>
+  struct hash<build::basic_path<C, K>>: hash<basic_string<C>>
   {
     size_t
-    operator() (const build::basic_path<C>& p) const noexcept
+    operator() (const build::basic_path<C, K>& p) const noexcept
     {
       return hash<basic_string<C>>::operator() (p.string ());
     }

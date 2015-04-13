@@ -8,14 +8,26 @@
 #include <ostream>
 
 #include <build/path>
-#include <build/diagnostics>
 
 namespace build
 {
   inline std::ostream&
   operator<< (std::ostream& os, const path& p)
   {
-    return os << (&os == diag_stream ? diag_relative (p) : p.string ());
+    return os << p.string ();
+  }
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const dir_path& d)
+  {
+    const std::string& s (d.string ());
+
+    // Print the directory with trailing '/'.
+    //
+    if (!s.empty ())
+      os << s << (dir_path::traits::is_separator (s.back ()) ? "" : "/");
+
+    return os;
   }
 }
 
