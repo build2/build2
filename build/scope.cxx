@@ -11,13 +11,6 @@ namespace build
   // scope
   //
   value_proxy scope::
-  operator[] (const string& name)
-  {
-    const variable& var (variable_pool.find (name));
-    return operator[] (var);
-  }
-
-  value_proxy scope::
   operator[] (const variable& var)
   {
     for (scope* s (this); s != nullptr; s = s->parent_scope ())

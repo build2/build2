@@ -9,6 +9,16 @@
 
 namespace build
 {
+  class obj: public file
+  {
+  public:
+    using file::file;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
   class exe: public file
   {
   public:
@@ -19,7 +29,7 @@ namespace build
     static const target_type static_type;
   };
 
-  class obj: public file
+  class lib: public file
   {
   public:
     using file::file;

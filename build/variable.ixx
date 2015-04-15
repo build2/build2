@@ -37,6 +37,17 @@ namespace build
   }
 
   inline const value_proxy& value_proxy::
+  operator+= (std::string v) const
+  {
+    if (*p == nullptr)
+      *this = v;
+    else
+      as<list_value&> ().emplace_back (std::move (v));
+
+    return *this;
+  }
+
+  inline const value_proxy& value_proxy::
   operator= (dir_path v) const
   {
     p->reset (new list_value (std::move (v)));

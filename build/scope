@@ -46,10 +46,13 @@ namespace build
     //
   public:
     value_proxy
-    operator[] (const std::string&);
+    operator[] (const variable&);
 
     value_proxy
-    operator[] (const variable&);
+    operator[] (const std::string& name)
+    {
+      return operator[] (variable_pool.find (name));
+    }
 
     const dir_path* src_path_ {nullptr}; // Cached src_{root,base} var value.
 
@@ -92,7 +95,7 @@ namespace build
 
     typedef dir_path_map<scope>::const_iterator iterator;
 
-    scope (): variables (*this) {}
+    scope (): variables (this) {}
 
     iterator i_;
     scope* parent_;

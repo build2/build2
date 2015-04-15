@@ -51,6 +51,16 @@ namespace build
     return scopes.find (dir).root_scope ();
   }
 
+  value_proxy target::
+  operator[] (const variable& var)
+  {
+    auto i (variables.find (var));
+
+    return i != variables.end ()
+      ? value_proxy (&i->second, nullptr)
+      : base_scope ()[var];
+  }
+
   ostream&
   operator<< (ostream& os, const target& t)
   {
@@ -232,6 +242,33 @@ namespace build
 
   // path_target
   //
+  path path_target::
+  derived_path (const char* de, const char* np)
+  {
+    string n;
+
+    if (np != nullptr)
+      n += np;
+
+    n += name;
+
+    if (ext != nullptr)
+    {
+      if (!ext->empty ())
+      {
+        n += '.';
+        n += *ext;
+      }
+    }
+    else if (de != nullptr)
+    {
+      n += '.';
+      n += de;
+    }
+
+    return dir / path_type (move (n));
+  }
+
   timestamp path_target::
   load_mtime () const
   {

@@ -139,8 +139,9 @@ main (int argc, char* argv[])
     target_types.insert (dir::static_type);
     target_types.insert (fsdir::static_type);
 
-    target_types.insert (exe::static_type);
     target_types.insert (obj::static_type);
+    target_types.insert (exe::static_type);
+    target_types.insert (lib::static_type);
 
     target_types.insert (cxx::h::static_type);
     target_types.insert (cxx::c::static_type);
@@ -156,6 +157,10 @@ main (int argc, char* argv[])
     rules[default_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
     rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
     rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+
+    rules[default_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
+    rules[update_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
+    rules[clean_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
 
     cxx::compile cxx_compile;
     rules[default_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);

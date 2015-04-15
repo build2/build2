@@ -100,7 +100,7 @@ namespace build
     explicit operator bool () const {return defined () && !null ();}
     explicit operator value_ptr& () const {return *p;}
 
-    scope_type* scope;
+    scope_type* scope; // If NULL, then this is a target variable.
 
     // Get interface. See available specializations below.
     //
@@ -118,6 +118,11 @@ namespace build
 
     const value_proxy&
     operator= (std::string) const;
+
+    // Append enother simple name to list_value.
+    //
+    const value_proxy&
+    operator+= (std::string) const;
 
     const value_proxy&
     operator= (dir_path) const;
@@ -218,7 +223,7 @@ namespace build
     value_proxy
     operator[] (const variable& v)
     {
-      return value_proxy (&base::operator[] (v), &scope_);
+      return value_proxy (&base::operator[] (v), scope_);
     }
 
     value_proxy
@@ -234,7 +239,7 @@ namespace build
       return i != end ()
         // @@ To do this properly we seem to need ro_value_proxy.
         //
-        ? value_proxy (&const_cast<value_ptr&> (i->second), &scope_)
+        ? value_proxy (&const_cast<value_ptr&> (i->second), scope_)
         : value_proxy (nullptr, nullptr);
     }
 
@@ -251,10 +256,11 @@ namespace build
     }
 
     explicit
-    variable_map (scope& s): scope_ (s) {}
+    variable_map (scope* s): scope_ (s) {}
 
   private:
-    scope& scope_; // Scope to which this map belongs (and all its value).
+    scope* scope_; // Scope to which this map belongs or NULL if this
+                   // is a target variable map.
   };
 }
 

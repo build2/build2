@@ -20,6 +20,7 @@
 #include <build/map-key>       // map_iterator_adapter
 #include <build/timestamp>
 #include <build/name>
+#include <build/variable>
 #include <build/operation>
 #include <build/prerequisite>
 #include <build/utility>       // compare_*, extension_pool
@@ -93,12 +94,13 @@ namespace build
     ~target () = default;
 
     target (dir_path d, std::string n, const std::string* e)
-        : dir (std::move (d)), name (std::move (n)), ext (e) {}
+        : dir (std::move (d)), name (std::move (n)), ext (e),
+          variables (nullptr) {}
 
     const dir_path dir;     // Absolute and normalized.
     const std::string name;
-    const std::string* ext; // Extension, NULL means unspecified.
-
+    const std::string* ext; // Extension, NULL means unspecified,
+                            // empty means no extension.
   public:
     // Most qualified scope that contains this target.
     //
@@ -112,12 +114,33 @@ namespace build
     scope*
     root_scope () const;
 
+    // Prerequisites.
+    //
   public:
     typedef
     std::vector<std::reference_wrapper<prerequisite>>
     prerequisites_type;
 
     prerequisites_type prerequisites;
+
+    // Target-specific variables.
+    //
+  public:
+    variable_map variables;
+
+    const variable_map&
+    ro_variables () const {return variables;}
+
+    // Variable lookup in this target and all its outer scopes.
+    //
+    value_proxy
+    operator[] (const variable&);
+
+    value_proxy
+    operator[] (const std::string& name)
+    {
+      return operator[] (variable_pool.find (name));
+    }
 
   public:
     target_state state;
@@ -327,6 +350,14 @@ namespace build
 
     void
     path (path_type p) {assert (path_.empty ()); path_ = std::move (p);}
+
+    // Return a path derived from target's dir, name, and, if specified,
+    // ext. If ext is not specified, then use default_ext. If name_prefix
+    // if not NULL, add it before the name part.
+    //
+    path_type
+    derived_path (const char* default_ext = nullptr,
+                  const char* name_prefix = nullptr);
 
   protected:
     virtual timestamp

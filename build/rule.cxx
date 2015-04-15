@@ -55,25 +55,14 @@ namespace build
         //
         path_target& pt (dynamic_cast<path_target&> (t));
 
+        // Assign the path. While nromally we shouldn't do this in match(),
+        // no other rule should ever be ambiguous with the fallback one.
+        //
         if (pt.path ().empty ())
         {
-          path p (t.dir / path (pt.name));
-
-          // @@ TMP: target name as an extension.
+          // @@ TMP: using target name as the default extension.
           //
-          const string& e (pt.ext != nullptr ? *pt.ext : pt.type ().name);
-
-          if (!e.empty ())
-          {
-            p += '.';
-            p += e;
-          }
-
-          // While strictly speaking we shouldn't do this in match(),
-          // no other rule should ever be ambiguous with the fallback
-          // one.
-          //
-          pt.path (move (p));
+          pt.path (pt.derived_path (pt.type ().name));
         }
 
         return pt.mtime () != timestamp_nonexistent ? &t : nullptr;

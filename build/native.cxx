@@ -8,6 +8,15 @@ using namespace std;
 
 namespace build
 {
+  const target_type obj::static_type
+  {
+    typeid (obj),
+    "obj",
+    &file::static_type,
+    &target_factory<obj>,
+    file::static_type.search
+  };
+
   const target_type exe::static_type
   {
     typeid (exe),
@@ -17,12 +26,12 @@ namespace build
     file::static_type.search
   };
 
-  const target_type obj::static_type
+  const target_type lib::static_type
   {
-    typeid (obj),
-    "obj",
+    typeid (lib),
+    "lib",
     &file::static_type,
-    &target_factory<obj>,
+    &target_factory<lib>,
     file::static_type.search
   };
 }

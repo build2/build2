@@ -26,12 +26,15 @@ namespace build
 {
   namespace cxx
   {
+    // T is either target or scope.
+    //
+    template <typename T>
     static void
-    append_options (vector<const char*>& args, scope& s, const char* var)
+    append_options (vector<const char*>& args, T& s, const char* var)
     {
       if (auto val = s[var])
       {
-        for (const name& n: val.as<const list_value&> ())
+        for (const name& n: val.template as<const list_value&> ())
         {
           if (!n.type.empty () || !n.dir.empty ())
             fail << "expected option instead of " << n <<
@@ -43,9 +46,9 @@ namespace build
     }
 
     static void
-    append_std (vector<const char*>& args, scope& s, string& opt)
+    append_std (vector<const char*>& args, target& t, string& opt)
     {
-      if (auto val = s["cxx.std"])
+      if (auto val = t["cxx.std"])
       {
         const string& v (val.as<const string&> ());
 
@@ -95,7 +98,7 @@ namespace build
       obj& o (dynamic_cast<obj&> (t));
 
       if (o.path ().empty ())
-        o.path (o.dir / path (o.name + ".o"));
+        o.path (o.derived_path ("o"));
 
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.
@@ -182,14 +185,13 @@ namespace build
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      scope& ts (o.base_scope ());
-      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (*o.root_scope ()); // Shouldn't have matched if nullptr.
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
       append_options (args, rs, "config.cxx.poptions");
-      append_options (args, ts, "cxx.poptions");
+      append_options (args, o, "cxx.poptions");
 
       // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
       // Or maybe they are not C++ options? Common options?
@@ -197,9 +199,9 @@ namespace build
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
-      append_std (args, ts, std);
+      append_std (args, o, std);
 
-      append_options (args, ts, "cxx.coptions");
+      append_options (args, o, "cxx.coptions");
 
       args.push_back ("-MM"); // @@ Change to -M
       args.push_back ("-MG"); // Treat missing headers as generated.
@@ -268,7 +270,7 @@ namespace build
             //
             // Note that if the file has no extension, we record an empty
             // extension rather than NULL (which would signify that the
-            // extension needs to be added).
+            // default extension needs to be added).
             //
             dir_path d (f.directory ());
             string n (f.leaf ().base ().string ());
@@ -337,21 +339,20 @@ namespace build
       path relo (relative (o.path ()));
       path rels (relative (s->path ()));
 
-      scope& ts (o.base_scope ());
-      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (*o.root_scope ()); // Shouldn't have matched if nullptr.
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
       append_options (args, rs, "config.cxx.poptions");
-      append_options (args, ts, "cxx.poptions");
+      append_options (args, o, "cxx.poptions");
 
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
-      append_std (args, ts, std);
+      append_std (args, o, std);
 
-      append_options (args, ts, "cxx.coptions");
+      append_options (args, o, "cxx.coptions");
 
       args.push_back ("-o");
       args.push_back (relo.string ().c_str ());
@@ -461,12 +462,23 @@ namespace build
     {
       tracer trace ("cxx::link::apply");
 
-      // Derive executable file name from target name.
+      // Derive file name from target name.
       //
-      exe& e (dynamic_cast<exe&> (t));
+      bool so (false);
+      if (exe* e = dynamic_cast<exe*> (&t))
+      {
+        if (e->path ().empty ())
+          e->path (e->derived_path ());
+      }
+      else if (lib* l = dynamic_cast<lib*> (&t))
+      {
+        if (l->path ().empty ())
+          l->path (l->derived_path ("so", "lib"));
 
-      if (e.path ().empty ())
-        e.path (e.dir / path (e.name));
+        so = true;
+      }
+      else
+        assert (false);
 
       // We may need the project roots for rule chaining (see below).
       // We will resolve them lazily only if needed.
@@ -487,7 +499,7 @@ namespace build
           //
           target& pt (search (p));
 
-          if (a.operation () == clean_id && !pt.dir.sub (e.dir))
+          if (a.operation () == clean_id && !pt.dir.sub (t.dir))
             p.target = nullptr; // Ignore.
           else
             build::match (a, pt);
@@ -501,7 +513,7 @@ namespace build
           // but possible, the prerequisite is from a different project
           // altogether. So we are going to use the target's project.
           //
-          scope* rs (e.root_scope ());
+          scope* rs (t.root_scope ());
           assert (rs != nullptr); // Shouldn't have matched.
           out_root = &rs->path ();
           src_root = &rs->src_path ();
@@ -550,7 +562,7 @@ namespace build
         // update will come and finish the rewrite process (it will even
         // reuse op that we have created but then ignored). So all is good.
         //
-        if (a.operation () == clean_id && !ot.dir.sub (e.dir))
+        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will
@@ -559,6 +571,21 @@ namespace build
           //
           p.target = nullptr; // Skip.
           continue;
+        }
+
+        // Set the -fPIC option if we are building a shared object.
+        //
+        if (so)
+        {
+          auto var (ot.variables["cxx.coptions"]);
+
+          if (!var)
+          {
+            if (auto var1 = ot.base_scope ()["cxx.coptions"])
+              var = var1;
+          }
+
+          var += "-fPIC";
         }
 
         // If this target already exists, then it needs to be "compatible"
@@ -633,42 +660,45 @@ namespace build
     }
 
     target_state link::
-    perform_update (action a, target& t)
+    perform_update (action a, target& xt)
     {
       // @@ Q:
       //
       // - what are we doing with libraries?
       //
+      path_target& t (static_cast<path_target&> (xt));
 
-      exe& e (dynamic_cast<exe&> (t));
+      //exe& e (dynamic_cast<exe&> (t));
 
-      if (!execute_prerequisites (a, e, e.mtime ()))
+      if (!execute_prerequisites (a, t, t.mtime ()))
         return target_state::unchanged;
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path rele (relative (e.path ()));
+      path relt (relative (t.path ()));
       vector<path> relo;
 
-      scope& ts (e.base_scope ());
-      scope& rs (*ts.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
+      if (dynamic_cast<lib*> (&t) != nullptr)
+        args.push_back ("-shared");
+
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
-      append_std (args, ts, std);
+      append_std (args, t, std);
 
-      append_options (args, ts, "cxx.coptions");
+      append_options (args, t, "cxx.coptions");
 
       args.push_back ("-o");
-      args.push_back (rele.string ().c_str ());
+      args.push_back (relt.string ().c_str ());
 
       append_options (args, rs, "config.cxx.loptions");
-      append_options (args, ts, "cxx.loptions");
+      append_options (args, t, "cxx.loptions");
 
       for (const prerequisite& p: t.prerequisites)
       {
@@ -680,14 +710,14 @@ namespace build
       }
 
       append_options (args, rs, "config.cxx.libs");
-      append_options (args, ts, "cxx.libs");
+      append_options (args, t, "cxx.libs");
 
       args.push_back (nullptr);
 
       if (verb >= 1)
         print_process (args);
       else
-        text << "ld " << e;
+        text << "ld " << t;
 
       try
       {
@@ -701,7 +731,7 @@ namespace build
         // current clock time. It has the advantage of having the
         // subseconds precision.
         //
-        e.mtime (system_clock::now ());
+        t.mtime (system_clock::now ());
         return target_state::changed;
       }
       catch (const process_error& e)
