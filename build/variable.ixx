@@ -53,4 +53,11 @@ namespace build
     p->reset (new list_value (std::move (v)));
     return *this;
   }
+
+  inline const value_proxy& value_proxy::
+  operator= (nullptr_t) const
+  {
+    p->reset ();
+    return *this;
+  }
 }

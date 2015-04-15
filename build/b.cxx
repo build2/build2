@@ -468,7 +468,7 @@ main (int argc, char* argv[])
           // See if the bootstrap process set/changed src_root.
           //
           {
-            auto v (rs.variables["src_root"]);
+            auto v (rs.assign ("src_root"));
 
             if (v)
             {
@@ -528,7 +528,7 @@ main (int argc, char* argv[])
           // Why don't we support it? Because things are already complex
           // enough here.
           //
-          if (auto v = rs.ro_variables ()["subprojects"])
+          if (auto v = rs.vars["subprojects"])
           {
             for (const name& n: v.as<const list_value&> ())
             {

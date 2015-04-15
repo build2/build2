@@ -440,7 +440,7 @@ namespace build
       //
       if (src_root_ == nullptr)
       {
-        auto v (root_->ro_variables ()["src_root"]);
+        auto v (root_->vars["src_root"]);
         src_root_ = v ? &v.as<const dir_path&> () : nullptr;
       }
     }
@@ -555,8 +555,8 @@ namespace build
       scope* os (scope_);
       scope_ = &scopes[out_base];
 
-      scope_->variables["out_base"] = move (out_base);
-      auto v (scope_->variables["src_base"] = move (src_base));
+      scope_->assign ("out_base") = move (out_base);
+      auto v (scope_->assign ("src_base") = move (src_base));
       scope_->src_path_ = &v.as<const dir_path&> ();
 
       target* odt (default_target_);
@@ -648,8 +648,8 @@ namespace build
 
       const auto& var (variable_pool.find (n.value));
 
-      if (auto val = scope_->ro_variables ()[var])
-        ps->variables[var] = val; //@@ Move?
+      if (auto val = scope_->vars[var])
+        ps->assign (var) = val; //@@ Move?
       else
         fail (l) << "undefined exported variable " << var.name;
     }
@@ -723,7 +723,7 @@ namespace build
 
     if (assign)
     {
-      value_ptr& val (scope_->variables[var]);
+      value_ptr& val (scope_->assign (var));
 
       if (val == nullptr) // Initialization.
       {
@@ -744,11 +744,11 @@ namespace build
         //
         list_value* lv (&val.as<list_value&> ());
 
-        if (val.scope != scope_) // Append to value from parent scope?
+        if (!val.belongs (*scope_)) // Append to value from parent scope?
         {
           list_value_ptr nval (new list_value (*lv));
           lv = nval.get (); // Append to.
-          scope_->variables.emplace (var, move (nval));
+          scope_->vars.emplace (var, move (nval));
         }
 
         lv->insert (lv->end (),
@@ -758,7 +758,7 @@ namespace build
       else // Initialization.
       {
         list_value_ptr nval (new list_value (move (vns)));
-        scope_->variables.emplace (var, move (nval));
+        scope_->vars.emplace (var, move (nval));
       }
     }
   }
@@ -1344,9 +1344,9 @@ namespace build
       // to their return values are not guaranteed to be stable (and,
       // in fact, path()'s is not).
       //
-      out_root_ = &root_->ro_variables ()["out_root"].as<const dir_path&> ();
+      out_root_ = &root_->vars["out_root"].as<const dir_path&> ();
 
-      auto v (root_->ro_variables ()["src_root"]);
+      auto v (root_->vars["src_root"]);
       src_root_ = v ? &v.as<const dir_path&> () : nullptr;
     }
 

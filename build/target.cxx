@@ -52,13 +52,30 @@ namespace build
   }
 
   value_proxy target::
-  operator[] (const variable& var)
+  operator[] (const variable& var) const
   {
-    auto i (variables.find (var));
+    auto i (vars.find (var));
 
-    return i != variables.end ()
-      ? value_proxy (&i->second, nullptr)
+    return i != vars.end ()
+      // @@ Same issue as in variable_map: need ro_value_proxy.
+      ? value_proxy (&const_cast<value_ptr&> (i->second), &vars)
       : base_scope ()[var];
+  }
+
+  value_proxy target::
+  append (const variable& var)
+  {
+    value_proxy val (operator[] (var));
+
+    if (val && val.belongs (*this)) // Existing variable in this target.
+      return val;
+
+    value_proxy r (assign (var));
+
+    if (val)
+      r = val; // Copy value from the outer scope.
+
+    return r;
   }
 
   ostream&

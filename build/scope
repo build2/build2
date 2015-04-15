@@ -26,6 +26,8 @@ namespace build
     const dir_path&
     src_path () const {return *src_path_;} // Corresponding src path.
 
+    const dir_path* src_path_ {nullptr}; // Cached src_{root,base} var value.
+
     scope*
     parent_scope () const {return parent_;}
 
@@ -40,28 +42,56 @@ namespace build
     bool
     root () const {return root_ == this;}
 
-    // Variable lookup. Note that this is find, not find or insert like
-    // in the variable_map, because we also search in outer scopes. For
-    // the latter use the variables map directly.
+    // Variables.
     //
   public:
+    variable_map vars;
+
+    // Lookup, including in outer scopes. If you only want to lookup
+    // in this scope, do it on the the variables map directly.
+    //
     value_proxy
-    operator[] (const variable&);
+    operator[] (const variable&) const;
 
     value_proxy
-    operator[] (const std::string& name)
+    operator[] (const std::string& name) const
     {
       return operator[] (variable_pool.find (name));
     }
 
-    const dir_path* src_path_ {nullptr}; // Cached src_{root,base} var value.
+    // Return a value_proxy suitable for assignment. If the variable
+    // does not exist in this scope's map, then a new one with the
+    // NULL value is added and returned. Otherwise the existing value
+    // if returned.
+    //
+    value_proxy
+    assign (const variable& var)
+    {
+      return vars.assign (var);
+    }
+
+    value_proxy
+    assign (const std::string& name)
+    {
+      return assign (variable_pool.find (name));
+    }
+
+    // Return a value_proxy suitable for appending. If the variable
+    // does not exist in this scope's map, then outer scopes are
+    // searched for the same variable. If found then a new variable
+    // with the found value is added to this scope and returned.
+    // Otherwise this function proceeds as assign().
+    //
+    value_proxy
+    append (const variable&);
+
+    value_proxy
+    append (const std::string& name)
+    {
+      return append (variable_pool.find (name));
+    }
 
   public:
-    variable_map variables;
-
-    const variable_map&
-    ro_variables () const {return variables;}
-
     prerequisite_set prerequisites;
 
     // Meta/operations supported by this project (set on the root
@@ -95,7 +125,7 @@ namespace build
 
     typedef dir_path_map<scope>::const_iterator iterator;
 
-    scope (): variables (this) {}
+    scope () = default;
 
     iterator i_;
     scope* parent_;

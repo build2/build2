@@ -88,7 +88,7 @@ namespace build
             << "# feel free to edit." << endl
             << "#" << endl;
 
-        if (auto v = root.ro_variables ()["amalgamation"])
+        if (auto v = root.vars["amalgamation"])
         {
           const dir_path& d (v.as<const dir_path&> ());
 
@@ -99,7 +99,7 @@ namespace build
         // Save all the variables in the config namespace that are set
         // on the project's root scope.
         //
-        for (auto p (root.variables.find_namespace ("config"));
+        for (auto p (root.vars.find_namespace ("config"));
              p.first != p.second;
              ++p.first)
         {
@@ -178,7 +178,7 @@ namespace build
 
       // Configure subprojects that have been loaded.
       //
-      if (auto v = root.ro_variables ()["subprojects"])
+      if (auto v = root.vars["subprojects"])
       {
         for (const name& n: v.as<const list_value&> ())
         {
@@ -272,7 +272,7 @@ namespace build
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto v = root.ro_variables ()["subprojects"])
+      if (auto v = root.vars["subprojects"])
       {
         for (const name& n: v.as<const list_value&> ())
         {
@@ -286,8 +286,7 @@ namespace build
 
           // Check if the bootstrap process changed src_root.
           //
-          const dir_path& p (
-            nroot.variables["src_root"].as<const dir_path&> ());
+          const dir_path& p (nroot.vars["src_root"].as<const dir_path&> ());
 
           if (src_nroot != p)
             fail << "bootstrapped src_root " << p << " does not match "

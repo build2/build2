@@ -40,8 +40,8 @@ namespace build
     global_scope = &scopes[dir_path ("/")];
 #endif
 
-    global_scope->variables["work"] = work;
-    global_scope->variables["home"] = home;
+    global_scope->assign ("work") = work;
+    global_scope->assign ("home") = home;
   }
 
   fs_status<mkdir_status>

@@ -94,8 +94,7 @@ namespace build
     ~target () = default;
 
     target (dir_path d, std::string n, const std::string* e)
-        : dir (std::move (d)), name (std::move (n)), ext (e),
-          variables (nullptr) {}
+        : dir (std::move (d)), name (std::move (n)), ext (e) {}
 
     const dir_path dir;     // Absolute and normalized.
     const std::string name;
@@ -126,20 +125,45 @@ namespace build
     // Target-specific variables.
     //
   public:
-    variable_map variables;
+    variable_map vars;
 
-    const variable_map&
-    ro_variables () const {return variables;}
-
-    // Variable lookup in this target and all its outer scopes.
+    // Lookup, including in outer scopes. If you only want to lookup
+    // in this target, do it on the the variables map directly.
     //
     value_proxy
-    operator[] (const variable&);
+    operator[] (const variable&) const;
 
     value_proxy
-    operator[] (const std::string& name)
+    operator[] (const std::string& name) const
     {
       return operator[] (variable_pool.find (name));
+    }
+
+    // Return a value_proxy suitable for assignment. See class scope
+    // for details.
+    //
+    value_proxy
+    assign (const variable& var)
+    {
+      return vars.assign (var);
+    }
+
+    value_proxy
+    assign (const std::string& name)
+    {
+      return assign (variable_pool.find (name));
+    }
+
+    // Return a value_proxy suitable for appending. See class scope
+    // for details.
+    //
+    value_proxy
+    append (const variable&);
+
+    value_proxy
+    append (const std::string& name)
+    {
+      return append (variable_pool.find (name));
     }
 
   public:

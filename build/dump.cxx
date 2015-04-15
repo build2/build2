@@ -57,7 +57,7 @@ namespace build
 
     // Variables.
     //
-    for (const auto& e: p.variables)
+    for (const auto& e: p.vars)
     {
       const variable& var (e.first);
       const value_ptr& val (e.second);

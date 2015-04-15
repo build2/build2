@@ -7,6 +7,7 @@
 
 #include <string>
 #include <memory>        // unique_ptr
+#include <cstddef>       // nullptr_t
 #include <utility>       // move()
 #include <cassert>
 #include <functional>    // hash
@@ -19,7 +20,6 @@
 
 namespace build
 {
-  class scope;
   struct value;
 
   struct value_type
@@ -87,10 +87,10 @@ namespace build
   //
   // A variable can be undefined, null, or contain some actual value.
   //
+  struct variable_map;
+
   struct value_proxy
   {
-    typedef build::scope scope_type;
-
     bool
     defined () const {return p != nullptr;}
 
@@ -99,8 +99,6 @@ namespace build
 
     explicit operator bool () const {return defined () && !null ();}
     explicit operator value_ptr& () const {return *p;}
-
-    scope_type* scope; // If NULL, then this is a target variable.
 
     // Get interface. See available specializations below.
     //
@@ -127,9 +125,20 @@ namespace build
     const value_proxy&
     operator= (dir_path) const;
 
+    const value_proxy&
+    operator= (nullptr_t) const;
+
+    // Return true if this value belongs to the specified scope or target.
+    //
+    template <typename T>
+    bool
+    belongs (const T& x) const {return map == &x.vars;}
+
     // Implementation details.
     //
-    value_proxy (value_ptr* p, scope_type* s): p (p), scope (s) {}
+    const variable_map* map; // Variable map to which this value belongs.
+
+    value_proxy (value_ptr* p, const variable_map* m): map (m), p (p) {}
 
   private:
     value_ptr* p;
@@ -215,32 +224,32 @@ namespace build
     typedef prefix_map<variable_cref, value_ptr, '.'> base;
 
     value_proxy
-    operator[] (const std::string& v)
+    operator[] (const variable& var) const
     {
-      return operator[] (variable_pool.find (v));
-    }
-
-    value_proxy
-    operator[] (const variable& v)
-    {
-      return value_proxy (&base::operator[] (v), scope_);
-    }
-
-    value_proxy
-    operator[] (const std::string& v) const
-    {
-      return operator[] (variable_pool.find (v));
-    }
-
-    value_proxy
-    operator[] (const variable& v) const
-    {
-      auto i (find (v));
+      auto i (find (var));
       return i != end ()
         // @@ To do this properly we seem to need ro_value_proxy.
         //
-        ? value_proxy (&const_cast<value_ptr&> (i->second), scope_)
+        ? value_proxy (&const_cast<value_ptr&> (i->second), this)
         : value_proxy (nullptr, nullptr);
+    }
+
+    value_proxy
+    operator[] (const std::string& name) const
+    {
+      return operator[] (variable_pool.find (name));
+    }
+
+    value_proxy
+    assign (const variable& var)
+    {
+      return value_proxy (&base::operator[] (var), this);
+    }
+
+    value_proxy
+    assign (const std::string& name)
+    {
+      return assign (variable_pool.find (name));
     }
 
     std::pair<iterator, iterator>
@@ -254,13 +263,6 @@ namespace build
     {
       return find_prefix (variable_pool.find (ns));
     }
-
-    explicit
-    variable_map (scope* s): scope_ (s) {}
-
-  private:
-    scope* scope_; // Scope to which this map belongs or NULL if this
-                   // is a target variable map.
   };
 }
 

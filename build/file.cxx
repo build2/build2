@@ -90,7 +90,7 @@ namespace build
     // consistent.
     //
     {
-      auto v (rs.variables["out_root"]);
+      auto v (rs.assign ("out_root"));
 
       if (!v)
         v = out_root;
@@ -106,7 +106,7 @@ namespace build
 
     if (!src_root.empty ())
     {
-      auto v (rs.variables["src_root"]);
+      auto v (rs.assign ("src_root"));
 
       if (!v)
         v = src_root;
@@ -161,7 +161,7 @@ namespace build
   void
   create_bootstrap_outer (scope& root)
   {
-    auto v (root.ro_variables ()["amalgamation"]);
+    auto v (root.vars["amalgamation"]);
 
     if (!v)
       return;
@@ -178,7 +178,7 @@ namespace build
 
     // Check if the bootstrap process changed src_root.
     //
-    const dir_path& p (rs.variables["src_root"].as<const dir_path&> ());
+    const dir_path& p (rs.vars["src_root"].as<const dir_path&> ());
 
     if (src_root != p)
       fail << "bootstrapped src_root " << p << " does not match "
@@ -193,7 +193,7 @@ namespace build
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
-    if (auto v = root.ro_variables ()["subprojects"])
+    if (auto v = root.vars["subprojects"])
     {
       for (const name& n: v.as<const list_value&> ())
       {
@@ -215,7 +215,7 @@ namespace build
 
         // Check if the bootstrap process changed src_root.
         //
-        const dir_path& p (rs.variables["src_root"].as<const dir_path&> ());
+        const dir_path& p (rs.vars["src_root"].as<const dir_path&> ());
 
         if (src_root != p)
           fail << "bootstrapped src_root " << p << " does not match "
@@ -262,8 +262,8 @@ namespace build
 
     if (val)
     {
-      if (val.scope == global_scope)
-        iroot.variables[var] = val; // Copy into root scope.
+      if (val.belongs (*global_scope))
+        iroot.assign (var) = val; // Copy into root scope.
     }
     else
       fail (l) << "unable to find out_root for imported " << n <<
@@ -283,7 +283,7 @@ namespace build
 
     // Check that the bootstrap process set src_root.
     //
-    if (auto v = root.ro_variables ()["src_root"])
+    if (auto v = root.vars["src_root"])
     {
       const dir_path& p (v.as<const dir_path&> ());
 
@@ -315,8 +315,8 @@ namespace build
 
     // "Pass" the imported project's roots to the stub.
     //
-    ts.variables["out_root"] = out_root;
-    ts.variables["src_root"] = src_root;
+    ts.assign ("out_root") = out_root;
+    ts.assign ("src_root") = src_root;
 
     // Load the export stub. Note that it is loaded in the context
     // of the importing project, not the imported one. The export

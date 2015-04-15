@@ -49,8 +49,8 @@ namespace build
 
         if (val)
         {
-          if (val.scope != global_scope)
-            break; // A value from config.build.
+          if (!val.belongs (*global_scope))
+            break; // A value from (some) config.build.
 
           v = val.as<const string&> ();
         }
@@ -96,7 +96,7 @@ namespace build
 
         // Set on the project root.
         //
-        root.variables["config.cxx"] = move (v);
+        root.assign ("config.cxx") = move (v);
       }
 
       // config.cxx.{p,c,l}options
@@ -113,11 +113,11 @@ namespace build
 
         if (v.defined ())
         {
-          if (v.scope == global_scope)
-            root.variables["config.cxx.poptions"] = v;
+          if (v.belongs (*global_scope))
+            root.assign ("config.cxx.poptions") = v;
         }
         else
-          root.variables["config.cxx.poptions"]; // Set to NULL.
+          root.assign ("config.cxx.poptions") = nullptr;
       }
 
       {
@@ -125,11 +125,11 @@ namespace build
 
         if (v.defined ())
         {
-          if (v.scope == global_scope)
-            root.variables["config.cxx.coptions"] = v;
+          if (v.belongs (*global_scope))
+            root.assign ("config.cxx.coptions") = v;
         }
         else
-          root.variables["config.cxx.coptions"]; // Set to NULL.
+          root.assign ("config.cxx.coptions") = nullptr;
       }
 
       {
@@ -137,11 +137,11 @@ namespace build
 
         if (v.defined ())
         {
-          if (v.scope == global_scope)
-            root.variables["config.cxx.loptions"] = v;
+          if (v.belongs (*global_scope))
+            root.assign ("config.cxx.loptions") = v;
         }
         else
-          root.variables["config.cxx.loptions"]; // Set to NULL.
+          root.assign ("config.cxx.loptions") = nullptr;
       }
 
       {
@@ -149,11 +149,11 @@ namespace build
 
         if (v.defined ())
         {
-          if (v.scope == global_scope)
-            root.variables["config.cxx.libs"] = v;
+          if (v.belongs (*global_scope))
+            root.assign ("config.cxx.libs") = v;
         }
         else
-          root.variables["config.cxx.libs"]; // Set to NULL.
+          root.assign ("config.cxx.libs") = nullptr;
       }
     }
   }

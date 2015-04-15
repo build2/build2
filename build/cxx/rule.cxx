@@ -576,17 +576,7 @@ namespace build
         // Set the -fPIC option if we are building a shared object.
         //
         if (so)
-        {
-          auto var (ot.variables["cxx.coptions"]);
-
-          if (!var)
-          {
-            if (auto var1 = ot.base_scope ()["cxx.coptions"])
-              var = var1;
-          }
-
-          var += "-fPIC";
-        }
+          ot.append ("cxx.coptions") += "-fPIC";
 
         // If this target already exists, then it needs to be "compatible"
         // with what we are doing here.

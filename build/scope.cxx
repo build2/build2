@@ -11,16 +11,33 @@ namespace build
   // scope
   //
   value_proxy scope::
-  operator[] (const variable& var)
+  operator[] (const variable& var) const
   {
-    for (scope* s (this); s != nullptr; s = s->parent_scope ())
+    for (const scope* s (this); s != nullptr; s = s->parent_scope ())
     {
-      auto i (s->variables.find (var));
-      if (i != s->variables.end ())
-        return value_proxy (&i->second, s);
+      auto i (s->vars.find (var));
+      if (i != s->vars.end ())
+        // @@ Same issue as in variable_map: need ro_value_proxy.
+        return value_proxy (&const_cast<value_ptr&> (i->second), &s->vars);
     }
 
     return value_proxy (nullptr, nullptr);
+  }
+
+  value_proxy scope::
+  append (const variable& var)
+  {
+    value_proxy val (operator[] (var));
+
+    if (val && val.belongs (*this)) // Existing variable in this scope.
+      return val;
+
+    value_proxy r (assign (var));
+
+    if (val)
+      r = val; // Copy value from the outer scope.
+
+    return r;
   }
 
   // scope_map
