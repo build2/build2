@@ -74,7 +74,8 @@ namespace build
       //
 
       if (t.is_a<obj> ())
-        fail << diag_doing (a, t) << " directly not supported";
+        fail << diag_doing (a, t) << " target group" <<
+          info << "explicitly select either obja{} or objso{} member";
 
       // See if we have a C++ source file.
       //
