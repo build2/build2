@@ -358,11 +358,14 @@ main (int argc, char* argv[])
             //
             if (v.empty () || v == "." || v == ".." || tn.type == "dir")
               out_base = dir_path (v);
-            else
+            //
+            // Otherwise, if this is a simple name, see if there is a
+            // directory part in value.
+            //
+            else if (tn.type.empty ())
             {
-              // See if there is a directory part in value. We cannot
-              // assume it is a valid filesystem name so we will have
-              // to do the splitting manually.
+              // We cannot assume it is a valid filesystem name so we
+              // will have to do the splitting manually.
               //
               path::size_type i (path::traits::rfind_separator (v));
 
