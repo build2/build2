@@ -56,10 +56,14 @@ namespace build
   {
     auto i (vars.find (var));
 
-    return i != vars.end ()
+    if (i != vars.end ())
       // @@ Same issue as in variable_map: need ro_value_proxy.
-      ? value_proxy (&const_cast<value_ptr&> (i->second), &vars)
-      : base_scope ()[var];
+      return value_proxy (&const_cast<value_ptr&> (i->second), &vars);
+
+    if (group != nullptr)
+      return (*group)[var];
+
+    return base_scope ()[var];
   }
 
   value_proxy target::

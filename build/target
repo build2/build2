@@ -103,7 +103,7 @@ namespace build
         : prereq (&p), target (&t) {}
   };
 
-  //
+  // Target.
   //
   class target
   {
@@ -122,8 +122,10 @@ namespace build
     const std::string* ext;  // Extension, NULL means unspecified,
                              // empty means no extension.
 
-    target* group {nullptr}; // Target group to which this target
-                             // belongs, if any.
+    target* group {nullptr}; // Target group to which this target belongs,
+                             // if any. Note that we assume that the group
+                             // and all its members are in the same scope
+                             // (see, for example, variable lookup).
   public:
     // Most qualified scope that contains this target.
     //
@@ -148,8 +150,9 @@ namespace build
   public:
     variable_map vars;
 
-    // Lookup, including in outer scopes. If you only want to lookup
-    // in this target, do it on the the variables map directly.
+    // Lookup, including in groups to which this target belongs and
+    // then in outer scopes. If you only want to lookup in this target,
+    // do it on the the variables map directly.
     //
     value_proxy
     operator[] (const variable&) const;
