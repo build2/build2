@@ -85,12 +85,12 @@ namespace build
   }
 
   static target*
-  search_target (prerequisite& p)
+  search_target (const prerequisite_key& pk)
   {
     // The default behavior is to look for an existing target in the
     // prerequisite's directory scope.
     //
-    return search_existing_target (p);
+    return search_existing_target (pk);
   }
 
   // target_set
@@ -133,8 +133,8 @@ namespace build
   pair<target&, bool> target_set::
   insert (const target_type& tt,
           dir_path dir,
-          std::string name,
-          const std::string* ext,
+          string name,
+          const string* ext,
           tracer& trace)
   {
     iterator i (find (target_key {&tt, &dir, &name, &ext}, trace));
@@ -260,7 +260,7 @@ namespace build
   // path_target
   //
   path path_target::
-  derived_path (const char* de, const char* np)
+  derived_path (const char* de, const char* np, const char* ns)
   {
     string n;
 
@@ -268,6 +268,9 @@ namespace build
       n += np;
 
     n += name;
+
+    if (ns != nullptr)
+      n += ns;
 
     if (ext != nullptr)
     {
@@ -297,22 +300,21 @@ namespace build
   //
 
   static target*
-  search_file (prerequisite& p)
+  search_file (const prerequisite_key& pk)
   {
     // First see if there is an existing target.
     //
-    if (target* t = search_existing_target (p))
+    if (target* t = search_existing_target (pk))
       return t;
 
     // Then look for an existing file in this target-type-specific
     // list of paths (@@ TODO: comes from the variable).
     //
-    if (p.dir.relative ())
+    if (pk.tk.dir->relative ())
     {
       dir_paths sp;
-      sp.push_back (src_out (p.scope.path (), p.scope)); // src_base
-
-      return search_existing_file (p, sp);
+      sp.push_back (src_out (pk.scope->path (), *pk.scope)); // src_base
+      return search_existing_file (pk, sp);
     }
     else
       return nullptr;
@@ -321,16 +323,16 @@ namespace build
   // dir target
   //
   static target*
-  search_alias (prerequisite& p)
+  search_alias (const prerequisite_key& pk)
   {
     // For an alias/action we don't want to silently create a target
     // since it will do nothing and it most likely not what the author
     // intended.
     //
-    target* t (search_existing_target (p));
+    target* t (search_existing_target (pk));
 
     if (t == nullptr)
-      fail << "no explicit target for prerequisite " << p;
+      fail << "no explicit target for prerequisite " << pk;
 
     return t;
   }

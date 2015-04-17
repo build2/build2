@@ -274,7 +274,7 @@ namespace build
               scope_->prerequisites.insert (
                 *ti, move (pn.dir), move (pn.value), e, *scope_, trace).first);
 
-            ps.push_back (p);
+            ps.emplace_back (p);
           }
 
           for (auto& tn: ns)
@@ -1391,7 +1391,7 @@ namespace build
         trace).first);
 
     p.target = &dt;
-    ct.prerequisites.push_back (p);
+    ct.prerequisites.emplace_back (p);
   }
 
   token_type parser::

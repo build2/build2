@@ -11,7 +11,6 @@
 #include <memory>     // unique_ptr
 #include <cstddef>    // size_t
 #include <functional> // function, reference_wrapper
-#include <typeindex>
 #include <ostream>
 #include <cassert>
 #include <utility>    // move()
@@ -22,11 +21,13 @@
 #include <build/name>
 #include <build/variable>
 #include <build/operation>
+#include <build/target-key>
 #include <build/prerequisite>
 #include <build/utility>       // compare_*, extension_pool
 
 namespace build
 {
+  class scope;
   class target;
 
   // Target state.
@@ -70,36 +71,59 @@ namespace build
   target_state
   noop_recipe_function (action, target&);
 
-  // Target type.
+  // Prerequisite target. It consist of a reference to the prerequisite
+  // plus a pointer to target to which it resolves in this context.
   //
-  struct target_type
+  struct prerequisite_target
   {
-    std::type_index id;
-    const char* name;
-    const target_type* base;
-    target* (*const factory) (dir_path, std::string, const std::string*);
-    target* (*const search) (prerequisite&);
+    typedef build::target target_type;
+
+    prerequisite* prereq; // Must not be NULL but can be reset.
+
+    operator prerequisite& () const {return *prereq;}
+
+    // Target to which this prerequisite resolves in this context.
+    // Note that unlike prerequisite::target, this can be a group
+    // member target. Depending on the stage, NULL means either
+    // the target is not yet resolved or it should be skipped.
+    //
+    // Note also that it is possible the target can vary from
+    // action to action, just like recipes. We don't need to keep
+    // track of the action here since the target will be updates
+    // if the recipe is updated, as part of rule::apply().
+    //
+    target_type* target {nullptr};
+
+    operator target_type* () const {return target;}
+
+    explicit
+    prerequisite_target (prerequisite& p): prereq (&p) {}
+
+    prerequisite_target (prerequisite& p, target_type& t)
+        : prereq (&p), target (&t) {}
   };
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const target_type& tt)
-  {
-    return os << tt.name;
-  }
-
+  //
+  //
   class target
   {
   public:
     virtual
     ~target () = default;
 
+    target (const target&) = delete;
+    target& operator= (const target&) = delete;
+
     target (dir_path d, std::string n, const std::string* e)
         : dir (std::move (d)), name (std::move (n)), ext (e) {}
 
-    const dir_path dir;     // Absolute and normalized.
+    const dir_path dir;      // Absolute and normalized.
     const std::string name;
-    const std::string* ext; // Extension, NULL means unspecified,
-                            // empty means no extension.
+    const std::string* ext;  // Extension, NULL means unspecified,
+                             // empty means no extension.
+
+    target* group {nullptr}; // Target group to which this target
+                             // belongs, if any.
   public:
     // Most qualified scope that contains this target.
     //
@@ -116,10 +140,7 @@ namespace build
     // Prerequisites.
     //
   public:
-    typedef
-    std::vector<std::reference_wrapper<prerequisite>>
-    prerequisites_type;
-
+    typedef std::vector<prerequisite_target> prerequisites_type;
     prerequisites_type prerequisites;
 
     // Target-specific variables.
@@ -209,11 +230,17 @@ namespace build
       dependents = 0;
     }
 
-  private:
-    target (const target&) = delete;
-    target& operator= (const target&) = delete;
-
+    // Target type info.
+    //
   public:
+    template <typename T>
+    T*
+    is_a () {return dynamic_cast<T*> (this);}
+
+    template <typename T>
+    const T*
+    is_a () const {return dynamic_cast<const T*> (this);}
+
     virtual const target_type& type () const = 0;
     static const target_type static_type;
 
@@ -224,39 +251,6 @@ namespace build
 
   std::ostream&
   operator<< (std::ostream&, const target&);
-
-  // Light-weight (by being shallow-pointing) target key.
-  //
-  struct target_key
-  {
-    mutable const target_type* type;
-    mutable const dir_path* dir;
-    mutable const std::string* name;
-    mutable const std::string* const* ext;
-
-    friend bool
-    operator< (const target_key& x, const target_key& y)
-    {
-      const std::type_index& xt (x.type->id);
-      const std::type_index& yt (y.type->id);
-
-      //@@ TODO: use compare() to compare once.
-
-      // Unspecified and specified extension are assumed equal. The
-      // extension strings are from the pool, so we can just compare
-      // pointers.
-      //
-      return
-        (xt < yt) ||
-        (xt == yt && *x.name < *y.name) ||
-        (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
-        (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
-         *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
-    }
-  };
-
-  std::ostream&
-  operator<< (std::ostream&, const target_key&);
 
   struct target_set
   {
@@ -275,6 +269,19 @@ namespace build
     {
       const std::string* e (ext);
       return find (target_key {&type, &dir, &name, &e}, trace);
+    }
+
+    // As above but ignore the extension and return the target or
+    // nullptr instead of the iterator.
+    //
+    target*
+    find (const target_type& type,
+          const dir_path& dir,
+          const std::string& name) const
+    {
+      const std::string* e (nullptr);
+      auto i (map_.find (target_key {&type, &dir, &name, &e}));
+      return i != map_.end () ? i->second.get () : nullptr;
     }
 
     iterator begin () const {return map_.begin ();}
@@ -330,6 +337,20 @@ namespace build
     return new T (std::move (d), std::move (n), e);
   }
 
+  // Default implementation for a target that is a member of a
+  // target group. Besides creating the target as above this
+  // version also tries to "link up" with the group.
+  //
+  template <typename T, typename G>
+  target*
+  member_target_factory (dir_path d, std::string n, const std::string* e)
+  {
+    target* g (targets.find (G::static_type, d, n));
+    target* t (new T (std::move (d), std::move (n), e));
+    t->group = g;
+    return t;
+  }
+
   // Modification time-based target.
   //
   class mtime_target: public target
@@ -377,11 +398,14 @@ namespace build
 
     // Return a path derived from target's dir, name, and, if specified,
     // ext. If ext is not specified, then use default_ext. If name_prefix
-    // if not NULL, add it before the name part.
+    // if not NULL, add it before the name part and after the directory.
+    // Similarly, if name_suffix if not NULL, add it after the name part
+    // and before the extension.
     //
     path_type
     derived_path (const char* default_ext = nullptr,
-                  const char* name_prefix = nullptr);
+                  const char* name_prefix = nullptr,
+                  const char* name_suffix = nullptr);
 
   protected:
     virtual timestamp

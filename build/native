@@ -9,10 +9,37 @@
 
 namespace build
 {
-  class obj: public file
+  // The obj{} target group members.
+  //
+  class obja: public file
   {
   public:
     using file::file;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
+  class objso: public file
+  {
+  public:
+    using file::file;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
+  // Target group.
+  //
+  class obj: public target
+  {
+  public:
+    using target::target;
+
+    obja* a {nullptr};
+    objso* so {nullptr};
 
   public:
     virtual const target_type& type () const {return static_type;}

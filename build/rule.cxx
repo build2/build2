@@ -102,20 +102,21 @@ namespace build
     //
     timestamp mt (dynamic_cast<path_target&> (t).mtime ());
 
-    for (const prerequisite& p: t.prerequisites)
+    for (target* pt: t.prerequisites)
     {
-      target& pt (*p.target);
-      target_state ts (execute (a, pt));
+      assert (pt != nullptr); // We don't skip anything.
+
+      target_state ts (execute (a, *pt));
 
       // If this is an mtime-based target, then compare timestamps.
       //
-      if (auto mpt = dynamic_cast<const mtime_target*> (&pt))
+      if (auto mpt = dynamic_cast<const mtime_target*> (pt))
       {
         timestamp mp (mpt->mtime ());
 
         if (mt < mp)
           fail << "no recipe to " << diag_do (a, t) <<
-            info << "prerequisite " << pt << " is ahead of " << t
+            info << "prerequisite " << *pt << " is ahead of " << t
                << " by " << (mp - mt);
       }
       else
@@ -124,7 +125,7 @@ namespace build
         //
         if (ts == target_state::changed)
           fail << "no recipe to " << diag_do (a, t) <<
-            info << "prerequisite " << pt << " is ahead of " << t
+            info << "prerequisite " << *pt << " is ahead of " << t
                << " because it was updated";
       }
     }

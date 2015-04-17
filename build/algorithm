@@ -12,6 +12,7 @@
 namespace build
 {
   class prerequisite;
+  class prerequisite_key;
 
   // The default prerequsite search implementation. It first calls the
   // target-type-specific search function. If that doesn't yeld anything,
@@ -20,13 +21,22 @@ namespace build
   target&
   search (prerequisite&);
 
+  // As above but specify the prerequisite to search as a key. Useful
+  // for searching for target group members where we need to search
+  // for a different target type.
+  //
+  target&
+  search (const prerequisite_key&);
+
   // Match a rule to the action/target with ambiguity detection.
   //
   void
   match (action, target&);
 
   // The default prerequisite search and match implementation. It calls
-  // search() and then match() for each prerequisite in a loop.
+  // search() and then match() for each prerequisite in a loop. If this
+  // target is a member of a group, then it first does this to the group's
+  // prerequisites.
   //
   void
   search_and_match (action, target&);
@@ -51,11 +61,12 @@ namespace build
   execute (action, target&);
 
   // The default prerequisite execute implementation. It calls execute()
-  // on each non-ignored (non-NULL target) prerequisite in a loop.
-  // Returns target_state::changed if any of them were changed and
-  // target_state::unchanged otherwise. It treats targets with postponed
-  // execution the same as ignored. Note that this function can be
-  // used as a recipe.
+  // on each non-ignored (non-NULL target) prerequisite in a loop. If this
+  // target is a member of a group, then it first does this to the group's
+  // prerequisites. Returns target_state::changed if any of them were
+  // changed and target_state::unchanged otherwise. It treats targets
+  // with postponed execution the same as ignored. Note that this
+  // function can be used as a recipe.
   //
   target_state
   execute_prerequisites (action, target&);
@@ -74,7 +85,9 @@ namespace build
   // Another version of the above that does two extra things for the
   // caller: it determines whether the action needs to be executed on
   // the target based on the passed timestamp and, if so, finds a
-  // prerequisite of the specified type (e.g., a source file).
+  // prerequisite of the specified type (e.g., a source file). If
+  // there are multiple prerequisites of this type, then the last
+  // one returned.
   //
   template <typename T>
   T*

@@ -10,22 +10,22 @@
 namespace build
 {
   class target;
-  class prerequisite;
+  class prerequisite_key;
 
-  // Search for an existing target in this prerequisite's directory scope.
+  // Search for an existing target in this prerequisite's scope.
   //
   target*
-  search_existing_target (prerequisite&);
+  search_existing_target (const prerequisite_key&);
 
   // Search for an existing file in the specified list of search paths.
   //
   target*
-  search_existing_file (prerequisite&, const dir_paths&);
+  search_existing_file (const prerequisite_key&, const dir_paths&);
 
-  // Create a new target in this prerequisite's directory scope.
+  // Create a new target in this prerequisite's scope.
   //
   target&
-  create_new_target (prerequisite&);
+  create_new_target (const prerequisite_key&);
 }
 
 #endif // BUILD_SEARCH

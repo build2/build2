@@ -9,9 +9,12 @@
 #include <string>
 #include <iosfwd>
 #include <utility>    // move
+#include <cassert>
 #include <typeindex>
+#include <functional> // reference_wrapper
 
 #include <build/path>
+#include <build/target-key>
 #include <build/utility> // extension_pool
 #include <build/diagnostics>
 
@@ -19,7 +22,28 @@ namespace build
 {
   class scope;
   class target;
-  class target_type;
+
+  // Light-weight (by being shallow-pointing) prerequsite key, similar
+  // to (and based on) target key.
+  //
+  class prerequisite_key
+  {
+  public:
+    typedef build::scope scope_type;
+
+    target_key tk;
+    mutable scope_type* scope;
+  };
+
+  inline bool
+  operator< (const prerequisite_key& x, const prerequisite_key& y)
+  {
+    assert (x.scope == y.scope);
+    return x.tk < y.tk;
+  }
+
+  std::ostream&
+  operator<< (std::ostream&, const prerequisite_key&);
 
   class prerequisite
   {
@@ -34,7 +58,7 @@ namespace build
                   const std::string* e,
                   scope_type& s)
         : type (t), dir (std::move (d)), name (std::move (n)), ext (e),
-          scope (s), target (0) {}
+          scope (s), target (nullptr) {}
 
   public:
     const target_type_type& type;
@@ -42,15 +66,32 @@ namespace build
     const std::string name;
     const std::string* ext; // NULL if unspecified.
     scope_type& scope;
-    target_type* target;    // NULL if not yet resolved.
+    target_type* target;    // NULL if not yet resolved. Note that this should
+                            // always be the "primary target", not a member of
+                            // a target group.
+  public:
+    // Prerequisite (target) type.
+    //
+    template <typename T>
+    bool
+    is_a () const {return type.id == typeid (T);}
   };
 
-  std::ostream&
-  operator<< (std::ostream&, const prerequisite&);
+  inline bool
+  operator< (const prerequisite& x, const prerequisite& y)
+  {
+    return prerequisite_key {&x.type, &x.dir, &x.name, &x.ext, &x.scope} <
+      prerequisite_key {&y.type, &y.dir, &y.name, &y.ext, &y.scope};
+  }
 
-  bool
-  operator< (const prerequisite&, const prerequisite&);
+  inline std::ostream&
+  operator<< (std::ostream& os, const prerequisite& p)
+  {
+    return os << prerequisite_key {&p.type, &p.dir, &p.name, &p.ext, &p.scope};
+  }
 
+  // Set of prerequisites in a scope.
+  //
   struct prerequisite_set: std::set<prerequisite>
   {
     std::pair<prerequisite&, bool>

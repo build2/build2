@@ -2,17 +2,19 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
 // license   : MIT; see accompanying LICENSE file
 
+#include <build/prerequisite>
 #include <build/context>
 
 namespace build
 {
-  target&
-  search_impl (prerequisite&);
-
   inline target&
   search (prerequisite& p)
   {
-    return p.target != nullptr ? *p.target : search_impl (p);
+    if (p.target == nullptr)
+      p.target = &search (
+        prerequisite_key {&p.type, &p.dir, &p.name, &p.ext, &p.scope});
+
+    return *p.target;
   }
 
   void
@@ -49,5 +51,19 @@ namespace build
         return execute_impl (a, t);
       }
     }
+  }
+
+  template <typename T>
+  T*
+  execute_prerequisites (action, target&, const timestamp&, bool&);
+
+  template <typename T>
+  inline T*
+  execute_prerequisites (action a, target& t, const timestamp& mt)
+  {
+    bool e (mt == timestamp_nonexistent);
+    T* r (execute_prerequisites<T> (a, t, mt, e));
+    assert (r != nullptr);
+    return e ? r : nullptr;
   }
 }

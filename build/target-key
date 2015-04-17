@@ -1,0 +1,73 @@
+// file      : build/target-key -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TARGET_KEY
+#define BUILD_TARGET_KEY
+
+#include <string>
+#include <typeindex>
+#include <ostream>
+
+#include <build/path>
+
+namespace build
+{
+  class scope;
+  class target;
+  class target_key;
+  class prerequisite_key;
+
+  // Target type.
+  //
+  struct target_type
+  {
+    std::type_index id;
+    const char* name;
+    const target_type* base;
+    target* (*const factory) (dir_path, std::string, const std::string*);
+    target* (*const search) (const prerequisite_key&);
+  };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const target_type& tt)
+  {
+    return os << tt.name;
+  }
+
+  // Light-weight (by being shallow-pointing) target key.
+  //
+  class target_key
+  {
+  public:
+    mutable const target_type* type;
+    mutable const dir_path* dir;
+    mutable const std::string* name;
+    mutable const std::string* const* ext;
+
+    friend bool
+    operator< (const target_key& x, const target_key& y)
+    {
+      const std::type_index& xt (x.type->id);
+      const std::type_index& yt (y.type->id);
+
+      //@@ TODO: use compare() to compare once.
+
+      // Unspecified and specified extension are assumed equal. The
+      // extension strings are from the pool, so we can just compare
+      // pointers.
+      //
+      return
+        (xt < yt) ||
+        (xt == yt && *x.name < *y.name) ||
+        (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
+        (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
+         *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
+    }
+  };
+
+  std::ostream&
+  operator<< (std::ostream&, const target_key&); // Defined in target.cxx
+}
+
+#endif // BUILD_TARGET_KEY

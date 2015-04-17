@@ -33,7 +33,7 @@ namespace build
 
     private:
       void
-      inject_prerequisites (action, obj&, const cxx&, scope&) const;
+      inject_prerequisites (action, target&, const cxx&, scope&) const;
     };
 
     class link: public rule

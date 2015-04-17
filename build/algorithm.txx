@@ -6,29 +6,29 @@ namespace build
 {
   template <typename T>
   T*
-  execute_prerequisites (action a, target& t, const timestamp& mt)
+  execute_prerequisites (action a, target& t, const timestamp& mt, bool& e)
   {
     //@@ Can factor the bulk of it into a non-template code. Can
     // either do a function template that will do dynamic_cast check
     // or can scan the target type info myself. I think latter.
     //
-
     T* r (nullptr);
-    bool e (mt == timestamp_nonexistent);
 
-    for (const prerequisite& p: t.prerequisites)
+    if (t.group != nullptr)
+      r = execute_prerequisites<T> (a, *t.group, mt, e);
+
+    for (target* pt: t.prerequisites)
     {
-      if (p.target == nullptr) // Skip ignored.
+      if (pt == nullptr) // Skip ignored.
         continue;
 
-      target& pt (*p.target);
-      target_state ts (execute (a, pt));
+      target_state ts (execute (a, *pt));
 
       if (!e)
       {
         // If this is an mtime-based target, then compare timestamps.
         //
-        if (auto mpt = dynamic_cast<const mtime_target*> (&pt))
+        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
         {
           timestamp mp (mpt->mtime ());
 
@@ -50,11 +50,10 @@ namespace build
         }
       }
 
-      if (r == nullptr)
-        r = dynamic_cast<T*> (&pt);
+      if (T* tmp = dynamic_cast<T*> (pt))
+        r = tmp;
     }
 
-    assert (r != nullptr);
-    return e ? r : nullptr;
+    return r;
   }
 }

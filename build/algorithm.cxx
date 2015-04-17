@@ -22,14 +22,12 @@ using namespace std;
 namespace build
 {
   target&
-  search_impl (prerequisite& p)
+  search (const prerequisite_key& pk)
   {
-    assert (p.target == nullptr);
-
-    if (target* t = p.type.search (p))
+    if (target* t = pk.tk.type->search (pk))
       return *t;
 
-    return create_new_target (p);
+    return create_new_target (pk);
   }
 
   void
@@ -150,19 +148,28 @@ namespace build
   void
   search_and_match (action a, target& t)
   {
-    for (prerequisite& p: t.prerequisites)
-      match (a, search (p));
+    if (t.group != nullptr)
+      search_and_match (a, *t.group);
+
+    for (prerequisite_target& p: t.prerequisites)
+    {
+      p.target = &search (p);
+      match (a, *p.target);
+    }
   }
 
   void
   search_and_match (action a, target& t, const dir_path& d)
   {
-    for (prerequisite& p: t.prerequisites)
-    {
-      target& pt (search (p));
+    if (t.group != nullptr)
+      search_and_match (a, *t.group, d);
 
-      if (pt.dir.sub (d))
-        match (a, pt);
+    for (prerequisite_target& p: t.prerequisites)
+    {
+      p.target = &search (p);
+
+      if (p.target->dir.sub (d))
+        match (a, *p.target);
       else
         p.target = nullptr; // Ignore.
     }
@@ -188,7 +195,7 @@ namespace build
       {
         level5 ([&]{trace << "injecting prerequisite for " << t;});
 
-        prerequisite& pp (
+        prerequisite& p (
           s.prerequisites.insert (
             fsdir::static_type,
             d,
@@ -197,8 +204,11 @@ namespace build
             s,
             trace).first);
 
-        t.prerequisites.push_back (pp);
-        match (a, search (pp));
+        target& pt (search (p));
+
+        t.prerequisites.emplace_back (p, pt);
+
+        match (a, pt);
       }
     }
   }
@@ -244,14 +254,15 @@ namespace build
   {
     target_state ts (target_state::unchanged);
 
-    for (const prerequisite& p: t.prerequisites)
+    if (t.group != nullptr)
+      ts = execute_prerequisites (a, *t.group);
+
+    for (target* pt: t.prerequisites)
     {
-      if (p.target == nullptr) // Skip ignored.
+      if (pt == nullptr) // Skip ignored.
         continue;
 
-      target& pt (*p.target);
-
-      if (execute (a, pt) == target_state::changed)
+      if (execute (a, *pt) == target_state::changed)
         ts = target_state::changed;
     }
 
@@ -263,14 +274,18 @@ namespace build
   {
     target_state ts (target_state::unchanged);
 
-    for (const prerequisite& p: reverse_iterate (t.prerequisites))
+    for (target* pt: reverse_iterate (t.prerequisites))
     {
-      if (p.target == nullptr) // Skip ignored.
+      if (pt == nullptr) // Skip ignored.
         continue;
 
-      target& pt (*p.target);
+      if (execute (a, *pt) == target_state::changed)
+        ts = target_state::changed;
+    }
 
-      if (execute (a, pt) == target_state::changed)
+    if (t.group != nullptr)
+    {
+      if (reverse_execute_prerequisites (a, *t.group) == target_state::changed)
         ts = target_state::changed;
     }
 
@@ -282,19 +297,24 @@ namespace build
   {
     bool e (mt == timestamp_nonexistent);
 
-    for (const prerequisite& p: t.prerequisites)
+    if (t.group != nullptr)
     {
-      if (p.target == nullptr) // Skip ignored.
+      if (execute_prerequisites (a, *t.group, mt))
+        e = true;
+    }
+
+    for (target* pt: t.prerequisites)
+    {
+      if (pt == nullptr) // Skip ignored.
         continue;
 
-      target& pt (*p.target);
-      target_state ts (execute (a, pt));
+      target_state ts (execute (a, *pt));
 
       if (!e)
       {
         // If this is an mtime-based target, then compare timestamps.
         //
-        if (auto mpt = dynamic_cast<const mtime_target*> (&pt))
+        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
         {
           timestamp mp (mpt->mtime ());
 

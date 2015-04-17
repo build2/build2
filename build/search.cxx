@@ -19,29 +19,29 @@ using namespace std;
 namespace build
 {
   target*
-  search_existing_target (prerequisite& p)
+  search_existing_target (const prerequisite_key& pk)
   {
     tracer trace ("search_existing_target");
 
-    assert (p.target == nullptr);
+    const target_key& tk (pk.tk);
 
-    // Look for an existing target in this prerequisite's directory scope.
+    // Look for an existing target in this directory scope.
     //
     dir_path d;
-    if (p.dir.absolute ())
-      d = p.dir; // Already normalized.
+    if (tk.dir->absolute ())
+      d = *tk.dir; // Already normalized.
     else
     {
-      d = p.scope.path ();
+      d = pk.scope->path ();
 
-      if (!p.dir.empty ())
+      if (!tk.dir->empty ())
       {
-        d /= p.dir;
+        d /= *tk.dir;
         d.normalize ();
       }
     }
 
-    auto i (targets.find (p.type, d, p.name, p.ext, trace));
+    auto i (targets.find (*tk.type, d, *tk.name, *tk.ext, trace));
 
     if (i == targets.end ())
       return 0;
@@ -49,29 +49,29 @@ namespace build
     target& t (**i);
 
     level4 ([&]{trace << "existing target " << t << " for prerequsite "
-                      << p;});
+                      << pk;});
 
-    p.target = &t;
     return &t;
   }
 
   target*
-  search_existing_file (prerequisite& p, const dir_paths& sp)
+  search_existing_file (const prerequisite_key& pk, const dir_paths& sp)
   {
     tracer trace ("search_existing_file");
 
-    assert (p.dir.relative ());
+    const target_key& tk (pk.tk);
+    assert (tk.dir->relative ());
 
     // Go over paths and extension looking for a file.
     //
     for (const dir_path& d: sp)
     {
-      path f (d / p.dir / path (p.name));
+      path f (d / *tk.dir / path (*tk.name));
       f.normalize ();
 
       // @@ TMP: use target name as an extension.
       //
-      const string& e (p.ext != nullptr ? *p.ext : p.type.name);
+      const string& e (*tk.ext != nullptr ? **tk.ext : tk.type->name);
 
       if (!e.empty ())
       {
@@ -85,22 +85,23 @@ namespace build
         continue;
 
       level4 ([&]{trace << "found existing file " << f << " for prerequsite "
-                        << p;});
+                        << pk;});
 
       // Find or insert.
       //
-      auto r (targets.insert (p.type, f.directory (), p.name, p.ext, trace));
+      auto r (
+        targets.insert (
+          *tk.type, f.directory (), *tk.name, *tk.ext, trace));
 
       // Has to be a path_target.
       //
       path_target& t (dynamic_cast<path_target&> (r.first));
 
       level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
-                        << t << " for prerequsite " << p;});
+                        << t << " for prerequsite " << pk;});
 
       t.path (move (f));
       t.mtime (mt);
-      p.target = &t;
       return &t;
     }
 
@@ -108,38 +109,37 @@ namespace build
   }
 
   target&
-  create_new_target (prerequisite& p)
+  create_new_target (const prerequisite_key& pk)
   {
     tracer trace ("create_new_target");
 
-    assert (p.target == nullptr);
+    const target_key& tk (pk.tk);
 
-    // We default to the target in this prerequisite's directory scope.
+    // We default to the target in this directory scope.
     //
     dir_path d;
-    if (p.dir.absolute ())
-      d = p.dir; // Already normalized.
+    if (tk.dir->absolute ())
+      d = *tk.dir; // Already normalized.
     else
     {
-      d = p.scope.path ();
+      d = pk.scope->path ();
 
-      if (!p.dir.empty ())
+      if (!tk.dir->empty ())
       {
-        d /= p.dir;
+        d /= *tk.dir;
         d.normalize ();
       }
     }
 
     // Find or insert.
     //
-    auto r (targets.insert (p.type, move (d), p.name, p.ext, trace));
+    auto r (targets.insert (*tk.type, move (d), *tk.name, *tk.ext, trace));
     assert (r.second);
 
     target& t (r.first);
 
-    level4 ([&]{trace << "new target " << t << " for prerequsite " << p;});
+    level4 ([&]{trace << "new target " << t << " for prerequsite " << pk;});
 
-    p.target = &t;
     return t;
   }
 }

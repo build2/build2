@@ -72,18 +72,25 @@ namespace build
       // - check prerequisites: the rest are headers (other ignorable?)
       // - if path already assigned, verify extension?
       //
-      // @@ Q:
-      //
-      // - Wouldn't it make sense to cache source file? Careful: unloading
-      //   of dependency info.
-      //
+
+      if (t.is_a<obj> ())
+        fail << diag_doing (a, t) << " directly not supported";
 
       // See if we have a C++ source file.
       //
-      for (prerequisite& p: t.prerequisites)
+      for (prerequisite_target& pe: t.prerequisites)
       {
-        if (p.type.id == typeid (cxx))
-          return &p;
+        if (pe.prereq->type.id == typeid (cxx))
+          return &pe;
+      }
+
+      if (t.group != nullptr)
+      {
+        for (prerequisite_target& pe: t.group->prerequisites)
+        {
+          if (pe.prereq->type.id == typeid (cxx))
+            return &pe;
+        }
       }
 
       level3 ([&]{trace << "no c++ source file for target " << t;});
@@ -91,14 +98,19 @@ namespace build
     }
 
     recipe compile::
-    apply (action a, target& t, void* v) const
+    apply (action a, target& xt, void* v) const
     {
-      // Derive object file name from target name.
-      //
-      obj& o (dynamic_cast<obj&> (t));
+      path_target& t (static_cast<path_target&> (xt));
 
-      if (o.path ().empty ())
-        o.path (o.derived_path ("o"));
+      // Derive file name from target name.
+      //
+      if (t.path ().empty ())
+      {
+        if (t.is_a <obja> ())
+          t.path (t.derived_path ("o"));
+        else
+          t.path (t.derived_path ("o", nullptr, "-so"));
+      }
 
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.
@@ -114,21 +126,21 @@ namespace build
       default:        assert (false);
       }
 
-      // Inject dependency on the output directory.
-      //
-      inject_parent_fsdir (a, t);
-
       // Inject additional prerequisites. For now we only do it for
       // update and default.
       //
       if (a.operation () == update_id || a.operation () == default_id)
       {
-        auto& sp (*static_cast<prerequisite*> (v));
-        auto& st (dynamic_cast<cxx&> (*sp.target));
+        prerequisite_target& spe (*static_cast<prerequisite_target*> (v));
+        cxx& st (dynamic_cast<cxx&> (*spe.target));
 
         if (st.mtime () != timestamp_nonexistent)
-          inject_prerequisites (a, o, st, sp.scope);
+          inject_prerequisites (a, t, st, spe.prereq->scope);
       }
+
+      // Inject dependency on the output directory.
+      //
+      inject_parent_fsdir (a, t);
 
       switch (a)
       {
@@ -181,17 +193,17 @@ namespace build
     }
 
     void compile::
-    inject_prerequisites (action a, obj& o, const cxx& s, scope& ds) const
+    inject_prerequisites (action a, target& t, const cxx& s, scope& ds) const
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      scope& rs (*o.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
       append_options (args, rs, "config.cxx.poptions");
-      append_options (args, o, "cxx.poptions");
+      append_options (args, t, "cxx.poptions");
 
       // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
       // Or maybe they are not C++ options? Common options?
@@ -199,9 +211,12 @@ namespace build
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
-      append_std (args, o, std);
+      append_std (args, t, std);
 
-      append_options (args, o, "cxx.coptions");
+      append_options (args, t, "cxx.coptions");
+
+      if (t.is_a<objso> ())
+        args.push_back ("-fPIC");
 
       args.push_back ("-MM"); // @@ Change to -M
       args.push_back ("-MG"); // Treat missing headers as generated.
@@ -222,7 +237,7 @@ namespace build
       if (verb >= 2)
         print_process (args);
 
-      level5 ([&]{trace << "target: " << o;});
+      level5 ([&]{trace << "target: " << t;});
 
       try
       {
@@ -287,20 +302,22 @@ namespace build
               ds.prerequisites.insert (
                 hxx::static_type, move (d), move (n), e, ds, trace).first);
 
-            o.prerequisites.push_back (p);
-
             // Resolve to target.
             //
-            path_target& t (dynamic_cast<path_target&> (search (p)));
+            path_target& pt (dynamic_cast<path_target&> (search (p)));
+
+            // Add to prerequisites list.
+            //
+            t.prerequisites.emplace_back (p, pt);
 
             // Assign path.
             //
-            if (t.path ().empty ())
-              t.path (move (f));
+            if (pt.path ().empty ())
+              pt.path (move (f));
 
             // Match to a rule.
             //
-            build::match (a, t);
+            build::match (a, pt);
           }
         }
 
@@ -325,10 +342,10 @@ namespace build
     }
 
     target_state compile::
-    perform_update (action a, target& t)
+    perform_update (action a, target& xt)
     {
-      obj& o (dynamic_cast<obj&> (t));
-      cxx* s (execute_prerequisites<cxx> (a, o, o.mtime ()));
+      path_target& t (static_cast<path_target&> (xt));
+      cxx* s (execute_prerequisites<cxx> (a, t, t.mtime ()));
 
       if (s == nullptr)
         return target_state::unchanged;
@@ -336,23 +353,26 @@ namespace build
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path relo (relative (o.path ()));
+      path relo (relative (t.path ()));
       path rels (relative (s->path ()));
 
-      scope& rs (*o.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
 
       append_options (args, rs, "config.cxx.poptions");
-      append_options (args, o, "cxx.poptions");
+      append_options (args, t, "cxx.poptions");
 
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
-      append_std (args, o, std);
+      append_std (args, t, std);
 
-      append_options (args, o, "cxx.coptions");
+      append_options (args, t, "cxx.coptions");
+
+      if (t.is_a<objso> ())
+        args.push_back ("-fPIC");
 
       args.push_back ("-o");
       args.push_back (relo.string ().c_str ());
@@ -379,7 +399,7 @@ namespace build
         // current clock time. It has the advantage of having the
         // subseconds precision.
         //
-        o.mtime (system_clock::now ());
+        t.mtime (system_clock::now ());
         return target_state::changed;
       }
       catch (const process_error& e)
@@ -417,6 +437,8 @@ namespace build
       //   (i.e., a utility library).
       //
 
+      bool so (t.is_a<lib> ());
+
       // Scan prerequisites and see if we can work with what we've got.
       //
       bool seen_cxx (false), seen_c (false), seen_obj (false);
@@ -425,18 +447,23 @@ namespace build
       {
         if (p.type.id == typeid (cxx)) // @@ Should use is_a (add to p.type).
         {
-          if (!seen_cxx)
-            seen_cxx = true;
+          seen_cxx = seen_cxx || true;
         }
         else if (p.type.id == typeid (c))
         {
-          if (!seen_c)
-            seen_c = true;
+          seen_c = seen_c || true;
         }
-        else if (p.type.id == typeid (obj))
+        else if (p.type.id == typeid (obja))
         {
-          if (!seen_obj)
-            seen_obj = true;
+          if (so)
+            fail << "shared library " << t << " prerequisite " << p
+                 << " is static object";
+
+          seen_obj = seen_obj || true;
+        }
+        else if (p.type.id == typeid (objso) || p.type.id == typeid (obj))
+        {
+          seen_obj = seen_obj || true;
         }
         else if (p.type.id != typeid (fsdir))
         {
@@ -458,27 +485,23 @@ namespace build
     }
 
     recipe link::
-    apply (action a, target& t, void*) const
+    apply (action a, target& xt, void*) const
     {
       tracer trace ("cxx::link::apply");
 
+      path_target& t (static_cast<path_target&> (xt));
+
+      bool so (t.is_a<lib> ());
+
       // Derive file name from target name.
       //
-      bool so (false);
-      if (exe* e = dynamic_cast<exe*> (&t))
+      if (t.path ().empty ())
       {
-        if (e->path ().empty ())
-          e->path (e->derived_path ());
+        if (so)
+          t.path (t.derived_path ("so", "lib"));
+        else
+          t.path (t.derived_path ()); // exe
       }
-      else if (lib* l = dynamic_cast<lib*> (&t))
-      {
-        if (l->path ().empty ())
-          l->path (l->derived_path ("so", "lib"));
-
-        so = true;
-      }
-      else
-        assert (false);
 
       // We may need the project roots for rule chaining (see below).
       // We will resolve them lazily only if needed.
@@ -489,21 +512,40 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
-      for (auto& pr: t.prerequisites)
+      for (prerequisite_target& pe: t.prerequisites)
       {
-        prerequisite& p (pr);
+        prerequisite& p (pe);
 
-        if (p.type.id != typeid (c) && p.type.id != typeid (cxx))
+        if (!p.is_a<c> () && !p.is_a<cxx> ())
         {
-          // The same logic as in search_and_match().
+          // The same basic logic as in search_and_match().
           //
-          target& pt (search (p));
+          pe.target = &search (p);
 
-          if (a.operation () == clean_id && !pt.dir.sub (t.dir))
-            p.target = nullptr; // Ignore.
-          else
-            build::match (a, pt);
+          if (a.operation () == clean_id && !pe.target->dir.sub (t.dir))
+          {
+            pe.target = nullptr; // Ignore.
+            continue;
+          }
 
+          // If this is the obj{} target group, then pick the appropriate
+          // member and make sure it is searched and matched.
+          //
+          if (obj* o = pe.target->is_a<obj> ())
+          {
+            pe.target = so ? static_cast<target*> (o->so) : o->a;
+
+            if (pe.target == nullptr)
+            {
+              const target_type& type (
+                so ? objso::static_type : obja::static_type);
+
+              pe.target = &search (
+                prerequisite_key {&type, &p.dir, &p.name, &p.ext, &p.scope});
+            }
+          }
+
+          build::match (a, *pe.target);
           continue;
         }
 
@@ -520,8 +562,10 @@ namespace build
         }
 
         prerequisite& cp (p);
+        const target_type& o_type (
+          so ? objso::static_type : obja::static_type);
 
-        // Come up with the obj{} prerequisite. The c(xx){} prerequisite
+        // Come up with the obj*{} prerequisite. The c(xx){} prerequisite
         // directory can be relative (to the scope) or absolute. If it is
         // relative, then use it as is. If it is absolute, then translate
         // it to the corresponding directory under out_root. While the
@@ -535,14 +579,15 @@ namespace build
         {
           if (!cp.dir.sub (*src_root))
             fail << "out of project prerequisite " << cp <<
-              info << "specify corresponding obj{} target explicitly";
+              info << "specify corresponding " << o_type.name << "{} "
+                 << "target explicitly";
 
           d = *out_root / cp.dir.leaf (*src_root);
         }
 
         prerequisite& op (
           cp.scope.prerequisites.insert (
-            obj::static_type,
+            o_type,
             move (d),
             cp.name,
             nullptr,
@@ -569,14 +614,9 @@ namespace build
           // be in the same directory as obj{} and if not, well, go
           // and find yourself another build system).
           //
-          p.target = nullptr; // Skip.
+          pe.target = nullptr; // Skip.
           continue;
         }
-
-        // Set the -fPIC option if we are building a shared object.
-        //
-        if (so)
-          ot.append ("cxx.coptions") += "-fPIC";
 
         // If this target already exists, then it needs to be "compatible"
         // with what we are doing here.
@@ -624,17 +664,19 @@ namespace build
                  << " would be incompatible with existing target " << ot <<
               info << "existing prerequsite " << *cp1 << " does not "
                  << "match " << cp <<
-              info << "specify corresponding obj{} target explicitly";
+              info << "specify corresponding " << o_type.name << "{} "
+                 << "target explicitly";
         }
         else
         {
-          ot.prerequisites.push_back (cp);
+          ot.prerequisites.emplace_back (cp);
           build::match (a, ot);
         }
 
-        // Change the exe{} target's prerequsite from cxx{} to obj{}.
+        // Change the exe{} target's prerequsite ref from cxx{} to obj*{}.
         //
-        pr = op;
+        pe.prereq = &op;
+        pe.target = &ot;
       }
 
       // Inject dependency on the output directory.
@@ -658,7 +700,7 @@ namespace build
       //
       path_target& t (static_cast<path_target&> (xt));
 
-      //exe& e (dynamic_cast<exe&> (t));
+      bool so (t.is_a<lib> ());
 
       if (!execute_prerequisites (a, t, t.mtime ()))
         return target_state::unchanged;
@@ -674,9 +716,6 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      if (dynamic_cast<lib*> (&t) != nullptr)
-        args.push_back ("-shared");
-
       append_options (args, rs, "config.cxx.coptions");
 
       string std; // Storage.
@@ -684,19 +723,33 @@ namespace build
 
       append_options (args, t, "cxx.coptions");
 
+      if (so)
+        args.push_back ("-shared");
+
       args.push_back ("-o");
       args.push_back (relt.string ().c_str ());
 
       append_options (args, rs, "config.cxx.loptions");
       append_options (args, t, "cxx.loptions");
 
-      for (const prerequisite& p: t.prerequisites)
+      for (target* pt: t.prerequisites)
       {
-        if (const obj* o = dynamic_cast<const obj*> (p.target))
-        {
-          relo.push_back (relative (o->path ()));
-          args.push_back (relo.back ().string ().c_str ());
-        }
+        if (pt == nullptr)
+          continue; // Skipped.
+
+        path_target* ppt;
+
+        if (obj* o = pt->is_a<obj> ())
+          ppt = so ? static_cast<path_target*> (o->so) : o->a;
+        else if ((ppt = pt->is_a<obja> ()))
+          ;
+        else if ((ppt = pt->is_a<objso> ()))
+          ;
+        else
+          continue;
+
+        relo.push_back (relative (ppt->path ()));
+        args.push_back (relo.back ().string ().c_str ());
       }
 
       append_options (args, rs, "config.cxx.libs");

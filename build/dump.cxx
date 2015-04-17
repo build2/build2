@@ -23,14 +23,14 @@ namespace build
   {
     os << t << ':';
 
-    for (const prerequisite& p: t.prerequisites)
+    for (const prerequisite_target& pe: t.prerequisites)
     {
       os << ' ';
 
-      if (p.target != nullptr)
-        os << *p.target;
+      if (pe.target != nullptr)
+        os << *pe.target;
       else
-        os << p;
+        os << *pe.prereq;
     }
   }
 

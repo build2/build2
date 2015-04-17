@@ -16,59 +16,19 @@ using namespace std;
 namespace build
 {
   ostream&
-  operator<< (ostream& os, const prerequisite& p)
+  operator<< (ostream& os, const prerequisite_key& pk)
   {
     // Print scope unless the prerequisite's directory is absolute.
     //
-    if (!p.dir.absolute ())
+    if (!pk.tk.dir->absolute ())
     {
-      string s (diag_relative (p.scope.path (), false));
+      string s (diag_relative (pk.scope->path (), false));
 
       if (!s.empty ())
         os << s << ':';
     }
 
-    // If the name is empty, then we want to print the directory
-    // inside {}, e.g., dir{bar/}, not bar/dir{}.
-    //
-    bool n (!p.name.empty ());
-    string d (diag_relative (p.dir, false));
-
-    if (n)
-      os << d;
-
-    os << p.type.name << '{';
-
-    if (n)
-    {
-      os << p.name;
-
-      if (p.ext != nullptr && !p.ext->empty ())
-        os << '.' << *p.ext;
-    }
-    else
-      os << d;
-
-    os << '}';
-
-    return os;
-  }
-
-  bool
-  operator< (const prerequisite& x, const prerequisite& y)
-  {
-    //@@ TODO: use compare() to compare once.
-
-    // Unspecified and specified extension are assumed equal. The
-    // extension strings are from the pool, so we can just compare
-    // pointers.
-    //
-    return
-      (x.type.id < y.type.id) ||
-      (x.type.id == y.type.id && x.name < y.name) ||
-      (x.type.id == y.type.id && x.name == y.name && x.dir < y.dir) ||
-      (x.type.id == y.type.id && x.name == y.name && x.dir == y.dir &&
-       x.ext != nullptr && y.ext != nullptr && x.ext < y.ext);
+    return os << pk.tk;
   }
 
   // prerequisite_set
