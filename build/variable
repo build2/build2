@@ -106,7 +106,7 @@ namespace build
     T
     as () const = delete;
 
-    // Set interface.
+    // Assign.
     //
     const value_proxy&
     operator= (value_ptr) const;
@@ -117,16 +117,22 @@ namespace build
     const value_proxy&
     operator= (std::string) const;
 
-    // Append enother simple name to list_value.
-    //
-    const value_proxy&
-    operator+= (std::string) const;
-
     const value_proxy&
     operator= (dir_path) const;
 
     const value_proxy&
     operator= (nullptr_t) const;
+
+    // Append.
+    //
+    const value_proxy&
+    operator+= (const value_proxy&) const;
+
+    const value_proxy&
+    operator+= (const list_value&) const;
+
+    const value_proxy&
+    operator+= (std::string) const; // Append simple name to list_value.
 
     // Return true if this value belongs to the specified scope or target.
     //

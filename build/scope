@@ -108,15 +108,21 @@ namespace build
     //
     std::unordered_set<path_type> buildfiles;
 
-    // A map of buildfiles to trigger functions that are executed when
-    // such files are sourced. The path must be absolute and normalized.
+    // A map of absolute and normalized buildfile paths to trigger
+    // functions that are executed when such files are sourced. The
+    // trigger is called twice: the first time before sourcing the
+    // file (pre is true) and the second time -- after (pre is false).
     //
-    // The passed path is the buildfile. If the returned value is true,
-    // then the file is sourced. If false -- the file is ignored. Note
-    // that currently triggers can only be registered on the project's
-    // root scope.
+    // The passed path is the buildfile, which can be altered by the
+    // trigger in the pre call, if desired. If the returned value is
+    // true, then the file is sourced. If false -- the file is ignored
+    // (and no post call is made). The return value is ignored in the
+    // post call.
     //
-    using trigger_type = std::function<bool (scope&, const path_type&)>;
+    // Note that currently triggers can only be registered on the
+    // project's root scope.
+    //
+    using trigger_type = std::function<bool (bool pre, scope&, path_type&)>;
     std::unordered_map<path_type, trigger_type> triggers;
 
   private:

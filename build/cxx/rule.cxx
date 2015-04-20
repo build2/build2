@@ -203,18 +203,15 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, rs, "config.cxx.poptions");
       append_options (args, t, "cxx.poptions");
 
       // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
       // Or maybe they are not C++ options? Common options?
       //
-      append_options (args, rs, "config.cxx.coptions");
+      append_options (args, t, "cxx.coptions");
 
       string std; // Storage.
       append_std (args, t, std);
-
-      append_options (args, t, "cxx.coptions");
 
       if (t.is_a<objso> ())
         args.push_back ("-fPIC");
@@ -362,15 +359,11 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, rs, "config.cxx.poptions");
       append_options (args, t, "cxx.poptions");
-
-      append_options (args, rs, "config.cxx.coptions");
+      append_options (args, t, "cxx.coptions");
 
       string std; // Storage.
       append_std (args, t, std);
-
-      append_options (args, t, "cxx.coptions");
 
       if (t.is_a<objso> ())
         args.push_back ("-fPIC");
@@ -717,12 +710,10 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      append_options (args, rs, "config.cxx.coptions");
+      append_options (args, t, "cxx.coptions");
 
       string std; // Storage.
       append_std (args, t, std);
-
-      append_options (args, t, "cxx.coptions");
 
       if (so)
         args.push_back ("-shared");
@@ -730,7 +721,6 @@ namespace build
       args.push_back ("-o");
       args.push_back (relt.string ().c_str ());
 
-      append_options (args, rs, "config.cxx.loptions");
       append_options (args, t, "cxx.loptions");
 
       for (target* pt: t.prerequisites)
@@ -753,7 +743,6 @@ namespace build
         args.push_back (relo.back ().string ().c_str ());
       }
 
-      append_options (args, rs, "config.cxx.libs");
       append_options (args, t, "cxx.libs");
 
       args.push_back (nullptr);

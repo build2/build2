@@ -389,13 +389,19 @@ namespace build
 
       // See if there is a trigger for this path.
       //
+      const scope::trigger_type* trig (nullptr);
       {
         auto i (root_->triggers.find (p));
 
-        if (i != root_->triggers.end () && !i->second (*root_, p))
+        if (i != root_->triggers.end ())
         {
-          level4 ([&]{trace (l) << "trigger instructed to skip " << p;});
-          continue;
+          if (!i->second (true, *scope_, p))
+          {
+            level4 ([&]{trace (l) << "trigger instructed to skip " << p;});
+            continue;
+          }
+
+          trig = &i->second;
         }
       }
 
@@ -443,6 +449,9 @@ namespace build
         auto v (root_->vars["src_root"]);
         src_root_ = v ? &v.as<const dir_path&> () : nullptr;
       }
+
+      if (trig != nullptr)
+        (*trig) (false, *scope_, p);
     }
 
     if (tt == type::newline)

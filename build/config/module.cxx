@@ -18,11 +18,17 @@ namespace build
   namespace config
   {
     static bool
-    trigger (scope&, const path& p)
+    trigger (bool pre, scope& base, path& p)
     {
       tracer trace ("config::trigger");
-      level4 ([&]{trace << "intercepted sourcing of " << p;});
-      return file_exists (p);
+
+      if (pre)
+      {
+        level4 ([&]{trace << "intercepted sourcing of " << p;});
+        return file_exists (p);
+      }
+      else
+        return true;
     }
 
     void

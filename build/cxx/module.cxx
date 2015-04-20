@@ -108,6 +108,8 @@ namespace build
       // is important to distinguish between the "configured as
       // unspecified" and "not configured" cases).
       //
+      // We also merge them into the corresponding cxx.* variables.
+      //
       {
         auto v (root["config.cxx.poptions"]);
 
@@ -115,6 +117,8 @@ namespace build
         {
           if (v.belongs (*global_scope))
             root.assign ("config.cxx.poptions") = v;
+
+          root.append ("cxx.poptions") += v;
         }
         else
           root.assign ("config.cxx.poptions") = nullptr;
@@ -127,6 +131,8 @@ namespace build
         {
           if (v.belongs (*global_scope))
             root.assign ("config.cxx.coptions") = v;
+
+          root.append ("cxx.coptions") += v;
         }
         else
           root.assign ("config.cxx.coptions") = nullptr;
@@ -139,6 +145,8 @@ namespace build
         {
           if (v.belongs (*global_scope))
             root.assign ("config.cxx.loptions") = v;
+
+          root.append ("cxx.loptions") += v;
         }
         else
           root.assign ("config.cxx.loptions") = nullptr;
@@ -151,6 +159,8 @@ namespace build
         {
           if (v.belongs (*global_scope))
             root.assign ("config.cxx.libs") = v;
+
+          root.append ("cxx.libs") += v;
         }
         else
           root.assign ("config.cxx.libs") = nullptr;

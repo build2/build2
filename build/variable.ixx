@@ -37,17 +37,6 @@ namespace build
   }
 
   inline const value_proxy& value_proxy::
-  operator+= (std::string v) const
-  {
-    if (*p == nullptr)
-      *this = v;
-    else
-      as<list_value&> ().emplace_back (std::move (v));
-
-    return *this;
-  }
-
-  inline const value_proxy& value_proxy::
   operator= (dir_path v) const
   {
     p->reset (new list_value (std::move (v)));
@@ -58,6 +47,47 @@ namespace build
   operator= (nullptr_t) const
   {
     p->reset ();
+    return *this;
+  }
+
+  inline const value_proxy& value_proxy::
+  operator+= (const value_proxy& v) const
+  {
+    if (v && this != &v)
+    {
+      if (*p == nullptr)
+        *this = v;
+      else
+        //@@ Assuming it is a list_value.
+        //
+        *this += v.as<const list_value&> ();
+    }
+
+    return *this;
+  }
+
+  inline const value_proxy& value_proxy::
+  operator+= (const list_value& v) const
+  {
+    if (*p == nullptr)
+      *this = value_ptr (new list_value (v));
+    else
+    {
+      list_value& lv (as<list_value&> ());
+      lv.insert (lv.end (), v.begin (), v.end ());
+    }
+
+    return *this;
+  }
+
+  inline const value_proxy& value_proxy::
+  operator+= (std::string v) const
+  {
+    if (*p == nullptr)
+      *this = v;
+    else
+      as<list_value&> ().emplace_back (std::move (v));
+
     return *this;
   }
 }
