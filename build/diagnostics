@@ -36,6 +36,17 @@ namespace build
   std::string
   diag_relative (const dir_path&, bool current = true);
 
+  //
+  //
+  extern const int relative_index;
+
+  inline bool
+  relative (std::ostream& os) {return os.iword (relative_index);}
+
+  inline void
+  relative (std::ostream& os, bool v) {os.iword (relative_index) = v ? 1 : 0;}
+
+
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} already configured".
   //
@@ -154,6 +165,7 @@ namespace build
 
       if (!empty_)
       {
+        assert (false); //@@ Relative flag will not be transferred.
         os_ << r.os_.str ();
 
         r.empty_ = true;
@@ -166,9 +178,11 @@ namespace build
     diag_record (const diag_record&) = delete;
     diag_record& operator= (const diag_record&) = delete;
 
+  public:
+    mutable std::ostringstream os_;
+
   private:
     mutable bool empty_;
-    mutable std::ostringstream os_;
     mutable diag_epilogue epilogue_;
   };
 
@@ -235,8 +249,8 @@ namespace build
   struct simple_prologue_base
   {
     explicit
-    simple_prologue_base (const char* type, const char* name)
-        : type_ (type), name_ (name) {}
+    simple_prologue_base (const char* type, const char* name, bool rel)
+        : type_ (type), name_ (name), relative_ (rel) {}
 
     void
     operator() (const diag_record& r) const;
@@ -244,6 +258,7 @@ namespace build
   private:
     const char* type_;
     const char* name_;
+    const bool relative_;
   };
   typedef diag_prologue<simple_prologue_base> simple_prologue;
 
@@ -262,8 +277,9 @@ namespace build
   {
     location_prologue_base (const char* type,
                             const char* name,
-                            const location& l)
-        : type_ (type), name_ (name), loc_ (l) {}
+                            const location& l,
+                            bool rel)
+        : type_ (type), name_ (name), loc_ (l), relative_ (rel) {}
 
     void
     operator() (const diag_record& r) const;
@@ -272,9 +288,15 @@ namespace build
     const char* type_;
     const char* name_;
     const location loc_;
+    const bool relative_;
   };
   typedef diag_prologue<location_prologue_base> location_prologue;
 
+  // Here is the absolute/relative path rationale: we want it absolute
+  // in the error/warning/info streams to give the user the complete
+  // picture. But in the text stream (e.g., command lines), we print
+  // relative unless verbosity is greater than 0.
+  //
   struct basic_mark_base
   {
     explicit
@@ -286,23 +308,23 @@ namespace build
     simple_prologue
     operator() () const
     {
-      return simple_prologue (type_, name_);
+      return simple_prologue (type_, name_, false);
     }
 
     location_prologue
     operator() (const location& l) const
     {
-      return location_prologue (type_, name_, l);
+      return location_prologue (type_, name_, l, false);
     }
 
     template <typename L>
     location_prologue
     operator() (const L& l) const
     {
-      return location_prologue (type_, name_, get_location (l, data_));
+      return location_prologue (type_, name_, get_location (l, data_), false);
     }
 
-  private:
+  protected:
     const char* type_;
     const char* name_;
     const void* data_;
@@ -312,8 +334,25 @@ namespace build
   extern const basic_mark error;
   extern const basic_mark warn;
   extern const basic_mark info;
-  extern const basic_mark text;
 
+  // text
+  //
+  struct text_mark_base: basic_mark_base
+  {
+    text_mark_base (): basic_mark_base (nullptr) {}
+
+    simple_prologue
+    operator() () const
+    {
+      return simple_prologue (type_, name_, verb == 0);
+    }
+  };
+  typedef diag_mark<text_mark_base> text_mark;
+
+  extern const text_mark text;
+
+  // trace
+  //
   struct trace_mark_base: basic_mark_base
   {
     explicit
@@ -324,6 +363,8 @@ namespace build
 
   typedef trace_mark tracer;
 
+  // fail
+  //
   template <typename E>
   struct fail_mark_base
   {
@@ -333,13 +374,13 @@ namespace build
     simple_prologue
     operator() () const
     {
-      return simple_prologue (&epilogue, "error", nullptr);
+      return simple_prologue (&epilogue, "error", nullptr, false);
     }
 
     location_prologue
     operator() (const location& l) const
     {
-      return location_prologue (&epilogue, "error", nullptr, l);
+      return location_prologue (&epilogue, "error", nullptr, l, false);
     }
 
     template <typename L>
@@ -347,7 +388,7 @@ namespace build
     operator() (const L& l) const
     {
       return location_prologue (
-        &epilogue, "error", nullptr, get_location (l, data_));
+        &epilogue, "error", nullptr, get_location (l, data_), false);
     }
 
     static void

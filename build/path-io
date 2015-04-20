@@ -5,30 +5,17 @@
 #ifndef BUILD_PATH_IO
 #define BUILD_PATH_IO
 
-#include <ostream>
+#include <iosfwd>
 
 #include <build/path>
 
 namespace build
 {
-  inline std::ostream&
-  operator<< (std::ostream& os, const path& p)
-  {
-    return os << p.string ();
-  }
+  std::ostream&
+  operator<< (std::ostream&, const path&);
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const dir_path& d)
-  {
-    const std::string& s (d.string ());
-
-    // Print the directory with trailing '/'.
-    //
-    if (!s.empty ())
-      os << s << (dir_path::traits::is_separator (s.back ()) ? "" : "/");
-
-    return os;
-  }
+  std::ostream&
+  operator<< (std::ostream&, const dir_path&);
 }
 
 #endif // BUILD_PATH_IO

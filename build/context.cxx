@@ -58,22 +58,12 @@ namespace build
     }
     catch (const system_error& e)
     {
-      if (verb >= 1)
-        text << "mkdir " << d.string ();
-      else
-        text << "mkdir " << d;
-
-      fail << "unable to create directory " << d.string () << ": "
-           << e.what ();
+      text << "mkdir " << d;
+      fail << "unable to create directory " << d << ": " << e.what ();
     }
 
     if (ms == mkdir_status::success)
-    {
-      if (verb >= 1)
-        text << "mkdir " << d.string ();
-      else
-        text << "mkdir " << d;
-    }
+      text << "mkdir " << d;
 
     return ms;
   }

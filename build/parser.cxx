@@ -1024,7 +1024,7 @@ namespace build
               if (dp != nullptr)
               {
                 if (n.dir.absolute ())
-                  fail (t) << "nested absolute directory " << n.dir.string ()
+                  fail (t) << "nested absolute directory " << n.dir
                            << " in variable expansion";
 
                 d1 = *dp / n.dir;

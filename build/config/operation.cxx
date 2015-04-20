@@ -40,10 +40,7 @@ namespace build
     {
       path f (out_root / src_root_file);
 
-      if (verb >= 1)
-        text << "config::save_src_root " << f.string ();
-      else
-        text << "save " << f;
+      text << (verb ? "config::save_src_root " : "save ") << f;
 
       try
       {
@@ -71,10 +68,7 @@ namespace build
       const dir_path& out_root (root.path ());
       path f (out_root / config_file);
 
-      if (verb >= 1)
-        text << "config::save_config " << f.string ();
-      else
-        text << "save " << f;
+      text << (verb ? "config::save_config " : "save ") << f;
 
       try
       {
@@ -322,7 +316,7 @@ namespace build
           {
           case rmdir_status::not_empty:
             {
-              warn << "directory " << out_root.string () << " is "
+              warn << "directory " << out_root << " is "
                    << (out_root == work
                        ? "current working directory"
                        : "not empty") << ", not removing";

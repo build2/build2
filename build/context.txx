@@ -25,18 +25,18 @@ namespace build
     }
     catch (const std::system_error& e)
     {
-      if (verb >= 1)
-        text << "rm " << f.string ();
+      if (verb)
+        text << "rm " << f;
       else
         text << "rm " << t;
 
-      fail << "unable to remove file " << f.string () << ": " << e.what ();
+      fail << "unable to remove file " << f << ": " << e.what ();
     }
 
     if (rs == rmfile_status::success)
     {
-      if (verb >= 1)
-        text << "rm " << f.string ();
+      if (verb)
+        text << "rm " << f;
       else
         text << "rm " << t;
     }
@@ -62,21 +62,20 @@ namespace build
     }
     catch (const std::system_error& e)
     {
-      if (verb >= 1)
-        text << "rmdir " << d.string ();
+      if (verb)
+        text << "rmdir " << d;
       else
         text << "rmdir " << t;
 
-      fail << "unable to remove directory " << d.string () << ": "
-           << e.what ();
+      fail << "unable to remove directory " << d << ": " << e.what ();
     }
 
     switch (rs)
     {
     case rmdir_status::success:
       {
-        if (verb >= 1)
-          text << "rmdir " << d.string ();
+        if (verb)
+          text << "rmdir " << d;
         else
           text << "rmdir " << t;
 
@@ -84,8 +83,8 @@ namespace build
       }
     case rmdir_status::not_empty:
       {
-        if (verb >= 1)
-          text << "directory " << d.string () << " is "
+        if (verb)
+          text << "directory " << d << " is "
                << (w ? "current working directory" : "not empty")
                << ", not removing";
 

@@ -43,7 +43,7 @@ namespace build
   {
     // We don't want the extra notations (e.g., ~/) provided by
     // diag_relative() since we want the path to be relative to
-    // the outer scope.
+    // the global scope.
     //
     os << ind << relative (p.path ()) << ":" << endl
        << ind << '{';

@@ -61,7 +61,7 @@ namespace build
         //
         const char* args[] = {v.c_str (), "-dumpversion", nullptr};
 
-        if (verb >= 1)
+        if (verb)
           print_process (args);
         else
           text << "test " << v;

@@ -278,7 +278,7 @@ namespace build
 
             assert (f.absolute ()); // Logic below depends on this.
 
-            level5 ([&]{trace << "prerequisite path: " << f.string ();});
+            level5 ([&]{trace << "prerequisite path: " << f;});
 
             // Split the name into its directory part, the name part, and
             // extension. Here we can assume the name part is a valid
@@ -383,7 +383,7 @@ namespace build
 
       args.push_back (nullptr);
 
-      if (verb >= 1)
+      if (verb)
         print_process (args);
       else
         text << "c++ " << *s;
@@ -758,7 +758,7 @@ namespace build
 
       args.push_back (nullptr);
 
-      if (verb >= 1)
+      if (verb)
         print_process (args);
       else
         text << "ld " << t;

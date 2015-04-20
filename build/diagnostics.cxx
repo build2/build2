@@ -75,6 +75,10 @@ namespace build
     return r;
   }
 
+  // Relative stream.
+  //
+  const int relative_index = ostream::xalloc ();
+
   // diag_do(), etc.
   //
   string
@@ -194,6 +198,8 @@ namespace build
   void simple_prologue_base::
   operator() (const diag_record& r) const
   {
+    relative (r.os_, relative_);
+
     if (type_ != nullptr)
       r << type_ << ": ";
 
@@ -204,6 +210,8 @@ namespace build
   void location_prologue_base::
   operator() (const diag_record& r) const
   {
+    relative (r.os_, relative_);
+
     r << loc_.file << ':' << loc_.line << ':' << loc_.column << ": ";
 
     if (type_ != nullptr)
@@ -216,7 +224,6 @@ namespace build
   const basic_mark error ("error");
   const basic_mark warn ("warning");
   const basic_mark info ("info");
-  const basic_mark text (nullptr);
-
+  const text_mark text;
   const fail_mark<failed> fail;
 }

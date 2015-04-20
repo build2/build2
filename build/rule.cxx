@@ -223,8 +223,8 @@ namespace build
     //
     if (!dir_exists (d))
     {
-      if (verb >= 1)
-        text << "mkdir " << d.string ();
+      if (verb)
+        text << "mkdir " << d;
       else
         text << "mkdir " << t;
 
@@ -234,8 +234,7 @@ namespace build
       }
       catch (const system_error& e)
       {
-        fail << "unable to create directory " << d.string () << ": "
-             << e.what ();
+        fail << "unable to create directory " << d << ": " << e.what ();
       }
 
       ts = target_state::changed;
