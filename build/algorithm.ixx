@@ -53,16 +53,16 @@ namespace build
     }
   }
 
-  template <typename T>
+  template <typename T, executor_function* E>
   T*
-  execute_prerequisites (action, target&, const timestamp&, bool&);
+  execute_find_prerequisites (action, target&, const timestamp&, bool&);
 
-  template <typename T>
+  template <typename T, executor_function* E>
   inline T*
-  execute_prerequisites (action a, target& t, const timestamp& mt)
+  execute_find_prerequisites (action a, target& t, const timestamp& mt)
   {
     bool e (mt == timestamp_nonexistent);
-    T* r (execute_prerequisites<T> (a, t, mt, e));
+    T* r (execute_find_prerequisites<T, E> (a, t, mt, e));
     assert (r != nullptr);
     return e ? r : nullptr;
   }

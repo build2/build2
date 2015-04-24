@@ -1,0 +1,45 @@
+// file      : build/config/utility -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CONFIG_UTILITY
+#define BUILD_CONFIG_UTILITY
+
+#include <string>
+#include <utility> // pair
+
+namespace build
+{
+  class scope;
+  class list_value;
+
+  namespace config
+  {
+    // Set, if necessary, a required config.* variable.
+    //
+    // Return the reference to the value as well as the indication of
+    // whether the variable has actually been set.
+    //
+    template <typename T>
+    std::pair<const T&, bool>
+    required (scope& root, const char* name, const T& default_value);
+
+    std::pair<const std::string&, bool>
+    required (scope& root, const char* name, const char* default_value);
+
+    // Set, if necessary, an optional config.* variable. In particular,
+    // an unspecified variable is set to NULL which is used to to
+    // distinguish between the "configured as unspecified" and "not
+    // yet configured" cases.
+    //
+    // Return the pointer to the value, which can be NULL.
+    //
+    template <typename T>
+    const T*
+    optional (scope& root, const char* name);
+  }
+}
+
+#include <build/config/utility.txx>
+
+#endif // BUILD_CONFIG_UTILITY

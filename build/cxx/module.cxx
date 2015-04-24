@@ -12,6 +12,8 @@
 #include <build/process>
 #include <build/diagnostics>
 
+#include <build/config/utility>
+
 using namespace std;
 
 namespace build
@@ -41,130 +43,68 @@ namespace build
 
       // config.cxx
       //
-      for (bool f (true); f; f = false)
       {
-        auto val (root["config.cxx"]);
+        auto r (config::required (root, "config.cxx", "g++"));
 
-        string v;
-
-        if (val)
-        {
-          if (!val.belongs (*global_scope))
-            break; // A value from (some) config.build.
-
-          v = val.as<const string&> ();
-        }
-        else
-          v = "g++"; // Default.
-
-        // Test it by trying to execute.
+        // If we actually set a new value, test it by trying to execute.
         //
-        const char* args[] = {v.c_str (), "-dumpversion", nullptr};
-
-        if (verb)
-          print_process (args);
-        else
-          text << "test " << v;
-
-        string ver;
-        try
+        if (r.second)
         {
-          process pr (args, false, false, true);
+          const string& cxx (r.first);
+          const char* args[] = {cxx.c_str (), "-dumpversion", nullptr};
 
-          __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
-          istream is (&fb);
+          if (verb)
+            print_process (args);
+          else
+            text << "test " << cxx;
 
-          bool r (getline (is, ver));
+          string ver;
+          try
+          {
+            process pr (args, false, false, true);
 
-          if (!pr.wait ())
+            __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
+            istream is (&fb);
+
+            bool r (getline (is, ver));
+
+            if (!pr.wait ())
+              throw failed ();
+
+            if (!r)
+              fail << "unexpected output from " << cxx;
+          }
+          catch (const process_error& e)
+          {
+            error << "unable to execute " << cxx << ": " << e.what ();
+
+            if (e.child ())
+              exit (1);
+
             throw failed ();
+          }
 
-          if (!r)
-            fail << "unexpected output from " << v;
+          //text << "toolchain version " << ver;
         }
-        catch (const process_error& e)
-        {
-          error << "unable to execute " << v << ": " << e.what ();
-
-          if (e.child ())
-            exit (1);
-
-          throw failed ();
-        }
-
-        //text << "toolchain version " << ver;
-
-        // Set on the project root.
-        //
-        root.assign ("config.cxx") = move (v);
       }
 
       // config.cxx.{p,c,l}options
       // config.cxx.libs
       //
-      // These are optional so all we need to do is "import" them
-      // into the root scope if they were specified on the command
-      // line and set them to NULL if unspecified (the last part
-      // is important to distinguish between the "configured as
-      // unspecified" and "not configured" cases).
+      // These are optional. We also merge them into the corresponding
+      // cxx.* variables.
       //
-      // We also merge them into the corresponding cxx.* variables.
-      //
-      {
-        auto v (root["config.cxx.poptions"]);
+      if (auto* v = config::optional<list_value> (root, "config.cxx.poptions"))
+        root.append ("cxx.poptions") += *v;
 
-        if (v.defined ())
-        {
-          if (v.belongs (*global_scope))
-            root.assign ("config.cxx.poptions") = v;
+      if (auto* v = config::optional<list_value> (root, "config.cxx.coptions"))
+        root.append ("cxx.coptions") += *v;
 
-          root.append ("cxx.poptions") += v;
-        }
-        else
-          root.assign ("config.cxx.poptions") = nullptr;
-      }
+      if (auto* v = config::optional<list_value> (root, "config.cxx.loptions"))
+        root.append ("cxx.loptions") += *v;
 
-      {
-        auto v (root["config.cxx.coptions"]);
-
-        if (v.defined ())
-        {
-          if (v.belongs (*global_scope))
-            root.assign ("config.cxx.coptions") = v;
-
-          root.append ("cxx.coptions") += v;
-        }
-        else
-          root.assign ("config.cxx.coptions") = nullptr;
-      }
-
-      {
-        auto v (root["config.cxx.loptions"]);
-
-        if (v.defined ())
-        {
-          if (v.belongs (*global_scope))
-            root.assign ("config.cxx.loptions") = v;
-
-          root.append ("cxx.loptions") += v;
-        }
-        else
-          root.assign ("config.cxx.loptions") = nullptr;
-      }
-
-      {
-        auto v (root["config.cxx.libs"]);
-
-        if (v.defined ())
-        {
-          if (v.belongs (*global_scope))
-            root.assign ("config.cxx.libs") = v;
-
-          root.append ("cxx.libs") += v;
-        }
-        else
-          root.assign ("config.cxx.libs") = nullptr;
-      }
+      if (auto* v = config::optional<list_value> (root, "config.cxx.libs"))
+        root.append ("cxx.libs") += *v;
     }
   }
 }

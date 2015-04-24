@@ -20,12 +20,18 @@
 #include <build/diagnostics>
 #include <build/context>
 
+#include <build/bin/target>
+
+#include <build/cxx/target>
+
 using namespace std;
 
 namespace build
 {
   namespace cxx
   {
+    using namespace bin;
+
     // T is either target or scope.
     //
     template <typename T>
@@ -73,25 +79,14 @@ namespace build
       // - if path already assigned, verify extension?
       //
 
-      if (t.is_a<obj> ())
-        fail << diag_doing (a, t) << " target group" <<
-          info << "explicitly select either obja{} or objso{} member";
-
-      // See if we have a C++ source file.
+      // See if we have a C++ source file. Iterate in reverse so that
+      // a source file specified for an obj member overrides the one
+      // specified for the group.
       //
-      for (prerequisite_target& pe: t.prerequisites)
+      for (prerequisite_target& pe: reverse_iterate (group_prerequisites (t)))
       {
         if (pe.prereq->type.id == typeid (cxx))
           return &pe;
-      }
-
-      if (t.group != nullptr)
-      {
-        for (prerequisite_target& pe: t.group->prerequisites)
-        {
-          if (pe.prereq->type.id == typeid (cxx))
-            return &pe;
-        }
       }
 
       level3 ([&]{trace << "no c++ source file for target " << t;});
@@ -146,7 +141,7 @@ namespace build
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean_file;
+      case perform_clean_id: return &perform_clean;
       default: return default_recipe; // Forward to prerequisites.
       }
     }
@@ -273,9 +268,13 @@ namespace build
             path f (next (l, pos));
             f.normalize ();
 
-            assert (f.absolute ()); // Logic below depends on this.
+            if (!f.absolute ())
+            {
+              level5 ([&]{trace << "skipping generated/non-existent " << f;});
+              continue;
+            }
 
-            level5 ([&]{trace << "prerequisite path: " << f;});
+            level5 ([&]{trace << "injecting " << f;});
 
             // Split the name into its directory part, the name part, and
             // extension. Here we can assume the name part is a valid
@@ -343,7 +342,7 @@ namespace build
     perform_update (action a, target& xt)
     {
       path_target& t (static_cast<path_target&> (xt));
-      cxx* s (execute_prerequisites<cxx> (a, t, t.mtime ()));
+      cxx* s (execute_find_prerequisites<cxx> (a, t, t.mtime ()));
 
       if (s == nullptr)
         return target_state::unchanged;
@@ -431,13 +430,13 @@ namespace build
       //   (i.e., a utility library).
       //
 
-      bool so (t.is_a<lib> ());
+      bool so (t.is_a<libso> ());
 
       // Scan prerequisites and see if we can work with what we've got.
       //
       bool seen_cxx (false), seen_c (false), seen_obj (false);
 
-      for (prerequisite& p: t.prerequisites)
+      for (prerequisite& p: group_prerequisites (t))
       {
         if (p.type.id == typeid (cxx)) // @@ Should use is_a (add to p.type).
         {
@@ -478,6 +477,20 @@ namespace build
       return seen_cxx || seen_c || seen_obj ? &t : nullptr;
     }
 
+    static inline target_state
+    select_a (action a, target& t)
+    {
+      obj* o (t.is_a<obj> ());
+      return execute (a, o != nullptr ? *o->a : t);
+    }
+
+    static inline target_state
+    select_so (action a, target& t)
+    {
+      obj* o (t.is_a<obj> ());
+      return execute (a, o != nullptr ? *o->so : t);
+    }
+
     recipe link::
     apply (action a, target& xt, void*) const
     {
@@ -485,16 +498,22 @@ namespace build
 
       path_target& t (static_cast<path_target&> (xt));
 
-      bool so (t.is_a<lib> ());
+      type tt (t.is_a<exe> ()
+               ? type::exe
+               : (t.is_a<liba> () ? type::liba : type::libso));
+
+      bool so (tt == type::libso);
 
       // Derive file name from target name.
       //
       if (t.path ().empty ())
       {
-        if (so)
-          t.path (t.derived_path ("so", "lib"));
-        else
-          t.path (t.derived_path ()); // exe
+        switch (tt)
+        {
+        case type::exe:   t.path (t.derived_path (           )); break;
+        case type::liba:  t.path (t.derived_path ("a",  "lib")); break;
+        case type::libso: t.path (t.derived_path ("so", "lib")); break;
+        }
       }
 
       // We may need the project roots for rule chaining (see below).
@@ -506,8 +525,9 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
-      for (prerequisite_target& pe: t.prerequisites)
+      for (prerequisite_target& pe: group_prerequisites (t))
       {
+        bool group (!pe.belongs (t)); // Target group's prerequisite.
         prerequisite& p (pe);
 
         if (!p.is_a<c> () && !p.is_a<cxx> ())
@@ -525,21 +545,37 @@ namespace build
           // If this is the obj{} target group, then pick the appropriate
           // member and make sure it is searched and matched.
           //
+          target* pt;
+
           if (obj* o = pe.target->is_a<obj> ())
           {
-            pe.target = so ? static_cast<target*> (o->so) : o->a;
+            pt = so ? static_cast<target*> (o->so) : o->a;
 
-            if (pe.target == nullptr)
+            if (pt == nullptr)
             {
               const target_type& type (
                 so ? objso::static_type : obja::static_type);
 
-              pe.target = &search (
+              pt = &search (
                 prerequisite_key {&type, &p.dir, &p.name, &p.ext, &p.scope});
             }
-          }
 
-          build::match (a, *pe.target);
+            // This is a bit tricky: if this is a group's prerequisite,
+            // then we have to keep pe.target pointing to the obj{} group
+            // since there could be another match that uses a different
+            // member of this prerequisite. In this case we specify the
+            // "executor" (see below) which will pick the right member
+            // for one of common algorithms. However, if this is our own
+            // prerequisite, then we are free to hard-wire the member
+            // we need directly in pe.target.
+            //
+            if (!group)
+              pe.target = pt;
+          }
+          else
+            pt = pe.target;
+
+          build::match (a, *pt);
           continue;
         }
 
@@ -557,7 +593,9 @@ namespace build
 
         prerequisite& cp (p);
         const target_type& o_type (
-          so ? objso::static_type : obja::static_type);
+          group
+          ? obj::static_type
+          : (so ? objso::static_type : obja::static_type));
 
         // Come up with the obj*{} prerequisite. The c(xx){} prerequisite
         // directory can be relative (to the scope) or absolute. If it is
@@ -590,7 +628,7 @@ namespace build
 
         // Resolve this prerequisite to target.
         //
-        target& ot (search (op));
+        target* ot (&search (op));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of ours.
@@ -601,7 +639,7 @@ namespace build
         // update will come and finish the rewrite process (it will even
         // reuse op that we have created but then ignored). So all is good.
         //
-        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
+        if (a.operation () == clean_id && !ot->dir.sub (t.dir))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will
@@ -610,6 +648,26 @@ namespace build
           //
           pe.target = nullptr; // Skip.
           continue;
+        }
+
+        pe.target = ot;
+
+        // If we have created the obj{} target group, pick one of its
+        // members; the rest would be primarily concerned with it.
+        //
+        if (group)
+        {
+          obj& o (static_cast<obj&> (*ot));
+          ot = so ? static_cast<target*> (o.so) : o.a;
+
+          if (ot == nullptr)
+          {
+            const target_type& type (
+              so ? objso::static_type : obja::static_type);
+
+            ot = &search (
+              prerequisite_key {&type, &o.dir, &o.name, &o.ext, nullptr});
+          }
         }
 
         // If this target already exists, then it needs to be "compatible"
@@ -625,7 +683,7 @@ namespace build
         // speculatively doesn't really hurt.
         //
         prerequisite* cp1 (nullptr);
-        for (prerequisite& p: ot.prerequisites)
+        for (prerequisite& p: reverse_iterate (group_prerequisites (*ot)))
         {
           // Ignore some known target types (fsdir, headers).
           //
@@ -643,19 +701,19 @@ namespace build
           }
 
           fail << "synthesized target for prerequisite " << cp
-               << " would be incompatible with existing target " << ot <<
+               << " would be incompatible with existing target " << *ot <<
             info << "unknown existing prerequsite type " << p <<
             info << "specify corresponding obj{} target explicitly";
         }
 
         if (cp1 != nullptr)
         {
-          build::match (a, ot); // Now cp1 should be resolved.
-          search (cp);          // Our own prerequisite, so this is ok.
+          build::match (a, *ot); // Now cp1 should be resolved.
+          search (cp);           // Our own prerequisite, so this is ok.
 
           if (cp.target != cp1->target)
             fail << "synthesized target for prerequisite " << cp
-                 << " would be incompatible with existing target " << ot <<
+                 << " would be incompatible with existing target " << *ot <<
               info << "existing prerequsite " << *cp1 << " does not "
                  << "match " << cp <<
               info << "specify corresponding " << o_type.name << "{} "
@@ -663,40 +721,55 @@ namespace build
         }
         else
         {
-          ot.prerequisites.emplace_back (cp);
-          build::match (a, ot);
+          // Note: add the source to the group, not member.
+          //
+          pe.target->prerequisites.emplace_back (cp);
+          build::match (a, *ot);
         }
 
         // Change the exe{} target's prerequsite ref from cxx{} to obj*{}.
         //
         pe.prereq = &op;
-        pe.target = &ot;
       }
 
       // Inject dependency on the output directory.
       //
       inject_parent_fsdir (a, t);
 
-      switch (a)
+      if (so)
       {
-      case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean_file;
-      default: return default_recipe; // Forward to prerequisites.
+        switch (a)
+        {
+        case perform_update_id: return &perform_update;
+        case perform_clean_id: return &perform_clean<select_so>;
+        default: return default_action<select_so>; // Forward to prerequisites.
+        }
+      }
+      else
+      {
+        switch (a)
+        {
+        case perform_update_id: return &perform_update;
+        case perform_clean_id: return &perform_clean<select_a>;
+        default: return default_action<select_a>; // Forward to prerequisites.
+        }
       }
     }
 
     target_state link::
     perform_update (action a, target& xt)
     {
-      // @@ Q:
-      //
-      // - what are we doing with libraries?
-      //
       path_target& t (static_cast<path_target&> (xt));
 
-      bool so (t.is_a<lib> ());
+      type tt (t.is_a<exe> ()
+               ? type::exe
+               : (t.is_a<liba> () ? type::liba : type::libso));
 
-      if (!execute_prerequisites (a, t, t.mtime ()))
+      bool so (tt == type::libso);
+
+      if (so
+          ? !execute_prerequisites<select_so> (a, t, t.mtime ())
+          : !execute_prerequisites<select_a> (a, t, t.mtime ()))
         return target_state::unchanged;
 
       // Translate paths to relative (to working directory) ones. This
@@ -706,24 +779,35 @@ namespace build
       vector<path> relo;
 
       scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
-      const string& cxx (rs["config.cxx"].as<const string&> ());
+      vector<const char*> args;
+      string storage1;
 
-      vector<const char*> args {cxx.c_str ()};
+      if (tt == type::liba)
+      {
+        //@@ ranlib
+        //
+        args.push_back ("ar");
+        args.push_back ("-rc");
+        args.push_back (relt.string ().c_str ());
+      }
+      else
+      {
+        args.push_back (rs["config.cxx"].as<const string&> ().c_str ());
 
-      append_options (args, t, "cxx.coptions");
+        append_options (args, t, "cxx.coptions");
 
-      string std; // Storage.
-      append_std (args, t, std);
+        append_std (args, t, storage1);
 
-      if (so)
-        args.push_back ("-shared");
+        if (so)
+          args.push_back ("-shared");
 
-      args.push_back ("-o");
-      args.push_back (relt.string ().c_str ());
+        args.push_back ("-o");
+        args.push_back (relt.string ().c_str ());
 
-      append_options (args, t, "cxx.loptions");
+        append_options (args, t, "cxx.loptions");
+      }
 
-      for (target* pt: t.prerequisites)
+      for (target* pt: group_prerequisites (t))
       {
         if (pt == nullptr)
           continue; // Skipped.
@@ -743,7 +827,8 @@ namespace build
         args.push_back (relo.back ().string ().c_str ());
       }
 
-      append_options (args, t, "cxx.libs");
+      if (tt != type::liba)
+        append_options (args, t, "cxx.libs");
 
       args.push_back (nullptr);
 

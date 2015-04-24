@@ -1,0 +1,39 @@
+// file      : build/bin/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_BIN_RULE
+#define BUILD_BIN_RULE
+
+#include <build/rule>
+
+namespace build
+{
+  namespace bin
+  {
+    class obj_rule: public rule
+    {
+    public:
+      virtual void*
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, void*) const;
+    };
+
+    class lib_rule: public rule
+    {
+    public:
+      virtual void*
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, void*) const;
+
+      static target_state
+      perform (action, target&);
+    };
+  }
+}
+
+#endif // BUILD_BIN_RULE

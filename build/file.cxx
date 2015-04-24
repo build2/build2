@@ -11,6 +11,8 @@
 #include <build/filesystem>
 #include <build/diagnostics>
 
+#include <build/config/utility>
+
 using namespace std;
 
 namespace build
@@ -257,20 +259,14 @@ namespace build
 
     // Figure out this project's out_root.
     //
-    const variable& var (variable_pool.find ("config." + n.value));
-    auto val (iroot[var]);
+    string var ("config." + n.value);
+    const dir_path& out_root (
+      config::required (iroot, var.c_str (), dir_path ()).first);
 
-    if (val)
-    {
-      if (val.belongs (*global_scope))
-        iroot.assign (var) = val; // Copy into root scope.
-    }
-    else
+    if (out_root.empty ())
       fail (l) << "unable to find out_root for imported " << n <<
         info << "consider explicitly configuring its out_root via the "
-               << var.name << " command line variable";
-
-    const dir_path& out_root (val.as<const dir_path&> ());
+               << var << " command line variable";
 
     // Bootstrap the imported root scope. This is pretty similar to
     // what we do in main() except that here we don't try to guess

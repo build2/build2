@@ -6,8 +6,7 @@
 
 #include <build/scope>
 #include <build/search>
-#include <build/context>
-#include <build/algorithm>   // execute_prerequisites()
+#include <build/algorithm>
 #include <build/diagnostics>
 
 using namespace std;
@@ -16,24 +15,9 @@ namespace build
 {
   // recipe
   //
-  target_state
-  noop_recipe_function (action, target&)
-  {
-    assert (false); // We shouldn't be called, see target::recipe().
-    return target_state::unchanged;
-  }
-
-  static target_state
-  default_recipe_function (action a, target& t)
-  {
-    return current_mode == execution_mode::first
-      ? execute_prerequisites (a, t)
-      : reverse_execute_prerequisites (a, t);
-  }
-
   const recipe empty_recipe;
-  const recipe noop_recipe (&noop_recipe_function);
-  const recipe default_recipe (&default_recipe_function);
+  const recipe noop_recipe (&noop_action);
+  const recipe default_recipe (&default_action);
 
   // target
   //

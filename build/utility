@@ -50,12 +50,12 @@ namespace build
   public:
     reverse_range (T& x): x_ (x) {}
 
-    auto begin () const -> decltype (this->x_.rbegin ())
+    auto begin () -> decltype (this->x_.rbegin ())
     {
       return x_.rbegin ();
     }
 
-    auto end () const -> decltype (this->x_.rend ())
+    auto end () -> decltype (this->x_.rend ())
     {
       return x_.rend ();
     }
@@ -66,6 +66,13 @@ namespace build
   reverse_iterate (T& x)
   {
     return reverse_range<T> (x);
+  }
+
+  template <typename T>
+  inline reverse_range<const T>
+  reverse_iterate (const T& x)
+  {
+    return reverse_range<const T> (x);
   }
 
   // Call a function if there is an exception.

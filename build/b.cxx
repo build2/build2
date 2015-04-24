@@ -77,13 +77,14 @@ namespace build
   }
 }
 
-#include <build/native>
+#include <build/config/module>
+
+#include <build/bin/target>
+#include <build/bin/rule>
 
 #include <build/cxx/target>
 #include <build/cxx/rule>
 #include <build/cxx/module>
-
-#include <build/config/module>
 
 using namespace build;
 
@@ -139,11 +140,13 @@ main (int argc, char* argv[])
     target_types.insert (dir::static_type);
     target_types.insert (fsdir::static_type);
 
-    target_types.insert (obja::static_type);
-    target_types.insert (objso::static_type);
-    target_types.insert (obj::static_type);
-    target_types.insert (exe::static_type);
-    target_types.insert (lib::static_type);
+    target_types.insert (bin::obja::static_type);
+    target_types.insert (bin::objso::static_type);
+    target_types.insert (bin::obj::static_type);
+    target_types.insert (bin::exe::static_type);
+    target_types.insert (bin::liba::static_type);
+    target_types.insert (bin::libso::static_type);
+    target_types.insert (bin::lib::static_type);
 
     target_types.insert (cxx::h::static_type);
     target_types.insert (cxx::c::static_type);
@@ -155,27 +158,45 @@ main (int argc, char* argv[])
 
     // Register rules.
     //
-    cxx::link cxx_link;
-    rules[default_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-    rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-    rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+    bin::obj_rule obj_rule;
+    bin::lib_rule lib_rule;
+    {
+      using namespace bin;
 
-    rules[default_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
-    rules[update_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
-    rules[clean_id][typeid (lib)].emplace ("cxx.gnu.link", cxx_link);
+      rules[default_id][typeid (obj)].emplace ("bin.obj", obj_rule);
+      rules[update_id][typeid (obj)].emplace ("bin.obj", obj_rule);
+      rules[clean_id][typeid (obj)].emplace ("bin.obj", obj_rule);
+
+      rules[default_id][typeid (lib)].emplace ("bin.lib", lib_rule);
+      rules[update_id][typeid (lib)].emplace ("bin.lib", lib_rule);
+      rules[clean_id][typeid (lib)].emplace ("bin.lib", lib_rule);
+    }
 
     cxx::compile cxx_compile;
-    rules[default_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[update_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[clean_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
+    cxx::link cxx_link;
+    {
+      using namespace bin;
 
-    rules[default_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[update_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[clean_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[default_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[update_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[clean_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
 
-    rules[default_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[update_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
-    rules[clean_id][typeid (obj)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[default_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[update_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
+      rules[clean_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
+
+      rules[default_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+      rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+      rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
+
+      rules[default_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
+      rules[update_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
+      rules[clean_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
+
+      rules[default_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
+      rules[update_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
+      rules[clean_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
+    }
 
     dir_rule dir_r;
     rules[default_id][typeid (dir)].emplace ("dir", dir_r);

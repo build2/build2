@@ -100,7 +100,9 @@ namespace build
       level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
                         << t << " for prerequsite " << pk;});
 
-      t.path (move (f));
+      if (t.path ().empty ())
+        t.path (move (f));
+
       t.mtime (mt);
       return &t;
     }

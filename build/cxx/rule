@@ -6,9 +6,6 @@
 #define BUILD_CXX_RULE
 
 #include <build/rule>
-#include <build/native>
-
-#include <build/cxx/target>
 
 namespace build
 {
@@ -16,6 +13,8 @@ namespace build
 
   namespace cxx
   {
+    class cxx;
+
     // @@ Can't we do match(obj&) and then registration code extracts
     // that. And no virtuals?
     //
@@ -39,6 +38,8 @@ namespace build
     class link: public rule
     {
     public:
+      enum class type {exe, liba, libso};
+
       virtual void*
       match (action, target&, const std::string& hint) const;
 

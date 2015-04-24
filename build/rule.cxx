@@ -92,7 +92,7 @@ namespace build
 
     return a == perform_update_id
       ? &perform_update
-      : t.prerequisites.empty () ? noop_recipe : default_recipe;
+      : t.has_prerequisites () ? default_recipe : noop_recipe;
   }
 
   target_state path_rule::
@@ -211,7 +211,7 @@ namespace build
     // First update prerequisites (e.g. create parent directories)
     // then create this directory.
     //
-    if (!t.prerequisites.empty ())
+    if (t.has_prerequisites ())
       ts = execute_prerequisites (a, t);
 
     const path& d (t.dir); // Everything is in t.dir.
@@ -253,7 +253,7 @@ namespace build
 
     target_state ts (target_state::unchanged);
 
-    if (!t.prerequisites.empty ())
+    if (t.has_prerequisites ())
       ts = reverse_execute_prerequisites (a, t);
 
     // If we couldn't remove the directory, return postponed meaning

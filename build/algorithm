@@ -54,8 +54,13 @@ namespace build
   void
   inject_parent_fsdir (action, target&);
 
+  // Executor function type.
+  //
+  using executor_function = target_state (action, target&);
+
   // Execute the action on target, assuming a rule has been matched
-  // and the recipe for this action has been set.
+  // and the recipe for this action has been set. This is the default
+  // executor implementation.
   //
   target_state
   execute (action, target&);
@@ -68,17 +73,20 @@ namespace build
   // with postponed execution the same as ignored. Note that this
   // function can be used as a recipe.
   //
+  template <executor_function* E = execute>
   target_state
   execute_prerequisites (action, target&);
 
   // As above but iterates over the prerequisites in reverse.
   //
+  template <executor_function* E = execute>
   target_state
   reverse_execute_prerequisites (action, target&);
 
   // A version of the above that also determines whether the action
   // needs to be executed on the target based on the passed timestamp.
   //
+  template <executor_function* E = execute>
   bool
   execute_prerequisites (action, target&, const timestamp&);
 
@@ -89,15 +97,28 @@ namespace build
   // there are multiple prerequisites of this type, then the last
   // one returned.
   //
-  template <typename T>
+  template <typename T, executor_function* E = execute>
   T*
-  execute_prerequisites (action, target&, const timestamp&);
+  execute_find_prerequisites (action, target&, const timestamp&);
+
+  // Return noop_recipe instead of using this function directly.
+  //
+  target_state
+  noop_action (action, target&);
+
+  // Default action implementation which forwards to the prerequsites.
+  // Use default_recipe for the standard executor.
+  //
+  template <executor_function* E = execute>
+  target_state
+  default_action (action, target&);
 
   // Standard perform(clean) action implementation for the file target
   // or derived.
   //
+  template <executor_function* E = execute>
   target_state
-  perform_clean_file (action, target&);
+  perform_clean (action, target&);
 }
 
 #include <build/algorithm.ixx>
