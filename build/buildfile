@@ -1,5 +1,5 @@
 config = config/{operation module utility}
-bin = bin/{target rule}
+bin = bin/{target rule module}
 cxx = cxx/{target rule module}
 
 exe{b b-prev}: cxx{b algorithm name operation spec scope variable target \

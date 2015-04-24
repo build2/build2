@@ -21,6 +21,8 @@ namespace build
   static void
   dump_target (ostream& os, const target& t)
   {
+    //@@ Need to print group info somehow.
+
     os << t << ':';
 
     for (const prerequisite_target& pe: t.prerequisites)

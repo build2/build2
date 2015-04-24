@@ -434,7 +434,8 @@ namespace build
 
       // Scan prerequisites and see if we can work with what we've got.
       //
-      bool seen_cxx (false), seen_c (false), seen_obj (false);
+      bool seen_cxx (false), seen_c (false), seen_obj (false),
+        seen_lib (false);
 
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -458,6 +459,12 @@ namespace build
         {
           seen_obj = seen_obj || true;
         }
+        else if (p.type.id == typeid (liba)  ||
+                 p.type.id == typeid (libso) ||
+                 p.type.id == typeid (lib))
+        {
+          seen_lib = seen_lib || true;
+        }
         else if (p.type.id != typeid (fsdir))
         {
           level3 ([&]{trace << "unexpected prerequisite type " << p.type;});
@@ -474,22 +481,85 @@ namespace build
         return nullptr;
       }
 
-      return seen_cxx || seen_c || seen_obj ? &t : nullptr;
+      return seen_cxx || seen_c || seen_obj || seen_lib ? &t : nullptr;
     }
 
     static inline target_state
-    select_a (action a, target& t)
+    select_obja_liba (action a, target& t)
     {
-      obj* o (t.is_a<obj> ());
-      return execute (a, o != nullptr ? *o->a : t);
+      target* r;
+      if (obj* o = t.is_a<obj> ())
+        r = o->a;
+      else if (lib* l = t.is_a<lib> ())
+        r = l->a;
+      else
+        r = &t;
+
+      return execute (a, *r);
     }
 
     static inline target_state
-    select_so (action a, target& t)
+    select_obja_libso (action a, target& t)
     {
-      obj* o (t.is_a<obj> ());
-      return execute (a, o != nullptr ? *o->so : t);
+      target* r;
+      if (obj* o = t.is_a<obj> ())
+        r = o->a;
+      else if (lib* l = t.is_a<lib> ())
+        r = l->so;
+      else
+        r = &t;
+
+      return execute (a, *r);
     }
+
+    static inline target_state
+    select_objso_liba (action a, target& t)
+    {
+      target* r;
+      if (obj* o = t.is_a<obj> ())
+        r = o->so;
+      else if (lib* l = t.is_a<lib> ())
+        r = l->a;
+      else
+        r = &t;
+
+      return execute (a, *r);
+    }
+
+    static inline target_state
+    select_objso_libso (action a, target& t)
+    {
+      target* r;
+      if (obj* o = t.is_a<obj> ())
+        r = o->so;
+      else if (lib* l = t.is_a<lib> ())
+        r = l->so;
+      else
+        r = &t;
+
+      return execute (a, *r);
+    }
+
+    static executor_function* clean_table[2][2] =
+    {
+      {&perform_clean<select_obja_liba>, &perform_clean<select_obja_libso>},
+      {&perform_clean<select_objso_liba>, &perform_clean<select_objso_libso>}
+    };
+
+    static executor_function* default_table[2][2] =
+    {
+      {&default_action<select_obja_liba>, &default_action<select_obja_libso>},
+      {&default_action<select_objso_liba>, &default_action<select_objso_libso>}
+    };
+
+    static bool (*execute_table[2][2]) (action, target&, const timestamp&) =
+    {
+      {&execute_prerequisites<select_obja_liba>,
+       &execute_prerequisites<select_obja_libso>},
+
+      {&execute_prerequisites<select_objso_liba>,
+       &execute_prerequisites<select_objso_libso>}
+    };
 
     recipe link::
     apply (action a, target& xt, void*) const
@@ -502,7 +572,17 @@ namespace build
                ? type::exe
                : (t.is_a<liba> () ? type::liba : type::libso));
 
-      bool so (tt == type::libso);
+      bool so (tt == type::libso); // Obj-so.
+
+      // Decide which lib{} member to use for this target.
+      //
+      bool lso; // Lib-so.
+      switch (tt)
+      {
+      case type::exe:   lso = true; break;
+      case type::liba:  lso = false;  break;
+      case type::libso: lso = true; break;
+      }
 
       // Derive file name from target name.
       //
@@ -542,8 +622,8 @@ namespace build
             continue;
           }
 
-          // If this is the obj{} target group, then pick the appropriate
-          // member and make sure it is searched and matched.
+          // If this is the obj{} or lib{} target group, then pick the
+          // appropriate member and make sure it is searched and matched.
           //
           target* pt;
 
@@ -568,6 +648,32 @@ namespace build
             // for one of common algorithms. However, if this is our own
             // prerequisite, then we are free to hard-wire the member
             // we need directly in pe.target.
+            //
+            if (!group)
+              pe.target = pt;
+          }
+          else if (lib* l = pe.target->is_a<lib> ())
+          {
+            // Make sure the library build that we need is available.
+            //
+            const string& at ((*l)["bin.lib"].as<const string&> ());
+
+            if (lso ? at == "static" : at == "shared")
+              fail << (lso ? "shared" : "static") << " build of " << *l
+                   << " is not available";
+
+            pt = lso ? static_cast<target*> (l->so) : l->a;
+
+            if (pt == nullptr)
+            {
+              const target_type& type (
+                lso ? libso::static_type : liba::static_type);
+
+              pt = &search (
+                prerequisite_key {&type, &p.dir, &p.name, &p.ext, &p.scope});
+            }
+
+            // Same logic as for obj{}
             //
             if (!group)
               pe.target = pt;
@@ -736,23 +842,11 @@ namespace build
       //
       inject_parent_fsdir (a, t);
 
-      if (so)
+      switch (a)
       {
-        switch (a)
-        {
-        case perform_update_id: return &perform_update;
-        case perform_clean_id: return &perform_clean<select_so>;
-        default: return default_action<select_so>; // Forward to prerequisites.
-        }
-      }
-      else
-      {
-        switch (a)
-        {
-        case perform_update_id: return &perform_update;
-        case perform_clean_id: return &perform_clean<select_a>;
-        default: return default_action<select_a>; // Forward to prerequisites.
-        }
+      case perform_update_id: return &perform_update;
+      case perform_clean_id: return clean_table[so][lso];
+      default: return default_table[so][lso]; // Forward to prerequisites.
       }
     }
 
@@ -767,9 +861,17 @@ namespace build
 
       bool so (tt == type::libso);
 
-      if (so
-          ? !execute_prerequisites<select_so> (a, t, t.mtime ())
-          : !execute_prerequisites<select_a> (a, t, t.mtime ()))
+      // Decide which lib{} member to use for this target.
+      //
+      bool lso; // Lib-so.
+      switch (tt)
+      {
+      case type::exe:   lso = true; break;
+      case type::liba:  lso = false;  break;
+      case type::libso: lso = true; break;
+      }
+
+      if (!execute_table[so][lso] (a, t, t.mtime ()))
         return target_state::unchanged;
 
       // Translate paths to relative (to working directory) ones. This
@@ -819,6 +921,12 @@ namespace build
         else if ((ppt = pt->is_a<obja> ()))
           ;
         else if ((ppt = pt->is_a<objso> ()))
+          ;
+        else if (lib* l = pt->is_a<lib> ())
+          ppt = lso ? static_cast<path_target*> (l->so) : l->a;
+        else if ((ppt = pt->is_a<liba> ()))
+          ;
+        else if ((ppt = pt->is_a<libso> ()))
           ;
         else
           continue;

@@ -4,6 +4,8 @@
 
 #include <build/bin/target>
 
+#include <build/bin/module>
+
 using namespace std;
 
 namespace build
@@ -131,6 +133,11 @@ namespace build
     static target*
     lib_factory (dir_path d, string n, const string* e)
     {
+      // If there is a target of type lib{} in this project, then
+      // initialized the lib part of the module.
+      //
+      init_lib (d);
+
       liba* a (targets.find<liba> (d, n));
       libso* so (targets.find<libso> (d, n));
       lib* l (new lib (move (d), move (n), e));

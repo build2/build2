@@ -1,0 +1,26 @@
+// file      : build/bin/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_BIN_MODULE
+#define BUILD_BIN_MODULE
+
+#include <build/path>
+#include <build/module>
+
+namespace build
+{
+  namespace bin
+  {
+    void
+    init (scope&, scope&, const location&);
+
+    // Init the 'lib' part of the module because a lib{} target
+    // has been created in the specified directory.
+    //
+    void
+    init_lib (const dir_path&);
+  }
+}
+
+#endif // BUILD_BIN_MODULE

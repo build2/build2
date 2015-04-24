@@ -9,8 +9,6 @@
 #include <build/algorithm>
 #include <build/diagnostics>
 
-#include <build/config/utility>
-
 #include <build/bin/target>
 
 using namespace std;
@@ -47,28 +45,16 @@ namespace build
     {
       lib& t (static_cast<lib&> (xt));
 
-      // Configure.
+      // Get the library type to build. If not set for a target, this
+      // should be configured at the project scope by init_lib().
       //
-      // The logic is as follows: if this library somehow knowns what
-      // it wants to be (i.e., the bin.lib is defined), then don't
-      // bother configuring the project-wide value.
-      //
-      const string* type (nullptr);
+      const string& type (t["bin.lib"].as<const string&> ());
 
-      if (auto v = t["bin.lib"])
-        type = &v.as<const string&> ();
-      else
-      {
-        scope& root (*t.root_scope ());
-        type = &config::required (root, "config.bin.lib", "shared").first;
-        root.assign ("bin.lib") = *type;
-      }
-
-      bool ar (*type == "static" || *type == "both");
-      bool so (*type == "shared" || *type == "both");
+      bool ar (type == "static" || type == "both");
+      bool so (type == "shared" || type == "both");
 
       if (!ar && !so)
-        fail << "unknown library type: " << *type <<
+        fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
       if (ar)
