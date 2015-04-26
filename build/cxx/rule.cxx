@@ -775,16 +775,6 @@ namespace build
 
       bool so (tt == type::libso);
 
-      // Decide which lib{} member to use for this target.
-      //
-      bool lso; // Lib-so.
-      switch (tt)
-      {
-      case type::exe:   lso = true; break;
-      case type::liba:  lso = false;  break;
-      case type::libso: lso = true; break;
-      }
-
       if (!execute_prerequisites (a, t, t.mtime ()))
         return target_state::unchanged;
 
@@ -827,14 +817,10 @@ namespace build
       {
         path_target* ppt;
 
-        if (obj* o = pt->is_a<obj> ())
-          ppt = so ? static_cast<path_target*> (o->so) : o->a;
-        else if ((ppt = pt->is_a<obja> ()))
+        if ((ppt = pt->is_a<obja> ()))
           ;
         else if ((ppt = pt->is_a<objso> ()))
           ;
-        else if (lib* l = pt->is_a<lib> ())
-          ppt = lso ? static_cast<path_target*> (l->so) : l->a;
         else if ((ppt = pt->is_a<liba> ()))
           ;
         else if ((ppt = pt->is_a<libso> ()))
