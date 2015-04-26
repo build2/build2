@@ -48,7 +48,7 @@ namespace build
 
     target& t (**i);
 
-    level4 ([&]{trace << "existing target " << t << " for prerequsite "
+    level4 ([&]{trace << "existing target " << t << " for prerequisite "
                       << pk;});
 
     return &t;
@@ -84,7 +84,7 @@ namespace build
       if (mt == timestamp_nonexistent)
         continue;
 
-      level4 ([&]{trace << "found existing file " << f << " for prerequsite "
+      level4 ([&]{trace << "found existing file " << f << " for prerequisite "
                         << pk;});
 
       // Find or insert.
@@ -98,7 +98,7 @@ namespace build
       path_target& t (dynamic_cast<path_target&> (r.first));
 
       level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
-                        << t << " for prerequsite " << pk;});
+                        << t << " for prerequisite " << pk;});
 
       if (t.path ().empty ())
         t.path (move (f));
@@ -140,7 +140,7 @@ namespace build
 
     target& t (r.first);
 
-    level4 ([&]{trace << "new target " << t << " for prerequsite " << pk;});
+    level4 ([&]{trace << "new target " << t << " for prerequisite " << pk;});
 
     return t;
   }

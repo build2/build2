@@ -19,25 +19,47 @@ using namespace std;
 namespace build
 {
   static void
-  dump_target (ostream& os, const target& t)
+  dump_target (ostream& os, action a, const target& t)
   {
-    //@@ Need to print group info somehow.
+    os << t;
 
-    os << t << ':';
+    if (t.group != nullptr)
+      os << "->" << *t.group;
 
-    for (const prerequisite_target& pe: t.prerequisites)
+    os << ':';
+
+    // If the target has been matched to a rule, print resolved
+    // prerequisite targets.
+    //
+    if (t.recipe (a))
     {
-      os << ' ';
+      for (const target* pt: t.prerequisite_targets)
+      {
+        if (pt == nullptr) // Skipped.
+          continue;
 
-      if (pe.target != nullptr)
-        os << *pe.target;
-      else
-        os << *pe.prereq;
+        os << ' ' << *pt;
+      }
+    }
+    else
+    {
+      for (const prerequisite& p: t.prerequisites)
+      {
+        os << ' ';
+
+        // Print it as target if one has been cached.
+        //
+        if (p.target != nullptr)
+          os << *p.target;
+        else
+          os << p;
+      }
     }
   }
 
   static void
   dump_scope (ostream& os,
+              action a,
               scope& p,
               scope_map::iterator& i,
               string& ind,
@@ -94,7 +116,7 @@ namespace build
 
       os << endl;
       scope& s (i->second);
-      dump_scope (os, s, ++i, ind, rts);
+      dump_scope (os, a, s, ++i, ind, rts);
 
       sb = true;
     }
@@ -141,7 +163,7 @@ namespace build
 
       os << endl
          << ind;
-      dump_target (os, t);
+      dump_target (os, a, t);
     }
 
     ind.resize (ind.size () - 2);
@@ -152,7 +174,7 @@ namespace build
   }
 
   void
-  dump ()
+  dump (action a)
   {
     auto i (scopes.begin ());
     scope& g (i->second); // Global scope.
@@ -162,7 +184,7 @@ namespace build
     set<const target*> rts;
 
     ostream& os (*diag_stream);
-    dump_scope (os, g, ++i, ind, rts);
+    dump_scope (os, a, g, ++i, ind, rts);
     os << endl;
   }
 }

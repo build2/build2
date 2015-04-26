@@ -14,7 +14,7 @@ namespace build
   class prerequisite;
   class prerequisite_key;
 
-  // The default prerequsite search implementation. It first calls the
+  // The default prerequisite search implementation. It first calls the
   // target-type-specific search function. If that doesn't yeld anything,
   // it creates a new target.
   //
@@ -41,22 +41,18 @@ namespace build
   void
   search_and_match (action, target&);
 
-  // As above but ignores (does not match) prerequsites that are not
+  // As above but ignores (does not match) prerequisites that are not
   // in the same or a subdirectory of dir.
   //
   void
   search_and_match (action, target&, const dir_path& dir);
 
-  // Inject dependency on the parent directory fsdir{}, unless it is
-  // the project's out_root (or is outside of any project; think, for
-  // example, install directories).
+  // Inject dependency on the parent directory's fsdir{}, unless it is
+  // the project's out_root (or is outside of any project; say, for
+  // example, an install directory).
   //
   void
   inject_parent_fsdir (action, target&);
-
-  // Executor function type.
-  //
-  using executor_function = target_state (action, target&);
 
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set. This is the default
@@ -66,27 +62,24 @@ namespace build
   execute (action, target&);
 
   // The default prerequisite execute implementation. It calls execute()
-  // on each non-ignored (non-NULL target) prerequisite in a loop. If this
+  // on each non-ignored (non-NULL) prerequisite target in a loop. If this
   // target is a member of a group, then it first does this to the group's
   // prerequisites. Returns target_state::changed if any of them were
   // changed and target_state::unchanged otherwise. It treats targets
   // with postponed execution the same as ignored. Note that this
   // function can be used as a recipe.
   //
-  template <executor_function* E = execute>
   target_state
   execute_prerequisites (action, target&);
 
   // As above but iterates over the prerequisites in reverse.
   //
-  template <executor_function* E = execute>
   target_state
   reverse_execute_prerequisites (action, target&);
 
   // A version of the above that also determines whether the action
   // needs to be executed on the target based on the passed timestamp.
   //
-  template <executor_function* E = execute>
   bool
   execute_prerequisites (action, target&, const timestamp&);
 
@@ -95,9 +88,9 @@ namespace build
   // the target based on the passed timestamp and, if so, finds a
   // prerequisite of the specified type (e.g., a source file). If
   // there are multiple prerequisites of this type, then the last
-  // one returned.
+  // is returned.
   //
-  template <typename T, executor_function* E = execute>
+  template <typename T>
   T*
   execute_find_prerequisites (action, target&, const timestamp&);
 
@@ -106,17 +99,15 @@ namespace build
   target_state
   noop_action (action, target&);
 
-  // Default action implementation which forwards to the prerequsites.
-  // Use default_recipe for the standard executor.
+  // Default action implementation which forwards to the prerequisites.
+  // Use default_recipe instead of using this function directly.
   //
-  template <executor_function* E = execute>
   target_state
   default_action (action, target&);
 
   // Standard perform(clean) action implementation for the file target
   // or derived.
   //
-  template <executor_function* E = execute>
   target_state
   perform_clean (action, target&);
 }

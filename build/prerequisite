@@ -23,7 +23,7 @@ namespace build
   class scope;
   class target;
 
-  // Light-weight (by being shallow-pointing) prerequsite key, similar
+  // Light-weight (by being shallow-pointing) prerequisite key, similar
   // to (and based on) target key.
   //
   class prerequisite_key

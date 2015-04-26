@@ -72,46 +72,24 @@ namespace build
   target_state
   noop_action (action, target&); // Defined in <algorithm>
 
-  // Prerequisite target. It consist of a reference to the prerequisite
-  // plus a pointer to target to which it resolves in this context.
+  // Prerequisite references as used in the target::prerequisites list
+  // below.
   //
-  struct prerequisite_target
+  struct prerequisite_ref: std::reference_wrapper<prerequisite>
   {
-    typedef build::target target_type;
+    typedef std::reference_wrapper<prerequisite> base;
 
-    prerequisite* prereq; // Must not be NULL but can be reset.
+    using base::base;
 
-    operator prerequisite& () const {return *prereq;}
-
-    // Target to which this prerequisite resolves in this context.
-    // Note that unlike prerequisite::target, this can be a group
-    // member target. Depending on the stage, NULL means either
-    // the target is not yet resolved or it should be skipped.
-    //
-    // Note also that it is possible the target can vary from
-    // action to action, just like recipes. We don't need to keep
-    // track of the action here since the target will be updates
-    // if the recipe is updated, as part of rule::apply().
-    //
-    target_type* target {nullptr};
-
-    operator target_type* () const {return target;}
-
-    explicit
-    prerequisite_target (prerequisite& p): prereq (&p) {}
-
-    prerequisite_target (prerequisite& p, target_type& t)
-        : prereq (&p), target (&t) {}
-
-    // Return true if this object belongs to the target's prerequisite
+    // Return true if this reference belongs to the target's prerequisite
     // list. Note that this test only works if you use references to
     // the container elements and the container hasn't been resized
     // since such a reference was obtained. Normally this function is
-    // used when iterating over combined prerequisites range (see
+    // used when iterating over a combined prerequisites range (see
     // group_prerequisites below).
     //
     bool
-    belongs (const target_type&) const;
+    belongs (const target&) const;
   };
 
   // Target.
@@ -155,8 +133,21 @@ namespace build
     // Prerequisites.
     //
   public:
-    typedef std::vector<prerequisite_target> prerequisites_type;
+    typedef std::vector<prerequisite_ref> prerequisites_type;
     prerequisites_type prerequisites;
+
+    // Targets to which prerequisites resolve for this recipe. Note
+    // that unlike prerequisite::target, these can be resolved to
+    // group members. NULL means the target should be skipped (or
+    // the rule may simply not add such a target to the list).
+    //
+    // Note also that it is possible the target can vary from
+    // action to action, just like recipes. We don't need to keep
+    // track of the action here since the targets will be updated
+    // if the recipe is updated, normally as part of rule::apply().
+    //
+    typedef std::vector<target*> prerequisite_targets_type;
+    prerequisite_targets_type prerequisite_targets;
 
     // Check if there are any prerequisites, taking into account
     // group prerequisites.
@@ -284,9 +275,9 @@ namespace build
   // come first followed by the member's. If you need to see them
   // in the other direction, iterate in reverse, for example:
   //
-  // for (prerequisite_target& pe: group_prerequisites (t))
+  // for (prerequisite_ref& pr: group_prerequisites (t))
   //
-  // for (prerequisite_target& pe: reverse_iterate (group_prerequisites (t))
+  // for (prerequisite_ref& pr: reverse_iterate (group_prerequisites (t))
   //
   // Note that in this case the individual elements of each list will
   // also be traversed in reverse, but that's what you usually want,
@@ -384,6 +375,13 @@ namespace build
 
     reverse_iterator
     rend () const {return reverse_iterator (begin ());}
+
+    std::size_t
+    size () const
+    {
+      return t_.prerequisites.size () +
+        (t_.group != nullptr ? t_.group->prerequisites.size () : 0);
+    }
 
   private:
     target& t_;

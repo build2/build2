@@ -4,8 +4,8 @@
 
 namespace build
 {
-  inline bool prerequisite_target::
-  belongs (const target_type& t) const
+  inline bool prerequisite_ref::
+  belongs (const target& t) const
   {
     const auto& p (t.prerequisites);
     return !(p.empty () || this < &p.front () || this > &p.back ());

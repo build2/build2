@@ -5,10 +5,14 @@
 #ifndef BUILD_DUMP
 #define BUILD_DUMP
 
+#include <build/operation>
+
 namespace build
 {
+  // Dump the state pertaining to the specified action.
+  //
   void
-  dump ();
+  dump (action);
 }
 
 #endif // BUILD_DUMP

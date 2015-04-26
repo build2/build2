@@ -74,13 +74,13 @@ namespace build
     target& t (**i);
 
     if (verb >= 5)
-      dump ();
+      dump (a);
 
     level4 ([&]{trace << "matching " << t;});
     match (a, t);
 
     if (verb >= 5)
-      dump ();
+      dump (a);
 
     ts.push_back (&t);
   }

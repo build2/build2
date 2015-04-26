@@ -102,10 +102,8 @@ namespace build
     //
     timestamp mt (dynamic_cast<path_target&> (t).mtime ());
 
-    for (target* pt: t.prerequisites)
+    for (target* pt: t.prerequisite_targets)
     {
-      assert (pt != nullptr); // We don't skip anything.
-
       target_state ts (execute (a, *pt));
 
       // If this is an mtime-based target, then compare timestamps.
@@ -170,6 +168,10 @@ namespace build
   recipe fsdir_rule::
   apply (action a, target& t, void*) const
   {
+    // Inject dependency on the parent directory.
+    //
+    inject_parent_fsdir (a, t);
+
     switch (a.operation ())
     {
     // For default, we don't do anything other than letting our
@@ -190,10 +192,6 @@ namespace build
     default:
       assert (false);
     }
-
-    // Inject dependency on the parent directory.
-    //
-    inject_parent_fsdir (a, t);
 
     switch (a)
     {

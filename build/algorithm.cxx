@@ -5,6 +5,7 @@
 #include <build/algorithm>
 
 #include <memory>   // unique_ptr
+#include <cstddef>  // size_t
 #include <utility>  // move
 #include <cassert>
 
@@ -14,6 +15,7 @@
 #include <build/prerequisite>
 #include <build/rule>
 #include <build/search>
+#include <build/context>
 #include <build/utility>
 #include <build/diagnostics>
 
@@ -33,6 +35,12 @@ namespace build
   void
   match_impl (action a, target& t)
   {
+    // Clear the resolved targets list before calling match(). The rule
+    // is free to, say, resize() this list in match() (provided that it
+    // matches) in order to, for example, prepare it for apply().
+    //
+    t.prerequisite_targets.clear ();
+
     for (auto tt (&t.type ());
          tt != nullptr && !t.recipe (a);
          tt = tt->base)
@@ -148,30 +156,30 @@ namespace build
   void
   search_and_match (action a, target& t)
   {
-    if (t.group != nullptr)
-      search_and_match (a, *t.group);
+    group_prerequisites gp (t);
+    t.prerequisite_targets.resize (gp.size ());
 
-    for (prerequisite_target& p: t.prerequisites)
+    size_t i (0);
+    for (prerequisite& p: gp)
     {
-      p.target = &search (p);
-      match (a, *p.target);
+      target& pt (search (p));
+      match (a, pt);
+      t.prerequisite_targets[i++] = &pt;
     }
   }
 
   void
   search_and_match (action a, target& t, const dir_path& d)
   {
-    if (t.group != nullptr)
-      search_and_match (a, *t.group, d);
-
-    for (prerequisite_target& p: t.prerequisites)
+    for (prerequisite& p: group_prerequisites (t))
     {
-      p.target = &search (p);
+      target& pt (search (p));
 
       if (p.target->dir.sub (d))
-        match (a, *p.target);
-      else
-        p.target = nullptr; // Ignore.
+      {
+        match (a, pt);
+        t.prerequisite_targets.push_back (&pt);
+      }
     }
   }
 
@@ -181,36 +189,41 @@ namespace build
     tracer trace ("inject_parent_fsdir");
 
     scope& s (t.base_scope ());
+    scope* rs (s.root_scope ());
 
-    if (scope* rs = s.root_scope ()) // Could be outside any project.
-    {
-      const dir_path& out_root (rs->path ());
+    if (rs == nullptr) // Could be outside any project.
+      return;
 
-      // If t is a directory (name is empty), say foo/bar/, then
-      // t is bar and its parent directory is foo/.
-      //
-      const dir_path& d (t.name.empty () ? t.dir.directory () : t.dir);
+    const dir_path& out_root (rs->path ());
 
-      if (d.sub (out_root) && d != out_root)
-      {
-        level5 ([&]{trace << "injecting prerequisite for " << t;});
+    // If t is a directory (name is empty), say foo/bar/, then
+    // t is bar and its parent directory is foo/.
+    //
+    const dir_path& d (t.name.empty () ? t.dir.directory () : t.dir);
 
-        prerequisite& p (
-          s.prerequisites.insert (
-            fsdir::static_type,
-            d,
-            string (),
-            nullptr,
-            s,
-            trace).first);
+    if (!d.sub (out_root) || d == out_root)
+      return;
 
-        target& pt (search (p));
+    prerequisite& p (
+      s.prerequisites.insert (
+        fsdir::static_type,
+        d,
+        string (),
+        nullptr,
+        s,
+        trace).first);
 
-        t.prerequisites.emplace_back (p, pt);
+    // This function is normally called from match() which means
+    // it can be called several times if we are performing several
+    // operations (e.g., clean update). Since it is a fairly common
+    // pattern to add this prerequisite at the end, do a quick check
+    // if the last prerequisite is already what we are about to add.
+    //
+    if (!t.prerequisites.empty () && &t.prerequisites.back ().get () == &p)
+      return;
 
-        match (a, pt);
-      }
-    }
+    level5 ([&]{trace << "injecting prerequisite for " << t;});
+    t.prerequisites.emplace_back (p);
   }
 
   target_state
@@ -250,9 +263,115 @@ namespace build
   }
 
   target_state
+  execute_prerequisites (action a, target& t)
+  {
+    target_state ts (target_state::unchanged);
+
+    for (target* pt: t.prerequisite_targets)
+    {
+      if (pt == nullptr) // Skipped.
+        continue;
+
+      if (execute (a, *pt) == target_state::changed)
+        ts = target_state::changed;
+    }
+
+    return ts;
+  }
+
+  target_state
+  reverse_execute_prerequisites (action a, target& t)
+  {
+    target_state ts (target_state::unchanged);
+
+    for (target* pt: reverse_iterate (t.prerequisite_targets))
+    {
+      if (pt == nullptr) // Skipped.
+        continue;
+
+      if (execute (a, *pt) == target_state::changed)
+        ts = target_state::changed;
+    }
+
+    return ts;
+  }
+
+  bool
+  execute_prerequisites (action a, target& t, const timestamp& mt)
+  {
+    bool e (mt == timestamp_nonexistent);
+
+    for (target* pt: t.prerequisite_targets)
+    {
+      if (pt == nullptr) // Skipped.
+        continue;
+
+      target_state ts (execute (a, *pt));
+
+      if (!e)
+      {
+        // If this is an mtime-based target, then compare timestamps.
+        //
+        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
+        {
+          timestamp mp (mpt->mtime ());
+
+          // What do we do if timestamps are equal? This can happen, for
+          // example, on filesystems that don't have subsecond resolution.
+          // There is not much we can do here except detect the case where
+          // the prerequisite was changed in this run which means the
+          // action must be executed on the target as well.
+          //
+          if (mt < mp || (mt == mp && ts == target_state::changed))
+            e = true;
+        }
+        else
+        {
+          // Otherwise we assume the prerequisite is newer if it was changed.
+          //
+          if (ts == target_state::changed)
+            e = true;
+        }
+      }
+    }
+
+    return e;
+  }
+
+  target_state
   noop_action (action, target&)
   {
     assert (false); // We shouldn't be called, see target::recipe().
     return target_state::unchanged;
+  }
+
+  target_state
+  default_action (action a, target& t)
+  {
+    return current_mode == execution_mode::first
+      ? execute_prerequisites (a, t)
+      : reverse_execute_prerequisites (a, t);
+  }
+
+  target_state
+  perform_clean (action a, target& t)
+  {
+    // The reverse order of update: first delete the file, then clean
+    // prerequisites.
+    //
+    file& ft (dynamic_cast<file&> (t));
+
+    bool r (rmfile (ft.path (), ft));
+
+    // Update timestamp in case there are operations after us that
+    // could use the information.
+    //
+    ft.mtime (timestamp_nonexistent);
+
+    // Clean prerequisites.
+    //
+    target_state ts (reverse_execute_prerequisites (a, t));
+
+    return r ? target_state::changed : ts;
   }
 }
