@@ -14,6 +14,7 @@
 #include <ext/stdio_filebuf.h>
 
 #include <build/scope>
+#include <build/variable>
 #include <build/algorithm>
 #include <build/process>
 #include <build/timestamp>
@@ -23,6 +24,8 @@
 #include <build/bin/target>
 
 #include <build/cxx/target>
+
+#include <build/config/utility>
 
 using namespace std;
 
@@ -420,6 +423,67 @@ namespace build
 
     // link
     //
+    inline link::type link::
+    link_type (target& t)
+    {
+      return t.is_a<exe> () ? type::e : (t.is_a<liba> () ? type::a : type::so);
+    }
+
+    static const list_value default_exe_order (names {name ("shared"),
+                                                      name ("static")});
+    static const list_value default_liba_order ("static");
+    static const list_value default_libso_order ("shared");
+
+    link::order link::
+    link_order (target& t)
+    {
+      const char* var;
+      const char* cvar;
+      const list_value* plv;
+
+      //@@ This should be in the bin module, not cxx! @@ remove config include.
+      //   Maybe this should be triggered via the variable access? The same
+      //   for bin.lib? After all, it can be queried in the buildfile.
+      //
+      switch (link_type (t))
+      {
+      case type::e:
+        var = "bin.exe.lib";
+        cvar = "config.bin.exe.lib";
+        plv = &default_exe_order;
+        break;
+      case type::a:
+        var = "bin.liba.lib";
+        cvar = "config.bin.liba.lib";
+        plv = &default_liba_order;
+        break;
+      case type::so:
+        var = "bin.libso.lib";
+        cvar = "config.bin.libso.lib";
+        plv = &default_libso_order;
+        break;
+      }
+
+      if (auto tv = t[var])
+        plv = &tv.as<const list_value&> ();
+      else
+      {
+        scope& root (*t.root_scope ());
+        auto rv (root.vars.assign (var));
+        rv = config::required (root, cvar, *plv).first;
+        plv = &rv.as<const list_value&> ();
+      }
+
+      //@@ Need to validate the value. Would be more efficient
+      //   to do it once on assignment than every time on query.
+      //   Custom var type?
+      //
+      const list_value& lv (*plv);
+      return lv[0].value == "shared"
+        ? lv.size () > 1 && lv[1].value == "static" ? order::so_a : order::so
+        : lv.size () > 1 && lv[1].value == "shared" ? order::a_so : order::a;
+    }
+
     void* link::
     match (action a, target& t, const string& hint) const
     {
@@ -499,31 +563,19 @@ namespace build
 
       path_target& t (static_cast<path_target&> (xt));
 
-      type tt (t.is_a<exe> ()
-               ? type::exe
-               : (t.is_a<liba> () ? type::liba : type::libso));
-
-      bool so (tt == type::libso); // Obj-so.
-
-      // Decide which lib{} member to use for this target.
-      //
-      bool lso; // Lib-so.
-      switch (tt)
-      {
-      case type::exe:   lso = true; break;
-      case type::liba:  lso = false;  break;
-      case type::libso: lso = true; break;
-      }
+      type lt (link_type (t));
+      bool so (lt == type::so);
+      optional<order> lo; // Link-order.
 
       // Derive file name from target name.
       //
       if (t.path ().empty ())
       {
-        switch (tt)
+        switch (lt)
         {
-        case type::exe:   t.path (t.derived_path (           )); break;
-        case type::liba:  t.path (t.derived_path ("a",  "lib")); break;
-        case type::libso: t.path (t.derived_path ("so", "lib")); break;
+        case type::e:  t.path (t.derived_path (           )); break;
+        case type::a:  t.path (t.derived_path ("a",  "lib")); break;
+        case type::so: t.path (t.derived_path ("so", "lib")); break;
         }
       }
 
@@ -577,13 +629,32 @@ namespace build
           }
           else if (lib* l = pt->is_a<lib> ())
           {
-            // Make sure the library build that we need is available.
+            // Determine the library type to link.
             //
+            bool lso (true);
             const string& at ((*l)["bin.lib"].as<const string&> ());
 
-            if (lso ? at == "static" : at == "shared")
-              fail << (lso ? "shared" : "static") << " build of " << *l
-                   << " is not available";
+            if (!lo)
+              lo = link_order (t);
+
+            switch (*lo)
+            {
+            case order::a:
+            case order::a_so:
+              lso = false; // Fall through.
+            case order::so:
+            case order::so_a:
+              {
+                if (lso ? at == "static" : at == "shared")
+                {
+                  if (*lo == order::a_so || *lo == order::so_a)
+                    lso = !lso;
+                  else
+                    fail << (lso ? "shared" : "static") << " build of " << *l
+                         << " is not available";
+                }
+              }
+            }
 
             pt = lso ? static_cast<target*> (l->so) : l->a;
 
@@ -769,11 +840,8 @@ namespace build
     {
       path_target& t (static_cast<path_target&> (xt));
 
-      type tt (t.is_a<exe> ()
-               ? type::exe
-               : (t.is_a<liba> () ? type::liba : type::libso));
-
-      bool so (tt == type::libso);
+      type lt (link_type (t));
+      bool so (lt == type::so);
 
       if (!execute_prerequisites (a, t, t.mtime ()))
         return target_state::unchanged;
@@ -788,7 +856,7 @@ namespace build
       vector<const char*> args;
       string storage1;
 
-      if (tt == type::liba)
+      if (lt == type::a)
       {
         //@@ ranlib
         //
@@ -832,7 +900,7 @@ namespace build
         args.push_back (relo.back ().string ().c_str ());
       }
 
-      if (tt != type::liba)
+      if (lt != type::a)
         append_options (args, t, "cxx.libs");
 
       args.push_back (nullptr);

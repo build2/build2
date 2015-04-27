@@ -38,8 +38,6 @@ namespace build
     class link: public rule
     {
     public:
-      enum class type {exe, liba, libso};
-
       virtual void*
       match (action, target&, const std::string& hint) const;
 
@@ -48,6 +46,16 @@ namespace build
 
       static target_state
       perform_update (action, target&);
+
+    private:
+      enum class type {e, a, so};
+      enum class order {a, so, a_so, so_a};
+
+      static type
+      link_type (target&);
+
+      static order
+      link_order (target&);
     };
   }
 }

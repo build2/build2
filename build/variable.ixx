@@ -26,6 +26,13 @@ namespace build
   }
 
   inline const value_proxy& value_proxy::
+  operator= (list_value v) const
+  {
+    p->reset (new list_value (std::move (v)));
+    return *this;
+  }
+
+  inline const value_proxy& value_proxy::
   operator= (std::string v) const
   {
     // In most cases this is used to initialize a new variable, so
@@ -70,7 +77,7 @@ namespace build
   operator+= (const list_value& v) const
   {
     if (*p == nullptr)
-      *this = value_ptr (new list_value (v));
+      *this = v;
     else
     {
       list_value& lv (as<list_value&> ());

@@ -38,6 +38,35 @@ namespace build
     bool operator() (const P& x, const P& y) const {return *x < *y;}
   };
 
+  // Simple optional class template while waiting for std::optional.
+  //
+  template <typename T>
+  class optional
+  {
+  public:
+    typedef T value_type;
+
+    optional (): null_ (true) {}
+    optional (const T& v): value_ (v), null_ (false) {}
+    optional& operator= (const T& v) {value_ = v; null_ = false; return *this;}
+
+    T&       value () {return value_;}
+    const T& value () const {return value_;}
+
+    T*       operator-> () {return &value_;}
+    const T* operator-> () const {return &value_;}
+
+    T&       operator* () {return value_;}
+    const T& operator* () const {return value_;}
+
+    explicit operator bool () const {return !null_;}
+
+  private:
+    T value_;
+    bool null_;
+  };
+
+
   // Support for reverse iteration using range-based for-loop:
   //
   // for (... : reverse_iterate (x)) ...
