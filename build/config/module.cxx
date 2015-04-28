@@ -6,6 +6,7 @@
 
 #include <build/path>
 #include <build/scope>
+#include <build/file>
 #include <build/filesystem>
 #include <build/diagnostics>
 
@@ -17,19 +18,9 @@ namespace build
 {
   namespace config
   {
-    static bool
-    trigger (bool pre, scope& base, path& p)
-    {
-      tracer trace ("config::trigger");
-
-      if (pre)
-      {
-        level4 ([&]{trace << "intercepted sourcing of " << p;});
-        return file_exists (p);
-      }
-      else
-        return true;
-    }
+    //@@ Same as in operation.cxx
+    //
+    static const path config_file ("build/config.build");
 
     void
     init (scope& root, scope& base, const location& l)
@@ -51,9 +42,12 @@ namespace build
           root.meta_operations.insert (disfigure) != disfigure_id)
         fail (l) << "config module must be initialized before other modules";
 
-      // Register the build/config.build sourcing trigger.
+      // Load config.build if one exists.
       //
-      root.triggers[out_root / path ("build/config.build")] = &trigger;
+      path f (out_root / config_file);
+
+      if (file_exists (f))
+        source (f, root, root);
     }
   }
 }

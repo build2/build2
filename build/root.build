@@ -1,5 +1,3 @@
-source $out_root/build/config.build
-
 using cxx
 
 cxx.std = 14
