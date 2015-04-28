@@ -67,6 +67,8 @@ namespace build
   struct list_value: value, names
   {
   public:
+    using names::names;
+
     list_value () = default;
     list_value (names d): names (std::move (d)) {}
     list_value (std::string d) {emplace_back (std::move (d));}
@@ -87,6 +89,10 @@ namespace build
   // value_proxy
   //
   // A variable can be undefined, null, or contain some actual value.
+  // Note that once value_proxy is bound to a value, the only way to
+  // rebind it to a different value is by using explicit rebind(). In
+  // particular, assigning one value proxy to another will assing the
+  // values.
   //
   struct variable_map;
 
@@ -148,7 +154,11 @@ namespace build
     //
     const variable_map* map; // Variable map to which this value belongs.
 
+    value_proxy (): map (nullptr), p (nullptr) {}
     value_proxy (value_ptr* p, const variable_map* m): map (m), p (p) {}
+
+    void
+    rebind (const value_proxy& x) {map = x.map; p = x.p;}
 
   private:
     value_ptr* p;

@@ -605,6 +605,26 @@ namespace build
     if (src_root_ == nullptr)
       fail (t) << "import during bootstrap";
 
+    // General import format:
+    //
+    // import [<var>=](<project>|<project>/<target>])+
+    //
+    value_proxy val;
+    token_type at; // Assignment type.
+    if (tt == type::name)
+    {
+      at = peek ();
+
+      if (at == token_type::equal || at == token_type::plus_equal)
+      {
+        val.rebind (at == token_type::equal
+                    ? scope_->assign (t.name ())
+                    : scope_->append (t.name ()));
+        next (t, tt); // Consume =/+=.
+        next (t, tt);
+      }
+    }
+
     // The rest should be a list of projects and/or targets. Parse
     // them as names to get variable expansion and directory prefixes.
     //
@@ -615,13 +635,15 @@ namespace build
 
     for (name& n: ns)
     {
-      // For now we only support project names.
-      //
-      if (!n.simple ())
-        fail (l) << "project name expected instead of " << n;
+      list_value r (build::import (*scope_, n, l));
 
-
-      build::import (*scope_, n, l);
+      if (val.defined ())
+      {
+        if (at == token_type::equal)
+          val = move (r);
+        else
+          val += move (r);
+      }
     }
 
     if (tt == type::newline)
@@ -642,26 +664,12 @@ namespace build
     if (ps == nullptr || ps->path () != scope_->path ())
       fail (t) << "export outside export stub";
 
-    // The rest should be a list of variables. Parse them as names
-    // to get variable expansion.
+    // The rest is a value. Parse it as names to get variable expansion.
     //
     location l (get_location (t, &path_));
-    names_type ns (tt != type::newline && tt != type::eos
-                   ? names (t, tt)
-                   : names_type ());
-
-    for (name& n: ns)
-    {
-      if (!n.simple ())
-        fail (l) << "variable name expected instead of " << n;
-
-      const auto& var (variable_pool.find (n.value));
-
-      if (auto val = scope_->vars[var])
-        ps->assign (var) = val; //@@ Move?
-      else
-        fail (l) << "undefined exported variable " << var.name;
-    }
+    export_value_ = (tt != type::newline && tt != type::eos
+                     ? names (t, tt)
+                     : names_type ());
 
     if (tt == type::newline)
       next (t, tt);

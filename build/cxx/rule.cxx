@@ -68,6 +68,22 @@ namespace build
       }
     }
 
+    // Append library options from one of the cxx.export.* variables
+    // recursively, prerequisite libraries first.
+    //
+    static void
+    append_lib_options (vector<const char*>& args, target& l, const char* var)
+    {
+      for (target* t: l.prerequisite_targets)
+      {
+        if (t != nullptr &&
+            (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ()))
+          append_lib_options (args, *t, var);
+      }
+
+      append_options (args, l, var);
+    }
+
     // compile
     //
     void* compile::
@@ -121,12 +137,25 @@ namespace build
       // When cleaning, ignore prerequisites that are not in the same
       // or a subdirectory of ours.
       //
-      switch (a.operation ())
+      for (prerequisite& p: group_prerequisites (t))
       {
-      case default_id:
-      case update_id: search_and_match (a, t); break;
-      case clean_id:  search_and_match (a, t, t.dir); break;
-      default:        assert (false);
+        target& pt (search (p));
+
+        if (a.operation () == clean_id && !pt.dir.sub (t.dir))
+          continue;
+
+        build::match (a, pt);
+
+        // A dependency on a library is there so that we can get its
+        // cxx.export.poptions. In particular, making sure it is
+        // executed before us will only restrict parallelism. But we
+        // do need to match it in order to get its prerequisite_targets
+        // populated; see append_lib_options() above.
+        //
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          continue;
+
+        t.prerequisite_targets.push_back (&pt);
       }
 
       // Inject additional prerequisites. For now we only do it for
@@ -204,6 +233,16 @@ namespace build
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
+
+      // Add cxx.export.poptions from prerequisite libraries.
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target& pt (*p.target); // Already searched and matched.
+
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          append_lib_options (args, pt, "cxx.export.poptions");
+      }
 
       append_options (args, t, "cxx.poptions");
 
@@ -368,6 +407,16 @@ namespace build
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
+
+      // Add cxx.export.poptions from prerequisite libraries.
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target& pt (*p.target); // Already searched and matched.
+
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          append_lib_options (args, pt, "cxx.export.poptions");
+      }
 
       append_options (args, t, "cxx.poptions");
       append_options (args, t, "cxx.coptions");
@@ -586,6 +635,7 @@ namespace build
       // We may need the project roots for rule chaining (see below).
       // We will resolve them lazily only if needed.
       //
+      scope* root (nullptr);
       const dir_path* out_root (nullptr);
       const dir_path* src_root (nullptr);
 
@@ -673,16 +723,16 @@ namespace build
           continue;
         }
 
-        if (out_root == nullptr)
+        if (root == nullptr)
         {
           // Which scope shall we use to resolve the root? Unlikely,
           // but possible, the prerequisite is from a different project
           // altogether. So we are going to use the target's project.
           //
-          scope* rs (t.root_scope ());
-          assert (rs != nullptr); // Shouldn't have matched.
-          out_root = &rs->path ();
-          src_root = &rs->src_path ();
+          root = t.root_scope ();
+          assert (root != nullptr); // Shouldn't have matched.
+          out_root = &root->path ();
+          src_root = &root->src_path ();
         }
 
         prerequisite& cp (p);
@@ -817,6 +867,23 @@ namespace build
           // Note: add the source to the group, not the member.
           //
           pt->prerequisites.emplace_back (cp);
+
+          // Add our imported lib*{} prerequisites to the object file (see
+          // cxx.export.poptions above for details).
+          //
+          for (prerequisite& p: group_prerequisites (t))
+          {
+            if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+            {
+              // Check that it is imported, that is its root scope differs
+              // from ours.
+              //
+              if (p.dir.absolute () && // Imported is always absolute.
+                  scopes.find (p.dir).root_scope () != root)
+                pt->prerequisites.emplace_back (p);
+            }
+          }
+
           build::match (a, *ot);
         }
 

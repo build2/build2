@@ -28,31 +28,31 @@ namespace build
 
     os << ':';
 
-    // If the target has been matched to a rule, print resolved
+    for (const prerequisite& p: t.prerequisites)
+    {
+      os << ' ';
+
+      // Print it as target if one has been cached.
+      //
+      if (p.target != nullptr)
+        os << *p.target;
+      else
+        os << p;
+    }
+
+    // If the target has been matched to a rule, also print resolved
     // prerequisite targets.
     //
     if (t.recipe (a))
     {
+      bool first (true);
       for (const target* pt: t.prerequisite_targets)
       {
         if (pt == nullptr) // Skipped.
           continue;
 
-        os << ' ' << *pt;
-      }
-    }
-    else
-    {
-      for (const prerequisite& p: t.prerequisites)
-      {
-        os << ' ';
-
-        // Print it as target if one has been cached.
-        //
-        if (p.target != nullptr)
-          os << *p.target;
-        else
-          os << p;
+        os << (first ? " | " : " ") << *pt;
+        first = false;
       }
     }
   }

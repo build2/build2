@@ -335,14 +335,14 @@ namespace build
       iterator
       operator-- (int) {iterator r (*this); return --r;}
 
+      reference operator* () const {return *i_;}
+      pointer operator-> () const {return i_.operator -> ();}
+
       friend bool
       operator== (const iterator& x, const iterator& y)
       {
         return x.t_ == y.t_ && x.c_ == y.c_ && x.i_ == y.i_;
       }
-
-      reference operator* () const {return *i_;}
-      pointer operator-> () const {return i_.operator -> ();}
 
       friend bool
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}

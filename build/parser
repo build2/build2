@@ -7,11 +7,13 @@
 
 #include <string>
 #include <iosfwd>
+#include <utility> // move()
 
 #include <build/path>
 #include <build/token>
 #include <build/name>
 #include <build/spec>
+#include <build/variable>    // list_value
 #include <build/diagnostics>
 
 namespace build
@@ -35,6 +37,14 @@ namespace build
 
     token
     parse_variable (lexer&, scope&, std::string name, token_type kind);
+
+    list_value
+    export_value ()
+    {
+      list_value r (std::move (export_value_));
+      export_value_.clear (); // Empty state.
+      return r;
+    }
 
     // Recursive descent parser.
     //
@@ -123,6 +133,7 @@ namespace build
     const dir_path* out_root_;
     const dir_path* src_root_;
     target* default_target_;
+    list_value export_value_;
 
     token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};

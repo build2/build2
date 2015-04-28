@@ -7,11 +7,10 @@
 #include <fstream>
 
 #include <build/scope>
+#include <build/context>
 #include <build/parser>
 #include <build/filesystem>
 #include <build/diagnostics>
-
-#include <build/config/utility>
 
 using namespace std;
 
@@ -252,19 +251,85 @@ namespace build
       source_once (bf, root, root);
   }
 
-  void
+  list_value
   import (scope& ibase, const name& n, const location& l)
   {
+    tracer trace ("import");
+
+    // Split the name into the project and target.
+    //
+    string project;
+    name target;
+
+    if (n.dir.empty ())
+    {
+      if (!n.simple ())
+        fail << "project name expected before imported target " << n;
+
+      // Note that value can be foo/bar/baz; in this case probably
+      // means sub-projects? Or only to a certain point, then
+      // (untyped) target? Looks like I will need to scan anything
+      // that looks like a directory checking if this is a subproject.
+      // If not, then that's part of the target.
+      //
+      project = n.value;
+    }
+    else
+    {
+      //@@ This can be a path inside a sub-project. So, eventually,
+      //   we should find the innermost sub-project and load the
+      //   export stub from there (will probably still have to
+      //   resolve root from the top-level project). For now we
+      //   assume the project is always top-level.
+      //
+      project = *n.dir.begin ();
+
+      target.dir = n.dir.leaf (dir_path (project));
+      target.type = n.type;
+      target.value = n.value;
+    }
+
     scope& iroot (*ibase.root_scope ());
 
     // Figure out this project's out_root.
     //
-    string var ("config." + n.value);
-    const dir_path& out_root (
-      config::required (iroot, var.c_str (), dir_path ()).first);
+    dir_path out_root;
+    string var ("config." + project);
 
-    if (out_root.empty ())
-      fail (l) << "unable to find out_root for imported " << n <<
+    if (auto v = iroot[var])
+    {
+      if (!v.belongs (*global_scope)) // A value from (some) config.build.
+        out_root = v.as<const dir_path&> ();
+      else
+      {
+        // Process the path by making it absolute and normalized. Also,
+        // for usability's sake, treat a simple name that doesn't end
+        // with '/' as a directory.
+        //
+        const list_value& lv (v.as<const list_value&> ());
+
+        if (lv.size () == 1)
+        {
+          const name& n (lv.front ());
+
+          if (n.directory ())
+            out_root = n.dir;
+          else if (n.simple ())
+            out_root = dir_path (n.value);
+        }
+
+        if (out_root.empty ())
+          fail (l) << "invalid " << var << " value " << lv;
+
+        if (out_root.relative ())
+          out_root = work / out_root;
+
+        out_root.normalize ();
+        iroot.assign (var) = out_root;
+      }
+    }
+    else
+      fail (l) << "unable to find out_root for imported " << project <<
         info << "consider explicitly configuring its out_root via the "
                << var << " command line variable";
 
@@ -290,7 +355,7 @@ namespace build
       root.src_path_ = &p;
     }
     else
-      fail (l) << "unable to determine src_root for imported " << n <<
+      fail (l) << "unable to determine src_root for imported " << project <<
         info << "consider configuring " << out_root;
 
     bootstrap_src (root);
@@ -311,14 +376,42 @@ namespace build
 
     // "Pass" the imported project's roots to the stub.
     //
-    ts.assign ("out_root") = out_root;
-    ts.assign ("src_root") = src_root;
+    ts.assign ("out_root") = move (out_root);
+    ts.assign ("src_root") = move (src_root);
+
+    // Also pass the target being imported.
+    //
+    {
+      auto v (ts.assign ("target"));
+
+      if (!target.empty ()) // Otherwise leave NULL.
+        v = list_value {move (target)};
+    }
 
     // Load the export stub. Note that it is loaded in the context
     // of the importing project, not the imported one. The export
     // stub will normally switch to the imported root scope at some
     // point.
     //
-    source (root.src_path () / path ("build/export.build"), iroot, ts);
+    path es (root.src_path () / path ("build/export.build"));
+    ifstream ifs (es.string ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << es;
+
+    level4 ([&]{trace << "importing " << es;});
+
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+    parser p;
+
+    try
+    {
+      p.parse_buildfile (ifs, es, iroot, ts);
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << es;
+    }
+
+    return p.export_value ();
   }
 }

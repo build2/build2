@@ -175,7 +175,7 @@ namespace build
     {
       target& pt (search (p));
 
-      if (p.target->dir.sub (d))
+      if (pt.dir.sub (d))
       {
         match (a, pt);
         t.prerequisite_targets.push_back (&pt);

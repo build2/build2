@@ -24,6 +24,8 @@ namespace build
   //
   struct name
   {
+    name () = default;
+
     explicit
     name (std::string v): value (std::move (v)) {}
 
