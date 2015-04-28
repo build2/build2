@@ -77,6 +77,40 @@ main ()
   assert (path ("C:\\foo.txt").base ().string () == "C:\\foo");
 #endif
 
+  // iteration
+  //
+  {
+    path p;
+    assert (p.begin () == p.end ());
+  }
+  {
+    path p ("foo");
+    path::iterator i (p.begin ());
+    assert (i != p.end () && *i == "foo");
+    assert (++i == p.end ());
+  }
+  {
+    path p ("foo/bar");
+    path::iterator i (p.begin ());
+    assert (i != p.end () && *i == "foo");
+    assert (++i != p.end () && *i == "bar");
+    assert (++i == p.end ());
+  }
+  {
+    path p ("/foo/bar");
+    path::iterator i (p.begin ());
+    assert (i != p.end () && *i == "");
+    assert (++i != p.end () && *i == "foo");
+    assert (++i != p.end () && *i == "bar");
+    assert (++i == p.end ());
+  }
+  {
+    path p ("/");
+    path::iterator i (p.begin ());
+    assert (i != p.end () && *i == "");
+    assert (++i == p.end ());
+  }
+
   // operator/
   //
 #ifndef _WIN32

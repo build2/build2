@@ -85,6 +85,41 @@ namespace build
   }
 
   template <typename C, typename K>
+  inline auto basic_path<C, K>::
+  begin () const -> iterator
+  {
+    size_type b, e;
+
+    if (this->path_.empty ())
+      b = e = string_type::npos;
+
+#ifndef _WIN32
+    else if (root ())
+    {
+      // We want to return a single empty component. Here we return
+      // the begin position one past the end. Not sure if this legal.
+      //
+      b = 1;
+      e = string_type::npos;
+    }
+#endif
+    else
+    {
+      b = 0;
+      e = traits::find_separator (this->path_);
+    }
+
+    return iterator (this->path_, b, e);
+  }
+
+  template <typename C, typename K>
+  inline auto basic_path<C, K>::
+  end () const -> iterator
+  {
+    return iterator (this->path_, string_type::npos, string_type::npos);
+  }
+
+  template <typename C, typename K>
   inline basic_path<C, K>& basic_path<C, K>::
   complete ()
   {

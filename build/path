@@ -6,8 +6,10 @@
 #define BUILD_PATH
 
 #include <string>
+#include <cstddef>    // ptrdiff_t
 #include <ostream>
 #include <utility>    // move
+#include <iterator>
 #include <exception>
 #include <functional> // hash
 
@@ -351,6 +353,63 @@ namespace build
     //
     basic_path
     relative (basic_path) const;
+
+    // Iteration over path components.
+    //
+  public:
+    struct iterator
+    {
+      typedef string_type value_type;
+      typedef string_type* pointer;
+      typedef string_type& reference;
+      typedef std::ptrdiff_t difference_type;
+      typedef std::forward_iterator_tag iterator_category;
+
+      typedef typename string_type::size_type size_type;
+
+      iterator (): p_ (nullptr) {}
+      iterator (const string_type& p, size_type b, size_type e)
+          : p_ (&p), b_ (b), e_ (e) {}
+
+      iterator&
+      operator++ ()
+      {
+        b_ = e_;
+
+        if (b_ != string_type::npos)
+          e_ = traits::find_separator (*p_, ++b_);
+
+        return *this;
+      }
+
+      iterator
+      operator++ (int) {iterator r (*this); return ++r;}
+
+      string_type operator* () const
+      {
+        return string_type (*p_, b_, (e_ != string_type::npos ? e_ - b_ : e_));
+      }
+
+      friend bool
+      operator== (const iterator& x, const iterator& y)
+      {
+        return x.p_ == y.p_ && x.b_ == y.b_ && x.e_ == y.e_;
+      }
+
+      friend bool
+      operator!= (const iterator& x, const iterator& y) {return !(x == y);}
+
+    private:
+      // b != npos && e == npos - last component
+      // b == npos && e == npos - one past last component (end)
+      //
+      const string_type* p_;
+      size_type b_;
+      size_type e_;
+    };
+
+    iterator begin () const;
+    iterator end () const;
 
   public:
     // Normalize the path. This includes collapsing the '.' and '..'
