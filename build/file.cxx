@@ -294,7 +294,7 @@ namespace build
     // Figure out this project's out_root.
     //
     dir_path out_root;
-    string var ("config." + project);
+    string var ("config.import." + project);
 
     if (auto v = iroot[var])
     {
