@@ -12,6 +12,8 @@
 #include <build/process>
 #include <build/diagnostics>
 
+#include <build/bin/module>
+
 #include <build/config/utility>
 
 using namespace std;
@@ -32,6 +34,10 @@ namespace build
       //
       if (&root != &base)
         fail (l) << "cxx module must be initialized in project root scope";
+
+      // Initialize the bin module.
+      //
+      bin::init (root, base, l);
 
       //@@ TODO: need to register target types, rules here instead of main().
 

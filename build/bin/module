@@ -14,12 +14,6 @@ namespace build
   {
     void
     init (scope&, scope&, const location&);
-
-    // Init the 'lib' part of the module because a lib{} target
-    // has been created in the specified directory.
-    //
-    void
-    init_lib (const dir_path&);
   }
 }
 

@@ -25,8 +25,6 @@
 
 #include <build/cxx/target>
 
-#include <build/config/utility>
-
 using namespace std;
 
 namespace build
@@ -478,56 +476,19 @@ namespace build
       return t.is_a<exe> () ? type::e : (t.is_a<liba> () ? type::a : type::so);
     }
 
-    static const list_value default_exe_order (names {name ("shared"),
-                                                      name ("static")});
-    static const list_value default_liba_order ("static");
-    static const list_value default_libso_order ("shared");
-
     link::order link::
     link_order (target& t)
     {
       const char* var;
-      const char* cvar;
-      const list_value* plv;
 
-      //@@ This should be in the bin module, not cxx! @@ remove config include.
-      //   Maybe this should be triggered via the variable access? The same
-      //   for bin.lib? After all, it can be queried in the buildfile.
-      //
       switch (link_type (t))
       {
-      case type::e:
-        var = "bin.exe.lib";
-        cvar = "config.bin.exe.lib";
-        plv = &default_exe_order;
-        break;
-      case type::a:
-        var = "bin.liba.lib";
-        cvar = "config.bin.liba.lib";
-        plv = &default_liba_order;
-        break;
-      case type::so:
-        var = "bin.libso.lib";
-        cvar = "config.bin.libso.lib";
-        plv = &default_libso_order;
-        break;
+      case type::e:  var = "bin.exe.lib";   break;
+      case type::a:  var = "bin.liba.lib";  break;
+      case type::so: var = "bin.libso.lib"; break;
       }
 
-      if (auto tv = t[var])
-        plv = &tv.as<const list_value&> ();
-      else
-      {
-        scope& root (*t.root_scope ());
-        auto rv (root.vars.assign (var));
-        rv = config::required (root, cvar, *plv).first;
-        plv = &rv.as<const list_value&> ();
-      }
-
-      //@@ Need to validate the value. Would be more efficient
-      //   to do it once on assignment than every time on query.
-      //   Custom var type?
-      //
-      const list_value& lv (*plv);
+      const list_value& lv (t[var].as<const list_value&> ());
       return lv[0].value == "shared"
         ? lv.size () > 1 && lv[1].value == "static" ? order::so_a : order::so
         : lv.size () > 1 && lv[1].value == "shared" ? order::a_so : order::a;
