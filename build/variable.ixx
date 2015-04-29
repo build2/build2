@@ -28,7 +28,13 @@ namespace build
   inline const value_proxy& value_proxy::
   operator= (list_value v) const
   {
-    p->reset (new list_value (std::move (v)));
+    if (*p == nullptr)
+      p->reset (new list_value (std::move (v)));
+    else
+      //@@ Assuming it is a list_value.
+      //
+      as<list_value&> () = std::move (v);
+
     return *this;
   }
 

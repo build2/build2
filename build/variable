@@ -173,8 +173,13 @@ namespace build
   as<const value&> () const {return **p;}
 
   template <>
-  list_value& value_proxy::
-  as<list_value&> () const;
+  inline list_value& value_proxy::
+  as<list_value&> () const
+  {
+    list_value* lv (dynamic_cast<list_value*> (p->get ()));
+    assert (lv != nullptr);
+    return *lv;
+  }
 
   template <>
   inline const list_value& value_proxy::

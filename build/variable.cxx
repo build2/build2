@@ -15,15 +15,6 @@ namespace build
   // value_proxy
   //
   template <>
-  list_value& value_proxy::
-  as<list_value&> () const
-  {
-    list_value* lv (dynamic_cast<list_value*> (p->get ()));
-    assert (lv != nullptr);
-    return *lv;
-  }
-
-  template <>
   const string& value_proxy::
   as<const string&> () const
   {

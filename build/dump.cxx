@@ -18,10 +18,38 @@ using namespace std;
 
 namespace build
 {
-  static void
-  dump_target (ostream& os, action a, const target& t)
+  static bool
+  dump_variables (ostream& os, string& ind, const variable_map& vars)
   {
-    os << t;
+    bool r (false);
+
+    for (const auto& e: vars)
+    {
+      const variable& var (e.first);
+      const value_ptr& val (e.second);
+
+      os << endl
+         << ind << var.name << " = ";
+
+      if (val == nullptr)
+        os << "[null]";
+      else
+      {
+        //@@ TODO: assuming it is a list.
+        //
+        os << dynamic_cast<list_value&> (*val);
+      }
+
+      r = true;
+    }
+
+    return r;
+  }
+
+  static void
+  dump_target (ostream& os, string& ind, action a, const target& t)
+  {
+    os << ind << t;
 
     if (t.group != nullptr)
       os << "->" << *t.group;
@@ -55,14 +83,27 @@ namespace build
         first = false;
       }
     }
+
+    // Print target-specific variables.
+    //
+    if (!t.vars.empty ())
+    {
+      os << endl
+         << ind << '{';
+      ind += "  ";
+      dump_variables (os, ind, t.vars);
+      ind.resize (ind.size () - 2);
+      os << endl
+         << ind << '}';
+    }
   }
 
   static void
   dump_scope (ostream& os,
+              string& ind,
               action a,
               scope& p,
               scope_map::iterator& i,
-              string& ind,
               set<const target*>& rts)
   {
     // We don't want the extra notations (e.g., ~/) provided by
@@ -81,25 +122,7 @@ namespace build
 
     // Variables.
     //
-    for (const auto& e: p.vars)
-    {
-      const variable& var (e.first);
-      const value_ptr& val (e.second);
-
-      os << endl
-         << ind << var.name << " = ";
-
-      if (val == nullptr)
-        os << "[null]";
-      else
-      {
-        //@@ TODO: assuming it is a list.
-        //
-        os << dynamic_cast<list_value&> (*val);
-      }
-
-      vb = true;
-    }
+    vb = dump_variables (os, ind, p.vars);
 
     // Nested scopes of which we are a parent.
     //
@@ -116,7 +139,7 @@ namespace build
 
       os << endl;
       scope& s (i->second);
-      dump_scope (os, a, s, ++i, ind, rts);
+      dump_scope (os, ind, a, s, ++i, rts);
 
       sb = true;
     }
@@ -161,9 +184,8 @@ namespace build
         vb = sb = false;
       }
 
-      os << endl
-         << ind;
-      dump_target (os, a, t);
+      os << endl;
+      dump_target (os, ind, a, t);
     }
 
     ind.resize (ind.size () - 2);
@@ -184,7 +206,7 @@ namespace build
     set<const target*> rts;
 
     ostream& os (*diag_stream);
-    dump_scope (os, a, g, ++i, ind, rts);
+    dump_scope (os, ind, a, g, ++i, rts);
     os << endl;
   }
 }

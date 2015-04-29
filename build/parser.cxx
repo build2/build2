@@ -41,6 +41,7 @@ namespace build
 
     lexer l (is, rw);
     lexer_ = &l;
+    target_ = nullptr;
     scope_ = &base;
     root_ = nullptr;
     switch_root (&root);
@@ -63,6 +64,7 @@ namespace build
   {
     path_ = &l.name ();
     lexer_ = &l;
+    target_ = nullptr;
     scope_ = &s;
 
     token t (type::eos, false, 0, 0);
@@ -137,7 +139,7 @@ namespace build
 
       // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
       //
-      location nloc (get_location (t, &path_));
+      const location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
                      ? names (t, tt)
                      : names_type ({name ("dir", dir_path (), string ())}));
@@ -179,7 +181,7 @@ namespace build
                 {
                   // @@ TODO: point to name.
                   //
-                  fail (t) << "multiple names in directory scope";
+                  fail (nloc) << "multiple names in directory scope";
                 }
 
                 dir = true;
@@ -240,7 +242,8 @@ namespace build
           //
         }
 
-        // Dependency declaration.
+        // Dependency declaration or scope/target-specific variable
+        // assignment.
         //
         if (tt == type::name    ||
             tt == type::lcbrace ||
@@ -248,36 +251,14 @@ namespace build
             tt == type::newline ||
             tt == type::eos)
         {
-          location ploc (get_location (t, &path_));
+          const location ploc (get_location (t, &path_));
           names_type pns (tt != type::newline && tt != type::eos
                           ? names (t, tt)
                           : names_type ());
 
-          // Prepare the prerequisite list.
+          // Common target entering code used in both cases.
           //
-          target::prerequisites_type ps;
-          ps.reserve (pns.size ());
-
-          for (auto& pn: pns)
-          {
-            const string* e;
-            const target_type* ti (target_types.find (pn, e));
-
-            if (ti == nullptr)
-              fail (ploc) << "unknown target type " << pn.type;
-
-            pn.dir.normalize ();
-
-            // Find or insert.
-            //
-            prerequisite& p (
-              scope_->prerequisites.insert (
-                *ti, move (pn.dir), move (pn.value), e, *scope_, trace).first);
-
-            ps.emplace_back (p);
-          }
-
-          for (auto& tn: ns)
+          auto enter_target = [this, &nloc, &trace] (name&& tn) -> target&
           {
             const string* e;
             const target_type* ti (target_types.find (tn, e));
@@ -299,18 +280,95 @@ namespace build
 
             // Find or insert.
             //
-            target& t (
-              targets.insert (
-                *ti, move (tn.dir), move (tn.value), e, trace).first);
+            return targets.insert (
+              *ti, move (tn.dir), move (tn.value), e, trace).first;
+          };
 
-            //@@ OPT: move if last/single target (common cases).
+          // Scope/target-specific variable assignment.
+          //
+          if (tt == type::equal || tt == type::plus_equal)
+          {
+            string var (variable_name (move (pns), ploc));
+
+            // Enter the target/scope and set it as current.
             //
-            t.prerequisites.insert (t.prerequisites.end (),
-                                    ps.begin (),
-                                    ps.end ());
+            if (ns.size () != 1)
+              fail (nloc) << "multiple names in scope/target-specific "
+                          << "variable assignment";
 
-            if (default_target_ == nullptr)
-              default_target_ = &t;
+            name& n (ns[0]);
+
+            target* ot (target_);
+            scope* os (scope_);
+
+            if (n.directory ())
+            {
+              // The same code as in directory scope handling code above.
+              //
+              dir_path p (move (n.dir));
+
+              if (p.relative ())
+                p = scope_->path () / p;
+
+              p.normalize ();
+              scope_ = &scopes[move (p)];
+            }
+            else
+              target_ = &enter_target (move (n));
+
+            type kind (tt);
+            next (t, tt);
+            variable (t, tt, move (var), kind);
+
+            scope_ = os;
+            target_ = ot;
+          }
+          // Dependency declaration.
+          //
+          else
+          {
+            // Prepare the prerequisite list.
+            //
+            target::prerequisites_type ps;
+            ps.reserve (pns.size ());
+
+            for (auto& pn: pns)
+            {
+              const string* e;
+              const target_type* ti (target_types.find (pn, e));
+
+              if (ti == nullptr)
+                fail (ploc) << "unknown target type " << pn.type;
+
+              pn.dir.normalize ();
+
+              // Find or insert.
+              //
+              prerequisite& p (
+                scope_->prerequisites.insert (
+                  *ti,
+                  move (pn.dir),
+                  move (pn.value),
+                  e,
+                  *scope_,
+                  trace).first);
+
+              ps.emplace_back (p);
+            }
+
+            for (auto& tn: ns)
+            {
+              target& t (enter_target (move (tn)));
+
+              //@@ OPT: move if last/single target (common cases).
+              //
+              t.prerequisites.insert (t.prerequisites.end (),
+                                      ps.begin (),
+                                      ps.end ());
+
+              if (default_target_ == nullptr)
+                default_target_ = &t;
+            }
           }
 
           if (tt == type::newline)
@@ -331,21 +389,11 @@ namespace build
       //
       if (tt == type::equal || tt == type::plus_equal)
       {
-        // LHS should be a single, simple name.
-        //
-        if (ns.size () != 1 || !ns[0].type.empty () || !ns[0].dir.empty ())
-          fail (t) << "variable name expected before " << t;
-
-        string name;
-        if (ns[0].value.front () == '.') // Fully qualified name.
-          name.assign (ns[0].value, 1, string::npos);
-        else
-          //@@ TODO: append namespace if any.
-          name = move (ns[0].value);
+        string var (variable_name (move (ns), nloc));
 
         type kind (tt);
         next (t, tt);
-        variable (t, tt, move (name), kind);
+        variable (t, tt, move (var), kind);
 
         if (tt == type::newline)
           next (t, tt);
@@ -367,7 +415,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    location l (get_location (t, &path_));
+    const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -450,7 +498,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    location l (get_location (t, &path_));
+    const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -607,7 +655,7 @@ namespace build
     // The rest should be a list of projects and/or targets. Parse
     // them as names to get variable expansion and directory prefixes.
     //
-    location l (get_location (t, &path_));
+    const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -645,7 +693,7 @@ namespace build
 
     // The rest is a value. Parse it as names to get variable expansion.
     //
-    location l (get_location (t, &path_));
+    const location l (get_location (t, &path_));
     export_value_ = (tt != type::newline && tt != type::eos
                      ? names (t, tt)
                      : names_type ());
@@ -664,7 +712,7 @@ namespace build
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
-    location l (get_location (t, &path_));
+    const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -704,58 +752,57 @@ namespace build
       next (t, tt); // Swallow newline.
   }
 
+  string parser::
+  variable_name (names_type&& ns, const location& l)
+  {
+    // The list should contain a single, simple name.
+    //
+    if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
+      fail (l) << "variable name expected instead of " << ns;
+
+    string& n (ns[0].value);
+
+    if (n.front () == '.') // Fully qualified name.
+      return string (n, 1, string::npos);
+    else
+      //@@ TODO: append namespace if any.
+      return move (n);
+  }
+
   void parser::
   variable (token& t, token_type& tt, string name, token_type kind)
   {
     bool assign (kind == type::equal);
-
     names_type vns (tt != type::newline && tt != type::eos
                     ? names (t, tt)
                     : names_type ());
 
-    // Enter the variable.
-    //
     const auto& var (variable_pool.find (move (name)));
 
     if (assign)
     {
-      value_ptr& val (scope_->assign (var));
-
-      if (val == nullptr) // Initialization.
-      {
-        val.reset (new list_value (move (vns)));
-      }
-      else // Assignment.
-      {
-        //@@ TODO: assuming it is a list.
-        //
-        dynamic_cast<list_value&> (*val) = move (vns);
-      }
+      auto v (target_ != nullptr
+              ? target_->assign (var)
+              : scope_->assign (var));
+      v = move (vns);
     }
     else
     {
-      if (auto val = (*scope_)[var])
-      {
-        //@@ TODO: assuming it is a list.
-        //
-        list_value* lv (&val.as<list_value&> ());
+      auto v (target_ != nullptr
+              ? target_->append (var)
+              : scope_->append (var));
 
-        if (!val.belongs (*scope_)) // Append to value from parent scope?
-        {
-          list_value_ptr nval (new list_value (*lv));
-          lv = nval.get (); // Append to.
-          scope_->vars.emplace (var, move (nval));
-        }
-
-        lv->insert (lv->end (),
-                    make_move_iterator (vns.begin ()),
-                    make_move_iterator (vns.end ()));
-      }
-      else // Initialization.
+      // More efficient than calling operator+=.
+      //
+      if (v)
       {
-        list_value_ptr nval (new list_value (move (vns)));
-        scope_->vars.emplace (var, move (nval));
+        list_value& lv (v.as<list_value&> ());
+        lv.insert (lv.end (),
+                   make_move_iterator (vns.begin ()),
+                   make_move_iterator (vns.end ()));
       }
+      else
+        v = move (vns); // Same as assignment.
     }
   }
 
@@ -943,9 +990,9 @@ namespace build
           n = t.name ();
 
         const auto& var (variable_pool.find (move (n)));
-        auto val ((*scope_)[var]);
+        auto val (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
 
-        // Undefined namespaces variables are not allowed.
+        // Undefined namespace variables are not allowed.
         //
         if (!val && var.name.find ('.') != string::npos)
           fail (t) << "undefined namespace variable " << var.name;
@@ -1153,6 +1200,7 @@ namespace build
 
     lexer l (is, name);
     lexer_ = &l;
+    target_ = nullptr;
     scope_ = root_ = global_scope;
 
     // Turn on pairs recognition with '@' as the pair separator (e.g.,
@@ -1202,7 +1250,7 @@ namespace build
           tt != type::pair_separator) // Empty pair LHS: '=foo ...'
         fail (t) << "operation or target expected instead of " << t;
 
-      location l (get_location (t, &path_)); // Start of names.
+      const location l (get_location (t, &path_)); // Start of names.
 
       // This call will produce zero or more names and should stop
       // at either tt_end or '('.
@@ -1267,7 +1315,7 @@ namespace build
         // Inside '(' and ')' we have another buildspec.
         //
         next (t, tt);
-        location l (get_location (t, &path_)); // Start of nested names.
+        const location l (get_location (t, &path_)); // Start of nested names.
         buildspec nbs (buildspec_clause (t, tt, type::rparen));
 
         // Merge the nested buildspec into ours. But first determine

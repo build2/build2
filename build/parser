@@ -75,6 +75,9 @@ namespace build
     void
     variable (token&, token_type&, std::string name, token_type kind);
 
+    std::string
+    variable_name (names_type&&, const location&);
+
     names_type
     names (token& t, token_type& tt)
     {
@@ -128,8 +131,9 @@ namespace build
   private:
     const std::string* path_; // Path processed by diag_relative().
     lexer* lexer_;
-    scope* scope_; // Current base scope (out_base).
-    scope* root_;  // Current root scope (out_root).
+    target* target_; // Current target, if any.
+    scope* scope_;   // Current base scope (out_base).
+    scope* root_;    // Current root scope (out_root).
     const dir_path* out_root_;
     const dir_path* src_root_;
     target* default_target_;
