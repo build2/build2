@@ -306,26 +306,30 @@ namespace build
         // for usability's sake, treat a simple name that doesn't end
         // with '/' as a directory.
         //
-        const list_value& lv (v.as<const list_value&> ());
+        list_value& lv (v.as<list_value&> ());
 
-        if (lv.size () == 1)
-        {
-          const name& n (lv.front ());
-
-          if (n.directory ())
-            out_root = n.dir;
-          else if (n.simple ())
-            out_root = dir_path (n.value);
-        }
-
-        if (out_root.empty ())
+        if (lv.size () != 1 || lv[0].empty () || !lv[0].type.empty ())
           fail (l) << "invalid " << var << " value " << lv;
+
+        name& n (lv[0]);
+
+        if (n.directory ())
+          out_root = n.dir;
+        else
+          out_root = dir_path (n.value);
 
         if (out_root.relative ())
           out_root = work / out_root;
 
         out_root.normalize ();
         iroot.assign (var) = out_root;
+
+        // Also update the command-line value. This is necessary to avoid
+        // a warning issued by the config module about global/root scope
+        // value mismatch.
+        //
+        if (n.dir != out_root)
+          n = name (out_root);
       }
     }
     else
