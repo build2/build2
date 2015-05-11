@@ -1,5 +1,5 @@
 // file      : build/b.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <time.h>      // tzset()
@@ -104,7 +104,7 @@ main (int argc, char* argv[])
     if (ops.version ())
     {
       cout << "build2 0.0.0" << endl
-           << "Copyright (c) 2014-2015 Code Synthesis Tools CC" << endl
+           << "Copyright (c) 2014-2015 Code Synthesis Ltd" << endl
            << "This is free software released under the MIT license. " << endl;
       return 0;
     }

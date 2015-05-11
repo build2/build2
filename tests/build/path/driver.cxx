@@ -1,5 +1,5 @@
 // file      : tests/build/path/driver.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2015 Code Synthesis Tools CC
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <cassert>
