@@ -1,2 +1,2 @@
-project_name = build2
+project = build2
 using config
