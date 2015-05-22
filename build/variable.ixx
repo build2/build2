@@ -57,7 +57,7 @@ namespace build
   }
 
   inline const value_proxy& value_proxy::
-  operator= (nullptr_t) const
+  operator= (std::nullptr_t) const
   {
     p->reset ();
     return *this;
