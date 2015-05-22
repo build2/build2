@@ -16,9 +16,9 @@
 
 namespace build
 {
-  struct location;
+  class location;
   class scope;
-  struct target_key;
+  class target_key;
 
   // While we are using uint8_t for the meta/operation ids, we assume
   // that each is limited to 4 bits (max 128 entries) so that we can

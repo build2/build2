@@ -80,14 +80,15 @@ namespace build
   inline bool
   operator< (const prerequisite& x, const prerequisite& y)
   {
-    return prerequisite_key {&x.type, &x.dir, &x.name, &x.ext, &x.scope} <
-      prerequisite_key {&y.type, &y.dir, &y.name, &y.ext, &y.scope};
+    return prerequisite_key {{&x.type, &x.dir, &x.name, &x.ext}, &x.scope} <
+      prerequisite_key {{&y.type, &y.dir, &y.name, &y.ext}, &y.scope};
   }
 
   inline std::ostream&
   operator<< (std::ostream& os, const prerequisite& p)
   {
-    return os << prerequisite_key {&p.type, &p.dir, &p.name, &p.ext, &p.scope};
+    return os <<
+      prerequisite_key {{&p.type, &p.dir, &p.name, &p.ext}, &p.scope};
   }
 
   // Set of prerequisites in a scope.

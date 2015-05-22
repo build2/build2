@@ -262,8 +262,9 @@ namespace build
   };
   typedef diag_prologue<simple_prologue_base> simple_prologue;
 
-  struct location
+  class location
   {
+  public:
     location () {}
     location (const char* f, std::uint64_t l, std::uint64_t c)
         : file (f), line (l), column (c) {}

@@ -693,7 +693,6 @@ namespace build
 
     // The rest is a value. Parse it as names to get variable expansion.
     //
-    const location l (get_location (t, &path_));
     export_value_ = (tt != type::newline && tt != type::eos
                      ? names (t, tt)
                      : names_type ());

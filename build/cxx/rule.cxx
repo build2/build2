@@ -635,7 +635,7 @@ namespace build
                 so ? objso::static_type : obja::static_type);
 
               pt = &search (
-                prerequisite_key {&type, &p.dir, &p.name, &p.ext, &p.scope});
+	        prerequisite_key {{&type, &p.dir, &p.name, &p.ext}, &p.scope});
             }
           }
           else if (lib* l = pt->is_a<lib> ())
@@ -675,7 +675,7 @@ namespace build
                 lso ? libso::static_type : liba::static_type);
 
               pt = &search (
-                prerequisite_key {&type, &p.dir, &p.name, &p.ext, &p.scope});
+	        prerequisite_key {{&type, &p.dir, &p.name, &p.ext}, &p.scope});
             }
           }
 
@@ -770,7 +770,7 @@ namespace build
               so ? objso::static_type : obja::static_type);
 
             ot = &search (
-              prerequisite_key {&type, &o.dir, &o.name, &o.ext, nullptr});
+	      prerequisite_key {{&type, &o.dir, &o.name, &o.ext}, nullptr});
           }
         }
 

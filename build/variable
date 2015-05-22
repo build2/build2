@@ -64,7 +64,7 @@ namespace build
     ~value () = default;
   };
 
-  struct list_value: value, names
+  class list_value: public value, public names
   {
   public:
     using names::names;

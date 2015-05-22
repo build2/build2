@@ -258,8 +258,10 @@ namespace build
       // Should have been handled by inline execute().
       assert (false);
     case target_state::failed:
-      throw failed ();
+      break;
     }
+
+    throw failed ();
   }
 
   target_state

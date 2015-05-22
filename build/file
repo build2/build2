@@ -12,7 +12,7 @@
 namespace build
 {
   class scope;
-  struct location;
+  class location;
 
   bool
   is_src_root (const dir_path&);

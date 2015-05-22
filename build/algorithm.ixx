@@ -12,7 +12,7 @@ namespace build
   {
     if (p.target == nullptr)
       p.target = &search (
-        prerequisite_key {&p.type, &p.dir, &p.name, &p.ext, &p.scope});
+        prerequisite_key {{&p.type, &p.dir, &p.name, &p.ext}, &p.scope});
 
     return *p.target;
   }

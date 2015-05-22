@@ -63,7 +63,7 @@ namespace build
       {
         if (t.a == nullptr)
           t.a = &static_cast<liba&> (search (prerequisite_key {
-                &liba::static_type, &t.dir, &t.name, &t.ext, nullptr}));
+                {&liba::static_type, &t.dir, &t.name, &t.ext}, nullptr}));
 
         build::match (a, *t.a);
       }
@@ -72,7 +72,7 @@ namespace build
       {
         if (t.so == nullptr)
           t.so = &static_cast<libso&> (search (prerequisite_key {
-                &libso::static_type, &t.dir, &t.name, &t.ext, nullptr}));
+                {&libso::static_type, &t.dir, &t.name, &t.ext}, nullptr}));
 
         build::match (a, *t.so);
       }
