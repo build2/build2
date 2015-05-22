@@ -1,0 +1,32 @@
+Currently, to use build2 you will need a C++ compiler with C++14 support.
+This may be relaxed later to only require C++11. For now, gcc 4.9.0 or
+later and clang 3.5.0 or later are known to work.
+
+build2 is self-hosted, which means that unless you have obtained a pre-
+built binary of build2 from somewhere else, you will need to bootstrap
+it. To accomplish this, use the 'bootstrap' shell script found in the
+root directory of the build2 project. The following is a recommended
+sequence of steps:
+
+1. Execute 'bootstrap' specifying the C++ compiler to be used if necessary
+   (default is 'g++'). For example:
+
+   $ ./bootstrap --cxx clang++-3.5
+
+   Once the script completes successfully, the build2 binary is saved
+   as 'build/b-boot'.
+
+2. Next, build the build2 binary using the bootstrapped binary from step
+   1 above, again specifying the C++ compiler if necessary, for example:
+
+   $ build/b-boot config.cxx=clang++-3.5
+
+   The result of this command is saved as 'build/b'.
+
+3. Finally, rebuild the build2 binary using the binary built at step 2
+   above, and verify that they are identical. For example:
+
+   $ mv build/b build/b-prev
+   $ build/b-prev config.cxx=clang++-3.5 clean
+   $ build/b-prev config.cxx=clang++-3.5 configure update
+   $ diff -b build/b build/b-prev

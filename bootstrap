@@ -1,0 +1,31 @@
+#!/bin/sh
+
+src="build/*.cxx build/config/*.cxx build/bin/*.cxx build/cxx/*.cxx"
+
+cxx=g++
+
+while test $# -ne 0; do
+  case $1 in
+    --help)
+      echo "Usage: $0 [--help] [--cxx <c++-compiler>]" 1>&2
+      echo "See the INSTALL file for details." 1>&2
+      exit 0
+      ;;
+    --cxx)
+      shift
+      if test $# -eq 0; then
+	echo "error: c++ compiler executable expected after --cxx" 1>&2
+	exit 1
+      fi
+      cxx=$1
+      shift
+      ;;
+    *)
+      echo "error: unknown option $1" 1>&2
+      exit 1
+      ;;
+  esac
+done
+
+echo $cxx -std=c++14 -I. -o build/b-boot $src 1>&2
+exec $cxx -std=c++14 -I. -o build/b-boot $src
