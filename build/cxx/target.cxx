@@ -16,7 +16,7 @@ namespace build
       "hxx",
       &file::static_type,
       &target_factory<hxx>,
-      file::static_type.search
+      &search_file
     };
 
     const target_type ixx::static_type
@@ -25,7 +25,7 @@ namespace build
       "ixx",
       &file::static_type,
       &target_factory<ixx>,
-      file::static_type.search
+      &search_file
     };
 
     const target_type txx::static_type
@@ -34,7 +34,7 @@ namespace build
       "txx",
       &file::static_type,
       &target_factory<txx>,
-      file::static_type.search
+      &search_file
     };
 
     const target_type cxx::static_type
@@ -43,7 +43,7 @@ namespace build
       "cxx",
       &file::static_type,
       &target_factory<cxx>,
-      file::static_type.search
+      &search_file
     };
 
     const target_type h::static_type
@@ -52,7 +52,7 @@ namespace build
       "h",
       &file::static_type,
       &target_factory<h>,
-      file::static_type.search
+      &search_file
     };
 
     const target_type c::static_type
@@ -61,7 +61,7 @@ namespace build
       "c",
       &file::static_type,
       &target_factory<c>,
-      file::static_type.search
+      &search_file
     };
   }
 }

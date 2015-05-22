@@ -72,15 +72,6 @@ namespace build
     return os << target_key {&t.type (), &t.dir, &t.name, &t.ext};
   }
 
-  static target*
-  search_target (const prerequisite_key& pk)
-  {
-    // The default behavior is to look for an existing target in the
-    // prerequisite's directory scope.
-    //
-    return search_existing_target (pk);
-  }
-
   // target_set
   //
   target_set targets;
@@ -284,10 +275,19 @@ namespace build
     return path_mtime (path_);
   }
 
-  // file target
+  // Search functions.
   //
 
-  static target*
+  target*
+  search_target (const prerequisite_key& pk)
+  {
+    // The default behavior is to look for an existing target in the
+    // prerequisite's directory scope.
+    //
+    return search_existing_target (pk);
+  }
+
+  target*
   search_file (const prerequisite_key& pk)
   {
     // First see if there is an existing target.
@@ -308,8 +308,6 @@ namespace build
       return nullptr;
   }
 
-  // dir target
-  //
   static target*
   search_alias (const prerequisite_key& pk)
   {
@@ -343,7 +341,7 @@ namespace build
     "mtime_target",
     &target::static_type,
     nullptr,
-    target::static_type.search
+    &search_target
   };
 
   const target_type path_target::static_type
@@ -352,7 +350,7 @@ namespace build
     "path_target",
     &mtime_target::static_type,
     nullptr,
-    mtime_target::static_type.search
+    &search_target
   };
 
   const target_type file::static_type
@@ -379,6 +377,6 @@ namespace build
     "fsdir",
     &target::static_type,
     &target_factory<fsdir>,
-    target::static_type.search
+    &search_target
   };
 }

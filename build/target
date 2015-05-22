@@ -466,13 +466,6 @@ namespace build
 
   extern target_type_map target_types;
 
-  template <typename T>
-  target*
-  target_factory (dir_path d, std::string n, const std::string* e)
-  {
-    return new T (std::move (d), std::move (n), e);
-  }
-
   // Modification time-based target.
   //
   class mtime_target: public target
@@ -582,6 +575,28 @@ namespace build
     virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
   };
+
+  // Common implementation of the target factory and search functions.
+  //
+  template <typename T>
+  target*
+  target_factory (dir_path d, std::string n, const std::string* e)
+  {
+    return new T (std::move (d), std::move (n), e);
+  }
+
+  // The default behavior, that is, look for an existing target in the
+  // prerequisite's directory scope.
+  //
+  target*
+  search_target (const prerequisite_key&);
+
+  // First lookfor an existing target as above. If not found, then look
+  // for an existing file in the target-type-specific list of paths.
+  //
+  target*
+  search_file (const prerequisite_key&);
+
 }
 
 #include <build/target.ixx>
