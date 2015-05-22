@@ -36,7 +36,7 @@ namespace build
         : type (std::move (t)), dir (std::move (d)), value (std::move (v)) {}
 
     bool
-    empty () const {type.empty () && dir.empty () && value.empty ();}
+    empty () const {return type.empty () && dir.empty () && value.empty ();}
 
     bool
     simple () const {return type.empty () && dir.empty ();}
