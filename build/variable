@@ -111,7 +111,7 @@ namespace build
     //
     template <typename T>
     T
-    as () const = delete;
+    as () const;
 
     // Assign.
     //

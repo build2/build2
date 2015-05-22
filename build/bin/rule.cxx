@@ -24,6 +24,8 @@ namespace build
     {
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select either obja{} or objso{} member";
+
+      return nullptr;
     }
 
     recipe obj_rule::

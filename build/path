@@ -230,9 +230,11 @@ namespace build
 
     typedef path_traits<C> traits;
 
-    // Construct special empty path.
+    // Construct special empty path. Note that we have to provide our
+    // own implementation rather than using '=default' to make clang
+    // allow default-initialized const instances of this type.
     //
-    basic_path () = default;
+    basic_path () {};
 
     explicit
     basic_path (C const* s): base_type (s) {init ();}
