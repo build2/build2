@@ -88,7 +88,7 @@ namespace build
           p = &find (k.directory ());
       }
 
-      s.i_ = er.first;
+      s.path_ = &er.first->first;
       s.parent_ = p;
       s.root_ = root ? &s : (p != nullptr ? p->root_ : nullptr);
     }

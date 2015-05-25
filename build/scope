@@ -21,7 +21,7 @@ namespace build
   {
   public:
     const dir_path&
-    path () const {return i_->first;} // Absolute and normalized.
+    path () const {return *path_;} // Absolute and normalized.
 
     const dir_path&
     src_path () const {return *src_path_;} // Corresponding src path.
@@ -112,11 +112,9 @@ namespace build
     friend class scope_map;
     friend class temp_scope;
 
-    typedef dir_path_map<scope>::const_iterator iterator;
-
     scope () = default;
 
-    iterator i_;
+    const dir_path* path_; // Pointer to the key in scope_map.
     scope* parent_;
     scope* root_;
   };
@@ -132,7 +130,7 @@ namespace build
   class temp_scope: public scope
   {
   public:
-    temp_scope (scope& p) {i_ = p.i_; parent_ = &p; root_ = p.root_;}
+    temp_scope (scope& p) {path_ = p.path_; parent_ = &p; root_ = p.root_;}
   };
 
   class scope_map: public dir_path_map<scope>
