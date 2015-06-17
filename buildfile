@@ -1,4 +1,3 @@
-d=build/ tests/build/
-
+d = build/ tests/build/
 .: $d
 include $d
