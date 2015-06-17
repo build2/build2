@@ -9,9 +9,8 @@
 #include <cstddef>  // size_t
 #include <cstdlib>  // exit
 #include <utility>  // move()
-#include <istream>
 
-#include <ext/stdio_filebuf.h>
+#include <butl/fdstream>
 
 #include <build/scope>
 #include <build/variable>
@@ -26,6 +25,7 @@
 #include <build/cxx/target>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {
@@ -279,9 +279,7 @@ namespace build
       try
       {
         process pr (args.data (), false, false, true);
-
-        __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
-        istream is (&fb);
+        ifdstream is (pr.in_ofd);
 
         for (bool first (true); !is.eof (); )
         {

@@ -4,8 +4,7 @@
 
 #include <build/cxx/module>
 
-#include <istream>
-#include <ext/stdio_filebuf.h>
+#include <butl/fdstream>
 
 #include <build/path>
 #include <build/scope>
@@ -17,6 +16,7 @@
 #include <build/config/utility>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {
@@ -68,9 +68,7 @@ namespace build
           try
           {
             process pr (args, false, false, true);
-
-            __gnu_cxx::stdio_filebuf<char> fb (pr.in_ofd, ios_base::in);
-            istream is (&fb);
+            ifdstream is (pr.in_ofd);
 
             bool r (getline (is, ver));
 
