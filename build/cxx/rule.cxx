@@ -789,13 +789,16 @@ namespace build
         prerequisite* cp1 (nullptr);
         for (prerequisite& p: reverse_iterate (group_prerequisites (*ot)))
         {
-          // Ignore some known target types (fsdir, headers).
+          // Ignore some known target types (fsdir, headers, libraries).
           //
           if (p.type.id == typeid (fsdir) ||
               p.type.id == typeid (h)     ||
               (cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
                                               p.type.id == typeid (ixx) ||
-                                              p.type.id == typeid (txx))))
+                                              p.type.id == typeid (txx))) ||
+              p.is_a<lib> ()  ||
+              p.is_a<liba> () ||
+              p.is_a<libso> ())
             continue;
 
           if (p.type.id == typeid (cxx))
