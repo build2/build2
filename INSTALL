@@ -8,6 +8,13 @@ it. To accomplish this, use the 'bootstrap' shell script found in the
 root directory of the build2 project. The following is a recommended
 sequence of steps:
 
+0. Get libbutl unless one is already present in the build2 directory
+   (whether one is bundled depends on how you obtained build2 source
+   code). Place it next to build2, so that you have:
+
+   libbutl/ (or libbutl-x.y.z/)
+   build2/  (or build2-x.y.z/)
+
 1. Execute 'bootstrap' specifying the C++ compiler to be used if necessary
    (default is 'g++'). For example:
 
@@ -21,6 +28,11 @@ sequence of steps:
 
    $ build/b-boot config.cxx=clang++-3.5
 
+   If you had to obtain libbutl at step 0, then you will also have to
+   specify its location, for example:
+
+   $ build/b-boot config.import.libbutl=../libbutl ...
+
    The result of this command is saved as 'build/b'.
 
 3. Finally, rebuild the build2 binary using the binary built at step 2
@@ -30,3 +42,14 @@ sequence of steps:
    $ build/b-prev config.cxx=clang++-3.5 clean
    $ build/b-prev config.cxx=clang++-3.5 configure update
    $ diff -b build/b build/b-prev
+
+   If you had to obtain libbutl, then this becomes ('...' stands for
+   any extra configuration you may have, like the C++ compiler above):
+
+   $ mv build/b build/b-prev
+   $ build/b-prev config.import.libbutl=../libbutl ... clean
+   $ cd ../libbutl
+   $ ../build2/build/b-prev ... configure
+   $ cd ../build2
+   $ build/b-prev config.import.libbutl=../libbutl ... configure update
+   $ diff build/b build/b-prev
