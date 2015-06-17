@@ -935,7 +935,15 @@ namespace build
         else if ((ppt = pt->is_a<liba> ()))
           ;
         else if ((ppt = pt->is_a<libso> ()))
-          ;
+        {
+          // Use absolute path for the shared libraries since that's
+          // the path the runtime loader will use to try to find it.
+          // This is probably temporary until we get into the whole
+          // -soname/-rpath mess.
+          //
+          args.push_back (ppt->path ().string ().c_str ());
+          continue;
+        }
         else
           continue;
 
