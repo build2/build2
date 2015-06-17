@@ -59,9 +59,18 @@ namespace build
       {
         const string& v (val.as<const string&> ());
 
-        // @@ Need to translate 11 to 0x for older versions.
+        // Translate 11 to 0x and 14 to 1y for compatibility with
+        // older versions of the compiler.
         //
-        opt = "-std=c++" + v;
+        opt = "-std=c++";
+
+        if (v == "11")
+          opt += "0x";
+        else if (v == "14")
+          opt += "1y";
+        else
+          opt += v;
+
         args.push_back (opt.c_str ());
       }
     }
