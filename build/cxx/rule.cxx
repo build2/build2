@@ -888,7 +888,6 @@ namespace build
       // results in easier to read diagnostics.
       //
       path relt (relative (t.path ()));
-      vector<path> relo;
 
       scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
       vector<const char*> args;
@@ -918,6 +917,12 @@ namespace build
 
         append_options (args, t, "cxx.loptions");
       }
+
+      // Reserve enough space so that we don't reallocate. Reallocating
+      // means pointers to elements may no longer be valid.
+      //
+      vector<path> relo;
+      relo.reserve (t.prerequisite_targets.size ());
 
       for (target* pt: t.prerequisite_targets)
       {
