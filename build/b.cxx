@@ -27,7 +27,6 @@
 #include <build/file>
 #include <build/module>
 #include <build/algorithm>
-#include <build/process>
 #include <build/diagnostics>
 #include <build/context>
 #include <build/utility>

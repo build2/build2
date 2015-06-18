@@ -10,12 +10,12 @@
 #include <cstdlib>  // exit
 #include <utility>  // move()
 
+#include <butl/process>
 #include <butl/fdstream>
 
 #include <build/scope>
 #include <build/variable>
 #include <build/algorithm>
-#include <build/process>
 #include <build/timestamp>
 #include <build/diagnostics>
 #include <build/context>
