@@ -12,6 +12,7 @@
 #include <build/diagnostics>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

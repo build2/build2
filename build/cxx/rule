@@ -5,6 +5,7 @@
 #ifndef BUILD_CXX_RULE
 #define BUILD_CXX_RULE
 
+#include <build/types>
 #include <build/rule>
 
 namespace build

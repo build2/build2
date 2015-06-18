@@ -5,7 +5,7 @@
 #ifndef BUILD_BIN_MODULE
 #define BUILD_BIN_MODULE
 
-#include <build/path>
+#include <build/types>
 #include <build/module>
 
 namespace build

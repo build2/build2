@@ -6,13 +6,15 @@
 
 #include <fstream>
 
+#include <butl/filesystem>
+
 #include <build/scope>
 #include <build/file>
 #include <build/context>
-#include <build/filesystem>
 #include <build/diagnostics>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

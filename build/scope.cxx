@@ -119,14 +119,14 @@ namespace build
     // Normally we would have a scope for the full path so try
     // that before making any copies.
     //
-    auto i (base::find (k));
+    auto i (scope_map_base::find (k));
 
     if (i != end ())
       return i->second;
 
     for (dir_path d (k.directory ());; d = d.directory ())
     {
-      auto i (base::find (d));
+      auto i (scope_map_base::find (d));
 
       if (i != end ())
         return i->second;

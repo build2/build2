@@ -10,10 +10,14 @@
 #include <iosfwd>
 #include <utility> // move()
 
-#include <build/path>
+#include <butl/path>
 
+// Note: include <build/types> instead of this file directly.
+//
 namespace build
 {
+  using butl::dir_path;
+
   // A name is what we operate on by default. Depending on the context,
   // it can be interpreted as a target or prerequisite name. A name
   // without a type and directory can be used to represent any text.

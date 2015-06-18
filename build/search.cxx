@@ -4,17 +4,16 @@
 
 #include <build/search>
 
-#include <utility>  // move
+#include <utility>  // move()
 #include <cassert>
 
-#include <build/path>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
-#include <build/timestamp>
 #include <build/diagnostics>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

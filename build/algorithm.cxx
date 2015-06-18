@@ -11,7 +11,6 @@
 
 #include <butl/utility> // reverse_iterate
 
-#include <build/path>
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>

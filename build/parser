@@ -9,9 +9,8 @@
 #include <iosfwd>
 #include <utility> // move()
 
-#include <build/path>
+#include <build/types>
 #include <build/token>
-#include <build/name>
 #include <build/spec>
 #include <build/variable>    // list_value
 #include <build/diagnostics>

@@ -18,7 +18,6 @@
 #include <build/scope>
 #include <build/variable>
 #include <build/algorithm>
-#include <build/timestamp>
 #include <build/diagnostics>
 #include <build/context>
 

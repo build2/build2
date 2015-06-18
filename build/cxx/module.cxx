@@ -7,7 +7,6 @@
 #include <butl/process>
 #include <butl/fdstream>
 
-#include <build/path>
 #include <build/scope>
 #include <build/diagnostics>
 

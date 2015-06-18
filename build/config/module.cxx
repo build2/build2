@@ -4,15 +4,16 @@
 
 #include <build/config/module>
 
-#include <build/path>
+#include <butl/filesystem>
+
 #include <build/scope>
 #include <build/file>
-#include <build/filesystem>
 #include <build/diagnostics>
 
 #include <build/config/operation>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

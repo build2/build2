@@ -7,14 +7,15 @@
 #include <utility>      // move()
 #include <system_error>
 
+#include <butl/filesystem>
+
 #include <build/scope>
 #include <build/algorithm>
 #include <build/diagnostics>
-#include <build/timestamp>
-#include <build/filesystem>
 #include <build/context>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

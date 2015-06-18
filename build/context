@@ -8,10 +8,11 @@
 #include <string>
 #include <ostream>
 
-#include <build/path>
+#include <butl/filesystem>
+
+#include <build/types>
 #include <build/rule>
 #include <build/operation>
-#include <build/filesystem>
 
 namespace build
 {
@@ -37,7 +38,7 @@ namespace build
 
   // The dual interface wrapper for the {mk,rm}{file,dir}() functions
   // below that allows you to use it as a true/false return or a more
-  // detailed enum from <filesystem>
+  // detailed enum from <butl/filesystem>
   //
   template <typename T>
   struct fs_status
@@ -53,7 +54,7 @@ namespace build
   // directory will exist in the majority of case and performance is
   // important. See the fsdir{} rule for details.
   //
-  fs_status<mkdir_status>
+  fs_status<butl::mkdir_status>
   mkdir (const dir_path&);
 
   // Remove the file and print the standard diagnostics. The second
@@ -62,19 +63,19 @@ namespace build
   // being printed.
   //
   template <typename T>
-  fs_status<rmfile_status>
+  fs_status<butl::rmfile_status>
   rmfile (const path&, const T& target);
 
-  inline fs_status<rmfile_status>
+  inline fs_status<butl::rmfile_status>
   rmfile (const path& f) {return rmfile (f, f);}
 
   // Similar to rmfile() but for directories.
   //
   template <typename T>
-  fs_status<rmdir_status>
+  fs_status<butl::rmdir_status>
   rmdir (const dir_path&, const T& target);
 
-  inline fs_status<rmdir_status>
+  inline fs_status<butl::rmdir_status>
   rmdir (const dir_path& d) {return rmdir (d, d);}
 
   // Return the src/out directory corresponding to the given out/src. The

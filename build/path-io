@@ -7,10 +7,15 @@
 
 #include <iosfwd>
 
-#include <build/path>
+#include <butl/path>
 
+// Custom path IO.
+//
 namespace build
 {
+  using butl::path;
+  using butl::dir_path;
+
   std::ostream&
   operator<< (std::ostream&, const path&);
 

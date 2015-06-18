@@ -5,6 +5,7 @@
 #ifndef BUILD_CXX_MODULE
 #define BUILD_CXX_MODULE
 
+#include <build/types>
 #include <build/module>
 
 namespace build

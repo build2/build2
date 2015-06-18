@@ -11,7 +11,7 @@
 #include <exception>
 #include <unordered_set>
 
-#include <build/path>
+#include <build/types>
 
 namespace build
 {

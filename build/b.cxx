@@ -16,8 +16,9 @@
 #include <iostream>
 #include <system_error>
 
-#include <build/path>
-#include <build/name>
+#include <butl/filesystem>
+
+#include <build/types>
 #include <build/spec>
 #include <build/operation>
 #include <build/scope>
@@ -30,7 +31,6 @@
 #include <build/diagnostics>
 #include <build/context>
 #include <build/utility>
-#include <build/filesystem>
 
 #include <build/token>
 #include <build/lexer>

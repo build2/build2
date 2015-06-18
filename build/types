@@ -7,12 +7,31 @@
 
 #include <vector>
 
-#include <build/path>
+#include <butl/path>
+#include <butl/timestamp>
+
+#include <build/name>
 
 namespace build
 {
   // Commonly-used types.
   //
+
+  // <butl/path>
+  //
+  using butl::path;
+  using butl::dir_path;
+  using butl::basic_path;
+  using butl::invalid_path;
+
+  // <butl/timestamp>
+  //
+  using butl::system_clock;
+  using butl::timestamp;
+  using butl::duration;
+  using butl::timestamp_unknown;
+  using butl::timestamp_nonexistent;
+  using butl::operator<<;
 
   typedef std::vector<path> paths;
   typedef std::vector<dir_path> dir_paths;

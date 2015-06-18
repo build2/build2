@@ -5,9 +5,8 @@ bin = bin/{target rule module}
 cxx = cxx/{target rule module}
 
 exe{b}: cxx{b algorithm name operation spec scope variable target \
-  prerequisite rule file module context search diagnostics token \
-  lexer parser timestamp path path-io utility filesystem dump options \
-  $config $bin $cxx} $libs
+  prerequisite rule file module context search diagnostics token  \
+  lexer parser path-io utility dump options $config $bin $cxx} $libs
 
 #@@ TODO
 #

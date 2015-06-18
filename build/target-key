@@ -9,7 +9,7 @@
 #include <typeindex>
 #include <ostream>
 
-#include <build/path>
+#include <build/types>
 
 namespace build
 {

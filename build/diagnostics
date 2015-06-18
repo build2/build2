@@ -14,11 +14,15 @@
 #include <exception>
 #include <type_traits>
 
-#include <build/path>
+#include <butl/path>
+
 #include <build/path-io>
 
 namespace build
 {
+  using butl::path;
+  using butl::dir_path;
+
   // Throw this exception to terminate the build. The handler should
   // assume that the diagnostics has already been issued.
   //

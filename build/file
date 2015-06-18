@@ -5,8 +5,7 @@
 #ifndef BUILD_FILE
 #define BUILD_FILE
 
-#include <build/path>
-#include <build/name>
+#include <build/types>
 #include <build/variable> // list_value
 
 namespace build

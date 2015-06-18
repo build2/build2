@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iostream>
 
-#include <build/path>
+#include <build/types>
 #include <build/scope>
 #include <build/target>
 #include <build/native>

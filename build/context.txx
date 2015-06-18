@@ -9,9 +9,11 @@
 namespace build
 {
   template <typename T>
-  fs_status<rmfile_status>
+  fs_status<butl::rmfile_status>
   rmfile (const path& f, const T& t)
   {
+    using namespace butl;
+
     // We don't want to print the command if we couldn't remove the
     // file because it does not exist (just like we don't print the
     // update command if the file is up to date). This makes the
@@ -45,9 +47,11 @@ namespace build
   }
 
   template <typename T>
-  fs_status<rmdir_status>
+  fs_status<butl::rmdir_status>
   rmdir (const dir_path& d, const T& t)
   {
+    using namespace butl;
+
     bool w (d == work); // Don't try to remove working directory.
     rmdir_status rs;
 

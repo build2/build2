@@ -13,7 +13,7 @@
 #include <typeindex>
 #include <functional> // reference_wrapper
 
-#include <build/path>
+#include <build/types>
 #include <build/target-key>
 #include <build/utility> // extension_pool
 #include <build/diagnostics>

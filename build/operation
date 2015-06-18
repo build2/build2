@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <functional> // reference_wrapper
 
-#include <build/path>
+#include <build/types>
 #include <build/string-table>
 
 namespace build

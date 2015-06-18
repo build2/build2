@@ -9,8 +9,9 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include <build/path>
-#include <build/path-map>
+#include <butl/path-map>
+
+#include <build/types>
 #include <build/variable>
 #include <build/prerequisite>
 #include <build/operation>
@@ -133,7 +134,8 @@ namespace build
     temp_scope (scope& p) {path_ = p.path_; parent_ = &p; root_ = p.root_;}
   };
 
-  class scope_map: public dir_path_map<scope>
+  using scope_map_base = butl::dir_path_map<scope>;
+  class scope_map: public scope_map_base
   {
   public:
     // Note that we assume the first insertion into the map is that
@@ -160,9 +162,6 @@ namespace build
       //
       return find (dir_path (p.string ()));
     }
-
-  private:
-    typedef dir_path_map<scope> base;
   };
 
   extern scope_map scopes;

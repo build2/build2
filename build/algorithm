@@ -5,9 +5,9 @@
 #ifndef BUILD_ALGORITHM
 #define BUILD_ALGORITHM
 
+#include <build/types>
 #include <build/target>
 #include <build/operation>
-#include <build/timestamp>
 
 namespace build
 {

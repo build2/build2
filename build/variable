@@ -16,8 +16,7 @@
 
 #include <butl/prefix-map>
 
-#include <build/path>
-#include <build/name>
+#include <build/types>
 
 namespace build
 {
