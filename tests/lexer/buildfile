@@ -1,6 +1,5 @@
-# file      : build/bootstrap.build
+# file      : tests/lexer/buildfile
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-project = build2
-using config
+exe{driver}: cxx{driver ../../../build/{lexer diagnostics utility}}

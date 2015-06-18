@@ -1,1 +1,0 @@
-exe{driver}: cxx{driver ../../../build/{lexer diagnostics utility}}

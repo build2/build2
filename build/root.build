@@ -1,3 +1,7 @@
+# file      : build/root.build
+# copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 using cxx
 
 cxx.std = 14

@@ -1,6 +1,7 @@
-# file      : build/bootstrap.build
+# file      : tests/buildfile
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-project = build2
-using config
+d=
+.: $d
+include $d

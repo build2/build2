@@ -1,0 +1,6 @@
+# file      : tests/parser/buildfile
+# copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+exe{driver}: cxx{driver ../../../build/{lexer parser scope target native \
+  prerequisite context diagnostics utility path timestamp}}
