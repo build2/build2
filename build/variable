@@ -14,9 +14,10 @@
 #include <typeindex>
 #include <unordered_set>
 
+#include <butl/prefix-map>
+
 #include <build/path>
 #include <build/name>
-#include <build/prefix-map>
 
 namespace build
 {
@@ -207,6 +208,30 @@ namespace std
   };
 }
 
+namespace butl
+{
+  template <>
+  struct compare_prefix<build::variable_cref>: compare_prefix<std::string>
+  {
+    typedef compare_prefix<std::string> base;
+
+    explicit
+    compare_prefix (char d): base (d) {}
+
+    bool
+    operator() (const build::variable& x, const build::variable& y) const
+    {
+      return base::operator() (x.name, y.name);
+    }
+
+    bool
+    prefix (const build::variable& p, const build::variable& k) const
+    {
+      return base::prefix (p.name, k.name);
+    }
+  };
+}
+
 namespace build
 {
   // variable_pool
@@ -223,31 +248,9 @@ namespace build
 
   // variable_map
   //
-  template <>
-  struct compare_prefix<variable_cref>: compare_prefix<std::string>
+  using variable_map_base = butl::prefix_map<variable_cref, value_ptr, '.'>;
+  struct variable_map: variable_map_base
   {
-    typedef compare_prefix<std::string> base;
-
-    explicit
-    compare_prefix (char d): base (d) {}
-
-    bool
-    operator() (const variable& x, const variable& y) const
-    {
-      return base::operator() (x.name, y.name);
-    }
-
-    bool
-    prefix (const variable& p, const variable& k) const
-    {
-      return base::prefix (p.name, k.name);
-    }
-  };
-
-  struct variable_map: prefix_map<variable_cref, value_ptr, '.'>
-  {
-    typedef prefix_map<variable_cref, value_ptr, '.'> base;
-
     value_proxy
     operator[] (const variable& var) const
     {
@@ -268,7 +271,7 @@ namespace build
     value_proxy
     assign (const variable& var)
     {
-      return value_proxy (&base::operator[] (var), this);
+      return value_proxy (&variable_map_base::operator[] (var), this);
     }
 
     value_proxy

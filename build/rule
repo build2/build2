@@ -10,9 +10,10 @@
 #include <functional>     // reference_wrapper
 #include <unordered_map>
 
+#include <butl/prefix-map>
+
 #include <build/target>
 #include <build/operation>
-#include <build/prefix-map>
 
 namespace build
 {
@@ -28,7 +29,7 @@ namespace build
 
   using target_rule_map = std::unordered_map<
     std::type_index,
-    prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>>;
+    butl::prefix_multimap<std::string, std::reference_wrapper<rule>, '.'>>;
 
   using operation_rule_map = std::unordered_map<operation_id, target_rule_map>;
 

@@ -1,4 +1,4 @@
-d=path/ prefix-map/
+d=path/
 
 .: $d
 include $d

@@ -5,11 +5,15 @@
 #ifndef BUILD_PATH_MAP
 #define BUILD_PATH_MAP
 
-#include <build/path>
-#include <build/prefix-map>
+#include <butl/prefix-map>
 
-namespace build
+#include <build/path>
+
+namespace butl
 {
+
+  // @@ Remove butl:: when move to libbutl.
+
   // prefix_map for paths
   //
   // The paths should be normalized.
@@ -25,9 +29,9 @@ namespace build
   // it.
   //
   template <typename C, typename K>
-  struct compare_prefix<basic_path<C, K>>: compare_prefix<std::basic_string<C>>
+  struct compare_prefix<build::basic_path<C, K>>: compare_prefix<std::basic_string<C>>
   {
-    typedef basic_path<C, K> key_type;
+    typedef build::basic_path<C, K> key_type;
 
     typedef C delimiter_type;
     typedef std::basic_string<C> string_type;
@@ -69,13 +73,16 @@ namespace build
 #endif
     }
   };
+}
 
+namespace build
+{
   template <typename T>
-  using path_map = prefix_map<path, T, path::traits::directory_separator>;
+  using path_map = butl::prefix_map<path, T, path::traits::directory_separator>;
 
   template <typename T>
   using dir_path_map =
-    prefix_map<dir_path, T, dir_path::traits::directory_separator>;
+    butl::prefix_map<dir_path, T, dir_path::traits::directory_separator>;
 }
 
 #endif // BUILD_PATH_MAP
