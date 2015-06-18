@@ -12,6 +12,7 @@
 
 #include <butl/process>
 #include <butl/fdstream>
+#include <butl/optional>
 
 #include <build/scope>
 #include <build/variable>
