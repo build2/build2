@@ -10,6 +10,8 @@
 #include <cstdint> // uint64_t
 #include <exception>
 
+#include <butl/char-scanner>
+
 #include <build/token>
 #include <build/diagnostics>
 
@@ -25,10 +27,11 @@ namespace build
   //
   enum class lexer_mode {normal, value, variable, pairs};
 
-  class lexer
+  class lexer: protected butl::char_scanner
   {
   public:
-    lexer (std::istream& is, const std::string& name): is_ (is), fail (name) {}
+    lexer (std::istream& is, const std::string& name)
+        : char_scanner (is), fail (name) {}
 
     const std::string&
     name () const {return fail.name_;}
@@ -52,30 +55,6 @@ namespace build
     next ();
 
   private:
-    class xchar
-    {
-    public:
-      typedef std::char_traits<char> traits_type;
-      typedef traits_type::int_type int_type;
-      typedef traits_type::char_type char_type;
-
-      xchar (int_type v, std::uint64_t l, std::uint64_t c)
-          : v_ (v), l_ (l), c_ (c) {}
-
-      operator char_type () const {return static_cast<char_type> (v_);}
-
-      int_type
-      value () const {return v_;}
-
-      std::uint64_t line () const {return l_;}
-      std::uint64_t column () const {return c_;}
-
-    private:
-      int_type v_;
-      std::uint64_t l_;
-      std::uint64_t c_;
-    };
-
     token
     name (xchar, bool separated);
 
@@ -88,26 +67,6 @@ namespace build
 
     xchar
     escape ();
-
-    // Character interface.
-    //
-  private:
-    xchar
-    peek ();
-
-    xchar
-    get ();
-
-    void
-    unget (const xchar&);
-
-    // Tests.
-    //
-    bool
-    is_eos (const xchar& c) const
-    {
-      return c.value () == xchar::traits_type::eof ();
-    }
 
     // Diagnostics.
     //
@@ -124,16 +83,8 @@ namespace build
     typedef diag_mark<fail_mark_base> fail_mark;
 
   private:
-    std::istream& is_;
     fail_mark fail;
 
-    std::uint64_t l_ {1};
-    std::uint64_t c_ {1};
-
-    bool unget_ {false};
-    xchar buf_ {0, 0, 0};
-
-    bool eos_ {false};
     lexer_mode mode_ {lexer_mode::normal};
     char pair_separator_;
     lexer_mode next_mode_ {lexer_mode::normal}; // Switch to for next token.
