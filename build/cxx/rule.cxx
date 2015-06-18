@@ -11,6 +11,7 @@
 #include <utility>  // move()
 
 #include <butl/process>
+#include <butl/utility>  // reverse_iterate
 #include <butl/fdstream>
 #include <butl/optional>
 
@@ -22,7 +23,6 @@
 #include <build/context>
 
 #include <build/bin/target>
-
 #include <build/cxx/target>
 
 using namespace std;

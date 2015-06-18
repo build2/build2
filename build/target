@@ -16,6 +16,8 @@
 #include <utility>    // move()
 #include <iterator>
 
+#include <butl/utility> // compare_c_string
+
 #include <build/path>
 #include <build/map-key>       // map_iterator_adapter
 #include <build/timestamp>
@@ -24,7 +26,7 @@
 #include <build/operation>
 #include <build/target-key>
 #include <build/prerequisite>
-#include <build/utility>       // compare_*, extension_pool
+#include <build/utility>       // extension_pool
 
 namespace build
 {
@@ -439,20 +441,18 @@ namespace build
 
   extern target_set targets;
 
-  class target_type_map: public std::map<
+  using target_type_map_base = std::map<
     const char*,
     std::reference_wrapper<const target_type>,
-    compare_c_string>
+    butl::compare_c_string>;
+
+  class target_type_map: public target_type_map_base
   {
   public:
-    typedef std::map<const char*,
-                     std::reference_wrapper<const target_type>,
-                     compare_c_string> base;
-
     void
     insert (const target_type& tt) {emplace (tt.name, tt);}
 
-    using base::find;
+    using target_type_map_base::find;
 
     // Given a name, figure out its type, taking into account extensions,
     // special names (e.g., '.' and '..'), or anything else that might be

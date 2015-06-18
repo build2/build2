@@ -9,6 +9,8 @@
 #include <utility>  // move
 #include <cassert>
 
+#include <butl/utility> // reverse_iterate
+
 #include <build/path>
 #include <build/scope>
 #include <build/target>
@@ -20,6 +22,7 @@
 #include <build/diagnostics>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {

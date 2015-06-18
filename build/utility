@@ -8,7 +8,6 @@
 #include <tuple>
 #include <string>
 #include <utility>
-#include <cstring> // strcmp()
 #include <exception>
 #include <unordered_set>
 
@@ -21,59 +20,6 @@ namespace build
   extern const std::string empty_string;
   extern const path empty_path;
   extern const dir_path empty_dir_path;
-
-  // Comparators.
-  //
-  struct compare_c_string
-  {
-    bool operator() (const char* x, const char* y) const
-    {
-      return std::strcmp (x, y) < 0;
-    }
-  };
-
-  struct compare_pointer_target
-  {
-    template <typename P>
-    bool operator() (const P& x, const P& y) const {return *x < *y;}
-  };
-
-  // Support for reverse iteration using range-based for-loop:
-  //
-  // for (... : reverse_iterate (x)) ...
-  //
-  template <typename T>
-  class reverse_range
-  {
-    T& x_;
-
-  public:
-    reverse_range (T& x): x_ (x) {}
-
-    auto begin () -> decltype (this->x_.rbegin ())
-    {
-      return x_.rbegin ();
-    }
-
-    auto end () -> decltype (this->x_.rend ())
-    {
-      return x_.rend ();
-    }
-  };
-
-  template <typename T>
-  inline reverse_range<T>
-  reverse_iterate (T& x)
-  {
-    return reverse_range<T> (x);
-  }
-
-  template <typename T>
-  inline reverse_range<const T>
-  reverse_iterate (const T& x)
-  {
-    return reverse_range<const T> (x);
-  }
 
   // Call a function if there is an exception.
   //
