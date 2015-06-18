@@ -77,6 +77,22 @@ namespace build
         build::match (a, *t.so);
       }
 
+      // Search and match prerequisite libraries and add them to the
+      // prerequisite targets. While we never execute this list
+      // ourselves (see perform() below), this is necessary to make
+      // the exported options machinery work for the library chains.
+      // See cxx.export.*-related code in cxx/rule.cxx for details.
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+        {
+          target& pt (search (p));
+          build::match (a, pt);
+          t.prerequisite_targets.push_back (&pt);
+        }
+      }
+
       return &perform;
     }
 

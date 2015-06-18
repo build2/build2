@@ -839,20 +839,18 @@ namespace build
           //
           pt->prerequisites.emplace_back (cp);
 
-          // Add our imported lib*{} prerequisites to the object file (see
+          // Add our lib*{} prerequisites to the object file (see
           // cxx.export.poptions above for details).
+          //
+          // Initially, we were only adding imported libraries, but
+          // there is a problem with this approach: the non-imported
+          // library might depend on the imported one(s) which we
+          // will never "see" unless we add this library as well.
           //
           for (prerequisite& p: group_prerequisites (t))
           {
             if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
-            {
-              // Check that it is imported, that is its root scope differs
-              // from ours.
-              //
-              if (p.dir.absolute () && // Imported is always absolute.
-                  scopes.find (p.dir).root_scope () != root)
-                pt->prerequisites.emplace_back (p);
-            }
+              pt->prerequisites.emplace_back (p);
           }
 
           build::match (a, *ot);
