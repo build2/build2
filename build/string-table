@@ -9,7 +9,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <build/map-key>
+#include <butl/multi-index>
 
 namespace build
 {
@@ -71,7 +71,7 @@ namespace build
     empty () const {return vec_.empty ();}
 
   private:
-    using key_type = map_key<std::string>;
+    using key_type = butl::map_key<std::string>;
     using value_type = string_table_element<I, D>;
     using map_type = std::unordered_map<key_type, value_type>;
     using traits = string_table_traits<D>;

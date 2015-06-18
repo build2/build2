@@ -16,10 +16,10 @@
 #include <utility>    // move()
 #include <iterator>
 
-#include <butl/utility> // compare_c_string
+#include <butl/utility>     // compare_c_string
+#include <butl/multi-index> // map_iterator_adapter
 
 #include <build/path>
-#include <build/map-key>       // map_iterator_adapter
 #include <build/timestamp>
 #include <build/name>
 #include <build/variable>
@@ -394,7 +394,7 @@ namespace build
   struct target_set
   {
     typedef std::map<target_key, std::unique_ptr<target>> map;
-    typedef map_iterator_adapter<map::const_iterator> iterator;
+    typedef butl::map_iterator_adapter<map::const_iterator> iterator;
 
     iterator
     find (const target_key& k, tracer& trace) const;
