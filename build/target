@@ -520,10 +520,6 @@ namespace build
                   const char* name_prefix = nullptr,
                   const char* name_suffix = nullptr);
 
-  protected:
-    virtual timestamp
-    load_mtime () const;
-
   public:
     static const target_type static_type;
 
@@ -537,6 +533,10 @@ namespace build
   {
   public:
     using path_target::path_target;
+
+  protected:
+    virtual timestamp
+    load_mtime () const;
 
   public:
     virtual const target_type& type () const {return static_type;}

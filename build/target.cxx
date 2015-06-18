@@ -4,6 +4,8 @@
 
 #include <build/target>
 
+#include <butl/filesystem>
+
 #include <build/scope>
 #include <build/search>
 #include <build/algorithm>
@@ -268,11 +270,14 @@ namespace build
     return dir / path_type (move (n));
   }
 
-  timestamp path_target::
+  // file_target
+  //
+  timestamp file::
   load_mtime () const
   {
-    assert (!path_.empty ());
-    return path_mtime (path_);
+    const path_type& f (path ());
+    assert (!f.empty ());
+    return file_mtime (f);
   }
 
   // Search functions.

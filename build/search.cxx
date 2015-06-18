@@ -7,6 +7,8 @@
 #include <utility>  // move()
 #include <cassert>
 
+#include <butl/filesystem>
+
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
@@ -78,7 +80,7 @@ namespace build
         f += e;
       }
 
-      timestamp mt (path_mtime (f));
+      timestamp mt (file_mtime (f));
 
       if (mt == timestamp_nonexistent)
         continue;
