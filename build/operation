@@ -11,8 +11,9 @@
 #include <cstdint>
 #include <functional> // reference_wrapper
 
+#include <butl/string-table>
+
 #include <build/types>
-#include <build/string-table>
 
 namespace build
 {
@@ -213,26 +214,31 @@ namespace build
 
   // Meta/operation tables.
   //
-  using meta_operation_table = string_table<
+  using meta_operation_table = butl::string_table<
     meta_operation_id,
     std::reference_wrapper<const meta_operation_info>>;
 
-  using operation_table = string_table<
+  using operation_table = butl::string_table<
     operation_id,
     std::reference_wrapper<const operation_info>>;
+}
 
+namespace butl
+{
   template <>
-  struct string_table_traits<std::reference_wrapper<const meta_operation_info>>
+  struct string_table_traits<
+    std::reference_wrapper<const build::meta_operation_info>>
   {
     static const std::string&
-    key (const meta_operation_info& x) {return x.name;}
+    key (const build::meta_operation_info& x) {return x.name;}
   };
 
   template <>
-  struct string_table_traits<std::reference_wrapper<const operation_info>>
+  struct string_table_traits<
+    std::reference_wrapper<const build::operation_info>>
   {
     static const std::string&
-    key (const operation_info& x) {return x.name;}
+    key (const build::operation_info& x) {return x.name;}
   };
 }
 
