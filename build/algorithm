@@ -5,12 +5,15 @@
 #ifndef BUILD_ALGORITHM
 #define BUILD_ALGORITHM
 
+#include <string>
+
 #include <build/types>
 #include <build/target>
 #include <build/operation>
 
 namespace build
 {
+  class scope;
   class prerequisite;
   class prerequisite_key;
 
@@ -21,12 +24,30 @@ namespace build
   target&
   search (prerequisite&);
 
-  // As above but specify the prerequisite to search as a key. Useful
-  // for searching for target group members where we need to search
-  // for a different target type.
+  // As above but specify the prerequisite to search as a key.
   //
   target&
   search (const prerequisite_key&);
+
+  // As above but specify the prerequisite to search as individual
+  // key components. Useful for searching for target group members
+  // where we need to search for a different target type.
+  //
+  target&
+  search (const target_type& type,
+          const dir_path& dir,
+          const std::string& name,
+          const std::string* ext,
+          scope* scope);
+
+  // As above but specify the target type as template argument.
+  //
+  template <typename T>
+  T&
+  search (const dir_path& dir,
+          const std::string& name,
+          const std::string* ext,
+          scope* scope);
 
   // Match a rule to the action/target with ambiguity detection.
   //

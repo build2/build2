@@ -43,7 +43,7 @@ namespace build
     mutable const target_type* type;
     mutable const dir_path* dir;
     mutable const std::string* name;
-    mutable const std::string* const* ext;
+    mutable const std::string* const* ext; // Note only *ext can be NULL.
 
     friend bool
     operator< (const target_key& x, const target_key& y)

@@ -69,6 +69,13 @@ namespace build
     target_type* target;    // NULL if not yet resolved. Note that this should
                             // always be the "primary target", not a member of
                             // a target group.
+
+    prerequisite_key
+    key () const
+    {
+      return prerequisite_key {{&type, &dir, &name, &ext}, &scope};
+    }
+
   public:
     // Prerequisite (target) type.
     //
@@ -80,15 +87,13 @@ namespace build
   inline bool
   operator< (const prerequisite& x, const prerequisite& y)
   {
-    return prerequisite_key {{&x.type, &x.dir, &x.name, &x.ext}, &x.scope} <
-      prerequisite_key {{&y.type, &y.dir, &y.name, &y.ext}, &y.scope};
+    return x.key () < y.key ();
   }
 
   inline std::ostream&
   operator<< (std::ostream& os, const prerequisite& p)
   {
-    return os <<
-      prerequisite_key {{&p.type, &p.dir, &p.name, &p.ext}, &p.scope};
+    return os << p.key ();
   }
 
   // Set of prerequisites in a scope.

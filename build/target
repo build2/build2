@@ -404,8 +404,7 @@ namespace build
           const std::string* ext,
           tracer& trace) const
     {
-      const std::string* e (ext);
-      return find (target_key {&type, &dir, &name, &e}, trace);
+      return find (target_key {&type, &dir, &name, &ext}, trace);
     }
 
     // As above but ignore the extension and return the target or

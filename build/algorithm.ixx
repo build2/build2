@@ -11,10 +11,29 @@ namespace build
   search (prerequisite& p)
   {
     if (p.target == nullptr)
-      p.target = &search (
-        prerequisite_key {{&p.type, &p.dir, &p.name, &p.ext}, &p.scope});
+      p.target = &search (p.key ());
 
     return *p.target;
+  }
+
+  inline target&
+  search (const target_type& type,
+          const dir_path& dir,
+          const std::string& name,
+          const std::string* ext,
+          scope* scope)
+  {
+    return search (prerequisite_key {{&type, &dir, &name, &ext}, scope});
+  }
+
+  template <typename T>
+  inline T&
+  search (const dir_path& dir,
+          const std::string& name,
+          const std::string* ext,
+          scope* scope)
+  {
+    return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
   void

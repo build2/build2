@@ -637,13 +637,8 @@ namespace build
             pt = so ? static_cast<target*> (o->so) : o->a;
 
             if (pt == nullptr)
-            {
-              const target_type& type (
-                so ? objso::static_type : obja::static_type);
-
-              pt = &search (
-	        prerequisite_key {{&type, &p.dir, &p.name, &p.ext}, &p.scope});
-            }
+              pt = &search (so ? objso::static_type : obja::static_type,
+                            p.dir, p.name, p.ext, &p.scope);
           }
           else if (lib* l = pt->is_a<lib> ())
           {
@@ -677,13 +672,8 @@ namespace build
             pt = lso ? static_cast<target*> (l->so) : l->a;
 
             if (pt == nullptr)
-            {
-              const target_type& type (
-                lso ? libso::static_type : liba::static_type);
-
-              pt = &search (
-	        prerequisite_key {{&type, &p.dir, &p.name, &p.ext}, &p.scope});
-            }
+              pt = &search (lso ? libso::static_type : liba::static_type,
+                            p.dir, p.name, p.ext, &p.scope);
           }
 
           build::match (a, *pt);
@@ -698,18 +688,18 @@ namespace build
           // altogether. So we are going to use the target's project.
           //
           root = t.root_scope ();
-          assert (root != nullptr); // Shouldn't have matched.
+          assert (root != nullptr); // Otherwise shouldn't have matched.
           out_root = &root->path ();
           src_root = &root->src_path ();
         }
 
-        prerequisite& cp (p);
+        prerequisite& cp (p); // c(xx){} prerequisite.
         const target_type& o_type (
           group
           ? obj::static_type
           : (so ? objso::static_type : obja::static_type));
 
-        // Come up with the obj*{} prerequisite. The c(xx){} prerequisite
+        // Come up with the obj*{} target. The c(xx){} prerequisite
         // directory can be relative (to the scope) or absolute. If it is
         // relative, then use it as is. If it is absolute, then translate
         // it to the corresponding directory under out_root. While the
@@ -729,105 +719,82 @@ namespace build
           d = *out_root / cp.dir.leaf (*src_root);
         }
 
-        prerequisite& op (
-          cp.scope.prerequisites.insert (
-            o_type,
-            move (d),
-            cp.name,
-            nullptr,
-            cp.scope,
-            trace).first);
-
-        // Resolve this prerequisite to target.
-        //
-        target* ot (&search (op));
+        target& ot (search (o_type, d, cp.name, nullptr, &cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of ours.
         //
-        // If it is not, then we are effectively leaving the prerequisites
-        // half-rewritten (we only rewrite those that we should clean).
-        // What will happen if, say, after clean we have update? Well,
-        // update will come and finish the rewrite process (it will even
-        // reuse op that we have created but then ignored). So all is good.
-        //
-        if (a.operation () == clean_id && !ot->dir.sub (t.dir))
+        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will
           // be in the same directory as obj{} and if not, well, go
-          // find yourself another build system).
+          // find yourself another build system ;-)).
           //
           continue; // Skip.
         }
-
-        pt = ot;
 
         // If we have created the obj{} target group, pick one of its
         // members; the rest would be primarily concerned with it.
         //
         if (group)
         {
-          obj& o (static_cast<obj&> (*ot));
-          ot = so ? static_cast<target*> (o.so) : o.a;
+          obj& o (static_cast<obj&> (ot));
+          pt = so ? static_cast<target*> (o.so) : o.a;
 
-          if (ot == nullptr)
-          {
-            const target_type& type (
-              so ? objso::static_type : obja::static_type);
-
-            ot = &search (
-	      prerequisite_key {{&type, &o.dir, &o.name, &o.ext}, nullptr});
-          }
+          if (pt == nullptr)
+            pt = &search (so ? objso::static_type : obja::static_type,
+                          o.dir, o.name, o.ext, nullptr);
         }
+        else
+          pt = &ot;
 
-        // If this target already exists, then it needs to be "compatible"
-        // with what we are doing here.
+        // If this obj*{} target already exists, then it needs to be
+        // "compatible" with what we are doing here.
         //
         // This gets a bit tricky. We need to make sure the source files
         // are the same which we can only do by comparing the targets to
         // which they resolve. But we cannot search the ot's prerequisites
         // -- only the rule that matches can. Note, however, that if all
-        // this works out, then our next step is to search and match the
-        // re-written prerequisite (which points to ot). If things don't
-        // work out, then we fail, in which case searching and matching
-        // speculatively doesn't really hurt.
+        // this works out, then our next step is to match the obj*{}
+        // target. If things don't work out, then we fail, in which case
+        // searching and matching speculatively doesn't really hurt.
         //
         prerequisite* cp1 (nullptr);
-        for (prerequisite& p: reverse_iterate (group_prerequisites (*ot)))
+        for (prerequisite& p: reverse_iterate (group_prerequisites (*pt)))
         {
           // Ignore some known target types (fsdir, headers, libraries).
           //
-          if (p.type.id == typeid (fsdir) ||
-              p.type.id == typeid (h)     ||
-              (cp.type.id == typeid (cxx) && (p.type.id == typeid (hxx) ||
-                                              p.type.id == typeid (ixx) ||
-                                              p.type.id == typeid (txx))) ||
+          if (p.is_a<fsdir> () ||
+              p.is_a<h> ()     ||
+              (cp.is_a<cxx> () && (p.is_a<hxx> () ||
+                                   p.is_a<ixx> () ||
+                                   p.is_a<txx> ())) ||
               p.is_a<lib> ()  ||
               p.is_a<liba> () ||
               p.is_a<libso> ())
             continue;
 
-          if (p.type.id == typeid (cxx))
+          if (p.is_a<cxx> ())
           {
-            cp1 = &p; // Check the rest of the prerequisites.
-            continue;
+            cp1 = &p;
+            continue; // Check the rest of the prerequisites.
           }
 
           fail << "synthesized target for prerequisite " << cp
-               << " would be incompatible with existing target " << *ot <<
+               << " would be incompatible with existing target " << *pt <<
             info << "unknown existing prerequisite type " << p <<
             info << "specify corresponding obj{} target explicitly";
         }
 
         if (cp1 != nullptr)
         {
-          build::match (a, *ot); // Now cp1 should be resolved.
+          build::match (a, *pt); // Now cp1 should be resolved.
           search (cp);           // Our own prerequisite, so this is ok.
 
           if (cp.target != cp1->target)
             fail << "synthesized target for prerequisite " << cp
-                 << " would be incompatible with existing target " << *ot <<
+                 << " would be incompatible with existing target " << *pt <<
               info << "existing prerequisite " << *cp1 << " does not "
                  << "match " << cp <<
               info << "specify corresponding " << o_type.name << "{} "
@@ -837,30 +804,26 @@ namespace build
         {
           // Note: add the source to the group, not the member.
           //
-          pt->prerequisites.emplace_back (cp);
+          ot.prerequisites.emplace_back (cp);
 
           // Add our lib*{} prerequisites to the object file (see
           // cxx.export.poptions above for details).
           //
           // Initially, we were only adding imported libraries, but
           // there is a problem with this approach: the non-imported
-          // library might depend on the imported one(s) which we
-          // will never "see" unless we add this library as well.
+          // library might depend on the imported one(s) which we will
+          // never "see" unless we start with this library.
           //
           for (prerequisite& p: group_prerequisites (t))
           {
             if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
-              pt->prerequisites.emplace_back (p);
+              ot.prerequisites.emplace_back (p);
           }
 
-          build::match (a, *ot);
+          build::match (a, *pt);
         }
 
-        // Change the exe{} target's prerequisite from cxx{} to obj*{}.
-        //
-        pr = op;
-
-        t.prerequisite_targets.push_back (ot);
+        t.prerequisite_targets.push_back (pt);
       }
 
       switch (a)
