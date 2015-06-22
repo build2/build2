@@ -333,30 +333,20 @@ namespace build
             //
             // Note that if the file has no extension, we record an empty
             // extension rather than NULL (which would signify that the
-            // default extension needs to be added).
+            // default extension should be added).
             //
             dir_path d (f.directory ());
             string n (f.leaf ().base ().string ());
             const char* es (f.extension ());
             const string* e (&extension_pool.find (es != nullptr ? es : ""));
 
-            // Find or insert prerequisite.
+            // Find or insert target.
             //
             // If there is no extension (e.g., standard C++ headers),
             // then assume it is a header. Otherwise, let the standard
             // mechanism derive the type from the extension. @@ TODO.
             //
-            prerequisite& p (
-              ds.prerequisites.insert (
-                hxx::static_type, move (d), move (n), e, ds, trace).first);
-
-            // Add to our prerequisites list.
-            //
-            t.prerequisites.emplace_back (p);
-
-            // Resolve to target.
-            //
-            path_target& pt (dynamic_cast<path_target&> (search (p)));
+            path_target& pt (search<hxx> (d, n, e, &ds));
 
             // Assign path.
             //
@@ -367,7 +357,7 @@ namespace build
             //
             build::match (a, pt);
 
-            // Add to our resolved target list.
+            // Add to our prerequisite target list.
             //
             t.prerequisite_targets.push_back (&pt);
           }
