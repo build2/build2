@@ -610,10 +610,7 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
-      group_prerequisites gp (t);
-      t.prerequisite_targets.reserve (gp.size ());
-
-      for (prerequisite_ref& pr: gp)
+      for (prerequisite_ref& pr: group_prerequisites (t))
       {
         bool group (!pr.belongs (t)); // Target group's prerequisite.
 

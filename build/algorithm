@@ -70,7 +70,8 @@ namespace build
 
   // Inject dependency on the parent directory's fsdir{}, unless it is
   // the project's out_root (or is outside of any project; say, for
-  // example, an install directory).
+  // example, an install directory). Normally this function is called
+  // from the rule's apply() function.
   //
   void
   inject_parent_fsdir (action, target&);

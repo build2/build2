@@ -206,26 +206,11 @@ namespace build
     if (!d.sub (out_root) || d == out_root)
       return;
 
-    prerequisite& p (
-      s.prerequisites.insert (
-        fsdir::static_type,
-        d,
-        string (),
-        nullptr,
-        s,
-        trace).first);
+    level5 ([&]{trace << "for " << t;});
 
-    // This function is normally called from match() which means
-    // it can be called several times if we are performing several
-    // operations (e.g., clean update). Since it is a fairly common
-    // pattern to add this prerequisite at the end, do a quick check
-    // if the last prerequisite is already what we are about to add.
-    //
-    if (!t.prerequisites.empty () && &t.prerequisites.back ().get () == &p)
-      return;
-
-    level5 ([&]{trace << "injecting prerequisite for " << t;});
-    t.prerequisites.emplace_back (p);
+    fsdir& dt (search<fsdir> (d, string (), nullptr, &s));
+    match (a, dt);
+    t.prerequisite_targets.emplace_back (&dt);
   }
 
   target_state
