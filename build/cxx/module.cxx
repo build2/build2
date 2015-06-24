@@ -87,7 +87,8 @@ namespace build
             throw failed ();
           }
 
-          //text << "toolchain version " << ver;
+          if (verb)
+            text << cxx << " " << ver;
         }
       }
 

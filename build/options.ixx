@@ -9,7 +9,7 @@
 //
 // End prologue.
 
-namespace cli
+namespace cl
 {
   // unknown_mode
   //

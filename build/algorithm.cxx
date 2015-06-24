@@ -34,9 +34,11 @@ namespace build
     return create_new_target (pk);
   }
 
-  void
-  match_impl (action a, target& t)
+  pair<const rule*, void*>
+  match_impl (action a, target& t, bool apply)
   {
+    pair<const rule*, void*> r (nullptr, nullptr);
+
     // Clear the resolved targets list before calling match(). The rule
     // is free to, say, resize() this list in match() (provided that it
     // matches) in order to, for example, prepare it for apply().
@@ -133,17 +135,26 @@ namespace build
 
           if (!ambig)
           {
-            auto g (
-              make_exception_guard (
-                [](action a, target& t, const string& n)
-                {
-                  info << "while applying rule " << n << " to "
-                       << diag_do (a, t);
-                },
-                a, t, n));
+            if (apply)
+            {
+              auto g (
+                make_exception_guard (
+                  [](action a, target& t, const string& n)
+                  {
+                    info << "while applying rule " << n << " to "
+                         << diag_do (a, t);
+                  },
+                  a, t, n));
 
-            t.recipe (a, ru.apply (a, t, m));
-            break;
+              t.recipe (a, ru.apply (a, t, m));
+              break;
+            }
+            else
+            {
+              r.first = &ru;
+              r.second = m;
+              return r;
+            }
           }
           else
             dr << info << "use rule hint to disambiguate this match";
@@ -152,7 +163,50 @@ namespace build
     }
 
     if (!t.recipe (a))
-      fail << "no rule to " << diag_do (a, t);
+    {
+      diag_record dr;
+      dr << fail << "no rule to " << diag_do (a, t);
+
+      if (verb < 3)
+        dr << info << "re-run with --verbose 3 for more information";
+    }
+
+    return r;
+  }
+
+  group_view
+  resolve_group_members_impl (action a, target_group& g)
+  {
+    group_view r;
+
+    // Unless we already have a recipe, try matching the target to
+    // the rule.
+    //
+    if (!g.recipe (a))
+    {
+      auto p (match_impl (a, g, false));
+
+      r = g.members (a);
+      if (r.members != nullptr)
+        return r;
+
+      // That didn't help, so apply the rule and go to the building
+      // phase.
+      //
+      g.recipe (a, p.first->apply (a, g, p.second));
+    }
+
+    // Note the we use execute_impl() rather than execute() here
+    // to sidestep the dependents count logic. In this context,
+    // this is by definition the first attempt to execute this
+    // rule (otherwise we would have already known the members
+    // list) and we really do need to execute it now.
+    //
+    execute_impl (a, g);
+
+    r = g.members (a);
+    assert (r.members != nullptr); // What "next step" did the group expect?
+    return r;
   }
 
   void

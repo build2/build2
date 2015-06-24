@@ -18,7 +18,7 @@
 #include <ostream>
 #include <sstream>
 
-namespace cli
+namespace cl
 {
   // unknown_option
   //
@@ -323,14 +323,14 @@ options::
 options (int& argc,
          char** argv,
          bool erase,
-         ::cli::unknown_mode opt,
-         ::cli::unknown_mode arg)
+         ::cl::unknown_mode opt,
+         ::cl::unknown_mode arg)
 : help_ (),
   version_ (),
   v_ (),
   verbose_ (0)
 {
-  ::cli::argv_scanner s (argc, argv, erase);
+  ::cl::argv_scanner s (argc, argv, erase);
   _parse (s, opt, arg);
 }
 
@@ -339,14 +339,14 @@ options (int start,
          int& argc,
          char** argv,
          bool erase,
-         ::cli::unknown_mode opt,
-         ::cli::unknown_mode arg)
+         ::cl::unknown_mode opt,
+         ::cl::unknown_mode arg)
 : help_ (),
   version_ (),
   v_ (),
   verbose_ (0)
 {
-  ::cli::argv_scanner s (start, argc, argv, erase);
+  ::cl::argv_scanner s (start, argc, argv, erase);
   _parse (s, opt, arg);
 }
 
@@ -355,14 +355,14 @@ options (int& argc,
          char** argv,
          int& end,
          bool erase,
-         ::cli::unknown_mode opt,
-         ::cli::unknown_mode arg)
+         ::cl::unknown_mode opt,
+         ::cl::unknown_mode arg)
 : help_ (),
   version_ (),
   v_ (),
   verbose_ (0)
 {
-  ::cli::argv_scanner s (argc, argv, erase);
+  ::cl::argv_scanner s (argc, argv, erase);
   _parse (s, opt, arg);
   end = s.end ();
 }
@@ -373,22 +373,22 @@ options (int start,
          char** argv,
          int& end,
          bool erase,
-         ::cli::unknown_mode opt,
-         ::cli::unknown_mode arg)
+         ::cl::unknown_mode opt,
+         ::cl::unknown_mode arg)
 : help_ (),
   version_ (),
   v_ (),
   verbose_ (0)
 {
-  ::cli::argv_scanner s (start, argc, argv, erase);
+  ::cl::argv_scanner s (start, argc, argv, erase);
   _parse (s, opt, arg);
   end = s.end ();
 }
 
 options::
-options (::cli::scanner& s,
-         ::cli::unknown_mode opt,
-         ::cli::unknown_mode arg)
+options (::cl::scanner& s,
+         ::cl::unknown_mode opt,
+         ::cl::unknown_mode arg)
 : help_ (),
   version_ (),
   v_ (),
@@ -411,7 +411,7 @@ print_usage (::std::ostream& os)
 }
 
 typedef
-std::map<std::string, void (*) (options&, ::cli::scanner&)>
+std::map<std::string, void (*) (options&, ::cl::scanner&)>
 _cli_options_map;
 
 static _cli_options_map _cli_options_map_;
@@ -421,20 +421,20 @@ struct _cli_options_map_init
   _cli_options_map_init ()
   {
     _cli_options_map_["--help"] = 
-    &::cli::thunk< options, bool, &options::help_ >;
+    &::cl::thunk< options, bool, &options::help_ >;
     _cli_options_map_["--version"] = 
-    &::cli::thunk< options, bool, &options::version_ >;
+    &::cl::thunk< options, bool, &options::version_ >;
     _cli_options_map_["-v"] = 
-    &::cli::thunk< options, bool, &options::v_ >;
+    &::cl::thunk< options, bool, &options::v_ >;
     _cli_options_map_["--verbose"] = 
-    &::cli::thunk< options, std::uint16_t, &options::verbose_ >;
+    &::cl::thunk< options, std::uint16_t, &options::verbose_ >;
   }
 };
 
 static _cli_options_map_init _cli_options_map_init_;
 
 bool options::
-_parse (const char* o, ::cli::scanner& s)
+_parse (const char* o, ::cl::scanner& s)
 {
   _cli_options_map::const_iterator i (_cli_options_map_.find (o));
 
@@ -448,9 +448,9 @@ _parse (const char* o, ::cli::scanner& s)
 }
 
 void options::
-_parse (::cli::scanner& s,
-        ::cli::unknown_mode opt_mode,
-        ::cli::unknown_mode arg_mode)
+_parse (::cl::scanner& s,
+        ::cl::unknown_mode opt_mode,
+        ::cl::unknown_mode arg_mode)
 {
   bool opt = true;
 
@@ -470,18 +470,18 @@ _parse (::cli::scanner& s,
     {
       switch (opt_mode)
       {
-        case ::cli::unknown_mode::skip:
+        case ::cl::unknown_mode::skip:
         {
           s.skip ();
           continue;
         }
-        case ::cli::unknown_mode::stop:
+        case ::cl::unknown_mode::stop:
         {
           break;
         }
-        case ::cli::unknown_mode::fail:
+        case ::cl::unknown_mode::fail:
         {
-          throw ::cli::unknown_option (o);
+          throw ::cl::unknown_option (o);
         }
       }
 
@@ -491,18 +491,18 @@ _parse (::cli::scanner& s,
     {
       switch (arg_mode)
       {
-        case ::cli::unknown_mode::skip:
+        case ::cl::unknown_mode::skip:
         {
           s.skip ();
           continue;
         }
-        case ::cli::unknown_mode::stop:
+        case ::cl::unknown_mode::stop:
         {
           break;
         }
-        case ::cli::unknown_mode::fail:
+        case ::cl::unknown_mode::fail:
         {
-          throw ::cli::unknown_argument (o);
+          throw ::cl::unknown_argument (o);
         }
       }
 

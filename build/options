@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <exception>
 
-namespace cli
+namespace cl
 {
   class unknown_mode
   {
@@ -211,34 +211,34 @@ class options
   options (int& argc,
            char** argv,
            bool erase = false,
-           ::cli::unknown_mode option = ::cli::unknown_mode::fail,
-           ::cli::unknown_mode argument = ::cli::unknown_mode::stop);
+           ::cl::unknown_mode option = ::cl::unknown_mode::fail,
+           ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
   options (int start,
            int& argc,
            char** argv,
            bool erase = false,
-           ::cli::unknown_mode option = ::cli::unknown_mode::fail,
-           ::cli::unknown_mode argument = ::cli::unknown_mode::stop);
+           ::cl::unknown_mode option = ::cl::unknown_mode::fail,
+           ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
   options (int& argc,
            char** argv,
            int& end,
            bool erase = false,
-           ::cli::unknown_mode option = ::cli::unknown_mode::fail,
-           ::cli::unknown_mode argument = ::cli::unknown_mode::stop);
+           ::cl::unknown_mode option = ::cl::unknown_mode::fail,
+           ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
   options (int start,
            int& argc,
            char** argv,
            int& end,
            bool erase = false,
-           ::cli::unknown_mode option = ::cli::unknown_mode::fail,
-           ::cli::unknown_mode argument = ::cli::unknown_mode::stop);
+           ::cl::unknown_mode option = ::cl::unknown_mode::fail,
+           ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
-  options (::cli::scanner&,
-           ::cli::unknown_mode option = ::cli::unknown_mode::fail,
-           ::cli::unknown_mode argument = ::cli::unknown_mode::stop);
+  options (::cl::scanner&,
+           ::cl::unknown_mode option = ::cl::unknown_mode::fail,
+           ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
   options ();
 
@@ -265,13 +265,13 @@ class options
   //
   protected:
   bool
-  _parse (const char*, ::cli::scanner&);
+  _parse (const char*, ::cl::scanner&);
 
   private:
   void
-  _parse (::cli::scanner&,
-          ::cli::unknown_mode option,
-          ::cli::unknown_mode argument);
+  _parse (::cl::scanner&,
+          ::cl::unknown_mode option,
+          ::cl::unknown_mode argument);
 
   public:
   bool help_;

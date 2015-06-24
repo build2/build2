@@ -1,0 +1,20 @@
+// file      : build/cli/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CLI_MODULE
+#define BUILD_CLI_MODULE
+
+#include <build/types>
+#include <build/module>
+
+namespace build
+{
+  namespace cli
+  {
+    void
+    init (scope&, scope&, const location&);
+  }
+}
+
+#endif // BUILD_CLI_MODULE

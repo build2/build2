@@ -56,28 +56,48 @@ namespace build
   }
 
   target*
-  search_existing_file (const prerequisite_key& pk, const dir_paths& sp)
+  search_existing_file (const prerequisite_key& cpk, const dir_paths& sp)
   {
     tracer trace ("search_existing_file");
 
-    const target_key& tk (pk.tk);
+    prerequisite_key pk (cpk); // Make a copy so we can update extension.
+    target_key& tk (pk.tk);
     assert (tk.dir->relative ());
 
-    // Go over paths and extension looking for a file.
+    // Figure out the extension. Pretty similar logic to file::derive_path().
+    //
+    const string* ext (*tk.ext);
+
+    if (ext == nullptr)
+    {
+      if (auto f = tk.type->extension)
+      {
+        ext = &f (tk, *pk.scope); // Already from the pool.
+        tk.ext = &ext;
+      }
+      else
+        // What should we do here, fail or say we didn't find anything?
+        // Current think is that if the target type didn't provide the
+        // default extension, then it doesn't want us to search for an
+        // existing file (of course, if the user specified the extension
+        // explicitly, we will still do so). But let me know what you
+        // think.
+        //
+        //fail << "no default extension for prerequisite " << pk;
+        return nullptr;
+    }
+
+    // Go over paths looking for a file.
     //
     for (const dir_path& d: sp)
     {
       path f (d / *tk.dir / path (*tk.name));
       f.normalize ();
 
-      // @@ TMP: use target name as an extension.
-      //
-      const string& e (*tk.ext != nullptr ? **tk.ext : tk.type->name);
-
-      if (!e.empty ())
+      if (!ext->empty ())
       {
         f += '.';
-        f += e;
+        f += *ext;
       }
 
       timestamp mt (file_mtime (f));
@@ -88,11 +108,9 @@ namespace build
       level4 ([&]{trace << "found existing file " << f << " for prerequisite "
                         << pk;});
 
-      // Find or insert.
+      // Find or insert. Note: using our updated extension.
       //
-      auto r (
-        targets.insert (
-          *tk.type, f.directory (), *tk.name, *tk.ext, trace));
+      auto r (targets.insert (*tk.type, f.directory (), *tk.name, ext, trace));
 
       // Has to be a path_target.
       //
@@ -108,6 +126,7 @@ namespace build
       return &t;
     }
 
+    level3 ([&]{trace << "no existing file found for prerequisite " << pk;});
     return nullptr;
   }
 

@@ -1,0 +1,35 @@
+// file      : build/cli/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CLI_RULE
+#define BUILD_CLI_RULE
+
+#include <build/rule>
+
+namespace build
+{
+  namespace cli
+  {
+    class compile: public rule
+    {
+    public:
+      virtual void*
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, void*) const;
+
+      static target_state
+      perform_update (action, target&);
+
+      static target_state
+      perform_clean (action, target&);
+
+      static target_state
+      delegate (action, target&);
+    };
+  }
+}
+
+#endif // BUILD_CLI_RULE

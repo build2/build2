@@ -97,7 +97,8 @@ namespace build
 
   // If possible and beneficial, translate an absolute, normalized path
   // into relative to the relative_base directory, which is normally
-  // work.
+  // work. Note that if the passed path is the same as relative_base,
+  // then this function returns empty path.
   //
   template <typename K>
   basic_path<char, K>

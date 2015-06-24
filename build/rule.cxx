@@ -49,22 +49,13 @@ namespace build
     {
     case perform_update_id:
       {
-        // @@ TODO:
-        //
-        // - need to try all the target-type-specific extensions, just
-        //   like search_existing_file().
-        //
         path_target& pt (dynamic_cast<path_target&> (t));
 
-        // Assign the path. While nromally we shouldn't do this in match(),
+        // Assign the path. While normally we shouldn't do this in match(),
         // no other rule should ever be ambiguous with the fallback one.
         //
         if (pt.path ().empty ())
-        {
-          // @@ TMP: using target name as the default extension.
-          //
-          pt.path (pt.derived_path (pt.type ().name));
-        }
+          pt.derive_path ();
 
         return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
       }

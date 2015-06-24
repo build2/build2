@@ -1,0 +1,6 @@
+hxx.ext = hpp
+cxx.ext = cpp
+ixx.ext = ipp
+
+exe{test}: cxx{driver test}
+cxx{test}: cli{test}

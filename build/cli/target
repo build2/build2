@@ -1,0 +1,51 @@
+// file      : build/cli/target -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CLI_TARGET
+#define BUILD_CLI_TARGET
+
+#include <build/target>
+
+#include <build/cxx/target>
+
+namespace build
+{
+  namespace cli
+  {
+    class cli: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
+    };
+
+    class cli_cxx: public target_group
+    {
+    public:
+      using target_group::target_group;
+
+      target* m[3] {nullptr, nullptr, nullptr};
+
+      cxx::hxx* h () const {return static_cast<cxx::hxx*> (m[0]);}
+      cxx::cxx* c () const {return static_cast<cxx::cxx*> (m[1]);}
+      cxx::ixx* i () const {return static_cast<cxx::ixx*> (m[2]);}
+
+      void h (cxx::hxx& t) {m[0] = &t;}
+      void c (cxx::cxx& t) {m[1] = &t;}
+      void i (cxx::ixx& t) {m[2] = &t;}
+
+      virtual group_view
+      members (action) const;
+
+    public:
+      virtual const target_type& type () const {return static_type;}
+      static const target_type static_type;
+    };
+  }
+}
+
+#endif // BUILD_CLI_TARGET

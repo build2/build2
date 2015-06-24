@@ -28,6 +28,7 @@ namespace build
       "obja",
       &file::static_type,
       &obja_factory,
+      nullptr,
       &search_file
     };
 
@@ -49,6 +50,7 @@ namespace build
       "objso",
       &file::static_type,
       &objso_factory,
+      nullptr,
       &search_file
     };
 
@@ -74,6 +76,7 @@ namespace build
       "obj",
       &target::static_type,
       &obj_factory,
+      nullptr,
       &search_target
     };
 
@@ -83,6 +86,7 @@ namespace build
       "exe",
       &file::static_type,
       &target_factory<exe>,
+      nullptr,
       &search_file
     };
 
@@ -104,6 +108,7 @@ namespace build
       "liba",
       &file::static_type,
       &liba_factory,
+      nullptr,
       &search_file
     };
 
@@ -125,6 +130,7 @@ namespace build
       "libso",
       &file::static_type,
       &libso_factory,
+      nullptr,
       &search_file
     };
 
@@ -150,6 +156,7 @@ namespace build
       "lib",
       &target::static_type,
       &lib_factory,
+      nullptr,
       &search_target
     };
   }

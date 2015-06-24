@@ -7,11 +7,13 @@ import libs += libbutl
 config = config/{operation module utility}
 bin = bin/{target rule module}
 cxx = cxx/{target rule module}
+cli = cli/{target rule module}
 
 exe{b}: cxx{b algorithm name operation spec scope variable target \
   prerequisite rule file module context search diagnostics token  \
-  lexer parser path-io utility dump options $config $bin $cxx} $libs
+  lexer parser path-io utility dump options $config $bin $cxx $cli} \
+  $libs
 
 #@@ TODO
 #
-# cli --include-with-brackets --include-prefix build --guard-prefix BUILD --hxx-suffix "" options.cli
+# cli --cli-namespace cl --include-with-brackets --include-prefix build --guard-prefix BUILD --hxx-suffix "" options.cli

@@ -5,8 +5,12 @@
 #ifndef BUILD_CONFIG_UTILITY
 #define BUILD_CONFIG_UTILITY
 
+#include <vector>
 #include <string>
 #include <utility> // pair
+
+#include <build/types>
+#include <build/diagnostics>
 
 namespace build
 {
@@ -37,6 +41,26 @@ namespace build
     template <typename T>
     const T*
     optional (scope& root, const char* name);
+
+    // Add all the values from a variable to the C-string list. T is
+    // either target or scope.
+    //
+    template <typename T>
+    void
+    append_options (std::vector<const char*>& args, T& s, const char* var)
+    {
+      if (auto val = s[var])
+      {
+        for (const name& n: val.template as<const list_value&> ())
+        {
+          if (!n.type.empty () || !n.dir.empty ())
+            fail << "expected option instead of " << n <<
+              info << "in variable " << var;
+
+          args.push_back (n.value.c_str ());
+        }
+      }
+    }
   }
 }
 

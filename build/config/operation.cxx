@@ -198,7 +198,7 @@ namespace build
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
-        scope* rs (t.root_scope ());
+        scope* rs (t.base_scope ().root_scope ());
 
         if (rs == nullptr)
           fail << "out of project target " << t;

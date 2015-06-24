@@ -24,12 +24,12 @@
 #include <build/operation>
 #include <build/target-key>
 #include <build/prerequisite>
-#include <build/utility>       // extension_pool
 
 namespace build
 {
   class scope;
   class target;
+  class target_group;
 
   // Target state.
   //
@@ -111,12 +111,17 @@ namespace build
     const std::string* ext;  // Extension, NULL means unspecified,
                              // empty means no extension.
 
+    //@@ Make target_group.
     target* group {nullptr}; // Target group to which this target belongs,
                              // if any. Note that we assume that the group
                              // and all its members are in the same scope
                              // (see, for example, variable lookup).
                              // We also currently assume that there are
                              // no multi-level groups.
+
+    target_key
+    key () const {return target_key {&type (), &dir, &name, &ext};}
+
    public:
     // Most qualified scope that contains this target.
     //
@@ -125,9 +130,10 @@ namespace build
 
     // Root scope of a project that contains this target. Note that
     // a target can be out of any (known) project root in which case
-    // NULL is returned.
+    // this function asserts. If you need to detect this situation,
+    // then use base_scope().root_scope() expression instead.
     //
-    scope*
+    scope&
     root_scope () const;
 
     // Prerequisites.
@@ -429,6 +435,14 @@ namespace build
             const std::string* ext,
             tracer&);
 
+    template <typename T>
+    T&
+    insert (const dir_path& dir, const std::string& name, tracer& t)
+    {
+      return static_cast<T&> (
+        insert (T::static_type, dir, name, nullptr, t).first);
+    }
+
     void
     clear () {map_.clear ();}
 
@@ -462,6 +476,26 @@ namespace build
   };
 
   extern target_type_map target_types;
+
+  // Target group.
+  //
+  struct group_view
+  {
+    target* const* members; // NULL means not yet known.
+    std::size_t count;
+  };
+
+  class target_group: public target
+  {
+  public:
+    using target::target;
+
+    virtual group_view
+    members (action) const = 0;
+
+  public:
+    static const target_type static_type;
+  };
 
   // Modification time-based target.
   //
@@ -508,16 +542,20 @@ namespace build
     void
     path (path_type p) {assert (path_.empty ()); path_ = std::move (p);}
 
-    // Return a path derived from target's dir, name, and, if specified,
-    // ext. If ext is not specified, then use default_ext. If name_prefix
-    // if not NULL, add it before the name part and after the directory.
-    // Similarly, if name_suffix if not NULL, add it after the name part
-    // and before the extension.
+    // Derive a path from target's dir, name, and, if specified, ext.
+    // If ext is not specified, then use default_ext and also update
+    // the target's extension (this becomes important if later we need
+    // to reliably determine whether this file has an extension; think
+    // hxx{foo.bar.} and hxx.ext is empty).
     //
-    path_type
-    derived_path (const char* default_ext = nullptr,
-                  const char* name_prefix = nullptr,
-                  const char* name_suffix = nullptr);
+    // If name_prefix is not NULL, add it before the name part and after
+    // the directory. Similarly, if name_suffix is not NULL, add it after
+    // the name part and before the extension.
+    //
+    void
+    derive_path (const char* default_ext = nullptr,
+                 const char* name_prefix = nullptr,
+                 const char* name_suffix = nullptr);
 
   public:
     static const target_type static_type;
@@ -573,7 +611,8 @@ namespace build
     static const target_type static_type;
   };
 
-  // Common implementation of the target factory and search functions.
+  // Common implementation of the target factory, extension, and
+  // search functions.
   //
   template <typename T>
   target*
@@ -582,13 +621,25 @@ namespace build
     return new T (std::move (d), std::move (n), e);
   }
 
+  // Return fixed target extension.
+  //
+  template <const char* ext>
+  const std::string&
+  target_extension_fix (const target_key&, scope&);
+
+  // Get the extension from the variable.
+  //
+  template <const char* var>
+  const std::string&
+  target_extension_var (const target_key&, scope&);
+
   // The default behavior, that is, look for an existing target in the
   // prerequisite's directory scope.
   //
   target*
   search_target (const prerequisite_key&);
 
-  // First lookfor an existing target as above. If not found, then look
+  // First look for an existing target as above. If not found, then look
   // for an existing file in the target-type-specific list of paths.
   //
   target*
@@ -597,5 +648,6 @@ namespace build
 }
 
 #include <build/target.ixx>
+#include <build/target.txx>
 
 #endif // BUILD_TARGET

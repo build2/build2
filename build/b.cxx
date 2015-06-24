@@ -78,13 +78,15 @@ namespace build
 
 #include <build/config/module>
 
-#include <build/bin/target>
-#include <build/bin/rule>
+#include <build/bin/target> //@@ tmp
+#include <build/bin/rule>   //@@ tmp
 #include <build/bin/module>
 
-#include <build/cxx/target>
-#include <build/cxx/rule>
+#include <build/cxx/target> //@@ tmp
+#include <build/cxx/rule>   //@@ tmp
 #include <build/cxx/module>
+
+#include <build/cli/module>
 
 using namespace build;
 
@@ -95,7 +97,7 @@ main (int argc, char* argv[])
   {
     tracer trace ("main");
 
-    cli::argv_scanner scan (argc, argv, true);
+    cl::argv_scanner scan (argc, argv, true);
     options ops (scan);
 
     // Version.
@@ -134,6 +136,7 @@ main (int argc, char* argv[])
     modules["config"] = &config::init;
     modules["bin"] = &bin::init;
     modules["cxx"] = &cxx::init;
+    modules["cli"] = &cli::init;
 
     // Register target types.
     //

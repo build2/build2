@@ -26,6 +26,7 @@ namespace build
     const char* name;
     const target_type* base;
     target* (*const factory) (dir_path, std::string, const std::string*);
+    const std::string& (*const extension) (const target_key&, scope&);
     target* (*const search) (const prerequisite_key&);
   };
 

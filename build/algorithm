@@ -68,6 +68,13 @@ namespace build
   void
   search_and_match (action, target&, const dir_path& dir);
 
+  // Unless already available, match, and, if necessary, execute
+  // (not yet implemented) the group in order to obtain its members
+  // list.
+  //
+  group_view
+  resolve_group_members (action, target_group&);
+
   // Inject dependency on the parent directory's fsdir{}, unless it is
   // the project's out_root (or is outside of any project; say, for
   // example, an install directory). Normally this function is called
@@ -114,7 +121,7 @@ namespace build
   //
   template <typename T>
   T*
-  execute_find_prerequisites (action, target&, const timestamp&);
+  execute_prerequisites (action, target&, const timestamp&);
 
   // Return noop_recipe instead of using this function directly.
   //

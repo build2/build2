@@ -24,6 +24,8 @@
 #include <build/bin/target>
 #include <build/cxx/target>
 
+#include <build/config/utility>
+
 using namespace std;
 using namespace butl;
 
@@ -33,24 +35,7 @@ namespace build
   {
     using namespace bin;
 
-    // T is either target or scope.
-    //
-    template <typename T>
-    static void
-    append_options (vector<const char*>& args, T& s, const char* var)
-    {
-      if (auto val = s[var])
-      {
-        for (const name& n: val.template as<const list_value&> ())
-        {
-          if (!n.type.empty () || !n.dir.empty ())
-            fail << "expected option instead of " << n <<
-              info << "in variable " << var;
-
-          args.push_back (n.value.c_str ());
-        }
-      }
-    }
+    using config::append_options;
 
     static void
     append_std (vector<const char*>& args, target& t, string& opt)
@@ -127,12 +112,7 @@ namespace build
       // Derive file name from target name.
       //
       if (t.path ().empty ())
-      {
-        if (t.is_a <obja> ())
-          t.path (t.derived_path ("o"));
-        else
-          t.path (t.derived_path ("o", nullptr, "-so"));
-      }
+        t.derive_path ("o", nullptr, (t.is_a<objso> () ? "-so" : nullptr));
 
       // Inject dependency on the output directory.
       //
@@ -236,7 +216,7 @@ namespace build
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (t.root_scope ());
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
@@ -346,7 +326,20 @@ namespace build
             // then assume it is a header. Otherwise, let the standard
             // mechanism derive the type from the extension. @@ TODO.
             //
-            path_target& pt (search<hxx> (d, n, e, &ds));
+            const target_type* tt (&hxx::static_type);
+
+            //@@ TMP
+            //
+            if (e != nullptr)
+            {
+              if (*e == "ixx")
+                tt = &ixx::static_type;
+              else if (*e == "txx")
+                tt = &txx::static_type;
+            }
+
+            path_target& pt (
+              static_cast<path_target&> (search (*tt, d, n, e, &ds)));
 
             // Assign path.
             //
@@ -398,7 +391,7 @@ namespace build
       path relo (relative (t.path ()));
       path rels (relative (s->path ()));
 
-      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (t.root_scope ());
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
       vector<const char*> args {cxx.c_str ()};
@@ -580,9 +573,9 @@ namespace build
       {
         switch (lt)
         {
-        case type::e:  t.path (t.derived_path (           )); break;
-        case type::a:  t.path (t.derived_path ("a",  "lib")); break;
-        case type::so: t.path (t.derived_path ("so", "lib")); break;
+        case type::e:  t.derive_path (""         ); break;
+        case type::a:  t.derive_path ("a",  "lib"); break;
+        case type::so: t.derive_path ("so", "lib"); break;
         }
       }
 
@@ -674,8 +667,7 @@ namespace build
           // but possible, the prerequisite is from a different project
           // altogether. So we are going to use the target's project.
           //
-          root = t.root_scope ();
-          assert (root != nullptr); // Otherwise shouldn't have matched.
+          root = &t.root_scope ();
           out_root = &root->path ();
           src_root = &root->src_path ();
         }
@@ -837,7 +829,7 @@ namespace build
       //
       path relt (relative (t.path ()));
 
-      scope& rs (*t.root_scope ()); // Shouldn't have matched if nullptr.
+      scope& rs (t.root_scope ());
       vector<const char*> args;
       string storage1;
 

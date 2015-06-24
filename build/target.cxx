@@ -4,6 +4,8 @@
 
 #include <build/target>
 
+#include <cassert>
+
 #include <butl/filesystem>
 
 #include <build/scope>
@@ -29,12 +31,14 @@ namespace build
     return scopes.find (dir);
   }
 
-  scope* target::
+  scope& target::
   root_scope () const
   {
     // This is tricky to cache so we do the lookup for now.
     //
-    return scopes.find (dir).root_scope ();
+    scope* r (scopes.find (dir).root_scope ());
+    assert (r != nullptr);
+    return *r;
   }
 
   value_proxy target::
@@ -240,8 +244,8 @@ namespace build
 
   // path_target
   //
-  path path_target::
-  derived_path (const char* de, const char* np, const char* ns)
+  void path_target::
+  derive_path (const char* de, const char* np, const char* ns)
   {
     string n;
 
@@ -253,21 +257,35 @@ namespace build
     if (ns != nullptr)
       n += ns;
 
-    if (ext != nullptr)
+    // Update the extension.
+    //
+    // See also search_existing_file() if updating anything here.
+    //
+    if (ext == nullptr)
     {
-      if (!ext->empty ())
-      {
-        n += '.';
-        n += *ext;
-      }
-    }
-    else if (de != nullptr)
-    {
-      n += '.';
-      n += de;
+      // If provided by the caller, then use that.
+      //
+      if (de != nullptr)
+        ext = &extension_pool.find (de);
+      //
+      // Otherwis see if the target type has function that will
+      // give us the default extension.
+      //
+      else if (auto f = type ().extension)
+        ext = &f (key (), base_scope ()); // Already from the pool.
+      else
+        fail << "no default extension for target " << *this;
     }
 
-    return dir / path_type (move (n));
+    // Add the extension.
+    //
+    if (!ext->empty ())
+    {
+      n += '.';
+      n += *ext;
+    }
+
+    path (dir / path_type (move (n)));
   }
 
   // file_target
@@ -337,6 +355,17 @@ namespace build
     "target",
     nullptr,
     nullptr,
+    nullptr,
+    &search_target,
+  };
+
+  const target_type target_group::static_type
+  {
+    typeid (target_group),
+    "target_group",
+    &target::static_type,
+    nullptr,
+    nullptr,
     &search_target
   };
 
@@ -345,6 +374,7 @@ namespace build
     typeid (mtime_target),
     "mtime_target",
     &target::static_type,
+    nullptr,
     nullptr,
     &search_target
   };
@@ -355,15 +385,29 @@ namespace build
     "path_target",
     &mtime_target::static_type,
     nullptr,
+    nullptr,
     &search_target
   };
+
+  static target*
+  file_factory (dir_path d, string n, const string* e)
+  {
+    // The file target type doesn't imply any extension. So if one
+    // wasn't specified, set it to empty rather than unspecified.
+    // In other words, we always treat file{foo} as file{foo.}.
+    //
+    return new file (move (d),
+                     move (n),
+                     (e != nullptr ? e : &extension_pool.find ("")));
+  }
 
   const target_type file::static_type
   {
     typeid (file),
     "file",
     &path_target::static_type,
-    &target_factory<file>,
+    &file_factory,
+    nullptr, // Factory always assigns an extension.
     &search_file
   };
 
@@ -373,6 +417,7 @@ namespace build
     "dir",
     &target::static_type,
     &target_factory<dir>,
+    nullptr, // Should never need.
     &search_alias
   };
 
@@ -382,6 +427,7 @@ namespace build
     "fsdir",
     &target::static_type,
     &target_factory<fsdir>,
+    nullptr, // Should never need.
     &search_target
   };
 }

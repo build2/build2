@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <utility> // pair
+
 #include <build/prerequisite>
 #include <build/context>
 
@@ -36,16 +38,26 @@ namespace build
     return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
-  void
-  match_impl (action, target&);
+  std::pair<const rule*, void*>
+  match_impl (action, target&, bool apply);
 
   inline void
   match (action a, target& t)
   {
     if (!t.recipe (a))
-      match_impl (a, t);
+      match_impl (a, t, true);
 
     t.dependents++;
+  }
+
+  group_view
+  resolve_group_members_impl (action, target_group&);
+
+  inline group_view
+  resolve_group_members (action a, target_group& g)
+  {
+    group_view r (g.members (a));
+    return r.members != nullptr ? r : resolve_group_members_impl (a, g);
   }
 
   target_state

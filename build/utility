@@ -75,6 +75,9 @@ namespace build
   {
     const std::string&
     find (const char* s) {return *emplace (s).first;}
+
+    const std::string&
+    find (const std::string& s) {return *emplace (s).first;}
   };
 
   extern string_pool extension_pool;
