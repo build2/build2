@@ -1,1 +1,5 @@
 driver
+
+# Temporary out-of-tree build directories.
+#
+*-build

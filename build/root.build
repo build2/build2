@@ -4,5 +4,10 @@
 
 using cxx
 
+hxx.ext =
+ixx.ext = ixx
+txx.ext = txx
+cxx.ext = cxx
+
 cxx.std = 14
 cxx.poptions += -I$src_root

@@ -4,6 +4,7 @@
 
 #include <build/cxx/rule>
 
+#include <map>
 #include <string>
 #include <vector>
 #include <cstddef>  // size_t
@@ -211,6 +212,37 @@ namespace build
       return r;
     }
 
+    // The strings used as the map key should be from the extension_pool.
+    // This way we can just compare pointers.
+    //
+    using ext_map = map<const string*, const target_type*>;
+
+    static ext_map
+    build_ext_map (scope& r)
+    {
+      ext_map m;
+
+      if (auto val = r["h.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &h::static_type;
+
+      if (auto val = r["c.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &c::static_type;
+
+      if (auto val = r["hxx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &hxx::static_type;
+
+      if (auto val = r["ixx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &ixx::static_type;
+
+      if (auto val = r["txx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &txx::static_type;
+
+      if (auto val = r["cxx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &cxx::static_type;
+
+      return m;
+    }
+
     void compile::
     inject_prerequisites (action a, target& t, const cxx& s, scope& ds) const
     {
@@ -326,17 +358,38 @@ namespace build
             // then assume it is a header. Otherwise, let the standard
             // mechanism derive the type from the extension. @@ TODO.
             //
-            const target_type* tt (&hxx::static_type);
 
-            //@@ TMP
+            // Determine the target type.
             //
-            if (e != nullptr)
+            const target_type* tt (nullptr);
+
+            // See if this directory is part of any project out_root
+            // hierarchy. Note that this will miss all the headers
+            // that come from src_root (so they will be treated as
+            // generic C headers below). Generally, we don't have
+            // the ability to determine that some file belongs to
+            // src_root of some project. But that's not a problem
+            // for our purposes: it is only important for us to
+            // accurately determine target types for headers that
+            // could be auto-generated.
+            //
+            if (scope* r = scopes.find (d).root_scope ())
             {
-              if (*e == "ixx")
-                tt = &ixx::static_type;
-              else if (*e == "txx")
-                tt = &txx::static_type;
+              // Get cahed (or build) a map of the extensions for the
+              // C/C++ files this project is using.
+              //
+              const ext_map& m (build_ext_map (*r));
+
+              auto i (m.find (e));
+              if (i != m.end ())
+                tt = i->second;
             }
+
+            // If it is outside any project, or the project doesn't have
+            // such an extension, assume it is a plain old C header.
+            //
+            if (tt == nullptr)
+              tt = &h::static_type;
 
             path_target& pt (
               static_cast<path_target&> (search (*tt, d, n, e, &ds)));

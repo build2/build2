@@ -162,7 +162,10 @@ namespace build
     diag_record r (text);
 
     for (const char* const* p (args); *p != nullptr; p++)
-      r << (p != args ? " " : "") << *p;
+      r << (p != args ? " " : "")
+        << (**p == '\0' ? "\"" : "") // Quote empty arguments.
+        << *p
+        << (**p == '\0' ? "\"" : "");
   }
 
   // Trace verbosity level.
