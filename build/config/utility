@@ -53,7 +53,7 @@ namespace build
       {
         for (const name& n: val.template as<const list_value&> ())
         {
-          if (!n.type.empty () || !n.dir.empty ())
+          if (!n.simple ())
             fail << "expected option instead of " << n <<
               info << "in variable " << var;
 

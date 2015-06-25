@@ -1,0 +1,13 @@
+lib{test}: cxx{utility} cxx{test} extra/cxx{test}
+cxx{test} hxx{test}: cli{test}
+
+extra/:
+{
+  cxx{test} hxx{test}: cli{test}
+  cli.options += --cli-namespace test::extra::cli
+}
+
+cxx.poptions += -I$out_root -I$src_root
+lib{test}: cxx.export.poptions = -I$out_root -I$src_root
+
+cli.options += --cli-namespace test::cli

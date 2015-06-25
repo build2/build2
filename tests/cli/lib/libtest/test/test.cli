@@ -1,0 +1,8 @@
+namespace test
+{
+  class options
+  {
+    bool --help;
+    bool --version;
+  };
+}

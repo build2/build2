@@ -1,0 +1,5 @@
+class options
+{
+  bool --help;
+  bool --version;
+};

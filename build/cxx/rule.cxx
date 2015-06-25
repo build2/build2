@@ -15,6 +15,7 @@
 #include <butl/utility>  // reverse_iterate
 #include <butl/fdstream>
 #include <butl/optional>
+#include <butl/path-map>
 
 #include <build/scope>
 #include <build/variable>
@@ -69,8 +70,10 @@ namespace build
     {
       for (target* t: l.prerequisite_targets)
       {
-        if (t != nullptr &&
-            (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ()))
+        if (t == nullptr)
+          continue;
+
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
           append_lib_options (args, *t, var);
       }
 
@@ -170,6 +173,161 @@ namespace build
       }
     }
 
+    // The strings used as the map key should be from the extension_pool.
+    // This way we can just compare pointers.
+    //
+    using ext_map = map<const string*, const target_type*>;
+
+    static ext_map
+    build_ext_map (scope& r)
+    {
+      ext_map m;
+
+      if (auto val = r["h.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &h::static_type;
+
+      if (auto val = r["c.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &c::static_type;
+
+      if (auto val = r["hxx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &hxx::static_type;
+
+      if (auto val = r["ixx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &ixx::static_type;
+
+      if (auto val = r["txx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &txx::static_type;
+
+      if (auto val = r["cxx.ext"])
+        m[&extension_pool.find (val.as<const string&> ())] = &cxx::static_type;
+
+      return m;
+    }
+
+    // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
+    // generated headers to directories where they will be generated.
+    //
+    // We are using a prefix map of directories (dir_path_map) instead
+    // of just a map in order also cover sub-paths (e.g., <foo/more/bar>
+    // if we continue with the example). Specifically, we need to make
+    // sure we don't treat foobar as a sub-directory of foo.
+    //
+    // @@ The keys should be canonicalized.
+    //
+    using prefix_map = dir_path_map<dir_path>;
+
+    static void
+    append_prefixes (prefix_map& m, target& t, const char* var)
+    {
+      tracer trace ("cxx::append_prefixes");
+
+      const dir_path& out_base (t.dir);
+      const dir_path& out_root (t.root_scope ().path ());
+
+      if (auto val = t[var])
+      {
+        const list_value& l (val.template as<const list_value&> ());
+
+        // Assume the names have already been vetted by append_options().
+        //
+        for (auto i (l.begin ()), e (l.end ()); i != e; ++i)
+        {
+          // -I can either be in the -Ifoo or -I foo form.
+          //
+          dir_path d;
+          if (i->value == "-I")
+          {
+            if (++i == e)
+              break; // Let the compiler complain.
+
+            d = dir_path (i->value);
+          }
+          else if (i->value.compare (0, 2, "-I") == 0)
+            d = dir_path (i->value, 2, string::npos);
+          else
+            continue;
+
+          level5 ([&]{trace << "-I '" << d << "'";});
+
+          // If we are relative or not inside our project root, then
+          // ignore.
+          //
+          if (d.relative () || !d.sub (out_root))
+            continue;
+
+          // If the target directory is a sub-directory of the include
+          // directory, then the prefix is the difference between the
+          // two. Otherwise, leave it empty.
+          //
+          // The idea here is to make this "canonical" setup work auto-
+          // magically:
+          //
+          // 1. We include all files with a prefix, e.g., <foo/bar>.
+          // 2. The library target is in the foo/ sub-directory, e.g.,
+          //    /tmp/foo/.
+          // 3. The poptions variable contains -I/tmp.
+          //
+          dir_path p (out_base.sub (d) ? out_base.leaf (d) : dir_path ());
+
+          auto j (m.find (p));
+
+          if (j != m.end ())
+          {
+            if (j->second != d)
+              fail << "duplicate generated dependency prefix '" << p << "'" <<
+                info << "old mapping to " << j->second <<
+                info << "new mapping to " << d;
+          }
+          else
+          {
+            level5 ([&]{trace << "'" << p << "' = '" << d << "'";});
+            m.emplace (move (p), move (d));
+          }
+        }
+      }
+    }
+
+    // Append library prefixes based on the cxx.export.poptions variables
+    // recursively, prerequisite libraries first.
+    //
+    static void
+    append_lib_prefixes (prefix_map& m, target& l)
+    {
+      for (target* t: l.prerequisite_targets)
+      {
+        if (t == nullptr)
+          continue;
+
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
+          append_lib_prefixes (m, *t);
+      }
+
+      append_prefixes (m, l, "cxx.export.poptions");
+    }
+
+    static prefix_map
+    build_prefix_map (target& t)
+    {
+      prefix_map m;
+
+      // First process the include directories from prerequsite
+      // libraries.
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target& pt (*p.target); // Already searched and matched.
+
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          append_lib_prefixes (m, pt);
+      }
+
+      // Then process our own.
+      //
+      append_prefixes (m, t, "cxx.poptions");
+
+      return m;
+    }
+
     // Return the next make prerequisite starting from the specified
     // position and update position to point to the start of the
     // following prerequisite or l.size() if there are none left.
@@ -212,37 +370,6 @@ namespace build
       return r;
     }
 
-    // The strings used as the map key should be from the extension_pool.
-    // This way we can just compare pointers.
-    //
-    using ext_map = map<const string*, const target_type*>;
-
-    static ext_map
-    build_ext_map (scope& r)
-    {
-      ext_map m;
-
-      if (auto val = r["h.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &h::static_type;
-
-      if (auto val = r["c.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &c::static_type;
-
-      if (auto val = r["hxx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &hxx::static_type;
-
-      if (auto val = r["ixx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &ixx::static_type;
-
-      if (auto val = r["txx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &txx::static_type;
-
-      if (auto val = r["cxx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &cxx::static_type;
-
-      return m;
-    }
-
     void compile::
     inject_prerequisites (action a, target& t, const cxx& s, scope& ds) const
     {
@@ -276,7 +403,7 @@ namespace build
       if (t.is_a<objso> ())
         args.push_back ("-fPIC");
 
-      args.push_back ("-MM"); // @@ Change to -M
+      args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
       args.push_back ("-MG"); // Treat missing headers as generated.
       args.push_back ("-MQ"); // Quoted target name.
       args.push_back ("*");   // Old versions can't handle empty target name.
@@ -301,8 +428,9 @@ namespace build
       {
         process pr (args.data (), false, false, true);
         ifdstream is (pr.in_ofd);
+        prefix_map pm; // Build it lazily.
 
-        for (bool first (true); !is.eof (); )
+        for (bool first (true), second (true); !is.eof (); )
         {
           string l;
           getline (is, l);
@@ -321,10 +449,34 @@ namespace build
               break;
 
             assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
-            next (l, (pos = 3)); // Skip the source file.
 
             first = false;
+
+            // While normally we would have the source file on the
+            // first line, if too long, it will be move to the next
+            // line and all we will have on this line is "*: \".
+            //
+            if (l.size () == 4 && l[3] == '\\')
+              continue;
+            else
+              pos = 3; // Skip "*: ".
+
+            // Fall through to the 'second' block.
           }
+
+          if (second)
+          {
+            second = false;
+            next (l, pos); // Skip the source file.
+          }
+
+          auto g (
+            make_exception_guard (
+              [](const target& s)
+              {
+                info << "while extracting dependencies from " << s;
+              },
+              s));
 
           while (pos != l.size ())
           {
@@ -333,8 +485,44 @@ namespace build
 
             if (!f.absolute ())
             {
-              level5 ([&]{trace << "skipping generated/non-existent " << f;});
-              continue;
+              // This is probably as often an error as an auto-generated
+              // file, so trace at level 3.
+              //
+              level3 ([&]{trace << "non-existent header '" << f << "'";});
+
+              // If we already did it and build_prefix_map() returned empty,
+              // then we would have failed below.
+              //
+              if (pm.empty ())
+                pm = build_prefix_map (t);
+
+              // First try the whole file. Then just the directory.
+              //
+              // @@ Has to be a separate map since the prefix can be
+              //    the same as the file name.
+              //
+              // auto i (pm.find (f));
+
+              // Find the most qualified prefix of which we are a
+              // sub-path.
+              //
+              auto i (pm.end ());
+
+              if (!pm.empty ())
+              {
+                const dir_path& d (f.directory ());
+                i = pm.upper_bound (d);
+                --i; // Greatest less than.
+
+                if (!d.sub (i->first)) // We might still not be a sub.
+                  i = pm.end ();
+              }
+
+              if (i == pm.end ())
+                fail << "unable to map presumably auto-generated header '"
+                     << f << "' to a project";
+
+              f = i->second / f;
             }
 
             level5 ([&]{trace << "injecting " << f;});

@@ -213,9 +213,9 @@ namespace build
   search_and_match (action a, target& t)
   {
     group_prerequisites gp (t);
-    t.prerequisite_targets.resize (gp.size ());
+    size_t i (t.prerequisite_targets.size ());
+    t.prerequisite_targets.resize (gp.size () + i);
 
-    size_t i (0);
     for (prerequisite& p: gp)
     {
       target& pt (search (p));

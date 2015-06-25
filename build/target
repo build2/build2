@@ -552,6 +552,9 @@ namespace build
     // the directory. Similarly, if name_suffix is not NULL, add it after
     // the name part and before the extension.
     //
+    // Finally, if the path was already assigned to this target, then
+    // this function verifies that the two are the same.
+    //
     void
     derive_path (const char* default_ext = nullptr,
                  const char* name_prefix = nullptr,

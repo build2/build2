@@ -1,0 +1,8 @@
+hxx.ext =
+cxx.ext = cpp
+ixx.ext = ipp
+
+cxx.poptions = -I$out_root
+
+exe{driver}: cxx{driver} cxx{test}
+cxx{test} hxx{test}: cli{test}

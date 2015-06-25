@@ -285,7 +285,15 @@ namespace build
       n += *ext;
     }
 
-    path (dir / path_type (move (n)));
+    path_type p (dir / path_type (move (n)));
+    const path_type& ep (path ());
+
+    if (ep.empty ())
+      path (p);
+    else if (p != ep)
+      fail << "path mismatch for target " << *this <<
+        info << "assigned '" << ep << "'" <<
+        info << "derived  '" << p << "'";
   }
 
   // file_target

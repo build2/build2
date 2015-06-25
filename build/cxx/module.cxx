@@ -71,11 +71,11 @@ namespace build
 
             bool r (getline (is, ver));
 
-            if (!pr.wait ())
-              throw failed ();
-
             if (!r)
               fail << "unexpected output from " << cxx;
+
+            if (!pr.wait ())
+              throw failed ();
           }
           catch (const process_error& e)
           {

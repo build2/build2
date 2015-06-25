@@ -1,0 +1,6 @@
+#include "test"
+
+int
+main ()
+{
+}

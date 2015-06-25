@@ -1,0 +1,7 @@
+using cxx
+
+hxx.ext = h
+ixx.ext = inl
+cxx.ext = C
+
+using cli

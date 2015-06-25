@@ -1,0 +1,6 @@
+import libs += cli-lib-libtest
+
+exe{driver}: cxx{driver} cxx{test} $libs
+cxx{test} hxx{test}: cli{test}
+
+cxx.poptions = -I$out_root
