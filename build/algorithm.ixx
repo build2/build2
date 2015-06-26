@@ -83,4 +83,15 @@ namespace build
       }
     }
   }
+
+  inline target_state
+  execute_direct (action a, target& t)
+  {
+    switch (t.state)
+    {
+    case target_state::unchanged:
+    case target_state::changed: return t.state;
+    default: return execute_impl (a, t);
+    }
+  }
 }

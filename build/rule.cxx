@@ -39,7 +39,7 @@ namespace build
     // are not doing anything for this action so not checking if the file
     // exists seems harmless. What about, say, configure_update? Again,
     // whether we match or not, there is nothing to be done for this
-    // action. And who knows, maybe the file doesn't exist during
+    // action. And, who knows, maybe the file doesn't exist during
     // configure_update but will magically appear during perform_update.
     // So the overall guideline seems to be this: if we don't do anything
     // for the action (other than performing it on the prerequisites),
@@ -160,10 +160,6 @@ namespace build
   recipe fsdir_rule::
   apply (action a, target& t, void*) const
   {
-    // Inject dependency on the parent directory.
-    //
-    inject_parent_fsdir (a, t);
-
     switch (a.operation ())
     {
     // For default, we don't do anything other than letting our
@@ -171,6 +167,11 @@ namespace build
     //
     case default_id:
     case update_id:
+      // Inject dependency on the parent directory. Note that we
+      // don't do it for clean since we shouldn't be removing it.
+      //
+      inject_parent_fsdir (a, t);
+
       search_and_match (a, t);
       break;
     // For clean, ignore prerequisites that are not in the same or a

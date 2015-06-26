@@ -196,13 +196,13 @@ namespace build
       g.recipe (a, p.first->apply (a, g, p.second));
     }
 
-    // Note the we use execute_impl() rather than execute() here
+    // Note that we use execute_direct() rather than execute() here
     // to sidestep the dependents count logic. In this context,
     // this is by definition the first attempt to execute this
     // rule (otherwise we would have already known the members
     // list) and we really do need to execute it now.
     //
-    execute_impl (a, g);
+    execute_direct (a, g);
 
     r = g.members (a);
     assert (r.members != nullptr); // What "next step" did the group expect?

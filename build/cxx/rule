@@ -30,10 +30,6 @@ namespace build
 
       static target_state
       perform_update (action, target&);
-
-    private:
-      void
-      inject_prerequisites (action, target&, const cxx&, scope&) const;
     };
 
     class link: public rule

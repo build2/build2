@@ -1,13 +1,18 @@
-lib{test}: cxx{utility} cxx{test} extra/cxx{test}
+lib{test}: cxx{utility} cxx{test base} extra/cxx{test}
 cxx{test} hxx{test}: cli{test}
+cxx{base} hxx{base}: cli{base}
+
+cli.options += -I $src_root --include-with-brackets
 
 extra/:
 {
   cxx{test} hxx{test}: cli{test}
-  cli.options += --cli-namespace test::extra::cli
+  cli.options += --include-prefix test/extra --guard-prefix TEST_EXTRA \
+    --cli-namespace test::extra::cli
 }
 
 cxx.poptions += -I$out_root -I$src_root
 lib{test}: cxx.export.poptions = -I$out_root -I$src_root
 
-cli.options += --cli-namespace test::cli
+cli.options += --include-prefix test --guard-prefix TEST \
+--cli-namespace test::cli

@@ -17,6 +17,17 @@ using namespace std;
 
 namespace build
 {
+  // target_state
+  //
+  static const char* target_state_[] = {
+    "unknown", "postponed", "unchanged", "changed", "failed"};
+
+  ostream&
+  operator<< (ostream& os, target_state ts)
+  {
+    return os << target_state_[static_cast<size_t> (ts)];
+  }
+
   // recipe
   //
   const recipe empty_recipe;

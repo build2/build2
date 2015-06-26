@@ -53,11 +53,13 @@ namespace build
       {
         for (const name& n: val.template as<const list_value&> ())
         {
-          if (!n.simple ())
+          if (n.simple ())
+            args.push_back (n.value.c_str ());
+          else if (n.directory ())
+            args.push_back (n.dir.string ().c_str ());
+          else
             fail << "expected option instead of " << n <<
               info << "in variable " << var;
-
-          args.push_back (n.value.c_str ());
         }
       }
     }

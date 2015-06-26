@@ -35,6 +35,9 @@ namespace build
   //
   enum class target_state {unknown, postponed, unchanged, changed, failed};
 
+  std::ostream&
+  operator<< (std::ostream&, target_state);
+
   // Recipe.
   //
   // The returned target state should be changed, unchanged, or

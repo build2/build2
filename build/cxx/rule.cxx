@@ -108,6 +108,9 @@ namespace build
       return nullptr;
     }
 
+    static void
+    inject_prerequisites (action, target&, cxx&, scope&);
+
     recipe compile::
     apply (action a, target& xt, void* v) const
     {
@@ -149,10 +152,11 @@ namespace build
         t.prerequisite_targets.push_back (&pt);
       }
 
-      // Inject additional prerequisites. For now we only do it for
-      // update and default.
+      // Inject additional prerequisites. We only do it for update
+      // since chances are we will have to update some of our
+      // prerequisites in the process (auto-generated source code).
       //
-      if (a.operation () == update_id || a.operation () == default_id)
+      if (a.operation () == update_id)
       {
         // The cached prerequisite target (sp.target) should be the
         // same as what is in t.prerequisite_targets since we used
@@ -161,8 +165,7 @@ namespace build
         prerequisite& sp (*static_cast<prerequisite*> (v));
         cxx& st (dynamic_cast<cxx&> (*sp.target));
 
-        if (st.mtime () != timestamp_nonexistent)
-          inject_prerequisites (a, t, st, sp.scope);
+        inject_prerequisites (a, t, st, sp.scope);
       }
 
       switch (a)
@@ -240,7 +243,7 @@ namespace build
             if (++i == e)
               break; // Let the compiler complain.
 
-            d = dir_path (i->value);
+            d = i->simple () ? dir_path (i->value) : i->dir;
           }
           else if (i->value.compare (0, 2, "-I") == 0)
             d = dir_path (i->value, 2, string::npos);
@@ -370,8 +373,8 @@ namespace build
       return r;
     }
 
-    void compile::
-    inject_prerequisites (action a, target& t, const cxx& s, scope& ds) const
+    static void
+    inject_prerequisites (action a, target& t, cxx& s, scope& ds)
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
@@ -408,212 +411,298 @@ namespace build
       args.push_back ("-MQ"); // Quoted target name.
       args.push_back ("*");   // Old versions can't handle empty target name.
 
-      // We are using absolute source file path in order to get
-      // absolute paths in the result. Any relative paths in the
-      // result are non-existent generated headers.
+      // We are using absolute source file path in order to get absolute
+      // paths in the result. Any relative paths in the result are non-
+      // existent, potentially auto-generated headers.
       //
       // @@ We will also have to use absolute -I paths to guarantee
-      // that.
+      // that. Or just detect relative paths and error out?
       //
       args.push_back (s.path ().string ().c_str ());
-
       args.push_back (nullptr);
-
-      if (verb >= 2)
-        print_process (args);
 
       level5 ([&]{trace << "target: " << t;});
 
-      try
+      // Build the prefix map lazily only if we have non-existent files.
+      // Also reuse it over restarts since it doesn't change.
+      //
+      prefix_map pm;
+
+      // If any prerequisites that we have extracted changed, then we
+      // have to redo the whole thing. The reason for this is auto-
+      // generated headers: the updated header may now include a yet-
+      // non-existent header. Unless we discover this and generate it
+      // (which, BTW, will trigger another restart since that header,
+      // in turn, can also include auto-generated headers), we will
+      // end up with an error during compilation proper.
+      //
+      // One complication with this restart logic is that we will see
+      // a "prefix" of prerequsites that we have already processed
+      // (i.e., they are already in our prerequsite_targets list) and
+      // we don't want to keep redoing this over and over again. One
+      // thing to note, however, is that the prefix that we have seen
+      // on the previous run must appear exactly the same in the
+      // subsequent run. The reason for this is that none of the files
+      // that it can possibly be based on have changed and thus it
+      // should be exactly the same. To put it another way, the
+      // presence or absence of a file in the dependency output can
+      // only depend on the previous files (assuming the compiler
+      // outputs them as it encounters them and it is hard to think
+      // of a reason why would someone do otherwise). And we have
+      // already made sure that all those files are up to date. And
+      // here is the way we are going to exploit this: we are going
+      // to keep track of how many prerequsites we have processed so
+      // far and on restart skip right to the next one.
+      //
+      // Also, before we do all that, make sure the source file itself
+      // if up to date.
+      //
+      execute_direct (a, s);
+
+      size_t skip_count (0);
+      for (bool restart (true); restart; )
       {
-        process pr (args.data (), false, false, true);
-        ifdstream is (pr.in_ofd);
-        prefix_map pm; // Build it lazily.
+        restart = false;
 
-        for (bool first (true), second (true); !is.eof (); )
+        if (verb >= 2)
+          print_process (args);
+
+        try
         {
-          string l;
-          getline (is, l);
+          process pr (args.data (), false, false, true);
+          ifdstream is (pr.in_ofd);
 
-          if (is.fail () && !is.eof ())
-            fail << "io error while parsing g++ -M output";
-
-          size_t pos (0);
-
-          if (first)
+          size_t skip (skip_count);
+          for (bool first (true), second (true); !(restart || is.eof ()); )
           {
-            // Empty output should mean the wait() call below will return
-            // false.
-            //
-            if (l.empty ())
-              break;
+            string l;
+            getline (is, l);
 
-            assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
+            if (is.fail () && !is.eof ())
+              fail << "io error while parsing g++ -M output";
 
-            first = false;
+            size_t pos (0);
 
-            // While normally we would have the source file on the
-            // first line, if too long, it will be move to the next
-            // line and all we will have on this line is "*: \".
-            //
-            if (l.size () == 4 && l[3] == '\\')
-              continue;
-            else
-              pos = 3; // Skip "*: ".
-
-            // Fall through to the 'second' block.
-          }
-
-          if (second)
-          {
-            second = false;
-            next (l, pos); // Skip the source file.
-          }
-
-          auto g (
-            make_exception_guard (
-              [](const target& s)
-              {
-                info << "while extracting dependencies from " << s;
-              },
-              s));
-
-          while (pos != l.size ())
-          {
-            path f (next (l, pos));
-            f.normalize ();
-
-            if (!f.absolute ())
+            if (first)
             {
-              // This is probably as often an error as an auto-generated
-              // file, so trace at level 3.
+              // Empty output should mean the wait() call below will return
+              // false.
               //
-              level3 ([&]{trace << "non-existent header '" << f << "'";});
+              if (l.empty ())
+                break;
 
-              // If we already did it and build_prefix_map() returned empty,
-              // then we would have failed below.
-              //
-              if (pm.empty ())
-                pm = build_prefix_map (t);
+              assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
 
-              // First try the whole file. Then just the directory.
-              //
-              // @@ Has to be a separate map since the prefix can be
-              //    the same as the file name.
-              //
-              // auto i (pm.find (f));
+              first = false;
 
-              // Find the most qualified prefix of which we are a
-              // sub-path.
+              // While normally we would have the source file on the
+              // first line, if too long, it will be moved to the next
+              // line and all we will have on this line is "*: \".
               //
-              auto i (pm.end ());
+              if (l.size () == 4 && l[3] == '\\')
+                continue;
+              else
+                pos = 3; // Skip "*: ".
 
-              if (!pm.empty ())
+              // Fall through to the 'second' block.
+            }
+
+            if (second)
+            {
+              second = false;
+              next (l, pos); // Skip the source file.
+            }
+
+            // If things go wrong (and they often do in this area), give
+            // the user a bit extra context.
+            //
+            auto g (
+              make_exception_guard (
+                [](target& s)
+                {
+                  info << "while extracting dependencies from " << s;
+                },
+                s));
+
+            while (pos != l.size ())
+            {
+              string fs (next (l, pos));
+
+              // Skip until where we left off.
+              //
+              if (skip != 0)
               {
-                const dir_path& d (f.directory ());
-                i = pm.upper_bound (d);
-                --i; // Greatest less than.
-
-                if (!d.sub (i->first)) // We might still not be a sub.
-                  i = pm.end ();
+                skip--;
+                continue;
               }
 
-              if (i == pm.end ())
-                fail << "unable to map presumably auto-generated header '"
-                     << f << "' to a project";
+              path f (move (fs));
+              f.normalize ();
 
-              f = i->second / f;
-            }
+              if (!f.absolute ())
+              {
+                // This is probably as often an error as an auto-generated
+                // file, so trace at level 3.
+                //
+                level3 ([&]{trace << "non-existent header '" << f << "'";});
 
-            level5 ([&]{trace << "injecting " << f;});
+                // If we already did it and build_prefix_map() returned empty,
+                // then we would have failed below.
+                //
+                if (pm.empty ())
+                  pm = build_prefix_map (t);
 
-            // Split the name into its directory part, the name part, and
-            // extension. Here we can assume the name part is a valid
-            // filesystem name.
-            //
-            // Note that if the file has no extension, we record an empty
-            // extension rather than NULL (which would signify that the
-            // default extension should be added).
-            //
-            dir_path d (f.directory ());
-            string n (f.leaf ().base ().string ());
-            const char* es (f.extension ());
-            const string* e (&extension_pool.find (es != nullptr ? es : ""));
+                // First try the whole file. Then just the directory.
+                //
+                // @@ Has to be a separate map since the prefix can be
+                //    the same as the file name.
+                //
+                // auto i (pm.find (f));
 
-            // Find or insert target.
-            //
-            // If there is no extension (e.g., standard C++ headers),
-            // then assume it is a header. Otherwise, let the standard
-            // mechanism derive the type from the extension. @@ TODO.
-            //
+                // Find the most qualified prefix of which we are a
+                // sub-path.
+                //
+                auto i (pm.end ());
 
-            // Determine the target type.
-            //
-            const target_type* tt (nullptr);
+                if (!pm.empty ())
+                {
+                  const dir_path& d (f.directory ());
+                  i = pm.upper_bound (d);
+                  --i; // Greatest less than.
 
-            // See if this directory is part of any project out_root
-            // hierarchy. Note that this will miss all the headers
-            // that come from src_root (so they will be treated as
-            // generic C headers below). Generally, we don't have
-            // the ability to determine that some file belongs to
-            // src_root of some project. But that's not a problem
-            // for our purposes: it is only important for us to
-            // accurately determine target types for headers that
-            // could be auto-generated.
-            //
-            if (scope* r = scopes.find (d).root_scope ())
-            {
-              // Get cahed (or build) a map of the extensions for the
-              // C/C++ files this project is using.
+                  if (!d.sub (i->first)) // We might still not be a sub.
+                    i = pm.end ();
+                }
+
+                if (i == pm.end ())
+                  fail << "unable to map presumably auto-generated header '"
+                       << f << "' to a project";
+
+                f = i->second / f;
+              }
+
+              level5 ([&]{trace << "injecting " << f;});
+
+              // Split the name into its directory part, the name part, and
+              // extension. Here we can assume the name part is a valid
+              // filesystem name.
               //
-              const ext_map& m (build_ext_map (*r));
+              // Note that if the file has no extension, we record an empty
+              // extension rather than NULL (which would signify that the
+              // default extension should be added).
+              //
+              dir_path d (f.directory ());
+              string n (f.leaf ().base ().string ());
+              const char* es (f.extension ());
+              const string* e (&extension_pool.find (es != nullptr ? es : ""));
 
-              auto i (m.find (e));
-              if (i != m.end ())
-                tt = i->second;
+              // Determine the target type.
+              //
+              const target_type* tt (nullptr);
+
+              // See if this directory is part of any project out_root
+              // hierarchy. Note that this will miss all the headers
+              // that come from src_root (so they will be treated as
+              // generic C headers below). Generally, we don't have
+              // the ability to determine that some file belongs to
+              // src_root of some project. But that's not a problem
+              // for our purposes: it is only important for us to
+              // accurately determine target types for headers that
+              // could be auto-generated.
+              //
+              if (scope* r = scopes.find (d).root_scope ())
+              {
+                // Get cached (or build) a map of the extensions for the
+                // C/C++ files this project is using.
+                //
+                const ext_map& m (build_ext_map (*r));
+
+                auto i (m.find (e));
+                if (i != m.end ())
+                  tt = i->second;
+              }
+
+              // If it is outside any project, or the project doesn't have
+              // such an extension, assume it is a plain old C header.
+              //
+              if (tt == nullptr)
+                tt = &h::static_type;
+
+              // Find or insert target.
+              //
+              path_target& pt (
+                static_cast<path_target&> (search (*tt, d, n, e, &ds)));
+
+              // Assign path.
+              //
+              if (pt.path ().empty ())
+                pt.path (move (f));
+
+              // Match to a rule.
+              //
+              build::match (a, pt);
+
+              // Update it.
+              //
+              // There would normally be a lot of headers for every source
+              // file (think all the system headers) and this can get
+              // expensive. At the same time, most of these headers are
+              // existing files that we will never be updating (again,
+              // system headers, for example) and the rule that will match
+              // them is fallback path_rule. So we are going to do a little
+              // fast-path optimization by detecting this common case.
+              //
+              recipe_function* const* recipe (
+                pt.recipe (a).target<recipe_function*> ());
+
+              if (recipe == nullptr || *recipe != &path_rule::perform_update)
+              {
+                // We only want to restart if our call to execute() actually
+                // caused an update. In particular, the target could already
+                // have been in target_state::changed because of a dependency
+                // extraction run for some other source file.
+                //
+                target_state os (pt.state);
+                execute_direct (a, pt);
+
+                if (pt.state != os && pt.state != target_state::unchanged)
+                {
+                  level5 ([&]{trace << "updated " << pt << ", restarting";});
+                  restart = true;
+                }
+              }
+
+              // Add to our prerequisite target list.
+              //
+              t.prerequisite_targets.push_back (&pt);
+              skip_count++;
             }
-
-            // If it is outside any project, or the project doesn't have
-            // such an extension, assume it is a plain old C header.
-            //
-            if (tt == nullptr)
-              tt = &h::static_type;
-
-            path_target& pt (
-              static_cast<path_target&> (search (*tt, d, n, e, &ds)));
-
-            // Assign path.
-            //
-            if (pt.path ().empty ())
-              pt.path (move (f));
-
-            // Match to a rule.
-            //
-            build::match (a, pt);
-
-            // Add to our prerequisite target list.
-            //
-            t.prerequisite_targets.push_back (&pt);
           }
+
+          // We may not have read all the output (e.g., due to a restart),
+          // so close the file descriptor before waiting to avoid blocking
+          // the other end.
+          //
+          is.close ();
+
+          // We assume the child process issued some diagnostics.
+          //
+          if (!pr.wait ())
+            throw failed ();
         }
+        catch (const process_error& e)
+        {
+          error << "unable to execute " << args[0] << ": " << e.what ();
 
-        // We assume the child process issued some diagnostics.
-        //
-        if (!pr.wait ())
+          // In a multi-threaded program that fork()'ed but did not exec(),
+          // it is unwise to try to do any kind of cleanup (like unwinding
+          // the stack and running destructors).
+          //
+          if (e.child ())
+            exit (1);
+
           throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e.what ();
-
-        // In a multi-threaded program that fork()'ed but did not exec(),
-        // it is unwise to try to do any kind of cleanup (like unwinding
-        // the stack and running destructors).
-        //
-        if (e.child ())
-          exit (1);
-
-        throw failed ();
+        }
       }
     }
 

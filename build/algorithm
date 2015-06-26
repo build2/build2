@@ -66,7 +66,7 @@ namespace build
   // in the same or a subdirectory of dir.
   //
   void
-  search_and_match (action, target&, const dir_path& dir);
+  search_and_match (action, target&, const dir_path&);
 
   // Unless already available, match, and, if necessary, execute
   // (not yet implemented) the group in order to obtain its members
@@ -89,6 +89,15 @@ namespace build
   //
   target_state
   execute (action, target&);
+
+  // A special version of the above that should be used for "direct"
+  // and "now" execution, that is, side-stepping the normal target-
+  // prerequisite relationship (so no dependents count is decremented)
+  // and execution order (so this function will never return postponed
+  // target state).
+  //
+  target_state
+  execute_direct (action, target&);
 
   // The default prerequisite execute implementation. It calls execute()
   // on each non-ignored (non-NULL) prerequisite target in a loop. If this

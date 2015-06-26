@@ -1,8 +1,9 @@
+include <test/base.cli>;
+
 namespace test
 {
-  class options
+  class options: base
   {
     bool --help;
-    bool --version;
   };
 }
