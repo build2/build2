@@ -8,15 +8,16 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <memory>     // unique_ptr
-#include <cstddef>    // size_t
-#include <functional> // function, reference_wrapper
+#include <memory>      // unique_ptr
+#include <cstddef>     // size_t
+#include <functional>  // function, reference_wrapper
 #include <ostream>
 #include <cassert>
-#include <utility>    // move()
+#include <utility>     // move(), forward(), declval()
 #include <iterator>
+#include <type_traits>
 
-#include <butl/utility>     // compare_c_string
+#include <butl/utility>     // compare_c_string, reverse_iterate()
 #include <butl/multi-index> // map_iterator_adapter
 
 #include <build/types>
@@ -30,6 +31,9 @@ namespace build
   class scope;
   class target;
   class target_group;
+
+  target&
+  search (prerequisite&); // From <build/algorithm>.
 
   // Target state.
   //
@@ -359,7 +363,7 @@ namespace build
     private:
       target* t_ {nullptr};
       prerequisites_type* c_ {nullptr};
-      prerequisites_type::iterator i_;
+      base_iterator i_;
     };
 
     typedef std::reverse_iterator<iterator> reverse_iterator;
@@ -499,6 +503,215 @@ namespace build
   public:
     static const target_type static_type;
   };
+
+  // A member of a prerequisite. If 'target' is NULL, then this is the
+  // prerequisite itself. Otherwise, it is its member. In this case
+  // 'prerequisite' still refers to the prerequisite.
+  //
+  struct prerequisite_member
+  {
+    typedef build::target target_type;
+    typedef build::prerequisite prerequisite_type;
+
+    prerequisite_ref& prerequisite;
+    target_type* target;
+
+    template <typename T>
+    bool
+    is_a () const
+    {
+      return target != nullptr
+        ? target->is_a<T> () != nullptr
+        : prerequisite.get ().is_a<T> ();
+    }
+
+    prerequisite_key
+    key () const
+    {
+      return target != nullptr
+        ? prerequisite_key {target->key (), nullptr}
+        : prerequisite.get ().key ();
+    }
+
+    const build::target_type&
+    type () const
+    {
+      return target != nullptr ? target->type () : prerequisite.get ().type;
+    }
+
+    target_type&
+    search () const
+    {
+      return target != nullptr ? *target : build::search (prerequisite);
+    }
+
+    prerequisite_type&
+    as_prerequisite (tracer&) const;
+  };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const prerequisite_member& pm)
+  {
+    return os << pm.key ();
+  }
+
+  // A "range" that presents a sequence of prerequisites (e.g., from
+  // group_prerequisites()) as a sequence of prerequisite_member's. For
+  // each prerequisite you will first "see" the prerequisite itself
+  // followed by all its members, if it resolves to a target group.
+  // You can skip the group members with the skip_group() iterator
+  // function. Usage:
+  //
+  // for (prerequisite_member pm: prerequisite_members (a, ...))
+  //
+  // Where ... can be:
+  //
+  //   t.prerequisites
+  //   reverse_iterate(t.prerequisites)
+  //   group_prerequisites (t)
+  //   reverse_iterate (group_prerequisites (t))
+  //
+  // But use shortcuts instead:
+  //
+  // prerequisite_members (a, t)
+  // reverse_prerequisite_members (a, t)
+  // group_prerequisite_members (a, t)
+  // reverse_group_prerequisite_members (a, t)
+  //
+  template <typename T>
+  class prerequisite_members_range;
+
+  template <typename T>
+  inline prerequisite_members_range<T>
+  prerequisite_members (action a, T&& x)
+  {
+    return prerequisite_members_range<T> (a, std::forward<T> (x));
+  }
+
+  template <typename T>
+  class prerequisite_members_range
+  {
+  public:
+    prerequisite_members_range (action a, T&& r)
+        : a_ (a), r_ (std::forward<T> (r)) {}
+
+    struct iterator
+    {
+      using base_iterator = decltype (std::declval<T> ().begin ());
+
+      typedef prerequisite_member value_type;
+      typedef const value_type* pointer;
+      typedef const value_type& reference;
+      typedef typename base_iterator::difference_type difference_type;
+      typedef std::forward_iterator_tag iterator_category;
+
+      iterator (): a_ (0, 0) {}
+      iterator (action a, base_iterator i): a_ (a), i_ (i), g_ {nullptr, 0} {}
+
+      iterator& operator++ ();
+      iterator  operator++ (int) {iterator r (*this); return ++r;}
+
+      // Skip iterating over this group's members, if any. Note that
+      // the only valid operation after this call is to increment the
+      // iterator.
+      //
+      //
+      void
+      skip_group ()
+      {
+        // Pretend we are on the last member of some group.
+        //
+        j_ = 0;
+        g_.count = 1;
+      }
+
+      /*
+      reference operator* () const
+      {
+        m_.prerequisite = *i;
+        m_.target = g_.count != 0 ? g_.members[j_] : nullptr;
+        return m_;
+      }
+      */
+
+      value_type operator* () const
+      {
+        return value_type {*i_, g_.count != 0 ? g_.members[j_] : nullptr};
+      }
+
+      pointer operator-> () const
+      {
+        static_assert (
+          std::is_trivially_destructible<prerequisite_member>::value,
+          "prerequisite_member is not trivially destructible");
+
+        return new (&m_)
+          value_type {*i_, g_.count != 0 ? g_.members[j_] : nullptr};
+      }
+
+      friend bool
+      operator== (const iterator& x, const iterator& y)
+      {
+        return x.i_ == y.i_ &&
+          x.g_.count == y.g_.count &&
+          (x.g_.count == 0 || x.j_ == y.j_);
+      }
+
+      friend bool
+      operator!= (const iterator& x, const iterator& y) {return !(x == y);}
+
+    private:
+      action a_;
+      base_iterator i_;
+      group_view g_;
+      std::size_t j_;
+      mutable std::aligned_storage<sizeof (prerequisite_member),
+                                   alignof (prerequisite_member)>::type m_;
+    };
+
+    iterator
+    begin () const {return iterator (a_, r_.begin ());}
+
+    iterator
+    end () const {return iterator (a_, r_.end ());}
+
+  private:
+    action a_;
+    T r_;
+  };
+
+  // prerequisite_members(t.prerequisites)
+  //
+  inline auto
+  prerequisite_members (action a, target& t)
+  {
+    return prerequisite_members (a, t.prerequisites);
+  }
+
+  // prerequisite_members(reverse_iterate(t.prerequisites))
+  //
+  inline auto
+  reverse_prerequisite_members (action a, target& t)
+  {
+    return prerequisite_members (a, butl::reverse_iterate (t.prerequisites));
+  }
+
+  // prerequisite_members(group_prerequisites (t))
+  //
+  inline auto
+  group_prerequisite_members (action a, target& t)
+  {
+    return prerequisite_members (a, group_prerequisites (t));
+  }
+
+  // prerequisite_members(reverse_iterate (group_prerequisites (t)))
+  //
+  inline auto
+  reverse_group_prerequisite_members (action a, target& t)
+  {
+    return prerequisite_members (
+      a, butl::reverse_iterate (group_prerequisites (t)));
+  }
 
   // Modification time-based target.
   //

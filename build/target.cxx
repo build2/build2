@@ -17,6 +17,18 @@ using namespace std;
 
 namespace build
 {
+  // target_type
+  //
+  bool target_type::
+  is_a (const type_index& id) const
+  {
+    for (const target_type* p (this); p != nullptr; p = p->base)
+      if (p->id == id)
+        return true;
+
+    return false;
+  }
+
   // target_state
   //
   static const char* target_state_[] = {

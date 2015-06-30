@@ -1,6 +1,6 @@
-lib{test}: cxx{utility} cxx{test base} extra/cxx{test}
-cxx{test} hxx{test}: cli{test}
-cxx{base} hxx{base}: cli{base}
+lib{test}: cxx{utility} cli.cxx{test base} extra/cxx{test}
+cli.cxx{test}: cli{test}
+cli.cxx{base}: cli{base}
 
 cli.options += -I $src_root --include-with-brackets
 

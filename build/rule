@@ -6,6 +6,7 @@
 #define BUILD_RULE
 
 #include <string>
+#include <cstddef>        // nullptr_t
 #include <typeindex>
 #include <functional>     // reference_wrapper
 #include <unordered_map>
@@ -18,14 +19,41 @@
 
 namespace build
 {
+  class match_result
+  {
+  public:
+    typedef build::target target_type;
+    typedef build::prerequisite prerequisite_type;
+
+    // Can contain neither (both are NULL), one of, or both. If both
+    // are NULL, then it is a "no match" indicator.
+    //
+    prerequisite_type* prerequisite;
+    target_type* target;
+
+    match_result (std::nullptr_t v = nullptr): prerequisite (v), target (v) {}
+    match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
+    match_result (prerequisite_type* p): prerequisite (p), target (nullptr) {}
+    match_result (target_type& t): prerequisite (nullptr), target (&t) {}
+    match_result (target_type* t): prerequisite (nullptr), target (t) {}
+    match_result (const prerequisite_member& pm)
+        : prerequisite (&pm.prerequisite.get ()), target (pm.target) {}
+
+    explicit
+    operator bool () const
+    {
+      return prerequisite != nullptr || target != nullptr;
+    }
+  };
+
   class rule
   {
   public:
-    virtual void*
+    virtual match_result
     match (action, target&, const std::string& hint) const = 0;
 
     virtual recipe
-    apply (action, target&, void*) const = 0;
+    apply (action, target&, const match_result&) const = 0;
   };
 
   using target_rule_map = std::unordered_map<
@@ -42,11 +70,11 @@ namespace build
   class path_rule: public rule
   {
   public:
-    virtual void*
+    virtual match_result
     match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (action, target&, void*) const;
+    apply (action, target&, const match_result&) const;
 
     static target_state
     perform_update (action, target&);
@@ -55,21 +83,21 @@ namespace build
   class dir_rule: public rule
   {
   public:
-    virtual void*
+    virtual match_result
     match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (action, target&, void*) const;
+    apply (action, target&, const match_result&) const;
   };
 
   class fsdir_rule: public rule
   {
   public:
-    virtual void*
+    virtual match_result
     match (action, target&, const std::string& hint) const;
 
     virtual recipe
-    apply (action, target&, void*) const;
+    apply (action, target&, const match_result&) const;
 
     static target_state
     perform_update (action, target&);

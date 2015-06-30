@@ -14,21 +14,21 @@ namespace build
     class obj_rule: public rule
     {
     public:
-      virtual void*
+      virtual match_result
       match (action, target&, const std::string& hint) const;
 
       virtual recipe
-      apply (action, target&, void*) const;
+      apply (action, target&, const match_result&) const;
     };
 
     class lib_rule: public rule
     {
     public:
-      virtual void*
+      virtual match_result
       match (action, target&, const std::string& hint) const;
 
       virtual recipe
-      apply (action, target&, void*) const;
+      apply (action, target&, const match_result&) const;
 
       static target_state
       perform (action, target&);

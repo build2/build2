@@ -81,7 +81,7 @@ namespace build
     //
     template <typename T>
     bool
-    is_a () const {return type.id == typeid (T);}
+    is_a () const {return type.is_a<T> ();}
   };
 
   inline bool
@@ -107,6 +107,12 @@ namespace build
             const std::string* ext,
             scope&,
             tracer&);
+
+    std::pair<prerequisite&, bool>
+    insert (const target_key& tk, scope& s, tracer& t)
+    {
+      return insert (*tk.type, *tk.dir, *tk.name, *tk.ext, s, t);
+    }
   };
 }
 

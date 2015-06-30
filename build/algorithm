@@ -29,9 +29,15 @@ namespace build
   target&
   search (const prerequisite_key&);
 
+  // As above but override the target type. Useful for searching for
+  // target group members where we need to search for a different
+  // target type.
+  //
+  target&
+  search (const target_type&, const prerequisite_key&);
+
   // As above but specify the prerequisite to search as individual
-  // key components. Useful for searching for target group members
-  // where we need to search for a different target type.
+  // key components.
   //
   target&
   search (const target_type& type,
@@ -69,8 +75,7 @@ namespace build
   search_and_match (action, target&, const dir_path&);
 
   // Unless already available, match, and, if necessary, execute
-  // (not yet implemented) the group in order to obtain its members
-  // list.
+  // the group in order to obtain its members list.
   //
   group_view
   resolve_group_members (action, target_group&);

@@ -28,6 +28,13 @@ namespace build
     target* (*const factory) (dir_path, std::string, const std::string*);
     const std::string& (*const extension) (const target_key&, scope&);
     target* (*const search) (const prerequisite_key&);
+
+    bool
+    is_a (const std::type_index&) const; // Defined in target.cxx
+
+    template <typename T>
+    bool
+    is_a () const {return is_a (typeid (T));}
   };
 
   inline std::ostream&

@@ -19,7 +19,7 @@ namespace build
   {
     // obj
     //
-    void* obj_rule::
+    match_result obj_rule::
     match (action a, target& t, const std::string&) const
     {
       fail << diag_doing (a, t) << " target group" <<
@@ -29,21 +29,21 @@ namespace build
     }
 
     recipe obj_rule::
-    apply (action, target&, void*) const {return empty_recipe;}
+    apply (action, target&, const match_result&) const {return empty_recipe;}
 
     // lib
     //
     // The whole logic is pretty much as if we had our two group
     // members as prerequisites.
     //
-    void* lib_rule::
+    match_result lib_rule::
     match (action, target& t, const std::string&) const
     {
-      return &t;
+      return t;
     }
 
     recipe lib_rule::
-    apply (action a, target& xt, void*) const
+    apply (action a, target& xt, const match_result&) const
     {
       lib& t (static_cast<lib&> (xt));
 

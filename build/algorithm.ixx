@@ -19,6 +19,13 @@ namespace build
   }
 
   inline target&
+  search (const target_type& t, const prerequisite_key& k)
+  {
+    return search (
+      prerequisite_key {{&t, k.tk.dir, k.tk.name, k.tk.ext}, k.scope});
+  }
+
+  inline target&
   search (const target_type& type,
           const dir_path& dir,
           const std::string& name,
@@ -38,7 +45,7 @@ namespace build
     return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
-  std::pair<const rule*, void*>
+  std::pair<const rule*, match_result>
   match_impl (action, target&, bool apply);
 
   inline void

@@ -34,10 +34,10 @@ namespace build
     return create_new_target (pk);
   }
 
-  pair<const rule*, void*>
+  pair<const rule*, match_result>
   match_impl (action a, target& t, bool apply)
   {
-    pair<const rule*, void*> r (nullptr, nullptr);
+    pair<const rule*, match_result> r (nullptr, nullptr);
 
     // Clear the resolved targets list before calling match(). The rule
     // is free to, say, resize() this list in match() (provided that it
@@ -79,7 +79,7 @@ namespace build
         const string& n (i->first);
         const rule& ru (i->second);
 
-        void* m (nullptr);
+        match_result m;
         {
           auto g (
             make_exception_guard (
@@ -93,7 +93,7 @@ namespace build
           m = ru.match (a, t, hint);
         }
 
-        if (m != nullptr)
+        if (m)
         {
           // Do the ambiguity test.
           //
@@ -106,7 +106,7 @@ namespace build
             const string& n1 (i->first);
             const rule& ru1 (i->second);
 
-            void* m1;
+            match_result m1;
             {
               auto g (
                 make_exception_guard (
@@ -120,7 +120,7 @@ namespace build
               m1 = ru1.match (a, t, hint);
             }
 
-            if (m1 != nullptr)
+            if (m1)
             {
               if (!ambig)
               {

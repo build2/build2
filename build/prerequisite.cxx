@@ -15,6 +15,8 @@ using namespace std;
 
 namespace build
 {
+  // prerequisite_key
+  //
   ostream&
   operator<< (ostream& os, const prerequisite_key& pk)
   {

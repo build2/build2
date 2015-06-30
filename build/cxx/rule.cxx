@@ -70,9 +70,6 @@ namespace build
     {
       for (target* t: l.prerequisite_targets)
       {
-        if (t == nullptr)
-          continue;
-
         if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
           append_lib_options (args, *t, var);
       }
@@ -82,7 +79,7 @@ namespace build
 
     // compile
     //
-    void* compile::
+    match_result compile::
     match (action a, target& t, const string&) const
     {
       tracer trace ("cxx::compile::match");
@@ -95,13 +92,13 @@ namespace build
       //
 
       // See if we have a C++ source file. Iterate in reverse so that
-      // a source file specified for an obj member overrides the one
-      // specified for the group.
+      // a source file specified for an obj*{} member overrides the one
+      // specified for the group. Also "see through" groups.
       //
-      for (prerequisite& p: reverse_iterate (group_prerequisites (t)))
+      for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
       {
-        if (p.type.id == typeid (cxx))
-          return &p;
+        if (p.is_a<cxx> ())
+          return p;
       }
 
       level3 ([&]{trace << "no c++ source file for target " << t;});
@@ -112,7 +109,7 @@ namespace build
     inject_prerequisites (action, target&, cxx&, scope&);
 
     recipe compile::
-    apply (action a, target& xt, void* v) const
+    apply (action a, target& xt, const match_result& mr) const
     {
       path_target& t (static_cast<path_target&> (xt));
 
@@ -131,9 +128,20 @@ namespace build
       // When cleaning, ignore prerequisites that are not in the same
       // or a subdirectory of ours.
       //
-      for (prerequisite& p: group_prerequisites (t))
+      const auto& ps (group_prerequisite_members (a, t));
+      for (auto i (ps.begin ()); i != ps.end (); ++i)
       {
-        target& pt (search (p));
+        prerequisite_member p (*i);
+
+        // See through the group unless it is one that we recognize.
+        //
+        if (p.is_a<target_group> ())
+        {
+          if (!p.is_a<lib> ())
+            continue;
+        }
+
+        target& pt (p.search ());
 
         if (a.operation () == clean_id && !pt.dir.sub (t.dir))
           continue;
@@ -147,7 +155,10 @@ namespace build
         // populated; see append_lib_options() above.
         //
         if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+        {
+          i.skip_group (); // Don't go inside the lib{} group.
           continue;
+        }
 
         t.prerequisite_targets.push_back (&pt);
       }
@@ -158,14 +169,16 @@ namespace build
       //
       if (a.operation () == update_id)
       {
-        // The cached prerequisite target (sp.target) should be the
-        // same as what is in t.prerequisite_targets since we used
-        // standard search_and_match() above.
+        // The cached prerequisite target should be the same as what
+        // is in t.prerequisite_targets since we used standard
+        // search() and match() above.
         //
-        prerequisite& sp (*static_cast<prerequisite*> (v));
-        cxx& st (dynamic_cast<cxx&> (*sp.target));
-
-        inject_prerequisites (a, t, st, sp.scope);
+        // @@ Ugly.
+        //
+        cxx& st (
+          dynamic_cast<cxx&> (
+            mr.target != nullptr ? *mr.target : *mr.prerequisite->target));
+        inject_prerequisites (a, t, st, mr.prerequisite->scope);
       }
 
       switch (a)
@@ -313,8 +326,9 @@ namespace build
     {
       prefix_map m;
 
-      // First process the include directories from prerequsite
-      // libraries.
+      // First process the include directories from prerequisite
+      // libraries. Note that here we don't need to see group
+      // members (see apply()).
       //
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -383,7 +397,8 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      // Add cxx.export.poptions from prerequisite libraries.
+      // Add cxx.export.poptions from prerequisite libraries. Note
+      // that here we don't need to see group members (see apply()).
       //
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -437,8 +452,8 @@ namespace build
       // end up with an error during compilation proper.
       //
       // One complication with this restart logic is that we will see
-      // a "prefix" of prerequsites that we have already processed
-      // (i.e., they are already in our prerequsite_targets list) and
+      // a "prefix" of prerequisites that we have already processed
+      // (i.e., they are already in our prerequisite_targets list) and
       // we don't want to keep redoing this over and over again. One
       // thing to note, however, is that the prefix that we have seen
       // on the previous run must appear exactly the same in the
@@ -451,7 +466,7 @@ namespace build
       // of a reason why would someone do otherwise). And we have
       // already made sure that all those files are up to date. And
       // here is the way we are going to exploit this: we are going
-      // to keep track of how many prerequsites we have processed so
+      // to keep track of how many prerequisites we have processed so
       // far and on restart skip right to the next one.
       //
       // Also, before we do all that, make sure the source file itself
@@ -726,7 +741,8 @@ namespace build
 
       vector<const char*> args {cxx.c_str ()};
 
-      // Add cxx.export.poptions from prerequisite libraries.
+      // Add cxx.export.poptions from prerequisite libraries. Note that
+      // here we don't need to see group members (see apply()).
       //
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -814,7 +830,7 @@ namespace build
         : lv.size () > 1 && lv[1].value == "shared" ? order::a_so : order::a;
     }
 
-    void* link::
+    match_result link::
     match (action a, target& t, const string& hint) const
     {
       tracer trace ("cxx::link::match");
@@ -839,17 +855,20 @@ namespace build
       bool seen_cxx (false), seen_c (false), seen_obj (false),
         seen_lib (false);
 
-      for (prerequisite& p: group_prerequisites (t))
+      const auto& ps (group_prerequisite_members (a, t));
+      for (auto i (ps.begin ()); i != ps.end (); ++i)
       {
-        if (p.type.id == typeid (cxx)) // @@ Should use is_a (add to p.type).
+        prerequisite_member p (*i);
+
+        if (p.is_a<cxx> ())
         {
           seen_cxx = seen_cxx || true;
         }
-        else if (p.type.id == typeid (c))
+        else if (p.is_a<c> ())
         {
           seen_c = seen_c || true;
         }
-        else if (p.type.id == typeid (obja))
+        else if (p.is_a<obja> ())
         {
           if (so)
             fail << "shared library " << t << " prerequisite " << p
@@ -857,19 +876,30 @@ namespace build
 
           seen_obj = seen_obj || true;
         }
-        else if (p.type.id == typeid (objso) || p.type.id == typeid (obj))
+        else if (p.is_a<objso> () ||
+                 p.is_a<obj> ())
         {
           seen_obj = seen_obj || true;
+          i.skip_group (); // Don't go inside the obj{} group.
         }
-        else if (p.type.id == typeid (liba)  ||
-                 p.type.id == typeid (libso) ||
-                 p.type.id == typeid (lib))
+        else if (p.is_a<liba> ()  ||
+                 p.is_a<libso> () ||
+                 p.is_a<lib> ())
         {
           seen_lib = seen_lib || true;
+          i.skip_group (); // Don't go inside the lib{} group.
         }
-        else if (p.type.id != typeid (fsdir))
+        else if (p.is_a<h> ()   ||
+                 p.is_a<hxx> () ||
+                 p.is_a<ixx> () ||
+                 p.is_a<txx> () ||
+                 p.is_a<fsdir> ())
+          ;
+        else if (p.is_a<target_group> ())
+          ; // See through.
+        else
         {
-          level3 ([&]{trace << "unexpected prerequisite type " << p.type;});
+          level3 ([&]{trace << "unexpected prerequisite type " << p.type ();});
           return nullptr;
         }
       }
@@ -887,7 +917,7 @@ namespace build
     }
 
     recipe link::
-    apply (action a, target& xt, void*) const
+    apply (action a, target& xt, const match_result&) const
     {
       tracer trace ("cxx::link::apply");
 
@@ -923,24 +953,36 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
-      for (prerequisite_ref& pr: group_prerequisites (t))
+      const auto& ps (group_prerequisite_members (a, t));
+      for (auto i (ps.begin ()); i != ps.end (); ++i)
       {
-        bool group (!pr.belongs (t)); // Target group's prerequisite.
+        prerequisite_member p (*i);
 
-        prerequisite& p (pr);
+        // See through the group unless it is one that we recognize.
+        //
+        if (p.is_a<target_group> ())
+        {
+          if (!p.is_a<lib> () &&
+              !p.is_a<obj> ())
+            continue;
+        }
+
+        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+
         target* pt (nullptr);
 
         if (!p.is_a<c> () && !p.is_a<cxx> ())
         {
           // The same basic logic as in search_and_match().
           //
-          pt = &search (p);
+          pt = &p.search ();
 
           if (a.operation () == clean_id && !pt->dir.sub (t.dir))
             continue; // Skip.
 
           // If this is the obj{} or lib{} target group, then pick the
           // appropriate member and make sure it is searched and matched.
+          // In both cases, skip going over the group's members.
           //
           if (obj* o = pt->is_a<obj> ())
           {
@@ -948,7 +990,9 @@ namespace build
 
             if (pt == nullptr)
               pt = &search (so ? objso::static_type : obja::static_type,
-                            p.dir, p.name, p.ext, &p.scope);
+                            p.key ());
+
+            i.skip_group ();
           }
           else if (lib* l = pt->is_a<lib> ())
           {
@@ -983,7 +1027,9 @@ namespace build
 
             if (pt == nullptr)
               pt = &search (lso ? libso::static_type : liba::static_type,
-                            p.dir, p.name, p.ext, &p.scope);
+                            p.key ());
+
+            i.skip_group ();
           }
 
           build::match (a, *pt);
@@ -1002,7 +1048,7 @@ namespace build
           src_root = &root->src_path ();
         }
 
-        prerequisite& cp (p); // c(xx){} prerequisite.
+        const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
         const target_type& o_type (
           group
           ? obj::static_type
@@ -1016,19 +1062,23 @@ namespace build
         // possible it is under out_root (e.g., generated source).
         //
         dir_path d;
-        if (cp.dir.relative () || cp.dir.sub (*out_root))
-          d = cp.dir;
-        else
         {
-          if (!cp.dir.sub (*src_root))
-            fail << "out of project prerequisite " << cp <<
-              info << "specify corresponding " << o_type.name << "{} "
-                 << "target explicitly";
+          const dir_path& cpd (*cp.tk.dir);
 
-          d = *out_root / cp.dir.leaf (*src_root);
+          if (cpd.relative () || cpd.sub (*out_root))
+            d = cpd;
+          else
+          {
+            if (!cpd.sub (*src_root))
+              fail << "out of project prerequisite " << cp <<
+                info << "specify corresponding " << o_type.name << "{} "
+                   << "target explicitly";
+
+            d = *out_root / cpd.leaf (*src_root);
+          }
         }
 
-        target& ot (search (o_type, d, cp.name, nullptr, &cp.scope));
+        target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of ours.
@@ -1069,54 +1119,69 @@ namespace build
         // target. If things don't work out, then we fail, in which case
         // searching and matching speculatively doesn't really hurt.
         //
-        prerequisite* cp1 (nullptr);
-        for (prerequisite& p: reverse_iterate (group_prerequisites (*pt)))
+        bool found (false);
+        const auto& ps (reverse_group_prerequisite_members (a, *pt));
+        for (auto i (ps.begin ()); i != ps.end (); ++i)
         {
-          // Ignore some known target types (fsdir, headers, libraries).
-          //
-          if (p.is_a<fsdir> () ||
-              p.is_a<h> ()     ||
-              (cp.is_a<cxx> () && (p.is_a<hxx> () ||
-                                   p.is_a<ixx> () ||
-                                   p.is_a<txx> ())) ||
-              p.is_a<lib> ()  ||
-              p.is_a<liba> () ||
-              p.is_a<libso> ())
-            continue;
+          prerequisite_member p1 (*i);
 
-          if (p.is_a<cxx> ())
+          // See through the group unless it is one that we recognize.
+          //
+          if (p1.is_a<target_group> ())
           {
-            cp1 = &p;
-            continue; // Check the rest of the prerequisites.
+            if (!p1.is_a<lib> ())
+              continue;
           }
 
-          fail << "synthesized target for prerequisite " << cp
-               << " would be incompatible with existing target " << *pt <<
-            info << "unknown existing prerequisite type " << p <<
-            info << "specify corresponding obj{} target explicitly";
-        }
+          // Ignore some known target types (fsdir, headers, libraries).
+          //
+          if (p1.is_a<fsdir> () ||
+              p1.is_a<h> ()     ||
+              (p.is_a<cxx> () && (p1.is_a<hxx> () ||
+                                  p1.is_a<ixx> () ||
+                                  p1.is_a<txx> ())) ||
+              p1.is_a<lib> ()  ||
+              p1.is_a<liba> () ||
+              p1.is_a<libso> ())
+          {
+            i.skip_group (); // Skip going inside lib{}.
+            continue;
+          }
 
-        if (cp1 != nullptr)
-        {
-          build::match (a, *pt); // Now cp1 should be resolved.
-          search (cp);           // Our own prerequisite, so this is ok.
-
-          if (cp.target != cp1->target)
+          if (!p1.is_a<cxx> ())
             fail << "synthesized target for prerequisite " << cp
                  << " would be incompatible with existing target " << *pt <<
-              info << "existing prerequisite " << *cp1 << " does not "
-                 << "match " << cp <<
-              info << "specify corresponding " << o_type.name << "{} "
-                 << "target explicitly";
+              info << "unexpected existing prerequisite type " << p1 <<
+              info << "specify corresponding obj{} target explicitly";
+
+          if (!found)
+          {
+            build::match (a, *pt); // Now p1 should be resolved.
+
+            // Searching our own prerequisite is ok.
+            //
+            if (&p.search () != &p1.search ())
+              fail << "synthesized target for prerequisite " << cp << " would "
+                   << "be incompatible with existing target " << *pt <<
+                info << "existing prerequisite " << p1 << " does not match "
+                   << cp <<
+                info << "specify corresponding " << o_type.name << "{} target "
+                   << "explicitly";
+
+            found = true;
+            // Check the rest of the prerequisites.
+          }
         }
-        else
+
+        if (!found)
         {
           // Note: add the source to the group, not the member.
           //
-          ot.prerequisites.emplace_back (cp);
+          ot.prerequisites.emplace_back (p.as_prerequisite (trace));
 
           // Add our lib*{} prerequisites to the object file (see
-          // cxx.export.poptions above for details).
+          // cxx.export.poptions above for details). Note: no need
+          // to go into group members.
           //
           // Initially, we were only adding imported libraries, but
           // there is a problem with this approach: the non-imported

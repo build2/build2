@@ -76,6 +76,7 @@ namespace build
         tk.ext = &ext;
       }
       else
+      {
         // What should we do here, fail or say we didn't find anything?
         // Current think is that if the target type didn't provide the
         // default extension, then it doesn't want us to search for an
@@ -84,7 +85,10 @@ namespace build
         // think.
         //
         //fail << "no default extension for prerequisite " << pk;
+        level3 ([&]{trace << "no existing file found for prerequisite "
+                          << pk;});
         return nullptr;
+      }
     }
 
     // Go over paths looking for a file.

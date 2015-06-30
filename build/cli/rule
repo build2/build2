@@ -14,11 +14,11 @@ namespace build
     class compile: public rule
     {
     public:
-      virtual void*
+      virtual match_result
       match (action, target&, const std::string& hint) const;
 
       virtual recipe
-      apply (action, target&, void*) const;
+      apply (action, target&, const match_result&) const;
 
       static target_state
       perform_update (action, target&);

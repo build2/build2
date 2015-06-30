@@ -25,7 +25,7 @@ namespace build
   {
     using config::append_options;
 
-    void* compile::
+    match_result compile::
     match (action a, target& xt, const std::string&) const
     {
       tracer trace ("cli::compile::match");
@@ -36,18 +36,18 @@ namespace build
 
         // See if we have a .cli source file.
         //
-        prerequisite* r (nullptr);
-        for (prerequisite& p: group_prerequisites (t))
+        match_result r;
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (p.is_a<cli> ())
           {
             //@@ Need to verify input and output stems match.
-            r = &p;
+            r = p;
             break;
           }
         }
 
-        if (r == nullptr)
+        if (!r)
         {
           level3 ([&]{trace << "no .cli source file for target " << t;});
           return nullptr;
@@ -112,12 +112,12 @@ namespace build
         //
         if (g == nullptr)
         {
-          for (prerequisite& p: group_prerequisites (t))
+          for (prerequisite_member p: group_prerequisite_members (a, t))
           {
             if (p.is_a<cli> ()) // @@ Need to check that stems match.
             {
               g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
-              g->prerequisites.emplace_back (p);
+              g->prerequisites.emplace_back (p.as_prerequisite (trace));
               break;
             }
           }
@@ -146,7 +146,7 @@ namespace build
     }
 
     recipe compile::
-    apply (action a, target& xt, void* vp) const
+    apply (action a, target& xt, const match_result& mr) const
     {
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
@@ -182,7 +182,7 @@ namespace build
       }
       else
       {
-        cli_cxx& g (*static_cast<cli_cxx*> (vp));
+        cli_cxx& g (*static_cast<cli_cxx*> (mr.target));
         build::match (a, g);
         return &delegate;
       }

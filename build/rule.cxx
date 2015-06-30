@@ -30,7 +30,7 @@ namespace build
   // that normal implementations should follow. So you probably shouldn't
   // use it as a guide to implement your own, normal, rules.
   //
-  void* path_rule::
+  match_result path_rule::
   match (action a, target& t, const string&) const
   {
     // While strictly speaking we should check for the file's existence
@@ -60,12 +60,12 @@ namespace build
         return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
       }
     default:
-      return &t;
+      return t;
     }
   }
 
   recipe path_rule::
-  apply (action a, target& t, void*) const
+  apply (action a, target& t, const match_result&) const
   {
     // Update triggers the update of this target's prerequisites
     // so it would seem natural that we should also trigger their
@@ -125,14 +125,14 @@ namespace build
 
   // dir_rule
   //
-  void* dir_rule::
+  match_result dir_rule::
   match (action a, target& t, const string&) const
   {
-    return &t;
+    return t;
   }
 
   recipe dir_rule::
-  apply (action a, target& t, void*) const
+  apply (action a, target& t, const match_result&) const
   {
     // When cleaning, ignore prerequisites that are not in the same
     // or a subdirectory of ours. For default, we don't do anything
@@ -151,14 +151,14 @@ namespace build
 
   // fsdir_rule
   //
-  void* fsdir_rule::
+  match_result fsdir_rule::
   match (action a, target& t, const string&) const
   {
-    return &t;
+    return t;
   }
 
   recipe fsdir_rule::
-  apply (action a, target& t, void*) const
+  apply (action a, target& t, const match_result&) const
   {
     switch (a.operation ())
     {
