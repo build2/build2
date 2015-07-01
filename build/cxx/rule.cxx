@@ -663,10 +663,10 @@ namespace build
                 // have been in target_state::changed because of a dependency
                 // extraction run for some other source file.
                 //
-                target_state os (pt.state);
-                execute_direct (a, pt);
+                target_state os (pt.state ());
+                target_state ns (execute_direct (a, pt));
 
-                if (pt.state != os && pt.state != target_state::unchanged)
+                if (ns != os && ns != target_state::unchanged)
                 {
                   level5 ([&]{trace << "updated " << pt << ", restarting";});
                   restart = true;

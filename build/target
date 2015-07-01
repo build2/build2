@@ -36,7 +36,15 @@ namespace build
 
   // Target state.
   //
-  enum class target_state {unknown, postponed, unchanged, changed, failed};
+  enum class target_state
+  {
+    group,           // Target's state is the group's state.
+    unknown,
+    postponed,
+    unchanged,
+    changed,
+    failed
+  };
 
   std::ostream&
   operator<< (std::ostream&, target_state);
@@ -68,15 +76,20 @@ namespace build
   // on all the prerequisites in a loop, skipping ignored. Specially,
   // for actions with the "first" execution mode, it calls
   // execute_prerequisites() while for those with the "last" mode --
-  // reverse_execute_prerequisites(); see <operation>, <algorithm>
-  // for details.
+  // reverse_execute_prerequisites(); see <build/operation>,
+  // <build/algorithm> for details. The group recipe calls the group's
+  // recipe.
   //
   extern const recipe empty_recipe;
   extern const recipe noop_recipe;
   extern const recipe default_recipe;
+  extern const recipe group_recipe;
 
   target_state
-  noop_action (action, target&); // Defined in <algorithm>
+  noop_action (action, target&); // Defined in <build/algorithm>.
+
+  target_state
+  group_action (action, target&); // Defined in <build/algorithm>.
 
   // Prerequisite references as used in the target::prerequisites list
   // below.
@@ -264,7 +277,13 @@ namespace build
     }
 
   public:
-    target_state state;
+    target_state raw_state;
+
+    target_state
+    state () const
+    {
+      return raw_state != target_state::group ? raw_state : group->raw_state;
+    }
 
     // Number of direct targets that depend on this target in the current
     // action. It is incremented during the match phase and then decremented
@@ -296,12 +315,18 @@ namespace build
 
       // Also reset the target state. If this is a noop recipe, then
       // mark the target unchanged so that we don't waste time executing
-      // the recipe.
+      // the recipe. If this is a group recipe, then mark the state as
+      // coming from the group.
       //
-      recipe_function** f (recipe_.target<recipe_function*> ());
-      state = (f == nullptr || *f != &noop_action)
-        ? target_state::unknown
-        : target_state::unchanged;
+      raw_state = target_state::unknown;
+
+      if (recipe_function** f = recipe_.target<recipe_function*> ())
+      {
+        if (*f == &noop_action)
+          raw_state = target_state::unchanged;
+        else if (*f == &group_action)
+          raw_state = target_state::group;
+      }
 
       dependents = 0;
     }

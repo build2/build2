@@ -25,9 +25,6 @@ namespace build
 
       static target_state
       perform_clean (action, target&);
-
-      static target_state
-      delegate (action, target&);
     };
   }
 }

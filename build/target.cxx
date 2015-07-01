@@ -32,7 +32,7 @@ namespace build
   // target_state
   //
   static const char* target_state_[] = {
-    "unknown", "postponed", "unchanged", "changed", "failed"};
+    "group", "unknown", "postponed", "unchanged", "changed", "failed"};
 
   ostream&
   operator<< (ostream& os, target_state ts)
@@ -45,6 +45,7 @@ namespace build
   const recipe empty_recipe;
   const recipe noop_recipe (&noop_action);
   const recipe default_recipe (&default_action);
+  const recipe group_recipe (&group_action);
 
   // target
   //

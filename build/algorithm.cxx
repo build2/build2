@@ -278,25 +278,26 @@ namespace build
   {
     // Implementation with some multi-threading ideas in mind.
     //
-    switch (target_state ts = t.state)
+    switch (t.raw_state)
     {
+    case target_state::group:
     case target_state::unknown:
     case target_state::postponed:
       {
-        t.state = target_state::failed; // So the rule can just throw.
+        t.raw_state = target_state::failed; // So the rule can just throw.
 
         auto g (
           make_exception_guard (
             [](action a, target& t){info << "while " << diag_doing (a, t);},
             a, t));
 
-        ts = t.recipe (a) (a, t);
+        target_state ts (t.recipe (a) (a, t));
         assert (ts != target_state::unknown && ts != target_state::failed);
 
         // The recipe may have set the target's state manually.
         //
-        if (t.state == target_state::failed)
-          t.state = ts;
+        if (t.raw_state == target_state::failed)
+          t.raw_state = ts;
 
         return ts;
       }
@@ -392,6 +393,23 @@ namespace build
   {
     assert (false); // We shouldn't be called, see target::recipe().
     return target_state::unchanged;
+  }
+
+  target_state
+  group_action (action a, target& t)
+  {
+    target_state r (execute (a, *t.group));
+
+    // The standard execute() logic sets the state to failed just
+    // before calling the recipe (so that the recipe can just throw
+    // to indicate a failure). After the recipe is successfully
+    // executed and unless the recipe has updated the state manually,
+    // the recipe's return value is set as the new state. But we
+    // don't want that. So we are going to set it manually.
+    //
+    t.raw_state = target_state::group;
+
+    return r;
   }
 
   target_state

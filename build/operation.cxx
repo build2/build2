@@ -126,7 +126,7 @@ namespace build
     //
     for (target& t: psp)
     {
-      switch (t.state)
+      switch (t.state ())
       {
       case target_state::postponed:
         {

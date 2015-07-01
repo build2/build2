@@ -178,7 +178,7 @@ namespace build
       {
         cli_cxx& g (*static_cast<cli_cxx*> (mr.target));
         build::match (a, g);
-        return &delegate;
+        return group_recipe;
       }
     }
 
@@ -281,25 +281,6 @@ namespace build
         }
       }
 
-      // Update member recipes. Without that the state update below
-      // won't stick.
-      //
-      if (!t.h ()->recipe (a))
-        t.h ()->recipe (a, &delegate);
-
-      if (!t.c ()->recipe (a))
-        t.c ()->recipe (a, &delegate);
-
-      if (t.i () != nullptr && !t.i ()->recipe (a))
-        t.i ()->recipe (a, &delegate);
-
-      // Update member states.
-      //
-      t.h ()->state = ts;
-      t.c ()->state = ts;
-      if (t.i () != nullptr)
-        t.i ()->state = ts;
-
       return ts;
     }
 
@@ -332,14 +313,6 @@ namespace build
       target_state ts (reverse_execute_prerequisites (a, t));
 
       return r ? target_state::changed : ts;
-    }
-
-    target_state compile::
-    delegate (action a, target& t)
-    {
-      // Delegate to our group.
-      //
-      return execute (a, *t.group);
     }
   }
 }
