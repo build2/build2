@@ -32,8 +32,8 @@ namespace build
     group_view cli_cxx::
     group_members (action) const
     {
-      return m[0] != nullptr
-        ? group_view {m, (m[2] != nullptr ? 3U : 2U)}
+      return h != nullptr
+        ? group_view {m, (i != nullptr ? 3U : 2U)}
         : group_view {nullptr, 0};
     }
 
@@ -43,7 +43,7 @@ namespace build
       // The rule has been matched which means the members should
       // be resolved and paths assigned.
       //
-      return file_mtime (h ()->path ());
+      return file_mtime (h->path ());
     }
 
     const target_type cli_cxx::static_type

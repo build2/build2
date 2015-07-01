@@ -58,15 +58,13 @@ namespace build
         // cli.options are possible and we can determine whether the
         // --suppress-inline option is present.
         //
-        if (t.h () == nullptr)
+        if (t.h == nullptr)
         {
-          cxx::hxx& h (search<cxx::hxx> (t.dir, t.name, nullptr, nullptr));
-          h.group = &t;
-          t.h (h);
+          t.h = &search<cxx::hxx> (t.dir, t.name, nullptr, nullptr);
+          t.h->group = &t;
 
-          cxx::cxx& c (search<cxx::cxx> (t.dir, t.name, nullptr, nullptr));
-          c.group = &t;
-          t.c (c);
+          t.c = & search<cxx::cxx> (t.dir, t.name, nullptr, nullptr);
+          t.c->group = &t;
 
           bool inl (true);
           if (auto val = t["cli.options"])
@@ -83,9 +81,8 @@ namespace build
 
           if (inl)
           {
-            cxx::ixx& i (search<cxx::ixx> (t.dir, t.name, nullptr, nullptr));
-            i.group = &t;
-            t.i (i);
+            t.i = &search<cxx::ixx> (t.dir, t.name, nullptr, nullptr);
+            t.i->group = &t;
           }
         }
 
@@ -132,7 +129,7 @@ namespace build
 
           // For ixx{}, verify it is part of the group.
           //
-          if (t.is_a<cxx::ixx> () && g->i () == nullptr)
+          if (t.is_a<cxx::ixx> () && g->i == nullptr)
           {
             level3 ([&]{trace << "generation of inline file " << t
                               << " is disabled with --suppress-inline";});
@@ -154,10 +151,10 @@ namespace build
 
         // Derive file names for the members.
         //
-        t.h ()->derive_path ();
-        t.c ()->derive_path ();
-        if (t.i () != nullptr)
-          t.i ()->derive_path ();
+        t.h->derive_path ();
+        t.c->derive_path ();
+        if (t.i != nullptr)
+          t.i->derive_path ();
 
         // Inject dependency on the output directory.
         //
@@ -228,10 +225,10 @@ namespace build
 
       // See if we need to pass any --?xx-suffix options.
       //
-      append_extension (args, *t.h (), "--hxx-suffix", "hxx");
-      append_extension (args, *t.c (), "--cxx-suffix", "cxx");
-      if (t.i () != nullptr)
-        append_extension (args, *t.i (), "--ixx-suffix", "ixx");
+      append_extension (args, *t.h, "--hxx-suffix", "hxx");
+      append_extension (args, *t.c, "--cxx-suffix", "cxx");
+      if (t.i != nullptr)
+        append_extension (args, *t.i, "--ixx-suffix", "ixx");
 
       append_options (args, t, "cli.options");
 
@@ -283,10 +280,10 @@ namespace build
       //
       bool r (false);
 
-      if (t.i () != nullptr)
-        r = rmfile (t.i ()->path (), *t.i ()) || r;
-      r = rmfile (t.c ()->path (), *t.c ()) || r;
-      r = rmfile (t.h ()->path (), *t.h ()) || r;
+      if (t.i != nullptr)
+        r = rmfile (t.i->path (), *t.i) || r;
+      r = rmfile (t.c->path (), *t.c) || r;
+      r = rmfile (t.h->path (), *t.h) || r;
 
       t.mtime (timestamp_nonexistent);
 

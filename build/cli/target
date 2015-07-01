@@ -28,15 +28,23 @@ namespace build
     public:
       using mtime_target::mtime_target;
 
-      target* m[3] {nullptr, nullptr, nullptr};
-
-      cxx::hxx* h () const {return static_cast<cxx::hxx*> (m[0]);}
-      cxx::cxx* c () const {return static_cast<cxx::cxx*> (m[1]);}
-      cxx::ixx* i () const {return static_cast<cxx::ixx*> (m[2]);}
-
-      void h (cxx::hxx& t) {m[0] = &t;}
-      void c (cxx::cxx& t) {m[1] = &t;}
-      void i (cxx::ixx& t) {m[2] = &t;}
+      union
+      {
+        // It is theoretically possible that the compiler will add
+        // padding between the members of this struct. This would
+        // mean that the optimal alignment for a pointer is greater
+        // than its size (and that an array of pointer is sub-
+        // optimally aligned). We will deal with such a beast of
+        // an architecture when we see it.
+        //
+        struct
+        {
+          cxx::hxx* h;
+          cxx::cxx* c;
+          cxx::ixx* i;
+        };
+        target* m[3] = {nullptr, nullptr, nullptr};
+      };
 
       virtual group_view
       group_members (action) const;
