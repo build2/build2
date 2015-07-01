@@ -116,9 +116,9 @@ namespace build
       //
       auto r (targets.insert (*tk.type, f.directory (), *tk.name, ext, trace));
 
-      // Has to be a path_target.
+      // Has to be a file_target.
       //
-      path_target& t (dynamic_cast<path_target&> (r.first));
+      file& t (dynamic_cast<file&> (r.first));
 
       level4 ([&]{trace << (r.second ? "new" : "existing") << " target "
                         << t << " for prerequisite " << pk;});

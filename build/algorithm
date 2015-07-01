@@ -134,7 +134,11 @@ namespace build
   reverse_execute_prerequisites (action, target&);
 
   // A version of the above that also determines whether the action
-  // needs to be executed on the target based on the passed timestamp.
+  // needs to be executed on the target based on the passed mtime
+  // timestamp.
+  //
+  // Note that because we use mtime, this function should normally
+  // only be used in the perform_update action.
   //
   bool
   execute_prerequisites (action, target&, const timestamp&);

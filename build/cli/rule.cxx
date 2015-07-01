@@ -210,78 +210,65 @@ namespace build
 
       // Execute our prerequsites and check if we are out of date.
       //
-      cli* s (execute_prerequisites<cli> (a, t, t.h ()->mtime ()));
-
-      target_state ts;
+      cli* s (execute_prerequisites<cli> (a, t, t.mtime ()));
 
       if (s == nullptr)
-        ts = target_state::unchanged;
-      else
+        return target_state::unchanged;
+
+      // Translate source path to relative (to working directory). This
+      // results in easier to read diagnostics.
+      //
+      path relo (relative (t.dir));
+      path rels (relative (s->path ()));
+
+      scope& rs (t.root_scope ());
+      const string& cli (rs["config.cli"].as<const string&> ());
+
+      vector<const char*> args {cli.c_str ()};
+
+      // See if we need to pass any --?xx-suffix options.
+      //
+      append_extension (args, *t.h (), "--hxx-suffix", "hxx");
+      append_extension (args, *t.c (), "--cxx-suffix", "cxx");
+      if (t.i () != nullptr)
+        append_extension (args, *t.i (), "--ixx-suffix", "ixx");
+
+      append_options (args, t, "cli.options");
+
+      if (!relo.empty ())
       {
-        // Translate source path to relative (to working directory). This
-        // results in easier to read diagnostics.
-        //
-        path relo (relative (t.dir));
-        path rels (relative (s->path ()));
-
-        scope& rs (t.root_scope ());
-        const string& cli (rs["config.cli"].as<const string&> ());
-
-        vector<const char*> args {cli.c_str ()};
-
-        // See if we need to pass any --?xx-suffix options.
-        //
-        append_extension (args, *t.h (), "--hxx-suffix", "hxx");
-        append_extension (args, *t.c (), "--cxx-suffix", "cxx");
-        if (t.i () != nullptr)
-          append_extension (args, *t.i (), "--ixx-suffix", "ixx");
-
-        append_options (args, t, "cli.options");
-
-        if (!relo.empty ())
-        {
-          args.push_back ("-o");
-          args.push_back (relo.string ().c_str ());
-        }
-
-        args.push_back (rels.string ().c_str ());
-        args.push_back (nullptr);
-
-        if (verb)
-          print_process (args);
-        else
-          text << "cli " << *s;
-
-        try
-        {
-          process pr (args.data ());
-
-          if (!pr.wait ())
-            throw failed ();
-
-          timestamp s (system_clock::now ());
-
-          // Update member timestamps.
-          //
-          t.h ()->mtime (s);
-          t.c ()->mtime (s);
-          if (t.i () != nullptr)
-            t.i ()->mtime (s);
-
-          ts = target_state::changed;
-        }
-        catch (const process_error& e)
-        {
-          error << "unable to execute " << args[0] << ": " << e.what ();
-
-          if (e.child ())
-            exit (1);
-
-          throw failed ();
-        }
+        args.push_back ("-o");
+        args.push_back (relo.string ().c_str ());
       }
 
-      return ts;
+      args.push_back (rels.string ().c_str ());
+      args.push_back (nullptr);
+
+      if (verb)
+        print_process (args);
+      else
+        text << "cli " << *s;
+
+      try
+      {
+        process pr (args.data ());
+
+        if (!pr.wait ())
+          throw failed ();
+
+        t.mtime (system_clock::now ());
+      }
+      catch (const process_error& e)
+      {
+        error << "unable to execute " << args[0] << ": " << e.what ();
+
+        if (e.child ())
+          exit (1);
+
+        throw failed ();
+      }
+
+      return target_state::changed;
     }
 
     target_state compile::
@@ -297,16 +284,11 @@ namespace build
       bool r (false);
 
       if (t.i () != nullptr)
-      {
         r = rmfile (t.i ()->path (), *t.i ()) || r;
-        t.i ()->mtime (timestamp_nonexistent);
-      }
-
       r = rmfile (t.c ()->path (), *t.c ()) || r;
-      t.c ()->mtime (timestamp_nonexistent);
-
       r = rmfile (t.h ()->path (), *t.h ()) || r;
-      t.h ()->mtime (timestamp_nonexistent);
+
+      t.mtime (timestamp_nonexistent);
 
       // Clean prerequisites.
       //

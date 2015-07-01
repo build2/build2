@@ -23,10 +23,10 @@ namespace build
       static const target_type static_type;
     };
 
-    class cli_cxx: public target
+    class cli_cxx: public mtime_target
     {
     public:
-      using target::target;
+      using mtime_target::mtime_target;
 
       target* m[3] {nullptr, nullptr, nullptr};
 
@@ -40,6 +40,9 @@ namespace build
 
       virtual group_view
       group_members (action) const;
+
+      virtual timestamp
+      load_mtime () const;
 
     public:
       virtual const target_type& type () const {return static_type;}

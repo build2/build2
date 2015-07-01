@@ -650,13 +650,13 @@ namespace build
               // expensive. At the same time, most of these headers are
               // existing files that we will never be updating (again,
               // system headers, for example) and the rule that will match
-              // them is fallback path_rule. So we are going to do a little
+              // them is fallback file_rule. So we are going to do a little
               // fast-path optimization by detecting this common case.
               //
               recipe_function* const* recipe (
                 pt.recipe (a).target<recipe_function*> ());
 
-              if (recipe == nullptr || *recipe != &path_rule::perform_update)
+              if (recipe == nullptr || *recipe != &file_rule::perform_update)
               {
                 // We only want to restart if our call to execute() actually
                 // caused an update. In particular, the target could already

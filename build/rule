@@ -64,10 +64,10 @@ namespace build
 
   extern operation_rule_map rules;
 
-  // Fallback rule that on update verifies that the path exists and is
+  // Fallback rule that on update verifies that the file exists and is
   // not older than any of its prerequisites.
   //
-  class path_rule: public rule
+  class file_rule: public rule
   {
   public:
     virtual match_result

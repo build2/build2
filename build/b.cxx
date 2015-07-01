@@ -212,10 +212,10 @@ main (int argc, char* argv[])
     rules[update_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
     rules[clean_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
 
-    path_rule path_r;
-    rules[default_id][typeid (path_target)].emplace ("path", path_r);
-    rules[update_id][typeid (path_target)].emplace ("path", path_r);
-    rules[clean_id][typeid (path_target)].emplace ("path", path_r);
+    file_rule file_r;
+    rules[default_id][typeid (file)].emplace ("file", file_r);
+    rules[update_id][typeid (file)].emplace ("file", file_r);
+    rules[clean_id][typeid (file)].emplace ("file", file_r);
 
     // Figure out work and home directories.
     //

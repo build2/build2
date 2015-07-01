@@ -21,7 +21,7 @@ namespace build
 {
   operation_rule_map rules;
 
-  // path_rule
+  // file_rule
   //
   // Note that this rule is special. It is the last, fallback rule. If
   // it doesn't match, then no other rule can possibly match and we have
@@ -30,9 +30,11 @@ namespace build
   // that normal implementations should follow. So you probably shouldn't
   // use it as a guide to implement your own, normal, rules.
   //
-  match_result path_rule::
+  match_result file_rule::
   match (action a, target& t, const string&) const
   {
+    tracer trace ("file_rule::match");
+
     // While strictly speaking we should check for the file's existence
     // for every action (because that's the condition for us matching),
     // for some actions this is clearly a waste. Say, perform_clean: we
@@ -57,14 +59,23 @@ namespace build
         if (pt.path ().empty ())
           pt.derive_path ();
 
-        return pt.mtime () != timestamp_nonexistent ? &t : nullptr;
+        // We cannot just call pt.mtime() since we haven't matched yet.
+        //
+        timestamp ts (file_mtime (pt.path ()));
+        pt.mtime (ts);
+
+        if (ts != timestamp_nonexistent)
+          return t;
+
+        level3 ([&]{trace << "no existing file for target " << t;});
+        return nullptr;
       }
     default:
       return t;
     }
   }
 
-  recipe path_rule::
+  recipe file_rule::
   apply (action a, target& t, const match_result&) const
   {
     // Update triggers the update of this target's prerequisites
@@ -87,7 +98,7 @@ namespace build
       : t.has_prerequisites () ? default_recipe : noop_recipe;
   }
 
-  target_state path_rule::
+  target_state file_rule::
   perform_update (action a, target& t)
   {
     // Make sure the target is not older than any of its prerequisites.
