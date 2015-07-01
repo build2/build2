@@ -58,13 +58,33 @@ namespace build
   }
 
   group_view
-  resolve_group_members_impl (action, target_group&);
+  resolve_group_members_impl (action, target&);
 
   inline group_view
-  resolve_group_members (action a, target_group& g)
+  resolve_group_members (action a, target& g)
   {
-    group_view r (g.members (a));
+    group_view r (g.group_members (a));
     return r.members != nullptr ? r : resolve_group_members_impl (a, g);
+  }
+
+  inline void
+  search_and_match_prerequisites (action a, target& t)
+  {
+    search_and_match_prerequisites (
+      a, t, a.operation () != clean_id ? dir_path () : t.dir);
+  }
+
+  inline void
+  search_and_match_prerequisite_members (action a, target& t)
+  {
+    if (a.operation () != clean_id)
+      search_and_match_prerequisite_members (a, t, dir_path ());
+    else
+      // Note that here we don't iterate over members even for see
+      // through groups since the group target should clean eveything
+      // up. A bit of an optimization.
+      //
+      search_and_match_prerequisites (a, t, t.dir);
   }
 
   target_state

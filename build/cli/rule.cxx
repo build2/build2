@@ -163,15 +163,9 @@ namespace build
         //
         inject_parent_fsdir (a, t);
 
-        // Search and match prerequisites.
+        // Search and match prerequisite members.
         //
-        switch (a.operation ())
-        {
-        case default_id:
-        case update_id: search_and_match (a, t); break;
-        case clean_id: search_and_match (a, t, t.dir); break;
-        default: assert (false); // We didn't register for this.
-        }
+        search_and_match_prerequisite_members (a, t);
 
         switch (a)
         {

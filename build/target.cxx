@@ -48,6 +48,14 @@ namespace build
 
   // target
   //
+
+  group_view target::
+  group_members (action) const
+  {
+    assert (false); // Not a group or doesn't expose its members.
+    return group_view {nullptr, 0};
+  }
+
   scope& target::
   base_scope () const
   {
@@ -388,16 +396,7 @@ namespace build
     nullptr,
     nullptr,
     &search_target,
-  };
-
-  const target_type target_group::static_type
-  {
-    typeid (target_group),
-    "target_group",
-    &target::static_type,
-    nullptr,
-    nullptr,
-    &search_target
+    false
   };
 
   const target_type mtime_target::static_type
@@ -407,7 +406,8 @@ namespace build
     &target::static_type,
     nullptr,
     nullptr,
-    &search_target
+    &search_target,
+    false
   };
 
   const target_type path_target::static_type
@@ -417,7 +417,8 @@ namespace build
     &mtime_target::static_type,
     nullptr,
     nullptr,
-    &search_target
+    &search_target,
+    false
   };
 
   static target*
@@ -439,7 +440,8 @@ namespace build
     &path_target::static_type,
     &file_factory,
     nullptr, // Factory always assigns an extension.
-    &search_file
+    &search_file,
+    false
   };
 
   const target_type dir::static_type
@@ -449,7 +451,8 @@ namespace build
     &target::static_type,
     &target_factory<dir>,
     nullptr, // Should never need.
-    &search_alias
+    &search_alias,
+    false
   };
 
   const target_type fsdir::static_type
@@ -459,6 +462,7 @@ namespace build
     &target::static_type,
     &target_factory<fsdir>,
     nullptr, // Should never need.
-    &search_target
+    &search_target,
+    false
   };
 }

@@ -128,19 +128,8 @@ namespace build
       // When cleaning, ignore prerequisites that are not in the same
       // or a subdirectory of ours.
       //
-      const auto& ps (group_prerequisite_members (a, t));
-      for (auto i (ps.begin ()); i != ps.end (); ++i)
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        prerequisite_member p (*i);
-
-        // See through the group unless it is one that we recognize.
-        //
-        if (p.is_a<target_group> ())
-        {
-          if (!p.is_a<lib> ())
-            continue;
-        }
-
         target& pt (p.search ());
 
         if (a.operation () == clean_id && !pt.dir.sub (t.dir))
@@ -155,10 +144,7 @@ namespace build
         // populated; see append_lib_options() above.
         //
         if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
-        {
-          i.skip_group (); // Don't go inside the lib{} group.
           continue;
-        }
 
         t.prerequisite_targets.push_back (&pt);
       }
@@ -855,11 +841,8 @@ namespace build
       bool seen_cxx (false), seen_c (false), seen_obj (false),
         seen_lib (false);
 
-      const auto& ps (group_prerequisite_members (a, t));
-      for (auto i (ps.begin ()); i != ps.end (); ++i)
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        prerequisite_member p (*i);
-
         if (p.is_a<cxx> ())
         {
           seen_cxx = seen_cxx || true;
@@ -880,14 +863,12 @@ namespace build
                  p.is_a<obj> ())
         {
           seen_obj = seen_obj || true;
-          i.skip_group (); // Don't go inside the obj{} group.
         }
         else if (p.is_a<liba> ()  ||
                  p.is_a<libso> () ||
                  p.is_a<lib> ())
         {
           seen_lib = seen_lib || true;
-          i.skip_group (); // Don't go inside the lib{} group.
         }
         else if (p.is_a<h> ()   ||
                  p.is_a<hxx> () ||
@@ -895,8 +876,6 @@ namespace build
                  p.is_a<txx> () ||
                  p.is_a<fsdir> ())
           ;
-        else if (p.is_a<target_group> ())
-          ; // See through.
         else
         {
           level3 ([&]{trace << "unexpected prerequisite type " << p.type ();});
@@ -953,22 +932,9 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
-      const auto& ps (group_prerequisite_members (a, t));
-      for (auto i (ps.begin ()); i != ps.end (); ++i)
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        prerequisite_member p (*i);
-
-        // See through the group unless it is one that we recognize.
-        //
-        if (p.is_a<target_group> ())
-        {
-          if (!p.is_a<lib> () &&
-              !p.is_a<obj> ())
-            continue;
-        }
-
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-
         target* pt (nullptr);
 
         if (!p.is_a<c> () && !p.is_a<cxx> ())
@@ -982,7 +948,6 @@ namespace build
 
           // If this is the obj{} or lib{} target group, then pick the
           // appropriate member and make sure it is searched and matched.
-          // In both cases, skip going over the group's members.
           //
           if (obj* o = pt->is_a<obj> ())
           {
@@ -991,8 +956,6 @@ namespace build
             if (pt == nullptr)
               pt = &search (so ? objso::static_type : obja::static_type,
                             p.key ());
-
-            i.skip_group ();
           }
           else if (lib* l = pt->is_a<lib> ())
           {
@@ -1028,8 +991,6 @@ namespace build
             if (pt == nullptr)
               pt = &search (lso ? libso::static_type : liba::static_type,
                             p.key ());
-
-            i.skip_group ();
           }
 
           build::match (a, *pt);
@@ -1120,19 +1081,9 @@ namespace build
         // searching and matching speculatively doesn't really hurt.
         //
         bool found (false);
-        const auto& ps (reverse_group_prerequisite_members (a, *pt));
-        for (auto i (ps.begin ()); i != ps.end (); ++i)
+        for (prerequisite_member p1:
+               reverse_group_prerequisite_members (a, *pt))
         {
-          prerequisite_member p1 (*i);
-
-          // See through the group unless it is one that we recognize.
-          //
-          if (p1.is_a<target_group> ())
-          {
-            if (!p1.is_a<lib> ())
-              continue;
-          }
-
           // Ignore some known target types (fsdir, headers, libraries).
           //
           if (p1.is_a<fsdir> () ||
@@ -1144,7 +1095,6 @@ namespace build
               p1.is_a<liba> () ||
               p1.is_a<libso> ())
           {
-            i.skip_group (); // Skip going inside lib{}.
             continue;
           }
 

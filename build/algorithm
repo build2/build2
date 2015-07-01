@@ -60,25 +60,38 @@ namespace build
   void
   match (action, target&);
 
-  // The default prerequisite search and match implementation. It calls
+  // The standard prerequisite search and match implementations. They call
+  // search_and_match_*() versions below passing non-empty directory for
+  // the clean operation.
+  //
+  void
+  search_and_match_prerequisites (action, target&);
+
+  // If we are cleaning, this function doesn't go into group members,
+  // as an optimization (the group should clean everything up).
+  //
+  void
+  search_and_match_prerequisite_members (action, target&);
+
+  // The actual prerequisite search and match implementations. They call
   // search() and then match() for each prerequisite in a loop. If this
-  // target is a member of a group, then it first does this to the group's
+  // target is a member of a group, then they first do this to the group's
   // prerequisites.
   //
-  void
-  search_and_match (action, target&);
-
-  // As above but ignores (does not match) prerequisites that are not
-  // in the same or a subdirectory of dir.
+  // If the directory argument is not empty, then they ignore (do not
+  // match) prerequisites that are not in the same or its subdirectory.
   //
   void
-  search_and_match (action, target&, const dir_path&);
+  search_and_match_prerequisites (action, target&, const dir_path&);
+
+  void
+  search_and_match_prerequisite_members (action, target&, const dir_path&);
 
   // Unless already available, match, and, if necessary, execute
   // the group in order to obtain its members list.
   //
   group_view
-  resolve_group_members (action, target_group&);
+  resolve_group_members (action, target&);
 
   // Inject dependency on the parent directory's fsdir{}, unless it is
   // the project's out_root (or is outside of any project; say, for

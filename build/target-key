@@ -28,6 +28,7 @@ namespace build
     target* (*const factory) (dir_path, std::string, const std::string*);
     const std::string& (*const extension) (const target_key&, scope&);
     target* (*const search) (const prerequisite_key&);
+    bool see_through; // A group with the default "see through" semantics.
 
     bool
     is_a (const std::type_index&) const; // Defined in target.cxx

@@ -175,7 +175,7 @@ namespace build
   }
 
   group_view
-  resolve_group_members_impl (action a, target_group& g)
+  resolve_group_members_impl (action a, target& g)
   {
     group_view r;
 
@@ -186,7 +186,7 @@ namespace build
     {
       auto p (match_impl (a, g, false));
 
-      r = g.members (a);
+      r = g.group_members (a);
       if (r.members != nullptr)
         return r;
 
@@ -196,42 +196,48 @@ namespace build
       g.recipe (a, p.first->apply (a, g, p.second));
     }
 
-    // Note that we use execute_direct() rather than execute() here
-    // to sidestep the dependents count logic. In this context,
-    // this is by definition the first attempt to execute this
-    // rule (otherwise we would have already known the members
-    // list) and we really do need to execute it now.
+    // Note that we use execute_direct() rather than execute() here to
+    // sidestep the dependents count logic. In this context, this is by
+    // definition the first attempt to execute this rule (otherwise we
+    // would have already known the members list) and we really do need
+    // to execute it now.
     //
     execute_direct (a, g);
 
-    r = g.members (a);
+    r = g.group_members (a);
     assert (r.members != nullptr); // What "next step" did the group expect?
     return r;
   }
 
   void
-  search_and_match (action a, target& t)
+  search_and_match_prerequisites (action a, target& t, const dir_path& d)
   {
-    group_prerequisites gp (t);
-    size_t i (t.prerequisite_targets.size ());
-    t.prerequisite_targets.resize (gp.size () + i);
+    const bool e (d.empty ());
 
-    for (prerequisite& p: gp)
+    for (prerequisite p: group_prerequisites (t))
     {
       target& pt (search (p));
-      match (a, pt);
-      t.prerequisite_targets[i++] = &pt;
+
+      if (e || pt.dir.sub (d))
+      {
+        match (a, pt);
+        t.prerequisite_targets.push_back (&pt);
+      }
     }
   }
 
   void
-  search_and_match (action a, target& t, const dir_path& d)
+  search_and_match_prerequisite_members (action a,
+                                         target& t,
+                                         const dir_path& d)
   {
-    for (prerequisite& p: group_prerequisites (t))
-    {
-      target& pt (search (p));
+    const bool e (d.empty ());
 
-      if (pt.dir.sub (d))
+    for (prerequisite_member p: group_prerequisite_members (a, t))
+    {
+      target& pt (p.search ());
+
+      if (e || pt.dir.sub (d))
       {
         match (a, pt);
         t.prerequisite_targets.push_back (&pt);

@@ -18,7 +18,8 @@ namespace build
       &file::static_type,
       &target_factory<hxx>,
       &target_extension_var<hxx_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
 
     constexpr const char ixx_ext_var[] = "ixx.ext";
@@ -29,7 +30,8 @@ namespace build
       &file::static_type,
       &target_factory<ixx>,
       &target_extension_var<ixx_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
 
     constexpr const char txx_ext_var[] = "txx.ext";
@@ -40,7 +42,8 @@ namespace build
       &file::static_type,
       &target_factory<txx>,
       &target_extension_var<txx_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
 
     constexpr const char cxx_ext_var[] = "cxx.ext";
@@ -51,7 +54,8 @@ namespace build
       &file::static_type,
       &target_factory<cxx>,
       &target_extension_var<cxx_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
 
     constexpr const char h_ext_var[] = "h.ext";
@@ -62,7 +66,8 @@ namespace build
       &file::static_type,
       &target_factory<h>,
       &target_extension_var<h_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
 
     constexpr const char c_ext_var[] = "c.ext";
@@ -73,7 +78,8 @@ namespace build
       &file::static_type,
       &target_factory<c>,
       &target_extension_var<c_ext_var>,
-      &search_file
+      &search_file,
+      false
     };
   }
 }

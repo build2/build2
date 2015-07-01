@@ -34,7 +34,7 @@ namespace build
     // lib
     //
     // The whole logic is pretty much as if we had our two group
-    // members as prerequisites.
+    // members as our prerequisites.
     //
     match_result lib_rule::
     match (action, target& t, const std::string&) const

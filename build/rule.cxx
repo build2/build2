@@ -80,7 +80,7 @@ namespace build
 
     // Search and match all the prerequisites.
     //
-    search_and_match (a, t);
+    search_and_match_prerequisites (a, t);
 
     return a == perform_update_id
       ? &perform_update
@@ -134,18 +134,7 @@ namespace build
   recipe dir_rule::
   apply (action a, target& t, const match_result&) const
   {
-    // When cleaning, ignore prerequisites that are not in the same
-    // or a subdirectory of ours. For default, we don't do anything
-    // other than letting our prerequisites do their thing.
-    //
-    switch (a.operation ())
-    {
-    case default_id:
-    case update_id: search_and_match (a, t); break;
-    case clean_id: search_and_match (a, t, t.dir); break;
-    default: assert (false);
-    }
-
+    search_and_match_prerequisites (a, t);
     return default_recipe;
   }
 
@@ -162,26 +151,30 @@ namespace build
   {
     switch (a.operation ())
     {
-    // For default, we don't do anything other than letting our
-    // prerequisites do their thing.
-    //
     case default_id:
     case update_id:
+      // For default, we don't do anything other than letting our
+      // prerequisites do their thing.
+      //
+
       // Inject dependency on the parent directory. Note that we
       // don't do it for clean since we shouldn't be removing it.
       //
       inject_parent_fsdir (a, t);
 
-      search_and_match (a, t);
+      search_and_match_prerequisites (a, t, dir_path ());
       break;
-    // For clean, ignore prerequisites that are not in the same or a
-    // subdirectory of ours (if t.dir is foo/bar/, then "we" are bar
-    // and our directory is foo/). Just meditate on it a bit and you
-    // will see the light.
-    //
+
     case clean_id:
-      search_and_match (a, t, t.dir.root () ? t.dir : t.dir.directory ());
+      // For clean, ignore prerequisites that are not in the same or a
+      // subdirectory of ours (if t.dir is foo/bar/, then "we" are bar
+      // and our directory is foo/). Just meditate on it a bit and you
+      // will see the light.
+      //
+      search_and_match_prerequisites (
+        a, t, t.dir.root () ? t.dir : t.dir.directory ());
       break;
+
     default:
       assert (false);
     }

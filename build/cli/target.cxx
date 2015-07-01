@@ -20,13 +20,14 @@ namespace build
       &file::static_type,
       &target_factory<cli>,
       &target_extension_fix<cli_ext>,
-      &search_file
+      &search_file,
+      false
     };
 
     // cli.cxx
     //
     group_view cli_cxx::
-    members (action) const
+    group_members (action) const
     {
       return m[0] != nullptr
         ? group_view {m, (m[2] != nullptr ? 3U : 2U)}
@@ -37,10 +38,11 @@ namespace build
     {
       typeid (cli_cxx),
       "cli.cxx",
-      &target_group::static_type,
+      &target::static_type,
       &target_factory<cli_cxx>,
       nullptr,
-      &search_target
+      &search_target,
+      true // See through default semantics.
     };
   }
 }

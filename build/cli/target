@@ -23,10 +23,10 @@ namespace build
       static const target_type static_type;
     };
 
-    class cli_cxx: public target_group
+    class cli_cxx: public target
     {
     public:
-      using target_group::target_group;
+      using target::target;
 
       target* m[3] {nullptr, nullptr, nullptr};
 
@@ -39,7 +39,7 @@ namespace build
       void i (cxx::ixx& t) {m[2] = &t;}
 
       virtual group_view
-      members (action) const;
+      group_members (action) const;
 
     public:
       virtual const target_type& type () const {return static_type;}

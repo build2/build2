@@ -32,7 +32,7 @@ namespace build
   // prerequisite_members
   //
   group_view
-  resolve_group_members (action, target_group&); // <build/algorithm>
+  resolve_group_members (action, target&); // <build/algorithm>
 
   template <typename T>
   inline auto prerequisite_members_range<T>::iterator::
@@ -40,35 +40,36 @@ namespace build
   {
     if (g_.count != 0)
     {
-      // Member iteration.
-      //
-      if (++j_ == g_.count)
-      {
-        // Switch back to prerequisite iteration.
-        //
-        g_.count = 0;
-        ++i_;
-      }
-    }
-    else
-    {
-      // Prerequisite iteration.
-      //
-      if (i_->get ().template is_a<target_group> ())
-      {
-        // Switch to member iteration.
-        //
-        target_group& g (static_cast<target_group&> (search (*i_)));
-        j_ = 0;
-        g_ = resolve_group_members (a_, g);
+      if (++j_ <= g_.count)
+        return *this;
 
-        if (g_.count == 0)
-          ++i_; // Empty group.
-      }
-      else
-        ++i_;
+      // Switch back to prerequisite iteration mode.
+      //
+      g_.count = 0;
     }
+
+    ++i_;
+
+    // Switch to member iteration mode.
+    //
+    if (i_ != r_->e_ && i_->get ().type.see_through)
+      switch_members ();
 
     return *this;
+  }
+
+  template <typename T>
+  inline void prerequisite_members_range<T>::iterator::
+  switch_members ()
+  {
+    j_ = 1;
+
+    do
+    {
+      g_ = resolve_group_members (r_->a_, search (*i_));
+    }
+    while (g_.count == 0  && // Skip empty groups.
+           ++i_ != r_->e_ &&
+           i_->get ().type.see_through);
   }
 }
