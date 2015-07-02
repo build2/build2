@@ -5,7 +5,6 @@
 #ifndef BUILD_DIAGNOSTICS
 #define BUILD_DIAGNOSTICS
 
-#include <vector>
 #include <cstdint>
 #include <utility>
 #include <cassert>
@@ -16,6 +15,7 @@
 
 #include <butl/path>
 
+#include <build/types>
 #include <build/path-io>
 
 namespace build
@@ -72,7 +72,7 @@ namespace build
   print_process (const char* const* args);
 
   inline void
-  print_process (const std::vector<const char*>& args)
+  print_process (const cstrings& args)
   {
     print_process (args.data ());
   }

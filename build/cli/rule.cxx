@@ -6,6 +6,7 @@
 
 #include <butl/process>
 
+#include <build/types>
 #include <build/scope>
 #include <build/target>
 #include <build/context>
@@ -183,7 +184,7 @@ namespace build
     }
 
     static void
-    append_extension (vector<const char*>& args,
+    append_extension (cstrings& args,
                       path_target& t,
                       const char* option,
                       const char* default_extension)
@@ -224,7 +225,7 @@ namespace build
       scope& rs (t.root_scope ());
       const string& cli (rs["config.cli"].as<const string&> ());
 
-      vector<const char*> args {cli.c_str ()};
+      cstrings args {cli.c_str ()};
 
       // See if we need to pass any --?xx-suffix options.
       //

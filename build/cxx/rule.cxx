@@ -6,7 +6,6 @@
 
 #include <map>
 #include <string>
-#include <vector>
 #include <cstddef>  // size_t
 #include <cstdlib>  // exit
 #include <utility>  // move()
@@ -17,6 +16,7 @@
 #include <butl/optional>
 #include <butl/path-map>
 
+#include <build/types>
 #include <build/scope>
 #include <build/variable>
 #include <build/algorithm>
@@ -40,7 +40,7 @@ namespace build
     using config::append_options;
 
     static void
-    append_std (vector<const char*>& args, target& t, string& opt)
+    append_std (cstrings& args, target& t, string& opt)
     {
       if (auto val = t["cxx.std"])
       {
@@ -66,7 +66,7 @@ namespace build
     // recursively, prerequisite libraries first.
     //
     static void
-    append_lib_options (vector<const char*>& args, target& l, const char* var)
+    append_lib_options (cstrings& args, target& l, const char* var)
     {
       for (target* t: l.prerequisite_targets)
       {
@@ -381,7 +381,7 @@ namespace build
       scope& rs (t.root_scope ());
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
-      vector<const char*> args {cxx.c_str ()};
+      cstrings args {cxx.c_str ()};
 
       // Add cxx.export.poptions from prerequisite libraries. Note
       // that here we don't need to see group members (see apply()).
@@ -725,7 +725,7 @@ namespace build
       scope& rs (t.root_scope ());
       const string& cxx (rs["config.cxx"].as<const string&> ());
 
-      vector<const char*> args {cxx.c_str ()};
+      cstrings args {cxx.c_str ()};
 
       // Add cxx.export.poptions from prerequisite libraries. Note that
       // here we don't need to see group members (see apply()).
@@ -1175,7 +1175,7 @@ namespace build
       path relt (relative (t.path ()));
 
       scope& rs (t.root_scope ());
-      vector<const char*> args;
+      cstrings args;
       string storage1;
 
       if (lt == type::a)
@@ -1206,7 +1206,7 @@ namespace build
       // Reserve enough space so that we don't reallocate. Reallocating
       // means pointers to elements may no longer be valid.
       //
-      vector<path> relo;
+      paths relo;
       relo.reserve (t.prerequisite_targets.size ());
 
       for (target* pt: t.prerequisite_targets)

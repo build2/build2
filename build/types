@@ -6,6 +6,7 @@
 #define BUILD_TYPES
 
 #include <vector>
+#include <string>
 
 #include <butl/path>
 #include <butl/timestamp>
@@ -16,6 +17,8 @@ namespace build
 {
   // Commonly-used types.
   //
+  using strings = std::vector<std::string>;
+  using cstrings = std::vector<const char*>;
 
   // <butl/path>
   //
@@ -23,6 +26,9 @@ namespace build
   using butl::dir_path;
   using butl::basic_path;
   using butl::invalid_path;
+
+  using paths = std::vector<path>;
+  using dir_paths = std::vector<dir_path>;
 
   // <butl/timestamp>
   //
@@ -32,9 +38,6 @@ namespace build
   using butl::timestamp_unknown;
   using butl::timestamp_nonexistent;
   using butl::operator<<;
-
-  typedef std::vector<path> paths;
-  typedef std::vector<dir_path> dir_paths;
 }
 
 #endif // BUILD_TYPES
