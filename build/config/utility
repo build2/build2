@@ -63,6 +63,24 @@ namespace build
         }
       }
     }
+
+    // Check if a specified option is present. T is either target or scope.
+    //
+    template <typename T>
+    bool
+    find_option (const char* option, T& s, const char* var)
+    {
+      if (auto val = s[var])
+      {
+        for (const name& n: val.template as<const list_value&> ())
+        {
+          if (n.simple () && n.value == option)
+            return true;
+        }
+      }
+
+      return false;
+    }
   }
 }
 

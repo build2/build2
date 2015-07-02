@@ -97,22 +97,15 @@ namespace build
             process pr (args, false, false, true);
             ifdstream is (pr.in_ofd);
 
-            for (bool first (true); !is.eof (); )
-            {
-              string l;
-              getline (is, l);
+            // The version should be the last word on the first line.
+            //
+            string l;
+            getline (is, l);
+            auto p (l.rfind (' '));
+            if (p != string::npos)
+              ver = string (l, p + 1);
 
-              if (first)
-              {
-                // The version is the last word on the first line.
-                //
-                auto p (l.rfind (' '));
-                if (p != string::npos)
-                  ver = string (l, p + 1);
-
-                first = false;
-              }
-            }
+            is.close (); // Don't block the other end.
 
             if (!pr.wait ())
               throw failed ();

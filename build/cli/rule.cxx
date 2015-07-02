@@ -23,8 +23,6 @@ namespace build
 {
   namespace cli
   {
-    using config::append_options;
-
     match_result compile::
     match (action a, target& xt, const std::string&) const
     {
@@ -32,6 +30,8 @@ namespace build
 
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
+        // The cli.cxx{} group.
+        //
         cli_cxx& t (*pt);
 
         // See if we have a .cli source file.
@@ -41,7 +41,15 @@ namespace build
         {
           if (p.is_a<cli> ())
           {
-            //@@ Need to verify input and output stems match.
+            // Check that the stems match.
+            //
+            if (t.name != p.name ())
+            {
+              level3 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                                << "doesn't match target " << t;});
+              return r;
+            }
+
             r = p;
             break;
           }
@@ -50,11 +58,11 @@ namespace build
         if (!r)
         {
           level3 ([&]{trace << "no .cli source file for target " << t;});
-          return nullptr;
+          return r;
         }
 
         // If we still haven't figured out the member list, we can do
-        // that now. Specifically, at this stage no further changes to
+        // that now. Specifically, at this stage, no further changes to
         // cli.options are possible and we can determine whether the
         // --suppress-inline option is present.
         //
@@ -63,23 +71,10 @@ namespace build
           t.h = &search<cxx::hxx> (t.dir, t.name, nullptr, nullptr);
           t.h->group = &t;
 
-          t.c = & search<cxx::cxx> (t.dir, t.name, nullptr, nullptr);
+          t.c = &search<cxx::cxx> (t.dir, t.name, nullptr, nullptr);
           t.c->group = &t;
 
-          bool inl (true);
-          if (auto val = t["cli.options"])
-          {
-            for (const name& n: val.template as<const list_value&> ())
-            {
-              if (n.value == "--suppress-inline")
-              {
-                inl = false;
-                break;
-              }
-            }
-          }
-
-          if (inl)
+          if (!config::find_option ("--suppress-inline", t, "cli.options"))
           {
             t.i = &search<cxx::ixx> (t.dir, t.name, nullptr, nullptr);
             t.i->group = &t;
@@ -100,21 +95,29 @@ namespace build
         if (t.group != nullptr)
           return t.group->is_a<cli_cxx> ();
 
-        // Then see if there is a corresponding cli.cxx{} group.
+        // Then check if there is a corresponding cli.cxx{} group.
         //
         cli_cxx* g (targets.find<cli_cxx> (t.dir, t.name));
 
-        // Finally, if this target has a cli{} prerequisite, synthesize
+        // If not but this target has a cli{} prerequisite, synthesize
         // the group.
         //
         if (g == nullptr)
         {
           for (prerequisite_member p: group_prerequisite_members (a, t))
           {
-            if (p.is_a<cli> ()) // @@ Need to check that stems match.
+            if (p.is_a<cli> ())
             {
-              g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
-              g->prerequisites.emplace_back (p.as_prerequisite (trace));
+              // Check that the stems match.
+              //
+              if (t.name == p.name ())
+              {
+                g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
+                g->prerequisites.emplace_back (p.as_prerequisite (trace));
+              }
+              else
+                level3 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                                  << "doesn't match target " << t;});
               break;
             }
           }
@@ -182,18 +185,18 @@ namespace build
     static void
     append_extension (vector<const char*>& args,
                       path_target& t,
-                      const char* opt,
-                      const char* def)
+                      const char* option,
+                      const char* default_extension)
     {
       assert (t.ext != nullptr); // Should have been figured out in apply().
 
-      if (*t.ext != def)
+      if (*t.ext != default_extension)
       {
         // CLI needs the extension with the leading dot (unless it is empty)
         // while we store the extension without. But if there is an extension,
         // then we can get it (with the dot) from the file name.
         //
-        args.push_back (opt);
+        args.push_back (option);
         args.push_back (t.ext->empty ()
                         ? t.ext->c_str ()
                         : t.path ().extension () - 1);
@@ -212,7 +215,7 @@ namespace build
       if (s == nullptr)
         return target_state::unchanged;
 
-      // Translate source path to relative (to working directory). This
+      // Translate paths to relative (to working directory). This
       // results in easier to read diagnostics.
       //
       path relo (relative (t.dir));
@@ -230,7 +233,7 @@ namespace build
       if (t.i != nullptr)
         append_extension (args, *t.i, "--ixx-suffix", "ixx");
 
-      append_options (args, t, "cli.options");
+      config::append_options (args, t, "cli.options");
 
       if (!relo.empty ())
       {
@@ -276,7 +279,6 @@ namespace build
       // The reverse order of update: first delete the files, then clean
       // prerequisites. Also update timestamp in case there are operations
       // after us that could use the information.
-      //
       //
       bool r (false);
 

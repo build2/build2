@@ -4,8 +4,8 @@ ixx.ext = ipp
 
 cxx.poptions = -I$out_root
 
-#exe{driver}: cxx{driver} cxx{test}
-#cxx{test} hxx{test}: cli{test}
+exe{driver}: cxx{driver} cxx{test}
+cxx{test} hxx{test}: cli{test}
 
-exe{driver}: cxx{driver} cli.cxx{test}
-cli.cxx{test}: cli{test}
+#exe{driver}: cxx{driver} cli.cxx{test}
+#cli.cxx{test}: cli{test}

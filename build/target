@@ -506,6 +506,12 @@ namespace build
       return target != nullptr ? target->type () : prerequisite.get ().type;
     }
 
+    const std::string&
+    name () const
+    {
+      return target != nullptr ? target->name : prerequisite.get ().name;
+    }
+
     target_type&
     search () const
     {

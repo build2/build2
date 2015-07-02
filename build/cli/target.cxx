@@ -49,12 +49,12 @@ namespace build
     static target*
     cli_cxx_factory (dir_path d, string n, const string* e)
     {
-      tracer trace ("cli::cli_cxx::factory");
+      tracer trace ("cli::cli_cxx_factory");
 
       // Pre-enter (potential) members as targets. The main purpose
       // of doing this is to avoid searching for existing files in
-      // src_base if the buildfile mentions one of them explicitly
-      // as a prerequisite.
+      // src_base if the buildfile mentions some of them explicitly
+      // as prerequisites.
       //
       targets.insert<cxx::hxx> (d, n, trace);
       targets.insert<cxx::cxx> (d, n, trace);
@@ -71,7 +71,7 @@ namespace build
       &cli_cxx_factory,
       nullptr,
       &search_target,
-      true // See through default semantics.
+      true // "See through" default iteration mode.
     };
   }
 }

@@ -33,7 +33,7 @@ namespace build
         // It is theoretically possible that the compiler will add
         // padding between the members of this struct. This would
         // mean that the optimal alignment for a pointer is greater
-        // than its size (and that an array of pointer is sub-
+        // than its size (and that an array of pointers is sub-
         // optimally aligned). We will deal with such a beast of
         // an architecture when we see it.
         //
