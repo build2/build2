@@ -29,7 +29,7 @@ namespace build
       &file::static_type,
       &obja_factory,
       nullptr,
-      &search_file,
+      &search_target, // Note: not _file(); don't look for an existing file.
       false
     };
 
@@ -52,7 +52,7 @@ namespace build
       &file::static_type,
       &objso_factory,
       nullptr,
-      &search_file,
+      &search_target, // Note: not _file(); don't look for an existing file.
       false
     };
 
