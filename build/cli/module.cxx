@@ -42,6 +42,7 @@ namespace build
         fail (l) << "cli module must be initialized in project root scope";
 
       // Initialize the cxx module. We need its targets types (?xx{}).
+      // @@ Or better require it?
       //
       cxx::init (root, base, l);
 
