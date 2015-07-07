@@ -1,0 +1,70 @@
+// file      : build/target-type -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TARGET_TYPE
+#define BUILD_TARGET_TYPE
+
+#include <map>
+#include <string>
+#include <ostream>
+#include <typeindex>
+#include <functional>  // reference_wrapper
+
+#include <butl/utility> // compare_c_string
+
+#include <build/types>
+
+namespace build
+{
+  class scope;
+  class target;
+  class target_key;
+  class prerequisite_key;
+
+  // Target type.
+  //
+  struct target_type
+  {
+    std::type_index id;
+    const char* name;
+    const target_type* base;
+    target* (*const factory) (dir_path, std::string, const std::string*);
+    const std::string& (*const extension) (const target_key&, scope&);
+    target* (*const search) (const prerequisite_key&);
+    bool see_through; // A group with the default "see through" semantics.
+
+    bool
+    is_a (const std::type_index&) const; // Defined in target.cxx
+
+    template <typename T>
+    bool
+    is_a () const {return is_a (typeid (T));}
+  };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const target_type& tt)
+  {
+    return os << tt.name;
+  }
+
+  // Target type map.
+  //
+  using target_type_map_base = std::map<
+    const char*,
+    std::reference_wrapper<const target_type>,
+    butl::compare_c_string>;
+
+  class target_type_map: public target_type_map_base
+  {
+  public:
+    void
+    insert (const target_type& tt) {emplace (tt.name, tt);}
+
+    template <typename T>
+    void
+    insert () {insert (T::static_type);}
+  };
+}
+
+#endif // BUILD_TARGET_TYPE

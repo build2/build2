@@ -7,11 +7,6 @@
 
 #include <string>
 #include <cstddef>        // nullptr_t
-#include <typeindex>
-#include <functional>     // reference_wrapper
-#include <unordered_map>
-
-#include <butl/prefix-map>
 
 #include <build/types>
 #include <build/target>
@@ -55,14 +50,6 @@ namespace build
     virtual recipe
     apply (action, target&, const match_result&) const = 0;
   };
-
-  using target_rule_map = std::unordered_map<
-    std::type_index,
-    butl::prefix_map<std::string, std::reference_wrapper<rule>, '.'>>;
-
-  using operation_rule_map = std::unordered_map<operation_id, target_rule_map>;
-
-  extern operation_rule_map rules;
 
   // Fallback rule that on update verifies that the file exists and is
   // not older than any of its prerequisites.

@@ -45,131 +45,148 @@ namespace build
     //
     t.prerequisite_targets.clear ();
 
+    size_t oi (a.operation () - 1); // Operation index in rule_map.
+    scope& bs (t.base_scope ());
+
     for (auto tt (&t.type ());
          tt != nullptr && !t.recipe (a);
          tt = tt->base)
     {
-      auto i (current_rules->find (tt->id));
-
-      if (i == current_rules->end () || i->second.empty ())
-        continue; // No rules registered for this target type, try base.
-
-      const auto& rules (i->second); // Hint map.
-
-      // @@ TODO
+      // Search scopes outwards, stopping at the project root.
       //
-      // Different rules can be used for different operations (update
-      // vs test is a good example). So, at some point, we will probably
-      // have to support a list of hints or even an operation-hint map
-      // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
-      // but we want the foo rule instead). This is also the place where
-      // the '{build clean}=cxx' construct (which we currently do not
-      // support) can come handy.
-      //
-      // Also, ignore the hint (that is most likely ment for a different
-      // operation) if this is a unique match.
-      //
-      string hint;
-      auto rs (rules.size () == 1
-               ? make_pair (rules.begin (), rules.end ())
-               : rules.find_prefix (hint));
-
-      for (auto i (rs.first); i != rs.second; ++i)
+      for (const scope* s (&bs);
+           s != nullptr;
+           s = s->root () ? global_scope : s->parent_scope ())
       {
-        const string& n (i->first);
-        const rule& ru (i->second);
+        const rule_map& om (s->rules);
 
-        match_result m;
+        if (om.size () <= oi)
+          continue; // No entry for this operation id.
+
+        const target_type_rule_map& ttm (om[oi]);
+
+        if (ttm.empty ())
+          continue; // Empty map for this operation id.
+
+        auto i (ttm.find (tt->id));
+
+        if (i == ttm.end () || i->second.empty ())
+          continue; // No rules registered for this target type.
+
+        const auto& rules (i->second); // Hint map.
+
+        // @@ TODO
+        //
+        // Different rules can be used for different operations (update
+        // vs test is a good example). So, at some point, we will probably
+        // have to support a list of hints or even an operation-hint map
+        // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
+        // but we want the foo rule instead). This is also the place where
+        // the '{build clean}=cxx' construct (which we currently do not
+        // support) can come handy.
+        //
+        // Also, ignore the hint (that is most likely ment for a different
+        // operation) if this is a unique match.
+        //
+        string hint;
+        auto rs (rules.size () == 1
+                 ? make_pair (rules.begin (), rules.end ())
+                 : rules.find_prefix (hint));
+
+        for (auto i (rs.first); i != rs.second; ++i)
         {
-          auto g (
-            make_exception_guard (
-              [](action a, target& t, const string& n)
-              {
-                info << "while matching rule " << n << " to "
-                     << diag_do (a, t);
-              },
-              a, t, n));
+          const string& n (i->first);
+          const rule& ru (i->second);
 
-          m = ru.match (a, t, hint);
-        }
-
-        if (m)
-        {
-          // Do the ambiguity test.
-          //
-          bool ambig (false);
-
-          diag_record dr;
-
-          for (++i; i != rs.second; ++i)
+          match_result m;
           {
-            const string& n1 (i->first);
-            const rule& ru1 (i->second);
+            auto g (
+              make_exception_guard (
+                [](action a, target& t, const string& n)
+                {
+                  info << "while matching rule " << n << " to "
+                       << diag_do (a, t);
+                },
+                a, t, n));
 
-            match_result m1;
+            m = ru.match (a, t, hint);
+          }
+
+          if (m)
+          {
+            // Do the ambiguity test.
+            //
+            bool ambig (false);
+
+            diag_record dr;
+
+            for (++i; i != rs.second; ++i)
             {
-              auto g (
-                make_exception_guard (
-                  [](action a, target& t, const string& n1)
-                  {
-                    info << "while matching rule " << n1 << " to "
-                         << diag_do (a, t);
-                  },
-                  a, t, n1));
+              const string& n1 (i->first);
+              const rule& ru1 (i->second);
 
-              m1 = ru1.match (a, t, hint);
-            }
-
-            if (m1)
-            {
-              if (!ambig)
+              match_result m1;
               {
-                dr << fail << "multiple rules matching " << diag_doing (a, t)
-                   << info << "rule " << n << " matches";
-                ambig = true;
+                auto g (
+                  make_exception_guard (
+                    [](action a, target& t, const string& n1)
+                    {
+                      info << "while matching rule " << n1 << " to "
+                           << diag_do (a, t);
+                    },
+                    a, t, n1));
+
+                m1 = ru1.match (a, t, hint);
               }
 
-              dr << info << "rule " << n1 << " also matches";
-            }
-          }
+              if (m1)
+              {
+                if (!ambig)
+                {
+                  dr << fail << "multiple rules matching " << diag_doing (a, t)
+                     << info << "rule " << n << " matches";
+                  ambig = true;
+                }
 
-          if (!ambig)
-          {
-            if (apply)
-            {
-              auto g (
-                make_exception_guard (
-                  [](action a, target& t, const string& n)
-                  {
-                    info << "while applying rule " << n << " to "
-                         << diag_do (a, t);
-                  },
-                  a, t, n));
-
-              t.recipe (a, ru.apply (a, t, m));
-              break;
+                dr << info << "rule " << n1 << " also matches";
+              }
             }
-            else
+
+            if (!ambig)
             {
-              r.first = &ru;
-              r.second = m;
+              if (apply)
+              {
+                auto g (
+                  make_exception_guard (
+                    [](action a, target& t, const string& n)
+                    {
+                      info << "while applying rule " << n << " to "
+                           << diag_do (a, t);
+                    },
+                    a, t, n));
+
+                t.recipe (a, ru.apply (a, t, m));
+              }
+              else
+              {
+                r.first = &ru;
+                r.second = m;
+              }
+
               return r;
             }
+            else
+              dr << info << "use rule hint to disambiguate this match";
           }
-          else
-            dr << info << "use rule hint to disambiguate this match";
         }
       }
     }
 
-    if (!t.recipe (a))
-    {
-      diag_record dr;
-      dr << fail << "no rule to " << diag_do (a, t);
+    diag_record dr;
+    dr << fail << "no rule to " << diag_do (a, t);
 
-      if (verb < 3)
-        dr << info << "re-run with --verbose 3 for more information";
-    }
+    if (verb < 3)
+      dr << info << "re-run with --verbose 3 for more information";
 
     return r;
   }

@@ -4,6 +4,8 @@
 
 #include <build/scope>
 
+#include <build/target>
+
 using namespace std;
 
 namespace build
@@ -36,6 +38,104 @@ namespace build
 
     if (val)
       r = val; // Copy value from the outer scope.
+
+    return r;
+  }
+
+  const target_type* scope::
+  find_target_type (const char* tt, const scope** rs) const
+  {
+    // Search scopes outwards, stopping at the project root.
+    //
+    for (const scope* s (this);
+         s != nullptr;
+         s = s->root () ? global_scope : s->parent_scope ())
+    {
+      if (s->target_types.empty ())
+        continue;
+
+      auto i (s->target_types.find (tt));
+
+      if (i != s->target_types.end ())
+      {
+        if (rs != nullptr)
+          *rs = s;
+
+        return &i->second.get ();
+      }
+    }
+
+    return nullptr;
+  }
+
+  const target_type* scope::
+  find_target_type (name& n, const string*& ext) const
+  {
+    ext = nullptr;
+
+    string& v (n.value);
+
+    // First determine the target type.
+    //
+    const char* tt;
+    if (n.type.empty ())
+    {
+      // Empty name or '.' and '..' signify a directory.
+      //
+      if (v.empty () || v == "." || v == "..")
+        tt = "dir";
+      else
+        //@@ TODO: derive type from extension.
+        //
+        tt = "file";
+    }
+    else
+      tt = n.type.c_str ();
+
+    const target_type* r (find_target_type (tt));
+
+    if (r == nullptr)
+      return r;
+
+    // Directories require special name processing. If we find that more
+    // targets deviate, then we should make this target-type-specific.
+    //
+    if (r->is_a<dir> () || r->is_a<fsdir> ())
+    {
+      // The canonical representation of a directory name is with empty
+      // value.
+      //
+      if (!v.empty ())
+      {
+        n.dir /= dir_path (v); // Move name value to dir.
+        v.clear ();
+      }
+    }
+    else
+    {
+      // Split the path into its directory part (if any) the name part,
+      // and the extension (if any). We cannot assume the name part is
+      // a valid filesystem name so we will have to do the splitting
+      // manually.
+      //
+      path::size_type i (path::traits::rfind_separator (v));
+
+      if (i != string::npos)
+      {
+        n.dir /= dir_path (v, i != 0 ? i : 1); // Special case: "/".
+        v = string (v, i + 1, string::npos);
+      }
+
+      // Extract the extension.
+      //
+      string::size_type j (path::traits::find_extension (v));
+
+      if (j != string::npos)
+      {
+        ext = &extension_pool.find (v.c_str () + j + 1);
+        v.resize (j);
+      }
+    }
 
     return r;
   }

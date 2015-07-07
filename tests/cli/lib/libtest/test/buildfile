@@ -1,3 +1,5 @@
+using cli
+
 lib{test}: cxx{utility} cli.cxx{test base} extra/cxx{test}
 cli.cxx{test}: cli{test}
 cli.cxx{base}: cli{base}

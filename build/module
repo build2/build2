@@ -5,18 +5,47 @@
 #ifndef BUILD_MODULE
 #define BUILD_MODULE
 
+#include <map>
 #include <string>
-#include <unordered_map>
+#include <memory> // unique_ptr
 
 namespace build
 {
   class scope;
   class location;
 
-  using module_init_function = void (scope& root, scope& base, const location&);
-  using module_map = std::unordered_map<std::string, module_init_function*>;
+  class module
+  {
+  public:
+    virtual
+    ~module () = default;
+  };
 
-  extern module_map modules;
+  extern "C"
+  using module_init_function =
+    void (scope& root,
+          scope& base,
+          const location&,
+          std::unique_ptr<module>&,
+          bool first); // First time for this project.
+
+  using loaded_module_map =
+    std::map<std::string,
+             std::pair<module_init_function*, std::unique_ptr<module>>>;
+
+  // Load the specified module. Used by the parser but also by some
+  // modules to load prerequisite modules.
+  //
+  void
+  load_module (const std::string& name,
+               scope& root,
+               scope& base,
+               const location&);
+
+  // Builtin modules.
+  //
+  using available_module_map = std::map<std::string, module_init_function*>;
+  extern available_module_map builtin_modules;
 }
 
 #endif // BUILD_MODULE

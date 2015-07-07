@@ -12,8 +12,8 @@ namespace build
 {
   namespace bin
   {
-    void
-    init (scope&, scope&, const location&);
+    extern "C" void
+    bin_init (scope&, scope&, const location&, std::unique_ptr<module>&, bool);
   }
 }
 

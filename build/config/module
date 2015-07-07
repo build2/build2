@@ -12,8 +12,9 @@ namespace build
 {
   namespace config
   {
-    void
-    init (scope&, scope&, const location&);
+    extern "C" void
+    config_init (
+      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
   }
 }
 

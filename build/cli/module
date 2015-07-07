@@ -12,8 +12,8 @@ namespace build
 {
   namespace cli
   {
-    void
-    init (scope&, scope&, const location&);
+    extern "C" void
+    cli_init (scope&, scope&, const location&, std::unique_ptr<module>&, bool);
   }
 }
 

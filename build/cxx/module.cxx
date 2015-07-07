@@ -10,9 +10,12 @@
 #include <build/scope>
 #include <build/diagnostics>
 
-#include <build/bin/module>
-
 #include <build/config/utility>
+
+#include <build/bin/target>
+
+#include <build/cxx/rule>
+#include <build/cxx/target>
 
 using namespace std;
 using namespace butl;
@@ -21,33 +24,73 @@ namespace build
 {
   namespace cxx
   {
-    void
-    init (scope& root, scope& base, const location& l)
+    compile compile_;
+    link link_;
+
+    extern "C" void
+    cxx_init (scope& root,
+              scope& base,
+              const location& l,
+              std::unique_ptr<module>&,
+              bool first)
     {
-      //@@ TODO: avoid multiple inits (generally, for modules).
-      //
-
       tracer trace ("cxx::init");
+      level4 ([&]{trace << "for " << base.path ();});
 
-      //@@ Should it be this way?
+      // Initialize the bin module. Only do this if it hasn't already
+      // been loaded so that we don't overwrite user's bin.* settings.
       //
-      if (&root != &base)
-        fail (l) << "cxx module must be initialized in project root scope";
+      if (base.find_target_type ("obj") == nullptr)
+        load_module ("bin", root, base, l);
 
-      // Initialize the bin module.
+      // Register target types.
       //
-      bin::init (root, base, l);
+      {
+        auto& tts (base.target_types);
 
-      //@@ TODO: need to register target types, rules here instead of main().
+        tts.insert<h> ();
+        tts.insert<c> ();
 
-      const dir_path& out_root (root.path ());
-      level4 ([&]{trace << "for " << out_root;});
+        tts.insert<cxx> ();
+        tts.insert<hxx> ();
+        tts.insert<ixx> ();
+        tts.insert<txx> ();
+      }
+
+      // Register rules.
+      //
+      {
+        using namespace bin;
+
+        auto& rs (base.rules);
+
+        rs.insert<obja> (default_id, "cxx.compile", compile_);
+        rs.insert<obja> (update_id, "cxx.compile", compile_);
+        rs.insert<obja> (clean_id, "cxx.compile", compile_);
+
+        rs.insert<objso> (default_id, "cxx.compile", compile_);
+        rs.insert<objso> (update_id, "cxx.compile", compile_);
+        rs.insert<objso> (clean_id, "cxx.compile", compile_);
+
+        rs.insert<exe> (default_id, "cxx.link", link_);
+        rs.insert<exe> (update_id, "cxx.link", link_);
+        rs.insert<exe> (clean_id, "cxx.link", link_);
+
+        rs.insert<liba> (default_id, "cxx.link", link_);
+        rs.insert<liba> (update_id, "cxx.link", link_);
+        rs.insert<liba> (clean_id, "cxx.link", link_);
+
+        rs.insert<libso> (default_id, "cxx.link", link_);
+        rs.insert<libso> (update_id, "cxx.link", link_);
+        rs.insert<libso> (clean_id, "cxx.link", link_);
+      }
 
       // Configure.
       //
 
       // config.cxx
       //
+      if (first)
       {
         auto r (config::required (root, "config.cxx", "g++"));
 
@@ -98,17 +141,27 @@ namespace build
       // These are optional. We also merge them into the corresponding
       // cxx.* variables.
       //
+      // The merging part gets a bit tricky if this module has already
+      // been loaded in one of the outer scopes. By doing the straight
+      // append we would just be repeating the same options over and
+      // over. So what we are going to do is only append to a value if
+      // it came from this scope. Then the usage for merging becomes:
+      //
+      // cxx.coptions = <overridable options> # Note: '='.
+      // using cxx
+      // cxx.coptions += <overriding options> # Note: '+='.
+      //
       if (auto* v = config::optional<list_value> (root, "config.cxx.poptions"))
-        root.append ("cxx.poptions") += *v;
+        base.assign ("cxx.poptions") += *v;
 
       if (auto* v = config::optional<list_value> (root, "config.cxx.coptions"))
-        root.append ("cxx.coptions") += *v;
+        base.assign ("cxx.coptions") += *v;
 
       if (auto* v = config::optional<list_value> (root, "config.cxx.loptions"))
-        root.append ("cxx.loptions") += *v;
+        base.assign ("cxx.loptions") += *v;
 
       if (auto* v = config::optional<list_value> (root, "config.cxx.libs"))
-        root.append ("cxx.libs") += *v;
+        base.assign ("cxx.libs") += *v;
     }
   }
 }

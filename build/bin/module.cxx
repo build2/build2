@@ -10,39 +10,70 @@
 
 #include <build/config/utility>
 
+#include <build/bin/rule>
+#include <build/bin/target>
+
 using namespace std;
 
 namespace build
 {
   namespace bin
   {
+    static obj_rule obj_;
+    static lib_rule lib_;
+
     // Default config.bin.*.lib values.
     //
     static const list_value exe_lib (names {name ("shared"), name ("static")});
     static const list_value liba_lib ("static");
     static const list_value libso_lib ("shared");
 
-    void
-    init (scope& root, scope& base, const location& l)
+    extern "C" void
+    bin_init (scope& root,
+              scope& base,
+              const location& l,
+              std::unique_ptr<module>&,
+              bool)
     {
-      //@@ TODO: avoid multiple inits (generally, for modules).
-      //
       tracer trace ("bin::init");
+      level4 ([&]{trace << "for " << base.path ();});
 
-      //@@ Should it be this way?
+      // Register target types.
       //
-      if (&root != &base)
-        fail (l) << "bin module must be initialized in project root scope";
+      {
+        auto& tts (base.target_types);
+        tts.insert<obja>  ();
+        tts.insert<objso> ();
+        tts.insert<obj>   ();
+        tts.insert<exe>   ();
+        tts.insert<liba>  ();
+        tts.insert<libso> ();
+        tts.insert<lib>   ();
+      }
 
-      //@@ TODO: need to register target types, rules here instead of main().
+      // Register rules.
+      //
+      {
+        auto& rs (base.rules);
 
-      const dir_path& out_root (root.path ());
-      level4 ([&]{trace << "for " << out_root;});
+        rs.insert<obj> (default_id, "bin.obj", obj_);
+        rs.insert<obj> (update_id, "bin.obj", obj_);
+        rs.insert<obj> (clean_id, "bin.obj", obj_);
+
+        rs.insert<lib> (default_id, "bin.lib", lib_);
+        rs.insert<lib> (update_id, "bin.lib", lib_);
+        rs.insert<lib> (clean_id, "bin.lib", lib_);
+      }
 
       // Configure.
       //
       using config::required;
 
+      // The idea here is as follows: if we already have one of
+      // the bin.* variables set, then we assume this is static
+      // project configuration and don't bother setting the
+      // corresponding config.bin.* variable.
+      //
       //@@ Need to validate the values. Would be more efficient
       //   to do it once on assignment than every time on query.
       //   Custom var type?
@@ -51,7 +82,7 @@ namespace build
       // config.bin.lib
       //
       {
-        auto v (root.vars.assign ("bin.lib"));
+        auto v (base.vars.assign ("bin.lib"));
         if (!v)
           v = required (root, "config.bin.lib", "shared").first;
       }
@@ -59,7 +90,7 @@ namespace build
       // config.bin.exe.lib
       //
       {
-        auto v (root.vars.assign ("bin.exe.lib"));
+        auto v (base.vars.assign ("bin.exe.lib"));
         if (!v)
           v = required (root, "config.bin.exe.lib", exe_lib).first;
       }
@@ -67,7 +98,7 @@ namespace build
       // config.bin.liba.lib
       //
       {
-        auto v (root.vars.assign ("bin.liba.lib"));
+        auto v (base.vars.assign ("bin.liba.lib"));
         if (!v)
           v = required (root, "config.bin.liba.lib", liba_lib).first;
       }
@@ -75,7 +106,7 @@ namespace build
       // config.bin.libso.lib
       //
       {
-        auto v (root.vars.assign ("bin.libso.lib"));
+        auto v (base.vars.assign ("bin.libso.lib"));
         if (!v)
           v = required (root, "config.bin.libso.lib", libso_lib).first;
       }

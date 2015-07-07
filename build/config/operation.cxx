@@ -8,8 +8,9 @@
 
 #include <butl/filesystem>
 
-#include <build/scope>
 #include <build/file>
+#include <build/scope>
+#include <build/target>
 #include <build/context>
 #include <build/diagnostics>
 

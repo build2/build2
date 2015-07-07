@@ -23,16 +23,23 @@ namespace build
     //
     static const path config_file ("build/config.build");
 
-    void
-    init (scope& root, scope& base, const location& l)
+    extern "C" void
+    config_init (scope& root,
+                 scope& base,
+                 const location& l,
+                 std::unique_ptr<module>&,
+                 bool first)
     {
-      //@@ TODO: avoid multiple inits (generally, for modules).
-      //
-
       tracer trace ("config::init");
 
       if (&root != &base)
-        fail (l) << "config module must be initialized in project root scope";
+        fail (l) << "config module must be initialized in bootstrap.build";
+
+      if (!first)
+      {
+        warn (l) << "multiple config module initializations";
+        return;
+      }
 
       const dir_path& out_root (root.path ());
       level4 ([&]{trace << "for " << out_root;});

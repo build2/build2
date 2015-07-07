@@ -10,19 +10,20 @@
 #include <vector>
 #include <memory>      // unique_ptr
 #include <cstddef>     // size_t
-#include <functional>  // function, reference_wrapper
+#include <functional>  // reference_wrapper
 #include <ostream>
 #include <cassert>
 #include <utility>     // move(), forward(), declval()
 #include <iterator>
 #include <type_traits>
 
-#include <butl/utility>     // compare_c_string, reverse_iterate()
+#include <butl/utility>     // reverse_iterate()
 #include <butl/multi-index> // map_iterator_adapter
 
 #include <build/types>
 #include <build/variable>
 #include <build/operation>
+#include <build/target-type>
 #include <build/target-key>
 #include <build/prerequisite>
 
@@ -755,31 +756,6 @@ namespace build
   };
 
   extern target_set targets;
-
-  using target_type_map_base = std::map<
-    const char*,
-    std::reference_wrapper<const target_type>,
-    butl::compare_c_string>;
-
-  class target_type_map: public target_type_map_base
-  {
-  public:
-    void
-    insert (const target_type& tt) {emplace (tt.name, tt);}
-
-    using target_type_map_base::find;
-
-    // Given a name, figure out its type, taking into account extensions,
-    // special names (e.g., '.' and '..'), or anything else that might be
-    // relevant. Also process the name (in place) by extracting the
-    // extension, adjusting dir/value, etc (note that the dir is not
-    // necessarily normalized). Return NULL if not found.
-    //
-    const target_type*
-    find (name&, const std::string*& ext) const;
-  };
-
-  extern target_type_map target_types;
 
   // Modification time-based target.
   //

@@ -31,9 +31,9 @@ namespace build
     required (scope& root, const char* name, const char* default_value);
 
     // Set, if necessary, an optional config.* variable. In particular,
-    // an unspecified variable is set to NULL which is used to to
-    // distinguish between the "configured as unspecified" and "not
-    // yet configured" cases.
+    // an unspecified variable is set to NULL which is used to distinguish
+    // between the "configured as unspecified" and "not yet configured"
+    // cases.
     //
     // Return the pointer to the value, which can be NULL.
     //

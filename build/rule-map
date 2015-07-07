@@ -1,0 +1,46 @@
+// file      : build/rule-map -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_RULE_MAP
+#define BUILD_RULE_MAP
+
+#include <map>
+#include <vector>
+#include <string>
+#include <typeindex>
+#include <functional>     // reference_wrapper
+
+#include <butl/prefix-map>
+
+#include <build/types>
+#include <build/operation>
+
+namespace build
+{
+  class rule;
+
+  using target_type_rule_map = std::map<
+    std::type_index,              // Target type.
+    butl::prefix_map<std::string, // Rule hint.
+                     std::reference_wrapper<rule>, '.'>>;
+
+  // This is an "indexed map" with (operation_id - 1) being the
+  // index.
+  //
+  class rule_map: public std::vector<target_type_rule_map>
+  {
+  public:
+    template <typename T>
+    void
+    insert (operation_id oid, const char* hint, rule& r)
+    {
+      if (oid > size ())
+        resize (oid < 3 ? 3 : oid); // 3 is the number of builtin operations.
+
+      (*this)[oid - 1][typeid (T)].emplace (hint, r);
+    }
+  };
+}
+
+#endif // BUILD_RULE_MAP

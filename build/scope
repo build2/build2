@@ -12,8 +12,11 @@
 #include <butl/path-map>
 
 #include <build/types>
+#include <build/module>
 #include <build/variable>
 #include <build/prerequisite>
+#include <build/target-type>
+#include <build/rule-map>
 #include <build/operation>
 
 namespace build
@@ -60,10 +63,11 @@ namespace build
       return operator[] (variable_pool.find (name));
     }
 
-    // Return a value_proxy suitable for assignment. If the variable
-    // does not exist in this scope's map, then a new one with the
-    // NULL value is added and returned. Otherwise the existing value
-    // if returned.
+    // Return a value_proxy suitable for assignment (or append if you
+    // only want to append to the value from this scope). If the variable
+    // does not exist in this scope's map, then a new one with the NULL
+    // value is added and returned. Otherwise the existing value is
+    // returned.
     //
     value_proxy
     assign (const variable& var)
@@ -92,6 +96,8 @@ namespace build
       return append (variable_pool.find (name));
     }
 
+    // Prerequisite cache.
+    //
   public:
     prerequisite_set prerequisites;
 
@@ -108,6 +114,33 @@ namespace build
     // imported -- against the global scope (global_scope).
     //
     std::unordered_set<path_type> buildfiles;
+
+    // Target types.
+    //
+  public:
+    target_type_map target_types;
+
+    const target_type*
+    find_target_type (const char*, const scope** = nullptr) const;
+
+    // Given a name, figure out its type, taking into account extensions,
+    // special names (e.g., '.' and '..'), or anything else that might be
+    // relevant. Also process the name (in place) by extracting the
+    // extension, adjusting dir/value, etc., (note that the dir is not
+    // necessarily normalized). Return NULL if not found.
+    //
+    const target_type*
+    find_target_type (name&, const std::string*& ext) const;
+
+    // Rules.
+    //
+  public:
+    rule_map rules;
+
+    // Modules.
+    //
+  public:
+    loaded_module_map modules; // Only on root scope.
 
   private:
     friend class scope_map;

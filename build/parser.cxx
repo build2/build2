@@ -261,7 +261,7 @@ namespace build
           auto enter_target = [this, &nloc, &trace] (name&& tn) -> target&
           {
             const string* e;
-            const target_type* ti (target_types.find (tn, e));
+            const target_type* ti (scope_->find_target_type (tn, e));
 
             if (ti == nullptr)
               fail (nloc) << "unknown target type " << tn.type;
@@ -335,7 +335,7 @@ namespace build
             for (auto& pn: pns)
             {
               const string* e;
-              const target_type* ti (target_types.find (pn, e));
+              const target_type* ti (scope_->find_target_type (pn, e));
 
               if (ti == nullptr)
                 fail (ploc) << "unknown target type " << pn.type;
@@ -720,16 +720,10 @@ namespace build
     {
       // For now it should be a simple name.
       //
-      if (!n.type.empty () || !n.dir.empty ())
+      if (!n.simple ())
         fail (l) << "module name expected instead of " << n;
 
-      const string& name (n.value);
-      auto i (modules.find (name));
-
-      if (i == modules.end ())
-        fail (l) << "unknown module " << name;
-
-      i->second (*root_, *scope_, l);
+      load_module (n.value, *root_, *scope_, l);
     }
 
     if (tt == type::newline)

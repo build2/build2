@@ -28,7 +28,6 @@ namespace build
   extern const operation_info* current_oif;
 
   extern execution_mode current_mode;
-  extern const target_rule_map* current_rules;
 
   // Reset the dependency state. In particular, this removes all the
   // targets, scopes, and variable names.

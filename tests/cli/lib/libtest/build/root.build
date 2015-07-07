@@ -4,4 +4,3 @@ hxx.ext =
 ixx.ext = ipp
 cxx.ext = cpp
 
-using cli

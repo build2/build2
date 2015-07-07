@@ -13,7 +13,6 @@
 #include <build/diagnostics>
 
 #include <build/cxx/target>
-#include <build/cxx/module>
 
 #include <build/config/utility>
 
@@ -29,54 +28,62 @@ namespace build
   {
     static compile compile_;
 
-    void
-    init (scope& root, scope& base, const location& l)
+    extern "C" void
+    cli_init (scope& root,
+              scope& base,
+              const location& l,
+              std::unique_ptr<module>&,
+              bool first)
     {
-      //@@ TODO: avoid multiple inits (generally, for modules).
-      //
       tracer trace ("cli::init");
+      level4 ([&]{trace << "for " << base.path ();});
 
-      //@@ Should it be this way?
+      // Make sure the cxx module has been loaded since we need its
+      // targets types (?xx{}). Note that we don't try to load it
+      // ourselves because of the non-trivial variable merging
+      // semantics. So it is better to let the user load cxx
+      // explicitly.
       //
-      if (&root != &base)
-        fail (l) << "cli module must be initialized in project root scope";
+      if (base.find_target_type ("cxx") == nullptr)
+        fail (l) << "cxx module must be initialized before cli";
 
-      // Initialize the cxx module. We need its targets types (?xx{}).
-      // @@ Or better require it?
+      // Register target types.
       //
-      cxx::init (root, base, l);
+      {
+        auto& tts (base.target_types);
 
-      const dir_path& out_root (root.path ());
-      level4 ([&]{trace << "for " << out_root;});
-
-      // Register our target types.
-      //
-      target_types.insert (cli::static_type);
-      target_types.insert (cli_cxx::static_type);
+        tts.insert<cli> ();
+        tts.insert<cli_cxx> ();
+      }
 
       // Register our rules.
       //
-      rules[default_id][typeid (cli_cxx)].emplace ("cli.compile", compile_);
-      rules[update_id][typeid (cli_cxx)].emplace ("cli.compile", compile_);
-      rules[clean_id][typeid (cli_cxx)].emplace ("cli.compile", compile_);
+      {
+        auto& rs (base.rules);
 
-      rules[default_id][typeid (cxx::cxx)].emplace ("cli.compile", compile_);
-      rules[update_id][typeid (cxx::cxx)].emplace ("cli.compile", compile_);
-      rules[clean_id][typeid (cxx::cxx)].emplace ("cli.compile", compile_);
+        rs.insert<cli_cxx> (default_id, "cli.compile", compile_);
+        rs.insert<cli_cxx> (update_id, "cli.compile", compile_);
+        rs.insert<cli_cxx> (clean_id, "cli.compile", compile_);
 
-      rules[default_id][typeid (cxx::hxx)].emplace ("cli.compile", compile_);
-      rules[update_id][typeid (cxx::hxx)].emplace ("cli.compile", compile_);
-      rules[clean_id][typeid (cxx::hxx)].emplace ("cli.compile", compile_);
+        rs.insert<cxx::hxx> (default_id, "cli.compile", compile_);
+        rs.insert<cxx::hxx> (update_id, "cli.compile", compile_);
+        rs.insert<cxx::hxx> (clean_id, "cli.compile", compile_);
 
-      rules[default_id][typeid (cxx::ixx)].emplace ("cli.compile", compile_);
-      rules[update_id][typeid (cxx::ixx)].emplace ("cli.compile", compile_);
-      rules[clean_id][typeid (cxx::ixx)].emplace ("cli.compile", compile_);
+        rs.insert<cxx::cxx> (default_id, "cli.compile", compile_);
+        rs.insert<cxx::cxx> (update_id, "cli.compile", compile_);
+        rs.insert<cxx::cxx> (clean_id, "cli.compile", compile_);
+
+        rs.insert<cxx::ixx> (default_id, "cli.compile", compile_);
+        rs.insert<cxx::ixx> (update_id, "cli.compile", compile_);
+        rs.insert<cxx::ixx> (clean_id, "cli.compile", compile_);
+      }
 
       // Configure.
       //
 
       // config.cli
       //
+      if (first)
       {
         auto r (config::required (root, "config.cli", "cli"));
 
@@ -132,10 +139,11 @@ namespace build
       // config.cli.options
       //
       // This one is optional. We also merge it into the corresponding
-      // cli.* variables.
+      // cli.* variables. See the cxx module for more information on
+      // this merging semantics and some of its tricky aspects.
       //
       if (auto* v = config::optional<list_value> (root, "config.cli.options"))
-        root.append ("cli.options") += *v;
+        base.assign ("cli.options") += *v;
     }
   }
 }

@@ -10,6 +10,7 @@
 #include <butl/filesystem>
 
 #include <build/scope>
+#include <build/target>
 #include <build/algorithm>
 #include <build/diagnostics>
 #include <build/context>
@@ -19,8 +20,6 @@ using namespace butl;
 
 namespace build
 {
-  operation_rule_map rules;
-
   // file_rule
   //
   // Note that this rule is special. It is the last, fallback rule. If

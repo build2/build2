@@ -77,15 +77,8 @@ namespace build
 }
 
 #include <build/config/module>
-
-#include <build/bin/target> //@@ tmp
-#include <build/bin/rule>   //@@ tmp
 #include <build/bin/module>
-
-#include <build/cxx/target> //@@ tmp
-#include <build/cxx/rule>   //@@ tmp
 #include <build/cxx/module>
-
 #include <build/cli/module>
 
 using namespace build;
@@ -131,91 +124,12 @@ main (int argc, char* argv[])
     //
     tzset ();
 
-    // Register modules.
+    // Register builtin modules.
     //
-    modules["config"] = &config::init;
-    modules["bin"] = &bin::init;
-    modules["cxx"] = &cxx::init;
-    modules["cli"] = &cli::init;
-
-    // Register target types.
-    //
-    target_types.insert (file::static_type);
-    target_types.insert (dir::static_type);
-    target_types.insert (fsdir::static_type);
-
-    target_types.insert (bin::obja::static_type);
-    target_types.insert (bin::objso::static_type);
-    target_types.insert (bin::obj::static_type);
-    target_types.insert (bin::exe::static_type);
-    target_types.insert (bin::liba::static_type);
-    target_types.insert (bin::libso::static_type);
-    target_types.insert (bin::lib::static_type);
-
-    target_types.insert (cxx::h::static_type);
-    target_types.insert (cxx::c::static_type);
-
-    target_types.insert (cxx::cxx::static_type);
-    target_types.insert (cxx::hxx::static_type);
-    target_types.insert (cxx::ixx::static_type);
-    target_types.insert (cxx::txx::static_type);
-
-    // Register rules.
-    //
-    bin::obj_rule obj_rule;
-    bin::lib_rule lib_rule;
-    {
-      using namespace bin;
-
-      rules[default_id][typeid (obj)].emplace ("bin.obj", obj_rule);
-      rules[update_id][typeid (obj)].emplace ("bin.obj", obj_rule);
-      rules[clean_id][typeid (obj)].emplace ("bin.obj", obj_rule);
-
-      rules[default_id][typeid (lib)].emplace ("bin.lib", lib_rule);
-      rules[update_id][typeid (lib)].emplace ("bin.lib", lib_rule);
-      rules[clean_id][typeid (lib)].emplace ("bin.lib", lib_rule);
-    }
-
-    cxx::compile cxx_compile;
-    cxx::link cxx_link;
-    {
-      using namespace bin;
-
-      rules[default_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
-      rules[update_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
-      rules[clean_id][typeid (obja)].emplace ("cxx.gnu.compile", cxx_compile);
-
-      rules[default_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
-      rules[update_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
-      rules[clean_id][typeid (objso)].emplace ("cxx.gnu.compile", cxx_compile);
-
-      rules[default_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-      rules[update_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-      rules[clean_id][typeid (exe)].emplace ("cxx.gnu.link", cxx_link);
-
-      rules[default_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
-      rules[update_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
-      rules[clean_id][typeid (liba)].emplace ("cxx.gnu.link", cxx_link);
-
-      rules[default_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
-      rules[update_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
-      rules[clean_id][typeid (libso)].emplace ("cxx.gnu.link", cxx_link);
-    }
-
-    dir_rule dir_r;
-    rules[default_id][typeid (dir)].emplace ("dir", dir_r);
-    rules[update_id][typeid (dir)].emplace ("dir", dir_r);
-    rules[clean_id][typeid (dir)].emplace ("dir", dir_r);
-
-    fsdir_rule fsdir_r;
-    rules[default_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
-    rules[update_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
-    rules[clean_id][typeid (fsdir)].emplace ("fsdir", fsdir_r);
-
-    file_rule file_r;
-    rules[default_id][typeid (file)].emplace ("file", file_r);
-    rules[update_id][typeid (file)].emplace ("file", file_r);
-    rules[clean_id][typeid (file)].emplace ("file", file_r);
+    builtin_modules["config"] = &config::config_init;
+    builtin_modules["bin"] = &bin::bin_init;
+    builtin_modules["cxx"] = &cxx::cxx_init;
+    builtin_modules["cli"] = &cli::cli_init;
 
     // Figure out work and home directories.
     //
@@ -379,7 +293,7 @@ main (int argc, char* argv[])
 
             // Handle a few common cases as special: empty name, '.',
             // '..', as well as dir{foo/bar} (without trailing '/').
-            // This code must be consistent with target_type_map::find().
+            // This code must be consistent with find_target_type().
             //
             if (v.empty () || v == "." || v == ".." || tn.type == "dir")
               out_base = dir_path (v);
@@ -744,7 +658,6 @@ main (int argc, char* argv[])
               current_mif = mif;
               current_oif = oif;
               current_mode = oif->mode;
-              current_rules = &rules[oid];
             }
             //
             // Similar to meta-operations, check that all the targets in
@@ -787,8 +700,10 @@ main (int argc, char* argv[])
           // operation batch.
           //
           {
+            scope& bs (scopes.find (out_base));
+
             const string* e;
-            const target_type* ti (target_types.find (tn, e));
+            const target_type* ti (bs.find_target_type (tn, e));
 
             if (ti == nullptr)
               fail (l) << "unknown target type " << tn.type;

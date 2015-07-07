@@ -9,6 +9,8 @@
 #include <system_error>
 
 #include <build/scope>
+#include <build/target>
+#include <build/rule>
 #include <build/diagnostics>
 
 using namespace std;
@@ -22,7 +24,12 @@ namespace build
   const meta_operation_info* current_mif;
   const operation_info* current_oif;
   execution_mode current_mode;
-  const target_rule_map* current_rules;
+
+  // Builtin rules.
+  //
+  static dir_rule dir_;
+  static fsdir_rule fsdir_;
+  static file_rule file_;
 
   void
   reset ()
@@ -43,6 +50,35 @@ namespace build
 
     global_scope->assign ("work") = work;
     global_scope->assign ("home") = home;
+
+    // Register builtin target types.
+    //
+    {
+      target_type_map& tts (global_scope->target_types);
+
+      tts.insert<file>  ();
+      tts.insert<dir>   ();
+      tts.insert<fsdir> ();
+    }
+
+    // Register builtin rules.
+    //
+    {
+      rule_map& rs (global_scope->rules);
+
+      rs.insert<dir> (default_id, "dir", dir_);
+      rs.insert<dir> (update_id, "dir", dir_);
+      rs.insert<dir> (clean_id, "dir", dir_);
+
+      rs.insert<fsdir> (default_id, "fsdir", fsdir_);
+      rs.insert<fsdir> (update_id, "fsdir", fsdir_);
+      rs.insert<fsdir> (clean_id, "fsdir", fsdir_);
+
+      rs.insert<file> (default_id, "file", file_);
+      rs.insert<file> (update_id, "file", file_);
+      rs.insert<file> (clean_id, "file", file_);
+    }
+
   }
 
   fs_status<mkdir_status>
