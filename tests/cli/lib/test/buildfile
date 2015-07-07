@@ -3,4 +3,4 @@ import libs += cli-lib-libtest
 exe{driver}: cxx{driver} cli.cxx{test} $libs
 cli.cxx{test}: cli{test}
 
-cxx.poptions = -I$out_root
+cxx.poptions += -I$out_root

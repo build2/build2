@@ -1,8 +1,12 @@
+using cxx
+
 hxx.ext =
 cxx.ext = cpp
 ixx.ext = ipp
 
-cxx.poptions = -I$out_root
+cxx.poptions += -I$out_root
+
+using cli
 
 exe{driver}: cxx{driver} cxx{test}
 cxx{test} hxx{test}: cli{test}

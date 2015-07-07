@@ -521,55 +521,55 @@ namespace build
           p /= path ("buildfile");
       }
 
-      bool in_out (false);
-      if (p.absolute ())
+      // Determine new out_base.
+      //
+      dir_path out_base;
+
+      if (p.relative ())
+      {
+        out_base = scope_->path () / p.directory ();
+        out_base.normalize ();
+      }
+      else
       {
         p.normalize ();
 
         // Make sure the path is in this project. Include is only meant
-        // to be used for intra-project inclusion.
+        // to be used for intra-project inclusion (plus amalgamation).
         //
+        bool in_out (false);
         if (!p.sub (*src_root_) && !(in_out = p.sub (*out_root_)))
           fail (l) << "out of project include " << p;
-      }
-      else
-      {
-        // Use the src directory corresponding to the current directory scope.
-        //
-        p = src_out (scope_->path (), *out_root_, *src_root_) / p;
-        p.normalize ();
-      }
 
-      if (!root_->buildfiles.insert (p).second)
-      {
-        level4 ([&]{trace (l) << "skipping already included " << p;});
-        continue;
-      }
-
-      // Determine new bases.
-      //
-      dir_path out_base;
-      dir_path src_base;
-
-      if (in_out)
-      {
-        out_base = p.directory ();
-        src_base = src_out (out_base, *out_root_, *src_root_);
-      }
-      else
-      {
-        src_base = p.directory ();
-        out_base = out_src (src_base, *out_root_, *src_root_);
+        out_base = in_out
+          ? p.directory ()
+          : out_src (p.directory (), *out_root_, *src_root_);
       }
 
       // Create and bootstrap root scope(s) of subproject(s) that
       // this out_base belongs to. If any were created, load them
-      // and update parser state.
+      // and update parser state. Note that we need to do this
+      // before figuring out absolute buildfile path since we may
+      // switch the project root (i.e., include into a sub-project).
       //
       scope* ors (switch_root (&create_bootstrap_inner (*root_, out_base)));
 
       if (root_ != ors)
         load_root_pre (*root_); // Loads outer roots recursively.
+
+      // Determine src_base and buildfile, if relative.
+      //
+      dir_path src_base (src_out (out_base, *out_root_, *src_root_));
+
+      if (p.relative ())
+        p = src_base / p.leaf ();
+
+      if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
+      {
+        level4 ([&]{trace (l) << "skipping already included " << p;});
+        switch_root (ors); // Restore old root.
+        continue;
+      }
 
       ifstream ifs (p.string ());
 

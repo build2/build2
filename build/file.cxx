@@ -171,23 +171,37 @@ namespace build
 
     const dir_path& d (v.as<const dir_path&> ());
     dir_path out_root (root.path () / d);
-    dir_path src_root (root.src_path () / d);
     out_root.normalize ();
-    src_root.normalize ();
 
-    scope& rs (create_root (out_root, src_root));
-
-    bootstrap_out (rs);
-
-    // Check if the bootstrap process changed src_root.
+    // src_root is a bit more complicated. Here we have three cases:
     //
-    const dir_path& p (rs.vars["src_root"].as<const dir_path&> ());
+    // 1. Amalgamation's src_root is "parallel" to the sub-project's.
+    // 2. Amalgamation's src_root is the same as its out_root.
+    // 3. Some other pre-configured (via src-root.build) src_root.
+    //
+    // So we need to try all these cases in some sensible order.
+    // #3 should probably be tried first since that src_root was
+    // explicitly configured by the user. After that, #2 followed
+    // by #1 seems reasonable.
+    //
+    scope& rs (create_root (out_root, dir_path ()));
+    bootstrap_out (rs); // #3 happens here, if at all.
 
-    if (src_root != p)
-      fail << "bootstrapped src_root " << p << " does not match "
-           << "amalgamated " << src_root;
+    auto val (rs.assign ("src_root"));
 
-    rs.src_path_ = &p;
+    if (!val)
+    {
+      if (is_src_root (out_root)) // #2
+        val = out_root;
+      else // #1
+      {
+        dir_path src_root (root.src_path () / d);
+        src_root.normalize ();
+        val = move (src_root);
+      }
+    }
+
+    rs.src_path_ = &val.as<const dir_path&> ();
 
     bootstrap_src (rs);
     create_bootstrap_outer (rs);
@@ -202,7 +216,7 @@ namespace build
       {
         // Should be a list of directories.
         //
-        if (!n.type.empty () || !n.value.empty () || n.dir.empty ())
+        if (!n.directory ())
           fail << "expected directory in subprojects variable "
                << "instead of " << n;
 
@@ -211,20 +225,19 @@ namespace build
         if (!out_base.sub (out_root))
           continue;
 
-        dir_path src_root (root.src_path () / n.dir);
-        scope& rs (create_root (out_root, src_root));
-
+        // The same logic to src_root as in create_bootstrap_outer().
+        //
+        scope& rs (create_root (out_root, dir_path ()));
         bootstrap_out (rs);
 
-        // Check if the bootstrap process changed src_root.
-        //
-        const dir_path& p (rs.vars["src_root"].as<const dir_path&> ());
+        auto val (rs.assign ("src_root"));
 
-        if (src_root != p)
-          fail << "bootstrapped src_root " << p << " does not match "
-               << "subproject " << src_root;
+        if (!val)
+          val = is_src_root (out_root)
+            ? out_root
+            : (root.src_path () / n.dir);
 
-        rs.src_path_ = &p;
+        rs.src_path_ = &val.as<const dir_path&> ();
 
         bootstrap_src (rs);
 

@@ -89,7 +89,7 @@ namespace build
         {
           const dir_path& d (v.as<const dir_path&> ());
 
-          ofs << "# Base configuration inherited from " << d << "/ ." << endl
+          ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;
         }
 

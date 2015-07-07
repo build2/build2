@@ -1,0 +1,3 @@
+project = amalgam-config
+subprojects = 1/ 2/
+using config
