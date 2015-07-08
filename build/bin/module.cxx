@@ -82,7 +82,7 @@ namespace build
       // config.bin.lib
       //
       {
-        auto v (base.vars.assign ("bin.lib"));
+        auto v (base.assign ("bin.lib"));
         if (!v)
           v = required (root, "config.bin.lib", "shared").first;
       }
@@ -90,7 +90,7 @@ namespace build
       // config.bin.exe.lib
       //
       {
-        auto v (base.vars.assign ("bin.exe.lib"));
+        auto v (base.assign ("bin.exe.lib"));
         if (!v)
           v = required (root, "config.bin.exe.lib", exe_lib).first;
       }
@@ -98,7 +98,7 @@ namespace build
       // config.bin.liba.lib
       //
       {
-        auto v (base.vars.assign ("bin.liba.lib"));
+        auto v (base.assign ("bin.liba.lib"));
         if (!v)
           v = required (root, "config.bin.liba.lib", liba_lib).first;
       }
@@ -106,7 +106,7 @@ namespace build
       // config.bin.libso.lib
       //
       {
-        auto v (base.vars.assign ("bin.libso.lib"));
+        auto v (base.assign ("bin.libso.lib"));
         if (!v)
           v = required (root, "config.bin.libso.lib", libso_lib).first;
       }

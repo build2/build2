@@ -1,3 +1,4 @@
 project = amalgam-config
+amalgamation = # Shall not be amalgamated.
 subprojects = 1/ 2/
 using config

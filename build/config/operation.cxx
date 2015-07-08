@@ -85,9 +85,10 @@ namespace build
             << "# feel free to edit." << endl
             << "#" << endl;
 
-        if (auto v = root.vars["amalgamation"])
+        auto av = root.vars["amalgamation"];
+        if (av && !av.empty ())
         {
-          const dir_path& d (v.as<const dir_path&> ());
+          const dir_path& d (av.as<const dir_path&> ());
 
           ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;
@@ -276,20 +277,20 @@ namespace build
           // Create and bootstrap subproject's root scope.
           //
           dir_path out_nroot (out_root / n.dir);
-          dir_path src_nroot (src_root / n.dir);
-          scope& nroot (create_root (out_nroot, src_nroot));
 
+          // The same logic to src_root as in create_bootstrap_inner().
+          //
+          scope& nroot (create_root (out_nroot, dir_path ()));
           bootstrap_out (nroot);
 
-          // Check if the bootstrap process changed src_root.
-          //
-          const dir_path& p (nroot.vars["src_root"].as<const dir_path&> ());
+          auto val (nroot.assign ("src_root"));
 
-          if (src_nroot != p)
-            fail << "bootstrapped src_root " << p << " does not match "
-                 << "subproject " << src_nroot;
+          if (!val)
+            val = is_src_root (out_nroot)
+              ? out_nroot
+              : (src_root / n.dir);
 
-          nroot.src_path_ = &p;
+          nroot.src_path_ = &val.as<const dir_path&> ();
 
           bootstrap_src (nroot);
 

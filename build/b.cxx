@@ -40,42 +40,6 @@
 
 using namespace std;
 
-namespace build
-{
-  // Given an src_base directory, look for the project's src_root
-  // based on the presence of known special files. Return empty
-  // path if not found.
-  //
-  dir_path
-  find_src_root (const dir_path& b)
-  {
-    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
-    {
-      if (is_src_root (d))
-        return d;
-    }
-
-    return dir_path ();
-  }
-
-  // The same but for out. Note that we also check whether a
-  // directory happens to be src_root, in case this is an in-
-  // tree build.
-  //
-  dir_path
-  find_out_root (const dir_path& b, bool& src)
-  {
-    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
-    {
-      if ((src = is_src_root (d)) || is_out_root (d))
-        return d;
-    }
-
-    src = false;
-    return dir_path ();
-  }
-}
-
 #include <build/config/module>
 #include <build/bin/module>
 #include <build/cxx/module>
@@ -359,7 +323,7 @@ main (int argc, char* argv[])
             // If no src_base was explicitly specified, search for out_root.
             //
             bool src;
-            out_root = find_out_root (out_base, src);
+            out_root = find_out_root (out_base, &src);
 
             // If not found (i.e., we have no idea where the roots are),
             // then this can mean two things: an in-tree build of a

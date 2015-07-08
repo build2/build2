@@ -19,6 +19,21 @@ namespace build
   bool
   is_out_root (const dir_path&);
 
+  // Given an src_base directory, look for a project's src_root
+  // based on the presence of known special files. Return empty
+  // path if not found.
+  //
+  dir_path
+  find_src_root (const dir_path&);
+
+  // The same as above but for project's out. Note that we also
+  // check whether a directory happens to be src_root, in case
+  // this is an in-tree build. The second argument is the out
+  // flag that is set to true if this is src_root.
+  //
+  dir_path
+  find_out_root (const dir_path&, bool* src = nullptr);
+
   void
   source (const path& buildfile, scope& root, scope& base);
 
@@ -45,7 +60,7 @@ namespace build
   bootstrap_out (scope& root);
 
   // Bootstrap the project's root scope, the src part. Return true if
-  // we loaded anything.
+  // we loaded anything (which confirms the src_root is not bogus).
   //
   bool
   bootstrap_src (scope& root);

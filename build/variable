@@ -8,7 +8,7 @@
 #include <string>
 #include <memory>        // unique_ptr
 #include <cstddef>       // nullptr_t
-#include <utility>       // move()
+#include <utility>       // move(), pair, make_pair()
 #include <cassert>
 #include <functional>    // hash
 #include <typeindex>
@@ -103,6 +103,9 @@ namespace build
 
     bool
     null () const {return *p == nullptr;}
+
+    bool
+    empty () const;
 
     explicit operator bool () const {return defined () && !null ();}
     explicit operator value_ptr& () const {return *p;}
@@ -267,13 +270,17 @@ namespace build
       return operator[] (variable_pool.find (name));
     }
 
-    value_proxy
+    // The second member in the pair indicates whether new (NULL)
+    // value was set.
+    //
+    std::pair<value_proxy, bool>
     assign (const variable& var)
     {
-      return value_proxy (&variable_map_base::operator[] (var), this);
+      auto r (emplace (var, value_ptr ()));
+      return std::make_pair (value_proxy (&r.first->second, this), r.second);
     }
 
-    value_proxy
+    std::pair<value_proxy, bool>
     assign (const std::string& name)
     {
       return assign (variable_pool.find (name));

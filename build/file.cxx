@@ -31,6 +31,36 @@ namespace build
     return file_exists (d / path ("build/bootstrap/src-root.build"));
   }
 
+  dir_path
+  find_src_root (const dir_path& b)
+  {
+    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
+    {
+      if (is_src_root (d))
+        return d;
+    }
+
+    return dir_path ();
+  }
+
+  dir_path
+  find_out_root (const dir_path& b, bool* src)
+  {
+    for (dir_path d (b); !d.root () && d != home; d = d.directory ())
+    {
+      bool s (false);
+      if ((s = is_src_root (d)) || is_out_root (d)) // Order is important!
+      {
+        if (src != nullptr)
+          *src = s;
+
+        return d;
+      }
+    }
+
+    return dir_path ();
+  }
+
   void
   source (const path& bf, scope& root, scope& base)
   {
@@ -147,18 +177,91 @@ namespace build
   {
     tracer trace ("bootstrap_src");
 
+    bool r (false);
+
     path bf (root.src_path () / path ("build/bootstrap.build"));
 
-    if (!file_exists (bf))
-      return false;
+    if (file_exists (bf))
+    {
+      // We assume that bootstrap out cannot load this file explicitly. It
+      // feels wrong to allow this since that makes the whole bootstrap
+      // process hard to reason about. But we may try to bootstrap the
+      // same root scope multiple time.
+      //
+      source_once (bf, root, root);
+      r = true;
+    }
 
-    // We assume that bootstrap out cannot load this file explicitly. It
-    // feels wrong to allow this since that makes the whole bootstrap
-    // process hard to reason about. But we may try to bootstrap the
-    // same root scope multiple time.
+    // See if we are a part of an amalgamation. There are two key
+    // players: the outer root scope which may already be present
+    // (i.e., we were loaded as part of an amalgamation) and the
+    // amalgamation variable that may or may not be set by the
+    // user (in bootstrap.build) or by an earlier call to this
+    // function for the same scope. When set by the user, the
+    // empty special value means that the project shall not be
+    // amalgamated. When calculated, the NULL value indicates
+    // that we are not amalgamated.
     //
-    source_once (bf, root, root);
-    return true;
+    {
+      auto rp (root.vars.assign("amalgamation")); // Set NULL by default.
+      auto& val (rp.first);
+      const dir_path& d (root.path ());
+
+      if (scope* aroot = root.parent_scope ()->root_scope ())
+      {
+        const dir_path& ad (aroot->path ());
+        dir_path rd (ad.relative (d));
+
+        // If we already have the amalgamation variable set, verify
+        // that aroot matches its value.
+        //
+        if (!rp.second)
+        {
+          if (val.null () || val.empty ())
+          {
+            fail << d << " cannot be amalgamated" <<
+              info << "amalgamated by " << ad;
+          }
+          else
+          {
+            const dir_path& vd (val.as<const dir_path&> ());
+
+            if (vd != rd)
+            {
+              fail << "inconsistent amalgamation of " << d <<
+                info << "specified: " << vd <<
+                info << "actual: " << rd << " by " << ad;
+            }
+          }
+        }
+        else
+        {
+          // Otherwise, use the outer root as our amalgamation.
+          //
+          level4 ([&]{trace << d << " amalgamated as " << rd;});
+          val = move (rd);
+        }
+      }
+      else if (rp.second)
+      {
+        // If there is no outer root and the amalgamation variable
+        // hasn't been set, then we need to check if any of the
+        // outer directories is a project's out_root. If so, then
+        // that's our amalgamation.
+        //
+        const dir_path& d (root.path ());
+        const dir_path& ad (find_out_root (d.directory ()));
+
+        if (!ad.empty ())
+        {
+          dir_path rd (ad.relative (d));
+          level4 ([&]{trace << d << " amalgamated as " << rd;});
+          val = move (rd);
+        }
+      }
+    }
+
+    return r;
   }
 
   void
@@ -166,7 +269,7 @@ namespace build
   {
     auto v (root.vars["amalgamation"]);
 
-    if (!v)
+    if (!v || v.empty ())
       return;
 
     const dir_path& d (v.as<const dir_path&> ());

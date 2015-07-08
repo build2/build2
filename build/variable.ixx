@@ -4,6 +4,11 @@
 
 namespace build
 {
+  // value_proxy
+  //
+  inline bool value_proxy::
+  empty () const {return as<const list_value&> ().empty ();}
+
   inline const value_proxy& value_proxy::
   operator= (value_ptr v) const
   {

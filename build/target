@@ -254,16 +254,10 @@ namespace build
     // for details.
     //
     value_proxy
-    assign (const variable& var)
-    {
-      return vars.assign (var);
-    }
+    assign (const variable& var) {return vars.assign (var).first;}
 
     value_proxy
-    assign (const std::string& name)
-    {
-      return assign (variable_pool.find (name));
-    }
+    assign (const std::string& name) {return vars.assign (name).first;}
 
     // Return a value_proxy suitable for appending. See class scope
     // for details.
