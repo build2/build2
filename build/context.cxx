@@ -105,6 +105,30 @@ namespace build
     return ms;
   }
 
+  fs_status<mkdir_status>
+  mkdir_p (const dir_path& d)
+  {
+    // We don't want to print the command if the directory already
+    // exists. This makes the below code a bit ugly.
+    //
+    mkdir_status ms;
+
+    try
+    {
+      ms = try_mkdir_p (d);
+    }
+    catch (const system_error& e)
+    {
+      text << "mkdir -p " << d;
+      fail << "unable to create directory " << d << ": " << e.what ();
+    }
+
+    if (ms == mkdir_status::success)
+      text << "mkdir -p " << d;
+
+    return ms;
+  }
+
   dir_path
   src_out (const dir_path& out, scope& s)
   {

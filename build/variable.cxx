@@ -15,6 +15,17 @@ namespace build
   // value_proxy
   //
   template <>
+  string& value_proxy::
+  as<string&> () const
+  {
+    list_value& lv (as<list_value&> ());
+    assert (lv.size () == 1);
+    name& n (lv.front ());
+    assert (n.simple ());
+    return n.value;
+  }
+
+  template <>
   const string& value_proxy::
   as<const string&> () const
   {
@@ -26,8 +37,19 @@ namespace build
 
     const name& n (lv.front ());
 
-    assert (n.type.empty () && n.dir.empty ());
+    assert (n.simple ());
     return n.value;
+  }
+
+  template <>
+  dir_path& value_proxy::
+  as<dir_path&> () const
+  {
+    list_value& lv (as<list_value&> ());
+    assert (lv.size () == 1);
+    name& n (lv.front ());
+    assert (n.directory ());
+    return n.dir;
   }
 
   template <>
@@ -42,7 +64,10 @@ namespace build
 
     const name& n (lv.front ());
 
-    assert (n.type.empty () && n.value.empty ());
+    if (n.empty ())
+      return empty_dir_path;
+
+    assert (n.directory ());
     return n.dir;
   }
 }

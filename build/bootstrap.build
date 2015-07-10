@@ -1,6 +1,6 @@
 # file      : build/bootstrap.build
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
-
 project = build2
+subprojects = # No subprojects.
 using config

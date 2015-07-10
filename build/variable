@@ -189,8 +189,16 @@ namespace build
   as<const list_value&> () const {return as<list_value&> ();}
 
   template <>
+  std::string& value_proxy::
+  as<std::string&> () const;
+
+  template <>
   const std::string& value_proxy::
   as<const std::string&> () const;
+
+  template <>
+  dir_path& value_proxy::
+  as<dir_path&> () const;
 
   template <>
   const dir_path& value_proxy::

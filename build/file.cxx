@@ -4,7 +4,9 @@
 
 #include <build/file>
 
+#include <map>
 #include <fstream>
+#include <utility> // move()
 
 #include <butl/filesystem>
 
@@ -13,22 +15,33 @@
 #include <build/parser>
 #include <build/diagnostics>
 
+#include <build/token>
+#include <build/lexer>
+
 using namespace std;
 using namespace butl;
 
 namespace build
 {
+  const dir_path build_dir ("build");
+  const dir_path bootstrap_dir ("build/bootstrap");
+
+  const path root_file ("build/root.build");
+  const path bootstrap_file ("build/bootstrap.build");
+  const path src_root_file ("build/bootstrap/src-root.build");
+
   bool
   is_src_root (const dir_path& d)
   {
-    return file_exists (d / path ("build/bootstrap.build")) ||
-      file_exists (d / path ("build/root.build"));
+    // @@ Can we have root without bootstrap? I don't think so.
+    //
+    return file_exists (d / bootstrap_file) || file_exists (d / root_file);
   }
 
   bool
   is_out_root (const dir_path& d)
   {
-    return file_exists (d / path ("build/bootstrap/src-root.build"));
+    return file_exists (d / src_root_file);
   }
 
   dir_path
@@ -172,6 +185,128 @@ namespace build
     source_once (bf, root, root);
   }
 
+  // Extract the specified variable value from a buildfile. It is
+  // expected to be the first non-comment line and not to rely on
+  // any variable expansion other than those from the global scope.
+  //
+  static value_ptr
+  extract_variable (const path& bf, const char* var)
+  {
+    ifstream ifs (bf.string ());
+    if (!ifs.is_open ())
+      fail << "unable to open " << bf;
+
+    ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
+    try
+    {
+      path rbf (diag_relative (bf));
+
+      lexer l (ifs, rbf.string ());
+      token t (l.next ());
+      token_type tt;
+
+      if (t.type () != token_type::name || t.name () != var ||
+          ((tt = l.next ().type ()) != token_type::equal &&
+           tt != token_type::plus_equal))
+        fail << "variable '" << var << "' expected as first line in " << rbf;
+
+      parser p;
+      temp_scope tmp (*global_scope);
+      p.parse_variable (l, tmp, t.name (), tt);
+
+      auto val (tmp.vars[var]);
+      assert (val.defined ());
+      value_ptr& vp (val);
+      return move (vp); // Steal the value, the scope is going away.
+    }
+    catch (const std::ios_base::failure&)
+    {
+      fail << "failed to read from " << bf;
+    }
+
+    return nullptr;
+  }
+
+  using subprojects = map<string, dir_path>;
+
+  // Scan the specified directory for any subprojects. If a subdirectory
+  // is a subproject, then enter it into the map, handling the duplicates.
+  // Otherwise, scan the subdirectory recursively.
+  //
+  static void
+  find_subprojects (subprojects& sps,
+                    const dir_path& d,
+                    const dir_path& root,
+                    bool out)
+  {
+    tracer trace ("find_subprojects");
+
+    for (const dir_entry& de: dir_iterator (d))
+    {
+      if (de.ltype () != entry_type::directory)
+        continue;
+
+      dir_path sd (d / path_cast<dir_path> (de.path ()));
+
+      bool src (false);
+      if (!((out && is_out_root (sd)) || (src = is_src_root (sd))))
+      {
+        find_subprojects (sps, sd, root, out);
+        continue;
+      }
+
+      // Calculate relative subdirectory for this subproject.
+      //
+      dir_path dir (sd.leaf (root));
+      level4 ([&]{trace << "subproject " << sd << " as " << dir;});
+
+      // Load the project name. If this subdirectory is the subproject's
+      // src_root, then we can get directly to that. Otherwise, we first
+      // have to discover its src_root.
+      //
+      dir_path src_sd;
+      if (src)
+        src_sd = move (sd);
+      else
+      {
+        value_ptr vp (extract_variable (sd / src_root_file, "src_root"));
+        value_proxy v (&vp, nullptr); // Read-only.
+        src_sd = move (v.as<dir_path&> ());
+        level4 ([&]{trace << "extracted src_root " << src_sd << " for "
+                          << sd;});
+      }
+
+      string name;
+      {
+        value_ptr vp (extract_variable (src_sd / bootstrap_file, "project"));
+        value_proxy v (&vp, nullptr); // Read-only.
+        name = move (v.as<string&> ());
+        level4 ([&]{trace << "extracted project name " << name << " for "
+                          << src_sd;});
+      }
+
+      // @@ Can't use move() because we may need the values in diagnostics
+      // below. Looks like C++17 try_emplace() is what we need.
+      //
+      auto rp (sps.emplace (name, dir));
+
+      // Handle duplicates.
+      //
+      if (!rp.second)
+      {
+        const dir_path& dir1 (rp.first->second);
+
+        if (dir != dir1)
+          fail << "inconsistent subproject directories for " << name <<
+            info << "first alternative: " << dir1 <<
+            info << "second alternative: " << dir;
+
+        level5 ([&]{trace << "skipping duplicate";});
+      }
+    }
+  }
+
   bool
   bootstrap_src (scope& root)
   {
@@ -179,7 +314,10 @@ namespace build
 
     bool r (false);
 
-    path bf (root.src_path () / path ("build/bootstrap.build"));
+    const dir_path& out_root (root.path ());
+    const dir_path& src_root (root.src_path ());
+
+    path bf (src_root / path ("build/bootstrap.build"));
 
     if (file_exists (bf))
     {
@@ -199,27 +337,30 @@ namespace build
     // user (in bootstrap.build) or by an earlier call to this
     // function for the same scope. When set by the user, the
     // empty special value means that the project shall not be
-    // amalgamated. When calculated, the NULL value indicates
-    // that we are not amalgamated.
+    // amalgamated (and which we convert to NULL below). When
+    // calculated, the NULL value indicates that we are not
+    // amalgamated.
     //
     {
       auto rp (root.vars.assign("amalgamation")); // Set NULL by default.
       auto& val (rp.first);
-      const dir_path& d (root.path ());
+
+      if (!val.null () && val.empty ()) // Convert empty to NULL.
+        val = nullptr;
 
       if (scope* aroot = root.parent_scope ()->root_scope ())
       {
         const dir_path& ad (aroot->path ());
-        dir_path rd (ad.relative (d));
+        dir_path rd (ad.relative (out_root));
 
         // If we already have the amalgamation variable set, verify
         // that aroot matches its value.
         //
         if (!rp.second)
         {
-          if (val.null () || val.empty ())
+          if (val.null ())
           {
-            fail << d << " cannot be amalgamated" <<
+            fail << out_root << " cannot be amalgamated" <<
               info << "amalgamated by " << ad;
           }
           else
@@ -228,7 +369,7 @@ namespace build
 
             if (vd != rd)
             {
-              fail << "inconsistent amalgamation of " << d <<
+              fail << "inconsistent amalgamation of " << out_root <<
                 info << "specified: " << vd <<
                 info << "actual: " << rd << " by " << ad;
             }
@@ -238,7 +379,7 @@ namespace build
         {
           // Otherwise, use the outer root as our amalgamation.
           //
-          level4 ([&]{trace << d << " amalgamated as " << rd;});
+          level4 ([&]{trace << out_root << " amalgamated as " << rd;});
           val = move (rd);
         }
       }
@@ -249,14 +390,85 @@ namespace build
         // outer directories is a project's out_root. If so, then
         // that's our amalgamation.
         //
-        const dir_path& d (root.path ());
-        const dir_path& ad (find_out_root (d.directory ()));
+        const dir_path& ad (find_out_root (out_root.directory ()));
 
         if (!ad.empty ())
         {
-          dir_path rd (ad.relative (d));
-          level4 ([&]{trace << d << " amalgamated as " << rd;});
+          dir_path rd (ad.relative (out_root));
+          level4 ([&]{trace << out_root << " amalgamated as " << rd;});
           val = move (rd);
+        }
+      }
+    }
+
+    // See if we have any subprojects. In a sense, this is the other
+    // side/direction of the amalgamation logic above. Here, the
+    // subprojects variable may or may not be set by the user (in
+    // bootstrap.build) or by an earlier call to this function for
+    // the same scope. When set by the user, the empty special value
+    // means that there are no subproject and none should be searched
+    // for (and which we convert to NULL below). Otherwise, it is a
+    // list of directory[=project] pairs. The directory must be
+    // relative to our out_root. If the project name is not specified,
+    // then we have to figure it out. When subprojects are calculated,
+    // the NULL value indicates that we found no subprojects.
+    //
+    {
+      auto rp (root.vars.assign("subprojects")); // Set NULL by default.
+      auto& val (rp.first);
+
+      if (rp.second)
+      {
+        // No subprojects set so we need to figure out if there are any.
+        //
+        // First we are going to scan our out_root and find all the
+        // pre-configured subprojects. Then, if out_root != src_root,
+        // we are going to do the same for src_root. Here, however,
+        // we need to watch out for duplicates.
+        //
+        subprojects sps;
+
+        if (dir_exists (out_root))
+          find_subprojects (sps, out_root, out_root, true);
+
+        if (out_root != src_root)
+          find_subprojects (sps, src_root, src_root, false);
+
+        // Transform our map to list_value.
+        //
+        if (!sps.empty ())
+        {
+          list_value_ptr vp (new list_value);
+          for (auto& p: sps)
+            vp->emplace_back (move (p.second));
+          val = move (vp);
+        }
+      }
+      else if (!val.null ())
+      {
+        // Convert empty to NULL.
+        //
+        if (val.empty ())
+          val = nullptr;
+        else
+        {
+          // Scan the value and convert it to the "canonical" form,
+          // that is, a list of dir=simple pairs.
+          //
+          list_value& lv (val.as<list_value&> ());
+
+          for (name& n: lv)
+          {
+            if (n.simple ())
+            {
+              n.dir = dir_path (move (n.value));
+              n.value.clear ();
+            }
+
+            if (!n.directory ())
+              fail << "expected directory instead of '" << n << "' in the "
+                   << "subprojects variable";
+          }
         }
       }
     }
@@ -269,7 +481,7 @@ namespace build
   {
     auto v (root.vars["amalgamation"]);
 
-    if (!v || v.empty ())
+    if (!v)
       return;
 
     const dir_path& d (v.as<const dir_path&> ());

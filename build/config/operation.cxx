@@ -21,11 +21,7 @@ namespace build
 {
   namespace config
   {
-    static const dir_path build_dir ("build");
-    static const dir_path bootstrap_dir ("build/bootstrap");
-
     static const path config_file ("build/config.build");
-    static const path src_root_file ("build/bootstrap/src-root.build");
 
     // configure
     //
@@ -149,7 +145,7 @@ namespace build
       //
       if (out_root != src_root)
       {
-        mkdir (out_root);
+        mkdir_p (out_root);
         mkdir (out_root / build_dir);
         mkdir (out_root / bootstrap_dir);
       }
@@ -278,7 +274,7 @@ namespace build
           //
           dir_path out_nroot (out_root / n.dir);
 
-          // The same logic to src_root as in create_bootstrap_inner().
+          // The same logic for src_root as in create_bootstrap_inner().
           //
           scope& nroot (create_root (out_nroot, dir_path ()));
           bootstrap_out (nroot);
@@ -295,6 +291,25 @@ namespace build
           bootstrap_src (nroot);
 
           m = disfigure_project (a, nroot) || m;
+
+          // We use mkdir_p() to create the out_root of a subproject
+          // which means there could be empty parent directories left
+          // behind. Clean them up.
+          //
+          if (!n.dir.simple () && out_root != src_root)
+          {
+            for (dir_path d (n.dir.directory ());
+                 !d.empty ();
+                 d = d.directory ())
+            {
+              rmdir_status s (rmdir (out_root / d));
+
+              if (s == rmdir_status::not_empty)
+                break; // No use trying do remove parent ones.
+
+              m = (s == rmdir_status::success) || m;
+            }
+          }
         }
       }
 

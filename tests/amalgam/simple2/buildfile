@@ -1,0 +1,9 @@
+using cxx
+
+hxx.ext = hxx
+cxx.ext = cxx
+ixx.ext = ixx
+
+cxx.poptions += -I$out_root
+
+exe{driver}: cxx{driver}

@@ -296,6 +296,13 @@ main (int argc, char* argv[])
 
           if (!src_base.empty ())
           {
+            // Make sure it exists. While we will fail further down
+            // if it doesn't, the diagnostics could be confusing (e.g.,
+            // unknown operation because we don't load bootstrap.build).
+            //
+            if (!dir_exists (src_base))
+              fail << "src_base directory " << src_base << " does not exist";
+
             if (src_base.relative ())
               src_base = work / src_base;
 

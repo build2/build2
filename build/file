@@ -13,6 +13,13 @@ namespace build
   class scope;
   class location;
 
+  extern const dir_path build_dir;     // build
+  extern const dir_path bootstrap_dir; // build/bootstrap
+
+  extern const path root_file;         // build/root.build
+  extern const path bootstrap_file;    // build/bootstrap.build
+  extern const path src_root_file;     // build/bootstrap/src-root.build
+
   bool
   is_src_root (const dir_path&);
 

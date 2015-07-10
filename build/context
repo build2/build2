@@ -56,6 +56,9 @@ namespace build
   fs_status<butl::mkdir_status>
   mkdir (const dir_path&);
 
+  fs_status<butl::mkdir_status>
+  mkdir_p (const dir_path&);
+
   // Remove the file and print the standard diagnostics. The second
   // argument is only used in diagnostics, to print the target name.
   // Passing the path for target will result in the relative path
