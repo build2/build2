@@ -323,7 +323,16 @@ main (int argc, char* argv[])
             else
               // Calculate out_root based on src_root/src_base.
               //
-              out_root = out_base.directory (src_base.leaf (src_root));
+              try
+              {
+                out_root = out_base.directory (src_base.leaf (src_root));
+              }
+              catch (const invalid_path&)
+              {
+                fail << "out_base suffix does not match src_root" <<
+                  info << "src_root: " << src_root <<
+                  info << "out_base: " << out_base;
+              }
           }
           else
           {
