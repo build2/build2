@@ -136,7 +136,7 @@ namespace build
   // dir_rule
   //
   match_result dir_rule::
-  match (action a, target& t, const string&) const
+  match (action, target& t, const string&) const
   {
     return t;
   }
@@ -151,7 +151,7 @@ namespace build
   // fsdir_rule
   //
   match_result fsdir_rule::
-  match (action a, target& t, const string&) const
+  match (action, target& t, const string&) const
   {
     return t;
   }

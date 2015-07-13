@@ -245,10 +245,10 @@ namespace build
     }
 
     static void
-    disfigure_match (action a,
+    disfigure_match (action,
                      scope& root,
-                     const target_key& tk,
-                     const location& l,
+                     const target_key&,
+                     const location&,
                      action_targets& ts)
     {
       tracer trace ("disfigure_match");

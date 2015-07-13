@@ -1,0 +1,6 @@
+using cxx
+
+hxx.ext = hxx
+cxx.ext = cxx
+
+lib{test}: cxx{test}

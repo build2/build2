@@ -84,6 +84,19 @@ namespace build
       const list_value* lv (dynamic_cast<const list_value*> (&v));
       return lv != nullptr && static_cast<const names&> (*this) == *lv;
     }
+
+    // Pair (i.e., key-value) search. Note that this funtion assumes
+    // the list contains only pairs and keys are simple names. Returns
+    // NULL if not found.
+    //
+    const name*
+    find_pair (const std::string& key) const
+    {
+      for (auto i (begin ()); i != end (); i += 2)
+        if (i->value == key)
+          return &*++i;
+      return nullptr;
+    }
   };
   typedef std::unique_ptr<list_value> list_value_ptr;
 

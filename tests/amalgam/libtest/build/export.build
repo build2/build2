@@ -1,0 +1,6 @@
+$out_root/:
+{
+  include buildfile
+}
+
+export $out_root/lib{test}

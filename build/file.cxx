@@ -647,6 +647,8 @@ namespace build
     string project;
     name target;
 
+    // @@ This is probably all wrong.
+    //
     if (n.dir.empty ())
     {
       if (!n.simple ())
@@ -656,7 +658,7 @@ namespace build
       // means sub-projects? Or only to a certain point, then
       // (untyped) target? Looks like I will need to scan anything
       // that looks like a directory checking if this is a subproject.
-      // If not, then that's part of the target.
+      // If not, then that's part of the target. No, no, nooooo!
       //
       project = n.value;
     }
@@ -680,48 +682,77 @@ namespace build
     // Figure out this project's out_root.
     //
     dir_path out_root;
-    string var ("config.import." + project);
+    dir_path fallback_src_root; // We have seen this already, havent' we ?
 
-    if (auto v = iroot[var])
+    // First search subprojects, starting with our root and then trying
+    // outer roots for as long as we are inside an amalgamation.
+    //
+    for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
     {
-      if (!v.belongs (*global_scope)) // A value from (some) config.build.
-        out_root = v.as<const dir_path&> ();
-      else
+      if (auto v = r->vars["subprojects"])
       {
-        // Process the path by making it absolute and normalized. Also,
-        // for usability's sake, treat a simple name that doesn't end
-        // with '/' as a directory.
+        // @@ Map sure would have been handy.
         //
-        list_value& lv (v.as<list_value&> ());
-
-        if (lv.size () != 1 || lv[0].empty () || !lv[0].type.empty ())
-          fail (l) << "invalid " << var << " value " << lv;
-
-        name& n (lv[0]);
-
-        if (n.directory ())
-          out_root = n.dir;
-        else
-          out_root = dir_path (n.value);
-
-        if (out_root.relative ())
-          out_root = work / out_root;
-
-        out_root.normalize ();
-        iroot.assign (var) = out_root;
-
-        // Also update the command-line value. This is necessary to avoid
-        // a warning issued by the config module about global/root scope
-        // value mismatch.
-        //
-        if (n.dir != out_root)
-          n = name (out_root);
+        if (const name* n = v.as<const list_value&> ().find_pair (project))
+        {
+          out_root = r->path () / n->dir;
+          fallback_src_root = r->src_path () / n->dir;
+          break;
+        }
       }
+
+      if (!r->vars["amalgamation"])
+        break;
     }
-    else
-      fail (l) << "unable to find out_root for imported " << project <<
-        info << "consider explicitly configuring its out_root via the "
-               << var << " command line variable";
+
+
+    // Then try the config.import.* mechanism.
+    //
+    if (out_root.empty ())
+    {
+      string var ("config.import." + project);
+
+      if (auto v = iroot[var])
+      {
+        if (!v.belongs (*global_scope)) // A value from (some) config.build.
+          out_root = v.as<const dir_path&> ();
+        else
+        {
+          // Process the path by making it absolute and normalized. Also,
+          // for usability's sake, treat a simple name that doesn't end
+          // with '/' as a directory.
+          //
+          list_value& lv (v.as<list_value&> ());
+
+          if (lv.size () != 1 || lv[0].empty () || !lv[0].type.empty ())
+            fail (l) << "invalid " << var << " value " << lv;
+
+          name& n (lv[0]);
+
+          if (n.directory ())
+            out_root = n.dir;
+          else
+            out_root = dir_path (n.value);
+
+          if (out_root.relative ())
+            out_root = work / out_root;
+
+          out_root.normalize ();
+          iroot.assign (var) = out_root;
+
+          // Also update the command-line value. This is necessary to avoid
+          // a warning issued by the config module about global/root scope
+          // value mismatch.
+          //
+          if (n.dir != out_root)
+            n = name (out_root);
+        }
+      }
+      else
+        fail (l) << "unable to find out_root for imported " << project <<
+          info << "consider explicitly configuring its out_root via the "
+                 << var << " command line variable";
+    }
 
     // Bootstrap the imported root scope. This is pretty similar to
     // what we do in main() except that here we don't try to guess
@@ -743,6 +774,14 @@ namespace build
              << "discovered " << src_root;
 
       root.src_path_ = &p;
+    }
+    // Otherwise, use fallback if available.
+    //
+    else if (!fallback_src_root.empty ())
+    {
+      auto v (root.assign ("src_root"));
+      v = move (fallback_src_root);
+      root.src_path_ = &v.as<const dir_path&> ();
     }
     else
       fail (l) << "unable to determine src_root for imported " << project <<
