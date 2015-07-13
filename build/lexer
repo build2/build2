@@ -49,6 +49,9 @@ namespace build
     lexer_mode
     mode () const {return mode_;}
 
+    char
+    pair_separator () const {return pair_separator_;}
+
     // Scanner.
     //
     token

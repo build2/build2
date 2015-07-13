@@ -67,10 +67,8 @@ namespace build
     target_ = nullptr;
     scope_ = &s;
 
-    token t (type::eos, false, 0, 0);
     type tt;
-    next (t, tt);
-
+    token t (type::eos, false, 0, 0);
     variable (t, tt, name, kind);
     return t;
   }
@@ -316,9 +314,7 @@ namespace build
             else
               target_ = &enter_target (move (n));
 
-            type kind (tt);
-            next (t, tt);
-            variable (t, tt, move (var), kind);
+            variable (t, tt, move (var), tt);
 
             scope_ = os;
             target_ = ot;
@@ -389,11 +385,7 @@ namespace build
       //
       if (tt == type::equal || tt == type::plus_equal)
       {
-        string var (variable_name (move (ns), nloc));
-
-        type kind (tt);
-        next (t, tt);
-        variable (t, tt, move (var), kind);
+        variable (t, tt, variable_name (move (ns), nloc), tt);
 
         if (tt == type::newline)
           next (t, tt);
@@ -766,11 +758,15 @@ namespace build
   variable (token& t, token_type& tt, string name, token_type kind)
   {
     bool assign (kind == type::equal);
+    const auto& var (variable_pool.find (move (name)));
+
+    if (var.pairs != '\0')
+      lexer_->mode (lexer_mode::pairs, var.pairs);
+
+    next (t, tt);
     names_type vns (tt != type::newline && tt != type::eos
                     ? names (t, tt)
                     : names_type ());
-
-    const auto& var (variable_pool.find (move (name)));
 
     if (assign)
     {
@@ -910,7 +906,7 @@ namespace build
                  ns,
                  (pair != 0
                   ? pair
-                  : (ns.empty () || !ns.back ().pair ? 0 : ns.size ())),
+                  : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
                  dp1, tp1);
           count = ns.size () - count;
 
@@ -1085,7 +1081,7 @@ namespace build
             {
               // Check that there are no nested pairs.
               //
-              if (n.pair)
+              if (n.pair != '\0')
                 fail (t) << "nested pair in variable expansion";
 
               // And add another first half unless this is the first instance.
@@ -1115,7 +1111,7 @@ namespace build
                ns,
                (pair != 0
                 ? pair
-                : (ns.empty () || !ns.back ().pair ? 0 : ns.size ())),
+                : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
                dp, tp);
         count = ns.size () - count;
 
@@ -1146,7 +1142,7 @@ namespace build
           count = 1;
         }
 
-        ns.back ().pair = true;
+        ns.back ().pair = lexer_->pair_separator ();
         tt = peek ();
         continue;
       }
@@ -1175,7 +1171,7 @@ namespace build
 
     // Handle the empty RHS in a pair, (e.g., {y=}).
     //
-    if (!ns.empty () && ns.back ().pair)
+    if (!ns.empty () && ns.back ().pair != '\0')
     {
       ns.emplace_back ((tp != nullptr ? *tp : string ()),
                        (dp != nullptr ? *dp : dir_path ()),
@@ -1213,7 +1209,7 @@ namespace build
   {
     // First it has to be a non-empty simple name.
     //
-    if (n.pair || !n.type.empty () || !n.dir.empty () || n.value.empty ())
+    if (n.pair != '\0' || !n.simple () || n.empty ())
       return false;
 
     // C identifier.
@@ -1278,7 +1274,7 @@ namespace build
             // Do we have the src_base?
             //
             dir_path src_base;
-            if (i->pair)
+            if (i->pair != '\0')
             {
               if (!i->type.empty ())
                 fail (l) << "expected target src_base instead of " << *i;

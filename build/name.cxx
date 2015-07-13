@@ -47,7 +47,12 @@ namespace build
     {
       const name& n (*i);
       ++i;
-      os << n << (n.pair ? "=" : (i != e ? " " : ""));
+      os << n;
+
+      if (n.pair != '\0')
+        os <<  n.pair;
+      else if (i != e)
+        os << ' ';
     }
 
     return os;

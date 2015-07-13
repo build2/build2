@@ -35,10 +35,11 @@ namespace build
   struct variable
   {
     explicit
-    variable (std::string n): name (std::move (n)), type (nullptr) {}
+    variable (std::string n): name (std::move (n)) {}
 
     std::string name;
-    const value_type* type; // If NULL, then this variable has no fixed type.
+    char pairs = '\0';
+    //const value_type* type = nullptr; // If NULL, then no fixed type.
   };
 
   inline bool

@@ -52,7 +52,7 @@ namespace build
     std::string type;
     dir_path dir;
     std::string value;
-    bool pair {false}; // Store pair symbol for printing?
+    char pair = '\0'; // Pair symbol, if any.
   };
 
   inline bool
