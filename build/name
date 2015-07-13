@@ -23,8 +23,8 @@ namespace build
   // without a type and directory can be used to represent any text.
   // A name with directory and empty value represents a directory.
   //
-  // If pair is true, then this name and the next in the list form
-  // a pair.
+  // If pair is not '\0', then this name and the next in the list
+  // form a pair.
   //
   struct name
   {

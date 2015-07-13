@@ -38,6 +38,10 @@ namespace build
     scopes.clear ();
     variable_pool.clear ();
 
+    // Enter builtin variables.
+    //
+    variable_pool.insert (variable ("subprojects", '='));
+
     // Create global scope. For Win32 we use the empty path since there
     // is no "real" root path. On POSIX, however, this is a real path.
     // See the comment in <build/path-map> for details.

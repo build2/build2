@@ -35,10 +35,10 @@ namespace build
   struct variable
   {
     explicit
-    variable (std::string n): name (std::move (n)) {}
+    variable (std::string n, char p = '\0'): name (std::move (n)), pairs (p) {}
 
     std::string name;
-    char pairs = '\0';
+    char pairs;
     //const value_type* type = nullptr; // If NULL, then no fixed type.
   };
 
@@ -253,6 +253,9 @@ namespace build
     //
     const variable&
     find (std::string name) {return *emplace (std::move (name)).first;}
+
+    const variable&
+    insert (variable v) {return *emplace (std::move (v)).first;}
   };
 
   extern variable_set variable_pool;

@@ -176,6 +176,9 @@ namespace build
       {
         for (const name& n: v.as<const list_value&> ())
         {
+          if (n.pair != '\0')
+            continue; // Skip project names.
+
           dir_path out_nroot (out_root / n.dir);
           scope& nroot (scopes.find (out_nroot));
 
@@ -270,6 +273,9 @@ namespace build
       {
         for (const name& n: v.as<const list_value&> ())
         {
+          if (n.pair != '\0')
+            continue; // Skip project names.
+
           // Create and bootstrap subproject's root scope.
           //
           dir_path out_nroot (out_root / n.dir);

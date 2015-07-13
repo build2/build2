@@ -464,11 +464,8 @@ main (int argc, char* argv[])
           {
             for (const name& n: v.as<const list_value&> ())
             {
-              // Should be a list of directories.
-              //
-              if (!n.type.empty () || !n.value.empty () || n.dir.empty ())
-                fail << "expected directory in subprojects variable "
-                     << "instead of " << n;
+              if (n.pair != '\0')
+                continue; // Skip project names.
 
               if (out_base.sub (out_root / n.dir))
                 fail << tn << " is in a subproject of " << out_root <<

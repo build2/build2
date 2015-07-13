@@ -230,6 +230,52 @@ namespace build
 
   using subprojects = map<string, dir_path>;
 
+  // Extract the project name from bootstrap.build.
+  //
+  static string
+  find_project_name (const dir_path& out_root,
+                     const dir_path& fallback_src_root,
+                     bool* src_hint = nullptr)
+  {
+    tracer trace ("find_project_name");
+
+    // Load the project name. If this subdirectory is the subproject's
+    // src_root, then we can get directly to that. Otherwise, we first
+    // have to discover its src_root.
+    //
+    const dir_path* src_root;
+    value_ptr src_root_vp; // Need it to live until the end.
+
+    if (src_hint != nullptr ? *src_hint : is_src_root (out_root))
+      src_root = &out_root;
+    else
+    {
+      path f (out_root / src_root_file);
+
+      if (!fallback_src_root.empty () && !file_exists (f))
+        src_root = &fallback_src_root;
+      else
+      {
+        src_root_vp = extract_variable (f, "src_root");
+        value_proxy v (&src_root_vp, nullptr); // Read-only.
+        src_root = &v.as<const dir_path&> ();
+        level4 ([&]{trace << "extracted src_root " << *src_root << " for "
+                          << out_root;});
+      }
+    }
+
+    string name;
+    {
+      value_ptr vp (extract_variable (*src_root / bootstrap_file, "project"));
+      value_proxy v (&vp, nullptr); // Read-only.
+      name = move (v.as<string&> ());
+    }
+
+    level4 ([&]{trace << "extracted project name " << name << " for "
+                      << *src_root;});
+    return name;
+  }
+
   // Scan the specified directory for any subprojects. If a subdirectory
   // is a subproject, then enter it into the map, handling the duplicates.
   // Otherwise, scan the subdirectory recursively.
@@ -261,30 +307,10 @@ namespace build
       dir_path dir (sd.leaf (root));
       level4 ([&]{trace << "subproject " << sd << " as " << dir;});
 
-      // Load the project name. If this subdirectory is the subproject's
-      // src_root, then we can get directly to that. Otherwise, we first
-      // have to discover its src_root.
+      // Load its name. Note that here we don't use fallback src_root
+      // since this function is used to scan both out_root and src_root.
       //
-      dir_path src_sd;
-      if (src)
-        src_sd = move (sd);
-      else
-      {
-        value_ptr vp (extract_variable (sd / src_root_file, "src_root"));
-        value_proxy v (&vp, nullptr); // Read-only.
-        src_sd = move (v.as<dir_path&> ());
-        level4 ([&]{trace << "extracted src_root " << src_sd << " for "
-                          << sd;});
-      }
-
-      string name;
-      {
-        value_ptr vp (extract_variable (src_sd / bootstrap_file, "project"));
-        value_proxy v (&vp, nullptr); // Read-only.
-        name = move (v.as<string&> ());
-        level4 ([&]{trace << "extracted project name " << name << " for "
-                          << src_sd;});
-      }
+      string name (find_project_name (sd, dir_path (), &src));
 
       // @@ Can't use move() because we may need the values in diagnostics
       // below. Looks like C++17 try_emplace() is what we need.
@@ -440,7 +466,11 @@ namespace build
         {
           list_value_ptr vp (new list_value);
           for (auto& p: sps)
+          {
+            vp->emplace_back (p.first);
+            vp->back ().pair = '=';
             vp->emplace_back (move (p.second));
+          }
           val = move (vp);
         }
       }
@@ -457,8 +487,23 @@ namespace build
           //
           list_value& lv (val.as<list_value&> ());
 
-          for (name& n: lv)
+          for (auto i (lv.begin ()); i != lv.end (); ++i)
           {
+            bool p (i->pair != '\0');
+
+            if (p)
+            {
+              // Project name.
+              //
+              if (!i->simple () || i->empty ())
+                fail << "expected project name instead of '" << *i << "' in "
+                     << "the subprojects variable";
+
+              ++i; // Got to have the second half of the pair.
+            }
+
+            name& n (*i);
+
             if (n.simple ())
             {
               n.dir = dir_path (move (n.value));
@@ -468,6 +513,20 @@ namespace build
             if (!n.directory ())
               fail << "expected directory instead of '" << n << "' in the "
                    << "subprojects variable";
+
+            // Figure out the project name if the user didn't specify one.
+            //
+            if (!p)
+            {
+              // Pass fallback src_root since this is a subproject that
+              // was specified by the user so it is most likely in our
+              // src.
+              //
+              i = lv.emplace (i, find_project_name (out_root / n.dir,
+                                                    src_root / n.dir));
+              i->pair = '=';
+              ++i;
+            }
           }
         }
       }
@@ -529,11 +588,8 @@ namespace build
     {
       for (const name& n: v.as<const list_value&> ())
       {
-        // Should be a list of directories.
-        //
-        if (!n.directory ())
-          fail << "expected directory in subprojects variable "
-               << "instead of " << n;
+        if (n.pair != '\0')
+          continue; // Skip project names.
 
         dir_path out_root (root.path () / n.dir);
 
