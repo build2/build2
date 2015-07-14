@@ -403,7 +403,7 @@ namespace build
       }
 
       iterator
-      operator++ (int) {iterator r (*this); return ++r;}
+      operator++ (int) {iterator r (*this); operator++ (); return r;}
 
       iterator&
       operator-- ()
@@ -419,7 +419,7 @@ namespace build
       }
 
       iterator
-      operator-- (int) {iterator r (*this); return --r;}
+      operator-- (int) {iterator r (*this); operator-- (); return r;}
 
       reference operator* () const {return *i_;}
       pointer operator-> () const {return i_.operator -> ();}
@@ -590,7 +590,7 @@ namespace build
       }
 
       iterator& operator++ ();
-      iterator  operator++ (int) {iterator r (*this); return ++r;}
+      iterator operator++ (int) {iterator r (*this); operator++ (); return r;}
 
       // Skip iterating over the rest of this group's members, if any.
       // Note that the only valid operation after this call is to
