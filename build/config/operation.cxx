@@ -81,10 +81,9 @@ namespace build
             << "# feel free to edit." << endl
             << "#" << endl;
 
-        auto av = root.vars["amalgamation"];
-        if (av && !av.empty ())
+        if (auto v = root.vars["amalgamation"])
         {
-          const dir_path& d (av.as<const dir_path&> ());
+          const dir_path& d (v.as<const dir_path&> ());
 
           ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;

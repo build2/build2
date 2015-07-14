@@ -71,7 +71,11 @@ namespace build
   search_and_match_prerequisites (action a, target& t)
   {
     search_and_match_prerequisites (
-      a, t, a.operation () != clean_id ? dir_path () : t.dir);
+      a,
+      t,
+      a.operation () != clean_id
+      ? dir_path ()
+      : t.strong_scope ().path ());
   }
 
   inline void
@@ -80,11 +84,11 @@ namespace build
     if (a.operation () != clean_id)
       search_and_match_prerequisite_members (a, t, dir_path ());
     else
-      // Note that here we don't iterate over members even for see
+      // Note that here we don't iterate over members even for see-
       // through groups since the group target should clean eveything
       // up. A bit of an optimization.
       //
-      search_and_match_prerequisites (a, t, t.dir);
+      search_and_match_prerequisites (a, t, t.strong_scope ().path ());
   }
 
   target_state

@@ -126,16 +126,19 @@ namespace build
       // code (below) takes care of the ones it is adding.
       //
       // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of ours.
+      // or a subdirectory of our strong amalgamation.
       //
+      const dir_path* amlg (
+        a.operation () != clean_id
+        ? nullptr
+        : &t.strong_scope ().path ());
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         target& pt (p.search ());
 
-        if (a.operation () == clean_id && !pt.dir.sub (t.dir))
+        if (a.operation () == clean_id && !pt.dir.sub (*amlg))
           continue;
-
-        build::match (a, pt);
 
         // A dependency on a library is there so that we can get its
         // cxx.export.poptions. In particular, making sure it is
@@ -144,8 +147,18 @@ namespace build
         // populated; see append_lib_options() above.
         //
         if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
-          continue;
+        {
+          // @@ The fact that we match but never execute messes up
+          //    the dependents count. This is a workaround, not a
+          //    solution.
+          //
+          if (a.operation () == update_id)
+            build::match (a, pt);
 
+          continue;
+        }
+
+        build::match (a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
 
@@ -932,6 +945,14 @@ namespace build
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
       //
+      // When cleaning, ignore prerequisites that are not in the same
+      // or a subdirectory of our strong amalgamation.
+      //
+      const dir_path* amlg (
+        a.operation () != clean_id
+        ? nullptr
+        : &t.strong_scope ().path ());
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
@@ -943,7 +964,7 @@ namespace build
           //
           pt = &p.search ();
 
-          if (a.operation () == clean_id && !pt->dir.sub (t.dir))
+          if (a.operation () == clean_id && !pt->dir.sub (*amlg))
             continue; // Skip.
 
           // If this is the obj{} or lib{} target group, then pick the
@@ -1042,9 +1063,9 @@ namespace build
         target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
-        // a subdirectory of ours.
+        // a subdirectory of our strong amalgamation.
         //
-        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
+        if (a.operation () == clean_id && !ot.dir.sub (*amlg))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will

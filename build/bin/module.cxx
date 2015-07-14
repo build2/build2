@@ -31,7 +31,7 @@ namespace build
     extern "C" void
     bin_init (scope& root,
               scope& base,
-              const location& l,
+              const location&,
               std::unique_ptr<module>&,
               bool)
     {

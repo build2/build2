@@ -21,6 +21,7 @@
 #include <butl/multi-index> // map_iterator_adapter
 
 #include <build/types>
+#include <build/scope>
 #include <build/variable>
 #include <build/operation>
 #include <build/target-type>
@@ -202,6 +203,12 @@ namespace build
     //
     scope&
     root_scope () const;
+
+    // Root scope of a strong amalgamation that contains this target.
+    // The same notes as to root_scope() apply.
+    //
+    scope&
+    strong_scope () const {return *root_scope ().strong_scope ();}
 
     // Prerequisites.
     //

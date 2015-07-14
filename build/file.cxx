@@ -579,6 +579,11 @@ namespace build
 
     bootstrap_src (rs);
     create_bootstrap_outer (rs);
+
+    // Check if we are strongly amalgamated by this outer root scope.
+    //
+    if (root.src_path ().sub (rs.src_path ()))
+      root.strong_ = rs.strong_scope (); // Itself or some outer scope.
   }
 
   scope&
@@ -611,6 +616,11 @@ namespace build
         rs.src_path_ = &val.as<const dir_path&> ();
 
         bootstrap_src (rs);
+
+        // Check if we strongly amalgamated this inner root scope.
+        //
+        if (rs.src_path ().sub (root.src_path ()))
+          rs.strong_ = root.strong_scope (); // Itself or some outer scope.
 
         // See if there are more inner roots.
         //

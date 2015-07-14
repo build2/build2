@@ -43,6 +43,20 @@ namespace build
     scope*
     root_scope () const {return root_;}
 
+    // Root scope of a strong amalgamation of this scope or NULL if
+    // this scope is not (yet) in any (known) project. If there is
+    // no strong amalgamation, then this function returns the root
+    // scope of the project (in other words, in this case a project
+    // is treated as its own strong amalgamation).
+    //
+    scope*
+    strong_scope () const
+    {
+      return root_ != nullptr
+        ? root_->strong_ != nullptr ? root_->strong_ : root_
+        : nullptr;
+    }
+
     bool
     root () const {return root_ == this;}
 
@@ -140,11 +154,18 @@ namespace build
     friend class scope_map;
     friend class temp_scope;
 
+    // These two from <build/file> set strong_.
+    //
+    friend void create_bootstrap_outer (scope&);
+    friend scope& create_bootstrap_inner (scope&, const dir_path&);
+
     scope () = default;
 
     const dir_path* path_; // Pointer to the key in scope_map.
     scope* parent_;
     scope* root_;
+    scope* strong_ = nullptr; // Only set on root sopes.
+                              // NULL means no strong amalgamtion.
   };
 
   // Temporary scope. The idea is to be able to create a temporary
@@ -158,7 +179,13 @@ namespace build
   class temp_scope: public scope
   {
   public:
-    temp_scope (scope& p) {path_ = p.path_; parent_ = &p; root_ = p.root_;}
+    temp_scope (scope& p)
+    {
+      path_ = p.path_;
+      parent_ = &p;
+      root_ = p.root_;
+      // No need to copy strong_ since we are never root scope.
+    }
   };
 
   using scope_map_base = butl::dir_path_map<scope>;

@@ -159,35 +159,13 @@ namespace build
   recipe fsdir_rule::
   apply (action a, target& t, const match_result&) const
   {
-    switch (a.operation ())
-    {
-    case default_id:
-    case update_id:
-      // For default, we don't do anything other than letting our
-      // prerequisites do their thing.
-      //
-
-      // Inject dependency on the parent directory. Note that we
-      // don't do it for clean since we shouldn't be removing it.
-      //
+    // Inject dependency on the parent directory. Note that we
+    // don't do it for clean since we shouldn't be removing it.
+    //
+    if (a.operation () != clean_id)
       inject_parent_fsdir (a, t);
 
-      search_and_match_prerequisites (a, t, dir_path ());
-      break;
-
-    case clean_id:
-      // For clean, ignore prerequisites that are not in the same or a
-      // subdirectory of ours (if t.dir is foo/bar/, then "we" are bar
-      // and our directory is foo/). Just meditate on it a bit and you
-      // will see the light.
-      //
-      search_and_match_prerequisites (
-        a, t, t.dir.root () ? t.dir : t.dir.directory ());
-      break;
-
-    default:
-      assert (false);
-    }
+    search_and_match_prerequisites (a, t);
 
     switch (a)
     {
