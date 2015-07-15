@@ -81,14 +81,17 @@ namespace build
     names (token& t, token_type& tt)
     {
       names_type ns;
-      names (t, tt, ns, 0, nullptr, nullptr);
+      names (t, tt, ns, 0, nullptr, nullptr, nullptr);
       return ns;
     }
 
     void
     names (token&, token_type&,
-           names_type&, std::size_t pair,
-           const dir_path* dir, const std::string* type);
+           names_type&,
+           std::size_t pair,
+           const std::string* prj,
+           const dir_path* dir,
+           const std::string* type);
 
     // Buildspec.
     //

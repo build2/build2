@@ -4,6 +4,7 @@
 
 #include <utility> // pair
 
+#include <build/rule>
 #include <build/prerequisite>
 #include <build/context>
 
@@ -22,7 +23,8 @@ namespace build
   search (const target_type& t, const prerequisite_key& k)
   {
     return search (
-      prerequisite_key {{&t, k.tk.dir, k.tk.name, k.tk.ext}, k.scope});
+      prerequisite_key
+        {k.proj, {&t, k.tk.dir, k.tk.name, k.tk.ext}, k.scope});
   }
 
   inline target&
@@ -32,7 +34,10 @@ namespace build
           const std::string* ext,
           scope* scope)
   {
-    return search (prerequisite_key {{&type, &dir, &name, &ext}, scope});
+    const std::string* proj (nullptr);
+    return search (
+      prerequisite_key
+        {&proj, {&type, &dir, &name, &ext}, scope});
   }
 
   template <typename T>

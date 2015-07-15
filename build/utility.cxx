@@ -13,6 +13,4 @@ namespace build
   const dir_path empty_dir_path;
 
   bool exception_unwinding_dtor = false;
-
-  string_pool extension_pool;
 }

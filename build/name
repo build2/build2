@@ -22,6 +22,9 @@ namespace build
   // it can be interpreted as a target or prerequisite name. A name
   // without a type and directory can be used to represent any text.
   // A name with directory and empty value represents a directory.
+  // A name may also be project-qualified. If the project name is
+  // empty, then it means the name is in a project other than our
+  // own (e.g., it is installed).
   //
   // If pair is not '\0', then this name and the next in the list
   // form a pair.
@@ -36,21 +39,52 @@ namespace build
     explicit
     name (dir_path d): dir (std::move (d)) {}
 
-    name (std::string t, dir_path d, std::string v)
-        : type (std::move (t)), dir (std::move (d)), value (std::move (v)) {}
+    name (std::string t, std::string v)
+        : type (std::move (t)), value (std::move (v)) {}
+
+    name (dir_path d, std::string t, std::string v)
+        : dir (std::move (d)), type (std::move (t)), value (std::move (v)) {}
+
+    // The first argument should be from project_name_pool.
+    //
+    name (const std::string* p, dir_path d, std::string t, std::string v)
+        : proj (p),
+          dir (std::move (d)),
+          type (std::move (t)),
+          value (std::move (v)) {}
 
     bool
-    empty () const {return type.empty () && dir.empty () && value.empty ();}
+    qualified () const {return proj != nullptr;}
 
     bool
-    simple () const {return type.empty () && dir.empty ();}
+    unqualified () const {return proj == nullptr;}
+
+    bool
+    typed () const {return !type.empty ();}
+
+    bool
+    untyped () const {return type.empty ();}
+
+    bool
+    empty () const {return dir.empty () && value.empty ();}
+
+    // Note that strictly speaking the following tests should be
+    // orthogonal to qualification. However, the vast majority of
+    // cases where we expect a simple or directory name, we also
+    // expect it to be unqualified.
+    //
+    // Note also that empty name is simple but not a directory.
+    //
+    bool
+    simple () const {return unqualified () && untyped () && dir.empty ();}
 
     bool
     directory () const
-    {return type.empty () && !dir.empty () && value.empty ();}
+    {return unqualified () && untyped () && !dir.empty () && value.empty ();}
 
-    std::string type;
+    const std::string* proj = nullptr; // Points to project_name_pool.
     dir_path dir;
+    std::string type;
     std::string value;
     char pair = '\0'; // Pair symbol, if any.
   };
@@ -58,7 +92,10 @@ namespace build
   inline bool
   operator== (const name& x, const name& y)
   {
-    return x.type == y.type && x.dir == y.dir && x.value == y.value;
+    return x.proj == y.proj && // Pooled, so can just compare pointers.
+      x.type == y.type &&
+      x.dir == y.dir &&
+      x.value == y.value;
   }
 
   inline bool

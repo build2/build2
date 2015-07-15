@@ -498,7 +498,7 @@ namespace build
     key () const
     {
       return target != nullptr
-        ? prerequisite_key {target->key (), nullptr}
+        ? prerequisite_key {&prerequisite.get ().proj, target->key (), nullptr}
         : prerequisite.get ().key ();
     }
 

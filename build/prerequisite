@@ -31,6 +31,8 @@ namespace build
   public:
     typedef build::scope scope_type;
 
+    mutable const std::string* const* proj; // Only *proj can be NULL, points
+                                            // to project_name_pool.
     target_key tk;
     mutable scope_type* scope; // Can be NULL if tk.dir is absolute.
   };
@@ -39,7 +41,10 @@ namespace build
   operator< (const prerequisite_key& x, const prerequisite_key& y)
   {
     assert (x.scope == y.scope);
-    return x.tk < y.tk;
+
+    // Can compare project name pointers since they are from project_name_pool.
+    //
+    return *x.proj < *y.proj || (*x.proj == *y.proj && x.tk < y.tk);
   }
 
   std::ostream&
@@ -52,28 +57,34 @@ namespace build
     typedef build::target_type target_type_type;
     typedef build::scope scope_type;
 
-    prerequisite (const target_type_type& t,
+    prerequisite (const std::string* p,
+                  const target_type_type& t,
                   dir_path d,
                   std::string n,
                   const std::string* e,
                   scope_type& s)
-        : type (t), dir (std::move (d)), name (std::move (n)), ext (e),
-          scope (s), target (nullptr) {}
+        : proj (p),
+          type (t),
+          dir (std::move (d)),
+          name (std::move (n)),
+          ext (e),
+          scope (s),
+          target (nullptr) {}
 
   public:
+    const std::string* proj; // NULL if not project-qualified.
     const target_type_type& type;
-    const dir_path dir;     // Normalized absolute or relative (to scope).
+    const dir_path dir;      // Normalized absolute or relative (to scope).
     const std::string name;
-    const std::string* ext; // NULL if unspecified.
+    const std::string* ext;  // NULL if unspecified.
     scope_type& scope;
-    target_type* target;    // NULL if not yet resolved. Note that this should
-                            // always be the "primary target", not a member of
-                            // a target group.
-
+    target_type* target;     // NULL if not yet resolved. Note that this should
+                             // always be the "primary target", not a member of
+                             // a target group.
     prerequisite_key
     key () const
     {
-      return prerequisite_key {{&type, &dir, &name, &ext}, &scope};
+      return prerequisite_key {&proj, {&type, &dir, &name, &ext}, &scope};
     }
 
   public:
@@ -101,7 +112,8 @@ namespace build
   struct prerequisite_set: std::set<prerequisite>
   {
     std::pair<prerequisite&, bool>
-    insert (const target_type&,
+    insert (const std::string* proj,
+            const target_type&,
             dir_path dir,
             std::string name,
             const std::string* ext,
@@ -109,9 +121,9 @@ namespace build
             tracer&);
 
     std::pair<prerequisite&, bool>
-    insert (const target_key& tk, scope& s, tracer& t)
+    insert (const std::string* proj, const target_key& tk, scope& s, tracer& t)
     {
-      return insert (*tk.type, *tk.dir, *tk.name, *tk.ext, s, t);
+      return insert (proj, *tk.type, *tk.dir, *tk.name, *tk.ext, s, t);
     }
   };
 }

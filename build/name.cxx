@@ -15,6 +15,9 @@ namespace build
   ostream&
   operator<< (ostream& os, const name& n)
   {
+    if (n.proj != nullptr)
+      os << *n.proj << '%';
+
     // If the value is empty, then we want to print the directory
     // inside {}, e.g., dir{bar/}, not bar/dir{}. We also want to
     // print {} for an empty name.

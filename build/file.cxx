@@ -13,6 +13,7 @@
 #include <build/scope>
 #include <build/context>
 #include <build/parser>
+#include <build/prerequisite>
 #include <build/diagnostics>
 
 #include <build/token>
@@ -648,44 +649,26 @@ namespace build
   }
 
   list_value
-  import (scope& ibase, const name& n, const location& l)
+  import (scope& ibase, name target, const location& l)
   {
     tracer trace ("import");
 
-    // Split the name into the project and target.
+    // If there is no project specified for this target, then our
+    // run will be short and sweet: we simply return it as empty-
+    // project-qualified and let someone else (e.g., a rule) take
+    // a stab at it.
     //
-    string project;
-    name target;
+    if (target.unqualified ())
+    {
+      target.proj = &project_name_pool.find ("");
+      return list_value (move (target));
+    }
 
-    // @@ This is probably all wrong.
+    // Otherwise, get the project name and convert the target to
+    // unqualified.
     //
-    if (n.dir.empty ())
-    {
-      if (!n.simple ())
-        fail << "project name expected before imported target " << n;
-
-      // Note that value can be foo/bar/baz; in this case probably
-      // means sub-projects? Or only to a certain point, then
-      // (untyped) target? Looks like I will need to scan anything
-      // that looks like a directory checking if this is a subproject.
-      // If not, then that's part of the target. No, no, nooooo!
-      //
-      project = n.value;
-    }
-    else
-    {
-      //@@ This can be a path inside a sub-project. So, eventually,
-      //   we should find the innermost sub-project and load the
-      //   export stub from there (will probably still have to
-      //   resolve root from the top-level project). For now we
-      //   assume the project is always top-level.
-      //
-      project = *n.dir.begin ();
-
-      target.dir = n.dir.leaf (dir_path (project));
-      target.type = n.type;
-      target.value = n.value;
-    }
+    const string& project (*target.proj);
+    target.proj = nullptr;
 
     scope& iroot (*ibase.root_scope ());
 
@@ -715,7 +698,6 @@ namespace build
         break;
     }
 
-
     // Then try the config.import.* mechanism.
     //
     if (out_root.empty ())
@@ -734,7 +716,7 @@ namespace build
           //
           list_value& lv (v.as<list_value&> ());
 
-          if (lv.size () != 1 || lv[0].empty () || !lv[0].type.empty ())
+          if (lv.size () != 1 || lv[0].empty () || lv[0].typed ())
             fail (l) << "invalid " << var << " value " << lv;
 
           name& n (lv[0]);
@@ -759,9 +741,15 @@ namespace build
         }
       }
       else
-        fail (l) << "unable to find out_root for imported " << project <<
-          info << "consider explicitly configuring its out_root via the "
-                 << var << " command line variable";
+      {
+        // If we can't find the project, convert it back into qualified
+        // target and return to let someone else (e.g., a rule) to take
+        // a stab at it.
+        //
+        target.proj = &project;
+        level4 ([&]{trace << "postponing " << target;});
+        return list_value (move (target));
+      }
     }
 
     // Bootstrap the imported root scope. This is pretty similar to
@@ -780,8 +768,8 @@ namespace build
       const dir_path& p (v.as<const dir_path&> ());
 
       if (!src_root.empty () && p != src_root)
-        fail << "bootstrapped src_root " << p << " does not match "
-             << "discovered " << src_root;
+        fail (l) << "bootstrapped src_root " << p << " does not match "
+                 << "discovered " << src_root;
 
       root.src_path_ = &p;
     }
@@ -835,7 +823,7 @@ namespace build
     path es (root.src_path () / path ("build/export.build"));
     ifstream ifs (es.string ());
     if (!ifs.is_open ())
-      fail << "unable to open " << es;
+      fail (l) << "unable to open " << es;
 
     level4 ([&]{trace << "importing " << es;});
 
@@ -848,9 +836,36 @@ namespace build
     }
     catch (const std::ios_base::failure&)
     {
-      fail << "failed to read from " << es;
+      fail (l) << "failed to read from " << es;
     }
 
+    // @@ Should we verify these are all unqualified names? Or maybe
+    // there is a use-case for the export stub to return a qualified
+    // name?
+    //
     return p.export_value ();
+  }
+
+  target&
+  import (const prerequisite_key& pk)
+  {
+    assert (*pk.proj != nullptr);
+    const string& p (**pk.proj);
+
+    // @@ We no longer have location. This is especially bad for the
+    //    empty case, i.e., where do I need to specify the project
+    //    name)? Looks like the only way to do this is to keep location
+    //    in name and then in prerequisite. Perhaps one day...
+    //
+    if (!p.empty ())
+      fail << "unable to import target " << pk <<
+        info << "consider explicitly specifying its project out_root via the "
+           << "config.import." << p << " command line variable";
+    else
+      fail << "unable to import target " << pk <<
+        info << "consider adding its installation location" <<
+        info << "or explicitly specifying its project name";
+
+    throw failed (); // No return.
   }
 }

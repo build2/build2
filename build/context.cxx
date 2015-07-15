@@ -21,6 +21,9 @@ namespace build
   dir_path work;
   dir_path home;
 
+  string_pool extension_pool;
+  string_pool project_name_pool;
+
   const meta_operation_info* current_mif;
   const operation_info* current_oif;
   execution_mode current_mode;
@@ -34,6 +37,9 @@ namespace build
   void
   reset ()
   {
+    extension_pool.clear ();
+    project_name_pool.clear ();
+
     targets.clear ();
     scopes.clear ();
     variable_pool.clear ();
@@ -82,7 +88,6 @@ namespace build
       rs.insert<file> (update_id, "file", file_);
       rs.insert<file> (clean_id, "file", file_);
     }
-
   }
 
   fs_status<mkdir_status>

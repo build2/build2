@@ -11,7 +11,7 @@
 #include <butl/filesystem>
 
 #include <build/types>
-#include <build/rule>
+#include <build/utility>
 #include <build/operation>
 
 namespace build
@@ -21,6 +21,9 @@ namespace build
 
   extern dir_path work;
   extern dir_path home;
+
+  extern string_pool extension_pool;
+  extern string_pool project_name_pool;
 
   // Current action (meta/operation).
   //

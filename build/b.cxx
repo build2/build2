@@ -211,7 +211,7 @@ main (int argc, char* argv[])
         const location l ("<buildspec>", 1, 0); //@@ TODO
 
         if (os.empty ()) // Default target: dir{}.
-          os.push_back (targetspec (name ("dir", dir_path (), string ())));
+          os.push_back (targetspec (name ("dir", string ())));
 
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);
@@ -265,7 +265,7 @@ main (int argc, char* argv[])
             // Otherwise, if this is a simple name, see if there is a
             // directory part in value.
             //
-            else if (tn.type.empty ())
+            else if (tn.untyped ())
             {
               // We cannot assume it is a valid filesystem name so we
               // will have to do the splitting manually.

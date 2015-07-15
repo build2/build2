@@ -15,6 +15,7 @@
 #include <build/target>
 #include <build/prerequisite>
 #include <build/rule>
+#include <build/file> // import()
 #include <build/search>
 #include <build/context>
 #include <build/utility>
@@ -28,6 +29,12 @@ namespace build
   target&
   search (const prerequisite_key& pk)
   {
+    // If this is a project-qualified prerequisite, then this
+    // is import's business.
+    //
+    if (*pk.proj != nullptr)
+      return import (pk);
+
     if (target* t = pk.tk.type->search (pk))
       return *t;
 

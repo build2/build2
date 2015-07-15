@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs += libbutl
+import libs += libbutl%lib{butl}
 
 config = config/{operation module utility}
 bin = bin/{target rule module}

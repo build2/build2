@@ -3,7 +3,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <build/scope>
-#include <build/utility>     // extension_pool
+#include <build/context>     // extension_pool
 #include <build/diagnostics>
 #include <build/prerequisite>
 
@@ -36,7 +36,10 @@ namespace build
       if (tk.dir->absolute ())
         dr << "target " << tk;
       else
-        dr << "prerequisite " << prerequisite_key {tk, &s};
+      {
+        const std::string* proj (nullptr); // Used for local prerequisites.
+        dr << "prerequisite " << prerequisite_key {&proj, tk, &s};
+      }
     }
 
     return extension_pool.find (val.as<const std::string&> ());

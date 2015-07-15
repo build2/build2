@@ -72,8 +72,9 @@ namespace build
 
     list_value () = default;
     list_value (names d): names (std::move (d)) {}
-    list_value (std::string d) {emplace_back (std::move (d));}
+    list_value (name n) {emplace_back (std::move (n));}
     list_value (dir_path d) {emplace_back (std::move (d));}
+    list_value (std::string d) {emplace_back (std::move (d));}
 
     virtual value_ptr
     clone () const {return value_ptr (new list_value (*this));}

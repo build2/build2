@@ -140,7 +140,7 @@ namespace build
       const location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
                      ? names (t, tt)
-                     : names_type ({name ("dir", dir_path (), string ())}));
+                     : names_type ({name ("dir", string ())}));
 
       if (tt == type::colon)
       {
@@ -173,11 +173,11 @@ namespace build
             {
               // A name represents directory as an empty value.
               //
-              if (n.type.empty () && n.value.empty ())
+              if (n.directory ())
               {
                 if (ns.size () != 1)
                 {
-                  // @@ TODO: point to name.
+                  // @@ TODO: point to name (and above).
                   //
                   fail (nloc) << "multiple names in directory scope";
                 }
@@ -296,6 +296,9 @@ namespace build
 
             name& n (ns[0]);
 
+            if (n.qualified ())
+              fail (nloc) << "project name in scope/target " << n;
+
             target* ot (target_);
             scope* os (scope_);
 
@@ -342,6 +345,7 @@ namespace build
               //
               prerequisite& p (
                 scope_->prerequisites.insert (
+                  pn.proj,
                   *ti,
                   move (pn.dir),
                   move (pn.value),
@@ -354,6 +358,9 @@ namespace build
 
             for (auto& tn: ns)
             {
+              if (tn.qualified ())
+                fail (nloc) << "project name in target " << tn;
+
               target& t (enter_target (move (tn)));
 
               //@@ OPT: move if last/single target (common cases).
@@ -414,6 +421,9 @@ namespace build
 
     for (name& n: ns)
     {
+      if (n.qualified () || n.empty () || n.value.empty ())
+        fail (l) << "expected buildfile instead of " << n;
+
       // Construct the buildfile path.
       //
       path p (move (n.dir));
@@ -497,6 +507,9 @@ namespace build
 
     for (name& n: ns)
     {
+      if (n.qualified () || n.empty ())
+        fail (l) << "expected buildfile instead of " << n;
+
       // Construct the buildfile path. If it is a directory, then append
       // 'buildfile'.
       //
@@ -654,7 +667,9 @@ namespace build
 
     for (name& n: ns)
     {
-      list_value r (build::import (*scope_, n, l));
+      // build::import() will check the name, if required.
+      //
+      list_value r (build::import (*scope_, move (n), l));
 
       if (val.defined ())
       {
@@ -684,6 +699,7 @@ namespace build
       fail (t) << "export outside export stub";
 
     // The rest is a value. Parse it as names to get variable expansion.
+    // build::import() will check the names, if required.
     //
     export_value_ = (tt != type::newline && tt != type::eos
                      ? names (t, tt)
@@ -767,7 +783,6 @@ namespace build
     names_type vns (tt != type::newline && tt != type::eos
                     ? names (t, tt)
                     : names_type ());
-
     if (assign)
     {
       auto v (target_ != nullptr
@@ -800,6 +815,7 @@ namespace build
          type& tt,
          names_type& ns,
          size_t pair,
+         const std::string* pp,
          const dir_path* dp,
          const string* tp)
   {
@@ -857,11 +873,45 @@ namespace build
           continue;
         }
 
-        string::size_type p (name.rfind ('/'));
+        string::size_type p (name.find_last_of ("/%"));
+
+        // First take care of project. A project-qualified name is
+        // not very common, so we can afford some copying for the
+        // sake of simplicity.
+        //
+        const string* pp1 (pp);
+
+        if (p != string::npos)
+        {
+          bool last (name[p] == '%');
+          string::size_type p1 (last ? p : name.rfind ('%', p - 1));
+
+          if (p1 != string::npos)
+          {
+            string proj;
+            proj.swap (name);
+
+            // First fix the rest of the name.
+            //
+            name.assign (proj, p1 + 1, string::npos);
+            p = last ? string::npos : p - (p1 + 1);
+
+            // Now process the project name.
+            // @@ Validate it.
+            //
+            proj.resize (p1);
+
+            if (pp != nullptr)
+              fail (t) << "nested project name " << proj;
+
+            pp1 = &project_name_pool.find (proj);
+          }
+        }
+
         string::size_type n (name.size () - 1);
 
-        // See if this is a type name, directory prefix, or both. That is,
-        // it is followed by '{'.
+        // See if this is a type name, directory prefix, or both. That
+        // is, it is followed by '{'.
         //
         if (tt == type::lcbrace)
         {
@@ -907,7 +957,7 @@ namespace build
                  (pair != 0
                   ? pair
                   : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
-                 dp1, tp1);
+                 pp1, dp1, tp1);
           count = ns.size () - count;
 
           if (tt != type::rcbrace)
@@ -945,13 +995,15 @@ namespace build
           if (dp != nullptr)
             dir = *dp / dir;
 
-          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+          ns.emplace_back (pp1,
                            move (dir),
+                           (tp != nullptr ? *tp : string ()),
                            string ());
         }
         else
-          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+          ns.emplace_back (pp1,
                            (dp != nullptr ? *dp : dir_path ()),
+                           (tp != nullptr ? *tp : string ()),
                            move (name));
 
         count = 1;
@@ -1025,6 +1077,10 @@ namespace build
 
           const name& n (lv[0]);
 
+          if (n.proj != nullptr)
+            fail (t) << "concatenating expansion of " << var.name
+                     << " contains project name";
+
           if (!n.type.empty ())
             fail (t) << "concatenating expansion of " << var.name
                      << " contains type";
@@ -1047,8 +1103,18 @@ namespace build
           //
           for (const name& n: lv)
           {
+            const string* pp1 (pp);
             const dir_path* dp1 (dp);
             const string* tp1 (tp);
+
+            if (n.proj != 0)
+            {
+              if (pp == nullptr)
+                pp1 = n.proj;
+              else
+                fail (t) << "nested project name " << *n.proj << " in "
+                         << "variable expansion";
+            }
 
             dir_path d1;
             if (!n.dir.empty ())
@@ -1090,8 +1156,9 @@ namespace build
                 ns.push_back (ns[pair - 1]);
             }
 
-            ns.emplace_back ((tp1 != nullptr ? *tp1 : string ()),
+            ns.emplace_back (pp1,
                              (dp1 != nullptr ? *dp1 : dir_path ()),
+                             (tp1 != nullptr ? *tp1 : string ()),
                              n.value);
           }
 
@@ -1112,7 +1179,7 @@ namespace build
                (pair != 0
                 ? pair
                 : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
-               dp, tp);
+               pp, dp, tp);
         count = ns.size () - count;
 
         if (tt != type::rcbrace)
@@ -1136,9 +1203,10 @@ namespace build
         {
           // Empty LHS, (e.g., {=y}), create an empty name.
           //
-          ns.emplace_back ((tp != nullptr ? *tp : string ()),
+          ns.emplace_back (pp,
                            (dp != nullptr ? *dp : dir_path ()),
-                           "");
+                           (tp != nullptr ? *tp : string ()),
+                           string ());
           count = 1;
         }
 
@@ -1160,9 +1228,10 @@ namespace build
         if (pair != 0 && pair != ns.size ())
           ns.push_back (ns[pair - 1]);
 
-        ns.emplace_back ((tp != nullptr ? *tp : string ()),
+        ns.emplace_back (pp,
                          (dp != nullptr ? *dp : dir_path ()),
-                         "");
+                         (tp != nullptr ? *tp : string ()),
+                         string ());
         break;
       }
       else
@@ -1173,9 +1242,10 @@ namespace build
     //
     if (!ns.empty () && ns.back ().pair != '\0')
     {
-      ns.emplace_back ((tp != nullptr ? *tp : string ()),
+      ns.emplace_back (pp,
                        (dp != nullptr ? *dp : dir_path ()),
-                       "");
+                       (tp != nullptr ? *tp : string ()),
+                       string ());
     }
   }
 
@@ -1267,6 +1337,11 @@ namespace build
 
         for (auto i (ns.begin ()), e (i + targets); i != e; ++i)
         {
+          // @@ We may actually want to support this at some point.
+          //
+          if (i->qualified ())
+            fail (l) << "target name expected instead of " << *i;
+
           if (opname (*i))
             ms.push_back (opspec (move (i->value)));
           else
@@ -1276,7 +1351,7 @@ namespace build
             dir_path src_base;
             if (i->pair != '\0')
             {
-              if (!i->type.empty ())
+              if (i->typed ())
                 fail (l) << "expected target src_base instead of " << *i;
 
               src_base = move (i->dir);
@@ -1416,6 +1491,7 @@ namespace build
 
     prerequisite& p (
       scope_->prerequisites.insert (
+        nullptr,
         dt.type (),
         dt.dir,
         dt.name,

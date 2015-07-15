@@ -78,7 +78,7 @@ namespace build
     // First determine the target type.
     //
     const char* tt;
-    if (n.type.empty ())
+    if (n.untyped ())
     {
       // Empty name or '.' and '..' signify a directory.
       //

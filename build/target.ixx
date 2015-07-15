@@ -24,7 +24,7 @@ namespace build
     // The use of the group's prerequisite scope is debatable.
     //
     scope& s (prerequisite.get ().scope);
-    return s.prerequisites.insert (key ().tk, s, trace).first;
+    return s.prerequisites.insert (nullptr, key ().tk, s, trace).first;
   }
 
   // prerequisite_members
