@@ -216,7 +216,11 @@ main (int argc, char* argv[])
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);
 
-        action act (0, 0); // Not yet initialized.
+        operation_id pre_oid (0);
+        const operation_info* pre_oif (nullptr);
+
+        operation_id post_oid (0);
+        const operation_info* post_oif (nullptr);
 
         // We do meta-operation and operation batches sequentially (no
         // parallelism). But multiple targets in an operation batch
@@ -590,6 +594,8 @@ main (int argc, char* argv[])
 
               if (mif->meta_operation_pre != nullptr)
                 mif->meta_operation_pre ();
+
+              current_mif = mif;
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -630,11 +636,19 @@ main (int argc, char* argv[])
                                   << ", id " << static_cast<uint16_t> (oid);});
               }
 
-              act = action (mid, oid);
+              // Handle pre/post operations.
+              //
+              if (oif->pre != nullptr && (pre_oid = oif->pre (mid)) != 0)
+              {
+                assert (pre_oid != default_id);
+                pre_oif = &rs.operations[pre_oid].get ();
+              }
 
-              current_mif = mif;
-              current_oif = oif;
-              current_mode = oif->mode;
+              if (oif->post != nullptr && (post_oid = oif->post (mid)) != 0)
+              {
+                assert (post_oid != default_id);
+                post_oif = &rs.operations[post_oid].get ();
+              }
             }
             //
             // Similar to meta-operations, check that all the targets in
@@ -646,6 +660,22 @@ main (int argc, char* argv[])
                   oif != &rs.operations[oid].get ()) // Not the same impl.
                 fail (l) << "different operation implementations "
                          << "in an operation batch";
+
+              if (pre_oid != 0)
+              {
+                if (pre_oid > rs.operations.size () ||
+                    pre_oif != &rs.operations[pre_oid].get ())
+                  fail (l) << "different pre-operation implementations "
+                           << "in an operation batch";
+              }
+
+              if (post_oid != 0)
+              {
+                if (post_oid > rs.operations.size () ||
+                    post_oif != &rs.operations[post_oid].get ())
+                  fail (l) << "different post-operation implementations "
+                           << "in an operation batch";
+              }
             }
           }
 
@@ -672,7 +702,7 @@ main (int argc, char* argv[])
           //
           mif->load (bf, rs, out_base, src_base, l);
 
-          // Next resolve and match the target. We don't want to start
+          // Next search and match the targets. We don't want to start
           // building before we know how to for all the targets in this
           // operation batch.
           //
@@ -695,13 +725,63 @@ main (int argc, char* argv[])
 
             d.normalize ();
 
-            mif->match (act, rs, target_key {ti, &d, &tn.value, &e}, l, tgs);
+            mif->search (rs, target_key {ti, &d, &tn.value, &e}, l, tgs);
           }
         }
 
-        // Now execute the action on the list of targets.
-        //
-        mif->execute (act, tgs);
+        if (pre_oid != 0)
+        {
+          level4 ([&]{trace << "start pre-operation batch " << pre_oif->name
+                            << ", id " << static_cast<uint16_t> (pre_oid);});
+
+          if (mif->operation_pre != nullptr)
+            mif->operation_pre (pre_oid); // Cannot be translated.
+
+          current_oif = pre_oif;
+          current_mode = pre_oif->mode;
+
+          action a (mid, pre_oid, oid);
+
+          mif->match (a, tgs);
+          mif->execute (a, tgs);
+
+          if (mif->operation_post != nullptr)
+            mif->operation_post (pre_oid);
+
+          level4 ([&]{trace << "end pre-operation batch " << pre_oif->name
+                            << ", id " << static_cast<uint16_t> (pre_oid);});
+        }
+
+        current_oif = oif;
+        current_mode = oif->mode;
+
+        action a (mid, oid, 0);
+
+        mif->match (a, tgs);
+        mif->execute (a, tgs);
+
+        if (post_oid != 0)
+        {
+          level4 ([&]{trace << "start post-operation batch " << post_oif->name
+                            << ", id " << static_cast<uint16_t> (post_oid);});
+
+          if (mif->operation_pre != nullptr)
+            mif->operation_pre (post_oid); // Cannot be translated.
+
+          current_oif = post_oif;
+          current_mode = post_oif->mode;
+
+          action a (mid, post_oid, oid);
+
+          mif->match (a, tgs);
+          mif->execute (a, tgs);
+
+          if (mif->operation_post != nullptr)
+            mif->operation_post (post_oid);
+
+          level4 ([&]{trace << "end post-operation batch " << post_oif->name
+                            << ", id " << static_cast<uint16_t> (post_oid);});
+        }
 
         if (mif->operation_post != nullptr)
           mif->operation_post (oid);

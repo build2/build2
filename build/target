@@ -306,10 +306,10 @@ namespace build
     typedef build::recipe recipe_type;
 
     const recipe_type&
-    recipe (action_id a) const {return action_ == a ? recipe_ : empty_recipe;}
+    recipe (action a) const {return action_ == a ? recipe_ : empty_recipe;}
 
     void
-    recipe (action_id a, recipe_type r)
+    recipe (action a, recipe_type r)
     {
       assert (action_ != a || !recipe_);
       action_ = a;
@@ -348,7 +348,7 @@ namespace build
     static const target_type static_type;
 
   private:
-    action_id action_ {0}; // Action id of this recipe.
+    action action_; // Action this recipe is for.
     recipe_type recipe_;
   };
 

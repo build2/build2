@@ -8,6 +8,8 @@
 #include <cassert>
 #include <functional> // reference_wrapper
 
+#include <butl/utility> // reverse_iterate
+
 #include <build/scope>
 #include <build/target>
 #include <build/file>
@@ -16,6 +18,7 @@
 #include <build/dump>
 
 using namespace std;
+using namespace butl;
 
 namespace build
 {
@@ -24,10 +27,24 @@ namespace build
   ostream&
   operator<< (ostream& os, action a)
   {
-    return os << '('
-              << static_cast<uint16_t> (a.meta_operation ()) << ','
-              << static_cast<uint16_t> (a.operation ())
-              << ')';
+    uint16_t
+      m (a.meta_operation ()),
+      i (a.operation ()),
+      o (a.outer_operation ());
+
+    os << '(' << m << ',';
+
+    if (o != 0)
+      os << o << '(';
+
+    os << i;
+
+    if (o != 0)
+      os << ')';
+
+    os << ')';
+
+    return os;
   }
 
   // perform
@@ -59,30 +76,37 @@ namespace build
   }
 
   void
-  match (action a,
-         scope&,
-         const target_key& tk,
-         const location& l,
-         action_targets& ts)
+  search (scope&,
+          const target_key& tk,
+          const location& l,
+          action_targets& ts)
   {
-    tracer trace ("match");
+    tracer trace ("search");
 
     auto i (targets.find (tk, trace));
     if (i == targets.end ())
       fail (l) << "unknown target " << tk;
 
-    target& t (**i);
+    ts.push_back (i->get ());
+  }
+
+  void
+  match (action a, action_targets& ts)
+  {
+    tracer trace ("match");
 
     if (verb >= 5)
       dump (a);
 
-    level4 ([&]{trace << "matching " << t;});
-    match (a, t);
+    for (void* vt: ts)
+    {
+      target& t (*static_cast<target*> (vt));
+      level4 ([&]{trace << "matching " << t;});
+      match (a, t);
+    }
 
     if (verb >= 5)
       dump (a);
-
-    ts.push_back (&t);
   }
 
   void
@@ -94,38 +118,50 @@ namespace build
     //
     vector<reference_wrapper<target>> psp;
 
-    for (void* v: ts)
-    {
-      target& t (*static_cast<target*> (v));
-
-      level4 ([&]{trace << diag_doing (a, t);});
-
-      switch (execute (a, t))
+    // Execute targets in reverse if the execution mode is 'last'.
+    //
+    auto body (
+      [a, &psp, &trace] (void* v)
       {
-      case target_state::postponed:
-        {
-          info << diag_doing (a, t) << " is postponed";
-          psp.push_back (t);
-          break;
-        }
-      case target_state::unchanged:
-        {
-          info << diag_already_done (a, t);
-          break;
-        }
-      case target_state::changed:
-        break;
-      case target_state::failed:
-        //@@ This could probably happen in a parallel build.
-      default:
-        assert (false);
-      }
-    }
+        target& t (*static_cast<target*> (v));
 
-    // Re-examine postponed targets.
+        level4 ([&]{trace << diag_doing (a, t);});
+
+        switch (execute (a, t))
+        {
+        case target_state::postponed:
+          {
+            info << diag_doing (a, t) << " is postponed";
+            psp.push_back (t);
+            break;
+          }
+        case target_state::unchanged:
+          {
+            info << diag_already_done (a, t);
+            break;
+          }
+        case target_state::changed:
+          break;
+        case target_state::failed:
+          //@@ This could probably happen in a parallel build.
+        default:
+          assert (false);
+        }
+      });
+
+    if (current_mode == execution_mode::first)
+      for (void* v: ts) body (v);
+    else
+      for (void* v: reverse_iterate (ts)) body (v);
+
+    // Re-examine postponed targets. Note that we will do it in the
+    // order added, so no need to check the execution mode.
     //
     for (target& t: psp)
     {
+      if (t.state () == target_state::postponed)
+        execute_direct (a, t); // Try again, now ignoring the execution mode.
+
       switch (t.state ())
       {
       case target_state::postponed:
@@ -157,6 +193,7 @@ namespace build
     nullptr, // meta-operation pre
     nullptr, // operation pre
     &load,
+    &search,
     &match,
     &execute,
     nullptr, // operation post
@@ -170,7 +207,9 @@ namespace build
     "",
     "",
     "",
-    execution_mode::first
+    execution_mode::first,
+    nullptr,
+    nullptr
   };
 
   operation_info update {
@@ -178,7 +217,9 @@ namespace build
     "update",
     "updating",
     "up to date",
-    execution_mode::first
+    execution_mode::first,
+    nullptr,
+    nullptr
   };
 
   operation_info clean {
@@ -186,5 +227,8 @@ namespace build
     "clean",
     "cleaning",
     "clean",
-    execution_mode::last};
+    execution_mode::last,
+    nullptr,
+    nullptr
+  };
 }

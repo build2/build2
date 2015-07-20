@@ -114,15 +114,25 @@ namespace build
       if (current_mode == execution_mode::last)
         swap (m1, m2);
 
-      target_state ts (target_state::unchanged);
+      target_state r (target_state::unchanged), ts;
 
-      if (m1 != nullptr && execute (a, *m1) == target_state::changed)
-        ts = target_state::changed;
+      if (m1 != nullptr)
+      {
+        ts = execute (a, *m1);
+        if (ts == target_state::changed ||
+            (ts == target_state::postponed && r == target_state::unchanged))
+          r = ts;
+      }
 
-      if (m2 != nullptr && execute (a, *m2) == target_state::changed)
-        ts = target_state::changed;
+      if (m2 != nullptr)
+      {
+        ts = execute (a, *m2);
+        if (ts == target_state::changed ||
+            (ts == target_state::postponed && r == target_state::unchanged))
+          r = ts;
+      }
 
-      return ts;
+      return r;
     }
   }
 }

@@ -33,23 +33,60 @@ namespace build
   using operation_id = std::uint8_t;
   using action_id = std::uint8_t;
 
+  // Meta-operations and operations are not the end of the story. We
+  // also have operation nesting (currently only one level deep) which
+  // is used to implement pre/post operations (currently, but may be
+  // useful for other things). Here is the idea: the test operation
+  // needs to make sure that the targets that it needs to test are
+  // up-to-date. So it runs update as its pre-operation. It is almost
+  // like an ordinary update except that it has test as its outer
+  // operation (the meta-operations are always the same). This way a
+  // rule can recognize that this is "update for test" and do something
+  // differently. For example, if an executable is not a test, then
+  // there is no use updating it. At the same time, most rules will
+  // ignore the fact that this is a nested update and for them it is
+  // "update as usual".
+  //
   struct action
   {
-    action (meta_operation_id m, operation_id o): id ((m << 4) | o) {}
+    action (): inner_id (0), outer_id (0) {} // Invalid action.
+
+    bool
+    valid () const {return inner_id != 0;}
+
+    // If this is not a nested operation, then outer should be 0.
+    //
+    action (meta_operation_id m, operation_id inner, operation_id outer)
+        : inner_id ((m << 4) | inner),
+          outer_id (outer == 0 ? 0 : (m << 4) | outer) {}
 
     meta_operation_id
-    meta_operation () const {return id >> 4;}
+    meta_operation () const {return inner_id >> 4;}
 
     operation_id
-    operation () const {return id & 0xF;}
+    operation () const {return inner_id & 0xF;}
+
+    operation_id
+    outer_operation () const {return outer_id & 0xF;}
 
     // Implicit conversion operator to action_id for the switch()
-    // statement, etc.
+    // statement, etc. Most places will only care about the inner
+    // operation.
     //
-    operator action_id () const {return id;}
+    operator action_id () const {return inner_id;}
 
-    action_id id;
+    action_id inner_id;
+    action_id outer_id;
   };
+
+  inline bool
+  operator== (action x, action y)
+  {
+    return x.inner_id == y.inner_id && x.outer_id == y.outer_id;
+  }
+
+  inline bool
+  operator!= (action x, action y) {return !(x == y);}
 
   std::ostream&
   operator<< (std::ostream&, action);
@@ -130,10 +167,15 @@ namespace build
     const std::string name_doing;        // E.g., [while] 'configuring'.
     const std::string name_already_done; // E.g., [already] 'configured'.
 
+    // If operation_pre() is not NULL, then it may translate default_id
+    // (and only default_id) to some other operation. If not translated,
+    // then default_id is used. If, however, operation_pre() is NULL,
+    // then default_id is translated to update_id.
+    //
     void (*meta_operation_pre) (); // Start of meta-operation batch.
     operation_id (*operation_pre) (operation_id); // Start of operation batch.
 
-    // Meta-operation-specific logic to load the buildfile, resolve and match
+    // Meta-operation-specific logic to load the buildfile, search and match
     // the targets, and execute the action on the targets.
     //
     void (*load) (const path& buildfile,
@@ -142,11 +184,12 @@ namespace build
                   const dir_path& src_base,
                   const location&);
 
-    void (*match) (action,
-                   scope& root,
-                   const target_key&,
-                   const location&,
-                   action_targets&);
+    void (*search) (scope& root,
+                    const target_key&,
+                    const location&,
+                    action_targets&);
+
+    void (*match) (action, action_targets&);
 
     void (*execute) (action, const action_targets&);
 
@@ -172,11 +215,14 @@ namespace build
         const dir_path& src_base,
         const location&);
 
-  // Resolve and match the target. This is the default implementation
+  // Search and match the target. This is the default implementation
   // that does just that and adds a pointer to the target to the list.
   //
   void
-  match (action, scope&, const target_key&, const location&, action_targets&);
+  search (scope&, const target_key&, const location&, action_targets&);
+
+  void
+  match (action, action_targets&);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
@@ -204,6 +250,13 @@ namespace build
     const std::string name_already_done; // E.g., [already] 'up to date'.
 
     const execution_mode mode;
+
+    // If the returned operation_id's are not 0, then they are injected
+    // as pre/post operations for this operation. Can be NULL if unused.
+    // The returned operation_id shall not be default_id.
+    //
+    operation_id (*pre) (meta_operation_id);
+    operation_id (*post) (meta_operation_id);
   };
 
   // Build-in operations.

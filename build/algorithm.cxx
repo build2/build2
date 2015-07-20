@@ -339,35 +339,39 @@ namespace build
   target_state
   execute_prerequisites (action a, target& t)
   {
-    target_state ts (target_state::unchanged);
+    target_state r (target_state::unchanged);
 
     for (target* pt: t.prerequisite_targets)
     {
       if (pt == nullptr) // Skipped.
         continue;
 
-      if (execute (a, *pt) == target_state::changed)
-        ts = target_state::changed;
+      target_state ts (execute (a, *pt));
+      if (ts == target_state::changed ||
+          (ts == target_state::postponed && r == target_state::unchanged))
+        r = ts;
     }
 
-    return ts;
+    return r;
   }
 
   target_state
   reverse_execute_prerequisites (action a, target& t)
   {
-    target_state ts (target_state::unchanged);
+    target_state r (target_state::unchanged);
 
     for (target* pt: reverse_iterate (t.prerequisite_targets))
     {
       if (pt == nullptr) // Skipped.
         continue;
 
-      if (execute (a, *pt) == target_state::changed)
-        ts = target_state::changed;
+      target_state ts (execute (a, *pt));
+      if (ts == target_state::changed ||
+          (ts == target_state::postponed && r == target_state::unchanged))
+        r = ts;
     }
 
-    return ts;
+    return r;
   }
 
   bool

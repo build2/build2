@@ -215,6 +215,7 @@ namespace build
       nullptr, // meta-operation pre
       &configure_operation_pre,
       &load,   // normal load
+      &search, // normal search
       &match,  // normal match
       &configure_execute,
       nullptr, // operation post
@@ -244,16 +245,18 @@ namespace build
     }
 
     static void
-    disfigure_match (action,
-                     scope& root,
-                     const target_key&,
-                     const location&,
-                     action_targets& ts)
+    disfigure_search (scope& root,
+                      const target_key&,
+                      const location&,
+                      action_targets& ts)
     {
-      tracer trace ("disfigure_match");
+      tracer trace ("disfigure_search");
       level5 ([&]{trace << "collecting " << root.path ();});
       ts.push_back (&root);
     }
+
+    static void
+    disfigure_match (action, action_targets&) {}
 
     static bool
     disfigure_project (action a, scope& root)
@@ -403,6 +406,7 @@ namespace build
       nullptr, // meta-operation pre
       &disfigure_operation_pre,
       &disfigure_load,
+      &disfigure_search,
       &disfigure_match,
       &disfigure_execute,
       nullptr, // operation post
