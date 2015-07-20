@@ -279,8 +279,6 @@ namespace build
           f = d;
           f /= an;
 
-          text << "trying " << f;
-
           if ((mt = file_mtime (f)) != timestamp_nonexistent)
           {
             // Enter the target. Note that because the search paths are
@@ -301,8 +299,6 @@ namespace build
         {
           f = d;
           f /= sn;
-
-          text << "trying " << f;
 
           if ((mt = file_mtime (f)) != timestamp_nonexistent)
           {
