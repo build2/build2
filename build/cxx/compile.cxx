@@ -1,19 +1,18 @@
-// file      : build/cxx/rule.cxx -*- C++ -*-
+// file      : build/cxx/compile.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build/cxx/rule>
+#include <build/cxx/compile>
 
 #include <map>
 #include <string>
 #include <cstddef>  // size_t
-#include <cstdlib>  // exit
+#include <cstdlib>  // exit()
 #include <utility>  // move()
 
 #include <butl/process>
 #include <butl/utility>  // reverse_iterate
 #include <butl/fdstream>
-#include <butl/optional>
 #include <butl/path-map>
 
 #include <build/types>
@@ -26,7 +25,8 @@
 #include <build/bin/target>
 #include <build/cxx/target>
 
-#include <build/config/utility>
+#include <build/cxx/utility>
+#include <build/cxx/link>
 
 using namespace std;
 using namespace butl;
@@ -37,48 +37,6 @@ namespace build
   {
     using namespace bin;
 
-    using config::append_options;
-
-    static void
-    append_std (cstrings& args, target& t, string& opt)
-    {
-      if (auto val = t["cxx.std"])
-      {
-        const string& v (val.as<const string&> ());
-
-        // Translate 11 to 0x and 14 to 1y for compatibility with
-        // older versions of the compiler.
-        //
-        opt = "-std=c++";
-
-        if (v == "11")
-          opt += "0x";
-        else if (v == "14")
-          opt += "1y";
-        else
-          opt += v;
-
-        args.push_back (opt.c_str ());
-      }
-    }
-
-    // Append library options from one of the cxx.export.* variables
-    // recursively, prerequisite libraries first.
-    //
-    static void
-    append_lib_options (cstrings& args, target& l, const char* var)
-    {
-      for (target* t: l.prerequisite_targets)
-      {
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
-          append_lib_options (args, *t, var);
-      }
-
-      append_options (args, l, var);
-    }
-
-    // compile
-    //
     match_result compile::
     match (action a, target& t, const string&) const
     {
@@ -133,30 +91,48 @@ namespace build
         ? nullptr
         : &t.strong_scope ().path ());
 
+      link::search_paths_cache lib_paths; // Extract lazily.
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        target& pt (p.search ());
-
-        if (a.operation () == clean_id && !pt.dir.sub (*amlg))
-          continue;
-
         // A dependency on a library is there so that we can get its
         // cxx.export.poptions. In particular, making sure it is
         // executed before us will only restrict parallelism. But we
         // do need to match it in order to get its prerequisite_targets
         // populated; see append_lib_options() above.
         //
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
         {
-          // @@ The fact that we match but never execute messes up
-          //    the dependents count. This is a workaround, not a
-          //    solution.
-          //
           if (a.operation () == update_id)
+          {
+            // Handle imported libraries.
+            //
+            if (p.proj () != nullptr)
+            {
+              // We know that for such libraries we don't need to do
+              // match() in order to get options (if any, they would
+              // be set by search_library()).
+              //
+              if (link::search_library (lib_paths, p.prerequisite) != nullptr)
+                continue;
+            }
+
+            target& pt (p.search ());
+
+            // @@ The fact that we match but never execute messes up
+            //    the dependents count. This is a workaround, not a
+            //    solution.
+            //
             build::match (a, pt);
+          }
 
           continue;
         }
+
+        target& pt (p.search ());
+
+        if (a.operation () == clean_id && !pt.dir.sub (*amlg))
+          continue;
 
         build::match (a, pt);
         t.prerequisite_targets.push_back (&pt);
@@ -493,7 +469,7 @@ namespace build
             getline (is, l);
 
             if (is.fail () && !is.eof ())
-              fail << "io error while parsing g++ -M output";
+              fail << "error reading C++ compiler -M output";
 
             size_t pos (0);
 
@@ -772,500 +748,6 @@ namespace build
         print_process (args);
       else
         text << "c++ " << *s;
-
-      try
-      {
-        process pr (args.data ());
-
-        if (!pr.wait ())
-          throw failed ();
-
-        // Should we go to the filesystem and get the new mtime? We
-        // know the file has been modified, so instead just use the
-        // current clock time. It has the advantage of having the
-        // subseconds precision.
-        //
-        t.mtime (system_clock::now ());
-        return target_state::changed;
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e.what ();
-
-        // In a multi-threaded program that fork()'ed but did not exec(),
-        // it is unwise to try to do any kind of cleanup (like unwinding
-        // the stack and running destructors).
-        //
-        if (e.child ())
-          exit (1);
-
-        throw failed ();
-      }
-    }
-
-    // link
-    //
-    inline link::type link::
-    link_type (target& t)
-    {
-      return t.is_a<exe> () ? type::e : (t.is_a<liba> () ? type::a : type::so);
-    }
-
-    link::order link::
-    link_order (target& t)
-    {
-      const char* var;
-
-      switch (link_type (t))
-      {
-      case type::e:  var = "bin.exe.lib";   break;
-      case type::a:  var = "bin.liba.lib";  break;
-      case type::so: var = "bin.libso.lib"; break;
-      }
-
-      const list_value& lv (t[var].as<const list_value&> ());
-      return lv[0].value == "shared"
-        ? lv.size () > 1 && lv[1].value == "static" ? order::so_a : order::so
-        : lv.size () > 1 && lv[1].value == "shared" ? order::a_so : order::a;
-    }
-
-    match_result link::
-    match (action a, target& t, const string& hint) const
-    {
-      tracer trace ("cxx::link::match");
-
-      // @@ TODO:
-      //
-      // - check prerequisites: object files, libraries
-      // - if path already assigned, verify extension?
-      //
-      // @@ Q:
-      //
-      // - if there is no .o, are we going to check if the one derived
-      //   from target exist or can be built? A: No.
-      //   What if there is a library. Probably ok if .a, not if .so.
-      //   (i.e., a utility library).
-      //
-
-      bool so (t.is_a<libso> ());
-
-      // Scan prerequisites and see if we can work with what we've got.
-      //
-      bool seen_cxx (false), seen_c (false), seen_obj (false),
-        seen_lib (false);
-
-      for (prerequisite_member p: group_prerequisite_members (a, t))
-      {
-        if (p.is_a<cxx> ())
-        {
-          seen_cxx = seen_cxx || true;
-        }
-        else if (p.is_a<c> ())
-        {
-          seen_c = seen_c || true;
-        }
-        else if (p.is_a<obja> ())
-        {
-          if (so)
-            fail << "shared library " << t << " prerequisite " << p
-                 << " is static object";
-
-          seen_obj = seen_obj || true;
-        }
-        else if (p.is_a<objso> () ||
-                 p.is_a<obj> ())
-        {
-          seen_obj = seen_obj || true;
-        }
-        else if (p.is_a<liba> ()  ||
-                 p.is_a<libso> () ||
-                 p.is_a<lib> ())
-        {
-          seen_lib = seen_lib || true;
-        }
-        else if (p.is_a<h> ()   ||
-                 p.is_a<hxx> () ||
-                 p.is_a<ixx> () ||
-                 p.is_a<txx> () ||
-                 p.is_a<fsdir> ())
-          ;
-        else
-        {
-          level3 ([&]{trace << "unexpected prerequisite type " << p.type ();});
-          return nullptr;
-        }
-      }
-
-      // We will only chain a C source if there is also a C++ source or we
-      // were explicitly told to.
-      //
-      if (seen_c && !seen_cxx && hint < "cxx")
-      {
-        level3 ([&]{trace << "c prerequisite(s) without c++ or hint";});
-        return nullptr;
-      }
-
-      return seen_cxx || seen_c || seen_obj || seen_lib ? &t : nullptr;
-    }
-
-    recipe link::
-    apply (action a, target& xt, const match_result&) const
-    {
-      tracer trace ("cxx::link::apply");
-
-      path_target& t (static_cast<path_target&> (xt));
-
-      type lt (link_type (t));
-      bool so (lt == type::so);
-      optional<order> lo; // Link-order.
-
-      // Derive file name from target name.
-      //
-      if (t.path ().empty ())
-      {
-        switch (lt)
-        {
-        case type::e:  t.derive_path (""         ); break;
-        case type::a:  t.derive_path ("a",  "lib"); break;
-        case type::so: t.derive_path ("so", "lib"); break;
-        }
-      }
-
-      // Inject dependency on the output directory.
-      //
-      inject_parent_fsdir (a, t);
-
-      // We may need the project roots for rule chaining (see below).
-      // We will resolve them lazily only if needed.
-      //
-      scope* root (nullptr);
-      const dir_path* out_root (nullptr);
-      const dir_path* src_root (nullptr);
-
-      // Process prerequisites: do rule chaining for C and C++ source
-      // files as well as search and match.
-      //
-      // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of our strong amalgamation.
-      //
-      const dir_path* amlg (
-        a.operation () != clean_id
-        ? nullptr
-        : &t.strong_scope ().path ());
-
-      for (prerequisite_member p: group_prerequisite_members (a, t))
-      {
-        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-        target* pt (nullptr);
-
-        if (!p.is_a<c> () && !p.is_a<cxx> ())
-        {
-          // The same basic logic as in search_and_match().
-          //
-          pt = &p.search ();
-
-          if (a.operation () == clean_id && !pt->dir.sub (*amlg))
-            continue; // Skip.
-
-          // If this is the obj{} or lib{} target group, then pick the
-          // appropriate member and make sure it is searched and matched.
-          //
-          if (obj* o = pt->is_a<obj> ())
-          {
-            pt = so ? static_cast<target*> (o->so) : o->a;
-
-            if (pt == nullptr)
-              pt = &search (so ? objso::static_type : obja::static_type,
-                            p.key ());
-          }
-          else if (lib* l = pt->is_a<lib> ())
-          {
-            // Determine the library type to link.
-            //
-            bool lso (true);
-            const string& at ((*l)["bin.lib"].as<const string&> ());
-
-            if (!lo)
-              lo = link_order (t);
-
-            switch (*lo)
-            {
-            case order::a:
-            case order::a_so:
-              lso = false; // Fall through.
-            case order::so:
-            case order::so_a:
-              {
-                if (lso ? at == "static" : at == "shared")
-                {
-                  if (*lo == order::a_so || *lo == order::so_a)
-                    lso = !lso;
-                  else
-                    fail << (lso ? "shared" : "static") << " build of " << *l
-                         << " is not available";
-                }
-              }
-            }
-
-            pt = lso ? static_cast<target*> (l->so) : l->a;
-
-            if (pt == nullptr)
-              pt = &search (lso ? libso::static_type : liba::static_type,
-                            p.key ());
-          }
-
-          build::match (a, *pt);
-          t.prerequisite_targets.push_back (pt);
-          continue;
-        }
-
-        if (root == nullptr)
-        {
-          // Which scope shall we use to resolve the root? Unlikely,
-          // but possible, the prerequisite is from a different project
-          // altogether. So we are going to use the target's project.
-          //
-          root = &t.root_scope ();
-          out_root = &root->path ();
-          src_root = &root->src_path ();
-        }
-
-        const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
-        const target_type& o_type (
-          group
-          ? obj::static_type
-          : (so ? objso::static_type : obja::static_type));
-
-        // Come up with the obj*{} target. The c(xx){} prerequisite
-        // directory can be relative (to the scope) or absolute. If it is
-        // relative, then use it as is. If it is absolute, then translate
-        // it to the corresponding directory under out_root. While the
-        // c(xx){} directory is most likely under src_root, it is also
-        // possible it is under out_root (e.g., generated source).
-        //
-        dir_path d;
-        {
-          const dir_path& cpd (*cp.tk.dir);
-
-          if (cpd.relative () || cpd.sub (*out_root))
-            d = cpd;
-          else
-          {
-            if (!cpd.sub (*src_root))
-              fail << "out of project prerequisite " << cp <<
-                info << "specify corresponding " << o_type.name << "{} "
-                   << "target explicitly";
-
-            d = *out_root / cpd.leaf (*src_root);
-          }
-        }
-
-        target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
-
-        // If we are cleaning, check that this target is in the same or
-        // a subdirectory of our strong amalgamation.
-        //
-        if (a.operation () == clean_id && !ot.dir.sub (*amlg))
-        {
-          // If we shouldn't clean obj{}, then it is fair to assume
-          // we shouldn't clean cxx{} either (generated source will
-          // be in the same directory as obj{} and if not, well, go
-          // find yourself another build system ;-)).
-          //
-          continue; // Skip.
-        }
-
-        // If we have created the obj{} target group, pick one of its
-        // members; the rest would be primarily concerned with it.
-        //
-        if (group)
-        {
-          obj& o (static_cast<obj&> (ot));
-          pt = so ? static_cast<target*> (o.so) : o.a;
-
-          if (pt == nullptr)
-            pt = &search (so ? objso::static_type : obja::static_type,
-                          o.dir, o.name, o.ext, nullptr);
-        }
-        else
-          pt = &ot;
-
-        // If this obj*{} target already exists, then it needs to be
-        // "compatible" with what we are doing here.
-        //
-        // This gets a bit tricky. We need to make sure the source files
-        // are the same which we can only do by comparing the targets to
-        // which they resolve. But we cannot search the ot's prerequisites
-        // -- only the rule that matches can. Note, however, that if all
-        // this works out, then our next step is to match the obj*{}
-        // target. If things don't work out, then we fail, in which case
-        // searching and matching speculatively doesn't really hurt.
-        //
-        bool found (false);
-        for (prerequisite_member p1:
-               reverse_group_prerequisite_members (a, *pt))
-        {
-          // Ignore some known target types (fsdir, headers, libraries).
-          //
-          if (p1.is_a<fsdir> () ||
-              p1.is_a<h> ()     ||
-              (p.is_a<cxx> () && (p1.is_a<hxx> () ||
-                                  p1.is_a<ixx> () ||
-                                  p1.is_a<txx> ())) ||
-              p1.is_a<lib> ()  ||
-              p1.is_a<liba> () ||
-              p1.is_a<libso> ())
-          {
-            continue;
-          }
-
-          if (!p1.is_a<cxx> ())
-            fail << "synthesized target for prerequisite " << cp
-                 << " would be incompatible with existing target " << *pt <<
-              info << "unexpected existing prerequisite type " << p1 <<
-              info << "specify corresponding obj{} target explicitly";
-
-          if (!found)
-          {
-            build::match (a, *pt); // Now p1 should be resolved.
-
-            // Searching our own prerequisite is ok.
-            //
-            if (&p.search () != &p1.search ())
-              fail << "synthesized target for prerequisite " << cp << " would "
-                   << "be incompatible with existing target " << *pt <<
-                info << "existing prerequisite " << p1 << " does not match "
-                   << cp <<
-                info << "specify corresponding " << o_type.name << "{} target "
-                   << "explicitly";
-
-            found = true;
-            // Check the rest of the prerequisites.
-          }
-        }
-
-        if (!found)
-        {
-          // Note: add the source to the group, not the member.
-          //
-          ot.prerequisites.emplace_back (p.as_prerequisite (trace));
-
-          // Add our lib*{} prerequisites to the object file (see
-          // cxx.export.poptions above for details). Note: no need
-          // to go into group members.
-          //
-          // Initially, we were only adding imported libraries, but
-          // there is a problem with this approach: the non-imported
-          // library might depend on the imported one(s) which we will
-          // never "see" unless we start with this library.
-          //
-          for (prerequisite& p: group_prerequisites (t))
-          {
-            if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
-              ot.prerequisites.emplace_back (p);
-          }
-
-          build::match (a, *pt);
-        }
-
-        t.prerequisite_targets.push_back (pt);
-      }
-
-      switch (a)
-      {
-      case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
-      default: return default_recipe; // Forward to prerequisites.
-      }
-    }
-
-    target_state link::
-    perform_update (action a, target& xt)
-    {
-      path_target& t (static_cast<path_target&> (xt));
-
-      type lt (link_type (t));
-      bool so (lt == type::so);
-
-      if (!execute_prerequisites (a, t, t.mtime ()))
-        return target_state::unchanged;
-
-      // Translate paths to relative (to working directory) ones. This
-      // results in easier to read diagnostics.
-      //
-      path relt (relative (t.path ()));
-
-      scope& rs (t.root_scope ());
-      cstrings args;
-      string storage1;
-
-      if (lt == type::a)
-      {
-        //@@ ranlib
-        //
-        args.push_back ("ar");
-        args.push_back ("-rc");
-        args.push_back (relt.string ().c_str ());
-      }
-      else
-      {
-        args.push_back (rs["config.cxx"].as<const string&> ().c_str ());
-
-        append_options (args, t, "cxx.coptions");
-
-        append_std (args, t, storage1);
-
-        if (so)
-          args.push_back ("-shared");
-
-        args.push_back ("-o");
-        args.push_back (relt.string ().c_str ());
-
-        append_options (args, t, "cxx.loptions");
-      }
-
-      // Reserve enough space so that we don't reallocate. Reallocating
-      // means pointers to elements may no longer be valid.
-      //
-      paths relo;
-      relo.reserve (t.prerequisite_targets.size ());
-
-      for (target* pt: t.prerequisite_targets)
-      {
-        path_target* ppt;
-
-        if ((ppt = pt->is_a<obja> ()))
-          ;
-        else if ((ppt = pt->is_a<objso> ()))
-          ;
-        else if ((ppt = pt->is_a<liba> ()))
-          ;
-        else if ((ppt = pt->is_a<libso> ()))
-        {
-          // Use absolute path for the shared libraries since that's
-          // the path the runtime loader will use to try to find it.
-          // This is probably temporary until we get into the whole
-          // -soname/-rpath mess.
-          //
-          args.push_back (ppt->path ().string ().c_str ());
-          continue;
-        }
-        else
-          continue;
-
-        relo.push_back (relative (ppt->path ()));
-        args.push_back (relo.back ().string ().c_str ());
-      }
-
-      if (lt != type::a)
-        append_options (args, t, "cxx.libs");
-
-      args.push_back (nullptr);
-
-      if (verb)
-        print_process (args);
-      else
-        text << "ld " << t;
 
       try
       {

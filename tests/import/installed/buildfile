@@ -1,0 +1,8 @@
+using cxx
+
+hxx.ext = hxx
+cxx.ext = cxx
+
+import libs += lib{z}
+
+exe{driver}: cxx{driver} $libs

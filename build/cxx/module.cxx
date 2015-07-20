@@ -14,8 +14,9 @@
 
 #include <build/bin/target>
 
-#include <build/cxx/rule>
 #include <build/cxx/target>
+#include <build/cxx/compile>
+#include <build/cxx/link>
 
 using namespace std;
 using namespace butl;

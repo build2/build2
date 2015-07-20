@@ -1,0 +1,3 @@
+project = import-installed
+amalgamation = # Disabled.
+using config

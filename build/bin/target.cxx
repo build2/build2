@@ -106,13 +106,26 @@ namespace build
       return a;
     }
 
+    // @@
+    //
+    // What extensions should we use? At the outset, this is platform-
+    // dependent. And if we consider cross-compilation, is it build or
+    // host-dependent? Feels like it should be host-dependent so that
+    // we can copy things between cross and native environments. So
+    // these will have to be determined based on what we are building.
+    // As if this is not complicated enough, the bin module doesn't
+    // know anything about building. So perhaps the extension should
+    // come from a variable that is set not by bin but by the module
+    // whose rule matched the target (e.g., cxx::link).
+    //
+    constexpr const char a_ext[] = "a";
     const target_type liba::static_type
     {
       typeid (liba),
       "liba",
       &file::static_type,
       &liba_factory,
-      nullptr,
+      &target_extension_fix<a_ext>,
       &search_file,
       false
     };
@@ -129,13 +142,14 @@ namespace build
       return so;
     }
 
+    constexpr const char so_ext[] = "so";
     const target_type libso::static_type
     {
       typeid (libso),
       "libso",
       &file::static_type,
       &libso_factory,
-      nullptr,
+      &target_extension_fix<so_ext>,
       &search_file,
       false
     };

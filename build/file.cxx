@@ -291,7 +291,7 @@ namespace build
 
     for (const dir_entry& de: dir_iterator (d))
     {
-      if (de.ltype () != entry_type::directory)
+      if (de.type () != entry_type::directory)
         continue;
 
       dir_path sd (d / path_cast<dir_path> (de.path ()));

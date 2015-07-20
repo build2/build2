@@ -514,6 +514,14 @@ namespace build
       return target != nullptr ? target->name : prerequisite.get ().name;
     }
 
+    const std::string*
+    proj () const
+    {
+      // Target cannot be project-qualified.
+      //
+      return target != nullptr ? nullptr : prerequisite.get ().proj;
+    }
+
     target_type&
     search () const
     {
@@ -740,6 +748,17 @@ namespace build
             std::string name,
             const std::string* ext,
             tracer&);
+
+    template <typename T>
+    T&
+    insert (const dir_path& dir,
+            const std::string& name,
+            const std::string* ext,
+            tracer& t)
+    {
+      return static_cast<T&> (
+        insert (T::static_type, dir, name, ext, t).first);
+    }
 
     template <typename T>
     T&

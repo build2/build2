@@ -1,0 +1,46 @@
+// file      : build/cxx/link -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_CXX_LINK
+#define BUILD_CXX_LINK
+
+#include <vector>
+
+#include <butl/optional>
+
+#include <build/types>
+#include <build/rule>
+
+namespace build
+{
+  namespace cxx
+  {
+    class link: public rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+
+      static target_state
+      perform_update (action, target&);
+
+    private:
+      friend class compile;
+
+      using search_paths = std::vector<dir_path>;
+      using search_paths_cache = butl::optional<search_paths>;
+
+      static target*
+      search_library (search_paths_cache&, prerequisite&);
+
+      static search_paths
+      extract_library_paths (scope&);
+    };
+  }
+}
+
+#endif // BUILD_CXX_LINK
