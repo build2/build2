@@ -321,19 +321,21 @@ namespace build
     case target_state::unknown:
     case target_state::postponed:
       {
-        t.raw_state = target_state::failed; // So the rule can just throw.
-
         auto g (
           make_exception_guard (
-            [](action a, target& t){info << "while " << diag_doing (a, t);},
+            [](action a, target& t)
+            {
+              t.raw_state = target_state::failed;
+              info << "while " << diag_doing (a, t);
+            },
             a, t));
 
         target_state ts (t.recipe (a) (a, t));
         assert (ts != target_state::unknown && ts != target_state::failed);
 
-        // The recipe may have set the target's state manually.
+        // Set the target's state unless it should be the group's state.
         //
-        if (t.raw_state == target_state::failed)
+        if (t.raw_state != target_state::group)
           t.raw_state = ts;
 
         return ts;
@@ -360,8 +362,8 @@ namespace build
         continue;
 
       target_state ts (execute (a, *pt));
-      if (ts == target_state::changed ||
-          (ts == target_state::postponed && r == target_state::unchanged))
+      if (ts == target_state::postponed ||
+          (ts == target_state::changed && r == target_state::unchanged))
         r = ts;
     }
 
@@ -379,8 +381,8 @@ namespace build
         continue;
 
       target_state ts (execute (a, *pt));
-      if (ts == target_state::changed ||
-          (ts == target_state::postponed && r == target_state::unchanged))
+      if (ts == target_state::postponed ||
+          (ts == target_state::changed && r == target_state::unchanged))
         r = ts;
     }
 
@@ -441,12 +443,8 @@ namespace build
   {
     target_state r (execute (a, *t.group));
 
-    // The standard execute() logic sets the state to failed just
-    // before calling the recipe (so that the recipe can just throw
-    // to indicate a failure). After the recipe is successfully
-    // executed and unless the recipe has updated the state manually,
-    // the recipe's return value is set as the new state. But we
-    // don't want that. So we are going to set it manually.
+    // Indicate to the standard execute() logic that this target's
+    // state comes from the group.
     //
     t.raw_state = target_state::group;
 
@@ -480,6 +478,6 @@ namespace build
     //
     target_state ts (reverse_execute_prerequisites (a, t));
 
-    return r ? target_state::changed : ts;
+    return r && ts != target_state::postponed ? target_state::changed : ts;
   }
 }

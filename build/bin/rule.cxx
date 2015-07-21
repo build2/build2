@@ -119,16 +119,16 @@ namespace build
       if (m1 != nullptr)
       {
         ts = execute (a, *m1);
-        if (ts == target_state::changed ||
-            (ts == target_state::postponed && r == target_state::unchanged))
+        if (ts == target_state::postponed ||
+            (ts == target_state::changed && r == target_state::unchanged))
           r = ts;
       }
 
       if (m2 != nullptr)
       {
         ts = execute (a, *m2);
-        if (ts == target_state::changed ||
-            (ts == target_state::postponed && r == target_state::unchanged))
+        if (ts == target_state::postponed ||
+            (ts == target_state::changed && r == target_state::unchanged))
           r = ts;
       }
 

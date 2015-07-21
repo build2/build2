@@ -228,9 +228,13 @@ namespace build
     rmdir_status rs (rmdir (t.dir, t));
 
     target_state ts (target_state::unchanged);
-
     if (t.has_prerequisites ())
+    {
       ts = reverse_execute_prerequisites (a, t);
+
+      if (ts == target_state::postponed)
+        return ts;
+    }
 
     // If we couldn't remove the directory, return postponed meaning
     // that the operation could not be performed at this time.

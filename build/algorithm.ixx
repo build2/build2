@@ -108,7 +108,10 @@ namespace build
   inline target_state
   execute (action a, target& t)
   {
-    t.dependents--;
+    // This can happen when we re-examine the state after being postponed.
+    //
+    if (t.dependents != 0)
+      t.dependents--;
 
     switch (target_state ts = t.state ())
     {

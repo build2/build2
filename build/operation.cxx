@@ -131,7 +131,6 @@ namespace build
         {
         case target_state::postponed:
           {
-            info << diag_doing (a, t) << " is postponed";
             psp.push_back (t);
             break;
           }
@@ -163,7 +162,7 @@ namespace build
     for (target& t: psp)
     {
       if (t.state () == target_state::postponed)
-        execute_direct (a, t); // Try again, now ignoring the execution mode.
+        execute (a, t); // Re-examine the state.
 
       switch (t.state ())
       {

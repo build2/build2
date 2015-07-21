@@ -294,7 +294,7 @@ namespace build
       //
       target_state ts (reverse_execute_prerequisites (a, t));
 
-      return r ? target_state::changed : ts;
+      return r && ts != target_state::postponed ? target_state::changed : ts;
     }
   }
 }
