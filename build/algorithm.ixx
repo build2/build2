@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <utility> // pair
-
 #include <build/rule>
 #include <build/prerequisite>
 #include <build/context>
@@ -50,7 +48,15 @@ namespace build
     return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
-  std::pair<const rule*, match_result>
+
+  struct match_result_impl
+  {
+    action ra; // Action to set recipe, not to pass to apply().
+    const rule* ru;
+    match_result mr;
+  };
+
+  match_result_impl
   match_impl (action, target&, bool apply);
 
   inline void

@@ -51,7 +51,7 @@ namespace build
   //
 
   group_view target::
-  group_members (action) const
+  group_members (action_type) const
   {
     assert (false); // Not a group or doesn't expose its members.
     return group_view {nullptr, 0};

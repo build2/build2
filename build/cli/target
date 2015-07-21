@@ -47,7 +47,7 @@ namespace build
       };
 
       virtual group_view
-      group_members (action) const;
+      group_members (action_type) const;
 
       virtual timestamp
       load_mtime () const;

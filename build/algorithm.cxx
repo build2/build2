@@ -41,10 +41,10 @@ namespace build
     return create_new_target (pk);
   }
 
-  pair<const rule*, match_result>
+  match_result_impl
   match_impl (action a, target& t, bool apply)
   {
-    pair<const rule*, match_result> r (nullptr, nullptr);
+    match_result_impl r;
 
     // Clear the resolved targets list before calling match(). The rule
     // is free to, say, resize() this list in match() (provided that it
@@ -52,75 +52,90 @@ namespace build
     //
     t.prerequisite_targets.clear ();
 
-    size_t oi (a.operation () - 1); // Operation index in rule_map.
-    scope& bs (t.base_scope ());
-
-    for (auto tt (&t.type ());
-         tt != nullptr && !t.recipe (a);
-         tt = tt->base)
+    // If this is a nested operation, first try the outer operation.
+    // This allows a rule to implement a "precise match", that is,
+    // both inner and outer operations match.
+    //
+    for (operation_id oo (a.outer_operation ()), io (a.operation ()),
+           o (oo != 0 ? oo : io); o != 0; o = (oo != 0 ? io : 0))
     {
-      // Search scopes outwards, stopping at the project root.
+      // Adjust action for recipe: on the first iteration we want it
+      // {inner, outer} (which is the same as 'a') while on the second
+      // -- {inner, 0}. Note that {inner, 0} is the same or "stronger"
+      // (i.e., overrides; see action::operator<()) than 'a'. This
+      // allows "unconditional inner" to override "inner for outer"
+      // recipes.
       //
-      for (const scope* s (&bs);
-           s != nullptr;
-           s = s->root () ? global_scope : s->parent_scope ())
+      action ra (a.meta_operation (), io, o != oo ? 0 : oo);
+
+      size_t oi (o - 1); // Operation index in rule_map.
+      scope& bs (t.base_scope ());
+
+      for (auto tt (&t.type ());
+           tt != nullptr && !t.recipe (ra);
+           tt = tt->base)
       {
-        const rule_map& om (s->rules);
-
-        if (om.size () <= oi)
-          continue; // No entry for this operation id.
-
-        const target_type_rule_map& ttm (om[oi]);
-
-        if (ttm.empty ())
-          continue; // Empty map for this operation id.
-
-        auto i (ttm.find (tt->id));
-
-        if (i == ttm.end () || i->second.empty ())
-          continue; // No rules registered for this target type.
-
-        const auto& rules (i->second); // Hint map.
-
-        // @@ TODO
+        // Search scopes outwards, stopping at the project root.
         //
-        // Different rules can be used for different operations (update
-        // vs test is a good example). So, at some point, we will probably
-        // have to support a list of hints or even an operation-hint map
-        // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
-        // but we want the foo rule instead). This is also the place where
-        // the '{build clean}=cxx' construct (which we currently do not
-        // support) can come handy.
-        //
-        // Also, ignore the hint (that is most likely ment for a different
-        // operation) if this is a unique match.
-        //
-        string hint;
-        auto rs (rules.size () == 1
-                 ? make_pair (rules.begin (), rules.end ())
-                 : rules.find_prefix (hint));
-
-        for (auto i (rs.first); i != rs.second; ++i)
+        for (const scope* s (&bs);
+             s != nullptr;
+             s = s->root () ? global_scope : s->parent_scope ())
         {
-          const string& n (i->first);
-          const rule& ru (i->second);
+          const rule_map& om (s->rules);
 
-          match_result m;
+          if (om.size () <= oi)
+            continue; // No entry for this operation id.
+
+          const target_type_rule_map& ttm (om[oi]);
+
+          if (ttm.empty ())
+            continue; // Empty map for this operation id.
+
+          auto i (ttm.find (tt->id));
+
+          if (i == ttm.end () || i->second.empty ())
+            continue; // No rules registered for this target type.
+
+          const auto& rules (i->second); // Hint map.
+
+          // @@ TODO
+          //
+          // Different rules can be used for different operations (update
+          // vs test is a good example). So, at some point, we will probably
+          // have to support a list of hints or even an operation-hint map
+          // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
+          // but we want the foo rule instead). This is also the place where
+          // the '{build clean}=cxx' construct (which we currently do not
+          // support) can come handy.
+          //
+          // Also, ignore the hint (that is most likely ment for a different
+          // operation) if this is a unique match.
+          //
+          string hint;
+          auto rs (rules.size () == 1
+                   ? make_pair (rules.begin (), rules.end ())
+                   : rules.find_prefix (hint));
+
+          for (auto i (rs.first); i != rs.second; ++i)
           {
-            auto g (
-              make_exception_guard (
-                [](action a, target& t, const string& n)
-                {
-                  info << "while matching rule " << n << " to "
-                       << diag_do (a, t);
-                },
-                a, t, n));
+            const string& n (i->first);
+            const rule& ru (i->second);
 
-            m = ru.match (a, t, hint);
-          }
+            match_result m;
+            {
+              auto g (
+                make_exception_guard (
+                  [](action a, target& t, const string& n)
+                  {
+                    info << "while matching rule " << n << " to "
+                         << diag_do (a, t);
+                  },
+                  ra, t, n));
 
-          if (m)
-          {
+              if (!(m = ru.match (ra, t, hint)))
+                continue;
+            }
+
             // Do the ambiguity test.
             //
             bool ambig (false);
@@ -132,7 +147,6 @@ namespace build
               const string& n1 (i->first);
               const rule& ru1 (i->second);
 
-              match_result m1;
               {
                 auto g (
                   make_exception_guard (
@@ -141,22 +155,20 @@ namespace build
                       info << "while matching rule " << n1 << " to "
                            << diag_do (a, t);
                     },
-                    a, t, n1));
+                    ra, t, n1));
 
-                m1 = ru1.match (a, t, hint);
+                if (!ru1.match (ra, t, hint))
+                  continue;
               }
 
-              if (m1)
+              if (!ambig)
               {
-                if (!ambig)
-                {
-                  dr << fail << "multiple rules matching " << diag_doing (a, t)
-                     << info << "rule " << n << " matches";
-                  ambig = true;
-                }
-
-                dr << info << "rule " << n1 << " also matches";
+                dr << fail << "multiple rules matching " << diag_doing (ra, t)
+                   << info << "rule " << n << " matches";
+                ambig = true;
               }
+
+              dr << info << "rule " << n1 << " also matches";
             }
 
             if (!ambig)
@@ -170,14 +182,15 @@ namespace build
                       info << "while applying rule " << n << " to "
                            << diag_do (a, t);
                     },
-                    a, t, n));
+                    ra, t, n));
 
-                t.recipe (a, ru.apply (a, t, m));
+                t.recipe (ra, ru.apply (ra, t, m));
               }
               else
               {
-                r.first = &ru;
-                r.second = m;
+                r.ra = ra;
+                r.ru = &ru;
+                r.mr = m;
               }
 
               return r;
@@ -208,7 +221,7 @@ namespace build
     //
     if (!g.recipe (a))
     {
-      auto p (match_impl (a, g, false));
+      auto mir (match_impl (a, g, false));
 
       r = g.group_members (a);
       if (r.members != nullptr)
@@ -217,7 +230,7 @@ namespace build
       // That didn't help, so apply the rule and go to the building
       // phase.
       //
-      g.recipe (a, p.first->apply (a, g, p.second));
+      g.recipe (mir.ra, mir.ru->apply (mir.ra, g, mir.mr));
     }
 
     // Note that we use execute_direct() rather than execute() here to

@@ -30,7 +30,7 @@ namespace build
     // cli.cxx
     //
     group_view cli_cxx::
-    group_members (action) const
+    group_members (action_type) const
     {
       return h != nullptr
         ? group_view {m, (i != nullptr ? 3U : 2U)}

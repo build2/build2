@@ -303,16 +303,21 @@ namespace build
     std::size_t dependents;
 
   public:
+    typedef build::action action_type;
+
+    action_type action; // Action this recipe is for.
+
+  public:
     typedef build::recipe recipe_type;
 
     const recipe_type&
-    recipe (action a) const {return action_ == a ? recipe_ : empty_recipe;}
+    recipe (action_type a) const {return a > action ? empty_recipe : recipe_;}
 
     void
-    recipe (action a, recipe_type r)
+    recipe (action_type a, recipe_type r)
     {
-      assert (action_ != a || !recipe_);
-      action_ = a;
+      assert (a > action || !recipe_);
+      action = a;
       recipe_ = std::move (r);
 
       // Also reset the target state. If this is a noop recipe, then
@@ -348,7 +353,6 @@ namespace build
     static const target_type static_type;
 
   private:
-    action action_; // Action this recipe is for.
     recipe_type recipe_;
   };
 
