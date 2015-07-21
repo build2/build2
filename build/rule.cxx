@@ -133,15 +133,15 @@ namespace build
     return target_state::unchanged;
   }
 
-  // dir_rule
+  // alias_rule
   //
-  match_result dir_rule::
+  match_result alias_rule::
   match (action, target& t, const string&) const
   {
     return t;
   }
 
-  recipe dir_rule::
+  recipe alias_rule::
   apply (action a, target& t, const match_result&) const
   {
     search_and_match_prerequisites (a, t);

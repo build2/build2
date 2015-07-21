@@ -30,7 +30,7 @@ namespace build
 
   // Builtin rules.
   //
-  static dir_rule dir_;
+  static alias_rule alias_;
   static fsdir_rule fsdir_;
   static file_rule file_;
 
@@ -67,6 +67,7 @@ namespace build
       target_type_map& tts (global_scope->target_types);
 
       tts.insert<file>  ();
+      tts.insert<alias> ();
       tts.insert<dir>   ();
       tts.insert<fsdir> ();
     }
@@ -76,9 +77,9 @@ namespace build
     {
       rule_map& rs (global_scope->rules);
 
-      rs.insert<dir> (default_id, "dir", dir_);
-      rs.insert<dir> (update_id, "dir", dir_);
-      rs.insert<dir> (clean_id, "dir", dir_);
+      rs.insert<alias> (default_id, "alias", alias_);
+      rs.insert<alias> (update_id, "alias", alias_);
+      rs.insert<alias> (clean_id, "alias", alias_);
 
       rs.insert<fsdir> (default_id, "fsdir", fsdir_);
       rs.insert<fsdir> (update_id, "fsdir", fsdir_);

@@ -67,7 +67,7 @@ namespace build
     perform_update (action, target&);
   };
 
-  class dir_rule: public rule
+  class alias_rule: public rule
   {
   public:
     virtual match_result

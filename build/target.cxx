@@ -297,9 +297,8 @@ namespace build
   static target*
   search_alias (const prerequisite_key& pk)
   {
-    // For an alias/action we don't want to silently create a target
-    // since it will do nothing and it most likely not what the author
-    // intended.
+    // For an alias we don't want to silently create a target since it
+    // will do nothing and it most likely not what the user intended.
     //
     target* t (search_existing_target (pk));
 
@@ -368,11 +367,22 @@ namespace build
     false
   };
 
+  const target_type alias::static_type
+  {
+    typeid (alias),
+    "alias",
+    &target::static_type,
+    &target_factory<alias>,
+    nullptr, // Should never need.
+    &search_alias,
+    false
+  };
+
   const target_type dir::static_type
   {
     typeid (dir),
     "dir",
-    &target::static_type,
+    &alias::static_type,
     &target_factory<dir>,
     nullptr, // Should never need.
     &search_alias,
