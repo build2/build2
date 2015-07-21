@@ -28,12 +28,6 @@ namespace build
   const operation_info* current_oif;
   execution_mode current_mode;
 
-  // Builtin rules.
-  //
-  static alias_rule alias_;
-  static fsdir_rule fsdir_;
-  static file_rule file_;
-
   void
   reset ()
   {
@@ -77,17 +71,17 @@ namespace build
     {
       rule_map& rs (global_scope->rules);
 
-      rs.insert<alias> (default_id, "alias", alias_);
-      rs.insert<alias> (update_id, "alias", alias_);
-      rs.insert<alias> (clean_id, "alias", alias_);
+      rs.insert<alias> (default_id, "alias", alias_rule::instance);
+      rs.insert<alias> (update_id, "alias", alias_rule::instance);
+      rs.insert<alias> (clean_id, "alias", alias_rule::instance);
 
-      rs.insert<fsdir> (default_id, "fsdir", fsdir_);
-      rs.insert<fsdir> (update_id, "fsdir", fsdir_);
-      rs.insert<fsdir> (clean_id, "fsdir", fsdir_);
+      rs.insert<fsdir> (default_id, "fsdir", fsdir_rule::instance);
+      rs.insert<fsdir> (update_id, "fsdir", fsdir_rule::instance);
+      rs.insert<fsdir> (clean_id, "fsdir", fsdir_rule::instance);
 
-      rs.insert<file> (default_id, "file", file_);
-      rs.insert<file> (update_id, "file", file_);
-      rs.insert<file> (clean_id, "file", file_);
+      rs.insert<file> (default_id, "file", file_rule::instance);
+      rs.insert<file> (update_id, "file", file_rule::instance);
+      rs.insert<file> (clean_id, "file", file_rule::instance);
     }
   }
 

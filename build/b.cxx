@@ -44,6 +44,7 @@ using namespace std;
 #include <build/bin/module>
 #include <build/cxx/module>
 #include <build/cli/module>
+#include <build/test/module>
 
 using namespace build;
 
@@ -94,6 +95,7 @@ main (int argc, char* argv[])
     builtin_modules["bin"] = &bin::bin_init;
     builtin_modules["cxx"] = &cxx::cxx_init;
     builtin_modules["cli"] = &cli::cli_init;
+    builtin_modules["test"] = &test::test_init;
 
     // Figure out work and home directories.
     //

@@ -70,4 +70,20 @@ namespace build
     assert (n.directory ());
     return n.dir;
   }
+
+  template <>
+  bool value_proxy::
+  as<bool> () const
+  {
+    const list_value& lv (as<const list_value&> ());
+    assert (lv.size () == 1);
+    const name& n (lv.front ());
+    assert (n.simple ());
+    if (n.value == "true")
+      return true;
+    else if (n.value == "false")
+      return false;
+    else
+      assert (false); // Bool value should be 'true' or 'false'.
+  }
 }

@@ -8,11 +8,12 @@ config = config/{operation module utility}
 bin = bin/{target rule module}
 cxx = cxx/{target compile link module utility}
 cli = cli/{target rule module}
+test = test/{operation rule module}
 
 exe{b}: cxx{b algorithm name operation spec scope variable target \
   prerequisite rule file module context search diagnostics token  \
-  lexer parser path-io utility dump options $config $bin $cxx $cli} \
-  $libs
+  lexer parser path-io utility dump options $config $bin $cxx $cli \
+  $test} $libs
 
 #@@ TODO
 #

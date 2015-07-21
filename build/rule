@@ -23,8 +23,18 @@ namespace build
     // Can contain neither (both are NULL), one of, or both. If both
     // are NULL, then it is a "no match" indicator.
     //
-    prerequisite_type* prerequisite;
+    // Note that if the "payload" is stored in value instead of
+    // prerequisite, then target must not be NULL.
+    //
+    union
+    {
+      prerequisite_type* prerequisite;
+      bool value;
+    };
+
     target_type* target;
+
+    match_result (target_type& t, bool v): value (v), target (&t) {}
 
     match_result (std::nullptr_t v = nullptr): prerequisite (v), target (v) {}
     match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
@@ -37,7 +47,7 @@ namespace build
     explicit
     operator bool () const
     {
-      return prerequisite != nullptr || target != nullptr;
+      return target != nullptr || prerequisite != nullptr;
     }
   };
 
@@ -65,6 +75,8 @@ namespace build
 
     static target_state
     perform_update (action, target&);
+
+    static file_rule instance;
   };
 
   class alias_rule: public rule
@@ -75,6 +87,8 @@ namespace build
 
     virtual recipe
     apply (action, target&, const match_result&) const;
+
+    static alias_rule instance;
   };
 
   class fsdir_rule: public rule
@@ -91,6 +105,8 @@ namespace build
 
     static target_state
     perform_clean (action, target&);
+
+    static fsdir_rule instance;
   };
 }
 

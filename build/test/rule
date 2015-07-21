@@ -1,0 +1,32 @@
+// file      : build/test/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_TEST_RULE
+#define BUILD_TEST_RULE
+
+#include <build/rule>
+#include <build/operation>
+
+namespace build
+{
+  namespace test
+  {
+    class rule: public build::rule
+    {
+    public:
+      rule (operation_id o): test_id (o) {}
+
+      virtual match_result
+      match (action, target&, const std::string&) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+
+    private:
+      operation_id test_id;
+    };
+  }
+}
+
+#endif // BUILD_TEST_RULE

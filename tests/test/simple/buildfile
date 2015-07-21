@@ -1,0 +1,10 @@
+using cxx
+
+hxx.ext = hxx
+cxx.ext = cxx
+
+lib{utility}: cxx{utility}
+exe{driver}: cxx{driver} lib{utility}
+exe{driver}: test = true
+
+.: lib{utility} exe{driver}

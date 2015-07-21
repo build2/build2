@@ -133,6 +133,8 @@ namespace build
     return target_state::unchanged;
   }
 
+  file_rule file_rule::instance;
+
   // alias_rule
   //
   match_result alias_rule::
@@ -147,6 +149,8 @@ namespace build
     search_and_match_prerequisites (a, t);
     return default_recipe;
   }
+
+  alias_rule alias_rule::instance;
 
   // fsdir_rule
   //
@@ -238,4 +242,6 @@ namespace build
     default: return ts;
     }
   }
+
+  fsdir_rule fsdir_rule::instance;
 }

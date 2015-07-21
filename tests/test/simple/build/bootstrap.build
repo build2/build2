@@ -1,0 +1,4 @@
+project = test-simple
+amalgamation = # Disabled.
+using config
+using test

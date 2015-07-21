@@ -218,6 +218,10 @@ namespace build
   template <>
   const dir_path& value_proxy::
   as<const dir_path&> () const;
+
+  template <>
+  bool value_proxy::
+  as<bool> () const;
 }
 
 namespace std
