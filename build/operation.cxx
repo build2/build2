@@ -137,7 +137,10 @@ namespace build
           }
         case target_state::unchanged:
           {
-            info << diag_already_done (a, t);
+            // Be quiet in pre/post operations.
+            //
+            if (a.outer_operation () == 0)
+              info << diag_already_done (a, t);
             break;
           }
         case target_state::changed:
@@ -171,7 +174,10 @@ namespace build
         }
       case target_state::unchanged:
         {
-          info << diag_already_done (a, t);
+          // Be quiet in pre/post operations.
+          //
+          if (a.outer_operation () == 0)
+            info << diag_already_done (a, t);
           break;
         }
       case target_state::unknown: // Assume something was done to it.
