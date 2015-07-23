@@ -211,7 +211,7 @@ namespace build
       "configure",
       "configure",
       "configuring",
-      "configured",
+      "is configured",
       nullptr, // meta-operation pre
       &configure_operation_pre,
       &load,   // normal load
@@ -381,7 +381,7 @@ namespace build
             targets.insert (
               dir::static_type, root.path (), "", nullptr, trace).first);
 
-          info << diag_already_done (a, t);
+          info << diag_done (a, t);
         }
       }
     }
@@ -402,7 +402,7 @@ namespace build
       "disfigure",
       "disfigure",
       "disfiguring",
-      "disfigured",
+      "is disfigured",
       nullptr, // meta-operation pre
       &disfigure_operation_pre,
       &disfigure_load,

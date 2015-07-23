@@ -5,6 +5,7 @@
 #ifndef BUILD_DIAGNOSTICS
 #define BUILD_DIAGNOSTICS
 
+#include <cstddef> // size_t
 #include <cstdint>
 #include <utility>
 #include <cassert>
@@ -52,7 +53,7 @@ namespace build
 
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
-  // and "updating exe{foo} already configured".
+  // and "updating exe{foo} is configured".
   //
   struct action;
   class target;
@@ -64,17 +65,25 @@ namespace build
   diag_doing (const action&, const target&);
 
   std::string
-  diag_already_done (const action&, const target&);
+  diag_done (const action&, const target&);
 
-  // Print process commmand line.
+  // Print process commmand line. If the number of elements is specified
+  // (or the second version is used), then it will print the piped multi-
+  // process command line, if present. In this case, the expected format
+  // is as follows:
+  //
+  // name1 arg arg ... nullptr
+  // name2 arg arg ... nullptr
+  // ...
+  // nameN arg arg ... nullptr nullptr
   //
   void
-  print_process (const char* const* args);
+  print_process (const char* const* args, std::size_t n = 0);
 
   inline void
   print_process (const cstrings& args)
   {
-    print_process (args.data ());
+    print_process (args.data (), args.size ());
   }
 
   // Trace verbosity level.

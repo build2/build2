@@ -25,7 +25,7 @@ namespace build
       "test",
       "test",
       "testing",
-      "tested",
+      "has nothing to test", // We cannot "be tested".
       execution_mode::first,
       &test_pre,
       nullptr

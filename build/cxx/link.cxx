@@ -127,7 +127,7 @@ namespace build
       string l;
       try
       {
-        process pr (args.data (), false, false, true);
+        process pr (args.data (), 0, -1); // Open pipe to stdout.
         ifdstream is (pr.in_ofd);
 
         while (!is.eof ())

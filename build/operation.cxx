@@ -139,7 +139,7 @@ namespace build
             // Be quiet in pre/post operations.
             //
             if (a.outer_operation () == 0)
-              info << diag_already_done (a, t);
+              info << diag_done (a, t);
             break;
           }
         case target_state::changed:
@@ -176,7 +176,7 @@ namespace build
           // Be quiet in pre/post operations.
           //
           if (a.outer_operation () == 0)
-            info << diag_already_done (a, t);
+            info << diag_done (a, t);
           break;
         }
       case target_state::unknown: // Assume something was done to it.
@@ -221,7 +221,7 @@ namespace build
     "update",
     "update",
     "updating",
-    "up to date",
+    "is up to date",
     execution_mode::first,
     nullptr,
     nullptr
@@ -231,7 +231,7 @@ namespace build
     "clean",
     "clean",
     "cleaning",
-    "clean",
+    "is clean",
     execution_mode::last,
     nullptr,
     nullptr

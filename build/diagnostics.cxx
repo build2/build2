@@ -128,44 +128,59 @@ namespace build
   }
 
   string
-  diag_already_done (const action&, const target& t)
+  diag_done (const action&, const target& t)
   {
     const meta_operation_info& mi (*current_mif);
     const operation_info& oi (*current_oif);
 
     ostringstream os;
 
-    // perform(update(x))   -> "x is already up to date"
-    // configure(update(x)) -> "updating x is already configured"
+    // perform(update(x))   -> "x is up to date"
+    // configure(update(x)) -> "updating x is configured"
     //
-    if (mi.name_already_done.empty ())
+    if (mi.name_done.empty ())
     {
       os << t;
 
-      if (!oi.name_already_done.empty ())
-        os << " is already " << oi.name_already_done;
+      if (!oi.name_done.empty ())
+        os << " " << oi.name_done;
     }
     else
     {
       if (!oi.name_doing.empty ())
         os << oi.name_doing << ' ';
 
-      os << t << " is already " << mi.name_already_done;
+      os << t << " " << mi.name_done;
     }
 
     return os.str ();
   }
 
   void
-  print_process (const char* const* args)
+  print_process (const char* const* args, size_t n)
   {
     diag_record r (text);
 
-    for (const char* const* p (args); *p != nullptr; p++)
-      r << (p != args ? " " : "")
-        << (**p == '\0' ? "\"" : "") // Quote empty arguments.
-        << *p
-        << (**p == '\0' ? "\"" : "");
+    size_t m (0);
+    const char* const* p (args);
+    do
+    {
+      if (m != 0)
+        r << " |"; // Trailing space will be added inside the loop.
+
+      for (m++; *p != nullptr; p++, m++)
+        r << (p != args ? " " : "")
+          << (**p == '\0' ? "\"" : "") // Quote empty arguments.
+          << *p
+          << (**p == '\0' ? "\"" : "");
+
+      if (m < n) // Can we examine the next element?
+      {
+        p++;
+        m++;
+      }
+
+    } while (*p != nullptr);
   }
 
   // Trace verbosity level.

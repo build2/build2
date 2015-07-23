@@ -459,7 +459,7 @@ namespace build
 
         try
         {
-          process pr (args.data (), false, false, true);
+          process pr (args.data (), 0, -1); // Open pipe to stdout.
           ifdstream is (pr.in_ofd);
 
           size_t skip (skip_count);

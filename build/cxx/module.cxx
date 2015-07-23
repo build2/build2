@@ -110,7 +110,7 @@ namespace build
           string ver;
           try
           {
-            process pr (args, false, false, true);
+            process pr (args, 0, -1); // Open pipe to stdout.
             ifdstream is (pr.in_ofd);
 
             bool r (getline (is, ver));

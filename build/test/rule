@@ -23,6 +23,9 @@ namespace build
       virtual recipe
       apply (action, target&, const match_result&) const;
 
+      static target_state
+      perform_test (action, target&);
+
     private:
       operation_id test_id;
     };

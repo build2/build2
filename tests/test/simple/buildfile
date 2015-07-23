@@ -4,7 +4,10 @@ hxx.ext = hxx
 cxx.ext = cxx
 
 lib{utility}: cxx{utility}
-exe{driver}: cxx{driver} lib{utility}
+exe{driver}: cxx{driver} #lib{utility}
 exe{driver}: test = true
 
+test.exe = false
+
 .: lib{utility} exe{driver}
+#.: exe{driver}

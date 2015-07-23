@@ -56,7 +56,7 @@ namespace build
 
     // If this is not a nested operation, then outer should be 0.
     //
-    action (meta_operation_id m, operation_id inner, operation_id outer)
+    action (meta_operation_id m, operation_id inner, operation_id outer = 0)
         : inner_id ((m << 4) | inner),
           outer_id (outer == 0 ? 0 : (m << 4) | outer) {}
 
@@ -91,16 +91,13 @@ namespace build
       (x.outer_id != y.outer_id && y.outer_id != 0);
   }
 
-  /*
+  // Note that these ignore the outer operation.
+  //
   inline bool
-  operator== (action x, action y)
-  {
-    return x.inner_id == y.inner_id && x.outer_id == y.outer_id;
-  }
+  operator== (action x, action y) {return x.inner_id == y.inner_id;}
 
   inline bool
   operator!= (action x, action y) {return !(x == y);}
-  */
 
   std::ostream&
   operator<< (std::ostream&, action);
@@ -179,7 +176,7 @@ namespace build
     //
     const std::string name_do;           // E.g., [to] 'configure'.
     const std::string name_doing;        // E.g., [while] 'configuring'.
-    const std::string name_already_done; // E.g., [already] 'configured'.
+    const std::string name_done;         // E.g., 'is configured'.
 
     // If operation_pre() is not NULL, then it may translate default_id
     // (and only default_id) to some other operation. If not translated,
@@ -261,7 +258,7 @@ namespace build
     //
     const std::string name_do;           // E.g., [to] 'update'.
     const std::string name_doing;        // E.g., [while] 'updating'.
-    const std::string name_already_done; // E.g., [already] 'up to date'.
+    const std::string name_done;         // E.g., 'is up to date'.
 
     const execution_mode mode;
 
