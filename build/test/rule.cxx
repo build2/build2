@@ -50,7 +50,7 @@ namespace build
         // is a test.
         //
         if (var.name == "test.input"     ||
-            var.name == "test.ouput"     ||
+            var.name == "test.output"    ||
             var.name == "test.roundtrip" ||
             var.name == "test.options"   ||
             var.name == "test.arguments")
@@ -68,19 +68,34 @@ namespace build
           v.rebind (t.base_scope ()[string("test.") + t.type ().name]);
 
         r = v && v.as<bool> ();
-
       }
 
-      if (!r)
-        return match_result (t, false); // "Not a test" result.
-
-      // If this is the update pre-operation, make someone else do
-      // the job.
+      // If this is the update pre-operation, then all we really need to
+      // do is say we are not a match and the standard matching machinery
+      // will (hopefully) find the rule to update this target.
       //
-      if (a.operation () != test_id)
-        return nullptr;
+      // There is one thing that compilates this simple approach: test
+      // input/output. While normally they will be existing (in src_base)
+      // files, they could also be auto-generated. In fact, they could
+      // only be needed for testing, which means the normall update won't
+      // even know about them (nor clean, for that matter; this is why we
+      // need cleantest).
+      //
+      // To make generated input/output work we will have to cause their
+      // update ourselves. I other words, we may have to do some actual
+      // work for (update, test), and not simply "guide" (update, 0) as
+      // to which targets need updating. For how exactly we are going to
+      // do it, see apply() below.
+      //
+      match_result mr (t, r);
 
-      return match_result (t, true);
+      // If this is the update pre-operation, change the recipe action
+      // to (update, 0) (i.e., "unconditional update").
+      //
+      if (r && a.operation () == update_id)
+        mr.recipe_action = action (a.meta_operation (), update_id);
+
+      return mr;
     }
 
     recipe rule::
@@ -91,13 +106,24 @@ namespace build
       if (!mr.value) // Not a test.
         return noop_recipe;
 
-      // Don't do anything for other meta-operations.
+      // In case of test, we don't do anything for other meta-operations.
       //
-      if (a != action (perform_id, test_id))
+      if (a.operation () == test_id && a.meta_operation () != perform_id)
         return noop_recipe;
 
-      // See if we have test.{input,output,roundtrip}. First check the
-      // target-specific vars since they override any scope ones.
+      // Ok, if we are here, then this means:
+      //
+      // 1. This target is a test.
+      // 2. The action is either
+      //    a. (perform, test, 0) or
+      //    b. (*, update, 0)
+      //
+      // In both cases, the next step is to see if we have test.{input,
+      // output,roundtrip}.
+      //
+
+      // First check the target-specific vars since they override any
+      // scope ones.
       //
       auto iv (t.vars["test.input"]);
       auto ov (t.vars["test.output"]);
@@ -147,8 +173,8 @@ namespace build
         }
       }
 
-      const name* i;
-      const name* o;
+      const name* in;
+      const name* on;
 
       // Reduce the roundtrip case to input/output.
       //
@@ -158,35 +184,92 @@ namespace build
           fail << "both test.roundtrip and test.input/output specified "
                << "for target " << t;
 
-        i = o = rv.as<const name*> ();
+        in = on = rv.as<const name*> ();
       }
       else
       {
-        i = iv ? iv.as<const name*> () : nullptr;
-        o = ov ? ov.as<const name*> () : nullptr;
+        in = iv ? iv.as<const name*> () : nullptr;
+        on = ov ? ov.as<const name*> () : nullptr;
       }
 
-      // Resolve them to targets (normally just files) and cache in
-      // our prerequsite targets lists where they can be found by
-      // perform_test(). If we have either or both, then the first
-      // entry is input and the second -- output (either can be NULL).
+      // Resolve them to targets, which normally would be existing files
+      // but could also be targets that need updating.
       //
-      auto& pts (t.prerequisite_targets);
+      target* it (in != nullptr ? &search (*in, bs) : nullptr);
+      target* ot (on != nullptr ? in == on ? it : &search (*on, bs) : nullptr);
 
-      if (i != nullptr || o != nullptr)
-        pts.resize (2, nullptr);
+      if (a.operation () == update_id)
+      {
+        // First see if input/output are existing, up-to-date files. This
+        // is a common case optimization.
+        //
+        if (it != nullptr)
+        {
+          build::match (a, *it);
 
-      //@@ We should match() them, but for update, not test.
-      //@@ If not doing this for some reason, need to then verify
-      //   path was assigned (i.e., matched an existing file).
-      //
-      if (i != nullptr)
-        pts[0] = &search (*i, bs);
+          if (file_rule::uptodate (a, *it))
+            it = nullptr;
+        }
 
-      if (o != nullptr)
-        pts[1] = i == o ? pts[0] : &search (*o, bs);
+        if (ot != nullptr && in == on)
+        {
+          build::match (a, *ot);
 
-      return &perform_test;
+          if (file_rule::uptodate (a, *ot))
+            ot = nullptr;
+        }
+        else
+          ot = it;
+
+
+        // Find the "real" update rule, that is, the rule that would
+        // have been found if we signalled that we do not match from
+        // match() above.
+        //
+        recipe d (match_delegate (a, t).first);
+
+        // If we have no input/output that needs updating, then simply
+        // redirect to it
+        //
+        if (it == nullptr && ot == nullptr)
+          return d;
+
+        // Ok, time to handle the worst case scenario: we need to
+        // cause update of input/output targets and also delegate
+        // to the real update.
+        //
+        return [it, ot, dr = move (d)] (action a, target& t) -> target_state
+        {
+          // Do the general update first.
+          //
+          target_state r (execute_delegate (dr, a, t));
+
+          if (it != nullptr)
+            r |= execute (a, *it);
+
+          if (ot != nullptr)
+            r |= execute (a, *ot);
+
+          return r;
+        };
+      }
+      else
+      {
+        // Cache the targets in our prerequsite targets lists where they
+        // can be found by perform_test(). If we have either or both,
+        // then the first entry is input and the second -- output (either
+        // can be NULL).
+        //
+        if (it != nullptr || ot != nullptr)
+        {
+          auto& pts (t.prerequisite_targets);
+          pts.resize (2, nullptr);
+          pts[0] = it;
+          pts[1] = ot;
+        }
+
+        return &perform_test;
+      }
     }
 
     static void
@@ -310,7 +393,7 @@ namespace build
       if (pts.size () != 0 && pts[0] != nullptr)
       {
         file& it (static_cast<file&> (*pts[0]));
-        assert (!it.path ().empty ()); // Should have been assigned.
+        assert (!it.path ().empty ()); // Should have been assigned by update.
         args.push_back (it.path ().string ().c_str ());
       }
       // Maybe arguments then?
@@ -325,7 +408,7 @@ namespace build
       if (pts.size () != 0 && pts[1] != nullptr)
       {
         file& ot (static_cast<file&> (*pts[1]));
-        assert (!ot.path ().empty ()); // Should have been assigned.
+        assert (!ot.path ().empty ()); // Should have been assigned by update.
 
         args.push_back ("diff");
         args.push_back ("-u");

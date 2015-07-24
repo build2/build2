@@ -1,2 +1,3 @@
 project = cli-lib-test
+amalgamation = # Disabled.
 using config

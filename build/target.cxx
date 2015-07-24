@@ -32,12 +32,12 @@ namespace build
   // target_state
   //
   static const char* target_state_[] = {
-    "group", "unknown", "postponed", "unchanged", "changed", "failed"};
+    "unknown", "unchanged", "changed", "postponed", "failed", "group"};
 
   ostream&
   operator<< (ostream& os, target_state ts)
   {
-    return os << target_state_[static_cast<size_t> (ts)];
+    return os << target_state_[static_cast<uint8_t> (ts)];
   }
 
   // recipe

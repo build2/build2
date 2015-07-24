@@ -25,7 +25,8 @@ namespace build
   string_pool project_name_pool;
 
   const meta_operation_info* current_mif;
-  const operation_info* current_oif;
+  const operation_info* current_inner_oif;
+  const operation_info* current_outer_oif;
   execution_mode current_mode;
 
   void

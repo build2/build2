@@ -1,4 +1,4 @@
-import libs += cli-lib-libtest
+import libs += cli-lib-libtest%lib{test}
 
 exe{driver}: cxx{driver} cli.cxx{test} $libs
 cli.cxx{test}: cli{test}

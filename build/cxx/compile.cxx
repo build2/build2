@@ -642,10 +642,7 @@ namespace build
               // them is fallback file_rule. So we are going to do a little
               // fast-path optimization by detecting this common case.
               //
-              recipe_function* const* recipe (
-                pt.recipe (a).target<recipe_function*> ());
-
-              if (recipe == nullptr || *recipe != &file_rule::perform_update)
+              if (!file_rule::uptodate (a, pt))
               {
                 // We only want to restart if our call to execute() actually
                 // caused an update. In particular, the target could already

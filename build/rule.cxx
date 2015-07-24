@@ -213,7 +213,7 @@ namespace build
         fail << "unable to create directory " << d << ": " << e.what ();
       }
 
-      ts = target_state::changed;
+      ts |= target_state::changed;
     }
 
     return ts;
@@ -229,22 +229,19 @@ namespace build
 
     target_state ts (target_state::unchanged);
     if (t.has_prerequisites ())
-    {
       ts = reverse_execute_prerequisites (a, t);
-
-      if (ts == target_state::postponed)
-        return ts;
-    }
 
     // If we couldn't remove the directory, return postponed meaning
     // that the operation could not be performed at this time.
     //
     switch (rs)
     {
-    case rmdir_status::success: return target_state::changed;
-    case rmdir_status::not_empty: return target_state::postponed;
-    default: return ts;
+    case rmdir_status::success: ts |= target_state::changed;
+    case rmdir_status::not_empty: ts |= target_state::postponed;
+    default: break;
     }
+
+    return ts;
   }
 
   fsdir_rule fsdir_rule::instance;

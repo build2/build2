@@ -34,8 +34,9 @@ namespace build
 
     target_type* target;
 
-    match_result (target_type& t, bool v): value (v), target (&t) {}
+    action recipe_action = action (); // Used as recipe's action if set.
 
+    match_result (target_type& t, bool v): value (v), target (&t) {}
     match_result (std::nullptr_t v = nullptr): prerequisite (v), target (v) {}
     match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
     match_result (prerequisite_type* p): prerequisite (p), target (nullptr) {}
@@ -75,6 +76,20 @@ namespace build
 
     static target_state
     perform_update (action, target&);
+
+    // Sometimes it is useful, normally as an optimization, to check
+    // if the file target is up to date. In particular, if the rule
+    // that matched a target is this fallback rule and the target
+    // has no prerequisites, then it means it is up to date.
+    //
+    static bool
+    uptodate (action a, target& t)
+    {
+      recipe_function* const* r (t.recipe (a).target<recipe_function*> ());
+      return r != nullptr && *r == &perform_update &&
+        t.prerequisites.empty () &&
+        (t.group == nullptr || t.group->prerequisites.empty ());
+    }
 
     static file_rule instance;
   };

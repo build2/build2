@@ -290,11 +290,13 @@ namespace build
 
       t.mtime (timestamp_nonexistent);
 
+      target_state ts (r ? target_state::changed : target_state::unchanged);
+
       // Clean prerequisites.
       //
-      target_state ts (reverse_execute_prerequisites (a, t));
+      ts |= reverse_execute_prerequisites (a, t);
 
-      return r && ts != target_state::postponed ? target_state::changed : ts;
+      return ts;
     }
   }
 }

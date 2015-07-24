@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>      // unique_ptr
 #include <cstddef>     // size_t
+#include <cstdint>     // uint8_t
 #include <functional>  // reference_wrapper
 #include <ostream>
 #include <cassert>
@@ -38,18 +39,31 @@ namespace build
 
   // Target state.
   //
-  enum class target_state
+  enum class target_state: std::uint8_t
   {
-    group,           // Target's state is the group's state.
+    // The order of the enumerators is arranged so that their
+    // inegral values indicate whether one "overrides" the other
+    // in the merge operator (see below).
+    //
     unknown,
-    postponed,
     unchanged,
     changed,
-    failed
+    postponed,
+    failed,
+    group       // Target's state is the group's state.
   };
 
   std::ostream&
   operator<< (std::ostream&, target_state);
+
+  inline target_state&
+  operator |= (target_state& l, target_state r)
+  {
+    if (static_cast<std::uint8_t> (r) > static_cast<std::uint8_t> (l))
+      l = r;
+
+    return l;
+  }
 
   // Recipe.
   //

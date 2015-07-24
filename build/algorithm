@@ -6,6 +6,7 @@
 #define BUILD_ALGORITHM
 
 #include <string>
+#include <utility> // pair
 
 #include <build/types>
 #include <build/target>
@@ -68,6 +69,14 @@ namespace build
   void
   match (action, target&);
 
+  // Match a "delegate rule" from withing another rules' apply()
+  // function. Return recipe and recipe action (if any). Note
+  // that unlike match(), this call doesn't increment the
+  // dependents count. See also execute_delegate().
+  //
+  std::pair<recipe, action>
+  match_delegate (action, target&);
+
   // The standard prerequisite search and match implementations. They call
   // search_and_match_*() versions below passing non-empty directory for
   // the clean operation.
@@ -115,6 +124,15 @@ namespace build
   //
   target_state
   execute (action, target&);
+
+  // Execute the recipe obtained with match_delegate(). Note that
+  // the target's state is neither checked nor updated by this
+  // function. In other words, the appropriate usage is to call
+  // this function from another recipe and to factor the obtained
+  // state into the one returned.
+  //
+  target_state
+  execute_delegate (const recipe&, action, target&);
 
   // A special version of the above that should be used for "direct"
   // and "now" execution, that is, side-stepping the normal target-

@@ -55,10 +55,10 @@ namespace build
     return search (*tt, move (n.dir), move (n.value), e, &s);
   }
 
-  match_result_impl
+  pair<const rule*, match_result>
   match_impl (action a, target& t, bool apply)
   {
-    match_result_impl r;
+    pair<const rule*, match_result> r;
 
     // Clear the resolved targets list before calling match(). The rule
     // is free to, say, resize() this list in match() (provided that it
@@ -148,6 +148,9 @@ namespace build
 
               if (!(m = ru.match (ra, t, hint)))
                 continue;
+
+              if (!m.recipe_action.valid ())
+                m.recipe_action = ra; // Default, if not set.
             }
 
             // Do the ambiguity test.
@@ -187,6 +190,8 @@ namespace build
 
             if (!ambig)
             {
+              ra = m.recipe_action; // Use custom, if set.
+
               if (apply)
               {
                 auto g (
@@ -198,13 +203,15 @@ namespace build
                     },
                     ra, t, n));
 
+                // @@ We could also allow the rule to change the recipe
+                // action in apply(). Could be useful with delegates.
+                //
                 t.recipe (ra, ru.apply (ra, t, m));
               }
               else
               {
-                r.ra = ra;
-                r.ru = &ru;
-                r.mr = m;
+                r.first = &ru;
+                r.second = move (m);
               }
 
               return r;
@@ -235,7 +242,7 @@ namespace build
     //
     if (!g.recipe (a))
     {
-      auto mir (match_impl (a, g, false));
+      auto rp (match_impl (a, g, false));
 
       r = g.group_members (a);
       if (r.members != nullptr)
@@ -244,7 +251,8 @@ namespace build
       // That didn't help, so apply the rule and go to the building
       // phase.
       //
-      g.recipe (mir.ra, mir.ru->apply (mir.ra, g, mir.mr));
+      const match_result& mr (rp.second);
+      g.recipe (mr.recipe_action, rp.first->apply (mr.recipe_action, g, mr));
     }
 
     // Note that we use execute_direct() rather than execute() here to
@@ -375,10 +383,7 @@ namespace build
       if (pt == nullptr) // Skipped.
         continue;
 
-      target_state ts (execute (a, *pt));
-      if (ts == target_state::postponed ||
-          (ts == target_state::changed && r == target_state::unchanged))
-        r = ts;
+      r |= execute (a, *pt);
     }
 
     return r;
@@ -394,10 +399,7 @@ namespace build
       if (pt == nullptr) // Skipped.
         continue;
 
-      target_state ts (execute (a, *pt));
-      if (ts == target_state::postponed ||
-          (ts == target_state::changed && r == target_state::unchanged))
-        r = ts;
+      r |= execute (a, *pt);
     }
 
     return r;
@@ -481,7 +483,9 @@ namespace build
     //
     file& ft (dynamic_cast<file&> (t));
 
-    bool r (rmfile (ft.path (), ft));
+    target_state r (rmfile (ft.path (), ft)
+                    ? target_state::changed
+                    : target_state::unchanged);
 
     // Update timestamp in case there are operations after us that
     // could use the information.
@@ -490,8 +494,8 @@ namespace build
 
     // Clean prerequisites.
     //
-    target_state ts (reverse_execute_prerequisites (a, t));
+    r |= reverse_execute_prerequisites (a, t);
 
-    return r && ts != target_state::postponed ? target_state::changed : ts;
+    return r;
   }
 }

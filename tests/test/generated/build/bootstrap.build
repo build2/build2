@@ -1,3 +1,4 @@
-project = cli-lib-libtest
+project = test-generated
 amalgamation = # Disabled.
 using config
+using test

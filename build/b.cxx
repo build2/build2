@@ -739,7 +739,8 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (pre_oid); // Cannot be translated.
 
-          current_oif = pre_oif;
+          current_inner_oif = pre_oif;
+          current_outer_oif = oif;
           current_mode = pre_oif->mode;
 
           action a (mid, pre_oid, oid);
@@ -754,7 +755,8 @@ main (int argc, char* argv[])
                             << ", id " << static_cast<uint16_t> (pre_oid);});
         }
 
-        current_oif = oif;
+        current_inner_oif = oif;
+        current_outer_oif = nullptr;
         current_mode = oif->mode;
 
         action a (mid, oid, 0);
@@ -770,7 +772,8 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (post_oid); // Cannot be translated.
 
-          current_oif = post_oif;
+          current_inner_oif = post_oif;
+          current_outer_oif = oif;
           current_mode = post_oif->mode;
 
           action a (mid, post_oid, oid);

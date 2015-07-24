@@ -84,23 +84,27 @@ namespace build
   string
   diag_do (const action&, const target& t)
   {
-    const meta_operation_info& mi (*current_mif);
-    const operation_info& oi (*current_oif);
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
 
     ostringstream os;
 
     // perform(update(x))   -> "update x"
     // configure(update(x)) -> "configure updating x"
     //
-    if (mi.name_do.empty ())
-      os << oi.name_do << ' ';
+    if (m.name_do.empty ())
+      os << io.name_do << ' ';
     else
     {
-      os << mi.name_do << ' ';
+      os << m.name_do << ' ';
 
-      if (!oi.name_doing.empty ())
-        os << oi.name_doing << ' ';
+      if (!io.name_doing.empty ())
+        os << io.name_doing << ' ';
     }
+
+    if (oo != nullptr)
+      os << "(for " << oo->name << ") ";
 
     os << t;
     return os.str ();
@@ -109,19 +113,23 @@ namespace build
   string
   diag_doing (const action&, const target& t)
   {
-    const meta_operation_info& mi (*current_mif);
-    const operation_info& oi (*current_oif);
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
 
     ostringstream os;
 
     // perform(update(x))   -> "updating x"
     // configure(update(x)) -> "configuring updating x"
     //
-    if (!mi.name_doing.empty ())
-      os << mi.name_doing << ' ';
+    if (!m.name_doing.empty ())
+      os << m.name_doing << ' ';
 
-    if (!oi.name_doing.empty ())
-      os << oi.name_doing << ' ';
+    if (!io.name_doing.empty ())
+      os << io.name_doing << ' ';
+
+    if (oo != nullptr)
+      os << "(for " << oo->name << ") ";
 
     os << t;
     return os.str ();
@@ -130,27 +138,34 @@ namespace build
   string
   diag_done (const action&, const target& t)
   {
-    const meta_operation_info& mi (*current_mif);
-    const operation_info& oi (*current_oif);
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
 
     ostringstream os;
 
     // perform(update(x))   -> "x is up to date"
     // configure(update(x)) -> "updating x is configured"
     //
-    if (mi.name_done.empty ())
+    if (m.name_done.empty ())
     {
       os << t;
 
-      if (!oi.name_done.empty ())
-        os << " " << oi.name_done;
+      if (!io.name_done.empty ())
+        os << " " << io.name_done;
+
+      if (oo != nullptr)
+        os << "(for " << oo->name << ") ";
     }
     else
     {
-      if (!oi.name_doing.empty ())
-        os << oi.name_doing << ' ';
+      if (!io.name_doing.empty ())
+        os << io.name_doing << ' ';
 
-      os << t << " " << mi.name_done;
+      if (oo != nullptr)
+        os << "(for " << oo->name << ") ";
+
+      os << t << " " << m.name_done;
     }
 
     return os.str ();

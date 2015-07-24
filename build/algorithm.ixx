@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <utility> // pair
+
 #include <build/rule>
 #include <build/prerequisite>
 #include <build/context>
@@ -48,15 +50,7 @@ namespace build
     return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
-
-  struct match_result_impl
-  {
-    action ra; // Action to set recipe, not to pass to apply().
-    const rule* ru;
-    match_result mr;
-  };
-
-  match_result_impl
+  std::pair<const rule*, match_result>
   match_impl (action, target&, bool apply);
 
   inline void
@@ -66,6 +60,15 @@ namespace build
       match_impl (a, t, true);
 
     t.dependents++;
+  }
+
+  inline std::pair<recipe, action>
+  match_delegate (action a, target& t)
+  {
+    auto rp (match_impl (a, t, false));
+    const match_result& mr (rp.second);
+    return std::make_pair (rp.first->apply (mr.recipe_action, t, mr),
+                           mr.recipe_action);
   }
 
   group_view
@@ -150,6 +153,12 @@ namespace build
         return execute_impl (a, t);
       }
     }
+  }
+
+  inline target_state
+  execute_delegate (const recipe& r, action a, target& t)
+  {
+    return r (a, t);
   }
 
   inline target_state
