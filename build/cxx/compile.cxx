@@ -212,8 +212,16 @@ namespace build
     {
       tracer trace ("cxx::append_prefixes");
 
+      // If this target does not belong to any project (e.g, an
+      // "imported as installed" library), then it can't possibly
+      // generate any headers for us.
+      //
+      scope* rs (t.base_scope ().root_scope ());
+      if (rs == nullptr)
+        return;
+
       const dir_path& out_base (t.dir);
-      const dir_path& out_root (t.root_scope ().path ());
+      const dir_path& out_root (rs->path ());
 
       if (auto val = t[var])
       {
@@ -558,9 +566,13 @@ namespace build
                 {
                   const dir_path& d (f.directory ());
                   i = pm.upper_bound (d);
-                  --i; // Greatest less than.
 
-                  if (!d.sub (i->first)) // We might still not be a sub.
+                  // Get the greatest less than, if any. We might
+                  // still not be a sub. Note also that we still
+                  // have to check the last element is upper_bound()
+                  // returned end().
+                  //
+                  if (i == pm.begin () || !d.sub ((--i)->first))
                     i = pm.end ();
                 }
 
