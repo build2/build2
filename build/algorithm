@@ -44,7 +44,7 @@ namespace build
           const dir_path& dir,
           const std::string& name,
           const std::string* ext,
-          scope* scope);
+          scope*);
 
   // As above but specify the target type as template argument.
   //
@@ -53,7 +53,15 @@ namespace build
   search (const dir_path& dir,
           const std::string& name,
           const std::string* ext,
-          scope* scope);
+          scope*);
+
+  // Search for a target identified by the name. The semantics
+  // is "as if" we first created a prerequisite based on this
+  // name in exactly the same way as the parser would and then
+  // searched based on this prerequisite.
+  //
+  target&
+  search (name, scope&);
 
   // Match a rule to the action/target with ambiguity detection.
   //

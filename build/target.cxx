@@ -356,13 +356,14 @@ namespace build
                      (e != nullptr ? e : &extension_pool.find ("")));
   }
 
+  constexpr const char file_ext[] = "";
   const target_type file::static_type
   {
     typeid (file),
     "file",
     &path_target::static_type,
     &file_factory,
-    nullptr, // Factory always assigns an extension.
+    &target_extension_fix<file_ext>,
     &search_file,
     false
   };

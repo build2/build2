@@ -175,6 +175,9 @@ namespace build
     value_proxy (): map (nullptr), p (nullptr) {}
     value_proxy (value_ptr* p, const variable_map* m): map (m), p (p) {}
 
+    template <typename T>
+    value_proxy (value_ptr& p, const T& x): map (&x.vars), p (&p) {}
+
     void
     rebind (const value_proxy& x) {map = x.map; p = x.p;}
 
@@ -202,6 +205,15 @@ namespace build
   template <>
   inline const list_value& value_proxy::
   as<const list_value&> () const {return as<list_value&> ();}
+
+  template <>
+  inline const name* value_proxy::
+  as<const name*> () const
+  {
+    const auto& lv (as<const list_value&> ());
+    assert (lv.size () < 2);
+    return lv.empty () ? nullptr : &lv.front ();
+  }
 
   template <>
   std::string& value_proxy::

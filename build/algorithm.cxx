@@ -41,6 +41,20 @@ namespace build
     return create_new_target (pk);
   }
 
+  target&
+  search (name n, scope& s)
+  {
+    const string* e;
+    const target_type* tt (s.find_target_type (n, e));
+
+    if (tt == nullptr)
+      fail << "unknown target type " << n.type << " in name " << n;
+
+    n.dir.normalize ();
+
+    return search (*tt, move (n.dir), move (n.value), e, &s);
+  }
+
   match_result_impl
   match_impl (action a, target& t, bool apply)
   {

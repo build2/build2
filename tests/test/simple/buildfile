@@ -5,9 +5,11 @@ cxx.ext = cxx
 
 lib{utility}: cxx{utility}
 exe{driver}: cxx{driver} #lib{utility}
-exe{driver}: test = true
 
-test.exe = false
+#exe{driver}: test.roundtrip = test.out
+
+test.exe = true
+test.exe.output = test.out
 
 .: lib{utility} exe{driver}
 #.: exe{driver}

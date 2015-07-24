@@ -24,6 +24,8 @@ namespace build
   using butl::path;
   using butl::dir_path;
 
+  struct diag_record;
+
   // Throw this exception to terminate the build. The handler should
   // assume that the diagnostics has already been issued.
   //
@@ -78,7 +80,16 @@ namespace build
   // nameN arg arg ... nullptr nullptr
   //
   void
+  print_process (diag_record&, const char* const* args, std::size_t n = 0);
+
+  void
   print_process (const char* const* args, std::size_t n = 0);
+
+  inline void
+  print_process (diag_record& dr, const cstrings& args)
+  {
+    print_process (dr, args.data (), args.size ());
+  }
 
   inline void
   print_process (const cstrings& args)
@@ -111,8 +122,6 @@ namespace build
 
   template <typename> struct diag_prologue;
   template <typename> struct diag_mark;
-
-  struct diag_record;
 
   typedef void (*diag_epilogue) (const diag_record&);
 
