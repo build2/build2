@@ -41,6 +41,13 @@ namespace build
     const T*
     optional (scope& root, const char* name);
 
+    template <typename T>
+    inline const T*
+    optional (scope& root, const std::string& name)
+    {
+      return optional<T> (root, name.c_str ());
+    }
+
     // Add all the values from a variable to the C-string list. T is
     // either target or scope.
     //

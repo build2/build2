@@ -1,0 +1,21 @@
+// file      : build/install/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_INSTALL_MODULE
+#define BUILD_INSTALL_MODULE
+
+#include <build/types>
+#include <build/module>
+
+namespace build
+{
+  namespace install
+  {
+    extern "C" void
+    install_init (
+      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+  }
+}
+
+#endif // BUILD_INSTALL_MODULE

@@ -1,0 +1,4 @@
+project = install-simple
+amalgamation = # Disabled.
+using config
+using install
