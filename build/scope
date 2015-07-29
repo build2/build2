@@ -104,6 +104,10 @@ namespace build
       return append (variable_pool.find (name));
     }
 
+    // Target type/pattern-specific variables.
+    //
+    variable_type_map target_vars;
+
     // Prerequisite cache.
     //
   public:

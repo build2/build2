@@ -85,9 +85,7 @@ namespace build
       size_t oi (o - 1); // Operation index in rule_map.
       scope& bs (t.base_scope ());
 
-      for (auto tt (&t.type ());
-           tt != nullptr && !t.recipe (ra);
-           tt = tt->base)
+      for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
       {
         // Search scopes outwards, stopping at the project root.
         //

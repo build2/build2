@@ -259,8 +259,9 @@ namespace build
     variable_map vars;
 
     // Lookup, including in groups to which this target belongs and
-    // then in outer scopes. If you only want to lookup in this target,
-    // do it on the the variables map directly.
+    // then in outer scopes (including target type/pattern-specific
+    // variables). If you only want to lookup in this target, do it
+    // on the the variable map directly.
     //
     value_proxy
     operator[] (const variable&) const;

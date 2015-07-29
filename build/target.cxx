@@ -85,7 +85,50 @@ namespace build
     if (group != nullptr)
       return (*group)[var];
 
-    return base_scope ()[var];
+    // Cannot simply delegate to scope's operator[] since we also
+    // need to check target type/pattern-specific variables.
+    //
+    const target_type& btt (type ());
+
+    for (const scope* s (&base_scope ()); s != nullptr; s = s->parent_scope ())
+    {
+      if (!s->target_vars.empty ())
+      {
+        // Search across target type hierarchy.
+        //
+        for (auto tt (&btt); tt != nullptr; tt = tt->base)
+        {
+          auto i (s->target_vars.find (*tt));
+
+          if (i == s->target_vars.end ())
+            continue;
+
+          //@@ TODO: match pattern. For now, we only handle '*'.
+
+          auto j (i->second.find ("*"));
+
+          if (j == i->second.end ())
+            continue;
+
+          auto k (j->second.find (var));
+
+          if (k != j->second.end ())
+          {
+            // Note that we use the scope's vars, not from target_vars.
+            // We use it to identify whether the variable belongs to a
+            // specific scope/target.
+            //
+            return value_proxy (&const_cast<value_ptr&> (k->second), &s->vars);
+          }
+        }
+      }
+
+      auto i (s->vars.find (var));
+      if (i != s->vars.end ())
+        return value_proxy (&const_cast<value_ptr&> (i->second), &s->vars);
+    }
+
+    return value_proxy (nullptr, nullptr);
   }
 
   value_proxy target::

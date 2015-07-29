@@ -42,6 +42,12 @@ namespace build
     is_a () const {return is_a (typeid (T));}
   };
 
+  inline bool
+  operator< (const target_type& x, const target_type& y)
+  {
+    return x.id < y.id;
+  }
+
   inline std::ostream&
   operator<< (std::ostream& os, const target_type& tt)
   {

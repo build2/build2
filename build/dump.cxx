@@ -18,32 +18,76 @@ using namespace std;
 
 namespace build
 {
-  static bool
+  static void
+  dump_variable (ostream& os, const variable& var, const value_ptr& val)
+  {
+    os << var.name << " = ";
+
+    if (val == nullptr)
+      os << "[null]";
+    else
+    {
+      //@@ TODO: assuming it is a list.
+      //
+      os << dynamic_cast<list_value&> (*val);
+    }
+  }
+
+  static void
   dump_variables (ostream& os, string& ind, const variable_map& vars)
   {
-    bool r (false);
-
     for (const auto& e: vars)
     {
-      const variable& var (e.first);
-      const value_ptr& val (e.second);
-
       os << endl
-         << ind << var.name << " = ";
+         << ind;
 
-      if (val == nullptr)
-        os << "[null]";
-      else
-      {
-        //@@ TODO: assuming it is a list.
-        //
-        os << dynamic_cast<list_value&> (*val);
-      }
-
-      r = true;
+      dump_variable (os, e.first, e.second);
     }
+  }
 
-    return r;
+  static void
+  dump_variables (ostream& os, string& ind, const variable_type_map& vtm)
+  {
+    for (const auto& vt: vtm)
+    {
+      const target_type& t (vt.first);
+      const variable_pattern_map& vpm (vt.second);
+
+      for (const auto& vp: vpm)
+      {
+        const string p (vp.first);
+        const variable_map& vars (vp.second);
+
+        os << endl
+           << ind;
+
+        if (t.id != target::static_type.id)
+          os << t.name << '{';
+
+        os << p;
+
+        if (t.id != target::static_type.id)
+          os << '}';
+
+        os << ':';
+
+        if (vars.size () == 1)
+        {
+          os << ' ';
+          dump_variable (os, vars.begin ()->first, vars.begin ()->second);
+        }
+        else
+        {
+          os << endl
+             << ind << '{';
+          ind += "  ";
+          dump_variables (os, ind, vars);
+          ind.resize (ind.size () - 2);
+          os << endl
+             << ind << '}';
+        }
+      }
+    }
   }
 
   static void
@@ -120,9 +164,24 @@ namespace build
 
     bool vb (false), sb (false); // Variable/scope block.
 
-    // Variables.
+    // Target type/pattern-sepcific variables.
     //
-    vb = dump_variables (os, ind, p.vars);
+    if (!p.target_vars.empty ())
+    {
+      dump_variables (os, ind, p.target_vars);
+      vb = true;
+    }
+
+    // Scope variables.
+    //
+    if (!p.vars.empty ())
+    {
+      if (vb)
+        os << endl;
+
+      dump_variables (os, ind, p.vars);
+      vb = true;
+    }
 
     // Nested scopes of which we are a parent.
     //

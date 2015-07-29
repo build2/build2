@@ -5,18 +5,20 @@
 #ifndef BUILD_VARIABLE
 #define BUILD_VARIABLE
 
+#include <map>
 #include <string>
 #include <memory>        // unique_ptr
 #include <cstddef>       // nullptr_t
 #include <utility>       // move(), pair, make_pair()
 #include <cassert>
-#include <functional>    // hash
+#include <functional>    // hash, reference_wrapper
 #include <typeindex>
 #include <unordered_set>
 
 #include <butl/prefix-map>
 
 #include <build/types>
+#include <build/target-type>
 
 namespace build
 {
@@ -340,6 +342,12 @@ namespace build
       return find_prefix (variable_pool.find (ns));
     }
   };
+
+  // Target type/pattern-specific variables.
+  //
+  using variable_pattern_map = std::map<std::string, variable_map>;
+  using variable_type_map = std::map<std::reference_wrapper<const target_type>,
+                                     variable_pattern_map>;
 }
 
 #include <build/variable.ixx>
