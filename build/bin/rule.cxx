@@ -79,7 +79,7 @@ namespace build
       // prerequisite targets. While we never execute this list
       // ourselves (see perform() below), this is necessary to make
       // the exported options machinery work for the library chains.
-      // See cxx.export.*-related code in cxx/rule.cxx for details.
+      // See cxx.export.*-related code in cxx/compile.cxx for details.
       //
       // @@ Messes up dependents count.
       //
