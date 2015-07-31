@@ -1,0 +1,6 @@
+$out_root/:
+{
+  include test/
+}
+
+export $out_root/test/lib{test}

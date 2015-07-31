@@ -76,59 +76,68 @@ namespace build
   value_proxy target::
   operator[] (const variable& var) const
   {
-    auto i (vars.find (var));
+    auto find = [&var] (const variable_map& vars)
+    {
+      auto i (vars.find (var));
+      return i != vars.end () ? &const_cast<value_ptr&> (i->second) : nullptr;
+    };
 
-    if (i != vars.end ())
-      // @@ Same issue as in variable_map: need ro_value_proxy.
-      return value_proxy (&const_cast<value_ptr&> (i->second), &vars);
+    if (auto p = find (vars))
+      return value_proxy (p, &vars);
 
     if (group != nullptr)
-      return (*group)[var];
+    {
+      if (auto p = find (group->vars))
+        return value_proxy (p, &group->vars);
+    }
 
     // Cannot simply delegate to scope's operator[] since we also
     // need to check target type/pattern-specific variables.
     //
-    const target_type& btt (type ());
-
     for (const scope* s (&base_scope ()); s != nullptr; s = s->parent_scope ())
     {
       if (!s->target_vars.empty ())
       {
-        // Search across target type hierarchy.
-        //
-        for (auto tt (&btt); tt != nullptr; tt = tt->base)
+        auto find_specific = [&find, s] (const target& t) -> value_proxy
         {
-          auto i (s->target_vars.find (*tt));
-
-          if (i == s->target_vars.end ())
-            continue;
-
-          //@@ TODO: match pattern. For now, we only handle '*'.
-
-          auto j (i->second.find ("*"));
-
-          if (j == i->second.end ())
-            continue;
-
-          auto k (j->second.find (var));
-
-          if (k != j->second.end ())
+          // Search across target type hierarchy.
+          //
+          for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
           {
-            // Note that we use the scope's vars, not from target_vars.
-            // We use it to identify whether the variable belongs to a
-            // specific scope/target.
-            //
-            return value_proxy (&const_cast<value_ptr&> (k->second), &s->vars);
+            auto i (s->target_vars.find (*tt));
+
+            if (i == s->target_vars.end ())
+              continue;
+
+            //@@ TODO: match pattern. For now, we only handle '*'.
+
+            auto j (i->second.find ("*"));
+
+            if (j == i->second.end ())
+              continue;
+
+            if (auto p = find (j->second))
+              return value_proxy (p, &j->second);
           }
+
+          return value_proxy ();
+        };
+
+        if (auto p = find_specific (*this))
+          return p;
+
+        if (group != nullptr)
+        {
+          if (auto p = find_specific (*group))
+            return p;
         }
       }
 
-      auto i (s->vars.find (var));
-      if (i != s->vars.end ())
-        return value_proxy (&const_cast<value_ptr&> (i->second), &s->vars);
+      if (auto p = find (s->vars))
+        return value_proxy (p, &s->vars);
     }
 
-    return value_proxy (nullptr, nullptr);
+    return value_proxy ();
   }
 
   value_proxy target::
@@ -387,6 +396,7 @@ namespace build
     false
   };
 
+  template <typename T>
   static target*
   file_factory (dir_path d, string n, const string* e)
   {
@@ -394,9 +404,9 @@ namespace build
     // wasn't specified, set it to empty rather than unspecified.
     // In other words, we always treat file{foo} as file{foo.}.
     //
-    return new file (move (d),
-                     move (n),
-                     (e != nullptr ? e : &extension_pool.find ("")));
+    return new T (move (d),
+                  move (n),
+                  (e != nullptr ? e : &extension_pool.find ("")));
   }
 
   constexpr const char file_ext[] = "";
@@ -405,7 +415,7 @@ namespace build
     typeid (file),
     "file",
     &path_target::static_type,
-    &file_factory,
+    &file_factory<file>,
     &target_extension_fix<file_ext>,
     &search_file,
     false
@@ -441,6 +451,50 @@ namespace build
     &target_factory<fsdir>,
     nullptr, // Should never need.
     &search_target,
+    false
+  };
+
+  constexpr const char doc_ext[] = "";
+  const target_type doc::static_type
+  {
+    typeid (doc),
+    "doc",
+    &file::static_type,
+    &file_factory<doc>,
+    &target_extension_fix<doc_ext>,
+    &search_file,
+    false
+  };
+
+  static target*
+  man_factory (dir_path d, string n, const string* e)
+  {
+    if (e == nullptr)
+      fail << "man target '" << n << "' must include extension (man section)";
+
+    return new man (move (d), move (n), e);
+  }
+
+  const target_type man::static_type
+  {
+    typeid (man),
+    "man",
+    &doc::static_type,
+    &man_factory,
+    nullptr,        // Should be specified explicitly.
+    &search_file,
+    false
+  };
+
+  constexpr const char man1_ext[] = "1";
+  const target_type man1::static_type
+  {
+    typeid (man1),
+    "man1",
+    &man::static_type,
+    &file_factory<man1>,
+    &target_extension_fix<man1_ext>,
+    &search_file,
     false
   };
 }

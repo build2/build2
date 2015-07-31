@@ -7,10 +7,13 @@
 #include <build/scope>
 #include <build/target>
 #include <build/rule>
+#include <build/operation>
 #include <build/diagnostics>
 
 #include <build/config/utility>
 
+#include <build/install/rule>
+#include <build/install/utility>
 #include <build/install/operation>
 
 using namespace std;
@@ -20,48 +23,74 @@ namespace build
 {
   namespace install
   {
-    // Set install.<name> values based on config.install.<name> values
-    // or the defaults.
+    // Set install.<name>.* values based on config.install.<name>.* ones
+    // or the defaults. If none of config.install.* values were specified,
+    // then we do omitted/delayed configuration. Note that we still need
+    // to set all the install.* values to defaults, as if we had the
+    // default configuration.
     //
     static void
-    set_dir (scope& r, const char* name, const char* path, const char* mode)
+    set_dir (bool spec,
+             scope& r,
+             const char* name,
+             const char* path,
+             const char* mode = nullptr,
+             const char* dir_mode = nullptr,
+             const char* cmd = nullptr,
+             const char* options = nullptr)
     {
-      string vn ("config.install.");
-      vn += name;
+      auto set = [spec, &r, name] (const char* var, const char* dv)
+        {
+          string vn;
+          const list_value* lv (nullptr);
 
-      const list_value* pv (config::optional<list_value> (r, vn));
+          if (spec)
+          {
+            vn = "config.install.";
+            vn += name;
+            vn += var;
 
-      vn += ".mode";
-      const list_value* mv (config::optional<list_value> (r, vn));
+            lv = dv != nullptr
+              ? &config::required (r, vn, list_value (dv)).first
+              : config::optional<list_value> (r, vn);
+          }
 
-      vn = "install.";
-      vn += name;
-      auto p (r.assign (vn));
+          vn = "install.";
+          vn += name;
+          vn += var;
+          auto v (r.assign (vn));
 
-      if (pv != nullptr && !pv->empty ())
-        p = *pv;
-      else if (path != nullptr)
-        p = path;
+          if (spec)
+          {
+            if (lv != nullptr && !lv->empty ())
+              v = *lv;
+          }
+          else
+          {
+            if (dv != nullptr)
+              v = dv;
+          }
+        };
 
-      vn += ".mode";
-      auto m (r.assign (vn));
-
-      if (mv != nullptr && !mv->empty ())
-        p = *mv;
-      else if (mode != nullptr)
-        p = mode;
+      set ("", path);
+      set (".mode", mode);
+      set (".dir_mode", dir_mode);
+      set (".cmd", cmd);
+      set (".options", options);
     }
 
+    static rule rule_;
+
     extern "C" void
-    install_init (scope& root,
-                  scope& base,
+    install_init (scope& r,
+                  scope& b,
                   const location& l,
                   unique_ptr<build::module>&,
                   bool first)
     {
       tracer trace ("install::init");
 
-      if (&root != &base)
+      if (&r != &b)
         fail (l) << "install module must be initialized in bootstrap.build";
 
       if (!first)
@@ -70,36 +99,59 @@ namespace build
         return;
       }
 
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (r.path ());
       level4 ([&]{trace << "for " << out_root;});
 
       // Register the install operation.
       //
-      operation_id install_id (root.operations.insert (install));
+      assert (r.operations.insert (install) == install_id);
 
       {
-        auto& rs (base.rules);
+        auto& rs (b.rules);
 
         // Register the standard alias rule for the install operation.
         //
         rs.insert<alias> (install_id, "alias", alias_rule::instance);
+
+        // Register our file installer rule.
+        //
+        rs.insert<file> (install_id, "install", rule_);
       }
 
       // Configuration.
       //
-      // Note that we don't use any defaults -- the location must
-      // be explicitly specified or the installer will complain if
-      // and when we try to install.
+      // Note that we don't use any defaults for root -- the location
+      // must be explicitly specified or the installer will complain
+      // if and when we try to install.
       //
       if (first)
       {
-        set_dir (root, "root", nullptr, nullptr);
-        set_dir (root, "data_root", "root", "644");
-        set_dir (root, "exec_root", "root", "755");
+        bool s (config::specified (r, "config.install"));
+        const string& n (r["project"].as<const string&> ());
 
-        set_dir (root, "bin", "exec_root/bin", nullptr);
-        set_dir (root, "sbin", "exec_root/sbin", nullptr);
+        set_dir (s, r, "root",      nullptr, nullptr, "755", "install");
+        set_dir (s, r, "data_root", "root",  "644");
+        set_dir (s, r, "exec_root", "root",  "755");
+
+        set_dir (s, r, "sbin",      "exec_root/sbin");
+        set_dir (s, r, "bin",       "exec_root/bin");
+        set_dir (s, r, "lib",       "exec_root/lib");
+        set_dir (s, r, "libexec",  ("exec_root/libexec/" + n).c_str ());
+
+        set_dir (s, r, "data",     ("data_root/share/" + n).c_str ());
+        set_dir (s, r, "include",   "data_root/include");
+
+        set_dir (s, r, "doc",      ("data_root/share/doc/" + n).c_str ());
+        set_dir (s, r, "man",       "data_root/share/man");
+
+        set_dir (s, r, "man1",      "man/man1");
       }
+
+      // Configure "installability" for built-in target types.
+      //
+      path<doc> (b, "doc");  // Install into install.doc.
+      path<man> (b, "man");  // Install into install.man.
+      path<man> (b, "man1"); // Install into install.man1.
     }
   }
 }

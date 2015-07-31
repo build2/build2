@@ -65,6 +65,9 @@ namespace build
       tts.insert<alias> ();
       tts.insert<dir>   ();
       tts.insert<fsdir> ();
+      tts.insert<doc>   ();
+      tts.insert<man>   ();
+      tts.insert<man1>  ();
     }
 
     // Register builtin rules.

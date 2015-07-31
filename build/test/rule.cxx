@@ -5,7 +5,6 @@
 #include <build/test/rule>
 
 #include <butl/process>
-#include <butl/fdstream>
 
 #include <build/scope>
 #include <build/target>
@@ -31,6 +30,9 @@ namespace build
       bool r (false);
       value_proxy v;
 
+      // @@ This logic doesn't take into account target type/pattern-
+      // specific variables.
+      //
       for (auto p (t.vars.find_namespace ("test"));
            p.first != p.second;
            ++p.first)
@@ -62,7 +64,7 @@ namespace build
 
       if (!r)
       {
-        // See if the is a scope variable.
+        // See if there is a scope variable.
         //
         if (!v)
           v.rebind (t.base_scope ()[string("test.") + t.type ().name]);
@@ -103,7 +105,7 @@ namespace build
     {
       tracer trace ("test::rule::apply");
 
-      if (!mr.value) // Not a test.
+      if (!mr.bvalue) // Not a test.
         return noop_recipe;
 
       // In case of test, we don't do anything for other meta-operations.
@@ -116,7 +118,7 @@ namespace build
       // 1. This target is a test.
       // 2. The action is either
       //    a. (perform, test, 0) or
-      //    b. (*, update, 0)
+      //    b. (*, update, install)
       //
       // In both cases, the next step is to see if we have test.{input,
       // output,roundtrip}.
@@ -207,7 +209,7 @@ namespace build
         {
           build::match (a, *it);
 
-          if (file_rule::uptodate (a, *it))
+          if (it->state () == target_state::unchanged)
             it = nullptr;
         }
 
@@ -215,7 +217,7 @@ namespace build
         {
           build::match (a, *ot);
 
-          if (file_rule::uptodate (a, *ot))
+          if (ot->state () == target_state::unchanged)
             ot = nullptr;
         }
         else
@@ -229,7 +231,7 @@ namespace build
         recipe d (match_delegate (a, t).first);
 
         // If we have no input/output that needs updating, then simply
-        // redirect to it
+        // redirect to it.
         //
         if (it == nullptr && ot == nullptr)
           return d;

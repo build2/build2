@@ -701,9 +701,9 @@ namespace build
     // The rest is a value. Parse it as names to get variable expansion.
     // build::import() will check the names, if required.
     //
-    export_value_ = (tt != type::newline && tt != type::eos
-                     ? names (t, tt)
-                     : names_type ());
+    export_value_ = list_value (tt != type::newline && tt != type::eos
+                                ? names (t, tt)
+                                : names_type ());
 
     if (tt == type::newline)
       next (t, tt);
@@ -788,7 +788,7 @@ namespace build
       auto v (target_ != nullptr
               ? target_->assign (var)
               : scope_->assign (var));
-      v = move (vns);
+      v = list_value (move (vns));
     }
     else
     {
@@ -806,7 +806,7 @@ namespace build
                    make_move_iterator (vns.end ()));
       }
       else
-        v = move (vns); // Same as assignment.
+        v = list_value (move (vns)); // Same as assignment.
     }
   }
 

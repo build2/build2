@@ -37,5 +37,35 @@ namespace build
 
       return pair<const string&, bool> (v.as<const string&> (), true);
     }
+
+    bool
+    specified (scope& r, const string& ns)
+    {
+      // Search all outer scopes for any value in this namespace.
+      //
+      for (scope* s (&r); s != nullptr; s = s->parent_scope ())
+      {
+        auto p (s->vars.find_namespace (ns));
+        if (p.first != p.second)
+          return true;
+      }
+
+      return false;
+    }
+
+    void
+    append_options (cstrings& args, const list_value& lv, const char* var)
+    {
+      for (const name& n: lv)
+      {
+        if (n.simple ())
+          args.push_back (n.value.c_str ());
+        else if (n.directory ())
+          args.push_back (n.dir.string ().c_str ());
+        else
+          fail << "expected option instead of " << n <<
+            info << "in variable " << var;
+      }
+    }
   }
 }

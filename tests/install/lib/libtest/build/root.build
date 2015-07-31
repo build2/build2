@@ -1,0 +1,11 @@
+using cxx
+
+hxx.ext = hxx
+ixx.ext = ixx
+cxx.ext = cxx
+
+tests/:
+{
+  test.exe = true
+  install = false
+}

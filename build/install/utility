@@ -1,0 +1,36 @@
+// file      : build/install/utility -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_INSTALL_UTILITY
+#define BUILD_INSTALL_UTILITY
+
+#include <build/scope>
+
+namespace build
+{
+  namespace install
+  {
+    // Set install path, mode for a target type.
+    //
+    template <typename T>
+    inline void
+    path (scope& s, const char* v)
+    {
+      auto p (s.target_vars[T::static_type]["*"].assign ("install"));
+      if (p.second) // Already set by the user?
+        p.first = v;
+    }
+
+    template <typename T>
+    inline void
+    mode (scope& s, const char* v)
+    {
+      auto m (s.target_vars[T::static_type]["*"].assign ("install.mode"));
+      if (m.second) // Already set by the user?
+        m.first = v;
+    }
+  }
+}
+
+#endif // BUILD_INSTALL_UTILITY

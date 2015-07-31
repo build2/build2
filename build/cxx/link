@@ -28,6 +28,8 @@ namespace build
       static target_state
       perform_update (action, target&);
 
+      static link instance;
+
     private:
       friend class compile;
 

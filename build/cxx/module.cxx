@@ -11,12 +11,14 @@
 #include <build/diagnostics>
 
 #include <build/config/utility>
+#include <build/install/utility>
 
 #include <build/bin/target>
 
 #include <build/cxx/target>
 #include <build/cxx/compile>
 #include <build/cxx/link>
+#include <build/cxx/install>
 
 using namespace std;
 using namespace butl;
@@ -25,29 +27,26 @@ namespace build
 {
   namespace cxx
   {
-    compile compile_;
-    link link_;
-
     extern "C" void
-    cxx_init (scope& root,
-              scope& base,
+    cxx_init (scope& r,
+              scope& b,
               const location& l,
               std::unique_ptr<module>&,
               bool first)
     {
       tracer trace ("cxx::init");
-      level4 ([&]{trace << "for " << base.path ();});
+      level4 ([&]{trace << "for " << b.path ();});
 
       // Initialize the bin module. Only do this if it hasn't already
       // been loaded so that we don't overwrite user's bin.* settings.
       //
-      if (base.find_target_type ("obj") == nullptr)
-        load_module ("bin", root, base, l);
+      if (b.find_target_type ("obj") == nullptr)
+        load_module ("bin", r, b, l);
 
       // Register target types.
       //
       {
-        auto& tts (base.target_types);
+        auto& tts (b.target_types);
 
         tts.insert<h> ();
         tts.insert<c> ();
@@ -63,27 +62,31 @@ namespace build
       {
         using namespace bin;
 
-        auto& rs (base.rules);
+        auto& rs (b.rules);
 
-        rs.insert<obja> (default_id, "cxx.compile", compile_);
-        rs.insert<obja> (update_id, "cxx.compile", compile_);
-        rs.insert<obja> (clean_id, "cxx.compile", compile_);
+        rs.insert<obja> (default_id, "cxx.compile", compile::instance);
+        rs.insert<obja> (update_id, "cxx.compile", compile::instance);
+        rs.insert<obja> (clean_id, "cxx.compile", compile::instance);
 
-        rs.insert<objso> (default_id, "cxx.compile", compile_);
-        rs.insert<objso> (update_id, "cxx.compile", compile_);
-        rs.insert<objso> (clean_id, "cxx.compile", compile_);
+        rs.insert<objso> (default_id, "cxx.compile", compile::instance);
+        rs.insert<objso> (update_id, "cxx.compile", compile::instance);
+        rs.insert<objso> (clean_id, "cxx.compile", compile::instance);
 
-        rs.insert<exe> (default_id, "cxx.link", link_);
-        rs.insert<exe> (update_id, "cxx.link", link_);
-        rs.insert<exe> (clean_id, "cxx.link", link_);
+        rs.insert<exe> (default_id, "cxx.link", link::instance);
+        rs.insert<exe> (update_id, "cxx.link", link::instance);
+        rs.insert<exe> (clean_id, "cxx.link", link::instance);
 
-        rs.insert<liba> (default_id, "cxx.link", link_);
-        rs.insert<liba> (update_id, "cxx.link", link_);
-        rs.insert<liba> (clean_id, "cxx.link", link_);
+        rs.insert<liba> (default_id, "cxx.link", link::instance);
+        rs.insert<liba> (update_id, "cxx.link", link::instance);
+        rs.insert<liba> (clean_id, "cxx.link", link::instance);
 
-        rs.insert<libso> (default_id, "cxx.link", link_);
-        rs.insert<libso> (update_id, "cxx.link", link_);
-        rs.insert<libso> (clean_id, "cxx.link", link_);
+        rs.insert<libso> (default_id, "cxx.link", link::instance);
+        rs.insert<libso> (update_id, "cxx.link", link::instance);
+        rs.insert<libso> (clean_id, "cxx.link", link::instance);
+
+        rs.insert<exe> (install_id, "cxx.install", install::instance);
+        rs.insert<liba> (install_id, "cxx.install", install::instance);
+        rs.insert<libso> (install_id, "cxx.install", install::instance);
       }
 
       // Configure.
@@ -93,13 +96,13 @@ namespace build
       //
       if (first)
       {
-        auto r (config::required (root, "config.cxx", "g++"));
+        auto p (config::required (r, "config.cxx", "g++"));
 
         // If we actually set a new value, test it by trying to execute.
         //
-        if (r.second)
+        if (p.second)
         {
-          const string& cxx (r.first);
+          const string& cxx (p.first);
           const char* args[] = {cxx.c_str (), "-dumpversion", nullptr};
 
           if (verb)
@@ -152,17 +155,28 @@ namespace build
       // using cxx
       // cxx.coptions += <overriding options> # Note: '+='.
       //
-      if (auto* v = config::optional<list_value> (root, "config.cxx.poptions"))
-        base.assign ("cxx.poptions") += *v;
+      if (auto* v = config::optional<list_value> (r, "config.cxx.poptions"))
+        b.assign ("cxx.poptions") += *v;
 
-      if (auto* v = config::optional<list_value> (root, "config.cxx.coptions"))
-        base.assign ("cxx.coptions") += *v;
+      if (auto* v = config::optional<list_value> (r, "config.cxx.coptions"))
+        b.assign ("cxx.coptions") += *v;
 
-      if (auto* v = config::optional<list_value> (root, "config.cxx.loptions"))
-        base.assign ("cxx.loptions") += *v;
+      if (auto* v = config::optional<list_value> (r, "config.cxx.loptions"))
+        b.assign ("cxx.loptions") += *v;
 
-      if (auto* v = config::optional<list_value> (root, "config.cxx.libs"))
-        base.assign ("cxx.libs") += *v;
+      if (auto* v = config::optional<list_value> (r, "config.cxx.libs"))
+        b.assign ("cxx.libs") += *v;
+
+      // Configure "installability" of our target types.
+      //
+      {
+        using build::install::path;
+
+        path<hxx> (b, "include"); // Install into install.include.
+        path<ixx> (b, "include");
+        path<txx> (b, "include");
+        path<h> (b, "include");
+      }
     }
   }
 }

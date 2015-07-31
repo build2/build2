@@ -147,8 +147,7 @@ namespace build
   // on each non-ignored (non-NULL) prerequisite target in a loop. If this
   // target is a member of a group, then it first does this to the group's
   // prerequisites. Returns target_state::changed if any of them were
-  // changed and target_state::unchanged otherwise. It treats targets
-  // with postponed execution the same as ignored. Note that this
+  // changed and target_state::unchanged otherwise. Note that this
   // function can be used as a recipe.
   //
   target_state

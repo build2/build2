@@ -1,0 +1,10 @@
+cxx.poptions += -I$src_root
+
+install.include = $install.include/test
+
+lib{test}: cxx{utility} hxx{utility}
+lib{test}: cxx.export.poptions = -I$src_root
+
+exe{driver}: cxx{driver} hxx{driver} lib{test}
+
+.: lib{test} exe{driver}

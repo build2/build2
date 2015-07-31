@@ -952,6 +952,74 @@ namespace build
     static const target_type static_type;
   };
 
+  // Common documentation file targets.
+  //
+  // @@ Maybe these should be in the built-in doc module?
+  //
+  class doc: public file
+  {
+  public:
+    using file::file;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
+  // The problem with man pages is this: different platforms have
+  // different sets of sections. What seems to be the "sane" set
+  // is 1-9 (Linux and BSDs). SysV (e.g., Solaris) instead maps
+  // 8 to 1M (system administration). The section determines two
+  // things: the directory where the page is installed (e.g.,
+  // /usr/share/man/man1) as well as the extension of the file
+  // (e.g., test.1). Note also that there could be sub-sections,
+  // e.g., 1p (for POSIX). Such a page would still go into man1
+  // but will have the .1p extension (at least that's what happens
+  // on Linux). The challenge is to somehow handle this in a
+  // portable manner. So here is the plan:
+  //
+  // First of all, we have the man{} target type which can be used
+  // for a custom man page. That is, you can have any extension and
+  // install it anywhere you please:
+  //
+  // man{foo.X}: install = man/manX
+  //
+  // Then we have man1..9{} target types which model the "sane"
+  // section set and that would be automatically installed into
+  // correct locations on other platforms. In other words, the
+  // idea is that you should be able to have the foo.8 file,
+  // write man8{foo} and have it installed as man1m/foo.1m on
+  // some SysV host.
+  //
+  // Re-mapping the installation directory is easy: to help with
+  // that we have assigned install.man1..9 directory names. The
+  // messy part is to change the extension. It seems the only
+  // way to do that would be to have special logic for man pages
+  // in the generic install rule. @@ This is still a TODO.
+  //
+  // Note that handling subsections with man1..9{} is easy, we
+  // simply specify the extension explicitly, e.g., man{foo.1p}.
+  //
+  class man: public doc
+  {
+  public:
+    using doc::doc;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
+  class man1: public man
+  {
+  public:
+    using man::man;
+
+  public:
+    virtual const target_type& type () const {return static_type;}
+    static const target_type static_type;
+  };
+
   // Common implementation of the target factory, extension, and
   // search functions.
   //

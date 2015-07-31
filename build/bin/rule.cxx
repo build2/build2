@@ -81,6 +81,8 @@ namespace build
       // the exported options machinery work for the library chains.
       // See cxx.export.*-related code in cxx/rule.cxx for details.
       //
+      // @@ Messes up dependents count.
+      //
       for (prerequisite& p: group_prerequisites (t))
       {
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())

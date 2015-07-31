@@ -1,0 +1,5 @@
+project = install-lib-libtest
+amalgamation = # Disabled.
+using config
+using install
+using test

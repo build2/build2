@@ -27,6 +27,13 @@ namespace build
     std::pair<const T&, bool>
     required (scope& root, const char* name, const T& default_value);
 
+    template <typename T>
+    inline std::pair<const T&, bool>
+    required (scope& root, const std::string& name, const T& default_value)
+    {
+      return required<T> (root, name.c_str (), default_value);
+    }
+
     std::pair<const std::string&, bool>
     required (scope& root, const char* name, const char* default_value);
 
@@ -48,45 +55,38 @@ namespace build
       return optional<T> (root, name.c_str ());
     }
 
+    // Check whether there are any variables specified from the
+    // config namespace. The idea is that we can check if there
+    // are any, say, config.install.* values. If there are none,
+    // then we can assume this functionality is not (yet) used
+    // and omit writing a whole bunch of NULL config.install.*
+    // values to config.build. We call it omitted/delayed
+    // configuration.
+    //
+    bool
+    specified (scope& root, const std::string& ns);
+
+    // @@ Why are these here?
+    //
+
     // Add all the values from a variable to the C-string list. T is
     // either target or scope.
     //
     template <typename T>
     void
-    append_options (cstrings& args, T& s, const char* var)
-    {
-      if (auto val = s[var])
-      {
-        for (const name& n: val.template as<const list_value&> ())
-        {
-          if (n.simple ())
-            args.push_back (n.value.c_str ());
-          else if (n.directory ())
-            args.push_back (n.dir.string ().c_str ());
-          else
-            fail << "expected option instead of " << n <<
-              info << "in variable " << var;
-        }
-      }
-    }
+    append_options (cstrings& args, T& s, const char* var);
+
+    // As above but from the list value directly. Variable name is for
+    // diagnostics.
+    //
+    void
+    append_options (cstrings& args, const list_value&, const char* var);
 
     // Check if a specified option is present. T is either target or scope.
     //
     template <typename T>
     bool
-    find_option (const char* option, T& s, const char* var)
-    {
-      if (auto val = s[var])
-      {
-        for (const name& n: val.template as<const list_value&> ())
-        {
-          if (n.simple () && n.value == option)
-            return true;
-        }
-      }
-
-      return false;
-    }
+    find_option (const char* option, T& s, const char* var);
   }
 }
 

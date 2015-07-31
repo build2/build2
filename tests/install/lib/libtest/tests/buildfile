@@ -1,0 +1,2 @@
+exe{driver}: cxx{driver} ../test/lib{test}
+include ../test/

@@ -73,10 +73,11 @@ namespace build
     using names::names;
 
     list_value () = default;
-    list_value (names d): names (std::move (d)) {}
-    list_value (name n) {emplace_back (std::move (n));}
-    list_value (dir_path d) {emplace_back (std::move (d));}
-    list_value (std::string d) {emplace_back (std::move (d));}
+    explicit list_value (names d): names (std::move (d)) {}
+    explicit list_value (name n) {emplace_back (std::move (n));}
+    explicit list_value (dir_path d) {emplace_back (std::move (d));}
+    explicit list_value (std::string s) {emplace_back (std::move (s));}
+    explicit list_value (const char* s) {emplace_back (s);}
 
     virtual value_ptr
     clone () const {return value_ptr (new list_value (*this));}
@@ -165,6 +166,7 @@ namespace build
     operator+= (std::string) const; // Append simple name to list_value.
 
     // Return true if this value belongs to the specified scope or target.
+    // Note that it can also be a target type/pattern-specific value.
     //
     template <typename T>
     bool
@@ -215,6 +217,15 @@ namespace build
     const auto& lv (as<const list_value&> ());
     assert (lv.size () < 2);
     return lv.empty () ? nullptr : &lv.front ();
+  }
+
+  template <>
+  inline const name& value_proxy::
+  as<const name&> () const
+  {
+    const auto& lv (as<const list_value&> ());
+    assert (lv.size () == 1);
+    return lv.front ();
   }
 
   template <>
@@ -348,6 +359,12 @@ namespace build
   using variable_pattern_map = std::map<std::string, variable_map>;
   using variable_type_map = std::map<std::reference_wrapper<const target_type>,
                                      variable_pattern_map>;
+
+  //@@ In quite a few places we assume that we can store a reference
+  //   to the returned value (e.g., install::lookup_install()). If
+  //   we "instantiate" the value on the fly, then we will need to
+  //   consider its lifetime.
+
 }
 
 #include <build/variable.ixx>

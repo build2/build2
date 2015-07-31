@@ -835,5 +835,7 @@ namespace build
         throw failed ();
       }
     }
+
+    link link::instance;
   }
 }

@@ -1,0 +1,3 @@
+d = doc/ test/ tests/
+.: $d
+include $d

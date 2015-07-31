@@ -57,5 +57,29 @@ namespace build
 
       return r;
     }
+
+    template <typename T>
+    void
+    append_options (cstrings& args, T& s, const char* var)
+    {
+      if (auto val = s[var])
+        append_options (args, val.template as<const list_value&> (), var);
+    }
+
+    template <typename T>
+    bool
+    find_option (const char* option, T& s, const char* var)
+    {
+      if (auto val = s[var])
+      {
+        for (const name& n: val.template as<const list_value&> ())
+        {
+          if (n.simple () && n.value == option)
+            return true;
+        }
+      }
+
+      return false;
+    }
   }
 }

@@ -23,6 +23,8 @@ namespace build
 
       static target_state
       perform_update (action, target&);
+
+      static compile instance;
     };
   }
 }

@@ -649,12 +649,14 @@ namespace build
               // There would normally be a lot of headers for every source
               // file (think all the system headers) and this can get
               // expensive. At the same time, most of these headers are
-              // existing files that we will never be updating (again,
+              // existing files that we will never be updated (again,
               // system headers, for example) and the rule that will match
-              // them is fallback file_rule. So we are going to do a little
-              // fast-path optimization by detecting this common case.
+              // them is fallback file_rule. That rule has an optimization
+              // in that it returns noop_recipe (which causes the target
+              // state to be automatically set to unchanged) if the file
+              // is known to be up to date.
               //
-              if (!file_rule::uptodate (a, pt))
+              if (pt.state () != target_state::unchanged)
               {
                 // We only want to restart if our call to execute() actually
                 // caused an update. In particular, the target could already
@@ -787,5 +789,7 @@ namespace build
         throw failed ();
       }
     }
+
+    compile compile::instance;
   }
 }

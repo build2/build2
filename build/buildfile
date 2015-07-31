@@ -6,10 +6,10 @@ import libs += libbutl%lib{butl}
 
 config = config/{operation module utility}
 bin = bin/{target rule module}
-cxx = cxx/{target compile link module utility}
+cxx = cxx/{target compile link install module utility}
 cli = cli/{target rule module}
 test = test/{operation rule module}
-install = install/{operation module}
+install = install/{operation rule module}
 
 exe{b}: cxx{b algorithm name operation spec scope variable target \
   prerequisite rule file module context search diagnostics token  \

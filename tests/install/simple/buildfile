@@ -3,4 +3,5 @@ using cxx
 hxx.ext = hxx
 cxx.ext = cxx
 
-exe{driver}: cxx{driver}
+exe{driver}: cxx{driver} hxx{utility}
+exe{driver}: install = sbin

@@ -88,13 +88,19 @@ namespace build
     if (a.operation () == clean_id)
       return noop_recipe;
 
+    // If we have no prerequisites, then this means this file
+    // is up to date. Return noop_recipe which will also cause
+    // the target's state to be set to unchanged. This is an
+    // important optimization on which quite a few places that
+    // deal with predominantly static content rely.
+    //
+    if (!t.has_prerequisites ())
+      return noop_recipe;
+
     // Search and match all the prerequisites.
     //
     search_and_match_prerequisites (a, t);
-
-    return a == perform_update_id
-      ? &perform_update
-      : t.has_prerequisites () ? default_recipe : noop_recipe;
+    return a == perform_update_id ? &perform_update : default_recipe;
   }
 
   target_state file_rule::
