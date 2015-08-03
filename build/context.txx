@@ -52,7 +52,7 @@ namespace build
   {
     using namespace butl;
 
-    bool w (d == work); // Don't try to remove working directory.
+    bool w (work.sub (d)); // Don't try to remove working directory.
     rmdir_status rs;
 
     // We don't want to print the command if we couldn't remove the

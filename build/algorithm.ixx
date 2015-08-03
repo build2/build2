@@ -126,7 +126,8 @@ namespace build
     switch (target_state ts = t.state ())
     {
     case target_state::unchanged:
-    case target_state::changed: return ts;
+    case target_state::changed:
+      return ts;
     default:
       {
         // Handle the "last" execution mode.

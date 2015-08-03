@@ -242,8 +242,13 @@ namespace build
     //
     switch (rs)
     {
-    case rmdir_status::success: ts |= target_state::changed;
-    case rmdir_status::not_empty: ts |= target_state::postponed;
+    case rmdir_status::success: ts |= target_state::changed; break;
+    case rmdir_status::not_empty:
+      {
+        if (!work.sub (t.dir)) // No use postponing removing working directory.
+          ts |= target_state::postponed;
+        break;
+      }
     default: break;
     }
 
