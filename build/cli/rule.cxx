@@ -179,7 +179,7 @@ namespace build
       {
         cli_cxx& g (*static_cast<cli_cxx*> (mr.target));
         build::match (a, g);
-        return group_recipe;
+        return group_recipe; // Execute the group's recipe.
       }
     }
 

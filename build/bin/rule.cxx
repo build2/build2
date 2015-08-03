@@ -37,8 +37,36 @@ namespace build
     // members as our prerequisites.
     //
     match_result lib_rule::
-    match (action, target& t, const std::string&) const
+    match (action a, target& t, const std::string&) const
     {
+      // Search and match prerequisite libraries and add them to the
+      // prerequisite targets. While we never execute this list
+      // ourselves (see perform() below), this is necessary to make
+      // the exported options machinery work for the library chains
+      // (chaining is the reason why we have to do match, recursively).
+      // See the cxx.export.*-related code in cxx/compile.cxx for
+      // details.
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        if (p.is_a<lib> ())
+        {
+          target& pt (search (p));
+          match_only (a, pt);
+          t.prerequisite_targets.push_back (&pt);
+        }
+        else if (p.is_a<liba> () || p.is_a<libso> ())
+        {
+          //@@ TMP: C++ link rule hasn't been converted to support
+          //   match_only().
+          //
+          target& pt (search (p));
+          build::match (a, pt);
+          t.prerequisite_targets.push_back (&pt);
+          pt.dependents--; // No intent to execute.
+        }
+      }
+
       return t;
     }
 
@@ -73,24 +101,6 @@ namespace build
           t.so = &search<libso> (t.dir, t.name, t.ext, nullptr);
 
         build::match (a, *t.so);
-      }
-
-      // Search and match prerequisite libraries and add them to the
-      // prerequisite targets. While we never execute this list
-      // ourselves (see perform() below), this is necessary to make
-      // the exported options machinery work for the library chains.
-      // See cxx.export.*-related code in cxx/compile.cxx for details.
-      //
-      // @@ Messes up dependents count.
-      //
-      for (prerequisite& p: group_prerequisites (t))
-      {
-        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
-        {
-          target& pt (search (p));
-          build::match (a, pt);
-          t.prerequisite_targets.push_back (&pt);
-        }
       }
 
       return &perform;

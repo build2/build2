@@ -127,10 +127,10 @@ namespace build
         // will help a lot in case of any static installable content
         // (headers, documentation, etc).
         //
-        // @@ This messes up the dependents count logic.
-        //
         if (pt.state () != target_state::unchanged)
           t.prerequisite_targets.push_back (&pt);
+        else
+          pt.dependents--; // No intent to execute, so compensate.
       }
 
       // This is where we diverge depending on the operation. In the

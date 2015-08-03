@@ -62,6 +62,13 @@ namespace build
     t.dependents++;
   }
 
+  inline void
+  match_only (action a, target& t)
+  {
+    if (!t.recipe (a))
+      match_impl (a, t, false);
+  }
+
   inline std::pair<recipe, action>
   match_delegate (action a, target& t)
   {

@@ -64,10 +64,22 @@ namespace build
   target&
   search (name, scope&);
 
-  // Match a rule to the action/target with ambiguity detection.
+  // Match and apply a rule to the action/target with ambiguity
+  // detection. Increment the target's dependents count, which
+  // means that you should call this function with the intent
+  // to also call execute(). In case of optimizations that
+  // would avoid calling execute(), decrement the dependents
+  // cound manually to compensate.
   //
   void
   match (action, target&);
+
+  // Match (but do not apply) a rule to the action/target with
+  // ambiguity detection. Note that this function does not touch
+  // the dependents count.
+  //
+  void
+  match_only (action, target&);
 
   // Match a "delegate rule" from withing another rules' apply()
   // function. Return recipe and recipe action (if any). Note
@@ -120,7 +132,7 @@ namespace build
 
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set. This is the default
-  // executor implementation.
+  // executor implementation. Decrements the dependents count.
   //
   target_state
   execute (action, target&);

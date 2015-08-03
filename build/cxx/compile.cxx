@@ -113,17 +113,32 @@ namespace build
               // match() in order to get options (if any, they would
               // be set by search_library()).
               //
+              // @@ What if this is an installed import with an export
+              // stub? How will such a stub capture prerequsite libs?
+              // Probably as imported prerequisites, e.g., %lib{z}, not
+              // as -lz in .libs variable.
+              //
+              // In fact, even if we tried match() on lib{}, nothing
+              // would have matched since that lib{} is out of any
+              // project and is not a file (which is the case for
+              // liba/libso). So probably the importing code would
+              // have to take care of importing all the prerequisite
+              // libraries. It does make sense since we don't really
+              // want to match a rule to an installed library.
+              //
               if (link::search_library (lib_paths, p.prerequisite) != nullptr)
                 continue;
             }
 
             target& pt (p.search ());
 
-            // @@ The fact that we match but never execute messes up
-            //    the dependents count. This is a workaround, not a
-            //    solution.
-            //
-            build::match (a, pt);
+            if (p.is_a<lib> ()) //@@ TMP
+              build::match_only (a, pt);
+            else
+            {
+              build::match (a, pt);
+              pt.dependents--;
+            }
           }
 
           continue;
