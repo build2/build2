@@ -98,46 +98,23 @@ namespace build
         // A dependency on a library is there so that we can get its
         // cxx.export.poptions. In particular, making sure it is
         // executed before us will only restrict parallelism. But we
-        // do need to match it in order to get its prerequisite_targets
-        // populated; see append_lib_options() above.
+        // do need to pre-match it in order to get its
+        // prerequisite_targets populated. This is the "library
+        // meta-information protocol". See also append_lib_options()
+        // above.
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
         {
           if (a.operation () == update_id)
           {
-            // Handle imported libraries.
+            // Handle imported libraries. We know that for such libraries
+            // we don't need to do match() in order to get options (if
+            // any, they would be set by search_library()).
             //
-            if (p.proj () != nullptr)
+            if (p.proj () == nullptr ||
+                link::search_library (lib_paths, p.prerequisite) == nullptr)
             {
-              // We know that for such libraries we don't need to do
-              // match() in order to get options (if any, they would
-              // be set by search_library()).
-              //
-              // @@ What if this is an installed import with an export
-              // stub? How will such a stub capture prerequsite libs?
-              // Probably as imported prerequisites, e.g., %lib{z}, not
-              // as -lz in .libs variable.
-              //
-              // In fact, even if we tried match() on lib{}, nothing
-              // would have matched since that lib{} is out of any
-              // project and is not a file (which is the case for
-              // liba/libso). So probably the importing code would
-              // have to take care of importing all the prerequisite
-              // libraries. It does make sense since we don't really
-              // want to match a rule to an installed library.
-              //
-              if (link::search_library (lib_paths, p.prerequisite) != nullptr)
-                continue;
-            }
-
-            target& pt (p.search ());
-
-            if (p.is_a<lib> ()) //@@ TMP
-              build::match_only (a, pt);
-            else
-            {
-              build::match (a, pt);
-              pt.dependents--;
+              match_only (a, p.search ());
             }
           }
 

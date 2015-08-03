@@ -50,6 +50,12 @@ namespace build
   // target
   //
 
+  void target::
+  reset (action_type)
+  {
+    prerequisite_targets.clear ();
+  }
+
   group_view target::
   group_members (action_type) const
   {

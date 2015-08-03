@@ -154,6 +154,15 @@ namespace build
       false
     };
 
+    // lib
+    //
+    void lib::
+    reset (action_type)
+    {
+      // Don't clear prerequisite_targets since it is "given" to our
+      // members to implement "library meta-information protocol".
+    }
+
     static target*
     lib_factory (dir_path d, string n, const string* e)
     {

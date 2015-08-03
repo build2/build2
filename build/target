@@ -140,6 +140,8 @@ namespace build
   class target
   {
   public:
+    typedef build::action action_type;
+
     virtual
     ~target () = default;
 
@@ -148,6 +150,12 @@ namespace build
 
     target (dir_path d, std::string n, const std::string* e)
         : dir (std::move (d)), name (std::move (n)), ext (e) {}
+
+    // Reset the target before matching a rule for it. The
+    // default implementation clears prerequisite_targets.
+    //
+    virtual void
+    reset (action_type);
 
     const dir_path dir;      // Absolute and normalized.
     const std::string name;
@@ -173,7 +181,7 @@ namespace build
     // say that the rule "semantically recognizes" the group and picks
     // some of its members.
     //
-    // Updating an alternative group as a whole can mean updating some
+    // Updating an alternatives group as a whole can mean updating some
     // subset of its members (e.g., lib{}). Or the group may not support
     // this at all (e.g., obj{}).
     //
@@ -199,7 +207,7 @@ namespace build
     // resolve_group_members() from <build/algorithm>.
     //
     virtual group_view
-    group_members (action) const;
+    group_members (action_type) const;
 
     target_key
     key () const {return target_key {&type (), &dir, &name, &ext};}
@@ -318,8 +326,6 @@ namespace build
     std::size_t dependents;
 
   public:
-    typedef build::action action_type;
-
     action_type action; // Action this recipe is for.
 
   public:

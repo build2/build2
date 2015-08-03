@@ -37,43 +37,11 @@ namespace build
     // members as our prerequisites.
     //
     match_result lib_rule::
-    match (action a, target& t, const std::string&) const
-    {
-      // Search and match prerequisite libraries and add them to the
-      // prerequisite targets. While we never execute this list
-      // ourselves (see perform() below), this is necessary to make
-      // the exported options machinery work for the library chains
-      // (chaining is the reason why we have to do match, recursively).
-      // See the cxx.export.*-related code in cxx/compile.cxx for
-      // details.
-      //
-      for (prerequisite& p: group_prerequisites (t))
-      {
-        if (p.is_a<lib> ())
-        {
-          target& pt (search (p));
-          match_only (a, pt);
-          t.prerequisite_targets.push_back (&pt);
-        }
-        else if (p.is_a<liba> () || p.is_a<libso> ())
-        {
-          //@@ TMP: C++ link rule hasn't been converted to support
-          //   match_only().
-          //
-          target& pt (search (p));
-          build::match (a, pt);
-          t.prerequisite_targets.push_back (&pt);
-          pt.dependents--; // No intent to execute.
-        }
-      }
-
-      return t;
-    }
-
-    recipe lib_rule::
-    apply (action a, target& xt, const match_result&) const
+    match (action a, target& xt, const std::string&) const
     {
       lib& t (static_cast<lib&> (xt));
+
+      // @@ We have to re-query it on each match_only()!
 
       // Get the library type to build. If not set for a target, this
       // should be configured at the project scope by init_lib().
@@ -87,12 +55,20 @@ namespace build
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
+      // Search and pre-match the members. The pre-match here is part
+      // of the "library meta-information protocol" that could be used
+      // by the module that actually builds the members. The idea is
+      // that pre-matching members may populate our prerequisite_targets
+      // with prerequisite libraries from which others can extract the
+      // meta-information about the library, such as the options to use
+      // when linking it, etc.
+      //
       if (ar)
       {
         if (t.a == nullptr)
           t.a = &search<liba> (t.dir, t.name, t.ext, nullptr);
 
-        build::match (a, *t.a);
+        match_only (a, *t.a);
       }
 
       if (so)
@@ -100,8 +76,29 @@ namespace build
         if (t.so == nullptr)
           t.so = &search<libso> (t.dir, t.name, t.ext, nullptr);
 
-        build::match (a, *t.so);
+        match_only (a, *t.so);
       }
+
+      return match_result (t, &type);
+    }
+
+    recipe lib_rule::
+    apply (action a, target& xt, const match_result& mr) const
+    {
+      lib& t (static_cast<lib&> (xt));
+
+      const string& type (*static_cast<const string*> (mr.cpvalue));
+
+      bool ar (type == "static" || type == "both");
+      bool so (type == "shared" || type == "both");
+
+      // Now we do full match.
+      //
+      if (ar)
+        build::match (a, *t.a);
+
+      if (so)
+        build::match (a, *t.so);
 
       return &perform;
     }

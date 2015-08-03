@@ -86,6 +86,9 @@ namespace build
       liba* a {nullptr};
       libso* so {nullptr};
 
+      virtual void
+      reset (action_type);
+
     public:
       virtual const target_type& type () const {return static_type;}
       static const target_type static_type;

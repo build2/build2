@@ -60,11 +60,12 @@ namespace build
   {
     pair<const rule*, match_result> r;
 
-    // Clear the resolved targets list before calling match(). The rule
-    // is free to, say, resize() this list in match() (provided that it
-    // matches) in order to, for example, prepare it for apply().
+    // By default, clear the resolved targets list before calling
+    // match(). The rule is free to modify this list in match()
+    // (provided that it matches) in order to, for example, prepare
+    // it for apply().
     //
-    t.prerequisite_targets.clear ();
+    t.reset (a);
 
     // If this is a nested operation, first try the outer operation.
     // This allows a rule to implement a "precise match", that is,

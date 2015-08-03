@@ -365,7 +365,7 @@ namespace build
       //   (i.e., a utility library).
       //
 
-      bool so (t.is_a<libso> ());
+      type lt (link_type (t));
 
       // Scan prerequisites and see if we can work with what we've got.
       //
@@ -384,7 +384,7 @@ namespace build
         }
         else if (p.is_a<obja> ())
         {
-          if (so)
+          if (lt == type::so)
             fail << "shared library " << t << " prerequisite " << p
                  << " is static object";
 
@@ -423,6 +423,45 @@ namespace build
         return nullptr;
       }
 
+      // If we have any prerequisite libraries (which also means that
+      // we match), search/import and pre-match them to implement the
+      // "library meta-information protocol".
+      //
+      if (seen_lib && lt != type::e)
+      {
+        if (t.group != nullptr)
+          t.group->prerequisite_targets.clear (); // lib{}'s
+
+        search_paths_cache lib_paths; // Extract lazily.
+
+        for (prerequisite_member p: group_prerequisite_members (a, t))
+        {
+          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+          {
+            target* pt (nullptr);
+
+            // Handle imported libraries.
+            //
+            if (p.proj () != nullptr)
+              pt = search_library (lib_paths, p.prerequisite);
+
+            if (pt == nullptr)
+            {
+              pt = &p.search ();
+              match_only (a, *pt);
+            }
+
+            // If the prerequisite came from the lib{} group, then also
+            // add it to lib's prerequisite_targets.
+            //
+            if (!p.prerequisite.belongs (t))
+              t.group->prerequisite_targets.push_back (pt);
+
+            t.prerequisite_targets.push_back (pt);
+          }
+        }
+      }
+
       return seen_cxx || seen_c || seen_obj || seen_lib ? &t : nullptr;
     }
 
@@ -448,6 +487,8 @@ namespace build
         case type::so: t.derive_path ("so", "lib"); break;
         }
       }
+
+      t.prerequisite_targets.clear (); // See lib pre-match in match() above.
 
       // Inject dependency on the output directory.
       //
@@ -480,27 +521,14 @@ namespace build
 
         if (!p.is_a<c> () && !p.is_a<cxx> ())
         {
-          // Handle imported libraries. Essentially, we want to replicate
-          // the -lfoo functionality but as part of our import support.
+          // Handle imported libraries.
           //
-          if (p.proj () != nullptr &&
-              (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ()))
-          {
+          if (p.proj () != nullptr)
             pt = search_library (lib_paths, p.prerequisite);
-
-            // We only need this target if we are updating (remember, like
-            // -lfoo). The question is why search in the first place? The
-            // reason is the "not found" situation, in which someone else
-            // (i.e., the import phase 2) could resolve it to something
-            // that, who knows, might need cleaning, for example.
-            //
-            if (pt != nullptr && a.operation () != update_id)
-              continue; // Skip.
-          }
 
           // The rest is the same basic logic as in search_and_match().
           //
-          if (pt == nullptr) // Could've been resolved by search_library().
+          if (pt == nullptr)
             pt = &p.search ();
 
           if (a.operation () == clean_id && !pt->dir.sub (*amlg))
