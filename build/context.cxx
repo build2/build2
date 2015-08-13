@@ -28,6 +28,7 @@ namespace build
   const operation_info* current_inner_oif;
   const operation_info* current_outer_oif;
   execution_mode current_mode;
+  uint64_t dependency_count;
 
   void
   reset ()

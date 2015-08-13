@@ -193,7 +193,7 @@ namespace build
     // First update prerequisites (e.g. create parent directories)
     // then create this directory.
     //
-    if (t.has_prerequisites ())
+    if (!t.prerequisite_targets.empty ())
       ts = execute_prerequisites (a, t);
 
     const path& d (t.dir); // Everything is in t.dir.
@@ -231,26 +231,16 @@ namespace build
     // The reverse order of update: first delete this directory,
     // then clean prerequisites (e.g., delete parent directories).
     //
-    rmdir_status rs (rmdir (t.dir, t));
-
-    target_state ts (target_state::unchanged);
-    if (t.has_prerequisites ())
-      ts = reverse_execute_prerequisites (a, t);
-
-    // If we couldn't remove the directory, return postponed meaning
-    // that the operation could not be performed at this time.
+    // Don't fail if we couldn't remove the directory because it
+    // is not empty (or is current working directory). In this
+    // case rmdir() will issue a warning when appropriate.
     //
-    switch (rs)
-    {
-    case rmdir_status::success: ts |= target_state::changed; break;
-    case rmdir_status::not_empty:
-      {
-        if (!work.sub (t.dir)) // No use postponing removing working directory.
-          ts |= target_state::postponed;
-        break;
-      }
-    default: break;
-    }
+    target_state ts (rmdir (t.dir, t)
+                     ? target_state::changed
+                     : target_state::unchanged);
+
+    if (!t.prerequisite_targets.empty ())
+      ts |= reverse_execute_prerequisites (a, t);
 
     return ts;
   }

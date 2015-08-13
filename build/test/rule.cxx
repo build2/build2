@@ -210,7 +210,10 @@ namespace build
           build::match (a, *it);
 
           if (it->state () == target_state::unchanged)
+          {
+            unmatch (a, *it);
             it = nullptr;
+          }
         }
 
         if (ot != nullptr && in == on)
@@ -218,7 +221,10 @@ namespace build
           build::match (a, *ot);
 
           if (ot->state () == target_state::unchanged)
+          {
+            unmatch (a, *ot);
             ot = nullptr;
+          }
         }
         else
           ot = it;

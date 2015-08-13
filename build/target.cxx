@@ -32,7 +32,7 @@ namespace build
   // target_state
   //
   static const char* target_state_[] = {
-    "unknown", "unchanged", "changed", "postponed", "failed", "group"};
+    "unknown", "unchanged", "postponed", "changed", "failed", "group"};
 
   ostream&
   operator<< (ostream& os, target_state ts)

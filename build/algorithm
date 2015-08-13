@@ -67,12 +67,14 @@ namespace build
   // Match and apply a rule to the action/target with ambiguity
   // detection. Increment the target's dependents count, which
   // means that you should call this function with the intent
-  // to also call execute(). In case of optimizations that
-  // would avoid calling execute(), decrement the dependents
-  // cound manually to compensate.
+  // to also call execute(). In case of optimizations that would
+  // avoid calling execute(), call unmatch() to indicate this.
   //
   void
   match (action, target&);
+
+  void
+  unmatch (action, target&);
 
   // Match (but do not apply) a rule to the action/target with
   // ambiguity detection. Note that this function does not touch
@@ -84,7 +86,7 @@ namespace build
   // Match a "delegate rule" from withing another rules' apply()
   // function. Return recipe and recipe action (if any). Note
   // that unlike match(), this call doesn't increment the
-  // dependents count. See also execute_delegate().
+  // dependents count. See also the companion execute_delegate().
   //
   std::pair<recipe, action>
   match_delegate (action, target&);

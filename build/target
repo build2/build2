@@ -41,14 +41,14 @@ namespace build
   //
   enum class target_state: std::uint8_t
   {
-    // The order of the enumerators is arranged so that their
-    // inegral values indicate whether one "overrides" the other
-    // in the merge operator (see below).
+    // The order of the enumerators is arranged so that their integral
+    // values indicate whether one "overrides" the other in the merge
+    // operator (see below).
     //
     unknown,
     unchanged,
-    changed,
     postponed,
+    changed,
     failed,
     group       // Target's state is the group's state.
   };
@@ -68,22 +68,15 @@ namespace build
   // Recipe.
   //
   // The returned target state should be changed, unchanged, or
-  // postponed. If there is an error, then the recipe should throw
-  // rather than returning failed.
+  // postponed, though you shouldn't be returning postponed
+  // directly. If there is an error, then the recipe should
+  // throw rather than returning failed.
   //
-  // The recipe execution protocol is as follows: before executing
-  // the recipe, the caller sets the target's state to failed. If
-  // the recipe returns normally and the target's state is still
-  // failed, then the caller sets it to the returned value. This
-  // means that the recipe can set the target's state manually to
-  // some other value. For example, setting it to unknown will
-  // result in the recipe to be executed again if this target is a
-  // prerequisite of another target. Note that in this case the
-  // returned by the recipe value is still used (by the caller) as
-  // the resulting target state for this execution of the recipe.
-  // Returning postponed from the last call to the recipe means
-  // that the action could not be executed at this time (see fsdir
-  // clean for an example).
+  // The return value of the recipe is used to update the target
+  // state except if the state was manually set by the recipe to
+  // target_state::group. Note that in this case the returned by
+  // the recipe value is still used as the resulting target state
+  // so it should match the group's state.
   //
   using recipe_function = target_state (action, target&);
   using recipe = std::function<recipe_function>;

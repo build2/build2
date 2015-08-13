@@ -7,8 +7,8 @@ int
 main ()
 {
   cerr << "test is running (stderr)" << endl;
-  assert (false);
+  //assert (false);
   cout << "test is running (stdout)" << endl;
-  //return 0;
-  return 1;
+  return 0;
+  //return 1;
 }

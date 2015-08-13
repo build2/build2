@@ -7,6 +7,7 @@
 
 #include <string>
 #include <ostream>
+#include <cstdint> // uint64_t
 
 #include <butl/filesystem>
 
@@ -32,6 +33,14 @@ namespace build
   extern const operation_info* current_outer_oif;
 
   extern execution_mode current_mode;
+
+  // Total number of dependency relationships in the current action.
+  // Together with the target::dependents count it is incremented
+  // during the rule search & match phase and is decremented during
+  // execution with the expectation of it reaching 0. Used as a sanity
+  // check.
+  //
+  extern std::uint64_t dependency_count;
 
   // Reset the dependency state. In particular, this removes all the
   // targets, scopes, and variable names.

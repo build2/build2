@@ -114,12 +114,11 @@ namespace build
   {
     tracer trace ("execute");
 
-    // Build collecting postponed targets (to be re-examined later).
+    // Execute collecting postponed targets (to be re-examined later).
+    // Do it in reverse order if the execution mode is 'last'.
     //
     vector<reference_wrapper<target>> psp;
 
-    // Execute targets in reverse if the execution mode is 'last'.
-    //
     auto body (
       [a, &psp, &trace] (void* v)
       {
@@ -129,11 +128,6 @@ namespace build
 
         switch (execute (a, t))
         {
-        case target_state::postponed:
-          {
-            psp.push_back (t);
-            break;
-          }
         case target_state::unchanged:
           {
             // Be quiet in pre/post operations.
@@ -142,6 +136,9 @@ namespace build
               info << diag_done (a, t);
             break;
           }
+        case target_state::postponed:
+          psp.push_back (t);
+          break;
         case target_state::changed:
           break;
         case target_state::failed:
@@ -156,32 +153,27 @@ namespace build
     else
       for (void* v: reverse_iterate (ts)) body (v);
 
-    // Re-examine postponed targets. Note that we will do it in the
-    // order added, so no need to check the execution mode.
+    // We should have executed every target that we matched.
+    //
+    assert (dependency_count == 0);
+
+    // Re-examine postponed targets. This is the only reliable way to
+    // find out whether the target has changed.
     //
     for (target& t: psp)
     {
-      if (t.state () == target_state::postponed)
-        execute (a, t); // Re-examine the state.
-
-      switch (t.state ())
+      switch (execute (a, t))
       {
-      case target_state::postponed:
-        {
-          info << "unable to " << diag_do (a, t) << " at this time";
-          break;
-        }
       case target_state::unchanged:
         {
-          // Be quiet in pre/post operations.
-          //
           if (a.outer_operation () == 0)
             info << diag_done (a, t);
           break;
         }
-      case target_state::unknown: // Assume something was done to it.
       case target_state::changed:
         break;
+      case target_state::postponed:
+        assert (false);
       case target_state::failed:
         //@@ This could probably happen in a parallel build.
       default:

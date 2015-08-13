@@ -338,7 +338,7 @@ namespace build
     //
     switch (t.raw_state)
     {
-    case target_state::group:
+    case target_state::group: // Means group's state is unknown.
     case target_state::unknown:
     case target_state::postponed:
       {

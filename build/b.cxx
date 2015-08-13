@@ -744,6 +744,7 @@ main (int argc, char* argv[])
           current_inner_oif = pre_oif;
           current_outer_oif = oif;
           current_mode = pre_oif->mode;
+          dependency_count = 0;
 
           action a (mid, pre_oid, oid);
 
@@ -760,6 +761,7 @@ main (int argc, char* argv[])
         current_inner_oif = oif;
         current_outer_oif = nullptr;
         current_mode = oif->mode;
+        dependency_count = 0;
 
         action a (mid, oid, 0);
 
@@ -777,6 +779,7 @@ main (int argc, char* argv[])
           current_inner_oif = post_oif;
           current_outer_oif = oif;
           current_mode = post_oif->mode;
+          dependency_count = 0;
 
           action a (mid, post_oid, oid);
 

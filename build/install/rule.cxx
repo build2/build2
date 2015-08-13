@@ -130,7 +130,7 @@ namespace build
         if (pt.state () != target_state::unchanged)
           t.prerequisite_targets.push_back (&pt);
         else
-          pt.dependents--; // No intent to execute, so compensate.
+          unmatch (a, pt); // No intent to execute.
       }
 
       // This is where we diverge depending on the operation. In the

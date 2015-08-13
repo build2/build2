@@ -60,6 +60,19 @@ namespace build
       match_impl (a, t, true);
 
     t.dependents++;
+    dependency_count++;
+
+    // text << "M " << t << ": " << t.dependents << " " << dependency_count;
+  }
+
+  inline void
+  unmatch (action, target& t)
+  {
+    assert (t.dependents != 0 && dependency_count != 0);
+    t.dependents--;
+    dependency_count--;
+
+    // text << "U " << t << ": " << t.dependents << " " << dependency_count;
   }
 
   inline void
@@ -118,10 +131,14 @@ namespace build
   inline target_state
   execute (action a, target& t)
   {
-    // This can happen when we re-examine the state after being postponed.
-    //
-    if (t.dependents != 0)
+    if (dependency_count != 0) // Re-examination of a postponed target?
+    {
+      assert (t.dependents != 0);
       t.dependents--;
+      dependency_count--;
+    }
+
+    // text << "E " << t << ": " << t.dependents << " " << dependency_count;
 
     switch (target_state ts = t.state ())
     {
@@ -138,10 +155,10 @@ namespace build
         // clean the group via three of its members, only the last
         // attempt will actually execute the clean. This means that
         // when we match a group member, inside we should also match
-        // the group in order to increment the dependents count.
-        // Though this seems to be a natural requirement (if we
-        // are delegating to the group, we need to find a recipe
-        // for it, just like we would for a prerequisite).
+        // the group in order to increment the dependents count. This
+        // seems to be a natural requirement: if we are delegating to
+        // the group, we need to find a recipe for it, just like we
+        // would for a prerequisite.
         //
         // Note that below we are going to change the group state
         // to postponed. This is not a mistake: until we execute
