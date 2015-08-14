@@ -81,12 +81,12 @@ namespace build
   using recipe_function = target_state (action, target&);
   using recipe = std::function<recipe_function>;
 
-  // Commonly-used recipes. The default recipe executes the action
-  // on all the prerequisites in a loop, skipping ignored. Specially,
+  // Commonly-used recipes. The default recipe executes the action on
+  // all the prerequisites in a loop, skipping ignored. Specifically,
   // for actions with the "first" execution mode, it calls
   // execute_prerequisites() while for those with the "last" mode --
   // reverse_execute_prerequisites(); see <build/operation>,
-  // <build/algorithm> for details. The group recipe calls the group's
+  // <build/algorithm> for details. The group recipe call's the group's
   // recipe.
   //
   extern const recipe empty_recipe;
@@ -780,12 +780,10 @@ namespace build
   public:
     using target::target;
 
-    // Target mtime is only available after a rule has been matched
-    // (because this is when we know if we should get our mtime from
-    // the group and where the path which we need to load mtime is
-    // normally assigned). The mtime is also unavailable while the
-    // execution of the target is postponed (because we temporarily
-    // loose our group state).
+    // Generally, modification time for a target can only be queried
+    // after a rule has been matched since that's where the path is
+    // normally gets assigned. Normally, however, it would make sense
+    // to first execute the rule to get the "updated" timestamp.
     //
     // The rule for groups that utilize the group state is as follows:
     // if it has any members that are mtime_targets, then the group
@@ -794,8 +792,6 @@ namespace build
     timestamp
     mtime () const
     {
-      assert (raw_state != target_state::postponed);
-
       const mtime_target* t (raw_state == target_state::group
                              ? static_cast<const mtime_target*> (group)
                              : this);
