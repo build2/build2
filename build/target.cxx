@@ -51,6 +51,46 @@ namespace build
   //
 
   void target::
+  recipe (action_type a, recipe_type r)
+  {
+    assert (a > action || !recipe_);
+
+    bool override (a == action && recipe_); // See action::operator<.
+
+    // Only noop_recipe can be overridden.
+    //
+    if (override)
+    {
+      recipe_function** f (recipe_.target<recipe_function*> ());
+      assert (f != nullptr && *f == &noop_action);
+    }
+
+    action = a;
+    recipe_ = std::move (r);
+
+    // Also reset the target state. If this is a noop recipe, then
+    // mark the target unchanged so that we don't waste time executing
+    // the recipe. If this is a group recipe, then mark the state as
+    // coming from the group.
+    //
+    raw_state = target_state::unknown;
+
+    if (recipe_function** f = recipe_.target<recipe_function*> ())
+    {
+      if (*f == &noop_action)
+        raw_state = target_state::unchanged;
+      else if (*f == &group_action)
+        raw_state = target_state::group;
+    }
+
+    // This one is tricky: we don't want to reset the dependents count
+    // if we are merely overriding with a "stronger" recipe.
+    //
+    if (!override)
+      dependents = 0;
+  }
+
+  void target::
   reset (action_type)
   {
     prerequisite_targets.clear ();

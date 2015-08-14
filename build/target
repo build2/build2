@@ -328,29 +328,7 @@ namespace build
     recipe (action_type a) const {return a > action ? empty_recipe : recipe_;}
 
     void
-    recipe (action_type a, recipe_type r)
-    {
-      assert (a > action || !recipe_);
-      action = a;
-      recipe_ = std::move (r);
-
-      // Also reset the target state. If this is a noop recipe, then
-      // mark the target unchanged so that we don't waste time executing
-      // the recipe. If this is a group recipe, then mark the state as
-      // coming from the group.
-      //
-      raw_state = target_state::unknown;
-
-      if (recipe_function** f = recipe_.target<recipe_function*> ())
-      {
-        if (*f == &noop_action)
-          raw_state = target_state::unchanged;
-        else if (*f == &group_action)
-          raw_state = target_state::group;
-      }
-
-      dependents = 0;
-    }
+    recipe (action_type, recipe_type);
 
     // Target type info.
     //

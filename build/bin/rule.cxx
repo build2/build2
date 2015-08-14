@@ -79,7 +79,15 @@ namespace build
         match_only (a, *t.so);
       }
 
-      return match_result (t, &type);
+      match_result mr (t, &type);
+
+      // If there is an outer operation, indicate that we match
+      // unconditionally so that we don't override ourselves.
+      //
+      if (a.outer_operation () != 0)
+        mr.recipe_action = action (a.meta_operation (), a.operation ());
+
+      return mr;
     }
 
     recipe lib_rule::
