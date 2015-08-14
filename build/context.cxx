@@ -40,6 +40,21 @@ namespace build
     scopes.clear ();
     variable_pool.clear ();
 
+    // Reset meta/operation tables. Note that the order should match
+    // the id constants in <build/operation>.
+    //
+    meta_operation_table.clear ();
+    meta_operation_table.insert ("perform");
+    meta_operation_table.insert ("configure");
+    meta_operation_table.insert ("disfigure");
+
+    operation_table.clear ();
+    operation_table.insert ("default");
+    operation_table.insert ("update");
+    operation_table.insert ("clean");
+    operation_table.insert ("test");
+    operation_table.insert ("install");
+
     // Enter builtin variables.
     //
     variable_pool.insert (variable ("subprojects", '='));

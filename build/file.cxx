@@ -118,19 +118,17 @@ namespace build
   {
     scope& rs (scopes.insert (out_root, true).first);
 
-    // Enter built-in meta-operation and operation names. Note that
-    // the order of registration should match the id constants; see
-    // <operation> for details. Loading of modules (via the src
-    // bootstrap; see below) can result in additional names being
-    // added.
+    // Enter built-in meta-operation and operation names. Loading of
+    // modules (via the src bootstrap; see below) can result in
+    // additional meta/operations being added.
     //
     if (rs.meta_operations.empty ())
     {
-      assert (rs.meta_operations.insert (perform) == perform_id);
+      rs.meta_operations.insert (perform_id, perform);
 
-      assert (rs.operations.insert (default_) == default_id);
-      assert (rs.operations.insert (update) == update_id);
-      assert (rs.operations.insert (clean) == clean_id);
+      rs.operations.insert (default_id, default_);
+      rs.operations.insert (update_id, update);
+      rs.operations.insert (clean_id, clean);
     }
 
     // If this is already a root scope, verify that things are

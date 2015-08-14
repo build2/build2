@@ -84,6 +84,8 @@ namespace build
         rs.insert<libso> (update_id, "cxx.link", link::instance);
         rs.insert<libso> (clean_id, "cxx.link", link::instance);
 
+        //@@ Should we check if install module was loaded (see bin)?
+        //
         rs.insert<exe> (install_id, "cxx.install", install::instance);
         rs.insert<liba> (install_id, "cxx.install", install::instance);
         rs.insert<libso> (install_id, "cxx.install", install::instance);

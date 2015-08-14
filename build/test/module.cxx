@@ -19,24 +19,18 @@ namespace build
 {
   namespace test
   {
-    class module: public build::module
-    {
-    public:
-      module (operation_id test_id): rule (test_id) {}
-
-      test::rule rule;
-    };
+    static rule rule_;
 
     extern "C" void
-    test_init (scope& root,
-               scope& base,
+    test_init (scope& r,
+               scope& b,
                const location& l,
-               unique_ptr<build::module>& r,
+               unique_ptr<build::module>&,
                bool first)
     {
       tracer trace ("test::init");
 
-      if (&root != &base)
+      if (&r != &b)
         fail (l) << "test module must be initialized in bootstrap.build";
 
       if (!first)
@@ -45,17 +39,17 @@ namespace build
         return;
       }
 
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (r.path ());
       level4 ([&]{trace << "for " << out_root;});
 
       // Register the test operation.
       //
-      operation_id test_id (root.operations.insert (test));
+      r.operations.insert (test_id, test);
 
-      unique_ptr<module> m (new module (test_id));
-
+      // Register rules.
+      //
       {
-        auto& rs (base.rules);
+        auto& rs (r.rules);
 
         // Register the standard alias rule for the test operation.
         //
@@ -63,10 +57,8 @@ namespace build
 
         // Register our test running rule.
         //
-        rs.insert<target> (test_id, "test", m->rule);
+        rs.insert<target> (test_id, "test", rule_);
       }
-
-      r = move (m);
     }
   }
 }

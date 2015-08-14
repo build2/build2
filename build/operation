@@ -102,9 +102,12 @@ namespace build
   std::ostream&
   operator<< (std::ostream&, action);
 
-  // Id constants for build-in operations.
+  // Id constants for build-in and pre-defined meta/operations.
   //
   const meta_operation_id perform_id   = 1;
+
+  const meta_operation_id configure_id = 2;
+  const meta_operation_id disfigure_id = 3;
 
   // The default operation is a special marker that can be used to
   // indicate that no operation was explicitly specified by the user.
@@ -112,10 +115,13 @@ namespace build
   const operation_id default_id = 1;
   const operation_id update_id = 2;
   const operation_id clean_id  = 3;
-  const operation_id install_id = 4;
 
-  const action_id perform_update_id = (perform_id << 4) | update_id;
-  const action_id perform_clean_id  = (perform_id << 4) | clean_id;
+  const operation_id test_id = 4;
+  const operation_id install_id = 5;
+
+  const action_id perform_update_id   = (perform_id << 4) | update_id;
+  const action_id perform_clean_id    = (perform_id << 4) | clean_id;
+  const action_id perform_test_id     = (perform_id << 4) | test_id;
   const action_id perform_install_id  = (perform_id << 4) | install_id;
 
   // Recipe execution mode.
@@ -272,40 +278,76 @@ namespace build
     operation_id (*post) (meta_operation_id);
   };
 
-  // Build-in operations.
+  // Built-in operations.
   //
   extern operation_info default_;
   extern operation_info update;
   extern operation_info clean;
 
-  // Meta/operation tables.
+  // Global meta/operation tables. Each registered meta/operation
+  // is assigned an id which is used as an index in the per-project
+  // registered meta/operation lists.
   //
-  using meta_operation_table = butl::string_table<
-    meta_operation_id,
-    std::reference_wrapper<const meta_operation_info>>;
+  // We have three types of meta/operations: built-in (e.g., perform,
+  // update), pre-defined (e.g., configure, test), and dynamically-
+  // defined. For built-in ones, both the id and implementation are
+  // part of the build2 core. For pre-defined, the id is registered
+  // as part of the core but the implementation is loaded as part of
+  // a module. The idea with pre-defined operations is that they have
+  // common, well-established semantics but could still be optional.
+  // Another aspect of pre-defined operations is that often rules
+  // across multiple modules need to know their ids. Finally,
+  // dynamically-defined meta/operations have their ids registered
+  // as part of a module load. In this case, the meta/operation is
+  // normally (but not necessarily) fully implemented by this module.
+  //
+  // Note also that the name of a meta/operation in a sense defines
+  // its semantics. It would be strange to have an operation called
+  // test that does two very different things in different projects.
+  //
+  extern butl::string_table<meta_operation_id> meta_operation_table;
+  extern butl::string_table<operation_id> operation_table;
 
-  using operation_table = butl::string_table<
-    operation_id,
-    std::reference_wrapper<const operation_info>>;
-}
-
-namespace butl
-{
-  template <>
-  struct string_table_traits<
-    std::reference_wrapper<const build::meta_operation_info>>
+  // These are "sparse" in the sense that we may have "holes" that
+  // are represented as NULL pointers. Also, lookup out of bounds
+  // is treated as a hole.
+  //
+  template <typename T>
+  struct sparse_vector
   {
-    static const std::string&
-    key (const build::meta_operation_info& x) {return x.name;}
+    using base_type = std::vector<T*>;
+    using size_type = typename base_type::size_type;
+
+    void
+    insert (size_type i, T& x)
+    {
+      size_type n (v_.size ());
+
+      if (i < n)
+        v_[i] = &x;
+      else
+      {
+        if (n != i)
+          v_.resize (i, nullptr); // Add holes.
+        v_.push_back (&x);
+      }
+    }
+
+    T*
+    operator[] (size_type i) const
+    {
+      return i < v_.size () ? v_[i] : nullptr;
+    }
+
+    bool
+    empty () const {return v_.empty ();}
+
+  private:
+    base_type v_;
   };
 
-  template <>
-  struct string_table_traits<
-    std::reference_wrapper<const build::operation_info>>
-  {
-    static const std::string&
-    key (const build::operation_info& x) {return x.name;}
-  };
+  using meta_operations = sparse_vector<const meta_operation_info>;
+  using operations = sparse_vector<const operation_info>;
 }
 
 #endif // BUILD_OPERATION

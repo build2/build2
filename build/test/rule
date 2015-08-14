@@ -15,8 +15,6 @@ namespace build
     class rule: public build::rule
     {
     public:
-      rule (operation_id o): test_id (o) {}
-
       virtual match_result
       match (action, target&, const std::string&) const;
 
@@ -25,9 +23,6 @@ namespace build
 
       static target_state
       perform_test (action, target&);
-
-    private:
-      operation_id test_id;
     };
   }
 }

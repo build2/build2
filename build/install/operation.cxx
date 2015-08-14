@@ -4,8 +4,6 @@
 
 #include <build/install/operation>
 
-#include <build/config/operation>
-
 using namespace std;
 using namespace butl;
 
@@ -18,7 +16,7 @@ namespace build
     {
       // Run update as a pre-operation, unless we are disfiguring.
       //
-      return mo != config::disfigure_id ? update_id : 0;
+      return mo != disfigure_id ? update_id : 0;
     }
 
     operation_info install {

@@ -24,15 +24,15 @@ namespace build
     static const path config_file ("build/config.build");
 
     extern "C" void
-    config_init (scope& root,
-                 scope& base,
+    config_init (scope& r,
+                 scope& b,
                  const location& l,
                  std::unique_ptr<module>&,
                  bool first)
     {
       tracer trace ("config::init");
 
-      if (&root != &base)
+      if (&r != &b)
         fail (l) << "config module must be initialized in bootstrap.build";
 
       if (!first)
@@ -41,21 +41,20 @@ namespace build
         return;
       }
 
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (r.path ());
       level4 ([&]{trace << "for " << out_root;});
 
       // Register meta-operations.
       //
-      if (root.meta_operations.insert (configure) != configure_id ||
-          root.meta_operations.insert (disfigure) != disfigure_id)
-        fail (l) << "config module must be initialized before other modules";
+      r.meta_operations.insert (configure_id, configure);
+      r.meta_operations.insert (disfigure_id, disfigure);
 
       // Load config.build if one exists.
       //
       path f (out_root / config_file);
 
       if (file_exists (f))
-        source (f, root, root);
+        source (f, r, r);
     }
   }
 }

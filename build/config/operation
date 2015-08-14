@@ -11,9 +11,6 @@ namespace build
 {
   namespace config
   {
-    const meta_operation_id configure_id = 2;
-    const meta_operation_id disfigure_id = 3;
-
     extern meta_operation_info configure;
     extern meta_operation_info disfigure;
   }

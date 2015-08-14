@@ -116,8 +116,8 @@ namespace build
     // Meta/operations supported by this project (set on the root
     // scope only).
     //
-    meta_operation_table meta_operations;
-    operation_table operations;
+    build::meta_operations meta_operations;
+    build::operations operations;
 
     typedef build::path path_type;
 

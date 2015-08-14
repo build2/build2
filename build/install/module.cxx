@@ -104,8 +104,10 @@ namespace build
 
       // Register the install operation.
       //
-      assert (r.operations.insert (install) == install_id);
+      r.operations.insert (install_id, install);
 
+      // Register rules.
+      //
       {
         auto& rs (b.rules);
 

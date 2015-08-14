@@ -68,11 +68,11 @@ namespace build
   inline void
   unmatch (action, target& t)
   {
+    // text << "U " << t << ": " << t.dependents << " " << dependency_count;
+
     assert (t.dependents != 0 && dependency_count != 0);
     t.dependents--;
     dependency_count--;
-
-    // text << "U " << t << ": " << t.dependents << " " << dependency_count;
   }
 
   inline void
@@ -131,14 +131,14 @@ namespace build
   inline target_state
   execute (action a, target& t)
   {
+    // text << "E " << t << ": " << t.dependents << " " << dependency_count;
+
     if (dependency_count != 0) // Re-examination of a postponed target?
     {
       assert (t.dependents != 0);
       t.dependents--;
       dependency_count--;
     }
-
-    // text << "E " << t << ": " << t.dependents << " " << dependency_count;
 
     switch (target_state ts = t.state ())
     {

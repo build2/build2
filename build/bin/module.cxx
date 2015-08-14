@@ -65,6 +65,13 @@ namespace build
         rs.insert<lib> (update_id, "bin.lib", lib_);
         rs.insert<lib> (clean_id, "bin.lib", lib_);
 
+        //@@ Should we check if the install module was loaded
+        //   (by checking if install operation is registered
+        //   for this project)? If we do that, then install
+        //   will have to be loaded before bin. Perhaps we
+        //   should enforce loading of all operation-defining
+        //   modules before all others?
+        //
         rs.insert<lib> (install_id, "bin.lib", lib_);
       }
 

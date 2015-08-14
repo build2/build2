@@ -492,8 +492,8 @@ main (int argc, char* argv[])
           // all be known. We store the combined action id in uint8_t;
           // see <operation> for details.
           //
-          assert (rs.operations.size () <= 128);
-          assert (rs.meta_operations.size () <= 128);
+          assert (operation_table.size () <= 128);
+          assert (meta_operation_table.size () <= 128);
 
           // Since we now know all the names of meta-operations and
           // operations, "lift" names that we assumed (from buildspec
@@ -511,7 +511,7 @@ main (int argc, char* argv[])
 
             if (!on.empty ())
             {
-              m = rs.meta_operations.find (on);
+              m = meta_operation_table.find (on);
 
               if (m != 0)
               {
@@ -543,7 +543,7 @@ main (int argc, char* argv[])
               }
               else
               {
-                o = rs.operations.find (on);
+                o = operation_table.find (on);
 
                 if (o == 0)
                 {
@@ -564,7 +564,7 @@ main (int argc, char* argv[])
 
             if (!mn.empty ())
             {
-              m = rs.meta_operations.find (mn);
+              m = meta_operation_table.find (mn);
 
               if (m == 0)
               {
@@ -591,7 +591,11 @@ main (int argc, char* argv[])
             if (mid == 0)
             {
               mid = m;
-              mif = &rs.meta_operations[mid].get ();
+              mif = rs.meta_operations[m];
+
+              if (mif == nullptr)
+                fail (l) << "target " << tn << " does not support meta-"
+                         << "operation " << meta_operation_table[m];
 
               level4 ([&]{trace << "start meta-operation batch " << mif->name
                                 << ", id " << static_cast<uint16_t> (mid);});
@@ -607,10 +611,15 @@ main (int argc, char* argv[])
             //
             else
             {
-              if (mid > rs.meta_operations.size () ||     // Not a valid index.
-                  mif != &rs.meta_operations[mid].get ()) // Not the same impl.
-                fail (l) << "different meta-operation implementations "
-                         << "in a meta-operation batch";
+              const meta_operation_info* mi (rs.meta_operations[mid]);
+
+              if (mi == nullptr)
+                fail (l) << "target " << tn << " does not support meta-"
+                         << "operation " << meta_operation_table[mid];
+
+              if (mi != mif)
+                fail (l) << "different implementations of meta-operation "
+                         << mif->name << " in the same meta-operation batch";
             }
 
             // If this is the first target in the operation batch, then set
@@ -618,10 +627,21 @@ main (int argc, char* argv[])
             //
             if (oid == 0)
             {
+              auto lookup =
+                [&rs, &l, &tn] (operation_id o) -> const operation_info*
+                {
+                  const operation_info* r (rs.operations[o]);
+
+                  if (r == nullptr)
+                    fail (l) << "target " << tn << " does not support "
+                             << "operation " << operation_table[o];
+                  return r;
+                };
+
               if (o == 0)
                 o = default_id;
 
-              oif = &rs.operations[o].get ();
+              oif = lookup (o);
 
               level4 ([&]{trace << "start operation batch " << oif->name
                                 << ", id " << static_cast<uint16_t> (o);});
@@ -635,7 +655,7 @@ main (int argc, char* argv[])
 
               if (o != oid)
               {
-                oif = &rs.operations[oid].get ();
+                oif = lookup (oid);
                 level4 ([&]{trace << "operation translated to " << oif->name
                                   << ", id " << static_cast<uint16_t> (oid);});
               }
@@ -645,13 +665,13 @@ main (int argc, char* argv[])
               if (oif->pre != nullptr && (pre_oid = oif->pre (mid)) != 0)
               {
                 assert (pre_oid != default_id);
-                pre_oif = &rs.operations[pre_oid].get ();
+                pre_oif = lookup (pre_oid);
               }
 
               if (oif->post != nullptr && (post_oid = oif->post (mid)) != 0)
               {
                 assert (post_oid != default_id);
-                post_oif = &rs.operations[post_oid].get ();
+                post_oif = lookup (post_oid);
               }
             }
             //
@@ -660,26 +680,27 @@ main (int argc, char* argv[])
             //
             else
             {
-              if (oid > rs.operations.size () ||     // Not a valid index.
-                  oif != &rs.operations[oid].get ()) // Not the same impl.
-                fail (l) << "different operation implementations "
-                         << "in an operation batch";
+              auto check =
+                [&rs, &l, &tn] (operation_id o, const operation_info* i)
+                {
+                  const operation_info* r (rs.operations[o]);
+
+                  if (r == nullptr)
+                    fail (l) << "target " << tn << " does not support "
+                             << "operation " << operation_table[o];
+
+                  if (r != i)
+                    fail (l) << "different implementations of operation "
+                             << i->name << " in the same operation batch";
+                };
+
+              check (oid, oif);
 
               if (pre_oid != 0)
-              {
-                if (pre_oid > rs.operations.size () ||
-                    pre_oif != &rs.operations[pre_oid].get ())
-                  fail (l) << "different pre-operation implementations "
-                           << "in an operation batch";
-              }
+                check (pre_oid, pre_oif);
 
               if (post_oid != 0)
-              {
-                if (post_oid > rs.operations.size () ||
-                    post_oif != &rs.operations[post_oid].get ())
-                  fail (l) << "different post-operation implementations "
-                           << "in an operation batch";
-              }
+                check (post_oid, post_oif);
             }
           }
 
