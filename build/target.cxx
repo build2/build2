@@ -119,18 +119,12 @@ namespace build
   value_proxy target::
   operator[] (const variable& var) const
   {
-    auto find = [&var] (const variable_map& vars)
-    {
-      auto i (vars.find (var));
-      return i != vars.end () ? &const_cast<value_ptr&> (i->second) : nullptr;
-    };
-
-    if (auto p = find (vars))
+    if (auto p = vars.find (var))
       return value_proxy (p, &vars);
 
     if (group != nullptr)
     {
-      if (auto p = find (group->vars))
+      if (auto p = group->vars.find (var))
         return value_proxy (p, &group->vars);
     }
 
@@ -141,7 +135,7 @@ namespace build
     {
       if (!s->target_vars.empty ())
       {
-        auto find_specific = [&find, s] (const target& t) -> value_proxy
+        auto find_specific = [&var, s] (const target& t) -> value_proxy
         {
           // Search across target type hierarchy.
           //
@@ -159,7 +153,7 @@ namespace build
             if (j == i->second.end ())
               continue;
 
-            if (auto p = find (j->second))
+            if (auto p = j->second.find (var))
               return value_proxy (p, &j->second);
           }
 
@@ -176,7 +170,7 @@ namespace build
         }
       }
 
-      if (auto p = find (s->vars))
+      if (auto p = s->vars.find (var))
         return value_proxy (p, &s->vars);
     }
 

@@ -33,12 +33,14 @@ namespace build
       // @@ This logic doesn't take into account target type/pattern-
       // specific variables.
       //
+      // @@ Perhaps a find_any(<list-of-vars>)?
+      //
       for (auto p (t.vars.find_namespace ("test"));
            p.first != p.second;
            ++p.first)
       {
         const variable& var (p.first->first);
-        value_ptr& val (p.first->second);
+        const value_ptr& val (p.first->second);
 
         // If we have test, then always use that.
         //

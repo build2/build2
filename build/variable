@@ -177,10 +177,21 @@ namespace build
     const variable_map* vars; // Variable map to which this value belongs.
 
     value_proxy (): vars (nullptr), p (nullptr) {}
-    value_proxy (value_ptr* p, const variable_map* v): vars (v), p (p) {}
+    value_proxy (value_ptr* p, const variable_map* v)
+        : vars (p != nullptr ? v : nullptr), p (p) {}
 
     template <typename T>
-    value_proxy (value_ptr& p, const T& x): vars (&x.vars), p (&p) {}
+    value_proxy (value_ptr& p, const T& x)
+        : value_proxy (&p, &x.vars) {}
+
+    // @@ To do this properly we seem to need ro_value_proxy?
+    //
+    value_proxy (const value_ptr* p, const variable_map* v)
+        : value_proxy (const_cast<value_ptr*> (p), v) {}
+
+    template <typename T>
+    value_proxy (const value_ptr& p, const T& x)
+        : value_proxy (const_cast<value_ptr&> (p), x) {}
 
     void
     rebind (const value_proxy& x) {vars = x.vars; p = x.p;}
@@ -305,18 +316,23 @@ namespace build
 
   // variable_map
   //
-  using variable_map_base = butl::prefix_map<variable_cref, value_ptr, '.'>;
-  struct variable_map: variable_map_base
+  struct variable_map
   {
+    using map_type = butl::prefix_map<variable_cref, value_ptr, '.'>;
+    using size_type = map_type::size_type;
+    using const_iterator = map_type::const_iterator;
+
+    const value_ptr*
+    find (const variable& var) const
+    {
+      auto i (m_.find (var));
+      return i != m_.end () ? &i->second : nullptr;
+    }
+
     value_proxy
     operator[] (const variable& var) const
     {
-      auto i (find (var));
-      return i != end ()
-        // @@ To do this properly we seem to need ro_value_proxy.
-        //
-        ? value_proxy (&const_cast<value_ptr&> (i->second), this)
-        : value_proxy (nullptr, nullptr);
+      return value_proxy (find (var), this);
     }
 
     value_proxy
@@ -331,7 +347,7 @@ namespace build
     std::pair<value_proxy, bool>
     assign (const variable& var)
     {
-      auto r (emplace (var, value_ptr ()));
+      auto r (m_.emplace (var, value_ptr ()));
       return std::make_pair (value_proxy (&r.first->second, this), r.second);
     }
 
@@ -341,17 +357,26 @@ namespace build
       return assign (variable_pool.find (name));
     }
 
-    std::pair<iterator, iterator>
-    find_namespace (const std::string& ns)
-    {
-      return find_prefix (variable_pool.find (ns));
-    }
-
     std::pair<const_iterator, const_iterator>
     find_namespace (const std::string& ns) const
     {
-      return find_prefix (variable_pool.find (ns));
+      return m_.find_prefix (variable_pool.find (ns));
     }
+
+    const_iterator
+    begin () const {return m_.begin ();}
+
+    const_iterator
+    end () const {return m_.end ();}
+
+    bool
+    empty () const {return m_.empty ();}
+
+    size_type
+    size () const {return m_.size ();}
+
+  private:
+    map_type m_;
   };
 
   // Target type/pattern-specific variables.

@@ -17,13 +17,11 @@ namespace build
   {
     for (const scope* s (this); s != nullptr; s = s->parent_scope ())
     {
-      auto i (s->vars.find (var));
-      if (i != s->vars.end ())
-        // @@ Same issue as in variable_map: need ro_value_proxy.
-        return value_proxy (&const_cast<value_ptr&> (i->second), &s->vars);
+      if (const value_ptr* v = s->vars.find (var))
+        return value_proxy (v, &s->vars);
     }
 
-    return value_proxy (nullptr, nullptr);
+    return value_proxy ();
   }
 
   value_proxy scope::
