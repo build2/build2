@@ -25,16 +25,16 @@ namespace build
 
     // Default config.bin.*.lib values.
     //
-    static const list_value exe_lib (names {name ("shared"), name ("static")});
-    static const list_value liba_lib ("static");
-    static const list_value libso_lib ("shared");
+    static const strings exe_lib {"shared", "static"};
+    static const strings liba_lib {"static"};
+    static const strings libso_lib {"shared"};
 
     extern "C" void
     bin_init (scope& r,
               scope& b,
               const location&,
               std::unique_ptr<module>&,
-              bool)
+              bool first)
     {
       tracer trace ("bin::init");
       level4 ([&]{trace << "for " << b.path ();});
@@ -75,6 +75,21 @@ namespace build
         rs.insert<lib> (install_id, "bin.lib", lib_);
       }
 
+      // Enter module variables.
+      //
+      if (first)
+      {
+        variable_pool.find ("config.bin.lib", string_type);
+        variable_pool.find ("config.bin.exe.lib", strings_type);
+        variable_pool.find ("config.bin.liba.lib", strings_type);
+        variable_pool.find ("config.bin.libso.lib", strings_type);
+
+        variable_pool.find ("bin.lib", string_type);
+        variable_pool.find ("bin.exe.lib", strings_type);
+        variable_pool.find ("bin.liba.lib", strings_type);
+        variable_pool.find ("bin.libso.lib", strings_type);
+      }
+
       // Configure.
       //
       using config::required;
@@ -92,7 +107,7 @@ namespace build
       // config.bin.lib
       //
       {
-        auto v (b.assign ("bin.lib"));
+        value& v (b.assign ("bin.lib"));
         if (!v)
           v = required (r, "config.bin.lib", "both").first;
       }
@@ -100,7 +115,7 @@ namespace build
       // config.bin.exe.lib
       //
       {
-        auto v (b.assign ("bin.exe.lib"));
+        value& v (b.assign ("bin.exe.lib"));
         if (!v)
           v = required (r, "config.bin.exe.lib", exe_lib).first;
       }
@@ -108,7 +123,7 @@ namespace build
       // config.bin.liba.lib
       //
       {
-        auto v (b.assign ("bin.liba.lib"));
+        value& v (b.assign ("bin.liba.lib"));
         if (!v)
           v = required (r, "config.bin.liba.lib", liba_lib).first;
       }
@@ -116,14 +131,14 @@ namespace build
       // config.bin.libso.lib
       //
       {
-        auto v (b.assign ("bin.libso.lib"));
+        value& v (b.assign ("bin.libso.lib"));
         if (!v)
           v = required (r, "config.bin.libso.lib", libso_lib).first;
       }
 
       // Configure "installability" of our target types.
       //
-      install::path<exe> (b, "bin");  // Install into install.bin.
+      install::path<exe> (b, dir_path ("bin"));  // Install into install.bin.
 
       // Should shared libraries have executable bit? That depends on
       // who you ask. In Debian, for example, it should not unless, it
@@ -143,9 +158,9 @@ namespace build
       //
       // Everyone is happy then?
       //
-      install::path<libso> (b, "lib"); // Install into install.lib.
+      install::path<libso> (b, dir_path ("lib")); // Install into install.lib.
 
-      install::path<liba> (b, "lib");  // Install into install.lib.
+      install::path<liba> (b, dir_path ("lib"));  // Install into install.lib.
       install::mode<liba> (b, "644");
     }
   }

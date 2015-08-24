@@ -33,11 +33,11 @@ namespace build
   {
     name () = default;
 
-    explicit
-    name (std::string v): value (std::move (v)) {}
+    explicit name (std::string v): value (std::move (v)) {}
+    name& operator= (std::string v) {return *this = name (std::move (v));}
 
-    explicit
-    name (dir_path d): dir (std::move (d)) {}
+    explicit name (dir_path d): dir (std::move (d)) {}
+    name& operator= (dir_path d) {return *this = name (std::move (d));}
 
     name (std::string t, std::string v)
         : type (std::move (t)), value (std::move (v)) {}

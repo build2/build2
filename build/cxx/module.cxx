@@ -91,6 +91,43 @@ namespace build
         rs.insert<libso> (install_id, "cxx.install", install::instance);
       }
 
+      // Enter module variables.
+      //
+      // @@ Probably should only be done on load; make sure reset() unloads
+      //    modules.
+      //
+      // @@ Should probably cache the variable pointers so we don't have
+      //    to keep looking them up.
+      //
+      if (first)
+      {
+        variable_pool.find ("config.cxx", string_type); //@@ VAR type
+
+        variable_pool.find ("config.cxx.poptions", strings_type);
+        variable_pool.find ("config.cxx.coptions", strings_type);
+        variable_pool.find ("config.cxx.loptions", strings_type);
+        variable_pool.find ("config.cxx.libs", strings_type);
+
+        variable_pool.find ("cxx.poptions", strings_type);
+        variable_pool.find ("cxx.coptions", strings_type);
+        variable_pool.find ("cxx.loptions", strings_type);
+        variable_pool.find ("cxx.libs", strings_type);
+
+        variable_pool.find ("cxx.export.poptions", strings_type);
+        variable_pool.find ("cxx.export.coptions", strings_type);
+        variable_pool.find ("cxx.export.loptions", strings_type);
+        variable_pool.find ("cxx.export.libs", strings_type);
+
+        variable_pool.find ("cxx.std", string_type);
+
+        variable_pool.find ("h.ext", string_type);
+        variable_pool.find ("c.ext", string_type);
+        variable_pool.find ("hxx.ext", string_type);
+        variable_pool.find ("ixx.ext", string_type);
+        variable_pool.find ("txx.ext", string_type);
+        variable_pool.find ("cxx.ext", string_type);
+      }
+
       // Configure.
       //
 
@@ -104,7 +141,7 @@ namespace build
         //
         if (p.second)
         {
-          const string& cxx (p.first);
+          const string& cxx (as<string> (p.first));
           const char* args[] = {cxx.c_str (), "-dumpversion", nullptr};
 
           if (verb)
@@ -157,27 +194,27 @@ namespace build
       // using cxx
       // cxx.coptions += <overriding options> # Note: '+='.
       //
-      if (auto* v = config::optional<list_value> (r, "config.cxx.poptions"))
-        b.assign ("cxx.poptions") += *v;
+      if (const value& v = config::optional (r, "config.cxx.poptions"))
+        b.assign ("cxx.poptions") += as<strings> (v);
 
-      if (auto* v = config::optional<list_value> (r, "config.cxx.coptions"))
-        b.assign ("cxx.coptions") += *v;
+      if (const value& v = config::optional (r, "config.cxx.coptions"))
+        b.assign ("cxx.coptions") += as<strings> (v);
 
-      if (auto* v = config::optional<list_value> (r, "config.cxx.loptions"))
-        b.assign ("cxx.loptions") += *v;
+      if (const value& v = config::optional (r, "config.cxx.loptions"))
+        b.assign ("cxx.loptions") += as<strings> (v);
 
-      if (auto* v = config::optional<list_value> (r, "config.cxx.libs"))
-        b.assign ("cxx.libs") += *v;
+      if (const value& v = config::optional (r, "config.cxx.libs"))
+        b.assign ("cxx.libs") += as<strings> (v);
 
       // Configure "installability" of our target types.
       //
       {
         using build::install::path;
 
-        path<hxx> (b, "include"); // Install into install.include.
-        path<ixx> (b, "include");
-        path<txx> (b, "include");
-        path<h> (b, "include");
+        path<hxx> (b, dir_path ("include")); // Install into install.include.
+        path<ixx> (b, dir_path ("include"));
+        path<txx> (b, dir_path ("include"));
+        path<h>   (b, dir_path ("include"));
       }
     }
   }

@@ -478,8 +478,8 @@ namespace build
       //
       if (src_root_ == nullptr)
       {
-        auto v (root_->vars["src_root"]);
-        src_root_ = v ? &v.as<const dir_path&> () : nullptr;
+        auto l (root_->vars["src_root"]);
+        src_root_ = l ? &as<dir_path> (*l) : nullptr;
       }
     }
 
@@ -597,8 +597,8 @@ namespace build
       scope_ = &scopes[out_base];
 
       scope_->assign ("out_base") = move (out_base);
-      auto v (scope_->assign ("src_base") = move (src_base));
-      scope_->src_path_ = &v.as<const dir_path&> ();
+      scope_->src_path_ = &as<dir_path> (
+        scope_->assign ("src_base") = move (src_base));
 
       target* odt (default_target_);
       default_target_ = nullptr;
@@ -641,7 +641,9 @@ namespace build
     //
     // import [<var>=](<project>|<project>/<target>])+
     //
-    value_proxy val;
+    value* val (nullptr);
+    const build::variable* var (nullptr);
+
     token_type at; // Assignment type.
     if (tt == type::name)
     {
@@ -649,9 +651,10 @@ namespace build
 
       if (at == token_type::equal || at == token_type::plus_equal)
       {
-        val.rebind (at == token_type::equal
-                    ? scope_->assign (t.name ())
-                    : scope_->append (t.name ()));
+        var = &variable_pool.find (t.name ());
+        val = at == token_type::equal
+          ? &scope_->assign (*var)
+          : &scope_->append (*var);
         next (t, tt); // Consume =/+=.
         next (t, tt);
       }
@@ -669,14 +672,14 @@ namespace build
     {
       // build::import() will check the name, if required.
       //
-      list_value r (build::import (*scope_, move (n), l));
+      names_type r (build::import (*scope_, move (n), l));
 
-      if (val.defined ())
+      if (val != nullptr)
       {
         if (at == token_type::equal)
-          val = move (r);
+          val->assign (move (r), *var);
         else
-          val += move (r);
+          val->append (move (r), *var);
       }
     }
 
@@ -701,9 +704,8 @@ namespace build
     // The rest is a value. Parse it as names to get variable expansion.
     // build::import() will check the names, if required.
     //
-    export_value_ = list_value (tt != type::newline && tt != type::eos
-                                ? names (t, tt)
-                                : names_type ());
+    if (tt != type::newline && tt != type::eos)
+      export_value_ = names (t, tt);
 
     if (tt == type::newline)
       next (t, tt);
@@ -785,28 +787,17 @@ namespace build
                     : names_type ());
     if (assign)
     {
-      auto v (target_ != nullptr
-              ? target_->assign (var)
-              : scope_->assign (var));
-      v = list_value (move (vns));
+      value& v (target_ != nullptr
+                ? target_->assign (var)
+                : scope_->assign (var));
+      v.assign (move (vns), var);
     }
     else
     {
-      auto v (target_ != nullptr
-              ? target_->append (var)
-              : scope_->append (var));
-
-      // More efficient than calling operator+=.
-      //
-      if (v)
-      {
-        list_value& lv (v.as<list_value&> ());
-        lv.insert (lv.end (),
-                   make_move_iterator (vns.begin ()),
-                   make_move_iterator (vns.end ()));
-      }
-      else
-        v = list_value (move (vns)); // Same as assignment.
+      value& v (target_ != nullptr
+                ? target_->append (var)
+                : scope_->append (var));
+      v.append (move (vns), var);
     }
   }
 
@@ -1031,12 +1022,12 @@ namespace build
           n = t.name ();
 
         const auto& var (variable_pool.find (move (n)));
-        auto val (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
+        auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
 
-        // Undefined namespace variables are not allowed.
+        // Undefined/NULL namespace variables are not allowed.
         //
-        if (!val && var.name.find ('.') != string::npos)
-          fail (t) << "undefined namespace variable " << var.name;
+        if (!l && var.name.find ('.') != string::npos)
+          fail (t) << "undefined/null namespace variable " << var.name;
 
         if (paren)
         {
@@ -1048,15 +1039,10 @@ namespace build
 
         tt = peek ();
 
-        if (!val)
+        if (!l || l->empty ())
           continue;
 
-        //@@ TODO: assuming it is a list.
-        //
-        const list_value& lv (val.as<list_value&> ());
-
-        if (lv.empty ())
-          continue;
+        const names_type& lv (l->data_);
 
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
@@ -1077,11 +1063,11 @@ namespace build
 
           const name& n (lv[0]);
 
-          if (n.proj != nullptr)
+          if (n.qualified ())
             fail (t) << "concatenating expansion of " << var.name
                      << " contains project name";
 
-          if (!n.type.empty ())
+          if (n.typed ())
             fail (t) << "concatenating expansion of " << var.name
                      << " contains type";
 
@@ -1452,10 +1438,10 @@ namespace build
       // to their return values are not guaranteed to be stable (and,
       // in fact, path()'s is not).
       //
-      out_root_ = &root_->vars["out_root"].as<const dir_path&> ();
+      out_root_ = &as<dir_path> (*root_->vars["out_root"]);
 
-      auto v (root_->vars["src_root"]);
-      src_root_ = v ? &v.as<const dir_path&> () : nullptr;
+      auto l (root_->vars["src_root"]);
+      src_root_ = l ? &as<dir_path> (*l) : nullptr;
     }
 
     return r;

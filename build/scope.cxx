@@ -12,30 +12,33 @@ namespace build
 {
   // scope
   //
-  value_proxy scope::
+  lookup<const value> scope::
   operator[] (const variable& var) const
   {
-    for (const scope* s (this); s != nullptr; s = s->parent_scope ())
+    const value* r (nullptr);
+    const scope* s (this);
+
+    for (; s != nullptr; s = s->parent_scope ())
     {
-      if (const value_ptr* v = s->vars.find (var))
-        return value_proxy (v, &s->vars);
+      if ((r = s->vars.find (var)) != nullptr)
+        break;
     }
 
-    return value_proxy ();
+    return lookup<const value> (r, &s->vars);
   }
 
-  value_proxy scope::
+  value& scope::
   append (const variable& var)
   {
-    value_proxy val (operator[] (var));
+    auto l (operator[] (var));
 
-    if (val && val.belongs (*this)) // Existing variable in this scope.
-      return val;
+    if (l && l.belongs (*this)) // Existing variable in this scope.
+      return const_cast<value&> (*l);
 
-    value_proxy r (assign (var));
+    value& r (assign (var));
 
-    if (val)
-      r = val; // Copy value from the outer scope.
+    if (l)
+      r = *l; // Copy value from the outer scope.
 
     return r;
   }

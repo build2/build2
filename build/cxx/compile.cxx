@@ -166,23 +166,23 @@ namespace build
     {
       ext_map m;
 
-      if (auto val = r["h.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &h::static_type;
+      if (auto l = r["h.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &h::static_type;
 
-      if (auto val = r["c.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &c::static_type;
+      if (auto l = r["c.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &c::static_type;
 
-      if (auto val = r["hxx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &hxx::static_type;
+      if (auto l = r["hxx.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &hxx::static_type;
 
-      if (auto val = r["ixx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &ixx::static_type;
+      if (auto l = r["ixx.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &ixx::static_type;
 
-      if (auto val = r["txx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &txx::static_type;
+      if (auto l = r["txx.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &txx::static_type;
 
-      if (auto val = r["cxx.ext"])
-        m[&extension_pool.find (val.as<const string&> ())] = &cxx::static_type;
+      if (auto l = r["cxx.ext"])
+        m[&extension_pool.find (as<string> (*l))] = &cxx::static_type;
 
       return m;
     }
@@ -215,26 +215,24 @@ namespace build
       const dir_path& out_base (t.dir);
       const dir_path& out_root (rs->path ());
 
-      if (auto val = t[var])
+      if (auto l = t[var])
       {
-        const list_value& l (val.template as<const list_value&> ());
+        const auto& v (as<strings> (*l));
 
-        // Assume the names have already been vetted by append_options().
-        //
-        for (auto i (l.begin ()), e (l.end ()); i != e; ++i)
+        for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
-          // -I can either be in the -Ifoo or -I foo form.
+          // -I can either be in the "-Ifoo" or "-I foo" form.
           //
           dir_path d;
-          if (i->value == "-I")
+          if (*i == "-I")
           {
             if (++i == e)
               break; // Let the compiler complain.
 
-            d = i->simple () ? dir_path (i->value) : i->dir;
+            d = dir_path (*i);
           }
-          else if (i->value.compare (0, 2, "-I") == 0)
-            d = dir_path (i->value, 2, string::npos);
+          else if (i->compare (0, 2, "-I") == 0)
+            d = dir_path (*i, 2, string::npos);
           else
             continue;
 
@@ -368,7 +366,7 @@ namespace build
       tracer trace ("cxx::compile::inject_prerequisites");
 
       scope& rs (t.root_scope ());
-      const string& cxx (rs["config.cxx"].as<const string&> ());
+      const string& cxx (as<string> (*rs["config.cxx"]));
 
       cstrings args {cxx.c_str ()};
 
@@ -715,7 +713,7 @@ namespace build
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cxx (rs["config.cxx"].as<const string&> ());
+      const string& cxx (as<string> (*rs["config.cxx"]));
 
       cstrings args {cxx.c_str ()};
 

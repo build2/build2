@@ -10,32 +10,14 @@ namespace build
 {
   namespace config
   {
-    // The same as the template except it is a bit more efficient
-    // when it comes to not creating the default value string
-    // unnecessarily.
-    //
-    pair<const string&, bool>
-    required (scope& root, const char* name, const char* def_value)
+    const value&
+    optional (scope& root, const variable& var)
     {
-      string r;
-      const variable& var (variable_pool.find (name));
+      auto l (root[var]);
 
-      if (auto v = root[var])
-      {
-        const string& s (v.as<const string&> ());
-
-        if (!v.belongs (*global_scope)) // A value from (some) config.build.
-          return pair<const string&, bool> (s, false);
-
-        r = s;
-      }
-      else
-        r = def_value;
-
-      auto v (root.assign (var));
-      v = move (r);
-
-      return pair<const string&, bool> (v.as<const string&> (), true);
+      return l.defined ()
+        ? l.belongs (*global_scope) ? (root.assign (var) = *l) : *l
+        : root.assign (var); // NULL
     }
 
     bool
@@ -54,17 +36,14 @@ namespace build
     }
 
     void
-    append_options (cstrings& args, const list_value& lv, const char* var)
+    append_options (cstrings& args, const const_strings_value& sv)
     {
-      for (const name& n: lv)
+      if (!sv.empty ())
       {
-        if (n.simple ())
-          args.push_back (n.value.c_str ());
-        else if (n.directory ())
-          args.push_back (n.dir.string ().c_str ());
-        else
-          fail << "expected option instead of " << n <<
-            info << "in variable " << var;
+        args.reserve (args.size () + sv.size ());
+
+        for (const string& s: sv)
+          args.push_back (s.c_str ());
       }
     }
   }

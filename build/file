@@ -5,6 +5,9 @@
 #ifndef BUILD_FILE
 #define BUILD_FILE
 
+#include <map>
+#include <string>
+
 #include <build/types>
 #include <build/variable> // list_value
 
@@ -14,6 +17,8 @@ namespace build
   class target;
   class location;
   class prerequisite_key;
+
+  using subprojects = std::map<std::string, dir_path>;
 
   extern const dir_path build_dir;     // build
   extern const dir_path bootstrap_dir; // build/bootstrap
@@ -114,7 +119,7 @@ namespace build
   // there is a package foo available in repository bar. Wanna
   // download and use it?"
   //
-  list_value
+  names
   import (scope& base, name, const location&);
 
   target&

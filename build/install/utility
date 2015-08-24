@@ -5,7 +5,11 @@
 #ifndef BUILD_INSTALL_UTILITY
 #define BUILD_INSTALL_UTILITY
 
+#include <string>
+#include <utility>
+
 #include <build/scope>
+#include <build/types>
 
 namespace build
 {
@@ -15,20 +19,20 @@ namespace build
     //
     template <typename T>
     inline void
-    path (scope& s, const char* v)
+    path (scope& s, dir_path d)
     {
-      auto p (s.target_vars[T::static_type]["*"].assign ("install"));
-      if (p.second) // Already set by the user?
-        p.first = v;
+      auto r (s.target_vars[T::static_type]["*"].assign ("install"));
+      if (r.second) // Already set by the user?
+        r.first.get () = std::move (d);
     }
 
     template <typename T>
     inline void
-    mode (scope& s, const char* v)
+    mode (scope& s, std::string m)
     {
-      auto m (s.target_vars[T::static_type]["*"].assign ("install.mode"));
-      if (m.second) // Already set by the user?
-        m.first = v;
+      auto r (s.target_vars[T::static_type]["*"].assign ("install.mode"));
+      if (r.second) // Already set by the user?
+        r.first.get () = std::move (m);
     }
   }
 }

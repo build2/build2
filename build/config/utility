@@ -6,15 +6,16 @@
 #define BUILD_CONFIG_UTILITY
 
 #include <string>
-#include <utility> // pair
+#include <utility>    // pair
+#include <functional> // reference_wrapper
 
 #include <build/types>
+#include <build/variable>
 #include <build/diagnostics>
 
 namespace build
 {
   class scope;
-  class list_value;
 
   namespace config
   {
@@ -24,35 +25,36 @@ namespace build
     // whether the variable has actually been set.
     //
     template <typename T>
-    std::pair<const T&, bool>
-    required (scope& root, const char* name, const T& default_value);
+    std::pair<std::reference_wrapper<const value>, bool>
+    required (scope& root, const variable&, const T& default_value);
 
     template <typename T>
-    inline std::pair<const T&, bool>
+    inline std::pair<std::reference_wrapper<const value>, bool>
     required (scope& root, const std::string& name, const T& default_value)
     {
-      return required<T> (root, name.c_str (), default_value);
+      return required (root, variable_pool.find (name), default_value);
     }
 
-    std::pair<const std::string&, bool>
-    required (scope& root, const char* name, const char* default_value);
+    inline std::pair<std::reference_wrapper<const value>, bool>
+    required (scope& root, const std::string& name, const char* default_value)
+    {
+      return required (root, name, std::string (default_value));
+    }
 
     // Set, if necessary, an optional config.* variable. In particular,
     // an unspecified variable is set to NULL which is used to distinguish
     // between the "configured as unspecified" and "not yet configured"
     // cases.
     //
-    // Return the pointer to the value, which can be NULL.
+    // Return the value, which can be NULL.
     //
-    template <typename T>
-    const T*
-    optional (scope& root, const char* name);
+    const value&
+    optional (scope& root, const variable& var);
 
-    template <typename T>
-    inline const T*
+    inline const value&
     optional (scope& root, const std::string& name)
     {
-      return optional<T> (root, name.c_str ());
+      return optional (root, variable_pool.find (name));
     }
 
     // Check whether there are any variables specified from the
@@ -60,8 +62,8 @@ namespace build
     // are any, say, config.install.* values. If there are none,
     // then we can assume this functionality is not (yet) used
     // and omit writing a whole bunch of NULL config.install.*
-    // values to config.build. We call it omitted/delayed
-    // configuration.
+    // values to the config.build file . We call it omitted/
+    // delayed configuration.
     //
     bool
     specified (scope& root, const std::string& ns);
@@ -70,19 +72,20 @@ namespace build
     //
 
     // Add all the values from a variable to the C-string list. T is
-    // either target or scope.
+    // either target or scope. The variable is expected to be of type
+    // strings.
     //
     template <typename T>
     void
     append_options (cstrings& args, T& s, const char* var);
 
-    // As above but from the list value directly. Variable name is for
-    // diagnostics.
+    // As above but from the strings value directly.
     //
     void
-    append_options (cstrings& args, const list_value&, const char* var);
+    append_options (cstrings& args, const const_strings_value&);
 
-    // Check if a specified option is present. T is either target or scope.
+    // Check if a specified option is present in the variable value.
+    // T is either target or scope.
     //
     template <typename T>
     bool
@@ -91,5 +94,6 @@ namespace build
 }
 
 #include <build/config/utility.txx>
+#include <build/config/utility.ixx>
 
 #endif // BUILD_CONFIG_UTILITY

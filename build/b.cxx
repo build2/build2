@@ -31,6 +31,7 @@
 #include <build/diagnostics>
 #include <build/context>
 #include <build/utility>
+#include <build/variable>
 
 #include <build/token>
 #include <build/lexer>
@@ -408,14 +409,14 @@ main (int argc, char* argv[])
           // See if the bootstrap process set/changed src_root.
           //
           {
-            auto v (rs.assign ("src_root"));
+            value& v (rs.assign ("src_root"));
 
             if (v)
             {
               // If we also have src_root specified by the user, make
               // sure they match.
               //
-              const dir_path& p (v.as<const dir_path&> ());
+              const dir_path& p (as<dir_path> (v));
 
               if (src_root.empty ())
                 src_root = p;
@@ -448,7 +449,7 @@ main (int argc, char* argv[])
               v = src_root;
             }
 
-            rs.src_path_ = &v.as<const dir_path&> ();
+            rs.src_path_ = &as<dir_path> (v);
           }
 
           // At this stage we should have both roots and out_base figured
@@ -468,9 +469,9 @@ main (int argc, char* argv[])
           // Why don't we support it? Because things are already complex
           // enough here.
           //
-          if (auto v = rs.vars["subprojects"])
+          if (auto l = rs.vars["subprojects"])
           {
-            for (const name& n: v.as<const list_value&> ())
+            for (const name& n: *l)
             {
               if (n.pair != '\0')
                 continue; // Skip project names.

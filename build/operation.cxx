@@ -67,8 +67,7 @@ namespace build
     scope& base (scopes[out_base]);
 
     base.assign ("out_base") = out_base;
-    auto v (base.assign ("src_base") = src_base);
-    base.src_path_ = &v.as<const dir_path&> ();
+    base.src_path_ = &as<dir_path> (base.assign ("src_base") = src_base);
 
     // Load the buildfile unless it has already been loaded.
     //

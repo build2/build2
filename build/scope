@@ -68,37 +68,37 @@ namespace build
     // Lookup, including in outer scopes. If you only want to lookup
     // in this scope, do it on the the variables map directly.
     //
-    value_proxy
+    lookup<const value>
     operator[] (const variable&) const;
 
-    value_proxy
+    lookup<const value>
     operator[] (const std::string& name) const
     {
       return operator[] (variable_pool.find (name));
     }
 
-    // Return a value_proxy suitable for assignment (or append if you
-    // only want to append to the value from this scope). If the variable
-    // does not exist in this scope's map, then a new one with the NULL
-    // value is added and returned. Otherwise the existing value is
-    // returned.
+    // Return a value suitable for assignment (or append if you only
+    // want to append to the value from this scope). If the variable
+    // does not exist in this scope's map, then a new one with the
+    // NULL value is added and returned. Otherwise the existing value
+    // is returned.
     //
-    value_proxy
-    assign (const variable& var) {return vars.assign (var).first;}
+    value&
+    assign (const variable& var) {return vars.assign (var).first.get ();}
 
-    value_proxy
-    assign (const std::string& name) {return vars.assign (name).first;}
+    value&
+    assign (const std::string& name) {return vars.assign (name).first.get ();}
 
-    // Return a value_proxy suitable for appending. If the variable
-    // does not exist in this scope's map, then outer scopes are
-    // searched for the same variable. If found then a new variable
-    // with the found value is added to this scope and returned.
-    // Otherwise this function proceeds as assign().
+    // Return a value suitable for appending. If the variable does not
+    // exist in this scope's map, then outer scopes are searched for
+    // the same variable. If found then a new variable with the found
+    // value is added to this scope and returned. Otherwise this
+    // function proceeds as assign().
     //
-    value_proxy
+    value&
     append (const variable&);
 
-    value_proxy
+    value&
     append (const std::string& name)
     {
       return append (variable_pool.find (name));

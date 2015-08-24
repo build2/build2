@@ -24,6 +24,8 @@ namespace build
   class parser
   {
   public:
+    typedef build::names names_type;
+
     parser (): fail (&path_) {}
 
     // Issue diagnostics and throw failed in case of an error.
@@ -37,19 +39,16 @@ namespace build
     token
     parse_variable (lexer&, scope&, std::string name, token_type kind);
 
-    list_value
-    export_value ()
+    names_type
+    parse_export_stub (std::istream& is, const path& p, scope& r, scope& b)
     {
-      list_value r (std::move (export_value_));
-      export_value_.clear (); // Empty state.
-      return r;
+      parse_buildfile (is, p, r, b);
+      return std::move (export_value_);
     }
 
     // Recursive descent parser.
     //
   private:
-    typedef build::names names_type;
-
     void
     clause (token&, token_type&);
 
@@ -139,7 +138,7 @@ namespace build
     const dir_path* out_root_;
     const dir_path* src_root_;
     target* default_target_;
-    list_value export_value_;
+    names_type export_value_;
 
     token peek_ {token_type::eos, false, 0, 0};
     bool peeked_ {false};

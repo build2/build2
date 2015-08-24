@@ -12,9 +12,9 @@ namespace build
     void
     append_std (cstrings& args, T& t, std::string& s)
     {
-      if (auto val = t["cxx.std"])
+      if (auto l = t["cxx.std"])
       {
-        const std::string& v (val.template as<const string&> ());
+        const std::string& v (as<string> (*l));
 
         // Translate 11 to 0x and 14 to 1y for compatibility with
         // older versions of the compiler.

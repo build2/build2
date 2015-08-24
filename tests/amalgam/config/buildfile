@@ -1,3 +1,3 @@
-d = #t/ #l/
+d = #t/ l/
 .: $d
 include $d

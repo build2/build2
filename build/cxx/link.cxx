@@ -59,10 +59,10 @@ namespace build
       case type::so: var = "bin.libso.lib"; break;
       }
 
-      const list_value& lv (t[var].as<const list_value&> ());
-      return lv[0].value == "shared"
-        ? lv.size () > 1 && lv[1].value == "static" ? order::so_a : order::so
-        : lv.size () > 1 && lv[1].value == "shared" ? order::a_so : order::a;
+      const auto& v (as<strings> (*t[var]));
+      return v[0] == "shared"
+        ? v.size () > 1 && v[1] == "static" ? order::so_a : order::so
+        : v.size () > 1 && v[1] == "shared" ? order::a_so : order::a;
     }
 
     link::search_paths link::
@@ -73,32 +73,24 @@ namespace build
 
       // Extract user-supplied search paths (i.e., -L).
       //
-      if (auto val = bs["cxx.loptions"])
+      if (auto l = bs["cxx.loptions"])
       {
-        const list_value& l (val.as<const list_value&> ());
+        const auto& v (as<strings> (*l));
 
-        for (auto i (l.begin ()), e (l.end ()); i != e; ++i)
+        for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
-          if (!i->simple ())
-            continue;
-
-          // -L can either be in the -Lfoo or -L foo form.
+          // -L can either be in the "-Lfoo" or "-L foo" form.
           //
           dir_path d;
-          if (i->value == "-L")
+          if (*i == "-L")
           {
             if (++i == e)
               break; // Let the compiler complain.
 
-            if (i->simple ())
-              d = dir_path (i->value);
-            else if (i->directory ())
-              d = i->dir;
-            else
-              break; // Let the compiler complain.
+            d = dir_path (*i);
           }
-          else if (i->value.compare (0, 2, "-L") == 0)
-            d = dir_path (i->value, 2, string::npos);
+          else if (i->compare (0, 2, "-L") == 0)
+            d = dir_path (*i, 2, string::npos);
           else
             continue;
 
@@ -114,7 +106,7 @@ namespace build
       cstrings args;
       string std_storage;
 
-      args.push_back (rs["config.cxx"].as<const string&> ().c_str ());
+      args.push_back (as<string> (*rs["config.cxx"]).c_str ());
       append_options (args, bs, "cxx.coptions");
       append_std (args, bs, std_storage);
       append_options (args, bs, "cxx.loptions");
@@ -550,7 +542,7 @@ namespace build
             // Determine the library type to link.
             //
             bool lso (true);
-            const string& at ((*l)["bin.lib"].as<const string&> ());
+            const string& at (as<string> (*(*l)["bin.lib"]));
 
             if (!lo)
               lo = link_order (t);
@@ -776,10 +768,8 @@ namespace build
       }
       else
       {
-        args.push_back (rs["config.cxx"].as<const string&> ().c_str ());
-
+        args.push_back (as<string> (*rs["config.cxx"]).c_str ());
         append_options (args, t, "cxx.coptions");
-
         append_std (args, t, storage1);
 
         if (so)

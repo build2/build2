@@ -57,7 +57,20 @@ namespace build
 
     // Enter builtin variables.
     //
-    variable_pool.insert (variable ("subprojects", '='));
+    variable_pool.find ("work", dir_path_type);
+    variable_pool.find ("home", dir_path_type);
+
+    variable_pool.find ("src_root", dir_path_type);
+    variable_pool.find ("out_root", dir_path_type);
+    variable_pool.find ("src_base", dir_path_type);
+    variable_pool.find ("out_base", dir_path_type);
+
+    variable_pool.find ("project", string_type);
+    variable_pool.find ("amalgamation", dir_path_type);
+
+    // Shouldn't be typed since the value requires pre-processing.
+    //
+    variable_pool.find ("subprojects", nullptr, '=');
 
     // Create global scope. For Win32 we use the empty path since there
     // is no "real" root path. On POSIX, however, this is a real path.

@@ -78,6 +78,16 @@ namespace build
         rs.insert<cxx::ixx> (clean_id, "cli.compile", compile_);
       }
 
+      // Enter module variables.
+      //
+      if (first)
+      {
+        variable_pool.find ("config.cli", string_type); //@@ VAR type
+
+        variable_pool.find ("config.cli.options", strings_type);
+        variable_pool.find ("cli.options", strings_type);
+      }
+
       // Configure.
       //
 
@@ -85,13 +95,13 @@ namespace build
       //
       if (first)
       {
-        auto r (config::required (root, "config.cli", "cli"));
+        auto p (config::required (root, "config.cli", "cli"));
 
         // If we actually set a new value, test it by trying to execute.
         //
-        if (r.second)
+        if (p.second)
         {
-          const string& cli (r.first);
+          const string& cli (as<string> (p.first));
           const char* args[] = {cli.c_str (), "--version", nullptr};
 
           if (verb)
@@ -142,8 +152,8 @@ namespace build
       // cli.* variables. See the cxx module for more information on
       // this merging semantics and some of its tricky aspects.
       //
-      if (auto* v = config::optional<list_value> (root, "config.cli.options"))
-        base.assign ("cli.options") += *v;
+      if (const value& v = config::optional (root, "config.cli.options"))
+        base.assign ("cli.options") += as<strings> (v);
     }
   }
 }

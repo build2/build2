@@ -19,18 +19,14 @@ using namespace std;
 namespace build
 {
   static void
-  dump_variable (ostream& os, const variable& var, const value_ptr& val)
+  dump_variable (ostream& os, const variable& var, const value& val)
   {
     os << var.name << " = ";
 
-    if (val == nullptr)
+    if (val.null ())
       os << "[null]";
     else
-    {
-      //@@ TODO: assuming it is a list.
-      //
-      os << dynamic_cast<list_value&> (*val);
-    }
+      os << val.data_;
   }
 
   static void

@@ -223,7 +223,7 @@ namespace build
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cli (rs["config.cli"].as<const string&> ());
+      const string& cli (as<string> (*rs["config.cli"]));
 
       cstrings args {cli.c_str ()};
 

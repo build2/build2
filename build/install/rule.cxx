@@ -21,47 +21,22 @@ namespace build
 {
   namespace install
   {
-    // Lookup the install or install.* variable and check that
-    // the value makes sense. Return NULL if not found or if
-    // the value is the special 'false' name (which means do
-    // not install). T is either scope or target.
+    // Lookup the install or install.* variable. Return NULL if
+    // not found or if the value is the special 'false' name (which
+    // means do not install). T is either scope or target.
     //
     template <typename T>
-    static const name*
-    lookup (T& t, const char* var)
+    static const dir_path*
+    lookup (T& t, const string& var)
     {
-      auto v (t[var]);
+      auto l (t[var]);
 
-      const name* r (nullptr);
+      if (!l)
+        return nullptr;
 
-      if (!v)
-        return r;
-
-      const list_value& lv (v.template as<const list_value&> ());
-
-      if (lv.empty ())
-        return r;
-
-      if (lv.size () == 1)
-      {
-        const name& n (lv.front ());
-
-        if (n.simple () && n.value == "false")
-          return r;
-
-        if (!n.empty () && (n.simple () || n.directory ()))
-          return &n;
-      }
-
-      fail << "expected directory instead of '" << lv << "' in "
-           << "the " << var << " variable";
-
-      return r;
+      const dir_path& r (as<dir_path> (*l));
+      return r.simple () && r.string () == "false" ? nullptr : &r;
     }
-
-    template <typename T>
-    static inline const name*
-    lookup (T& t, const string& var) {return lookup (t, var.c_str ());}
 
     match_result rule::
     match (action a, target& t, const std::string&) const
@@ -185,8 +160,8 @@ namespace build
     struct install_dir
     {
       dir_path dir;
-      string cmd;
-      const list_value* options {nullptr};
+      string cmd; //@@ VAR type
+      const_strings_value options {nullptr};
       string mode;
       string dir_mode;
     };
@@ -200,8 +175,8 @@ namespace build
 
       cstrings args {base.cmd.c_str (), "-d"};
 
-      if (base.options != nullptr)
-        config::append_options (args, *base.options, "install.*.options");
+      if (base.options.d != nullptr) //@@ VAR
+        config::append_options (args, base.options);
 
       args.push_back ("-m");
       args.push_back (base.dir_mode.c_str ());
@@ -241,8 +216,8 @@ namespace build
 
       cstrings args {base.cmd.c_str ()};
 
-      if (base.options != nullptr)
-        config::append_options (args, *base.options, "install.*.options");
+      if (base.options.d != nullptr) //@@ VAR
+        config::append_options (args, base.options);
 
       args.push_back ("-m");
       args.push_back (base.mode.c_str ());
@@ -277,10 +252,9 @@ namespace build
     // creating leading directories as necessary.
     //
     static install_dir
-    resolve (scope& s, const name& n, const string* var = nullptr)
+    resolve (scope& s, dir_path d, const string* var = nullptr)
     {
       install_dir r;
-      dir_path d (n.simple () ? dir_path (n.value) : n.dir);
 
       if (d.absolute ())
       {
@@ -298,11 +272,11 @@ namespace build
         // as the installation directory name, e.g., bin, sbin, lib,
         // etc. Look it up and recurse.
         //
-        const string& dn (*d.begin ());
-        const string var ("install." + dn);
-        if (const name* n = lookup (s, var))
+        const string& sn (*d.begin ());
+        const string var ("install." + sn);
+        if (const dir_path* dn = lookup (s, var))
         {
-          r = resolve (s, *n, &var);
+          r = resolve (s, *dn, &var);
           d = r.dir / dir_path (++d.begin (), d.end ());
           d.normalize ();
 
@@ -310,7 +284,7 @@ namespace build
             install (r, d); // install -d
         }
         else
-          fail << "unknown installation directory name " << dn <<
+          fail << "unknown installation directory name " << sn <<
             info << "did you forget to specify config." << var << "?";
       }
 
@@ -320,12 +294,10 @@ namespace build
       //
       if (var != nullptr)
       {
-        if (auto v = s[*var + ".cmd"]) r.cmd = v.as<const string&> ();
-        if (auto v = s[*var + ".mode"]) r.mode = v.as<const string&> ();
-        if (auto v = s[*var + ".dir_mode"])
-          r.dir_mode = v.as<const string&> ();
-        if (auto v = s[*var + ".options"])
-          r.options = &v.as<const list_value&> ();
+        if (auto l = s[*var + ".cmd"]) r.cmd = as<string> (*l);
+        if (auto l = s[*var + ".mode"]) r.mode = as<string> (*l);
+        if (auto l = s[*var + ".dir_mode"]) r.dir_mode = as<string> (*l);
+        if (auto l = s[*var + ".options"]) r.options = as<strings> (*l);
       }
 
       // Set defaults for unspecified components.
@@ -351,12 +323,12 @@ namespace build
       //
       install_dir d (
         resolve (t.base_scope (),
-                 t["install"].as<const name&> ())); // We know it's there.
+                 as<dir_path> (*t["install"]))); // We know it's there.
 
       // Override mode if one was specified.
       //
-      if (auto v = t["install.mode"])
-        d.mode = v.as<const string&> ();
+      if (auto l = t["install.mode"])
+        d.mode = as<string> (*l);
 
       install (d, ft);
       return (r |= target_state::changed);

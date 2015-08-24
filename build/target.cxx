@@ -116,16 +116,18 @@ namespace build
     return *r;
   }
 
-  value_proxy target::
+  lookup<const value> target::
   operator[] (const variable& var) const
   {
+    using result = lookup<const value>;
+
     if (auto p = vars.find (var))
-      return value_proxy (p, &vars);
+      return result (p, &vars);
 
     if (group != nullptr)
     {
       if (auto p = group->vars.find (var))
-        return value_proxy (p, &group->vars);
+        return result (p, &group->vars);
     }
 
     // Cannot simply delegate to scope's operator[] since we also
@@ -135,7 +137,7 @@ namespace build
     {
       if (!s->target_vars.empty ())
       {
-        auto find_specific = [&var, s] (const target& t) -> value_proxy
+        auto find_specific = [&var, s] (const target& t) -> result
         {
           // Search across target type hierarchy.
           //
@@ -154,10 +156,10 @@ namespace build
               continue;
 
             if (auto p = j->second.find (var))
-              return value_proxy (p, &j->second);
+              return result (p, &j->second);
           }
 
-          return value_proxy ();
+          return result ();
         };
 
         if (auto p = find_specific (*this))
@@ -171,24 +173,24 @@ namespace build
       }
 
       if (auto p = s->vars.find (var))
-        return value_proxy (p, &s->vars);
+        return result (p, &s->vars);
     }
 
-    return value_proxy ();
+    return result ();
   }
 
-  value_proxy target::
+  value& target::
   append (const variable& var)
   {
-    value_proxy val (operator[] (var));
+    auto l (operator[] (var));
 
-    if (val && val.belongs (*this)) // Existing variable in this target.
-      return val;
+    if (l && l.belongs (*this)) // Existing variable in this target.
+      return const_cast<value&> (*l);
 
-    value_proxy r (assign (var));
+    value& r (assign (var));
 
-    if (val)
-      r = val; // Copy value from the outer scope.
+    if (l)
+      r = *l; // Copy value from the outer scope.
 
     return r;
   }

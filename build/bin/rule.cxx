@@ -46,7 +46,7 @@ namespace build
       // Get the library type to build. If not set for a target, this
       // should be configured at the project scope by init_lib().
       //
-      const string& type (t["bin.lib"].as<const string&> ());
+      const string& type (as<string> (*t["bin.lib"]));
 
       bool ar (type == "static" || type == "both");
       bool so (type == "shared" || type == "both");
@@ -121,7 +121,7 @@ namespace build
       //   prerequisite vs prerequisite_target.
       //
       //
-      const string& type (t["bin.lib"].as<const string&> ());
+      const string& type (as<string> (*t["bin.lib"]));
       bool ar (type == "static" || type == "both");
       bool so (type == "shared" || type == "both");
 

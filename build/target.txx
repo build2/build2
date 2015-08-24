@@ -20,9 +20,9 @@ namespace build
   const std::string&
   target_extension_var (const target_key& tk, scope& s)
   {
-    auto val (s[var]);
+    auto l (s[var]);
 
-    if (!val)
+    if (!l)
     {
       diag_record dr;
       dr << fail << "no default extension in variable " << var
@@ -42,6 +42,6 @@ namespace build
       }
     }
 
-    return extension_pool.find (val.as<const std::string&> ());
+    return extension_pool.find (as<std::string> (*l));
   }
 }

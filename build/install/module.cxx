@@ -29,54 +29,64 @@ namespace build
     // to set all the install.* values to defaults, as if we had the
     // default configuration.
     //
+    template <typename T>
     static void
-    set_dir (bool spec,
+    set_var (bool spec,
              scope& r,
              const char* name,
-             const char* path,
-             const char* mode = nullptr,
-             const char* dir_mode = nullptr,
-             const char* cmd = nullptr,
-             const char* options = nullptr)
+             const char* var,
+             const T* dv)
     {
-      auto set = [spec, &r, name] (const char* var, const char* dv)
-        {
-          string vn;
-          const list_value* lv (nullptr);
+      string vn;
+      const value* cv (nullptr);
 
-          if (spec)
-          {
-            vn = "config.install.";
-            vn += name;
-            vn += var;
+      if (spec)
+      {
+        vn = "config.install.";
+        vn += name;
+        vn += var;
+        const variable& vr (
+          variable_pool.find (move (vn), &value_traits<T>::value_type));
 
-            lv = dv != nullptr
-              ? &config::required (r, vn, list_value (dv)).first
-              : config::optional<list_value> (r, vn);
-          }
+        cv = dv != nullptr
+          ? &config::required (r, vr, *dv).first.get ()
+          : &config::optional (r, vr);
+      }
 
-          vn = "install.";
-          vn += name;
-          vn += var;
-          auto v (r.assign (vn));
+      vn = "install.";
+      vn += name;
+      vn += var;
+      const variable& vr (
+        variable_pool.find (move (vn), &value_traits<T>::value_type));
 
-          if (spec)
-          {
-            if (lv != nullptr && !lv->empty ())
-              v = *lv;
-          }
-          else
-          {
-            if (dv != nullptr)
-              v = dv;
-          }
-        };
+      value& v (r.assign (vr));
 
-      set ("", path);
-      set (".mode", mode);
-      set (".dir_mode", dir_mode);
-      set (".cmd", cmd);
-      set (".options", options);
+      if (spec)
+      {
+        if (cv != nullptr && *cv && !cv->empty ())
+          v = *cv;
+      }
+      else
+      {
+        if (dv != nullptr)
+          v = *dv;
+      }
+    }
+
+    static void
+    set_dir (bool s,
+             scope& r,
+             const char* name,
+             const dir_path& path,
+             const string& fmode = string (),
+             const string& dmode = string (),
+             const string& cmd = string ())
+    {
+      set_var (s, r, name, "",          path.empty ()  ? nullptr : &path);
+      set_var (s, r, name, ".mode",     fmode.empty () ? nullptr : &fmode);
+      set_var (s, r, name, ".dir_mode", dmode.empty () ? nullptr : &dmode);
+      set_var (s, r, name, ".cmd",      cmd.empty ()   ? nullptr : &cmd);
+      set_var<strings> (s, r, name, ".options", nullptr);
     }
 
     static rule rule_;
@@ -120,6 +130,15 @@ namespace build
         rs.insert<file> (install_id, "install", rule_);
       }
 
+      // Enter module variables.
+      //
+      // Note that the set_dir() calls below enter some more.
+      //
+      if (first)
+      {
+        variable_pool.find ("install", dir_path_type);
+      }
+
       // Configuration.
       //
       // Note that we don't use any defaults for root -- the location
@@ -129,31 +148,31 @@ namespace build
       if (first)
       {
         bool s (config::specified (r, "config.install"));
-        const string& n (r["project"].as<const string&> ());
+        const string& n (as<string> (*r["project"]));
 
-        set_dir (s, r, "root",      nullptr, nullptr, "755", "install");
-        set_dir (s, r, "data_root", "root",  "644");
-        set_dir (s, r, "exec_root", "root",  "755");
+        set_dir (s, r, "root",      dir_path (),        "", "755", "install");
+        set_dir (s, r, "data_root", dir_path ("root"),  "644");
+        set_dir (s, r, "exec_root", dir_path ("root"),  "755");
 
-        set_dir (s, r, "sbin",      "exec_root/sbin");
-        set_dir (s, r, "bin",       "exec_root/bin");
-        set_dir (s, r, "lib",       "exec_root/lib");
-        set_dir (s, r, "libexec",  ("exec_root/libexec/" + n).c_str ());
+        set_dir (s, r, "sbin",      dir_path ("exec_root/sbin"));
+        set_dir (s, r, "bin",       dir_path ("exec_root/bin"));
+        set_dir (s, r, "lib",       dir_path ("exec_root/lib"));
+        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n));
 
-        set_dir (s, r, "data",     ("data_root/share/" + n).c_str ());
-        set_dir (s, r, "include",   "data_root/include");
+        set_dir (s, r, "data",      dir_path ("data_root/share/" + n));
+        set_dir (s, r, "include",   dir_path ("data_root/include"));
 
-        set_dir (s, r, "doc",      ("data_root/share/doc/" + n).c_str ());
-        set_dir (s, r, "man",       "data_root/share/man");
+        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n));
+        set_dir (s, r, "man",       dir_path ("data_root/share/man"));
 
-        set_dir (s, r, "man1",      "man/man1");
+        set_dir (s, r, "man1",      dir_path ("man/man1"));
       }
 
       // Configure "installability" for built-in target types.
       //
-      path<doc> (b, "doc");  // Install into install.doc.
-      path<man> (b, "man");  // Install into install.man.
-      path<man> (b, "man1"); // Install into install.man1.
+      path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
+      path<man>  (b, dir_path ("man"));  // Install into install.man.
+      path<man1> (b, dir_path ("man1")); // Install into install.man1.
     }
   }
 }

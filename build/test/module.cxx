@@ -59,6 +59,18 @@ namespace build
         //
         rs.insert<target> (test_id, "test", rule_);
       }
+
+      // Enter module variables.
+      //
+      if (first)
+      {
+        variable_pool.find ("test", bool_type);
+        variable_pool.find ("test.input", name_type);
+        variable_pool.find ("test.output", name_type);
+        variable_pool.find ("test.roundtrip", name_type);
+        variable_pool.find ("test.options", strings_type);
+        variable_pool.find ("test.arguments", strings_type);
+      }
     }
   }
 }

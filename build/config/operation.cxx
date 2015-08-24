@@ -81,9 +81,9 @@ namespace build
             << "# feel free to edit." << endl
             << "#" << endl;
 
-        if (auto v = root.vars["amalgamation"])
+        if (auto l = root.vars["amalgamation"])
         {
-          const dir_path& d (v.as<const dir_path&> ());
+          const dir_path& d (as<dir_path> (*l));
 
           ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;
@@ -97,27 +97,23 @@ namespace build
              ++p.first)
         {
           const variable& var (p.first->first);
-          const value_ptr& pval (p.first->second);
+          const value& val (p.first->second);
 
           // Warn the user if the value that we are saving differs
           // from the one they specified on the command line.
           //
-          if (auto gval = (*global_scope)[var])
+          auto l ((*global_scope)[var]);
+          if (l.defined () && *l != val)
           {
-            if (pval == nullptr || !pval->compare (gval.as<const value&> ()))
-              warn << "variable " << var.name << " configured value "
-                   << "differs from command line value" <<
-                info << "reconfigure the project to use command line value";
+            warn << "variable " << var.name << " configured value "
+                 << "differs from command line value" <<
+              info << "reconfigure the project to use command line value";
           }
 
-          if (pval != nullptr)
+          if (val)
           {
-            //@@ TODO: assuming list
-            //
-            const list_value& lv (dynamic_cast<const list_value&> (*pval));
-
-            ofs << var.name << " = " << lv << endl;
-            //text << var.name << " = " << lv;
+            ofs << var.name << " = " << val.data_ << endl;
+            //text << var.name << " = " << val.data_;
           }
           else
           {
@@ -171,14 +167,12 @@ namespace build
 
       // Configure subprojects that have been loaded.
       //
-      if (auto v = root.vars["subprojects"])
+      if (auto l = root.vars["subprojects"])
       {
-        for (const name& n: v.as<const list_value&> ())
+        for (auto p: as<subprojects> (*l))
         {
-          if (n.pair != '\0')
-            continue; // Skip project names.
-
-          dir_path out_nroot (out_root / n.dir);
+          const dir_path& pd (p.second);
+          dir_path out_nroot (out_root / pd);
           scope& nroot (scopes.find (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config
@@ -271,30 +265,27 @@ namespace build
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto v = root.vars["subprojects"])
+      if (auto l = root.vars["subprojects"])
       {
-        for (const name& n: v.as<const list_value&> ())
+        for (auto p: as<subprojects> (*l))
         {
-          if (n.pair != '\0')
-            continue; // Skip project names.
+          const dir_path& pd (p.second);
 
           // Create and bootstrap subproject's root scope.
           //
-          dir_path out_nroot (out_root / n.dir);
+          dir_path out_nroot (out_root / pd);
 
           // The same logic for src_root as in create_bootstrap_inner().
           //
           scope& nroot (create_root (out_nroot, dir_path ()));
           bootstrap_out (nroot);
 
-          auto val (nroot.assign ("src_root"));
+          value& val (nroot.assign ("src_root"));
 
           if (!val)
-            val = is_src_root (out_nroot)
-              ? out_nroot
-              : (src_root / n.dir);
+            val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
 
-          nroot.src_path_ = &val.as<const dir_path&> ();
+          nroot.src_path_ = &as<dir_path> (val);
 
           bootstrap_src (nroot);
 
@@ -304,9 +295,9 @@ namespace build
           // which means there could be empty parent directories left
           // behind. Clean them up.
           //
-          if (!n.dir.simple () && out_root != src_root)
+          if (!pd.simple () && out_root != src_root)
           {
-            for (dir_path d (n.dir.directory ());
+            for (dir_path d (pd.directory ());
                  !d.empty ();
                  d = d.directory ())
             {

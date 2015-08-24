@@ -2,79 +2,37 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <utility> // move()
-
 #include <build/scope>
-#include <build/variable>
 
 namespace build
 {
   namespace config
   {
     template <typename T>
-    std::pair<const T&, bool>
-    required (scope& root, const char* name, const T& def_value)
+    std::pair<std::reference_wrapper<const value>, bool>
+    required (scope& root, const variable& var, const T& def_value)
     {
-      T r;
-      const variable& var (variable_pool.find (name));
+      using result = std::pair<std::reference_wrapper<const value>, bool>;
 
-      if (auto v = root[var])
+      if (auto l = root[var])
       {
-        const T& s (v.as<const T&> ());
-
-        if (!v.belongs (*global_scope)) // A value from (some) config.build.
-          return std::pair<const T&, bool> (s, false);
-
-        r = s;
+        return l.belongs (*global_scope)
+          ? result (root.assign (var) = *l, true)
+          : result (*l, false);
       }
       else
-        r = def_value;
-
-      auto v (root.assign (var));
-      v = std::move (r);
-
-      return std::pair<const T&, bool> (v.as<const T&> (), true);
-    }
-
-    template <typename T>
-    const T*
-    optional (scope& root, const char* name)
-    {
-      const T* r (nullptr);
-      const variable& var (variable_pool.find (name));
-
-      auto v (root[var]);
-
-      if (v.defined ())
-      {
-        if (v.belongs (*global_scope))
-          root.assign (var) = v;
-
-        r =  v.null () ? nullptr : &v.as<const T&> ();
-      }
-      else
-        root.assign (var) = nullptr;
-
-      return r;
-    }
-
-    template <typename T>
-    void
-    append_options (cstrings& args, T& s, const char* var)
-    {
-      if (auto val = s[var])
-        append_options (args, val.template as<const list_value&> (), var);
+        return result (root.assign (var) = def_value, true);
     }
 
     template <typename T>
     bool
     find_option (const char* option, T& s, const char* var)
     {
-      if (auto val = s[var])
+      if (auto l = s[var])
       {
-        for (const name& n: val.template as<const list_value&> ())
+        for (const std::string& s: as<strings> (*l))
         {
-          if (n.simple () && n.value == option)
+          if (s == option)
             return true;
         }
       }

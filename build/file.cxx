@@ -4,7 +4,6 @@
 
 #include <build/file>
 
-#include <map>
 #include <fstream>
 #include <utility> // move()
 
@@ -135,13 +134,13 @@ namespace build
     // consistent.
     //
     {
-      auto v (rs.assign ("out_root"));
+      value& v (rs.assign ("out_root"));
 
       if (!v)
         v = out_root;
       else
       {
-        const dir_path& p (v.as<const dir_path&> ());
+        const dir_path& p (as<dir_path> (v));
 
         if (p != out_root)
           fail << "new out_root " << out_root << " does not match "
@@ -151,13 +150,13 @@ namespace build
 
     if (!src_root.empty ())
     {
-      auto v (rs.assign ("src_root"));
+      value& v (rs.assign ("src_root"));
 
       if (!v)
         v = src_root;
       else
       {
-        const dir_path& p (v.as<const dir_path&> ());
+        const dir_path& p (as<dir_path> (v));
 
         if (p != src_root)
           fail << "new src_root " << src_root << " does not match "
@@ -188,7 +187,7 @@ namespace build
   // expected to be the first non-comment line and not to rely on
   // any variable expansion other than those from the global scope.
   //
-  static value_ptr
+  static value
   extract_variable (const path& bf, const char* var)
   {
     ifstream ifs (bf.string ());
@@ -201,33 +200,31 @@ namespace build
     {
       path rbf (diag_relative (bf));
 
-      lexer l (ifs, rbf.string ());
-      token t (l.next ());
+      lexer lex (ifs, rbf.string ());
+      token t (lex.next ());
       token_type tt;
 
       if (t.type () != token_type::name || t.name () != var ||
-          ((tt = l.next ().type ()) != token_type::equal &&
+          ((tt = lex.next ().type ()) != token_type::equal &&
            tt != token_type::plus_equal))
         fail << "variable '" << var << "' expected as first line in " << rbf;
 
       parser p;
       temp_scope tmp (*global_scope);
-      p.parse_variable (l, tmp, t.name (), tt);
+      p.parse_variable (lex, tmp, t.name (), tt);
 
-      auto val (tmp.vars[var]);
-      assert (val.defined ());
-      value_ptr& vp (val);
-      return move (vp); // Steal the value, the scope is going away.
+      auto l (tmp.vars[var]);
+      assert (l.defined ());
+      value& v (*l);
+      return move (v); // Steal the value, the scope is going away.
     }
     catch (const std::ios_base::failure&)
     {
       fail << "failed to read from " << bf;
     }
 
-    return nullptr;
+    return value (); // Never reaches.
   }
-
-  using subprojects = map<string, dir_path>;
 
   // Extract the project name from bootstrap.build.
   //
@@ -243,7 +240,7 @@ namespace build
     // have to discover its src_root.
     //
     const dir_path* src_root;
-    value_ptr src_root_vp; // Need it to live until the end.
+    value src_root_v; // Need it to live until the end.
 
     if (src_hint != nullptr ? *src_hint : is_src_root (out_root))
       src_root = &out_root;
@@ -255,9 +252,8 @@ namespace build
         src_root = &fallback_src_root;
       else
       {
-        src_root_vp = extract_variable (f, "src_root");
-        value_proxy v (&src_root_vp, nullptr); // Read-only.
-        src_root = &v.as<const dir_path&> ();
+        src_root_v = extract_variable (f, "src_root");
+        src_root = &as<dir_path> (src_root_v);
         level4 ([&]{trace << "extracted src_root " << *src_root << " for "
                           << out_root;});
       }
@@ -265,9 +261,8 @@ namespace build
 
     string name;
     {
-      value_ptr vp (extract_variable (*src_root / bootstrap_file, "project"));
-      value_proxy v (&vp, nullptr); // Read-only.
-      name = move (v.as<string&> ());
+      value v (extract_variable (*src_root / bootstrap_file, "project"));
+      name = move (as<string> (v));
     }
 
     level4 ([&]{trace << "extracted project name " << name << " for "
@@ -367,11 +362,11 @@ namespace build
     // amalgamated.
     //
     {
-      auto rp (root.vars.assign("amalgamation")); // Set NULL by default.
-      auto& val (rp.first);
+      auto rp (root.vars.assign ("amalgamation")); // Set NULL by default.
+      value& v (rp.first);
 
-      if (!val.null () && val.empty ()) // Convert empty to NULL.
-        val = nullptr;
+      if (v && v.empty ()) // Convert empty to NULL.
+        v = nullptr;
 
       if (scope* aroot = root.parent_scope ()->root_scope ())
       {
@@ -383,14 +378,14 @@ namespace build
         //
         if (!rp.second)
         {
-          if (val.null ())
+          if (!v)
           {
             fail << out_root << " cannot be amalgamated" <<
               info << "amalgamated by " << ad;
           }
           else
           {
-            const dir_path& vd (val.as<const dir_path&> ());
+            const dir_path& vd (as<dir_path> (v));
 
             if (vd != rd)
             {
@@ -405,7 +400,7 @@ namespace build
           // Otherwise, use the outer root as our amalgamation.
           //
           level4 ([&]{trace << out_root << " amalgamated as " << rd;});
-          val = move (rd);
+          v = move (rd);
         }
       }
       else if (rp.second)
@@ -421,7 +416,7 @@ namespace build
         {
           dir_path rd (ad.relative (out_root));
           level4 ([&]{trace << out_root << " amalgamated as " << rd;});
-          val = move (rd);
+          v = move (rd);
         }
       }
     }
@@ -439,8 +434,9 @@ namespace build
     // the NULL value indicates that we found no subprojects.
     //
     {
-      auto rp (root.vars.assign("subprojects")); // Set NULL by default.
-      auto& val (rp.first);
+      const variable& var (variable_pool.find ("subprojects"));
+      auto rp (root.vars.assign(var)); // Set NULL by default.
+      value& v (rp.first);
 
       if (rp.second)
       {
@@ -459,34 +455,21 @@ namespace build
         if (out_root != src_root)
           find_subprojects (sps, src_root, src_root, false);
 
-        // Transform our map to list_value.
-        //
-        if (!sps.empty ())
-        {
-          list_value_ptr vp (new list_value);
-          for (auto& p: sps)
-          {
-            vp->emplace_back (p.first);
-            vp->back ().pair = '=';
-            vp->emplace_back (move (p.second));
-          }
-          val = move (vp);
-        }
+        if (!sps.empty ()) // Keep it NULL if no subprojects.
+          v = move (sps);
       }
-      else if (!val.null ())
+      else if (v)
       {
         // Convert empty to NULL.
         //
-        if (val.empty ())
-          val = nullptr;
+        if (v.empty ())
+          v = nullptr;
         else
         {
-          // Scan the value and convert it to the "canonical" form,
-          // that is, a list of dir=simple pairs.
+          // Pre-scan the value and convert it to the "canonical" form,
+          // that is, a list of simple=dir pairs.
           //
-          list_value& lv (val.as<list_value&> ());
-
-          for (auto i (lv.begin ()); i != lv.end (); ++i)
+          for (auto i (v.data_.begin ()); i != v.data_.end (); ++i)
           {
             bool p (i->pair != '\0');
 
@@ -494,24 +477,18 @@ namespace build
             {
               // Project name.
               //
-              if (!i->simple () || i->empty ())
+              if (!assign<string> (*i) || as<string> (*i).empty ())
                 fail << "expected project name instead of '" << *i << "' in "
                      << "the subprojects variable";
 
               ++i; // Got to have the second half of the pair.
             }
 
-            name& n (*i);
-
-            if (n.simple ())
-            {
-              n.dir = dir_path (move (n.value));
-              n.value.clear ();
-            }
-
-            if (!n.directory ())
-              fail << "expected directory instead of '" << n << "' in the "
+            if (!assign<dir_path> (*i))
+              fail << "expected directory instead of '" << *i << "' in the "
                    << "subprojects variable";
+
+            auto& d (as<dir_path> (*i));
 
             // Figure out the project name if the user didn't specify one.
             //
@@ -521,12 +498,18 @@ namespace build
               // was specified by the user so it is most likely in our
               // src.
               //
-              i = lv.emplace (i, find_project_name (out_root / n.dir,
-                                                    src_root / n.dir));
+              i = v.data_.emplace (
+                i,
+                find_project_name (out_root / d, src_root / d));
+
               i->pair = '=';
               ++i;
             }
           }
+
+          // Make it of the map type.
+          //
+          assign<subprojects> (v, var);
         }
       }
     }
@@ -537,12 +520,12 @@ namespace build
   void
   create_bootstrap_outer (scope& root)
   {
-    auto v (root.vars["amalgamation"]);
+    auto l (root.vars["amalgamation"]);
 
-    if (!v)
+    if (!l)
       return;
 
-    const dir_path& d (v.as<const dir_path&> ());
+    const dir_path& d (as<dir_path> (*l));
     dir_path out_root (root.path () / d);
     out_root.normalize ();
 
@@ -560,21 +543,21 @@ namespace build
     scope& rs (create_root (out_root, dir_path ()));
     bootstrap_out (rs); // #3 happens here, if at all.
 
-    auto val (rs.assign ("src_root"));
+    value& v (rs.assign ("src_root"));
 
-    if (!val)
+    if (!v)
     {
       if (is_src_root (out_root)) // #2
-        val = out_root;
+        v = out_root;
       else // #1
       {
         dir_path src_root (root.src_path () / d);
         src_root.normalize ();
-        val = move (src_root);
+        v = move (src_root);
       }
     }
 
-    rs.src_path_ = &val.as<const dir_path&> ();
+    rs.src_path_ = &as<dir_path> (v);
 
     bootstrap_src (rs);
     create_bootstrap_outer (rs);
@@ -588,9 +571,9 @@ namespace build
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
-    if (auto v = root.vars["subprojects"])
+    if (auto l = root.vars["subprojects"])
     {
-      for (const name& n: v.as<const list_value&> ())
+      for (const name& n: *l)
       {
         if (n.pair != '\0')
           continue; // Skip project names.
@@ -605,14 +588,14 @@ namespace build
         scope& rs (create_root (out_root, dir_path ()));
         bootstrap_out (rs);
 
-        auto val (rs.assign ("src_root"));
+        value& v (rs.assign ("src_root"));
 
-        if (!val)
-          val = is_src_root (out_root)
+        if (!v)
+          v = is_src_root (out_root)
             ? out_root
             : (root.src_path () / n.dir);
 
-        rs.src_path_ = &val.as<const dir_path&> ();
+        rs.src_path_ = &as<dir_path> (v);
 
         bootstrap_src (rs);
 
@@ -646,8 +629,8 @@ namespace build
       source_once (bf, root, root);
   }
 
-  list_value
-  import (scope& ibase, name target, const location& l)
+  names
+  import (scope& ibase, name target, const location& loc)
   {
     tracer trace ("import");
 
@@ -659,7 +642,7 @@ namespace build
     if (target.unqualified ())
     {
       target.proj = &project_name_pool.find ("");
-      return list_value (move (target));
+      return names {move (target)};
     }
 
     // Otherwise, get the project name and convert the target to
@@ -680,14 +663,16 @@ namespace build
     //
     for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
     {
-      if (auto v = r->vars["subprojects"])
+      if (auto l = r->vars["subprojects"])
       {
-        // @@ Map sure would have been handy.
-        //
-        if (const name* n = v.as<const list_value&> ().find_pair (project))
+        const auto& m (as<subprojects> (*l));
+        auto i (m.find (project));
+
+        if (i != m.end ())
         {
-          out_root = r->path () / n->dir;
-          fallback_src_root = r->src_path () / n->dir;
+          const dir_path& d ((*i).second);
+          out_root = r->path () / d;
+          fallback_src_root = r->src_path () / d;
           break;
         }
       }
@@ -700,42 +685,34 @@ namespace build
     //
     if (out_root.empty ())
     {
-      string var ("config.import." + project);
+      const variable& var (
+        variable_pool.find ("config.import." + project,
+                            dir_path_type));
 
-      if (auto v = iroot[var])
+      if (auto l = iroot[var])
       {
-        if (!v.belongs (*global_scope)) // A value from (some) config.build.
-          out_root = v.as<const dir_path&> ();
-        else
+        out_root = as<dir_path> (*l);
+
+        if (l.belongs (*global_scope)) // A value from command line.
         {
-          // Process the path by making it absolute and normalized. Also,
-          // for usability's sake, treat a simple name that doesn't end
-          // with '/' as a directory.
+          // Process the path by making it absolute and normalized.
           //
-          list_value& lv (v.as<list_value&> ());
-
-          if (lv.size () != 1 || lv[0].empty () || lv[0].typed ())
-            fail (l) << "invalid " << var << " value " << lv;
-
-          name& n (lv[0]);
-
-          if (n.directory ())
-            out_root = n.dir;
-          else
-            out_root = dir_path (n.value);
-
           if (out_root.relative ())
             out_root = work / out_root;
 
           out_root.normalize ();
+
+          // Set on our root scope (part of our configuration).
+          //
           iroot.assign (var) = out_root;
 
           // Also update the command-line value. This is necessary to avoid
           // a warning issued by the config module about global/root scope
-          // value mismatch.
+          // value mismatch. Not very clean.
           //
-          if (n.dir != out_root)
-            n = name (out_root);
+          dir_path& d (as<dir_path> (const_cast<value&> (*l)));
+          if (d != out_root)
+            d = out_root;
         }
       }
       else
@@ -746,7 +723,7 @@ namespace build
         //
         target.proj = &project;
         level4 ([&]{trace << "postponing " << target;});
-        return list_value (move (target));
+        return names {move (target)};
       }
     }
 
@@ -761,13 +738,13 @@ namespace build
 
     // Check that the bootstrap process set src_root.
     //
-    if (auto v = root.vars["src_root"])
+    if (auto l = root.vars["src_root"])
     {
-      const dir_path& p (v.as<const dir_path&> ());
+      const dir_path& p (as<dir_path> (*l));
 
       if (!src_root.empty () && p != src_root)
-        fail (l) << "bootstrapped src_root " << p << " does not match "
-                 << "discovered " << src_root;
+        fail (loc) << "bootstrapped src_root " << p << " does not match "
+                   << "discovered " << src_root;
 
       root.src_path_ = &p;
     }
@@ -775,12 +752,12 @@ namespace build
     //
     else if (!fallback_src_root.empty ())
     {
-      auto v (root.assign ("src_root"));
+      value& v (root.assign ("src_root"));
       v = move (fallback_src_root);
-      root.src_path_ = &v.as<const dir_path&> ();
+      root.src_path_ = &as<dir_path> (v);
     }
     else
-      fail (l) << "unable to determine src_root for imported " << project <<
+      fail (loc) << "unable to determine src_root for imported " << project <<
         info << "consider configuring " << out_root;
 
     bootstrap_src (root);
@@ -807,10 +784,10 @@ namespace build
     // Also pass the target being imported.
     //
     {
-      auto v (ts.assign ("target"));
+      value& v (ts.assign ("target"));
 
       if (!target.empty ()) // Otherwise leave NULL.
-        v = list_value {move (target)};
+        v = move (target);
     }
 
     // Load the export stub. Note that it is loaded in the context
@@ -821,7 +798,7 @@ namespace build
     path es (root.src_path () / path ("build/export.build"));
     ifstream ifs (es.string ());
     if (!ifs.is_open ())
-      fail (l) << "unable to open " << es;
+      fail (loc) << "unable to open " << es;
 
     level4 ([&]{trace << "importing " << es;});
 
@@ -830,18 +807,18 @@ namespace build
 
     try
     {
-      p.parse_buildfile (ifs, es, iroot, ts);
+      // @@ Should we verify these are all unqualified names? Or maybe
+      // there is a use-case for the export stub to return a qualified
+      // name?
+      //
+      return p.parse_export_stub (ifs, es, iroot, ts);
     }
     catch (const std::ios_base::failure&)
     {
-      fail (l) << "failed to read from " << es;
+      fail (loc) << "failed to read from " << es;
     }
 
-    // @@ Should we verify these are all unqualified names? Or maybe
-    // there is a use-case for the export stub to return a qualified
-    // name?
-    //
-    return p.export_value ();
+    return names (); // Never reached.
   }
 
   target&

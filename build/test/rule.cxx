@@ -11,6 +11,8 @@
 #include <build/algorithm>
 #include <build/diagnostics>
 
+#include <build/config/utility> // add_options()
+
 using namespace std;
 using namespace butl;
 
@@ -28,7 +30,7 @@ namespace build
       // this is a test. So take care of that as well.
       //
       bool r (false);
-      value_proxy v;
+      lookup<const value> l;
 
       // @@ This logic doesn't take into account target type/pattern-
       // specific variables.
@@ -40,13 +42,13 @@ namespace build
            ++p.first)
       {
         const variable& var (p.first->first);
-        const value_ptr& val (p.first->second);
+        const value& val (p.first->second);
 
         // If we have test, then always use that.
         //
         if (var.name == "test")
         {
-          v.rebind (value_proxy (val, t));
+          l = lookup<const value> (val, t);
           break;
         }
 
@@ -68,10 +70,11 @@ namespace build
       {
         // See if there is a scope variable.
         //
-        if (!v)
-          v.rebind (t.base_scope ()[string("test.") + t.type ().name]);
+        if (!l.defined ())
+          l = t.base_scope ()[
+            variable_pool.find (string("test.") + t.type ().name, bool_type)];
 
-        r = v && v.as<bool> ();
+        r = l && as<bool> (*l);
       }
 
       // If this is the update pre-operation, then all we really need to
@@ -129,50 +132,47 @@ namespace build
       // First check the target-specific vars since they override any
       // scope ones.
       //
-      auto iv (t.vars["test.input"]);
-      auto ov (t.vars["test.output"]);
-      auto rv (t.vars["test.roundtrip"]);
+      auto il (t.vars["test.input"]);
+      auto ol (t.vars["test.output"]);
+      auto rl (t.vars["test.roundtrip"]);
+      auto al (t.vars["test.arguments"]); // Should be input or arguments.
 
-      // Can either be input or arguments.
-      //
-      auto av (t.vars["test.arguments"]);
-
-      if (av)
+      if (al)
       {
-        if (iv)
+        if (il)
           fail << "both test.input and test.arguments specified for "
                << "target " << t;
 
-        if (rv)
+        if (rl)
           fail << "both test.roundtrip and test.arguments specified for "
                << "target " << t;
       }
 
       scope& bs (t.base_scope ());
 
-      if (!iv && !ov && !rv)
+      if (!il && !ol && !rl)
       {
         string n ("test.");
         n += t.type ().name;
 
-        const variable& in (variable_pool.find (n + ".input"));
-        const variable& on (variable_pool.find (n + ".output"));
-        const variable& rn (variable_pool.find (n + ".roundtrip"));
+        const variable& in (variable_pool.find (n + ".input", name_type));
+        const variable& on (variable_pool.find (n + ".output", name_type));
+        const variable& rn (variable_pool.find (n + ".roundtrip", name_type));
 
         // We should only keep value(s) that were specified together
         // in the innermost scope.
         //
         for (scope* s (&bs); s != nullptr; s = s->parent_scope ())
         {
-          ov.rebind (s->vars[on]);
+          ol = s->vars[on];
 
-          if (!av) // Not overriden at target level by test.arguments?
+          if (!al) // Not overriden at target level by test.arguments?
           {
-            iv.rebind (s->vars[in]);
-            rv.rebind (s->vars[rn]);
+            il = s->vars[in];
+            rl = s->vars[rn];
           }
 
-          if (iv || ov || rv)
+          if (il || ol || rl)
             break;
         }
       }
@@ -182,18 +182,18 @@ namespace build
 
       // Reduce the roundtrip case to input/output.
       //
-      if (rv)
+      if (rl)
       {
-        if (iv || ov)
+        if (il || ol)
           fail << "both test.roundtrip and test.input/output specified "
                << "for target " << t;
 
-        in = on = rv.as<const name*> ();
+        in = on = &as<name> (*rl);
       }
       else
       {
-        in = iv ? iv.as<const name*> () : nullptr;
-        on = ov ? ov.as<const name*> () : nullptr;
+        in = il ? &as<name> (*il) : nullptr;
+        on = ol ? &as<name> (*ol) : nullptr;
       }
 
       // Resolve them to targets, which normally would be existing files
@@ -283,35 +283,24 @@ namespace build
     }
 
     static void
-    add_arguments (cstrings& args, target& t, const char* n)
+    add_arguments (cstrings& args, const target& t, const char* n)
     {
       string var ("test.");
       var += n;
 
-      auto v (t.vars[var]);
+      auto l (t.vars[var]);
 
-      if (!v)
+      if (!l)
       {
         var.resize (5);
         var += t.type ().name;
         var += '.';
         var += n;
-        v.rebind (t.base_scope ()[var]);
+        l = t.base_scope ()[variable_pool.find (var, strings_type)];
       }
 
-      if (v)
-      {
-        for (const name& n: v.as<const list_value&> ())
-        {
-          if (n.simple ())
-            args.push_back (n.value.c_str ());
-          else if (n.directory ())
-            args.push_back (n.dir.string ().c_str ());
-          else
-            fail << "expected argument instead of " << n <<
-              info << "in variable " << var;
-        }
-      }
+      if (l)
+        config::append_options (args, as<strings> (*l));
     }
 
     // The format of args shall be:

@@ -262,33 +262,33 @@ namespace build
     // Lookup, including in groups to which this target belongs and
     // then in outer scopes (including target type/pattern-specific
     // variables). If you only want to lookup in this target, do it
-    // on the the variable map directly.
+    // on the variable map directly.
     //
-    value_proxy
+    lookup<const value>
     operator[] (const variable&) const;
 
-    value_proxy
+    lookup<const value>
     operator[] (const std::string& name) const
     {
       return operator[] (variable_pool.find (name));
     }
 
-    // Return a value_proxy suitable for assignment. See class scope
-    // for details.
+    // Return a value suitable for assignment. See class scope for
+    // details.
     //
-    value_proxy
+    value&
     assign (const variable& var) {return vars.assign (var).first;}
 
-    value_proxy
+    value&
     assign (const std::string& name) {return vars.assign (name).first;}
 
-    // Return a value_proxy suitable for appending. See class scope
-    // for details.
+    // Return a value suitable for appending. See class scope for
+    // details.
     //
-    value_proxy
+    value&
     append (const variable&);
 
-    value_proxy
+    value&
     append (const std::string& name)
     {
       return append (variable_pool.find (name));
