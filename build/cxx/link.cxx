@@ -346,7 +346,6 @@ namespace build
 
       // @@ TODO:
       //
-      // - check prerequisites: object files, libraries
       // - if path already assigned, verify extension?
       //
       // @@ Q:
@@ -392,17 +391,6 @@ namespace build
                  p.is_a<lib> ())
         {
           seen_lib = seen_lib || true;
-        }
-        else if (p.is_a<h> ()   ||
-                 p.is_a<hxx> () ||
-                 p.is_a<ixx> () ||
-                 p.is_a<txx> () ||
-                 p.is_a<fsdir> ())
-          ;
-        else
-        {
-          level3 ([&]{trace << "unexpected prerequisite type " << p.type ();});
-          return nullptr;
         }
       }
 

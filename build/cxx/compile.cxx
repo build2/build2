@@ -45,7 +45,6 @@ namespace build
       // @@ TODO:
       //
       // - check prerequisites: single source file
-      // - check prerequisites: the rest are headers (other ignorable?)
       // - if path already assigned, verify extension?
       //
 
