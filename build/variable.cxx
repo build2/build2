@@ -144,6 +144,15 @@ namespace build
   bool value_traits<string>::
   assign (name& n)
   {
+    // The below code is quite convoluted because we don't want to
+    // modify the name until we know it good (if it is not, then it
+    // will most likely be printed by the caller in diagnostics).
+
+    // Suspend project qualification.
+    //
+    const string* p (n.proj);
+    n.proj = nullptr;
+
     // Convert directory to string.
     //
     if (n.directory ())
@@ -158,7 +167,23 @@ namespace build
         n.value += '/';
     }
 
-    return n.simple ();
+    if (!n.simple ())
+    {
+      n.proj = p; // Restore.
+      return false;
+    }
+
+    // Convert project qualification to its string representation.
+    //
+    if (p != nullptr)
+    {
+      string s (*p);
+      s += '%';
+      s += n.value;
+      s.swap (n.value);
+    }
+
+    return true;
   }
 
   static bool

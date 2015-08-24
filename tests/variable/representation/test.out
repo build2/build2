@@ -1,0 +1,6 @@
+'-L/'
+'-L/foo/'
+'foo%bar'
+'foo%'
+'%bar'
+'foo%bar'

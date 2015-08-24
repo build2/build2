@@ -1,0 +1,18 @@
+# Test reversibility of variable representation.
+#
+val  = -L/
+val += -L/foo/
+#val += dir{-L/}
+
+val += foo%bar
+val += foo%
+val += %bar
+val += foo%{bar}
+#val += foo%file{x}
+
+using cxx
+cxx.ext = cxx
+
+exe{driver}: cxx{driver}
+exe{driver}: test.output = test.out
+exe{driver}: test.options = $val
