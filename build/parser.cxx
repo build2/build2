@@ -899,7 +899,7 @@ namespace build
           }
         }
 
-        string::size_type n (name.size () - 1);
+        string::size_type n (p != string::npos ? name.size () - 1 : 0);
 
         // See if this is a type name, directory prefix, or both. That
         // is, it is followed by '{'.
@@ -964,40 +964,50 @@ namespace build
         if (pair != 0 && pair != ns.size ())
           ns.push_back (ns[pair - 1]);
 
+        count = 1;
+
         // If it ends with a directory separator, then it is a directory.
         // Note that at this stage we don't treat '.' and '..' as special
         // (unless they are specified with a directory separator) because
         // then we would have ended up treating '.: ...' as a directory
         // scope. Instead, this is handled higher up the processing chain,
-        // in target_types::find().
+        // in target_types::find(). This would also mess up reversibility
+        // to simple name.
         //
         // @@ TODO: and not quoted
         //
         if (p == n)
         {
-          // On Win32 translate the root path to the special empty path.
-          // Search for global_scope for details.
+          // For reversibility to simple name, only treat it as a directory
+          // if the string is an exact representation.
           //
-#ifdef _WIN32
-          dir_path dir (name != "/" ? dir_path (name) : dir_path ());
-#else
-          dir_path dir (name);
-#endif
-          if (dp != nullptr)
-            dir = *dp / dir;
+          if (p != 0 && name[p - 1] != '/') // Take care of the "//" case.
+            name.resize (p); // Strip trailing '/'.
 
-          ns.emplace_back (pp1,
-                           move (dir),
-                           (tp != nullptr ? *tp : string ()),
-                           string ());
+          dir_path dir (move (name), dir_path::exact);
+
+          if (!dir.empty ())
+          {
+            if (dp != nullptr)
+              dir = *dp / dir;
+
+            ns.emplace_back (pp1,
+                             move (dir),
+                             (tp != nullptr ? *tp : string ()),
+                             string ());
+            continue;
+          }
+
+          // Add the trailing slash back and treat it as a simple name.
+          //
+          if (p != 0 && name[p - 1] != '/')
+            name.push_back ('/');
         }
-        else
-          ns.emplace_back (pp1,
-                           (dp != nullptr ? *dp : dir_path ()),
-                           (tp != nullptr ? *tp : string ()),
-                           move (name));
 
-        count = 1;
+        ns.emplace_back (pp1,
+                         (dp != nullptr ? *dp : dir_path ()),
+                         (tp != nullptr ? *tp : string ()),
+                         move (name));
         continue;
       }
 

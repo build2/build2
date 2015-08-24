@@ -72,15 +72,11 @@ namespace build
     //
     variable_pool.find ("subprojects", nullptr, '=');
 
-    // Create global scope. For Win32 we use the empty path since there
-    // is no "real" root path. On POSIX, however, this is a real path.
-    // See the comment in <build/path-map> for details.
+    // Create global scope. For Win32 this is not a "real" root path.
+    // On POSIX, however, this is a real path. See the comment in
+    // <build/path-map> for details.
     //
-#ifdef _WIN32
-    global_scope = &scopes[dir_path ()];
-#else
     global_scope = &scopes[dir_path ("/")];
-#endif
 
     global_scope->assign ("work") = work;
     global_scope->assign ("home") = home;

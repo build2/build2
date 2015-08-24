@@ -2,6 +2,12 @@
 #
 val  = -L/
 val += -L/foo/
+val += ..
+val += ../
+val += /
+val += //
+val += ///
+val += //foo/
 #val += dir{-L/}
 
 val += foo%bar
