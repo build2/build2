@@ -474,7 +474,7 @@ namespace build
       // will still be disabled inside the file that set src_root. For
       // this to work we would need to keep a reference to the value
       // stored in the variable plus the update would need to update
-      // the value in place (see value_proxy).
+      // the value in place.
       //
       if (src_root_ == nullptr)
       {
