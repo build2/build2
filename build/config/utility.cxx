@@ -4,6 +4,8 @@
 
 #include <build/config/utility>
 
+#include <build/context>
+
 using namespace std;
 
 namespace build
@@ -18,6 +20,37 @@ namespace build
       return l.defined ()
         ? l.belongs (*global_scope) ? (root.assign (var) = *l) : *l
         : root.assign (var); // NULL
+    }
+
+    const value&
+    optional_absolute (scope& root, const variable& var)
+    {
+      auto l (root[var]);
+
+      if (!l.defined ())
+        return root.assign (var); // NULL
+
+      if (!l.belongs (*global_scope)) // Value from (some) root scope.
+        return *l;
+
+      // Make the command-line value absolute. This is necessary to avoid
+      // a warning issued by the config module about global/root scope
+      // value mismatch.
+      //
+      value& v (const_cast<value&> (*l));
+
+      if (v && !v.empty ())
+      {
+        dir_path& d (as<dir_path> (v));
+
+        if (d.relative ())
+        {
+          d = work / d;
+          d.normalize ();
+        }
+      }
+
+      return root.assign (var) = v;
     }
 
     bool

@@ -51,18 +51,20 @@ namespace build
       {
         auto& rs (r.rules);
 
-        // Register the standard alias rule for the test operation.
-        //
-        rs.insert<alias> (test_id, "alias", alias_rule::instance);
-
         // Register our test running rule.
         //
-        rs.insert<target> (test_id, "test", rule_);
+        rs.insert<target> (perform_id, test_id, "test", rule_);
+
+        // Register our rule for the dist meta-operation. We need
+        // to do this because we have "ad-hoc prerequisites", test
+        // input/output files, that need to be entered into the
+        // target list.
+        //
+        rs.insert<target> (dist_id, test_id, "test", rule_);
       }
 
       // Enter module variables.
       //
-      if (first)
       {
         variable_pool.find ("test", bool_type);
         variable_pool.find ("test.input", name_type);

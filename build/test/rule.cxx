@@ -113,11 +113,6 @@ namespace build
       if (!mr.bvalue) // Not a test.
         return noop_recipe;
 
-      // In case of test, we don't do anything for other meta-operations.
-      //
-      if (a.operation () == test_id && a.meta_operation () != perform_id)
-        return noop_recipe;
-
       // Ok, if we are here, then this means:
       //
       // 1. This target is a test.
@@ -218,18 +213,21 @@ namespace build
           }
         }
 
-        if (ot != nullptr && in == on)
+        if (ot != nullptr)
         {
-          build::match (a, *ot);
-
-          if (ot->state () == target_state::unchanged)
+          if (in != on)
           {
-            unmatch (a, *ot);
-            ot = nullptr;
+            build::match (a, *ot);
+
+            if (ot->state () == target_state::unchanged)
+            {
+              unmatch (a, *ot);
+              ot = nullptr;
+            }
           }
+          else
+            ot = it;
         }
-        else
-          ot = it;
 
 
         // Find the "real" update rule, that is, the rule that would

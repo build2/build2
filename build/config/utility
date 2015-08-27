@@ -49,12 +49,25 @@ namespace build
     // Return the value, which can be NULL.
     //
     const value&
-    optional (scope& root, const variable& var);
+    optional (scope& root, const variable&);
 
     inline const value&
-    optional (scope& root, const std::string& name)
+    optional (scope& root, const std::string& var)
     {
-      return optional (root, variable_pool.find (name));
+      return optional (root, variable_pool.find (var));
+    }
+
+    // As above but assumes the value is dir_path and makes it
+    // absolute if the value specified on the command line is
+    // relative.
+    //
+    const value&
+    optional_absolute (scope& root, const variable&);
+
+    inline const value&
+    optional_absolute (scope& root, const std::string& var)
+    {
+      return optional_absolute (root, variable_pool.find (var));
     }
 
     // Check whether there are any variables specified from the

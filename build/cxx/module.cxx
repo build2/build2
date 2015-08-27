@@ -64,31 +64,26 @@ namespace build
 
         auto& rs (b.rules);
 
-        rs.insert<obja> (default_id, "cxx.compile", compile::instance);
-        rs.insert<obja> (update_id, "cxx.compile", compile::instance);
-        rs.insert<obja> (clean_id, "cxx.compile", compile::instance);
+        rs.insert<obja> (perform_id, update_id, "cxx", compile::instance);
+        rs.insert<obja> (perform_id, clean_id, "cxx", compile::instance);
 
-        rs.insert<objso> (default_id, "cxx.compile", compile::instance);
-        rs.insert<objso> (update_id, "cxx.compile", compile::instance);
-        rs.insert<objso> (clean_id, "cxx.compile", compile::instance);
+        rs.insert<objso> (perform_id, update_id, "cxx", compile::instance);
+        rs.insert<objso> (perform_id, clean_id, "cxx", compile::instance);
 
-        rs.insert<exe> (default_id, "cxx.link", link::instance);
-        rs.insert<exe> (update_id, "cxx.link", link::instance);
-        rs.insert<exe> (clean_id, "cxx.link", link::instance);
+        rs.insert<exe> (perform_id, update_id, "cxx", link::instance);
+        rs.insert<exe> (perform_id, clean_id, "cxx", link::instance);
 
-        rs.insert<liba> (default_id, "cxx.link", link::instance);
-        rs.insert<liba> (update_id, "cxx.link", link::instance);
-        rs.insert<liba> (clean_id, "cxx.link", link::instance);
+        rs.insert<liba> (perform_id, update_id, "cxx", link::instance);
+        rs.insert<liba> (perform_id, clean_id, "cxx", link::instance);
 
-        rs.insert<libso> (default_id, "cxx.link", link::instance);
-        rs.insert<libso> (update_id, "cxx.link", link::instance);
-        rs.insert<libso> (clean_id, "cxx.link", link::instance);
+        rs.insert<libso> (perform_id, update_id, "cxx", link::instance);
+        rs.insert<libso> (perform_id, clean_id, "cxx", link::instance);
 
         //@@ Should we check if install module was loaded (see bin)?
         //
-        rs.insert<exe> (install_id, "cxx.install", install::instance);
-        rs.insert<liba> (install_id, "cxx.install", install::instance);
-        rs.insert<libso> (install_id, "cxx.install", install::instance);
+        rs.insert<exe> (perform_id, install_id, "cxx", install::instance);
+        rs.insert<liba> (perform_id, install_id, "cxx", install::instance);
+        rs.insert<libso> (perform_id, install_id, "cxx", install::instance);
       }
 
       // Enter module variables.

@@ -3,4 +3,4 @@ config.build
 
 # Temporary out-of-tree build directories.
 #
-*-build
+*-out

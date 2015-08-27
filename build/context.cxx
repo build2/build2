@@ -47,6 +47,7 @@ namespace build
     meta_operation_table.insert ("perform");
     meta_operation_table.insert ("configure");
     meta_operation_table.insert ("disfigure");
+    meta_operation_table.insert ("dist");
 
     operation_table.clear ();
     operation_table.insert ("default");
@@ -100,17 +101,13 @@ namespace build
     {
       rule_map& rs (global_scope->rules);
 
-      rs.insert<alias> (default_id, "alias", alias_rule::instance);
-      rs.insert<alias> (update_id, "alias", alias_rule::instance);
-      rs.insert<alias> (clean_id, "alias", alias_rule::instance);
+      rs.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
 
-      rs.insert<fsdir> (default_id, "fsdir", fsdir_rule::instance);
-      rs.insert<fsdir> (update_id, "fsdir", fsdir_rule::instance);
-      rs.insert<fsdir> (clean_id, "fsdir", fsdir_rule::instance);
+      rs.insert<fsdir> (perform_id, update_id, "fsdir", fsdir_rule::instance);
+      rs.insert<fsdir> (perform_id, clean_id, "fsdir", fsdir_rule::instance);
 
-      rs.insert<file> (default_id, "file", file_rule::instance);
-      rs.insert<file> (update_id, "file", file_rule::instance);
-      rs.insert<file> (clean_id, "file", file_rule::instance);
+      rs.insert<file> (perform_id, update_id, "file", file_rule::instance);
+      rs.insert<file> (perform_id, clean_id, "file", file_rule::instance);
     }
   }
 
@@ -160,6 +157,31 @@ namespace build
       text << "mkdir -p " << d;
 
     return ms;
+  }
+
+  fs_status<butl::rmdir_status>
+  rmdir_r (const dir_path& d)
+  {
+    using namespace butl;
+
+    if (work.sub (d)) // Don't try to remove working directory.
+      return rmdir_status::not_empty;
+
+    if (!dir_exists (d))
+      return rmdir_status::not_exist;
+
+    text << "rmdir -r " << d;
+
+    try
+    {
+      butl::rmdir_r (d);
+    }
+    catch (const std::system_error& e)
+    {
+      fail << "unable to remove directory " << d << ": " << e.what ();
+    }
+
+    return rmdir_status::success;
   }
 
   dir_path

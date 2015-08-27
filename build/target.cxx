@@ -493,6 +493,26 @@ namespace build
     false
   };
 
+  static const std::string&
+  buildfile_target_extension (const target_key& tk, scope&)
+  {
+    // If the name is special 'buildfile', then there is no extension,
+    // otherwise it is .build.
+    //
+    return extension_pool.find (*tk.name == "buildfile" ? "" : "build");
+  }
+
+  const target_type buildfile::static_type
+  {
+    typeid (buildfile),
+    "buildfile",
+    &file::static_type,
+    &file_factory<buildfile>,
+    &buildfile_target_extension,
+    &search_file,
+    false
+  };
+
   constexpr const char doc_ext[] = "";
   const target_type doc::static_type
   {

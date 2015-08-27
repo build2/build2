@@ -57,13 +57,11 @@ namespace build
       {
         auto& rs (b.rules);
 
-        rs.insert<obj> (default_id, "bin.obj", obj_);
-        rs.insert<obj> (update_id, "bin.obj", obj_);
-        rs.insert<obj> (clean_id, "bin.obj", obj_);
+        rs.insert<obj> (perform_id, update_id, "bin.obj", obj_);
+        rs.insert<obj> (perform_id, clean_id, "bin.obj", obj_);
 
-        rs.insert<lib> (default_id, "bin.lib", lib_);
-        rs.insert<lib> (update_id, "bin.lib", lib_);
-        rs.insert<lib> (clean_id, "bin.lib", lib_);
+        rs.insert<lib> (perform_id, update_id, "bin.lib", lib_);
+        rs.insert<lib> (perform_id, clean_id, "bin.lib", lib_);
 
         //@@ Should we check if the install module was loaded
         //   (by checking if install operation is registered
@@ -72,7 +70,7 @@ namespace build
         //   should enforce loading of all operation-defining
         //   modules before all others?
         //
-        rs.insert<lib> (install_id, "bin.lib", lib_);
+        rs.insert<lib> (perform_id, install_id, "bin.lib", lib_);
       }
 
       // Enter module variables.

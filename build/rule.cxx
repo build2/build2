@@ -38,13 +38,9 @@ namespace build
     // for every action (because that's the condition for us matching),
     // for some actions this is clearly a waste. Say, perform_clean: we
     // are not doing anything for this action so not checking if the file
-    // exists seems harmless. What about, say, configure_update? Again,
-    // whether we match or not, there is nothing to be done for this
-    // action. And, who knows, maybe the file doesn't exist during
-    // configure_update but will magically appear during perform_update.
-    // So the overall guideline seems to be this: if we don't do anything
-    // for the action (other than performing it on the prerequisites),
-    // then we match.
+    // exists seems harmless. So the overall guideline seems to be this:
+    // if we don't do anything for the action (other than performing it
+    // on the prerequisites), then we match.
     //
     switch (a)
     {
@@ -181,7 +177,7 @@ namespace build
     {
     case perform_update_id: return &perform_update;
     case perform_clean_id: return &perform_clean;
-    default: return default_recipe; // Forward to prerequisites.
+    default: assert (false); return default_recipe;
     }
   }
 
@@ -196,7 +192,7 @@ namespace build
     if (!t.prerequisite_targets.empty ())
       ts = execute_prerequisites (a, t);
 
-    const path& d (t.dir); // Everything is in t.dir.
+    const dir_path& d (t.dir); // Everything is in t.dir.
 
     // Generally, it is probably correct to assume that in the majority
     // of cases the directory will already exist. If so, then we are

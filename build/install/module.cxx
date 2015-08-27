@@ -63,7 +63,7 @@ namespace build
 
       if (spec)
       {
-        if (cv != nullptr && *cv && !cv->empty ())
+        if (*cv && !cv->empty ())
           v = *cv;
       }
       else
@@ -116,19 +116,9 @@ namespace build
       //
       r.operations.insert (install_id, install);
 
-      // Register rules.
+      // Register our file installer rule.
       //
-      {
-        auto& rs (b.rules);
-
-        // Register the standard alias rule for the install operation.
-        //
-        rs.insert<alias> (install_id, "alias", alias_rule::instance);
-
-        // Register our file installer rule.
-        //
-        rs.insert<file> (install_id, "install", rule_);
-      }
+      b.rules.insert<file> (perform_id, install_id, "install", rule_);
 
       // Enter module variables.
       //

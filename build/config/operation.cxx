@@ -187,17 +187,26 @@ namespace build
     }
 
     static void
-    configure_execute (action a, const action_targets& ts)
+    configure_search (scope& root,
+                      const target_key&,
+                      const location&,
+                      action_targets& ts)
+    {
+      tracer trace ("configure_search");
+      level5 ([&]{trace << "collecting " << root.path ();});
+      ts.push_back (&root);
+    }
+
+    static void
+    configure_match (action, action_targets&) {}
+
+    static void
+    configure_execute (action a, const action_targets& ts, bool)
     {
       for (void* v: ts)
       {
-        target& t (*static_cast<target*> (v));
-        scope* rs (t.base_scope ().root_scope ());
-
-        if (rs == nullptr)
-          fail << "out of project target " << t;
-
-        configure_project (a, *rs);
+        scope& root (*static_cast<scope*> (v));
+        configure_project (a, root);
       }
     }
 
@@ -209,8 +218,8 @@ namespace build
       nullptr, // meta-operation pre
       &configure_operation_pre,
       &load,   // normal load
-      &search, // normal search
-      &match,  // normal match
+      &configure_search,
+      &configure_match,
       &configure_execute,
       nullptr, // operation post
       nullptr  // meta-operation post
@@ -355,7 +364,7 @@ namespace build
     }
 
     static void
-    disfigure_execute (action a, const action_targets& ts)
+    disfigure_execute (action a, const action_targets& ts, bool quiet)
     {
       tracer trace ("disfigure_execute");
 
@@ -372,7 +381,8 @@ namespace build
             targets.insert (
               dir::static_type, root.path (), "", nullptr, trace).first);
 
-          info << diag_done (a, t);
+          if (!quiet)
+            info << diag_done (a, t);
         }
       }
     }

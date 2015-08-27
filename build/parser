@@ -108,6 +108,11 @@ namespace build
     void
     process_default_target (token&);
 
+    // Enter buildfile as a target.
+    //
+    void
+    enter_buildfile (const path&);
+
     // Lexer.
     //
   private:

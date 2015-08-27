@@ -109,10 +109,12 @@ namespace build
   const meta_operation_id configure_id = 2;
   const meta_operation_id disfigure_id = 3;
 
+  const meta_operation_id dist_id = 4;
+
   // The default operation is a special marker that can be used to
   // indicate that no operation was explicitly specified by the user.
   //
-  const operation_id default_id = 1;
+  const operation_id default_id = 1; // Shall be first.
   const operation_id update_id = 2;
   const operation_id clean_id  = 3;
 
@@ -210,7 +212,7 @@ namespace build
 
     void (*match) (action, action_targets&);
 
-    void (*execute) (action, const action_targets&);
+    void (*execute) (action, const action_targets&, bool quiet);
 
     void (*operation_post) (operation_id); // End of operation batch.
     void (*meta_operation_post) (); // End of meta-operation batch.
@@ -245,10 +247,10 @@ namespace build
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
-  // diagnostics.
+  // diagnostics (unless quiet).
   //
   void
-  execute (action, const action_targets&);
+  execute (action, const action_targets&, bool quiet);
 
   extern meta_operation_info perform;
 
@@ -341,6 +343,11 @@ namespace build
 
     bool
     empty () const {return v_.empty ();}
+
+    // Note that this is more of a "max index" rather than size.
+    //
+    size_type
+    size () const {return v_.size ();}
 
   private:
     base_type v_;

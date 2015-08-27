@@ -36,6 +36,8 @@ namespace build
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
+    enter_buildfile (p);
+
     string rw (diag_relative (p)); // Relative to work.
     path_ = &rw;
 
@@ -446,6 +448,8 @@ namespace build
 
       level4 ([&]{trace (t) << "entering " << p;});
 
+      enter_buildfile (p);
+
       string rw (diag_relative (p)); // Relative to work.
       const string* op (path_);
       path_ = &rw;
@@ -584,6 +588,8 @@ namespace build
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
       level4 ([&]{trace (t) << "entering " << p;});
+
+      enter_buildfile (p);
 
       string rw (diag_relative (p)); // Relative to work.
       const string* op (path_);
@@ -1015,11 +1021,23 @@ namespace build
       //
       if (tt == type::dollar)
       {
+        // Switch to the variable name mode. We want to use this
+        // mode for $foo but not for $(foo). Since we don't know
+        // whether the next token is a paren or a name, we turn
+        // it on and turn it off if what we get next is a paren
+        // so that the following name is scanned in the normal
+        // mode.
+        //
+        lexer_->mode (lexer_mode::variable);
+
         next (t, tt);
 
         bool paren (tt == type::lparen);
         if (paren)
+        {
+          lexer_->mode (lexer_mode::normal);
           next (t, tt);
+        }
 
         if (tt != type::name)
           fail (t) << "variable name expected instead of " << t;
@@ -1497,6 +1515,19 @@ namespace build
 
     p.target = &dt;
     ct.prerequisites.emplace_back (p);
+  }
+
+  void parser::
+  enter_buildfile (const path& p)
+  {
+    tracer trace ("parser::enter_buildfile", &path_);
+
+    const char* e (p.extension ());
+    targets.insert<buildfile> (
+      p.directory (),
+      p.leaf ().base ().string (),
+      &extension_pool.find (e == nullptr ? "" : e), // Always specified.
+      trace);
   }
 
   token_type parser::

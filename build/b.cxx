@@ -42,6 +42,7 @@
 using namespace std;
 
 #include <build/config/module>
+#include <build/dist/module>
 #include <build/bin/module>
 #include <build/cxx/module>
 #include <build/cli/module>
@@ -94,6 +95,7 @@ main (int argc, char* argv[])
     // Register builtin modules.
     //
     builtin_modules["config"] = &config::config_init;
+    builtin_modules["dist"] = &dist::dist_init;
     builtin_modules["bin"] = &bin::bin_init;
     builtin_modules["cxx"] = &cxx::cxx_init;
     builtin_modules["cli"] = &cli::cli_init;
@@ -771,7 +773,7 @@ main (int argc, char* argv[])
           action a (mid, pre_oid, oid);
 
           mif->match (a, tgs);
-          mif->execute (a, tgs);
+          mif->execute (a, tgs, true); // Run quiet.
 
           if (mif->operation_post != nullptr)
             mif->operation_post (pre_oid);
@@ -788,7 +790,7 @@ main (int argc, char* argv[])
         action a (mid, oid, 0);
 
         mif->match (a, tgs);
-        mif->execute (a, tgs);
+        mif->execute (a, tgs, false);
 
         if (post_oid != 0)
         {
@@ -806,7 +808,7 @@ main (int argc, char* argv[])
           action a (mid, post_oid, oid);
 
           mif->match (a, tgs);
-          mif->execute (a, tgs);
+          mif->execute (a, tgs, true); // Run quiet.
 
           if (mif->operation_post != nullptr)
             mif->operation_post (post_oid);

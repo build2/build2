@@ -1,0 +1,7 @@
+using cxx
+
+hxx.ext = hxx
+cxx.ext = cxx
+
+exe{driver}: cxx{driver} doc{README} file{bootstrap}
+exe{driver}: test.output = test.out

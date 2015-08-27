@@ -1,0 +1,21 @@
+// file      : build/dist/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_DIST_MODULE
+#define BUILD_DIST_MODULE
+
+#include <build/types>
+#include <build/module>
+
+namespace build
+{
+  namespace dist
+  {
+    extern "C" void
+    dist_init (
+      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+  }
+}
+
+#endif // BUILD_DIST_MODULE

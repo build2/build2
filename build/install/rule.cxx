@@ -61,11 +61,6 @@ namespace build
       if (!mr.bvalue) // Not installable.
         return noop_recipe;
 
-      // In case of install, we don't do anything for other meta-operations.
-      //
-      if (a.operation () == install_id && a.meta_operation () != perform_id)
-        return noop_recipe;
-
       // Ok, if we are here, then this means:
       //
       // 1. This target is installable.

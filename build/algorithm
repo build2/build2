@@ -73,6 +73,9 @@ namespace build
   void
   match (action, target&);
 
+  // Note that calling this function only makes sense if the
+  // target itself doesn't have its own dependents.
+  //
   void
   unmatch (action, target&);
 

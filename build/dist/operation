@@ -1,0 +1,18 @@
+// file      : build/dist/operation -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_DIST_OPERATION
+#define BUILD_DIST_OPERATION
+
+#include <build/operation>
+
+namespace build
+{
+  namespace dist
+  {
+    extern meta_operation_info dist;
+  }
+}
+
+#endif // BUILD_DIST_OPERATION

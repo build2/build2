@@ -722,7 +722,7 @@ namespace build
       {
       case perform_update_id: return &perform_update;
       case perform_clean_id: return &perform_clean;
-      default: return default_recipe; // Forward to prerequisites.
+      default: assert (false); return default_recipe;
       }
     }
 

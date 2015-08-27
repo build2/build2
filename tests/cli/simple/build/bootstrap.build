@@ -1,2 +1,3 @@
 project = cli-simple
+amalgamation = # Disabled.
 using config

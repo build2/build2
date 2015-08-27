@@ -48,10 +48,6 @@ namespace build
       }
     case '$':
       {
-        // The following name is lexed in the variable mode.
-        //
-        next_mode_ = lexer_mode::variable;
-
         return token (token_type::dollar, sep, ln, cn);
       }
     case '(':
@@ -147,6 +143,7 @@ namespace build
         switch (c)
         {
         case '/':
+        case '-':
           {
             done = true;
             break;

@@ -5,6 +5,7 @@
 import libs += libbutl%lib{butl}
 
 config = config/{operation module utility}
+dist = dist/{operation rule module}
 bin = bin/{target rule module}
 cxx = cxx/{target compile link install module utility}
 cli = cli/{target rule module}
@@ -13,8 +14,8 @@ install1 = install/{operation rule module}
 
 exe{b}: cxx{b algorithm name operation spec scope variable target \
   prerequisite rule file module context search diagnostics token  \
-  lexer parser path-io utility dump options $config $bin $cxx $cli \
-  $test1 $install1} $libs
+  lexer parser path-io utility dump options $config $dist $bin $cxx \
+  $cli $test1 $install1} $libs
 
 #@@ TODO
 #

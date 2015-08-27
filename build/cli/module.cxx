@@ -61,21 +61,17 @@ namespace build
       {
         auto& rs (base.rules);
 
-        rs.insert<cli_cxx> (default_id, "cli.compile", compile_);
-        rs.insert<cli_cxx> (update_id, "cli.compile", compile_);
-        rs.insert<cli_cxx> (clean_id, "cli.compile", compile_);
+        rs.insert<cli_cxx> (perform_id, update_id, "cli", compile_);
+        rs.insert<cli_cxx> (perform_id, clean_id, "cli", compile_);
 
-        rs.insert<cxx::hxx> (default_id, "cli.compile", compile_);
-        rs.insert<cxx::hxx> (update_id, "cli.compile", compile_);
-        rs.insert<cxx::hxx> (clean_id, "cli.compile", compile_);
+        rs.insert<cxx::hxx> (perform_id, update_id, "cli", compile_);
+        rs.insert<cxx::hxx> (perform_id, clean_id, "cli", compile_);
 
-        rs.insert<cxx::cxx> (default_id, "cli.compile", compile_);
-        rs.insert<cxx::cxx> (update_id, "cli.compile", compile_);
-        rs.insert<cxx::cxx> (clean_id, "cli.compile", compile_);
+        rs.insert<cxx::cxx> (perform_id, update_id, "cli", compile_);
+        rs.insert<cxx::cxx> (perform_id, clean_id, "cli", compile_);
 
-        rs.insert<cxx::ixx> (default_id, "cli.compile", compile_);
-        rs.insert<cxx::ixx> (update_id, "cli.compile", compile_);
-        rs.insert<cxx::ixx> (clean_id, "cli.compile", compile_);
+        rs.insert<cxx::ixx> (perform_id, update_id, "cli", compile_);
+        rs.insert<cxx::ixx> (perform_id, clean_id, "cli", compile_);
       }
 
       // Enter module variables.

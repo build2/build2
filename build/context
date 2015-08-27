@@ -93,6 +93,12 @@ namespace build
   inline fs_status<butl::rmdir_status>
   rmdir (const dir_path& d) {return rmdir (d, d);}
 
+  // Note that this function returns not_empty if we try to remove
+  // a working directory.
+  //
+  fs_status<butl::rmdir_status>
+  rmdir_r (const dir_path&);
+
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
   //

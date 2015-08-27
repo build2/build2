@@ -4,6 +4,7 @@
 
 #include <build/operation>
 
+#include <vector>
 #include <ostream>
 #include <cassert>
 #include <functional> // reference_wrapper
@@ -109,7 +110,7 @@ namespace build
   }
 
   void
-  execute (action a, const action_targets& ts)
+  execute (action a, const action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
 
@@ -119,7 +120,7 @@ namespace build
     vector<reference_wrapper<target>> psp;
 
     auto body (
-      [a, &psp, &trace] (void* v)
+      [a, quiet, &psp, &trace] (void* v)
       {
         target& t (*static_cast<target*> (v));
 
@@ -129,9 +130,7 @@ namespace build
         {
         case target_state::unchanged:
           {
-            // Be quiet in pre/post operations.
-            //
-            if (a.outer_operation () == 0)
+            if (!quiet)
               info << diag_done (a, t);
             break;
           }
@@ -165,7 +164,7 @@ namespace build
       {
       case target_state::unchanged:
         {
-          if (a.outer_operation () == 0)
+          if (!quiet)
             info << diag_done (a, t);
           break;
         }

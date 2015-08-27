@@ -1,0 +1,29 @@
+// file      : build/dist/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD_DIST_RULE
+#define BUILD_DIST_RULE
+
+#include <build/rule>
+#include <build/types>
+#include <build/target>
+#include <build/operation>
+
+namespace build
+{
+  namespace dist
+  {
+    class rule: public build::rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string&) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+    };
+  }
+}
+
+#endif // BUILD_DIST_RULE
