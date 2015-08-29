@@ -6,8 +6,9 @@
 
 #include <butl/filesystem>
 
-#include <build/scope>
 #include <build/file>
+#include <build/rule>
+#include <build/scope>
 #include <build/diagnostics>
 
 #include <build/config/operation>
@@ -48,6 +49,11 @@ namespace build
       //
       r.meta_operations.insert (configure_id, configure);
       r.meta_operations.insert (disfigure_id, disfigure);
+
+      // Register alias and fallback rule for the configure meta-operation.
+      //
+      r.rules.insert<alias> (configure_id, 0, "alias", alias_rule::instance);
+      r.rules.insert<target> (configure_id, 0, "", fallback_rule::instance);
 
       // Load config.build if one exists.
       //

@@ -12,6 +12,7 @@
 #include <build/scope>
 #include <build/target>
 #include <build/context>
+#include <build/algorithm>
 #include <build/diagnostics>
 
 using namespace std;
@@ -187,26 +188,44 @@ namespace build
     }
 
     static void
-    configure_search (scope& root,
-                      const target_key&,
-                      const location&,
-                      action_targets& ts)
+    configure_match (action, action_targets&)
     {
-      tracer trace ("configure_search");
-      level5 ([&]{trace << "collecting " << root.path ();});
-      ts.push_back (&root);
+      // Don't match anything -- see execute ().
     }
-
-    static void
-    configure_match (action, action_targets&) {}
 
     static void
     configure_execute (action a, const action_targets& ts, bool)
     {
+      // Match rules to configure every operation supported by each
+      // project. Note that we are not calling operation_pre/post()
+      // callbacks here since the meta operation is configure and we
+      // know what we are doing.
+      //
       for (void* v: ts)
       {
-        scope& root (*static_cast<scope*> (v));
-        configure_project (a, root);
+        target& t (*static_cast<target*> (v));
+        scope* rs (t.base_scope ().root_scope ());
+
+        if (rs == nullptr)
+          fail << "out of project target " << t;
+
+        for (operations::size_type id (default_id + 1); // Skip default_id
+             id < rs->operations.size ();
+             ++id)
+        {
+          const operation_info* oi (rs->operations[id]);
+          if (oi == nullptr)
+            continue;
+
+          current_inner_oif = oi;
+          current_outer_oif = nullptr;
+          current_mode = oi->mode;
+          dependency_count = 0;
+
+          match (action (configure_id, id), t);
+        }
+
+        configure_project (a, *rs);
       }
     }
 
@@ -218,7 +237,7 @@ namespace build
       nullptr, // meta-operation pre
       &configure_operation_pre,
       &load,   // normal load
-      &configure_search,
+      &search, // normal search
       &configure_match,
       &configure_execute,
       nullptr, // operation post

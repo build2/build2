@@ -172,7 +172,7 @@ namespace build
         {
         case perform_update_id: return &perform_update;
         case perform_clean_id: return &perform_clean;
-        default: assert (false); return default_recipe;
+        default: return noop_recipe; // Configure update.
         }
       }
       else

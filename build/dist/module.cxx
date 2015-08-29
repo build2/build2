@@ -52,7 +52,7 @@ namespace build
       // taking precedence.
       //
       r.rules.insert<target> (dist_id, 0, "dist", rule_);
-      r.rules.insert<alias> (dist_id, 0, "dist", rule_);
+      r.rules.insert<alias> (dist_id, 0, "alias", rule_);
 
       // Enter module variables.
       //

@@ -72,6 +72,10 @@ namespace build
 
         rs.insert<cxx::ixx> (perform_id, update_id, "cli", compile_);
         rs.insert<cxx::ixx> (perform_id, clean_id, "cli", compile_);
+
+        // We may need to resolve group members.
+        //
+        rs.insert<cli_cxx> (configure_id, update_id, "cli", compile_);
       }
 
       // Enter module variables.

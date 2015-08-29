@@ -116,6 +116,20 @@ namespace build
 
     static fsdir_rule instance;
   };
+
+  // Fallback rule that always matches and does nothing.
+  //
+  class fallback_rule: public build::rule
+  {
+  public:
+    virtual match_result
+    match (action, target& t, const std::string&) const {return t;}
+
+    virtual recipe
+    apply (action, target&, const match_result&) const {return noop_recipe;}
+
+    static fallback_rule instance;
+  };
 }
 
 #endif // BUILD_RULE

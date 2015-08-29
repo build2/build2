@@ -242,4 +242,8 @@ namespace build
   }
 
   fsdir_rule fsdir_rule::instance;
+
+  // fallback_rule
+  //
+  fallback_rule fallback_rule::instance;
 }

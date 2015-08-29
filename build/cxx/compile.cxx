@@ -129,11 +129,12 @@ namespace build
         t.prerequisite_targets.push_back (&pt);
       }
 
-      // Inject additional prerequisites. We only do it for update
-      // since chances are we will have to update some of our
-      // prerequisites in the process (auto-generated source code).
+      // Inject additional prerequisites. We only do it when
+      // performing update since chances are we will have to
+      // update some of our prerequisites in the process (auto-
+      // generated source code).
       //
-      if (a.operation () == update_id)
+      if (a == perform_update_id)
       {
         // The cached prerequisite target should be the same as what
         // is in t.prerequisite_targets since we used standard
@@ -151,7 +152,7 @@ namespace build
       {
       case perform_update_id: return &perform_update;
       case perform_clean_id: return &perform_clean;
-      default: assert (false); return default_recipe;
+      default: return noop_recipe; // Configure update.
       }
     }
 

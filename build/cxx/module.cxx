@@ -79,6 +79,15 @@ namespace build
         rs.insert<libso> (perform_id, update_id, "cxx", link::instance);
         rs.insert<libso> (perform_id, clean_id, "cxx", link::instance);
 
+        // Register for configure so that we detect unresolved imports
+        // during configuration rather that later, e.g., during update.
+        //
+        rs.insert<obja> (configure_id, update_id, "cxx", compile::instance);
+        rs.insert<objso> (configure_id, update_id, "cxx", compile::instance);
+        rs.insert<exe> (configure_id, update_id, "cxx", link::instance);
+        rs.insert<liba> (configure_id, update_id, "cxx", link::instance);
+        rs.insert<libso> (configure_id, update_id, "cxx", link::instance);
+
         //@@ Should we check if install module was loaded (see bin)?
         //
         rs.insert<exe> (perform_id, install_id, "cxx", install::instance);
