@@ -9,11 +9,11 @@
 #include <string>
 
 #include <build/types>
+#include <build/scope>
 #include <build/variable> // list_value
 
 namespace build
 {
-  class scope;
   class target;
   class location;
   class prerequisite_key;
@@ -67,6 +67,19 @@ namespace build
   //
   scope&
   create_root (const dir_path& out_root, const dir_path& src_root);
+
+  // Setup root scope. Note that it assume the src_root variable
+  // has already been set.
+  //
+  void
+  setup_root (scope&);
+
+  // Setup the base scope (set *_base variables, etc).
+  //
+  scope&
+  setup_base (scope_map::iterator,
+              const dir_path& out_base,
+              const dir_path& src_base);
 
   // Bootstrap the project's root scope, the out part.
   //

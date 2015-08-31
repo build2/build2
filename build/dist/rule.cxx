@@ -24,7 +24,7 @@ namespace build
     recipe rule::
     apply (action a, target& t, const match_result&) const
     {
-      const dir_path& out_root (t.root_scope ().path ());
+      const dir_path& out_root (t.root_scope ().out_path ());
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {

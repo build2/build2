@@ -323,7 +323,7 @@ namespace build
     if (rs == nullptr) // Could be outside any project.
       return;
 
-    const dir_path& out_root (rs->path ());
+    const dir_path& out_root (rs->out_path ());
 
     // If t is a directory (name is empty), say foo/bar/, then
     // t is bar and its parent directory is foo/.

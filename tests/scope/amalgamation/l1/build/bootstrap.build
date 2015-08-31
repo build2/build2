@@ -1,0 +1,16 @@
+project = scope-amalgamation-l1
+using config
+
+# At this stage we don't know ../ is a project. This
+# tests an out-of-project scope that will later be
+# replaced with an in-project scope. Note that the
+# replacement will only occur if src_root != out_root.
+# If they are the same, then this scope will simply
+# be "upgraded".
+#
+$src_root/../:
+{
+  print 0: $project
+  print 0: $src_base
+  print 0: $out_base
+}

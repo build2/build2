@@ -378,7 +378,7 @@ namespace build
     if (pk.tk.dir->relative ())
     {
       dir_paths sp;
-      sp.push_back (src_out (pk.scope->path (), *pk.scope)); // src_base
+      sp.push_back (pk.scope->src_path ()); // src_base
       return search_existing_file (pk, sp);
     }
     else

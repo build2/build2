@@ -35,7 +35,7 @@ namespace build
               bool first)
     {
       tracer trace ("cxx::init");
-      level4 ([&]{trace << "for " << b.path ();});
+      level4 ([&]{trace << "for " << b.out_path ();});
 
       // Initialize the bin module. Only do this if it hasn't already
       // been loaded so that we don't overwrite user's bin.* settings.

@@ -65,7 +65,7 @@ namespace build
     static void
     save_config (scope& root)
     {
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (root.out_path ());
       path f (out_root / config_file);
 
       text << (verb ? "config::save_config " : "save ") << f;
@@ -134,7 +134,7 @@ namespace build
     {
       tracer trace ("configure_project");
 
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (root.out_path ());
       const dir_path& src_root (root.src_path ());
 
       // Make sure the directories exist.
@@ -179,7 +179,7 @@ namespace build
           // @@ Strictly speaking we need to check whether the config
           // module was loaded for this subproject.
           //
-          if (nroot.path () != out_nroot) // This subproject was not loaded.
+          if (nroot.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
           configure_project (a, nroot);
@@ -273,7 +273,7 @@ namespace build
                       action_targets& ts)
     {
       tracer trace ("disfigure_search");
-      level5 ([&]{trace << "collecting " << root.path ();});
+      level5 ([&]{trace << "collecting " << root.out_path ();});
       ts.push_back (&root);
     }
 
@@ -287,7 +287,7 @@ namespace build
 
       bool m (false); // Keep track of whether we actually did anything.
 
-      const dir_path& out_root (root.path ());
+      const dir_path& out_root (root.out_path ());
       const dir_path& src_root (root.src_path ());
 
       // Disfigure subprojects. Since we don't load buildfiles during
@@ -313,7 +313,7 @@ namespace build
           if (!val)
             val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
 
-          nroot.src_path_ = &as<dir_path> (val);
+          setup_root (nroot);
 
           bootstrap_src (nroot);
 
@@ -398,7 +398,7 @@ namespace build
           //
           target& t (
             targets.insert (
-              dir::static_type, root.path (), "", nullptr, trace).first);
+              dir::static_type, root.out_path (), "", nullptr, trace).first);
 
           if (!quiet)
             info << diag_done (a, t);

@@ -4,7 +4,6 @@
 
 #include <build/dump>
 
-#include <set>
 #include <string>
 #include <cassert>
 
@@ -142,19 +141,21 @@ namespace build
   dump_scope (ostream& os,
               string& ind,
               action a,
-              scope& p,
-              scope_map::iterator& i,
-              set<const target*>& rts)
+              scope_map::const_iterator& i)
   {
+    scope& p (*i->second);
+    const dir_path& d (i->first);
+    ++i;
+
     // We don't want the extra notations (e.g., ~/) provided by
     // diag_relative() since we want the path to be relative to
-    // the global scope.
+    // the outer scope.
     //
-    os << ind << relative (p.path ()) << ":" << endl
+    os << ind << relative (d) << ":" << endl
        << ind << '{';
 
     const dir_path* orb (relative_base);
-    relative_base = &p.path ();
+    relative_base = &d;
 
     ind += "  ";
 
@@ -179,10 +180,25 @@ namespace build
       vb = true;
     }
 
-    // Nested scopes of which we are a parent.
+    // Nested scopes of which we are an immediate parent.
     //
-    for (auto e (scopes.end ()); i != e && i->second.parent_scope () == &p; )
+    for (auto e (scopes.end ()); i != e && i->second->parent_scope () == &p;)
     {
+      // See what kind of scope entry this is. It can be:
+      //
+      // 1. Out-of-project scope.
+      // 2. In-project out entry.
+      // 3. In-project src entry.
+      //
+      // We want to print #2 and #3 as a single, unified scope.
+      //
+      scope& s (*i->second);
+      if (s.src_path_ != s.out_path_ && s.src_path_ == &i->first)
+      {
+        ++i;
+        continue;
+      }
+
       if (vb)
       {
         os << endl;
@@ -193,9 +209,7 @@ namespace build
         os << endl; // Extra newline between scope blocks.
 
       os << endl;
-      scope& s (i->second);
-      dump_scope (os, ind, a, s, ++i, rts);
-
+      dump_scope (os, ind, a, i);
       sb = true;
     }
 
@@ -204,33 +218,8 @@ namespace build
     for (const auto& pt: targets)
     {
       const target& t (*pt);
-      const scope* ts (&t.base_scope ());
 
-      bool f (false);
-
-      if (ts == &p)
-      {
-        // If this is the global scope, check that this target hasn't
-        // been handled by the src logic below.
-        //
-        f = (ts != global_scope || rts.find (&t) == rts.end ());
-      }
-      // If this target is in the global scope and we have a corresponding
-      // src directory (i.e., we are a scope inside a project), check
-      // whether this target is in our src.
-      //
-      else if (ts == global_scope && p.src_path_ != nullptr)
-      {
-        if (t.dir.sub (p.src_path ()))
-        {
-          // Check that it hasn't already been handled by a more qualified
-          // scope.
-          //
-          f = rts.insert (&t).second;
-        }
-      }
-
-      if (!f)
+      if (&p != &t.base_scope ())
         continue;
 
       if (vb || sb)
@@ -254,14 +243,11 @@ namespace build
   dump (action a)
   {
     auto i (scopes.begin ());
-    scope& g (i->second); // Global scope.
-    assert (&g == global_scope);
+    assert (i->second == global_scope);
 
     string ind;
-    set<const target*> rts;
-
     ostream& os (*diag_stream);
-    dump_scope (os, ind, a, g, ++i, rts);
+    dump_scope (os, ind, a, i);
     os << endl;
   }
 }

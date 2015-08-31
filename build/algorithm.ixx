@@ -109,7 +109,7 @@ namespace build
       t,
       a.operation () != clean_id
       ? dir_path ()
-      : t.strong_scope ().path ());
+      : t.strong_scope ().out_path ());
   }
 
   inline void
@@ -122,7 +122,7 @@ namespace build
       // through groups since the group target should clean eveything
       // up. A bit of an optimization.
       //
-      search_and_match_prerequisites (a, t, t.strong_scope ().path ());
+      search_and_match_prerequisites (a, t, t.strong_scope ().out_path ());
   }
 
   target_state

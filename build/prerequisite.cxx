@@ -29,7 +29,7 @@ namespace build
     //
     else if (!pk.tk.dir->absolute ())
     {
-      string s (diag_relative (pk.scope->path (), false));
+      string s (diag_relative (pk.scope->out_path (), false));
 
       if (!s.empty ())
         os << s << ':';

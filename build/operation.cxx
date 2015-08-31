@@ -62,13 +62,11 @@ namespace build
     load_root_pre (root);
 
     // Create the base scope. Note that its existence doesn't
-    // mean it was already processed as a base scope; it can
-    // be the same as root.
+    // mean it was already setup as a base scope; it can be the
+    // same as root.
     //
-    scope& base (scopes[out_base]);
-
-    base.assign ("out_base") = out_base;
-    base.src_path_ = &as<dir_path> (base.assign ("src_base") = src_base);
+    auto i (scopes.insert (out_base, nullptr, true, false));
+    scope& base (setup_base (i, out_base, src_base));
 
     // Load the buildfile unless it has already been loaded.
     //

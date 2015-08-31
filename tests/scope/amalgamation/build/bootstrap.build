@@ -1,4 +1,3 @@
-project = import-installed
+project = scope-amalgamation
 amalgamation = # Disabled.
 using config
-using test

@@ -52,6 +52,9 @@ namespace build
       return map_.size () > oid ? &map_[oid] : nullptr;
     }
 
+    bool
+    empty () const {return map_.empty ();}
+
   private:
     std::vector<target_type_rule_map> map_;
   };
@@ -91,6 +94,9 @@ namespace build
 
     explicit
     rule_map (meta_operation_id mid = perform_id): mid_ (mid) {}
+
+    bool
+    empty () const {return map_.empty () && next_ == nullptr;}
 
   private:
     meta_operation_id mid_;

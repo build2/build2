@@ -492,7 +492,7 @@ namespace build
       const dir_path* amlg (
         a.operation () != clean_id
         ? nullptr
-        : &t.strong_scope ().path ());
+        : &t.strong_scope ().out_path ());
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -573,7 +573,7 @@ namespace build
           // altogether. So we are going to use the target's project.
           //
           root = &t.root_scope ();
-          out_root = &root->path ();
+          out_root = &root->out_path ();
           src_root = &root->src_path ();
         }
 

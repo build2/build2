@@ -401,7 +401,7 @@ main (int argc, char* argv[])
           // as a result of one of the preceding target processing.
           //
           // If we know src_root, set that variable as well. This could
-          // be of use to the bootstrap file (other than src-root.build,
+          // be of use to the bootstrap files (other than src-root.build,
           // which, BTW, doesn't need to exist if src_root == out_root).
           //
           scope& rs (create_root (out_root, src_root));
@@ -410,49 +410,47 @@ main (int argc, char* argv[])
 
           // See if the bootstrap process set/changed src_root.
           //
+          value& v (rs.assign ("src_root"));
+
+          if (v)
           {
-            value& v (rs.assign ("src_root"));
+            // If we also have src_root specified by the user, make
+            // sure they match.
+            //
+            const dir_path& p (as<dir_path> (v));
 
-            if (v)
-            {
-              // If we also have src_root specified by the user, make
-              // sure they match.
-              //
-              const dir_path& p (as<dir_path> (v));
-
-              if (src_root.empty ())
-                src_root = p;
-              else if (src_root != p)
-                fail << "bootstrapped src_root " << p << " does not match "
-                     << "specified " << src_root;
-            }
-            else
-            {
-              // Bootstrap didn't produce src_root.
-              //
-              if (src_root.empty ())
-              {
-                // If it also wasn't explicitly specified, see if it is
-                // the same as out_root.
-                //
-                if (is_src_root (out_root))
-                  src_root = out_root;
-                else
-                {
-                  // If not, then assume we are running from src_base
-                  // and calculate src_root based on out_root/out_base.
-                  //
-                  src_base = work;
-                  src_root = src_base.directory (out_base.leaf (out_root));
-                  guessing = true;
-                }
-              }
-
-              v = src_root;
-            }
-
-            rs.src_path_ = &as<dir_path> (v);
+            if (src_root.empty ())
+              src_root = p;
+            else if (src_root != p)
+              fail << "bootstrapped src_root " << p << " does not match "
+                   << "specified " << src_root;
           }
+          else
+          {
+            // Neither bootstrap nor the user produced src_root.
+            //
+            if (src_root.empty ())
+            {
+              // If it also wasn't explicitly specified, see if it is
+              // the same as out_root.
+              //
+              if (is_src_root (out_root))
+                src_root = out_root;
+              else
+              {
+                // If not, then assume we are running from src_base
+                // and calculate src_root based on out_root/out_base.
+                //
+                src_base = work;
+                src_root = src_base.directory (out_base.leaf (out_root));
+                guessing = true;
+              }
+            }
+
+            v = src_root;
+          }
+
+          setup_root (rs);
 
           // At this stage we should have both roots and out_base figured
           // out. If src_base is still undetermined, calculate it.

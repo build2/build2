@@ -42,7 +42,7 @@ namespace build
         return;
       }
 
-      const dir_path& out_root (r.path ());
+      const dir_path& out_root (r.out_path ());
       level4 ([&]{trace << "for " << out_root;});
 
       // Register meta-operations.
@@ -52,7 +52,11 @@ namespace build
 
       // Register alias and fallback rule for the configure meta-operation.
       //
+      global_scope->rules.insert<file> (
+        configure_id, 0, "file", file_rule::instance);
+
       r.rules.insert<alias> (configure_id, 0, "alias", alias_rule::instance);
+      r.rules.insert<file> (configure_id, 0, "", fallback_rule::instance);
       r.rules.insert<target> (configure_id, 0, "", fallback_rule::instance);
 
       // Load config.build if one exists.

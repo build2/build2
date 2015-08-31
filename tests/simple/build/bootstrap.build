@@ -1,4 +1,3 @@
-project = import-installed
+project = simple
 amalgamation = # Disabled.
 using config
-using test

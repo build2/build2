@@ -40,7 +40,7 @@ namespace build
         return;
       }
 
-      const dir_path& out_root (r.path ());
+      const dir_path& out_root (r.out_path ());
       level4 ([&]{trace << "for " << out_root;});
 
       // Register meta-operation.

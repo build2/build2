@@ -36,7 +36,7 @@ namespace build
               bool first)
     {
       tracer trace ("cli::init");
-      level4 ([&]{trace << "for " << base.path ();});
+      level4 ([&]{trace << "for " << base.out_path ();});
 
       // Make sure the cxx module has been loaded since we need its
       // targets types (?xx{}). Note that we don't try to load it

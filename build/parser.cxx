@@ -101,37 +101,31 @@ namespace build
           // @@ Is this the only place where it is valid? Probably also
           // in var namespace.
           //
-          next (t, tt);
           print (t, tt);
           continue;
         }
         else if (n == "source")
         {
-          next (t, tt);
           source (t, tt);
           continue;
         }
         else if (n == "include")
         {
-          next (t, tt);
           include (t, tt);
           continue;
         }
         else if (n == "import")
         {
-          next (t, tt);
           import (t, tt);
           continue;
         }
         else if (n == "export")
         {
-          next (t, tt);
           export_ (t, tt);
           continue;
         }
         else if (n == "using")
         {
-          next (t, tt);
           using_ (t, tt);
           continue;
         }
@@ -198,26 +192,23 @@ namespace build
 
               dir_path p (move (ns[0].dir)); // Steal.
 
+              // Relative scopes are opened relative to out, not src.
+              //
               if (p.relative ())
-                p = prev.path () / p;
+                p = scope_->out_path () / p;
 
               p.normalize ();
-              scope_ = &scopes[p];
 
-              // If this is a known project root scope, switch the
-              // parser state to use it.
-              //
-              scope* ors (switch_root (scope_->root () ? scope_ : root_));
-
-              if (ors != root_)
-                level4 ([&]{trace (nloc) << "switching to root scope " << p;});
+              scope* ors (root_);
+              scope* ocs (scope_);
+              switch_scope (p);
 
               // A directory scope can contain anything that a top level can.
               //
               clause (t, tt);
 
+              scope_ = ocs;
               switch_root (ors);
-              scope_ = &prev;
             }
             else
             {
@@ -269,11 +260,11 @@ namespace build
             path& d (tn.dir);
 
             if (d.empty ())
-              d = scope_->path (); // Already normalized.
+              d = scope_->out_path (); // Already normalized.
             else
             {
               if (d.relative ())
-                d = scope_->path () / d;
+                d = scope_->out_path () / d;
 
               d.normalize ();
             }
@@ -301,9 +292,6 @@ namespace build
             if (n.qualified ())
               fail (nloc) << "project name in scope/target " << n;
 
-            target* ot (target_);
-            scope* os (scope_);
-
             if (n.directory ())
             {
               // The same code as in directory scope handling code above.
@@ -311,18 +299,29 @@ namespace build
               dir_path p (move (n.dir));
 
               if (p.relative ())
-                p = scope_->path () / p;
+                p = scope_->out_path () / p;
 
               p.normalize ();
-              scope_ = &scopes[move (p)];
+
+              scope* ors (root_);
+              scope* ocs (scope_);
+              switch_scope (p);
+
+              variable (t, tt, move (var), tt);
+
+              scope_ = ocs;
+              switch_root (ors);
+
             }
             else
+            {
+              target* ot (target_);
               target_ = &enter_target (move (n));
 
-            variable (t, tt, move (var), tt);
+              variable (t, tt, move (var), tt);
 
-            scope_ = os;
-            target_ = ot;
+              target_ = ot;
+            }
           }
           // Dependency declaration.
           //
@@ -416,6 +415,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
+    next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
@@ -435,7 +435,7 @@ namespace build
       // to the current directory scope.
       //
       if (src_root_ != nullptr && p.relative ())
-        p = src_out (scope_->path (), *out_root_, *src_root_) / p;
+        p = src_out (scope_->out_path (), *out_root_, *src_root_) / p;
 
       p.normalize ();
 
@@ -504,6 +504,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
+    next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
@@ -536,7 +537,7 @@ namespace build
 
       if (p.relative ())
       {
-        out_base = scope_->path () / p.directory ();
+        out_base = scope_->out_path () / p.directory ();
         out_base.normalize ();
       }
       else
@@ -555,28 +556,25 @@ namespace build
           : out_src (p.directory (), *out_root_, *src_root_);
       }
 
-      // Create and bootstrap root scope(s) of subproject(s) that
-      // this out_base belongs to. If any were created, load them
-      // and update parser state. Note that we need to do this
-      // before figuring out absolute buildfile path since we may
-      // switch the project root (i.e., include into a sub-project).
+      // Switch the scope. Note that we need to do this before figuring
+      // out the absolute buildfile path since we may switch the project
+      // root and src_root with it (i.e., include into a sub-project).
       //
-      scope* ors (switch_root (&create_bootstrap_inner (*root_, out_base)));
+      scope* ors (root_);
+      scope* ocs (scope_);
+      switch_scope (out_base);
 
-      if (root_ != ors)
-        load_root_pre (*root_); // Loads outer roots recursively.
-
-      // Determine src_base and buildfile, if relative.
+      // Use the new scope's src_base to get absolute buildfile path
+      // if it is relative.
       //
-      dir_path src_base (src_out (out_base, *out_root_, *src_root_));
-
       if (p.relative ())
-        p = src_base / p.leaf ();
+        p = scope_->src_path () / p.leaf ();
 
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
         level4 ([&]{trace (l) << "skipping already included " << p;});
-        switch_root (ors); // Restore old root.
+        scope_ = ocs;
+        switch_root (ors);
         continue;
       }
 
@@ -599,13 +597,6 @@ namespace build
       lexer* ol (lexer_);
       lexer_ = &l;
 
-      scope* os (scope_);
-      scope_ = &scopes[out_base];
-
-      scope_->assign ("out_base") = move (out_base);
-      scope_->src_path_ = &as<dir_path> (
-        scope_->assign ("src_base") = move (src_base));
-
       target* odt (default_target_);
       default_target_ = nullptr;
 
@@ -622,10 +613,10 @@ namespace build
       level4 ([&]{trace (t) << "leaving " << p;});
 
       default_target_ = odt;
-      scope_ = os;
       lexer_ = ol;
       path_ = op;
 
+      scope_ = ocs;
       switch_root (ors);
     }
 
@@ -642,6 +633,8 @@ namespace build
 
     if (src_root_ == nullptr)
       fail (t) << "import during bootstrap";
+
+    next (t, tt);
 
     // General import format:
     //
@@ -704,12 +697,15 @@ namespace build
 
     // This should be temp_scope.
     //
-    if (ps == nullptr || ps->path () != scope_->path ())
+    if (ps == nullptr || ps->out_path () != scope_->out_path ())
       fail (t) << "export outside export stub";
 
     // The rest is a value. Parse it as names to get variable expansion.
     // build::import() will check the names, if required.
     //
+    lexer_->mode (lexer_mode::value);
+    next (t, tt);
+
     if (tt != type::newline && tt != type::eos)
       export_value_ = names (t, tt);
 
@@ -727,6 +723,7 @@ namespace build
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
+    next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
@@ -751,6 +748,13 @@ namespace build
   void parser::
   print (token& t, token_type& tt)
   {
+    // Parse the rest as names to get variable expansion, etc. Switch
+    // to the variable value lexing mode so that we don't treat special
+    // characters (e.g., ':') as the end of the names.
+    //
+    lexer_->mode (lexer_mode::value);
+
+    next (t, tt);
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -786,6 +790,8 @@ namespace build
 
     if (var.pairs != '\0')
       lexer_->mode (lexer_mode::pairs, var.pairs);
+    else
+      lexer_->mode (lexer_mode::value);
 
     next (t, tt);
     names_type vns (tt != type::newline && tt != type::eos
@@ -1452,6 +1458,54 @@ namespace build
     return bs;
   }
 
+  void parser::
+  switch_scope (const dir_path& p)
+  {
+    tracer trace ("parser::switch_scope", &path_);
+
+    // First, enter the scope into the map and see if it is in any
+    // project. If it is not, then there is nothing else to do.
+    //
+    auto i (scopes.insert (p, nullptr, true, false));
+    scope_ = i->second;
+    scope* rs (scope_->root_scope ());
+
+    if (rs == nullptr)
+      return;
+
+    // Path p can be src_base or out_base. Figure out which one it is.
+    //
+    dir_path out_base (p.sub (rs->out_path ()) ? p : src_out (p, *rs));
+
+    // Create and bootstrap root scope(s) of subproject(s) that this
+    // scope may belong to. If any were created, load them. Note that
+    // we need to do this before figuring out src_base since we may
+    // switch the root project (and src_root with it).
+    //
+    {
+      scope* nrs (&create_bootstrap_inner (*rs, out_base));
+
+      if (rs != nrs)
+      {
+        load_root_pre (*nrs); // Load outer roots recursively.
+        rs = nrs;
+      }
+    }
+
+    // Switch to the new root scope.
+    //
+    if (rs != root_)
+    {
+      level4 ([&]{trace << "switching to root scope " << rs->out_path ();});
+      switch_root (rs);
+    }
+
+    // Now we can figure out src_base and finish setting the scope.
+    //
+    dir_path src_base (src_out (out_base, *rs));
+    setup_base (i, move (out_base), move (src_base));
+  }
+
   scope* parser::
   switch_root (scope* nr)
   {
@@ -1489,7 +1543,7 @@ namespace build
     //
     if (default_target_ == nullptr ||      // No targets in this buildfile.
         targets.find (dir::static_type,    // Explicit current dir target.
-                      scope_->path (),
+                      scope_->out_path (),
                       "",
                       nullptr,
                       trace) != targets.end ())
@@ -1501,7 +1555,7 @@ namespace build
 
     target& ct (
       targets.insert (
-        dir::static_type, scope_->path (), "", nullptr, trace).first);
+        dir::static_type, scope_->out_path (), "", nullptr, trace).first);
 
     prerequisite& p (
       scope_->prerequisites.insert (

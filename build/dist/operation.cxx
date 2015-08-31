@@ -79,7 +79,7 @@ namespace build
       if (rs == nullptr)
         fail << "out of project target " << t;
 
-      const dir_path& out_root (rs->path ());
+      const dir_path& out_root (rs->out_path ());
       const dir_path& src_root (rs->src_path ());
 
       if (out_root == src_root)

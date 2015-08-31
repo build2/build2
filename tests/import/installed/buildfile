@@ -5,5 +5,9 @@ cxx.ext = cxx
 
 import libs += lib{z}
 
-#exe{driver}: cxx{driver} $libs
-lib{driver}: cxx{driver} $libs
+#lib{driver}: cxx{driver} $libs
+
+exe{driver}: cxx{driver} $libs
+exe{driver}: test = true
+
+

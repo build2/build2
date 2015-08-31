@@ -33,7 +33,7 @@ namespace build
       d = *tk.dir; // Already normalized.
     else
     {
-      d = pk.scope->path ();
+      d = pk.scope->out_path ();
 
       if (!tk.dir->empty ())
       {
@@ -148,7 +148,7 @@ namespace build
       d = *tk.dir; // Already normalized.
     else
     {
-      d = pk.scope->path ();
+      d = pk.scope->out_path ();
 
       if (!tk.dir->empty ())
       {

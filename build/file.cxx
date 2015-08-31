@@ -115,7 +115,16 @@ namespace build
   scope&
   create_root (const dir_path& out_root, const dir_path& src_root)
   {
-    scope& rs (scopes.insert (out_root, true).first);
+    auto i (scopes.insert (out_root, nullptr, true, true));
+    scope& rs (*i->second);
+
+    // Set out_path. src_path is set in setup_root() below.
+    //
+    if (rs.out_path_ != &i->first)
+    {
+      assert (rs.out_path_ == nullptr);
+      rs.out_path_ = &i->first;
+    }
 
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in
@@ -168,9 +177,70 @@ namespace build
   }
 
   void
+  setup_root (scope& s)
+  {
+    value& v (s.assign ("src_root"));
+    assert (v);
+
+    // Register and set src_path.
+    //
+    if (s.src_path_ == nullptr)
+      s.src_path_ = &scopes.insert (as<dir_path> (v), &s, false, true)->first;
+  }
+
+  scope&
+  setup_base (scope_map::iterator i,
+              const dir_path& out_base,
+              const dir_path& src_base)
+  {
+    scope& s (*i->second);
+
+    // Set src/out_path. The key (i->first) can be either out_base
+    // or src_base.
+    //
+    if (s.out_path_ == nullptr)
+    {
+      s.out_path_ =
+        i->first == out_base
+        ? &i->first
+        : &scopes.insert (out_base, &s, true, false)->first;
+    }
+
+    if (s.src_path_ == nullptr)
+    {
+      s.src_path_ =
+        i->first == src_base
+        ? &i->first
+        : &scopes.insert (src_base, &s, false, false)->first;
+    }
+
+    // Set src/out_base variables.
+    //
+    {
+      value& v (s.assign ("out_base"));
+
+      if (!v)
+        v = out_base;
+      else
+        assert (as<dir_path> (v) == out_base);
+    }
+
+    {
+      value& v (s.assign ("src_base"));
+
+      if (!v)
+        v = src_base;
+      else
+        assert (as<dir_path> (v) == src_base);
+    }
+
+    return s;
+  }
+
+  void
   bootstrap_out (scope& root)
   {
-    path bf (root.path () / path ("build/bootstrap/src-root.build"));
+    path bf (root.out_path () / path ("build/bootstrap/src-root.build"));
 
     if (!file_exists (bf))
       return;
@@ -334,7 +404,7 @@ namespace build
 
     bool r (false);
 
-    const dir_path& out_root (root.path ());
+    const dir_path& out_root (root.out_path ());
     const dir_path& src_root (root.src_path ());
 
     path bf (src_root / path ("build/bootstrap.build"));
@@ -370,7 +440,7 @@ namespace build
 
       if (scope* aroot = root.parent_scope ()->root_scope ())
       {
-        const dir_path& ad (aroot->path ());
+        const dir_path& ad (aroot->out_path ());
         dir_path rd (ad.relative (out_root));
 
         // If we already have the amalgamation variable set, verify
@@ -526,7 +596,7 @@ namespace build
       return;
 
     const dir_path& d (as<dir_path> (*l));
-    dir_path out_root (root.path () / d);
+    dir_path out_root (root.out_path () / d);
     out_root.normalize ();
 
     // src_root is a bit more complicated. Here we have three cases:
@@ -557,7 +627,7 @@ namespace build
       }
     }
 
-    rs.src_path_ = &as<dir_path> (v);
+    setup_root (rs);
 
     bootstrap_src (rs);
     create_bootstrap_outer (rs);
@@ -578,7 +648,7 @@ namespace build
         if (n.pair != '\0')
           continue; // Skip project names.
 
-        dir_path out_root (root.path () / n.dir);
+        dir_path out_root (root.out_path () / n.dir);
 
         if (!out_base.sub (out_root))
           continue;
@@ -595,7 +665,7 @@ namespace build
             ? out_root
             : (root.src_path () / n.dir);
 
-        rs.src_path_ = &as<dir_path> (v);
+        setup_root (rs);
 
         bootstrap_src (rs);
 
@@ -671,7 +741,7 @@ namespace build
         if (i != m.end ())
         {
           const dir_path& d ((*i).second);
-          out_root = r->path () / d;
+          out_root = r->out_path () / d;
           fallback_src_root = r->src_path () / d;
           break;
         }
@@ -745,8 +815,6 @@ namespace build
       if (!src_root.empty () && p != src_root)
         fail (loc) << "bootstrapped src_root " << p << " does not match "
                    << "discovered " << src_root;
-
-      root.src_path_ = &p;
     }
     // Otherwise, use fallback if available.
     //
@@ -754,11 +822,12 @@ namespace build
     {
       value& v (root.assign ("src_root"));
       v = move (fallback_src_root);
-      root.src_path_ = &as<dir_path> (v);
     }
     else
       fail (loc) << "unable to determine src_root for imported " << project <<
         info << "consider configuring " << out_root;
+
+    setup_root (root);
 
     bootstrap_src (root);
 

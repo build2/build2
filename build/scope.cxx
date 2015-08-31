@@ -146,93 +146,151 @@ namespace build
   scope_map scopes;
   scope* global_scope;
 
-  pair<scope&, bool> scope_map::
-  insert (const dir_path& k, bool root)
+  auto scope_map::
+  insert (const dir_path& k, scope* ns, bool parent, bool root) -> iterator
   {
-    auto er (emplace (k, scope ()));
-    scope& s (er.first->second);
+    auto er (map_.emplace (k, nullptr));
+    scope*& ps (er.first->second);
 
     if (er.second)
+      ps = ns == nullptr ? new scope : ns;
+    else if (ns != nullptr && ps != ns)
     {
-      scope* p (nullptr);
+      assert (ps->out_path_ == nullptr || ps->src_path_ == nullptr);
 
-      // Update scopes of which we are a new parent/root (unless this
-      // is the global scope).
+      if (!ps->empty ())
+        fail << "attempt to replace non-empty scope " << k;
+
+      // Un-parent ourselves. We will becomes a new parent below,
+      // if requested by the caller.
       //
-      if (size () > 1)
-      {
-        // The first entry is ourselves.
-        //
-        auto r (find_prefix (k));
-        for (++r.first; r.first != r.second; ++r.first)
-        {
-          scope& c (r.first->second);
-
-          // The first scope of which we are a parent is the least
-          // (shortest) one which means there is no other scope
-          // between it and our parent.
-          //
-          if (p == nullptr)
-            p = c.parent_;
-
-          if (root && c.root_ == p->root_) // No intermediate root.
-            c.root_ = &s;
-
-          if (p == c.parent_) // No intermediate parent.
-            c.parent_ = &s;
-        }
-
-        // We couldn't get the parent from one of its old children
-        // so we have to find it ourselves.
-        //
-        if (p == nullptr)
-          p = &find (k.directory ());
-      }
-
-      s.path_ = &er.first->first;
-      s.parent_ = p;
-      s.root_ = root ? &s : (p != nullptr ? p->root_ : nullptr);
-    }
-    else if (root && !s.root ())
-    {
-      // Upgrade to root scope.
-      //
-      auto r (find_prefix (k));
+      auto r (map_.find_prefix (k)); // The first entry is ourselves.
       for (++r.first; r.first != r.second; ++r.first)
       {
-        scope& c (r.first->second);
+        scope& c (*r.first->second);
 
-        if (c.root_ == s.root_) // No intermediate root.
-          c.root_ = &s;
+        if (c.parent_ == ps) // No intermediate parent.
+          c.parent_ = ps->parent_;
       }
 
-      s.root_ = &s;
+      delete ps;
+      ps = ns;
+      er.second = true;
     }
 
-    return pair<scope&, bool> (s, er.second);
+    scope& s (*ps);
+
+    if (parent)
+    {
+      if (er.second)
+      {
+        scope* p (nullptr);
+
+        // Update scopes of which we are a new parent/root (unless this
+        // is the global scope). Also find our parent while at it.
+        //
+        if (map_.size () > 1)
+        {
+          // The first entry is ourselves.
+          //
+          auto r (map_.find_prefix (k));
+          for (++r.first; r.first != r.second; ++r.first)
+          {
+            scope& c (*r.first->second);
+
+            // The child-parent relationship is based on the out hierarchy,
+            // thus the extra check.
+            //
+            if (c.out_path_ != nullptr && !c.out_path_->sub (k))
+              continue;
+
+            // The first scope of which we are a parent is the least
+            // (shortest) one which means there is no other scope
+            // between it and our parent.
+            //
+            if (p == nullptr)
+              p = c.parent_;
+
+            if (root && c.root_ == p->root_) // No intermediate root.
+              c.root_ = &s;
+
+            if (p == c.parent_) // No intermediate parent.
+              c.parent_ = &s;
+          }
+
+          // We couldn't get the parent from one of its old children
+          // so we have to find it ourselves.
+          //
+          if (p == nullptr)
+            p = &find (k.directory ());
+        }
+
+        s.parent_ = p;
+        s.root_ = root ? &s : (p != nullptr ? p->root_ : nullptr);
+      }
+      else if (root && !s.root ())
+      {
+        // Upgrade to root scope.
+        //
+        auto r (map_.find_prefix (k));
+        for (++r.first; r.first != r.second; ++r.first)
+        {
+          scope& c (*r.first->second);
+
+          if (c.root_ == s.root_) // No intermediate root.
+            c.root_ = &s;
+        }
+
+        s.root_ = &s;
+      }
+    }
+    else
+      assert (s.parent_ != nullptr);
+
+    return er.first;
   }
 
   // Find the most qualified scope that encompasses this path.
   //
   scope& scope_map::
-  find (const dir_path& k)
+  find (const dir_path& k) const
   {
     // Normally we would have a scope for the full path so try
     // that before making any copies.
     //
-    auto i (scope_map_base::find (k));
+    auto i (map_.find (k)), e (map_.end ());
 
-    if (i != end ())
-      return i->second;
+    if (i != e)
+      return *i->second;
 
     for (dir_path d (k.directory ());; d = d.directory ())
     {
-      auto i (scope_map_base::find (d));
+      auto i (map_.find (d));
 
-      if (i != end ())
-        return i->second;
+      if (i != e)
+        return *i->second;
 
       assert (!d.empty ()); // We should have the global scope.
     }
+  }
+
+  void scope_map::
+  clear ()
+  {
+    for (auto& p: map_)
+    {
+      scope* s (p.second);
+
+      if (s->out_path_ == &p.first)
+        s->out_path_ = nullptr;
+
+      if (s->src_path_ == &p.first)
+        s->src_path_ = nullptr;
+
+      if (s->out_path_ == nullptr && s->src_path_ == nullptr)
+        delete s;
+    }
+
+    map_.clear ();
   }
 }

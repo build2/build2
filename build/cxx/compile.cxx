@@ -88,7 +88,7 @@ namespace build
       const dir_path* amlg (
         a.operation () != clean_id
         ? nullptr
-        : &t.strong_scope ().path ());
+        : &t.strong_scope ().out_path ());
 
       link::search_paths_cache lib_paths; // Extract lazily.
 
@@ -213,7 +213,7 @@ namespace build
         return;
 
       const dir_path& out_base (t.dir);
-      const dir_path& out_root (rs->path ());
+      const dir_path& out_root (rs->out_path ());
 
       if (auto l = t[var])
       {

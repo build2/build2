@@ -77,7 +77,8 @@ namespace build
     // On POSIX, however, this is a real path. See the comment in
     // <build/path-map> for details.
     //
-    global_scope = &scopes[dir_path ("/")];
+    global_scope = scopes.insert (
+      dir_path ("/"), nullptr, true, false)->second;
 
     global_scope->assign ("work") = work;
     global_scope->assign ("home") = home;
@@ -188,14 +189,14 @@ namespace build
   src_out (const dir_path& out, scope& s)
   {
     scope& rs (*s.root_scope ());
-    return src_out (out, rs.path (), rs.src_path ());
+    return src_out (out, rs.out_path (), rs.src_path ());
   }
 
   dir_path
   out_src (const dir_path& src, scope& s)
   {
     scope& rs (*s.root_scope ());
-    return out_src (src, rs.path (), rs.src_path ());
+    return out_src (src, rs.out_path (), rs.src_path ());
   }
 
   dir_path
