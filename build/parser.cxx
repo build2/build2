@@ -45,8 +45,7 @@ namespace build
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &base;
-    root_ = nullptr;
-    switch_root (&root);
+    root_ = &root;
     default_target_ = nullptr;
 
     token t (type::eos, false, 0, 0);
@@ -208,7 +207,7 @@ namespace build
               clause (t, tt);
 
               scope_ = ocs;
-              switch_root (ors);
+              root_ = ors;
             }
             else
             {
@@ -310,8 +309,7 @@ namespace build
               variable (t, tt, move (var), tt);
 
               scope_ = ocs;
-              switch_root (ors);
-
+              root_ = ors;
             }
             else
             {
@@ -434,8 +432,8 @@ namespace build
       // If the path is relative then use the src directory corresponding
       // to the current directory scope.
       //
-      if (src_root_ != nullptr && p.relative ())
-        p = src_out (scope_->out_path (), *out_root_, *src_root_) / p;
+      if (root_->src_path_ != nullptr && p.relative ())
+        p = src_out (scope_->out_path (), *root_) / p;
 
       p.normalize ();
 
@@ -470,21 +468,6 @@ namespace build
 
       lexer_ = ol;
       path_ = op;
-
-      // If src_root is unknown (happens during bootstrap), reload it
-      // in case the just sourced buildfile set it. This way, once it
-      // is set, all the parser mechanism that were disabled (like
-      // relative file source'ing) will start working. Note that they
-      // will still be disabled inside the file that set src_root. For
-      // this to work we would need to keep a reference to the value
-      // stored in the variable plus the update would need to update
-      // the value in place.
-      //
-      if (src_root_ == nullptr)
-      {
-        auto l (root_->vars["src_root"]);
-        src_root_ = l ? &as<dir_path> (*l) : nullptr;
-      }
     }
 
     if (tt == type::newline)
@@ -498,7 +481,7 @@ namespace build
   {
     tracer trace ("parser::include", &path_);
 
-    if (src_root_ == nullptr)
+    if (root_->src_path_ == nullptr)
       fail (t) << "inclusion during bootstrap";
 
     // The rest should be a list of buildfiles. Parse them as names
@@ -548,12 +531,13 @@ namespace build
         // to be used for intra-project inclusion (plus amalgamation).
         //
         bool in_out (false);
-        if (!p.sub (*src_root_) && !(in_out = p.sub (*out_root_)))
+        if (!p.sub (root_->src_path ()) &&
+            !(in_out = p.sub (root_->out_path ())))
           fail (l) << "out of project include " << p;
 
         out_base = in_out
           ? p.directory ()
-          : out_src (p.directory (), *out_root_, *src_root_);
+          : out_src (p.directory (), *root_);
       }
 
       // Switch the scope. Note that we need to do this before figuring
@@ -574,7 +558,7 @@ namespace build
       {
         level4 ([&]{trace (l) << "skipping already included " << p;});
         scope_ = ocs;
-        switch_root (ors);
+        root_ = ors;
         continue;
       }
 
@@ -617,7 +601,7 @@ namespace build
       path_ = op;
 
       scope_ = ocs;
-      switch_root (ors);
+      root_ = ors;
     }
 
     if (tt == type::newline)
@@ -631,7 +615,7 @@ namespace build
   {
     tracer trace ("parser::import", &path_);
 
-    if (src_root_ == nullptr)
+    if (root_->src_path_ == nullptr)
       fail (t) << "import during bootstrap";
 
     next (t, tt);
@@ -1497,36 +1481,13 @@ namespace build
     if (rs != root_)
     {
       level4 ([&]{trace << "switching to root scope " << rs->out_path ();});
-      switch_root (rs);
+      root_ = rs;
     }
 
     // Now we can figure out src_base and finish setting the scope.
     //
     dir_path src_base (src_out (out_base, *rs));
     setup_base (i, move (out_base), move (src_base));
-  }
-
-  scope* parser::
-  switch_root (scope* nr)
-  {
-    scope* r (root_);
-
-    if (nr != root_)
-    {
-      root_ = nr;
-
-      // During bootstrap we may not know src_root yet. We are also
-      // not using the scopes's path() and src_path() since pointers
-      // to their return values are not guaranteed to be stable (and,
-      // in fact, path()'s is not).
-      //
-      out_root_ = &as<dir_path> (*root_->vars["out_root"]);
-
-      auto l (root_->vars["src_root"]);
-      src_root_ = l ? &as<dir_path> (*l) : nullptr;
-    }
-
-    return r;
   }
 
   void parser::

@@ -109,11 +109,6 @@ namespace build
     void
     switch_scope (const dir_path&);
 
-    // Switch to new root scope and return the previous one.
-    //
-    scope*
-    switch_root (scope*);
-
     void
     process_default_target (token&);
 
@@ -149,8 +144,6 @@ namespace build
     target* target_; // Current target, if any.
     scope* scope_;   // Current base scope (out_base).
     scope* root_;    // Current root scope (out_root).
-    const dir_path* out_root_;
-    const dir_path* src_root_;
     target* default_target_;
     names_type export_value_;
 
