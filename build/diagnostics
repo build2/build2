@@ -21,9 +21,6 @@
 
 namespace build
 {
-  using butl::path;
-  using butl::dir_path;
-
   struct diag_record;
 
   // Throw this exception to terminate the build. The handler should
