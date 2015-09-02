@@ -263,9 +263,18 @@ namespace build
           if (j != m.end ())
           {
             if (j->second != d)
-              fail << "duplicate generated dependency prefix '" << p << "'" <<
-                info << "old mapping to " << j->second <<
-                info << "new mapping to " << d;
+            {
+              // We used to reject duplicates but it seems this can
+              // be reasonably expected to work according to the order
+              // of the -I options.
+              //
+              if (verb >= 3)
+                trace << "overriding dependency prefix '" << p << "'\n"
+                      << "  old mapping to " << j->second << "\n"
+                      << "  new mapping to " << d;
+
+              j->second = d;
+            }
           }
           else
           {
