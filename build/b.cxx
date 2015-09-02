@@ -67,7 +67,7 @@ main (int argc, char* argv[])
     {
       cout << "build2 0.0.0" << endl
            << "Copyright (c) 2014-2015 Code Synthesis Ltd" << endl
-           << "This is free software released under the MIT license. " << endl;
+           << "This is free software released under the MIT license." << endl;
       return 0;
     }
 
