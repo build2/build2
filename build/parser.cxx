@@ -187,8 +187,6 @@ namespace build
             {
               // Directory scope.
               //
-              scope& prev (*scope_);
-
               dir_path p (move (ns[0].dir)); // Steal.
 
               // Relative scopes are opened relative to out, not src.

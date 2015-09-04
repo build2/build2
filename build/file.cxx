@@ -277,7 +277,10 @@ namespace build
       if (t.type () != token_type::name || t.name () != var ||
           ((tt = lex.next ().type ()) != token_type::equal &&
            tt != token_type::plus_equal))
-        fail << "variable '" << var << "' expected as first line in " << rbf;
+      {
+        error << "variable '" << var << "' expected as first line in " << rbf;
+        throw failed (); // Suppress "used uninitialized" warning.
+      }
 
       parser p;
       temp_scope tmp (*global_scope);
