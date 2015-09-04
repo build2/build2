@@ -32,7 +32,7 @@ namespace build
   //
   struct value_type
   {
-    const std::string name;
+    const char* name;
     bool (*const assign) (names&, const variable&);
     bool (*const append) (names&, names, const variable&);
   };
@@ -437,6 +437,7 @@ namespace build
     template <typename V> static void assign (value&, V);
     template <typename V> static void append (value&, V);
 
+    static const std::string type_name;
     static const build::value_type value_type;
   };
 
@@ -566,6 +567,7 @@ namespace build
     template <typename M> static void assign (value&, M);
     template <typename M> static void append (value&, M);
 
+    static const std::string type_name;
     static const build::value_type value_type;
   };
 

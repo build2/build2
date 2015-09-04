@@ -45,9 +45,13 @@ namespace build
   }
 
   template <typename T>
+  const std::string value_traits<std::vector<T>>::type_name = std::string (
+    value_traits<T>::value_type.name) + 's';
+
+  template <typename T>
   const value_type value_traits<std::vector<T>>::value_type
   {
-    value_traits<T>::value_type.name + 's',
+    value_traits<std::vector<T>>::type_name.c_str (),
     &vector_assign<T>,
     &vector_append<T>
   };
@@ -150,10 +154,14 @@ namespace build
   }
 
   template <typename K, typename V>
+  const std::string value_traits<std::map<K, V>>::type_name = std::string (
+    value_traits<K>::value_type.name) + '_' +
+    value_traits<V>::value_type.name + "_map";
+
+  template <typename K, typename V>
   const value_type value_traits<std::map<K, V>>::value_type
   {
-    value_traits<K>::value_type.name + '_' +
-      value_traits<V>::value_type.name + "_map",
+    value_traits<std::map<K, V>>::type_name.c_str (),
     &map_assign<K, V>,
     &map_append<K, V>
   };
