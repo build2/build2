@@ -69,8 +69,14 @@ if test -z "$libbutl"; then
   exit 1
 fi
 
-src="build/*.cxx build/config/*.cxx build/bin/*.cxx build/cxx/*.cxx"
-src="$src build/cli/*.cxx build/test/*.cxx" #@@ Probably temporary.
+src="build/*.cxx"
+src="$src build/config/*.cxx"
+src="$src build/dist/*.cxx"
+src="$src build/bin/*.cxx"
+src="$src build/cxx/*.cxx"
+src="$src build/cli/*.cxx"
+src="$src build/test/*.cxx"
+src="$src build/install/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
 echo $cxx -std=c++1y -I$libbutl -I. -o build/b-boot $src 1>&2
