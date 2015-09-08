@@ -4,172 +4,17 @@
 
 #include <build/diagnostics>
 
-#include <sstream>
 #include <iostream>
 
-#include <build/scope>
-#include <build/target>
-#include <build/operation>
-#include <build/context>
 #include <build/utility>
 
 using namespace std;
 
 namespace build
 {
-  string
-  diag_relative (const path& p)
-  {
-    const path& b (*relative_base);
-
-    if (p.absolute ())
-    {
-      if (p == b)
-        return ".";
-
-#ifndef _WIN32
-      if (p == home)
-        return "~";
-#endif
-
-      path rb (relative (p));
-
-#ifndef _WIN32
-      if (rb.relative ())
-      {
-        // See if the original path with the ~/ shortcut is better
-        // that the relative to base.
-        //
-        if (p.sub (home))
-        {
-          path rh (p.leaf (home));
-          if (rb.string ().size () > rh.string ().size () + 2) // 2 for '~/'
-            return "~/" + rh.string ();
-        }
-      }
-      else if (rb.sub (home))
-        return "~/" + rb.leaf (home).string ();
-#endif
-
-      return rb.string ();
-    }
-
-    return p.string ();
-  }
-
-  string
-  diag_relative (const dir_path& d, bool cur)
-  {
-    string r (diag_relative (static_cast<const path&> (d)));
-
-    // Translate "." to empty.
-    //
-    if (!cur && d.absolute () && r == ".")
-      r.clear ();
-
-    // Add trailing '/'.
-    //
-    if (!r.empty () && !dir_path::traits::is_separator (r.back ()))
-      r += '/';
-
-    return r;
-  }
-
   // Relative stream.
   //
   const int relative_index = ostream::xalloc ();
-
-  // diag_do(), etc.
-  //
-  string
-  diag_do (const action&, const target& t)
-  {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
-
-    // perform(update(x))   -> "update x"
-    // configure(update(x)) -> "configure updating x"
-    //
-    if (m.name_do.empty ())
-      os << io.name_do << ' ';
-    else
-    {
-      os << m.name_do << ' ';
-
-      if (!io.name_doing.empty ())
-        os << io.name_doing << ' ';
-    }
-
-    if (oo != nullptr)
-      os << "(for " << oo->name << ") ";
-
-    os << t;
-    return os.str ();
-  }
-
-  string
-  diag_doing (const action&, const target& t)
-  {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
-
-    // perform(update(x))   -> "updating x"
-    // configure(update(x)) -> "configuring updating x"
-    //
-    if (!m.name_doing.empty ())
-      os << m.name_doing << ' ';
-
-    if (!io.name_doing.empty ())
-      os << io.name_doing << ' ';
-
-    if (oo != nullptr)
-      os << "(for " << oo->name << ") ";
-
-    os << t;
-    return os.str ();
-  }
-
-  string
-  diag_done (const action&, const target& t)
-  {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
-
-    // perform(update(x))   -> "x is up to date"
-    // configure(update(x)) -> "updating x is configured"
-    //
-    if (m.name_done.empty ())
-    {
-      os << t;
-
-      if (!io.name_done.empty ())
-        os << " " << io.name_done;
-
-      if (oo != nullptr)
-        os << "(for " << oo->name << ") ";
-    }
-    else
-    {
-      if (!io.name_doing.empty ())
-        os << io.name_doing << ' ';
-
-      if (oo != nullptr)
-        os << "(for " << oo->name << ") ";
-
-      os << t << " " << m.name_done;
-    }
-
-    return os.str ();
-  }
 
   void
   print_process (const char* const* args, size_t n)

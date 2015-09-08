@@ -28,19 +28,8 @@ namespace build
   //
   class failed: public std::exception {};
 
-  // In addition to calling relative(), this function also uses shorter
-  // notations such as '~/'.
-  //
-  std::string
-  diag_relative (const path&);
-
-  // As above but also adds trailing '/'. If the path is the same as
-  // base, returns "./" if current is true and empty string otherwise.
-  //
-  std::string
-  diag_relative (const dir_path&, bool current = true);
-
-  //
+  // Flag that indicates whether paths should be inserted relative
+  // into this stream.
   //
   extern const int relative_index;
 
@@ -49,22 +38,6 @@ namespace build
 
   inline void
   relative (std::ostream& os, bool v) {os.iword (relative_index) = v ? 1 : 0;}
-
-
-  // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
-  // and "updating exe{foo} is configured".
-  //
-  struct action;
-  class target;
-
-  std::string
-  diag_do (const action&, const target&);
-
-  std::string
-  diag_doing (const action&, const target&);
-
-  std::string
-  diag_done (const action&, const target&);
 
   // Print process commmand line. If the number of elements is specified
   // (or the second version is used), then it will print the piped multi-

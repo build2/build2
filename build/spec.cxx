@@ -6,6 +6,7 @@
 
 #include <ostream>
 
+#include <build/context>
 #include <build/diagnostics>
 
 using namespace std;
