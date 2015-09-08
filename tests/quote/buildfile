@@ -1,0 +1,18 @@
+print "foo   bar"
+print "foo
+bar"
+
+foo = "fo o"
+bar = " bar "
+
+print "$foo"
+print "$bar"
+print "$foo $bar"
+print "$foo$bar"
+
+print "[ $foo ]"
+print "[ $bar ]"
+print "[ $foo $bar ]"
+print "[ $foo/$bar ]"
+
+./:

@@ -28,8 +28,9 @@ namespace build
   // The alternnative modes must be set manually. The value and
   // pairs modes are automatically reset after the end of the line.
   // The variable mode is automatically reset after the name token.
+  // Quoted is an internal mode and should not be explicitly set.
   //
-  enum class lexer_mode {normal, variable, value, pairs};
+  enum class lexer_mode {normal, quoted, variable, value, pairs};
 
   class lexer: protected butl::char_scanner
   {
@@ -71,7 +72,10 @@ namespace build
     name (bool separated);
 
     void
-    single_quote (std::string& lexeme);
+    single_quote (std::string&);
+
+    bool
+    double_quote (std::string&);
 
     // Return true we have seen any spaces. Skipped empty lines don't
     // count. In other words, we are only interested in spaces that
@@ -100,11 +104,12 @@ namespace build
   private:
     fail_mark fail;
 
-    // Currently, the maximum mode nesting is 3: {normal, value, variable}.
+    // Currently, the maximum mode nesting is 4: {normal, value, quoted,
+    // variable}.
     //
     struct mode_stack
     {
-      static const size_t max_size = 3;
+      static const size_t max_size = 4;
 
       void push (lexer_mode m) {assert (n_ != max_size); d_[n_++] = m;}
       void pop () {assert (n_ != 0); n_--;}

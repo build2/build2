@@ -63,7 +63,7 @@ main ()
   assert (lex ("  foo\\") == tokens ({"<lexer error>"}));
 
 
-  // Quoting.
+  // Quoting ''.
   //
   assert (lex ("''") == tokens ({"", ""}));
   assert (lex ("'foo'") == tokens ({"foo", ""}));
@@ -78,6 +78,28 @@ main ()
   assert (lex ("'\\'") == tokens ({"\\", ""}));
 
   assert (lex ("'foo bar") == tokens ({"<lexer error>"}));
+
+  // Quoting "".
+  //
+  assert (lex ("\"\"") == tokens ({"", ""}));
+  assert (lex ("\"foo\"") == tokens ({"foo", ""}));
+  assert (lex ("\"foo bar\"") == tokens ({"foo bar", ""}));
+  assert (lex ("\"foo \"bar") == tokens ({"foo bar", ""}));
+  assert (lex ("foo\" bar\"") == tokens ({"foo bar", ""}));
+  assert (lex ("\"foo \"\"bar\"") == tokens ({"foo bar", ""}));
+  assert (lex ("foo\" \"bar") == tokens ({"foo bar", ""}));
+  assert (lex ("\"foo\nbar\"") == tokens ({"foo\nbar", ""}));
+  assert (lex ("\"#:{}()=+\n\"") == tokens ({"#:{}()=+\n", ""}));
+  assert (lex ("\"'\"") == tokens ({"'", ""}));
+  assert (lex ("\"\\\"") == tokens ({"\\", ""}));
+
+  assert (lex ("\"$\"") == tokens ({"", "$", "", ""}));
+  assert (lex ("\"foo$bar\"") == tokens ({"foo", "$", "bar", ""}));
+  assert (lex ("foo\"$\"bar") == tokens ({"foo", "$", "bar", ""}));
+  assert (lex ("f\"oo$ba\"r") == tokens ({"foo", "$", "bar", ""}));
+
+  assert (lex ("\"foo bar") == tokens ({"<lexer error>"}));
+  assert (lex ("\"foo $bar") == tokens ({"foo ", "$", "<lexer error>"}));
 
   // Combinations.
   //
