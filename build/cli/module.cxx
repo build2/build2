@@ -36,7 +36,7 @@ namespace build
               bool first)
     {
       tracer trace ("cli::init");
-      level4 ([&]{trace << "for " << base.out_path ();});
+      level5 ([&]{trace << "for " << base.out_path ();});
 
       // Make sure the cxx module has been loaded since we need its
       // targets types (?xx{}). Note that we don't try to load it
@@ -104,9 +104,9 @@ namespace build
           const string& cli (as<string> (p.first));
           const char* args[] = {cli.c_str (), "--version", nullptr};
 
-          if (verb)
+          if (verb >= 2)
             print_process (args);
-          else
+          else if (verb)
             text << "test " << cli;
 
           string ver;
@@ -141,7 +141,7 @@ namespace build
             throw failed ();
           }
 
-          if (verb)
+          if (verb >= 2)
             text << cli << " " << ver;
         }
       }

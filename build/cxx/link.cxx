@@ -113,7 +113,7 @@ namespace build
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
 
-      if (verb >= 5)
+      if (verb >= 3)
         print_process (args);
 
       string l;
@@ -399,7 +399,7 @@ namespace build
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
-        level3 ([&]{trace << "c prerequisite(s) without c++ or hint";});
+        level4 ([&]{trace << "c prerequisite(s) without c++ or hint";});
         return nullptr;
       }
 
@@ -807,9 +807,9 @@ namespace build
 
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "ld " << t;
 
       try

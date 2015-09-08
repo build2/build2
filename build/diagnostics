@@ -94,14 +94,15 @@ namespace build
     print_process (args.data (), args.size ());
   }
 
-  // Trace verbosity level.
+  // Verbosity level.
   //
-  // 0 - tracing disabled.
-  // 1 - command lines to update explicit targets (e.g., .o)
-  // 2 - command lines to update implicit targets (e.g., .d)
-  // 3 - things didn't work out (e.g., rule did not match)
-  // 4 - additional information
-  // 5 - more additional information
+  // 0 - disabled
+  // 1 - high-level information messages
+  // 2 - essential underlying commands that are being executed
+  // 3 - all underlying commands that are being executed
+  // 4 - information helpful to the user (e.g., why a rule did not match)
+  // 5 - information helpful to the developer
+  // 6 - even more detailed information
   //
   // While uint8 is more than enough, use uint16 for the ease of printing.
   //
@@ -112,6 +113,7 @@ namespace build
   template <typename F> inline void level3 (const F& f) {if (verb >= 3) f ();}
   template <typename F> inline void level4 (const F& f) {if (verb >= 4) f ();}
   template <typename F> inline void level5 (const F& f) {if (verb >= 5) f ();}
+  template <typename F> inline void level6 (const F& f) {if (verb >= 6) f ();}
 
   // Diagnostic facility, base infrastructure (potentially reusable).
   //
@@ -315,7 +317,7 @@ namespace build
   // Here is the absolute/relative path rationale: we want it absolute
   // in the error/warning/info streams to give the user the complete
   // picture. But in the text stream (e.g., command lines), we print
-  // relative unless verbosity is greater than 0.
+  // relative unless verbosity is greater than 1.
   //
   struct basic_mark_base
   {
@@ -364,7 +366,7 @@ namespace build
     simple_prologue
     operator() () const
     {
-      return simple_prologue (type_, name_, verb == 0);
+      return simple_prologue (type_, name_, verb <= 1);
     }
   };
   typedef diag_mark<text_mark_base> text_mark;

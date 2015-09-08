@@ -84,9 +84,11 @@ main (int argc, char* argv[])
       return 0;
     }
 
-    // Trace verbosity.
+    // Diagnostics verbosity.
     //
-    verb = ops.verbose () > 0 ? ops.verbose () : (ops.v () ? 1 : 0);
+    verb = ops.verbose_specified ()
+      ? ops.verbose ()
+      : ops.v () ? 2 : ops.q () ? 0 : 1;
 
     // Initialize time conversion data that is used by localtime_r().
     //
@@ -121,7 +123,7 @@ main (int argc, char* argv[])
       home = dir_path (pw->pw_dir);
     }
 
-    if (verb >= 4)
+    if (verb >= 5)
     {
       trace << "work dir: " << work;
       trace << "home dir: " << home;
@@ -198,7 +200,7 @@ main (int argc, char* argv[])
       }
     }
 
-    level4 ([&]{trace << "buildspec: " << bspec;});
+    level5 ([&]{trace << "buildspec: " << bspec;});
 
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
@@ -244,7 +246,7 @@ main (int argc, char* argv[])
           if (mif->meta_operation_post != nullptr)
             mif->meta_operation_post ();
 
-          level4 ([&]{trace << "end meta-operation batch " << mif->name
+          level5 ([&]{trace << "end meta-operation batch " << mif->name
                             << ", id " << static_cast<uint16_t> (mid);});
 
           mid = 0;
@@ -532,7 +534,7 @@ main (int argc, char* argv[])
                     if (mif->meta_operation_post != nullptr)
                       mif->meta_operation_post ();
 
-                    level4 ([&]{trace << "end meta-operation batch "
+                    level5 ([&]{trace << "end meta-operation batch "
                                       << mif->name << ", id "
                                       << static_cast<uint16_t> (mid);});
 
@@ -598,7 +600,7 @@ main (int argc, char* argv[])
                 fail (l) << "target " << tn << " does not support meta-"
                          << "operation " << meta_operation_table[m];
 
-              level4 ([&]{trace << "start meta-operation batch " << mif->name
+              level5 ([&]{trace << "start meta-operation batch " << mif->name
                                 << ", id " << static_cast<uint16_t> (mid);});
 
               if (mif->meta_operation_pre != nullptr)
@@ -644,7 +646,7 @@ main (int argc, char* argv[])
 
               oif = lookup (o);
 
-              level4 ([&]{trace << "start operation batch " << oif->name
+              level5 ([&]{trace << "start operation batch " << oif->name
                                 << ", id " << static_cast<uint16_t> (o);});
 
               // Allow the meta-operation to translate the operation.
@@ -657,7 +659,7 @@ main (int argc, char* argv[])
               if (o != oid)
               {
                 oif = lookup (oid);
-                level4 ([&]{trace << "operation translated to " << oif->name
+                level5 ([&]{trace << "operation translated to " << oif->name
                                   << ", id " << static_cast<uint16_t> (oid);});
               }
 
@@ -705,7 +707,7 @@ main (int argc, char* argv[])
             }
           }
 
-          if (verb >= 4)
+          if (verb >= 5)
           {
             trace << "target " << tn << ':';
             trace << "  out_base: " << out_base;
@@ -757,7 +759,7 @@ main (int argc, char* argv[])
 
         if (pre_oid != 0)
         {
-          level4 ([&]{trace << "start pre-operation batch " << pre_oif->name
+          level5 ([&]{trace << "start pre-operation batch " << pre_oif->name
                             << ", id " << static_cast<uint16_t> (pre_oid);});
 
           if (mif->operation_pre != nullptr)
@@ -776,7 +778,7 @@ main (int argc, char* argv[])
           if (mif->operation_post != nullptr)
             mif->operation_post (pre_oid);
 
-          level4 ([&]{trace << "end pre-operation batch " << pre_oif->name
+          level5 ([&]{trace << "end pre-operation batch " << pre_oif->name
                             << ", id " << static_cast<uint16_t> (pre_oid);});
         }
 
@@ -788,11 +790,11 @@ main (int argc, char* argv[])
         action a (mid, oid, 0);
 
         mif->match (a, tgs);
-        mif->execute (a, tgs, false);
+        mif->execute (a, tgs, verb == 0);
 
         if (post_oid != 0)
         {
-          level4 ([&]{trace << "start post-operation batch " << post_oif->name
+          level5 ([&]{trace << "start post-operation batch " << post_oif->name
                             << ", id " << static_cast<uint16_t> (post_oid);});
 
           if (mif->operation_pre != nullptr)
@@ -811,21 +813,21 @@ main (int argc, char* argv[])
           if (mif->operation_post != nullptr)
             mif->operation_post (post_oid);
 
-          level4 ([&]{trace << "end post-operation batch " << post_oif->name
+          level5 ([&]{trace << "end post-operation batch " << post_oif->name
                             << ", id " << static_cast<uint16_t> (post_oid);});
         }
 
         if (mif->operation_post != nullptr)
           mif->operation_post (oid);
 
-        level4 ([&]{trace << "end operation batch " << oif->name
+        level5 ([&]{trace << "end operation batch " << oif->name
                           << ", id " << static_cast<uint16_t> (oid);});
       }
 
       if (mif->meta_operation_post != nullptr)
         mif->meta_operation_post ();
 
-      level4 ([&]{trace << "end meta-operation batch " << mif->name
+      level5 ([&]{trace << "end meta-operation batch " << mif->name
                         << ", id " << static_cast<uint16_t> (mid);});
     }
   }

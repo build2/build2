@@ -416,9 +416,9 @@ namespace build
 
       args.push_back (nullptr); // Second.
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "test " << t;
 
       {

@@ -40,7 +40,8 @@ namespace build
     {
       path f (out_root / src_root_file);
 
-      text << (verb ? "config::save_src_root " : "save ") << f;
+      if (verb)
+        text << (verb >= 2 ? "config::save_src_root " : "save ") << f;
 
       try
       {
@@ -68,7 +69,8 @@ namespace build
       const dir_path& out_root (root.out_path ());
       path f (out_root / config_file);
 
-      text << (verb ? "config::save_config " : "save ") << f;
+      if (verb)
+        text << (verb >= 2 ? "config::save_config " : "save ") << f;
 
       try
       {
@@ -151,7 +153,7 @@ namespace build
       //
       if (a.operation () == default_id)
       {
-        level4 ([&]{trace << "completely configuring " << out_root;});
+        level5 ([&]{trace << "completely configuring " << out_root;});
 
         // Save src-root.build unless out_root is the same as src.
         //
@@ -263,7 +265,7 @@ namespace build
                     const location&)
     {
       tracer trace ("disfigure_load");
-      level5 ([&]{trace << "skipping " << bf;});
+      level6 ([&]{trace << "skipping " << bf;});
     }
 
     static void
@@ -273,7 +275,7 @@ namespace build
                       action_targets& ts)
     {
       tracer trace ("disfigure_search");
-      level5 ([&]{trace << "collecting " << root.out_path ();});
+      level6 ([&]{trace << "collecting " << root.out_path ();});
       ts.push_back (&root);
     }
 
@@ -345,7 +347,7 @@ namespace build
       //
       if (a.operation () == default_id)
       {
-        level4 ([&]{trace << "completely disfiguring " << out_root;});
+        level5 ([&]{trace << "completely disfiguring " << out_root;});
 
         m = rmfile (out_root / config_file) || m;
 
@@ -414,7 +416,7 @@ namespace build
       // Reset the dependency state since anything that could have been
       // loaded earlier using a previous configuration is now invalid.
       //
-      level5 ([&]{trace << "resetting dependency state";});
+      level6 ([&]{trace << "resetting dependency state";});
       reset ();
     }
 

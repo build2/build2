@@ -132,7 +132,7 @@ namespace build
 
         action a (dist_id, id);
 
-        if (verb >= 5)
+        if (verb >= 6)
           dump (a);
 
         for (void* v: ts)
@@ -142,12 +142,12 @@ namespace build
           if (rs != t.base_scope ().root_scope ())
             fail << "out of project target " << t;
 
-          level4 ([&]{trace << diag_doing (a, t);});
+          level5 ([&]{trace << diag_doing (a, t);});
 
           match (a, t);
         }
 
-        if (verb >= 5)
+        if (verb >= 6)
           dump (a);
       }
 
@@ -283,9 +283,9 @@ namespace build
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "dist -d " << d;
 
       try
@@ -337,9 +337,9 @@ namespace build
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "dist " << t;
 
       try
@@ -380,9 +380,9 @@ namespace build
       else
         args = {"tar", "-a", "-cf", a.c_str (), pkg.c_str (), nullptr};
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << args[0] << " " << ap;
 
       try

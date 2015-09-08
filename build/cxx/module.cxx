@@ -35,7 +35,7 @@ namespace build
               bool first)
     {
       tracer trace ("cxx::init");
-      level4 ([&]{trace << "for " << b.out_path ();});
+      level5 ([&]{trace << "for " << b.out_path ();});
 
       // Initialize the bin module. Only do this if it hasn't already
       // been loaded so that we don't overwrite user's bin.* settings.
@@ -148,9 +148,9 @@ namespace build
           const string& cxx (as<string> (p.first));
           const char* args[] = {cxx.c_str (), "-dumpversion", nullptr};
 
-          if (verb)
+          if (verb >= 2)
             print_process (args);
-          else
+          else if (verb)
             text << "test " << cxx;
 
           string ver;
@@ -177,7 +177,7 @@ namespace build
             throw failed ();
           }
 
-          if (verb)
+          if (verb >= 2)
             text << cxx << " " << ver;
         }
       }

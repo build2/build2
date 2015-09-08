@@ -208,6 +208,8 @@ namespace cl
 class options
 {
   public:
+  options ();
+
   options (int& argc,
            char** argv,
            bool erase = false,
@@ -240,8 +242,6 @@ class options
            ::cl::unknown_mode option = ::cl::unknown_mode::fail,
            ::cl::unknown_mode argument = ::cl::unknown_mode::stop);
 
-  options ();
-
   // Option accessors.
   //
   const bool&
@@ -253,8 +253,14 @@ class options
   const bool&
   v () const;
 
+  const bool&
+  q () const;
+
   const std::uint16_t&
   verbose () const;
+
+  bool
+  verbose_specified () const;
 
   // Print usage information.
   //
@@ -277,7 +283,9 @@ class options
   bool help_;
   bool version_;
   bool v_;
+  bool q_;
   std::uint16_t verbose_;
+  bool verbose_specified_;
 };
 
 #include <build/options.ixx>

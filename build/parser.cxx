@@ -442,7 +442,7 @@ namespace build
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level4 ([&]{trace (t) << "entering " << p;});
+      level5 ([&]{trace (t) << "entering " << p;});
 
       enter_buildfile (p);
 
@@ -462,7 +462,7 @@ namespace build
       if (tt != type::eos)
         fail (t) << "unexpected " << t;
 
-      level4 ([&]{trace (t) << "leaving " << p;});
+      level5 ([&]{trace (t) << "leaving " << p;});
 
       lexer_ = ol;
       path_ = op;
@@ -554,7 +554,7 @@ namespace build
 
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
-        level4 ([&]{trace (l) << "skipping already included " << p;});
+        level5 ([&]{trace (l) << "skipping already included " << p;});
         scope_ = ocs;
         root_ = ors;
         continue;
@@ -567,7 +567,7 @@ namespace build
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level4 ([&]{trace (t) << "entering " << p;});
+      level5 ([&]{trace (t) << "entering " << p;});
 
       enter_buildfile (p);
 
@@ -592,7 +592,7 @@ namespace build
 
       process_default_target (t);
 
-      level4 ([&]{trace (t) << "leaving " << p;});
+      level5 ([&]{trace (t) << "leaving " << p;});
 
       default_target_ = odt;
       lexer_ = ol;
@@ -1478,7 +1478,7 @@ namespace build
     //
     if (rs != root_)
     {
-      level4 ([&]{trace << "switching to root scope " << rs->out_path ();});
+      level5 ([&]{trace << "switching to root scope " << rs->out_path ();});
       root_ = rs;
     }
 
@@ -1510,7 +1510,7 @@ namespace build
 
     target& dt (*default_target_);
 
-    level4 ([&]{trace (t) << "creating current directory alias for " << dt;});
+    level5 ([&]{trace (t) << "creating current directory alias for " << dt;});
 
     target& ct (
       targets.insert (

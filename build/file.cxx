@@ -83,7 +83,7 @@ namespace build
     if (!ifs.is_open ())
       fail << "unable to open " << bf;
 
-    level4 ([&]{trace << "sourcing " << bf;});
+    level5 ([&]{trace << "sourcing " << bf;});
 
     ifs.exceptions (ifstream::failbit | ifstream::badbit);
     parser p;
@@ -105,7 +105,7 @@ namespace build
 
     if (!once.buildfiles.insert (bf).second)
     {
-      level4 ([&]{trace << "skipping already sourced " << bf;});
+      level5 ([&]{trace << "skipping already sourced " << bf;});
       return;
     }
 
@@ -327,7 +327,7 @@ namespace build
       {
         src_root_v = extract_variable (f, "src_root");
         src_root = &as<dir_path> (src_root_v);
-        level4 ([&]{trace << "extracted src_root " << *src_root << " for "
+        level5 ([&]{trace << "extracted src_root " << *src_root << " for "
                           << out_root;});
       }
     }
@@ -338,7 +338,7 @@ namespace build
       name = move (as<string> (v));
     }
 
-    level4 ([&]{trace << "extracted project name " << name << " for "
+    level5 ([&]{trace << "extracted project name " << name << " for "
                       << *src_root;});
     return name;
   }
@@ -372,7 +372,7 @@ namespace build
       // Calculate relative subdirectory for this subproject.
       //
       dir_path dir (sd.leaf (root));
-      level4 ([&]{trace << "subproject " << sd << " as " << dir;});
+      level5 ([&]{trace << "subproject " << sd << " as " << dir;});
 
       // Load its name. Note that here we don't use fallback src_root
       // since this function is used to scan both out_root and src_root.
@@ -395,7 +395,7 @@ namespace build
             info << "first alternative: " << dir1 <<
             info << "second alternative: " << dir;
 
-        level5 ([&]{trace << "skipping duplicate";});
+        level6 ([&]{trace << "skipping duplicate";});
       }
     }
   }
@@ -472,7 +472,7 @@ namespace build
         {
           // Otherwise, use the outer root as our amalgamation.
           //
-          level4 ([&]{trace << out_root << " amalgamated as " << rd;});
+          level5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
       }
@@ -488,7 +488,7 @@ namespace build
         if (!ad.empty ())
         {
           dir_path rd (ad.relative (out_root));
-          level4 ([&]{trace << out_root << " amalgamated as " << rd;});
+          level5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
       }
@@ -795,7 +795,7 @@ namespace build
         // a stab at it.
         //
         target.proj = &project;
-        level4 ([&]{trace << "postponing " << target;});
+        level5 ([&]{trace << "postponing " << target;});
         return names {move (target)};
       }
     }
@@ -872,7 +872,7 @@ namespace build
     if (!ifs.is_open ())
       fail (loc) << "unable to open " << es;
 
-    level4 ([&]{trace << "importing " << es;});
+    level5 ([&]{trace << "importing " << es;});
 
     ifs.exceptions (ifstream::failbit | ifstream::badbit);
     parser p;

@@ -172,7 +172,7 @@ namespace cl
   struct parser
   {
     static void
-    parse (X& x, scanner& s)
+    parse (X& x, bool& xs, scanner& s)
     {
       std::string o (s.next ());
 
@@ -185,6 +185,8 @@ namespace cl
       }
       else
         throw missing_value (o);
+
+      xs = true;
     }
   };
 
@@ -203,7 +205,7 @@ namespace cl
   struct parser<std::string>
   {
     static void
-    parse (std::string& x, scanner& s)
+    parse (std::string& x, bool& xs, scanner& s)
     {
       const char* o (s.next ());
 
@@ -211,6 +213,8 @@ namespace cl
         x = s.next ();
       else
         throw missing_value (o);
+
+      xs = true;
     }
   };
 
@@ -218,11 +222,13 @@ namespace cl
   struct parser<std::vector<X> >
   {
     static void
-    parse (std::vector<X>& c, scanner& s)
+    parse (std::vector<X>& c, bool& xs, scanner& s)
     {
       X x;
-      parser<X>::parse (x, s);
+      bool dummy;
+      parser<X>::parse (x, dummy, s);
       c.push_back (x);
+      xs = true;
     }
   };
 
@@ -230,11 +236,13 @@ namespace cl
   struct parser<std::set<X> >
   {
     static void
-    parse (std::set<X>& c, scanner& s)
+    parse (std::set<X>& c, bool& xs, scanner& s)
     {
       X x;
-      parser<X>::parse (x, s);
+      bool dummy;
+      parser<X>::parse (x, dummy, s);
       c.insert (x);
+      xs = true;
     }
   };
 
@@ -242,7 +250,7 @@ namespace cl
   struct parser<std::map<K, V> >
   {
     static void
-    parse (std::map<K, V>& m, scanner& s)
+    parse (std::map<K, V>& m, bool& xs, scanner& s)
     {
       std::string o (s.next ());
 
@@ -293,6 +301,8 @@ namespace cl
       }
       else
         throw missing_value (o);
+
+      xs = true;
     }
   };
 
@@ -301,6 +311,13 @@ namespace cl
   thunk (X& x, scanner& s)
   {
     parser<T>::parse (x.*M, s);
+  }
+
+  template <typename X, typename T, T X::*M, bool X::*S>
+  void
+  thunk (X& x, scanner& s)
+  {
+    parser<T>::parse (x.*M, x.*S, s);
   }
 }
 
@@ -315,7 +332,9 @@ options ()
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
 }
 
@@ -328,7 +347,9 @@ options (int& argc,
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
   ::cl::argv_scanner s (argc, argv, erase);
   _parse (s, opt, arg);
@@ -344,7 +365,9 @@ options (int start,
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
   ::cl::argv_scanner s (start, argc, argv, erase);
   _parse (s, opt, arg);
@@ -360,7 +383,9 @@ options (int& argc,
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
   ::cl::argv_scanner s (argc, argv, erase);
   _parse (s, opt, arg);
@@ -378,7 +403,9 @@ options (int start,
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
   ::cl::argv_scanner s (start, argc, argv, erase);
   _parse (s, opt, arg);
@@ -392,7 +419,9 @@ options (::cl::scanner& s,
 : help_ (),
   version_ (),
   v_ (),
-  verbose_ (0)
+  q_ (),
+  verbose_ (1),
+  verbose_specified_ (false)
 {
   _parse (s, opt, arg);
 }
@@ -406,8 +435,10 @@ print_usage (::std::ostream& os)
 
   os << "-v                Print actual commands being executed." << ::std::endl;
 
-  os << "--verbose <level> Set the diagnostics verbosity to a level between 0 (disabled)" << ::std::endl
-     << "                  and 5 (lots of information)." << ::std::endl;
+  os << "-q                Run quietly, only printing error messages." << ::std::endl;
+
+  os << "--verbose <level> Set the diagnostics verbosity to <level> between 0 (disabled)" << ::std::endl
+     << "                  and 6 (lots of information)." << ::std::endl;
 }
 
 typedef
@@ -426,8 +457,11 @@ struct _cli_options_map_init
     &::cl::thunk< options, bool, &options::version_ >;
     _cli_options_map_["-v"] = 
     &::cl::thunk< options, bool, &options::v_ >;
+    _cli_options_map_["-q"] = 
+    &::cl::thunk< options, bool, &options::q_ >;
     _cli_options_map_["--verbose"] = 
-    &::cl::thunk< options, std::uint16_t, &options::verbose_ >;
+    &::cl::thunk< options, std::uint16_t, &options::verbose_,
+      &options::verbose_specified_ >;
   }
 };
 

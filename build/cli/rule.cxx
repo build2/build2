@@ -46,7 +46,7 @@ namespace build
             //
             if (t.name != p.name ())
             {
-              level3 ([&]{trace << ".cli file stem '" << p.name () << "' "
+              level4 ([&]{trace << ".cli file stem '" << p.name () << "' "
                                 << "doesn't match target " << t;});
               return r;
             }
@@ -58,7 +58,7 @@ namespace build
 
         if (!r)
         {
-          level3 ([&]{trace << "no .cli source file for target " << t;});
+          level4 ([&]{trace << "no .cli source file for target " << t;});
           return r;
         }
 
@@ -117,7 +117,7 @@ namespace build
                 g->prerequisites.emplace_back (p.as_prerequisite (trace));
               }
               else
-                level3 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                level4 ([&]{trace << ".cli file stem '" << p.name () << "' "
                                   << "doesn't match target " << t;});
               break;
             }
@@ -135,7 +135,7 @@ namespace build
           //
           if (t.is_a<cxx::ixx> () && g->i == nullptr)
           {
-            level3 ([&]{trace << "generation of inline file " << t
+            level4 ([&]{trace << "generation of inline file " << t
                               << " is disabled with --suppress-inline";});
             g = nullptr;
           }
@@ -245,9 +245,9 @@ namespace build
       args.push_back (rels.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "cli " << *s;
 
       try

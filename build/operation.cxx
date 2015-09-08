@@ -93,17 +93,17 @@ namespace build
   {
     tracer trace ("match");
 
-    if (verb >= 5)
+    if (verb >= 6)
       dump (a);
 
     for (void* vt: ts)
     {
       target& t (*static_cast<target*> (vt));
-      level4 ([&]{trace << "matching " << t;});
+      level5 ([&]{trace << "matching " << t;});
       match (a, t);
     }
 
-    if (verb >= 5)
+    if (verb >= 6)
       dump (a);
   }
 
@@ -122,7 +122,7 @@ namespace build
       {
         target& t (*static_cast<target*> (v));
 
-        level4 ([&]{trace << diag_doing (a, t);});
+        level5 ([&]{trace << diag_doing (a, t);});
 
         switch (execute (a, t))
         {

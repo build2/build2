@@ -58,7 +58,7 @@ namespace build
           return p;
       }
 
-      level3 ([&]{trace << "no c++ source file for target " << t;});
+      level4 ([&]{trace << "no c++ source file for target " << t;});
       return nullptr;
     }
 
@@ -236,7 +236,7 @@ namespace build
           else
             continue;
 
-          level5 ([&]{trace << "-I '" << d << "'";});
+          level6 ([&]{trace << "-I '" << d << "'";});
 
           // If we are relative or not inside our project root, then
           // ignore.
@@ -268,7 +268,7 @@ namespace build
               // be reasonably expected to work according to the order
               // of the -I options.
               //
-              if (verb >= 3)
+              if (verb >= 4)
                 trace << "overriding dependency prefix '" << p << "'\n"
                       << "  old mapping to " << j->second << "\n"
                       << "  new mapping to " << d;
@@ -278,7 +278,7 @@ namespace build
           }
           else
           {
-            level5 ([&]{trace << "'" << p << "' = '" << d << "'";});
+            level6 ([&]{trace << "'" << p << "' = '" << d << "'";});
             m.emplace (move (p), move (d));
           }
         }
@@ -418,7 +418,7 @@ namespace build
       args.push_back (s.path ().string ().c_str ());
       args.push_back (nullptr);
 
-      level5 ([&]{trace << "target: " << t;});
+      level6 ([&]{trace << "target: " << t;});
 
       // Build the prefix map lazily only if we have non-existent files.
       // Also reuse it over restarts since it doesn't change.
@@ -461,7 +461,7 @@ namespace build
       {
         restart = false;
 
-        if (verb >= 2)
+        if (verb >= 3)
           print_process (args);
 
         try
@@ -539,9 +539,9 @@ namespace build
               if (!f.absolute ())
               {
                 // This is probably as often an error as an auto-generated
-                // file, so trace at level 3.
+                // file, so trace at level 4.
                 //
-                level3 ([&]{trace << "non-existent header '" << f << "'";});
+                level4 ([&]{trace << "non-existent header '" << f << "'";});
 
                 // If we already did it and build_prefix_map() returned empty,
                 // then we would have failed below.
@@ -582,7 +582,7 @@ namespace build
                 f = i->second / f;
               }
 
-              level5 ([&]{trace << "injecting " << f;});
+              level6 ([&]{trace << "injecting " << f;});
 
               // Split the name into its directory part, the name part, and
               // extension. Here we can assume the name part is a valid
@@ -667,7 +667,7 @@ namespace build
 
                 if (ns != os && ns != target_state::unchanged)
                 {
-                  level5 ([&]{trace << "updated " << pt << ", restarting";});
+                  level6 ([&]{trace << "updated " << pt << ", restarting";});
                   restart = true;
                 }
               }
@@ -754,9 +754,9 @@ namespace build
 
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "c++ " << *s;
 
       try

@@ -234,8 +234,8 @@ namespace build
     diag_record dr;
     dr << fail << "no rule to " << diag_do (a, t);
 
-    if (verb < 3)
-      dr << info << "re-run with --verbose 3 for more information";
+    if (verb < 4)
+      dr << info << "re-run with --verbose 4 for more information";
 
     return r;
   }
@@ -333,7 +333,7 @@ namespace build
     if (!d.sub (out_root) || d == out_root)
       return;
 
-    level5 ([&]{trace << "for " << t;});
+    level6 ([&]{trace << "for " << t;});
 
     fsdir& dt (search<fsdir> (d, string (), nullptr, &s));
     match (a, dt);

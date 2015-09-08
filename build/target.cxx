@@ -219,7 +219,7 @@ namespace build
       const string* ext (*k.ext);
       if (t.ext != ext)
       {
-        level4 ([&]{
+        level5 ([&]{
             diag_record r (trace);
             r << "assuming target " << t << " is the same as the one with ";
             if (ext == nullptr)

@@ -178,9 +178,9 @@ namespace build
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "install " << d;
 
       try
@@ -220,9 +220,9 @@ namespace build
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb)
+      if (verb >= 2)
         print_process (args);
-      else
+      else if (verb)
         text << "install " << t;
 
       try

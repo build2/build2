@@ -19,4 +19,4 @@ exe{b}: cxx{b algorithm name operation spec scope variable target \
 
 #@@ TODO
 #
-# cli --cli-namespace cl --include-with-brackets --include-prefix build --guard-prefix BUILD --hxx-suffix "" options.cli
+# cli --generate-specifier --cli-namespace cl --include-with-brackets --include-prefix build --guard-prefix BUILD --hxx-suffix "" options.cli

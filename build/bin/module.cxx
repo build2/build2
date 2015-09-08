@@ -37,7 +37,7 @@ namespace build
               bool first)
     {
       tracer trace ("bin::init");
-      level4 ([&]{trace << "for " << b.out_path ();});
+      level5 ([&]{trace << "for " << b.out_path ();});
 
       // Register target types.
       //

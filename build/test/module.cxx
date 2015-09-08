@@ -40,7 +40,7 @@ namespace build
       }
 
       const dir_path& out_root (r.out_path ());
-      level4 ([&]{trace << "for " << out_root;});
+      level5 ([&]{trace << "for " << out_root;});
 
       // Register the test operation.
       //

@@ -133,10 +133,22 @@ v () const
   return this->v_;
 }
 
+inline const bool& options::
+q () const
+{
+  return this->q_;
+}
+
 inline const std::uint16_t& options::
 verbose () const
 {
   return this->verbose_;
+}
+
+inline bool options::
+verbose_specified () const
+{
+  return this->verbose_specified_;
 }
 
 // Begin epilogue.

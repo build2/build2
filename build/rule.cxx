@@ -62,7 +62,7 @@ namespace build
         if (ts != timestamp_nonexistent)
           return t;
 
-        level3 ([&]{trace << "no existing file for target " << t;});
+        level4 ([&]{trace << "no existing file for target " << t;});
         return nullptr;
       }
     default:
@@ -201,9 +201,9 @@ namespace build
     //
     if (!dir_exists (d))
     {
-      if (verb)
+      if (verb >= 2)
         text << "mkdir " << d;
-      else
+      else if (verb)
         text << "mkdir " << t;
 
       try

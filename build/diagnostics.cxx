@@ -203,7 +203,7 @@ namespace build
     } while (*p != nullptr);
   }
 
-  // Trace verbosity level.
+  // Diagnostics verbosity level.
   //
   uint16_t verb;
 

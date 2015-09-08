@@ -61,7 +61,7 @@ namespace build
     //
     if (p.ext != ext)
     {
-      level4 ([&]{
+      level5 ([&]{
           diag_record r (trace);
           r << "assuming prerequisite " << p << " is the same as the "
             << "one with ";

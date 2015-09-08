@@ -126,12 +126,17 @@ namespace build
     }
     catch (const system_error& e)
     {
-      text << "mkdir " << d;
+      if (verb)
+        text << "mkdir " << d;
+
       fail << "unable to create directory " << d << ": " << e.what ();
     }
 
     if (ms == mkdir_status::success)
-      text << "mkdir " << d;
+    {
+      if (verb)
+        text << "mkdir " << d;
+    }
 
     return ms;
   }
@@ -150,12 +155,17 @@ namespace build
     }
     catch (const system_error& e)
     {
-      text << "mkdir -p " << d;
+      if (verb)
+        text << "mkdir -p " << d;
+
       fail << "unable to create directory " << d << ": " << e.what ();
     }
 
     if (ms == mkdir_status::success)
-      text << "mkdir -p " << d;
+    {
+      if (verb)
+        text << "mkdir -p " << d;
+    }
 
     return ms;
   }
@@ -171,7 +181,8 @@ namespace build
     if (!dir_exists (d))
       return rmdir_status::not_exist;
 
-    text << "rmdir -r " << d;
+    if (verb)
+      text << "rmdir -r " << d;
 
     try
     {
