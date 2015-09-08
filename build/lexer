@@ -7,7 +7,9 @@
 
 #include <string>
 #include <iosfwd>
+#include <cstddef> // size_t
 #include <cstdint> // uint64_t
+#include <cassert>
 #include <exception>
 
 #include <butl/char-scanner>
@@ -27,13 +29,13 @@ namespace build
   // pairs modes are automatically reset after the end of the line.
   // The variable mode is automatically reset after the name token.
   //
-  enum class lexer_mode {normal, value, variable, pairs};
+  enum class lexer_mode {normal, variable, value, pairs};
 
   class lexer: protected butl::char_scanner
   {
   public:
     lexer (std::istream& is, const std::string& name)
-        : char_scanner (is), fail (name) {}
+        : char_scanner (is), fail (name) {mode_.push (lexer_mode::normal);}
 
     const std::string&
     name () const {return fail.name_;}
@@ -44,12 +46,17 @@ namespace build
     void
     mode (lexer_mode m, char pair_separator = '=')
     {
-      next_mode_ = m;
+      mode_.push (m);
       pair_separator_ = pair_separator;
     }
 
+    // Expire the current mode early.
+    //
+    void
+    expire_mode () {mode_.pop ();}
+
     lexer_mode
-    mode () const {return mode_;}
+    mode () const {return mode_.top ();}
 
     char
     pair_separator () const {return pair_separator_;}
@@ -93,10 +100,23 @@ namespace build
   private:
     fail_mark fail;
 
-    lexer_mode mode_ {lexer_mode::normal};
+    // Currently, the maximum mode nesting is 3: {normal, value, variable}.
+    //
+    struct mode_stack
+    {
+      static const size_t max_size = 3;
+
+      void push (lexer_mode m) {assert (n_ != max_size); d_[n_++] = m;}
+      void pop () {assert (n_ != 0); n_--;}
+      lexer_mode top () const {return d_[n_ - 1];}
+
+    private:
+      size_t n_ = 0;
+      lexer_mode d_[max_size];
+    };
+
+    mode_stack mode_;
     char pair_separator_;
-    lexer_mode next_mode_ {lexer_mode::normal}; // Switch to for next token.
-    lexer_mode prev_mode_; // Return to after current mode expires.
   };
 }
 

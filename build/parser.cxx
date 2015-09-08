@@ -1024,7 +1024,7 @@ namespace build
         bool paren (tt == type::lparen);
         if (paren)
         {
-          lexer_->mode (lexer_mode::normal);
+          lexer_->expire_mode ();
           next (t, tt);
         }
 

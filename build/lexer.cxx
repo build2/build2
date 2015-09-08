@@ -11,12 +11,6 @@ namespace build
   token lexer::
   next ()
   {
-    if (mode_ != next_mode_)
-    {
-      prev_mode_ = mode_;
-      mode_ = next_mode_;
-    }
-
     bool sep (skip_spaces ());
 
     xchar c (get ());
@@ -25,16 +19,18 @@ namespace build
     if (eos (c))
       return token (token_type::eos, sep, ln, cn);
 
+    lexer_mode m (mode_.top ());
+
     switch (c)
     {
       // NOTE: remember to update name() if adding new punctuations.
       //
     case '\n':
       {
-        // Restore the normal mode at the end of the line.
+        // Expire value/pairs mode at the end of the line.
         //
-        if (mode_ == lexer_mode::value || mode_ == lexer_mode::pairs)
-          mode_ = next_mode_ = lexer_mode::normal;
+        if (m == lexer_mode::value || m == lexer_mode::pairs)
+          mode_.pop ();
 
         return token (token_type::newline, sep, ln, cn);
       }
@@ -62,13 +58,13 @@ namespace build
 
     // Handle pair separator.
     //
-    if (mode_ == lexer_mode::pairs && c == pair_separator_)
+    if (m == lexer_mode::pairs && c == pair_separator_)
       return token (token_type::pair_separator, sep, ln, cn);
 
     // The following characters are not treated as special in the
     // value or pairs mode.
     //
-    if (mode_ != lexer_mode::value && mode_ != lexer_mode::pairs)
+    if (m != lexer_mode::value && m != lexer_mode::pairs)
     {
       // NOTE: remember to update name() if adding new punctuations.
       //
@@ -107,19 +103,21 @@ namespace build
     uint64_t ln (c.line), cn (c.column);
     string lexeme;
 
+    lexer_mode m (mode_.top ());
+
     for (; !eos (c); c = peek ())
     {
       bool done (false);
 
       // Handle pair separator.
       //
-      if (mode_ == lexer_mode::pairs && c == pair_separator_)
+      if (m == lexer_mode::pairs && c == pair_separator_)
         break;
 
       // The following characters are not treated as special in the
       // value or pairs mode.
       //
-      if (mode_ != lexer_mode::value && mode_ != lexer_mode::pairs)
+      if (m != lexer_mode::value && m != lexer_mode::pairs)
       {
         switch (c)
         {
@@ -139,7 +137,7 @@ namespace build
       // While these extra characters are treated as the name end in
       // the variable mode.
       //
-      if (mode_ == lexer_mode::variable)
+      if (m == lexer_mode::variable)
       {
         switch (c)
         {
@@ -198,8 +196,10 @@ namespace build
     //
     assert (c.line != ln || c.column != cn);
 
-    if (mode_ == lexer_mode::variable)
-      next_mode_ = prev_mode_;
+    // Expire variable mode at the end of the name.
+    //
+    if (m == lexer_mode::variable)
+      mode_.pop ();
 
     return token (lexeme, sep, ln, cn);
   }
