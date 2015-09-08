@@ -637,6 +637,7 @@ namespace build
           ? &scope_->assign (*var)
           : &scope_->append (*var);
         next (t, tt); // Consume =/+=.
+        lexer_->mode (lexer_mode::value);
         next (t, tt);
       }
     }

@@ -23,7 +23,9 @@ namespace build
   // in the variable mode, we restrict certain character (e.g., /)
   // from appearing in the name. The pairs mode is just like value
   // except that we split names separated by the pair character.
-  // The pairs mode must be set manually.
+  // The alternnative modes must be set manually. The value and
+  // pairs modes are automatically reset after the end of the line.
+  // The variable mode is automatically reset after the name token.
   //
   enum class lexer_mode {normal, value, variable, pairs};
 

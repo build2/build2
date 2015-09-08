@@ -83,12 +83,10 @@ namespace build
           if (get () != '=')
             fail (c) << "expected = after +";
 
-          next_mode_ = lexer_mode::value;
           return token (token_type::plus_equal, sep, ln, cn);
         }
       case '=':
         {
-          next_mode_ = lexer_mode::value;
           return token (token_type::equal, sep, ln, cn);
         }
       }
