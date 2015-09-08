@@ -94,17 +94,20 @@ namespace build
 
     // Otherwise it is a name.
     //
-    return name (c, sep);
+    unget (c);
+    return name (sep);
   }
 
   token lexer::
-  name (xchar c, bool sep)
+  name (bool sep)
   {
+    xchar c (peek ());
+    assert (!eos (c));
+
     uint64_t ln (c.line), cn (c.column);
     string lexeme;
-    lexeme += (c != '\\' ? c : escape ());
 
-    for (c = peek (); !eos (c); c = peek ())
+    for (; !eos (c); c = peek ())
     {
       bool done (false);
 
@@ -173,6 +176,11 @@ namespace build
           lexeme += escape ();
           break;
         }
+      case '\'':
+        {
+          single_quote (lexeme);
+          break;
+        }
       default:
         {
           get ();
@@ -185,10 +193,33 @@ namespace build
         break;
     }
 
+    // The first character shall not be a separator (we shouldn't have
+    // been called if that's the case).
+    //
+    assert (c.line != ln || c.column != cn);
+
     if (mode_ == lexer_mode::variable)
       next_mode_ = prev_mode_;
 
     return token (lexeme, sep, ln, cn);
+  }
+
+  // Assuming the next character is the opening single quote, scan
+  // the stream until the closing quote (or eos), accumulating
+  // characters in between in lexeme. Fail if eos is reached before
+  // the closing quote.
+  //
+  void lexer::
+  single_quote (string& lexeme)
+  {
+    xchar c (get ()); // Opening quote mark.
+    assert (c == '\'');
+
+    for (c = get (); !eos (c) && c != '\''; c = get ())
+      lexeme += c;
+
+    if (eos (c))
+      fail (c) << "unterminated single-quoted sequence";
   }
 
   bool lexer::

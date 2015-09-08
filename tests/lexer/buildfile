@@ -2,4 +2,6 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-exe{driver}: cxx{driver ../../../build/{lexer diagnostics utility}}
+import libs = libbutl%lib{butl}
+
+exe{driver}: cxx{driver ../../build/{lexer diagnostics utility}} $libs

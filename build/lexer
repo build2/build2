@@ -61,7 +61,10 @@ namespace build
 
   private:
     token
-    name (xchar, bool separated);
+    name (bool separated);
+
+    void
+    single_quote (std::string& lexeme);
 
     // Return true we have seen any spaces. Skipped empty lines don't
     // count. In other words, we are only interested in spaces that

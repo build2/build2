@@ -14,10 +14,13 @@
 using namespace std;
 using namespace build;
 
-typedef vector<string> tokens;
+using tokens = vector<string>;
 
 static tokens
 lex (const char*);
+
+ostream&
+operator<< (ostream&, const tokens&);
 
 int
 main ()
@@ -54,9 +57,27 @@ main ()
   assert (lex ("fo\\ o\\:") == tokens ({"fo o:", ""}));
   assert (lex ("foo\\\nbar") == tokens ({"foo\nbar", ""}));
   assert (lex ("foo \\\nbar") == tokens ({"foo", "bar", ""}));
+  assert (lex ("\\'foo") == tokens ({"'foo", ""}));
 
   assert (lex ("  \\") == tokens ({"<lexer error>"}));
   assert (lex ("  foo\\") == tokens ({"<lexer error>"}));
+
+
+  // Quoting.
+  //
+  assert (lex ("''") == tokens ({"", ""}));
+  assert (lex ("'foo'") == tokens ({"foo", ""}));
+  assert (lex ("'foo bar'") == tokens ({"foo bar", ""}));
+  assert (lex ("'foo 'bar") == tokens ({"foo bar", ""}));
+  assert (lex ("foo' bar'") == tokens ({"foo bar", ""}));
+  assert (lex ("'foo ''bar'") == tokens ({"foo bar", ""}));
+  assert (lex ("foo' 'bar") == tokens ({"foo bar", ""}));
+  assert (lex ("'foo\nbar'") == tokens ({"foo\nbar", ""}));
+  assert (lex ("'#:${}()=+\n'") == tokens ({"#:${}()=+\n", ""}));
+  assert (lex ("'\"'") == tokens ({"\"", ""}));
+  assert (lex ("'\\'") == tokens ({"\\", ""}));
+
+  assert (lex ("'foo bar") == tokens ({"<lexer error>"}));
 
   // Combinations.
   //
@@ -87,21 +108,27 @@ lex (const char* s)
   {
     for (token t (l.next ());; t = l.next ())
     {
-      const char* v (nullptr);
+      string v;
 
       switch (t.type ())
       {
-      case token_type::eos: v= ""; break;
-      case token_type::newline: v = "\n"; break;
-      case token_type::colon:   v = ":"; break;
-      case token_type::lcbrace: v = "{"; break;
-      case token_type::rcbrace: v = "}"; break;
-      case token_type::name: v = t.name ().c_str (); break;
+      case token_type::eos:            v = ""; break;
+      case token_type::newline:        v = "\n"; break;
+      case token_type::pair_separator: v = l.pair_separator (); break;
+      case token_type::colon:          v = ":"; break;
+      case token_type::lcbrace:        v = "{"; break;
+      case token_type::rcbrace:        v = "}"; break;
+      case token_type::equal:          v = "="; break;
+      case token_type::plus_equal:     v = "+="; break;
+      case token_type::dollar:         v = "$"; break;
+      case token_type::lparen:         v = "("; break;
+      case token_type::rparen:         v = ")"; break;
+      case token_type::name:           v = t.name ().c_str (); break;
       }
 
       // cerr << t.line () << ':' << t.column () << ':' << v << endl;
 
-      r.push_back (v);
+      r.push_back (move (v));
 
       if (t.type () == token_type::eos)
         break;
@@ -117,4 +144,13 @@ lex (const char* s)
   }
 
   return r;
+}
+
+ostream&
+operator<< (ostream& os, const tokens& ts)
+{
+  for (const string& t: ts)
+    os << '"' << t << '"' << ' ';
+
+  return os;
 }

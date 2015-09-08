@@ -4,3 +4,4 @@
 project = build2
 subprojects = # No subprojects.
 using config
+using test
