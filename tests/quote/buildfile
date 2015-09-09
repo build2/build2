@@ -29,4 +29,19 @@ print "("foo bar")"
 print "("$foo bar")"
 print "("$foo ($bar)")"
 
+# Quoting and escaping/multiline.
+#
+print \
+"foo"\
+"bar"
+
+print \
+"foo\
+bar"
+
+print \
+"foo (fox  \
+)
+bar"
+
 ./:

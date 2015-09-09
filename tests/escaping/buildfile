@@ -1,0 +1,13 @@
+print \'single\'
+print \"double\"
+
+# Newline is special.
+#
+\
+print foo\
+bar
+
+print foo \
+bar
+
+./:

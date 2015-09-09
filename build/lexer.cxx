@@ -225,7 +225,9 @@ namespace build
         case '\\':
           {
             get ();
-            lexeme += escape ();
+            c = escape ();
+            if (c != '\n') // Ignore.
+              lexeme += c;
             continue;
           }
         case '\'':
@@ -362,10 +364,7 @@ namespace build
           get ();
 
           if (peek () == '\n')
-          {
-            r = true;
-            break;
-          }
+            break; // Ignore.
 
           unget (c);
           // Fall through.
