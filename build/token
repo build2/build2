@@ -9,7 +9,6 @@
 #include <iosfwd>
 #include <cstddef> // size_t
 #include <cstdint> // uint64_t
-#include <cassert>
 #include <utility> // move
 
 namespace build
@@ -33,34 +32,26 @@ namespace build
   class token
   {
   public:
-    token_type
-    type () const {return t_;}
+    token_type type;
+    bool separated; // Whitespace-separated from the previous token.
+    bool quoted;    // Name (or some part of it) was quoted.
 
-    // Token is whitespace-separated from the previous token.
-    //
-    bool
-    separated () const {return s_;}
+    std::string value; // Only valid for name.
 
-    std::string const&
-    name () const {assert (t_ == token_type::name); return n_;}
-
-    std::uint64_t line () const {return l_;}
-    std::uint64_t column () const {return c_;}
+    std::uint64_t line;
+    std::uint64_t column;
 
   public:
     token (token_type t, bool s, std::uint64_t l, std::uint64_t c)
-        : t_ (t), s_ (s), l_ (l), c_ (c) {}
+        : type (t), separated (s), line (l), column (c) {}
 
-    token (std::string n, bool s, std::uint64_t l, std::uint64_t c)
-        : t_ (token_type::name), s_ (s), n_ (std::move (n)), l_ (l), c_ (c) {}
-
-  private:
-    token_type t_;
-    bool s_;
-    std::string n_;
-
-    std::uint64_t l_;
-    std::uint64_t c_;
+    token (std::string n, bool s, bool q, std::uint64_t l, std::uint64_t c)
+        : type (token_type::name),
+          separated (s),
+          quoted (q),
+          value (std::move (n)),
+          line (l),
+          column (c) {}
   };
 
   // Output the token value in a format suitable for diagnostics.

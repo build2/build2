@@ -274,8 +274,8 @@ namespace build
       token t (lex.next ());
       token_type tt;
 
-      if (t.type () != token_type::name || t.name () != var ||
-          ((tt = lex.next ().type ()) != token_type::equal &&
+      if (t.type != token_type::name || t.value != var ||
+          ((tt = lex.next ().type) != token_type::equal &&
            tt != token_type::plus_equal))
       {
         error << "variable '" << var << "' expected as first line in " << rbf;
@@ -284,7 +284,7 @@ namespace build
 
       parser p;
       temp_scope tmp (*global_scope);
-      p.parse_variable (lex, tmp, t.name (), tt);
+      p.parse_variable (lex, tmp, t.value, tt);
 
       auto l (tmp.vars[var]);
       assert (l.defined ());

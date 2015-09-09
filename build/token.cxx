@@ -13,7 +13,7 @@ namespace build
   ostream&
   operator<< (ostream& os, const token& t)
   {
-    switch (t.type ())
+    switch (t.type)
     {
     case token_type::eos:            os << "<end-of-file>"; break;
     case token_type::newline:        os << "<newline>"; break;
@@ -26,7 +26,7 @@ namespace build
     case token_type::dollar:         os << "$"; break;
     case token_type::lparen:         os << "("; break;
     case token_type::rparen:         os << ")"; break;
-    case token_type::name:           os << t.name (); break;
+    case token_type::name:           os << t.value; break;
     }
 
     return os;

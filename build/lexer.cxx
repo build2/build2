@@ -152,6 +152,7 @@ namespace build
     string lexeme;
 
     lexer_mode m (mode_.top ());
+    bool quoted (m == lexer_mode::quoted);
 
     for (; !eos (c); c = peek ())
     {
@@ -247,6 +248,7 @@ namespace build
               if (eos (c))
                 fail (c) << "unterminated single-quoted sequence";
 
+              quoted = true;
               continue;
             }
           }
@@ -281,7 +283,10 @@ namespace build
             if (m == lexer_mode::quoted)
               mode_.pop ();
             else
+            {
               mode_.push (lexer_mode::quoted);
+              quoted = true;
+            }
 
             m = mode_.top ();
             continue;
@@ -307,7 +312,7 @@ namespace build
     if (m == lexer_mode::variable)
       mode_.pop ();
 
-    return token (lexeme, sep, ln, cn);
+    return token (lexeme, sep, quoted, ln, cn);
   }
 
   bool lexer::

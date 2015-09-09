@@ -146,24 +146,24 @@ main (int argc, char* argv[])
       lexer l (is, "<cmdline>");
       token t (l.next ());
 
-      if (t.type () == token_type::eos)
+      if (t.type == token_type::eos)
         continue; // Whitespace-only argument.
 
       // Unless this is a name followed by = or +=, assume it is
       // a start of the buildspec.
       //
-      if (t.type () != token_type::name)
+      if (t.type != token_type::name)
         break;
 
-      token_type tt (l.next ().type ());
+      token_type tt (l.next ().type);
 
       if (tt != token_type::equal && tt != token_type::plus_equal)
         break;
 
       parser p;
-      t = p.parse_variable (l, *global_scope, t.name (), tt);
+      t = p.parse_variable (l, *global_scope, t.value, tt);
 
-      if (t.type () != token_type::eos)
+      if (t.type != token_type::eos)
         fail << "unexpected " << t << " in variable " << s;
     }
 

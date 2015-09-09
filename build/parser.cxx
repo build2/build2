@@ -90,11 +90,12 @@ namespace build
           tt != type::colon)     // Empty name: ': ...'
         break; // Something else. Let our caller handle that.
 
-      // See if this is one of the keywords.
+      // See if this is one of the directives. This should be an
+      // unquoted literal name.
       //
-      if (tt == type::name)
+      if (tt == type::name && !t.quoted)
       {
-        const string& n (t.name ());
+        const string& n (t.value);
 
         if (n == "print")
         {
@@ -642,7 +643,7 @@ namespace build
 
       if (at == token_type::equal || at == token_type::plus_equal)
       {
-        var = &variable_pool.find (t.name ());
+        var = &variable_pool.find (t.value);
         val = at == token_type::equal
           ? &scope_->assign (*var)
           : &scope_->append (*var);
@@ -857,10 +858,10 @@ namespace build
       if (!concat.empty () &&
           ((tt != type::name   &&
             tt != type::dollar &&
-            tt != type::lparen) || peeked ().separated ()))
+            tt != type::lparen) || peeked ().separated))
       {
         tt = type::name;
-        t = token (move (concat), true, t.line (), t.column ());
+        t = token (move (concat), true, false, t.line, t.column);
         concat.clear ();
       }
       else if (!first)
@@ -870,7 +871,7 @@ namespace build
       //
       if (tt == type::name)
       {
-        string name (t.name ()); //@@ move?
+        string name (t.value); //@@ move?
         tt = peek ();
 
         // Should we accumulate? If the buffer is not empty, then
@@ -881,7 +882,7 @@ namespace build
         //
         if (!concat.empty () ||                                // Continue.
             ((tt == type::dollar ||
-              tt == type::lparen) && !peeked ().separated ())) // Start.
+              tt == type::lparen) && !peeked ().separated))    // Start.
         {
           concat += name;
           continue;
@@ -1062,7 +1063,7 @@ namespace build
 
           string n;
           if (tt == type::name)
-            n = t.name ();
+            n = t.value;
           else if (tt == type::lparen)
           {
             lexer_->expire_mode ();
@@ -1159,7 +1160,7 @@ namespace build
         if (!concat.empty () ||                       // Continue.
             ((tt == type::name   ||                   // Start.
               tt == type::dollar ||
-              tt == type::lparen) && !peeked ().separated ()))
+              tt == type::lparen) && !peeked ().separated))
         {
           // This should be a simple value or a simple directory. The
           // token still points to the name (or closing paren).
@@ -1642,7 +1643,7 @@ namespace build
       peeked_ = false;
     }
 
-    tt = t.type ();
+    tt = t.type;
     return tt;
   }
 
@@ -1655,7 +1656,7 @@ namespace build
       peeked_ = true;
     }
 
-    return peek_.type ();
+    return peek_.type;
   }
 
   static location
@@ -1663,6 +1664,6 @@ namespace build
   {
     assert (data != nullptr);
     const string& p (**static_cast<const string* const*> (data));
-    return location (p.c_str (), t.line (), t.column ());
+    return location (p.c_str (), t.line, t.column);
   }
 }
