@@ -69,13 +69,10 @@ namespace build
 
   private:
     token
+    next_quoted ();
+
+    token
     name (bool separated);
-
-    void
-    single_quote (std::string&);
-
-    bool
-    double_quote (std::string&);
 
     // Return true we have seen any spaces. Skipped empty lines don't
     // count. In other words, we are only interested in spaces that

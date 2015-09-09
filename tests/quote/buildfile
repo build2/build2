@@ -15,4 +15,8 @@ print "[ $bar ]"
 print "[ $foo $bar ]"
 print "[ $foo/$bar ]"
 
+print $foo'bar'
+print $foo"$bar"
+print "$foo"bar
+
 ./:

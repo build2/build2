@@ -99,6 +99,7 @@ main ()
   assert (lex ("f\"oo$ba\"r") == tokens ({"foo", "$", "bar", ""}));
 
   assert (lex ("\"foo bar") == tokens ({"<lexer error>"}));
+  assert (lex ("\"foo $") == tokens ({"foo ", "$", "<lexer error>"}));
   assert (lex ("\"foo $bar") == tokens ({"foo ", "$", "<lexer error>"}));
 
   // Combinations.

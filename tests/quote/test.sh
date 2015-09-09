@@ -1,3 +1,3 @@
 #!/bin/sh
 
-valgrind -q b -q | diff test.out -
+valgrind -q b -q | diff -u test.out -

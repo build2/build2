@@ -13,29 +13,12 @@ namespace build
   {
     lexer_mode m (mode_.top ());
 
-    // If we are in the quoted mode, then this means we have seen a
-    // variable expansion ($) and had to "break" the quoted sequence
-    // into multiple "concatenated" tokens. So what we have now is
-    // the "tail" of that quoted sequence which we need to continue
-    // scanning. To make this work auto-magically (well, almost) we
-    // are going to use a little trick: we will "pretend" that the
-    // next character is the opening quote. After all, a sequence
-    // like "$foo bar" is semantically equivalent to "$foo"" bar".
+    // For some modes we have dedicated imlementations of next().
     //
-    if (m == lexer_mode::quoted)
+    switch (m)
     {
-      xchar c (peek ());
-
-      // Detect the beginning of the "break". After that, we rely
-      // on the caller switching to the variable mode.
-      //
-      if (c != '$')
-      {
-        mode_.pop ();  // As if we saw closing quote.
-        c.value = '"'; // Keep line/column information.
-        unget (c);
-        return name (false);
-      }
+    case lexer_mode::quoted: return next_quoted ();
+    default: break;
     }
 
     bool sep (skip_spaces ());
@@ -120,6 +103,23 @@ namespace build
   }
 
   token lexer::
+  next_quoted ()
+  {
+    xchar c (peek ());
+
+    if (eos (c))
+      fail (c) << "unterminated double-quoted sequence";
+
+    uint64_t ln (c.line), cn (c.column);
+
+    switch (c)
+    {
+    case '$': get (); return token (token_type::dollar, false, ln, cn);
+    default:          return name (false);
+    }
+  }
+
+  token lexer::
   name (bool sep)
   {
     xchar c (peek ());
@@ -140,9 +140,11 @@ namespace build
         break;
 
       // The following characters are not treated as special in the
-      // value or pairs mode.
+      // value/pairs and quoted modes.
       //
-      if (m != lexer_mode::value && m != lexer_mode::pairs)
+      if (m != lexer_mode::value &&
+          m != lexer_mode::pairs &&
+          m != lexer_mode::quoted)
       {
         switch (c)
         {
@@ -178,60 +180,103 @@ namespace build
           break;
       }
 
+      // If we are quoted, these are ordinary characters.
+      //
+      if (m != lexer_mode::quoted)
+      {
+        switch (c)
+        {
+        case ' ':
+        case '\t':
+        case '\n':
+        case '#':
+        case '{':
+        case '}':
+        case '(':
+        case ')':
+          {
+            done = true;
+            break;
+          }
+        case '\\':
+          {
+            get ();
+            lexeme += escape ();
+            continue;
+          }
+        case '\'':
+          {
+            // If we are in the variable mode, then treat quote as just
+            // another separator.
+            //
+            if (m == lexer_mode::variable)
+            {
+              done = true;
+              break;
+            }
+            else
+            {
+              get ();
+
+              for (c = get (); !eos (c) && c != '\''; c = get ())
+                lexeme += c;
+
+              if (eos (c))
+                fail (c) << "unterminated single-quoted sequence";
+
+              continue;
+            }
+          }
+        }
+
+        if (done)
+          break;
+      }
+
       switch (c)
       {
-      case ' ':
-      case '\t':
-      case '\n':
-      case '#':
-      case '{':
-      case '}':
       case '$':
-      case '(':
-      case ')':
         {
           done = true;
           break;
         }
-      case '\\':
-        {
-          get ();
-          lexeme += escape ();
-          break;
-        }
-      case '\'':
       case '\"':
         {
-          // If we are in the variable mode, then treat quotes as just
+          // If we are in the variable mode, then treat quote as just
           // another separator.
           //
           if (m == lexer_mode::variable)
+          {
             done = true;
+            break;
+          }
           else
           {
             get ();
 
-            if (c == '\'')
-              single_quote (lexeme);
+            if (m == lexer_mode::quoted)
+              mode_.pop ();
             else
-            {
               mode_.push (lexer_mode::quoted);
-              done = double_quote (lexeme);
-            }
+
+            m = mode_.top ();
+            continue;
           }
-          break;
         }
       default:
         {
           get ();
           lexeme += c;
-          break;
+          continue;
         }
       }
 
-      if (done)
-        break;
+      assert (done);
+      break;
     }
+
+    if (m == lexer_mode::quoted && eos (c))
+      fail (c) << "unterminated double-quoted sequence";
 
     // Expire variable mode at the end of the name.
     //
@@ -239,56 +284,6 @@ namespace build
       mode_.pop ();
 
     return token (lexeme, sep, ln, cn);
-  }
-
-  // Assuming the previous character is the opening single quote, scan
-  // the stream until the closing quote or eos, accumulating characters
-  // in between in lexeme. Fail if eos is reached before the closing
-  // quote.
-  //
-  void lexer::
-  single_quote (string& lexeme)
-  {
-    xchar c (get ());
-
-    for (; !eos (c) && c != '\''; c = get ())
-      lexeme += c;
-
-    if (eos (c))
-      fail (c) << "unterminated single-quoted sequence";
-  }
-
-  // Assuming the previous character is the opening double quote, scan
-  // the stream until the closing quote, $, or eos, accumulating
-  // characters in between in lexeme. Return false if we stopped
-  // because of the closing quote (which means the normal name
-  // scanning can continue) and true if we stopped at $ (meaning this
-  // name is done and what follows is another token). Fail if eos is
-  // reached before the closing quote.
-  //
-  bool lexer::
-  double_quote (string& lexeme)
-  {
-    xchar c (peek ());
-
-    for (; !eos (c); c = peek ())
-    {
-      if (c == '$')
-        return true;
-
-      get ();
-
-      if (c == '"')
-      {
-        mode_.pop (); // Expire quoted mode.
-        return false;
-      }
-
-      lexeme += c;
-    }
-
-    fail (c) << "unterminated double-quoted sequence";
-    return false; // Never reached.
   }
 
   bool lexer::
