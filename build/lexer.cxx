@@ -17,6 +17,7 @@ namespace build
     //
     switch (m)
     {
+    case lexer_mode::eval: return next_eval ();
     case lexer_mode::quoted: return next_quoted ();
     default: break;
     }
@@ -31,7 +32,8 @@ namespace build
 
     switch (c)
     {
-      // NOTE: remember to update name() if adding new punctuations.
+      // NOTE: remember to update name(), next_eval() if adding new
+      // special characters.
       //
     case '\n':
       {
@@ -42,26 +44,11 @@ namespace build
 
         return token (token_type::newline, sep, ln, cn);
       }
-    case '{':
-      {
-        return token (token_type::lcbrace, sep, ln, cn);
-      }
-    case '}':
-      {
-        return token (token_type::rcbrace, sep, ln, cn);
-      }
-    case '$':
-      {
-        return token (token_type::dollar, sep, ln, cn);
-      }
-    case '(':
-      {
-        return token (token_type::lparen, sep, ln, cn);
-      }
-    case ')':
-      {
-        return token (token_type::rparen, sep, ln, cn);
-      }
+    case '{': return token (token_type::lcbrace, sep, ln, cn);
+    case '}': return token (token_type::rcbrace, sep, ln, cn);
+    case '$': return token (token_type::dollar, sep, ln, cn);
+    case '(': return token (token_type::lparen, sep, ln, cn);
+    case ')': return token (token_type::rparen, sep, ln, cn);
     }
 
     // Handle pair separator.
@@ -74,14 +61,13 @@ namespace build
     //
     if (m != lexer_mode::value && m != lexer_mode::pairs)
     {
-      // NOTE: remember to update name() if adding new punctuations.
-      //
       switch (c)
       {
-      case ':':
-        {
-          return token (token_type::colon, sep, ln, cn);
-        }
+        // NOTE: remember to update name(), next_eval() if adding new
+        // special characters.
+        //
+      case ':': return token (token_type::colon, sep, ln, cn);
+      case '=': return token (token_type::equal, sep, ln, cn);
       case '+':
         {
           if (get () != '=')
@@ -89,10 +75,42 @@ namespace build
 
           return token (token_type::plus_equal, sep, ln, cn);
         }
-      case '=':
-        {
-          return token (token_type::equal, sep, ln, cn);
-        }
+      }
+    }
+
+    // Otherwise it is a name.
+    //
+    unget (c);
+    return name (sep);
+  }
+
+  token lexer::
+  next_eval ()
+  {
+    bool sep (skip_spaces ());
+    xchar c (get ());
+
+    if (eos (c))
+      fail (c) << "unterminated evaluation context";
+
+    uint64_t ln (c.line), cn (c.column);
+
+    // This mode is quite a bit like the value mode when it comes
+    // to special characters.
+    //
+    switch (c)
+    {
+      // NOTE: remember to update name() if adding new special characters.
+      //
+    case '\n': fail (c) << "newline in evaluation context";
+    case '{': return token (token_type::lcbrace, sep, ln, cn);
+    case '}': return token (token_type::rcbrace, sep, ln, cn);
+    case '$': return token (token_type::dollar, sep, ln, cn);
+    case '(': return token (token_type::lparen, sep, ln, cn);
+    case ')':
+      {
+        mode_.pop (); // Expire eval mode.
+        return token (token_type::rparen, sep, ln, cn);
       }
     }
 
@@ -105,7 +123,7 @@ namespace build
   token lexer::
   next_quoted ()
   {
-    xchar c (peek ());
+    xchar c (get ());
 
     if (eos (c))
       fail (c) << "unterminated double-quoted sequence";
@@ -114,9 +132,14 @@ namespace build
 
     switch (c)
     {
-    case '$': get (); return token (token_type::dollar, false, ln, cn);
-    default:          return name (false);
+    case '$': return token (token_type::dollar, false, ln, cn);
+    case '(': return token (token_type::lparen, false, ln, cn);
     }
+
+    // Otherwise it is a name.
+    //
+    unget (c);
+    return name (false);
   }
 
   token lexer::
@@ -140,10 +163,11 @@ namespace build
         break;
 
       // The following characters are not treated as special in the
-      // value/pairs and quoted modes.
+      // value/pairs, eval, and quoted modes.
       //
       if (m != lexer_mode::value &&
           m != lexer_mode::pairs &&
+          m != lexer_mode::eval  &&
           m != lexer_mode::quoted)
       {
         switch (c)
@@ -192,7 +216,6 @@ namespace build
         case '#':
         case '{':
         case '}':
-        case '(':
         case ')':
           {
             done = true;
@@ -236,6 +259,7 @@ namespace build
       switch (c)
       {
       case '$':
+      case '(':
         {
           done = true;
           break;

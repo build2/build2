@@ -77,6 +77,9 @@ namespace build
     variable_name (names_type&&, const location&);
 
     names_type
+    eval (token&, token_type&);
+
+    names_type
     names (token& t, token_type& tt)
     {
       names_type ns;

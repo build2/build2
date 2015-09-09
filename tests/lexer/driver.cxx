@@ -89,7 +89,7 @@ main ()
   assert (lex ("\"foo \"\"bar\"") == tokens ({"foo bar", ""}));
   assert (lex ("foo\" \"bar") == tokens ({"foo bar", ""}));
   assert (lex ("\"foo\nbar\"") == tokens ({"foo\nbar", ""}));
-  assert (lex ("\"#:{}()=+\n\"") == tokens ({"#:{}()=+\n", ""}));
+  assert (lex ("\"#:{})=+\n\"") == tokens ({"#:{})=+\n", ""}));
   assert (lex ("\"'\"") == tokens ({"'", ""}));
   assert (lex ("\"\\\"") == tokens ({"\\", ""}));
 

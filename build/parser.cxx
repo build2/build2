@@ -86,6 +86,7 @@ namespace build
       if (tt != type::name    &&
           tt != type::lcbrace && // Untyped name group: '{foo ...'
           tt != type::dollar  && // Variable expansion: '$foo ...'
+          tt != type::lparen  && // Eval context: '(foo) ...'
           tt != type::colon)     // Empty name: ': ...'
         break; // Something else. Let our caller handle that.
 
@@ -236,6 +237,7 @@ namespace build
         if (tt == type::name    ||
             tt == type::lcbrace ||
             tt == type::dollar  ||
+            tt == type::lparen  ||
             tt == type::newline ||
             tt == type::eos)
         {
@@ -796,6 +798,20 @@ namespace build
     }
   }
 
+  parser::names_type parser::
+  eval (token& t, token_type& tt)
+  {
+    lexer_->mode (lexer_mode::eval);
+    next (t, tt);
+
+    names_type ns (tt != type::rparen ? names (t, tt) : names_type ());
+
+    if (tt != type::rparen)
+      fail (t) << "expected ')' instead of " << t;
+
+    return ns;
+  }
+
   void parser::
   names (token& t,
          type& tt,
@@ -810,10 +826,11 @@ namespace build
     // a={b c d{e f} {}}.
     //
 
-    // Buffer that is used to collect the complete name in case of an
-    // unseparated variable expansion, e.g., 'foo$bar$(baz)fox'. The
-    // idea is to concatenate all the individual parts in this buffer
-    // and then re-inject it into the loop as a single token.
+    // Buffer that is used to collect the complete name in case of
+    // an unseparated variable expansion or eval context, e.g.,
+    // 'foo$bar$(baz)fox'. The idea is to concatenate all the
+    // individual parts in this buffer and then re-inject it into
+    // the loop as a single token.
     //
     string concat;
 
@@ -827,10 +844,12 @@ namespace build
     {
       // If the accumulating buffer is not empty, then we have two options:
       // continue accumulating or inject. We inject if the next token is
-      // not a name or var expansion or if it is separated.
+      // not a name, var expansion, or eval context or if it is separated.
       //
       if (!concat.empty () &&
-          ((tt != type::name && tt != type::dollar) || peeked ().separated ()))
+          ((tt != type::name   &&
+            tt != type::dollar &&
+            tt != type::lparen) || peeked ().separated ()))
       {
         tt = type::name;
         t = token (move (concat), true, t.line (), t.column ());
@@ -849,11 +868,12 @@ namespace build
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
         // should have been handled by the injection code above). If
-        // the next token is a var expansion and it is not separated,
-        // then we need to start accumulating.
+        // the next token is a var expansion or eval context and it
+        // is not separated, then we need to start accumulating.
         //
-        if (!concat.empty () ||                              // Continue.
-            (tt == type::dollar && !peeked ().separated ())) // Start.
+        if (!concat.empty () ||                                // Continue.
+            ((tt == type::dollar ||
+              tt == type::lparen) && !peeked ().separated ())) // Start.
         {
           concat += name;
           continue;
@@ -1006,60 +1026,97 @@ namespace build
         continue;
       }
 
-      // Variable expansion.
+      // Variable expansion/function call or eval context.
       //
-      if (tt == type::dollar)
+      if (tt == type::dollar || tt == type::lparen)
       {
-        // Switch to the variable name mode. We want to use this
-        // mode for $foo but not for $(foo). Since we don't know
-        // whether the next token is a paren or a name, we turn
-        // it on and turn it off if what we get next is a paren
-        // so that the following name is scanned in the normal
-        // mode.
+        // These two cases are pretty similar in that in both we
+        // pretty quickly end up with a list of names that we need
+        // to splice into the result.
         //
-        lexer_->mode (lexer_mode::variable);
+        names_type lv_eval;
+        const names_type* plv;
 
-        next (t, tt);
+        location loc;
+        const char* what; // Variable or evaluation context.
 
-        bool paren (tt == type::lparen);
-        if (paren)
+        if (tt == type::dollar)
         {
-          lexer_->expire_mode ();
+          // Switch to the variable name mode. We want to use this
+          // mode for $foo but not for $(foo). Since we don't know
+          // whether the next token is a paren or a name, we turn
+          // it on and switch to the eval mode if what we get next
+          // is a paren.
+          //
+          lexer_->mode (lexer_mode::variable);
           next (t, tt);
+          loc = get_location (t, &path_);
+
+          string n;
+          if (tt == type::name)
+            n = t.name ();
+          else if (tt == type::lparen)
+          {
+            lexer_->expire_mode ();
+            names_type ns (eval (t, tt));
+
+            // Make sure the result of evaluation is a single, simple name.
+            //
+            if (ns.size () != 1 || !ns.front ().simple ())
+              fail (loc) << "variable name expected instead of '" << ns << "'";
+
+            n = move (ns.front ().value);
+          }
+          else
+            fail (t) << "variable name expected instead of " << t;
+
+          if (n.empty ())
+            fail (loc) << "empty variable name";
+
+          // Process variable name.
+          //
+          if (n.front () == '.') // Fully qualified name.
+            n.erase (0, 1);
+          else
+          {
+            //@@ TODO: append namespace if any.
+          }
+
+          // Lookup.
+          //
+          const auto& var (variable_pool.find (move (n)));
+          auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
+
+          // Undefined/NULL namespace variables are not allowed.
+          //
+          if (!l && var.name.find ('.') != string::npos)
+            fail (loc) << "undefined/null namespace variable " << var.name;
+
+          tt = peek ();
+
+          if (!l || l->empty ())
+            continue;
+
+          plv = &l->data_;
+          what = "variable expansion";
         }
-
-        if (tt != type::name)
-          fail (t) << "variable name expected instead of " << t;
-
-        string n;
-        if (t.name ().front () == '.') // Fully qualified name.
-          n.assign (t.name (), 1, string::npos);
         else
-          //@@ TODO: append namespace if any.
-          n = t.name ();
-
-        const auto& var (variable_pool.find (move (n)));
-        auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
-
-        // Undefined/NULL namespace variables are not allowed.
-        //
-        if (!l && var.name.find ('.') != string::npos)
-          fail (t) << "undefined/null namespace variable " << var.name;
-
-        if (paren)
         {
-          next (t, tt);
+          loc = get_location (t, &path_);
+          lv_eval = eval (t, tt);
 
-          if (tt != type::rparen)
-            fail (t) << "expected ) instead of " << t;
+          tt = peek ();
+
+          if (lv_eval.empty ())
+            continue;
+
+          plv = &lv_eval;
+          what = "context evaluation";
         }
 
-        tt = peek ();
-
-        if (!l || l->empty ())
-          continue;
-
-        const names_type& lv (l->data_);
+        // @@ Could move if (lv == &lv_eval).
+        //
+        const names_type& lv (*plv);
 
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
@@ -1068,31 +1125,29 @@ namespace build
         // separated, then we need to start accumulating.
         //
         if (!concat.empty () ||                       // Continue.
-            ((tt == type::name || tt == type::dollar) // Start.
-             && !peeked ().separated ()))
+            ((tt == type::name   ||                   // Start.
+              tt == type::dollar ||
+              tt == type::lparen) && !peeked ().separated ()))
         {
           // This should be a simple value or a simple directory. The
           // token still points to the name (or closing paren).
           //
           if (lv.size () > 1)
-            fail (t) << "concatenating expansion of " << var.name
-                     << " contains multiple values";
+            fail (loc) << "concatenating " << what << " contains multiple "
+                       << "values";
 
           const name& n (lv[0]);
 
           if (n.qualified ())
-            fail (t) << "concatenating expansion of " << var.name
-                     << " contains project name";
+            fail (loc) << "concatenating " << what << " contains project name";
 
           if (n.typed ())
-            fail (t) << "concatenating expansion of " << var.name
-                     << " contains type";
+            fail (loc) << "concatenating " << what << " contains type";
 
           if (!n.dir.empty ())
           {
             if (!n.value.empty ())
-              fail (t) << "concatenating expansion of " << var.name
-                       << " contains directory";
+              fail (loc) << "concatenating " << what << " contains directory";
 
             concat += n.dir.string ();
           }
@@ -1115,8 +1170,8 @@ namespace build
               if (pp == nullptr)
                 pp1 = n.proj;
               else
-                fail (t) << "nested project name " << *n.proj << " in "
-                         << "variable expansion";
+                fail (loc) << "nested project name " << *n.proj << " in "
+                           << what;
             }
 
             dir_path d1;
@@ -1125,8 +1180,8 @@ namespace build
               if (dp != nullptr)
               {
                 if (n.dir.absolute ())
-                  fail (t) << "nested absolute directory " << n.dir
-                           << " in variable expansion";
+                  fail (loc) << "nested absolute directory " << n.dir
+                             << " in " << what;
 
                 d1 = *dp / n.dir;
                 dp1 = &d1;
@@ -1140,8 +1195,7 @@ namespace build
               if (tp == nullptr)
                 tp1 = &n.type;
               else
-                fail (t) << "nested type name " << n.type << " in variable "
-                         << "expansion";
+                fail (loc) << "nested type name " << n.type << " in " << what;
             }
 
             // If we are a second half of a pair.
@@ -1151,7 +1205,7 @@ namespace build
               // Check that there are no nested pairs.
               //
               if (n.pair != '\0')
-                fail (t) << "nested pair in variable expansion";
+                fail (loc) << "nested pair in " << what;
 
               // And add another first half unless this is the first instance.
               //
@@ -1304,7 +1358,8 @@ namespace build
 
     while (tt != tt_end)
     {
-      // We always start with one or more names.
+      // We always start with one or more names. No eval context
+      // support for the time being.
       //
       if (tt != type::name    &&
           tt != type::lcbrace &&      // Untyped name group: '{foo ...'

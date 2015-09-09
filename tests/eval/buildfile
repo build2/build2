@@ -1,0 +1,13 @@
+(./):
+
+# Invalid.
+#
+#(foo
+#(foo #comment
+
+print ()
+print ((foo)(bar))
+print ((foo)   (bar))
+
+print (foo\
+bar)

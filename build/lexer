@@ -5,6 +5,7 @@
 #ifndef BUILD_LEXER
 #define BUILD_LEXER
 
+#include <stack>
 #include <string>
 #include <iosfwd>
 #include <cstddef> // size_t
@@ -21,16 +22,20 @@ namespace build
 {
   // Context-dependent lexing mode. In the value mode we don't treat
   // certain characters (e.g., +, =) as special so that we can use
-  // them in the variable values, e.g., 'foo = g++'. In contrast,
-  // in the variable mode, we restrict certain character (e.g., /)
-  // from appearing in the name. The pairs mode is just like value
-  // except that we split names separated by the pair character.
-  // The alternnative modes must be set manually. The value and
-  // pairs modes are automatically reset after the end of the line.
-  // The variable mode is automatically reset after the name token.
-  // Quoted is an internal mode and should not be explicitly set.
+  // them in the variable values, e.g., 'foo = g++'. In contrast, in
+  // the variable mode, we restrict certain character (e.g., /) from
+  // appearing in the name. The pairs mode is just like value except
+  // that we split names separated by the pair character. The eval
+  // mode is used in the evaluation context.
   //
-  enum class lexer_mode {normal, quoted, variable, value, pairs};
+  // The alternnative modes must be set manually. The value and pairs
+  // modes are automatically reset after the end of the line. The
+  // variable mode is reset after the name token. And the eval mode
+  // is reset after the closing ')'.
+  //
+  // Quoted is an internal mode and should not be set explicitly.
+  //
+  enum class lexer_mode {normal, variable, value, pairs, eval, quoted};
 
   class lexer: protected butl::char_scanner
   {
@@ -69,14 +74,17 @@ namespace build
 
   private:
     token
+    next_eval ();
+
+    token
     next_quoted ();
 
     token
     name (bool separated);
 
-    // Return true we have seen any spaces. Skipped empty lines don't
-    // count. In other words, we are only interested in spaces that
-    // are on the same line as the following non-space character.
+    // Return true if we have seen any spaces. Skipped empty lines
+    // don't count. In other words, we are only interested in spaces
+    // that are on the same line as the following non-space character.
     //
     bool
     skip_spaces ();
@@ -101,23 +109,7 @@ namespace build
   private:
     fail_mark fail;
 
-    // Currently, the maximum mode nesting is 4: {normal, value, quoted,
-    // variable}.
-    //
-    struct mode_stack
-    {
-      static const size_t max_size = 4;
-
-      void push (lexer_mode m) {assert (n_ != max_size); d_[n_++] = m;}
-      void pop () {assert (n_ != 0); n_--;}
-      lexer_mode top () const {return d_[n_ - 1];}
-
-    private:
-      size_t n_ = 0;
-      lexer_mode d_[max_size];
-    };
-
-    mode_stack mode_;
+    std::stack<lexer_mode> mode_;
     char pair_separator_;
   };
 }

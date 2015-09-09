@@ -19,4 +19,14 @@ print $foo'bar'
 print $foo"$bar"
 print "$foo"bar
 
+# Quoting and evaluation context.
+#
+print ("x{foo bar}")
+#print "(x{foo bar})" # multiple values in concatenating context expansion
+print "({foo})"
+print "('foo bar')"
+print "("foo bar")"
+print "("$foo bar")"
+print "("$foo ($bar)")"
+
 ./:

@@ -1,0 +1,26 @@
+foo = FOO
+
+print $foo
+print $(foo)
+
+# Invalid.
+#
+#print $
+#print $()
+#print $(foo bar)
+#print $(foo{bar})
+
+# Indirect.
+#
+FOO = foo
+print $($FOO)
+print $($(FOO))
+print $($($FOO))
+
+# Quoted name.
+#
+"b a r" = BAR
+print $("b a r")
+#print $"b a r"
+
+./:
