@@ -401,6 +401,14 @@ namespace build
         continue;
       }
 
+      // Allow things like function calls that don't result in anything.
+      //
+      if (tt == type::newline && ns.empty ())
+      {
+        next (t, tt);
+        continue;
+      }
+
       fail (t) << "unexpected " << t;
     }
   }
@@ -1034,7 +1042,7 @@ namespace build
         // pretty quickly end up with a list of names that we need
         // to splice into the result.
         //
-        names_type lv_eval;
+        names_type lv_data;
         const names_type* plv;
 
         location loc;
@@ -1063,58 +1071,82 @@ namespace build
             // Make sure the result of evaluation is a single, simple name.
             //
             if (ns.size () != 1 || !ns.front ().simple ())
-              fail (loc) << "variable name expected instead of '" << ns << "'";
+              fail (loc) << "variable/function name expected instead of '"
+                         << ns << "'";
 
             n = move (ns.front ().value);
           }
           else
-            fail (t) << "variable name expected instead of " << t;
+            fail (t) << "variable/function name expected instead of " << t;
 
           if (n.empty ())
-            fail (loc) << "empty variable name";
+            fail (loc) << "empty variable/function name";
 
-          // Process variable name.
+          // Figure out whether this is a variable expansion of a function
+          // call.
           //
-          if (n.front () == '.') // Fully qualified name.
-            n.erase (0, 1);
-          else
-          {
-            //@@ TODO: append namespace if any.
-          }
-
-          // Lookup.
-          //
-          const auto& var (variable_pool.find (move (n)));
-          auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
-
-          // Undefined/NULL namespace variables are not allowed.
-          //
-          if (!l && var.name.find ('.') != string::npos)
-            fail (loc) << "undefined/null namespace variable " << var.name;
-
           tt = peek ();
 
-          if (!l || l->empty ())
-            continue;
+          if (tt == type::lparen)
+          {
+            next (t, tt); // Get '('.
+            names_type ns (eval (t, tt));
 
-          plv = &l->data_;
-          what = "variable expansion";
+            // Just a stub for now.
+            //
+            cout << n << "(" << ns << ")" << endl;
+
+            tt = peek ();
+
+            if (lv_data.empty ())
+              continue;
+
+            plv = &lv_data;
+            what = "function call";
+          }
+          else
+          {
+            // Process variable name.
+            //
+            if (n.front () == '.') // Fully qualified name.
+              n.erase (0, 1);
+            else
+            {
+              //@@ TODO: append namespace if any.
+            }
+
+            // Lookup.
+            //
+            const auto& var (variable_pool.find (move (n)));
+            auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
+
+            // Undefined/NULL namespace variables are not allowed.
+            //
+            if (!l && var.name.find ('.') != string::npos)
+              fail (loc) << "undefined/null namespace variable " << var.name;
+
+            if (!l || l->empty ())
+              continue;
+
+            plv = &l->data_;
+            what = "variable expansion";
+          }
         }
         else
         {
           loc = get_location (t, &path_);
-          lv_eval = eval (t, tt);
+          lv_data = eval (t, tt);
 
           tt = peek ();
 
-          if (lv_eval.empty ())
+          if (lv_data.empty ())
             continue;
 
-          plv = &lv_eval;
+          plv = &lv_data;
           what = "context evaluation";
         }
 
-        // @@ Could move if (lv == &lv_eval).
+        // @@ Could move if (lv == &lv_data).
         //
         const names_type& lv (*plv);
 

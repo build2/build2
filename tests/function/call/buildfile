@@ -1,0 +1,15 @@
+$identity()
+$identity (a)
+$identity  (a b c)
+$identity(sub/dir{x y z})
+
+# Verify we can inhibit function call with quoting.
+#
+foo = FOO
+bar = BAR
+
+print $foo"($bar)"
+print "$foo"($bar)
+print "$foo""($bar)"
+
+./:
