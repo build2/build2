@@ -40,8 +40,13 @@ namespace build
   class lexer: protected butl::char_scanner
   {
   public:
-    lexer (std::istream& is, const std::string& name)
-        : char_scanner (is), fail (name) {mode_.push (lexer_mode::normal);}
+    lexer (std::istream& is,
+           const std::string& name,
+           void (*processor) (token&, const lexer&) = nullptr)
+        : char_scanner (is), fail (name), processor_ (processor)
+    {
+      mode_.push (lexer_mode::normal);
+    }
 
     const std::string&
     name () const {return fail.name_;}
@@ -73,6 +78,9 @@ namespace build
     next ();
 
   private:
+    token
+    next_impl ();
+
     token
     next_eval ();
 
@@ -108,6 +116,8 @@ namespace build
 
   private:
     fail_mark fail;
+
+    void (*processor_) (token&, const lexer&);
 
     std::stack<lexer_mode> mode_;
     char pair_separator_;

@@ -11,6 +11,15 @@ namespace build
   token lexer::
   next ()
   {
+    token t (next_impl ());
+    if (processor_ != nullptr)
+      processor_ (t, *this);
+    return t;
+  }
+
+  token lexer::
+  next_impl ()
+  {
     lexer_mode m (mode_.top ());
 
     // For some modes we have dedicated imlementations of next().
