@@ -55,7 +55,7 @@ main ()
   assert (lex ("\\\nfoo") == tokens ({"foo", ""}));
   assert (lex (" \\ foo") == tokens ({" foo", ""}));
   assert (lex ("fo\\ o\\:") == tokens ({"fo o:", ""}));
-  assert (lex ("foo\\\nbar") == tokens ({"foo\nbar", ""}));
+  assert (lex ("foo\\\nbar") == tokens ({"foobar", ""}));
   assert (lex ("foo \\\nbar") == tokens ({"foo", "bar", ""}));
   assert (lex ("\\'foo") == tokens ({"'foo", ""}));
 
@@ -133,7 +133,7 @@ lex (const char* s)
     {
       string v;
 
-      switch (t.type ())
+      switch (t.type)
       {
       case token_type::eos:            v = ""; break;
       case token_type::newline:        v = "\n"; break;
@@ -146,14 +146,14 @@ lex (const char* s)
       case token_type::dollar:         v = "$"; break;
       case token_type::lparen:         v = "("; break;
       case token_type::rparen:         v = ")"; break;
-      case token_type::name:           v = t.name ().c_str (); break;
+      case token_type::name:           v = t.value.c_str (); break;
       }
 
       // cerr << t.line () << ':' << t.column () << ':' << v << endl;
 
       r.push_back (move (v));
 
-      if (t.type () == token_type::eos)
+      if (t.type == token_type::eos)
         break;
     }
   }
