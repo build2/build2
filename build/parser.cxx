@@ -1356,12 +1356,38 @@ namespace build
   // Buildspec parsing.
   //
 
+  // Here is the problem: we "overload" '(' and ')' to mean operation
+  // application rather than the eval context. At the same time we want
+  // to use names() to parse names, get variable expansion/function calls,
+  // quoting, etc. We just need to disable the eval context. The way this
+  // is done has two parts: Firstly, we parse names in chunks and detect
+  // and handle the opening paren. In other words, a buildspec like
+  // 'clean (./)' is "chunked" as 'clean', '(', etc. While this is fairly
+  // straightforward, there is one snag: concatenating eval contexts, as
+  // in 'clean(./)'. Normally, this will be treated as a single chunk and
+  // we don't want that. So here comes the trick (or hack, if you like):
+  // we will make every opening paren token "separated" (i.e., as if it
+  // was proceeded by a space). This will disable concatenating eval. In
+  // fact, we will even go a step further and only do this if we are in
+  // the original pairs mode. This will allow us to still use eval
+  // contexts in buildspec, provided that we quote it: '"cle(an)"'. Note
+  // also that function calls still work as usual: '$filter (clean test)'.
+  // To disable a function call and make it instead a var that is expanded
+  // into operation name(s), we can use quoting: '"$ops"(./)'.
+  //
+  static void
+  paren_processor (token& t, const lexer& l)
+  {
+    if (t.type == type::lparen && l.mode () == lexer_mode::pairs)
+      t.separated = true;
+  }
+
   buildspec parser::
   parse_buildspec (istream& is, const std::string& name)
   {
     path_ = &name;
 
-    lexer l (is, name);
+    lexer l (is, name, &paren_processor);
     lexer_ = &l;
     target_ = nullptr;
     scope_ = root_ = global_scope;
@@ -1405,42 +1431,115 @@ namespace build
 
     while (tt != tt_end)
     {
-      // We always start with one or more names. No eval context
-      // support for the time being.
+      // We always start with one or more names. Eval context
+      // (lparen) only allowed if quoted.
       //
       if (tt != type::name    &&
           tt != type::lcbrace &&      // Untyped name group: '{foo ...'
           tt != type::dollar  &&      // Variable expansion: '$foo ...'
-          tt != type::pair_separator) // Empty pair LHS: '=foo ...'
+          !(tt == type::lparen && lexer_->mode () == lexer_mode::quoted) &&
+          tt != type::pair_separator) // Empty pair LHS: '@foo ...'
         fail (t) << "operation or target expected instead of " << t;
 
       const location l (get_location (t, &path_)); // Start of names.
 
-      // This call will produce zero or more names and should stop
-      // at either tt_end or '('.
+      // This call will parse the next chunk of output and produce
+      // zero or more names.
       //
-      names_type ns (names (t, tt));
-      size_t targets (ns.size ());
+      names_type ns (names (t, tt, true));
 
-      if (tt == type::lparen)
+      // What these names mean depends on what's next. If it is an
+      // opening paren, then they are operation/meta-operation names.
+      // Otherwise they are targets.
+      //
+      if (tt == type::lparen) // Peeked into by names().
       {
-        if (targets == 0 || !opname (ns.back ()))
-          fail (t) << "operation name expected before (";
+        if (ns.empty ())
+          fail (t) << "operation name expected before '('";
 
-        targets--; // Last one is an operation name.
+        for (const name& n: ns)
+          if (!opname (n))
+            fail (l) << "operation name expected instead of '" << n << "'";
+
+        // Inside '(' and ')' we have another, nested, buildspec.
+        //
+        next (t, tt);
+        const location l (get_location (t, &path_)); // Start of nested names.
+        buildspec nbs (buildspec_clause (t, tt, type::rparen));
+
+        // Merge the nested buildspec into ours. But first determine
+        // if we are an operation or meta-operation and do some sanity
+        // checks.
+        //
+        bool meta (false);
+        for (const metaopspec& nms: nbs)
+        {
+          // We definitely shouldn't have any meta-operations.
+          //
+          if (!nms.name.empty ())
+            fail (l) << "nested meta-operation " << nms.name;
+
+          if (!meta)
+          {
+            // If we have any operations in the nested spec, then this
+            // mean that our names are meta-operation names.
+            //
+            for (const opspec& nos: nms)
+            {
+              if (!nos.name.empty ())
+              {
+                meta = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // No nested meta-operations means we should have a single
+        // metaopspec object with empty meta-operation name.
+        //
+        assert (nbs.size () == 1);
+        const metaopspec& nmo (nbs.back ());
+
+        if (meta)
+        {
+          for (name& n: ns)
+          {
+            bs.push_back (nmo);
+            bs.back ().name = move (n.value);
+          }
+        }
+        else
+        {
+          // Since we are not a meta-operation, the nested buildspec
+          // should be just a bunch of targets.
+          //
+          assert (nmo.size () == 1);
+          const opspec& nos (nmo.back ());
+
+          if (bs.empty () || !bs.back ().name.empty ())
+            bs.push_back (metaopspec ()); // Empty (default) meta operation.
+
+          for (name& n: ns)
+          {
+            bs.back ().push_back (nos);
+            bs.back ().back ().name = move (n.value);
+          }
+        }
+
+        next (t, tt); // Done with '('.
       }
-
-      // Group all the targets into a single operation. In other
-      // words, 'foo bar' is equivalent to 'build(foo bar)'.
-      //
-      if (targets != 0)
+      else if (!ns.empty ())
       {
+        // Group all the targets into a single operation. In other
+        // words, 'foo bar' is equivalent to 'update(foo bar)'.
+        //
         if (bs.empty () || !bs.back ().name.empty ())
           bs.push_back (metaopspec ()); // Empty (default) meta operation.
 
         metaopspec& ms (bs.back ());
 
-        for (auto i (ns.begin ()), e (i + targets); i != e; ++i)
+        for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
         {
           // @@ We may actually want to support this at some point.
           //
@@ -1465,7 +1564,7 @@ namespace build
                 src_base /= dir_path (move (i->value));
 
               ++i;
-              assert (i != e);
+              assert (i != e); // Got to have the second half of the pair.
             }
 
             if (ms.empty () || !ms.back ().name.empty ())
@@ -1475,68 +1574,6 @@ namespace build
             os.emplace_back (move (src_base), move (*i));
           }
         }
-      }
-
-      // Handle the operation.
-      //
-      if (tt == type::lparen)
-      {
-        // Inside '(' and ')' we have another buildspec.
-        //
-        next (t, tt);
-        const location l (get_location (t, &path_)); // Start of nested names.
-        buildspec nbs (buildspec_clause (t, tt, type::rparen));
-
-        // Merge the nested buildspec into ours. But first determine
-        // if we are an operation or meta-operation and do some sanity
-        // checks.
-        //
-        bool meta (false);
-        for (const metaopspec& nms: nbs)
-        {
-          if (!nms.name.empty ())
-            fail (l) << "nested meta-operation " << nms.name;
-
-          if (!meta)
-          {
-            for (const opspec& nos: nms)
-            {
-              if (!nos.name.empty ())
-              {
-                meta = true;
-                break;
-              }
-            }
-          }
-        }
-
-        // No nested meta-operations means we should have a single
-        // metaopspec object with empty meta-operation name.
-        //
-        assert (nbs.size () == 1);
-        metaopspec& nmo (nbs.back ());
-
-        if (meta)
-        {
-          nmo.name = move (ns.back ().value);
-          bs.push_back (move (nmo));
-        }
-        else
-        {
-          // Since we are not a meta-operation, the nested buildspec
-          // should be just a bunch of targets.
-          //
-          assert (nmo.size () == 1);
-          opspec& nos (nmo.back ());
-
-          if (bs.empty () || !bs.back ().name.empty ())
-            bs.push_back (metaopspec ()); // Empty (default) meta operation.
-
-          nos.name = move (ns.back ().value);
-          bs.back ().push_back (move (nos));
-        }
-
-        next (t, tt); // Done with ')'.
       }
     }
 
