@@ -871,12 +871,12 @@ namespace build
         // current or next token is a pair separator, since we want the
         // "x = y" pair to be parsed as a single chunk.
         //
-        if (chunk &&
-            peeked ().separated &&
-            (tt != type::pair_separator && t.type != type::pair_separator))
-          break;
+        bool p (t.type == type::pair_separator); // Current token.
 
         next (t, tt);
+
+        if (chunk && t.separated && (tt != type::pair_separator && !p))
+          break;
       }
 
       // Name.
