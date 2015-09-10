@@ -825,6 +825,7 @@ namespace build
   names (token& t,
          type& tt,
          names_type& ns,
+         bool chunk,
          size_t pair,
          const std::string* pp,
          const dir_path* dp,
@@ -837,7 +838,7 @@ namespace build
 
     // Buffer that is used to collect the complete name in case of
     // an unseparated variable expansion or eval context, e.g.,
-    // 'foo$bar$(baz)fox'. The idea is to concatenate all the
+    // 'foo$bar($baz)fox'. The idea is to concatenate all the
     // individual parts in this buffer and then re-inject it into
     // the loop as a single token.
     //
@@ -865,7 +866,18 @@ namespace build
         concat.clear ();
       }
       else if (!first)
+      {
+        // If we are chunking, stop at the next separated token. Unless
+        // current or next token is a pair separator, since we want the
+        // "x = y" pair to be parsed as a single chunk.
+        //
+        if (chunk &&
+            peeked ().separated &&
+            (tt != type::pair_separator && t.type != type::pair_separator))
+          break;
+
         next (t, tt);
+      }
 
       // Name.
       //
@@ -969,6 +981,7 @@ namespace build
           count = ns.size ();
           names (t, tt,
                  ns,
+                 false,
                  (pair != 0
                   ? pair
                   : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
@@ -1266,6 +1279,7 @@ namespace build
         count = ns.size ();
         names (t, tt,
                ns,
+               false,
                (pair != 0
                 ? pair
                 : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
@@ -1279,7 +1293,7 @@ namespace build
         continue;
       }
 
-      // A pair separator (only in the pair mode).
+      // A pair separator (only in the pairs mode).
       //
       if (tt == type::pair_separator)
       {
@@ -1308,8 +1322,6 @@ namespace build
       if (!first)
         break;
 
-      // Our caller expected this to be a name.
-      //
       if (tt == type::rcbrace) // Empty name, e.g., dir{}.
       {
         // If we are a second half of a pair, add another first half
@@ -1325,6 +1337,8 @@ namespace build
         break;
       }
       else
+        // Our caller expected this to be a name.
+        //
         fail (t) << "expected name instead of " << t;
     }
 

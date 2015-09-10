@@ -2,6 +2,8 @@ identity()
 identity(a)
 identity(a b c)
 identity(sub/dir{x} sub/dir{y} sub/dir{z})
+identity(b)
+ac
 FOOBAR
 FOOBAR
 FOOBAR

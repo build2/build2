@@ -9,7 +9,8 @@
 #include <build/types>
 #include <build/scope>
 #include <build/target>
-#include <build/native>
+#include <build/context>
+#include <build/variable>
 
 #include <build/lexer>
 #include <build/parser>
@@ -20,16 +21,64 @@ using namespace build;
 static bool
 parse (const char*);
 
+static names
+parse_names (const char* s, lexer_mode m, bool chunk);
+
+static names
+chunk_names (const char* s)
+{
+  return parse_names (s, lexer_mode::pairs, true);
+}
+
 int
 main ()
 {
   ostream cnull (nullptr);
   diag_stream = &cnull;
 
-  target_types.insert (file::static_type);
-  target_types.insert (exe::static_type);
-  target_types.insert (obj::static_type);
+  reset ();
 
+  global_scope->assign ("foo") = "FOO";
+  global_scope->assign ("bar") = "BAR";
+
+  // names() in chunking mode.
+  //
+  assert (chunk_names ("{}") == names ({name ()}));
+  assert (chunk_names ("foo") == names ({name ("foo")}));
+  assert (chunk_names ("foo bar") == names ({name ("foo")}));
+  assert (chunk_names ("{foo bar}") == names ({name ("foo"), name ("bar")}));
+  assert (chunk_names ("dir{foo bar}") == names ({name ("dir", "foo"),
+                                                  name ("dir", "bar")}));
+  assert (chunk_names ("dir{foo bar} baz") == names ({name ("dir", "foo"),
+                                                      name ("dir", "bar")}));
+  assert (chunk_names ("dir {foo bar}") == names ({name ("dir", "foo"),
+                                                   name ("dir", "bar")}));
+  assert (chunk_names ("dir {foo bar} baz") == names ({name ("dir", "foo"),
+                                                       name ("dir", "bar")}));
+  assert (chunk_names ("{} foo") == names ({name ()}));
+
+  // Expansion.
+  //
+  assert (chunk_names ("$foo $bar baz") == names ({name ("FOO")}));
+  assert (chunk_names ("$foo$bar baz") == names ({name ("FOOBAR")}));
+
+  assert (chunk_names ("foo(bar)") == names ({name ("foobar")}));
+  assert (chunk_names ("foo (bar)") == names ({name ("foo")}));
+
+  assert (chunk_names ("\"$foo\"(bar)") == names ({name ("FOObar")}));
+  assert (chunk_names ("\"$foo\" (bar)") == names ({name ("FOO")}));
+
+  // Quoting.
+  //
+  assert (chunk_names ("\"$foo $bar\" baz") == names ({name ("FOO BAR")}));
+
+  // Pairs.
+  //
+  assert (chunk_names ("foo=bar") == names ({name ("foo"), name ("bar")}));
+  assert (chunk_names ("foo = bar x") == names ({name ("foo"), name ("bar")}));
+
+  // General.
+  //
   assert (parse (""));
   assert (parse ("foo:"));
   assert (parse ("foo bar:"));
@@ -43,25 +92,25 @@ main ()
   assert (parse ("{{foo bar}}:"));
   assert (parse ("{{foo bar} {baz} {biz fox} fix}:"));
 
-  assert (parse ("exe{foo}:"));
-  assert (parse ("exe{foo bar}:"));
-  assert (parse ("{exe{foo bar}}:"));
-  assert (parse ("exe{{foo bar} fox}:"));
-  assert (parse ("exe{foo}: obj{bar baz} biz.o file{fox}"));
+  assert (parse ("file{foo}:"));
+  assert (parse ("file{foo bar}:"));
+  assert (parse ("{file{foo bar}}:"));
+  assert (parse ("file{{foo bar} fox}:"));
+  assert (parse ("file{foo}: file{bar baz} biz.o file{fox}"));
 
-  assert (!parse (":"));
+  //assert (!parse (":"));
   assert (!parse ("foo"));
   assert (!parse ("{"));
   assert (!parse ("{foo:"));
   assert (!parse ("{foo{:"));
   assert (!parse ("foo: bar:"));
-  assert (!parse ("exe{foo:"));
+  assert (!parse ("file{foo:"));
 
   // Directory prefix.
   //
   assert (parse ("../{foo}: ../{bar}"));
-  assert (parse ("../exe{foo}: ../obj{bar}"));
-  assert (!parse ("../exe{exe{foo}}:"));
+  assert (parse ("../file{foo}: ../file{bar}"));
+  assert (!parse ("../file{file{foo}}:"));
 
   // Directory scope.
   //
@@ -81,9 +130,23 @@ main ()
   assert (!parse ("test/ foo/:\n{\n}"));
 }
 
+struct test_parser: parser
+{
+  names_type
+  test_names (const char*, lexer_mode, bool chunk);
+};
+
 static bool
 parse (const char* s)
 {
+  reset (); // Clear the state.
+
+  // Create a minimal root scope.
+  //
+  auto i (scopes.insert (path::current (), nullptr, true, true));
+  scope& root (*i->second);
+  root.src_path_ = root.out_path_ = &i->first;
+
   istringstream is (s);
 
   is.exceptions (istream::failbit | istream::badbit);
@@ -91,7 +154,7 @@ parse (const char* s)
 
   try
   {
-    p.parse (is, path (), scopes[path::current ()]);
+    p.parse_buildfile (is, path (), root, root);
   }
   catch (const failed&)
   {
@@ -99,4 +162,34 @@ parse (const char* s)
   }
 
   return true;
+}
+
+// parser::names()
+//
+names test_parser::
+test_names (const char* s, lexer_mode m, bool chunk)
+{
+  istringstream is (s);
+  is.exceptions (istream::failbit | istream::badbit);
+  lexer l (is, "");
+
+  if (m != lexer_mode::normal)
+    l.mode (m, '=');
+
+  path_ = &l.name ();
+  lexer_ = &l;
+  target_ = nullptr;
+  scope_ = root_ = global_scope;
+
+  token t (token_type::eos, false, 0, 0);
+  token_type tt;
+  next (t, tt);
+  return names (t, tt, chunk);
+}
+
+static names
+parse_names (const char* s, lexer_mode m, bool chunk)
+{
+  test_parser p;
+  return p.test_names (s, m, chunk);
 }

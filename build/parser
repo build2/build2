@@ -48,7 +48,7 @@ namespace build
 
     // Recursive descent parser.
     //
-  private:
+  protected:
     void
     clause (token&, token_type&);
 
@@ -79,17 +79,22 @@ namespace build
     names_type
     eval (token&, token_type&);
 
+    // If chunk is true, then parse the smallest but complete, name-wise,
+    // chunk of input. Note that in this case you may still end up with
+    // multiple names, for example, {foo bar}.
+    //
     names_type
-    names (token& t, token_type& tt)
+    names (token& t, token_type& tt, bool chunk = false)
     {
       names_type ns;
-      names (t, tt, ns, 0, nullptr, nullptr, nullptr);
+      names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
       return ns;
     }
 
     void
     names (token&, token_type&,
            names_type&,
+           bool chunk,
            std::size_t pair,
            const std::string* prj,
            const dir_path* dir,
@@ -102,7 +107,7 @@ namespace build
 
     // Utilities.
     //
-  private:
+  protected:
 
     // Switch to a new current scope. Note that this function might
     // also have to switch to a new root scope if the new current
@@ -122,7 +127,7 @@ namespace build
 
     // Lexer.
     //
-  private:
+  protected:
     token_type
     next (token&, token_type&);
 
@@ -138,10 +143,10 @@ namespace build
 
     // Diagnostics.
     //
-  private:
+  protected:
     const fail_mark<failed> fail;
 
-  private:
+  protected:
     const std::string* path_; // Path processed by diag_relative().
     lexer* lexer_;
     target* target_; // Current target, if any.

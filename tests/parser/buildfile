@@ -2,5 +2,8 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-exe{driver}: cxx{driver ../../../build/{lexer parser scope target native \
-  prerequisite context diagnostics utility path timestamp}}
+import libs = libbutl%lib{butl}
+
+exe{driver}: cxx{driver ../../build/{token lexer parser scope target \
+ prerequisite variable operation rule search algorithm file module dump \
+ context diagnostics name path-io utility}} $libs
