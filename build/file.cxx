@@ -743,13 +743,22 @@ namespace build
     // Figure out this project's out_root.
     //
     dir_path out_root;
-    dir_path fallback_src_root; // We have seen this already, havent' we ?
+    dir_path fallback_src_root; // We have seen this already, haven't we..?
 
     // First search subprojects, starting with our root and then trying
     // outer roots for as long as we are inside an amalgamation.
     //
     for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
     {
+      // First check the amalgamation itself.
+      //
+      if (r != &iroot && as<string> (*r->vars["project"]) == project)
+      {
+        out_root = r->out_path ();
+        fallback_src_root = r->src_path ();
+        break;
+      }
+
       if (auto l = r->vars["subprojects"])
       {
         const auto& m (as<subprojects> (*l));
