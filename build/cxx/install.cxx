@@ -40,7 +40,7 @@ namespace build
       //
       match_result r (link::instance.match (a, t, hint));
 
-      return r ? install::rule::match (a, t, "") : r;
+      return r ? install::file_rule::match (a, t, "") : r;
     }
 
     install install::instance;

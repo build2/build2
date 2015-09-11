@@ -14,7 +14,17 @@ namespace build
 {
   namespace install
   {
-    class rule: public build::rule
+    class alias_rule: public rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string&) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+    };
+
+    class file_rule: public rule
     {
     public:
       virtual bool

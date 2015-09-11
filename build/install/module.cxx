@@ -89,7 +89,8 @@ namespace build
       set_var<strings> (s, r, name, ".options", nullptr);
     }
 
-    static rule rule_;
+    static alias_rule alias_rule_;
+    static file_rule file_rule_;
 
     extern "C" void
     install_init (scope& r,
@@ -116,9 +117,10 @@ namespace build
       //
       r.operations.insert (install_id, install);
 
-      // Register our file installer rule.
+      // Register our alias and file installer rule.
       //
-      b.rules.insert<file> (perform_id, install_id, "install", rule_);
+      b.rules.insert<alias> (perform_id, install_id, "install", alias_rule_);
+      b.rules.insert<file> (perform_id, install_id, "install", file_rule_);
 
       // Enter module variables.
       //

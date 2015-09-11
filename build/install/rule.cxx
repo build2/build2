@@ -38,7 +38,52 @@ namespace build
       return r.simple () && r.string () == "false" ? nullptr : &r;
     }
 
-    match_result rule::
+    // alias_rule
+    //
+    match_result alias_rule::
+    match (action, target& t, const std::string&) const
+    {
+      return t;
+    }
+
+    recipe alias_rule::
+    apply (action a, target& t, const match_result&) const
+    {
+      tracer trace ("install::alias_rule::apply");
+
+      for (prerequisite p: group_prerequisites (t))
+      {
+        target& pt (search (p));
+
+        // Check if this prerequisite is explicitly "not installable",
+        // that is, there is the 'install' variable and its value is
+        // false.
+        //
+        // At first, this might seem redundand since we could have let
+        // the file_rule below take care of it. The nuance is this: this
+        // prerequsite can be in a different subproject that hasn't loaded
+        // the install module (and therefore has no file_rule registered).
+        // The typical example would be the 'tests' subproject.
+        //
+        auto l (pt["install"]);
+
+        if (l && as<dir_path> (*l).string () == "false")
+        {
+          level5 ([&]{trace << "ignoring " << pt;});
+          continue;
+        }
+
+        build::match (a, pt);
+        t.prerequisite_targets.push_back (&pt);
+      }
+
+      return default_recipe;
+    }
+
+    // file_rule
+    //
+
+    match_result file_rule::
     match (action a, target& t, const std::string&) const
     {
       // First determine if this target should be installed (called
@@ -55,7 +100,7 @@ namespace build
       return mr;
     }
 
-    recipe rule::
+    recipe file_rule::
     apply (action a, target& t, const match_result& mr) const
     {
       if (!mr.bvalue) // Not installable.
@@ -304,7 +349,7 @@ namespace build
       return r;
     }
 
-    target_state rule::
+    target_state file_rule::
     perform_install (action a, target& t)
     {
       file& ft (static_cast<file&> (t));

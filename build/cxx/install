@@ -12,7 +12,7 @@ namespace build
 {
   namespace cxx
   {
-    class install: public build::install::rule
+    class install: public build::install::file_rule
     {
     public:
       virtual bool
