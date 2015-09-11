@@ -53,7 +53,7 @@ namespace build
       os << n;
 
       if (n.pair != '\0')
-        os <<  n.pair;
+        os << n.pair;
       else if (i != e)
         os << ' ';
     }

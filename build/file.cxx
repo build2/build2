@@ -338,7 +338,7 @@ namespace build
       name = move (as<string> (v));
     }
 
-    level5 ([&]{trace << "extracted project name " << name << " for "
+    level5 ([&]{trace << "extracted project name '" << name << "' for "
                       << *src_root;});
     return name;
   }
@@ -378,6 +378,15 @@ namespace build
       // since this function is used to scan both out_root and src_root.
       //
       string name (find_project_name (sd, dir_path (), &src));
+
+      // If the name is empty, then is is an unnamed project. While the
+      // 'project' variable stays empty, here we come up with a surrogate
+      // name for a key. The idea is that such a key should never conflict
+      // with a real project name. We ensure this by using the project's
+      // sub-directory and appending trailing '/' to it.
+      //
+      if (name.empty ())
+        name = dir.posix_string () + '/';
 
       // @@ Can't use move() because we may need the values in diagnostics
       // below. Looks like C++17 try_emplace() is what we need.
@@ -571,9 +580,14 @@ namespace build
               // was specified by the user so it is most likely in our
               // src.
               //
-              i = v.data_.emplace (
-                i,
-                find_project_name (out_root / d, src_root / d));
+              string n (find_project_name (out_root / d, src_root / d));
+
+              // See find_subprojects() for details on unnamed projects.
+              //
+              if (n.empty ())
+                n = d.posix_string () + '/';
+
+              i = v.data_.emplace (i, move (n));
 
               i->pair = '=';
               ++i;
