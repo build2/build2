@@ -523,6 +523,8 @@ namespace build
           p /= path ("buildfile");
       }
 
+      level6 ([&]{trace (l) << "relative path " << p;});
+
       // Determine new out_base.
       //
       dir_path out_base;
@@ -562,6 +564,8 @@ namespace build
       //
       if (p.relative ())
         p = scope_->src_path () / p.leaf ();
+
+      level6 ([&]{trace (l) << "absolute path " << p;});
 
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
@@ -1263,6 +1267,8 @@ namespace build
                              (dp1 != nullptr ? *dp1 : dir_path ()),
                              (tp1 != nullptr ? *tp1 : string ()),
                              n.value);
+
+            ns.back ().pair = n.pair;
           }
 
           count = lv.size ();
