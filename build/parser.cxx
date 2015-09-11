@@ -446,37 +446,44 @@ namespace build
 
       p.normalize ();
 
-      ifstream ifs (p.string ());
+      try
+      {
+        ifstream ifs (p.string ());
 
-      if (!ifs.is_open ())
-        fail (l) << "unable to open " << p;
+        if (!ifs.is_open ())
+          fail (l) << "unable to open " << p;
 
-      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+        ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level5 ([&]{trace (t) << "entering " << p;});
+        level5 ([&]{trace (t) << "entering " << p;});
 
-      enter_buildfile (p);
+        enter_buildfile (p);
 
-      string rw (diag_relative (p)); // Relative to work.
-      const string* op (path_);
-      path_ = &rw;
+        string rw (diag_relative (p)); // Relative to work.
+        const string* op (path_);
+        path_ = &rw;
 
-      lexer l (ifs, rw);
-      lexer* ol (lexer_);
-      lexer_ = &l;
+        lexer l (ifs, rw);
+        lexer* ol (lexer_);
+        lexer_ = &l;
 
-      token t (type::eos, false, 0, 0);
-      type tt;
-      next (t, tt);
-      clause (t, tt);
+        token t (type::eos, false, 0, 0);
+        type tt;
+        next (t, tt);
+        clause (t, tt);
 
-      if (tt != type::eos)
-        fail (t) << "unexpected " << t;
+        if (tt != type::eos)
+          fail (t) << "unexpected " << t;
 
-      level5 ([&]{trace (t) << "leaving " << p;});
+        level5 ([&]{trace (t) << "leaving " << p;});
 
-      lexer_ = ol;
-      path_ = op;
+        lexer_ = ol;
+        path_ = op;
+      }
+      catch (const ifstream::failure&)
+      {
+        fail (l) << "unable to read buildfile " << p;
+      }
     }
 
     if (tt == type::newline)
@@ -575,43 +582,50 @@ namespace build
         continue;
       }
 
-      ifstream ifs (p.string ());
+      try
+      {
+        ifstream ifs (p.string ());
 
-      if (!ifs.is_open ())
-        fail (l) << "unable to open " << p;
+        if (!ifs.is_open ())
+          fail (l) << "unable to open " << p;
 
-      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+        ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level5 ([&]{trace (t) << "entering " << p;});
+        level5 ([&]{trace (t) << "entering " << p;});
 
-      enter_buildfile (p);
+        enter_buildfile (p);
 
-      string rw (diag_relative (p)); // Relative to work.
-      const string* op (path_);
-      path_ = &rw;
+        string rw (diag_relative (p)); // Relative to work.
+        const string* op (path_);
+        path_ = &rw;
 
-      lexer l (ifs, rw);
-      lexer* ol (lexer_);
-      lexer_ = &l;
+        lexer l (ifs, rw);
+        lexer* ol (lexer_);
+        lexer_ = &l;
 
-      target* odt (default_target_);
-      default_target_ = nullptr;
+        target* odt (default_target_);
+        default_target_ = nullptr;
 
-      token t (type::eos, false, 0, 0);
-      type tt;
-      next (t, tt);
-      clause (t, tt);
+        token t (type::eos, false, 0, 0);
+        type tt;
+        next (t, tt);
+        clause (t, tt);
 
-      if (tt != type::eos)
-        fail (t) << "unexpected " << t;
+        if (tt != type::eos)
+          fail (t) << "unexpected " << t;
 
-      process_default_target (t);
+        process_default_target (t);
 
-      level5 ([&]{trace (t) << "leaving " << p;});
+        level5 ([&]{trace (t) << "leaving " << p;});
 
-      default_target_ = odt;
-      lexer_ = ol;
-      path_ = op;
+        default_target_ = odt;
+        lexer_ = ol;
+        path_ = op;
+      }
+      catch (const ifstream::failure&)
+      {
+        fail (l) << "unable to read buildfile " << p;
+      }
 
       scope_ = ocs;
       root_ = ors;

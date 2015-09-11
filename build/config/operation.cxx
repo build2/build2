@@ -57,9 +57,9 @@ namespace build
             << "#" << endl
             << "src_root = " << src_root << endl;
       }
-      catch (const ios_base::failure&)
+      catch (const ofstream::failure&)
       {
-        fail << "failed to write to " << f;
+        fail << "unable to write " << f;
       }
     }
 
@@ -125,9 +125,9 @@ namespace build
           }
         }
       }
-      catch (const ios_base::failure&)
+      catch (const ofstream::failure&)
       {
-        fail << "failed to write to " << f;
+        fail << "unable to write " << f;
       }
     }
 

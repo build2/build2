@@ -79,22 +79,22 @@ namespace build
   {
     tracer trace ("source");
 
-    ifstream ifs (bf.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << bf;
-
-    level5 ([&]{trace << "sourcing " << bf;});
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
-
     try
     {
+      ifstream ifs (bf.string ());
+      if (!ifs.is_open ())
+        fail << "unable to open " << bf;
+
+      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
+      level5 ([&]{trace << "sourcing " << bf;});
+
+      parser p;
       p.parse_buildfile (ifs, bf, root, base);
     }
-    catch (const std::ios_base::failure&)
+    catch (const ifstream::failure&)
     {
-      fail << "failed to read from " << bf;
+      fail << "unable to read buildfile " << bf;
     }
   }
 
@@ -260,14 +260,14 @@ namespace build
   static value
   extract_variable (const path& bf, const char* var)
   {
-    ifstream ifs (bf.string ());
-    if (!ifs.is_open ())
-      fail << "unable to open " << bf;
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-
     try
     {
+      ifstream ifs (bf.string ());
+      if (!ifs.is_open ())
+        fail << "unable to open " << bf;
+
+      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
       path rbf (diag_relative (bf));
 
       lexer lex (ifs, rbf.string ());
@@ -291,9 +291,9 @@ namespace build
       value& v (*l);
       return move (v); // Steal the value, the scope is going away.
     }
-    catch (const std::ios_base::failure&)
+    catch (const ifstream::failure&)
     {
-      fail << "failed to read from " << bf;
+      fail << "unable to read buildfile " << bf;
     }
 
     return value (); // Never reaches.
@@ -882,26 +882,27 @@ namespace build
     // point.
     //
     path es (root.src_path () / path ("build/export.build"));
-    ifstream ifs (es.string ());
-    if (!ifs.is_open ())
-      fail (loc) << "unable to open " << es;
-
-    level5 ([&]{trace << "importing " << es;});
-
-    ifs.exceptions (ifstream::failbit | ifstream::badbit);
-    parser p;
 
     try
     {
+      ifstream ifs (es.string ());
+      if (!ifs.is_open ())
+        fail (loc) << "unable to open " << es;
+
+      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+
+      level5 ([&]{trace << "importing " << es;});
+
       // @@ Should we verify these are all unqualified names? Or maybe
       // there is a use-case for the export stub to return a qualified
       // name?
       //
+      parser p;
       return p.parse_export_stub (ifs, es, iroot, ts);
     }
-    catch (const std::ios_base::failure&)
+    catch (const ifstream::failure&)
     {
-      fail (loc) << "failed to read from " << es;
+      fail (loc) << "unable to read buildfile " << es;
     }
 
     return names (); // Never reached.

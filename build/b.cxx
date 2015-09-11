@@ -186,17 +186,17 @@ main (int argc, char* argv[])
           s += ' ';
       }
 
-      istringstream is (s);
-      is.exceptions (istringstream::failbit | istringstream::badbit);
-      parser p;
-
       try
       {
+        istringstream is (s);
+        is.exceptions (istringstream::failbit | istringstream::badbit);
+
+        parser p;
         bspec = p.parse_buildspec (is, "<buildspec>");
       }
-      catch (const std::ios_base::failure&)
+      catch (const istringstream::failure&)
       {
-        fail << "failed to parse buildspec string";
+        fail << "unable to parse buildspec '" << s << "'";
       }
     }
 
