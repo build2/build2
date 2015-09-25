@@ -4,6 +4,7 @@
 
 #include <build/diagnostics>
 
+#include <cstring>  // strchr()
 #include <iostream>
 
 #include <build/utility>
@@ -34,10 +35,22 @@ namespace build
         r << " |"; // Trailing space will be added inside the loop.
 
       for (m++; *p != nullptr; p++, m++)
-        r << (p != args ? " " : "")
-          << (**p == '\0' ? "\"" : "") // Quote empty arguments.
-          << *p
-          << (**p == '\0' ? "\"" : "");
+      {
+        if (p != args)
+          r << ' ';
+
+        // Quote if empty or contains spaces.
+        //
+        bool q (**p == '\0' || strchr (*p, ' ') != nullptr);
+
+        if (q)
+          r << '"';
+
+        r << *p;
+
+        if (q)
+          r << '"';
+      }
 
       if (m < n) // Can we examine the next element?
       {
