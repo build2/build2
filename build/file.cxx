@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <utility> // move()
+#include <system_error>
 
 #include <butl/filesystem>
 
