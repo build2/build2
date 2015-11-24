@@ -357,8 +357,19 @@ namespace build
 
     for (const dir_entry& de: dir_iterator (d))
     {
-      if (de.type () != entry_type::directory)
+      // If this is a link, then type() will try to stat() it. And if
+      // the link is dangling or points to something inaccessible, it
+      // will fail.
+      //
+      try
+      {
+        if (de.type () != entry_type::directory)
+          continue;
+      }
+      catch (const system_error& e)
+      {
         continue;
+      }
 
       dir_path sd (d / path_cast<dir_path> (de.path ()));
 
