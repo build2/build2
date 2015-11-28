@@ -956,9 +956,9 @@ namespace build
         string::size_type n (p != string::npos ? name.size () - 1 : 0);
 
         // See if this is a type name, directory prefix, or both. That
-        // is, it is followed by '{'.
+        // is, it is followed by an un-separated '{'.
         //
-        if (tt == type::lcbrace)
+        if (tt == type::lcbrace && !peeked ().separated)
         {
           next (t, tt);
 
