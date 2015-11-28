@@ -839,13 +839,123 @@ namespace build
     return ns;
   }
 
+  // Parse names inside {} and handle the following "crosses" (i.e.,
+  // {a b}{x y}) if any. Return the number of names added to the list.
+  //
+  size_t parser::
+  names_trailer (token& t, type& tt,
+                 names_type& ns,
+                 size_t pair,
+                 const string* pp,
+                 const dir_path* dp,
+                 const string* tp)
+  {
+    next (t, tt); // Get what's after '{'.
+
+    size_t count (ns.size ());
+    names (t, tt,
+           ns,
+           false,
+           (pair != 0
+            ? pair
+            : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
+           pp, dp, tp);
+    count = ns.size () - count;
+
+    if (tt != type::rcbrace)
+      fail (t) << "expected } instead of " << t;
+
+    // See if we have a cross. See tests/names.
+    //
+    if (peek () == type::lcbrace && !peeked ().separated)
+    {
+      next (t, tt); // Get '{'.
+      const location loc (get_location (t, &path_));
+
+      names_type x; // Parse into a separate list of names.
+      names_trailer (t, tt, x, 0, nullptr, nullptr, nullptr);
+
+      if (size_t n = x.size ())
+      {
+        // Now cross the last 'count' names in 'ns' with 'x'. First we will
+        // allocate n - 1 additional sets of last 'count' names in 'ns'.
+        //
+        size_t b (ns.size () - count); // Start of 'count' names.
+        ns.reserve (ns.size () + count * (n - 1));
+        for (size_t i (0); i != n - 1; ++i)
+          for (size_t j (0); j != count; ++j)
+            ns.push_back (ns[b + j]);
+
+        // Now cross each name, this time including the first set.
+        //
+        for (size_t i (0); i != n; ++i)
+        {
+          for (size_t j (0); j != count; ++j)
+          {
+            name& l (ns[b + i * count + j]);
+            const name& r (x[i]);
+
+            // Move the project names.
+            //
+            if (r.proj != nullptr)
+            {
+              if (l.proj != nullptr)
+                fail (loc) << "nested project name " << *r.proj;
+
+              l.proj = r.proj;
+            }
+
+            // Merge directories.
+            //
+            if (!r.dir.empty ())
+            {
+              if (l.dir.empty ())
+                l.dir = move (r.dir);
+              else
+                l.dir /= r.dir;
+            }
+
+            // Figure out the type. As a first step, "promote" the lhs value
+            // to type.
+            //
+            if (!l.value.empty ())
+            {
+              if (!l.type.empty ())
+                fail (loc) << "nested type name " << l.value;
+
+              l.type.swap (l.value);
+            }
+
+            if (!r.type.empty ())
+            {
+              if (!l.type.empty ())
+                fail (loc) << "nested type name " << r.type;
+
+              l.type = move (r.type);
+            }
+
+            l.value = move (r.value);
+
+            // @@ TODO: need to handle pairs on lhs. I think all that needs
+            //    to be done is skip pair's first elements. Maybe also check
+            //    that there are no pairs on the rhs. There is just no easy
+            //    way to enable the pairs mode to test it, yet.
+          }
+        }
+
+        count *= n;
+      }
+    }
+
+    return count;
+  }
+
   void parser::
-  names (token& t,
-         type& tt,
+  names (token& t, type& tt,
          names_type& ns,
          bool chunk,
          size_t pair,
-         const std::string* pp,
+         const string* pp,
          const dir_path* dp,
          const string* tp)
   {
@@ -995,20 +1105,7 @@ namespace build
             tp1 = &t1;
           }
 
-          next (t, tt);
-          count = ns.size ();
-          names (t, tt,
-                 ns,
-                 false,
-                 (pair != 0
-                  ? pair
-                  : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
-                 pp1, dp1, tp1);
-          count = ns.size () - count;
-
-          if (tt != type::rcbrace)
-            fail (t) << "expected } instead of " << t;
-
+          count = names_trailer (t, tt, ns, pair, pp1, dp1, tp1);
           tt = peek ();
           continue;
         }
@@ -1295,20 +1392,7 @@ namespace build
       //
       if (tt == type::lcbrace)
       {
-        next (t, tt);
-        count = ns.size ();
-        names (t, tt,
-               ns,
-               false,
-               (pair != 0
-                ? pair
-                : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
-               pp, dp, tp);
-        count = ns.size () - count;
-
-        if (tt != type::rcbrace)
-          fail (t) << "expected } instead of " << t;
-
+        count = names_trailer (t, tt, ns, pair, pp, dp, tp);
         tt = peek ();
         continue;
       }

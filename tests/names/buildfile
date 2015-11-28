@@ -1,0 +1,54 @@
+# Name separation.
+#
+print foo {bar baz}
+print fox/ {bar baz}
+print fox/foo {bar baz}
+
+# Name "crosses".
+#
+print {}{bar}  # Same as bar.
+print {foo}{}  # Same as foo{} (empty name of type foo).
+print foo{}    # For compatiron.
+print {foo}{bar}
+print {foo}{bar baz}
+print {foo fox}{bar}
+print {foo fox}{bar baz}
+
+print dir/{}{bar}  # Same as dir/bar.
+print dir/{foo}{}  # Same as dir/foo{} (directory of type foo).
+print dir/foo{}    # For comparison.
+print dir/{foo}{bar}
+print dir/{foo}{bar baz}
+print dir/{foo fox}{bar}
+print dir/{foo fox}{bar baz}
+
+print {dir/}{bar}
+print {dir/}{bar baz}
+print {dir/ dor/}{bar}
+print {dir/ dor/}{bar baz}
+
+print {dir/foo}{bar}
+print {dir/foo}{bar baz}
+print {dir/foo dor/fox}{bar}
+print {dir/foo dor/fox}{bar baz}
+
+print {dir/}{foo}{bar}
+print {dir/}{foo}{bar baz}
+print {dir/ dor/}{foo}{bar}
+print {dir/ dor/}{foo fox}{bar baz}
+
+print {prj%foo}{bar baz}
+print {foo}{bar prj%baz}
+#print {prj%foo}{bar prk%baz} # nested project name
+
+print dir/{foo}{bar baz}
+print {foo}{bar dir/{baz}}
+print dir/{foo}{bar dor/{baz}}
+
+print {dir/foo{}}{bar}
+print {dir/{foo}}{bar}
+print {dir/}{foo{bar}}
+#print {dir/foo{fox}}{bar} # nested type name
+#print {dir/foo}{fox{bar}} # nested type name
+
+./:
