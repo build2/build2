@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = build/ tests/
-.: $d
+./: $d doc{INSTALL LICENSE} file{bootstrap version}
 include $d

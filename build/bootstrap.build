@@ -1,7 +1,12 @@
 # file      : build/bootstrap.build
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
+
 project = build2
+version = 0.1.0
 subprojects = # No subprojects.
 using config
+using dist
 using test
+
+dist.package = $project-$version

@@ -4,18 +4,59 @@
 
 import libs = libbutl%lib{butl}
 
-config = config/{operation module utility}
-dist = dist/{operation rule module}
-bin = bin/{target rule module}
-cxx = cxx/{target compile link install module utility}
-cli = cli/{target rule module}
-test1 = test/{operation rule module}
-install1 = install/{operation rule module}
-
-exe{b}: cxx{b algorithm name operation spec scope variable target \
-  prerequisite rule file module context search diagnostics token  \
-  lexer parser path-io utility dump options $config $dist $bin $cxx \
-  $cli $test1 $install1} $libs
+exe{b}:                                     \
+        { hxx ixx txx cxx }{ algorithm    } \
+        {             cxx }{ b            } \
+        { hxx     txx cxx }{ context      } \
+        { hxx         cxx }{ diagnostics  } \
+        { hxx         cxx }{ dump         } \
+        { hxx ixx     cxx }{ file         } \
+        { hxx         cxx }{ lexer        } \
+        { hxx         cxx }{ module       } \
+        { hxx         cxx }{ name         } \
+        { hxx         cxx }{ operation    } \
+        { hxx ixx     cxx }{ options      } \
+        { hxx         cxx }{ parser       } \
+        { hxx         cxx }{ path-io      } \
+        { hxx         cxx }{ prerequisite } \
+        { hxx         cxx }{ rule         } \
+        { hxx             }{ rule-map     } \
+        { hxx         cxx }{ scope        } \
+        { hxx         cxx }{ search       } \
+        { hxx         cxx }{ spec         } \
+        { hxx ixx txx cxx }{ target       } \
+        { hxx             }{ target-key   } \
+        { hxx             }{ target-type  } \
+        { hxx         cxx }{ token        } \
+        { hxx             }{ types        } \
+        { hxx         cxx }{ utility      } \
+        { hxx ixx txx cxx }{ variable     } \
+    bin/{ hxx         cxx }{ module       } \
+    bin/{ hxx         cxx }{ rule         } \
+    bin/{ hxx         cxx }{ target       } \
+    cli/{ hxx         cxx }{ module       } \
+    cli/{ hxx         cxx }{ rule         } \
+    cli/{ hxx         cxx }{ target       } \
+ config/{ hxx         cxx }{ module       } \
+ config/{ hxx         cxx }{ operation    } \
+ config/{ hxx ixx txx cxx }{ utility      } \
+    cxx/{ hxx         cxx }{ compile      } \
+    cxx/{ hxx         cxx }{ install      } \
+    cxx/{ hxx         cxx }{ link         } \
+    cxx/{ hxx         cxx }{ module       } \
+    cxx/{ hxx         cxx }{ target       } \
+    cxx/{ hxx     txx cxx }{ utility      } \
+   dist/{ hxx         cxx }{ module       } \
+   dist/{ hxx         cxx }{ operation    } \
+   dist/{ hxx         cxx }{ rule         } \
+install/{ hxx         cxx }{ module       } \
+install/{ hxx         cxx }{ operation    } \
+install/{ hxx         cxx }{ rule         } \
+install/{ hxx             }{ utility      } \
+   test/{ hxx         cxx }{ module       } \
+   test/{ hxx         cxx }{ operation    } \
+   test/{ hxx         cxx }{ rule         } \
+$libs
 
 #@@ TODO
 #
