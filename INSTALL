@@ -8,48 +8,60 @@ it. To accomplish this, use the 'bootstrap' shell script found in the
 root directory of the build2 project. The following is a recommended
 sequence of steps:
 
-0. Get libbutl unless one is already present in the build2 directory
-   (whether one is bundled depends on how you obtained build2 source
-   code). Place it next to build2, so that you have:
+0. Get libbutl and place it next to build2, so that you have:
 
    libbutl/ (or libbutl-x.y.z/)
    build2/  (or build2-x.y.z/)
 
-1. Execute 'bootstrap' specifying the C++ compiler to be used if necessary
-   (default is 'g++'). For example:
+1. Change to the build2 directory and execute 'bootstrap' specifying
+   the C++ compiler to be used, if necessary (default is 'g++'; run
+   ./bootstrap --help for other options). For example:
 
+   $ cd build2
    $ ./bootstrap --cxx clang++-3.5
 
-   Once the script completes successfully, the build2 binary is saved
-   as 'build/b-boot'.
+   Once the script completes successfully (which may take some time), the
+   build2 binary is saved as 'build/b-boot':
 
-2. Next, build the build2 binary using the bootstrapped binary from step
-   1 above, again specifying the C++ compiler if necessary, for example:
+   $ build/b-boot --version
 
-   $ build/b-boot config.cxx=clang++-3.5
+2. Next, build libbutl and the build2 binary using the bootstrapped binary
+   from step 1 above:
 
-   If you had to obtain libbutl at step 0, then you will also have to
-   specify its location, for example:
+   $ build/b-boot 'configure(../libbutl/)'
+   $ build/b-boot config.import.libbutl=../libbutl configure update
 
-   $ build/b-boot config.import.libbutl=../libbutl ...
+   Again, if necessary, you can also specify the C++ compiler:
 
-   The result of this command is saved as 'build/b'.
+   $ build/b-boot config.cxx=clang++-3.5 ...
 
-3. Finally, rebuild the build2 binary using the binary built at step 2
-   above, and verify that they are identical. For example:
+   The resulting build2 binary is saved as 'build/b':
 
-   $ mv build/b build/b-prev
-   $ build/b-prev config.cxx=clang++-3.5 clean
-   $ build/b-prev config.cxx=clang++-3.5 configure update
-   $ diff -b build/b build/b-prev
+   $ build/b --version
 
-   If you had to obtain libbutl, then this becomes ('...' stands for
-   any extra configuration you may have, like the C++ compiler above):
+3. The last step is optional and involves building libbutl and build2 using
+   the binary built on step 2 above and verifying that the two builds are
+   identical.
 
-   $ mv build/b build/b-prev
-   $ build/b-prev config.import.libbutl=../libbutl ... clean
-   $ cd ../libbutl
-   $ ../build2/build/b-prev ... configure
-   $ cd ../build2
-   $ build/b-prev config.import.libbutl=../libbutl ... configure update
-   $ diff build/b build/b-prev
+   @@ This is currently broken since the resulting binary contains fill
+      object file paths. So we would need to build in exactly the same
+      place as the original, but that would make the binary from step 2
+      unusable. It seems the only way to make it work is via staging.
+
+   To perform this step, first unpack new copies of libbutl and build2 into
+   a different directory, for example, a verify/ sub-directory. Then complete
+   step 2 for these new copies but using build/b binary from step 2 rather
+   than build/b-boot from step 1. Also, use the libbutl from step 2 in the
+   config.import.libbutl value (otherwise rpath differences will result in
+   different build2 binaries). For example:
+
+   $ cd verify/build2
+   $ ../../build2/build/b '{configure update}(../libbutl/)'
+   $ ../../build2/build/b config.import.libbutl=../../libbutl configure update
+
+   Once this is done, compare the libbutl libraries and build2 binaries, for
+   example:
+
+   $ cd ../..
+   $ diff libbutl/butl/libbutl.so verify/libbutl/butl/libbutl.so
+   $ diff build2/build/b verify/build2/build/b

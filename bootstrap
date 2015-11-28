@@ -1,12 +1,13 @@
 #!/bin/sh
 
 cxx=g++
+cxxflags=
 libbutl=
 
 while test $# -ne 0; do
   case $1 in
     --help)
-      echo "Usage: $0 [--help] [--cxx <c++-compiler>]" 1>&2
+      echo "Usage: $0 [--help] [--cxx <compiler>] [--cxxflags <flags>]" 1>&2
       echo "See the INSTALL file for details." 1>&2
       exit 0
       ;;
@@ -14,6 +15,15 @@ while test $# -ne 0; do
       shift
       if test $# -eq 0; then
 	echo "error: c++ compiler executable expected after --cxx" 1>&2
+	exit 1
+      fi
+      cxx=$1
+      shift
+      ;;
+    --cxxflags)
+      shift
+      if test $# -eq 0; then
+	echo "error: c++ compiler flags expected after --cxxflags" 1>&2
 	exit 1
       fi
       cxx=$1
@@ -79,5 +89,5 @@ src="$src build/test/*.cxx"
 src="$src build/install/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
-echo $cxx -std=c++1y -I$libbutl -I. -o build/b-boot $src 1>&2
-exec $cxx -std=c++1y -I$libbutl -I. -o build/b-boot $src
+echo $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build/b-boot $src 1>&2
+exec $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build/b-boot $src
