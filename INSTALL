@@ -17,7 +17,7 @@ sequence of steps:
    the C++ compiler to be used, if necessary (default is 'g++'; run
    ./bootstrap --help for other options). For example:
 
-   $ cd build2
+   $ cd build2/
    $ ./bootstrap --cxx clang++-3.5
 
    Once the script completes successfully (which may take some time), the
