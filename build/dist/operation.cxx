@@ -156,9 +156,9 @@ namespace build
       // ignored on the next step if the user explicitly marked them
       // nodist.
       //
-      auto add_adhoc = [&src_root, &trace] (const char* f)
+      auto add_adhoc = [&src_root, &trace] (const dir_path& d, const char* f)
         {
-          path p (src_root / path (f));
+          path p (d / path (f));
           if (file_exists (p))
           {
             const char* e (p.extension ());
@@ -170,7 +170,29 @@ namespace build
           }
         };
 
-      add_adhoc ("build/export.build");
+      add_adhoc (src_root, "build/export.build");
+
+      // The same for subprojects that have been loaded.
+      //
+      if (auto l = rs->vars["subprojects"])
+      {
+        for (auto p: as<subprojects> (*l))
+        {
+          const dir_path& pd (p.second);
+          dir_path out_nroot (out_root / pd);
+          scope& nrs (scopes.find (out_nroot));
+
+          if (nrs.out_path () != out_nroot) // This subproject not loaded.
+            continue;
+
+          const dir_path& src_nroot (nrs.src_path ());
+
+          if (!src_nroot.sub (src_root)) // Not a source-level amalgamation.
+            continue;
+
+          add_adhoc (src_nroot, "build/export.build");
+        }
+      }
 
       // Collect the files. We want to take the snapshot of targets
       // since updating some of them may result in more targets being
