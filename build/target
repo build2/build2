@@ -609,14 +609,18 @@ namespace build
         g_.count = 1;
       }
 
-      // Iterate over this group's members. Similar to leave_group(),
-      // you should increment the iterator after calling this function.
+      // Iterate over this group's members. Return false if the member
+      // information is not available. Similar to leave_group(), you
+      // should increment the iterator after calling this function
+      // (provided it returned true).
       //
-      void
+      bool
       enter_group ()
       {
-        switch_members ();
-        --j_; // Compensate for the increment that will follow.
+        bool r (switch_members ());
+        if (r)
+          --j_; // Compensate for the increment that will follow.
+        return r;
       }
 
       value_type operator* () const
@@ -646,7 +650,7 @@ namespace build
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
     private:
-      void
+      bool
       switch_members ();
 
     private:

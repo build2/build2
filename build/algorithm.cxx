@@ -272,8 +272,7 @@ namespace build
     execute_direct (a, g);
 
     r = g.group_members (a);
-    assert (r.members != nullptr); // What "next step" did the group expect?
-    return r;
+    return r; // Might still be unresolved.
   }
 
   void

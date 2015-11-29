@@ -57,17 +57,26 @@ namespace build
   }
 
   template <typename T>
-  inline void prerequisite_members_range<T>::iterator::
+  inline bool prerequisite_members_range<T>::iterator::
   switch_members ()
   {
-    j_ = 1;
-
     do
     {
       g_ = resolve_group_members (r_->a_, search (*i_));
+
+      // If members are not know, iterate over the group as itself.
+      //
+      if (g_.members == nullptr)
+      {
+        g_.count = 0;
+        return false;
+      }
     }
     while (g_.count == 0  && // Skip empty groups.
            ++i_ != r_->e_ &&
            i_->get ().type.see_through);
+
+    j_ = 1; // Start from the first group member.
+    return true;
   }
 }
