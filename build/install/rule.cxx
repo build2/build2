@@ -121,8 +121,16 @@ namespace build
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
+      scope& rs (t.root_scope ());
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        // Ignore unresolved targets that are imported from other projects.
+        // We are definitely not installing those.
+        //
+        if (p.proj () != nullptr)
+          continue;
+
         // @@ This is where we will handle [noinstall].
         //
 
@@ -134,6 +142,12 @@ namespace build
           continue;
 
         target& pt (p.search ());
+
+        // Ignore targets that are outside of our project.
+        //
+        if (!pt.in (rs))
+          continue;
+
         build::match (a, pt);
 
         // If the matched rule returned noop_recipe, then the target

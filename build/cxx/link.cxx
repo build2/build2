@@ -405,9 +405,10 @@ namespace build
 
       // If we have any prerequisite libraries (which also means that
       // we match), search/import and pre-match them to implement the
-      // "library meta-information protocol".
+      // "library meta-information protocol". Don't do this if we are
+      // called from the install rule just to check if we would match.
       //
-      if (seen_lib && lt != type::e)
+      if (seen_lib && lt != type::e && a.operation () != install_id)
       {
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s

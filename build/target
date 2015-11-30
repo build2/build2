@@ -205,6 +205,8 @@ namespace build
     target_key
     key () const {return target_key {&type (), &dir, &name, &ext};}
 
+    // Scoping.
+    //
    public:
     // Most qualified scope that contains this target.
     //
@@ -224,6 +226,15 @@ namespace build
     //
     scope&
     strong_scope () const {return *root_scope ().strong_scope ();}
+
+
+    bool
+    in (const scope& s) const
+    {
+      return
+        (s.out_path_ != nullptr && dir.sub (*s.out_path_)) ||
+        (s.src_path_ != nullptr && dir.sub (*s.src_path_));
+    }
 
     // Prerequisites.
     //
