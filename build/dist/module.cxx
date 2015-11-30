@@ -58,6 +58,8 @@ namespace build
       //
       if (first)
       {
+        variable_pool.find ("dist", bool_type);
+
         variable_pool.find ("dist.package", string_type);
 
         variable_pool.find ("dist.root", dir_path_type);

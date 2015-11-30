@@ -33,11 +33,9 @@ namespace build
         if (p.proj () != nullptr)
           continue;
 
-        // @@ This is where we will handle dist/nodist.
-
         target& pt (p.search ());
 
-        // Don't match targets that are outside our project.
+        // Don't match targets that are outside of our project.
         //
         if (pt.dir.sub (out_root))
           build::match (a, pt);

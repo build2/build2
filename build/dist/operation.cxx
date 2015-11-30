@@ -199,6 +199,7 @@ namespace build
       // entered.
       //
       action_targets files;
+      const variable& dist_var (variable_pool.find ("dist"));
 
       for (const auto& pt: targets)
       {
@@ -211,7 +212,13 @@ namespace build
         {
           // Include unless explicitly excluded.
           //
-          files.push_back (ft);
+          auto l ((*ft)[dist_var]);
+
+          if (l && !as<bool> (*l))
+            level5 ([&]{trace << "excluding " << *ft;});
+          else
+            files.push_back (ft);
+
           continue;
         }
 
@@ -219,7 +226,14 @@ namespace build
         {
           // Exclude unless explicitly included.
           //
-          //files.push_back (*ft);
+          auto l ((*ft)[dist_var]);
+
+          if (l && as<bool> (*l))
+          {
+            level5 ([&]{trace << "including " << *ft;});
+            files.push_back (ft);
+          }
+
           continue;
         }
       }
