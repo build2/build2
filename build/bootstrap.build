@@ -5,8 +5,10 @@
 project = build2
 version = 0.1.0
 subprojects = # No subprojects.
+
 using config
 using dist
 using test
+using install
 
 dist.package = $project-$version

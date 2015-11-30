@@ -5,3 +5,5 @@
 d = build/ tests/
 ./: $d doc{INSTALL LICENSE} file{bootstrap version}
 include $d
+
+doc{INSTALL}: install = false
