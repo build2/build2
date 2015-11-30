@@ -50,8 +50,11 @@ namespace build
 
     // Switch to member iteration mode.
     //
-    if (i_ != r_->e_ && i_->get ().type.see_through)
-      switch_members ();
+    if (r_->members_ && i_ != r_->e_ && i_->get ().type.see_through)
+    {
+      bool r (switch_members ());
+      assert (r); // Group could not be resolved.
+    }
 
     return *this;
   }

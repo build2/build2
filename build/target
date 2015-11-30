@@ -563,17 +563,17 @@ namespace build
 
   template <typename T>
   inline prerequisite_members_range<T>
-  prerequisite_members (action a, T&& x)
+  prerequisite_members (action a, T&& x, bool members = true)
   {
-    return prerequisite_members_range<T> (a, std::forward<T> (x));
+    return prerequisite_members_range<T> (a, std::forward<T> (x), members);
   }
 
   template <typename T>
   class prerequisite_members_range
   {
   public:
-    prerequisite_members_range (action a, T&& r)
-        : a_ (a), r_ (std::forward<T> (r)), e_ (r_.end ()) {}
+    prerequisite_members_range (action a, T&& r, bool m)
+        : a_ (a), members_ (m), r_ (std::forward<T> (r)), e_ (r_.end ()) {}
 
     using base_iterator = decltype (std::declval<T> ().begin ());
 
@@ -589,8 +589,11 @@ namespace build
       iterator (const prerequisite_members_range* r, const base_iterator& i)
           : r_ (r), i_ (i), g_ {nullptr, 0}
       {
-        if (i_ != r_->e_ && i_->get ().type.see_through)
-          switch_members ();
+        if (r_->members_ && i_ != r_->e_ && i_->get ().type.see_through)
+        {
+          bool r (switch_members ());
+          assert (r); // Group could not be resolved.
+        }
       }
 
       iterator& operator++ ();
@@ -670,6 +673,7 @@ namespace build
 
   private:
     action a_;
+    bool members_; // Go into group members by default?
     T r_;
     base_iterator e_;
   };
@@ -677,34 +681,35 @@ namespace build
   // prerequisite_members(t.prerequisites)
   //
   inline auto
-  prerequisite_members (action a, target& t)
+  prerequisite_members (action a, target& t, bool members = true)
   {
-    return prerequisite_members (a, t.prerequisites);
+    return prerequisite_members (a, t.prerequisites, members);
   }
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
   //
   inline auto
-  reverse_prerequisite_members (action a, target& t)
+  reverse_prerequisite_members (action a, target& t, bool members = true)
   {
-    return prerequisite_members (a, butl::reverse_iterate (t.prerequisites));
+    return prerequisite_members (
+      a, butl::reverse_iterate (t.prerequisites), members);
   }
 
   // prerequisite_members(group_prerequisites (t))
   //
   inline auto
-  group_prerequisite_members (action a, target& t)
+  group_prerequisite_members (action a, target& t, bool members = true)
   {
-    return prerequisite_members (a, group_prerequisites (t));
+    return prerequisite_members (a, group_prerequisites (t), members);
   }
 
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
   //
   inline auto
-  reverse_group_prerequisite_members (action a, target& t)
+  reverse_group_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (
-      a, butl::reverse_iterate (group_prerequisites (t)));
+      a, butl::reverse_iterate (group_prerequisites (t)), members);
   }
 
   //

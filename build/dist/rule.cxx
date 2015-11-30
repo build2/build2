@@ -26,11 +26,19 @@ namespace build
     {
       const dir_path& out_root (t.root_scope ().out_path ());
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      auto r (group_prerequisite_members (a, t, false));
+      for (auto i (r.begin ()); i != r.end (); ++i)
       {
+        prerequisite_member p (*i);
+
         // Skip prerequisites imported from other projects.
         //
         if (p.proj () != nullptr)
+          continue;
+
+        // If we can, go inside see-through groups.
+        //
+        if (p.type ().see_through && i.enter_group ())
           continue;
 
         target& pt (p.search ());

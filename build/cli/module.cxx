@@ -72,6 +72,12 @@ namespace build
 
         rs.insert<cxx::ixx> (perform_id, update_id, "cli", compile_);
         rs.insert<cxx::ixx> (perform_id, clean_id, "cli", compile_);
+
+        // Other rules (e.g., cxx::compile) may need to have the group
+        // members resolved. Looks like a general pattern: groups should
+        // resolve on configure(update).
+        //
+        rs.insert<cli_cxx> (configure_id, update_id, "cli", compile_);
       }
 
       // Enter module variables.
