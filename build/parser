@@ -25,6 +25,7 @@ namespace build
   {
   public:
     typedef build::names names_type;
+    typedef build::variable variable_type;
 
     parser (): fail (&path_) {}
 
@@ -75,6 +76,9 @@ namespace build
 
     std::string
     variable_name (names_type&&, const location&);
+
+    names_type
+    variable_value (token&, token_type&, const variable_type&);
 
     names_type
     eval (token&, token_type&);

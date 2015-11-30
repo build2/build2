@@ -1,0 +1,33 @@
+#dir/foo{*}: x = y # directory
+#foo{*.*}: x = y # multiple wildcards
+#foo{*}: x = y # unknown target type
+#file{*}: x += y # append
+
+# Use --verbose 6 to examine.
+#
+
+dir{*}: x = y
+
+x = z
+dir{*-foo}: x = $x # 'z'
+
+x = G
+file{*-foo}: x = x
+file{xfoo}: x = $x      # 'G'
+file{-foo}: x = $x      # 'x'
+file{x-foo}: x = $x     # 'x'
+file{bar-*-foo}: x = X
+file{bar-x}: x = $x     # 'G'
+file{bar--foo}: x = $x  # 'X'
+file{bar-x-foo}: x = $x # 'X'
+
+file{*-fox}: x = 1
+file{fox-*}: x = 2
+file{fox-fox}: x = $x # '2'
+file{*-fox}: x = 3
+file{fox-x-fox}: x = $x # still '2'!
+
+*-foz: x = z        # any target
+file{x-foz}: x = $x # 'z'
+
+./:

@@ -279,7 +279,7 @@ namespace build
           //
           if (tt == type::equal || tt == type::plus_equal)
           {
-            string var (variable_name (move (pns), ploc));
+            string v (variable_name (move (pns), ploc));
 
             // Enter the target/scope and set it as current.
             //
@@ -307,19 +307,61 @@ namespace build
               scope* ocs (scope_);
               switch_scope (p);
 
-              variable (t, tt, move (var), tt);
+              variable (t, tt, move (v), tt);
 
               scope_ = ocs;
               root_ = ors;
             }
             else
             {
-              target* ot (target_);
-              target_ = &enter_target (move (n));
+              // Figure out if this is a target or type/pattern specific
+              // variable.
+              //
+              size_t p (n.value.find ('*'));
 
-              variable (t, tt, move (var), tt);
+              if (p == string::npos)
+              {
+                target* ot (target_);
+                target_ = &enter_target (move (n));
+                variable (t, tt, move (v), tt);
+                target_ = ot;
+              }
+              else
+              {
+                // See tests/variable/type-pattern.
+                //
+                if (!n.dir.empty ())
+                  fail (nloc) << "directory in target type/pattern " << n;
 
-              target_ = ot;
+                if (n.value.find ('*', p + 1) != string::npos)
+                  fail (nloc) << "multiple wildcards in target type/pattern "
+                              << n;
+
+                // Resolve target type. If none is specified, use the root
+                // of the hierarchy.
+                //
+                const target_type* ti (
+                  n.untyped ()
+                  ? &target::static_type
+                  : scope_->find_target_type (n.type.c_str ()));
+
+                if (ti == nullptr)
+                  fail (nloc) << "unknown target type " << n.type;
+
+                if (tt == type::plus_equal)
+                  fail (t) << "append to target type/pattern-specific "
+                           << "variable " << v;
+
+                const auto& var (variable_pool.find (move (v)));
+
+                // Note: expand variables in the value in the context of
+                // the scope.
+                //
+                names_type vns (variable_value (t, tt, var));
+                value& val (
+                  scope_->target_vars[*ti][move (n.value)].assign (var).first);
+                val.assign (move (vns), var);
+              }
             }
           }
           // Dependency declaration.
@@ -797,19 +839,10 @@ namespace build
   void parser::
   variable (token& t, token_type& tt, string name, token_type kind)
   {
-    bool assign (kind == type::equal);
     const auto& var (variable_pool.find (move (name)));
+    names_type vns (variable_value (t, tt, var));
 
-    if (var.pairs != '\0')
-      lexer_->mode (lexer_mode::pairs, var.pairs);
-    else
-      lexer_->mode (lexer_mode::value);
-
-    next (t, tt);
-    names_type vns (tt != type::newline && tt != type::eos
-                    ? names (t, tt)
-                    : names_type ());
-    if (assign)
+    if (kind == type::equal)
     {
       value& v (target_ != nullptr
                 ? target_->assign (var)
@@ -823,6 +856,20 @@ namespace build
                 : scope_->append (var));
       v.append (move (vns), var);
     }
+  }
+
+  names parser::
+  variable_value (token& t, token_type& tt, const variable_type& var)
+  {
+    if (var.pairs != '\0')
+      lexer_->mode (lexer_mode::pairs, var.pairs);
+    else
+      lexer_->mode (lexer_mode::value);
+
+    next (t, tt);
+    return (tt != type::newline && tt != type::eos
+            ? names (t, tt)
+            : names_type ());
   }
 
   parser::names_type parser::

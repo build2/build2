@@ -137,7 +137,7 @@ namespace build
     {
       if (!s->target_vars.empty ())
       {
-        auto find_specific = [&var, s] (const target& t) -> result
+        auto find_specific = [this, &var, s] (const target& t) -> result
         {
           // Search across target type hierarchy.
           //
@@ -148,15 +148,51 @@ namespace build
             if (i == s->target_vars.end ())
               continue;
 
-            //@@ TODO: match pattern. For now, we only handle '*'.
+            // Try to match the pattern, starting from the longest values
+            // so that the more "specific" patterns (i.e., those that cover
+            // fewer characters with the wildcard) take precedence. See
+            // tests/variable/type-pattern.
+            //
+            const variable_pattern_map& m (i->second);
 
-            auto j (i->second.find ("*"));
+            for (auto j (m.rbegin ()); j != m.rend (); ++j)
+            {
+              const string& p (j->first);
 
-            if (j == i->second.end ())
-              continue;
+              size_t nn (name.size ());
+              size_t pn (p.size ());
 
-            if (auto p = j->second.find (var))
-              return result (p, &j->second);
+              if (nn < pn - 1) // One for '*'.
+                continue;
+
+              size_t w (p.find ('*'));
+              assert (w != string::npos);
+
+              // Compare prefix.
+              //
+              if (w != 0 &&
+                  name.compare (0, w, p, 0, w) != 0)
+                continue;
+
+              ++w;     // First suffix character.
+              pn -= w; // Suffix length.
+
+              // Compare suffix.
+              //
+              if (pn != 0 &&
+                  name.compare (nn - pn, pn, p, w, pn) != 0)
+                continue;
+
+              // Ok, this pattern matches. But is there a variable?
+              //
+              if (const value* v = j->second.find (var))
+              {
+                //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and
+                //   'foo-foo'? Right now the last defined will be used.
+                //
+                return result (v, &j->second);
+              }
+            }
           }
 
           return result ();
