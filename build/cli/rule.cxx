@@ -100,10 +100,11 @@ namespace build
         //
         cli_cxx* g (targets.find<cli_cxx> (t.dir, t.name));
 
-        // If not but this target has a cli{} prerequisite, synthesize
-        // the group.
+        // If not or if it has no prerequisites (happens when we use it to
+        // set cli.options) and this target has a cli{} prerequisite, then
+        // synthesize the group.
         //
-        if (g == nullptr)
+        if (g == nullptr || !g->has_prerequisites ())
         {
           for (prerequisite_member p: group_prerequisite_members (a, t))
           {
@@ -113,7 +114,9 @@ namespace build
               //
               if (t.name == p.name ())
               {
-                g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
+                if (g == nullptr)
+                  g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
+
                 g->prerequisites.emplace_back (p.as_prerequisite (trace));
               }
               else
