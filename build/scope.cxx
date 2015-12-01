@@ -44,7 +44,7 @@ namespace build
   }
 
   const target_type* scope::
-  find_target_type (const char* tt, const scope** rs) const
+  find_target_type (const string& tt, const scope** rs) const
   {
     // Search scopes outwards, stopping at the project root.
     //
@@ -69,6 +69,9 @@ namespace build
     return nullptr;
   }
 
+  static const string dir_tt ("dir");
+  static const string file_tt ("file");
+
   const target_type* scope::
   find_target_type (name& n, const string*& ext) const
   {
@@ -78,22 +81,22 @@ namespace build
 
     // First determine the target type.
     //
-    const char* tt;
+    const string* tt;
     if (n.untyped ())
     {
       // Empty name or '.' and '..' signify a directory.
       //
       if (v.empty () || v == "." || v == "..")
-        tt = "dir";
+        tt = &dir_tt;
       else
         //@@ TODO: derive type from extension.
         //
-        tt = "file";
+        tt = &file_tt;
     }
     else
-      tt = n.type.c_str ();
+      tt = &n.type;
 
-    const target_type* r (find_target_type (tt));
+    const target_type* r (find_target_type (*tt));
 
     if (r == nullptr)
       return r;

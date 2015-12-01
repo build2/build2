@@ -9,7 +9,6 @@
 #include <string>
 #include <ostream>
 #include <typeindex>
-#include <functional>  // reference_wrapper
 
 #include <butl/utility> // compare_c_string
 
@@ -29,10 +28,12 @@ namespace build
     std::type_index id;
     const char* name;
     const target_type* base;
-    target* (*const factory) (dir_path, std::string, const std::string*);
-    const std::string& (*const extension) (const target_key&, scope&);
-    target* (*const search) (const prerequisite_key&);
+    target* (*factory) (const target_type&, dir_path, string, const string*);
+    const string& (*extension) (const target_key&, scope&);
+    target* (*search) (const prerequisite_key&);
     bool see_through; // A group with the default "see through" semantics.
+
+    const target_type* origin; // Original target if this is an alias.
 
     bool
     is_a (const std::type_index&) const; // Defined in target.cxx
@@ -56,16 +57,45 @@ namespace build
 
   // Target type map.
   //
-  using target_type_map_base = std::map<
-    const char*,
-    std::reference_wrapper<const target_type>,
-    butl::compare_c_string>;
+  struct target_type_ref
+  {
+    // Like reference_wrapper except it deletes the target type if it is
+    // an alias (aliases are always dynamically allocated).
+    //
+    explicit
+    target_type_ref (const target_type& r): p_ (&r)
+    {
+      assert (p_->origin == nullptr);
+    }
+
+    explicit
+    target_type_ref (unique_ptr<target_type>&& p): p_ (p.release ())
+    {
+      assert (p_->origin != nullptr);
+    }
+
+    ~target_type_ref ()
+    {
+      if (p_ != nullptr && p_->origin != nullptr)
+        delete p_;
+    }
+
+    explicit operator const target_type& () const {return *p_;}
+    const target_type& get () const {return *p_;}
+
+    target_type_ref (target_type_ref&& r): p_ (r.p_) {r.p_ = nullptr;}
+
+  private:
+    const target_type* p_;
+  };
+
+  using target_type_map_base = std::map<string, target_type_ref>;
 
   class target_type_map: public target_type_map_base
   {
   public:
     void
-    insert (const target_type& tt) {emplace (tt.name, tt);}
+    insert (const target_type& tt) {emplace (tt.name, target_type_ref (tt));}
 
     template <typename T>
     void

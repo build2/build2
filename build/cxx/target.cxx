@@ -19,7 +19,8 @@ namespace build
       &target_factory<hxx>,
       &target_extension_var<hxx_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     constexpr const char ixx_ext_var[] = "ixx.ext";
@@ -31,7 +32,8 @@ namespace build
       &target_factory<ixx>,
       &target_extension_var<ixx_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     constexpr const char txx_ext_var[] = "txx.ext";
@@ -43,7 +45,8 @@ namespace build
       &target_factory<txx>,
       &target_extension_var<txx_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     constexpr const char cxx_ext_var[] = "cxx.ext";
@@ -55,7 +58,8 @@ namespace build
       &target_factory<cxx>,
       &target_extension_var<cxx_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     constexpr const char h_ext_var[] = "h.ext";
@@ -67,7 +71,8 @@ namespace build
       &target_factory<h>,
       &target_extension_var<h_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     constexpr const char c_ext_var[] = "c.ext";
@@ -79,7 +84,8 @@ namespace build
       &target_factory<c>,
       &target_extension_var<c_ext_var>,
       &search_file,
-      false
+      false,
+      nullptr
     };
   }
 }

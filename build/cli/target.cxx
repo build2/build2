@@ -24,7 +24,8 @@ namespace build
       &target_factory<cli>,
       &target_extension_fix<cli_ext>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     // cli.cxx
@@ -47,7 +48,7 @@ namespace build
     }
 
     static target*
-    cli_cxx_factory (dir_path d, string n, const string* e)
+    cli_cxx_factory (const target_type&, dir_path d, string n, const string* e)
     {
       tracer trace ("cli::cli_cxx_factory");
 
@@ -71,7 +72,8 @@ namespace build
       &cli_cxx_factory,
       nullptr,
       &search_target,
-      true // "See through" default iteration mode.
+      true, // "See through" default iteration mode.
+      nullptr
     };
   }
 }

@@ -17,8 +17,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class ixx: public file
@@ -27,8 +27,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class txx: public file
@@ -37,8 +37,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class cxx: public file
@@ -47,8 +47,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     //@@ TMP
@@ -59,8 +59,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class c: public file
@@ -69,8 +69,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

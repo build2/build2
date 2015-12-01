@@ -19,8 +19,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class cli_cxx: public mtime_target
@@ -53,8 +53,8 @@ namespace build
       load_mtime () const;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

@@ -1,0 +1,16 @@
+#define          # expected name
+#define foo      # expected =
+#define foo=     # expected name
+#define foo=bar  # unknown target type
+
+define foo=file
+foo{FOO}:        # verify name is foo{FOO} and not file{FOO} with --verbose 6 
+
+#define foo=dir  # already define in this scope
+
+define bar=foo
+bar{FOO}:       # verify name is foo{FOO} and not bar{FOO} with --verbose 6
+bar{BAR}:       # verify name is bar{BAR}
+
+define folder=dir
+folder{./}:   # verify prints "folder{} is up to date"

@@ -19,8 +19,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class objso: public file
@@ -29,8 +29,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class obj: public target
@@ -42,8 +42,8 @@ namespace build
       objso* so {nullptr};
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class exe: public file
@@ -52,8 +52,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     // The lib{} target group.
@@ -64,8 +64,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class libso: public file
@@ -74,8 +74,8 @@ namespace build
       using file::file;
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class lib: public target
@@ -90,8 +90,8 @@ namespace build
       reset (action_type);
 
     public:
-      virtual const target_type& type () const {return static_type;}
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
   }
 }

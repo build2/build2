@@ -12,6 +12,8 @@
 #include <butl/path-map>
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/module>
 #include <build/variable>
 #include <build/prerequisite>
@@ -138,7 +140,7 @@ namespace build
     target_type_map target_types;
 
     const target_type*
-    find_target_type (const char*, const scope** = nullptr) const;
+    find_target_type (const string&, const scope** = nullptr) const;
 
     // Given a name, figure out its type, taking into account extensions,
     // special names (e.g., '.' and '..'), or anything else that might be
@@ -147,7 +149,7 @@ namespace build
     // necessarily normalized). Return NULL if not found.
     //
     const target_type*
-    find_target_type (name&, const std::string*& ext) const;
+    find_target_type (name&, const string*& ext) const;
 
     // Rules.
     //

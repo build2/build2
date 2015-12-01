@@ -11,10 +11,10 @@ namespace build
   namespace bin
   {
     static target*
-    obja_factory (dir_path d, std::string n, const std::string* e)
+    obja_factory (const target_type&, dir_path d, string n, const string* e)
     {
       obj* o (targets.find<obj> (d, n));
-      obja* a (new obja (std::move (d), std::move (n), e));
+      obja* a (new obja (move (d), move (n), e));
 
       if ((a->group = o))
         o->a = a;
@@ -30,14 +30,15 @@ namespace build
       &obja_factory,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
-      false
+      false,
+      nullptr
     };
 
     static target*
-    objso_factory (dir_path d, std::string n, const std::string* e)
+    objso_factory (const target_type&, dir_path d, string n, const string* e)
     {
       obj* o (targets.find<obj> (d, n));
-      objso* so (new objso (std::move (d), std::move (n), e));
+      objso* so (new objso (move (d), move (n), e));
 
       if ((so->group = o))
         o->so = so;
@@ -53,11 +54,12 @@ namespace build
       &objso_factory,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
-      false
+      false,
+      nullptr
     };
 
     static target*
-    obj_factory (dir_path d, string n, const string* e)
+    obj_factory (const target_type&, dir_path d, string n, const string* e)
     {
       obja* a (targets.find<obja> (d, n));
       objso* so (targets.find<objso> (d, n));
@@ -80,7 +82,8 @@ namespace build
       &obj_factory,
       nullptr,
       &search_target,
-      false
+      false,
+      nullptr
     };
 
     const target_type exe::static_type
@@ -91,14 +94,15 @@ namespace build
       &target_factory<exe>,
       nullptr,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     static target*
-    liba_factory (dir_path d, std::string n, const std::string* e)
+    liba_factory (const target_type&, dir_path d, string n, const string* e)
     {
       lib* l (targets.find<lib> (d, n));
-      liba* a (new liba (std::move (d), std::move (n), e));
+      liba* a (new liba (move (d), move (n), e));
 
       if ((a->group = l))
         l->a = a;
@@ -127,14 +131,15 @@ namespace build
       &liba_factory,
       &target_extension_fix<a_ext>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     static target*
-    libso_factory (dir_path d, std::string n, const std::string* e)
+    libso_factory (const target_type&, dir_path d, string n, const string* e)
     {
       lib* l (targets.find<lib> (d, n));
-      libso* so (new libso (std::move (d), std::move (n), e));
+      libso* so (new libso (move (d), move (n), e));
 
       if ((so->group = l))
         l->so = so;
@@ -151,7 +156,8 @@ namespace build
       &libso_factory,
       &target_extension_fix<so_ext>,
       &search_file,
-      false
+      false,
+      nullptr
     };
 
     // lib
@@ -164,7 +170,7 @@ namespace build
     }
 
     static target*
-    lib_factory (dir_path d, string n, const string* e)
+    lib_factory (const target_type&, dir_path d, string n, const string* e)
     {
       liba* a (targets.find<liba> (d, n));
       libso* so (targets.find<libso> (d, n));
@@ -187,7 +193,8 @@ namespace build
       &lib_factory,
       nullptr,
       &search_target,
-      false
+      false,
+      nullptr
     };
   }
 }

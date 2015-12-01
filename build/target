@@ -22,6 +22,8 @@
 #include <butl/multi-index> // map_iterator_adapter
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/scope>
 #include <build/variable>
 #include <build/operation>
@@ -352,7 +354,18 @@ namespace build
     const T*
     is_a () const {return dynamic_cast<const T*> (this);}
 
-    virtual const target_type& type () const = 0;
+    // An alias target type should be the same as its target type except
+    // for the name.
+    //
+    const target_type* alias_type = nullptr;
+
+    const target_type&
+    type () const
+    {
+      return alias_type != nullptr ? *alias_type : dynamic_type ();
+    }
+
+    virtual const target_type& dynamic_type () const = 0;
     static const target_type static_type;
 
   private:
@@ -897,8 +910,8 @@ namespace build
     load_mtime () const final;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Alias target. It represents a list of targets (its prerequisites)
@@ -910,8 +923,8 @@ namespace build
     using target::target;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Directory target. Note that this is not a filesystem directory
@@ -924,8 +937,8 @@ namespace build
     using alias::alias;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // While a filesystem directory is mtime-based, the semantics is
@@ -941,8 +954,8 @@ namespace build
     using target::target;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   class buildfile: public file
@@ -951,8 +964,8 @@ namespace build
     using file::file;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Common documentation file targets.
@@ -965,8 +978,8 @@ namespace build
     using file::file;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // The problem with man pages is this: different platforms have
@@ -1009,8 +1022,8 @@ namespace build
     using doc::doc;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   class man1: public man
@@ -1019,8 +1032,8 @@ namespace build
     using man::man;
 
   public:
-    virtual const target_type& type () const {return static_type;}
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
   };
 
   // Common implementation of the target factory, extension, and
@@ -1028,9 +1041,9 @@ namespace build
   //
   template <typename T>
   target*
-  target_factory (dir_path d, std::string n, const std::string* e)
+  target_factory (const target_type&, dir_path d, string n, const string* e)
   {
-    return new T (std::move (d), std::move (n), e);
+    return new T (move (d), move (n), e);
   }
 
   // Return fixed target extension.

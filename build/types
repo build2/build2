@@ -7,6 +7,8 @@
 
 #include <vector>
 #include <string>
+#include <memory>      // unique_ptr, shared_ptr
+#include <functional>  // reference_wrapper
 
 #include <butl/path>
 #include <butl/timestamp>
@@ -17,7 +19,12 @@ namespace build
 {
   // Commonly-used types.
   //
-  using strings = std::vector<std::string>;
+  using std::string;
+  using std::unique_ptr;
+  using std::shared_ptr;
+  using std::reference_wrapper;
+
+  using strings = std::vector<string>;
   using cstrings = std::vector<const char*>;
 
   // <butl/path>

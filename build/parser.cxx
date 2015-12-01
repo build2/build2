@@ -12,6 +12,9 @@
 #include <iterator> // make_move_iterator()
 #include <iostream>
 
+#include <build/types>
+#include <build/utility>
+
 #include <build/token>
 #include <build/lexer>
 
@@ -128,6 +131,11 @@ namespace build
         else if (n == "using")
         {
           using_ (t, tt);
+          continue;
+        }
+        else if (n == "define")
+        {
+          define (t, tt);
           continue;
         }
       }
@@ -343,7 +351,7 @@ namespace build
                 const target_type* ti (
                   n.untyped ()
                   ? &target::static_type
-                  : scope_->find_target_type (n.type.c_str ()));
+                  : scope_->find_target_type (n.type));
 
                 if (ti == nullptr)
                   fail (nloc) << "unknown target type " << n.type;
@@ -792,6 +800,72 @@ namespace build
 
       load_module (n.value, *root_, *scope_, l);
     }
+
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
+  }
+
+  static target*
+  alias_factory (const target_type& tt, dir_path d, string n, const string* e)
+  {
+    assert (tt.origin != nullptr);
+    target* r (tt.origin->factory (*tt.origin, move (d), move (n), e));
+    r->alias_type = &tt;
+    return r;
+  }
+
+  void parser::
+  define (token& t, token_type& tt)
+  {
+    // define <alias>=<name>
+    //
+    // See tests/define/buildfile.
+    //
+    if (next (t, tt) != type::name)
+      fail (t) << "expected name instead of " << t << " in target type "
+               << "definition";
+
+    string a (move (t.value));
+    const location al (get_location (t, &path_));
+
+    if (next (t, tt) != type::equal)
+      fail (t) << "expected '=' instead of " << t << " in target type "
+               << "definition";
+
+    next (t, tt);
+
+    if (tt == type::name)
+    {
+      // Alias.
+      //
+      const string& n (t.value);
+      const target_type* ntt (scope_->find_target_type (n));
+
+      if (ntt == nullptr)
+        fail (t) << "unknown target type " << n;
+
+      unique_ptr<target_type> att (new target_type (*ntt));
+      att->factory = &alias_factory;
+      att->origin = ntt->origin != nullptr ? ntt->origin : ntt;
+
+      target_type& ratt (*att); // Save non-const reference to the object.
+
+      auto pr (scope_->target_types.emplace (a, target_type_ref (move (att))));
+
+      if (!pr.second)
+        fail (al) << "target type " << a << " already define in this scope";
+
+      // Patch the alias name to use the map's key storage.
+      //
+      ratt.name = pr.first->first.c_str ();
+
+      next (t, tt); // Get newline.
+    }
+    else
+      fail (t) << "expected name instead of " << t << " in target type "
+               << "definition";
 
     if (tt == type::newline)
       next (t, tt);

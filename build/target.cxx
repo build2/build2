@@ -286,7 +286,7 @@ namespace build
 
     if (r)
     {
-      unique_ptr<target> pt (tt.factory (move (dir), move (name), ext));
+      unique_ptr<target> pt (tt.factory (tt, move (dir), move (name), ext));
       i = map_.emplace (
         make_pair (target_key {&tt, &pt->dir, &pt->name, &pt->ext},
                    move (pt))).first;
@@ -446,7 +446,8 @@ namespace build
     nullptr,
     nullptr,
     &search_target,
-    false
+    false,
+    nullptr
   };
 
   const target_type mtime_target::static_type
@@ -457,7 +458,8 @@ namespace build
     nullptr,
     nullptr,
     &search_target,
-    false
+    false,
+    nullptr
   };
 
   const target_type path_target::static_type
@@ -468,12 +470,13 @@ namespace build
     nullptr,
     nullptr,
     &search_target,
-    false
+    false,
+    nullptr
   };
 
   template <typename T>
   static target*
-  file_factory (dir_path d, string n, const string* e)
+  file_factory (const target_type&, dir_path d, string n, const string* e)
   {
     // The file target type doesn't imply any extension. So if one
     // wasn't specified, set it to empty rather than unspecified.
@@ -493,7 +496,8 @@ namespace build
     &file_factory<file>,
     &target_extension_fix<file_ext>,
     &search_file,
-    false
+    false,
+    nullptr
   };
 
   const target_type alias::static_type
@@ -504,7 +508,8 @@ namespace build
     &target_factory<alias>,
     nullptr, // Should never need.
     &search_alias,
-    false
+    false,
+    nullptr
   };
 
   const target_type dir::static_type
@@ -515,7 +520,8 @@ namespace build
     &target_factory<dir>,
     nullptr, // Should never need.
     &search_alias,
-    false
+    false,
+    nullptr
   };
 
   const target_type fsdir::static_type
@@ -526,7 +532,8 @@ namespace build
     &target_factory<fsdir>,
     nullptr, // Should never need.
     &search_target,
-    false
+    false,
+    nullptr
   };
 
   static const std::string&
@@ -546,7 +553,8 @@ namespace build
     &file_factory<buildfile>,
     &buildfile_target_extension,
     &search_file,
-    false
+    false,
+    nullptr
   };
 
   constexpr const char doc_ext[] = "";
@@ -558,11 +566,12 @@ namespace build
     &file_factory<doc>,
     &target_extension_fix<doc_ext>,
     &search_file,
-    false
+    false,
+    nullptr
   };
 
   static target*
-  man_factory (dir_path d, string n, const string* e)
+  man_factory (const target_type&, dir_path d, string n, const string* e)
   {
     if (e == nullptr)
       fail << "man target '" << n << "' must include extension (man section)";
@@ -578,7 +587,8 @@ namespace build
     &man_factory,
     nullptr,        // Should be specified explicitly.
     &search_file,
-    false
+    false,
+    nullptr
   };
 
   constexpr const char man1_ext[] = "1";
@@ -590,6 +600,7 @@ namespace build
     &file_factory<man1>,
     &target_extension_fix<man1_ext>,
     &search_file,
-    false
+    false,
+    nullptr
   };
 }

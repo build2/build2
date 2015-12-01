@@ -72,6 +72,9 @@ namespace build
     using_ (token&, token_type&);
 
     void
+    define (token&, token_type&);
+
+    void
     variable (token&, token_type&, std::string name, token_type kind);
 
     std::string
