@@ -15,6 +15,8 @@ namespace build
   lookup<const value> scope::
   operator[] (const variable& var) const
   {
+    using result = build::lookup<const value>;
+
     const value* r (nullptr);
     const scope* s (this);
 
@@ -24,7 +26,27 @@ namespace build
         break;
     }
 
-    return lookup<const value> (r, &s->vars);
+    return result (r, &s->vars);
+  }
+
+  lookup<const value> scope::
+  lookup (const target_type& tt, const string& name, const variable& var) const
+  {
+    using result = build::lookup<const value>;
+
+    for (const scope* s (this); s != nullptr; s = s->parent_scope ())
+    {
+      if (!s->target_vars.empty ())
+      {
+        if (auto l = s->target_vars.lookup (tt, name, var))
+          return l;
+      }
+
+      if (auto r = s->vars.find (var))
+        return result (r, &s->vars);
+    }
+
+    return result ();
   }
 
   value& scope::

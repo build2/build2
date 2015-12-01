@@ -75,13 +75,24 @@ namespace build
     // Lookup, including in outer scopes. If you only want to lookup
     // in this scope, do it on the the variables map directly.
     //
-    lookup<const value>
+    build::lookup<const value>
     operator[] (const variable&) const;
 
-    lookup<const value>
+    build::lookup<const value>
     operator[] (const std::string& name) const
     {
       return operator[] (variable_pool.find (name));
+    }
+
+    // As above, but includes target type/pattern-specific variables.
+    //
+    build::lookup<const value>
+    lookup (const target_type&, const string& name, const variable&) const;
+
+    build::lookup<const value>
+    lookup (const target_type& tt, const string& n, const string& var) const
+    {
+      return lookup (tt, n, variable_pool.find (var));
     }
 
     // Return a value suitable for assignment (or append if you only

@@ -342,4 +342,72 @@ namespace build
   // variable_set
   //
   variable_set variable_pool;
+
+  // variable_type_map
+  //
+  lookup<const value> variable_type_map::
+  lookup (const target_type& type,
+          const string& name,
+          const variable& var) const
+  {
+    using result = build::lookup<const value>;
+
+    // Search across target type hierarchy.
+    //
+    for (auto tt (&type); tt != nullptr; tt = tt->base)
+    {
+      auto i (find (*tt));
+
+      if (i == end ())
+        continue;
+
+      // Try to match the pattern, starting from the longest values
+      // so that the more "specific" patterns (i.e., those that cover
+      // fewer characters with the wildcard) take precedence. See
+      // tests/variable/type-pattern.
+      //
+      const variable_pattern_map& m (i->second);
+
+      for (auto j (m.rbegin ()); j != m.rend (); ++j)
+      {
+        const string& p (j->first);
+
+        size_t nn (name.size ());
+        size_t pn (p.size ());
+
+        if (nn < pn - 1) // One for '*'.
+          continue;
+
+        size_t w (p.find ('*'));
+        assert (w != string::npos);
+
+        // Compare prefix.
+        //
+        if (w != 0 &&
+            name.compare (0, w, p, 0, w) != 0)
+          continue;
+
+        ++w;     // First suffix character.
+        pn -= w; // Suffix length.
+
+        // Compare suffix.
+        //
+        if (pn != 0 &&
+            name.compare (nn - pn, pn, p, w, pn) != 0)
+          continue;
+
+        // Ok, this pattern matches. But is there a variable?
+        //
+        if (const value* v = j->second.find (var))
+        {
+          //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and
+          //   'foo-foo'? Right now the last defined will be used.
+          //
+          return result (v, &j->second);
+        }
+      }
+    }
+
+    return result ();
+  }
 }

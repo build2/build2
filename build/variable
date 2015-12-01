@@ -768,8 +768,13 @@ namespace build
   //    consider its lifetime.
   //
   using variable_pattern_map = std::map<std::string, variable_map>;
-  using variable_type_map = std::map<std::reference_wrapper<const target_type>,
-                                     variable_pattern_map>;
+
+  struct variable_type_map: std::map<std::reference_wrapper<const target_type>,
+                                     variable_pattern_map>
+  {
+    build::lookup<const value>
+    lookup (const target_type&, const string& name, const variable&) const;
+  };
 }
 
 #include <build/variable.ixx>

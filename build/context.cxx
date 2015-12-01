@@ -74,6 +74,8 @@ namespace build
     //
     variable_pool.find ("subprojects", nullptr, '=');
 
+    variable_pool.find ("extension", string_type);
+
     // Create global scope. For Win32 this is not a "real" root path.
     // On POSIX, however, this is a real path. See the comment in
     // <build/path-map> for details.

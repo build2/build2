@@ -20,12 +20,14 @@ namespace build
   const std::string&
   target_extension_var (const target_key& tk, scope& s)
   {
-    auto l (s[var]);
+    // Include target type/pattern-specific variables.
+    //
+    auto l (s.lookup (*tk.type, *tk.name, var));
 
     if (!l)
     {
       diag_record dr;
-      dr << fail << "no default extension in variable " << var
+      dr << fail << "no default extension in variable '" << var << "'"
          << info << "required to derive file name for ";
 
       // This is a bit hacky: we may be dealing with a target (see

@@ -130,86 +130,25 @@ namespace build
         return result (p, &group->vars);
     }
 
-    // Cannot simply delegate to scope's operator[] since we also
-    // need to check target type/pattern-specific variables.
+    // We cannot simply delegate to scope's lookup() since we also need
+    // to check the group.
     //
     for (const scope* s (&base_scope ()); s != nullptr; s = s->parent_scope ())
     {
       if (!s->target_vars.empty ())
       {
-        auto find_specific = [this, &var, s] (const target& t) -> result
-        {
-          // Search across target type hierarchy.
-          //
-          for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
-          {
-            auto i (s->target_vars.find (*tt));
-
-            if (i == s->target_vars.end ())
-              continue;
-
-            // Try to match the pattern, starting from the longest values
-            // so that the more "specific" patterns (i.e., those that cover
-            // fewer characters with the wildcard) take precedence. See
-            // tests/variable/type-pattern.
-            //
-            const variable_pattern_map& m (i->second);
-
-            for (auto j (m.rbegin ()); j != m.rend (); ++j)
-            {
-              const string& p (j->first);
-
-              size_t nn (name.size ());
-              size_t pn (p.size ());
-
-              if (nn < pn - 1) // One for '*'.
-                continue;
-
-              size_t w (p.find ('*'));
-              assert (w != string::npos);
-
-              // Compare prefix.
-              //
-              if (w != 0 &&
-                  name.compare (0, w, p, 0, w) != 0)
-                continue;
-
-              ++w;     // First suffix character.
-              pn -= w; // Suffix length.
-
-              // Compare suffix.
-              //
-              if (pn != 0 &&
-                  name.compare (nn - pn, pn, p, w, pn) != 0)
-                continue;
-
-              // Ok, this pattern matches. But is there a variable?
-              //
-              if (const value* v = j->second.find (var))
-              {
-                //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and
-                //   'foo-foo'? Right now the last defined will be used.
-                //
-                return result (v, &j->second);
-              }
-            }
-          }
-
-          return result ();
-        };
-
-        if (auto p = find_specific (*this))
-          return p;
+        if (auto l = s->target_vars.lookup (type (), name, var))
+          return l;
 
         if (group != nullptr)
         {
-          if (auto p = find_specific (*group))
-            return p;
+          if (auto l = s->target_vars.lookup (group->type (), group->name, var))
+            return l;
         }
       }
 
-      if (auto p = s->vars.find (var))
-        return result (p, &s->vars);
+      if (auto r = s->vars.find (var))
+        return result (r, &s->vars);
     }
 
     return result ();
@@ -481,13 +420,13 @@ namespace build
                   (e != nullptr ? e : &extension_pool.find ("")));
   }
 
-  constexpr const char file_ext[] = "";
+  constexpr const char extension_var[] = "extension";
   const target_type file::static_type
   {
     "file",
     &path_target::static_type,
     &file_factory<file>,
-    &target_extension_fix<file_ext>,
+    &target_extension_var<extension_var>,
     &search_file,
     false
   };
