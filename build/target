@@ -354,15 +354,14 @@ namespace build
     const T*
     is_a () const {return dynamic_cast<const T*> (this);}
 
-    // An alias target type should be the same as its target type except
-    // for the name.
+    // Dynamic derivation to support define.
     //
-    const target_type* alias_type = nullptr;
+    const target_type* derived_type = nullptr;
 
     const target_type&
     type () const
     {
-      return alias_type != nullptr ? *alias_type : dynamic_type ();
+      return derived_type != nullptr ? *derived_type : dynamic_type ();
     }
 
     virtual const target_type& dynamic_type () const = 0;

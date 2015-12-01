@@ -8,9 +8,6 @@
 #include <map>
 #include <string>
 #include <ostream>
-#include <typeindex>
-
-#include <butl/utility> // compare_c_string
 
 #include <build/types>
 
@@ -23,9 +20,13 @@ namespace build
 
   // Target type.
   //
+  // Note that we assume there is always a single instance of this class
+  // for any target type. As a result, we can use address comparison to
+  // determine if two target types are the same.
+  //
+  //
   struct target_type
   {
-    std::type_index id;
     const char* name;
     const target_type* base;
     target* (*factory) (const target_type&, dir_path, string, const string*);
@@ -33,60 +34,50 @@ namespace build
     target* (*search) (const prerequisite_key&);
     bool see_through; // A group with the default "see through" semantics.
 
-    const target_type* origin; // Original target if this is an alias.
-
     bool
-    is_a (const std::type_index&) const; // Defined in target.cxx
+    is_a (const target_type&) const; // Defined in target.cxx
 
     template <typename T>
     bool
-    is_a () const {return is_a (typeid (T));}
+    is_a () const {return is_a (T::static_type);}
   };
 
   inline bool
-  operator< (const target_type& x, const target_type& y)
-  {
-    return x.id < y.id;
-  }
+  operator< (const target_type& x, const target_type& y) {return &x < &y;}
+
+  inline bool
+  operator== (const target_type& x, const target_type& y) {return &x == &y;}
+
+  inline bool
+  operator!= (const target_type& x, const target_type& y) {return &x != &y;}
 
   inline std::ostream&
-  operator<< (std::ostream& os, const target_type& tt)
-  {
-    return os << tt.name;
-  }
+  operator<< (std::ostream& os, const target_type& tt) {return os << tt.name;}
 
   // Target type map.
   //
   struct target_type_ref
   {
-    // Like reference_wrapper except it deletes the target type if it is
-    // an alias (aliases are always dynamically allocated).
+    // Like reference_wrapper except it sometimes deletes the target type.
     //
     explicit
-    target_type_ref (const target_type& r): p_ (&r)
-    {
-      assert (p_->origin == nullptr);
-    }
+    target_type_ref (const target_type& r): p_ (&r), d_ (false) {}
 
     explicit
-    target_type_ref (unique_ptr<target_type>&& p): p_ (p.release ())
-    {
-      assert (p_->origin != nullptr);
-    }
+    target_type_ref (unique_ptr<target_type>&& p)
+        : p_ (p.release ()), d_ (true) {}
 
-    ~target_type_ref ()
-    {
-      if (p_ != nullptr && p_->origin != nullptr)
-        delete p_;
-    }
+    target_type_ref (target_type_ref&& r)
+        : p_ (r.p_), d_ (r.d_) {r.p_ = nullptr;}
+
+    ~target_type_ref () {if (p_ != nullptr && d_) delete p_;}
 
     explicit operator const target_type& () const {return *p_;}
     const target_type& get () const {return *p_;}
 
-    target_type_ref (target_type_ref&& r): p_ (r.p_) {r.p_ = nullptr;}
-
   private:
     const target_type* p_;
+    bool d_;
   };
 
   using target_type_map_base = std::map<string, target_type_ref>;

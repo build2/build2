@@ -808,58 +808,57 @@ namespace build
   }
 
   static target*
-  alias_factory (const target_type& tt, dir_path d, string n, const string* e)
+  derived_factory (const target_type& t, dir_path d, string n, const string* e)
   {
-    assert (tt.origin != nullptr);
-    target* r (tt.origin->factory (*tt.origin, move (d), move (n), e));
-    r->alias_type = &tt;
+    target* r (t.base->factory (*t.base, move (d), move (n), e));
+    r->derived_type = &t;
     return r;
   }
 
   void parser::
   define (token& t, token_type& tt)
   {
-    // define <alias>=<name>
+    // define <derived>: <base>
     //
-    // See tests/define/buildfile.
+    // See tests/define.
     //
     if (next (t, tt) != type::name)
       fail (t) << "expected name instead of " << t << " in target type "
                << "definition";
 
-    string a (move (t.value));
-    const location al (get_location (t, &path_));
+    string dn (move (t.value));
+    const location dnl (get_location (t, &path_));
 
-    if (next (t, tt) != type::equal)
-      fail (t) << "expected '=' instead of " << t << " in target type "
+    if (next (t, tt) != type::colon)
+      fail (t) << "expected ':' instead of " << t << " in target type "
                << "definition";
 
     next (t, tt);
 
     if (tt == type::name)
     {
-      // Alias.
+      // Target.
       //
-      const string& n (t.value);
-      const target_type* ntt (scope_->find_target_type (n));
+      const string& bn (t.value);
+      const target_type* bt (scope_->find_target_type (bn));
 
-      if (ntt == nullptr)
-        fail (t) << "unknown target type " << n;
+      if (bt == nullptr)
+        fail (t) << "unknown target type " << bn;
 
-      unique_ptr<target_type> att (new target_type (*ntt));
-      att->factory = &alias_factory;
-      att->origin = ntt->origin != nullptr ? ntt->origin : ntt;
+      unique_ptr<target_type> dt (new target_type (*bt));
+      dt->base = bt;
+      dt->factory = &derived_factory;
 
-      target_type& ratt (*att); // Save non-const reference to the object.
+      target_type& rdt (*dt); // Save a non-const reference to the object.
 
-      auto pr (scope_->target_types.emplace (a, target_type_ref (move (att))));
+      auto pr (scope_->target_types.emplace (dn, target_type_ref (move (dt))));
 
       if (!pr.second)
-        fail (al) << "target type " << a << " already define in this scope";
+        fail (dnl) << "target type " << dn << " already define in this scope";
 
       // Patch the alias name to use the map's key storage.
       //
-      ratt.name = pr.first->first.c_str ();
+      rdt.name = pr.first->first.c_str ();
 
       next (t, tt); // Get newline.
     }

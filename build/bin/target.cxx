@@ -24,14 +24,12 @@ namespace build
 
     const target_type obja::static_type
     {
-      typeid (obja),
       "obja",
       &file::static_type,
       &obja_factory,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
-      false,
-      nullptr
+      false
     };
 
     static target*
@@ -48,14 +46,12 @@ namespace build
 
     const target_type objso::static_type
     {
-      typeid (objso),
       "objso",
       &file::static_type,
       &objso_factory,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
-      false,
-      nullptr
+      false
     };
 
     static target*
@@ -76,26 +72,22 @@ namespace build
 
     const target_type obj::static_type
     {
-      typeid (obj),
       "obj",
       &target::static_type,
       &obj_factory,
       nullptr,
       &search_target,
-      false,
-      nullptr
+      false
     };
 
     const target_type exe::static_type
     {
-      typeid (exe),
       "exe",
       &file::static_type,
       &target_factory<exe>,
       nullptr,
       &search_file,
-      false,
-      nullptr
+      false
     };
 
     static target*
@@ -125,14 +117,12 @@ namespace build
     constexpr const char a_ext[] = "a";
     const target_type liba::static_type
     {
-      typeid (liba),
       "liba",
       &file::static_type,
       &liba_factory,
       &target_extension_fix<a_ext>,
       &search_file,
-      false,
-      nullptr
+      false
     };
 
     static target*
@@ -150,14 +140,12 @@ namespace build
     constexpr const char so_ext[] = "so";
     const target_type libso::static_type
     {
-      typeid (libso),
       "libso",
       &file::static_type,
       &libso_factory,
       &target_extension_fix<so_ext>,
       &search_file,
-      false,
-      nullptr
+      false
     };
 
     // lib
@@ -187,14 +175,12 @@ namespace build
 
     const target_type lib::static_type
     {
-      typeid (lib),
       "lib",
       &target::static_type,
       &lib_factory,
       nullptr,
       &search_target,
-      false,
-      nullptr
+      false
     };
   }
 }

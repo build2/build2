@@ -111,7 +111,7 @@ namespace build
             if (ttm->empty ())
               continue; // Empty map for this operation id.
 
-            auto i (ttm->find (tt->id));
+            auto i (ttm->find (tt));
 
             if (i == ttm->end () || i->second.empty ())
               continue; // No rules registered for this target type.

@@ -56,12 +56,12 @@ namespace build
         os << endl
            << ind;
 
-        if (t.id != target::static_type.id)
+        if (t != target::static_type)
           os << t.name << '{';
 
         os << p;
 
-        if (t.id != target::static_type.id)
+        if (t != target::static_type)
           os << '}';
 
         os << ':';

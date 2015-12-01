@@ -8,7 +8,6 @@
 #include <map>
 #include <string>
 #include <ostream>
-#include <typeindex>
 #include <functional>  // reference_wrapper
 
 #include <butl/utility> // compare_c_string
@@ -31,8 +30,8 @@ namespace build
     friend bool
     operator< (const target_key& x, const target_key& y)
     {
-      const std::type_index& xt (x.type->id);
-      const std::type_index& yt (y.type->id);
+      const target_type* xt (x.type);
+      const target_type* yt (y.type);
 
       //@@ TODO: use compare() to compare once.
 

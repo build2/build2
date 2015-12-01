@@ -18,14 +18,12 @@ namespace build
     constexpr const char cli_ext[] = "cli";
     const target_type cli::static_type
     {
-      typeid (cli),
       "cli",
       &file::static_type,
       &target_factory<cli>,
       &target_extension_fix<cli_ext>,
       &search_file,
-      false,
-      nullptr
+      false
     };
 
     // cli.cxx
@@ -66,14 +64,12 @@ namespace build
 
     const target_type cli_cxx::static_type
     {
-      typeid (cli_cxx),
       "cli.cxx",
       &mtime_target::static_type,
       &cli_cxx_factory,
       nullptr,
       &search_target,
-      true, // "See through" default iteration mode.
-      nullptr
+      true // "See through" default iteration mode.
     };
   }
 }

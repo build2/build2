@@ -20,10 +20,10 @@ namespace build
   // target_type
   //
   bool target_type::
-  is_a (const type_index& id) const
+  is_a (const target_type& tt) const
   {
     for (const target_type* p (this); p != nullptr; p = p->base)
-      if (p->id == id)
+      if (*p == tt)
         return true;
 
     return false;
@@ -440,38 +440,32 @@ namespace build
 
   const target_type target::static_type
   {
-    typeid (target),
     "target",
     nullptr,
     nullptr,
     nullptr,
     &search_target,
-    false,
-    nullptr
+    false
   };
 
   const target_type mtime_target::static_type
   {
-    typeid (mtime_target),
     "mtime_target",
     &target::static_type,
     nullptr,
     nullptr,
     &search_target,
-    false,
-    nullptr
+    false
   };
 
   const target_type path_target::static_type
   {
-    typeid (path_target),
     "path_target",
     &mtime_target::static_type,
     nullptr,
     nullptr,
     &search_target,
-    false,
-    nullptr
+    false
   };
 
   template <typename T>
@@ -490,50 +484,42 @@ namespace build
   constexpr const char file_ext[] = "";
   const target_type file::static_type
   {
-    typeid (file),
     "file",
     &path_target::static_type,
     &file_factory<file>,
     &target_extension_fix<file_ext>,
     &search_file,
-    false,
-    nullptr
+    false
   };
 
   const target_type alias::static_type
   {
-    typeid (alias),
     "alias",
     &target::static_type,
     &target_factory<alias>,
     nullptr, // Should never need.
     &search_alias,
-    false,
-    nullptr
+    false
   };
 
   const target_type dir::static_type
   {
-    typeid (dir),
     "dir",
     &alias::static_type,
     &target_factory<dir>,
     nullptr, // Should never need.
     &search_alias,
-    false,
-    nullptr
+    false
   };
 
   const target_type fsdir::static_type
   {
-    typeid (fsdir),
     "fsdir",
     &target::static_type,
     &target_factory<fsdir>,
     nullptr, // Should never need.
     &search_target,
-    false,
-    nullptr
+    false
   };
 
   static const std::string&
@@ -547,27 +533,23 @@ namespace build
 
   const target_type buildfile::static_type
   {
-    typeid (buildfile),
     "buildfile",
     &file::static_type,
     &file_factory<buildfile>,
     &buildfile_target_extension,
     &search_file,
-    false,
-    nullptr
+    false
   };
 
   constexpr const char doc_ext[] = "";
   const target_type doc::static_type
   {
-    typeid (doc),
     "doc",
     &file::static_type,
     &file_factory<doc>,
     &target_extension_fix<doc_ext>,
     &search_file,
-    false,
-    nullptr
+    false
   };
 
   static target*
@@ -581,26 +563,22 @@ namespace build
 
   const target_type man::static_type
   {
-    typeid (man),
     "man",
     &doc::static_type,
     &man_factory,
     nullptr,        // Should be specified explicitly.
     &search_file,
-    false,
-    nullptr
+    false
   };
 
   constexpr const char man1_ext[] = "1";
   const target_type man1::static_type
   {
-    typeid (man1),
     "man1",
     &man::static_type,
     &file_factory<man1>,
     &target_extension_fix<man1_ext>,
     &search_file,
-    false,
-    nullptr
+    false
   };
 }

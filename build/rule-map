@@ -9,7 +9,6 @@
 #include <vector>
 #include <string>
 #include <memory>     // unique_ptr
-#include <typeindex>
 #include <functional> // reference_wrapper
 
 #include <butl/prefix-map>
@@ -22,7 +21,7 @@ namespace build
   class rule;
 
   using target_type_rule_map = std::map<
-    std::type_index,              // Target type.
+    const target_type*,
     butl::prefix_map<std::string, // Rule hint.
                      std::reference_wrapper<rule>, '.'>>;
 
@@ -41,7 +40,7 @@ namespace build
       if (oid >= map_.size ())
         map_.resize ((oid < 3 ? 3 : oid) + 1);
 
-      map_[oid][typeid (T)].emplace (hint, r);
+      map_[oid][&T::static_type].emplace (hint, r);
     }
 
     // Return NULL if not found.
