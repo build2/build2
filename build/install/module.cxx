@@ -29,13 +29,18 @@ namespace build
     // to set all the install.* values to defaults, as if we had the
     // default configuration.
     //
+    // If override is true, then override values that came from outer
+    // configurations. We have to do this for paths that contain the
+    // package name.
+    //
     template <typename T>
     static void
     set_var (bool spec,
              scope& r,
              const char* name,
              const char* var,
-             const T* dv)
+             const T* dv,
+             bool override = false)
     {
       string vn;
       const value* cv (nullptr);
@@ -49,7 +54,7 @@ namespace build
           variable_pool.find (move (vn), &value_traits<T>::value_type));
 
         cv = dv != nullptr
-          ? &config::required (r, vr, *dv).first.get ()
+          ? &config::required (r, vr, *dv, override).first.get ()
           : &config::optional (r, vr);
       }
 
@@ -77,20 +82,22 @@ namespace build
     set_dir (bool s,
              scope& r,
              const char* name,
-             const dir_path& path,
+             const string& path,
              const string& fmode = string (),
              const string& dmode = string (),
-             const string& cmd = string ())
+             const string& cmd = string (),
+             bool ovr = false)
     {
-      set_var (s, r, name, "",          path.empty ()  ? nullptr : &path);
+      dir_path dpath (path);
+      set_var (s, r, name, "",          dpath.empty () ? nullptr : &dpath, ovr);
       set_var (s, r, name, ".mode",     fmode.empty () ? nullptr : &fmode);
       set_var (s, r, name, ".dir_mode", dmode.empty () ? nullptr : &dmode);
       set_var (s, r, name, ".cmd",      cmd.empty ()   ? nullptr : &cmd);
       set_var<strings> (s, r, name, ".options", nullptr);
     }
 
-    static alias_rule alias_rule_;
-    static file_rule file_rule_;
+    static alias_rule alias_;
+    static file_rule file_;
 
     extern "C" void
     install_init (scope& r,
@@ -119,8 +126,8 @@ namespace build
 
       // Register our alias and file installer rule.
       //
-      b.rules.insert<alias> (perform_id, install_id, "install", alias_rule_);
-      b.rules.insert<file> (perform_id, install_id, "install", file_rule_);
+      b.rules.insert<alias> (perform_id, install_id, "install.alias", alias_);
+      b.rules.insert<file> (perform_id, install_id, "install.file", file_);
 
       // Enter module variables.
       //
@@ -142,22 +149,22 @@ namespace build
         bool s (config::specified (r, "config.install"));
         const string& n (as<string> (*r["project"]));
 
-        set_dir (s, r, "root",      dir_path (),        "", "755", "install");
-        set_dir (s, r, "data_root", dir_path ("root"),  "644");
-        set_dir (s, r, "exec_root", dir_path ("root"),  "755");
+        set_dir (s, r, "root",      "",      "", "755", "install");
+        set_dir (s, r, "data_root", "root",  "644");
+        set_dir (s, r, "exec_root", "root",  "755");
 
-        set_dir (s, r, "sbin",      dir_path ("exec_root/sbin"));
-        set_dir (s, r, "bin",       dir_path ("exec_root/bin"));
-        set_dir (s, r, "lib",       dir_path ("exec_root/lib"));
-        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n));
+        set_dir (s, r, "sbin",    "exec_root/sbin");
+        set_dir (s, r, "bin",     "exec_root/bin");
+        set_dir (s, r, "lib",     "exec_root/lib");
+        set_dir (s, r, "libexec", "exec_root/libexec/" + n, "", "", "", true);
 
-        set_dir (s, r, "data",      dir_path ("data_root/share/" + n));
-        set_dir (s, r, "include",   dir_path ("data_root/include"));
+        set_dir (s, r, "data",    "data_root/share/" + n, "", "", "", true);
+        set_dir (s, r, "include", "data_root/include");
 
-        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n));
-        set_dir (s, r, "man",       dir_path ("data_root/share/man"));
+        set_dir (s, r, "doc",     "data_root/share/doc/" + n, "", "", "", true);
+        set_dir (s, r, "man",     "data_root/share/man");
 
-        set_dir (s, r, "man1",      dir_path ("man/man1"));
+        set_dir (s, r, "man1",    "man/man1");
       }
 
       // Configure "installability" for built-in target types.

@@ -10,18 +10,20 @@ namespace build
   {
     template <typename T>
     std::pair<std::reference_wrapper<const value>, bool>
-    required (scope& root, const variable& var, const T& def_value)
+    required (scope& root, const variable& var, const T& def_value, bool ovr)
     {
       using result = std::pair<std::reference_wrapper<const value>, bool>;
 
       if (auto l = root[var])
       {
-        return l.belongs (*global_scope)
-          ? result (root.assign (var) = *l, true)
-          : result (*l, false);
+        if (l.belongs (*global_scope))
+          return result (root.assign (var) = *l, true);
+
+        if (!ovr || l.belongs (root))
+          return result (*l, false);
       }
-      else
-        return result (root.assign (var) = def_value, true);
+
+      return result (root.assign (var) = def_value, true);
     }
 
     template <typename T>

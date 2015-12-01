@@ -21,24 +21,38 @@ namespace build
   {
     // Set, if necessary, a required config.* variable.
     //
+    // If override is true and the variable doesn't come from this root
+    // scope or from the command line, then its value is "overridden"
+    // for this root scope.
+    //
     // Return the reference to the value as well as the indication of
     // whether the variable has actually been set.
     //
     template <typename T>
     std::pair<std::reference_wrapper<const value>, bool>
-    required (scope& root, const variable&, const T& default_value);
+    required (scope& root,
+              const variable&,
+              const T& default_value,
+              bool override = false);
 
     template <typename T>
     inline std::pair<std::reference_wrapper<const value>, bool>
-    required (scope& root, const std::string& name, const T& default_value)
+    required (scope& root,
+              const std::string& name,
+              const T& default_value,
+              bool override = false)
     {
-      return required (root, variable_pool.find (name), default_value);
+      return required (
+        root, variable_pool.find (name), default_value, override);
     }
 
     inline std::pair<std::reference_wrapper<const value>, bool>
-    required (scope& root, const std::string& name, const char* default_value)
+    required (scope& root,
+              const std::string& name,
+              const char* default_value,
+              bool override = false)
     {
-      return required (root, name, std::string (default_value));
+      return required (root, name, std::string (default_value), override);
     }
 
     // Set, if necessary, an optional config.* variable. In particular,
