@@ -433,13 +433,15 @@ namespace build
                   (e != nullptr ? e : &extension_pool.find ("")));
   }
 
-  constexpr const char extension_var[] = "extension";
+  constexpr const char file_ext_var[] = "extension";
+  constexpr const char file_ext_def[] = "";
+
   const target_type file::static_type
   {
     "file",
     &path_target::static_type,
     &file_factory<file>,
-    &target_extension_var<extension_var>,
+    &target_extension_var<file_ext_var, file_ext_def>,
     &search_file,
     false
   };
@@ -493,13 +495,12 @@ namespace build
     false
   };
 
-  constexpr const char doc_ext[] = "";
   const target_type doc::static_type
   {
     "doc",
     &file::static_type,
     &file_factory<doc>,
-    &target_extension_fix<doc_ext>,
+    &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
     &search_file,
     false
   };

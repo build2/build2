@@ -16,7 +16,7 @@ namespace build
       "hxx",
       &file::static_type,
       &target_factory<hxx>,
-      &target_extension_var<hxx_ext_var>,
+      &target_extension_var<hxx_ext_var, nullptr>,
       &search_file,
       false
     };
@@ -27,7 +27,7 @@ namespace build
       "ixx",
       &file::static_type,
       &target_factory<ixx>,
-      &target_extension_var<ixx_ext_var>,
+      &target_extension_var<ixx_ext_var, nullptr>,
       &search_file,
       false
     };
@@ -38,7 +38,7 @@ namespace build
       "txx",
       &file::static_type,
       &target_factory<txx>,
-      &target_extension_var<txx_ext_var>,
+      &target_extension_var<txx_ext_var, nullptr>,
       &search_file,
       false
     };
@@ -49,7 +49,7 @@ namespace build
       "cxx",
       &file::static_type,
       &target_factory<cxx>,
-      &target_extension_var<cxx_ext_var>,
+      &target_extension_var<cxx_ext_var, nullptr>,
       &search_file,
       false
     };
@@ -60,7 +60,7 @@ namespace build
       "h",
       &file::static_type,
       &target_factory<h>,
-      &target_extension_var<h_ext_var>,
+      &target_extension_var<h_ext_var, nullptr>,
       &search_file,
       false
     };
@@ -71,7 +71,7 @@ namespace build
       "c",
       &file::static_type,
       &target_factory<c>,
-      &target_extension_var<c_ext_var>,
+      &target_extension_var<c_ext_var, nullptr>,
       &search_file,
       false
     };

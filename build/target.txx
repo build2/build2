@@ -10,24 +10,27 @@
 namespace build
 {
   template <const char* ext>
-  const std::string&
+  const string&
   target_extension_fix (const target_key&, scope&)
   {
     return extension_pool.find (ext);
   }
 
-  template <const char* var>
-  const std::string&
+  template <const char* var, const char* def>
+  const string&
   target_extension_var (const target_key& tk, scope& s)
   {
     // Include target type/pattern-specific variables.
     //
-    auto l (s.lookup (tk, var));
+    if (auto l = s.lookup (tk, var))
+      return extension_pool.find (as<string> (*l));
 
-    if (!l)
+    if (def != nullptr)
+      return extension_pool.find (def);
+
     {
       diag_record dr;
-      dr << fail << "no default extension in variable '" << var << "'"
+      dr << error << "no default extension in variable '" << var << "'"
          << info << "required to derive file name for ";
 
       // This is a bit hacky: we may be dealing with a target (see
@@ -39,11 +42,14 @@ namespace build
         dr << "target " << tk;
       else
       {
-        const std::string* proj (nullptr); // Used for local prerequisites.
+        const string* proj (nullptr); // Used for local prerequisites.
         dr << "prerequisite " << prerequisite_key {&proj, tk, &s};
       }
+
+      dr << info << "perhaps you forgot to add "
+         << tk.type->name << "{*}: " << var << " = ...";
     }
 
-    return extension_pool.find (as<std::string> (*l));
+    throw failed ();
   }
 }

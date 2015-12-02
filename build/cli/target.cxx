@@ -15,13 +15,15 @@ namespace build
   {
     // cli
     //
-    constexpr const char cli_ext[] = "cli";
+    constexpr const char cli_ext_var[] = "extension";
+    constexpr const char cli_ext_def[] = "cli";
+
     const target_type cli::static_type
     {
       "cli",
       &file::static_type,
       &target_factory<cli>,
-      &target_extension_fix<cli_ext>,
+      &target_extension_var<cli_ext_var, cli_ext_def>,
       &search_file,
       false
     };

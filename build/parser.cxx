@@ -818,6 +818,8 @@ namespace build
     return r;
   }
 
+  constexpr const char derived_ext_var[] = "extension";
+
   void parser::
   define (token& t, token_type& tt)
   {
@@ -851,6 +853,11 @@ namespace build
       unique_ptr<target_type> dt (new target_type (*bt));
       dt->base = bt;
       dt->factory = &derived_factory;
+
+      // Override extension derivation function: we most likely don't want
+      // to use the same default as our base (think cli: file).
+      //
+      dt->extension = &target_extension_var<derived_ext_var, nullptr>;
 
       target_type& rdt (*dt); // Save a non-const reference to the object.
 

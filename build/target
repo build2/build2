@@ -1051,9 +1051,10 @@ namespace build
   const std::string&
   target_extension_fix (const target_key&, scope&);
 
-  // Get the extension from the variable.
+  // Get the extension from the variable or use the default if none set.
+  // Issue diagnostics and fail if the default is NULL.
   //
-  template <const char* var>
+  template <const char* var, const char* def>
   const std::string&
   target_extension_var (const target_key&, scope&);
 
