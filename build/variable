@@ -10,7 +10,7 @@
 #include <cstddef>       // nullptr_t
 #include <utility>       // pair, make_pair()
 #include <iterator>
-#include <functional>    // hash, reference_wrapper
+#include <functional>    // hash
 #include <type_traits>   // conditional, is_reference, remove_reference, etc.
 #include <unordered_set>
 
@@ -93,10 +93,10 @@ namespace build
     }
 
     value&
-    operator= (std::reference_wrapper<const value> v)
-    {
-      return *this = v.get ();
-    }
+    operator= (reference_wrapper<value> v) {return *this = v.get ();}
+
+    value&
+    operator= (reference_wrapper<const value> v) {return *this = v.get ();}
 
     value&
     append (value, const variable&); // Aka operator+=().
