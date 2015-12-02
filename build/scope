@@ -76,24 +76,33 @@ namespace build
     // in this scope, do it on the the variables map directly.
     //
     build::lookup<const value>
-    operator[] (const variable&) const;
+    operator[] (const variable& var) const
+    {
+      return lookup (nullptr, nullptr, var);
+    }
 
     build::lookup<const value>
     operator[] (const std::string& name) const
     {
-      return operator[] (variable_pool.find (name));
+      return operator[] (var_pool.find (name));
     }
 
     // As above, but includes target type/pattern-specific variables.
     //
     build::lookup<const value>
-    lookup (const target_type&, const string& name, const variable&) const;
+    lookup (const target_key& tk, const variable& var) const
+    {
+      return lookup (tk.type, tk.name, var);
+    }
 
     build::lookup<const value>
-    lookup (const target_type& tt, const string& n, const string& var) const
+    lookup (const target_key& tk, const string& var) const
     {
-      return lookup (tt, n, variable_pool.find (var));
+      return lookup (tk, var_pool.find (var));
     }
+
+    build::lookup<const value>
+    lookup (const target_type*, const string* name, const variable&) const;
 
     // Return a value suitable for assignment (or append if you only
     // want to append to the value from this scope). If the variable
@@ -119,7 +128,7 @@ namespace build
     value&
     append (const std::string& name)
     {
-      return append (variable_pool.find (name));
+      return append (var_pool.find (name));
     }
 
     // Target type/pattern-specific variables.

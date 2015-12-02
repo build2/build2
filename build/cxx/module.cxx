@@ -27,12 +27,13 @@ namespace build
 {
   namespace cxx
   {
-    extern "C" void
+    extern "C" bool
     cxx_init (scope& r,
               scope& b,
-              const location& l,
+              const location& loc,
               std::unique_ptr<module>&,
-              bool first)
+              bool first,
+              bool)
     {
       tracer trace ("cxx::init");
       level5 ([&]{trace << "for " << b.out_path ();});
@@ -40,8 +41,12 @@ namespace build
       // Initialize the bin module. Only do this if it hasn't already
       // been loaded so that we don't overwrite user's bin.* settings.
       //
-      if (b.find_target_type ("obj") == nullptr)
-        load_module ("bin", r, b, l);
+      {
+        auto l (b["bin.loaded"]);
+
+        if (!l || !as<bool> (*l))
+          load_module (false, "bin", r, b, loc);
+      }
 
       // Register target types.
       //
@@ -105,31 +110,31 @@ namespace build
       //
       if (first)
       {
-        variable_pool.find ("config.cxx", string_type); //@@ VAR type
+        var_pool.find ("config.cxx", string_type); //@@ VAR type
 
-        variable_pool.find ("config.cxx.poptions", strings_type);
-        variable_pool.find ("config.cxx.coptions", strings_type);
-        variable_pool.find ("config.cxx.loptions", strings_type);
-        variable_pool.find ("config.cxx.libs", strings_type);
+        var_pool.find ("config.cxx.poptions", strings_type);
+        var_pool.find ("config.cxx.coptions", strings_type);
+        var_pool.find ("config.cxx.loptions", strings_type);
+        var_pool.find ("config.cxx.libs", strings_type);
 
-        variable_pool.find ("cxx.poptions", strings_type);
-        variable_pool.find ("cxx.coptions", strings_type);
-        variable_pool.find ("cxx.loptions", strings_type);
-        variable_pool.find ("cxx.libs", strings_type);
+        var_pool.find ("cxx.poptions", strings_type);
+        var_pool.find ("cxx.coptions", strings_type);
+        var_pool.find ("cxx.loptions", strings_type);
+        var_pool.find ("cxx.libs", strings_type);
 
-        variable_pool.find ("cxx.export.poptions", strings_type);
-        variable_pool.find ("cxx.export.coptions", strings_type);
-        variable_pool.find ("cxx.export.loptions", strings_type);
-        variable_pool.find ("cxx.export.libs", strings_type);
+        var_pool.find ("cxx.export.poptions", strings_type);
+        var_pool.find ("cxx.export.coptions", strings_type);
+        var_pool.find ("cxx.export.loptions", strings_type);
+        var_pool.find ("cxx.export.libs", strings_type);
 
-        variable_pool.find ("cxx.std", string_type);
+        var_pool.find ("cxx.std", string_type);
 
-        variable_pool.find ("h.ext", string_type);
-        variable_pool.find ("c.ext", string_type);
-        variable_pool.find ("hxx.ext", string_type);
-        variable_pool.find ("ixx.ext", string_type);
-        variable_pool.find ("txx.ext", string_type);
-        variable_pool.find ("cxx.ext", string_type);
+        var_pool.find ("h.ext", string_type);
+        var_pool.find ("c.ext", string_type);
+        var_pool.find ("hxx.ext", string_type);
+        var_pool.find ("ixx.ext", string_type);
+        var_pool.find ("txx.ext", string_type);
+        var_pool.find ("cxx.ext", string_type);
       }
 
       // Configure.
@@ -220,6 +225,8 @@ namespace build
         path<txx> (b, dir_path ("include"));
         path<h>   (b, dir_path ("include"));
       }
+
+      return true;
     }
   }
 }

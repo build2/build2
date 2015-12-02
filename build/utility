@@ -7,7 +7,8 @@
 
 #include <tuple>
 #include <string>
-#include <utility> // move()
+#include <utility>       // move()
+#include <cassert>       // assert()
 #include <exception>
 #include <unordered_set>
 

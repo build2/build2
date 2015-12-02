@@ -39,7 +39,7 @@ namespace build
 
     targets.clear ();
     scopes.clear ();
-    variable_pool.clear ();
+    var_pool.clear ();
 
     // Reset meta/operation tables. Note that the order should match
     // the id constants in <build/operation>.
@@ -59,22 +59,22 @@ namespace build
 
     // Enter builtin variables.
     //
-    variable_pool.find ("work", dir_path_type);
-    variable_pool.find ("home", dir_path_type);
+    var_pool.find ("work", dir_path_type);
+    var_pool.find ("home", dir_path_type);
 
-    variable_pool.find ("src_root", dir_path_type);
-    variable_pool.find ("out_root", dir_path_type);
-    variable_pool.find ("src_base", dir_path_type);
-    variable_pool.find ("out_base", dir_path_type);
+    var_pool.find ("src_root", dir_path_type);
+    var_pool.find ("out_root", dir_path_type);
+    var_pool.find ("src_base", dir_path_type);
+    var_pool.find ("out_base", dir_path_type);
 
-    variable_pool.find ("project", string_type);
-    variable_pool.find ("amalgamation", dir_path_type);
+    var_pool.find ("project", string_type);
+    var_pool.find ("amalgamation", dir_path_type);
 
     // Shouldn't be typed since the value requires pre-processing.
     //
-    variable_pool.find ("subprojects", nullptr, '=');
+    var_pool.find ("subprojects", nullptr, '=');
 
-    variable_pool.find ("extension", string_type);
+    var_pool.find ("extension", string_type);
 
     // Create global scope. For Win32 this is not a "real" root path.
     // On POSIX, however, this is a real path. See the comment in

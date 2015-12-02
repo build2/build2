@@ -29,12 +29,13 @@ namespace build
     static const strings liba_lib {"static"};
     static const strings libso_lib {"shared"};
 
-    extern "C" void
+    extern "C" bool
     bin_init (scope& r,
               scope& b,
               const location&,
               std::unique_ptr<module>&,
-              bool first)
+              bool first,
+              bool)
     {
       tracer trace ("bin::init");
       level5 ([&]{trace << "for " << b.out_path ();});
@@ -81,15 +82,15 @@ namespace build
       //
       if (first)
       {
-        variable_pool.find ("config.bin.lib", string_type);
-        variable_pool.find ("config.bin.exe.lib", strings_type);
-        variable_pool.find ("config.bin.liba.lib", strings_type);
-        variable_pool.find ("config.bin.libso.lib", strings_type);
+        var_pool.find ("config.bin.lib", string_type);
+        var_pool.find ("config.bin.exe.lib", strings_type);
+        var_pool.find ("config.bin.liba.lib", strings_type);
+        var_pool.find ("config.bin.libso.lib", strings_type);
 
-        variable_pool.find ("bin.lib", string_type);
-        variable_pool.find ("bin.exe.lib", strings_type);
-        variable_pool.find ("bin.liba.lib", strings_type);
-        variable_pool.find ("bin.libso.lib", strings_type);
+        var_pool.find ("bin.lib", string_type);
+        var_pool.find ("bin.exe.lib", strings_type);
+        var_pool.find ("bin.liba.lib", strings_type);
+        var_pool.find ("bin.libso.lib", strings_type);
       }
 
       // Configure.
@@ -164,6 +165,8 @@ namespace build
 
       install::path<liba> (b, dir_path ("lib"));  // Install into install.lib.
       install::mode<liba> (b, "644");
+
+      return true;
     }
   }
 }

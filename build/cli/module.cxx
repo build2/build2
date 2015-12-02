@@ -28,12 +28,13 @@ namespace build
   {
     static compile compile_;
 
-    extern "C" void
+    extern "C" bool
     cli_init (scope& root,
               scope& base,
-              const location& l,
+              const location& loc,
               std::unique_ptr<module>&,
-              bool first)
+              bool first,
+              bool)
     {
       tracer trace ("cli::init");
       level5 ([&]{trace << "for " << base.out_path ();});
@@ -44,8 +45,12 @@ namespace build
       // semantics. So it is better to let the user load cxx
       // explicitly.
       //
-      if (base.find_target_type ("cxx") == nullptr)
-        fail (l) << "cxx module must be initialized before cli";
+      {
+        auto l (base["cxx.loaded"]);
+
+        if (!l || !as<bool> (*l))
+          fail (loc) << "cxx module must be loaded before cli";
+      }
 
       // Register target types.
       //
@@ -84,10 +89,10 @@ namespace build
       //
       if (first)
       {
-        variable_pool.find ("config.cli", string_type); //@@ VAR type
+        var_pool.find ("config.cli", string_type); //@@ VAR type
 
-        variable_pool.find ("config.cli.options", strings_type);
-        variable_pool.find ("cli.options", strings_type);
+        var_pool.find ("config.cli.options", strings_type);
+        var_pool.find ("cli.options", strings_type);
       }
 
       // Configure.
@@ -156,6 +161,8 @@ namespace build
       //
       if (const value& v = config::optional (root, "config.cli.options"))
         base.assign ("cli.options") += as<strings> (v);
+
+      return true;
     }
   }
 }

@@ -21,12 +21,13 @@ namespace build
   {
     static rule rule_;
 
-    extern "C" void
+    extern "C" bool
     test_init (scope& r,
                scope& b,
                const location& l,
-               unique_ptr<build::module>&,
-               bool first)
+               unique_ptr<module>&,
+               bool first,
+               bool)
     {
       tracer trace ("test::init");
 
@@ -36,7 +37,7 @@ namespace build
       if (!first)
       {
         warn (l) << "multiple test module initializations";
-        return;
+        return true;
       }
 
       const dir_path& out_root (r.out_path ());
@@ -66,13 +67,15 @@ namespace build
       // Enter module variables.
       //
       {
-        variable_pool.find ("test", bool_type);
-        variable_pool.find ("test.input", name_type);
-        variable_pool.find ("test.output", name_type);
-        variable_pool.find ("test.roundtrip", name_type);
-        variable_pool.find ("test.options", strings_type);
-        variable_pool.find ("test.arguments", strings_type);
+        var_pool.find ("test", bool_type);
+        var_pool.find ("test.input", name_type);
+        var_pool.find ("test.output", name_type);
+        var_pool.find ("test.roundtrip", name_type);
+        var_pool.find ("test.options", strings_type);
+        var_pool.find ("test.arguments", strings_type);
       }
+
+      return true;
     }
   }
 }

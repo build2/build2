@@ -6,15 +6,17 @@
 #define BUILD_DIST_MODULE
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/module>
 
 namespace build
 {
   namespace dist
   {
-    extern "C" void
+    extern "C" bool
     dist_init (
-      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
   }
 }
 

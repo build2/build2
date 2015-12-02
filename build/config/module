@@ -6,15 +6,17 @@
 #define BUILD_CONFIG_MODULE
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/module>
 
 namespace build
 {
   namespace config
   {
-    extern "C" void
+    extern "C" bool
     config_init (
-      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+    scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
   }
 }
 

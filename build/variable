@@ -7,10 +7,8 @@
 
 #include <map>
 #include <vector>
-#include <string>
 #include <cstddef>       // nullptr_t
-#include <utility>       // move(), pair, make_pair()
-#include <cassert>
+#include <utility>       // pair, make_pair()
 #include <iterator>
 #include <functional>    // hash, reference_wrapper
 #include <type_traits>   // conditional, is_reference, remove_reference, etc.
@@ -19,6 +17,8 @@
 #include <butl/prefix-map>
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/target-type>
 
 namespace build
@@ -37,19 +37,23 @@ namespace build
     bool (*const append) (names&, names, const variable&);
   };
 
+  enum class variable_visibility
+  {
+    scope,    // This scope (no outer scopes).
+    project,  // This project (no outer projects).
+    normal    // All outer scopes.
+  };
+
   // variable
   //
   // The two variables are considered the same if they have the same name.
   //
   struct variable
   {
-    explicit
-    variable (std::string n, const value_type* t = nullptr, char p = '\0')
-        : name (std::move (n)), pairs (p), type (t) {}
-
     std::string name;
-    char pairs;
-    const value_type* type; // If NULL, then not (yet) typed.
+    const value_type* type;         // If NULL, then not (yet) typed.
+    variable_visibility visibility;
+    char pairs;                     // Pair symbold or '\0' if not used.
   };
 
   inline bool
@@ -616,13 +620,40 @@ namespace build
 {
   // variable_pool
   //
-  using variable_set_base = std::unordered_set<variable>;
-  struct variable_set: private variable_set_base
+  using variable_pool_base = std::unordered_set<variable>;
+  struct variable_pool: private variable_pool_base
   {
     const variable&
-    find (std::string name, const build::value_type* t = nullptr, char p = '\0')
+    find (string name, const build::value_type* t = nullptr, char p = '\0')
     {
-      auto r (emplace (std::move (name), t, p));
+      return find (name, nullptr, t, p);
+    }
+
+    const variable&
+    find (string name,
+          variable_visibility v,
+          const build::value_type* t = nullptr,
+          char p = '\0')
+    {
+      return find (name, &v, t, p);
+    }
+
+    using variable_pool_base::clear;
+
+  private:
+    const variable&
+    find (string name,
+          const variable_visibility* vv,
+          const build::value_type* t,
+          char p)
+    {
+      auto r (
+        insert (
+          variable {
+            std::move (name),
+            t,
+            vv != nullptr ? *vv : variable_visibility::normal,
+            p}));
       const variable& v (*r.first);
 
       // Update type?
@@ -630,16 +661,25 @@ namespace build
       if (!r.second && t != nullptr && v.type != t)
       {
         assert (v.type == nullptr);
-        const_cast<variable&> (v).type = t; // Ok, not changing the key.
+        const_cast<variable&> (v).type = t; // Not changing the key.
+      }
+
+      // Change visibility? While this might at first seem like a bad idea,
+      // it can happen that the variable lookup happens before any values
+      // were set, in which case the variable will be entered with the
+      // default visibility.
+      //
+      if (!r.second && vv != nullptr && v.visibility != *vv)
+      {
+        assert (v.visibility == variable_visibility::normal); // Default.
+        const_cast<variable&> (v).visibility = *vv; // Not changing the key.
       }
 
       return v;
     }
-
-    using variable_set_base::clear;
   };
 
-  extern variable_set variable_pool;
+  extern variable_pool var_pool;
 
   // variable_map
   //
@@ -696,7 +736,7 @@ namespace build
     lookup<const value>
     operator[] (const std::string& name) const
     {
-      return operator[] (variable_pool.find (name));
+      return operator[] (var_pool.find (name));
     }
 
     // Non-const lookup. Only exposed on the map directly.
@@ -710,7 +750,7 @@ namespace build
     lookup<value>
     operator[] (const std::string& name)
     {
-      return operator[] (variable_pool.find (name));
+      return operator[] (var_pool.find (name));
     }
 
     // The second member in the pair indicates whether the new
@@ -733,13 +773,13 @@ namespace build
     std::pair<std::reference_wrapper<value>, bool>
     assign (const std::string& name)
     {
-      return assign (variable_pool.find (name));
+      return assign (var_pool.find (name));
     }
 
     std::pair<const_iterator, const_iterator>
     find_namespace (const std::string& ns) const
     {
-      auto r (m_.find_prefix (variable_pool.find (ns)));
+      auto r (m_.find_prefix (var_pool.find (ns)));
       return std::make_pair (const_iterator (r.first),
                              const_iterator (r.second));
     }

@@ -6,14 +6,17 @@
 #define BUILD_CLI_MODULE
 
 #include <build/types>
+#include <build/utility>
+
 #include <build/module>
 
 namespace build
 {
   namespace cli
   {
-    extern "C" void
-    cli_init (scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+    extern "C" bool
+    cli_init (
+    scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
   }
 }
 

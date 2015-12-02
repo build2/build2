@@ -13,37 +13,33 @@ namespace build
   // scope
   //
   lookup<const value> scope::
-  operator[] (const variable& var) const
+  lookup (const target_type* tt, const string* name, const variable& var) const
   {
     using result = build::lookup<const value>;
 
-    const value* r (nullptr);
-    const scope* s (this);
-
-    for (; s != nullptr; s = s->parent_scope ())
+    for (const scope* s (this); s != nullptr; )
     {
-      if ((r = s->vars.find (var)) != nullptr)
-        break;
-    }
-
-    return result (r, &s->vars);
-  }
-
-  lookup<const value> scope::
-  lookup (const target_type& tt, const string& name, const variable& var) const
-  {
-    using result = build::lookup<const value>;
-
-    for (const scope* s (this); s != nullptr; s = s->parent_scope ())
-    {
-      if (!s->target_vars.empty ())
+      if (tt != nullptr && !s->target_vars.empty ())
       {
-        if (auto l = s->target_vars.lookup (tt, name, var))
+        if (auto l = s->target_vars.lookup (*tt, *name, var))
           return l;
       }
 
       if (auto r = s->vars.find (var))
         return result (r, &s->vars);
+
+      switch (var.visibility)
+      {
+      case variable_visibility::scope:
+        s = nullptr;
+        break;
+      case variable_visibility::project:
+        s = s->root () ? nullptr : s->parent_scope ();
+        break;
+      case variable_visibility::normal:
+        s = s->parent_scope ();
+        break;
+      }
     }
 
     return result ();

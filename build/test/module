@@ -12,9 +12,9 @@ namespace build
 {
   namespace test
   {
-    extern "C" void
+    extern "C" bool
     test_init (
-      scope&, scope&, const location&, std::unique_ptr<module>&, bool);
+      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
   }
 }
 

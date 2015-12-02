@@ -22,12 +22,13 @@ namespace build
   {
     static rule rule_;
 
-    extern "C" void
+    extern "C" bool
     dist_init (scope& r,
                scope& b,
                const location& l,
-               std::unique_ptr<module>&,
-               bool first)
+               unique_ptr<module>&,
+               bool first,
+               bool)
     {
       tracer trace ("dist::init");
 
@@ -37,7 +38,7 @@ namespace build
       if (!first)
       {
         warn (l) << "multiple dist module initializations";
-        return;
+        return true;
       }
 
       const dir_path& out_root (r.out_path ());
@@ -58,20 +59,20 @@ namespace build
       //
       if (first)
       {
-        variable_pool.find ("dist", bool_type);
+        var_pool.find ("dist", bool_type);
 
-        variable_pool.find ("dist.package", string_type);
+        var_pool.find ("dist.package", string_type);
 
-        variable_pool.find ("dist.root", dir_path_type);
-        variable_pool.find ("config.dist.root", dir_path_type);
+        var_pool.find ("dist.root", dir_path_type);
+        var_pool.find ("config.dist.root", dir_path_type);
 
         //@@ VAR type
         //
-        variable_pool.find ("dist.cmd", string_type);
-        variable_pool.find ("config.dist.cmd", string_type);
+        var_pool.find ("dist.cmd", string_type);
+        var_pool.find ("config.dist.cmd", string_type);
 
-        variable_pool.find ("dist.archives", strings_type);
-        variable_pool.find ("config.dist.archives", strings_type);
+        var_pool.find ("dist.archives", strings_type);
+        var_pool.find ("config.dist.archives", strings_type);
       }
 
       // Configuration.
@@ -127,6 +128,8 @@ namespace build
             v = cv;
         }
       }
+
+      return true;
     }
   }
 }

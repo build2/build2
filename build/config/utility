@@ -42,8 +42,7 @@ namespace build
               const T& default_value,
               bool override = false)
     {
-      return required (
-        root, variable_pool.find (name), default_value, override);
+      return required (root, var_pool.find (name), default_value, override);
     }
 
     inline std::pair<std::reference_wrapper<const value>, bool>
@@ -68,7 +67,7 @@ namespace build
     inline const value&
     optional (scope& root, const std::string& var)
     {
-      return optional (root, variable_pool.find (var));
+      return optional (root, var_pool.find (var));
     }
 
     // As above but assumes the value is dir_path and makes it
@@ -81,7 +80,7 @@ namespace build
     inline const value&
     optional_absolute (scope& root, const std::string& var)
     {
-      return optional_absolute (root, variable_pool.find (var));
+      return optional_absolute (root, var_pool.find (var));
     }
 
     // Check whether there are any variables specified from the

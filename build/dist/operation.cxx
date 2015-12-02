@@ -199,7 +199,7 @@ namespace build
       // entered.
       //
       action_targets files;
-      const variable& dist_var (variable_pool.find ("dist"));
+      const variable& dist_var (var_pool.find ("dist"));
 
       for (const auto& pt: targets)
       {

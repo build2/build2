@@ -341,7 +341,7 @@ namespace build
 
   // variable_set
   //
-  variable_set variable_pool;
+  variable_pool var_pool;
 
   // variable_type_map
   //

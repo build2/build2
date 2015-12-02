@@ -72,7 +72,7 @@ namespace build
         //
         if (!l.defined ())
           l = t.base_scope ()[
-            variable_pool.find (string("test.") + t.type ().name, bool_type)];
+            var_pool.find (string("test.") + t.type ().name, bool_type)];
 
         r = l && as<bool> (*l);
       }
@@ -150,12 +150,14 @@ namespace build
         string n ("test.");
         n += t.type ().name;
 
-        const variable& in (variable_pool.find (n + ".input", name_type));
-        const variable& on (variable_pool.find (n + ".output", name_type));
-        const variable& rn (variable_pool.find (n + ".roundtrip", name_type));
+        const variable& in (var_pool.find (n + ".input", name_type));
+        const variable& on (var_pool.find (n + ".output", name_type));
+        const variable& rn (var_pool.find (n + ".roundtrip", name_type));
 
         // We should only keep value(s) that were specified together
         // in the innermost scope.
+        //
+        // @@ Shouldn't we stop at project root?
         //
         for (scope* s (&bs); s != nullptr; s = s->parent_scope ())
         {
@@ -294,7 +296,7 @@ namespace build
         var += t.type ().name;
         var += '.';
         var += n;
-        l = t.base_scope ()[variable_pool.find (var, strings_type)];
+        l = t.base_scope ()[var_pool.find (var, strings_type)];
       }
 
       if (l)

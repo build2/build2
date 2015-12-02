@@ -21,23 +21,32 @@ namespace build
     ~module () = default;
   };
 
+  // Return false if the module configuration (normally based on the default
+  // values) was unsuccessful but this is not (yet) an error. One example
+  // would be the optional use of a module. Or a module might remain
+  // unconfigured for as long as it is actually not used (e.g., install,
+  // dist). The return value is used to set the <module>.configured variable.
+  //
   extern "C"
   using module_init_function =
-    void (scope& root,
+    bool (scope& root,
           scope& base,
           const location&,
           std::unique_ptr<module>&,
-          bool first); // First time for this project.
+          bool first,     // First time for this project.
+          bool optional); // Loaded with 'using?' (optional module).
 
   using loaded_module_map =
     std::map<std::string,
              std::pair<module_init_function*, std::unique_ptr<module>>>;
 
   // Load the specified module. Used by the parser but also by some
-  // modules to load prerequisite modules.
+  // modules to load prerequisite modules. Return true if the module
+  // was both successfully loaded and configured.
   //
-  void
-  load_module (const std::string& name,
+  bool
+  load_module (bool optional,
+               const std::string& name,
                scope& root,
                scope& base,
                const location&);

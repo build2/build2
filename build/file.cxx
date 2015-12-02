@@ -528,7 +528,7 @@ namespace build
     // the NULL value indicates that we found no subprojects.
     //
     {
-      const variable& var (variable_pool.find ("subprojects"));
+      const variable& var (var_pool.find ("subprojects"));
       auto rp (root.vars.assign(var)); // Set NULL by default.
       value& v (rp.first);
 
@@ -794,8 +794,7 @@ namespace build
     if (out_root.empty ())
     {
       const variable& var (
-        variable_pool.find ("config.import." + project,
-                            dir_path_type));
+        var_pool.find ("config.import." + project, dir_path_type));
 
       if (auto l = iroot[var])
       {

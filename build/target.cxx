@@ -133,7 +133,7 @@ namespace build
     // We cannot simply delegate to scope's lookup() since we also need
     // to check the group.
     //
-    for (const scope* s (&base_scope ()); s != nullptr; s = s->parent_scope ())
+    for (const scope* s (&base_scope ()); s != nullptr; )
     {
       if (!s->target_vars.empty ())
       {
@@ -149,6 +149,19 @@ namespace build
 
       if (auto r = s->vars.find (var))
         return result (r, &s->vars);
+
+      switch (var.visibility)
+      {
+      case variable_visibility::scope:
+        s = nullptr;
+        break;
+      case variable_visibility::project:
+        s = s->root () ? nullptr : s->parent_scope ();
+        break;
+      case variable_visibility::normal:
+        s = s->parent_scope ();
+        break;
+      }
     }
 
     return result ();

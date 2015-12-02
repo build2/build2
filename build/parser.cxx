@@ -128,7 +128,8 @@ namespace build
           export_ (t, tt);
           continue;
         }
-        else if (n == "using")
+        else if (n == "using" ||
+                 n == "using?")
         {
           using_ (t, tt);
           continue;
@@ -360,7 +361,7 @@ namespace build
                   fail (t) << "append to target type/pattern-specific "
                            << "variable " << v;
 
-                const auto& var (variable_pool.find (move (v)));
+                const auto& var (var_pool.find (move (v)));
 
                 // Note: expand variables in the value in the context of
                 // the scope.
@@ -711,7 +712,7 @@ namespace build
 
       if (at == token_type::equal || at == token_type::plus_equal)
       {
-        var = &variable_pool.find (t.value);
+        var = &var_pool.find (t.value);
         val = at == token_type::equal
           ? &scope_->assign (*var)
           : &scope_->append (*var);
@@ -782,6 +783,8 @@ namespace build
   {
     tracer trace ("parser::using", &path_);
 
+    bool optional (t.value.back () == '?');
+
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
@@ -798,7 +801,7 @@ namespace build
       if (!n.simple ())
         fail (l) << "module name expected instead of " << n;
 
-      load_module (n.value, *root_, *scope_, l);
+      load_module (optional, n.value, *root_, *scope_, l);
     }
 
     if (tt == type::newline)
@@ -912,7 +915,7 @@ namespace build
   void parser::
   variable (token& t, token_type& tt, string name, token_type kind)
   {
-    const auto& var (variable_pool.find (move (name)));
+    const auto& var (var_pool.find (move (name)));
     names_type vns (variable_value (t, tt, var));
 
     if (kind == type::equal)
@@ -1366,7 +1369,7 @@ namespace build
 
             // Lookup.
             //
-            const auto& var (variable_pool.find (move (n)));
+            const auto& var (var_pool.find (move (n)));
             auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
 
             // Undefined/NULL namespace variables are not allowed.

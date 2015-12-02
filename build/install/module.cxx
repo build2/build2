@@ -51,7 +51,7 @@ namespace build
         vn += name;
         vn += var;
         const variable& vr (
-          variable_pool.find (move (vn), &value_traits<T>::value_type));
+          var_pool.find (move (vn), &value_traits<T>::value_type));
 
         cv = dv != nullptr
           ? &config::required (r, vr, *dv, override).first.get ()
@@ -62,7 +62,7 @@ namespace build
       vn += name;
       vn += var;
       const variable& vr (
-        variable_pool.find (move (vn), &value_traits<T>::value_type));
+        var_pool.find (move (vn), &value_traits<T>::value_type));
 
       value& v (r.assign (vr));
 
@@ -99,12 +99,13 @@ namespace build
     static alias_rule alias_;
     static file_rule file_;
 
-    extern "C" void
+    extern "C" bool
     install_init (scope& r,
                   scope& b,
                   const location& l,
-                  unique_ptr<build::module>&,
-                  bool first)
+                  unique_ptr<module>&,
+                  bool first,
+                  bool)
     {
       tracer trace ("install::init");
 
@@ -114,7 +115,7 @@ namespace build
       if (!first)
       {
         warn (l) << "multiple install module initializations";
-        return;
+        return true;
       }
 
       const dir_path& out_root (r.out_path ());
@@ -135,7 +136,7 @@ namespace build
       //
       if (first)
       {
-        variable_pool.find ("install", dir_path_type);
+        var_pool.find ("install", dir_path_type);
       }
 
       // Configuration.
@@ -172,6 +173,8 @@ namespace build
       path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
       path<man>  (b, dir_path ("man"));  // Install into install.man.
       path<man1> (b, dir_path ("man1")); // Install into install.man1.
+
+      return true;
     }
   }
 }

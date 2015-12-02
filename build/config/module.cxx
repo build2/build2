@@ -24,12 +24,13 @@ namespace build
     //
     static const path config_file ("build/config.build");
 
-    extern "C" void
+    extern "C" bool
     config_init (scope& r,
                  scope& b,
                  const location& l,
                  std::unique_ptr<module>&,
-                 bool first)
+                 bool first,
+                 bool)
     {
       tracer trace ("config::init");
 
@@ -39,7 +40,7 @@ namespace build
       if (!first)
       {
         warn (l) << "multiple config module initializations";
-        return;
+        return true;
       }
 
       const dir_path& out_root (r.out_path ());
@@ -65,6 +66,8 @@ namespace build
 
       if (file_exists (f))
         source (f, r, r);
+
+      return true;
     }
   }
 }

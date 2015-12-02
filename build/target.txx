@@ -22,7 +22,7 @@ namespace build
   {
     // Include target type/pattern-specific variables.
     //
-    auto l (s.lookup (*tk.type, *tk.name, var));
+    auto l (s.lookup (tk, var));
 
     if (!l)
     {
