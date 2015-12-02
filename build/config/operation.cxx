@@ -102,6 +102,12 @@ namespace build
           const variable& var (p.first->first);
           const value& val (p.first->second);
 
+          // Skip special variables.
+          //
+          if (var.name == "config.loaded" ||
+              var.name == "config.configured")
+            continue;
+
           // Warn the user if the value that we are saving differs
           // from the one they specified on the command line.
           //
