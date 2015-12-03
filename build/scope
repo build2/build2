@@ -102,6 +102,20 @@ namespace build
     }
 
     build::lookup<const value>
+    lookup (const target_type& tt,
+            const string& name,
+            const variable& var) const
+    {
+      return lookup (&tt, &name, var);
+    }
+
+    build::lookup<const value>
+    lookup (const target_type& tt, const string& name, const string& var) const
+    {
+      return lookup (tt, name, var_pool.find (var));
+    }
+
+    build::lookup<const value>
     lookup (const target_type*, const string* name, const variable&) const;
 
     // Return a value suitable for assignment (or append if you only

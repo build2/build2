@@ -78,13 +78,6 @@ namespace build
         v.find ("cxx.export.libs", strings_type);
 
         v.find ("cxx.std", string_type);
-
-        v.find ("h.ext", string_type);
-        v.find ("c.ext", string_type);
-        v.find ("hxx.ext", string_type);
-        v.find ("ixx.ext", string_type);
-        v.find ("txx.ext", string_type);
-        v.find ("cxx.ext", string_type);
       }
 
       // Register target types.

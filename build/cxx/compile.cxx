@@ -156,35 +156,34 @@ namespace build
       }
     }
 
-    // The strings used as the map key should be from the extension_pool.
-    // This way we can just compare pointers.
+    // Reverse-lookup target type from extension.
     //
-    using ext_map = map<const string*, const target_type*>;
-
-    static ext_map
-    build_ext_map (scope& r)
+    static const target_type*
+    map_extension (scope& s, const string& n, const string& e)
     {
-      ext_map m;
+      // We will just have to try all of the possible ones, in the
+      // "most likely to match" order.
+      //
+      const variable& var (var_pool.find ("extension"));
 
-      if (auto l = r["h.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &h::static_type;
+      auto test = [&s, &n, &e, &var] (const target_type& tt)
+        -> const target_type*
+      {
+        if (auto l = s.lookup (tt, n, var))
+          if (as<string> (*l) == e)
+            return &tt;
 
-      if (auto l = r["c.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &c::static_type;
+        return nullptr;
+      };
 
-      if (auto l = r["hxx.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &hxx::static_type;
+      if (auto r = test (hxx::static_type)) return r;
+      if (auto r = test (h::static_type))   return r;
+      if (auto r = test (ixx::static_type)) return r;
+      if (auto r = test (txx::static_type)) return r;
+      if (auto r = test (cxx::static_type)) return r;
+      if (auto r = test (c::static_type))   return r;
 
-      if (auto l = r["ixx.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &ixx::static_type;
-
-      if (auto l = r["txx.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &txx::static_type;
-
-      if (auto l = r["cxx.ext"])
-        m[&extension_pool.find (as<string> (*l))] = &cxx::static_type;
-
-      return m;
+      return nullptr;
     }
 
     // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
@@ -611,17 +610,9 @@ namespace build
               // accurately determine target types for headers that
               // could be auto-generated.
               //
-              if (scope* r = scopes.find (d).root_scope ())
-              {
-                // Get cached (or build) a map of the extensions for the
-                // C/C++ files this project is using.
-                //
-                const ext_map& m (build_ext_map (*r));
-
-                auto i (m.find (e));
-                if (i != m.end ())
-                  tt = i->second;
-              }
+              scope& b (scopes.find (d));
+              if (b.root_scope () != nullptr)
+                tt = map_extension (b, n, *e);
 
               // If it is outside any project, or the project doesn't have
               // such an extension, assume it is a plain old C header.
