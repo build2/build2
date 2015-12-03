@@ -23,7 +23,13 @@ namespace build
     // Include target type/pattern-specific variables.
     //
     if (auto l = s.lookup (tk, var))
-      return extension_pool.find (as<string> (*l));
+    {
+      // Help the user here and strip leading '.' from the extension.
+      //
+      const string& e (as<string> (*l));
+      return extension_pool.find (
+        !e.empty () && e.front () == '.' ? string (e, 1) : e);
+    }
 
     if (def != nullptr)
       return extension_pool.find (def);
