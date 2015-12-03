@@ -64,7 +64,7 @@ namespace build
   }
 
   token parser::
-  parse_variable (lexer& l, scope& s, string name, token_type kind)
+  parse_variable (lexer& l, scope& s, string name, type kind)
   {
     path_ = &l.name ();
     lexer_ = &l;
@@ -78,10 +78,16 @@ namespace build
   }
 
   void parser::
-  clause (token& t, token_type& tt)
+  clause (token& t, type& tt)
   {
     tracer trace ("parser::clause", &path_);
 
+    // clause() should always stop at a token that is at the beginning of
+    // the line (except for eof). That is, if something is called to parse
+    // a line, it should parse it until newline (or fail). This is important
+    // for if-else blocks, directory scopes, etc., that assume the } token
+    // they see is on the new line.
+    //
     while (tt != type::eos)
     {
       // We always start with one or more names.
@@ -138,6 +144,20 @@ namespace build
         {
           define (t, tt);
           continue;
+        }
+        else if (n == "if" ||
+                 n == "if!")
+        {
+          if_else (t, tt);
+          continue;
+        }
+        else if (n == "else" ||
+                 n == "elif" ||
+                 n == "elif!")
+        {
+          // Valid ones are handled in if_else().
+          //
+          fail (t) << n << " without if";
         }
       }
 
@@ -466,7 +486,7 @@ namespace build
   }
 
   void parser::
-  source (token& t, token_type& tt)
+  source (token& t, type& tt)
   {
     tracer trace ("parser::source", &path_);
 
@@ -544,7 +564,7 @@ namespace build
   }
 
   void parser::
-  include (token& t, token_type& tt)
+  include (token& t, type& tt)
   {
     tracer trace ("parser::include", &path_);
 
@@ -689,7 +709,7 @@ namespace build
   }
 
   void parser::
-  import (token& t, token_type& tt)
+  import (token& t, type& tt)
   {
     tracer trace ("parser::import", &path_);
 
@@ -705,15 +725,15 @@ namespace build
     value* val (nullptr);
     const build::variable* var (nullptr);
 
-    token_type at; // Assignment type.
+    type at; // Assignment type.
     if (tt == type::name)
     {
       at = peek ();
 
-      if (at == token_type::equal || at == token_type::plus_equal)
+      if (at == type::equal || at == type::plus_equal)
       {
         var = &var_pool.find (t.value);
-        val = at == token_type::equal
+        val = at == type::equal
           ? &scope_->assign (*var)
           : &scope_->append (*var);
         next (t, tt); // Consume =/+=.
@@ -738,7 +758,7 @@ namespace build
 
       if (val != nullptr)
       {
-        if (at == token_type::equal)
+        if (at == type::equal)
           val->assign (move (r), *var);
         else
           val->append (move (r), *var);
@@ -752,7 +772,7 @@ namespace build
   }
 
   void parser::
-  export_ (token& t, token_type& tt)
+  export_ (token& t, type& tt)
   {
     tracer trace ("parser::export", &path_);
 
@@ -779,7 +799,7 @@ namespace build
   }
 
   void parser::
-  using_ (token& t, token_type& tt)
+  using_ (token& t, type& tt)
   {
     tracer trace ("parser::using", &path_);
 
@@ -821,7 +841,7 @@ namespace build
   constexpr const char derived_ext_var[] = "extension";
 
   void parser::
-  define (token& t, token_type& tt)
+  define (token& t, type& tt)
   {
     // define <derived>: <base>
     //
@@ -883,7 +903,102 @@ namespace build
   }
 
   void parser::
-  print (token& t, token_type& tt)
+  if_else (token& t, type& tt)
+  {
+    // Handle the whole if-else chain. See tests/if-else.
+    //
+    bool taken (false); // One of the branches has been taken.
+
+    for (;;)
+    {
+      string k (move (t.value));
+      next (t, tt);
+
+      bool take (false); // Take this branch?
+
+      if (k != "else")
+      {
+        // Should we evaluate the expression if one of the branches has
+        // already been taken? On the one hand, evaluating it is a waste
+        // of time. On the other, it can be invalid and the only way for
+        // the user to know their buildfile is valid is to test every
+        // branch. There could also be side effects. We also have the same
+        // problem with ignored branch blocks except there evaluating it
+        // is not an option. So let's skip it.
+        //
+        if (taken)
+          skip_line (t, tt);
+        else
+        {
+          if (tt == type::newline || tt == type::eos)
+            fail (t) << "expected " << k << "-expression instead of " << t;
+
+          // Parse as names to get variable expansion, evaluation, etc.
+          //
+          const location nsl (get_location (t, &path_));
+          names_type ns (names (t, tt));
+
+          // Should evaluate to true or false.
+          //
+          if (ns.size () != 1 || !value_traits<bool>::assign (ns[0]))
+            fail (nsl) << "expected " << k << "-expression to evaluate to "
+                       << "'true' or 'false' instead of '" << ns << "'";
+
+          bool e (ns[0].value == "true");
+          take = (k.back () == '!' ? !e : e);
+        }
+      }
+      else
+        take = !taken;
+
+      if (tt != type::newline)
+        fail (t) << "expected newline instead of " << t << " after " << k
+                 << (k != "else" ? "-expression" : "");
+
+      if (next (t, tt) != type::lcbrace)
+        fail (t) << "expected { instead of " << t << " at the beginning of "
+                 << k << "-block";
+
+      if (next (t, tt) != type::newline)
+        fail (t) << "expected newline after {";
+
+      next (t, tt);
+
+      if (take)
+      {
+        clause (t, tt);
+        taken = true;
+      }
+      else
+        skip_block (t, tt);
+
+      if (tt != type::rcbrace)
+        fail (t) << "expected } instead of " << t << " at the end of " << k
+                 << "-block";
+
+      next (t, tt);
+
+      if (tt == type::newline)
+        next (t, tt);
+      else if (tt != type::eos)
+        fail (t) << "expected newline after }";
+
+      // See if we have another el* keyword.
+      //
+      if (k != "else" && tt == type::name)
+      {
+        const string& n (t.value);
+
+        if (!t.quoted && (n == "else" || n == "elif" || n == "elif!"))
+          continue;
+      }
+
+      break;
+    }
+  }
+
+  void parser::
+  print (token& t, type& tt)
   {
     // Parse the rest as names to get variable expansion, etc. Switch
     // to the variable value lexing mode so that we don't treat special
@@ -920,7 +1035,7 @@ namespace build
   }
 
   void parser::
-  variable (token& t, token_type& tt, string name, token_type kind)
+  variable (token& t, type& tt, string name, type kind)
   {
     const auto& var (var_pool.find (move (name)));
     names_type vns (variable_value (t, tt, var));
@@ -942,7 +1057,7 @@ namespace build
   }
 
   names parser::
-  variable_value (token& t, token_type& tt, const variable_type& var)
+  variable_value (token& t, type& tt, const variable_type& var)
   {
     if (var.pairs != '\0')
       lexer_->mode (lexer_mode::pairs, var.pairs);
@@ -956,7 +1071,7 @@ namespace build
   }
 
   parser::names_type parser::
-  eval (token& t, token_type& tt)
+  eval (token& t, type& tt)
   {
     lexer_->mode (lexer_mode::eval);
     next (t, tt);
@@ -1587,6 +1702,43 @@ namespace build
     }
   }
 
+  void parser::
+  skip_line (token& t, type& tt)
+  {
+    for (; tt != type::newline && tt != type::eos; next (t, tt)) ;
+  }
+
+  void parser::
+  skip_block (token& t, type& tt)
+  {
+    // Skip until } or eos, keeping track of the {}-balance.
+    //
+    for (size_t b (0); tt != type::eos; )
+    {
+      if (tt == type::lcbrace || tt == type::rcbrace)
+      {
+        type ptt (peek ());
+        if (ptt == type::newline || ptt == type::eos) // Block { or }.
+        {
+          if (tt == type::lcbrace)
+            ++b;
+          else
+          {
+            if (b == 0)
+              break;
+
+            --b;
+          }
+        }
+      }
+
+      skip_line (t, tt);
+
+      if (tt != type::eos)
+        next (t, tt);
+    }
+  }
+
   // Buildspec parsing.
   //
 
@@ -1659,7 +1811,7 @@ namespace build
   }
 
   buildspec parser::
-  buildspec_clause (token& t, token_type& tt, token_type tt_end)
+  buildspec_clause (token& t, type& tt, type tt_end)
   {
     buildspec bs;
 
@@ -1917,8 +2069,8 @@ namespace build
       trace);
   }
 
-  token_type parser::
-  next (token& t, token_type& tt)
+  type parser::
+  next (token& t, type& tt)
   {
     if (!peeked_)
       t = lexer_->next ();
@@ -1932,7 +2084,7 @@ namespace build
     return tt;
   }
 
-  token_type parser::
+  type parser::
   peek ()
   {
     if (!peeked_)

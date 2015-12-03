@@ -1,0 +1,114 @@
+#else     # else without if
+#elif     # elif without if
+#elif!    # elif! without if
+#if       # expected if-expression
+#if test  # expected true or false
+#if true  # expected {
+#x
+#if true   # expected newline after {
+#{x
+#if true   # expected newline after }
+#{
+#}x
+
+if true
+{
+  print 1
+}
+else
+{
+  print 0
+}
+
+if! true
+{
+  print 0
+}
+else
+{
+  print 1
+}
+
+if false
+{
+  print 0
+}
+else
+{
+  print 1
+}
+
+if false
+{
+  print 0
+}
+elif true
+{
+  print 1
+}
+else
+{
+  print 0
+}
+
+if true
+{
+  print 1
+}
+elif true
+{
+  print 0
+}
+else
+{
+  print 0
+}
+
+# Empty block
+#
+if true
+{
+}
+else
+{
+  print 0
+}
+
+# Nested if-else
+#
+if true
+{
+  if true
+  {
+    print 1
+  }
+}
+else
+{
+  if true
+  {
+    print 0
+  }
+}
+
+t = true
+f = false
+
+if $t
+{
+  print 1
+}
+
+if! $f
+{
+  print 1
+}
+
+./:
+
+# EOF test.
+#
+if true
+{
+  print 1
+}

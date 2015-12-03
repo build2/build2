@@ -75,6 +75,9 @@ namespace build
     define (token&, token_type&);
 
     void
+    if_else (token&, token_type&);
+
+    void
     variable (token&, token_type&, std::string name, token_type kind);
 
     std::string
@@ -114,6 +117,16 @@ namespace build
                    const std::string* prj,
                    const dir_path* dir,
                    const std::string* type);
+
+    // Skip until newline or eos.
+    //
+    void
+    skip_line (token&, token_type&);
+
+    // Skip until block-closing } or eos, taking into account nested blocks.
+    //
+    void
+    skip_block (token&, token_type&);
 
     // Buildspec.
     //
