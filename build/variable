@@ -119,6 +119,8 @@ namespace build
     bool empty () const {return state_ == state_type::empty;}
 
     explicit operator bool () const {return !null ();}
+    bool operator== (std::nullptr_t) const {return null ();}
+    bool operator!= (std::nullptr_t) const {return !null ();}
 
     // Raw data read interface.
     //

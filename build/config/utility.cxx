@@ -60,9 +60,18 @@ namespace build
       //
       for (scope* s (&r); s != nullptr; s = s->parent_scope ())
       {
-        auto p (s->vars.find_namespace (ns));
-        if (p.first != p.second)
-          return true;
+        for (auto p (s->vars.find_namespace (ns));
+             p.first != p.second;
+             ++p.first)
+        {
+          const variable& var (p.first->first);
+
+          // Ignore config.*.configured.
+          //
+          if (var.name.size () < 11 ||
+              var.name.compare (var.name.size () - 11, 11, ".configured") != 0)
+            return true;
+        }
       }
 
       return false;

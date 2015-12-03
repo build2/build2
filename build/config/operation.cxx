@@ -101,12 +101,23 @@ namespace build
         {
           const variable& var (p.first->first);
           const value& val (p.first->second);
+          const string& n (var.name);
 
           // Skip special variables.
           //
-          if (var.name == "config.loaded" ||
-              var.name == "config.configured")
+          if (n == "config.loaded" ||
+              n == "config.configured")
             continue;
+
+          // We will only write config.*.configured if it is false
+          // (true is implied by its absence).
+          //
+          if (n.size () > 11 &&
+              n.compare (n.size () - 11, 11, ".configured") == 0)
+          {
+            if (val == nullptr || as<bool> (val))
+              continue;
+          }
 
           // Warn the user if the value that we are saving differs
           // from the one they specified on the command line.

@@ -83,13 +83,16 @@ namespace build
       return optional_absolute (root, var_pool.find (var));
     }
 
-    // Check whether there are any variables specified from the
-    // config namespace. The idea is that we can check if there
-    // are any, say, config.install.* values. If there are none,
-    // then we can assume this functionality is not (yet) used
-    // and omit writing a whole bunch of NULL config.install.*
-    // values to the config.build file . We call it omitted/
-    // delayed configuration.
+    // Check whether there are any variables specified from the config
+    // namespace. The idea is that we can check if there are any, say,
+    // config.install.* values. If there are none, then we can assume
+    // this functionality is not (yet) used and omit writing a whole
+    // bunch of NULL config.install.* values to the config.build file.
+    // We call it omitted/delayed configuration.
+    //
+    // Note that this function detects and ignores the special
+    // config.*.configured variable which may be used by a module to
+    // "remember" that it is unconfigured.
     //
     bool
     specified (scope& root, const std::string& ns);

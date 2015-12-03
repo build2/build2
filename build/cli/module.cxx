@@ -65,6 +65,8 @@ namespace build
       //
       if (first)
       {
+        var_pool.find ("config.cli.configured", bool_type);
+
         var_pool.find ("config.cli", string_type); //@@ VAR type
 
         var_pool.find ("config.cli.options", strings_type);
@@ -73,16 +75,25 @@ namespace build
 
       // Configure.
       //
-      // The plan is as follows: try to configure the module. If this
-      // fails with the default values and the module is optional,
-      // leave it unconfigured.
+      // The plan is as follows: try to configure the module. If this fails,
+      // we are using default values, and the module is optional, leave it
+      // unconfigured.
       //
-      bool r (true);
 
       // We will only honor optional if the user didn't specify any cli
       // configuration explicitly.
       //
       optional = optional && !config::specified (root, "config.cli");
+
+      // Don't re-run tests if the configuration says we are unconfigured.
+      //
+      if (optional)
+      {
+        auto l (root["config.cli.configured"]);
+
+        if (l && !as<bool> (*l))
+          return false;
+      }
 
       // config.cli
       //
@@ -148,10 +159,15 @@ namespace build
 
           if (ver.empty ())
           {
-            r = false;
+            // Note that we are unconfigured so that we don't keep re-testing
+            // this on each run.
+            //
+            root.assign ("config.cli.configured") = false;
 
             if (verb >= 2)
               text << cli << " not found, leaving cli module unconfigured";
+
+            return false;
           }
           else
           {
@@ -175,6 +191,10 @@ namespace build
           }
         }
 
+        // Clear the unconfigured flag, if any.
+        //
+        root.assign ("config.cli.configured") = true;
+
         if (!ver.empty () && verb >= 2)
           text << cli << " " << ver;
       }
@@ -185,15 +205,11 @@ namespace build
       // cli.* variables. See the cxx module for more information on
       // this merging semantics and some of its tricky aspects.
       //
-      if (r)
-      {
-        if (const value& v = config::optional (root, "config.cli.options"))
-          base.assign ("cli.options") += as<strings> (v);
-      }
+      if (const value& v = config::optional (root, "config.cli.options"))
+        base.assign ("cli.options") += as<strings> (v);
 
       // Register our rules.
       //
-      if (r)
       {
         auto& rs (base.rules);
 
@@ -216,7 +232,7 @@ namespace build
         rs.insert<cli_cxx> (configure_id, update_id, "cli", compile_);
       }
 
-      return r;
+      return true;
     }
   }
 }
