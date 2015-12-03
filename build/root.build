@@ -4,10 +4,10 @@
 
 using cxx
 
-hxx.ext =
-ixx.ext = ixx
-txx.ext = txx
-cxx.ext = cxx
+hxx{*}: extension =
+ixx{*}: extension = ixx
+txx{*}: extension = txx
+cxx{*}: extension = cxx
 
 cxx.std = 14
 cxx.poptions += -I$src_root
