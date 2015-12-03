@@ -44,6 +44,28 @@ namespace build
       const dir_path& out_root (r.out_path ());
       level5 ([&]{trace << "for " << out_root;});
 
+      // Enter module variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.find ("dist", bool_type);
+
+        v.find ("dist.package", string_type);
+
+        v.find ("dist.root", dir_path_type);
+        v.find ("config.dist.root", dir_path_type);
+
+        //@@ VAR type
+        //
+        v.find ("dist.cmd", string_type);
+        v.find ("config.dist.cmd", string_type);
+
+        v.find ("dist.archives", strings_type);
+        v.find ("config.dist.archives", strings_type);
+      }
+
       // Register meta-operation.
       //
       r.meta_operations.insert (dist_id, dist);
@@ -53,27 +75,7 @@ namespace build
       // taking precedence.
       //
       r.rules.insert<target> (dist_id, 0, "dist", rule_);
-      r.rules.insert<alias> (dist_id, 0, "alias", rule_);
-
-      // Enter module variables.
-      //
-      if (first)
-      {
-        var_pool.find ("dist", bool_type);
-
-        var_pool.find ("dist.package", string_type);
-
-        var_pool.find ("dist.root", dir_path_type);
-        var_pool.find ("config.dist.root", dir_path_type);
-
-        //@@ VAR type
-        //
-        var_pool.find ("dist.cmd", string_type);
-        var_pool.find ("config.dist.cmd", string_type);
-
-        var_pool.find ("dist.archives", strings_type);
-        var_pool.find ("config.dist.archives", strings_type);
-      }
+      r.rules.insert<alias> (dist_id, 0, "dist.alias", rule_);
 
       // Configuration.
       //

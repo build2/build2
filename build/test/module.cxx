@@ -22,8 +22,8 @@ namespace build
     static rule rule_;
 
     extern "C" bool
-    test_init (scope& r,
-               scope& b,
+    test_init (scope& root,
+               scope& base,
                const location& l,
                unique_ptr<module>&,
                bool first,
@@ -31,7 +31,7 @@ namespace build
     {
       tracer trace ("test::init");
 
-      if (&r != &b)
+      if (&root != &base)
         fail (l) << "test module must be initialized in bootstrap.build";
 
       if (!first)
@@ -40,39 +40,41 @@ namespace build
         return true;
       }
 
-      const dir_path& out_root (r.out_path ());
+      const dir_path& out_root (root.out_path ());
       level5 ([&]{trace << "for " << out_root;});
-
-      // Register the test operation.
-      //
-      r.operations.insert (test_id, test);
-
-      // Register rules.
-      //
-      {
-        auto& rs (r.rules);
-
-        // Register our test running rule.
-        //
-        rs.insert<target> (perform_id, test_id, "test", rule_);
-
-        // Register our rule for the dist meta-operation. We need
-        // to do this because we have "ad-hoc prerequisites", test
-        // input/output files, that need to be entered into the
-        // target list.
-        //
-        rs.insert<target> (dist_id, test_id, "test", rule_);
-      }
 
       // Enter module variables.
       //
       {
-        var_pool.find ("test", bool_type);
-        var_pool.find ("test.input", name_type);
-        var_pool.find ("test.output", name_type);
-        var_pool.find ("test.roundtrip", name_type);
-        var_pool.find ("test.options", strings_type);
-        var_pool.find ("test.arguments", strings_type);
+        auto& v (var_pool);
+
+        v.find ("test", bool_type);
+        v.find ("test.input", name_type);
+        v.find ("test.output", name_type);
+        v.find ("test.roundtrip", name_type);
+        v.find ("test.options", strings_type);
+        v.find ("test.arguments", strings_type);
+      }
+
+      // Register the test operation.
+      //
+      root.operations.insert (test_id, test);
+
+      // Register rules.
+      //
+      {
+        auto& r (root.rules);
+
+        // Register our test running rule.
+        //
+        r.insert<target> (perform_test_id, "test", rule_);
+
+        // Register our rule for the dist meta-operation. We need
+        // to do this because we have "ad-hoc prerequisites" (test
+        // input/output files) that need to be entered into the
+        // target list.
+        //
+        r.insert<target> (dist_id, test_id, "test", rule_);
       }
 
       return true;

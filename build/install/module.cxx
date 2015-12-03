@@ -121,23 +121,25 @@ namespace build
       const dir_path& out_root (r.out_path ());
       level5 ([&]{trace << "for " << out_root;});
 
-      // Register the install operation.
-      //
-      r.operations.insert (install_id, install);
-
-      // Register our alias and file installer rule.
-      //
-      b.rules.insert<alias> (perform_id, install_id, "install.alias", alias_);
-      b.rules.insert<file> (perform_id, install_id, "install.file", file_);
-
       // Enter module variables.
       //
       // Note that the set_dir() calls below enter some more.
       //
       if (first)
       {
-        var_pool.find ("install", dir_path_type);
+        auto& v (var_pool);
+
+        v.find ("install", dir_path_type);
       }
+
+      // Register the install operation.
+      //
+      r.operations.insert (install_id, install);
+
+      // Register our alias and file installer rule.
+      //
+      b.rules.insert<alias> (perform_install_id, "install.alias", alias_);
+      b.rules.insert<file> (perform_install_id, "install.file", file_);
 
       // Configuration.
       //

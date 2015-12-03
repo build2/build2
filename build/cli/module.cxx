@@ -52,25 +52,27 @@ namespace build
           fail (loc) << "cxx module must be loaded before cli";
       }
 
-      // Register target types.
-      //
-      {
-        auto& tts (base.target_types);
-
-        tts.insert<cli> ();
-        tts.insert<cli_cxx> ();
-      }
-
       // Enter module variables.
       //
       if (first)
       {
-        var_pool.find ("config.cli.configured", bool_type);
+        auto& v (var_pool);
 
-        var_pool.find ("config.cli", string_type); //@@ VAR type
+        v.find ("config.cli.configured", bool_type);
 
-        var_pool.find ("config.cli.options", strings_type);
-        var_pool.find ("cli.options", strings_type);
+        v.find ("config.cli", string_type); //@@ VAR type
+
+        v.find ("config.cli.options", strings_type);
+        v.find ("cli.options", strings_type);
+      }
+
+      // Register target types.
+      //
+      {
+        auto& t (base.target_types);
+
+        t.insert<cli> ();
+        t.insert<cli_cxx> ();
       }
 
       // Configure.
@@ -211,25 +213,25 @@ namespace build
       // Register our rules.
       //
       {
-        auto& rs (base.rules);
+        auto& r (base.rules);
 
-        rs.insert<cli_cxx> (perform_id, update_id, "cli", compile_);
-        rs.insert<cli_cxx> (perform_id, clean_id, "cli", compile_);
+        r.insert<cli_cxx> (perform_update_id, "cli.compile", compile_);
+        r.insert<cli_cxx> (perform_clean_id, "cli.compile", compile_);
 
-        rs.insert<cxx::hxx> (perform_id, update_id, "cli", compile_);
-        rs.insert<cxx::hxx> (perform_id, clean_id, "cli", compile_);
+        r.insert<cxx::hxx> (perform_update_id, "cli.compile", compile_);
+        r.insert<cxx::hxx> (perform_clean_id, "cli.compile", compile_);
 
-        rs.insert<cxx::cxx> (perform_id, update_id, "cli", compile_);
-        rs.insert<cxx::cxx> (perform_id, clean_id, "cli", compile_);
+        r.insert<cxx::cxx> (perform_update_id, "cli.compile", compile_);
+        r.insert<cxx::cxx> (perform_clean_id, "cli.compile", compile_);
 
-        rs.insert<cxx::ixx> (perform_id, update_id, "cli", compile_);
-        rs.insert<cxx::ixx> (perform_id, clean_id, "cli", compile_);
+        r.insert<cxx::ixx> (perform_update_id, "cli.compile", compile_);
+        r.insert<cxx::ixx> (perform_clean_id, "cli.compile", compile_);
 
         // Other rules (e.g., cxx::compile) may need to have the group
         // members resolved. Looks like a general pattern: groups should
         // resolve on configure(update).
         //
-        rs.insert<cli_cxx> (configure_id, update_id, "cli", compile_);
+        r.insert<cli_cxx> (configure_update_id, "cli.compile", compile_);
       }
 
       return true;

@@ -105,10 +105,8 @@ namespace build
   // Id constants for build-in and pre-defined meta/operations.
   //
   const meta_operation_id perform_id   = 1;
-
   const meta_operation_id configure_id = 2;
   const meta_operation_id disfigure_id = 3;
-
   const meta_operation_id dist_id = 4;
 
   // The default operation is a special marker that can be used to
@@ -117,7 +115,6 @@ namespace build
   const operation_id default_id = 1; // Shall be first.
   const operation_id update_id = 2;
   const operation_id clean_id  = 3;
-
   const operation_id test_id = 4;
   const operation_id install_id = 5;
 
@@ -125,6 +122,8 @@ namespace build
   const action_id perform_clean_id    = (perform_id << 4) | clean_id;
   const action_id perform_test_id     = (perform_id << 4) | test_id;
   const action_id perform_install_id  = (perform_id << 4) | install_id;
+
+  const action_id configure_update_id   = (configure_id << 4) | update_id;
 
   // Recipe execution mode.
   //

@@ -68,6 +68,14 @@ namespace build
   class rule_map
   {
   public:
+
+    template <typename T>
+    void
+    insert (action_id a, const char* hint, rule& r)
+    {
+      insert<T> (a >> 4, a & 0x0F, hint, r);
+    }
+
     template <typename T>
     void
     insert (meta_operation_id mid, operation_id oid, const char* hint, rule& r)

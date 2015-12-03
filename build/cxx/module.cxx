@@ -48,58 +48,6 @@ namespace build
           load_module (false, "bin", r, b, loc);
       }
 
-      // Register target types.
-      //
-      {
-        auto& tts (b.target_types);
-
-        tts.insert<h> ();
-        tts.insert<c> ();
-
-        tts.insert<cxx> ();
-        tts.insert<hxx> ();
-        tts.insert<ixx> ();
-        tts.insert<txx> ();
-      }
-
-      // Register rules.
-      //
-      {
-        using namespace bin;
-
-        auto& rs (b.rules);
-
-        rs.insert<obja> (perform_id, update_id, "cxx", compile::instance);
-        rs.insert<obja> (perform_id, clean_id, "cxx", compile::instance);
-
-        rs.insert<objso> (perform_id, update_id, "cxx", compile::instance);
-        rs.insert<objso> (perform_id, clean_id, "cxx", compile::instance);
-
-        rs.insert<exe> (perform_id, update_id, "cxx", link::instance);
-        rs.insert<exe> (perform_id, clean_id, "cxx", link::instance);
-
-        rs.insert<liba> (perform_id, update_id, "cxx", link::instance);
-        rs.insert<liba> (perform_id, clean_id, "cxx", link::instance);
-
-        rs.insert<libso> (perform_id, update_id, "cxx", link::instance);
-        rs.insert<libso> (perform_id, clean_id, "cxx", link::instance);
-
-        // Register for configure so that we detect unresolved imports
-        // during configuration rather that later, e.g., during update.
-        //
-        rs.insert<obja> (configure_id, update_id, "cxx", compile::instance);
-        rs.insert<objso> (configure_id, update_id, "cxx", compile::instance);
-        rs.insert<exe> (configure_id, update_id, "cxx", link::instance);
-        rs.insert<liba> (configure_id, update_id, "cxx", link::instance);
-        rs.insert<libso> (configure_id, update_id, "cxx", link::instance);
-
-        //@@ Should we check if install module was loaded (see bin)?
-        //
-        rs.insert<exe> (perform_id, install_id, "cxx", install::instance);
-        rs.insert<liba> (perform_id, install_id, "cxx", install::instance);
-        rs.insert<libso> (perform_id, install_id, "cxx", install::instance);
-      }
-
       // Enter module variables.
       //
       // @@ Probably should only be done on load; make sure reset() unloads
@@ -110,31 +58,88 @@ namespace build
       //
       if (first)
       {
-        var_pool.find ("config.cxx", string_type); //@@ VAR type
+        auto& v (var_pool);
 
-        var_pool.find ("config.cxx.poptions", strings_type);
-        var_pool.find ("config.cxx.coptions", strings_type);
-        var_pool.find ("config.cxx.loptions", strings_type);
-        var_pool.find ("config.cxx.libs", strings_type);
+        v.find ("config.cxx", string_type); //@@ VAR type
 
-        var_pool.find ("cxx.poptions", strings_type);
-        var_pool.find ("cxx.coptions", strings_type);
-        var_pool.find ("cxx.loptions", strings_type);
-        var_pool.find ("cxx.libs", strings_type);
+        v.find ("config.cxx.poptions", strings_type);
+        v.find ("config.cxx.coptions", strings_type);
+        v.find ("config.cxx.loptions", strings_type);
+        v.find ("config.cxx.libs", strings_type);
 
-        var_pool.find ("cxx.export.poptions", strings_type);
-        var_pool.find ("cxx.export.coptions", strings_type);
-        var_pool.find ("cxx.export.loptions", strings_type);
-        var_pool.find ("cxx.export.libs", strings_type);
+        v.find ("cxx.poptions", strings_type);
+        v.find ("cxx.coptions", strings_type);
+        v.find ("cxx.loptions", strings_type);
+        v.find ("cxx.libs", strings_type);
 
-        var_pool.find ("cxx.std", string_type);
+        v.find ("cxx.export.poptions", strings_type);
+        v.find ("cxx.export.coptions", strings_type);
+        v.find ("cxx.export.loptions", strings_type);
+        v.find ("cxx.export.libs", strings_type);
 
-        var_pool.find ("h.ext", string_type);
-        var_pool.find ("c.ext", string_type);
-        var_pool.find ("hxx.ext", string_type);
-        var_pool.find ("ixx.ext", string_type);
-        var_pool.find ("txx.ext", string_type);
-        var_pool.find ("cxx.ext", string_type);
+        v.find ("cxx.std", string_type);
+
+        v.find ("h.ext", string_type);
+        v.find ("c.ext", string_type);
+        v.find ("hxx.ext", string_type);
+        v.find ("ixx.ext", string_type);
+        v.find ("txx.ext", string_type);
+        v.find ("cxx.ext", string_type);
+      }
+
+      // Register target types.
+      //
+      {
+        auto& t (b.target_types);
+
+        t.insert<h> ();
+        t.insert<c> ();
+
+        t.insert<cxx> ();
+        t.insert<hxx> ();
+        t.insert<ixx> ();
+        t.insert<txx> ();
+      }
+
+      // Register rules.
+      //
+      {
+        using namespace bin;
+
+        auto& r (b.rules);
+
+        r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
+
+        r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<obja> (perform_clean_id, "cxx.compile", compile::instance);
+
+        r.insert<objso> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<objso> (perform_clean_id, "cxx.compile", compile::instance);
+
+        r.insert<exe> (perform_update_id, "cxx.link", link::instance);
+        r.insert<exe> (perform_clean_id, "cxx.link", link::instance);
+
+        r.insert<liba> (perform_update_id, "cxx.link", link::instance);
+        r.insert<liba> (perform_clean_id, "cxx.link", link::instance);
+
+        r.insert<libso> (perform_update_id, "cxx.link", link::instance);
+        r.insert<libso> (perform_clean_id, "cxx.link", link::instance);
+
+        // Register for configure so that we detect unresolved imports
+        // during configuration rather that later, e.g., during update.
+        //
+        r.insert<obja> (configure_update_id, "cxx.compile", compile::instance);
+        r.insert<objso> (configure_update_id, "cxx.compile", compile::instance);
+
+        r.insert<exe> (configure_update_id, "cxx.link", link::instance);
+        r.insert<liba> (configure_update_id, "cxx.link", link::instance);
+        r.insert<libso> (configure_update_id, "cxx.link", link::instance);
+
+        //@@ Should we check if install module was loaded (see bin)?
+        //
+        r.insert<exe> (perform_install_id, "cxx.install", install::instance);
+        r.insert<liba> (perform_install_id, "cxx.install", install::instance);
+        r.insert<libso> (perform_install_id, "cxx.install", install::instance);
       }
 
       // Configure.

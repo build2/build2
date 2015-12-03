@@ -43,30 +43,31 @@ namespace build
       // Register target types.
       //
       {
-        auto& tts (b.target_types);
-        tts.insert<obja>  ();
-        tts.insert<objso> ();
-        tts.insert<obj>   ();
-        tts.insert<exe>   ();
-        tts.insert<liba>  ();
-        tts.insert<libso> ();
-        tts.insert<lib>   ();
+        auto& t (b.target_types);
+
+        t.insert<obja>  ();
+        t.insert<objso> ();
+        t.insert<obj>   ();
+        t.insert<exe>   ();
+        t.insert<liba>  ();
+        t.insert<libso> ();
+        t.insert<lib>   ();
       }
 
       // Register rules.
       //
       {
-        auto& rs (b.rules);
+        auto& r (b.rules);
 
-        rs.insert<obj> (perform_id, update_id, "bin", obj_);
-        rs.insert<obj> (perform_id, clean_id, "bin", obj_);
+        r.insert<obj> (perform_update_id, "bin.obj", obj_);
+        r.insert<obj> (perform_clean_id, "bin.obj", obj_);
 
-        rs.insert<lib> (perform_id, update_id, "bin", lib_);
-        rs.insert<lib> (perform_id, clean_id, "bin", lib_);
+        r.insert<lib> (perform_update_id, "bin.lib", lib_);
+        r.insert<lib> (perform_clean_id, "bin.lib", lib_);
 
-        // Configure members.
+        // Configure member.
         //
-        rs.insert<lib> (configure_id, update_id, "lib", lib_);
+        r.insert<lib> (configure_update_id, "bin.lib", lib_);
 
         //@@ Should we check if the install module was loaded
         //   (by checking if install operation is registered
@@ -75,22 +76,24 @@ namespace build
         //   should enforce loading of all operation-defining
         //   modules before all others?
         //
-        rs.insert<lib> (perform_id, install_id, "bin", lib_);
+        r.insert<lib> (perform_install_id, "bin.lib", lib_);
       }
 
       // Enter module variables.
       //
       if (first)
       {
-        var_pool.find ("config.bin.lib", string_type);
-        var_pool.find ("config.bin.exe.lib", strings_type);
-        var_pool.find ("config.bin.liba.lib", strings_type);
-        var_pool.find ("config.bin.libso.lib", strings_type);
+        auto& v (var_pool);
 
-        var_pool.find ("bin.lib", string_type);
-        var_pool.find ("bin.exe.lib", strings_type);
-        var_pool.find ("bin.liba.lib", strings_type);
-        var_pool.find ("bin.libso.lib", strings_type);
+        v.find ("config.bin.lib", string_type);
+        v.find ("config.bin.exe.lib", strings_type);
+        v.find ("config.bin.liba.lib", strings_type);
+        v.find ("config.bin.libso.lib", strings_type);
+
+        v.find ("bin.lib", string_type);
+        v.find ("bin.exe.lib", strings_type);
+        v.find ("bin.liba.lib", strings_type);
+        v.find ("bin.libso.lib", strings_type);
       }
 
       // Configure.

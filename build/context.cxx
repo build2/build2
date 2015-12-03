@@ -59,22 +59,26 @@ namespace build
 
     // Enter builtin variables.
     //
-    var_pool.find ("work", dir_path_type);
-    var_pool.find ("home", dir_path_type);
+    {
+      auto& v (var_pool);
 
-    var_pool.find ("src_root", dir_path_type);
-    var_pool.find ("out_root", dir_path_type);
-    var_pool.find ("src_base", dir_path_type);
-    var_pool.find ("out_base", dir_path_type);
+      v.find ("work", dir_path_type);
+      v.find ("home", dir_path_type);
 
-    var_pool.find ("project", string_type);
-    var_pool.find ("amalgamation", dir_path_type);
+      v.find ("src_root", dir_path_type);
+      v.find ("out_root", dir_path_type);
+      v.find ("src_base", dir_path_type);
+      v.find ("out_base", dir_path_type);
 
-    // Shouldn't be typed since the value requires pre-processing.
-    //
-    var_pool.find ("subprojects", nullptr, '=');
+      v.find ("project", string_type);
+      v.find ("amalgamation", dir_path_type);
 
-    var_pool.find ("extension", string_type);
+      // Shouldn't be typed since the value requires pre-processing.
+      //
+      v.find ("subprojects", nullptr, '=');
+
+      v.find ("extension", string_type);
+    }
 
     // Create global scope. For Win32 this is not a "real" root path.
     // On POSIX, however, this is a real path. See the comment in
@@ -89,29 +93,29 @@ namespace build
     // Register builtin target types.
     //
     {
-      target_type_map& tts (global_scope->target_types);
+      target_type_map& t (global_scope->target_types);
 
-      tts.insert<file>  ();
-      tts.insert<alias> ();
-      tts.insert<dir>   ();
-      tts.insert<fsdir> ();
-      tts.insert<doc>   ();
-      tts.insert<man>   ();
-      tts.insert<man1>  ();
+      t.insert<file>  ();
+      t.insert<alias> ();
+      t.insert<dir>   ();
+      t.insert<fsdir> ();
+      t.insert<doc>   ();
+      t.insert<man>   ();
+      t.insert<man1>  ();
     }
 
     // Register builtin rules.
     //
     {
-      rule_map& rs (global_scope->rules);
+      rule_map& r (global_scope->rules);
 
-      rs.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
+      r.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
 
-      rs.insert<fsdir> (perform_id, update_id, "fsdir", fsdir_rule::instance);
-      rs.insert<fsdir> (perform_id, clean_id, "fsdir", fsdir_rule::instance);
+      r.insert<fsdir> (perform_update_id, "fsdir", fsdir_rule::instance);
+      r.insert<fsdir> (perform_clean_id, "fsdir", fsdir_rule::instance);
 
-      rs.insert<file> (perform_id, update_id, "file", file_rule::instance);
-      rs.insert<file> (perform_id, clean_id, "file", file_rule::instance);
+      r.insert<file> (perform_update_id, "file", file_rule::instance);
+      r.insert<file> (perform_clean_id, "file", file_rule::instance);
     }
   }
 
