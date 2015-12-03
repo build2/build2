@@ -1,0 +1,23 @@
+# Quoting.
+#
+"print"  = a
+'print' += b
+pr"int" += c
+print'' += d
+
+# Not = or +=.
+#
+print += e
+
+print $print
+
+# <name>(
+#
+print(test)
+
+# Separated.
+#
+define print: file
+print{foo}:
+
+./:

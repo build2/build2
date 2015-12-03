@@ -1,8 +1,0 @@
-"print"  = a
-'print' += b
-pr"int" += c
-print'' += d
-
-print $print
-
-./:

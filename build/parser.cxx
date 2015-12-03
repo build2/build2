@@ -99,10 +99,9 @@ namespace build
           tt != type::colon)     // Empty name: ': ...'
         break; // Something else. Let our caller handle that.
 
-      // See if this is one of the directives. This should be an
-      // unquoted literal name.
+      // See if this is one of the directives.
       //
-      if (tt == type::name && !t.quoted)
+      if (tt == type::name && keyword (t))
       {
         const string& n (t.value);
 
@@ -985,7 +984,7 @@ namespace build
 
       // See if we have another el* keyword.
       //
-      if (k != "else" && tt == type::name)
+      if (k != "else" && tt == type::name && keyword (t))
       {
         const string& n (t.value);
 
@@ -1737,6 +1736,34 @@ namespace build
       if (tt != type::eos)
         next (t, tt);
     }
+  }
+
+  bool parser::
+  keyword (token& t)
+  {
+    assert (t.type == type::name);
+
+    // The goal here is to allow using keywords as variable names and
+    // target types without imposing ugly restrictions/decorators on
+    // keywords (e.g., '.using' or 'USING'). A name is considered a
+    // potential keyword if:
+    //
+    // - it is not quoted [so a keyword can always be escaped] and
+    // - next token is separated or is '(' [so if(...) will work] and
+    // - next token is not '=' or '+=' [which means a "directive body"
+    //   can never start with one of them].
+    //
+    // See tests/keyword.
+    //
+    if (!t.quoted)
+    {
+      type pt (peek ());
+
+      return pt == type::lparen ||
+        (pt != type::equal && pt != type::plus_equal && peeked ().separated);
+    }
+
+    return false;
   }
 
   // Buildspec parsing.
