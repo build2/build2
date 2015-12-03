@@ -16,6 +16,7 @@
 #include <iostream>
 #include <system_error>
 
+#include <butl/version>
 #include <butl/filesystem>
 
 #include <build/types>
@@ -66,6 +67,7 @@ main (int argc, char* argv[])
     if (ops.version ())
     {
       cout << "build2 0.1.0.a1" << endl
+           << "libbutl " << LIBBUTL_VERSION_STR << endl
            << "Copyright (c) 2014-2015 Code Synthesis Ltd" << endl
            << "This is free software released under the MIT license." << endl;
       return 0;
