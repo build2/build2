@@ -7,7 +7,7 @@
 
 #include <tuple>
 #include <string>
-#include <utility>       // move()
+#include <utility>       // move(), make_pair()
 #include <cassert>       // assert()
 #include <exception>
 #include <unordered_set>
@@ -17,12 +17,20 @@
 namespace build
 {
   using std::move;
+  using std::make_pair;
 
   // Empty string and path.
   //
   extern const std::string empty_string;
   extern const path empty_path;
   extern const dir_path empty_dir_path;
+
+  // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
+  // AABBCCDD form as describe in <build/version>. Throw invalid_argument
+  // if the passed string is not a valid version.
+  //
+  unsigned int
+  to_version (const string&);
 
   // Call a function if there is an exception.
   //

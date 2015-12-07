@@ -164,6 +164,9 @@ namespace build
     token_type
     next (token&, token_type&);
 
+    // Be careful with peeking and switching the lexer mode. See keyword()
+    // for more information.
+    //
     token_type
     peek ();
 

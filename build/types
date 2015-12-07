@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string>
+#include <utility>     // pair
 #include <memory>      // unique_ptr, shared_ptr
 #include <functional>  // reference_wrapper
 
@@ -19,6 +20,7 @@ namespace build
 {
   // Commonly-used types.
   //
+  using std::pair;
   using std::string;
   using std::unique_ptr;
   using std::shared_ptr;

@@ -15,6 +15,9 @@
 
 #include <butl/char-scanner>
 
+#include <build/types>
+#include <build/utility>
+
 #include <build/token>
 #include <build/diagnostics>
 
@@ -43,7 +46,7 @@ namespace build
     lexer (std::istream& is,
            const std::string& name,
            void (*processor) (token&, const lexer&) = nullptr)
-        : char_scanner (is), fail (name), processor_ (processor)
+        : char_scanner (is), fail (name), processor_ (processor), sep_ (false)
     {
       mode_.push (lexer_mode::normal);
     }
@@ -76,6 +79,13 @@ namespace build
     //
     token
     next ();
+
+    // Peek at the first character of the next token. Return the character
+    // or 0 if the next token will be eos. Also return an indicator of
+    // whether the next token will be separated.
+    //
+    pair<char, bool>
+    peek_char ();
 
   private:
     token
@@ -121,6 +131,7 @@ namespace build
 
     std::stack<lexer_mode> mode_;
     char pair_separator_;
+    bool sep_; // True if we skipped spaces in peek().
   };
 }
 

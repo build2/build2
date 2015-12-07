@@ -17,6 +17,16 @@ namespace build
     return t;
   }
 
+  pair<char, bool> lexer::
+  peek_char ()
+  {
+    // In the quoted mode we don't skip spaces.
+    //
+    sep_ = mode_.top () != lexer_mode::quoted && skip_spaces ();
+    xchar c (peek ());
+    return make_pair (eos (c) ? '\0' : char (c), sep_);
+  }
+
   token lexer::
   next_impl ()
   {
@@ -384,6 +394,9 @@ namespace build
 
       get ();
     }
+
+    r = r || sep_;
+    sep_ = false;
 
     return r;
   }

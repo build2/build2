@@ -1,0 +1,31 @@
+#using build@-1.0.0
+#using build@+1.0.0
+#using build@x.0.0
+#using build@1x.0.0
+#using build@1
+#using build@1.
+#using build@1.x
+#using build@1.1
+#using build@1.1.
+#using build@1.1.x
+#using build@1.1.100
+#using build@1.1.1~
+#using build@1.1.1-d
+#using build@1.1.1-aX
+#using build@1.1.1-a0
+#using build@1.1.1-a99
+#using build@1.1.1-a1X
+#using build@0.0.0-a1
+
+using build@0.0.0
+using build@0.0.1
+using build@0.0.1-a1
+using build@0.0.1-b2
+
+#using build@0.1.0
+using build@0.1.0-a1
+
+#using build@1.1.0
+#using build@1.1.0-b1
+
+./:

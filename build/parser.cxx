@@ -14,6 +14,7 @@
 
 #include <build/types>
 #include <build/utility>
+#include <build/version>
 
 #include <build/token>
 #include <build/lexer>
@@ -492,6 +493,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
+    lexer_->mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -573,6 +575,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
+    lexer_->mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -807,20 +810,54 @@ namespace build
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
+    lexer_->mode (lexer_mode::pairs, '@');
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
 
-    for (name& n: ns)
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
-      // For now it should be a simple name.
-      //
-      if (!n.simple ())
-        fail (l) << "module name expected instead of " << n;
+      string n, v;
 
-      load_module (optional, n.value, *root_, *scope_, l);
+      if (!i->simple ())
+        fail (l) << "module name expected instead of " << *i;
+
+      n = move (i->value);
+
+      if (i->pair)
+      {
+        ++i;
+        if (!i->simple ())
+          fail (l) << "module version expected instead of " << *i;
+
+        v = move (i->value);
+      }
+
+      // Handle the special 'build' module.
+      //
+      if (n == "build")
+      {
+        if (!v.empty ())
+        {
+          unsigned int iv;
+          try {iv = to_version (v);}
+          catch (const invalid_argument& e)
+          {
+            fail (l) << "invalid version '" << v << "': " << e.what ();
+          }
+
+          if (iv > BUILD_VERSION)
+            fail (l) << "build2 " << v << " required" <<
+              info << "running build2 " << BUILD_VERSION_STR;
+        }
+      }
+      else
+      {
+        assert (v.empty ()); // Module versioning not yet implemented.
+        load_module (optional, n, *root_, *scope_, l);
+      }
     }
 
     if (tt == type::newline)
@@ -1455,7 +1492,7 @@ namespace build
           if (n.empty ())
             fail (loc) << "empty variable/function name";
 
-          // Figure out whether this is a variable expansion of a function
+          // Figure out whether this is a variable expansion or a function
           // call.
           //
           tt = peek ();
@@ -1749,18 +1786,21 @@ namespace build
     // potential keyword if:
     //
     // - it is not quoted [so a keyword can always be escaped] and
-    // - next token is separated or is '(' [so if(...) will work] and
-    // - next token is not '=' or '+=' [which means a "directive body"
-    //   can never start with one of them].
+    // - next token is eos or '(' [so if(...) will work] or
+    // - next token is separated and is not '=' or '+=' [which means a
+    //   "directive trailer" can never start with one of them].
     //
     // See tests/keyword.
     //
     if (!t.quoted)
     {
-      type pt (peek ());
+      // We cannot peek at the whole token here since it might have to be
+      // lexed in a different mode. So peek at its first character.
+      //
+      pair<char, bool> p (lexer_->peek_char ());
+      char c (p.first);
 
-      return pt == type::lparen ||
-        (pt != type::equal && pt != type::plus_equal && peeked ().separated);
+      return c == '\0' || c == '(' || (p.second && c != '=' && c != '+');
     }
 
     return false;
