@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 project = build2
-version = 0.1.0.a1
+version = 0.1.0-a1
 subprojects = # No subprojects.
 
 using config

@@ -19,8 +19,8 @@
 // 2.0.0       02000000
 // 2.1.0       02010000
 // 2.1.1       02010100
-// 2.2.0.a1    02019901
-// 3.0.0.b2    02999952
+// 2.2.0-a1    02019901
+// 3.0.0-b2    02999952
 //
 
 // Generally, we expect minor versions to be source code backwards-
@@ -34,6 +34,6 @@
 
 //                        AABBCCDD
 #define BUILD_VERSION         9901
-#define BUILD_VERSION_STR "0.1.0.a1"
+#define BUILD_VERSION_STR "0.1.0-a1"
 
 #endif // BUILD_VERSION
