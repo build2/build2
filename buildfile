@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = build/ tests/
-./: $d doc{INSTALL LICENSE} file{bootstrap version}
+./: $d doc{INSTALL LICENSE} file{bootstrap manifest version}
 include $d
 
 $src_base/doc{INSTALL}: install = false
