@@ -22,18 +22,19 @@
 // 2.2.0-a1    02019901
 // 3.0.0-b2    02999952
 //
+//                        AABBCCDD
+#define BUILD_VERSION        10000
+#define BUILD_VERSION_STR "0.1.0"
 
 // Generally, we expect minor versions to be source code backwards-
 // compatible, thought we might have a minimum version requirement.
 //
+// Note: does not apply during early development.
+//
 //                     AABBCCDD
-#if (LIBBUTL_VERSION <     9901 || \
-     LIBBUTL_VERSION >   990000)
+#if (LIBBUTL_VERSION <    10000 || \
+     LIBBUTL_VERSION >    10000)
 #  error incompatible libbutl version
 #endif
-
-//                        AABBCCDD
-#define BUILD_VERSION         9901
-#define BUILD_VERSION_STR "0.1.0-a1"
 
 #endif // BUILD_VERSION
