@@ -31,6 +31,7 @@ exe{b}:                                   \
         {hxx            }{ types        } \
         {hxx         cxx}{ utility      } \
         {hxx ixx txx cxx}{ variable     } \
+        {hxx            }{ version      } \
     bin/{hxx         cxx}{ module       } \
     bin/{hxx         cxx}{ rule         } \
     bin/{hxx         cxx}{ target       } \
