@@ -40,6 +40,25 @@ namespace build
       tracer trace ("bin::init");
       level5 ([&]{trace << "for " << b.out_path ();});
 
+      // Enter module variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.find ("config.bin.lib", string_type);
+        v.find ("config.bin.exe.lib", strings_type);
+        v.find ("config.bin.liba.lib", strings_type);
+        v.find ("config.bin.libso.lib", strings_type);
+        v.find ("config.bin.rpath", strings_type); //@@ VAR paths_type
+
+        v.find ("bin.lib", string_type);
+        v.find ("bin.exe.lib", strings_type);
+        v.find ("bin.liba.lib", strings_type);
+        v.find ("bin.libso.lib", strings_type);
+        v.find ("bin.rpath", strings_type); //@@ VAR paths_type
+      }
+
       // Register target types.
       //
       {
@@ -77,23 +96,6 @@ namespace build
         //   modules before all others?
         //
         r.insert<lib> (perform_install_id, "bin.lib", lib_);
-      }
-
-      // Enter module variables.
-      //
-      if (first)
-      {
-        auto& v (var_pool);
-
-        v.find ("config.bin.lib", string_type);
-        v.find ("config.bin.exe.lib", strings_type);
-        v.find ("config.bin.liba.lib", strings_type);
-        v.find ("config.bin.libso.lib", strings_type);
-
-        v.find ("bin.lib", string_type);
-        v.find ("bin.exe.lib", strings_type);
-        v.find ("bin.liba.lib", strings_type);
-        v.find ("bin.libso.lib", strings_type);
       }
 
       // Configure.
@@ -141,6 +143,14 @@ namespace build
         if (!v)
           v = required (r, "config.bin.libso.lib", libso_lib).first;
       }
+
+      // config.bin.rpath
+      //
+      // This one is optional and we merge it into bin.rpath, if any.
+      // See the cxx module for details on merging.
+      //
+      if (const value& v = config::optional (r, "config.bin.rpath"))
+        b.assign ("bin.rpath") += as<strings> (v);
 
       // Configure "installability" of our target types.
       //

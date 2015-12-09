@@ -746,6 +746,7 @@ namespace build
       scope& rs (t.root_scope ());
       cstrings args;
       string storage1;
+      strings rpaths;
 
       if (lt == type::a)
       {
@@ -766,6 +767,18 @@ namespace build
 
         args.push_back ("-o");
         args.push_back (relt.string ().c_str ());
+
+        if (auto l = t["bin.rpath"])
+        {
+          const auto& ps (as<strings> (*l));
+          rpaths.reserve (ps.size ()); // Make sure no reallocations.
+
+          for (const string& p: ps)
+          {
+            rpaths.push_back ("-Wl,-rpath," + p);
+            args.push_back (rpaths.back ().c_str ());
+          }
+        }
 
         append_options (args, t, "cxx.loptions");
       }
