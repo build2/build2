@@ -14,6 +14,9 @@ namespace build
 {
   namespace config
   {
+    extern "C" void
+    config_boot (scope&, const location&, unique_ptr<module>&);
+
     extern "C" bool
     config_init (
     scope&, scope&, const location&, unique_ptr<module>&, bool, bool);

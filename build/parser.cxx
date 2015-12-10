@@ -42,10 +42,9 @@ namespace build
   {
     enter_buildfile (p);
 
-    string rw (diag_relative (p)); // Relative to work.
-    path_ = &rw;
+    path_ = &path_pool.find (diag_relative (p)); // Relative to work.
 
-    lexer l (is, rw);
+    lexer l (is, *path_);
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &base;
@@ -67,7 +66,7 @@ namespace build
   token parser::
   parse_variable (lexer& l, scope& s, string name, type kind)
   {
-    path_ = &l.name ();
+    path_ = &l.name (); // Note: not pooled.
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &s;
@@ -531,11 +530,10 @@ namespace build
 
         enter_buildfile (p);
 
-        string rw (diag_relative (p)); // Relative to work.
         const string* op (path_);
-        path_ = &rw;
+        path_ = &path_pool.find (diag_relative (p)); // Relative to work.
 
-        lexer l (ifs, rw);
+        lexer l (ifs, *path_);
         lexer* ol (lexer_);
         lexer_ = &l;
 
@@ -668,11 +666,10 @@ namespace build
 
         enter_buildfile (p);
 
-        string rw (diag_relative (p)); // Relative to work.
         const string* op (path_);
-        path_ = &rw;
+        path_ = &path_pool.find (diag_relative (p)); // Relative to work.
 
-        lexer l (ifs, rw);
+        lexer l (ifs, *path_);
         lexer* ol (lexer_);
         lexer_ = &l;
 
@@ -807,6 +804,9 @@ namespace build
 
     bool optional (t.value.back () == '?');
 
+    if (optional && boot_)
+      fail (t) << "optional module in bootstrap";
+
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
@@ -856,7 +856,11 @@ namespace build
       else
       {
         assert (v.empty ()); // Module versioning not yet implemented.
-        load_module (optional, n, *root_, *scope_, l);
+
+        if (boot_)
+          boot_module (n, *root_, l);
+        else
+          load_module (optional, n, *root_, *scope_, l);
       }
     }
 
@@ -1838,7 +1842,7 @@ namespace build
   buildspec parser::
   parse_buildspec (istream& is, const std::string& name)
   {
-    path_ = &name;
+    path_ = &name; // Note: caller pools.
 
     lexer l (is, name, &paren_processor);
     lexer_ = &l;

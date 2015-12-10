@@ -99,13 +99,18 @@ main (int argc, char* argv[])
 
     // Register builtin modules.
     //
-    builtin_modules["config"] = &config::config_init;
-    builtin_modules["dist"] = &dist::dist_init;
-    builtin_modules["bin"] = &bin::bin_init;
-    builtin_modules["cxx"] = &cxx::cxx_init;
-    builtin_modules["cli"] = &cli::cli_init;
-    builtin_modules["test"] = &test::test_init;
-    builtin_modules["install"] = &install::install_init;
+    builtin_modules["config"]  = module_functions {&config::config_boot,
+                                                   &config::config_init};
+    builtin_modules["dist"]    = module_functions {&dist::dist_boot,
+                                                   &dist::dist_init};
+    builtin_modules["test"]    = module_functions {&test::test_boot,
+                                                   &test::test_init};
+    builtin_modules["install"] = module_functions {&install::install_boot,
+                                                   &install::install_init};
+
+    builtin_modules["bin"] = module_functions {nullptr, &bin::bin_init};
+    builtin_modules["cxx"] = module_functions {nullptr, &cxx::cxx_init};
+    builtin_modules["cli"] = module_functions {nullptr, &cli::cli_init};
 
     // Figure out work and home directories.
     //

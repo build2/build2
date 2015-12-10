@@ -21,18 +21,27 @@ namespace build
   {
     static rule rule_;
 
+    extern "C" void
+    test_boot (scope& root, const location&, unique_ptr<module>&)
+    {
+      tracer trace ("test::boot");
+
+      level5 ([&]{trace << "for " << root.out_path ();});
+
+      // Register the test operation.
+      //
+      root.operations.insert (test_id, test);
+    }
+
     extern "C" bool
     test_init (scope& root,
-               scope& base,
+               scope&,
                const location& l,
                unique_ptr<module>&,
                bool first,
                bool)
     {
       tracer trace ("test::init");
-
-      if (&root != &base)
-        fail (l) << "test module must be initialized in bootstrap.build";
 
       if (!first)
       {
@@ -55,10 +64,6 @@ namespace build
         v.find ("test.options", strings_type);
         v.find ("test.arguments", strings_type);
       }
-
-      // Register the test operation.
-      //
-      root.operations.insert (test_id, test);
 
       // Register rules.
       //

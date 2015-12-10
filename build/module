@@ -6,8 +6,11 @@
 #define BUILD_MODULE
 
 #include <map>
-#include <string>
-#include <memory> // unique_ptr
+
+#include <build/types>
+#include <build/utility>
+
+#include <build/diagnostics>
 
 namespace build
 {
@@ -21,6 +24,10 @@ namespace build
     ~module () = default;
   };
 
+  extern "C"
+  using module_boot_function =
+    void (scope& root, const location&, unique_ptr<module>&);
+
   // Return false if the module configuration (normally based on the default
   // values) was unsuccessful but this is not (yet) an error. One example
   // would be the optional use of a module. Or a module might remain
@@ -32,17 +39,30 @@ namespace build
     bool (scope& root,
           scope& base,
           const location&,
-          std::unique_ptr<module>&,
+          unique_ptr<module>&,
           bool first,     // First time for this project.
           bool optional); // Loaded with 'using?' (optional module).
 
-  using loaded_module_map =
-    std::map<std::string,
-             std::pair<module_init_function*, std::unique_ptr<module>>>;
 
-  // Load the specified module. Used by the parser but also by some
-  // modules to load prerequisite modules. Return true if the module
-  // was both successfully loaded and configured.
+  struct module_state
+  {
+    bool boot; // True if the module boot'ed but not yet init'ed.
+    module_init_function* init;
+    unique_ptr<build::module> module;
+    const location loc; // Boot location.
+  };
+
+  using loaded_module_map = std::map<string, module_state>;
+
+  // Load and boot the specified module.
+  //
+  void
+  boot_module (const string& name, scope& root, const location&);
+
+  // Load (if not already loaded) and initialize the specified module. Used
+  // by the parser but also by some modules to load prerequisite modules.
+  // Return true if the module was both successfully loaded and configured
+  // (false can only be returned if optional).
   //
   bool
   load_module (bool optional,
@@ -53,7 +73,13 @@ namespace build
 
   // Builtin modules.
   //
-  using available_module_map = std::map<std::string, module_init_function*>;
+  struct module_functions
+  {
+    module_boot_function* boot;
+    module_init_function* init;
+  };
+
+  using available_module_map = std::map<string, module_functions>;
   extern available_module_map builtin_modules;
 }
 

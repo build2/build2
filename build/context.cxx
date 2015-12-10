@@ -22,6 +22,7 @@ namespace build
   dir_path work;
   dir_path home;
 
+  string_pool path_pool;
   string_pool extension_pool;
   string_pool project_name_pool;
 
@@ -34,6 +35,7 @@ namespace build
   void
   reset ()
   {
+    path_pool.clear ();
     extension_pool.clear ();
     project_name_pool.clear ();
 

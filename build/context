@@ -23,6 +23,7 @@ namespace build
   extern dir_path work;
   extern dir_path home;
 
+  extern string_pool path_pool;
   extern string_pool extension_pool;
   extern string_pool project_name_pool;
 

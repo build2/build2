@@ -99,6 +99,18 @@ namespace build
     static alias_rule alias_;
     static file_rule file_;
 
+    extern "C" void
+    install_boot (scope& r, const location&, unique_ptr<module>&)
+    {
+      tracer trace ("install::boot");
+
+      level5 ([&]{trace << "for " << r.out_path ();});
+
+      // Register the install operation.
+      //
+      r.operations.insert (install_id, install);
+    }
+
     extern "C" bool
     install_init (scope& r,
                   scope& b,
@@ -108,9 +120,6 @@ namespace build
                   bool)
     {
       tracer trace ("install::init");
-
-      if (&r != &b)
-        fail (l) << "install module must be initialized in bootstrap.build";
 
       if (!first)
       {
@@ -131,10 +140,6 @@ namespace build
 
         v.find ("install", dir_path_type);
       }
-
-      // Register the install operation.
-      //
-      r.operations.insert (install_id, install);
 
       // Register our alias and file installer rule.
       //

@@ -27,7 +27,10 @@ namespace build
     typedef build::names names_type;
     typedef build::variable variable_type;
 
-    parser (): fail (&path_) {}
+    // If boot is true, then we are parsing bootstrap.build and modules
+    // should only be bootstrapped.
+    //
+    parser (bool boot = false): fail (&path_), boot_ (boot) {}
 
     // Issue diagnostics and throw failed in case of an error.
     //
@@ -183,7 +186,9 @@ namespace build
     const fail_mark<failed> fail;
 
   protected:
-    const std::string* path_; // Path processed by diag_relative().
+    bool boot_;
+
+    const std::string* path_; // Path processed by diag_relative() and pooled.
     lexer* lexer_;
     target* target_; // Current target, if any.
     scope* scope_;   // Current base scope (out_base).

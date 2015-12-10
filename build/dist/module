@@ -14,6 +14,9 @@ namespace build
 {
   namespace dist
   {
+    extern "C" void
+    dist_boot (scope&, const location&, unique_ptr<module>&);
+
     extern "C" bool
     dist_init (
       scope&, scope&, const location&, unique_ptr<module>&, bool, bool);

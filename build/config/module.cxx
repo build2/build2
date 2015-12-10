@@ -24,24 +24,10 @@ namespace build
     //
     static const path config_file ("build/config.build");
 
-    extern "C" bool
-    config_init (scope& root,
-                 scope& base,
-                 const location& l,
-                 std::unique_ptr<module>&,
-                 bool first,
-                 bool)
+    extern "C" void
+    config_boot (scope& root, const location&, unique_ptr<module>&)
     {
-      tracer trace ("config::init");
-
-      if (&root != &base)
-        fail (l) << "config module must be initialized in bootstrap.build";
-
-      if (!first)
-      {
-        warn (l) << "multiple config module initializations";
-        return true;
-      }
+      tracer trace ("config::boot");
 
       const dir_path& out_root (root.out_path ());
       level5 ([&]{trace << "for " << out_root;});
@@ -50,6 +36,37 @@ namespace build
       //
       root.meta_operations.insert (configure_id, configure);
       root.meta_operations.insert (disfigure_id, disfigure);
+
+      // Load config.build if one exists.
+      //
+      // Note that we have to do this during bootstrap since the order in
+      // which the modules will be initialized is unspecified. So it is
+      // possible that some module which needs the configuration will get
+      // called first.
+      //
+      path f (out_root / config_file);
+
+      if (file_exists (f))
+        source (f, root, root);
+    }
+
+    extern "C" bool
+    config_init (scope& root,
+                 scope&,
+                 const location& l,
+                 std::unique_ptr<module>&,
+                 bool first,
+                 bool)
+    {
+      tracer trace ("config::init");
+
+      if (!first)
+      {
+        warn (l) << "multiple config module initializations";
+        return true;
+      }
+
+      level5 ([&]{trace << "for " << root.out_path ();});
 
       // Register alias and fallback rule for the configure meta-operation.
       //
@@ -66,13 +83,6 @@ namespace build
         r.insert<file> (configure_id, 0, "config.file", fallback_rule::instance);
         r.insert<alias> (configure_id, 0, "config.alias", alias_rule::instance);
       }
-
-      // Load config.build if one exists.
-      //
-      path f (out_root / config_file);
-
-      if (file_exists (f))
-        source (f, root, root);
 
       return true;
     }

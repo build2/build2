@@ -75,8 +75,8 @@ namespace build
     return dir_path ();
   }
 
-  void
-  source (const path& bf, scope& root, scope& base)
+  static void
+  source (const path& bf, scope& root, scope& base, bool boot)
   {
     tracer trace ("source");
 
@@ -90,13 +90,19 @@ namespace build
 
       level5 ([&]{trace << "sourcing " << bf;});
 
-      parser p;
+      parser p (boot);
       p.parse_buildfile (ifs, bf, root, base);
     }
     catch (const ifstream::failure&)
     {
       fail << "unable to read buildfile " << bf;
     }
+  }
+
+  void
+  source (const path& bf, scope& root, scope& base)
+  {
+    return source (bf, root, base, false);
   }
 
   void
@@ -440,7 +446,11 @@ namespace build
       // process hard to reason about. But we may try to bootstrap the
       // same root scope multiple time.
       //
-      source_once (bf, root, root);
+      if (root.buildfiles.insert (bf).second)
+        source (bf, root, root, true);
+      else
+        level5 ([&]{trace << "skipping already sourced " << bf;});
+
       r = true;
     }
 
@@ -722,6 +732,22 @@ namespace build
     if (scope* rs = root.parent_scope ()->root_scope ())
       load_root_pre (*rs);
 
+    // Finish off loading bootstrapped modules.
+    //
+    for (auto& p: root.modules)
+    {
+      const string& n (p.first);
+      module_state& s (p.second);
+
+      if (s.boot)
+      {
+        load_module (false, n, root, root, s.loc);
+        assert (!s.boot);
+      }
+    }
+
+    // Load root.build.
+    //
     path bf (root.src_path () / path ("build/root.build"));
 
     if (file_exists (bf))

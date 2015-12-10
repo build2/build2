@@ -22,18 +22,27 @@ namespace build
   {
     static rule rule_;
 
+    extern "C" void
+    dist_boot (scope& r, const location&, unique_ptr<module>&)
+    {
+      tracer trace ("dist::boot");
+
+      level5 ([&]{trace << "for " << r.out_path ();});
+
+      // Register meta-operation.
+      //
+      r.meta_operations.insert (dist_id, dist);
+    }
+
     extern "C" bool
     dist_init (scope& r,
-               scope& b,
+               scope&,
                const location& l,
                unique_ptr<module>&,
                bool first,
                bool)
     {
       tracer trace ("dist::init");
-
-      if (&r != &b)
-        fail (l) << "dist module must be initialized in bootstrap.build";
 
       if (!first)
       {
@@ -65,10 +74,6 @@ namespace build
         v.find ("dist.archives", strings_type);
         v.find ("config.dist.archives", strings_type);
       }
-
-      // Register meta-operation.
-      //
-      r.meta_operations.insert (dist_id, dist);
 
       // Register our wildcard rule. Do it explicitly for the alias
       // to prevent something like insert<target>(dist_id, test_id)
