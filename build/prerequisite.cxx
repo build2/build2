@@ -20,9 +20,9 @@ namespace build
   ostream&
   operator<< (ostream& os, const prerequisite_key& pk)
   {
-    if (*pk.proj != nullptr)
-      os << **pk.proj << '%';
-    //
+    if (pk.proj != nullptr)
+      os << *pk.proj << '%';
+
     // Don't print scope if we are project-qualified or the
     // prerequisite's directory is absolute. In both these
     // cases the scope is not used to resolve it to target.

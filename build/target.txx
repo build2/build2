@@ -47,10 +47,7 @@ namespace build
       if (tk.dir->absolute ())
         dr << "target " << tk;
       else
-      {
-        const string* proj (nullptr); // Used for local prerequisites.
-        dr << "prerequisite " << prerequisite_key {&proj, tk, &s};
-      }
+        dr << "prerequisite " << prerequisite_key {nullptr, tk, &s};
 
       dr << info << "perhaps you forgot to add "
          << tk.type->name << "{*}: " << var << " = ...";

@@ -957,8 +957,8 @@ namespace build
   target&
   import (const prerequisite_key& pk)
   {
-    assert (*pk.proj != nullptr);
-    const string& p (**pk.proj);
+    assert (pk.proj != nullptr);
+    const string& p (*pk.proj);
 
     // @@ We no longer have location. This is especially bad for the
     //    empty case, i.e., where do I need to specify the project

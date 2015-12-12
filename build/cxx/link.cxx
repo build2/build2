@@ -38,16 +38,7 @@ namespace build
   {
     using namespace bin;
 
-    enum class type {e, a, so};
-    enum class order {a, so, a_so, so_a};
-
-    static inline type
-    link_type (target& t)
-    {
-      return t.is_a<exe> () ? type::e : (t.is_a<liba> () ? type::a : type::so);
-    }
-
-    static order
+    link::order link::
     link_order (target& t)
     {
       const char* var;
@@ -63,6 +54,40 @@ namespace build
       return v[0] == "shared"
         ? v.size () > 1 && v[1] == "static" ? order::so_a : order::so
         : v.size () > 1 && v[1] == "shared" ? order::a_so : order::a;
+    }
+
+    target& link::
+    link_member (bin::lib& l, order lo)
+    {
+      bool lso (true);
+      const string& at (as<string> (*l["bin.lib"])); // Available types.
+
+      switch (lo)
+      {
+      case order::a:
+      case order::a_so:
+        lso = false; // Fall through.
+      case order::so:
+      case order::so_a:
+        {
+          if (lso ? at == "static" : at == "shared")
+          {
+            if (lo == order::a_so || lo == order::so_a)
+              lso = !lso;
+            else
+              fail << (lso ? "shared" : "static") << " build of " << l
+                   << " is not available";
+          }
+        }
+      }
+
+      target* r (lso ? static_cast<target*> (l.so) : l.a);
+
+      if (r == nullptr)
+        r = &search (lso ? libso::static_type : liba::static_type,
+                     prerequisite_key {nullptr, l.key (), nullptr});
+
+      return *r;
     }
 
     link::search_paths link::
@@ -455,7 +480,7 @@ namespace build
 
       type lt (link_type (t));
       bool so (lt == type::so);
-      optional<order> lo; // Link-order.
+      order lo (link_order (t));
 
       // Derive file name from target name.
       //
@@ -541,38 +566,7 @@ namespace build
           }
           else if (lib* l = pt->is_a<lib> ())
           {
-            // Determine the library type to link.
-            //
-            bool lso (true);
-            const string& at (as<string> (*(*l)["bin.lib"]));
-
-            if (!lo)
-              lo = link_order (t);
-
-            switch (*lo)
-            {
-            case order::a:
-            case order::a_so:
-              lso = false; // Fall through.
-            case order::so:
-            case order::so_a:
-              {
-                if (lso ? at == "static" : at == "shared")
-                {
-                  if (*lo == order::a_so || *lo == order::so_a)
-                    lso = !lso;
-                  else
-                    fail << (lso ? "shared" : "static") << " build of " << *l
-                         << " is not available";
-                }
-              }
-            }
-
-            pt = lso ? static_cast<target*> (l->so) : l->a;
-
-            if (pt == nullptr)
-              pt = &search (lso ? libso::static_type : liba::static_type,
-                            p.key ());
+            pt = &link_member (*l, lo);
           }
 
           build::match (a, *pt);

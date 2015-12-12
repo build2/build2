@@ -187,7 +187,7 @@ namespace build
 
           const dir_path& src_nroot (nrs.src_path ());
 
-          if (!src_nroot.sub (src_root)) // Not a source-level amalgamation.
+          if (!src_nroot.sub (src_root)) // Not a strong amalgamation.
             continue;
 
           add_adhoc (src_nroot, "build/export.build");

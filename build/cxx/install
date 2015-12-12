@@ -15,7 +15,7 @@ namespace build
     class install: public build::install::file_rule
     {
     public:
-      virtual bool
+      virtual target*
       filter (action, target&, prerequisite_member) const;
 
       virtual match_result

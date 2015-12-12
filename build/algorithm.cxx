@@ -32,7 +32,7 @@ namespace build
     // If this is a project-qualified prerequisite, then this
     // is import's business.
     //
-    if (*pk.proj != nullptr)
+    if (pk.proj != nullptr)
       return import (pk);
 
     if (target* t = pk.tk.type->search (pk))

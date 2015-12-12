@@ -30,8 +30,7 @@ namespace build
   public:
     typedef build::scope scope_type;
 
-    mutable const std::string* const* proj; // Only *proj can be NULL, points
-                                            // to project_name_pool.
+    mutable const std::string* proj; // Can be NULL, from project_name_pool.
     target_key tk;
     mutable scope_type* scope; // Can be NULL if tk.dir is absolute.
   };
@@ -43,7 +42,7 @@ namespace build
 
     // Can compare project name pointers since they are from project_name_pool.
     //
-    return *x.proj < *y.proj || (*x.proj == *y.proj && x.tk < y.tk);
+    return x.proj < y.proj || (x.proj == y.proj && x.tk < y.tk);
   }
 
   std::ostream&
@@ -83,7 +82,7 @@ namespace build
     prerequisite_key
     key () const
     {
-      return prerequisite_key {&proj, {&type, &dir, &name, &ext}, &scope};
+      return prerequisite_key {proj, {&type, &dir, &name, &ext}, &scope};
     }
 
   public:

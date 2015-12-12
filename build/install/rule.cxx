@@ -100,6 +100,13 @@ namespace build
       return mr;
     }
 
+    target* file_rule::
+    filter (action, target& t, prerequisite_member p) const
+    {
+      target& pt (p.search ());
+      return pt.in (t.root_scope ()) ? &pt : nullptr;
+    }
+
     recipe file_rule::
     apply (action a, target& t, const match_result& mr) const
     {
@@ -121,8 +128,6 @@ namespace build
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
-      scope& rs (t.root_scope ());
-
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // Ignore unresolved targets that are imported from other projects.
@@ -136,19 +141,13 @@ namespace build
 
         // Let a customized rule have its say.
         //
-        // @@ This will be skipped if forced with [install].
+        // @@ This will be skipped if forced with [install]?
         //
-        if (!filter (a, t, p))
+        target* pt (filter (a, t, p));
+        if (pt == nullptr)
           continue;
 
-        target& pt (p.search ());
-
-        // Ignore targets that are outside of our project.
-        //
-        if (!pt.in (rs))
-          continue;
-
-        build::match (a, pt);
+        build::match (a, *pt);
 
         // If the matched rule returned noop_recipe, then the target
         // state will be set to unchanged as an optimization. Use this
@@ -156,10 +155,10 @@ namespace build
         // will help a lot in case of any static installable content
         // (headers, documentation, etc).
         //
-        if (pt.state () != target_state::unchanged)
-          t.prerequisite_targets.push_back (&pt);
+        if (pt->state () != target_state::unchanged)
+          t.prerequisite_targets.push_back (pt);
         else
-          unmatch (a, pt); // No intent to execute.
+          unmatch (a, *pt); // No intent to execute.
       }
 
       // This is where we diverge depending on the operation. In the

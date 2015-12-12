@@ -34,10 +34,8 @@ namespace build
           const std::string* ext,
           scope* scope)
   {
-    const std::string* proj (nullptr);
     return search (
-      prerequisite_key
-        {&proj, {&type, &dir, &name, &ext}, scope});
+      prerequisite_key {nullptr, {&type, &dir, &name, &ext}, scope});
   }
 
   template <typename T>

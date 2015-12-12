@@ -39,6 +39,9 @@ namespace build
     const dir_path* out_path_ {nullptr};
     const dir_path* src_path_ {nullptr};
 
+    bool
+    root () const {return root_ == this;}
+
     scope*
     parent_scope () const {return parent_;}
 
@@ -64,8 +67,19 @@ namespace build
         : nullptr;
     }
 
-    bool
-    root () const {return root_ == this;}
+    // Root scope of the outermost amalgamation or NULL if this scope is not
+    // (yet) in any (known) project. If there is no amalgamation, then this
+    // function returns the root scope of the project (in other words, in this
+    // case a project is treated as its own amalgamation).
+    //
+    scope*
+    weak_scope () const
+    {
+      scope* r (root_);
+      if (r != nullptr)
+        for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
+      return r;
+    }
 
     // Variables.
     //

@@ -229,6 +229,12 @@ namespace build
     scope&
     strong_scope () const {return *root_scope ().strong_scope ();}
 
+    // Root scope of the outermost amalgamation that contains this target.
+    // The same notes as to root_scope() apply.
+    //
+    scope&
+    weak_scope () const {return *root_scope ().weak_scope ();}
+
 
     bool
     in (const scope& s) const
@@ -517,7 +523,7 @@ namespace build
     key () const
     {
       return target != nullptr
-        ? prerequisite_key {&prerequisite.get ().proj, target->key (), nullptr}
+        ? prerequisite_key {prerequisite.get ().proj, target->key (), nullptr}
         : prerequisite.get ().key ();
     }
 
