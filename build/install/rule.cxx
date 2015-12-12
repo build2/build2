@@ -213,6 +213,7 @@ namespace build
     struct install_dir
     {
       dir_path dir;
+      string sudo;
       string cmd; //@@ VAR type
       const_strings_value options {nullptr};
       string mode;
@@ -226,7 +227,13 @@ namespace build
     {
       path reld (relative (d));
 
-      cstrings args {base.cmd.c_str (), "-d"};
+      cstrings args;
+
+      if (!base.sudo.empty ())
+        args.push_back (base.sudo.c_str ());
+
+      args.push_back (base.cmd.c_str ());
+      args.push_back ("-d");
 
       if (base.options.d != nullptr) //@@ VAR
         config::append_options (args, base.options);
@@ -267,7 +274,12 @@ namespace build
       path reld (relative (base.dir));
       path relf (relative (t.path ()));
 
-      cstrings args {base.cmd.c_str ()};
+      cstrings args;
+
+      if (!base.sudo.empty ())
+        args.push_back (base.sudo.c_str ());
+
+      args.push_back (base.cmd.c_str ());
 
       if (base.options.d != nullptr) //@@ VAR
         config::append_options (args, base.options);
@@ -347,10 +359,11 @@ namespace build
       //
       if (var != nullptr)
       {
-        if (auto l = s[*var + ".cmd"]) r.cmd = as<string> (*l);
-        if (auto l = s[*var + ".mode"]) r.mode = as<string> (*l);
+        if (auto l = s[*var + ".sudo"])     r.sudo = as<string> (*l);
+        if (auto l = s[*var + ".cmd"])      r.cmd = as<string> (*l);
+        if (auto l = s[*var + ".mode"])     r.mode = as<string> (*l);
         if (auto l = s[*var + ".dir_mode"]) r.dir_mode = as<string> (*l);
-        if (auto l = s[*var + ".options"]) r.options = as<strings> (*l);
+        if (auto l = s[*var + ".options"])  r.options = as<strings> (*l);
       }
 
       // Set defaults for unspecified components.

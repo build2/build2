@@ -79,21 +79,22 @@ namespace build
     }
 
     static void
-    set_dir (bool s,
-             scope& r,
-             const char* name,
-             const string& path,
-             const string& fmode = string (),
-             const string& dmode = string (),
-             const string& cmd = string (),
-             bool ovr = false)
+    set_dir (bool s,                         // specified
+             scope& r,                       // root scope
+             const char* n,                  // var name
+             const string& ps,               // path (as string)
+             const string& fm = string (),   // file mode
+             const string& dm = string (),   // dir mode
+             const string& c = string (),    // command
+             bool o = false)                 // override
     {
-      dir_path dpath (path);
-      set_var (s, r, name, "",          dpath.empty () ? nullptr : &dpath, ovr);
-      set_var (s, r, name, ".mode",     fmode.empty () ? nullptr : &fmode);
-      set_var (s, r, name, ".dir_mode", dmode.empty () ? nullptr : &dmode);
-      set_var (s, r, name, ".cmd",      cmd.empty ()   ? nullptr : &cmd);
-      set_var<strings> (s, r, name, ".options", nullptr);
+      dir_path p (ps);
+      set_var          (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
+      set_var          (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
+      set_var          (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
+      set_var<string>  (s, r, n, ".sudo",     nullptr);
+      set_var          (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<strings> (s, r, n, ".options",  nullptr);
     }
 
     static alias_rule alias_;
