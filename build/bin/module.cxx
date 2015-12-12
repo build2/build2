@@ -57,6 +57,8 @@ namespace build
         v.find ("bin.liba.lib", strings_type);
         v.find ("bin.libso.lib", strings_type);
         v.find ("bin.rpath", strings_type); //@@ VAR paths_type
+
+        v.find ("bin.libprefix", string_type);
       }
 
       // Register target types.
@@ -151,6 +153,7 @@ namespace build
       //
       if (const value& v = config::optional (r, "config.bin.rpath"))
         b.assign ("bin.rpath") += as<strings> (v);
+
 
       // Configure "installability" of our target types.
       //

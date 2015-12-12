@@ -461,11 +461,24 @@ namespace build
       //
       if (t.path ().empty ())
       {
+        auto l (t["extension"]);
+        const char* e (l ? as<string> (*l).c_str () : nullptr);
+
         switch (lt)
         {
-        case type::e:  t.derive_path (""         ); break;
-        case type::a:  t.derive_path ("a",  "lib"); break;
-        case type::so: t.derive_path ("so", "lib"); break;
+        case type::e:
+          {
+            t.derive_path (e != nullptr ? e : "");
+            break;
+          }
+        case type::a:
+        case type::so:
+          {
+            auto l (t["bin.libprefix"]);
+            t.derive_path (e != nullptr ? e : (lt == type::a ? "a" : "so"),
+                           l ? as<string> (*l).c_str () : "lib");
+            break;
+          }
         }
       }
 
