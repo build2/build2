@@ -745,8 +745,12 @@ namespace build
 
       scope& rs (t.root_scope ());
       cstrings args;
-      string storage1;
-      strings rpaths;
+
+      // Storage.
+      //
+      string std;
+      string soname;
+      strings sargs;
 
       if (lt == type::a)
       {
@@ -760,7 +764,7 @@ namespace build
       {
         args.push_back (as<string> (*rs["config.cxx"]).c_str ());
         append_options (args, t, "cxx.coptions");
-        append_std (args, t, storage1);
+        append_std (args, t, std);
 
         if (so)
           args.push_back ("-shared");
@@ -768,52 +772,54 @@ namespace build
         args.push_back ("-o");
         args.push_back (relt.string ().c_str ());
 
-        if (auto l = t["bin.rpath"])
+        // Set soname.
+        //
+        if (so)
         {
-          const auto& ps (as<strings> (*l));
-          rpaths.reserve (ps.size ()); // Make sure no reallocations.
-
-          for (const string& p: ps)
-          {
-            rpaths.push_back ("-Wl,-rpath," + p);
-            args.push_back (rpaths.back ().c_str ());
-          }
+          soname = "-Wl,-soname," + relt.leaf ().string ();
+          args.push_back (soname.c_str ());
         }
 
-        append_options (args, t, "cxx.loptions");
+        // Add rpaths. First the ones specified by the user so that they
+        // take precedence.
+        //
+        if (auto l = t["bin.rpath"])
+          for (const string& p: as<strings> (*l))
+            sargs.push_back ("-Wl,-rpath," + p);
+
+        // Then the paths of the shared libraries we are linking to.
+        //
+        for (target* pt: t.prerequisite_targets)
+        {
+          if (libso* ls = pt->is_a<libso> ())
+            sargs.push_back (
+              "-Wl,-rpath," + ls->path ().directory ().string ());
+        }
       }
 
-      // Reserve enough space so that we don't reallocate. Reallocating
-      // means pointers to elements may no longer be valid.
-      //
-      paths relo;
-      relo.reserve (t.prerequisite_targets.size ());
+      size_t oend (sargs.size ()); // Note the end of options.
 
       for (target* pt: t.prerequisite_targets)
       {
         path_target* ppt;
 
-        if ((ppt = pt->is_a<obja> ()))
-          ;
-        else if ((ppt = pt->is_a<objso> ()))
-          ;
-        else if ((ppt = pt->is_a<liba> ()))
-          ;
-        else if ((ppt = pt->is_a<libso> ()))
+        if ((ppt = pt->is_a<obja> ())  ||
+            (ppt = pt->is_a<objso> ()) ||
+            (ppt = pt->is_a<liba> ())  ||
+            (ppt = pt->is_a<libso> ()))
         {
-          // Use absolute path for the shared libraries since that's
-          // the path the runtime loader will use to try to find it.
-          // This is probably temporary until we get into the whole
-          // -soname/-rpath mess.
-          //
-          args.push_back (ppt->path ().string ().c_str ());
-          continue;
+          sargs.push_back (relative (ppt->path ()).string ()); // string()&&
         }
-        else
-          continue;
+      }
 
-        relo.push_back (relative (ppt->path ()));
-        args.push_back (relo.back ().string ().c_str ());
+      // Finish assembling args from sargs.
+      //
+      for (size_t i (0); i != sargs.size (); ++i)
+      {
+        if (lt != type::a && i == oend)
+          append_options (args, t, "cxx.loptions");
+
+        args.push_back (sargs[i].c_str ());
       }
 
       if (lt != type::a)
