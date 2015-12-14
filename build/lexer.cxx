@@ -351,7 +351,8 @@ namespace build
   bool lexer::
   skip_spaces ()
   {
-    bool r (false);
+    bool r (sep_);
+    sep_ = false;
 
     xchar c (peek ());
     bool start (c.column == 1);
@@ -406,9 +407,6 @@ namespace build
 
       get ();
     }
-
-    r = r || sep_;
-    sep_ = false;
 
     return r;
   }

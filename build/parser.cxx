@@ -1041,7 +1041,7 @@ namespace build
       {
         const string& n (t.value);
 
-        if (!t.quoted && (n == "else" || n == "elif" || n == "elif!"))
+        if (n == "else" || n == "elif" || n == "elif!")
           continue;
       }
 
@@ -1806,7 +1806,7 @@ namespace build
     // potential keyword if:
     //
     // - it is not quoted [so a keyword can always be escaped] and
-    // - next token is eos or '(' [so if(...) will work] or
+    // - next token is '\n' (or eos) or '(' [so if(...) will work] or
     // - next token is separated and is not '=', '=+', or '+=' [which
     //   means a "directive trailer" can never start with one of them].
     //
@@ -1820,7 +1820,8 @@ namespace build
       pair<char, bool> p (lexer_->peek_char ());
       char c (p.first);
 
-      return c == '\0' || c == '(' || (p.second && c != '=' && c != '+');
+      return c == '\n' || c == '\0' || c == '(' ||
+        (p.second && c != '=' && c != '+');
     }
 
     return false;
