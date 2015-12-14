@@ -885,7 +885,11 @@ namespace build
   static target*
   derived_factory (const target_type& t, dir_path d, string n, const string* e)
   {
-    target* r (t.base->factory (*t.base, move (d), move (n), e));
+    // Pass our type to the base factory so that it can detect that it is
+    // being called to construct a derived target. This can be used, for
+    // example, to decide whether to "link up" to the group.
+    //
+    target* r (t.base->factory (t, move (d), move (n), e));
     r->derived_type = &t;
     return r;
   }

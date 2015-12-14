@@ -91,9 +91,11 @@ namespace build
     };
 
     static target*
-    liba_factory (const target_type&, dir_path d, string n, const string* e)
+    liba_factory (const target_type& t, dir_path d, string n, const string* e)
     {
-      lib* l (targets.find<lib> (d, n));
+      // Only link-up to the group if the types match exactly.
+      //
+      lib* l (t == liba::static_type ? targets.find<lib> (d, n) : nullptr);
       liba* a (new liba (move (d), move (n), e));
 
       if ((a->group = l))
@@ -126,9 +128,11 @@ namespace build
     };
 
     static target*
-    libso_factory (const target_type&, dir_path d, string n, const string* e)
+    libso_factory (const target_type& t, dir_path d, string n, const string* e)
     {
-      lib* l (targets.find<lib> (d, n));
+      // Only link-up to the group if the types match exactly.
+      //
+      lib* l (t == libso::static_type ? targets.find<lib> (d, n) : nullptr);
       libso* so (new libso (move (d), move (n), e));
 
       if ((so->group = l))
