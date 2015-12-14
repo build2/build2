@@ -39,7 +39,7 @@ namespace build
 
     auto bail = [] (const char* m) {throw invalid_argument (m);};
 
-    unsigned int ma, mi, bf, ab;
+    unsigned int ma, mi, bf, ab (0);
 
     size_t p (0), n (s.size ());
     ma = parse (p, "invalid major version");
