@@ -1,0 +1,14 @@
+foo =+ FOO
+print $foo
+
+foo =+ foo
+print $foo
+
+foo = foo
+print $foo
+
+foo =+ FOO
+foo += FOO
+print $foo
+
+./:

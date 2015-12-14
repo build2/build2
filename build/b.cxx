@@ -165,7 +165,9 @@ main (int argc, char* argv[])
 
       token_type tt (l.next ().type);
 
-      if (tt != token_type::equal && tt != token_type::plus_equal)
+      if (tt != token_type::equal &&
+          tt != token_type::equal_plus &&
+          tt != token_type::plus_equal)
         break;
 
       parser p;

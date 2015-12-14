@@ -23,6 +23,7 @@ namespace build
     lcbrace,
     rcbrace,
     equal,
+    equal_plus,
     plus_equal,
     dollar,
     lparen,

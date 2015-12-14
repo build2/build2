@@ -22,6 +22,7 @@ namespace build
     case token_type::lcbrace:        os << "{"; break;
     case token_type::rcbrace:        os << "}"; break;
     case token_type::equal:          os << "="; break;
+    case token_type::equal_plus:     os << "=+"; break;
     case token_type::plus_equal:     os << "+="; break;
     case token_type::dollar:         os << "$"; break;
     case token_type::lparen:         os << "("; break;

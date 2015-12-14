@@ -101,6 +101,9 @@ namespace build
     value&
     append (value, const variable&); // Aka operator+=().
 
+    value&
+    prepend (value, const variable&); // Aka operator=+().
+
     // Forwarded to the representation type's assign()/append() (see below).
     //
     template <typename T> value& operator= (T);
@@ -137,6 +140,9 @@ namespace build
 
     void
     append (names, const variable&);
+
+    void
+    prepend (names, const variable&);
 
   public:
     // Don't use directly except in the implementation of representation

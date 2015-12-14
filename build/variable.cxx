@@ -57,6 +57,14 @@ namespace build
     return *this;
   }
 
+  value& value::
+  prepend (value v, const variable& var)
+  {
+    assert (type == v.type);
+    prepend (move (v.data_), var);
+    return *this;
+  }
+
   void value::
   append (names v, const variable& var)
   {
@@ -76,6 +84,37 @@ namespace build
       data_.insert (data_.end (),
                     make_move_iterator (v.begin ()),
                     make_move_iterator (v.end ()));
+
+    state_ = (type != nullptr && type->assign != nullptr
+              ? type->assign (data_, var)
+              : !data_.empty ())
+      ? state_type::filled
+      : state_type::empty;
+  }
+
+  void value::
+  prepend (names v, const variable& var)
+  {
+    // Reduce to append.
+    //
+    if (!null () && type != nullptr && type->append != nullptr)
+    {
+      state_ = type->append (v, move (data_), var)
+        ? state_type::filled
+        : state_type::empty;
+      swap (data_, v);
+      return;
+    }
+
+    if (data_.empty ())
+      data_ = move (v);
+    else
+    {
+      v.insert (v.end (),
+                make_move_iterator (data_.begin ()),
+                make_move_iterator (data_.end ()));
+      swap (data_, v);
+    }
 
     state_ = (type != nullptr && type->assign != nullptr
               ? type->assign (data_, var)

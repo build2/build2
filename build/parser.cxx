@@ -305,7 +305,9 @@ namespace build
 
           // Scope/target-specific variable assignment.
           //
-          if (tt == type::equal || tt == type::plus_equal)
+          if (tt == type::equal      ||
+              tt == type::equal_plus ||
+              tt == type::plus_equal)
           {
             string v (variable_name (move (pns), ploc));
 
@@ -375,6 +377,10 @@ namespace build
 
                 if (ti == nullptr)
                   fail (nloc) << "unknown target type " << n.type;
+
+                if (tt == type::equal_plus)
+                  fail (t) << "prepend to target type/pattern-specific "
+                           << "variable " << v;
 
                 if (tt == type::plus_equal)
                   fail (t) << "append to target type/pattern-specific "
@@ -460,7 +466,9 @@ namespace build
 
       // Variable assignment.
       //
-      if (tt == type::equal || tt == type::plus_equal)
+      if (tt == type::equal      ||
+          tt == type::equal_plus ||
+          tt == type::plus_equal)
       {
         variable (t, tt, variable_name (move (ns), nloc), tt);
 
@@ -729,13 +737,15 @@ namespace build
     {
       at = peek ();
 
-      if (at == type::equal || at == type::plus_equal)
+      if (at == type::equal      ||
+          at == type::equal_plus ||
+          at == type::plus_equal)
       {
         var = &var_pool.find (t.value);
         val = at == type::equal
           ? &scope_->assign (*var)
           : &scope_->append (*var);
-        next (t, tt); // Consume =/+=.
+        next (t, tt); // Consume =/=+/+=.
         lexer_->mode (lexer_mode::value);
         next (t, tt);
       }
@@ -759,6 +769,8 @@ namespace build
       {
         if (at == type::equal)
           val->assign (move (r), *var);
+        else if (at == type::equal_plus)
+          val->prepend (move (r), *var);
         else
           val->append (move (r), *var);
       }
@@ -1092,7 +1104,11 @@ namespace build
       value& v (target_ != nullptr
                 ? target_->append (var)
                 : scope_->append (var));
-      v.append (move (vns), var);
+
+      if (kind == type::equal_plus)
+        v.prepend (move (vns), var);
+      else
+        v.append (move (vns), var);
     }
   }
 
@@ -1791,8 +1807,8 @@ namespace build
     //
     // - it is not quoted [so a keyword can always be escaped] and
     // - next token is eos or '(' [so if(...) will work] or
-    // - next token is separated and is not '=' or '+=' [which means a
-    //   "directive trailer" can never start with one of them].
+    // - next token is separated and is not '=', '=+', or '+=' [which
+    //   means a "directive trailer" can never start with one of them].
     //
     // See tests/keyword.
     //
