@@ -10,7 +10,7 @@ txx{*}: extension = txx
 cxx{*}: extension = cxx
 
 cxx.std = 14
-cxx.poptions =+ -I$src_root -I$out_root
+cxx.poptions =+ -I$out_root -I$src_root
 
 # All exe{} in tests/ are, well, tests. Don't install them.
 #
