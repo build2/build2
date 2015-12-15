@@ -433,7 +433,8 @@ namespace build
       // "library meta-information protocol". Don't do this if we are
       // called from the install rule just to check if we would match.
       //
-      if (seen_lib && lt != type::e && a.operation () != install_id)
+      if (seen_lib && lt != type::e &&
+          a.operation () != install_id && a.outer_operation () != install_id)
       {
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s

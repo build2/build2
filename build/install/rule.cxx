@@ -181,7 +181,7 @@ namespace build
         //
         recipe d (match_delegate (a, t).first);
 
-        // If we have no installable prerequsites, then simply redirect
+        // If we have no installable prerequisites, then simply redirect
         // to it.
         //
         if (p.empty ())
