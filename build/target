@@ -709,7 +709,7 @@ namespace build
 
   // prerequisite_members(t.prerequisites)
   //
-  inline auto
+  inline prerequisite_members_range<target::prerequisites_type&>
   prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (a, t.prerequisites, members);
@@ -717,7 +717,8 @@ namespace build
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
   //
-  inline auto
+  inline prerequisite_members_range<
+    butl::reverse_range<target::prerequisites_type&>>
   reverse_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (
@@ -726,7 +727,7 @@ namespace build
 
   // prerequisite_members(group_prerequisites (t))
   //
-  inline auto
+  inline prerequisite_members_range<group_prerequisites>
   group_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (a, group_prerequisites (t), members);
@@ -734,7 +735,7 @@ namespace build
 
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
   //
-  inline auto
+  inline prerequisite_members_range<butl::reverse_range<group_prerequisites>>
   reverse_group_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (

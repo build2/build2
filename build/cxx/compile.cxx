@@ -514,11 +514,10 @@ namespace build
             //
             auto g (
               make_exception_guard (
-                [](target& s)
+                [&s]()
                 {
                   info << "while extracting dependencies from " << s;
-                },
-                s));
+                }));
 
             while (pos != l.size ())
             {

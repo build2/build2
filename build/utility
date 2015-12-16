@@ -5,11 +5,9 @@
 #ifndef BUILD_UTILITY
 #define BUILD_UTILITY
 
-#include <tuple>
-#include <string>
 #include <utility>       // move(), make_pair()
 #include <cassert>       // assert()
-#include <exception>
+#include <exception>     // uncaught_exception()
 #include <unordered_set>
 
 #include <build/types>
@@ -44,40 +42,32 @@ namespace build
   //
   extern bool exception_unwinding_dtor;
 
-  template <typename F, typename T>
+  template <typename F>
   struct exception_guard;
 
-  template <typename F, typename... A>
-  inline exception_guard<F, std::tuple<A&&...>>
-  make_exception_guard (F f, A&&... a)
+  template <typename F>
+  inline exception_guard<F>
+  make_exception_guard (F f)
   {
-    return exception_guard<F, std::tuple<A&&...>> (
-      std::move (f), std::forward_as_tuple (a...));
+    return exception_guard<F> (move (f));
   }
 
-  template <typename F, typename... A>
-  struct exception_guard<F, std::tuple<A...>>
+  template <typename F>
+  struct exception_guard
   {
-    typedef std::tuple<A...> T;
-
-    exception_guard (F f, T a): f_ (std::move (f)), a_ (std::move (a)) {}
+    exception_guard (F f): f_ (move (f)) {}
     ~exception_guard ()
     {
       if (std::uncaught_exception ())
       {
         exception_unwinding_dtor = true;
-        call (std::index_sequence_for<A...> ());
+        f_ ();
         exception_unwinding_dtor = false;
       }
     }
 
   private:
-    template <std::size_t... I>
-    void
-    call (std::index_sequence<I...>) {f_ (std::get<I> (a_)...);}
-
     F f_;
-    T a_;
   };
 
   // Pools (@@ perhaps move into a separate header).

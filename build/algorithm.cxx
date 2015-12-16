@@ -145,12 +145,11 @@ namespace build
               {
                 auto g (
                   make_exception_guard (
-                    [](action a, target& t, const string& n)
+                    [ra, &t, &n]()
                     {
                       info << "while matching rule " << n << " to "
-                           << diag_do (a, t);
-                    },
-                    ra, t, n));
+                           << diag_do (ra, t);
+                    }));
 
                 if (!(m = ru.match (ra, t, hint)))
                   continue;
@@ -173,12 +172,11 @@ namespace build
                 {
                   auto g (
                     make_exception_guard (
-                      [](action a, target& t, const string& n1)
+                      [ra, &t, &n1]()
                       {
                         info << "while matching rule " << n1 << " to "
-                             << diag_do (a, t);
-                      },
-                      ra, t, n1));
+                             << diag_do (ra, t);
+                      }));
 
                   if (!ru1.match (ra, t, hint))
                     continue;
@@ -203,12 +201,11 @@ namespace build
                 {
                   auto g (
                     make_exception_guard (
-                      [](action a, target& t, const string& n)
+                      [ra, &t, &n]()
                       {
                         info << "while applying rule " << n << " to "
-                             << diag_do (a, t);
-                      },
-                      ra, t, n));
+                             << diag_do (ra, t);
+                      }));
 
                   // @@ We could also allow the rule to change the recipe
                   // action in apply(). Could be useful with delegates.
@@ -352,12 +349,11 @@ namespace build
       {
         auto g (
           make_exception_guard (
-            [](action a, target& t)
+            [a, &t]()
             {
               t.raw_state = target_state::failed;
               info << "while " << diag_doing (a, t);
-            },
-            a, t));
+            }));
 
         target_state ts (t.recipe (a) (a, t));
         assert (ts != target_state::unknown && ts != target_state::failed);
