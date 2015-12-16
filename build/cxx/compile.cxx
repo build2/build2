@@ -679,7 +679,17 @@ namespace build
           // We assume the child process issued some diagnostics.
           //
           if (!pr.wait ())
-            throw failed ();
+          {
+            // In case of a restarts, we closed our end of the pipe early
+            // which might have caused the other end to fail. So far we
+            // experienced this on Fedora 23 with GCC 5.3.1 and there were
+            // no diagnostics issued, just the non-zero exit status. If we
+            // do get diagnostics, then we will have to read and discard the
+            // output until eof.
+            //
+            if (!restart)
+              throw failed ();
+          }
         }
         catch (const process_error& e)
         {
