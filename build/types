@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>     // pair
 #include <memory>      // unique_ptr, shared_ptr
+#include <cstddef>     // size_t
 #include <functional>  // reference_wrapper
 
 #include <butl/path>
@@ -21,13 +22,15 @@ namespace build
   // Commonly-used types.
   //
   using std::pair;
+  using std::size_t;
   using std::string;
   using std::unique_ptr;
   using std::shared_ptr;
   using std::reference_wrapper;
+  using std::vector;
 
-  using strings = std::vector<string>;
-  using cstrings = std::vector<const char*>;
+  using strings = vector<string>;
+  using cstrings = vector<const char*>;
 
   // <butl/path>
   //

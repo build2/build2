@@ -7,11 +7,13 @@
 
 #include <string>
 #include <iosfwd>
-#include <utility> // move()
 
 #include <build/types>
-#include <build/token>
+#include <build/utility>
+
 #include <build/spec>
+#include <build/lexer>
+#include <build/token>
 #include <build/variable>    // list_value
 #include <build/diagnostics>
 
@@ -19,7 +21,6 @@ namespace build
 {
   class scope;
   class target;
-  class lexer;
 
   class parser
   {
@@ -180,6 +181,93 @@ namespace build
       return peek_;
     }
 
+    void
+    mode (lexer_mode m, char ps = '=')
+    {
+      if (replay_ != replay::play)
+        lexer_->mode (m, ps);
+    }
+
+    lexer_mode
+    mode () const
+    {
+      assert (replay_ != replay::play);
+      return lexer_->mode ();
+    }
+
+    void
+    expire_mode ()
+    {
+      if (replay_ != replay::play)
+        lexer_->expire_mode ();
+    }
+
+    // Token saving and replaying. Note that is can only be used in certain
+    // contexts. Specifically, the lexer mode should be the same and the code
+    // that parses a replay must not interact with the lexer directly (e.g.,
+    // the keyword() test). For now we don't enforce any of this.
+    //
+    // Note also that the peeked token is not part of the replay, until it
+    // is "got".
+    //
+    //
+    void
+    replay_save ()
+    {
+      assert (replay_ == replay::stop);
+      replay_ = replay::save;
+    }
+
+    void
+    replay_play ()
+    {
+      assert ((replay_ == replay::save && !replay_data_.empty ()) ||
+              (replay_ == replay::play && replay_i_ == replay_data_.size ()));
+
+      replay_i_ = 0;
+      replay_ = replay::play;
+    }
+
+    void
+    replay_stop ()
+    {
+      replay_data_.clear ();
+      replay_ = replay::stop;
+    }
+
+    const token&
+    replay_next ()
+    {
+      assert (replay_i_ != replay_data_.size ());
+      return replay_data_[replay_i_++];
+    }
+
+    struct replay_guard
+    {
+      replay_guard (parser& p, bool start = true)
+          : p_ (start ? &p : nullptr)
+      {
+        if (p_ != nullptr)
+          p_->replay_save ();
+      }
+
+      void
+      play ()
+      {
+        if (p_ != nullptr)
+          p_->replay_play ();
+      }
+
+      ~replay_guard ()
+      {
+        if (p_ != nullptr)
+          p_->replay_stop ();
+      }
+
+    private:
+      parser* p_;
+    };
+
     // Diagnostics.
     //
   protected:
@@ -196,8 +284,12 @@ namespace build
     target* default_target_;
     names_type export_value_;
 
-    token peek_ {token_type::eos, false, 0, 0};
-    bool peeked_ {false};
+    token peek_ = token (token_type::eos, false, 0, 0);
+    bool peeked_ = false;
+
+    enum class replay {stop, save, play} replay_ = replay::stop;
+    vector<token> replay_data_;
+    size_t replay_i_; // Position of the next token during replay.
   };
 }
 

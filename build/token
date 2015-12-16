@@ -37,6 +37,7 @@ namespace build
     bool separated; // Whitespace-separated from the previous token.
     bool quoted;    // Name (or some part of it) was quoted.
 
+    char pair;         // Only valid for pair_separator.
     std::string value; // Only valid for name.
 
     std::uint64_t line;
@@ -44,7 +45,15 @@ namespace build
 
   public:
     token (token_type t, bool s, std::uint64_t l, std::uint64_t c)
-        : type (t), separated (s), line (l), column (c) {}
+        : type (t), separated (s), quoted (false), line (l), column (c) {}
+
+    token (char p, bool s, std::uint64_t l, std::uint64_t c)
+        : type (token_type::pair_separator),
+          separated (s),
+          quoted (false),
+          pair (p),
+          line (l),
+          column (c) {}
 
     token (std::string n, bool s, bool q, std::uint64_t l, std::uint64_t c)
         : type (token_type::name),

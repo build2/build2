@@ -16,9 +16,6 @@
 #include <build/utility>
 #include <build/version>
 
-#include <build/token>
-#include <build/lexer>
-
 #include <build/scope>
 #include <build/target>
 #include <build/prerequisite>
@@ -309,93 +306,101 @@ namespace build
               tt == type::equal_plus ||
               tt == type::plus_equal)
           {
+            token at (t);
+            type att (tt);
+
             string v (variable_name (move (pns), ploc));
 
-            // Enter the target/scope and set it as current.
+            // If we have multiple targets/scopes, then we save the value
+            // tokens when parsing the first one and then replay them for
+            // the subsequent. We have to do it this way because the value
+            // may contain variable expansions that would be sensitive to
+            // the target/scope context in which they are evaluated.
             //
-            if (ns.size () != 1)
-              fail (nloc) << "multiple names in scope/target-specific "
-                          << "variable assignment";
+            replay_guard rg (*this, ns.size () > 1);
 
-            name& n (ns[0]);
-
-            if (n.qualified ())
-              fail (nloc) << "project name in scope/target " << n;
-
-            if (n.directory ())
+            for (name& n: ns)
             {
-              // The same code as in directory scope handling code above.
-              //
-              dir_path p (move (n.dir));
+              if (n.qualified ())
+                fail (nloc) << "project name in scope/target " << n;
 
-              if (p.relative ())
-                p = scope_->out_path () / p;
-
-              p.normalize ();
-
-              scope* ors (root_);
-              scope* ocs (scope_);
-              switch_scope (p);
-
-              variable (t, tt, move (v), tt);
-
-              scope_ = ocs;
-              root_ = ors;
-            }
-            else
-            {
-              // Figure out if this is a target or type/pattern specific
-              // variable.
-              //
-              size_t p (n.value.find ('*'));
-
-              if (p == string::npos)
+              if (n.directory ())
               {
-                target* ot (target_);
-                target_ = &enter_target (move (n));
-                variable (t, tt, move (v), tt);
-                target_ = ot;
+                // The same code as in directory scope handling code above.
+                //
+                dir_path p (move (n.dir));
+
+                if (p.relative ())
+                  p = scope_->out_path () / p;
+
+                p.normalize ();
+
+                scope* ors (root_);
+                scope* ocs (scope_);
+                switch_scope (p);
+
+                variable (t, tt, v, att);
+
+                scope_ = ocs;
+                root_ = ors;
               }
               else
               {
-                // See tests/variable/type-pattern.
+                // Figure out if this is a target or type/pattern specific
+                // variable.
                 //
-                if (!n.dir.empty ())
-                  fail (nloc) << "directory in target type/pattern " << n;
+                size_t p (n.value.find ('*'));
 
-                if (n.value.find ('*', p + 1) != string::npos)
-                  fail (nloc) << "multiple wildcards in target type/pattern "
-                              << n;
+                if (p == string::npos)
+                {
+                  target* ot (target_);
+                  target_ = &enter_target (move (n));
+                  variable (t, tt, v, att);
+                  target_ = ot;
+                }
+                else
+                {
+                  // See tests/variable/type-pattern.
+                  //
+                  if (!n.dir.empty ())
+                    fail (nloc) << "directory in target type/pattern " << n;
 
-                // Resolve target type. If none is specified, use the root
-                // of the hierarchy.
-                //
-                const target_type* ti (
-                  n.untyped ()
-                  ? &target::static_type
-                  : scope_->find_target_type (n.type));
+                  if (n.value.find ('*', p + 1) != string::npos)
+                    fail (nloc) << "multiple wildcards in target type/pattern "
+                                << n;
 
-                if (ti == nullptr)
-                  fail (nloc) << "unknown target type " << n.type;
+                  // Resolve target type. If none is specified, use the root
+                  // of the hierarchy.
+                  //
+                  const target_type* ti (
+                    n.untyped ()
+                    ? &target::static_type
+                    : scope_->find_target_type (n.type));
 
-                if (tt == type::equal_plus)
-                  fail (t) << "prepend to target type/pattern-specific "
-                           << "variable " << v;
+                  if (ti == nullptr)
+                    fail (nloc) << "unknown target type " << n.type;
 
-                if (tt == type::plus_equal)
-                  fail (t) << "append to target type/pattern-specific "
-                           << "variable " << v;
+                  if (att == type::equal_plus)
+                    fail (at) << "prepend to target type/pattern-specific "
+                              << "variable " << v;
 
-                const auto& var (var_pool.find (move (v)));
+                  if (att == type::plus_equal)
+                    fail (at) << "append to target type/pattern-specific "
+                              << "variable " << v;
 
-                // Note: expand variables in the value in the context of
-                // the scope.
-                //
-                names_type vns (variable_value (t, tt, var));
-                value& val (
-                  scope_->target_vars[*ti][move (n.value)].assign (var).first);
-                val.assign (move (vns), var);
+                  const auto& var (var_pool.find (v));
+
+                  // Note: expand variables in the value in the context of
+                  // the scope.
+                  //
+                  names_type vns (variable_value (t, tt, var));
+                  value& val (scope_->target_vars[*ti][move (n.value)].assign (
+                                var).first);
+                  val.assign (move (vns), var);
+                }
               }
+
+              rg.play (); // Replay.
             }
           }
           // Dependency declaration.
@@ -500,7 +505,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    lexer_->mode (lexer_mode::value);
+    mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -581,7 +586,7 @@ namespace build
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    lexer_->mode (lexer_mode::value);
+    mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -746,7 +751,7 @@ namespace build
           ? &scope_->assign (*var)
           : &scope_->append (*var);
         next (t, tt); // Consume =/=+/+=.
-        lexer_->mode (lexer_mode::value);
+        mode (lexer_mode::value);
         next (t, tt);
       }
     }
@@ -797,7 +802,7 @@ namespace build
     // The rest is a value. Parse it as names to get variable expansion.
     // build::import() will check the names, if required.
     //
-    lexer_->mode (lexer_mode::value);
+    mode (lexer_mode::value);
     next (t, tt);
 
     if (tt != type::newline && tt != type::eos)
@@ -822,7 +827,7 @@ namespace build
     // The rest should be a list of module names. Parse them as names
     // to get variable expansion, etc.
     //
-    lexer_->mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -1060,8 +1065,7 @@ namespace build
     // to the variable value lexing mode so that we don't treat special
     // characters (e.g., ':') as the end of the names.
     //
-    lexer_->mode (lexer_mode::value);
-
+    mode (lexer_mode::value);
     next (t, tt);
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
@@ -1120,9 +1124,9 @@ namespace build
   variable_value (token& t, type& tt, const variable_type& var)
   {
     if (var.pairs != '\0')
-      lexer_->mode (lexer_mode::pairs, var.pairs);
+      mode (lexer_mode::pairs, var.pairs);
     else
-      lexer_->mode (lexer_mode::value);
+      mode (lexer_mode::value);
 
     next (t, tt);
     return (tt != type::newline && tt != type::eos
@@ -1133,7 +1137,7 @@ namespace build
   parser::names_type parser::
   eval (token& t, type& tt)
   {
-    lexer_->mode (lexer_mode::eval);
+    mode (lexer_mode::eval);
     next (t, tt);
 
     names_type ns (tt != type::rparen ? names (t, tt) : names_type ());
@@ -1490,7 +1494,7 @@ namespace build
           // it on and switch to the eval mode if what we get next
           // is a paren.
           //
-          lexer_->mode (lexer_mode::variable);
+          mode (lexer_mode::variable);
           next (t, tt);
           loc = get_location (t, &path_);
 
@@ -1499,7 +1503,7 @@ namespace build
             n = t.value;
           else if (tt == type::lparen)
           {
-            lexer_->expire_mode ();
+            expire_mode ();
             names_type ns (eval (t, tt));
 
             // Make sure the result of evaluation is a single, simple name.
@@ -1723,7 +1727,7 @@ namespace build
           count = 1;
         }
 
-        ns.back ().pair = lexer_->pair_separator ();
+        ns.back ().pair = t.pair;
         tt = peek ();
         continue;
       }
@@ -1802,6 +1806,7 @@ namespace build
   bool parser::
   keyword (token& t)
   {
+    assert (replay_ == replay::stop); // Can't be used in a replay.
     assert (t.type == type::name);
 
     // The goal here is to allow using keywords as variable names and
@@ -1873,7 +1878,7 @@ namespace build
     // Turn on pairs recognition with '@' as the pair separator (e.g.,
     // src_root/@out_root/exe{foo bar}).
     //
-    lexer_->mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::pairs, '@');
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -1915,7 +1920,7 @@ namespace build
       if (tt != type::name    &&
           tt != type::lcbrace &&      // Untyped name group: '{foo ...'
           tt != type::dollar  &&      // Variable expansion: '$foo ...'
-          !(tt == type::lparen && lexer_->mode () == lexer_mode::quoted) &&
+          !(tt == type::lparen && mode () == lexer_mode::quoted) &&
           tt != type::pair_separator) // Empty pair LHS: '@foo ...'
         fail (t) << "operation or target expected instead of " << t;
 
@@ -2164,13 +2169,16 @@ namespace build
   type parser::
   next (token& t, type& tt)
   {
-    if (!peeked_)
-      t = lexer_->next ();
-    else
+    if (peeked_)
     {
       t = move (peek_);
       peeked_ = false;
     }
+    else
+      t = (replay_ == replay::play ? replay_next () : lexer_->next ());
+
+    if (replay_ == replay::save)
+      replay_data_.push_back (t);
 
     tt = t.type;
     return tt;
@@ -2181,7 +2189,7 @@ namespace build
   {
     if (!peeked_)
     {
-      peek_ = lexer_->next ();
+      peek_ = (replay_ == replay::play ? replay_next () : lexer_->next ());
       peeked_ = true;
     }
 
