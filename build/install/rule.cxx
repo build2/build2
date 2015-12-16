@@ -89,12 +89,18 @@ namespace build
       // First determine if this target should be installed (called
       // "installable" for short).
       //
-      match_result mr (t, lookup (t, "install") != nullptr);
+      if (lookup (t, "install") == nullptr)
+        // If this is the update pre-operation, signal that we don't match so
+        // that some other rule can take care of it.
+        //
+        return a.operation () == update_id ? nullptr : match_result (t, false);
+
+      match_result mr (t, true);
 
       // If this is the update pre-operation, change the recipe action
       // to (update, 0) (i.e., "unconditional update").
       //
-      if (mr.bvalue && a.operation () == update_id)
+      if (a.operation () == update_id)
         mr.recipe_action = action (a.meta_operation (), update_id);
 
       return mr;
@@ -136,15 +142,16 @@ namespace build
         if (p.proj () != nullptr)
           continue;
 
-        // @@ This is where we will handle [noinstall].
-        //
-
         // Let a customized rule have its say.
-        //
-        // @@ This will be skipped if forced with [install]?
         //
         target* pt (filter (a, t, p));
         if (pt == nullptr)
+          continue;
+
+        // See if the user instructed us not to install it.
+        //
+        auto l ((*pt)["install"]);
+        if (l && as<dir_path> (*l).string () == "false")
           continue;
 
         build::match (a, *pt);
