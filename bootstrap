@@ -26,7 +26,7 @@ while test $# -ne 0; do
 	echo "error: c++ compiler flags expected after --cxxflags" 1>&2
 	exit 1
       fi
-      cxx=$1
+      cxxflags=$1
       shift
       ;;
     --libbutl)
