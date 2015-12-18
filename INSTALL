@@ -1,12 +1,13 @@
-Currently, to use build2 you will need a C++ compiler with C++14 support.
-This may be relaxed later to only require C++11. For now, gcc 4.9.0 or
-later and clang 3.5.0 or later are known to work.
+Note: unless you specifically only need the build2 build system and not the
+complete build2 toolchain, you should use the build2-toolchain distribution.
 
-build2 is self-hosted, which means that unless you have obtained a pre-
-built binary of build2 from somewhere else, you will need to bootstrap
-it. To accomplish this, use the 'bootstrap' shell script found in the
-root directory of the build2 project. The following is a recommended
-sequence of steps:
+build2 requires a C++11 compiler with limited C++14 support. GCC 4.8 or later
+and Clang 3.4 or later are known to work.
+
+Build2 is self-hosted, which means that unless you have obtained a pre-built
+binary from somewhere else, you will need to bootstrap it. To accomplish this,
+use the 'bootstrap' shell script found in the root directory of the build2
+distribution. The following is a recommended sequence of steps:
 
 0. Get libbutl and place it next to build2, so that you have:
 
