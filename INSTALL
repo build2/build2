@@ -11,8 +11,8 @@ distribution. The following is a recommended sequence of steps:
 
 0. Get libbutl and place it next to build2, so that you have:
 
-   libbutl/ (or libbutl-x.y.z/)
-   build2/  (or build2-x.y.z/)
+   libbutl/ (or libbutl-X.Y.Z/)
+   build2/  (or build2-X.Y.Z/)
 
 1. Change to the build2 directory and execute 'bootstrap' specifying
    the C++ compiler to be used, if necessary (default is 'g++'; run
@@ -44,7 +44,7 @@ distribution. The following is a recommended sequence of steps:
    the binary built on step 2 above and verifying that the two builds are
    identical.
 
-   @@ This is currently broken since the resulting binary contains fill
+   @@ This is currently broken since the resulting binary contains full
       object file paths. So we would need to build in exactly the same
       place as the original, but that would make the binary from step 2
       unusable. It seems the only way to make it work is via staging.
