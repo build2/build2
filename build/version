@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD_VERSION // Note: using the version macro itself.
+#ifndef BUILD2_VERSION // Note: using the version macro itself.
 
 #include <butl/version> // LIBBUTL_VERSION
 
@@ -22,19 +22,21 @@
 // 2.2.0-a1    02019901
 // 3.0.0-b2    02999952
 //
-//                        AABBCCDD
-#define BUILD_VERSION        10000
-#define BUILD_VERSION_STR "0.1.0"
+#define BUILD2_VERSION 10000
+#define BUILD2_VERSION_STR "0.1.0"
+
+//@@ TMP
+//
+#define BUILD_VERSION BUILD2_VERSION
+#define BUILD_VERSION_STR BUILD2_VERSION_STR
 
 // Generally, we expect minor versions to be source code backwards-
 // compatible, thought we might have a minimum version requirement.
 //
 // Note: does not apply during early development.
 //
-//                     AABBCCDD
-#if (LIBBUTL_VERSION <    10000 || \
-     LIBBUTL_VERSION >    10000)
+#if LIBBUTL_VERSION != 10000
 #  error incompatible libbutl version
 #endif
 
-#endif // BUILD_VERSION
+#endif // BUILD2_VERSION
