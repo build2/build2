@@ -1,0 +1,23 @@
+// file      : build2/cxx/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CXX_MODULE
+#define BUILD2_CXX_MODULE
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/module>
+
+namespace build2
+{
+  namespace cxx
+  {
+    extern "C" bool
+    cxx_init (
+      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+  }
+}
+
+#endif // BUILD2_CXX_MODULE

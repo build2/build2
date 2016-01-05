@@ -1,0 +1,129 @@
+// file      : build2/prerequisite -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_PREREQUISITE
+#define BUILD2_PREREQUISITE
+
+#include <set>
+#include <string>
+#include <iosfwd>
+#include <utility>    // move
+#include <cassert>
+#include <functional> // reference_wrapper
+
+#include <build2/types>
+#include <build2/target-key>
+#include <build2/utility> // extension_pool
+#include <build2/diagnostics>
+
+namespace build2
+{
+  class scope;
+  class target;
+
+  // Light-weight (by being shallow-pointing) prerequisite key, similar
+  // to (and based on) target key.
+  //
+  class prerequisite_key
+  {
+  public:
+    typedef build2::scope scope_type;
+
+    mutable const std::string* proj; // Can be NULL, from project_name_pool.
+    target_key tk;
+    mutable scope_type* scope; // Can be NULL if tk.dir is absolute.
+  };
+
+  inline bool
+  operator< (const prerequisite_key& x, const prerequisite_key& y)
+  {
+    assert (x.scope == y.scope);
+
+    // Can compare project name pointers since they are from project_name_pool.
+    //
+    return x.proj < y.proj || (x.proj == y.proj && x.tk < y.tk);
+  }
+
+  std::ostream&
+  operator<< (std::ostream&, const prerequisite_key&);
+
+  class prerequisite
+  {
+  public:
+    typedef build2::target target_type;
+    typedef build2::target_type target_type_type;
+    typedef build2::scope scope_type;
+
+    prerequisite (const std::string* p,
+                  const target_type_type& t,
+                  dir_path d,
+                  std::string n,
+                  const std::string* e,
+                  scope_type& s)
+        : proj (p),
+          type (t),
+          dir (std::move (d)),
+          name (std::move (n)),
+          ext (e),
+          scope (s),
+          target (nullptr) {}
+
+  public:
+    const std::string* proj; // NULL if not project-qualified.
+    const target_type_type& type;
+    const dir_path dir;      // Normalized absolute or relative (to scope).
+    const std::string name;
+    const std::string* ext;  // NULL if unspecified.
+    scope_type& scope;
+    target_type* target;     // NULL if not yet resolved. Note that this should
+                             // always be the "primary target", not a member of
+                             // a target group.
+    prerequisite_key
+    key () const
+    {
+      return prerequisite_key {proj, {&type, &dir, &name, &ext}, &scope};
+    }
+
+  public:
+    // Prerequisite (target) type.
+    //
+    template <typename T>
+    bool
+    is_a () const {return type.is_a<T> ();}
+  };
+
+  inline bool
+  operator< (const prerequisite& x, const prerequisite& y)
+  {
+    return x.key () < y.key ();
+  }
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const prerequisite& p)
+  {
+    return os << p.key ();
+  }
+
+  // Set of prerequisites in a scope.
+  //
+  struct prerequisite_set: std::set<prerequisite>
+  {
+    std::pair<prerequisite&, bool>
+    insert (const std::string* proj,
+            const target_type&,
+            dir_path dir,
+            std::string name,
+            const std::string* ext,
+            scope&,
+            tracer&);
+
+    std::pair<prerequisite&, bool>
+    insert (const std::string* proj, const target_key& tk, scope& s, tracer& t)
+    {
+      return insert (proj, *tk.type, *tk.dir, *tk.name, *tk.ext, s, t);
+    }
+  };
+}
+
+#endif // BUILD2_PREREQUISITE

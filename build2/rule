@@ -1,0 +1,135 @@
+// file      : build2/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_RULE
+#define BUILD2_RULE
+
+#include <string>
+#include <cstddef>        // nullptr_t
+
+#include <build2/types>
+#include <build2/target>
+#include <build2/operation>
+
+namespace build2
+{
+  class match_result
+  {
+  public:
+    typedef build2::target target_type;
+    typedef build2::prerequisite prerequisite_type;
+
+    // Can contain neither (both are NULL), one of, or both. If both
+    // are NULL, then it is a "no match" indicator.
+    //
+    // Note that if the "payload" is stored in *value instead of
+    // prerequisite, then target must not be NULL.
+    //
+    union
+    {
+      prerequisite_type* prerequisite;
+
+      bool bvalue;
+      void* pvalue;
+      const void* cpvalue;
+    };
+
+    target_type* target;
+
+    action recipe_action = action (); // Used as recipe's action if set.
+
+    match_result (std::nullptr_t v = nullptr): prerequisite (v), target (v) {}
+    match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
+    match_result (prerequisite_type* p): prerequisite (p), target (nullptr) {}
+    match_result (target_type& t): prerequisite (nullptr), target (&t) {}
+    match_result (target_type* t): prerequisite (nullptr), target (t) {}
+    match_result (const prerequisite_member& pm)
+        : prerequisite (&pm.prerequisite.get ()), target (pm.target) {}
+
+    match_result (target_type& t, bool v): bvalue (v), target (&t) {}
+    match_result (target_type& t, void* v): pvalue (v), target (&t) {}
+    match_result (target_type& t, const void* v): cpvalue (v), target (&t) {}
+    match_result (target_type& t, std::nullptr_t v): pvalue (v), target (&t) {}
+
+    explicit
+    operator bool () const
+    {
+      return target != nullptr || prerequisite != nullptr;
+    }
+  };
+
+  class rule
+  {
+  public:
+    virtual match_result
+    match (action, target&, const std::string& hint) const = 0;
+
+    virtual recipe
+    apply (action, target&, const match_result&) const = 0;
+  };
+
+  // Fallback rule that on update verifies that the file exists and is
+  // not older than any of its prerequisites.
+  //
+  class file_rule: public rule
+  {
+  public:
+    virtual match_result
+    match (action, target&, const std::string& hint) const;
+
+    virtual recipe
+    apply (action, target&, const match_result&) const;
+
+    static target_state
+    perform_update (action, target&);
+
+    static file_rule instance;
+  };
+
+  class alias_rule: public rule
+  {
+  public:
+    virtual match_result
+    match (action, target&, const std::string& hint) const;
+
+    virtual recipe
+    apply (action, target&, const match_result&) const;
+
+    static alias_rule instance;
+  };
+
+  class fsdir_rule: public rule
+  {
+  public:
+    virtual match_result
+    match (action, target&, const std::string& hint) const;
+
+    virtual recipe
+    apply (action, target&, const match_result&) const;
+
+    static target_state
+    perform_update (action, target&);
+
+    static target_state
+    perform_clean (action, target&);
+
+    static fsdir_rule instance;
+  };
+
+  // Fallback rule that always matches and does nothing.
+  //
+  class fallback_rule: public build2::rule
+  {
+  public:
+    virtual match_result
+    match (action, target& t, const std::string&) const {return t;}
+
+    virtual recipe
+    apply (action, target&, const match_result&) const {return noop_recipe;}
+
+    static fallback_rule instance;
+  };
+}
+
+#endif // BUILD2_RULE

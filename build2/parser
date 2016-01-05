@@ -1,0 +1,296 @@
+// file      : build2/parser -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_PARSER
+#define BUILD2_PARSER
+
+#include <string>
+#include <iosfwd>
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/spec>
+#include <build2/lexer>
+#include <build2/token>
+#include <build2/variable>    // list_value
+#include <build2/diagnostics>
+
+namespace build2
+{
+  class scope;
+  class target;
+
+  class parser
+  {
+  public:
+    typedef build2::names names_type;
+    typedef build2::variable variable_type;
+
+    // If boot is true, then we are parsing bootstrap.build and modules
+    // should only be bootstrapped.
+    //
+    parser (bool boot = false): fail (&path_), boot_ (boot) {}
+
+    // Issue diagnostics and throw failed in case of an error.
+    //
+    void
+    parse_buildfile (std::istream&, const path&, scope& root, scope& base);
+
+    buildspec
+    parse_buildspec (std::istream&, const std::string& name);
+
+    token
+    parse_variable (lexer&, scope&, std::string name, token_type kind);
+
+    names_type
+    parse_export_stub (std::istream& is, const path& p, scope& r, scope& b)
+    {
+      parse_buildfile (is, p, r, b);
+      return std::move (export_value_);
+    }
+
+    // Recursive descent parser.
+    //
+  protected:
+    void
+    clause (token&, token_type&);
+
+    void
+    print (token&, token_type&);
+
+    void
+    source (token&, token_type&);
+
+    void
+    include (token&, token_type&);
+
+    void
+    import (token&, token_type&);
+
+    void
+    export_ (token&, token_type&);
+
+    void
+    using_ (token&, token_type&);
+
+    void
+    define (token&, token_type&);
+
+    void
+    if_else (token&, token_type&);
+
+    void
+    variable (token&, token_type&, std::string name, token_type kind);
+
+    std::string
+    variable_name (names_type&&, const location&);
+
+    names_type
+    variable_value (token&, token_type&, const variable_type&);
+
+    names_type
+    eval (token&, token_type&);
+
+    // If chunk is true, then parse the smallest but complete, name-wise,
+    // chunk of input. Note that in this case you may still end up with
+    // multiple names, for example, {foo bar}.
+    //
+    names_type
+    names (token& t, token_type& tt, bool chunk = false)
+    {
+      names_type ns;
+      names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
+      return ns;
+    }
+
+    void
+    names (token&, token_type&,
+           names_type&,
+           bool chunk,
+           std::size_t pair,
+           const std::string* prj,
+           const dir_path* dir,
+           const std::string* type);
+
+    size_t
+    names_trailer (token&, token_type&,
+                   names_type&,
+                   size_t pair,
+                   const std::string* prj,
+                   const dir_path* dir,
+                   const std::string* type);
+
+    // Skip until newline or eos.
+    //
+    void
+    skip_line (token&, token_type&);
+
+    // Skip until block-closing } or eos, taking into account nested blocks.
+    //
+    void
+    skip_block (token&, token_type&);
+
+    // Return true if the name token can be considered a directive keyword.
+    //
+    bool
+    keyword (token&);
+
+    // Buildspec.
+    //
+    buildspec
+    buildspec_clause (token&, token_type&, token_type end);
+
+    // Utilities.
+    //
+  protected:
+
+    // Switch to a new current scope. Note that this function might
+    // also have to switch to a new root scope if the new current
+    // scope is in another project. So both must be saved and
+    // restored.
+    //
+    void
+    switch_scope (const dir_path&);
+
+    void
+    process_default_target (token&);
+
+    // Enter buildfile as a target.
+    //
+    void
+    enter_buildfile (const path&);
+
+    // Lexer.
+    //
+  protected:
+    token_type
+    next (token&, token_type&);
+
+    // Be careful with peeking and switching the lexer mode. See keyword()
+    // for more information.
+    //
+    token_type
+    peek ();
+
+    const token&
+    peeked () const
+    {
+      assert (peeked_);
+      return peek_;
+    }
+
+    void
+    mode (lexer_mode m, char ps = '=')
+    {
+      if (replay_ != replay::play)
+        lexer_->mode (m, ps);
+    }
+
+    lexer_mode
+    mode () const
+    {
+      assert (replay_ != replay::play);
+      return lexer_->mode ();
+    }
+
+    void
+    expire_mode ()
+    {
+      if (replay_ != replay::play)
+        lexer_->expire_mode ();
+    }
+
+    // Token saving and replaying. Note that is can only be used in certain
+    // contexts. Specifically, the lexer mode should be the same and the code
+    // that parses a replay must not interact with the lexer directly (e.g.,
+    // the keyword() test). For now we don't enforce any of this.
+    //
+    // Note also that the peeked token is not part of the replay, until it
+    // is "got".
+    //
+    //
+    void
+    replay_save ()
+    {
+      assert (replay_ == replay::stop);
+      replay_ = replay::save;
+    }
+
+    void
+    replay_play ()
+    {
+      assert ((replay_ == replay::save && !replay_data_.empty ()) ||
+              (replay_ == replay::play && replay_i_ == replay_data_.size ()));
+
+      replay_i_ = 0;
+      replay_ = replay::play;
+    }
+
+    void
+    replay_stop ()
+    {
+      replay_data_.clear ();
+      replay_ = replay::stop;
+    }
+
+    const token&
+    replay_next ()
+    {
+      assert (replay_i_ != replay_data_.size ());
+      return replay_data_[replay_i_++];
+    }
+
+    struct replay_guard
+    {
+      replay_guard (parser& p, bool start = true)
+          : p_ (start ? &p : nullptr)
+      {
+        if (p_ != nullptr)
+          p_->replay_save ();
+      }
+
+      void
+      play ()
+      {
+        if (p_ != nullptr)
+          p_->replay_play ();
+      }
+
+      ~replay_guard ()
+      {
+        if (p_ != nullptr)
+          p_->replay_stop ();
+      }
+
+    private:
+      parser* p_;
+    };
+
+    // Diagnostics.
+    //
+  protected:
+    const fail_mark<failed> fail;
+
+  protected:
+    bool boot_;
+
+    const std::string* path_; // Path processed by diag_relative() and pooled.
+    lexer* lexer_;
+    target* target_; // Current target, if any.
+    scope* scope_;   // Current base scope (out_base).
+    scope* root_;    // Current root scope (out_root).
+    target* default_target_;
+    names_type export_value_;
+
+    token peek_ = token (token_type::eos, false, 0, 0);
+    bool peeked_ = false;
+
+    enum class replay {stop, save, play} replay_ = replay::stop;
+    vector<token> replay_data_;
+    size_t replay_i_; // Position of the next token during replay.
+  };
+}
+
+#endif // BUILD2_PARSER

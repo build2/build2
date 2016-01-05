@@ -1,0 +1,37 @@
+// file      : build2/cxx/utility -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CXX_UTILITY
+#define BUILD2_CXX_UTILITY
+
+#include <string>
+
+#include <build2/types>
+#include <build2/target>
+
+#include <build2/config/utility>
+
+namespace build2
+{
+  namespace cxx
+  {
+    using config::append_options;
+
+    // T is either target or scope.
+    //
+    template <typename T>
+    void
+    append_std (cstrings& args, T&, std::string& storage);
+
+    // Append library options from one of the cxx.export.* variables
+    // recursively, prerequisite libraries first.
+    //
+    void
+    append_lib_options (cstrings& args, target&, const char* variable);
+  }
+}
+
+#include <build2/cxx/utility.txx>
+
+#endif // BUILD2_CXX_UTILITY

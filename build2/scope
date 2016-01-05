@@ -1,0 +1,312 @@
+// file      : build2/scope -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_SCOPE
+#define BUILD2_SCOPE
+
+#include <functional>    // function
+#include <unordered_set>
+#include <unordered_map>
+
+#include <butl/path-map>
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/module>
+#include <build2/variable>
+#include <build2/prerequisite>
+#include <build2/target-type>
+#include <build2/rule-map>
+#include <build2/operation>
+
+namespace build2
+{
+  class scope
+  {
+  public:
+    // Absolute and normalized.
+    //
+    const dir_path&
+    out_path () const {return *out_path_;}
+
+    const dir_path&
+    src_path () const {return *src_path_;}
+
+    // These are pointers to the keys in scope_map.
+    //
+    const dir_path* out_path_ {nullptr};
+    const dir_path* src_path_ {nullptr};
+
+    bool
+    root () const {return root_ == this;}
+
+    scope*
+    parent_scope () const {return parent_;}
+
+    // Root scope of this scope or NULL if this scope is not (yet)
+    // in any (known) project. Note that if the scope itself is
+    // root, then this function return this. To get to the outer
+    // root, query the root scope of the parent.
+    //
+    scope*
+    root_scope () const {return root_;}
+
+    // Root scope of a strong amalgamation of this scope or NULL if
+    // this scope is not (yet) in any (known) project. If there is
+    // no strong amalgamation, then this function returns the root
+    // scope of the project (in other words, in this case a project
+    // is treated as its own strong amalgamation).
+    //
+    scope*
+    strong_scope () const
+    {
+      return root_ != nullptr
+        ? root_->strong_ != nullptr ? root_->strong_ : root_
+        : nullptr;
+    }
+
+    // Root scope of the outermost amalgamation or NULL if this scope is not
+    // (yet) in any (known) project. If there is no amalgamation, then this
+    // function returns the root scope of the project (in other words, in this
+    // case a project is treated as its own amalgamation).
+    //
+    scope*
+    weak_scope () const
+    {
+      scope* r (root_);
+      if (r != nullptr)
+        for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
+      return r;
+    }
+
+    // Variables.
+    //
+  public:
+    variable_map vars;
+
+    // Lookup, including in outer scopes. If you only want to lookup
+    // in this scope, do it on the the variables map directly.
+    //
+    build2::lookup<const value>
+    operator[] (const variable& var) const
+    {
+      return lookup (nullptr, nullptr, var);
+    }
+
+    build2::lookup<const value>
+    operator[] (const std::string& name) const
+    {
+      return operator[] (var_pool.find (name));
+    }
+
+    // As above, but includes target type/pattern-specific variables.
+    //
+    build2::lookup<const value>
+    lookup (const target_key& tk, const variable& var) const
+    {
+      return lookup (tk.type, tk.name, var);
+    }
+
+    build2::lookup<const value>
+    lookup (const target_key& tk, const string& var) const
+    {
+      return lookup (tk, var_pool.find (var));
+    }
+
+    build2::lookup<const value>
+    lookup (const target_type& tt,
+            const string& name,
+            const variable& var) const
+    {
+      return lookup (&tt, &name, var);
+    }
+
+    build2::lookup<const value>
+    lookup (const target_type& tt, const string& name, const string& var) const
+    {
+      return lookup (tt, name, var_pool.find (var));
+    }
+
+    build2::lookup<const value>
+    lookup (const target_type*, const string* name, const variable&) const;
+
+    // Return a value suitable for assignment (or append if you only
+    // want to append to the value from this scope). If the variable
+    // does not exist in this scope's map, then a new one with the
+    // NULL value is added and returned. Otherwise the existing value
+    // is returned.
+    //
+    value&
+    assign (const variable& var) {return vars.assign (var).first.get ();}
+
+    value&
+    assign (const std::string& name) {return vars.assign (name).first.get ();}
+
+    // Return a value suitable for appending. If the variable does not
+    // exist in this scope's map, then outer scopes are searched for
+    // the same variable. If found then a new variable with the found
+    // value is added to this scope and returned. Otherwise this
+    // function proceeds as assign().
+    //
+    value&
+    append (const variable&);
+
+    value&
+    append (const std::string& name)
+    {
+      return append (var_pool.find (name));
+    }
+
+    // Target type/pattern-specific variables.
+    //
+    variable_type_map target_vars;
+
+    // Prerequisite cache.
+    //
+  public:
+    prerequisite_set prerequisites;
+
+    // Meta/operations supported by this project (set on the root
+    // scope only).
+    //
+    build2::meta_operations meta_operations;
+    build2::operations operations;
+
+    typedef build2::path path_type;
+
+    // Set of buildfiles already loaded for this scope. The included
+    // buildfiles are checked against the project's root scope while
+    // imported -- against the global scope (global_scope).
+    //
+    std::unordered_set<path_type> buildfiles;
+
+    // Target types.
+    //
+  public:
+    target_type_map target_types;
+
+    const target_type*
+    find_target_type (const string&, const scope** = nullptr) const;
+
+    // Given a name, figure out its type, taking into account extensions,
+    // special names (e.g., '.' and '..'), or anything else that might be
+    // relevant. Also process the name (in place) by extracting the
+    // extension, adjusting dir/value, etc., (note that the dir is not
+    // necessarily normalized). Return NULL if not found.
+    //
+    const target_type*
+    find_target_type (name&, const string*& ext) const;
+
+    // Rules.
+    //
+  public:
+    rule_map rules;
+
+    // Modules.
+    //
+  public:
+    loaded_module_map modules; // Only on root scope.
+
+  public:
+    bool
+    empty () const
+    {
+      return
+        vars.empty () &&
+        target_vars.empty () &&
+        prerequisites.empty () &&
+        meta_operations.empty () &&
+        operations.empty () &&
+        buildfiles.empty () &&
+        target_types.empty () &&
+        rules.empty () &&
+        modules.empty ();
+    }
+
+  private:
+    friend class scope_map;
+    friend class temp_scope;
+
+    // These two from <build2/file> set strong_.
+    //
+    friend void create_bootstrap_outer (scope&);
+    friend scope& create_bootstrap_inner (scope&, const dir_path&);
+
+    scope () = default;
+
+    scope* parent_;
+    scope* root_;
+    scope* strong_ = nullptr; // Only set on root sopes.
+                              // NULL means no strong amalgamtion.
+  };
+
+  // Temporary scope. The idea is to be able to create a temporary
+  // scope in order not to change the variables in the current scope.
+  // Such a scope is not entered in to the scope map. As a result it
+  // can only be used as a temporary set of variables. In particular,
+  // defining targets/prerequisites directly in such a scope will surely
+  // end up badly. Defining any nested scopes will be as if defining
+  // such a scope in the parent (since path() returns parent's path).
+  //
+  class temp_scope: public scope
+  {
+  public:
+    temp_scope (scope& p)
+    {
+      out_path_ = p.out_path_;
+      src_path_ = p.src_path_;
+      parent_ = &p;
+      root_ = p.root_;
+      // No need to copy strong_ since we are never root scope.
+    }
+  };
+
+  class scope_map
+  {
+  public:
+    using map_type = butl::dir_path_map<scope*>;
+    using iterator = map_type::iterator;
+    using const_iterator = map_type::const_iterator;
+
+    // Note that we assume the first insertion into the map is that
+    // of the global scope. If the passed scope pointer is not NULL,
+    // then insert this scope instead of a new one.
+    //
+    iterator
+    insert (const dir_path&, scope*, bool parent, bool root);
+
+    // Find the most qualified scope that encompasses this path.
+    //
+    scope&
+    find (const dir_path&) const;
+
+    scope&
+    find (const path& p) const
+    {
+      // Natural thing to do here would be to call find (p.directory ()).
+      // However, there could be a situation where the passed path is a
+      // directory (i.e., the calling code does not know what it is dealing
+      // with), so let's use the whole path.
+      //
+      return find (dir_path (p.string ()));
+    }
+
+    const_iterator begin () const {return map_.begin ();}
+    const_iterator end () const {return map_.end ();}
+
+    void
+    clear ();
+
+    ~scope_map () {clear ();}
+
+  private:
+    map_type map_;
+  };
+
+  extern scope_map scopes;
+  extern scope* global_scope;
+}
+
+#endif // BUILD2_SCOPE

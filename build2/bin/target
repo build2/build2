@@ -1,0 +1,99 @@
+// file      : build2/bin/target -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_BIN_TARGET
+#define BUILD2_BIN_TARGET
+
+#include <build2/target>
+
+namespace build2
+{
+  namespace bin
+  {
+    // The obj{} target group.
+    //
+    class obja: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class objso: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class obj: public target
+    {
+    public:
+      using target::target;
+
+      obja* a {nullptr};
+      objso* so {nullptr};
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class exe: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    // The lib{} target group.
+    //
+    class liba: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class libso: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class lib: public target
+    {
+    public:
+      using target::target;
+
+      liba* a {nullptr};
+      libso* so {nullptr};
+
+      virtual void
+      reset (action_type);
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+  }
+}
+
+#endif // BUILD2_BIN_TARGET

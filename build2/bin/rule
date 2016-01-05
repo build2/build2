@@ -1,0 +1,39 @@
+// file      : build2/bin/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_BIN_RULE
+#define BUILD2_BIN_RULE
+
+#include <build2/rule>
+
+namespace build2
+{
+  namespace bin
+  {
+    class obj_rule: public rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+    };
+
+    class lib_rule: public rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+
+      static target_state
+      perform (action, target&);
+    };
+  }
+}
+
+#endif // BUILD2_BIN_RULE

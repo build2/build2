@@ -1,0 +1,55 @@
+// file      : build2/types -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TYPES
+#define BUILD2_TYPES
+
+#include <vector>
+#include <string>
+#include <utility>     // pair
+#include <memory>      // unique_ptr, shared_ptr
+#include <cstddef>     // size_t
+#include <functional>  // reference_wrapper
+
+#include <butl/path>
+#include <butl/timestamp>
+
+#include <build2/name>
+
+namespace build2
+{
+  // Commonly-used types.
+  //
+  using std::pair;
+  using std::size_t;
+  using std::string;
+  using std::unique_ptr;
+  using std::shared_ptr;
+  using std::reference_wrapper;
+  using std::vector;
+
+  using strings = vector<string>;
+  using cstrings = vector<const char*>;
+
+  // <butl/path>
+  //
+  using butl::path;
+  using butl::dir_path;
+  using butl::basic_path;
+  using butl::invalid_path;
+
+  using paths = std::vector<path>;
+  using dir_paths = std::vector<dir_path>;
+
+  // <butl/timestamp>
+  //
+  using butl::system_clock;
+  using butl::timestamp;
+  using butl::duration;
+  using butl::timestamp_unknown;
+  using butl::timestamp_nonexistent;
+  using butl::operator<<;
+}
+
+#endif // BUILD2_TYPES

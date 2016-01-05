@@ -1,0 +1,31 @@
+// file      : build2/search -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_SEARCH
+#define BUILD2_SEARCH
+
+#include <build2/types>
+
+namespace build2
+{
+  class target;
+  class prerequisite_key;
+
+  // Search for an existing target in this prerequisite's scope.
+  //
+  target*
+  search_existing_target (const prerequisite_key&);
+
+  // Search for an existing file in the specified list of search paths.
+  //
+  target*
+  search_existing_file (const prerequisite_key&, const dir_paths&);
+
+  // Create a new target in this prerequisite's scope.
+  //
+  target&
+  create_new_target (const prerequisite_key&);
+}
+
+#endif // BUILD2_SEARCH

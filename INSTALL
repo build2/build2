@@ -22,23 +22,23 @@ distribution. The following is a recommended sequence of steps:
    $ ./bootstrap --cxx clang++-3.5
 
    Once the script completes successfully (which may take some time), the
-   build2 binary is saved as 'build/b-boot':
+   build2 binary is saved as 'build2/b-boot':
 
-   $ build/b-boot --version
+   $ build2/b-boot --version
 
 2. Next, build libbutl and the build2 binary using the bootstrapped binary
    from step 1 above:
 
-   $ build/b-boot 'configure(../libbutl/)'
-   $ build/b-boot config.import.libbutl=../libbutl configure update
+   $ build2/b-boot 'configure(../libbutl/)'
+   $ build2/b-boot config.import.libbutl=../libbutl configure update
 
    Again, if necessary, you can also specify the C++ compiler:
 
-   $ build/b-boot config.cxx=clang++-3.5 ...
+   $ build2/b-boot config.cxx=clang++-3.5 ...
 
-   The resulting build2 binary is saved as 'build/b':
+   The resulting build2 binary is saved as 'build2/b':
 
-   $ build/b --version
+   $ build2/b --version
 
 3. The last step is optional and involves building libbutl and build2 using
    the binary built on step 2 above and verifying that the two builds are
@@ -51,18 +51,18 @@ distribution. The following is a recommended sequence of steps:
 
    To perform this step, first unpack new copies of libbutl and build2 into
    a different directory, for example, a verify/ sub-directory. Then complete
-   step 2 for these new copies but using build/b binary from step 2 rather
-   than build/b-boot from step 1. Also, use the libbutl from step 2 in the
+   step 2 for these new copies but using build2/b binary from step 2 rather
+   than build2/b-boot from step 1. Also, use the libbutl from step 2 in the
    config.import.libbutl value (otherwise rpath differences will result in
    different build2 binaries). For example:
 
    $ cd verify/build2
-   $ ../../build2/build/b '{configure update}(../libbutl/)'
-   $ ../../build2/build/b config.import.libbutl=../../libbutl configure update
+   $ ../../build2/build2/b '{configure update}(../libbutl/)'
+   $ ../../build2/build2/b config.import.libbutl=../../libbutl configure update
 
    Once this is done, compare the libbutl libraries and build2 binaries, for
    example:
 
    $ cd ../..
    $ diff libbutl/butl/libbutl.so verify/libbutl/butl/libbutl.so
-   $ diff build2/build/b verify/build2/build/b
+   $ diff build2/build2/b verify/build2/build2/b

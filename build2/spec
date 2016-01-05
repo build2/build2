@@ -1,0 +1,61 @@
+// file      : build2/spec -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_SPEC
+#define BUILD2_SPEC
+
+#include <string>
+#include <vector>
+#include <iosfwd>
+#include <utility> // move()
+
+#include <build2/types>
+
+namespace build2
+{
+  struct targetspec
+  {
+    typedef build2::name name_type;
+
+    explicit
+    targetspec (name_type n): name (std::move (n)) {}
+    targetspec (dir_path sb, name_type n)
+        : src_base (std::move (sb)), name (std::move (n)) {}
+
+    dir_path src_base;
+    name_type name;
+  };
+
+  struct opspec: std::vector<targetspec>
+  {
+    opspec () = default;
+    opspec (std::string n): name (std::move (n)) {}
+
+    std::string name;
+  };
+
+  struct metaopspec: std::vector<opspec>
+  {
+    metaopspec () = default;
+    metaopspec (std::string n): name (std::move (n)) {}
+
+    std::string name;
+  };
+
+  typedef std::vector<metaopspec> buildspec;
+
+  std::ostream&
+  operator<< (std::ostream&, const targetspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const opspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const metaopspec&);
+
+  std::ostream&
+  operator<< (std::ostream&, const buildspec&);
+}
+
+#endif // BUILD2_SPEC

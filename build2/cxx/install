@@ -1,0 +1,29 @@
+// file      : build2/cxx/install -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CXX_INSTALL
+#define BUILD2_CXX_INSTALL
+
+#include <build2/types>
+#include <build2/install/rule>
+
+namespace build2
+{
+  namespace cxx
+  {
+    class install: public build2::install::file_rule
+    {
+    public:
+      virtual target*
+      filter (action, target&, prerequisite_member) const;
+
+      virtual match_result
+      match (action, target&, const std::string&) const;
+
+      static install instance;
+    };
+  }
+}
+
+#endif // BUILD2_CXX_INSTALL

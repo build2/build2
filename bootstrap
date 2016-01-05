@@ -79,15 +79,15 @@ if test -z "$libbutl"; then
   exit 1
 fi
 
-src="build/*.cxx"
-src="$src build/config/*.cxx"
-src="$src build/dist/*.cxx"
-src="$src build/bin/*.cxx"
-src="$src build/cxx/*.cxx"
-src="$src build/cli/*.cxx"
-src="$src build/test/*.cxx"
-src="$src build/install/*.cxx"
+src="build2/*.cxx"
+src="$src build2/config/*.cxx"
+src="$src build2/dist/*.cxx"
+src="$src build2/bin/*.cxx"
+src="$src build2/cxx/*.cxx"
+src="$src build2/cli/*.cxx"
+src="$src build2/test/*.cxx"
+src="$src build2/install/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
-echo $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build/b-boot $src 1>&2
-exec $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build/b-boot $src
+echo $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build2/b-boot $src 1>&2
+exec $cxx -std=c++1y $cxxflags -I$libbutl -I. -o build2/b-boot $src

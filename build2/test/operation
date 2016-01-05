@@ -1,0 +1,18 @@
+// file      : build2/test/operation -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_OPERATION
+#define BUILD2_TEST_OPERATION
+
+#include <build2/operation>
+
+namespace build2
+{
+  namespace test
+  {
+    extern operation_info test;
+  }
+}
+
+#endif // BUILD2_TEST_OPERATION

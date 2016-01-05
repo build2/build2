@@ -1,0 +1,24 @@
+// file      : build2/test/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_MODULE
+#define BUILD2_TEST_MODULE
+
+#include <build2/types>
+#include <build2/module>
+
+namespace build2
+{
+  namespace test
+  {
+    extern "C" void
+    test_boot (scope&, const location&, unique_ptr<module>&);
+
+    extern "C" bool
+    test_init (
+      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+  }
+}
+
+#endif // BUILD2_TEST_MODULE

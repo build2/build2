@@ -1,0 +1,32 @@
+// file      : build2/cli/rule -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CLI_RULE
+#define BUILD2_CLI_RULE
+
+#include <build2/rule>
+
+namespace build2
+{
+  namespace cli
+  {
+    class compile: public rule
+    {
+    public:
+      virtual match_result
+      match (action, target&, const std::string& hint) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+
+      static target_state
+      perform_update (action, target&);
+
+      static target_state
+      perform_clean (action, target&);
+    };
+  }
+}
+
+#endif // BUILD2_CLI_RULE

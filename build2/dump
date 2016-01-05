@@ -1,0 +1,18 @@
+// file      : build2/dump -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_DUMP
+#define BUILD2_DUMP
+
+#include <build2/operation>
+
+namespace build2
+{
+  // Dump the state pertaining to the specified action.
+  //
+  void
+  dump (action);
+}
+
+#endif // BUILD2_DUMP
