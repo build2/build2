@@ -24,6 +24,29 @@ namespace build2
 {
   namespace cli
   {
+    // Figure out if name contains stem and, optionally, calculate prefix and
+    // suffix.
+    //
+    static bool
+    match_stem (const string& name, const string& stem,
+                string* prefix = nullptr, string* suffix = nullptr)
+    {
+      size_t p (name.find (stem));
+
+      if (p != string::npos)
+      {
+        if (prefix != nullptr)
+          prefix->assign (name, 0, p);
+
+        if (suffix != nullptr)
+          suffix->assign (name, p + stem.size (), string::npos);
+
+        return true;
+      }
+
+      return false;
+    }
+
     match_result compile::
     match (action a, target& xt, const std::string&) const
     {
@@ -42,9 +65,9 @@ namespace build2
         {
           if (p.is_a<cli> ())
           {
-            // Check that the stems match.
+            // Check that the stem match.
             //
-            if (t.name != p.name ())
+            if (!match_stem (t.name, p.name ()))
             {
               level4 ([&]{trace << ".cli file stem '" << p.name () << "' "
                                 << "doesn't match target " << t;});
@@ -112,7 +135,7 @@ namespace build2
             {
               // Check that the stems match.
               //
-              if (t.name == p.name ())
+              if (match_stem (t.name, p.name ()))
               {
                 if (g == nullptr)
                   g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
@@ -229,6 +252,23 @@ namespace build2
       const string& cli (as<string> (*rs["config.cli"]));
 
       cstrings args {cli.c_str ()};
+
+      // See if we need to pass --output-{prefix,suffix}
+      //
+      string prefix, suffix;
+      match_stem (t.name, s->name, &prefix, &suffix);
+
+      if (!prefix.empty ())
+      {
+        args.push_back ("--output-prefix");
+        args.push_back (prefix.c_str ());
+      }
+
+      if (!suffix.empty ())
+      {
+        args.push_back ("--output-suffix");
+        args.push_back (suffix.c_str ());
+      }
 
       // See if we need to pass any --?xx-suffix options.
       //
