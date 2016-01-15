@@ -61,16 +61,21 @@ namespace build2
 
       char k (s[++p]);
 
-      if (k != 'a' && k != 'b')
-        bail ("'a' or 'b' expected in release component");
+      if (k != '\0')
+      {
+        if (k != 'a' && k != 'b')
+          bail ("'a' or 'b' expected in release component");
 
-      ab = parse (++p, "invalid release component", 1, 49);
+        ab = parse (++p, "invalid release component", 1, 49);
 
-      if (p != n)
-        bail ("junk after release component");
+        if (p != n)
+          bail ("junk after release component");
 
-      if (k == 'b')
-        ab += 50;
+        if (k == 'b')
+          ab += 50;
+      }
+      else
+        ab = 1;
     }
 
     //                  AABBCCDD
