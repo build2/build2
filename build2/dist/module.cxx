@@ -32,6 +32,28 @@ namespace build2
       // Register meta-operation.
       //
       r.meta_operations.insert (dist_id, dist);
+
+      // Enter module variables. Do it during boot in case they get assigned
+      // in bootstrap.build (which is customary for, e.g., dist.package).
+      //
+      {
+        auto& v (var_pool);
+
+        v.find ("dist", bool_type);
+
+        v.find ("dist.package", string_type);
+
+        v.find ("dist.root", dir_path_type);
+        v.find ("config.dist.root", dir_path_type);
+
+        //@@ VAR type
+        //
+        v.find ("dist.cmd", string_type);
+        v.find ("config.dist.cmd", string_type);
+
+        v.find ("dist.archives", strings_type);
+        v.find ("config.dist.archives", strings_type);
+      }
     }
 
     extern "C" bool
@@ -52,28 +74,6 @@ namespace build2
 
       const dir_path& out_root (r.out_path ());
       level5 ([&]{trace << "for " << out_root;});
-
-      // Enter module variables.
-      //
-      if (first)
-      {
-        auto& v (var_pool);
-
-        v.find ("dist", bool_type);
-
-        v.find ("dist.package", string_type);
-
-        v.find ("dist.root", dir_path_type);
-        v.find ("config.dist.root", dir_path_type);
-
-        //@@ VAR type
-        //
-        v.find ("dist.cmd", string_type);
-        v.find ("config.dist.cmd", string_type);
-
-        v.find ("dist.archives", strings_type);
-        v.find ("config.dist.archives", strings_type);
-      }
 
       // Register our wildcard rule. Do it explicitly for the alias
       // to prevent something like insert<target>(dist_id, test_id)
