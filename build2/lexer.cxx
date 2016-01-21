@@ -93,17 +93,17 @@ namespace build2
           if (peek () == '+')
           {
             get ();
-            return token (type::equal_plus, sep, ln, cn);
+            return token (type::prepend, sep, ln, cn);
           }
           else
-            return token (type::equal, sep, ln, cn);
+            return token (type::assign, sep, ln, cn);
         }
       case '+':
         {
           if (peek () == '=')
           {
             get ();
-            return token (type::plus_equal, sep, ln, cn);
+            return token (type::append, sep, ln, cn);
           }
         }
       }

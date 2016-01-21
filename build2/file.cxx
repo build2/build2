@@ -282,9 +282,9 @@ namespace build2
       token_type tt;
 
       if (t.type != token_type::name || t.value != var ||
-          ((tt = lex.next ().type) != token_type::equal &&
-           tt != token_type::equal_plus &&
-           tt != token_type::plus_equal))
+          ((tt = lex.next ().type) != token_type::assign &&
+           tt != token_type::prepend &&
+           tt != token_type::append))
       {
         error << "variable '" << var << "' expected as first line in " << rbf;
         throw failed (); // Suppress "used uninitialized" warning.

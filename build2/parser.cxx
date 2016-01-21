@@ -302,9 +302,7 @@ namespace build2
 
           // Scope/target-specific variable assignment.
           //
-          if (tt == type::equal      ||
-              tt == type::equal_plus ||
-              tt == type::plus_equal)
+          if (tt == type::assign || tt == type::prepend || tt == type::append)
           {
             token at (t);
             type att (tt);
@@ -380,11 +378,11 @@ namespace build2
                   if (ti == nullptr)
                     fail (nloc) << "unknown target type " << n.type;
 
-                  if (att == type::equal_plus)
+                  if (att == type::prepend)
                     fail (at) << "prepend to target type/pattern-specific "
                               << "variable " << v;
 
-                  if (att == type::plus_equal)
+                  if (att == type::append)
                     fail (at) << "append to target type/pattern-specific "
                               << "variable " << v;
 
@@ -471,9 +469,7 @@ namespace build2
 
       // Variable assignment.
       //
-      if (tt == type::equal      ||
-          tt == type::equal_plus ||
-          tt == type::plus_equal)
+      if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
         variable (t, tt, variable_name (move (ns), nloc), tt);
 
@@ -742,12 +738,10 @@ namespace build2
     {
       at = peek ();
 
-      if (at == type::equal      ||
-          at == type::equal_plus ||
-          at == type::plus_equal)
+      if (at == type::assign || at == type::prepend || at == type::append)
       {
         var = &var_pool.find (t.value);
-        val = at == type::equal
+        val = at == type::assign
           ? &scope_->assign (*var)
           : &scope_->append (*var);
         next (t, tt); // Consume =/=+/+=.
@@ -772,9 +766,9 @@ namespace build2
 
       if (val != nullptr)
       {
-        if (at == type::equal)
+        if (at == type::assign)
           val->assign (move (r), *var);
-        else if (at == type::equal_plus)
+        else if (at == type::prepend)
           val->prepend (move (r), *var);
         else
           val->append (move (r), *var);
@@ -1100,7 +1094,7 @@ namespace build2
     const auto& var (var_pool.find (move (name)));
     names_type vns (variable_value (t, tt, var));
 
-    if (kind == type::equal)
+    if (kind == type::assign)
     {
       value& v (target_ != nullptr
                 ? target_->assign (var)
@@ -1113,7 +1107,7 @@ namespace build2
                 ? target_->append (var)
                 : scope_->append (var));
 
-      if (kind == type::equal_plus)
+      if (kind == type::prepend)
         v.prepend (move (vns), var);
       else
         v.append (move (vns), var);

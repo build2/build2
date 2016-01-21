@@ -22,9 +22,9 @@ namespace build2
     colon,
     lcbrace,
     rcbrace,
-    equal,
-    equal_plus,
-    plus_equal,
+    assign,  // =
+    prepend, // =+
+    append,  // +=
     dollar,
     lparen,
     rparen
