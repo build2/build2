@@ -31,6 +31,20 @@ namespace build2
       // Register the test operation.
       //
       root.operations.insert (test_id, test);
+
+      // Enter module variables. Do it during boot in case they get assigned
+      // in bootstrap.build.
+      //
+      {
+        auto& v (var_pool);
+
+        v.find ("test", bool_type);
+        v.find ("test.input", name_type);
+        v.find ("test.output", name_type);
+        v.find ("test.roundtrip", name_type);
+        v.find ("test.options", strings_type);
+        v.find ("test.arguments", strings_type);
+      }
     }
 
     extern "C" bool
@@ -51,19 +65,6 @@ namespace build2
 
       const dir_path& out_root (root.out_path ());
       level5 ([&]{trace << "for " << out_root;});
-
-      // Enter module variables.
-      //
-      {
-        auto& v (var_pool);
-
-        v.find ("test", bool_type);
-        v.find ("test.input", name_type);
-        v.find ("test.output", name_type);
-        v.find ("test.roundtrip", name_type);
-        v.find ("test.options", strings_type);
-        v.find ("test.arguments", strings_type);
-      }
 
       // Register rules.
       //
