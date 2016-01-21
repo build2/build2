@@ -41,7 +41,7 @@ namespace build2
       path f (out_root / src_root_file);
 
       if (verb)
-        text << (verb >= 2 ? "config::save_src_root " : "save ") << f;
+        text << (verb >= 2 ? "config::save " : "save ") << f;
 
       try
       {
@@ -70,7 +70,7 @@ namespace build2
       path f (out_root / config_file);
 
       if (verb)
-        text << (verb >= 2 ? "config::save_config " : "save ") << f;
+        text << (verb >= 2 ? "config::save " : "save ") << f;
 
       try
       {
