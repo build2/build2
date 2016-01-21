@@ -204,6 +204,9 @@ namespace build2
     virtual group_view
     group_members (action_type) const;
 
+    // Note that the returned key "tracks" the target; that is, any updates
+    // to the targets's members will be reflected in the key.
+    //
     target_key
     key () const {return target_key {&type (), &dir, &name, &ext};}
 

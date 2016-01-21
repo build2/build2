@@ -70,7 +70,7 @@ namespace build2
           target (nullptr) {}
 
   public:
-    const std::string* proj; // NULL if not project-qualified.
+    const std::string* const proj; // NULL if not project-qualified.
     const target_type_type& type;
     const dir_path dir;      // Normalized absolute or relative (to scope).
     const std::string name;
@@ -79,6 +79,10 @@ namespace build2
     target_type* target;     // NULL if not yet resolved. Note that this should
                              // always be the "primary target", not a member of
                              // a target group.
+
+    // Note that the returned key "tracks" the prerequisite; that is, any
+    // updates to the prerequisite's members will be reflected in the key.
+    //
     prerequisite_key
     key () const
     {
