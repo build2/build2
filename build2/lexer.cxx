@@ -126,8 +126,8 @@ namespace build2
 
     uint64_t ln (c.line), cn (c.column);
 
-    // This mode is quite a bit like the value mode when it comes
-    // to special characters.
+    // This mode is quite a bit like the value mode when it comes to special
+    // characters, except that we have some of our own.
     //
     switch (c)
     {
@@ -142,6 +142,15 @@ namespace build2
       {
         mode_.pop (); // Expire eval mode.
         return token (type::rparen, sep, ln, cn);
+      }
+    case '=':
+    case '!':
+      {
+        if (peek () == '=')
+        {
+          get ();
+          return token (c == '=' ? type::equal : type::not_equal, sep, ln, cn);
+        }
       }
     }
 
@@ -194,19 +203,41 @@ namespace build2
       if (m == lexer_mode::pairs && c == pair_separator_)
         break;
 
-      // The following characters are not treated as special in the
-      // value/pairs, eval, and quoted modes.
+      // The following characters are only special in the normal and
+      // variable name modes.
       //
-      if (m != lexer_mode::value &&
-          m != lexer_mode::pairs &&
-          m != lexer_mode::eval  &&
-          m != lexer_mode::quoted)
+      if (m == lexer_mode::normal || m == lexer_mode::variable)
       {
         switch (c)
         {
         case ':':
-        case '+':
         case '=':
+          {
+            done = true;
+            break;
+          }
+        case '+':
+          {
+            get ();
+            done = (peek () == '=');
+            unget (c);
+            break;
+          }
+        }
+
+        if (done)
+          break;
+      }
+
+      // These extra characters are treated as the name end in the variable
+      // mode.
+      //
+      if (m == lexer_mode::variable)
+      {
+        switch (c)
+        {
+        case '/':
+        case '-':
           {
             done = true;
             break;
@@ -217,17 +248,18 @@ namespace build2
           break;
       }
 
-      // While these extra characters are treated as the name end in
-      // the variable mode.
+      // These extra characters are treated as the name end in the eval mode.
       //
-      if (m == lexer_mode::variable)
+      if (m == lexer_mode::eval)
       {
         switch (c)
         {
-        case '/':
-        case '-':
+        case '=':
+        case '!':
           {
-            done = true;
+            get ();
+            done = (peek () == '=');
+            unget (c);
             break;
           }
         }

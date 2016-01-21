@@ -93,6 +93,9 @@ namespace build2
     names_type
     eval (token&, token_type&);
 
+    void
+    eval_trailer (token&, token_type&, names_type&);
+
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with
     // multiple names, for example, {foo bar}.
@@ -103,6 +106,12 @@ namespace build2
       names_type ns;
       names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
       return ns;
+    }
+
+    void
+    names (token& t, token_type& tt, names_type& ns, bool chunk = false)
+    {
+      names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
     }
 
     void

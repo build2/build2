@@ -1134,12 +1134,51 @@ namespace build2
     mode (lexer_mode::eval);
     next (t, tt);
 
-    names_type ns (tt != type::rparen ? names (t, tt) : names_type ());
-
-    if (tt != type::rparen)
-      fail (t) << "expected ')' instead of " << t;
-
+    names_type ns;
+    eval_trailer (t, tt, ns);
     return ns;
+  }
+
+  void parser::
+  eval_trailer (token& t, type& tt, names_type& ns)
+  {
+    // Note that names() will handle the ( == foo) case since if it gets
+    // called, it expects to see a name.
+    //
+    if (tt != type::rparen)
+      names (t, tt, ns);
+
+    switch (tt)
+    {
+    case type::equal:
+    case type::not_equal:
+      {
+        type op (tt);
+
+        // ==, != are left-associative, so get the rhs name and evaluate.
+        //
+        next (t, tt);
+        names_type rhs (names (t, tt));
+
+        bool r;
+        switch (op)
+        {
+        case type::equal:     r = ns == rhs; break;
+        case type::not_equal: r = ns != rhs; break;
+        default:              r = false;     assert (false);
+        }
+
+        ns.resize (1);
+        ns[0] = name (r ? "true" : "false");
+
+        eval_trailer (t, tt, ns);
+        break;
+      }
+    case type::rparen:
+      break;
+    default:
+      fail (t) << "expected ')' instead of " << t;
+    }
   }
 
   // Parse names inside {} and handle the following "crosses" (i.e.,

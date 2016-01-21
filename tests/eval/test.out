@@ -2,3 +2,19 @@
 foobar
 foo bar
 foobar
+=
+!
+= foo
+foo!
+false
+true
+true
+false
+true
+true
+true
+true
+true baz
+foo equals bar is false
+true
+true

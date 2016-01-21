@@ -12,3 +12,33 @@ print ((foo)   (bar))
 
 print (foo\
 bar)
+
+# !=, == vs !, = recognition
+#
+print (=)
+print (!)
+print (= foo)
+print (foo!)
+
+# !=, == evaluation
+#
+
+# print (  == bar)
+# print (foo == )
+
+print (foo == bar)
+print (foo == foo)
+print (foo != bar)
+print (foo != foo)
+
+print (foo == (foo))
+print ((foo bar) == foo bar)
+print (foo != foo bar)
+print ("" == '')
+
+print ((foo != bar) baz)
+print "foo equals bar is (foo == bar)"
+
+foo = foo
+print ($foo == foo)
+print (bar != $foo)
