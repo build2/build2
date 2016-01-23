@@ -151,7 +151,7 @@ main (int argc, char* argv[])
 
       istringstream is (s);
       is.exceptions (istringstream::failbit | istringstream::badbit);
-      lexer l (is, "<cmdline>");
+      lexer l (is, path ("<cmdline>"));
       token t (l.next ());
 
       if (t.type == token_type::eos)
@@ -202,7 +202,7 @@ main (int argc, char* argv[])
         is.exceptions (istringstream::failbit | istringstream::badbit);
 
         parser p;
-        bspec = p.parse_buildspec (is, "<buildspec>");
+        bspec = p.parse_buildspec (is, path ("<buildspec>"));
       }
       catch (const istringstream::failure&)
       {
@@ -227,7 +227,8 @@ main (int argc, char* argv[])
 
       for (opspec& os: ms)
       {
-        const location l ("<buildspec>", 1, 0); //@@ TODO
+        const path p ("<buildspec>");
+        const location l (&p, 1, 0); //@@ TODO
 
         if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", string ())));

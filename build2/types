@@ -5,11 +5,13 @@
 #ifndef BUILD2_TYPES
 #define BUILD2_TYPES
 
+#include <iosfwd>      // ostream
 #include <vector>
 #include <string>
 #include <utility>     // pair
 #include <memory>      // unique_ptr, shared_ptr
 #include <cstddef>     // size_t
+#include <cstdint>     // uint{8,16,32,64}_t
 #include <functional>  // reference_wrapper
 
 #include <butl/path>
@@ -21,8 +23,13 @@ namespace build2
 {
   // Commonly-used types.
   //
-  using std::pair;
+  using std::uint8_t;
+  using std::uint16_t;
+  using std::uint32_t;
+  using std::uint64_t;
   using std::size_t;
+
+  using std::pair;
   using std::string;
   using std::unique_ptr;
   using std::shared_ptr;
@@ -31,6 +38,10 @@ namespace build2
 
   using strings = vector<string>;
   using cstrings = vector<const char*>;
+
+  // <iosfwd>
+  //
+  using std::ostream;
 
   // <butl/path>
   //

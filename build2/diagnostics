@@ -28,17 +28,6 @@ namespace build2
   //
   class failed: public std::exception {};
 
-  // Flag that indicates whether paths should be inserted relative
-  // into this stream.
-  //
-  extern const int relative_index;
-
-  inline bool
-  relative (std::ostream& os) {return os.iword (relative_index);}
-
-  inline void
-  relative (std::ostream& os, bool v) {os.iword (relative_index) = v ? 1 : 0;}
-
   // Print process commmand line. If the number of elements is specified
   // (or the second version is used), then it will print the piped multi-
   // process command line, if present. In this case, the expected format
@@ -67,7 +56,7 @@ namespace build2
     print_process (args.data (), args.size ());
   }
 
-  // Verbosity level.
+  // Program verbosity level (-v/--verbose).
   //
   // 0 - disabled
   // 1 - high-level information messages
@@ -79,7 +68,7 @@ namespace build2
   //
   // While uint8 is more than enough, use uint16 for the ease of printing.
   //
-  extern std::uint16_t verb;
+  extern uint16_t verb;
 
   template <typename F> inline void level1 (const F& f) {if (verb >= 1) f ();}
   template <typename F> inline void level2 (const F& f) {if (verb >= 2) f ();}
@@ -87,6 +76,46 @@ namespace build2
   template <typename F> inline void level4 (const F& f) {if (verb >= 4) f ();}
   template <typename F> inline void level5 (const F& f) {if (verb >= 5) f ();}
   template <typename F> inline void level6 (const F& f) {if (verb >= 6) f ();}
+
+  // Stream verbosity level. It is determined by the diagnostic type (e.g.,
+  // trace always has maximum verbosity) as well as the program verbosity. It
+  // is used to decide whether to print relative/absolute paths, and default
+  // target extensions.
+  //
+  // 0 - minimum
+  // 1 - intermediate
+  // 2 - maximum
+  //
+  // Currently we have the following program to stream verbosity mapping:
+  //
+  // fail/error/warn/info   <2:0  2:1 >2:2
+  // trace                  *:2
+  //
+  // A stream that hasn't been (yet) assigned any verbosity explicitly (e.g.,
+  // ostringstream) defaults to maximum.
+  //
+  const uint16_t stream_verb_min = 0;
+  const uint16_t stream_verb_max = 2;
+
+  // Default program to stream verbosity mapping, as outlined above.
+  //
+  inline uint16_t
+  stream_verb_map () {return verb < 2 ? 0 : (verb > 2 ? 2 : 1);}
+
+  extern const int stream_verb_index;
+
+  inline uint16_t
+  stream_verb (std::ostream& os)
+  {
+    uint16_t v (static_cast<uint16_t> (os.iword (stream_verb_index)));
+    return v == 0 ? stream_verb_max : v - 1;
+  }
+
+  inline void
+  stream_verb (std::ostream& os, uint16_t v)
+  {
+    os.iword (stream_verb_index) = static_cast<long> (v + 1);
+  }
 
   // Diagnostic facility, base infrastructure (potentially reusable).
   //
@@ -159,7 +188,7 @@ namespace build2
 
       if (!empty_)
       {
-        assert (false); //@@ Relative flag will not be transferred.
+        assert (false); //@@ Stream verbosity will not be transferred.
         os_ << r.os_.str ();
 
         r.empty_ = true;
@@ -243,8 +272,8 @@ namespace build2
   struct simple_prologue_base
   {
     explicit
-    simple_prologue_base (const char* type, const char* name, bool rel)
-        : type_ (type), name_ (name), relative_ (rel) {}
+    simple_prologue_base (const char* type, const char* name, uint16_t sverb)
+        : type_ (type), name_ (name), sverb_ (sverb) {}
 
     void
     operator() (const diag_record& r) const;
@@ -252,18 +281,20 @@ namespace build2
   private:
     const char* type_;
     const char* name_;
-    const bool relative_;
+    const uint16_t sverb_;
   };
   typedef diag_prologue<simple_prologue_base> simple_prologue;
 
   class location
   {
   public:
-    location () {}
-    location (const char* f, std::uint64_t l, std::uint64_t c)
+    // Note that location maintains a shallow reference to path.
+    //
+    location (): file (nullptr), line (0), column (0) {}
+    location (const path* f, std::uint64_t l, std::uint64_t c)
         : file (f), line (l), column (c) {}
 
-    const char* file;
+    const path* file;
     std::uint64_t line;
     std::uint64_t column;
   };
@@ -273,8 +304,8 @@ namespace build2
     location_prologue_base (const char* type,
                             const char* name,
                             const location& l,
-                            bool rel)
-        : type_ (type), name_ (name), loc_ (l), relative_ (rel) {}
+                            uint16_t sverb)
+        : type_ (type), name_ (name), loc_ (l), sverb_ (sverb) {}
 
     void
     operator() (const diag_record& r) const;
@@ -283,68 +314,55 @@ namespace build2
     const char* type_;
     const char* name_;
     const location loc_;
-    const bool relative_;
+    const uint16_t sverb_;
   };
   typedef diag_prologue<location_prologue_base> location_prologue;
 
-  // Here is the absolute/relative path rationale: we want it absolute
-  // in the error/warning/info streams to give the user the complete
-  // picture. But in the text stream (e.g., command lines), we print
-  // relative unless verbosity is greater than 1.
-  //
   struct basic_mark_base
   {
     explicit
-    basic_mark_base (const char* type,
+    basic_mark_base (uint16_t (*sverb) (),
+                     const char* type,
                      const char* name = nullptr,
-                     const void* data = nullptr)
-        : type_ (type), name_ (name), data_ (data) {}
+                     const void* data = nullptr,
+                     diag_epilogue epilogue = nullptr)
+        : sverb_ (sverb),
+          type_ (type), name_ (name), data_ (data),
+          epilogue_ (epilogue) {}
 
     simple_prologue
     operator() () const
     {
-      return simple_prologue (type_, name_, false);
+      return simple_prologue (epilogue_, type_, name_, sverb_ ());
     }
 
     location_prologue
     operator() (const location& l) const
     {
-      return location_prologue (type_, name_, l, false);
+      return location_prologue (epilogue_, type_, name_, l, sverb_ ());
     }
 
     template <typename L>
     location_prologue
     operator() (const L& l) const
     {
-      return location_prologue (type_, name_, get_location (l, data_), false);
+      return location_prologue (
+        epilogue_, type_, name_, get_location (l, data_), sverb_ ());
     }
 
   protected:
+    uint16_t (*sverb_) ();
     const char* type_;
     const char* name_;
     const void* data_;
+    const diag_epilogue epilogue_;
   };
   typedef diag_mark<basic_mark_base> basic_mark;
 
   extern const basic_mark error;
   extern const basic_mark warn;
   extern const basic_mark info;
-
-  // text
-  //
-  struct text_mark_base: basic_mark_base
-  {
-    text_mark_base (): basic_mark_base (nullptr) {}
-
-    simple_prologue
-    operator() () const
-    {
-      return simple_prologue (type_, name_, verb <= 1);
-    }
-  };
-  typedef diag_mark<text_mark_base> text_mark;
-
-  extern const text_mark text;
+  extern const basic_mark text;
 
   // trace
   //
@@ -352,7 +370,8 @@ namespace build2
   {
     explicit
     trace_mark_base (const char* name, const void* data = nullptr)
-        : basic_mark_base ("trace", name, data) {}
+        : basic_mark_base ([]() {return stream_verb_max;}, "trace", name, data)
+    {}
   };
   typedef diag_mark<trace_mark_base> trace_mark;
 
@@ -361,36 +380,15 @@ namespace build2
   // fail
   //
   template <typename E>
-  struct fail_mark_base
+  struct fail_mark_base: basic_mark_base
   {
     explicit
-    fail_mark_base (const void* data = nullptr): data_ (data) {}
-
-    simple_prologue
-    operator() () const
-    {
-      return simple_prologue (&epilogue, "error", nullptr, false);
-    }
-
-    location_prologue
-    operator() (const location& l) const
-    {
-      return location_prologue (&epilogue, "error", nullptr, l, false);
-    }
-
-    template <typename L>
-    location_prologue
-    operator() (const L& l) const
-    {
-      return location_prologue (
-        &epilogue, "error", nullptr, get_location (l, data_), false);
-    }
+    fail_mark_base (const void* data = nullptr)
+        : basic_mark_base (&stream_verb_map, "error", nullptr, data, &epilogue)
+    {}
 
     static void
     epilogue (const diag_record&) {throw E ();}
-
-  private:
-    const void* data_;
   };
 
   template <typename E>

@@ -458,6 +458,6 @@ namespace build2
   operator() (const xchar& c) const
   {
     return build2::fail_mark_base<failed>::operator() (
-      location (name_.c_str (), c.line, c.column));
+      location (&name_, c.line, c.column));
   }
 }

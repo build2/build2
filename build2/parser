@@ -36,13 +36,14 @@ namespace build2
     // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse_buildfile (std::istream&, const path&, scope& root, scope& base);
+    parse_buildfile (std::istream&, const path& name,
+                     scope& root, scope& base);
 
     buildspec
-    parse_buildspec (std::istream&, const std::string& name);
+    parse_buildspec (std::istream&, const path& name);
 
     token
-    parse_variable (lexer&, scope&, std::string name, token_type kind);
+    parse_variable (lexer&, scope&, std::string var_name, token_type kind);
 
     names_type
     parse_export_stub (std::istream& is, const path& p, scope& r, scope& b)
@@ -285,7 +286,7 @@ namespace build2
   protected:
     bool boot_;
 
-    const std::string* path_; // Path processed by diag_relative() and pooled.
+    const path* path_; // Current path.
     lexer* lexer_;
     target* target_; // Current target, if any.
     scope* scope_;   // Current base scope (out_base).

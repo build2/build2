@@ -5,7 +5,6 @@
 #include <build2/context>
 
 #include <ostream>
-#include <sstream>
 #include <cassert>
 #include <system_error>
 
@@ -22,7 +21,6 @@ namespace build2
   dir_path work;
   dir_path home;
 
-  string_pool path_pool;
   string_pool extension_pool;
   string_pool project_name_pool;
 
@@ -35,7 +33,6 @@ namespace build2
   void
   reset ()
   {
-    path_pool.clear ();
     extension_pool.clear ();
     project_name_pool.clear ();
 
@@ -299,14 +296,12 @@ namespace build2
 
   // diag_do(), etc.
   //
-  string
-  diag_do (const action&, const target& t)
+  void
+  diag_do (ostream& os, const action&, const target& t)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
 
     // perform(update(x))   -> "update x"
     // configure(update(x)) -> "configure updating x"
@@ -325,17 +320,14 @@ namespace build2
       os << "(for " << oo->name << ") ";
 
     os << t;
-    return os.str ();
   }
 
-  string
-  diag_doing (const action&, const target& t)
+  void
+  diag_doing (ostream& os, const action&, const target& t)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
 
     // perform(update(x))   -> "updating x"
     // configure(update(x)) -> "configuring updating x"
@@ -350,17 +342,14 @@ namespace build2
       os << "(for " << oo->name << ") ";
 
     os << t;
-    return os.str ();
   }
 
-  string
-  diag_done (const action&, const target& t)
+  void
+  diag_done (ostream& os, const action&, const target& t)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
-
-    ostringstream os;
 
     // perform(update(x))   -> "x is up to date"
     // configure(update(x)) -> "updating x is configured"
@@ -385,7 +374,5 @@ namespace build2
 
       os << t << " " << m.name_done;
     }
-
-    return os.str ();
   }
 }

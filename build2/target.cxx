@@ -254,10 +254,16 @@ namespace build2
     // inside {}, e.g., dir{bar/}, not bar/dir{}.
     //
     bool n (!k.name->empty ());
-    string d (diag_relative (*k.dir, false));
 
     if (n)
-      os << d;
+    {
+      // Avoid printing './' in './{...}'
+      //
+      if (stream_verb (os) < 2)
+        os << diag_relative (*k.dir, false);
+      else
+        os << *k.dir;
+    }
 
     os << k.type->name << '{';
 
@@ -269,7 +275,7 @@ namespace build2
         os << '.' << *k.ext;
     }
     else
-      os << d;
+      os << *k.dir;
 
     os << '}';
 

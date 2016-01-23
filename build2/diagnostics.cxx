@@ -13,9 +13,9 @@ using namespace std;
 
 namespace build2
 {
-  // Relative stream.
+  // Stream verbosity.
   //
-  const int relative_index = ostream::xalloc ();
+  const int stream_verb_index = ostream::xalloc ();
 
   void
   print_process (const char* const* args, size_t n)
@@ -94,7 +94,7 @@ namespace build2
   void simple_prologue_base::
   operator() (const diag_record& r) const
   {
-    relative (r.os_, relative_);
+    stream_verb (r.os_, sverb_);
 
     if (type_ != nullptr)
       r << type_ << ": ";
@@ -106,9 +106,9 @@ namespace build2
   void location_prologue_base::
   operator() (const diag_record& r) const
   {
-    relative (r.os_, relative_);
+    stream_verb (r.os_, sverb_);
 
-    r << loc_.file << ':' << loc_.line << ':' << loc_.column << ": ";
+    r << *loc_.file << ':' << loc_.line << ':' << loc_.column << ": ";
 
     if (type_ != nullptr)
       r << type_ << ": ";
@@ -117,9 +117,10 @@ namespace build2
       r << name_ << ": ";
   }
 
-  const basic_mark error ("error");
-  const basic_mark warn ("warning");
-  const basic_mark info ("info");
-  const text_mark text;
+  const basic_mark error (&stream_verb_map, "error");
+  const basic_mark warn  (&stream_verb_map, "warning");
+  const basic_mark info  (&stream_verb_map, "info");
+  const basic_mark text  (&stream_verb_map, nullptr);
+
   const fail_mark<failed> fail;
 }

@@ -18,10 +18,18 @@ namespace build2
   {
     if (!s.src_base.empty ())
     {
-      string d (diag_relative (s.src_base, false));
+      // Avoid printing './' in './@...', similar to what we do for the
+      // {target,prerequisite}_key.
+      //
+      if (stream_verb (os) < 2)
+      {
+        const string& r (diag_relative (s.src_base, false));
 
-      if (!d.empty ())
-        os << d << '@';
+        if (!r.empty ())
+          os << r << '@';
+      }
+      else
+        os << s.src_base << '@';
     }
 
     os << s.name;

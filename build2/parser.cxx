@@ -39,7 +39,7 @@ namespace build2
   {
     enter_buildfile (p);
 
-    path_ = &path_pool.find (diag_relative (p)); // Relative to work.
+    path_ = &p;
 
     lexer l (is, *path_);
     lexer_ = &l;
@@ -63,14 +63,14 @@ namespace build2
   token parser::
   parse_variable (lexer& l, scope& s, string name, type kind)
   {
-    path_ = &l.name (); // Note: not pooled.
+    path_ = &l.name ();
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &s;
 
     type tt;
     token t (type::eos, false, 0, 0);
-    variable (t, tt, name, kind);
+    variable (t, tt, move (name), kind);
     return t;
   }
 
@@ -539,8 +539,8 @@ namespace build2
 
         enter_buildfile (p);
 
-        const string* op (path_);
-        path_ = &path_pool.find (diag_relative (p)); // Relative to work.
+        const path* op (path_);
+        path_ = &p;
 
         lexer l (ifs, *path_);
         lexer* ol (lexer_);
@@ -675,8 +675,8 @@ namespace build2
 
         enter_buildfile (p);
 
-        const string* op (path_);
-        path_ = &path_pool.find (diag_relative (p)); // Relative to work.
+        const path* op (path_);
+        path_ = &p;
 
         lexer l (ifs, *path_);
         lexer* ol (lexer_);
@@ -1899,11 +1899,11 @@ namespace build2
   }
 
   buildspec parser::
-  parse_buildspec (istream& is, const std::string& name)
+  parse_buildspec (istream& is, const path& name)
   {
-    path_ = &name; // Note: caller pools.
+    path_ = &name;
 
-    lexer l (is, name, &paren_processor);
+    lexer l (is, *path_, &paren_processor);
     lexer_ = &l;
     target_ = nullptr;
     scope_ = root_ = global_scope;
@@ -2232,8 +2232,8 @@ namespace build2
   static location
   get_location (const token& t, const void* data)
   {
-    assert (data != nullptr);
-    const string& p (**static_cast<const string* const*> (data));
-    return location (p.c_str (), t.line, t.column);
+    assert (data != nullptr); // &parser::path_
+    const path* p (*static_cast<const path* const*> (data));
+    return location (p, t.line, t.column);
   }
 }

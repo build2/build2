@@ -22,16 +22,26 @@ namespace build2
   {
     if (pk.proj != nullptr)
       os << *pk.proj << '%';
-
-    // Don't print scope if we are project-qualified or the
-    // prerequisite's directory is absolute. In both these
-    // cases the scope is not used to resolve it to target.
+    //
+    // Don't print scope if we are project-qualified or the prerequisite's
+    // directory is absolute. In both these cases the scope is not used to
+    // resolve it to target.
     //
     else if (!pk.tk.dir->absolute ())
     {
-      string s (diag_relative (pk.scope->out_path (), false));
+      // Avoid printing './' in './:...', similar to what we do for the
+      // directory in target_key.
+      //
+      const dir_path& s (pk.scope->out_path ());
 
-      if (!s.empty ())
+      if (stream_verb (os) < 2)
+      {
+        const string& r (diag_relative (s, false));
+
+        if (!r.empty ())
+          os << r << ':';
+      }
+      else
         os << s << ':';
     }
 

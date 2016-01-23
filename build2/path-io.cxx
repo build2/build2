@@ -16,14 +16,14 @@ namespace build2
   ostream&
   operator<< (ostream& os, const path& p)
   {
-    return os << (relative (os) ? diag_relative (p) : p.string ());
+    return os << (stream_verb (os) < 2 ? diag_relative (p) : p.string ());
   }
 
   ostream&
   operator<< (ostream& os, const dir_path& d)
   {
-    if (relative (os))
-      os << diag_relative (d);
+    if (stream_verb (os) < 2)
+      os << diag_relative (d); // Adds trailing '/'.
     else
     {
       const string& s (d.string ());

@@ -23,7 +23,6 @@ namespace build2
   extern dir_path work;
   extern dir_path home;
 
-  extern string_pool path_pool;
   extern string_pool extension_pool;
   extern string_pool project_name_pool;
 
@@ -146,18 +145,52 @@ namespace build2
   diag_relative (const dir_path&, bool current = true);
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
-  // and "updating exe{foo} is configured".
+  // and "updating exe{foo} is configured". Use like this:
+  //
+  // info << "while " << diag_doing (a, t);
   //
   class target;
 
-  std::string
-  diag_do (const action&, const target&);
+  struct diag_phrase
+  {
+    const action& a;
+    const target& t;
+    void (*f) (ostream&, const action&, const target&);
+  };
 
-  std::string
-  diag_doing (const action&, const target&);
+  inline ostream&
+  operator<< (ostream& os, const diag_phrase& p)
+  {
+    p.f (os, p.a, p.t);
+    return os;
+  }
 
-  std::string
-  diag_done (const action&, const target&);
+  void
+  diag_do (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_do (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_do};
+  }
+
+  void
+  diag_doing (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_doing (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_doing};
+  }
+
+  void
+  diag_done (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_done (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_done};
+  }
 }
 
 #include <build2/context.txx>

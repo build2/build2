@@ -275,9 +275,7 @@ namespace build2
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      path rbf (diag_relative (bf));
-
-      lexer lex (ifs, rbf.string ());
+      lexer lex (ifs, bf);
       token t (lex.next ());
       token_type tt;
 
@@ -286,7 +284,7 @@ namespace build2
            tt != token_type::prepend &&
            tt != token_type::append))
       {
-        error << "variable '" << var << "' expected as first line in " << rbf;
+        error << "variable '" << var << "' expected as first line in " << bf;
         throw failed (); // Suppress "used uninitialized" warning.
       }
 
