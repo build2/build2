@@ -42,7 +42,7 @@ namespace build2
       }
     }
 
-    auto i (targets.find (*tk.type, d, *tk.name, *tk.ext, trace));
+    auto i (targets.find (*tk.type, d, *tk.name, tk.ext, trace));
 
     if (i == targets.end ())
       return 0;
@@ -60,20 +60,18 @@ namespace build2
   {
     tracer trace ("search_existing_file");
 
-    prerequisite_key pk (cpk); // Make a copy so we can update extension.
-    target_key& tk (pk.tk);
-    assert (tk.dir->relative ());
+    const target_key& ctk (cpk.tk);
+    assert (ctk.dir->relative ());
 
     // Figure out the extension. Pretty similar logic to file::derive_path().
     //
-    const string* ext (*tk.ext);
+    const string* ext (ctk.ext);
 
     if (ext == nullptr)
     {
-      if (auto f = tk.type->extension)
+      if (auto f = ctk.type->extension)
       {
-        ext = &f (tk, *pk.scope); // Already from the pool.
-        tk.ext = &ext;
+        ext = &f (ctk, *cpk.scope); // Already from the pool.
       }
       else
       {
@@ -84,12 +82,18 @@ namespace build2
         // explicitly, we will still do so). But let me know what you
         // think.
         //
-        //fail << "no default extension for prerequisite " << pk;
+        //fail << "no default extension for prerequisite " << cpk;
         level4 ([&]{trace << "no existing file found for prerequisite "
-                          << pk;});
+                          << cpk;});
         return nullptr;
       }
     }
+
+    // Make a copy with the updated extension.
+    //
+    const prerequisite_key pk {
+      cpk.proj, target_key {ctk.type, ctk.dir, ctk.name, ext}, cpk.scope};
+    const target_key& tk (pk.tk);
 
     // Go over paths looking for a file.
     //
@@ -159,7 +163,7 @@ namespace build2
 
     // Find or insert.
     //
-    auto r (targets.insert (*tk.type, move (d), *tk.name, *tk.ext, trace));
+    auto r (targets.insert (*tk.type, move (d), *tk.name, tk.ext, trace));
     assert (r.second);
 
     target& t (r.first);

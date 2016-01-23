@@ -763,7 +763,7 @@ main (int argc, char* argv[])
 
             d.normalize ();
 
-            mif->search (rs, target_key {ti, &d, &tn.value, &e}, l, tgs);
+            mif->search (rs, target_key {ti, &d, &tn.value, e}, l, tgs);
           }
         }
 

@@ -22,10 +22,10 @@ namespace build2
   class target_key
   {
   public:
-    mutable const target_type* type;
-    mutable const dir_path* dir;
-    mutable const std::string* name;
-    mutable const std::string* const* ext; // Note: only *ext can be NULL.
+    const target_type* const  type;
+    const dir_path* const     dir;
+    const std::string* const  name;
+    const std::string* const& ext;
 
     friend bool
     operator< (const target_key& x, const target_key& y)
@@ -44,7 +44,7 @@ namespace build2
         (xt == yt && *x.name < *y.name) ||
         (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
         (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
-         *x.ext != nullptr && *y.ext != nullptr && **x.ext < **y.ext);
+         x.ext != nullptr && y.ext != nullptr && *x.ext < *y.ext);
     }
   };
 

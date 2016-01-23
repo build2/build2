@@ -208,7 +208,7 @@ namespace build2
     // to the targets's members will be reflected in the key.
     //
     target_key
-    key () const {return target_key {&type (), &dir, &name, &ext};}
+    key () const {return target_key {&type (), &dir, &name, ext};}
 
     // Scoping.
     //
@@ -748,6 +748,8 @@ namespace build2
   //
   struct target_set
   {
+    // @@ When we update ext in key, don't we change it? I think we do.
+    //
     typedef std::map<target_key, std::unique_ptr<target>> map;
     typedef butl::map_iterator_adapter<map::const_iterator> iterator;
 
@@ -761,7 +763,7 @@ namespace build2
           const std::string* ext,
           tracer& trace) const
     {
-      return find (target_key {&type, &dir, &name, &ext}, trace);
+      return find (target_key {&type, &dir, &name, ext}, trace);
     }
 
     // As above but ignore the extension and return the target or
@@ -771,8 +773,7 @@ namespace build2
     T*
     find (const dir_path& dir, const std::string& name) const
     {
-      const std::string* e (nullptr);
-      auto i (map_.find (target_key {&T::static_type, &dir, &name, &e}));
+      auto i (map_.find (target_key {&T::static_type, &dir, &name, nullptr}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
     }
 

@@ -86,7 +86,7 @@ namespace build2
     prerequisite_key
     key () const
     {
-      return prerequisite_key {proj, {&type, &dir, &name, &ext}, &scope};
+      return prerequisite_key {proj, {&type, &dir, &name, ext}, &scope};
     }
 
   public:
@@ -125,7 +125,7 @@ namespace build2
     std::pair<prerequisite&, bool>
     insert (const std::string* proj, const target_key& tk, scope& s, tracer& t)
     {
-      return insert (proj, *tk.type, *tk.dir, *tk.name, *tk.ext, s, t);
+      return insert (proj, *tk.type, *tk.dir, *tk.name, tk.ext, s, t);
     }
   };
 }

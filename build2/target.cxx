@@ -186,7 +186,7 @@ namespace build2
   ostream&
   operator<< (ostream& os, const target& t)
   {
-    return os << target_key {&t.type (), &t.dir, &t.name, &t.ext};
+    return os << target_key {&t.type (), &t.dir, &t.name, t.ext};
   }
 
   // target_set
@@ -204,7 +204,7 @@ namespace build2
 
       // Update the extension if the existing target has it unspecified.
       //
-      const string* ext (*k.ext);
+      const string* ext (k.ext);
       if (t.ext != ext)
       {
         level5 ([&]{
@@ -233,14 +233,14 @@ namespace build2
           const string* ext,
           tracer& trace)
   {
-    iterator i (find (target_key {&tt, &dir, &name, &ext}, trace));
+    iterator i (find (target_key {&tt, &dir, &name, ext}, trace));
     bool r (i == end ());
 
     if (r)
     {
       unique_ptr<target> pt (tt.factory (tt, move (dir), move (name), ext));
       i = map_.emplace (
-        make_pair (target_key {&tt, &pt->dir, &pt->name, &pt->ext},
+        make_pair (target_key {&tt, &pt->dir, &pt->name, pt->ext},
                    move (pt))).first;
     }
 
@@ -265,8 +265,8 @@ namespace build2
     {
       os << *k.name;
 
-      if (*k.ext != nullptr && !(*k.ext)->empty ())
-        os << '.' << **k.ext;
+      if (k.ext != nullptr && !k.ext->empty ())
+        os << '.' << *k.ext;
     }
     else
       os << d;
