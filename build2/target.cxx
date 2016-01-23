@@ -308,7 +308,7 @@ namespace build2
       if (de != nullptr)
         ext = &extension_pool.find (de);
       //
-      // Otherwis see if the target type has function that will
+      // Otherwise see if the target type has function that will
       // give us the default extension.
       //
       else if (auto f = type ().extension)
@@ -391,6 +391,36 @@ namespace build2
       fail << "no explicit target for prerequisite " << pk;
 
     return t;
+  }
+
+  const string&
+  target_extension_fail (const target_key& tk, scope& s)
+  {
+    {
+      diag_record dr;
+      dr << error << "no default extension to derive file name for ";
+
+      // This is a bit hacky: we may be dealing with a target (see
+      // file::derive_path()) or prerequisite (see search_existing_file()). So
+      // we are going to check if dir is absolute. If it is, then we assume
+      // this is a target, otherwise -- prerequisite.
+      //
+      if (tk.dir->absolute ())
+        dr << "target " << tk;
+      else
+        dr << "prerequisite " << prerequisite_key {nullptr, tk, &s};
+    }
+
+    throw failed ();
+  }
+
+  // Assert if called.
+  //
+  const string&
+  target_extension_assert (const target_key&, scope&)
+  {
+    assert (false); // Attempt to obtain the default extension.
+    throw failed ();
   }
 
   // type info
@@ -525,7 +555,7 @@ namespace build2
     "man",
     &doc::static_type,
     &man_factory,
-    nullptr,        // Should be specified explicitly.
+    &target_extension_assert, // Should be specified explicitly (see factory).
     &search_file,
     false
   };

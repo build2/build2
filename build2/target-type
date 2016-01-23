@@ -20,10 +20,15 @@ namespace build2
 
   // Target type.
   //
-  // Note that we assume there is always a single instance of this class
-  // for any target type. As a result, we can use address comparison to
-  // determine if two target types are the same.
+  // Note that we assume there is always a single instance of this class for
+  // any target type. As a result, we can use address comparison to determine
+  // if two target types are the same.
   //
+  // If the extension derivation function is NULL, then it means this target
+  // type does not use extensions. Note that this is relied upon when deciding
+  // whether to print the extension; if the target does use extensions but the
+  // defaults should not or cannot (logically) be obtained, then use
+  // target_extension_{fail,assert}(), respectively.
   //
   struct target_type
   {

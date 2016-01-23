@@ -34,16 +34,13 @@ namespace build2
     if (def != nullptr)
       return extension_pool.find (def);
 
+    // Similar code to target_extension_fail().
+    //
     {
       diag_record dr;
       dr << error << "no default extension in variable '" << var << "'"
          << info << "required to derive file name for ";
 
-      // This is a bit hacky: we may be dealing with a target (see
-      // file::derive_path()) or prerequsite (see search_existing_file()).
-      // So we are going to check if dir is absolute. If it is, then
-      // we assume this is a target, otherwise -- prerequsite.
-      //
       if (tk.dir->absolute ())
         dr << "target " << tk;
       else
