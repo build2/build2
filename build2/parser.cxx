@@ -937,9 +937,13 @@ namespace build2
       dt->factory = &derived_factory;
 
       // Override extension derivation function: we most likely don't want
-      // to use the same default as our base (think cli: file).
+      // to use the same default as our base (think cli: file). But, if our
+      // base doesn't use extensions, then most likely neither do we (think
+      // foo: alias).
       //
-      dt->extension = &target_extension_var<derived_ext_var, nullptr>;
+      dt->extension = /*bt->extension == nullptr
+        ? nullptr
+        :*/ &target_extension_var<derived_ext_var, nullptr>;
 
       target_type& rdt (*dt); // Save a non-const reference to the object.
 
