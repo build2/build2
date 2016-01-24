@@ -1078,6 +1078,21 @@ namespace build2
   const std::string&
   target_extension_assert (const target_key&, scope&);
 
+  // Target print functions.
+  //
+
+  // Target type uses the extension but it is fixed and there is no use
+  // printing it (e.g., man1{}).
+  //
+  void
+  target_print_0_ext_verb (ostream&, const target_key&);
+
+  // Target type uses the extension and there is normally no default so it
+  // should be printed (e.g., file{}).
+  //
+  void
+  target_print_1_ext_verb (ostream&, const target_key&);
+
   // The default behavior, that is, look for an existing target in the
   // prerequisite's directory scope.
   //

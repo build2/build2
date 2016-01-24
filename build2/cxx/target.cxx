@@ -19,6 +19,7 @@ namespace build2
       &file::static_type,
       &target_factory<hxx>,
       &target_extension_var<ext_var, hxx_ext_def>,
+      nullptr,
       &search_file,
       false
     };
@@ -30,6 +31,7 @@ namespace build2
       &file::static_type,
       &target_factory<ixx>,
       &target_extension_var<ext_var, ixx_ext_def>,
+      nullptr,
       &search_file,
       false
     };
@@ -41,6 +43,7 @@ namespace build2
       &file::static_type,
       &target_factory<txx>,
       &target_extension_var<ext_var, txx_ext_def>,
+      nullptr,
       &search_file,
       false
     };
@@ -52,6 +55,7 @@ namespace build2
       &file::static_type,
       &target_factory<cxx>,
       &target_extension_var<ext_var, cxx_ext_def>,
+      nullptr,
       &search_file,
       false
     };
@@ -63,6 +67,7 @@ namespace build2
       &file::static_type,
       &target_factory<h>,
       &target_extension_var<ext_var, h_ext_def>,
+      nullptr,
       &search_file,
       false
     };
@@ -74,6 +79,7 @@ namespace build2
       &file::static_type,
       &target_factory<c>,
       &target_extension_var<ext_var, c_ext_def>,
+      nullptr,
       &search_file,
       false
     };

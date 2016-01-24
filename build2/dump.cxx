@@ -88,6 +88,15 @@ namespace build2
   static void
   dump_target (ostream& os, string& ind, action a, const target& t)
   {
+    // Print the target and its prerequisites relative to the scope. To achieve
+    // this we are going to temporarily lower the stream verbosity to level 1.
+    // The drawback of doing this is that we also lower the verbosity of
+    // extension printing (it wouldn't have been bad at all to get 'foo.?' for
+    // unassigned and 'foo.' for empty).
+    //
+    uint16_t sv (stream_verb (os));
+    stream_verb (os, 1);
+
     os << ind << t;
 
     if (t.group != nullptr)
@@ -122,6 +131,8 @@ namespace build2
         first = false;
       }
     }
+
+    stream_verb (os, sv); // We want variable values in full.
 
     // Print target-specific variables.
     //

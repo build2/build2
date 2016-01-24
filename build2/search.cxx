@@ -114,7 +114,7 @@ namespace build2
         continue;
 
       level5 ([&]{trace << "found existing file " << f << " for prerequisite "
-                        << pk;});
+                        << cpk;});
 
       // Find or insert. Note: using our updated extension.
       //
@@ -125,7 +125,7 @@ namespace build2
       file& t (dynamic_cast<file&> (r.first));
 
       level5 ([&]{trace << (r.second ? "new" : "existing") << " target "
-                        << t << " for prerequisite " << pk;});
+                        << t << " for prerequisite " << cpk;});
 
       if (t.path ().empty ())
         t.path (move (f));
@@ -134,7 +134,7 @@ namespace build2
       return &t;
     }
 
-    level4 ([&]{trace << "no existing file found for prerequisite " << pk;});
+    level4 ([&]{trace << "no existing file found for prerequisite " << cpk;});
     return nullptr;
   }
 

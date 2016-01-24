@@ -13,6 +13,8 @@
 #include <butl/utility> // compare_c_string
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/target-type>
 
 namespace build2
@@ -48,8 +50,15 @@ namespace build2
     }
   };
 
-  std::ostream&
-  operator<< (std::ostream&, const target_key&); // Defined in target.cxx
+  // If the target type has a custom print function, call that. Otherwise,
+  // call to_stream() with the current stream verbosity as a third argument.
+  // Both are defined in target.cxx.
+  //
+  ostream&
+  operator<< (ostream&, const target_key&);
+
+  ostream&
+  to_stream (ostream&, const target_key&, uint16_t ext_verb);
 }
 
 #endif // BUILD2_TARGET_KEY

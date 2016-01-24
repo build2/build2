@@ -28,6 +28,7 @@ namespace build2
       &file::static_type,
       &obja_factory,
       &target_extension_assert,
+      nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
     };
@@ -50,6 +51,7 @@ namespace build2
       &file::static_type,
       &objso_factory,
       &target_extension_assert,
+      nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
     };
@@ -76,6 +78,7 @@ namespace build2
       &target::static_type,
       &obj_factory,
       nullptr,
+      nullptr,
       &search_target,
       false
     };
@@ -98,6 +101,7 @@ namespace build2
       &file::static_type,
       &target_factory<exe>,
       &target_extension_fix<exe_ext>,
+      nullptr,
       &search_file,
       false
     };
@@ -135,6 +139,7 @@ namespace build2
       &file::static_type,
       &liba_factory,
       &target_extension_fix<a_ext>,
+      nullptr,
       &search_file,
       false
     };
@@ -160,6 +165,7 @@ namespace build2
       &file::static_type,
       &libso_factory,
       &target_extension_fix<so_ext>,
+      nullptr,
       &search_file,
       false
     };
@@ -194,6 +200,7 @@ namespace build2
       "lib",
       &target::static_type,
       &lib_factory,
+      nullptr,
       nullptr,
       &search_target,
       false

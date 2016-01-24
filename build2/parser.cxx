@@ -941,9 +941,8 @@ namespace build2
       // base doesn't use extensions, then most likely neither do we (think
       // foo: alias).
       //
-      dt->extension = /*bt->extension == nullptr
-        ? nullptr
-        :*/ &target_extension_var<derived_ext_var, nullptr>;
+      if (bt->extension != nullptr)
+        dt->extension = &target_extension_var<derived_ext_var, nullptr>;
 
       target_type& rdt (*dt); // Save a non-const reference to the object.
 

@@ -248,7 +248,7 @@ namespace build2
   }
 
   ostream&
-  operator<< (ostream& os, const target_key& k)
+  to_stream (ostream& os, const target_key& k, uint16_t ev)
   {
     // If the name is empty, then we want to print the directory
     // inside {}, e.g., dir{bar/}, not bar/dir{}.
@@ -271,13 +271,38 @@ namespace build2
     {
       os << *k.name;
 
-      if (k.ext != nullptr && !k.ext->empty ())
-        os << '.' << *k.ext;
+      // If the extension derivation function is NULL, then it means this
+      // target type doesn't use extensions.
+      //
+      if (k.type->extension != nullptr)
+      {
+        // For verbosity level 0 we don't print the extension. For 1 we print
+        // it if there is one. For 2 we print 'foo.?' if it hasn't yet been
+        // assigned and 'foo.' if it is assigned as "no extension" (empty).
+        //
+        if (ev > 0 && (ev > 1 || (k.ext != nullptr && !k.ext->empty ())))
+        {
+          os << '.' << (k.ext != nullptr ? *k.ext : "?");
+        }
+      }
+      else
+        assert (k.ext == nullptr);
     }
     else
       os << *k.dir;
 
     os << '}';
+
+    return os;
+  }
+
+  ostream&
+  operator<< (ostream& os, const target_key& k)
+  {
+    if (auto p = k.type->print)
+      p (os, k);
+    else
+      to_stream (os, k, stream_verb (os));
 
     return os;
   }
@@ -414,13 +439,25 @@ namespace build2
     throw failed ();
   }
 
-  // Assert if called.
-  //
   const string&
   target_extension_assert (const target_key&, scope&)
   {
     assert (false); // Attempt to obtain the default extension.
     throw failed ();
+  }
+
+  void
+  target_print_0_ext_verb (ostream& os, const target_key& k)
+  {
+    uint16_t v (stream_verb (os));
+    to_stream (os, k, v < 2 ? 0 : v); // Remap 1 to 0.
+  }
+
+  void
+  target_print_1_ext_verb (ostream& os, const target_key& k)
+  {
+    uint16_t v (stream_verb (os));
+    to_stream (os, k, v < 1 ? 1 : v); // Remap 0 to 1.
   }
 
   // type info
@@ -429,6 +466,7 @@ namespace build2
   const target_type target::static_type
   {
     "target",
+    nullptr,
     nullptr,
     nullptr,
     nullptr,
@@ -442,6 +480,7 @@ namespace build2
     &target::static_type,
     nullptr,
     nullptr,
+    nullptr,
     &search_target,
     false
   };
@@ -450,6 +489,7 @@ namespace build2
   {
     "path_target",
     &mtime_target::static_type,
+    nullptr,
     nullptr,
     nullptr,
     &search_target,
@@ -478,6 +518,7 @@ namespace build2
     &path_target::static_type,
     &file_factory<file>,
     &target_extension_var<file_ext_var, file_ext_def>,
+    &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
     false
   };
@@ -487,7 +528,8 @@ namespace build2
     "alias",
     &target::static_type,
     &target_factory<alias>,
-    nullptr, // Should never need.
+    nullptr, // Extension not used.
+    nullptr,
     &search_alias,
     false
   };
@@ -497,7 +539,8 @@ namespace build2
     "dir",
     &alias::static_type,
     &target_factory<dir>,
-    nullptr, // Should never need.
+    nullptr, // Extension not used.
+    nullptr,
     &search_alias,
     false
   };
@@ -507,7 +550,8 @@ namespace build2
     "fsdir",
     &target::static_type,
     &target_factory<fsdir>,
-    nullptr, // Should never need.
+    nullptr, // Extension not used.
+    nullptr,
     &search_target,
     false
   };
@@ -527,6 +571,7 @@ namespace build2
     &file::static_type,
     &file_factory<buildfile>,
     &buildfile_target_extension,
+    nullptr,
     &search_file,
     false
   };
@@ -537,6 +582,7 @@ namespace build2
     &file::static_type,
     &file_factory<doc>,
     &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
+    &target_print_1_ext_verb, // Same as file.
     &search_file,
     false
   };
@@ -556,6 +602,7 @@ namespace build2
     &doc::static_type,
     &man_factory,
     &target_extension_assert, // Should be specified explicitly (see factory).
+    &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
     false
   };
@@ -567,6 +614,7 @@ namespace build2
     &man::static_type,
     &file_factory<man1>,
     &target_extension_fix<man1_ext>,
+    &target_print_0_ext_verb, // Fixed extension, no use printing.
     &search_file,
     false
   };
