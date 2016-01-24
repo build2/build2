@@ -9,6 +9,6 @@ foo{FOO}:         # verify name is foo{FOO} and not file{FOO} with --verbose 6
 #define foo: dir  # already define in this scope
 
 define bar: foo
-bar{BAR}:         # verify name is bar{FOO} with --verbose 6
+bar{BAR}:         # verify name is bar{BAR} with --verbose 6
 
 ./:

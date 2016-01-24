@@ -888,7 +888,14 @@ namespace build2
     // being called to construct a derived target. This can be used, for
     // example, to decide whether to "link up" to the group.
     //
-    target* r (t.base->factory (t, move (d), move (n), e));
+    // One exception: if we are derived from a derived target type, the this
+    // logic will lead to infinite recursion. In this case get the ultimate
+    // base.
+    //
+    const target_type* bt (t.base);
+    for (; bt->factory == &derived_factory; bt = bt->base) ;
+
+    target* r (bt->factory (t, move (d), move (n), e));
     r->derived_type = &t;
     return r;
   }
