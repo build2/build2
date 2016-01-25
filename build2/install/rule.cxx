@@ -329,15 +329,7 @@ namespace build2
       install_dir r;
 
       if (d.absolute ())
-      {
         d.normalize ();
-
-        // Make sure it already exists (this will normally be
-        // install.root with everything else defined in term of it).
-        //
-        if (!dir_exists (d))
-          fail << "installation directory " << d << " does not exist";
-      }
       else
       {
         // If it is relative, then the first component is treated
@@ -378,6 +370,15 @@ namespace build2
       if (r.cmd.empty ()) r.cmd = "install";
       if (r.mode.empty ()) r.mode = "644";
       if (r.dir_mode.empty ()) r.dir_mode = "755";
+
+      // If the directory still doesn't exist, then this means it was specified
+      // as absolute (it will normally be install.root with everything else
+      // defined in term of it). We used to fail in this case but that proved
+      // to be just too anal. So now we just create it.
+      //
+      if (!dir_exists (r.dir))
+        install (r, r.dir); // install -d
+        // fail << "installation directory " << d << " does not exist";
 
       return r;
     }
