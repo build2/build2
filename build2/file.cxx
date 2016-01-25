@@ -780,7 +780,6 @@ namespace build2
     // Figure out this project's out_root.
     //
     dir_path out_root;
-    dir_path fallback_src_root; // We have seen this already, haven't we..?
 
     // First search subprojects, starting with our root and then trying
     // outer roots for as long as we are inside an amalgamation.
@@ -792,7 +791,6 @@ namespace build2
       if (r != &iroot && as<string> (*r->vars["project"]) == project)
       {
         out_root = r->out_path ();
-        fallback_src_root = r->src_path ();
         break;
       }
 
@@ -805,7 +803,6 @@ namespace build2
         {
           const dir_path& d ((*i).second);
           out_root = r->out_path () / d;
-          fallback_src_root = r->src_path () / d;
           break;
         }
       }
@@ -859,48 +856,69 @@ namespace build2
       }
     }
 
-    // Bootstrap the imported root scope. This is pretty similar to
-    // what we do in main() except that here we don't try to guess
-    // src_root.
+    // Bootstrap the imported root scope. This is pretty similar to what we do
+    // in main() except that here we don't try to guess src_root.
     //
-    dir_path src_root (is_src_root (out_root) ? out_root : dir_path ());
-    scope& root (create_root (out_root, src_root));
-
-    bootstrap_out (root);
-
-    // Check that the bootstrap process set src_root.
+    // The user can also specify the out_root of the amalgamation that contains
+    // our project. For now we only consider top-level sub-projects.
     //
-    if (auto l = root.vars["src_root"])
+    dir_path src_root;
+    scope* root;
+
+    for (;;)
     {
-      const dir_path& p (as<dir_path> (*l));
+      src_root = is_src_root (out_root) ? out_root : dir_path ();
+      root = &create_root (out_root, src_root);
 
-      if (!src_root.empty () && p != src_root)
-        fail (loc) << "bootstrapped src_root " << p << " does not match "
-                   << "discovered " << src_root;
+      bootstrap_out (*root);
+
+      // Check that the bootstrap process set src_root.
+      //
+      if (auto l = root->vars["src_root"])
+      {
+        const dir_path& p (as<dir_path> (*l));
+
+        if (!src_root.empty () && p != src_root)
+          fail (loc) << "bootstrapped src_root " << p << " does not match "
+                     << "discovered " << src_root;
+      }
+      else
+        fail (loc) << "unable to determine src_root for imported "
+                   << project <<
+          info << "consider configuring " << out_root;
+
+      setup_root (*root);
+      bootstrap_src (*root);
+
+      // Now we know this project's name as well as all its subprojects.
+      //
+      if (as<string> (*root->vars["project"]) == project)
+        break;
+
+      if (auto l = root->vars["subprojects"])
+      {
+        const auto& m (as<subprojects> (*l));
+        auto i (m.find (project));
+
+        if (i != m.end ())
+        {
+          const dir_path& d ((*i).second);
+          out_root = root->out_path () / d;
+          continue;
+        }
+      }
+
+      fail (loc) << out_root << " is not out_root for " << project;
     }
-    // Otherwise, use fallback if available.
-    //
-    else if (!fallback_src_root.empty ())
-    {
-      value& v (root.assign ("src_root"));
-      v = move (fallback_src_root);
-    }
-    else
-      fail (loc) << "unable to determine src_root for imported " << project <<
-        info << "consider configuring " << out_root;
-
-    setup_root (root);
-
-    bootstrap_src (root);
 
     // Bootstrap outer roots if any. Loading will be done by
     // load_root_pre() below.
     //
-    create_bootstrap_outer (root);
+    create_bootstrap_outer (*root);
 
     // Load the imported root scope.
     //
-    load_root_pre (root);
+    load_root_pre (*root);
 
     // Create a temporary scope so that the export stub does not mess
     // up any of our variables.
@@ -926,7 +944,7 @@ namespace build2
     // stub will normally switch to the imported root scope at some
     // point.
     //
-    path es (root.src_path () / path ("build/export.build"));
+    path es (root->src_path () / path ("build/export.build"));
 
     try
     {
