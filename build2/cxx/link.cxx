@@ -505,7 +505,13 @@ namespace build2
         {
         case type::e:
           {
-            t.derive_path (""); // "exe"
+            const char* e;
+            if (sys == "mingw32")
+              e = "exe";
+            else
+              e = "";
+
+            t.derive_path (e);
             break;
           }
         case type::a:
@@ -774,12 +780,20 @@ namespace build2
       string soname1, soname2;
       strings sargs;
 
+      lookup<const value> ranlib;
+
       if (lt == type::a)
       {
-        //@@ ranlib
+        // If the user asked for ranlib, don't try to do its function
+        // with -s.
         //
-        args.push_back ("ar");
-        args.push_back ("-rc");
+        ranlib = rs["config.bin.ranlib"];
+
+        if (ranlib->empty ()) // @@ TMP until proper NULL support.
+          ranlib = lookup<const value> ();
+
+        args.push_back (as<string> (*rs["config.bin.ar"]).c_str ());
+        args.push_back (ranlib ? "-rc" : "-rcs");
         args.push_back (relt.string ().c_str ());
       }
       else
@@ -881,14 +895,6 @@ namespace build2
 
         if (!pr.wait ())
           throw failed ();
-
-        // Should we go to the filesystem and get the new mtime? We
-        // know the file has been modified, so instead just use the
-        // current clock time. It has the advantage of having the
-        // subseconds precision.
-        //
-        t.mtime (system_clock::now ());
-        return target_state::changed;
       }
       catch (const process_error& e)
       {
@@ -903,6 +909,37 @@ namespace build2
 
         throw failed ();
       }
+
+      if (ranlib)
+      {
+        const char* args[] = {
+          as<string> (*ranlib).c_str (), relt.string ().c_str (), nullptr};
+
+        try
+        {
+          process pr (args);
+
+          if (!pr.wait ())
+            throw failed ();
+        }
+        catch (const process_error& e)
+        {
+          error << "unable to execute " << args[0] << ": " << e.what ();
+
+          if (e.child ())
+            exit (1);
+
+          throw failed ();
+        }
+      }
+
+      // Should we go to the filesystem and get the new mtime? We
+      // know the file has been modified, so instead just use the
+      // current clock time. It has the advantage of having the
+      // subseconds precision.
+      //
+      t.mtime (system_clock::now ());
+      return target_state::changed;
     }
 
     link link::instance;

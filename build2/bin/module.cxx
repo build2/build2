@@ -46,6 +46,9 @@ namespace build2
       {
         auto& v (var_pool);
 
+        v.find ("config.bin.ar", string_type); //@@ VAR path_type
+        v.find ("config.bin.ranlib", string_type); //@@ VAR path_type
+
         v.find ("config.bin.lib", string_type);
         v.find ("config.bin.exe.lib", strings_type);
         v.find ("config.bin.liba.lib", strings_type);
@@ -154,6 +157,21 @@ namespace build2
       if (const value& v = config::optional (r, "config.bin.rpath"))
         b.assign ("bin.rpath") += as<strings> (v);
 
+      // config.bin.ar
+      // config.bin.ranlib
+      //
+      // For config.bin.ar we default to 'ar' while ranlib should be explicitly
+      // specified by the user in order for us to use it (most targets support
+      // -s option to ar).
+      //
+      if (first)
+      {
+        // @@ Maybe, if explicitly specified by the user, we should try to run
+        // them?
+        //
+        config::required (r, "config.bin.ar", "ar");
+        config::optional (r, "config.bin.ranlib");
+      }
 
       // Configure "installability" of our target types.
       //
