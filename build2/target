@@ -879,18 +879,19 @@ namespace build2
     void
     path (path_type p) {assert (path_.empty ()); path_ = std::move (p);}
 
-    // Derive a path from target's dir, name, and, if specified, ext.
-    // If ext is not specified, then use default_ext and also update
-    // the target's extension (this becomes important if later we need
-    // to reliably determine whether this file has an extension; think
-    // hxx{foo.bar.} and hxx.ext is empty).
+    // Derive a path from target's dir, name, and, if set, ext. If ext is not
+    // set, try to derive it using the target type extension function and
+    // fallback to default_ext, if specified. In both cases also update the
+    // target's extension (this becomes important if later we need to reliably
+    // determine whether this file has an extension; think hxx{foo.bar.} and
+    // hxx{*}:extension is empty).
     //
-    // If name_prefix is not NULL, add it before the name part and after
-    // the directory. Similarly, if name_suffix is not NULL, add it after
-    // the name part and before the extension.
+    // If name_prefix is not NULL, add it before the name part and after the
+    // directory. Similarly, if name_suffix is not NULL, add it after the name
+    // part and before the extension.
     //
-    // Finally, if the path was already assigned to this target, then
-    // this function verifies that the two are the same.
+    // Finally, if the path was already assigned to this target, then this
+    // function verifies that the two are the same.
     //
     void
     derive_path (const char* default_ext = nullptr,
@@ -1058,24 +1059,29 @@ namespace build2
   // Return fixed target extension.
   //
   template <const char* ext>
-  const std::string&
+  const std::string*
   target_extension_fix (const target_key&, scope&);
 
-  // Get the extension from the variable or use the default if none set.
-  // Issue diagnostics and fail if the default is NULL.
+  // Get the extension from the variable or use the default if none set. If
+  // the default is NULL, then return NULL.
   //
   template <const char* var, const char* def>
-  const std::string&
+  const std::string*
   target_extension_var (const target_key&, scope&);
+
+  // Always return NULL extension.
+  //
+  const std::string*
+  target_extension_null (const target_key&, scope&);
 
   // Issue diagnostics and fail if called.
   //
-  const std::string&
+  const std::string*
   target_extension_fail (const target_key&, scope&);
 
   // Assert if called.
   //
-  const std::string&
+  const std::string*
   target_extension_assert (const target_key&, scope&);
 
   // Target print functions.

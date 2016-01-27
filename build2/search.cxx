@@ -71,20 +71,18 @@ namespace build2
     {
       if (auto f = ctk.type->extension)
       {
-        ext = &f (ctk, *cpk.scope); // Already from the pool.
+        ext = f (ctk, *cpk.scope); // Already from the pool.
       }
-      else
+
+      if (ext == nullptr)
       {
         // What should we do here, fail or say we didn't find anything?
-        // Current think is that if the target type didn't provide the
-        // default extension, then it doesn't want us to search for an
-        // existing file (of course, if the user specified the extension
-        // explicitly, we will still do so). But let me know what you
-        // think.
+        // Current think is that if the target type couldn't find the default
+        // extension, then we simply shouldn't search for any existing files
+        // (of course, if the user specified the extension explicitly, we will
+        // still do so).
         //
-        //fail << "no default extension for prerequisite " << cpk;
-        level4 ([&]{trace << "no existing file found for prerequisite "
-                          << cpk;});
+        level4 ([&]{trace << "no existing file for prerequisite " << cpk;});
         return nullptr;
       }
     }
@@ -134,7 +132,7 @@ namespace build2
       return &t;
     }
 
-    level4 ([&]{trace << "no existing file found for prerequisite " << cpk;});
+    level4 ([&]{trace << "no existing file for prerequisite " << cpk;});
     return nullptr;
   }
 

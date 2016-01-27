@@ -10,6 +10,8 @@ namespace build2
 {
   namespace bin
   {
+    constexpr const char ext_var[] = "extension";
+
     static target*
     obja_factory (const target_type&, dir_path d, string n, const string* e)
     {
@@ -27,7 +29,7 @@ namespace build2
       "obja",
       &file::static_type,
       &obja_factory,
-      &target_extension_assert,
+      &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
@@ -50,7 +52,7 @@ namespace build2
       "objso",
       &file::static_type,
       &objso_factory,
-      &target_extension_assert,
+      &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
@@ -94,13 +96,12 @@ namespace build2
     //    (or any module that knows how to build exe{}) changes it to the
     //    'host'. Maybe that's not a bad idea?
     //
-    constexpr const char exe_ext[] = "";
     const target_type exe::static_type
     {
       "exe",
       &file::static_type,
       &target_factory<exe>,
-      &target_extension_fix<exe_ext>,
+      &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false
@@ -132,13 +133,12 @@ namespace build2
     // come from a variable that is set not by bin but by the module
     // whose rule matched the target (e.g., cxx::link).
     //
-    constexpr const char a_ext[] = "a";
     const target_type liba::static_type
     {
       "liba",
       &file::static_type,
       &liba_factory,
-      &target_extension_fix<a_ext>,
+      &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false
@@ -158,13 +158,12 @@ namespace build2
       return so;
     }
 
-    constexpr const char so_ext[] = "so";
     const target_type libso::static_type
     {
       "libso",
       &file::static_type,
       &libso_factory,
-      &target_extension_fix<so_ext>,
+      &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false

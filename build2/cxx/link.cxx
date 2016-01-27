@@ -238,15 +238,13 @@ namespace build2
 
       if (l || p.is_a<liba> ())
       {
-        an = path ("lib" + p.name);
-
-        // Note that p.scope should be the same as the target's for
-        // which we are looking for this library. The idea here is
-        // that we have to use the same "extension configuration" as
-        // the target's.
+        // We are trying to find a library in the search paths extracted from
+        // the compiler. It would only be natural if we use the library
+        // prefix/extension that correspond to this compiler's target.
         //
+        an = path ("lib" + p.name);
         ae = ext == nullptr
-          ? &liba::static_type.extension (p.key ().tk, p.scope)
+          ? &extension_pool.find ("a")
           : ext;
 
         if (!ae->empty ())
@@ -265,7 +263,7 @@ namespace build2
       {
         sn = path ("lib" + p.name);
         se = ext == nullptr
-          ? &libso::static_type.extension (p.key ().tk, p.scope)
+          ? &extension_pool.find ("so")
           : ext;
 
         if (!se->empty ())
@@ -487,22 +485,21 @@ namespace build2
       //
       if (t.path ().empty ())
       {
-        auto l (t["extension"]);
-        const char* e (l ? as<string> (*l).c_str () : nullptr);
-
         switch (lt)
         {
         case type::e:
           {
-            t.derive_path (e != nullptr ? e : "");
+            t.derive_path ("");
             break;
           }
         case type::a:
         case type::so:
           {
             auto l (t["bin.libprefix"]);
-            t.derive_path (e != nullptr ? e : (lt == type::a ? "a" : "so"),
-                           l ? as<string> (*l).c_str () : "lib");
+            const char* e (lt == type::a ? "a" : "so");
+            const char* p (l ? as<string> (*l).c_str () : "lib");
+
+            t.derive_path (e, p);
             break;
           }
         }

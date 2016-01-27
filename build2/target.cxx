@@ -322,24 +322,28 @@ namespace build2
     if (ns != nullptr)
       n += ns;
 
-    // Update the extension.
+    // Update the extension. See also search_existing_file() if updating
+    // anything here.
     //
-    // See also search_existing_file() if updating anything here.
-    //
+    assert (de == nullptr || type ().extension != nullptr);
+
     if (ext == nullptr)
     {
-      // If provided by the caller, then use that.
+      // If the target type has the extension function then try that first.
+      // The reason for preferring it over what's been provided by the caller
+      // is that this function will often use the 'extension' variable which
+      // the user can use to override extensions.
       //
-      if (de != nullptr)
-        ext = &extension_pool.find (de);
-      //
-      // Otherwise see if the target type has function that will
-      // give us the default extension.
-      //
-      else if (auto f = type ().extension)
-        ext = &f (key (), base_scope ()); // Already from the pool.
-      else
-        fail << "no default extension for target " << *this;
+      if (auto f = type ().extension)
+        ext = f (key (), base_scope ()); // Already from the pool.
+
+      if (ext == nullptr)
+      {
+        if (de != nullptr)
+          ext = &extension_pool.find (de);
+        else
+          fail << "no default extension for target " << *this;
+      }
     }
 
     // Add the extension.
@@ -418,7 +422,13 @@ namespace build2
     return t;
   }
 
-  const string&
+  const string*
+  target_extension_null (const target_key&, scope&)
+  {
+    return nullptr;
+  }
+
+  const string*
   target_extension_fail (const target_key& tk, scope& s)
   {
     {
@@ -439,7 +449,7 @@ namespace build2
     throw failed ();
   }
 
-  const string&
+  const string*
   target_extension_assert (const target_key&, scope&)
   {
     assert (false); // Attempt to obtain the default extension.
@@ -556,13 +566,13 @@ namespace build2
     false
   };
 
-  static const std::string&
+  static const std::string*
   buildfile_target_extension (const target_key& tk, scope&)
   {
     // If the name is special 'buildfile', then there is no extension,
     // otherwise it is .build.
     //
-    return extension_pool.find (*tk.name == "buildfile" ? "" : "build");
+    return &extension_pool.find (*tk.name == "buildfile" ? "" : "build");
   }
 
   const target_type buildfile::static_type
