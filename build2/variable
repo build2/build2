@@ -779,9 +779,9 @@ namespace build2
     }
 
     std::pair<std::reference_wrapper<value>, bool>
-    assign (const std::string& name)
+    assign (const std::string& name, const build2::value_type* type = nullptr)
     {
-      return assign (var_pool.find (name));
+      return assign (var_pool.find (name, type));
     }
 
     std::pair<const_iterator, const_iterator>

@@ -5,6 +5,7 @@
 #include <build2/cxx/module>
 
 #include <butl/process>
+#include <butl/triplet>
 #include <butl/fdstream>
 
 #include <build2/scope>
@@ -19,6 +20,7 @@
 #include <build2/cxx/compile>
 #include <build2/cxx/link>
 #include <build2/cxx/install>
+#include <build2/cxx/utility>
 
 using namespace std;
 using namespace butl;
@@ -181,7 +183,7 @@ namespace build2
           }
 
           if (verb >= 2)
-            text << cxx << " " << ver;
+            text << cxx << ": version " << ver;
         }
       }
 
@@ -212,6 +214,105 @@ namespace build2
 
       if (const value& v = config::optional (r, "config.cxx.libs"))
         b.assign ("cxx.libs") += as<strings> (v);
+
+      // Figure out the host this compiler is building for.
+      //
+      if (first)
+      {
+        // This is actually a lot trickier than one would have hoped.
+        //
+        // There is the -dumpmachine option but GCC doesn't adjust it per the
+        // flags (e.g., -m32). But Clang does. GCC (starting with 4.6) has the
+        // -print-multiarch option which does the right thing. But Clang
+        // doesn't have it. Note also that none of these approaches actually
+        // honor the -arch option (which is really what this compiler is
+        // building for). To get to that, we would have to resort to a hack
+        // like this:
+        //
+        // gcc -v -E - 2>&1 | grep cc1
+        // .../cc1 ... -mtune=generic -march=x86-64
+        //
+        // This is what we are going to do for the time being: First try
+        // -print-multiarch. If that works out (recent GCC), then use the
+        // result. Otherwise, fallback to -dumpmachine (Clang, older GCC).
+        //
+        cstrings args;
+
+        args.push_back (as<string> (*r["config.cxx"]).c_str ());
+        append_options (args, r, "cxx.coptions");
+        args.push_back (""); // Reserve for -print-multiarch/-dumpmachine
+        args.push_back (nullptr);
+
+        auto run = [&args] (const char* o) -> string
+          {
+            args[args.size () - 2] = o;
+
+            if (verb >= 3)
+              print_process (args);
+
+            string r;
+            try
+            {
+              // Redirect STDOUT and STDERR to a pipe (we don't want the user
+              // to see what we are up to here).
+              //
+              process pr (args.data (), 0, -1, 1);
+              ifdstream is (pr.in_ofd);
+
+              getline (is, r);
+              is.close (); // Don't block.
+
+              if (!pr.wait ())
+                r.clear ();
+            }
+            catch (const process_error& e)
+            {
+              error << "unable to execute " << args[0] << ": " << e.what ();
+
+              if (e.child ())
+                exit (1);
+
+              throw failed ();
+            }
+
+            return r;
+          };
+
+        string m (run ("-print-multiarch"));
+
+        if (m.empty ())
+          m = run ("-dumpmachine");
+
+        if (m.empty ())
+          fail << "unable to determine '" << args[0] << "' compiler target";
+
+        level4 ([&]{trace << "compiler targets " << m;});
+
+        try
+        {
+          string canon;
+          triplet t (m, canon);
+
+          if (verb >= 2)
+            text << args[0] << ": target " << canon;
+
+          // Enter them as cxx.host.{cpu,vendor,system,version}.
+          //
+          r.assign ("cxx.host", string_type) = canon;
+          r.assign ("cxx.host.cpu", string_type) = t.cpu;
+          r.assign ("cxx.host.vendor", string_type) = t.vendor;
+          r.assign ("cxx.host.system", string_type) = t.system;
+          r.assign ("cxx.host.version", string_type) = t.version;
+        }
+        catch (const invalid_argument& e)
+        {
+          // This is where we could suggest that the user to specifies
+          // --config-sub to help us out.
+          //
+          fail << "unable to parse compiler target '" << m << "': "
+               << e.what ();
+        }
+      }
 
       // Configure "installability" of our target types.
       //
