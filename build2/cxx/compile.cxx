@@ -375,6 +375,7 @@ namespace build2
 
       scope& rs (t.root_scope ());
       const string& cxx (as<string> (*rs["config.cxx"]));
+      const string& sys (as<string> (*rs["cxx.host.system"]));
 
       cstrings args {cxx.c_str ()};
 
@@ -400,7 +401,10 @@ namespace build2
       append_std (args, t, std);
 
       if (t.is_a<objso> ())
-        args.push_back ("-fPIC");
+      {
+        if (sys != "darwin") // fPIC by default.
+          args.push_back ("-fPIC");
+      }
 
       args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
       args.push_back ("-MG"); // Treat missing headers as generated.
@@ -723,6 +727,7 @@ namespace build2
 
       scope& rs (t.root_scope ());
       const string& cxx (as<string> (*rs["config.cxx"]));
+      const string& sys (as<string> (*rs["cxx.host.system"]));
 
       cstrings args {cxx.c_str ()};
 
@@ -744,7 +749,10 @@ namespace build2
       append_std (args, t, std);
 
       if (t.is_a<objso> ())
-        args.push_back ("-fPIC");
+      {
+        if (sys != "darwin") // fPIC by default.
+          args.push_back ("-fPIC");
+      }
 
       args.push_back ("-o");
       args.push_back (relo.string ().c_str ());

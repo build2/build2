@@ -225,6 +225,9 @@ namespace build2
       if (p.target != nullptr)
         return p.target;
 
+      scope& rs (*p.scope.root_scope ());
+      const string& sys (as<string> (*rs["cxx.host.system"]));
+
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libso.
 
@@ -262,9 +265,19 @@ namespace build2
       if (l || p.is_a<libso> ())
       {
         sn = path ("lib" + p.name);
-        se = ext == nullptr
-          ? &extension_pool.find ("so")
-          : ext;
+
+        if (ext == nullptr)
+        {
+          const char* e;
+          if (sys == "darwin")
+            e = "dylib";
+          else
+            e = "so";
+
+          ext = &extension_pool.find (e);
+        }
+
+        se = ext;
 
         if (!se->empty ())
         {
@@ -477,6 +490,9 @@ namespace build2
 
       path_target& t (static_cast<path_target&> (xt));
 
+      scope& rs (t.root_scope ());
+      const string& sys (as<string> (*rs["cxx.host.system"]));
+
       type lt (link_type (t));
       bool so (lt == type::so);
       order lo (link_order (t));
@@ -489,15 +505,27 @@ namespace build2
         {
         case type::e:
           {
-            t.derive_path ("");
+            t.derive_path (""); // "exe"
             break;
           }
         case type::a:
         case type::so:
           {
             auto l (t["bin.libprefix"]);
-            const char* e (lt == type::a ? "a" : "so");
             const char* p (l ? as<string> (*l).c_str () : "lib");
+
+            const char* e;
+            if (lt == type::a)
+            {
+              e = "a";
+            }
+            else
+            {
+              if (sys == "darwin")
+                e = "dylib";
+              else
+                e = "so";
+            }
 
             t.derive_path (e, p);
             break;
@@ -510,13 +538,6 @@ namespace build2
       // Inject dependency on the output directory.
       //
       inject_parent_fsdir (a, t);
-
-      // We may need the project roots for rule chaining (see below).
-      // We will resolve them lazily only if needed.
-      //
-      scope* root (nullptr);
-      const dir_path* out_root (nullptr);
-      const dir_path* src_root (nullptr);
 
       search_paths_cache lib_paths; // Extract lazily.
 
@@ -572,16 +593,10 @@ namespace build2
           continue;
         }
 
-        if (root == nullptr)
-        {
-          // Which scope shall we use to resolve the root? Unlikely,
-          // but possible, the prerequisite is from a different project
-          // altogether. So we are going to use the target's project.
-          //
-          root = &t.root_scope ();
-          out_root = &root->out_path ();
-          src_root = &root->src_path ();
-        }
+        // Which scope shall we use to resolve the root? Unlikely, but
+        // possible, the prerequisite is from a different project
+        // altogether. So we are going to use the target's project.
+        //
 
         const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
         const target_type& o_type (
@@ -600,16 +615,16 @@ namespace build2
         {
           const dir_path& cpd (*cp.tk.dir);
 
-          if (cpd.relative () || cpd.sub (*out_root))
+          if (cpd.relative () || cpd.sub (rs.out_path ()))
             d = cpd;
           else
           {
-            if (!cpd.sub (*src_root))
+            if (!cpd.sub (rs.src_path ()))
               fail << "out of project prerequisite " << cp <<
                 info << "specify corresponding " << o_type.name << "{} "
                    << "target explicitly";
 
-            d = *out_root / cpd.leaf (*src_root);
+            d = rs.out_path () / cpd.leaf (rs.src_path ());
           }
         }
 
@@ -743,18 +758,20 @@ namespace build2
       if (!execute_prerequisites (a, t, t.mtime ()))
         return target_state::unchanged;
 
+      scope& rs (t.root_scope ());
+      const string& sys (as<string> (*rs["cxx.host.system"]));
+
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
       path relt (relative (t.path ()));
 
-      scope& rs (t.root_scope ());
       cstrings args;
 
       // Storage.
       //
       string std;
-      string soname;
+      string soname1, soname2;
       strings sargs;
 
       if (lt == type::a)
@@ -772,7 +789,12 @@ namespace build2
         append_std (args, t, std);
 
         if (so)
-          args.push_back ("-shared");
+        {
+          if (sys == "darwin")
+            args.push_back ("-dynamiclib");
+          else
+            args.push_back ("-shared");
+        }
 
         args.push_back ("-o");
         args.push_back (relt.string ().c_str ());
@@ -781,8 +803,24 @@ namespace build2
         //
         if (so)
         {
-          soname = "-Wl,-soname," + relt.leaf ().string ();
-          args.push_back (soname.c_str ());
+          const string& leaf (relt.leaf ().string ());
+
+          if (sys == "darwin")
+          {
+            // With Mac OS 10.5 (Leopard) Apple finally caved in and gave us
+            // a way to emulate vanilla -rpath.
+            //
+            soname1 = "-install_name";
+            soname2 = "@rpath/" + leaf;
+          }
+          else
+            soname1 = "-Wl,-soname," + leaf;
+
+          if (!soname1.empty ())
+            args.push_back (soname1.c_str ());
+
+          if (!soname2.empty ())
+            args.push_back (soname2.c_str ());
         }
 
         // Add rpaths. First the ones specified by the user so that they
