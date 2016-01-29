@@ -61,8 +61,8 @@ namespace build2
     {
       auto& v (var_pool);
 
-      v.find ("work", dir_path_type);
-      v.find ("home", dir_path_type);
+      v.find ("build.work", dir_path_type);
+      v.find ("build.home", dir_path_type);
 
       v.find ("src_root", dir_path_type);
       v.find ("out_root", dir_path_type);
@@ -86,8 +86,8 @@ namespace build2
     global_scope = scopes.insert (
       dir_path ("/"), nullptr, true, false)->second;
 
-    global_scope->assign ("work") = work;
-    global_scope->assign ("home") = home;
+    global_scope->assign ("build.work") = work;
+    global_scope->assign ("build.home") = home;
 
     // Register builtin target types.
     //
