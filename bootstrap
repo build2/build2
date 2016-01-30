@@ -56,7 +56,7 @@ if test -z "$libbutl"; then
   if test -d libbutl; then
     libbutl=libbutl
   else
-    libbutl=`echo libbutl-*`
+    libbutl=`echo libbutl-*/`
     if test ! -d "$libbutl"; then
       libbutl=
     fi
@@ -67,7 +67,7 @@ if test -z "$libbutl"; then
   if test -d ../libbutl; then
     libbutl=../libbutl
   else
-    libbutl=`echo ../libbutl-*`
+    libbutl=`echo ../libbutl-*/`
     if test ! -d "$libbutl"; then
       libbutl=
     fi
