@@ -39,7 +39,7 @@
 #include <build2/lexer>
 #include <build2/parser>
 
-#include <build2/options>
+#include <build2/b-options>
 
 using namespace std;
 

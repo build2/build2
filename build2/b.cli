@@ -1,0 +1,221 @@
+// file      : build2/options.cli
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+include <build2/types>;
+
+"\section=1"
+"\name=b"
+"\summary=build2 build driver"
+
+namespace build2
+{
+  {
+    "<options> <variable> <buildspec>
+     <meta-operation> <operation> <target> <src-base>",
+
+    "\h|SYNOPSIS|
+
+     \cb{b --help}\n
+     \cb{b --version}\n
+     \c{\b{b} [<options>] [<variables>] [<buildspec>]}
+
+     \h|DESCRIPTION|
+
+     The \cb{build2} driver performs a set of meta-operations on operations on
+     targets according to the build specification, or <buildspec> for short.
+     The buildspec has the following form:
+
+     \c{<meta-operation>(<operation>...(<target>...))...}
+
+     All three components can be omitted. If <meta-operation> is omitted, then
+     it defaults to \cb{perform}. If <operation> is omitted, then it default to
+     the default operation of this meta-operation. For \cb{perform} that would
+     be \cb{update}. Finally, if <target> is omitted, then it default to the
+     current directory. For example:
+
+     \
+     b                  # perform(update(./))
+     b foo/             # perform(update(foo/))
+     b foo/ bar/        # perform(update(foo/ bar/))
+     b update           # perform(update(./))
+     b 'clean(../)'     # perform(clean(../))
+     b perform          # perform(update(./))
+     b configure        # configure(?(./))
+     b clean update     # perform(clean(./) update(./))
+     b configure update # configure(?(./)) perform(update(./))
+     \
+
+     Noice the question mark used to denote the default operation for the
+     \cb{configure} meta-operation. For \cb{configure} the default operation
+     is \"all operations\". That is, it will configure all the operations for
+     the specified target.
+
+     You can also \"generate\" multiple operation for the same set of targets.
+     Compare:
+
+     \
+     b 'clean(foo/ bar/)' 'update(foo/ bar/)'
+     b '{clean update}(foo/ bar/)'
+     \
+
+     Some more useful buildspec examples:
+
+     \
+     b '{clean update clean}(...)'
+     b '{clean test clean}(...)'
+     b '{clean disfigure}(...)'    # similar to distclean
+     \
+
+     For each <target> the driver expects to find a \cb{buildfile} either in
+     the target's directory or, if the directory is part of the \cb{out} tree
+     (\cb{out_base}), in the corresponding \cb{src} directory (\cb{src_base}).
+
+     For example, assuming \cb{foo/} is the source directory of a project:
+
+     \
+     b foo/              # out_base=src_base=foo/
+     b foo-out/          # out_base=foo-out/ src_base=foo/
+     b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     \
+
+     In the above example, we assumed that the \c{build2} driver was able to
+     determine the association between \cb{out_base} and \cb{src_base}. This is
+     achieved in one of two ways: the \cb{config} module (which implements the
+     \cb{configure} and \cb{disfigure} meta-operations) saves this association
+     as part of the persistent configuration. If, however, the association
+     hasn't been saved, then we have to specify \cb{src_base} explicitly using
+     the following extended <target> syntax:
+
+     \c{<src-base>/@<target>}
+
+     Continuing with the previous example:
+
+     \
+     b foo/@foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     \
+
+     Normally, you would only need to specify \cb{src_base} explicitly once,
+     during configuration. For example, a typical usage would be:
+
+     \
+     b foo/
+     b 'configure(foo/@foo-out/)'  # src_base is saved
+     b foo-out/                    # no need to specify src_base
+     b 'clean(foo-out/exe{foo}'    # no need to specify src_base
+     \
+
+     \cb{build2} has the following build-in and pre-defined meta-operations.
+
+     \dl|
+
+     \li|\cb{perform}
+
+         Perform an operation.|
+
+     \li|\cb{configure}
+
+         Configure all operations in a project. Implemented by the \cb{config}
+         module.|
+
+     \li|\cb{disfigure}
+
+         Disfigure all operations in a project. Implemented by the \cb{config}
+         module.|
+
+     \li|\cb{dist}
+
+         Prepare a distribution for all operations in a project. Implemented
+         by the \cb{dist} module.||
+
+     \cb{build2} has the following build-in and pre-defined operations.
+
+     \dl|
+
+     \li|\cb{update}
+
+         Update a target.|
+
+     \li|\cb{clean}
+
+         Clean a target.|
+
+     \li|\cb{test}
+
+         Test a target. Performs \cb{update} as a pre-operation. Implemented by
+         the \cb{test} module.|
+
+     \li|\cb{install}
+
+         Install a target. Performs \cb{update} as a pre-operation. Implemented
+         by the \cb{install} module.||
+
+     Before <buildspec> (but after <options>) you can set one or more
+     \c{build2} <variables>. This is normally used to pass the configuration
+     values, for example:
+
+     \
+     b config.cxx=clang++ config.cxx.coptions=-O3 \
+       config.install.root=/usr/local config.install.root.sudo=sudo \
+       configure
+     \
+     "
+  }
+
+  class options
+  {
+    "\h|OPTIONS|"
+
+    bool -v
+    {
+      "Print actual commands being executed. This is equivalent to
+       \cb{--verbose 2}."
+    }
+
+    bool -q
+    {
+      "Run quietly, only printing error messages. This is equivalent to
+       \cb{--verbose 0}."
+    }
+
+    std::uint16_t --verbose = 1
+    {
+      "<level>",
+      "Set the diagnostics verbosity to <level> between 0 and 6. Level 0
+       disables any non-error messages while level 6 produces lots of
+       information, with level 1 beeing the default. The following additional
+       types of diagnostics are produced at each level:
+
+       \ol|
+
+       \li|High-level information messages.|
+
+       \li|Essential underlying commands being executed.|
+
+       \li|All underlying commands being executed.|
+
+       \li|Information that could be helpful to the user.|
+
+       \li|Information that could be helpful to the developer.|
+
+       \li|Even more detailed information, including state dumps.||"
+    };
+
+    bool --help {"Print usage information and exit."};
+    bool --version {"Print version and exit."};
+  };
+
+  "\h|EXIT STATUS|
+
+  Non-zero exit status is returned in case of an error.
+  "
+
+  "\h|ENVIRONMENT|
+
+  The \cb{HOME} environment variable is used to determine the user's home
+  directory. If it is not set, then \cb{getpwuid(3)} is used instead. This
+  value is used to shorten paths printed in diagnostics by replacing it with
+  '\cb{~}'. It is also made available to the buildfiles as the \cb{build.home}
+  variable.
+  "
+}

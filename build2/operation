@@ -109,8 +109,9 @@ namespace build2
   const meta_operation_id disfigure_id = 3;
   const meta_operation_id dist_id = 4;
 
-  // The default operation is a special marker that can be used to
-  // indicate that no operation was explicitly specified by the user.
+  // The default operation is a special marker that can be used to indicate
+  // that no operation was explicitly specified by the user. If adding
+  // something here remember to update the man page.
   //
   const operation_id default_id = 1; // Shall be first.
   const operation_id update_id = 2;
