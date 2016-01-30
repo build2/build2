@@ -6,12 +6,12 @@ include <build2/types>;
 
 "\section=1"
 "\name=b"
-"\summary=build2 build driver"
+"\summary=build2 driver"
 
 namespace build2
 {
   {
-    "<options> <variable> <buildspec>
+    "<options> <variables> <buildspec>
      <meta-operation> <operation> <target> <src-base>",
 
     "\h|SYNOPSIS|
@@ -30,28 +30,29 @@ namespace build2
 
      All three components can be omitted. If <meta-operation> is omitted, then
      it defaults to \cb{perform}. If <operation> is omitted, then it default to
-     the default operation of this meta-operation. For \cb{perform} that would
-     be \cb{update}. Finally, if <target> is omitted, then it default to the
+     the default operation for this meta-operation. For \cb{perform} it is
+     \cb{update}. Finally, if <target> is omitted, then it defaults to the
      current directory. For example:
 
      \
-     b                  # perform(update(./))
-     b foo/             # perform(update(foo/))
-     b foo/ bar/        # perform(update(foo/ bar/))
-     b update           # perform(update(./))
-     b 'clean(../)'     # perform(clean(../))
-     b perform          # perform(update(./))
-     b configure        # configure(?(./))
-     b clean update     # perform(clean(./) update(./))
-     b configure update # configure(?(./)) perform(update(./))
+     b                    # perform(update(./))
+     b foo/               # perform(update(foo/))
+     b foo/ bar/          # perform(update(foo/ bar/))
+     b update             # perform(update(./))
+     b 'clean(../)'       # perform(clean(../))
+     b perform            # perform(update(./))
+     b configure          # configure(?(./))
+     b 'configure(../)'   # configure(?(../))
+     b clean update       # perform(clean(./) update(./))
+     b configure update   # configure(?(./)) perform(update(./))
      \
 
-     Noice the question mark used to denote the default operation for the
-     \cb{configure} meta-operation. For \cb{configure} the default operation
-     is \"all operations\". That is, it will configure all the operations for
-     the specified target.
+     Notice the question mark used to show the (imaginary) default operation
+     for the \cb{configure} meta-operation. For \cb{configure} the default
+     operation is \"all operations\". That is, it will configure all the
+     operations for the specified target.
 
-     You can also \"generate\" multiple operation for the same set of targets.
+     You can also \"generate\" multiple operations for the same set of targets.
      Compare:
 
      \
@@ -62,13 +63,14 @@ namespace build2
      Some more useful buildspec examples:
 
      \
-     b '{clean update clean}(...)'
-     b '{clean test clean}(...)'
-     b '{clean disfigure}(...)'    # similar to distclean
+     b '{clean update}(...)'        # rebuild
+     b '{clean update clean}(...)'  # make sure builds
+     b '{clean test clean}(...)'    # make sure passes tests
+     b '{clean disfigure}(...)'     # similar to distclean
      \
 
-     For each <target> the driver expects to find a \cb{buildfile} either in
-     the target's directory or, if the directory is part of the \cb{out} tree
+     For each <target> the driver expects to find \cb{buildfile} either in the
+     target's directory or, if the directory is part of the \cb{out} tree
      (\cb{out_base}), in the corresponding \cb{src} directory (\cb{src_base}).
 
      For example, assuming \cb{foo/} is the source directory of a project:
@@ -79,13 +81,13 @@ namespace build2
      b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
      \
 
-     In the above example, we assumed that the \c{build2} driver was able to
+     In the above example, we assumed that the \cb{build2} driver was able to
      determine the association between \cb{out_base} and \cb{src_base}. This is
      achieved in one of two ways: the \cb{config} module (which implements the
      \cb{configure} and \cb{disfigure} meta-operations) saves this association
-     as part of the persistent configuration. If, however, the association
-     hasn't been saved, then we have to specify \cb{src_base} explicitly using
-     the following extended <target> syntax:
+     as part of the configuration process. If, however, the association hasn't
+     been saved, then we have to specify \cb{src_base} explicitly using the
+     following extended <target> syntax:
 
      \c{<src-base>/@<target>}
 
@@ -95,17 +97,16 @@ namespace build2
      b foo/@foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
      \
 
-     Normally, you would only need to specify \cb{src_base} explicitly once,
+     Normally, you would need to specify \cb{src_base} explicitly only once,
      during configuration. For example, a typical usage would be:
 
      \
-     b foo/
      b 'configure(foo/@foo-out/)'  # src_base is saved
      b foo-out/                    # no need to specify src_base
-     b 'clean(foo-out/exe{foo}'    # no need to specify src_base
+     b 'clean(foo-out/exe{foo})'   # no need to specify src_base
      \
 
-     \cb{build2} has the following build-in and pre-defined meta-operations.
+     \cb{build2} has the following build-in and pre-defined meta-operations:
 
      \dl|
 
@@ -115,20 +116,22 @@ namespace build2
 
      \li|\cb{configure}
 
-         Configure all operations in a project. Implemented by the \cb{config}
-         module.|
+         Configure all operations supported by a project and save the result
+         in the project's \cb{build2/config.build} file. Implemented by the
+         \cb{config} module.|
 
      \li|\cb{disfigure}
 
-         Disfigure all operations in a project. Implemented by the \cb{config}
-         module.|
+         Disfigure all operations supported by a project and remove the
+         project's \cb{build2/config.build} file. Implemented by the
+         \cb{config} module.|
 
      \li|\cb{dist}
 
-         Prepare a distribution for all operations in a project. Implemented
-         by the \cb{dist} module.||
+         Prepare a distribution containing all files necessary to perform all
+         operations in a project. Implemented by the \cb{dist} module.||
 
-     \cb{build2} has the following build-in and pre-defined operations.
+     \cb{build2} has the following build-in and pre-defined operations:
 
      \dl|
 
@@ -151,8 +154,8 @@ namespace build2
          by the \cb{install} module.||
 
      Before <buildspec> (but after <options>) you can set one or more
-     \c{build2} <variables>. This is normally used to pass the configuration
-     values, for example:
+     \cb{build2} <variables>. This is normally used to specify the
+     configuration values, for example:
 
      \
      b config.cxx=clang++ config.cxx.coptions=-O3 \
@@ -183,7 +186,7 @@ namespace build2
       "<level>",
       "Set the diagnostics verbosity to <level> between 0 and 6. Level 0
        disables any non-error messages while level 6 produces lots of
-       information, with level 1 beeing the default. The following additional
+       information, with level 1 being the default. The following additional
        types of diagnostics are produced at each level:
 
        \ol|
@@ -199,10 +202,30 @@ namespace build2
        \li|Information that could be helpful to the developer.|
 
        \li|Even more detailed information, including state dumps.||"
-    };
+    }
 
-    bool --help {"Print usage information and exit."};
-    bool --version {"Print version and exit."};
+    string --pager // String to allow empty value.
+    {
+      "<path>",
+      "The pager program to be used to show long text. Commonly used pager
+       programs are \cb{less} and \cb{more}. You can also specify additional
+       options that should be passed to the pager program with
+       \cb{--pager-option}. If an empty string is specified as the pager
+       program, then no pager will be used. If the pager program is not
+       explicitly specified, then \cb{b} will try to use \cb{less}. If it
+       is not available, then no pager will be used."
+    }
+
+    strings --pager-option
+    {
+      "<opt>",
+      "Additional option to be passed to the pager program. See \cb{--pager}
+       for more information on the pager program. Repeat this option to
+       specify multiple pager options."
+    }
+
+    bool --help {"Print usage information and exit."}
+    bool --version {"Print version and exit."}
   };
 
   "\h|EXIT STATUS|
@@ -214,8 +237,8 @@ namespace build2
 
   The \cb{HOME} environment variable is used to determine the user's home
   directory. If it is not set, then \cb{getpwuid(3)} is used instead. This
-  value is used to shorten paths printed in diagnostics by replacing it with
-  '\cb{~}'. It is also made available to the buildfiles as the \cb{build.home}
-  variable.
+  value is used to shorten paths printed in diagnostics by replacing the home
+  directory with \cb{~/}. It is also made available to \cb{buildfile}'s as the
+  \cb{build.home} variable.
   "
 }
