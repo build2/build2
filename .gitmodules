@@ -1,0 +1,3 @@
+[submodule "doc/style"]
+	path = doc/style
+	url = ../etc/style.git
