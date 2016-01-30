@@ -1,5 +1,0 @@
-- Normally variable names should be like C-identifiers plus '.'. In
-  particular, in simple expansion (i.e., $package-$version) we assume
-  characters [/-] end the name. But this can be overrident with paren-
-  expansion (i.e., $(package-version)). In assignment we always use
-  full name until space, '=', or '=+'.
