@@ -16,6 +16,7 @@
 #include <iostream>
 #include <system_error>
 
+#include <butl/pager>
 #include <butl/filesystem>
 
 #include <build2/version>
@@ -41,6 +42,7 @@
 
 #include <build2/b-options>
 
+using namespace butl;
 using namespace std;
 
 #include <build2/config/module>
@@ -63,6 +65,12 @@ main (int argc, char* argv[])
     cl::argv_scanner scan (argc, argv, true);
     options ops (scan);
 
+    // Diagnostics verbosity.
+    //
+    verb = ops.verbose_specified ()
+      ? ops.verbose ()
+      : ops.v () ? 2 : ops.q () ? 0 : 1;
+
     // Version.
     //
     if (ops.version ())
@@ -78,20 +86,25 @@ main (int argc, char* argv[])
     //
     if (ops.help ())
     {
-      ostream& o (cout);
+      try
+      {
+        pager p ("b help",
+                 verb >= 2,
+                 ops.pager_specified () ? &ops.pager () : nullptr,
+                 &ops.pager_option ());
 
-      o << "Usage: " << argv[0] << " [options] [variables] [buildspec]" << endl
-        << "Options:" << endl;
+        print_b_usage (p.stream ());
 
-      options::print_usage (o);
-      return 0;
+        // If the pager failed, assume it has issued some diagnostics.
+        //
+        return p.wait () ? 0 : 1;
+      }
+      catch (const system_error& e)
+      {
+        error << "pager failed: " << e.what ();
+        return 1;
+      }
     }
-
-    // Diagnostics verbosity.
-    //
-    verb = ops.verbose_specified ()
-      ? ops.verbose ()
-      : ops.v () ? 2 : ops.q () ? 0 : 1;
 
     // Initialize time conversion data that is used by localtime_r().
     //
