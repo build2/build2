@@ -1,0 +1,15 @@
+# file      : doc/buildfile
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+define css: file
+css{*}: extension = css
+
+define xhtml: doc
+xhtml{*}: extension = xhtml
+
+./: {man1 xhtml}{b}                            \
+    css{common pre-box man} 	               \
+    file{man-prologue.1 man-epilogue.1         \
+         man-prologue.xhtml man-epilogue.xhtml \
+         cli.sh}
