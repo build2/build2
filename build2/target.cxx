@@ -611,7 +611,7 @@ namespace build2
     "man",
     &doc::static_type,
     &man_factory,
-    &target_extension_assert, // Should be specified explicitly (see factory).
+    &target_extension_null, // Should be specified explicitly (see factory).
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
     false
