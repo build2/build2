@@ -11,8 +11,7 @@ include <build2/types>;
 namespace build2
 {
   {
-    "<options> <variables> <buildspec>
-     <meta-operation> <operation> <target> <src-base>",
+    "<options> <variables> <buildspec>",
 
     "\h|SYNOPSIS|
 
@@ -24,7 +23,18 @@ namespace build2
 
      The \cb{build2} driver performs a set of meta-operations on operations on
      targets according to the build specification, or <buildspec> for short.
-     The buildspec has the following form:
+     Before <buildspec> (but after <options>) you can set one or more
+     \cb{build2} <variables>."
+  }
+
+  // For usage it's nice to see the list of options on the first page. So
+  // let's not put this "extended" description into usage.
+  //
+  {
+    "<meta-operation> <operation> <target> <src-base>",
+    "",
+
+    "The buildspec has the following form:
 
      \c{<meta-operation>(<operation>...(<target>...))...}
 
@@ -153,9 +163,8 @@ namespace build2
          Install a target. Performs \cb{update} as a pre-operation. Implemented
          by the \cb{install} module.||
 
-     Before <buildspec> (but after <options>) you can set one or more
-     \cb{build2} <variables>. This is normally used to specify the
-     configuration values, for example:
+     The ability to specify \c{build2} variables as part of the command line
+     is normally used to pass configuration values, for example:
 
      \
      b config.cxx=clang++ config.cxx.coptions=-O3 \
