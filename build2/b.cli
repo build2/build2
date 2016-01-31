@@ -29,8 +29,8 @@ namespace build2
      \c{<meta-operation>(<operation>...(<target>...))...}
 
      All three components can be omitted. If <meta-operation> is omitted, then
-     it defaults to \cb{perform}. If <operation> is omitted, then it default to
-     the default operation for this meta-operation. For \cb{perform} it is
+     it defaults to \cb{perform}. If <operation> is omitted, then it defaults
+     to the default operation for this meta-operation. For \cb{perform} it is
      \cb{update}. Finally, if <target> is omitted, then it defaults to the
      current directory. For example:
 
@@ -106,7 +106,7 @@ namespace build2
      b 'clean(foo-out/exe{foo})'   # no need to specify src_base
      \
 
-     \cb{build2} has the following build-in and pre-defined meta-operations:
+     \cb{build2} has the following built-in and pre-defined meta-operations:
 
      \dl|
 
@@ -131,7 +131,7 @@ namespace build2
          Prepare a distribution containing all files necessary to perform all
          operations in a project. Implemented by the \cb{dist} module.||
 
-     \cb{build2} has the following build-in and pre-defined operations:
+     \cb{build2} has the following built-in and pre-defined operations:
 
      \dl|
 
