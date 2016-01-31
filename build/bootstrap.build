@@ -3,10 +3,10 @@
 # license   : MIT; see accompanying LICENSE file
 
 project = build2
-version = 0.1.0
+version = 0.2.0
 subprojects = # No subprojects.
 
-using build@0.1.0
+using build@0.2.0
 using config
 using dist
 using test
