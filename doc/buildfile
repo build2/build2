@@ -11,5 +11,16 @@ xhtml{*}: extension = xhtml
 ./: {man1 xhtml}{b}                            \
     css{common pre-box man} 	               \
     file{man-prologue.1 man-epilogue.1         \
-         man-prologue.xhtml man-epilogue.xhtml \
-         cli.sh}
+         man-prologue.xhtml man-epilogue.xhtml}
+
+./: doc{build2-build-system-manual.xhtml        \
+        build2-build-system-manual-a4.pdf       \
+	build2-build-system-manual-a4.ps        \
+        build2-build-system-manual-letter.pdf   \
+	build2-build-system-manual-letter.ps}   \
+    css{code-box common doc pre-box toc} 	\
+    file{a4.html2ps letter.html2ps doc.html2ps} \
+    file{doc-prologue.xhtml doc-epilogue.xhtml  \
+         manual.cli}
+
+./: file{cli.sh}
