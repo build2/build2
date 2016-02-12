@@ -1,4 +1,4 @@
-// file      : build2/options.cli
+// file      : build2/b.cli
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -23,8 +23,14 @@ namespace build2
 
      The \cb{build2} driver performs a set of meta-operations on operations on
      targets according to the build specification, or <buildspec> for short.
-     Before <buildspec> (but after <options>) you can set one or more
-     \cb{build2} <variables>."
+     This process can be controlled by specifying driver <options> and build
+     system <variables>.
+
+     Note that <options>, <variables>, and <buildspec> fragments can be
+     specified in any order. To avoid treating an argument that starts with
+     \cb{'-'} as an option, add the \cb{'--'} separator. To avoid treating an
+     argument that contains \cb{'='} as a variable, add the second \cb{'--'}
+     separator."
   }
 
   // For usage it's nice to see the list of options on the first page. So
@@ -116,7 +122,8 @@ namespace build2
      b 'clean(foo-out/exe{foo})'   # no need to specify src_base
      \
 
-     \cb{build2} has the following built-in and pre-defined meta-operations:
+     The build system has the following built-in and pre-defined
+     meta-operations:
 
      \dl|
 
@@ -141,7 +148,7 @@ namespace build2
          Prepare a distribution containing all files necessary to perform all
          operations in a project. Implemented by the \cb{dist} module.||
 
-     \cb{build2} has the following built-in and pre-defined operations:
+     The build system has the following built-in and pre-defined operations:
 
      \dl|
 
@@ -163,7 +170,7 @@ namespace build2
          Install a target. Performs \cb{update} as a pre-operation. Implemented
          by the \cb{install} module.||
 
-     The ability to specify \c{build2} variables as part of the command line
+     The ability to specify \cb{build2} variables as part of the command line
      is normally used to pass configuration values, for example:
 
      \

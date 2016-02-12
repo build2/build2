@@ -356,37 +356,42 @@ namespace build2
     public:
     options ();
 
-    options (int& argc,
-             char** argv,
-             bool erase = false,
-             ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
-             ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
+    void
+    parse (int& argc,
+           char** argv,
+           bool erase = false,
+           ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
+           ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    options (int start,
-             int& argc,
-             char** argv,
-             bool erase = false,
-             ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
-             ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
+    void
+    parse (int start,
+           int& argc,
+           char** argv,
+           bool erase = false,
+           ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
+           ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    options (int& argc,
-             char** argv,
-             int& end,
-             bool erase = false,
-             ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
-             ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
+    void
+    parse (int& argc,
+           char** argv,
+           int& end,
+           bool erase = false,
+           ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
+           ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    options (int start,
-             int& argc,
-             char** argv,
-             int& end,
-             bool erase = false,
-             ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
-             ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
+    void
+    parse (int start,
+           int& argc,
+           char** argv,
+           int& end,
+           bool erase = false,
+           ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
+           ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    options (::build2::cl::scanner&,
-             ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
-             ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
+    void
+    parse (::build2::cl::scanner&,
+           ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
+           ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
     // Option accessors.
     //

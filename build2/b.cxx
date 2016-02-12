@@ -12,6 +12,7 @@
 
 #include <sstream>
 #include <cassert>
+#include <cstring>     // strcmp(), strchr()
 #include <typeinfo>
 #include <iostream>
 #include <system_error>
@@ -62,8 +63,84 @@ main (int argc, char* argv[])
   {
     tracer trace ("main");
 
-    cl::argv_scanner scan (argc, argv, true);
-    options ops (scan);
+    // Parse the command line. We want to be able to specify options, vars,
+    // and buildspecs in any order (it is really handy to just add -v at the
+    // end of the command line).
+    //
+    options ops;
+    strings vars;
+    string args;
+    try
+    {
+      cl::argv_scanner scan (argc, argv);
+
+      for (bool opt (true), var (true); scan.more (); )
+      {
+        if (opt)
+        {
+          // If we see first "--", then we are done parsing options.
+          //
+          if (strcmp (scan.peek (), "--") == 0)
+          {
+            scan.next ();
+            opt = false;
+            continue;
+          }
+
+          // Parse the next chunk of options until we reach an argument (or
+          // eos).
+          //
+          ops.parse (scan);
+
+          if (!scan.more ())
+            break;
+
+          // Fall through.
+        }
+
+        const char* s (scan.next ());
+
+        // See if this is a command line variable. What if someone needs to
+        // pass a buildspec that contains '='? One way to support this would
+        // be to quote such a buildspec (e.g., "'/tmp/foo=bar/'"). Or invent
+        // another separator. Or use a second "--". Actually, let's just do
+        // the second "--".
+        //
+        if (var)
+        {
+          // If we see second "--", then we are also done parsing variables.
+          //
+          if (strcmp (s, "--") == 0)
+          {
+            var = false;
+            continue;
+          }
+
+          if (strchr (s, '=') != nullptr) // Covers =, +=, and =+.
+          {
+            vars.push_back (s);
+            continue;
+          }
+
+          // Fall through.
+        }
+
+        // Merge all the individual buildspec arguments into a single string.
+        // Instead, we could also parse them individually (and merge the
+        // result). The benefit of doing it this way is potentially better
+        // diagnostics (i.e., we could have used <buildspec-1>, <buildspec-2>
+        // to give the idea about which argument is invalid).
+        //
+        if (!args.empty ())
+          args += ' ';
+
+        args += s;
+      }
+    }
+    catch (const cl::exception& e)
+    {
+      fail << e;
+    }
 
     // Diagnostics verbosity.
     //
@@ -154,73 +231,49 @@ main (int argc, char* argv[])
     //
     reset ();
 
-    // Parse command line variables. They should come before the
-    // buildspec.
+    // Parse the command line variables.
     //
-    int argi (1);
-    for (; argi != argc; argi++)
+    for (const string& v: vars)
     {
-      const char* s (argv[argi]);
-
-      istringstream is (s);
+      istringstream is (v);
       is.exceptions (istringstream::failbit | istringstream::badbit);
       lexer l (is, path ("<cmdline>"));
-      token t (l.next ());
 
-      if (t.type == token_type::eos)
-        continue; // Whitespace-only argument.
-
-      // Unless this is a name followed by = or +=, assume it is
-      // a start of the buildspec.
+      // This should be a name followed by =, +=, or =+.
       //
-      if (t.type != token_type::name)
-        break;
-
+      token t (l.next ());
       token_type tt (l.next ().type);
 
-      if (tt != token_type::assign &&
-          tt != token_type::prepend &&
-          tt != token_type::append)
-        break;
+      if (t.type != token_type::name ||
+          (tt != token_type::assign &&
+           tt != token_type::prepend &&
+           tt != token_type::append))
+      {
+        fail << "expected variable assignment instead of '" << v << "'" <<
+          info << "use double '--' to treat this argument as buildspec";
+      }
 
       parser p;
       t = p.parse_variable (l, *global_scope, t.value, tt);
 
       if (t.type != token_type::eos)
-        fail << "unexpected " << t << " in variable " << s;
+        fail << "unexpected " << t << " in variable assignment '" << v << "'";
     }
 
     // Parse the buildspec.
     //
     buildspec bspec;
+    try
     {
-      // Merge all the individual buildspec arguments into a single
-      // string. Instead, we could also parse them individually (
-      // and merge the result). The benefit of doing it this way
-      // is potentially better diagnostics (i.e., we could have
-      // used <buildspec-1>, <buildspec-2> to give the idea about
-      // which argument is invalid).
-      //
-      string s;
-      for (; argi != argc;)
-      {
-        s += argv[argi];
-        if (++argi != argc)
-          s += ' ';
-      }
+      istringstream is (args);
+      is.exceptions (istringstream::failbit | istringstream::badbit);
 
-      try
-      {
-        istringstream is (s);
-        is.exceptions (istringstream::failbit | istringstream::badbit);
-
-        parser p;
-        bspec = p.parse_buildspec (is, path ("<buildspec>"));
-      }
-      catch (const istringstream::failure&)
-      {
-        fail << "unable to parse buildspec '" << s << "'";
-      }
+      parser p;
+      bspec = p.parse_buildspec (is, path ("<buildspec>"));
+    }
+    catch (const istringstream::failure&)
+    {
+      fail << "unable to parse buildspec '" << args << "'";
     }
 
     level5 ([&]{trace << "buildspec: " << bspec;});

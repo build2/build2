@@ -77,7 +77,7 @@ if! $cli.loaded
 
 cli.options += -I $src_root --include-with-brackets --include-prefix build2 \
 --guard-prefix BUILD2 --cli-namespace build2::cl --generate-file-scanner \
---generate-specifier
+--generate-parse --generate-specifier
 
 # Usage options.
 #

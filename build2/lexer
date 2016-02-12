@@ -75,7 +75,7 @@ namespace build2
     char
     pair_separator () const {return pair_separator_;}
 
-    // Scanner.
+    // Scanner. Note that it is ok to call next() again after getting eos.
     //
     token
     next ();

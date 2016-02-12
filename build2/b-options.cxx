@@ -420,13 +420,15 @@ namespace build2
       static void
       parse (X& x, bool& xs, scanner& s)
       {
-        std::string o (s.next ());
+        using namespace std;
+
+        string o (s.next ());
 
         if (s.more ())
         {
-          std::string v (s.next ());
-          std::istringstream is (v);
-          if (!(is >> x && is.eof ()))
+          string v (s.next ());
+          istringstream is (v);
+          if (!(is >> x && is.peek () == istringstream::traits_type::eof ()))
             throw invalid_value (o, v);
         }
         else
@@ -579,110 +581,60 @@ namespace build2
   {
   }
 
-  options::
-  options (int& argc,
-           char** argv,
-           bool erase,
-           ::build2::cl::unknown_mode opt,
-           ::build2::cl::unknown_mode arg)
-  : v_ (),
-    q_ (),
-    verbose_ (1),
-    verbose_specified_ (false),
-    pager_ (),
-    pager_specified_ (false),
-    pager_option_ (),
-    pager_option_specified_ (false),
-    help_ (),
-    version_ ()
+  void options::
+  parse (int& argc,
+         char** argv,
+         bool erase,
+         ::build2::cl::unknown_mode opt,
+         ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (argc, argv, erase);
     _parse (s, opt, arg);
   }
 
-  options::
-  options (int start,
-           int& argc,
-           char** argv,
-           bool erase,
-           ::build2::cl::unknown_mode opt,
-           ::build2::cl::unknown_mode arg)
-  : v_ (),
-    q_ (),
-    verbose_ (1),
-    verbose_specified_ (false),
-    pager_ (),
-    pager_specified_ (false),
-    pager_option_ (),
-    pager_option_specified_ (false),
-    help_ (),
-    version_ ()
+  void options::
+  parse (int start,
+         int& argc,
+         char** argv,
+         bool erase,
+         ::build2::cl::unknown_mode opt,
+         ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (start, argc, argv, erase);
     _parse (s, opt, arg);
   }
 
-  options::
-  options (int& argc,
-           char** argv,
-           int& end,
-           bool erase,
-           ::build2::cl::unknown_mode opt,
-           ::build2::cl::unknown_mode arg)
-  : v_ (),
-    q_ (),
-    verbose_ (1),
-    verbose_specified_ (false),
-    pager_ (),
-    pager_specified_ (false),
-    pager_option_ (),
-    pager_option_specified_ (false),
-    help_ (),
-    version_ ()
+  void options::
+  parse (int& argc,
+         char** argv,
+         int& end,
+         bool erase,
+         ::build2::cl::unknown_mode opt,
+         ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (argc, argv, erase);
     _parse (s, opt, arg);
     end = s.end ();
   }
 
-  options::
-  options (int start,
-           int& argc,
-           char** argv,
-           int& end,
-           bool erase,
-           ::build2::cl::unknown_mode opt,
-           ::build2::cl::unknown_mode arg)
-  : v_ (),
-    q_ (),
-    verbose_ (1),
-    verbose_specified_ (false),
-    pager_ (),
-    pager_specified_ (false),
-    pager_option_ (),
-    pager_option_specified_ (false),
-    help_ (),
-    version_ ()
+  void options::
+  parse (int start,
+         int& argc,
+         char** argv,
+         int& end,
+         bool erase,
+         ::build2::cl::unknown_mode opt,
+         ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (start, argc, argv, erase);
     _parse (s, opt, arg);
     end = s.end ();
   }
 
-  options::
-  options (::build2::cl::scanner& s,
-           ::build2::cl::unknown_mode opt,
-           ::build2::cl::unknown_mode arg)
-  : v_ (),
-    q_ (),
-    verbose_ (1),
-    verbose_specified_ (false),
-    pager_ (),
-    pager_specified_ (false),
-    pager_option_ (),
-    pager_option_specified_ (false),
-    help_ (),
-    version_ ()
+  void options::
+  parse (::build2::cl::scanner& s,
+         ::build2::cl::unknown_mode opt,
+         ::build2::cl::unknown_mode arg)
   {
     _parse (s, opt, arg);
   }
@@ -875,8 +827,13 @@ namespace build2
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
        << "The \033[1mbuild2\033[0m driver performs a set of meta-operations on operations on targets" << ::std::endl
-       << "according to the build specification, or \033[4mbuildspec\033[0m for short. Before \033[4mbuildspec\033[0m" << ::std::endl
-       << "(but after \033[4moptions\033[0m) you can set one or more \033[1mbuild2\033[0m \033[4mvariables\033[0m." << ::std::endl;
+       << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
+       << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
+       << ::std::endl
+       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
+       << "order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add the" << ::std::endl
+       << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
+       << "add the second \033[1m'--'\033[0m separator." << ::std::endl;
 
     p = ::build2::options::print_usage (os, ::build2::cl::usage_para::text);
 
