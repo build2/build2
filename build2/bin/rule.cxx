@@ -20,7 +20,7 @@ namespace build2
     // obj
     //
     match_result obj_rule::
-    match (action a, target& t, const std::string&) const
+    match (action a, target& t, const string&) const
     {
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select either obja{} or objso{} member";
@@ -37,7 +37,7 @@ namespace build2
     // members as our prerequisites.
     //
     match_result lib_rule::
-    match (action a, target& xt, const std::string&) const
+    match (action a, target& xt, const string&) const
     {
       lib& t (static_cast<lib&> (xt));
 

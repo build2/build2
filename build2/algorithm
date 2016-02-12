@@ -5,10 +5,9 @@
 #ifndef BUILD2_ALGORITHM
 #define BUILD2_ALGORITHM
 
-#include <string>
-#include <utility> // pair
-
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/target>
 #include <build2/operation>
 
@@ -43,8 +42,8 @@ namespace build2
   target&
   search (const target_type& type,
           const dir_path& dir,
-          const std::string& name,
-          const std::string* ext,
+          const string& name,
+          const string* ext,
           scope*);
 
   // As above but specify the target type as template argument.
@@ -52,8 +51,8 @@ namespace build2
   template <typename T>
   T&
   search (const dir_path& dir,
-          const std::string& name,
-          const std::string* ext,
+          const string& name,
+          const string* ext,
           scope*);
 
   // Search for a target identified by the name. The semantics
@@ -91,7 +90,7 @@ namespace build2
   // that unlike match(), this call doesn't increment the
   // dependents count. See also the companion execute_delegate().
   //
-  std::pair<recipe, action>
+  pair<recipe, action>
   match_delegate (action, target&);
 
   // The standard prerequisite search and match implementations. They call

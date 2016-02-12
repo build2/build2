@@ -6,7 +6,6 @@
 
 #include <butl/process>
 
-#include <build2/types>
 #include <build2/scope>
 #include <build2/target>
 #include <build2/context>
@@ -48,7 +47,7 @@ namespace build2
     }
 
     match_result compile::
-    match (action a, target& xt, const std::string&) const
+    match (action a, target& xt, const string&) const
     {
       tracer trace ("cli::compile::match");
 

@@ -6,6 +6,8 @@
 #define BUILD2_TEST_MODULE
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/module>
 
 namespace build2

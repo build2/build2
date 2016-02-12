@@ -5,10 +5,9 @@
 #ifndef BUILD2_RULE
 #define BUILD2_RULE
 
-#include <string>
-#include <cstddef>        // nullptr_t
-
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/target>
 #include <build2/operation>
 
@@ -39,7 +38,7 @@ namespace build2
 
     action recipe_action = action (); // Used as recipe's action if set.
 
-    match_result (std::nullptr_t v = nullptr): prerequisite (v), target (v) {}
+    match_result (nullptr_t v = nullptr): prerequisite (v), target (v) {}
     match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
     match_result (prerequisite_type* p): prerequisite (p), target (nullptr) {}
     match_result (target_type& t): prerequisite (nullptr), target (&t) {}
@@ -50,7 +49,7 @@ namespace build2
     match_result (target_type& t, bool v): bvalue (v), target (&t) {}
     match_result (target_type& t, void* v): pvalue (v), target (&t) {}
     match_result (target_type& t, const void* v): cpvalue (v), target (&t) {}
-    match_result (target_type& t, std::nullptr_t v): pvalue (v), target (&t) {}
+    match_result (target_type& t, nullptr_t v): pvalue (v), target (&t) {}
 
     explicit
     operator bool () const
@@ -63,7 +62,7 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const std::string& hint) const = 0;
+    match (action, target&, const string& hint) const = 0;
 
     virtual recipe
     apply (action, target&, const match_result&) const = 0;
@@ -76,7 +75,7 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const std::string& hint) const;
+    match (action, target&, const string& hint) const;
 
     virtual recipe
     apply (action, target&, const match_result&) const;
@@ -91,7 +90,7 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const std::string& hint) const;
+    match (action, target&, const string& hint) const;
 
     virtual recipe
     apply (action, target&, const match_result&) const;
@@ -103,7 +102,7 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const std::string& hint) const;
+    match (action, target&, const string& hint) const;
 
     virtual recipe
     apply (action, target&, const match_result&) const;
@@ -123,7 +122,7 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target& t, const std::string&) const {return t;}
+    match (action, target& t, const string&) const {return t;}
 
     virtual recipe
     apply (action, target&, const match_result&) const {return noop_recipe;}

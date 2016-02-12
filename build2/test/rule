@@ -5,6 +5,9 @@
 #ifndef BUILD2_TEST_RULE
 #define BUILD2_TEST_RULE
 
+#include <build2/types>
+#include <build2/utility>
+
 #include <build2/rule>
 #include <build2/operation>
 
@@ -16,7 +19,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const std::string&) const;
+      match (action, target&, const string&) const;
 
       virtual recipe
       apply (action, target&, const match_result&) const;

@@ -5,19 +5,11 @@
 #ifndef BUILD2_DIAGNOSTICS
 #define BUILD2_DIAGNOSTICS
 
-#include <cstddef> // size_t
-#include <cstdint>
-#include <utility>
-#include <cassert>
 #include <sstream>
-#include <ostream>
-#include <exception>
 #include <type_traits>
 
-#include <butl/path>
-
 #include <build2/types>
-#include <build2/path-io>
+#include <build2/utility>
 
 namespace build2
 {
@@ -39,10 +31,10 @@ namespace build2
   // nameN arg arg ... nullptr nullptr
   //
   void
-  print_process (diag_record&, const char* const* args, std::size_t n = 0);
+  print_process (diag_record&, const char* const* args, size_t n = 0);
 
   void
-  print_process (const char* const* args, std::size_t n = 0);
+  print_process (const char* const* args, size_t n = 0);
 
   inline void
   print_process (diag_record& dr, const cstrings& args)
@@ -105,21 +97,21 @@ namespace build2
   extern const int stream_verb_index;
 
   inline uint16_t
-  stream_verb (std::ostream& os)
+  stream_verb (ostream& os)
   {
     uint16_t v (static_cast<uint16_t> (os.iword (stream_verb_index)));
     return v == 0 ? stream_verb_max : v - 1;
   }
 
   inline void
-  stream_verb (std::ostream& os, uint16_t v)
+  stream_verb (ostream& os, uint16_t v)
   {
     os.iword (stream_verb_index) = static_cast<long> (v + 1);
   }
 
   // Diagnostic facility, base infrastructure (potentially reusable).
   //
-  extern std::ostream* diag_stream;
+  extern ostream* diag_stream;
 
   template <typename> struct diag_prologue;
   template <typename> struct diag_mark;
@@ -171,7 +163,7 @@ namespace build2
     @@ libstdc++ doesn't yet have the ostringstream move support.
 
     diag_record (diag_record&& r)
-        : os_ (std::move (r.os_))
+        : os_ (move (r.os_))
     {
       empty_ = r.empty_;
       r.empty_ = true;
@@ -216,11 +208,11 @@ namespace build2
 
     template <typename... A>
     diag_prologue (A&&... a)
-        : B (std::forward<A> (a)...), epilogue_ (nullptr) {}
+        : B (forward<A> (a)...), epilogue_ (nullptr) {}
 
     template <typename... A>
     diag_prologue (diag_epilogue e, A&&... a)
-        : B (std::forward<A> (a)...), epilogue_ (e) {}
+        : B (forward<A> (a)...), epilogue_ (e) {}
 
     template <typename T>
     diag_record
@@ -251,7 +243,7 @@ namespace build2
     diag_mark (): B () {}
 
     template <typename... A>
-    diag_mark (A&&... a): B (std::forward<A> (a)...) {}
+    diag_mark (A&&... a): B (forward<A> (a)...) {}
 
     template <typename T>
     diag_record
@@ -291,12 +283,12 @@ namespace build2
     // Note that location maintains a shallow reference to path.
     //
     location (): file (nullptr), line (0), column (0) {}
-    location (const path* f, std::uint64_t l, std::uint64_t c)
+    location (const path* f, uint64_t l, uint64_t c)
         : file (f), line (l), column (c) {}
 
     const path* file;
-    std::uint64_t line;
-    std::uint64_t column;
+    uint64_t line;
+    uint64_t column;
   };
 
   struct location_prologue_base

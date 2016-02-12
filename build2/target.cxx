@@ -4,8 +4,6 @@
 
 #include <build2/target>
 
-#include <cassert>
-
 #include <butl/filesystem>
 
 #include <build2/scope>
@@ -66,7 +64,7 @@ namespace build2
     }
 
     action = a;
-    recipe_ = std::move (r);
+    recipe_ = move (r);
 
     // Also reset the target state. If this is a noop recipe, then
     // mark the target unchanged so that we don't waste time executing
@@ -566,7 +564,7 @@ namespace build2
     false
   };
 
-  static const std::string*
+  static const string*
   buildfile_target_extension (const target_key& tk, scope&)
   {
     // If the name is special 'buildfile', then there is no extension,

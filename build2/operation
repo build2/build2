@@ -5,15 +5,10 @@
 #ifndef BUILD2_OPERATION
 #define BUILD2_OPERATION
 
-#include <string>
-#include <iosfwd>
-#include <vector>
-#include <cstdint>
-#include <functional> // reference_wrapper
-
 #include <butl/string-table>
 
 #include <build2/types>
+#include <build2/utility>
 
 namespace build2
 {
@@ -29,9 +24,9 @@ namespace build2
   //
   // Note that 0 is not a valid meta/operation/action id.
   //
-  using meta_operation_id = std::uint8_t;
-  using operation_id = std::uint8_t;
-  using action_id = std::uint8_t;
+  using meta_operation_id = uint8_t;
+  using operation_id = uint8_t;
+  using action_id = uint8_t;
 
   // Meta-operations and operations are not the end of the story. We
   // also have operation nesting (currently only one level deep) which
@@ -99,8 +94,8 @@ namespace build2
   inline bool
   operator!= (action x, action y) {return !(x == y);}
 
-  std::ostream&
-  operator<< (std::ostream&, action);
+  ostream&
+  operator<< (ostream&, action);
 
   // Id constants for build-in and pre-defined meta/operations.
   //
@@ -175,18 +170,18 @@ namespace build2
   // Normally a list of resolved and matched targets to execute. But
   // can be something else, depending on the meta-operation.
   //
-  typedef std::vector<void*> action_targets;
+  typedef vector<void*> action_targets;
 
   struct meta_operation_info
   {
-    const std::string name;
+    const string name;
 
     // Name derivatives for diagnostics. If empty, then the meta-
     // operation need not be mentioned.
     //
-    const std::string name_do;           // E.g., [to] 'configure'.
-    const std::string name_doing;        // E.g., [while] 'configuring'.
-    const std::string name_done;         // E.g., 'is configured'.
+    const string name_do;           // E.g., [to] 'configure'.
+    const string name_doing;        // E.g., [while] 'configuring'.
+    const string name_done;         // E.g., 'is configured'.
 
     // If operation_pre() is not NULL, then it may translate default_id
     // (and only default_id) to some other operation. If not translated,
@@ -258,7 +253,7 @@ namespace build2
   //
   struct operation_info
   {
-    const std::string name;
+    const string name;
 
     // Name derivatives for diagnostics. Note that unlike meta-operations,
     // these can only be empty for the default operation (id 1), And
@@ -266,9 +261,9 @@ namespace build2
     // have empty derivatives (failed which only target name will be
     // printed).
     //
-    const std::string name_do;           // E.g., [to] 'update'.
-    const std::string name_doing;        // E.g., [while] 'updating'.
-    const std::string name_done;         // E.g., 'is up to date'.
+    const string name_do;           // E.g., [to] 'update'.
+    const string name_doing;        // E.g., [while] 'updating'.
+    const string name_done;         // E.g., 'is up to date'.
 
     const execution_mode mode;
 
@@ -317,7 +312,7 @@ namespace build2
   template <typename T>
   struct sparse_vector
   {
-    using base_type = std::vector<T*>;
+    using base_type = vector<T*>;
     using size_type = typename base_type::size_type;
 
     void

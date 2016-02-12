@@ -4,8 +4,6 @@
 
 #include <build2/dist/operation>
 
-#include <cassert>
-
 #include <butl/process>
 #include <butl/filesystem>
 

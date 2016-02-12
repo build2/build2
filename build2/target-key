@@ -6,9 +6,6 @@
 #define BUILD2_TARGET_KEY
 
 #include <map>
-#include <string>
-#include <ostream>
-#include <functional>  // reference_wrapper
 
 #include <butl/utility> // compare_c_string
 
@@ -26,8 +23,8 @@ namespace build2
   public:
     const target_type* const  type;
     const dir_path* const     dir;
-    const std::string* const  name;
-    const std::string* const& ext;
+    const string* const  name;
+    const string* const& ext;
 
     friend bool
     operator< (const target_key& x, const target_key& y)

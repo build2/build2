@@ -5,15 +5,9 @@
 #include <build2/parser>
 
 #include <cctype>   // is{alpha alnum}()
-
-#include <memory>   // unique_ptr
 #include <fstream>
-#include <utility>  // move()
-#include <iterator> // make_move_iterator()
 #include <iostream>
 
-#include <build2/types>
-#include <build2/utility>
 #include <build2/version>
 
 #include <build2/scope>

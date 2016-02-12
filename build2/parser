@@ -5,9 +5,6 @@
 #ifndef BUILD2_PARSER
 #define BUILD2_PARSER
 
-#include <string>
-#include <iosfwd>
-
 #include <build2/types>
 #include <build2/utility>
 
@@ -36,20 +33,19 @@ namespace build2
     // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse_buildfile (std::istream&, const path& name,
-                     scope& root, scope& base);
+    parse_buildfile (istream&, const path& name, scope& root, scope& base);
 
     buildspec
-    parse_buildspec (std::istream&, const path& name);
+    parse_buildspec (istream&, const path& name);
 
     token
-    parse_variable (lexer&, scope&, std::string var_name, token_type kind);
+    parse_variable (lexer&, scope&, string var_name, token_type kind);
 
     names_type
-    parse_export_stub (std::istream& is, const path& p, scope& r, scope& b)
+    parse_export_stub (istream& is, const path& p, scope& r, scope& b)
     {
       parse_buildfile (is, p, r, b);
-      return std::move (export_value_);
+      return move (export_value_);
     }
 
     // Recursive descent parser.
@@ -83,9 +79,9 @@ namespace build2
     if_else (token&, token_type&);
 
     void
-    variable (token&, token_type&, std::string name, token_type kind);
+    variable (token&, token_type&, string name, token_type kind);
 
-    std::string
+    string
     variable_name (names_type&&, const location&);
 
     names_type
@@ -119,18 +115,18 @@ namespace build2
     names (token&, token_type&,
            names_type&,
            bool chunk,
-           std::size_t pair,
-           const std::string* prj,
+           size_t pair,
+           const string* prj,
            const dir_path* dir,
-           const std::string* type);
+           const string* type);
 
     size_t
     names_trailer (token&, token_type&,
                    names_type&,
                    size_t pair,
-                   const std::string* prj,
+                   const string* prj,
                    const dir_path* dir,
-                   const std::string* type);
+                   const string* type);
 
     // Skip until newline or eos.
     //

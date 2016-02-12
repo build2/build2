@@ -4,9 +4,6 @@
 
 #include <build2/variable>
 
-#include <iterator> // make_move_iterator()
-
-#include <build2/utility>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -196,7 +193,7 @@ namespace build2
     //
     if (n.directory ())
     {
-      n.value = std::move (n.dir).string (); // Move string out of path.
+      n.value = move (n.dir).string (); // Move string out of path.
 
       // Add / back to the end of the path unless it is already there.
       // Note that the string cannot be empty (n.directory () would

@@ -228,7 +228,7 @@ namespace build2
     return this->q_;
   }
 
-  inline const std::uint16_t& options::
+  inline const uint16_t& options::
   verbose () const
   {
     return this->verbose_;

@@ -197,7 +197,7 @@ namespace build2
        \cb{--verbose 0}."
     }
 
-    std::uint16_t --verbose = 1
+    uint16_t --verbose = 1
     {
       "<level>",
       "Set the diagnostics verbosity to <level> between 0 and 6. Level 0

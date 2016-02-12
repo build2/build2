@@ -10,11 +10,11 @@ namespace build2
   {
     template <typename T>
     void
-    append_std (cstrings& args, T& t, std::string& s)
+    append_std (cstrings& args, T& t, string& s)
     {
       if (auto l = t["cxx.std"])
       {
-        const std::string& v (as<string> (*l));
+        const string& v (as<string> (*l));
 
         // Translate 11 to 0x and 14 to 1y for compatibility with
         // older versions of the compiler.

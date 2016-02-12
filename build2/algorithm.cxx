@@ -4,13 +4,6 @@
 
 #include <build2/algorithm>
 
-#include <memory>   // unique_ptr
-#include <cstddef>  // size_t
-#include <utility>  // move
-#include <cassert>
-
-#include <butl/utility> // reverse_iterate
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/prerequisite>
@@ -18,7 +11,6 @@
 #include <build2/file> // import()
 #include <build2/search>
 #include <build2/context>
-#include <build2/utility>
 #include <build2/diagnostics>
 
 using namespace std;

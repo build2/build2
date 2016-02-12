@@ -5,6 +5,9 @@
 #ifndef BUILD2_CXX_TARGET
 #define BUILD2_CXX_TARGET
 
+#include <build2/types>
+#include <build2/utility>
+
 #include <build2/target>
 
 namespace build2

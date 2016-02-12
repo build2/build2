@@ -5,16 +5,22 @@
 #ifndef BUILD2_TYPES
 #define BUILD2_TYPES
 
-#include <iosfwd>      // ostream
 #include <vector>
 #include <string>
-#include <utility>     // pair
-#include <memory>      // unique_ptr, shared_ptr
-#include <cstddef>     // size_t
-#include <cstdint>     // uint{8,16,32,64}_t
-#include <functional>  // reference_wrapper
+#include <memory>        // unique_ptr, shared_ptr
+#include <utility>       // pair
+#include <cstddef>       // size_t, nullptr_t
+#include <cstdint>       // uint{8,16,32,64}_t
+#include <istream>
+#include <ostream>
+#include <functional>    // function, reference_wrapper
+
+#include <exception>     // exception
+#include <stdexcept>     // logic_error, invalid_argument, runtime_error
+#include <system_error>
 
 #include <butl/path>
+#include <butl/optional>
 #include <butl/timestamp>
 
 #include <build2/name>
@@ -27,21 +33,39 @@ namespace build2
   using std::uint16_t;
   using std::uint32_t;
   using std::uint64_t;
+
   using std::size_t;
+  using std::nullptr_t;
 
   using std::pair;
   using std::string;
+  using std::function;
+  using std::reference_wrapper;
+
   using std::unique_ptr;
   using std::shared_ptr;
-  using std::reference_wrapper;
+  using std::weak_ptr;
+
   using std::vector;
 
   using strings = vector<string>;
   using cstrings = vector<const char*>;
 
-  // <iosfwd>
-  //
+  using std::istream;
   using std::ostream;
+
+  // Exceptions. While <exception> is included, there is no using for
+  // std::exception -- use qualified.
+  //
+  using std::logic_error;
+  using std::invalid_argument;
+  using std::runtime_error;
+  using std::system_error;
+
+  // <butl/optional>
+  //
+  using butl::optional;
+  using butl::nullopt;
 
   // <butl/path>
   //
@@ -53,6 +77,14 @@ namespace build2
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
+  // Custom path printing (implemented in utility.cxx).
+  //
+  ostream&
+  operator<< (ostream&, const path&);
+
+  ostream&
+  operator<< (ostream&, const dir_path&);
+
   // <butl/timestamp>
   //
   using butl::system_clock;
@@ -61,6 +93,9 @@ namespace build2
   using butl::timestamp_unknown;
   using butl::timestamp_nonexistent;
   using butl::operator<<;
+
+  // <build2/name>
+  //
 }
 
 #endif // BUILD2_TYPES

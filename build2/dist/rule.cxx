@@ -16,7 +16,7 @@ namespace build2
   namespace dist
   {
     match_result rule::
-    match (action, target& t, const std::string&) const
+    match (action, target& t, const string&) const
     {
       return t; // We always match.
     }

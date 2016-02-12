@@ -712,7 +712,7 @@ namespace build2
       _cli_options_map_["-q"] = 
       &::build2::cl::thunk< options, bool, &options::q_ >;
       _cli_options_map_["--verbose"] = 
-      &::build2::cl::thunk< options, std::uint16_t, &options::verbose_,
+      &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
       _cli_options_map_["--pager"] = 
       &::build2::cl::thunk< options, string, &options::pager_,
@@ -830,7 +830,7 @@ namespace build2
        << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
        << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
        << ::std::endl
-       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
+       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
        << "order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add the" << ::std::endl
        << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
        << "add the second \033[1m'--'\033[0m separator." << ::std::endl;

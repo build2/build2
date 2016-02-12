@@ -49,7 +49,7 @@ namespace build2
     }
 
     match_result install::
-    match (action a, target& t, const std::string& hint) const
+    match (action a, target& t, const string& hint) const
     {
       // @@ How do we split the hint between the two?
       //

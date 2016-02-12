@@ -4,9 +4,6 @@
 
 #include <build2/rule>
 
-#include <utility>      // move()
-#include <system_error>
-
 #include <butl/filesystem>
 
 #include <build2/scope>

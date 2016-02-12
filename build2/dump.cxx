@@ -4,9 +4,6 @@
 
 #include <build2/dump>
 
-#include <string>
-#include <cassert>
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/variable>

@@ -4,8 +4,6 @@
 
 #include <build2/module>
 
-#include <utility> // make_pair()
-
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/diagnostics>

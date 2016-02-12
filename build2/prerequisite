@@ -6,15 +6,11 @@
 #define BUILD2_PREREQUISITE
 
 #include <set>
-#include <string>
-#include <iosfwd>
-#include <utility>    // move
-#include <cassert>
-#include <functional> // reference_wrapper
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/target-key>
-#include <build2/utility> // extension_pool
 #include <build2/diagnostics>
 
 namespace build2
@@ -30,7 +26,7 @@ namespace build2
   public:
     typedef build2::scope scope_type;
 
-    mutable const std::string* proj; // Can be NULL, from project_name_pool.
+    mutable const string* proj; // Can be NULL, from project_name_pool.
     target_key tk;
     mutable scope_type* scope; // Can be NULL if tk.dir is absolute.
   };
@@ -45,8 +41,8 @@ namespace build2
     return x.proj < y.proj || (x.proj == y.proj && x.tk < y.tk);
   }
 
-  std::ostream&
-  operator<< (std::ostream&, const prerequisite_key&);
+  ostream&
+  operator<< (ostream&, const prerequisite_key&);
 
   class prerequisite
   {
@@ -55,26 +51,26 @@ namespace build2
     typedef build2::target_type target_type_type;
     typedef build2::scope scope_type;
 
-    prerequisite (const std::string* p,
+    prerequisite (const string* p,
                   const target_type_type& t,
                   dir_path d,
-                  std::string n,
-                  const std::string* e,
+                  string n,
+                  const string* e,
                   scope_type& s)
         : proj (p),
           type (t),
-          dir (std::move (d)),
-          name (std::move (n)),
+          dir (move (d)),
+          name (move (n)),
           ext (e),
           scope (s),
           target (nullptr) {}
 
   public:
-    const std::string* const proj; // NULL if not project-qualified.
+    const string* const proj; // NULL if not project-qualified.
     const target_type_type& type;
     const dir_path dir;      // Normalized absolute or relative (to scope).
-    const std::string name;
-    const std::string* ext;  // NULL if unspecified.
+    const string name;
+    const string* ext;  // NULL if unspecified.
     scope_type& scope;
     target_type* target;     // NULL if not yet resolved. Note that this should
                              // always be the "primary target", not a member of
@@ -103,8 +99,8 @@ namespace build2
     return x.key () < y.key ();
   }
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const prerequisite& p)
+  inline ostream&
+  operator<< (ostream& os, const prerequisite& p)
   {
     return os << p.key ();
   }
@@ -113,17 +109,17 @@ namespace build2
   //
   struct prerequisite_set: std::set<prerequisite>
   {
-    std::pair<prerequisite&, bool>
-    insert (const std::string* proj,
+    pair<prerequisite&, bool>
+    insert (const string* proj,
             const target_type&,
             dir_path dir,
-            std::string name,
-            const std::string* ext,
+            string name,
+            const string* ext,
             scope&,
             tracer&);
 
-    std::pair<prerequisite&, bool>
-    insert (const std::string* proj, const target_key& tk, scope& s, tracer& t)
+    pair<prerequisite&, bool>
+    insert (const string* proj, const target_key& tk, scope& s, tracer& t)
     {
       return insert (proj, *tk.type, *tk.dir, *tk.name, tk.ext, s, t);
     }

@@ -6,10 +6,7 @@
 #define BUILD2_VARIABLE
 
 #include <map>
-#include <vector>
-#include <cstddef>       // nullptr_t
-#include <utility>       // pair, make_pair()
-#include <iterator>
+#include <iterator>      // tags, etc.
 #include <functional>    // hash
 #include <type_traits>   // conditional, is_reference, remove_reference, etc.
 #include <unordered_set>
@@ -50,7 +47,7 @@ namespace build2
   //
   struct variable
   {
-    std::string name;
+    string name;
     const value_type* type;         // If NULL, then not (yet) typed.
     variable_visibility visibility;
     char pairs;                     // Pair symbold or '\0' if not used.
@@ -59,7 +56,7 @@ namespace build2
   inline bool
   operator== (const variable& x, const variable& y) {return x.name == y.name;}
 
-  typedef std::reference_wrapper<const variable> variable_cref;
+  typedef reference_wrapper<const variable> variable_cref;
 
   // value
   //
@@ -74,7 +71,7 @@ namespace build2
     value (value&&) = default;
 
     value&
-    operator= (std::nullptr_t)
+    operator= (nullptr_t)
     {
       data_.clear ();
       state_ = state_type::null;
@@ -107,10 +104,10 @@ namespace build2
     // Forwarded to the representation type's assign()/append() (see below).
     //
     template <typename T> value& operator= (T);
-    value& operator= (const char* v) {return *this = std::string (v);}
+    value& operator= (const char* v) {return *this = string (v);}
 
     template <typename T> value& operator+= (T);
-    value& operator+= (const char* v) {return *this += std::string (v);}
+    value& operator+= (const char* v) {return *this += string (v);}
 
   private:
     explicit value (const value&) = default;
@@ -122,8 +119,8 @@ namespace build2
     bool empty () const {return state_ == state_type::empty;}
 
     explicit operator bool () const {return !null ();}
-    bool operator== (std::nullptr_t) const {return null ();}
-    bool operator!= (std::nullptr_t) const {return !null ();}
+    bool operator== (nullptr_t) const {return null ();}
+    bool operator!= (nullptr_t) const {return !null ();}
 
     // Raw data read interface.
     //
@@ -284,10 +281,10 @@ namespace build2
   // string
   //
   template <>
-  struct value_traits<std::string>
+  struct value_traits<string>
   {
-    using type = std::string&;
-    using const_type = const std::string&;
+    using type = string&;
+    using const_type = const string&;
 
     static type       as (name& n) {return n.value;}
     static const_type as (const name& n) {return n.value;}
@@ -296,8 +293,8 @@ namespace build2
     static const_type as (const value&);
 
     static bool assign (name&);
-    static void assign (value&, std::string);
-    static void append (value&, std::string);
+    static void assign (value&, string);
+    static void append (value&, string);
 
     static const build2::value_type value_type;
   };
@@ -392,10 +389,10 @@ namespace build2
 
   public:
     vector_value&
-    operator= (std::vector<T> v) {assign (std::move (v)); return *this;}
+    operator= (vector<T> v) {assign (move (v)); return *this;}
 
     vector_value&
-    assign (std::vector<T>);
+    assign (vector<T>);
 
     template <typename D1>
     vector_value&
@@ -432,13 +429,13 @@ namespace build2
     vector_value (vector_value&&) = default;
     vector_value& operator= (vector_value&&) = default; //@@ TMP
 
-    explicit vector_value (std::nullptr_t): d (nullptr) {} //@@ TMP
+    explicit vector_value (nullptr_t): d (nullptr) {} //@@ TMP
 
     D* d; // names
   };
 
   template <typename T>
-  struct value_traits<std::vector<T>>
+  struct value_traits<vector<T>>
   {
     using type = vector_value<T, names>;
     using const_type = vector_value<T, const names>;
@@ -449,15 +446,15 @@ namespace build2
     template <typename V> static void assign (value&, V);
     template <typename V> static void append (value&, V);
 
-    static const std::string type_name;
+    static const string type_name;
     static const build2::value_type value_type;
   };
 
   template <typename T, typename D>
-  struct value_traits<vector_value<T, D>>: value_traits<std::vector<T>> {};
+  struct value_traits<vector_value<T, D>>: value_traits<vector<T>> {};
 
-  using strings_value = vector_value<std::string, names>;
-  using const_strings_value = vector_value<std::string, const names>;
+  using strings_value = vector_value<string, names>;
+  using const_strings_value = vector_value<string, const names>;
 
   extern const value_type* strings_type;   // vector<string> aka strings
   extern const value_type* dir_paths_type; // vector<dir_path> aka dir_paths
@@ -473,12 +470,12 @@ namespace build2
     {
       using first_type = typename std::conditional<
         std::is_reference<F>::value,
-        std::reference_wrapper<typename std::remove_reference<F>::type>,
+        reference_wrapper<typename std::remove_reference<F>::type>,
         F>::type;
 
       using second_type = typename std::conditional<
         std::is_reference<S>::value,
-        std::reference_wrapper<typename std::remove_reference<S>::type>,
+        reference_wrapper<typename std::remove_reference<S>::type>,
         S>::type;
 
       first_type first;
@@ -536,7 +533,7 @@ namespace build2
 
   public:
     map_value&
-    operator= (std::map<K, V> m) {assign (std::move (m)); return *this;}
+    operator= (std::map<K, V> m) {assign (move (m)); return *this;}
 
     map_value&
     assign (std::map<K, V>);
@@ -579,7 +576,7 @@ namespace build2
     template <typename M> static void assign (value&, M);
     template <typename M> static void append (value&, M);
 
-    static const std::string type_name;
+    static const string type_name;
     static const build2::value_type value_type;
   };
 
@@ -658,7 +655,7 @@ namespace build2
       auto r (
         insert (
           variable {
-            std::move (name),
+            move (name),
             t,
             vv != nullptr ? *vv : variable_visibility::normal,
             p}));
@@ -742,7 +739,7 @@ namespace build2
     }
 
     lookup<const value>
-    operator[] (const std::string& name) const
+    operator[] (const string& name) const
     {
       return operator[] (var_pool.find (name));
     }
@@ -756,7 +753,7 @@ namespace build2
     }
 
     lookup<value>
-    operator[] (const std::string& name)
+    operator[] (const string& name)
     {
       return operator[] (var_pool.find (name));
     }
@@ -764,7 +761,7 @@ namespace build2
     // The second member in the pair indicates whether the new
     // value (which will be NULL) was assigned.
     //
-    std::pair<std::reference_wrapper<value>, bool>
+    pair<reference_wrapper<value>, bool>
     assign (const variable& var)
     {
       auto r (m_.emplace (var, value (var.type)));
@@ -775,21 +772,20 @@ namespace build2
       if (!r.second && var.type != nullptr && v.type != var.type)
         build2::assign (v, var.type, var);
 
-      return std::make_pair (std::reference_wrapper<value> (v), r.second);
+      return make_pair (reference_wrapper<value> (v), r.second);
     }
 
-    std::pair<std::reference_wrapper<value>, bool>
-    assign (const std::string& name, const build2::value_type* type = nullptr)
+    pair<reference_wrapper<value>, bool>
+    assign (const string& name, const build2::value_type* type = nullptr)
     {
       return assign (var_pool.find (name, type));
     }
 
-    std::pair<const_iterator, const_iterator>
-    find_namespace (const std::string& ns) const
+    pair<const_iterator, const_iterator>
+    find_namespace (const string& ns) const
     {
       auto r (m_.find_prefix (var_pool.find (ns)));
-      return std::make_pair (const_iterator (r.first),
-                             const_iterator (r.second));
+      return make_pair (const_iterator (r.first), const_iterator (r.second));
     }
 
     const_iterator
@@ -815,9 +811,9 @@ namespace build2
   //    we "instantiate" the value on the fly, then we will need to
   //    consider its lifetime.
   //
-  using variable_pattern_map = std::map<std::string, variable_map>;
+  using variable_pattern_map = std::map<string, variable_map>;
 
-  struct variable_type_map: std::map<std::reference_wrapper<const target_type>,
+  struct variable_type_map: std::map<reference_wrapper<const target_type>,
                                      variable_pattern_map>
   {
     build2::lookup<const value>

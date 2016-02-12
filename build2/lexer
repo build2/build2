@@ -6,12 +6,6 @@
 #define BUILD2_LEXER
 
 #include <stack>
-#include <string>
-#include <iosfwd>
-#include <cstddef> // size_t
-#include <cstdint> // uint64_t
-#include <cassert>
-#include <exception>
 
 #include <butl/char-scanner>
 
@@ -43,7 +37,7 @@ namespace build2
   class lexer: protected butl::char_scanner
   {
   public:
-    lexer (std::istream& is,
+    lexer (istream& is,
            const path& name,
            void (*processor) (token&, const lexer&) = nullptr)
         : char_scanner (is), fail (name), processor_ (processor), sep_ (false)

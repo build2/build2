@@ -5,12 +5,8 @@
 #ifndef BUILD2_SPEC
 #define BUILD2_SPEC
 
-#include <string>
-#include <vector>
-#include <iosfwd>
-#include <utility> // move()
-
 #include <build2/types>
+#include <build2/utility>
 
 namespace build2
 {
@@ -19,43 +15,43 @@ namespace build2
     typedef build2::name name_type;
 
     explicit
-    targetspec (name_type n): name (std::move (n)) {}
+    targetspec (name_type n): name (move (n)) {}
     targetspec (dir_path sb, name_type n)
-        : src_base (std::move (sb)), name (std::move (n)) {}
+        : src_base (move (sb)), name (move (n)) {}
 
     dir_path src_base;
     name_type name;
   };
 
-  struct opspec: std::vector<targetspec>
+  struct opspec: vector<targetspec>
   {
     opspec () = default;
-    opspec (std::string n): name (std::move (n)) {}
+    opspec (string n): name (move (n)) {}
 
-    std::string name;
+    string name;
   };
 
-  struct metaopspec: std::vector<opspec>
+  struct metaopspec: vector<opspec>
   {
     metaopspec () = default;
-    metaopspec (std::string n): name (std::move (n)) {}
+    metaopspec (string n): name (move (n)) {}
 
-    std::string name;
+    string name;
   };
 
-  typedef std::vector<metaopspec> buildspec;
+  typedef vector<metaopspec> buildspec;
 
-  std::ostream&
-  operator<< (std::ostream&, const targetspec&);
+  ostream&
+  operator<< (ostream&, const targetspec&);
 
-  std::ostream&
-  operator<< (std::ostream&, const opspec&);
+  ostream&
+  operator<< (ostream&, const opspec&);
 
-  std::ostream&
-  operator<< (std::ostream&, const metaopspec&);
+  ostream&
+  operator<< (ostream&, const metaopspec&);
 
-  std::ostream&
-  operator<< (std::ostream&, const buildspec&);
+  ostream&
+  operator<< (ostream&, const buildspec&);
 }
 
 #endif // BUILD2_SPEC

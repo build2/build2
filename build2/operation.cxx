@@ -4,13 +4,6 @@
 
 #include <build2/operation>
 
-#include <vector>
-#include <ostream>
-#include <cassert>
-#include <functional> // reference_wrapper
-
-#include <butl/utility> // reverse_iterate
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/file>

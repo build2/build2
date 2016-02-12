@@ -6,19 +6,9 @@
 #define BUILD2_TARGET
 
 #include <map>
-#include <string>
-#include <vector>
-#include <memory>      // unique_ptr
-#include <cstddef>     // size_t
-#include <cstdint>     // uint8_t
-#include <functional>  // reference_wrapper
-#include <ostream>
-#include <cassert>
-#include <utility>     // move(), forward(), declval()
-#include <iterator>
+#include <iterator>     // tags, etc.
 #include <type_traits>
 
-#include <butl/utility>     // reverse_iterate()
 #include <butl/multi-index> // map_iterator_adapter
 
 #include <build2/types>
@@ -41,7 +31,7 @@ namespace build2
 
   // Target state.
   //
-  enum class target_state: std::uint8_t
+  enum class target_state: uint8_t
   {
     // The order of the enumerators is arranged so that their integral
     // values indicate whether one "overrides" the other in the merge
@@ -55,13 +45,13 @@ namespace build2
     group       // Target's state is the group's state.
   };
 
-  std::ostream&
-  operator<< (std::ostream&, target_state);
+  ostream&
+  operator<< (ostream&, target_state);
 
   inline target_state&
   operator |= (target_state& l, target_state r)
   {
-    if (static_cast<std::uint8_t> (r) > static_cast<std::uint8_t> (l))
+    if (static_cast<uint8_t> (r) > static_cast<uint8_t> (l))
       l = r;
 
     return l;
@@ -81,7 +71,7 @@ namespace build2
   // so it should match the group's state.
   //
   using recipe_function = target_state (action, target&);
-  using recipe = std::function<recipe_function>;
+  using recipe = function<recipe_function>;
 
   // Commonly-used recipes. The default recipe executes the action on
   // all the prerequisites in a loop, skipping ignored. Specifically,
@@ -105,9 +95,9 @@ namespace build2
   // Prerequisite references as used in the target::prerequisites list
   // below.
   //
-  struct prerequisite_ref: std::reference_wrapper<prerequisite>
+  struct prerequisite_ref: reference_wrapper<prerequisite>
   {
-    typedef std::reference_wrapper<prerequisite> base;
+    typedef reference_wrapper<prerequisite> base;
 
     using base::base;
 
@@ -127,7 +117,7 @@ namespace build2
   struct group_view
   {
     target* const* members; // NULL means not yet known.
-    std::size_t count;
+    size_t count;
   };
 
   // Target.
@@ -143,8 +133,8 @@ namespace build2
     target (const target&) = delete;
     target& operator= (const target&) = delete;
 
-    target (dir_path d, std::string n, const std::string* e)
-        : dir (std::move (d)), name (std::move (n)), ext (e) {}
+    target (dir_path d, string n, const string* e)
+        : dir (move (d)), name (move (n)), ext (e) {}
 
     // Reset the target before matching a rule for it. The
     // default implementation clears prerequisite_targets.
@@ -153,8 +143,8 @@ namespace build2
     reset (action_type);
 
     const dir_path dir;      // Absolute and normalized.
-    const std::string name;
-    const std::string* ext;  // Extension, NULL means unspecified,
+    const string name;
+    const string* ext;  // Extension, NULL means unspecified,
                              // empty means no extension.
 
     // Target group to which this target belongs, if any. Note that
@@ -250,7 +240,7 @@ namespace build2
     // Prerequisites.
     //
   public:
-    typedef std::vector<prerequisite_ref> prerequisites_type;
+    typedef vector<prerequisite_ref> prerequisites_type;
     prerequisites_type prerequisites;
 
     // Targets to which prerequisites resolve for this recipe. Note
@@ -263,7 +253,7 @@ namespace build2
     // track of the action here since the targets will be updated
     // if the recipe is updated, normally as part of rule::apply().
     //
-    typedef std::vector<target*> prerequisite_targets_type;
+    typedef vector<target*> prerequisite_targets_type;
     prerequisite_targets_type prerequisite_targets;
 
     // Check if there are any prerequisites, taking into account
@@ -290,7 +280,7 @@ namespace build2
     operator[] (const variable&) const;
 
     lookup<const value>
-    operator[] (const std::string& name) const
+    operator[] (const string& name) const
     {
       return operator[] (var_pool.find (name));
     }
@@ -302,7 +292,7 @@ namespace build2
     assign (const variable& var) {return vars.assign (var).first;}
 
     value&
-    assign (const std::string& name) {return vars.assign (name).first;}
+    assign (const string& name) {return vars.assign (name).first;}
 
     // Return a value suitable for appending. See class scope for
     // details.
@@ -311,7 +301,7 @@ namespace build2
     append (const variable&);
 
     value&
-    append (const std::string& name)
+    append (const string& name)
     {
       return append (var_pool.find (name));
     }
@@ -338,7 +328,7 @@ namespace build2
     // should have been decremented to 0 naturally, as part of the previous
     // action execution.
     //
-    std::size_t dependents;
+    size_t dependents;
 
   public:
     action_type action; // Action this recipe is for.
@@ -380,8 +370,8 @@ namespace build2
     recipe_type recipe_;
   };
 
-  std::ostream&
-  operator<< (std::ostream&, const target&);
+  ostream&
+  operator<< (ostream&, const target&);
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as
@@ -490,7 +480,7 @@ namespace build2
     reverse_iterator
     rend () const {return reverse_iterator (begin ());}
 
-    std::size_t
+    size_t
     size () const
     {
       return t_.prerequisites.size () +
@@ -536,13 +526,13 @@ namespace build2
       return target != nullptr ? target->type () : prerequisite.get ().type;
     }
 
-    const std::string&
+    const string&
     name () const
     {
       return target != nullptr ? target->name : prerequisite.get ().name;
     }
 
-    const std::string*
+    const string*
     proj () const
     {
       // Target cannot be project-qualified.
@@ -560,8 +550,8 @@ namespace build2
     as_prerequisite (tracer&) const;
   };
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const prerequisite_member& pm)
+  inline ostream&
+  operator<< (ostream& os, const prerequisite_member& pm)
   {
     return os << pm.key ();
   }
@@ -597,7 +587,7 @@ namespace build2
   inline prerequisite_members_range<T>
   prerequisite_members (action a, T&& x, bool members = true)
   {
-    return prerequisite_members_range<T> (a, std::forward<T> (x), members);
+    return prerequisite_members_range<T> (a, forward<T> (x), members);
   }
 
   template <typename T>
@@ -605,9 +595,9 @@ namespace build2
   {
   public:
     prerequisite_members_range (action a, T&& r, bool m)
-        : a_ (a), members_ (m), r_ (std::forward<T> (r)), e_ (r_.end ()) {}
+        : a_ (a), members_ (m), r_ (forward<T> (r)), e_ (r_.end ()) {}
 
-    using base_iterator = decltype (std::declval<T> ().begin ());
+    using base_iterator = decltype (declval<T> ().begin ());
 
     struct iterator
     {
@@ -692,7 +682,7 @@ namespace build2
       const prerequisite_members_range* r_;
       base_iterator i_;
       group_view g_;
-      std::size_t j_; // 1-based index, to support enter_group().
+      size_t j_; // 1-based index, to support enter_group().
       mutable std::aligned_storage<sizeof (prerequisite_member),
                                    alignof (prerequisite_member)>::type m_;
     };
@@ -724,7 +714,7 @@ namespace build2
   reverse_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (
-      a, butl::reverse_iterate (t.prerequisites), members);
+      a, reverse_iterate (t.prerequisites), members);
   }
 
   // prerequisite_members(group_prerequisites (t))
@@ -741,7 +731,7 @@ namespace build2
   reverse_group_prerequisite_members (action a, target& t, bool members = true)
   {
     return prerequisite_members (
-      a, butl::reverse_iterate (group_prerequisites (t)), members);
+      a, reverse_iterate (group_prerequisites (t)), members);
   }
 
   //
@@ -750,7 +740,7 @@ namespace build2
   {
     // @@ When we update ext in key, don't we change it? I think we do.
     //
-    typedef std::map<target_key, std::unique_ptr<target>> map;
+    typedef std::map<target_key, unique_ptr<target>> map;
     typedef butl::map_iterator_adapter<map::const_iterator> iterator;
 
     iterator
@@ -759,8 +749,8 @@ namespace build2
     iterator
     find (const target_type& type,
           const dir_path& dir,
-          const std::string& name,
-          const std::string* ext,
+          const string& name,
+          const string* ext,
           tracer& trace) const
     {
       return find (target_key {&type, &dir, &name, ext}, trace);
@@ -771,7 +761,7 @@ namespace build2
     //
     template <typename T>
     T*
-    find (const dir_path& dir, const std::string& name) const
+    find (const dir_path& dir, const string& name) const
     {
       auto i (map_.find (target_key {&T::static_type, &dir, &name, nullptr}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
@@ -780,18 +770,18 @@ namespace build2
     iterator begin () const {return map_.begin ();}
     iterator end () const {return map_.end ();}
 
-    std::pair<target&, bool>
+    pair<target&, bool>
     insert (const target_type&,
             dir_path dir,
-            std::string name,
-            const std::string* ext,
+            string name,
+            const string* ext,
             tracer&);
 
     template <typename T>
     T&
     insert (const dir_path& dir,
-            const std::string& name,
-            const std::string* ext,
+            const string& name,
+            const string* ext,
             tracer& t)
     {
       return static_cast<T&> (
@@ -800,7 +790,7 @@ namespace build2
 
     template <typename T>
     T&
-    insert (const dir_path& dir, const std::string& name, tracer& t)
+    insert (const dir_path& dir, const string& name, tracer& t)
     {
       return static_cast<T&> (
         insert (T::static_type, dir, name, nullptr, t).first);
@@ -877,7 +867,7 @@ namespace build2
     path () const {return path_;}
 
     void
-    path (path_type p) {assert (path_.empty ()); path_ = std::move (p);}
+    path (path_type p) {assert (path_.empty ()); path_ = move (p);}
 
     // Derive a path from target's dir, name, and, if set, ext. If ext is not
     // set, try to derive it using the target type extension function and
@@ -1059,29 +1049,29 @@ namespace build2
   // Return fixed target extension.
   //
   template <const char* ext>
-  const std::string*
+  const string*
   target_extension_fix (const target_key&, scope&);
 
   // Get the extension from the variable or use the default if none set. If
   // the default is NULL, then return NULL.
   //
   template <const char* var, const char* def>
-  const std::string*
+  const string*
   target_extension_var (const target_key&, scope&);
 
   // Always return NULL extension.
   //
-  const std::string*
+  const string*
   target_extension_null (const target_key&, scope&);
 
   // Issue diagnostics and fail if called.
   //
-  const std::string*
+  const string*
   target_extension_fail (const target_key&, scope&);
 
   // Assert if called.
   //
-  const std::string*
+  const string*
   target_extension_assert (const target_key&, scope&);
 
   // Target print functions.

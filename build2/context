@@ -5,14 +5,11 @@
 #ifndef BUILD2_CONTEXT
 #define BUILD2_CONTEXT
 
-#include <string>
-#include <ostream>
-#include <cstdint> // uint64_t
-
 #include <butl/filesystem>
 
 #include <build2/types>
 #include <build2/utility>
+
 #include <build2/operation>
 
 namespace build2
@@ -40,7 +37,7 @@ namespace build2
   // execution with the expectation of it reaching 0. Used as a sanity
   // check.
   //
-  extern std::uint64_t dependency_count;
+  extern uint64_t dependency_count;
 
   // Reset the dependency state. In particular, this removes all the
   // targets, scopes, and variable names.
@@ -135,13 +132,13 @@ namespace build2
   // In addition to calling relative(), this function also uses shorter
   // notations such as '~/'.
   //
-  std::string
+  string
   diag_relative (const path&);
 
   // As above but also adds trailing '/'. If the path is the same as
   // base, returns "./" if current is true and empty string otherwise.
   //
-  std::string
+  string
   diag_relative (const dir_path&, bool current = true);
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",

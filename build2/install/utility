@@ -5,11 +5,10 @@
 #ifndef BUILD2_INSTALL_UTILITY
 #define BUILD2_INSTALL_UTILITY
 
-#include <string>
-#include <utility>
+#include <build2/types>
+#include <build2/utility>
 
 #include <build2/scope>
-#include <build2/types>
 
 namespace build2
 {
@@ -23,16 +22,16 @@ namespace build2
     {
       auto r (s.target_vars[T::static_type]["*"].assign ("install"));
       if (r.second) // Already set by the user?
-        r.first.get () = std::move (d);
+        r.first.get () = move (d);
     }
 
     template <typename T>
     inline void
-    mode (scope& s, std::string m)
+    mode (scope& s, string m)
     {
       auto r (s.target_vars[T::static_type]["*"].assign ("install.mode"));
       if (r.second) // Already set by the user?
-        r.first.get () = std::move (m);
+        r.first.get () = move (m);
     }
   }
 }

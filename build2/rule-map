@@ -6,14 +6,12 @@
 #define BUILD2_RULE_MAP
 
 #include <map>
-#include <vector>
-#include <string>
-#include <memory>     // unique_ptr
-#include <functional> // reference_wrapper
 
 #include <butl/prefix-map>
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/operation>
 
 namespace build2
@@ -22,8 +20,8 @@ namespace build2
 
   using target_type_rule_map = std::map<
     const target_type*,
-    butl::prefix_map<std::string, // Rule hint.
-                     std::reference_wrapper<rule>, '.'>>;
+    butl::prefix_map<string, // Rule hint.
+                     reference_wrapper<rule>, '.'>>;
 
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.
@@ -55,7 +53,7 @@ namespace build2
     empty () const {return map_.empty ();}
 
   private:
-    std::vector<target_type_rule_map> map_;
+    vector<target_type_rule_map> map_;
   };
 
   // This is another indexed map but this time meta_operation_id is the
@@ -108,7 +106,7 @@ namespace build2
   private:
     meta_operation_id mid_;
     operation_rule_map map_;
-    std::unique_ptr<rule_map> next_;
+    unique_ptr<rule_map> next_;
   };
 }
 

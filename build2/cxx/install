@@ -6,6 +6,8 @@
 #define BUILD2_CXX_INSTALL
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/install/rule>
 
 namespace build2
@@ -19,7 +21,7 @@ namespace build2
       filter (action, target&, prerequisite_member) const;
 
       virtual match_result
-      match (action, target&, const std::string&) const;
+      match (action, target&, const string&) const;
 
       static install instance;
     };

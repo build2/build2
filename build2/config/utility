@@ -5,11 +5,9 @@
 #ifndef BUILD2_CONFIG_UTILITY
 #define BUILD2_CONFIG_UTILITY
 
-#include <string>
-#include <utility>    // pair
-#include <functional> // reference_wrapper
-
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/variable>
 #include <build2/diagnostics>
 
@@ -29,29 +27,29 @@ namespace build2
     // whether the variable has actually been set.
     //
     template <typename T>
-    std::pair<std::reference_wrapper<const value>, bool>
+    pair<reference_wrapper<const value>, bool>
     required (scope& root,
               const variable&,
               const T& default_value,
               bool override = false);
 
     template <typename T>
-    inline std::pair<std::reference_wrapper<const value>, bool>
+    inline pair<reference_wrapper<const value>, bool>
     required (scope& root,
-              const std::string& name,
+              const string& name,
               const T& default_value,
               bool override = false)
     {
       return required (root, var_pool.find (name), default_value, override);
     }
 
-    inline std::pair<std::reference_wrapper<const value>, bool>
+    inline pair<reference_wrapper<const value>, bool>
     required (scope& root,
-              const std::string& name,
+              const string& name,
               const char* default_value,
               bool override = false)
     {
-      return required (root, name, std::string (default_value), override);
+      return required (root, name, string (default_value), override);
     }
 
     // Set, if necessary, an optional config.* variable. In particular,
@@ -65,7 +63,7 @@ namespace build2
     optional (scope& root, const variable&);
 
     inline const value&
-    optional (scope& root, const std::string& var)
+    optional (scope& root, const string& var)
     {
       return optional (root, var_pool.find (var));
     }
@@ -78,7 +76,7 @@ namespace build2
     optional_absolute (scope& root, const variable&);
 
     inline const value&
-    optional_absolute (scope& root, const std::string& var)
+    optional_absolute (scope& root, const string& var)
     {
       return optional_absolute (root, var_pool.find (var));
     }
@@ -95,7 +93,7 @@ namespace build2
     // "remember" that it is unconfigured.
     //
     bool
-    specified (scope& root, const std::string& ns);
+    specified (scope& root, const string& ns);
 
     // @@ Why are these here?
     //

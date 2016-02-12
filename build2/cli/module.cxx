@@ -32,7 +32,7 @@ namespace build2
     cli_init (scope& root,
               scope& base,
               const location& loc,
-              std::unique_ptr<module>&,
+              unique_ptr<module>&,
               bool first,
               bool optional)
     {

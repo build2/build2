@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <iterator> // make_move_iterator()
-
 #include <build2/diagnostics>
 
 namespace build2
@@ -38,20 +36,20 @@ namespace build2
       v = move (a);
     else
       v.insert (v.end (),
-                std::make_move_iterator (a.begin ()),
-                std::make_move_iterator (a.end ()));
+                make_move_iterator (a.begin ()),
+                make_move_iterator (a.end ()));
 
     return !v.empty ();
   }
 
   template <typename T>
-  const std::string value_traits<std::vector<T>>::type_name = std::string (
+  const string value_traits<vector<T>>::type_name = string (
     value_traits<T>::value_type.name) + 's';
 
   template <typename T>
-  const value_type value_traits<std::vector<T>>::value_type
+  const value_type value_traits<vector<T>>::value_type
   {
-    value_traits<std::vector<T>>::type_name.c_str (),
+    value_traits<vector<T>>::type_name.c_str (),
     &vector_assign<T>,
     &vector_append<T>
   };
@@ -67,7 +65,7 @@ namespace build2
     {
       d->emplace_back (p.first); // Const, can't move.
       d->back ().pair = '=';
-      d->emplace_back (std::move (p.second));
+      d->emplace_back (move (p.second));
     }
 
     return *this;
@@ -147,14 +145,14 @@ namespace build2
       v = move (a);
     else
       v.insert (v.end (),
-                std::make_move_iterator (a.begin ()),
-                std::make_move_iterator (a.end ()));
+                make_move_iterator (a.begin ()),
+                make_move_iterator (a.end ()));
 
     return !v.empty ();
   }
 
   template <typename K, typename V>
-  const std::string value_traits<std::map<K, V>>::type_name = std::string (
+  const string value_traits<std::map<K, V>>::type_name = string (
     value_traits<K>::value_type.name) + '_' +
     value_traits<V>::value_type.name + "_map";
 

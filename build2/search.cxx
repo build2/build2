@@ -4,9 +4,6 @@
 
 #include <build2/search>
 
-#include <utility>  // move()
-#include <cassert>
-
 #include <butl/filesystem>
 
 #include <build2/scope>

@@ -55,7 +55,7 @@ namespace build2
   inline value& value::
   operator= (T v)
   {
-    value_traits<T>::assign (*this, std::move (v));
+    value_traits<T>::assign (*this, move (v));
     return *this;
   }
 
@@ -63,14 +63,14 @@ namespace build2
   inline value& value::
   operator+= (T v)
   {
-    value_traits<T>::append (*this, std::move (v));
+    value_traits<T>::append (*this, move (v));
     return *this;
   }
 
   inline void value::
   assign (names v, const variable& var)
   {
-    data_ = std::move (v);
+    data_ = move (v);
     state_ = (type != nullptr && type->assign != nullptr
               ? type->assign (data_, var)
               : !data_.empty ())
@@ -120,22 +120,22 @@ namespace build2
 
   // string value
   //
-  inline std::string& value_traits<std::string>::
+  inline string& value_traits<string>::
   as (value& v)
   {
     assert (v.type == string_type);
     return v.data_.front ().value;
   }
 
-  inline const std::string& value_traits<std::string>::
+  inline const string& value_traits<string>::
   as (const value& v)
   {
     assert (v.type == string_type);
     return v.data_.front ().value;
   }
 
-  inline void value_traits<std::string>::
-  assign (value& v, std::string x)
+  inline void value_traits<string>::
+  assign (value& v, string x)
   {
     if (v.null ())
     {
@@ -145,18 +145,18 @@ namespace build2
       v.state_ = value::state_type::empty;
     }
 
-    v.state_ = (as (v) = std::move (x)).empty ()
+    v.state_ = (as (v) = move (x)).empty ()
       ? value::state_type::empty
       : value::state_type::filled;
   }
 
-  inline void value_traits<std::string>::
-  append (value& v, std::string x)
+  inline void value_traits<string>::
+  append (value& v, string x)
   {
     if (v.null ())
-      assign (v, std::move (x));
+      assign (v, move (x));
     else
-      v.state_ = (as (v) += std::move (x)).empty ()
+      v.state_ = (as (v) += move (x)).empty ()
         ? value::state_type::empty
         : value::state_type::filled;
   }
@@ -188,7 +188,7 @@ namespace build2
       v.state_ = value::state_type::empty;
     }
 
-    v.state_ = (as (v) = std::move (x)).empty ()
+    v.state_ = (as (v) = move (x)).empty ()
       ? value::state_type::empty
       : value::state_type::filled;
   }
@@ -197,9 +197,9 @@ namespace build2
   append (value& v, dir_path x)
   {
     if (v.null ())
-      assign (v, std::move (x));
+      assign (v, move (x));
     else
-      v.state_ = (as (v) /= std::move (x)).empty ()
+      v.state_ = (as (v) /= move (x)).empty ()
         ? value::state_type::empty
         : value::state_type::filled;
   }
@@ -231,7 +231,7 @@ namespace build2
       v.state_ = value::state_type::empty;
     }
 
-    v.state_ = (as (v) = std::move (x)).empty ()
+    v.state_ = (as (v) = move (x)).empty ()
       ? value::state_type::empty
       : value::state_type::filled;
   }
@@ -240,12 +240,12 @@ namespace build2
   //
   template <typename T, typename D>
   inline vector_value<T, D>& vector_value<T, D>::
-  assign (std::vector<T> v)
+  assign (vector<T> v)
   {
     d->clear ();
     d->insert (d->end (),
-               std::make_move_iterator (v.begin ()),
-               std::make_move_iterator (v.end ()));
+               make_move_iterator (v.begin ()),
+               make_move_iterator (v.end ()));
     return *this;
   }
 
@@ -269,47 +269,47 @@ namespace build2
   }
 
   template <typename T>
-  inline vector_value<T, names> value_traits<std::vector<T>>::
+  inline vector_value<T, names> value_traits<vector<T>>::
   as (value& v)
   {
-    assert (v.type == &value_traits<std::vector<T>>::value_type);
+    assert (v.type == &value_traits<vector<T>>::value_type);
     return vector_value<T, names> (v.data_);
   }
 
   template <typename T>
-  inline vector_value<T, const names> value_traits<std::vector<T>>::
+  inline vector_value<T, const names> value_traits<vector<T>>::
   as (const value& v)
   {
-    assert (v.type == &value_traits<std::vector<T>>::value_type);
+    assert (v.type == &value_traits<vector<T>>::value_type);
     return vector_value<T, const names> (v.data_);
   }
 
   template <typename T>
   template <typename V>
-  inline void value_traits<std::vector<T>>::
+  inline void value_traits<vector<T>>::
   assign (value& v, V x)
   {
     if (v.null ())
     {
       if (v.type == nullptr)
-        v.type = &value_traits<std::vector<T>>::value_type;
+        v.type = &value_traits<vector<T>>::value_type;
       v.state_ = value::state_type::empty;
     }
 
-    v.state_ = (as (v).assign (std::move (x))).empty ()
+    v.state_ = (as (v).assign (move (x))).empty ()
       ? value::state_type::empty
       : value::state_type::filled;
   }
 
   template <typename T>
   template <typename V>
-  inline void value_traits<std::vector<T>>::
+  inline void value_traits<vector<T>>::
   append (value& v, V x)
   {
     if (v.null ())
-      assign (v, std::move (x));
+      assign (v, move (x));
     else
-      v.state_ = (as (v).append (std::move (x))).empty ()
+      v.state_ = (as (v).append (move (x))).empty ()
         ? value::state_type::empty
         : value::state_type::filled;
   }
@@ -344,7 +344,7 @@ namespace build2
       v.state_ = value::state_type::empty;
     }
 
-    v.state_ = (as (v).assign (std::move (x))).empty ()
+    v.state_ = (as (v).assign (move (x))).empty ()
       ? value::state_type::empty
       : value::state_type::filled;
   }
@@ -355,9 +355,9 @@ namespace build2
   append (value& v, M x)
   {
     if (v.null ())
-      assign (v, std::move (x));
+      assign (v, move (x));
     else
-      v.state_ = (as (v).append (std::move (x))).empty ()
+      v.state_ = (as (v).append (move (x))).empty ()
         ? value::state_type::empty
         : value::state_type::filled;
   }

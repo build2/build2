@@ -33,7 +33,7 @@ namespace build2
     bin_init (scope& r,
               scope& b,
               const location&,
-              std::unique_ptr<module>&,
+              unique_ptr<module>&,
               bool first,
               bool)
     {

@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <utility> // pair
-
 #include <build2/rule>
 #include <build2/prerequisite>
 #include <build2/context>
@@ -30,8 +28,8 @@ namespace build2
   inline target&
   search (const target_type& type,
           const dir_path& dir,
-          const std::string& name,
-          const std::string* ext,
+          const string& name,
+          const string* ext,
           scope* scope)
   {
     return search (
@@ -41,14 +39,14 @@ namespace build2
   template <typename T>
   inline T&
   search (const dir_path& dir,
-          const std::string& name,
-          const std::string* ext,
+          const string& name,
+          const string* ext,
           scope* scope)
   {
     return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
   }
 
-  std::pair<const rule*, match_result>
+  pair<const rule*, match_result>
   match_impl (action, target&, bool apply);
 
   inline void
@@ -80,13 +78,13 @@ namespace build2
       match_impl (a, t, false);
   }
 
-  inline std::pair<recipe, action>
+  inline pair<recipe, action>
   match_delegate (action a, target& t)
   {
     auto rp (match_impl (a, t, false));
     const match_result& mr (rp.second);
-    return std::make_pair (rp.first->apply (mr.recipe_action, t, mr),
-                           mr.recipe_action);
+    return make_pair (rp.first->apply (mr.recipe_action, t, mr),
+                      mr.recipe_action);
   }
 
   group_view

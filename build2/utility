@@ -5,8 +5,14 @@
 #ifndef BUILD2_UTILITY
 #define BUILD2_UTILITY
 
-#include <utility>       // move(), make_pair()
-#include <cassert>       // assert()
+#include <memory>   // make_shared()
+#include <string>   // to_string()
+#include <utility>  // move(), forward(), declval(), make_pair()
+#include <cassert>  // assert()
+#include <iterator> // make_move_iterator()
+
+#include <butl/utility> // reverse_iterate()
+
 #include <exception>     // uncaught_exception()
 #include <unordered_set>
 
@@ -15,7 +21,17 @@
 namespace build2
 {
   using std::move;
+  using std::forward;
+  using std::declval;
+
   using std::make_pair;
+  using std::make_shared;
+  using std::make_move_iterator;
+  using std::to_string;
+
+  // <butl/utility>
+  //
+  using butl::reverse_iterate;
 
   // Empty string and path.
   //

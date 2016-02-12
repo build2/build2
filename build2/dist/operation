@@ -5,6 +5,9 @@
 #ifndef BUILD2_DIST_OPERATION
 #define BUILD2_DIST_OPERATION
 
+#include <build2/types>
+#include <build2/utility>
+
 #include <build2/operation>
 
 namespace build2

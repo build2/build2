@@ -4,8 +4,6 @@
 
 #include <build2/spec>
 
-#include <ostream>
-
 #include <build2/context>
 #include <build2/diagnostics>
 

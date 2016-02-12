@@ -4,8 +4,6 @@
 
 #include <build2/name>
 
-#include <ostream>
-
 #include <build2/diagnostics>
 
 using namespace std;

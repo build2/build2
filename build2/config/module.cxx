@@ -54,7 +54,7 @@ namespace build2
     config_init (scope& root,
                  scope&,
                  const location& l,
-                 std::unique_ptr<module>&,
+                 unique_ptr<module>&,
                  bool first,
                  bool)
     {

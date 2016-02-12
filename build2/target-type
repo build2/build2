@@ -6,8 +6,6 @@
 #define BUILD2_TARGET_TYPE
 
 #include <map>
-#include <string>
-#include <ostream>
 
 #include <build2/types>
 #include <build2/utility>
@@ -63,8 +61,8 @@ namespace build2
   inline bool
   operator!= (const target_type& x, const target_type& y) {return &x != &y;}
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const target_type& tt) {return os << tt.name;}
+  inline ostream&
+  operator<< (ostream& os, const target_type& tt) {return os << tt.name;}
 
   // Target type map.
   //

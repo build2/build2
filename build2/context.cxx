@@ -4,10 +4,6 @@
 
 #include <build2/context>
 
-#include <ostream>
-#include <cassert>
-#include <system_error>
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/rule>
@@ -194,7 +190,7 @@ namespace build2
     {
       butl::rmdir_r (d);
     }
-    catch (const std::system_error& e)
+    catch (const system_error& e)
     {
       fail << "unable to remove directory " << d << ": " << e.what ();
     }

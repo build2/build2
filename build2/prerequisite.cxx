@@ -4,8 +4,6 @@
 
 #include <build2/prerequisite>
 
-#include <ostream>
-
 #include <build2/scope>
 #include <build2/target> // target_type
 #include <build2/context>
@@ -51,11 +49,11 @@ namespace build2
   // prerequisite_set
   //
   auto prerequisite_set::
-  insert (const std::string* proj,
+  insert (const string* proj,
           const target_type& tt,
           dir_path dir,
-          std::string name,
-          const std::string* ext,
+          string name,
+          const string* ext,
           scope& s,
           tracer& trace) -> pair<prerequisite&, bool>
   {

@@ -401,7 +401,7 @@ namespace build2
     const bool&
     q () const;
 
-    const std::uint16_t&
+    const uint16_t&
     verbose () const;
 
     bool
@@ -446,7 +446,7 @@ namespace build2
     public:
     bool v_;
     bool q_;
-    std::uint16_t verbose_;
+    uint16_t verbose_;
     bool verbose_specified_;
     string pager_;
     bool pager_specified_;

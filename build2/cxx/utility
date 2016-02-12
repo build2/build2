@@ -5,9 +5,9 @@
 #ifndef BUILD2_CXX_UTILITY
 #define BUILD2_CXX_UTILITY
 
-#include <string>
-
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/target>
 
 #include <build2/config/utility>
@@ -22,7 +22,7 @@ namespace build2
     //
     template <typename T>
     void
-    append_std (cstrings& args, T&, std::string& storage);
+    append_std (cstrings& args, T&, string& storage);
 
     // Append library options from one of the cxx.export.* variables
     // recursively, prerequisite libraries first.

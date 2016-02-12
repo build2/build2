@@ -5,17 +5,12 @@
 #include <build2/cxx/compile>
 
 #include <map>
-#include <string>
-#include <cstddef>  // size_t
 #include <cstdlib>  // exit()
-#include <utility>  // move()
 
 #include <butl/process>
-#include <butl/utility>  // reverse_iterate
 #include <butl/fdstream>
 #include <butl/path-map>
 
-#include <build2/types>
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/algorithm>

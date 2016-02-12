@@ -4,20 +4,14 @@
 
 #include <build2/cxx/link>
 
-#include <vector>
-#include <string>
-#include <cstddef>  // size_t
 #include <cstdlib>  // exit()
-#include <utility>  // move()
 
 #include <butl/process>
-#include <butl/utility>  // reverse_iterate
 #include <butl/fdstream>
 #include <butl/optional>
 #include <butl/path-map>
 #include <butl/filesystem>
 
-#include <build2/types>
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/algorithm>

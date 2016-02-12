@@ -5,11 +5,9 @@
 #ifndef BUILD2_CXX_LINK
 #define BUILD2_CXX_LINK
 
-#include <vector>
-
-#include <butl/optional>
-
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/rule>
 
 #include <build2/bin/target>
@@ -22,7 +20,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const std::string& hint) const;
+      match (action, target&, const string& hint) const;
 
       virtual recipe
       apply (action, target&, const match_result&) const;
@@ -55,8 +53,8 @@ namespace build2
     private:
       friend class compile;
 
-      using search_paths = std::vector<dir_path>;
-      using search_paths_cache = butl::optional<search_paths>;
+      using search_paths = vector<dir_path>;
+      using search_paths_cache = optional<search_paths>;
 
       static target*
       search_library (search_paths_cache&, prerequisite&);

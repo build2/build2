@@ -4,8 +4,6 @@
 
 #include <build2/token>
 
-#include <ostream>
-
 using namespace std;
 
 namespace build2

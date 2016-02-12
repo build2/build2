@@ -6,9 +6,10 @@
 #define BUILD2_FILE
 
 #include <map>
-#include <string>
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/scope>
 #include <build2/variable> // list_value
 
@@ -18,7 +19,7 @@ namespace build2
   class location;
   class prerequisite_key;
 
-  using subprojects = std::map<std::string, dir_path>;
+  using subprojects = std::map<string, dir_path>;
 
   extern const dir_path build_dir;     // build
   extern const dir_path bootstrap_dir; // build/bootstrap

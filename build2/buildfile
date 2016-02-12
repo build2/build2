@@ -17,7 +17,6 @@ exe{b}:                                   \
         {hxx         cxx}{ name         } \
         {hxx         cxx}{ operation    } \
         {hxx         cxx}{ parser       } \
-        {hxx         cxx}{ path-io      } \
         {hxx         cxx}{ prerequisite } \
         {hxx         cxx}{ rule         } \
         {hxx            }{ rule-map     } \

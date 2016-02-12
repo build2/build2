@@ -5,8 +5,10 @@
 #ifndef BUILD2_INSTALL_RULE
 #define BUILD2_INSTALL_RULE
 
-#include <build2/rule>
 #include <build2/types>
+#include <build2/utility>
+
+#include <build2/rule>
 #include <build2/target>
 #include <build2/operation>
 
@@ -18,7 +20,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const std::string&) const;
+      match (action, target&, const string&) const;
 
       virtual recipe
       apply (action, target&, const match_result&) const;
@@ -28,7 +30,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const std::string&) const;
+      match (action, target&, const string&) const;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation ignores prerequsites that

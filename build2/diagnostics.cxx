@@ -7,8 +7,6 @@
 #include <cstring>  // strchr()
 #include <iostream>
 
-#include <build2/utility>
-
 using namespace std;
 
 namespace build2
@@ -81,7 +79,7 @@ namespace build2
     //
     if (!empty_ && (!std::uncaught_exception () || exception_unwinding_dtor))
     {
-      *diag_stream << os_.str () << std::endl;
+      *diag_stream << os_.str () << endl;
 
       if (epilogue_ != nullptr)
         epilogue_ (*this); // Can throw.

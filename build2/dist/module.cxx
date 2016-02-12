@@ -88,9 +88,7 @@ namespace build2
       // must be explicitly specified or we will complain if and when
       // we try to dist.
       //
-      using namespace config;
-
-      bool s (specified (r, "config.dist"));
+      bool s (config::specified (r, "config.dist"));
 
       // dist.root
       //
@@ -99,7 +97,7 @@ namespace build2
 
         if (s)
         {
-          const value& cv (optional_absolute (r, "config.dist.root"));
+          const value& cv (config::optional_absolute (r, "config.dist.root"));
 
           if (cv && !cv.empty ())
             v = cv;
@@ -113,7 +111,8 @@ namespace build2
 
         if (s)
         {
-          const value& cv (required (r, "config.dist.cmd", "install").first);
+          const value& cv (
+            config::required (r, "config.dist.cmd", "install").first);
 
           if (cv && !cv.empty ())
             v = cv;
@@ -129,7 +128,7 @@ namespace build2
 
         if (s)
         {
-          const value& cv (optional (r, "config.dist.archives"));
+          const value& cv (config::optional (r, "config.dist.archives"));
 
           if (cv && !cv.empty ())
             v = cv;

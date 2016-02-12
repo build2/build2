@@ -11,18 +11,17 @@
 #include <pwd.h>       // struct passwd, getpwuid()
 
 #include <sstream>
-#include <cassert>
 #include <cstring>     // strcmp(), strchr()
 #include <typeinfo>
 #include <iostream>
-#include <system_error>
 
 #include <butl/pager>
 #include <butl/filesystem>
 
+#include <build2/types>
+#include <build2/utility>
 #include <build2/version>
 
-#include <build2/types>
 #include <build2/spec>
 #include <build2/operation>
 #include <build2/scope>
@@ -34,7 +33,6 @@
 #include <build2/algorithm>
 #include <build2/diagnostics>
 #include <build2/context>
-#include <build2/utility>
 #include <build2/variable>
 
 #include <build2/token>

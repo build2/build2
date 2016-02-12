@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <system_error>
-
 #include <build2/diagnostics>
 
 namespace build2
@@ -25,7 +23,7 @@ namespace build2
     {
       rs = try_rmfile (f);
     }
-    catch (const std::system_error& e)
+    catch (const system_error& e)
     {
       if (verb >= 2)
         text << "rm " << f;
@@ -64,7 +62,7 @@ namespace build2
     {
       rs = !w ? try_rmdir (d) : rmdir_status::not_empty;
     }
-    catch (const std::system_error& e)
+    catch (const system_error& e)
     {
       if (verb >= 2)
         text << "rmdir " << d;

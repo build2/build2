@@ -21,7 +21,7 @@ namespace build2
   namespace test
   {
     match_result rule::
-    match (action a, target& t, const std::string&) const
+    match (action a, target& t, const string&) const
     {
       // First determine if this is a test. This is controlled by
       // the test target variable and text.<tt> scope variables.

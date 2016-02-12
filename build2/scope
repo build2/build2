@@ -5,7 +5,6 @@
 #ifndef BUILD2_SCOPE
 #define BUILD2_SCOPE
 
-#include <functional>    // function
 #include <unordered_set>
 #include <unordered_map>
 
@@ -96,7 +95,7 @@ namespace build2
     }
 
     build2::lookup<const value>
-    operator[] (const std::string& name) const
+    operator[] (const string& name) const
     {
       return operator[] (var_pool.find (name));
     }
@@ -142,7 +141,7 @@ namespace build2
     assign (const variable& var) {return vars.assign (var).first.get ();}
 
     value&
-    assign (const std::string& name, const build2::value_type* type = nullptr)
+    assign (const string& name, const build2::value_type* type = nullptr)
     {
       return vars.assign (name, type).first.get ();
     }
@@ -157,7 +156,7 @@ namespace build2
     append (const variable&);
 
     value&
-    append (const std::string& name)
+    append (const string& name)
     {
       return append (var_pool.find (name));
     }

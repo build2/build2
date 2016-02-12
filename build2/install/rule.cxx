@@ -41,7 +41,7 @@ namespace build2
     // alias_rule
     //
     match_result alias_rule::
-    match (action, target& t, const std::string&) const
+    match (action, target& t, const string&) const
     {
       return t;
     }
@@ -84,7 +84,7 @@ namespace build2
     //
 
     match_result file_rule::
-    match (action a, target& t, const std::string&) const
+    match (action a, target& t, const string&) const
     {
       // First determine if this target should be installed (called
       // "installable" for short).

@@ -9,10 +9,10 @@ namespace build2
   namespace config
   {
     template <typename T>
-    std::pair<std::reference_wrapper<const value>, bool>
+    pair<reference_wrapper<const value>, bool>
     required (scope& root, const variable& var, const T& def_value, bool ovr)
     {
-      using result = std::pair<std::reference_wrapper<const value>, bool>;
+      using result = pair<reference_wrapper<const value>, bool>;
 
       if (auto l = root[var])
       {
@@ -32,7 +32,7 @@ namespace build2
     {
       if (auto l = s[var])
       {
-        for (const std::string& s: as<strings> (*l))
+        for (const string& s: as<strings> (*l))
         {
           if (s == option)
             return true;

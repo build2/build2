@@ -6,6 +6,8 @@
 #define BUILD2_CXX_COMPILE
 
 #include <build2/types>
+#include <build2/utility>
+
 #include <build2/rule>
 
 namespace build2
@@ -16,7 +18,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const std::string& hint) const;
+      match (action, target&, const string& hint) const;
 
       virtual recipe
       apply (action, target&, const match_result&) const;
