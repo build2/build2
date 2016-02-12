@@ -584,13 +584,15 @@ namespace build2
 
                 f = i->second / f;
               }
-
-              // We used to just normalize the path but that could result in
-              // an invalid path (e.g., on CentOS 7 with Clang 3.4) because
-              // of the symlinks. So now we realize (i.e., realpath(3)) it
-              // instead.
-              //
-              f.realize ();
+              else
+              {
+                // We used to just normalize the path but that could result in
+                // an invalid path (e.g., on CentOS 7 with Clang 3.4) because
+                // of the symlinks. So now we realize (i.e., realpath(3)) it
+                // instead.
+                //
+                f.realize ();
+              }
 
               level6 ([&]{trace << "injecting " << f;});
 
