@@ -545,13 +545,8 @@ namespace build2
       // files as well as search and match.
       //
       // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of our strong amalgamation.
+      // or a subdirectory of ours.
       //
-      const dir_path* amlg (
-        a.operation () != clean_id
-        ? nullptr
-        : &t.strong_scope ().out_path ());
-
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
@@ -569,7 +564,7 @@ namespace build2
           if (pt == nullptr)
             pt = &p.search ();
 
-          if (a.operation () == clean_id && !pt->dir.sub (*amlg))
+          if (a.operation () == clean_id && !pt->dir.sub (t.dir))
             continue; // Skip.
 
           // If this is the obj{} or lib{} target group, then pick the
@@ -631,9 +626,9 @@ namespace build2
         target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
-        // a subdirectory of our strong amalgamation.
+        // a subdirectory of ours.
         //
-        if (a.operation () == clean_id && !ot.dir.sub (*amlg))
+        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will

@@ -78,13 +78,8 @@ namespace build2
       // code (below) takes care of the ones it is adding.
       //
       // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of our strong amalgamation.
+      // or a subdirectory of ours.
       //
-      const dir_path* amlg (
-        a.operation () != clean_id
-        ? nullptr
-        : &t.strong_scope ().out_path ());
-
       link::search_paths_cache lib_paths; // Extract lazily.
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -117,7 +112,7 @@ namespace build2
 
         target& pt (p.search ());
 
-        if (a.operation () == clean_id && !pt.dir.sub (*amlg))
+        if (a.operation () == clean_id && !pt.dir.sub (t.dir))
           continue;
 
         build2::match (a, pt);

@@ -101,11 +101,7 @@ namespace build2
   search_and_match_prerequisites (action a, target& t)
   {
     search_and_match_prerequisites (
-      a,
-      t,
-      a.operation () != clean_id
-      ? dir_path ()
-      : t.strong_scope ().out_path ());
+      a, t, a.operation () != clean_id ? dir_path () : t.dir);
   }
 
   inline void
@@ -118,7 +114,7 @@ namespace build2
       // through groups since the group target should clean eveything
       // up. A bit of an optimization.
       //
-      search_and_match_prerequisites (a, t, t.strong_scope ().out_path ());
+      search_and_match_prerequisites (a, t, t.dir);
   }
 
   target_state
