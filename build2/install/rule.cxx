@@ -328,57 +328,63 @@ namespace build2
     {
       install_dir r;
 
-      if (d.absolute ())
-        d.normalize ();
-      else
+      try
       {
-        // If it is relative, then the first component is treated
-        // as the installation directory name, e.g., bin, sbin, lib,
-        // etc. Look it up and recurse.
-        //
-        const string& sn (*d.begin ());
-        const string var ("install." + sn);
-        if (const dir_path* dn = lookup (s, var))
-        {
-          r = resolve (s, *dn, &var);
-          d = r.dir / dir_path (++d.begin (), d.end ());
-          d.normalize ();
-
-          if (!dir_exists (d))
-            install (r, d); // install -d
-        }
+        if (d.absolute ())
+          r.dir = move (d.normalize ());
         else
-          fail << "unknown installation directory name " << sn <<
-            info << "did you forget to specify config." << var << "?";
+        {
+          // If it is relative, then the first component is treated
+          // as the installation directory name, e.g., bin, sbin, lib,
+          // etc. Look it up and recurse.
+          //
+          const string& sn (*d.begin ());
+          const string var ("install." + sn);
+          if (const dir_path* dn = lookup (s, var))
+          {
+            r = resolve (s, *dn, &var);
+            d = r.dir / dir_path (++d.begin (), d.end ());
+            r.dir = move (d.normalize ());
+
+            if (!dir_exists (r.dir)) // May throw (e.g., EACCES).
+              install (r, r.dir); // install -d
+          }
+          else
+            fail << "unknown installation directory name " << sn <<
+              info << "did you forget to specify config." << var << "?";
+        }
+
+        // Override components in install_dir if we have our own.
+        //
+        if (var != nullptr)
+        {
+          if (auto l = s[*var + ".sudo"])     r.sudo = as<string> (*l);
+          if (auto l = s[*var + ".cmd"])      r.cmd = as<string> (*l);
+          if (auto l = s[*var + ".mode"])     r.mode = as<string> (*l);
+          if (auto l = s[*var + ".dir_mode"]) r.dir_mode = as<string> (*l);
+          if (auto l = s[*var + ".options"])  r.options = as<strings> (*l);
+        }
+
+        // Set defaults for unspecified components.
+        //
+        if (r.cmd.empty ()) r.cmd = "install";
+        if (r.mode.empty ()) r.mode = "644";
+        if (r.dir_mode.empty ()) r.dir_mode = "755";
+
+        // If the directory still doesn't exist, then this means it was specified
+        // as absolute (it will normally be install.root with everything else
+        // defined in term of it). We used to fail in this case but that proved
+        // to be just too anal. So now we just create it.
+        //
+        if (!dir_exists (r.dir)) // May throw (e.g., EACCES).
+          // fail << "installation directory " << d << " does not exist";
+          install (r, r.dir); // install -d
       }
-
-      r.dir = move (d);
-
-      // Override components in install_dir if we have our own.
-      //
-      if (var != nullptr)
+      catch (const system_error& e)
       {
-        if (auto l = s[*var + ".sudo"])     r.sudo = as<string> (*l);
-        if (auto l = s[*var + ".cmd"])      r.cmd = as<string> (*l);
-        if (auto l = s[*var + ".mode"])     r.mode = as<string> (*l);
-        if (auto l = s[*var + ".dir_mode"]) r.dir_mode = as<string> (*l);
-        if (auto l = s[*var + ".options"])  r.options = as<strings> (*l);
+        fail << "invalid installation directory " << r.dir << ": "
+             << e.what ();
       }
-
-      // Set defaults for unspecified components.
-      //
-      if (r.cmd.empty ()) r.cmd = "install";
-      if (r.mode.empty ()) r.mode = "644";
-      if (r.dir_mode.empty ()) r.dir_mode = "755";
-
-      // If the directory still doesn't exist, then this means it was specified
-      // as absolute (it will normally be install.root with everything else
-      // defined in term of it). We used to fail in this case but that proved
-      // to be just too anal. So now we just create it.
-      //
-      if (!dir_exists (r.dir))
-        install (r, r.dir); // install -d
-        // fail << "installation directory " << d << " does not exist";
 
       return r;
     }
