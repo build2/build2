@@ -5,6 +5,7 @@
 #include <build2/cxx/compile>
 
 #include <map>
+#include <limits>   // numeric_limits
 #include <cstdlib>  // exit()
 
 #include <butl/process>
@@ -673,10 +674,14 @@ namespace build2
             }
           }
 
-          // We may not have read all the output (e.g., due to a restart),
-          // so close the file descriptor before waiting to avoid blocking
-          // the other end.
+          // We may not have read all the output (e.g., due to a restart).
+          // Before we used to just close the file descriptor to signal to the
+          // other end that we are not interested in the rest. This works fine
+          // with GCC but Clang (3.7.0) finds this impolite and complains,
+          // loudly (broken pipe). So now we are going to skip until the end.
           //
+          if (!is.eof ())
+            is.ignore (numeric_limits<streamsize>::max ());
           is.close ();
 
           // We assume the child process issued some diagnostics.
