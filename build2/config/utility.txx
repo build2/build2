@@ -25,21 +25,5 @@ namespace build2
 
       return result (root.assign (var) = def_value, true);
     }
-
-    template <typename T>
-    bool
-    find_option (const char* option, T& s, const char* var)
-    {
-      if (auto l = s[var])
-      {
-        for (const string& s: as<strings> (*l))
-        {
-          if (s == option)
-            return true;
-        }
-      }
-
-      return false;
-    }
   }
 }

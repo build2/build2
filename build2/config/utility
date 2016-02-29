@@ -94,33 +94,9 @@ namespace build2
     //
     bool
     specified (scope& root, const string& ns);
-
-    // @@ Why are these here?
-    //
-
-    // Add all the values from a variable to the C-string list. T is
-    // either target or scope. The variable is expected to be of type
-    // strings.
-    //
-    template <typename T>
-    void
-    append_options (cstrings& args, T& s, const char* var);
-
-    // As above but from the strings value directly.
-    //
-    void
-    append_options (cstrings& args, const const_strings_value&);
-
-    // Check if a specified option is present in the variable value.
-    // T is either target or scope.
-    //
-    template <typename T>
-    bool
-    find_option (const char* option, T& s, const char* var);
   }
 }
 
 #include <build2/config/utility.txx>
-#include <build2/config/utility.ixx>
 
 #endif // BUILD2_CONFIG_UTILITY

@@ -39,6 +39,46 @@ namespace build2
   extern const path empty_path;
   extern const dir_path empty_dir_path;
 
+  // Append all the values from a variable to the C-string list. T is either
+  // target or scope. The variable is expected to be of type strings.
+  //
+  template <typename T>
+  void
+  append_options (cstrings&, T&, const char* variable);
+
+  template <typename T>
+  void
+  hash_options (sha256&, T&, const char* variable);
+
+  // As above but from the strings value directly.
+  //
+  class value;
+  template <typename> struct lookup;
+  template <typename, typename> struct vector_value;
+  using const_strings_value = vector_value<string, const names>;
+
+  void
+  append_options (cstrings&, const lookup<const value>&);
+
+  void
+  hash_options (sha256&, const lookup<const value>&);
+
+  void
+  append_options (cstrings&, const const_strings_value&);
+
+  void
+  hash_options (sha256&, const const_strings_value&);
+
+  // Check if a specified option is present in the variable value.
+  // T is either target or scope.
+  //
+  template <typename T>
+  bool
+  find_option (const char* option, T&, const char* variable);
+
+  bool
+  find_option (const char* option, const lookup<const value>&);
+
   // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
   // AABBCCDD form, where:
   //
@@ -121,5 +161,7 @@ namespace build2
     find (const std::string& s) {return *emplace (s).first;}
   };
 }
+
+#include <build2/utility.ixx>
 
 #endif // BUILD2_UTILITY

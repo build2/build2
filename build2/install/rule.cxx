@@ -12,8 +12,6 @@
 #include <build2/algorithm>
 #include <build2/diagnostics>
 
-#include <build2/config/utility>
-
 using namespace std;
 using namespace butl;
 
@@ -243,7 +241,7 @@ namespace build2
       args.push_back ("-d");
 
       if (base.options.d != nullptr) //@@ VAR
-        config::append_options (args, base.options);
+        append_options (args, base.options);
 
       args.push_back ("-m");
       args.push_back (base.dir_mode.c_str ());
@@ -289,7 +287,7 @@ namespace build2
       args.push_back (base.cmd.c_str ());
 
       if (base.options.d != nullptr) //@@ VAR
-        config::append_options (args, base.options);
+        append_options (args, base.options);
 
       args.push_back ("-m");
       args.push_back (base.mode.c_str ());

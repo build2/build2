@@ -9,6 +9,7 @@ exe{b}:                                   \
         {            cxx}{ b            } \
         {hxx ixx     cxx}{ b-options    } \
         {hxx     txx cxx}{ context      } \
+        {hxx         cxx}{ depdb        } \
         {hxx         cxx}{ diagnostics  } \
         {hxx         cxx}{ dump         } \
         {hxx ixx     cxx}{ file         } \
@@ -28,7 +29,7 @@ exe{b}:                                   \
         {hxx            }{ target-type  } \
         {hxx         cxx}{ token        } \
         {hxx            }{ types        } \
-        {hxx         cxx}{ utility      } \
+        {hxx ixx     cxx}{ utility      } \
         {hxx ixx txx cxx}{ variable     } \
         {hxx            }{ version      } \
     bin/{hxx         cxx}{ module       } \
@@ -39,7 +40,7 @@ exe{b}:                                   \
     cli/{hxx         cxx}{ target       } \
  config/{hxx         cxx}{ module       } \
  config/{hxx         cxx}{ operation    } \
- config/{hxx ixx txx cxx}{ utility      } \
+ config/{hxx     txx cxx}{ utility      } \
     cxx/{hxx         cxx}{ compile      } \
     cxx/{hxx         cxx}{ install      } \
     cxx/{hxx         cxx}{ link         } \

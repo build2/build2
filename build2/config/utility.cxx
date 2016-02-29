@@ -76,17 +76,5 @@ namespace build2
 
       return false;
     }
-
-    void
-    append_options (cstrings& args, const const_strings_value& sv)
-    {
-      if (!sv.empty ())
-      {
-        args.reserve (args.size () + sv.size ());
-
-        for (const string& s: sv)
-          args.push_back (s.c_str ());
-      }
-    }
   }
 }

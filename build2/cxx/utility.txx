@@ -9,15 +9,15 @@ namespace build2
   namespace cxx
   {
     template <typename T>
-    void
-    append_std (cstrings& args, T& t, string& s)
+    bool
+    translate_std (T& t, string& s)
     {
       if (auto l = t["cxx.std"])
       {
         const string& v (as<string> (*l));
 
-        // Translate 11 to 0x and 14 to 1y for compatibility with
-        // older versions of the compiler.
+        // Translate 11 to 0x and 14 to 1y for compatibility with older
+        // versions of the compiler.
         //
         s = "-std=c++";
 
@@ -28,8 +28,27 @@ namespace build2
         else
           s += v;
 
-        args.push_back (s.c_str ());
+        return true;
       }
+
+      return false;
+    }
+
+    template <typename T>
+    inline void
+    append_std (cstrings& args, T& t, string& s)
+    {
+      if (translate_std (t, s))
+        args.push_back (s.c_str ());
+    }
+
+    template <typename T>
+    inline void
+    hash_std (sha256& csum, T& t)
+    {
+      string s;
+      if (translate_std (t, s))
+        csum.append (s);
     }
   }
 }

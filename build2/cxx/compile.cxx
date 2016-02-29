@@ -12,11 +12,12 @@
 #include <butl/fdstream>
 #include <butl/path-map>
 
+#include <build2/depdb>
 #include <build2/scope>
+#include <build2/context>
 #include <build2/variable>
 #include <build2/algorithm>
 #include <build2/diagnostics>
-#include <build2/context>
 
 #include <build2/bin/target>
 #include <build2/cxx/target>
@@ -59,11 +60,13 @@ namespace build2
     }
 
     static void
-    inject_prerequisites (action, target&, cxx&, scope&);
+    inject_prerequisites (action, target&, cxx&, scope&, depdb&);
 
     recipe compile::
     apply (action a, target& xt, const match_result& mr) const
     {
+      tracer trace ("cxx::compile");
+
       path_target& t (static_cast<path_target&> (xt));
 
       // Derive file name from target name.
@@ -120,23 +123,111 @@ namespace build2
         t.prerequisite_targets.push_back (&pt);
       }
 
-      // Inject additional prerequisites. We only do it when
-      // performing update since chances are we will have to
-      // update some of our prerequisites in the process (auto-
-      // generated source code).
+      // Inject additional prerequisites. We only do it when performing update
+      // since chances are we will have to update some of our prerequisites in
+      // the process (auto-generated source code).
       //
       if (a == perform_update_id)
       {
-        // The cached prerequisite target should be the same as what
-        // is in t.prerequisite_targets since we used standard
-        // search() and match() above.
+        scope& rs (t.root_scope ());
+        const string& sys (as<string> (*rs["cxx.host.system"]));
+
+        // The cached prerequisite target should be the same as what is in
+        // t.prerequisite_targets since we used standard search() and match()
+        // above.
         //
         // @@ Ugly.
         //
         cxx& st (
           dynamic_cast<cxx&> (
             mr.target != nullptr ? *mr.target : *mr.prerequisite->target));
-        inject_prerequisites (a, t, st, mr.prerequisite->scope);
+
+        depdb dd (t.path () + ".d");
+
+        // First should come the rule name/version.
+        //
+        string* dl (dd.read ());
+        if (dl == nullptr || *dl != "cxx.compile 1")
+        {
+          dd.write ("cxx.compile 1");
+
+          if (dl != nullptr)
+            level4 ([&]{trace << "rule mismatch forcing update of " << t;});
+        }
+
+        // Then the compiler checksum.
+        //
+        {
+          sha256 csum (as<string> (*rs["config.cxx"]));
+
+          dl = dd.read ();
+          if (dl == nullptr || *dl != csum.string ())
+          {
+            dd.write (csum.string ());
+
+            if (dl != nullptr)
+              level4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+          }
+        }
+
+        // Then the options checksum.
+        //
+        {
+          // The idea is to keep them exactly as they are passed to the
+          // compiler since the order may be significant.
+          //
+          sha256 csum;
+
+          // Hash cxx.export.poptions from prerequisite libraries.
+          //
+          for (prerequisite& p: group_prerequisites (t))
+          {
+            target& pt (*p.target); // Already searched and matched.
+
+            if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+              hash_lib_options (csum, pt, "cxx.export.poptions");
+          }
+
+          hash_options (csum, t, "cxx.poptions");
+          hash_options (csum, t, "cxx.coptions");
+          hash_std (csum, t);
+
+          if (t.is_a<objso> ())
+          {
+            if (sys != "darwin")
+              csum.append ("-fPIC");
+          }
+
+          dl = dd.read ();
+          if (dl == nullptr || *dl != csum.string ())
+          {
+            dd.write (csum.string ());
+
+            if (dl != nullptr)
+              level4 ([&]{trace << "options mismatch forcing update of " << t;});
+          }
+        }
+
+        // Then the source file.
+        //
+        dl = dd.read ();
+        if (dl == nullptr || *dl != st.path ().string ())
+        {
+          dd.write (st.path ());
+
+          if (dl != nullptr)
+            level4 ([&]{trace << "source file mismatch forcing update of " << t;});
+        }
+
+        // If any of the above checks resulted in a mismatch (different
+        // compiler, options, or source file), then force the target update.
+        //
+        if (dd.writing ())
+          t.mtime (timestamp_nonexistent);
+
+        inject_prerequisites (a, t, st, mr.prerequisite->scope, dd);
+
+        dd.close ();
       }
 
       switch (a)
@@ -360,357 +451,473 @@ namespace build2
     }
 
     static void
-    inject_prerequisites (action a, target& t, cxx& s, scope& ds)
+    inject_prerequisites (action a, target& t, cxx& s, scope& ds, depdb& dd)
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      scope& rs (t.root_scope ());
-      const string& cxx (as<string> (*rs["config.cxx"]));
-      const string& sys (as<string> (*rs["cxx.host.system"]));
-
-      cstrings args {cxx.c_str ()};
-
-      // Add cxx.export.poptions from prerequisite libraries. Note
-      // that here we don't need to see group members (see apply()).
-      //
-      for (prerequisite& p: group_prerequisites (t))
-      {
-        target& pt (*p.target); // Already searched and matched.
-
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
-          append_lib_options (args, pt, "cxx.export.poptions");
-      }
-
-      append_options (args, t, "cxx.poptions");
-
-      // @@ Some C++ options (e.g., -std, -m) affect the preprocessor.
-      // Or maybe they are not C++ options? Common options?
-      //
-      append_options (args, t, "cxx.coptions");
-
-      string std; // Storage.
-      append_std (args, t, std);
-
-      if (t.is_a<objso> ())
-      {
-        if (sys != "darwin") // fPIC by default.
-          args.push_back ("-fPIC");
-      }
-
-      args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
-      args.push_back ("-MG"); // Treat missing headers as generated.
-      args.push_back ("-MQ"); // Quoted target name.
-      args.push_back ("*");   // Old versions can't handle empty target name.
-
-      // We are using absolute source file path in order to get absolute
-      // paths in the result. Any relative paths in the result are non-
-      // existent, potentially auto-generated headers.
-      //
-      // @@ We will also have to use absolute -I paths to guarantee
-      // that. Or just detect relative paths and error out?
-      //
-      args.push_back (s.path ().string ().c_str ());
-      args.push_back (nullptr);
-
       level6 ([&]{trace << "target: " << t;});
+
+      // If things go wrong (and they often do in this area), give the user a
+      // bit extra context.
+      //
+      auto g (
+        make_exception_guard (
+          [&s]()
+          {
+            info << "while extracting header dependencies from " << s;
+          }));
+
+      scope& rs (t.root_scope ());
+
+      // Initialize lazily, only if required.
+      //
+      cstrings args;
+      string cxx_std; // Storage.
+
+      auto init_args = [&t, &s, &rs, &args, &cxx_std] ()
+      {
+        const string& cxx (as<string> (*rs["config.cxx"]));
+        const string& sys (as<string> (*rs["cxx.host.system"]));
+
+        args.push_back (cxx.c_str ());
+
+        // Add cxx.export.poptions from prerequisite libraries. Note
+        // that here we don't need to see group members (see apply()).
+        //
+        for (prerequisite& p: group_prerequisites (t))
+        {
+          target& pt (*p.target); // Already searched and matched.
+
+          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+            append_lib_options (args, pt, "cxx.export.poptions");
+        }
+
+        append_options (args, t, "cxx.poptions");
+
+        // Some C++ options (e.g., -std, -m) affect the preprocessor.
+        //
+        append_options (args, t, "cxx.coptions");
+
+        append_std (args, t, cxx_std);
+
+        if (t.is_a<objso> ())
+        {
+          if (sys != "darwin") // fPIC by default.
+            args.push_back ("-fPIC");
+        }
+
+        args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
+        args.push_back ("-MG"); // Treat missing headers as generated.
+        args.push_back ("-MQ"); // Quoted target name.
+        args.push_back ("*");   // Old versions can't do empty target name.
+
+        // We are using absolute source file path in order to get absolute
+        // paths in the result. Any relative paths in the result are non-
+        // existent, potentially auto-generated headers.
+        //
+        // @@ We will also have to use absolute -I paths to guarantee
+        // that. Or just detect relative paths and error out?
+        //
+        args.push_back (s.path ().string ().c_str ());
+        args.push_back (nullptr);
+      };
 
       // Build the prefix map lazily only if we have non-existent files.
       // Also reuse it over restarts since it doesn't change.
       //
       prefix_map pm;
 
-      // If any prerequisites that we have extracted changed, then we
-      // have to redo the whole thing. The reason for this is auto-
-      // generated headers: the updated header may now include a yet-
-      // non-existent header. Unless we discover this and generate it
-      // (which, BTW, will trigger another restart since that header,
-      // in turn, can also include auto-generated headers), we will
-      // end up with an error during compilation proper.
+      // If any prerequisites that we have extracted changed, then we have to
+      // redo the whole thing. The reason for this is auto- generated headers:
+      // the updated header may now include a yet- non-existent header. Unless
+      // we discover this and generate it (which, BTW, will trigger another
+      // restart since that header, in turn, can also include auto-generated
+      // headers), we will end up with an error during compilation proper.
       //
-      // One complication with this restart logic is that we will see
-      // a "prefix" of prerequisites that we have already processed
-      // (i.e., they are already in our prerequisite_targets list) and
-      // we don't want to keep redoing this over and over again. One
-      // thing to note, however, is that the prefix that we have seen
-      // on the previous run must appear exactly the same in the
-      // subsequent run. The reason for this is that none of the files
-      // that it can possibly be based on have changed and thus it
-      // should be exactly the same. To put it another way, the
-      // presence or absence of a file in the dependency output can
-      // only depend on the previous files (assuming the compiler
-      // outputs them as it encounters them and it is hard to think
-      // of a reason why would someone do otherwise). And we have
-      // already made sure that all those files are up to date. And
-      // here is the way we are going to exploit this: we are going
-      // to keep track of how many prerequisites we have processed so
-      // far and on restart skip right to the next one.
+      // One complication with this restart logic is that we will see a
+      // "prefix" of prerequisites that we have already processed (i.e., they
+      // are already in our prerequisite_targets list) and we don't want to
+      // keep redoing this over and over again. One thing to note, however, is
+      // that the prefix that we have seen on the previous run must appear
+      // exactly the same in the subsequent run. The reason for this is that
+      // none of the files that it can possibly be based on have changed and
+      // thus it should be exactly the same. To put it another way, the
+      // presence or absence of a file in the dependency output can only
+      // depend on the previous files (assuming the compiler outputs them as
+      // it encounters them and it is hard to think of a reason why would
+      // someone do otherwise). And we have already made sure that all those
+      // files are up to date. And here is the way we are going to exploit
+      // this: we are going to keep track of how many prerequisites we have
+      // processed so far and on restart skip right to the next one.
       //
-      // Also, before we do all that, make sure the source file itself
-      // if up to date.
+      // And one more thing: most of the time this list of headers would stay
+      // unchanged and extracting them by running the compiler every time is a
+      // bit wasteful. So we are going to cache them in the depdb. If the db
+      // hasn't been invalidated yet (e.g., because the compiler options have
+      // changed), then we start by reading from it. If anything is out of
+      // date then we use the same restart and skip logic to switch to the
+      // compiler run.
       //
-      execute_direct (a, s);
+
+      // Update the target "smartly". Return true if it has changed or if the
+      // passed timestamp is not timestamp_unknown and is older than the
+      // target.
+      //
+      // There would normally be a lot of headers for every source file (think
+      // all the system headers) and just calling execute_direct() on all of
+      // them can get expensive. At the same time, most of these headers are
+      // existing files that we will never be updating (again, system headers,
+      // for example) and the rule that will match them is the fallback
+      // file_rule. That rule has an optimization: it returns noop_recipe
+      // (which causes the target state to be automatically set to unchanged)
+      // if the file is known to be up to date.
+      //
+      auto update = [&trace, a] (path_target& pt, timestamp ts) -> bool
+      {
+        if (pt.state () != target_state::unchanged)
+        {
+          // We only want to restart if our call to execute() actually
+          // caused an update. In particular, the target could already
+          // have been in target_state::changed because of a dependency
+          // extraction run for some other source file.
+          //
+          target_state os (pt.state ());
+          target_state ns (execute_direct (a, pt));
+
+          if (ns != os && ns != target_state::unchanged)
+          {
+            level6 ([&]{trace << "updated " << pt;});
+            return true;
+          }
+        }
+
+        if (ts != timestamp_unknown)
+        {
+          timestamp mt (pt.mtime ());
+
+          // See execute_prerequisites() for rationale behind the equal part.
+          //
+          return ts < mt || (ts == mt && pt.state () != target_state::changed);
+        }
+
+        return false;
+      };
+
+      // Update and add header file to the list of prerequisite targets.
+      // Depending on the cache flag, the file is assumed to either have comes
+      // from the depdb cache or from the compiler run. Return whether the
+      // extraction process should be restarted.
+      //
+      auto add = [&trace, &update, &pm, a, &t, &ds, &dd] (path f, bool cache)
+        -> bool
+      {
+        if (!f.absolute ())
+        {
+          f.normalize ();
+
+          // This is probably as often an error as an auto-generated file, so
+          // trace at level 4.
+          //
+          level4 ([&]{trace << "non-existent header '" << f << "'";});
+
+          // If we already did this and build_prefix_map() returned empty,
+          // then we would have failed below.
+          //
+          if (pm.empty ())
+            pm = build_prefix_map (t);
+
+          // First try the whole file. Then just the directory.
+          //
+          // @@ Has to be a separate map since the prefix can be
+          //    the same as the file name.
+          //
+          // auto i (pm.find (f));
+
+          // Find the most qualified prefix of which we are a sub-path.
+          //
+          auto i (pm.end ());
+
+          if (!pm.empty ())
+          {
+            const dir_path& d (f.directory ());
+            i = pm.upper_bound (d);
+
+            // Get the greatest less than, if any. We might still not be a
+            // sub. Note also that we still have to check the last element is
+            // upper_bound() returned end().
+            //
+            if (i == pm.begin () || !d.sub ((--i)->first))
+              i = pm.end ();
+          }
+
+          if (i == pm.end ())
+            fail << "unable to map presumably auto-generated header '"
+                 << f << "' to a project";
+
+          f = i->second / f;
+        }
+        else
+        {
+          // We used to just normalize the path but that could result in an
+          // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
+          // symlinks. So now we realize (i.e., realpath(3)) it instead.
+          //
+          f.realize ();
+        }
+
+        level6 ([&]{trace << "injecting " << f;});
+
+        // Verify/add it to the dependency database.
+        //
+        if (!cache)
+        {
+          string* dl (dd.read ());
+          if (dl == nullptr || *dl != f.string ())
+            dd.write (f);
+        }
+
+        // Split the name into its directory part, the name part, and
+        // extension. Here we can assume the name part is a valid filesystem
+        // name.
+        //
+        // Note that if the file has no extension, we record an empty
+        // extension rather than NULL (which would signify that the default
+        // extension should be added).
+        //
+        dir_path d (f.directory ());
+        string n (f.leaf ().base ().string ());
+        const char* es (f.extension ());
+        const string* e (&extension_pool.find (es != nullptr ? es : ""));
+
+        // Determine the target type.
+        //
+        const target_type* tt (nullptr);
+
+        // See if this directory is part of any project out_root hierarchy.
+        // Note that this will miss all the headers that come from src_root
+        // (so they will be treated as generic C headers below). Generally,
+        // we don't have the ability to determine that some file belongs to
+        // src_root of some project. But that's not a problem for our
+        // purposes: it is only important for us to accurately determine
+        // target types for headers that could be auto-generated.
+        //
+        scope& b (scopes.find (d));
+        if (b.root_scope () != nullptr)
+          tt = map_extension (b, n, *e);
+
+        // If it is outside any project, or the project doesn't have
+        // such an extension, assume it is a plain old C header.
+        //
+        if (tt == nullptr)
+          tt = &h::static_type;
+
+        // Find or insert target.
+        //
+        path_target& pt (
+          static_cast<path_target&> (search (*tt, d, n, e, &ds)));
+
+        // Assign path.
+        //
+        if (pt.path ().empty ())
+          pt.path (move (f));
+        else
+          assert (pt.path () == f);
+
+        // Match to a rule.
+        //
+        build2::match (a, pt);
+
+        // Update.
+        //
+        // If this header came from the depdb, make sure it is no older than
+        // the db itself (if it has changed since the db was written, then
+        // chances are the cached data is stale).
+        //
+        bool restart (update (pt, cache ? dd.mtime () : timestamp_unknown));
+
+        // Add to our prerequisite target list.
+        //
+        t.prerequisite_targets.push_back (&pt);
+
+        return restart;
+      };
+
+      // If nothing so far has invalidated the dependency database, then
+      // try the cached data before running the compiler.
+      //
+      bool cache (dd.reading ());
+
+      // But, before we do all that, make sure the source file itself if up to
+      // date.
+      //
+      if (update (s, dd.mtime ()))
+      {
+        // If the file got updated or is newer than the database, then we
+        // cannot rely on the cache any further. However, the cached data
+        // could actually still be valid so the compiler run will validate it.
+        //
+        // We do need to update the database timestamp, however. Failed that,
+        // we will keep re-validating the cached data over and over again.
+        //
+        if (cache)
+        {
+          cache = false;
+          dd.touch ();
+        }
+      }
 
       size_t skip_count (0);
-      for (bool restart (true); restart; )
+      for (bool restart (true); restart; cache = false)
       {
         restart = false;
 
-        if (verb >= 3)
-          print_process (args);
-
-        try
+        if (cache)
         {
-          process pr (args.data (), 0, -1); // Open pipe to stdout.
-          ifdstream is (pr.in_ofd);
-
-          size_t skip (skip_count);
-          for (bool first (true), second (true); !(restart || is.eof ()); )
-          {
-            string l;
-            getline (is, l);
-
-            if (is.fail () && !is.eof ())
-              fail << "error reading C++ compiler -M output";
-
-            size_t pos (0);
-
-            if (first)
-            {
-              // Empty output should mean the wait() call below will return
-              // false.
-              //
-              if (l.empty ())
-                break;
-
-              assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
-
-              first = false;
-
-              // While normally we would have the source file on the
-              // first line, if too long, it will be moved to the next
-              // line and all we will have on this line is "*: \".
-              //
-              if (l.size () == 4 && l[3] == '\\')
-                continue;
-              else
-                pos = 3; // Skip "*: ".
-
-              // Fall through to the 'second' block.
-            }
-
-            if (second)
-            {
-              second = false;
-              next (l, pos); // Skip the source file.
-            }
-
-            // If things go wrong (and they often do in this area), give
-            // the user a bit extra context.
-            //
-            auto g (
-              make_exception_guard (
-                [&s]()
-                {
-                  info << "while extracting dependencies from " << s;
-                }));
-
-            while (pos != l.size ())
-            {
-              string fs (next (l, pos));
-
-              // Skip until where we left off.
-              //
-              if (skip != 0)
-              {
-                skip--;
-                continue;
-              }
-
-              path f (move (fs));
-
-              if (!f.absolute ())
-              {
-                f.normalize ();
-
-                // This is probably as often an error as an auto-generated
-                // file, so trace at level 4.
-                //
-                level4 ([&]{trace << "non-existent header '" << f << "'";});
-
-                // If we already did it and build_prefix_map() returned empty,
-                // then we would have failed below.
-                //
-                if (pm.empty ())
-                  pm = build_prefix_map (t);
-
-                // First try the whole file. Then just the directory.
-                //
-                // @@ Has to be a separate map since the prefix can be
-                //    the same as the file name.
-                //
-                // auto i (pm.find (f));
-
-                // Find the most qualified prefix of which we are a
-                // sub-path.
-                //
-                auto i (pm.end ());
-
-                if (!pm.empty ())
-                {
-                  const dir_path& d (f.directory ());
-                  i = pm.upper_bound (d);
-
-                  // Get the greatest less than, if any. We might
-                  // still not be a sub. Note also that we still
-                  // have to check the last element is upper_bound()
-                  // returned end().
-                  //
-                  if (i == pm.begin () || !d.sub ((--i)->first))
-                    i = pm.end ();
-                }
-
-                if (i == pm.end ())
-                  fail << "unable to map presumably auto-generated header '"
-                       << f << "' to a project";
-
-                f = i->second / f;
-              }
-              else
-              {
-                // We used to just normalize the path but that could result in
-                // an invalid path (e.g., on CentOS 7 with Clang 3.4) because
-                // of the symlinks. So now we realize (i.e., realpath(3)) it
-                // instead.
-                //
-                f.realize ();
-              }
-
-              level6 ([&]{trace << "injecting " << f;});
-
-              // Split the name into its directory part, the name part, and
-              // extension. Here we can assume the name part is a valid
-              // filesystem name.
-              //
-              // Note that if the file has no extension, we record an empty
-              // extension rather than NULL (which would signify that the
-              // default extension should be added).
-              //
-              dir_path d (f.directory ());
-              string n (f.leaf ().base ().string ());
-              const char* es (f.extension ());
-              const string* e (&extension_pool.find (es != nullptr ? es : ""));
-
-              // Determine the target type.
-              //
-              const target_type* tt (nullptr);
-
-              // See if this directory is part of any project out_root
-              // hierarchy. Note that this will miss all the headers
-              // that come from src_root (so they will be treated as
-              // generic C headers below). Generally, we don't have
-              // the ability to determine that some file belongs to
-              // src_root of some project. But that's not a problem
-              // for our purposes: it is only important for us to
-              // accurately determine target types for headers that
-              // could be auto-generated.
-              //
-              scope& b (scopes.find (d));
-              if (b.root_scope () != nullptr)
-                tt = map_extension (b, n, *e);
-
-              // If it is outside any project, or the project doesn't have
-              // such an extension, assume it is a plain old C header.
-              //
-              if (tt == nullptr)
-                tt = &h::static_type;
-
-              // Find or insert target.
-              //
-              path_target& pt (
-                static_cast<path_target&> (search (*tt, d, n, e, &ds)));
-
-              // Assign path.
-              //
-              if (pt.path ().empty ())
-                pt.path (move (f));
-
-              // Match to a rule.
-              //
-              build2::match (a, pt);
-
-              // Update it.
-              //
-              // There would normally be a lot of headers for every source
-              // file (think all the system headers) and this can get
-              // expensive. At the same time, most of these headers are
-              // existing files that we will never be updated (again,
-              // system headers, for example) and the rule that will match
-              // them is fallback file_rule. That rule has an optimization
-              // in that it returns noop_recipe (which causes the target
-              // state to be automatically set to unchanged) if the file
-              // is known to be up to date.
-              //
-              if (pt.state () != target_state::unchanged)
-              {
-                // We only want to restart if our call to execute() actually
-                // caused an update. In particular, the target could already
-                // have been in target_state::changed because of a dependency
-                // extraction run for some other source file.
-                //
-                target_state os (pt.state ());
-                target_state ns (execute_direct (a, pt));
-
-                if (ns != os && ns != target_state::unchanged)
-                {
-                  level6 ([&]{trace << "updated " << pt << ", restarting";});
-                  restart = true;
-                }
-              }
-
-              // Add to our prerequisite target list.
-              //
-              t.prerequisite_targets.push_back (&pt);
-              skip_count++;
-            }
-          }
-
-          // We may not have read all the output (e.g., due to a restart).
-          // Before we used to just close the file descriptor to signal to the
-          // other end that we are not interested in the rest. This works fine
-          // with GCC but Clang (3.7.0) finds this impolite and complains,
-          // loudly (broken pipe). So now we are going to skip until the end.
+          // If any, this is always the first run.
           //
-          if (!is.eof ())
-            is.ignore (numeric_limits<streamsize>::max ());
-          is.close ();
+          assert (skip_count == 0);
 
-          // We assume the child process issued some diagnostics.
-          //
-          if (!pr.wait ())
+          while (dd.more ())
           {
-            // In case of a restarts, we closed our end of the pipe early
-            // which might have caused the other end to fail. So far we
-            // experienced this on Fedora 23 with GCC 5.3.1 and there were
-            // no diagnostics issued, just the non-zero exit status. If we
-            // do get diagnostics, then we will have to read and discard the
-            // output until eof.
+            string* l (dd.read ());
+
+            // If the line is invalid, run the compiler.
             //
-            if (!restart)
-              throw failed ();
+            if (l == nullptr)
+            {
+              restart = true;
+              break;
+            }
+
+            restart = add (path (move (*l)), true);
+            skip_count++;
+
+            // The same idea as in the source file update above.
+            //
+            if (restart)
+            {
+              level6 ([&]{trace << "restarting";});
+              dd.touch ();
+              break;
+            }
           }
         }
-        catch (const process_error& e)
+        else
         {
-          error << "unable to execute " << args[0] << ": " << e.what ();
+          try
+          {
+            if (args.empty ())
+              init_args ();
 
-          // In a multi-threaded program that fork()'ed but did not exec(),
-          // it is unwise to try to do any kind of cleanup (like unwinding
-          // the stack and running destructors).
-          //
-          if (e.child ())
-            exit (1);
+            if (verb >= 3)
+              print_process (args);
 
-          throw failed ();
+            process pr (args.data (), 0, -1); // Open pipe to stdout.
+            ifdstream is (pr.in_ofd);
+
+            size_t skip (skip_count);
+            for (bool first (true), second (true); !(restart || is.eof ()); )
+            {
+              string l;
+              getline (is, l);
+
+              if (is.fail () && !is.eof ())
+                fail << "error reading C++ compiler -M output";
+
+              size_t pos (0);
+
+              if (first)
+              {
+                // Empty output should mean the wait() call below will return
+                // false.
+                //
+                if (l.empty ())
+                  break;
+
+                assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
+
+                first = false;
+
+                // While normally we would have the source file on the first
+                // line, if too long, it will be moved to the next line and
+                // all we will have on this line is "*: \".
+                //
+                if (l.size () == 4 && l[3] == '\\')
+                  continue;
+                else
+                  pos = 3; // Skip "*: ".
+
+                // Fall through to the 'second' block.
+              }
+
+              if (second)
+              {
+                second = false;
+                next (l, pos); // Skip the source file.
+              }
+
+              while (pos != l.size ())
+              {
+                string f (next (l, pos));
+
+                // Skip until where we left off.
+                //
+                if (skip != 0)
+                {
+                  skip--;
+                  continue;
+                }
+
+                restart = add (path (move (f)), false);
+                skip_count++;
+
+                if (restart)
+                {
+                  level6 ([&]{trace << "restarting";});
+                  break;
+                }
+              }
+            }
+
+            // We may not have read all the output (e.g., due to a restart).
+            // Before we used to just close the file descriptor to signal to
+            // the other end that we are not interested in the rest. This
+            // works fine with GCC but Clang (3.7.0) finds this impolite and
+            // complains, loudly (broken pipe). So now we are going to skip
+            // until the end.
+            //
+            if (!is.eof ())
+              is.ignore (numeric_limits<streamsize>::max ());
+            is.close ();
+
+            // We assume the child process issued some diagnostics.
+            //
+            if (!pr.wait ())
+            {
+              // In case of a restarts, we closed our end of the pipe early
+              // which might have caused the other end to fail. So far we
+              // experienced this on Fedora 23 with GCC 5.3.1 and there were
+              // no diagnostics issued, just the non-zero exit status. If we
+              // do get diagnostics, then we will have to read and discard the
+              // output until eof.
+              //
+              if (!restart)
+                throw failed ();
+            }
+          }
+          catch (const process_error& e)
+          {
+            error << "unable to execute " << args[0] << ": " << e.what ();
+
+            // In a multi-threaded program that fork()'ed but did not exec(),
+            // it is unwise to try to do any kind of cleanup (like unwinding
+            // the stack and running destructors).
+            //
+            if (e.child ())
+              exit (1);
+
+            throw failed ();
+          }
         }
       }
     }

@@ -14,8 +14,6 @@
 
 #include <build2/cli/target>
 
-#include <build2/config/utility>
-
 using namespace std;
 using namespace butl;
 
@@ -97,7 +95,7 @@ namespace build2
           t.c = &search<cxx::cxx> (t.dir, t.name, nullptr, nullptr);
           t.c->group = &t;
 
-          if (!config::find_option ("--suppress-inline", t, "cli.options"))
+          if (!find_option ("--suppress-inline", t, "cli.options"))
           {
             t.i = &search<cxx::ixx> (t.dir, t.name, nullptr, nullptr);
             t.i->group = &t;
@@ -276,7 +274,7 @@ namespace build2
       if (t.i != nullptr)
         append_extension (args, *t.i, "--ixx-suffix", "ixx");
 
-      config::append_options (args, t, "cli.options");
+      append_options (args, t, "cli.options");
 
       if (!relo.empty ())
       {

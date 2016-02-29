@@ -25,5 +25,19 @@ namespace build2
 
       append_options (args, l, var);
     }
+
+    void
+    hash_lib_options (sha256& csum, target& l, const char* var)
+    {
+      using namespace bin;
+
+      for (target* t: l.prerequisite_targets)
+      {
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
+          hash_lib_options (csum, *t, var);
+      }
+
+      hash_options (csum, l, var);
+    }
   }
 }

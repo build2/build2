@@ -11,8 +11,6 @@
 #include <build2/algorithm>
 #include <build2/diagnostics>
 
-#include <build2/config/utility> // add_options()
-
 using namespace std;
 using namespace butl;
 
@@ -300,7 +298,7 @@ namespace build2
       }
 
       if (l)
-        config::append_options (args, as<strings> (*l));
+        append_options (args, as<strings> (*l));
     }
 
     // The format of args shall be:

@@ -20,6 +20,7 @@
 #include <system_error>
 
 #include <butl/path>
+#include <butl/sha256>
 #include <butl/optional>
 #include <butl/timestamp>
 
@@ -93,6 +94,10 @@ namespace build2
   using butl::timestamp_unknown;
   using butl::timestamp_nonexistent;
   using butl::operator<<;
+
+  // <butl/sha256>
+  //
+  using butl::sha256;
 
   // <build2/name>
   //

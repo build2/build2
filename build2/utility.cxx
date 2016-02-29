@@ -7,6 +7,7 @@
 #include <cstdlib> // strtol()
 
 #include <build2/context>
+#include <build2/variable>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -48,6 +49,54 @@ namespace build2
   const string empty_string;
   const path empty_path;
   const dir_path empty_dir_path;
+
+  void
+  append_options (cstrings& args, const lookup<const value>& l)
+  {
+    if (l)
+      append_options (args, as<strings> (*l));
+  }
+
+  void
+  hash_options (sha256& csum, const lookup<const value>& l)
+  {
+    if (l)
+      hash_options (csum, as<strings> (*l));
+  }
+
+  void
+  append_options (cstrings& args, const const_strings_value& sv)
+  {
+    if (!sv.empty ())
+    {
+      args.reserve (args.size () + sv.size ());
+
+      for (const string& s: sv)
+        args.push_back (s.c_str ());
+    }
+  }
+
+  void
+  hash_options (sha256& csum, const const_strings_value& sv)
+  {
+    for (const string& s: sv)
+      csum.append (s);
+  }
+
+  bool
+  find_option (const char* option, const lookup<const value>& l)
+  {
+    if (l)
+    {
+      for (const string& s: as<strings> (*l))
+      {
+        if (s == option)
+          return true;
+      }
+    }
+
+    return false;
+  }
 
   unsigned int
   to_version (const string& s)
