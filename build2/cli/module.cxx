@@ -37,7 +37,7 @@ namespace build2
               bool optional)
     {
       tracer trace ("cli::init");
-      level5 ([&]{trace << "for " << base.out_path ();});
+      l5 ([&]{trace << "for " << base.out_path ();});
 
       // Make sure the cxx module has been loaded since we need its
       // targets types (?xx{}). Note that we don't try to load it

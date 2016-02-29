@@ -46,9 +46,7 @@ namespace build2
 
     target& t (**i);
 
-    level5 ([&]{trace << "existing target " << t << " for prerequisite "
-                      << pk;});
-
+    l5 ([&]{trace << "existing target " << t << " for prerequisite " << pk;});
     return &t;
   }
 
@@ -79,7 +77,7 @@ namespace build2
         // (of course, if the user specified the extension explicitly, we will
         // still do so).
         //
-        level4 ([&]{trace << "no existing file for prerequisite " << cpk;});
+        l4 ([&]{trace << "no existing file for prerequisite " << cpk;});
         return nullptr;
       }
     }
@@ -108,8 +106,8 @@ namespace build2
       if (mt == timestamp_nonexistent)
         continue;
 
-      level5 ([&]{trace << "found existing file " << f << " for prerequisite "
-                        << cpk;});
+      l5 ([&]{trace << "found existing file " << f << " for prerequisite "
+                    << cpk;});
 
       // Find or insert. Note: using our updated extension.
       //
@@ -119,8 +117,8 @@ namespace build2
       //
       file& t (dynamic_cast<file&> (r.first));
 
-      level5 ([&]{trace << (r.second ? "new" : "existing") << " target "
-                        << t << " for prerequisite " << cpk;});
+      l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
+                    << " for prerequisite " << cpk;});
 
       if (t.path ().empty ())
         t.path (move (f));
@@ -129,7 +127,7 @@ namespace build2
       return &t;
     }
 
-    level4 ([&]{trace << "no existing file for prerequisite " << cpk;});
+    l4 ([&]{trace << "no existing file for prerequisite " << cpk;});
     return nullptr;
   }
 
@@ -163,8 +161,7 @@ namespace build2
 
     target& t (r.first);
 
-    level5 ([&]{trace << "new target " << t << " for prerequisite " << pk;});
-
+    l5 ([&]{trace << "new target " << t << " for prerequisite " << pk;});
     return t;
   }
 }

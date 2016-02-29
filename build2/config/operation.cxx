@@ -170,7 +170,7 @@ namespace build2
       //
       if (a.operation () == default_id)
       {
-        level5 ([&]{trace << "completely configuring " << out_root;});
+        l5 ([&]{trace << "completely configuring " << out_root;});
 
         // Save src-root.build unless out_root is the same as src.
         //
@@ -282,7 +282,7 @@ namespace build2
                     const location&)
     {
       tracer trace ("disfigure_load");
-      level6 ([&]{trace << "skipping " << bf;});
+      l6 ([&]{trace << "skipping " << bf;});
     }
 
     static void
@@ -292,7 +292,7 @@ namespace build2
                       action_targets& ts)
     {
       tracer trace ("disfigure_search");
-      level6 ([&]{trace << "collecting " << root.out_path ();});
+      l6 ([&]{trace << "collecting " << root.out_path ();});
       ts.push_back (&root);
     }
 
@@ -364,7 +364,7 @@ namespace build2
       //
       if (a.operation () == default_id)
       {
-        level5 ([&]{trace << "completely disfiguring " << out_root;});
+        l5 ([&]{trace << "completely disfiguring " << out_root;});
 
         m = rmfile (out_root / config_file) || m;
 
@@ -433,7 +433,7 @@ namespace build2
       // Reset the dependency state since anything that could have been
       // loaded earlier using a previous configuration is now invalid.
       //
-      level6 ([&]{trace << "resetting dependency state";});
+      l6 ([&]{trace << "resetting dependency state";});
       reset ();
     }
 

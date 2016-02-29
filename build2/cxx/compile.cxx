@@ -55,7 +55,7 @@ namespace build2
           return p;
       }
 
-      level4 ([&]{trace << "no c++ source file for target " << t;});
+      l4 ([&]{trace << "no c++ source file for target " << t;});
       return nullptr;
     }
 
@@ -152,7 +152,7 @@ namespace build2
           dd.write ("cxx.compile 1");
 
           if (dl != nullptr)
-            level4 ([&]{trace << "rule mismatch forcing update of " << t;});
+            l4 ([&]{trace << "rule mismatch forcing update of " << t;});
         }
 
         // Then the compiler checksum.
@@ -166,7 +166,7 @@ namespace build2
             dd.write (csum.string ());
 
             if (dl != nullptr)
-              level4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+              l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
           }
         }
 
@@ -204,7 +204,7 @@ namespace build2
             dd.write (csum.string ());
 
             if (dl != nullptr)
-              level4 ([&]{trace << "options mismatch forcing update of " << t;});
+              l4 ([&]{trace << "options mismatch forcing update of " << t;});
           }
         }
 
@@ -216,7 +216,7 @@ namespace build2
           dd.write (st.path ());
 
           if (dl != nullptr)
-            level4 ([&]{trace << "source file mismatch forcing update of " << t;});
+            l4 ([&]{trace << "source file mismatch forcing update of " << t;});
         }
 
         // If any of the above checks resulted in a mismatch (different
@@ -317,7 +317,7 @@ namespace build2
           else
             continue;
 
-          level6 ([&]{trace << "-I '" << d << "'";});
+          l6 ([&]{trace << "-I '" << d << "'";});
 
           // If we are relative or not inside our project root, then
           // ignore.
@@ -359,7 +359,7 @@ namespace build2
           }
           else
           {
-            level6 ([&]{trace << "'" << p << "' = '" << d << "'";});
+            l6 ([&]{trace << "'" << p << "' = '" << d << "'";});
             m.emplace (move (p), move (d));
           }
         }
@@ -455,7 +455,7 @@ namespace build2
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
-      level6 ([&]{trace << "target: " << t;});
+      l6 ([&]{trace << "target: " << t;});
 
       // If things go wrong (and they often do in this area), give the user a
       // bit extra context.
@@ -586,7 +586,7 @@ namespace build2
 
           if (ns != os && ns != target_state::unchanged)
           {
-            level6 ([&]{trace << "updated " << pt;});
+            l6 ([&]{trace << "updated " << pt;});
             return true;
           }
         }
@@ -618,7 +618,7 @@ namespace build2
           // This is probably as often an error as an auto-generated file, so
           // trace at level 4.
           //
-          level4 ([&]{trace << "non-existent header '" << f << "'";});
+          l4 ([&]{trace << "non-existent header '" << f << "'";});
 
           // If we already did this and build_prefix_map() returned empty,
           // then we would have failed below.
@@ -665,7 +665,7 @@ namespace build2
           f.realize ();
         }
 
-        level6 ([&]{trace << "injecting " << f;});
+        l6 ([&]{trace << "injecting " << f;});
 
         // Verify/add it to the dependency database.
         //
@@ -796,7 +796,7 @@ namespace build2
             //
             if (restart)
             {
-              level6 ([&]{trace << "restarting";});
+              l6 ([&]{trace << "restarting";});
               dd.touch ();
               break;
             }
@@ -873,7 +873,7 @@ namespace build2
 
                 if (restart)
                 {
-                  level6 ([&]{trace << "restarting";});
+                  l6 ([&]{trace << "restarting";});
                   break;
                 }
               }

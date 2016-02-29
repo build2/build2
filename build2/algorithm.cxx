@@ -321,7 +321,7 @@ namespace build2
     if (!d.sub (out_root) || d == out_root)
       return;
 
-    level6 ([&]{trace << "for " << t;});
+    l6 ([&]{trace << "for " << t;});
 
     fsdir& dt (search<fsdir> (d, string (), nullptr, &s));
     match (a, dt);

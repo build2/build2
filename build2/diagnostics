@@ -62,12 +62,12 @@ namespace build2
   //
   extern uint16_t verb;
 
-  template <typename F> inline void level1 (const F& f) {if (verb >= 1) f ();}
-  template <typename F> inline void level2 (const F& f) {if (verb >= 2) f ();}
-  template <typename F> inline void level3 (const F& f) {if (verb >= 3) f ();}
-  template <typename F> inline void level4 (const F& f) {if (verb >= 4) f ();}
-  template <typename F> inline void level5 (const F& f) {if (verb >= 5) f ();}
-  template <typename F> inline void level6 (const F& f) {if (verb >= 6) f ();}
+  template <typename F> inline void l1 (const F& f) {if (verb >= 1) f ();}
+  template <typename F> inline void l2 (const F& f) {if (verb >= 2) f ();}
+  template <typename F> inline void l3 (const F& f) {if (verb >= 3) f ();}
+  template <typename F> inline void l4 (const F& f) {if (verb >= 4) f ();}
+  template <typename F> inline void l5 (const F& f) {if (verb >= 5) f ();}
+  template <typename F> inline void l6 (const F& f) {if (verb >= 6) f ();}
 
   // Stream verbosity level. It is determined by the diagnostic type (e.g.,
   // trace always has maximum verbosity) as well as the program verbosity. It

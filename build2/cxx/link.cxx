@@ -429,7 +429,7 @@ namespace build2
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
-        level4 ([&]{trace << "c prerequisite(s) without c++ or hint";});
+        l4 ([&]{trace << "c prerequisite(s) without c++ or hint";});
         return nullptr;
       }
 

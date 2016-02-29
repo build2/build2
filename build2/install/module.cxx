@@ -105,7 +105,7 @@ namespace build2
     {
       tracer trace ("install::boot");
 
-      level5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << r.out_path ();});
 
       // Register the install operation.
       //
@@ -129,7 +129,7 @@ namespace build2
       }
 
       const dir_path& out_root (r.out_path ());
-      level5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << out_root;});
 
       // Enter module variables.
       //

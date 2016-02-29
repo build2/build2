@@ -30,7 +30,7 @@ namespace build2
       tracer trace ("config::boot");
 
       const dir_path& out_root (root.out_path ());
-      level5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << out_root;});
 
       // Register meta-operations.
       //
@@ -66,7 +66,7 @@ namespace build2
         return true;
       }
 
-      level5 ([&]{trace << "for " << root.out_path ();});
+      l5 ([&]{trace << "for " << root.out_path ();});
 
       // Register alias and fallback rule for the configure meta-operation.
       //

@@ -205,7 +205,7 @@ namespace build2
       const string* ext (k.ext);
       if (t.ext != ext)
       {
-        level5 ([&]{
+        l5 ([&]{
             diag_record r (trace);
             r << "assuming target " << t << " is the same as the one with ";
             if (ext == nullptr)

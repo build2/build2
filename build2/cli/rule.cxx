@@ -66,8 +66,8 @@ namespace build2
             //
             if (!match_stem (t.name, p.name ()))
             {
-              level4 ([&]{trace << ".cli file stem '" << p.name () << "' "
-                                << "doesn't match target " << t;});
+              l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                            << "doesn't match target " << t;});
               return r;
             }
 
@@ -78,7 +78,7 @@ namespace build2
 
         if (!r)
         {
-          level4 ([&]{trace << "no .cli source file for target " << t;});
+          l4 ([&]{trace << "no .cli source file for target " << t;});
           return r;
         }
 
@@ -140,8 +140,8 @@ namespace build2
                 g->prerequisites.emplace_back (p.as_prerequisite (trace));
               }
               else
-                level4 ([&]{trace << ".cli file stem '" << p.name () << "' "
-                                  << "doesn't match target " << t;});
+                l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                              << "doesn't match target " << t;});
               break;
             }
           }
@@ -158,8 +158,8 @@ namespace build2
           //
           if (t.is_a<cxx::ixx> () && g->i == nullptr)
           {
-            level4 ([&]{trace << "generation of inline file " << t
-                              << " is disabled with --suppress-inline";});
+            l4 ([&]{trace << "generation of inline file " << t
+                          << " is disabled with --suppress-inline";});
             g = nullptr;
           }
         }

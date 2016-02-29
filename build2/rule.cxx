@@ -59,7 +59,7 @@ namespace build2
         if (ts != timestamp_nonexistent)
           return t;
 
-        level4 ([&]{trace << "no existing file for target " << t;});
+        l4 ([&]{trace << "no existing file for target " << t;});
         return nullptr;
       }
     default:

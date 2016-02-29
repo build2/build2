@@ -529,7 +529,7 @@ namespace build2
 
         ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-        level5 ([&]{trace (t) << "entering " << p;});
+        l5 ([&]{trace (t) << "entering " << p;});
 
         enter_buildfile (p);
 
@@ -548,7 +548,7 @@ namespace build2
         if (tt != type::eos)
           fail (t) << "unexpected " << t;
 
-        level5 ([&]{trace (t) << "leaving " << p;});
+        l5 ([&]{trace (t) << "leaving " << p;});
 
         lexer_ = ol;
         path_ = op;
@@ -604,7 +604,7 @@ namespace build2
           p /= path ("buildfile");
       }
 
-      level6 ([&]{trace (l) << "relative path " << p;});
+      l6 ([&]{trace (l) << "relative path " << p;});
 
       // Determine new out_base.
       //
@@ -646,11 +646,11 @@ namespace build2
       if (p.relative ())
         p = scope_->src_path () / p.leaf ();
 
-      level6 ([&]{trace (l) << "absolute path " << p;});
+      l6 ([&]{trace (l) << "absolute path " << p;});
 
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
-        level5 ([&]{trace (l) << "skipping already included " << p;});
+        l5 ([&]{trace (l) << "skipping already included " << p;});
         scope_ = ocs;
         root_ = ors;
         continue;
@@ -665,7 +665,7 @@ namespace build2
 
         ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-        level5 ([&]{trace (t) << "entering " << p;});
+        l5 ([&]{trace (t) << "entering " << p;});
 
         enter_buildfile (p);
 
@@ -689,7 +689,7 @@ namespace build2
 
         process_default_target (t);
 
-        level5 ([&]{trace (t) << "leaving " << p;});
+        l5 ([&]{trace (t) << "leaving " << p;});
 
         default_target_ = odt;
         lexer_ = ol;
@@ -2138,7 +2138,7 @@ namespace build2
     //
     if (rs != root_)
     {
-      level5 ([&]{trace << "switching to root scope " << rs->out_path ();});
+      l5 ([&]{trace << "switching to root scope " << rs->out_path ();});
       root_ = rs;
     }
 
@@ -2170,7 +2170,7 @@ namespace build2
 
     target& dt (*default_target_);
 
-    level5 ([&]{trace (t) << "creating current directory alias for " << dt;});
+    l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
 
     target& ct (
       targets.insert (

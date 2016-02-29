@@ -27,7 +27,7 @@ namespace build2
     {
       tracer trace ("dist::boot");
 
-      level5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << r.out_path ();});
 
       // Register meta-operation.
       //
@@ -73,7 +73,7 @@ namespace build2
       }
 
       const dir_path& out_root (r.out_path ());
-      level5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << out_root;});
 
       // Register our wildcard rule. Do it explicitly for the alias
       // to prevent something like insert<target>(dist_id, test_id)

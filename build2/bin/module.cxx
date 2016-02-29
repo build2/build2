@@ -38,7 +38,7 @@ namespace build2
               bool)
     {
       tracer trace ("bin::init");
-      level5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << b.out_path ();});
 
       // Enter module variables.
       //

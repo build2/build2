@@ -86,7 +86,7 @@ namespace build2
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level5 ([&]{trace << "sourcing " << bf;});
+      l5 ([&]{trace << "sourcing " << bf;});
 
       parser p (boot);
       p.parse_buildfile (ifs, bf, root, base);
@@ -110,7 +110,7 @@ namespace build2
 
     if (!once.buildfiles.insert (bf).second)
     {
-      level5 ([&]{trace << "skipping already sourced " << bf;});
+      l5 ([&]{trace << "skipping already sourced " << bf;});
       return;
     }
 
@@ -331,8 +331,8 @@ namespace build2
       {
         src_root_v = extract_variable (f, "src_root");
         src_root = &as<dir_path> (src_root_v);
-        level5 ([&]{trace << "extracted src_root " << *src_root << " for "
-                          << out_root;});
+        l5 ([&]{trace << "extracted src_root " << *src_root << " for "
+                      << out_root;});
       }
     }
 
@@ -342,8 +342,8 @@ namespace build2
       name = move (as<string> (v));
     }
 
-    level5 ([&]{trace << "extracted project name '" << name << "' for "
-                      << *src_root;});
+    l5 ([&]{trace << "extracted project name '" << name << "' for "
+                  << *src_root;});
     return name;
   }
 
@@ -387,7 +387,7 @@ namespace build2
       // Calculate relative subdirectory for this subproject.
       //
       dir_path dir (sd.leaf (root));
-      level5 ([&]{trace << "subproject " << sd << " as " << dir;});
+      l5 ([&]{trace << "subproject " << sd << " as " << dir;});
 
       // Load its name. Note that here we don't use fallback src_root
       // since this function is used to scan both out_root and src_root.
@@ -419,7 +419,7 @@ namespace build2
             info << "first alternative: " << dir1 <<
             info << "second alternative: " << dir;
 
-        level6 ([&]{trace << "skipping duplicate";});
+        l6 ([&]{trace << "skipping duplicate";});
       }
     }
   }
@@ -446,7 +446,7 @@ namespace build2
       if (root.buildfiles.insert (bf).second)
         source (bf, root, root, true);
       else
-        level5 ([&]{trace << "skipping already sourced " << bf;});
+        l5 ([&]{trace << "skipping already sourced " << bf;});
 
       r = true;
     }
@@ -500,7 +500,7 @@ namespace build2
         {
           // Otherwise, use the outer root as our amalgamation.
           //
-          level5 ([&]{trace << out_root << " amalgamated as " << rd;});
+          l5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
       }
@@ -516,7 +516,7 @@ namespace build2
         if (!ad.empty ())
         {
           dir_path rd (ad.relative (out_root));
-          level5 ([&]{trace << out_root << " amalgamated as " << rd;});
+          l5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
       }
@@ -849,7 +849,7 @@ namespace build2
         // a stab at it.
         //
         target.proj = &project;
-        level5 ([&]{trace << "postponing " << target;});
+        l5 ([&]{trace << "postponing " << target;});
         return names {move (target)};
       }
     }
@@ -952,7 +952,7 @@ namespace build2
 
       ifs.exceptions (ifstream::failbit | ifstream::badbit);
 
-      level5 ([&]{trace << "importing " << es;});
+      l5 ([&]{trace << "importing " << es;});
 
       // @@ Should we verify these are all unqualified names? Or maybe
       // there is a use-case for the export stub to return a qualified

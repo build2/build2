@@ -92,7 +92,7 @@ namespace build2
     for (void* vt: ts)
     {
       target& t (*static_cast<target*> (vt));
-      level5 ([&]{trace << "matching " << t;});
+      l5 ([&]{trace << "matching " << t;});
       match (a, t);
     }
 
@@ -115,7 +115,7 @@ namespace build2
       {
         target& t (*static_cast<target*> (v));
 
-        level5 ([&]{trace << diag_doing (a, t);});
+        l5 ([&]{trace << diag_doing (a, t);});
 
         switch (execute (a, t))
         {

@@ -274,7 +274,7 @@ main (int argc, char* argv[])
       fail << "unable to parse buildspec '" << args << "'";
     }
 
-    level5 ([&]{trace << "buildspec: " << bspec;});
+    l5 ([&]{trace << "buildspec: " << bspec;});
 
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
@@ -321,8 +321,8 @@ main (int argc, char* argv[])
           if (mif->meta_operation_post != nullptr)
             mif->meta_operation_post ();
 
-          level5 ([&]{trace << "end meta-operation batch " << mif->name
-                            << ", id " << static_cast<uint16_t> (mid);});
+          l5 ([&]{trace << "end meta-operation batch " << mif->name << ", id "
+                        << static_cast<uint16_t> (mid);});
 
           mid = 0;
           lifted = false;
@@ -609,10 +609,8 @@ main (int argc, char* argv[])
                     if (mif->meta_operation_post != nullptr)
                       mif->meta_operation_post ();
 
-                    level5 ([&]{trace << "end meta-operation batch "
-                                      << mif->name << ", id "
-                                      << static_cast<uint16_t> (mid);});
-
+                    l5 ([&]{trace << "end meta-operation batch " << mif->name
+                                  << ", id " << static_cast<uint16_t> (mid);});
                     mid = 0;
                   }
 
@@ -675,8 +673,8 @@ main (int argc, char* argv[])
                 fail (l) << "target " << tn << " does not support meta-"
                          << "operation " << meta_operation_table[m];
 
-              level5 ([&]{trace << "start meta-operation batch " << mif->name
-                                << ", id " << static_cast<uint16_t> (mid);});
+              l5 ([&]{trace << "start meta-operation batch " << mif->name
+                            << ", id " << static_cast<uint16_t> (mid);});
 
               if (mif->meta_operation_pre != nullptr)
                 mif->meta_operation_pre ();
@@ -721,8 +719,8 @@ main (int argc, char* argv[])
 
               oif = lookup (o);
 
-              level5 ([&]{trace << "start operation batch " << oif->name
-                                << ", id " << static_cast<uint16_t> (o);});
+              l5 ([&]{trace << "start operation batch " << oif->name
+                            << ", id " << static_cast<uint16_t> (o);});
 
               // Allow the meta-operation to translate the operation.
               //
@@ -734,8 +732,8 @@ main (int argc, char* argv[])
               if (o != oid)
               {
                 oif = lookup (oid);
-                level5 ([&]{trace << "operation translated to " << oif->name
-                                  << ", id " << static_cast<uint16_t> (oid);});
+                l5 ([&]{trace << "operation translated to " << oif->name
+                              << ", id " << static_cast<uint16_t> (oid);});
               }
 
               // Handle pre/post operations.
@@ -834,8 +832,8 @@ main (int argc, char* argv[])
 
         if (pre_oid != 0)
         {
-          level5 ([&]{trace << "start pre-operation batch " << pre_oif->name
-                            << ", id " << static_cast<uint16_t> (pre_oid);});
+          l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
+                        << ", id " << static_cast<uint16_t> (pre_oid);});
 
           if (mif->operation_pre != nullptr)
             mif->operation_pre (pre_oid); // Cannot be translated.
@@ -853,8 +851,8 @@ main (int argc, char* argv[])
           if (mif->operation_post != nullptr)
             mif->operation_post (pre_oid);
 
-          level5 ([&]{trace << "end pre-operation batch " << pre_oif->name
-                            << ", id " << static_cast<uint16_t> (pre_oid);});
+          l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
+                        << ", id " << static_cast<uint16_t> (pre_oid);});
         }
 
         current_inner_oif = oif;
@@ -869,8 +867,8 @@ main (int argc, char* argv[])
 
         if (post_oid != 0)
         {
-          level5 ([&]{trace << "start post-operation batch " << post_oif->name
-                            << ", id " << static_cast<uint16_t> (post_oid);});
+          l5 ([&]{trace << "start post-operation batch " << post_oif->name
+                        << ", id " << static_cast<uint16_t> (post_oid);});
 
           if (mif->operation_pre != nullptr)
             mif->operation_pre (post_oid); // Cannot be translated.
@@ -888,22 +886,22 @@ main (int argc, char* argv[])
           if (mif->operation_post != nullptr)
             mif->operation_post (post_oid);
 
-          level5 ([&]{trace << "end post-operation batch " << post_oif->name
-                            << ", id " << static_cast<uint16_t> (post_oid);});
+          l5 ([&]{trace << "end post-operation batch " << post_oif->name
+                        << ", id " << static_cast<uint16_t> (post_oid);});
         }
 
         if (mif->operation_post != nullptr)
           mif->operation_post (oid);
 
-        level5 ([&]{trace << "end operation batch " << oif->name
-                          << ", id " << static_cast<uint16_t> (oid);});
+        l5 ([&]{trace << "end operation batch " << oif->name
+                      << ", id " << static_cast<uint16_t> (oid);});
       }
 
       if (mif->meta_operation_post != nullptr)
         mif->meta_operation_post ();
 
-      level5 ([&]{trace << "end meta-operation batch " << mif->name
-                        << ", id " << static_cast<uint16_t> (mid);});
+      l5 ([&]{trace << "end meta-operation batch " << mif->name
+                    << ", id " << static_cast<uint16_t> (mid);});
     }
   }
   catch (const failed&)

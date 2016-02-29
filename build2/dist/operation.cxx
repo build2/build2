@@ -140,7 +140,7 @@ namespace build2
           if (rs != t.base_scope ().root_scope ())
             fail << "out of project target " << t;
 
-          level5 ([&]{trace << diag_doing (a, t);});
+          l5 ([&]{trace << diag_doing (a, t);});
 
           match (a, t);
         }
@@ -213,7 +213,7 @@ namespace build2
           auto l ((*ft)[dist_var]);
 
           if (l && !as<bool> (*l))
-            level5 ([&]{trace << "excluding " << *ft;});
+            l5 ([&]{trace << "excluding " << *ft;});
           else
             files.push_back (ft);
 
@@ -228,7 +228,7 @@ namespace build2
 
           if (l && as<bool> (*l))
           {
-            level5 ([&]{trace << "including " << *ft;});
+            l5 ([&]{trace << "including " << *ft;});
             files.push_back (ft);
           }
 

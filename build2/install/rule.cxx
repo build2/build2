@@ -67,7 +67,7 @@ namespace build2
 
         if (l && as<dir_path> (*l).string () == "false")
         {
-          level5 ([&]{trace << "ignoring " << pt;});
+          l5 ([&]{trace << "ignoring " << pt;});
           continue;
         }
 

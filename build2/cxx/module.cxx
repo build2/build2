@@ -38,7 +38,7 @@ namespace build2
               bool)
     {
       tracer trace ("cxx::init");
-      level5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << b.out_path ();});
 
       // Initialize the bin module. Only do this if it hasn't already
       // been loaded so that we don't overwrite user's bin.* settings.
@@ -286,7 +286,7 @@ namespace build2
         if (m.empty ())
           fail << "unable to determine '" << args[0] << "' compiler target";
 
-        level4 ([&]{trace << "compiler targets " << m;});
+        l4 ([&]{trace << "compiler targets " << m;});
 
         try
         {

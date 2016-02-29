@@ -26,7 +26,7 @@ namespace build2
     {
       tracer trace ("test::boot");
 
-      level5 ([&]{trace << "for " << root.out_path ();});
+      l5 ([&]{trace << "for " << root.out_path ();});
 
       // Register the test operation.
       //
@@ -64,7 +64,7 @@ namespace build2
       }
 
       const dir_path& out_root (root.out_path ());
-      level5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << out_root;});
 
       // Register rules.
       //
