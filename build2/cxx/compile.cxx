@@ -234,7 +234,7 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
+      case perform_clean_id: return &perform_clean_depdb;
       default: return noop_recipe; // Configure update.
       }
     }

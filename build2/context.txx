@@ -8,9 +8,14 @@ namespace build2
 {
   template <typename T>
   fs_status<butl::rmfile_status>
-  rmfile (const path& f, const T& t)
+  rmfile (const path& f, const T& t, bool verbose)
   {
     using namespace butl;
+
+    // Verbosity thresholds.
+    //
+    uint16_t l1 (verbose ? 2 : 3);
+    uint16_t l2 (verbose ? 1 : 3);
 
     // We don't want to print the command if we couldn't remove the
     // file because it does not exist (just like we don't print the
@@ -25,9 +30,9 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      if (verb >= 2)
+      if (verb >= l1)
         text << "rm " << f;
-      else if (verb)
+      else if (verb >= l2)
         text << "rm " << t;
 
       fail << "unable to remove file " << f << ": " << e.what ();
@@ -35,9 +40,9 @@ namespace build2
 
     if (rs == rmfile_status::success)
     {
-      if (verb >= 2)
+      if (verb >= l1)
         text << "rm " << f;
-      else if (verb)
+      else if (verb >= l2)
         text << "rm " << t;
     }
 

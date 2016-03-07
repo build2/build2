@@ -209,10 +209,15 @@ namespace build2
   default_action (action, target&);
 
   // Standard perform(clean) action implementation for the file target
-  // or derived.
+  // (or derived).
   //
   target_state
   perform_clean (action, target&);
+
+  // As above, but also removes the auxiliary dependency database (.d file).
+  //
+  target_state
+  perform_clean_depdb (action, target&);
 }
 
 #include <build2/algorithm.ixx>

@@ -473,7 +473,7 @@ namespace build2
   target_state
   perform_clean (action a, target& t)
   {
-    // The reverse order of update: first delete the file, then clean
+    // The reverse order of update: first remove the file, then clean
     // prerequisites.
     //
     file& ft (dynamic_cast<file&> (t));
@@ -492,5 +492,39 @@ namespace build2
     r |= reverse_execute_prerequisites (a, t);
 
     return r;
+  }
+
+  target_state
+  perform_clean_depdb (action a, target& t)
+  {
+    // Normally the .d file is created/updated before the target so remove it
+    // first. Also, don't print the command at verbosity level below 3.
+    //
+    file& ft (dynamic_cast<file&> (t));
+
+    path df (ft.path () + ".d");
+    target_state dr (rmfile (df, false)
+                     ? target_state::changed
+                     : target_state::unchanged);
+
+    // Factor the result of removing the .d file into the target state. While
+    // strictly speaking removing it doesn't change the target state, if we
+    // don't do this, then we may end up removing the file but still saying
+    // that everything is clean (e.g., if someone removes the target file but
+    // leaves .d laying around). That would be confusing.
+    //
+    target_state tr (perform_clean (a, t));
+
+    // What would also be confusing is if we didn't print any commands in
+    // this case.
+    //
+    if (tr == target_state::unchanged && dr == target_state::changed)
+    {
+      if (verb > 0 && verb < 3)
+        text << "rm " << df;
+    }
+
+    tr |= dr;
+    return tr;
   }
 }
