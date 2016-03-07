@@ -16,9 +16,10 @@
 
 #include <build2/bin/target>
 
+#include <build2/cxx/link>
+#include <build2/cxx/guess>
 #include <build2/cxx/target>
 #include <build2/cxx/compile>
-#include <build2/cxx/link>
 #include <build2/cxx/install>
 #include <build2/cxx/utility>
 
@@ -140,53 +141,6 @@ namespace build2
       // Configure.
       //
 
-      // config.cxx
-      //
-      if (first)
-      {
-        auto p (config::required (r, "config.cxx", "g++"));
-
-        // If we actually set a new value, test it by trying to execute.
-        //
-        if (p.second)
-        {
-          const string& cxx (as<string> (p.first));
-          const char* args[] = {cxx.c_str (), "-dumpversion", nullptr};
-
-          if (verb >= 2)
-            print_process (args);
-          else if (verb)
-            text << "test " << cxx;
-
-          string ver;
-          try
-          {
-            process pr (args, 0, -1); // Open pipe to stdout.
-            ifdstream is (pr.in_ofd);
-
-            bool r (getline (is, ver));
-
-            if (!r)
-              fail << "unexpected output from " << cxx;
-
-            if (!pr.wait ())
-              throw failed ();
-          }
-          catch (const process_error& e)
-          {
-            error << "unable to execute " << cxx << ": " << e.what ();
-
-            if (e.child ())
-              exit (1);
-
-            throw failed ();
-          }
-
-          if (verb >= 2)
-            text << cxx << ": version " << ver;
-        }
-      }
-
       // config.cxx.{p,c,l}options
       // config.cxx.libs
       //
@@ -215,88 +169,58 @@ namespace build2
       if (const value& v = config::optional (r, "config.cxx.libs"))
         b.assign ("cxx.libs") += as<strings> (v);
 
-      // Figure out the host this compiler is building for.
+      // config.cxx
       //
       if (first)
       {
-        // This is actually a lot trickier than one would have hoped.
+        auto p (config::required (r, "config.cxx", "g++"));
+
+        // Figure out which compiler we are dealing with, its target, etc.
         //
-        // There is the -dumpmachine option but GCC doesn't adjust it per the
-        // flags (e.g., -m32). But Clang does. GCC (starting with 4.6) has the
-        // -print-multiarch option which does the right thing. But Clang
-        // doesn't have it. Note also that none of these approaches actually
-        // honor the -arch option (which is really what this compiler is
-        // building for). To get to that, we would have to resort to a hack
-        // like this:
+        const path& cxx (path (as<string> (p.first))); // @@ VAR
+        compiler_info ci (guess (cxx, r["cxx.coptions"]));
+
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
         //
-        // gcc -v -E - 2>&1 | grep cc1
-        // .../cc1 ... -mtune=generic -march=x86-64
+        if (verb >= (p.second ? 2 : 3))
+        {
+          //@@ Print project out root or name? Don't print if unnamed?
+
+          text << cxx << ":\n"
+               << "  id         " << ci.id << "\n"
+               << "  major      " << ci.version.major << "\n"
+               << "  minor      " << ci.version.minor << "\n"
+               << "  patch      " << ci.version.patch << "\n"
+               << "  build      " << ci.version.build << "\n"
+               << "  signature  " << ci.signature << "\n"
+               << "  checksum   " << ci.checksum << "\n"
+               << "  target     " << ci.target << "";
+        }
+
+        r.assign ("cxx.id", string_type) = ci.id.string ();
+        r.assign ("cxx.id.type", string_type) = move (ci.id.type);
+        r.assign ("cxx.id.variant", string_type) = move (ci.id.variant);
+
+        r.assign ("cxx.version", string_type) = ci.version.string ();
+        r.assign ("cxx.version.major", string_type) = move (ci.version.major);
+        r.assign ("cxx.version.minor", string_type) = move (ci.version.minor);
+        r.assign ("cxx.version.patch", string_type) = move (ci.version.patch);
+        r.assign ("cxx.version.build", string_type) = move (ci.version.build);
+
+        r.assign ("cxx.signature", string_type) = move (ci.signature);
+        r.assign ("cxx.checksum", string_type) = move (ci.checksum);
+
+        // Split/canonicalize the target.
         //
-        // This is what we are going to do for the time being: First try
-        // -print-multiarch. If that works out (recent GCC), then use the
-        // result. Otherwise, fallback to -dumpmachine (Clang, older GCC).
-        //
-        cstrings args;
-
-        args.push_back (as<string> (*r["config.cxx"]).c_str ());
-        append_options (args, r, "cxx.coptions");
-        args.push_back (""); // Reserve for -print-multiarch/-dumpmachine
-        args.push_back (nullptr);
-
-        auto run = [&args] (const char* o) -> string
-          {
-            args[args.size () - 2] = o;
-
-            if (verb >= 3)
-              print_process (args);
-
-            string r;
-            try
-            {
-              // Redirect STDOUT and STDERR to a pipe (we don't want the user
-              // to see what we are up to here).
-              //
-              process pr (args.data (), 0, -1, 1);
-              ifdstream is (pr.in_ofd);
-
-              getline (is, r);
-              is.close (); // Don't block.
-
-              if (!pr.wait ())
-                r.clear ();
-            }
-            catch (const process_error& e)
-            {
-              error << "unable to execute " << args[0] << ": " << e.what ();
-
-              if (e.child ())
-                exit (1);
-
-              throw failed ();
-            }
-
-            return r;
-          };
-
-        string m (run ("-print-multiarch"));
-
-        if (m.empty ())
-          m = run ("-dumpmachine");
-
-        if (m.empty ())
-          fail << "unable to determine '" << args[0] << "' compiler target";
-
-        l4 ([&]{trace << "compiler targets " << m;});
-
         try
         {
           string canon;
-          triplet t (m, canon);
+          triplet t (ci.target, canon);
 
-          if (verb >= 2)
-            text << args[0] << ": target " << canon;
+          l5 ([&]{trace << "canonical target '" << canon << "'";});
 
-          // Enter them as cxx.host.{cpu,vendor,system,version}.
+          // Enter as cxx.host.{cpu,vendor,system,version}.
           //
           r.assign ("cxx.host", string_type) = canon;
           r.assign ("cxx.host.cpu", string_type) = t.cpu;
@@ -306,10 +230,10 @@ namespace build2
         }
         catch (const invalid_argument& e)
         {
-          // This is where we could suggest that the user to specifies
+          // This is where we could suggest that the user specifies
           // --config-sub to help us out.
           //
-          fail << "unable to parse compiler target '" << m << "': "
+          fail << "unable to parse compiler target '" << ci.target << "': "
                << e.what ();
         }
       }

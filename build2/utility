@@ -33,6 +33,40 @@ namespace build2
   //
   using butl::reverse_iterate;
 
+  // Basic string utilities.
+  //
+
+  // Trim leading/trailing whitespacec, including '\r'.
+  //
+  string&
+  trim (string&);
+
+  // Find the beginning and end poistions of the next word. Return the size
+  // of the word or 0 and set b = e = n if there are no more words. For
+  // example:
+  //
+  // for (size_t b (0), e (0); next_word (s, b, e); )
+  // {
+  //   string w (s, b, e - b);
+  // }
+  //
+  // Or:
+  //
+  // for (size_t b (0), e (0), n; n = next_word (s, b, e, ' ', ','); )
+  // {
+  //   string w (s, b, n);
+  // }
+  //
+  // The second version examines up to the n'th character in the string.
+  //
+  size_t
+  next_word (const string&, size_t& b, size_t& e,
+             char d1 = ' ', char d2 = '\0');
+
+  size_t
+  next_word (const string&, size_t n, size_t& b, size_t& e,
+             char d1 = ' ', char d2 = '\0');
+
   // Empty string and path.
   //
   extern const std::string empty_string;

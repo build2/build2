@@ -1,0 +1,113 @@
+// file      : build2/cxx/guess -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CXX_GUESS
+#define BUILD2_CXX_GUESS
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/variable>
+
+namespace build2
+{
+  namespace cxx
+  {
+    // C++ compiler id consisting of a type and optional variant. If the
+    // variant is not empty, then the id is spelled out as 'type-variant',
+    // similar to target triplets (this also means that the type cannot
+    // contain '-').
+    //
+    // Currently recognized compilers and their ids:
+    //
+    // gcc          GCC g++
+    // clang        Vanilla Clang clang++
+    // clang-apple  Apple Clang clang++ and the g++ "alias"
+    // icc          Intel icpc
+    // msvc         Microsoft cl.exe
+    //
+    struct compiler_id
+    {
+      std::string type;
+      std::string variant;
+
+      bool
+      empty () const {return type.empty ();}
+
+      std::string
+      string () const {return variant.empty () ? type : type + "-" + variant;}
+    };
+
+    inline ostream&
+    operator<< (ostream& os, const compiler_id& id)
+    {
+      return os << id.string ();
+    }
+
+    // C++ compiler version. Here we map the various compiler version formats
+    // to something that resembles the MAJOR.MINOR.PATCH-BUILD form of the
+    // Semantic Versioning. While the MAJOR.MINOR part is relatively
+    // straightforward, PATCH may be empty and BUILD can contain pretty much
+    // anything (including spaces).
+    //
+    // gcc           A.B.C[ ...]         {A, B, C, ...}
+    // clang         A.B.C[( |-)...]     {A, B, C, ...}
+    // clang-apple   A.B[.C] ...         {A, B, C, ...}
+    // icc           A.B[.C.D] ...       {A, B, C, D ...}
+    // msvc          A.B.C[.D]           {A, B, C, D}
+    //
+    // Note that the clang-apple version is a custom Apple version and does
+    // not correspond to the vanilla clang version.
+    //
+    struct compiler_version
+    {
+      std::string major;
+      std::string minor;
+      std::string patch;
+      std::string build;
+
+      // The format is always A.B[.C][-D].
+      //
+      std::string
+      string () const
+      {
+        std::string r (major);
+        r += '.'; r += minor;
+        if (!patch.empty ()) {r += '.'; r += patch;}
+        if (!build.empty ()) {r += '-'; r += build;}
+        return r;
+      }
+    };
+
+    // C++ compiler information.
+    //
+    // The signature is normally the -v/--version line that was used to guess
+    // the compiler id and its version.
+    //
+    // The checksum is used to detect compiler changes. It is calculated in a
+    // compiler-specific manner (usually the output of -v/--version) and is
+    // not bulletproof (e.g., it most likely won't detect that the underlying
+    // assembler or linker has changed). However, it should detect most
+    // common cases, such as an upgrade to a new version or a configuration
+    // change.
+    //
+    // The target is the compiler's traget architecture triplet. Note that
+    // unlike all the preceding fields, this one takes into account the
+    // compile options (e.g., -m32).
+    //
+    struct compiler_info
+    {
+      compiler_id id;
+      compiler_version version;
+      string signature;
+      string checksum;
+      string target;
+    };
+
+    compiler_info
+    guess (const path& cxx, lookup<const value> coptions); // @@ VAR
+  }
+}
+
+#endif // BUILD2_CXX_GUESS

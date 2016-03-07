@@ -22,8 +22,9 @@
 #include <build2/bin/target>
 #include <build2/cxx/target>
 
-#include <build2/cxx/utility>
 #include <build2/cxx/link>
+#include <build2/cxx/utility>
+
 
 using namespace std;
 using namespace butl;
