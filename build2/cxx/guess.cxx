@@ -7,7 +7,6 @@
 #include <cstring>  // strlen()
 #include <iostream> // cerr
 
-#include <butl/sha256>
 #include <butl/process>
 #include <butl/fdstream>
 

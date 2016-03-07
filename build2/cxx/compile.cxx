@@ -159,12 +159,12 @@ namespace build2
         // Then the compiler checksum.
         //
         {
-          sha256 csum (as<string> (*rs["config.cxx"]));
+          const string& cs (as<string> (*rs["cxx.checksum"]));
 
           dl = dd.read ();
-          if (dl == nullptr || *dl != csum.string ())
+          if (dl == nullptr || *dl != cs)
           {
-            dd.write (csum.string ());
+            dd.write (cs);
 
             if (dl != nullptr)
               l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
@@ -177,7 +177,7 @@ namespace build2
           // The idea is to keep them exactly as they are passed to the
           // compiler since the order may be significant.
           //
-          sha256 csum;
+          sha256 cs;
 
           // Hash cxx.export.poptions from prerequisite libraries.
           //
@@ -186,23 +186,23 @@ namespace build2
             target& pt (*p.target); // Already searched and matched.
 
             if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
-              hash_lib_options (csum, pt, "cxx.export.poptions");
+              hash_lib_options (cs, pt, "cxx.export.poptions");
           }
 
-          hash_options (csum, t, "cxx.poptions");
-          hash_options (csum, t, "cxx.coptions");
-          hash_std (csum, t);
+          hash_options (cs, t, "cxx.poptions");
+          hash_options (cs, t, "cxx.coptions");
+          hash_std (cs, t);
 
           if (t.is_a<objso> ())
           {
             if (sys != "darwin")
-              csum.append ("-fPIC");
+              cs.append ("-fPIC");
           }
 
           dl = dd.read ();
-          if (dl == nullptr || *dl != csum.string ())
+          if (dl == nullptr || *dl != cs.string ())
           {
-            dd.write (csum.string ());
+            dd.write (cs.string ());
 
             if (dl != nullptr)
               l4 ([&]{trace << "options mismatch forcing update of " << t;});
