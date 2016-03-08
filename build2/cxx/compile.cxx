@@ -221,9 +221,10 @@ namespace build2
         }
 
         // If any of the above checks resulted in a mismatch (different
-        // compiler, options, or source file), then force the target update.
+        // compiler, options, or source file), or if the database is newer
+        // than the target (interrupted update) then force the target update.
         //
-        if (dd.writing ())
+        if (dd.writing () || dd.mtime () > t.mtime ())
           t.mtime (timestamp_nonexistent);
 
         inject_prerequisites (a, t, st, mr.prerequisite->scope, dd);

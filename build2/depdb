@@ -13,7 +13,8 @@
 
 namespace build2
 {
-  // Auxiliary dependency database (those .d files).
+  // Auxiliary dependency database (those .d files). Uses iostream failure and
+  // system_error exceptions to signal errors.
   //
   // This is a strange beast: a line-oriented, streaming database that can, at
   // some point, be switched from reading to (over)writing. The idea is to
@@ -45,7 +46,16 @@ namespace build2
   // /tmp/foo/bar.hxx
   // ^@
   //
-  // Uses iostream failure and system_error exceptions to signal errors.
+  // A race is possible between updating the database and the target. For
+  // example, we may detect a line mismatch that renders the target out-of-
+  // date (say, compile options in the above example). We update the database
+  // but before getting a chance to update the target, we get interrupted. On
+  // a subsequent re-run, because the database has been updated, we will miss
+  // the "target requires update" condition.
+  //
+  // If we assume that an update of the database also means an update of the
+  // target, then this "interrupted update" situation can be easily detected
+  // by comparing the database and target modification timestamps.
   //
   class depdb
   {
@@ -69,8 +79,9 @@ namespace build2
     void
     touch () {touch_ = true;}
 
-    // Close the database. Note that if this function is not called, then
-    // the database may be left in the old/currupt state.
+    // Close the database. If this function is not called, then the database
+    // may be left in the old/currupt state. Note that in the read mode this
+    // function will "chop off" lines that haven't been read.
     //
     void
     close ();
