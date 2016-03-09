@@ -161,78 +161,48 @@ namespace build2
 
         // First should come the rule name/version.
         //
-        string* dl (dd.read ());
-        if (dl == nullptr || *dl != "cxx.compile 1")
-        {
-          dd.write ("cxx.compile 1");
-
-          if (dl != nullptr)
-            l4 ([&]{trace << "rule mismatch forcing update of " << t;});
-        }
+        if (dd.expect ("cxx.compile 1") != nullptr)
+          l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
         // Then the compiler checksum.
         //
-        {
-          const string& cs (as<string> (*rs["cxx.checksum"]));
-
-          dl = dd.read ();
-          if (dl == nullptr || *dl != cs)
-          {
-            dd.write (cs);
-
-            if (dl != nullptr)
-              l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
-          }
-        }
+        if (dd.expect (as<string> (*rs["cxx.checksum"])) != nullptr)
+          l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
 
         // Then the options checksum.
         //
-        {
-          // The idea is to keep them exactly as they are passed to the
-          // compiler since the order may be significant.
-          //
-          sha256 cs;
-
-          // Hash cxx.export.poptions from prerequisite libraries.
-          //
-          for (prerequisite& p: group_prerequisites (t))
-          {
-            target& pt (*p.target); // Already searched and matched.
-
-            if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
-              hash_lib_options (cs, pt, "cxx.export.poptions");
-          }
-
-          hash_options (cs, t, "cxx.poptions");
-          hash_options (cs, t, "cxx.coptions");
-          hash_std (cs, t);
-
-          if (t.is_a<objso> ())
-          {
-            if (sys != "darwin")
-              cs.append ("-fPIC");
-          }
-
-          dl = dd.read ();
-          if (dl == nullptr || *dl != cs.string ())
-          {
-            dd.write (cs.string ());
-
-            if (dl != nullptr)
-              l4 ([&]{trace << "options mismatch forcing update of " << t;});
-          }
-        }
-
-        // Then the source file.
+        // The idea is to keep them exactly as they are passed to the compiler
+        // since the order may be significant.
         //
-        dl = dd.read ();
-        if (dl == nullptr || *dl != st.path ().string ())
-        {
-          dd.write (st.path ());
+        sha256 cs;
 
-          if (dl != nullptr)
-            l4 ([&]{trace << "source file mismatch forcing update of " << t;});
+        // Hash cxx.export.poptions from prerequisite libraries.
+        //
+        for (prerequisite& p: group_prerequisites (t))
+        {
+          target& pt (*p.target); // Already searched and matched.
+
+          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+            hash_lib_options (cs, pt, "cxx.export.poptions");
         }
+
+        hash_options (cs, t, "cxx.poptions");
+        hash_options (cs, t, "cxx.coptions");
+        hash_std (cs, t);
+
+        if (t.is_a<objso> ())
+        {
+          if (sys != "darwin")
+            cs.append ("-fPIC");
+        }
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "options mismatch forcing update of " << t;});
+
+        // Finally the source file.
+        //
+        if (dd.expect (st.path ()) != nullptr)
+          l4 ([&]{trace << "source file mismatch forcing update of " << t;});
 
         // If any of the above checks resulted in a mismatch (different
         // compiler, options, or source file), or if the database is newer

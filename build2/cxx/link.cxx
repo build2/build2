@@ -12,6 +12,7 @@
 #include <butl/path-map>
 #include <butl/filesystem>
 
+#include <build2/depdb>
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/algorithm>
@@ -737,7 +738,7 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
+      case perform_clean_id: return &perform_clean_depdb;
       default: return noop_recipe; // Configure update.
       }
     }
@@ -745,23 +746,66 @@ namespace build2
     target_state link::
     perform_update (action a, target& xt)
     {
+      tracer trace ("cxx::link::perform_update");
+
       path_target& t (static_cast<path_target&> (xt));
 
       type lt (link_type (t));
       bool so (lt == type::so);
 
-      if (!execute_prerequisites (a, t, t.mtime ()))
-        return target_state::unchanged;
+      // Update prerequisites.
+      //
+      bool up (execute_prerequisites (a, t, t.mtime ()));
 
       scope& rs (t.root_scope ());
       const string& sys (as<string> (*rs["cxx.host.system"]));
 
-      // Translate paths to relative (to working directory) ones. This
-      // results in easier to read diagnostics.
+      // Check/update the dependency database.
       //
-      path relt (relative (t.path ()));
+      depdb dd (t.path () + ".d");
 
-      cstrings args;
+      // First should come the rule name/version.
+      //
+      if (dd.expect ("cxx.link 1") != nullptr)
+        l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+      lookup<const value> ranlib;
+
+      // Then the linker checksum (ar/ranlib or C++ compiler).
+      //
+      if (lt == type::a)
+      {
+        ranlib = rs["config.bin.ranlib"];
+
+        if (ranlib->empty ()) // @@ TMP until proper NULL support.
+          ranlib = lookup<const value> ();
+
+        const char* rl (
+          ranlib
+          ? as<string> (*rs["bin.ranlib.checksum"]).c_str ()
+          : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+        if (dd.expect (as<string> (*rs["bin.ar.checksum"])) != nullptr)
+          l4 ([&]{trace << "ar mismatch forcing update of " << t;});
+
+        if (dd.expect (rl) != nullptr)
+          l4 ([&]{trace << "ranlib mismatch forcing update of " << t;});
+      }
+      else
+      {
+        if (dd.expect (as<string> (*rs["cxx.checksum"])) != nullptr)
+          l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+      }
+
+      // Start building the command line. While we don't yet know whether we
+      // will really need it, we need to hash it to find out. So the options
+      // are to either replicate the exact process twice, first for hashing
+      // then for building or to go ahead and start building and hash the
+      // result. The first approach is probably more efficient while the
+      // second is simpler. Let's got with the simpler for now (actually it's
+      // kind of a hybrid).
+      //
+      cstrings args {nullptr}; // Reserve for config.bin.ar/config.cxx.
 
       // Storage.
       //
@@ -769,25 +813,14 @@ namespace build2
       string soname1, soname2;
       strings sargs;
 
-      lookup<const value> ranlib;
-
       if (lt == type::a)
       {
-        // If the user asked for ranlib, don't try to do its function
-        // with -s.
+        // If the user asked for ranlib, don't try to do its function with -s.
         //
-        ranlib = rs["config.bin.ranlib"];
-
-        if (ranlib->empty ()) // @@ TMP until proper NULL support.
-          ranlib = lookup<const value> ();
-
-        args.push_back (as<string> (*rs["config.bin.ar"]).c_str ());
         args.push_back (ranlib ? "-rc" : "-rcs");
-        args.push_back (relt.string ().c_str ());
       }
       else
       {
-        args.push_back (as<string> (*rs["config.cxx"]).c_str ());
         append_options (args, t, "cxx.coptions");
         append_std (args, t, std);
 
@@ -799,14 +832,11 @@ namespace build2
             args.push_back ("-shared");
         }
 
-        args.push_back ("-o");
-        args.push_back (relt.string ().c_str ());
-
         // Set soname.
         //
         if (so)
         {
-          const string& leaf (relt.leaf ().string ());
+          const string& leaf (t.path ().leaf ().string ());
 
           if (sys == "darwin")
           {
@@ -826,14 +856,17 @@ namespace build2
             args.push_back (soname2.c_str ());
         }
 
-        // Add rpaths. First the ones specified by the user so that they
-        // take precedence.
+        // Add rpaths. First the ones specified by the user so that they take
+        // precedence.
         //
         if (auto l = t["bin.rpath"])
           for (const string& p: as<strings> (*l))
             sargs.push_back ("-Wl,-rpath," + p);
 
         // Then the paths of the shared libraries we are linking to.
+        //
+        // I guess this is where we will do things differently if updating for
+        // install.
         //
         for (target* pt: t.prerequisite_targets)
         {
@@ -843,7 +876,91 @@ namespace build2
         }
       }
 
-      size_t oend (sargs.size ()); // Note the end of options.
+      // All the options should now be in. Hash them and compare with the db.
+      //
+      {
+        sha256 cs;
+
+        for (size_t i (1); i != args.size (); ++i)
+          cs.append (args[i]);
+
+        for (size_t i (0); i != sargs.size (); ++i)
+          cs.append (sargs[i]);
+
+        if (lt != type::a)
+          hash_options (cs, t, "cxx.loptions");
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "options mismatch forcing update of " << t;});
+      }
+
+      // Finally, hash and compare the list of input files.
+      //
+      // Should we capture actual files or their checksum? The only good
+      // reason for capturing actual files is diagnostics: we will be able
+      // to pinpoint exactly what is causing the update. On the other hand,
+      // the checksum is faster and simpler.
+      //
+      {
+        sha256 cs;
+
+        for (target* pt: t.prerequisite_targets)
+        {
+          path_target* ppt;
+
+          if ((ppt = pt->is_a<obja> ())  ||
+              (ppt = pt->is_a<objso> ()) ||
+              (ppt = pt->is_a<liba> ())  ||
+              (ppt = pt->is_a<libso> ()))
+          {
+            cs.append (ppt->path ().string ());
+          }
+        }
+
+        // Treat them as inputs, not options.
+        //
+        if (lt != type::a)
+          hash_options (cs, t, "cxx.libs");
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "file set mismatch forcing update of " << t;});
+      }
+
+      // If any of the above checks resulted in a mismatch (different linker,
+      // options, or input file set), or if the database is newer than the
+      // target (interrupted update) then force the target update.
+      //
+      if (dd.writing () || dd.mtime () > t.mtime ())
+        up = true;
+
+      dd.close ();
+
+      // If nothing changed, then we are done.
+      //
+      if (!up)
+        return target_state::unchanged;
+
+      // Ok, so we are updating. Finish building the command line.
+      //
+
+      // Translate paths to relative (to working directory) ones. This results
+      // in easier to read diagnostics.
+      //
+      path relt (relative (t.path ()));
+
+      if (lt == type::a)
+      {
+        args[0] = as<string> (*rs["config.bin.ar"]).c_str ();
+        args.push_back (relt.string ().c_str ());
+      }
+      else
+      {
+        args[0] = as<string> (*rs["config.cxx"]).c_str ();
+        args.push_back ("-o");
+        args.push_back (relt.string ().c_str ());
+      }
+
+      size_t oend (sargs.size ()); // Note the end of options in sargs.
 
       for (target* pt: t.prerequisite_targets)
       {
@@ -858,7 +975,8 @@ namespace build2
         }
       }
 
-      // Finish assembling args from sargs.
+      // Copy sargs to args. Why not do it as we go along pusing into sargs?
+      // Because of potential realocations.
       //
       for (size_t i (0); i != sargs.size (); ++i)
       {
@@ -922,10 +1040,9 @@ namespace build2
         }
       }
 
-      // Should we go to the filesystem and get the new mtime? We
-      // know the file has been modified, so instead just use the
-      // current clock time. It has the advantage of having the
-      // subseconds precision.
+      // Should we go to the filesystem and get the new mtime? We know the
+      // file has been modified, so instead just use the current clock time.
+      // It has the advantage of having the subseconds precision.
       //
       t.mtime (system_clock::now ());
       return target_state::changed;

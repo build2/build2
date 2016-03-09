@@ -132,6 +132,43 @@ namespace build2
     void
     write (char);
 
+    // Read the next line and compare it to the expected value. If it matches,
+    // return NULL. Otherwise, overwrite it and return the old value (which
+    // could also be NULL). This strange-sounding result semantics is used to
+    // detect the "there is a value but it does not match" case for tracing:
+    //
+    // if (string* o = d.expect (...))
+    //   l4 ([&]{trace << "X mismatch forcing update of " << t;});
+    //
+    string*
+    expect (const string& v)
+    {
+      string* l (read ());
+      if (l == nullptr || *l != v)
+      {
+        write (v);
+        return l;
+      }
+
+      return nullptr;
+    }
+
+    string*
+    expect (const path& v) {return expect (v.string ());}
+
+    string*
+    expect (const char* v)
+    {
+      string* l (read ());
+      if (l == nullptr || *l != v)
+      {
+        write (v);
+        return l;
+      }
+
+      return nullptr;
+    }
+
   private:
     void
     change (bool flush = true);

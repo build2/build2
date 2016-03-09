@@ -162,15 +162,23 @@ namespace build2
       //
       // For config.bin.ar we default to 'ar' while ranlib should be explicitly
       // specified by the user in order for us to use it (most targets support
-      // -s option to ar).
+      // the -s option to ar).
+      //
+
+      // @@ Maybe, if explicitly specified by the user, we should try to run
+      // them?
       //
       if (first)
       {
-        // @@ Maybe, if explicitly specified by the user, we should try to run
-        // them?
-        //
         config::required (r, "config.bin.ar", "ar");
-        config::optional (r, "config.bin.ranlib");
+        r.assign ("bin.ar.signature", string_type) = "Some ar";
+        r.assign ("bin.ar.checksum", string_type) = "123";
+
+        if (auto& v = config::optional (r, "config.bin.ranlib"))
+        {
+          r.assign ("bin.ranlib.signature", string_type) = "Some ranlib";
+          r.assign ("bin.ranlib.checksum", string_type) = "234";
+        }
       }
 
       // Configure "installability" of our target types.
