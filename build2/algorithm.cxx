@@ -300,7 +300,7 @@ namespace build2
     }
   }
 
-  void
+  fsdir*
   inject_parent_fsdir (action a, target& t)
   {
     tracer trace ("inject_parent_fsdir");
@@ -309,7 +309,7 @@ namespace build2
     scope* rs (s.root_scope ());
 
     if (rs == nullptr) // Could be outside any project.
-      return;
+      return nullptr;
 
     const dir_path& out_root (rs->out_path ());
 
@@ -318,14 +318,15 @@ namespace build2
     //
     const dir_path& d (t.name.empty () ? t.dir.directory () : t.dir);
 
-    if (!d.sub (out_root) || d == out_root)
-      return;
+    if (!d.sub (out_root))
+      return nullptr;
 
     l6 ([&]{trace << "for " << t;});
 
-    fsdir& dt (search<fsdir> (d, string (), nullptr, &s));
-    match (a, dt);
-    t.prerequisite_targets.emplace_back (&dt);
+    fsdir* r (&search<fsdir> (d, string (), nullptr, &s));
+    match (a, *r);
+    t.prerequisite_targets.emplace_back (r);
+    return r;
   }
 
   target_state

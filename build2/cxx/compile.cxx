@@ -77,7 +77,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      inject_parent_fsdir (a, t);
+      fsdir* dir (inject_parent_fsdir (a, t));
 
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.
@@ -142,6 +142,20 @@ namespace build2
         cxx& st (
           dynamic_cast<cxx&> (
             mr.target != nullptr ? *mr.target : *mr.prerequisite->target));
+
+        // Make sure the output directory exists.
+        //
+        // Is this the right thing to do? It does smell a bit, but then we do
+        // worse things in inject_prerequisites() below. There is also no way
+        // to postpone this until update since we need to extract and inject
+        // header dependencies now (we don't want to be calling search() and
+        // match() in update), which means we need to cache them now as well.
+        // So the only alternative, it seems, is to cache the updates to the
+        // database until later which will sure complicate (and slow down)
+        // things.
+        //
+        if (dir != nullptr)
+          execute_direct (a, *dir);
 
         depdb dd (t.path () + ".d");
 

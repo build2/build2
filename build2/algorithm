@@ -128,12 +128,12 @@ namespace build2
   group_view
   resolve_group_members (action, target&);
 
-  // Inject dependency on the parent directory's fsdir{}, unless it is
-  // the project's out_root (or is outside of any project; say, for
-  // example, an install directory). Normally this function is called
-  // from the rule's apply() function.
+  // Inject dependency on the parent directory's fsdir{}, unless it is outside
+  // of any project (say, for example, an installation directory). Return the
+  // injected target or NULL. Normally this function is called from the rule's
+  // apply() function.
   //
-  void
+  fsdir*
   inject_parent_fsdir (action, target&);
 
   // Execute the action on target, assuming a rule has been matched
