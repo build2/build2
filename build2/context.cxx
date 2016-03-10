@@ -4,6 +4,8 @@
 
 #include <build2/context>
 
+#include <butl/triplet>
+
 #include <build2/scope>
 #include <build2/target>
 #include <build2/rule>
@@ -29,6 +31,8 @@ namespace build2
   void
   reset ()
   {
+    tracer trace ("reset");
+
     extension_pool.clear ();
     project_name_pool.clear ();
 
@@ -57,9 +61,6 @@ namespace build2
     {
       auto& v (var_pool);
 
-      v.find ("build.work", dir_path_type);
-      v.find ("build.home", dir_path_type);
-
       v.find ("src_root", dir_path_type);
       v.find ("out_root", dir_path_type);
       v.find ("src_base", dir_path_type);
@@ -82,13 +83,51 @@ namespace build2
     global_scope = scopes.insert (
       dir_path ("/"), nullptr, true, false)->second;
 
-    global_scope->assign ("build.work") = work;
-    global_scope->assign ("build.home") = home;
+    scope& gs (*global_scope);
+
+    gs.assign ("build.work", dir_path_type) = work;
+    gs.assign ("build.home", dir_path_type) = home;
+
+    // Enter the host information. Rather than jumping through hoops like
+    // config.guess, for now we are just going to use the compiler target we
+    // were built with. While it is not as precise (for example, a binary
+    // built for i686 might be running on x86_64), it is good enough of an
+    // approximation/fallback since most of the time we are interested in just
+    // the target class (e.g., linux, windows, macosx).
+    //
+#ifndef BUILD2_HOST_TRIPLET
+#error BUILD2_HOST_TRIPLET is not defined
+#endif
+    try
+    {
+      string canon;
+      triplet t (BUILD2_HOST_TRIPLET, canon);
+
+      l5 ([&]{trace << "canonical host: '" << canon << "'; "
+                    << "class: " << t.class_;});
+
+      // Enter as build.host.{cpu,vendor,system,version,class}.
+      //
+      gs.assign ("build.host", string_type) = move (canon);
+      gs.assign ("build.host.cpu", string_type) = move (t.cpu);
+      gs.assign ("build.host.vendor", string_type) = move (t.vendor);
+      gs.assign ("build.host.system", string_type) = move (t.system);
+      gs.assign ("build.host.version", string_type) = move (t.version);
+      gs.assign ("build.host.class", string_type) = move (t.class_);
+    }
+    catch (const invalid_argument& e)
+    {
+      // This is where we could suggest that the user specifies --config-guess
+      // to help us out.
+      //
+      fail << "unable to parse build host '" << BUILD2_HOST_TRIPLET << "': "
+           << e.what ();
+    }
 
     // Register builtin target types.
     //
     {
-      target_type_map& t (global_scope->target_types);
+      target_type_map& t (gs.target_types);
 
       t.insert<file>  ();
       t.insert<alias> ();
@@ -102,7 +141,7 @@ namespace build2
     // Register builtin rules.
     //
     {
-      rule_map& r (global_scope->rules);
+      rule_map& r (gs.rules);
 
       r.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
 

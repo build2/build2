@@ -221,7 +221,7 @@ namespace build2
           l5 ([&]{trace << "canonical target: '" << canon << "'; "
                         << "class: " << t.class_;});
 
-          // Enter as cxx.target.{cpu,vendor,system,version}.
+          // Enter as cxx.target.{cpu,vendor,system,version,class}.
           //
           r.assign ("cxx.target", string_type) = move (canon);
           r.assign ("cxx.target.cpu", string_type) = move (t.cpu);

@@ -60,6 +60,10 @@ install/{hxx            }{ utility      } \
    test/{hxx         cxx}{ rule         } \
 $libs
 
+# Pass our compiler target to be used as build2 host.
+#
+obj{context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
+
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.
 # This is also the reason why above we explicitly spelled out individual
