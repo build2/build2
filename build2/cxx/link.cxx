@@ -221,7 +221,7 @@ namespace build2
         return p.target;
 
       scope& rs (*p.scope.root_scope ());
-      const string& sys (as<string> (*rs["cxx.host.system"]));
+      const string& sys (as<string> (*rs["cxx.target.system"]));
 
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libso.
@@ -486,7 +486,7 @@ namespace build2
       path_target& t (static_cast<path_target&> (xt));
 
       scope& rs (t.root_scope ());
-      const string& sys (as<string> (*rs["cxx.host.system"]));
+      const string& sys (as<string> (*rs["cxx.target.system"]));
 
       type lt (link_type (t));
       bool so (lt == type::so);
@@ -758,7 +758,7 @@ namespace build2
       bool up (execute_prerequisites (a, t, t.mtime ()));
 
       scope& rs (t.root_scope ());
-      const string& sys (as<string> (*rs["cxx.host.system"]));
+      const string& sys (as<string> (*rs["cxx.target.system"]));
 
       // Check/update the dependency database.
       //

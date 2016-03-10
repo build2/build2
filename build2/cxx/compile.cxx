@@ -131,7 +131,7 @@ namespace build2
       if (a == perform_update_id)
       {
         scope& rs (t.root_scope ());
-        const string& sys (as<string> (*rs["cxx.host.system"]));
+        const string& sys (as<string> (*rs["cxx.target.system"]));
 
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
@@ -463,7 +463,7 @@ namespace build2
       auto init_args = [&t, &s, &rs, &args, &cxx_std] ()
       {
         const string& cxx (as<string> (*rs["config.cxx"]));
-        const string& sys (as<string> (*rs["cxx.host.system"]));
+        const string& sys (as<string> (*rs["cxx.target.system"]));
 
         args.push_back (cxx.c_str ());
 
@@ -925,7 +925,7 @@ namespace build2
 
       scope& rs (t.root_scope ());
       const string& cxx (as<string> (*rs["config.cxx"]));
-      const string& sys (as<string> (*rs["cxx.host.system"]));
+      const string& sys (as<string> (*rs["cxx.target.system"]));
 
       cstrings args {cxx.c_str ()};
 

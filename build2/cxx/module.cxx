@@ -220,13 +220,13 @@ namespace build2
 
           l5 ([&]{trace << "canonical target '" << canon << "'";});
 
-          // Enter as cxx.host.{cpu,vendor,system,version}.
+          // Enter as cxx.target.{cpu,vendor,system,version}.
           //
-          r.assign ("cxx.host", string_type) = canon;
-          r.assign ("cxx.host.cpu", string_type) = t.cpu;
-          r.assign ("cxx.host.vendor", string_type) = t.vendor;
-          r.assign ("cxx.host.system", string_type) = t.system;
-          r.assign ("cxx.host.version", string_type) = t.version;
+          r.assign ("cxx.target", string_type) = canon;
+          r.assign ("cxx.target.cpu", string_type) = t.cpu;
+          r.assign ("cxx.target.vendor", string_type) = t.vendor;
+          r.assign ("cxx.target.system", string_type) = t.system;
+          r.assign ("cxx.target.version", string_type) = t.version;
         }
         catch (const invalid_argument& e)
         {
