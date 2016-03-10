@@ -234,10 +234,16 @@ namespace build2
       //
       if (m == lexer_mode::variable)
       {
+        //@@ Maybe we should rather test for allowed characeters (e.g.,
+        // alnum plus '_' and '.')?
+        //
         switch (c)
         {
         case '/':
         case '-':
+        case '"':
+        case '\'':
+        case '\\':
           {
             done = true;
             break;
@@ -268,6 +274,17 @@ namespace build2
           break;
       }
 
+      // Handle escape sequences.
+      //
+      if (c == '\\')
+      {
+        get ();
+        c = escape ();
+        if (c != '\n') // Ignore.
+          lexeme += c;
+        continue;
+      }
+
       // If we are quoted, these are ordinary characters.
       //
       if (m != lexer_mode::quoted)
@@ -284,14 +301,6 @@ namespace build2
           {
             done = true;
             break;
-          }
-        case '\\':
-          {
-            get ();
-            c = escape ();
-            if (c != '\n') // Ignore.
-              lexeme += c;
-            continue;
           }
         case '\'':
           {
