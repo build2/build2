@@ -218,15 +218,17 @@ namespace build2
           string canon;
           triplet t (ci.target, canon);
 
-          l5 ([&]{trace << "canonical target '" << canon << "'";});
+          l5 ([&]{trace << "canonical target: '" << canon << "'; "
+                        << "class: " << t.class_;});
 
           // Enter as cxx.target.{cpu,vendor,system,version}.
           //
-          r.assign ("cxx.target", string_type) = canon;
-          r.assign ("cxx.target.cpu", string_type) = t.cpu;
-          r.assign ("cxx.target.vendor", string_type) = t.vendor;
-          r.assign ("cxx.target.system", string_type) = t.system;
-          r.assign ("cxx.target.version", string_type) = t.version;
+          r.assign ("cxx.target", string_type) = move (canon);
+          r.assign ("cxx.target.cpu", string_type) = move (t.cpu);
+          r.assign ("cxx.target.vendor", string_type) = move (t.vendor);
+          r.assign ("cxx.target.system", string_type) = move (t.system);
+          r.assign ("cxx.target.version", string_type) = move (t.version);
+          r.assign ("cxx.target.class", string_type) = move (t.class_);
         }
         catch (const invalid_argument& e)
         {
