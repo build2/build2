@@ -4,7 +4,8 @@
 
 #include <build2/utility>
 
-#include <cstdlib> // strtol()
+#include <cstdlib>  // strtol()
+#include <iostream> // cerr
 
 #include <build2/context>
 #include <build2/variable>
@@ -81,6 +82,61 @@ namespace build2
       l.resize (n);
 
     return l;
+  }
+
+  process
+  start_run (const char* const* args, bool err)
+  {
+    if (verb >= 3)
+      print_process (args);
+
+    try
+    {
+      return process (args, 0, -1, (err ? 2 : 1));
+    }
+    catch (const process_error& e)
+    {
+      if (e.child ())
+      {
+        // Note: finish_run() expects this exact message.
+        //
+        cerr << "unable to execute " << args[0] << ": " << e.what () << endl;
+        exit (1);
+      }
+      else
+        error << "unable to execute " << args[0] << ": " << e.what ();
+
+      throw failed ();
+    }
+  };
+
+  bool
+  finish_run (const char* const* args, bool err, process& pr, const string& l)
+  try
+  {
+    if (pr.wait ())
+      return true;
+
+    if (err)
+      // Assuming diagnostics has already been issued (to STDERR).
+      //
+      throw failed ();
+
+    // Even if the user asked to suppress diagnostiscs, one error that we
+    // want to let through is the inability to execute the program itself.
+    // We cannot reserve a special exit status to signal this so we will
+    // just have to compare the output. This particular situation will
+    // result in a single error line printed by run_start() above.
+    //
+    if (l.compare (0, 18, "unable to execute ") == 0)
+      fail << l;
+
+    return false;
+  }
+  catch (const process_error& e)
+  {
+    error << "unable to execute " << args[0] << ": " << e.what ();
+    throw failed ();
   }
 
   const string empty_string;

@@ -240,6 +240,30 @@ namespace build2
     return this->verbose_specified_;
   }
 
+  inline const path& options::
+  config_guess () const
+  {
+    return this->config_guess_;
+  }
+
+  inline bool options::
+  config_guess_specified () const
+  {
+    return this->config_guess_specified_;
+  }
+
+  inline const path& options::
+  config_sub () const
+  {
+    return this->config_sub_;
+  }
+
+  inline bool options::
+  config_sub_specified () const
+  {
+    return this->config_sub_specified_;
+  }
+
   inline const string& options::
   pager () const
   {

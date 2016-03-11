@@ -67,6 +67,61 @@ namespace build2
   next_word (const string&, size_t n, size_t& b, size_t& e,
              char d1 = ' ', char d2 = '\0');
 
+  // Basic process utilities.
+  //
+
+  // Start a process with the specified arguments printing the command at
+  // verbosity level 3 and higher. Redirect STDOUT to a pipe. If error is
+  // false, then redirecting STDERR to STDOUT (this can used to suppress
+  // diagnostics from the child process). Issue diagnostics and throw failed
+  // in case of an error.
+  //
+  process
+  start_run (const char* const* args, bool error);
+
+  bool
+  finish_run (const char* const* args, bool error, process&, const string&);
+
+  // Start the process as above and then call the specified function on each
+  // trimmed line of the output until it returns a non-empty object T (tested
+  // with T::empty()) which is then returned to the caller.
+  //
+  // The predicate can move the value out of the passed string but, if error
+  // is false, only in case of a "content match" (so that any diagnostics
+  // lines are left intact).
+  //
+  // If checksum is not NULL, then feed it the content of each line.
+  //
+  template <typename T>
+  T
+  run (const char* const* args,
+       T (*) (string&),
+       bool error = true,
+       sha256* checksum = nullptr);
+
+  template <typename T>
+  inline T
+  run (const path& prog,
+       T (*f) (string&),
+       bool error = true,
+       sha256* checksum = nullptr)
+  {
+    const char* args[] = {prog.string ().c_str (), nullptr};
+    return run<T> (args, f, error, checksum);
+  }
+
+  template <typename T>
+  inline T
+  run (const path& prog,
+       const char* arg,
+       T (*f) (string&),
+       bool error = true,
+       sha256* checksum = nullptr)
+  {
+    const char* args[] = {prog.string ().c_str (), arg, nullptr};
+    return run<T> (args, f, error, checksum);
+  }
+
   // Empty string and path.
   //
   extern const std::string empty_string;
@@ -197,5 +252,6 @@ namespace build2
 }
 
 #include <build2/utility.ixx>
+#include <build2/utility.txx>
 
 #endif // BUILD2_UTILITY

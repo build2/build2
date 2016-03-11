@@ -6,6 +6,7 @@
 
 // Begin prologue.
 //
+#include <build2/types-parsers>
 //
 // End prologue.
 
@@ -572,6 +573,10 @@ namespace build2
     q_ (),
     verbose_ (1),
     verbose_specified_ (false),
+    config_guess_ (),
+    config_guess_specified_ (false),
+    config_sub_ (),
+    config_sub_specified_ (false),
     pager_ (),
     pager_specified_ (false),
     pager_option_ (),
@@ -672,6 +677,19 @@ namespace build2
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--config-guess\033[0m \033[4mpath\033[0m  The path to the \033[1mconfig.guess(1)\033[0m script that should be used" << ::std::endl
+       << "                     to guess the host machine triplet. If this option is not" << ::std::endl
+       << "                     specified, then \033[1mb\033[0m will fall back on to using the target it" << ::std::endl
+       << "                     was built for as host." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--config-sub\033[0m \033[4mpath\033[0m    The path to the \033[1mconfig.sub(1)\033[0m script that should be used" << ::std::endl
+       << "                     to canonicalize machine triplets. If this option is not" << ::std::endl
+       << "                     specified, then \033[1mb\033[0m will use its built-in canonicalization" << ::std::endl
+       << "                     support which should be sufficient for commonly-used" << ::std::endl
+       << "                     platforms." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--pager\033[0m \033[4mpath\033[0m         The pager program to be used to show long text. Commonly" << ::std::endl
        << "                     used pager programs are \033[1mless\033[0m and \033[1mmore\033[0m. You can also" << ::std::endl
        << "                     specify additional options that should be passed to the" << ::std::endl
@@ -714,6 +732,12 @@ namespace build2
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
+      _cli_options_map_["--config-guess"] = 
+      &::build2::cl::thunk< options, path, &options::config_guess_,
+        &options::config_guess_specified_ >;
+      _cli_options_map_["--config-sub"] = 
+      &::build2::cl::thunk< options, path, &options::config_sub_,
+        &options::config_sub_specified_ >;
       _cli_options_map_["--pager"] = 
       &::build2::cl::thunk< options, string, &options::pager_,
         &options::pager_specified_ >;

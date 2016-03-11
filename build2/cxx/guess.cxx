@@ -5,10 +5,6 @@
 #include <build2/cxx/guess>
 
 #include <cstring>  // strlen()
-#include <iostream> // cerr
-
-#include <butl/process>
-#include <butl/fdstream>
 
 #include <build2/diagnostics>
 
@@ -85,90 +81,6 @@ namespace build2
       return "";
     }
 
-    // Start a process redirecting STDOUT and STDERR to a pipe.
-    //
-    static process
-    start (const char* const* args)
-    {
-      if (verb >= 3)
-        print_process (args);
-
-      try
-      {
-        return process (args, 0, -1, 1);
-      }
-      catch (const process_error& e)
-      {
-        if (e.child ())
-        {
-          // Note: run() below relies on this exact message.
-          //
-          cerr << "unable to execute " << args[0] << ": " << e.what () << endl;
-          exit (1);
-        }
-        else
-          error << "unable to execute " << args[0] << ": " << e.what ();
-
-        throw failed ();
-      }
-    };
-
-    // Run the compiler with the specified option and then call the predicate
-    // function on each line of the output until it returns a non-empty object
-    // T (tested with T::empty()) which is then returned to the caller.
-    //
-    // The predicate can move the value out of the passed string but only in
-    // case of a match (so that any diagnostics lines are left intact).
-    //
-    // If checksum is not NULL, then feed it the content of each line.
-    //
-    template <typename T>
-    static T
-    run (const char* const* args, T (*f) (string&), sha256* checksum = nullptr)
-    try
-    {
-      process pr (start (args));
-      ifdstream is (pr.in_ofd);
-
-      T r;
-
-      string l; // Last line of output.
-      while (is.peek () != ifdstream::traits_type::eof () && getline (is, l))
-      {
-        trim (l);
-
-        if (checksum != nullptr)
-          checksum->append (l);
-
-        if (r.empty ())
-          r = f (l);
-      }
-
-      is.close (); // Don't block.
-
-      if (!pr.wait ())
-      {
-        // While we want to suppress all the compiler errors because we may be
-        // trying unsupported options, one error that we want to let through
-        // is the inability to execute the compiler itself. We cannot reserve
-        // a special exit status to signal this so we will just have to
-        // compare the output. This particular situation will result in a
-        // single error line printed by start() above.
-        //
-        if (l.compare (0, 18, "unable to execute ") == 0)
-          fail << l;
-
-        r = T ();
-      }
-
-      return r;
-    }
-    catch (const process_error& e)
-    {
-      error << "unable to execute " << args[0] << ": " << e.what ();
-      throw failed ();
-    }
-
     // Guess the compiler type and variant by running it. If the pre argument
     // is not empty, then only "confirm" the pre-guess. Return empty result if
     // unable to guess.
@@ -190,7 +102,6 @@ namespace build2
       tracer trace ("cxx::guess");
 
       guess_result r;
-      const char* args[] = {cxx.string ().c_str (), nullptr, nullptr};
 
       // Start with -v. This will cover gcc and clang.
       //
@@ -282,8 +193,10 @@ namespace build2
         //
         sha256 cs;
 
-        args[1] = "-v";
-        r = run<guess_result> (args, f, &cs);
+        // Suppress all the compiler errors because we may be trying an
+        // unsupported option.
+        //
+        r = run<guess_result> (cxx, "-v", f, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -310,8 +223,7 @@ namespace build2
           return guess_result ();
         };
 
-        args[1] = "--version";
-        r = run<guess_result> (args, f);
+        r = run<guess_result> (cxx, "--version", f, false);
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -343,8 +255,7 @@ namespace build2
           return guess_result ();
         };
 
-        args[1] = nullptr;
-        r = run<guess_result> (args, f);
+        r = run<guess_result> (cxx, f, false);
       }
 
       if (!r.empty ())
@@ -446,24 +357,24 @@ namespace build2
       // multi-arch support), then use the result. Otherwise, fallback to
       // -dumpmachine (older gcc or not multi-arch).
       //
-      cstrings targs {cxx.string ().c_str (), "-print-multiarch"};
-      append_options (targs, coptions);
-      targs.push_back (nullptr);
+      cstrings args {cxx.string ().c_str (), "-print-multiarch"};
+      append_options (args, coptions);
+      args.push_back (nullptr);
 
       // The output of both -print-multiarch and -dumpmachine is a single line
       // containing just the target triplet.
       //
-      auto f = [] (string& l) {return string (move (l));};
+      auto f = [] (string& l) {return move (l);};
 
-      string t (run<string> (targs.data (), f));
+      string t (run<string> (args.data (), f, false));
 
       if (t.empty ())
       {
         l5 ([&]{trace << cxx << " doesn's support -print-multiarch, "
                       << "falling back to -dumpmachine";});
 
-        targs[1] = "-dumpmachine";
-        t = run<string> (targs.data (), f);
+        args[1] = "-dumpmachine";
+        t = run<string> (args.data (), f);
       }
 
       if (t.empty ())
@@ -549,16 +460,14 @@ namespace build2
       // Unlike gcc, clang doesn't have -print-multiarch. Its -dumpmachine,
       // however, respects the compile options (e.g., -m32).
       //
-      cstrings targs {cxx.string ().c_str (), "-dumpmachine"};
-      append_options (targs, coptions);
-      targs.push_back (nullptr);
+      cstrings args {cxx.string ().c_str (), "-dumpmachine"};
+      append_options (args, coptions);
+      args.push_back (nullptr);
 
       // The output of -dumpmachine is a single line containing just the
       // target triplet.
       //
-      auto f = [] (string& l) {return string (move (l));};
-
-      string t (run<string> (targs.data (), f));
+      string t (run<string> (args.data (), [] (string& l) {return move (l);}));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << cxx
@@ -611,8 +520,7 @@ namespace build2
           : string ();
       };
 
-      const char* vargs[] = {cxx.string ().c_str (), "-V", nullptr};
-      s = run<string> (vargs, f);
+      s = run<string> (cxx, "-V", f);
 
       if (s.empty ())
         fail << "unable to extract signature from " << cxx << " -V output";
@@ -695,11 +603,11 @@ namespace build2
       // "Intel(R)" "64"
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
-      cstrings targs {cxx.string ().c_str (), "-V"};
-      append_options (targs, coptions);
-      targs.push_back (nullptr);
+      cstrings args {cxx.string ().c_str (), "-V"};
+      append_options (args, coptions);
+      args.push_back (nullptr);
 
-      string t (run<string> (targs.data (), f));
+      string t (run<string> (args.data (), f));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << cxx
@@ -741,8 +649,7 @@ namespace build2
       // on which we are running), who knows what will happen in the future.
       // So instead we are going to use -dumpmachine and substitute the CPU.
       //
-      vargs[1] = "-dumpmachine";
-      t = run<string> (vargs, [] (string& l) {return string (move (l));});
+      t = run<string> (cxx, "-dumpmachine", [] (string& l) {return move (l);});
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << cxx

@@ -6,9 +6,6 @@
 
 #include <cstdlib>  // exit()
 
-#include <butl/process>
-#include <butl/fdstream>
-#include <butl/optional>
 #include <butl/path-map>
 #include <butl/filesystem>
 

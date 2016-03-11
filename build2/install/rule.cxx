@@ -4,7 +4,6 @@
 
 #include <build2/install/rule>
 
-#include <butl/process>
 #include <butl/filesystem>
 
 #include <build2/scope>

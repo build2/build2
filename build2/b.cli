@@ -220,6 +220,23 @@ namespace build2
        \li|Even more detailed information, including state dumps.||"
     }
 
+    path --config-guess
+    {
+      "<path>",
+      "The path to the \cb{config.guess(1)} script that should be used to
+       guess the host machine triplet. If this option is not specified, then
+       \cb{b} will fall back on to using the target it was built for as host."
+    }
+
+    path --config-sub
+    {
+      "<path>",
+      "The path to the \cb{config.sub(1)} script that should be used to
+       canonicalize machine triplets. If this option is not specified, then
+       \cb{b} will use its built-in canonicalization support which should
+       be sufficient for commonly-used platforms."
+    }
+
     string --pager // String to allow empty value.
     {
       "<path>",

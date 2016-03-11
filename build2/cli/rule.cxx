@@ -4,8 +4,6 @@
 
 #include <build2/cli/rule>
 
-#include <butl/process>
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/context>

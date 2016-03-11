@@ -65,7 +65,6 @@ main (int argc, char* argv[])
     // and buildspecs in any order (it is really handy to just add -v at the
     // end of the command line).
     //
-    options ops;
     strings vars;
     string args;
     try

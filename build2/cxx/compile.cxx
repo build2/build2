@@ -8,8 +8,6 @@
 #include <limits>   // numeric_limits
 #include <cstdlib>  // exit()
 
-#include <butl/process>
-#include <butl/fdstream>
 #include <butl/path-map>
 
 #include <build2/depdb>

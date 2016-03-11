@@ -4,9 +4,6 @@
 
 #include <build2/cli/module>
 
-#include <butl/process>
-#include <butl/fdstream>
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/variable>

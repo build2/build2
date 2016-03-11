@@ -11,6 +11,7 @@
 #include <build2/utility>
 
 #include <build2/operation>
+#include <build2/b-options>
 
 namespace build2
 {
@@ -19,6 +20,7 @@ namespace build2
 
   extern dir_path work;
   extern dir_path home;
+  extern options ops;
 
   extern string_pool extension_pool;
   extern string_pool project_name_pool;

@@ -21,6 +21,8 @@
 
 #include <butl/path>
 #include <butl/sha256>
+#include <butl/process>
+#include <butl/fdstream>
 #include <butl/optional>
 #include <butl/timestamp>
 
@@ -98,6 +100,15 @@ namespace build2
   // <butl/sha256>
   //
   using butl::sha256;
+
+  // <butl/process>
+  // <butl/fdstream>
+  //
+  using butl::process;
+  using butl::process_error;
+
+  using butl::ifdstream;
+  using butl::ofdstream;
 
   // <build2/name>
   //

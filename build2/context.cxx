@@ -18,6 +18,7 @@ namespace build2
 {
   dir_path work;
   dir_path home;
+  options ops;
 
   string_pool extension_pool;
   string_pool project_name_pool;
@@ -95,33 +96,41 @@ namespace build2
     // approximation/fallback since most of the time we are interested in just
     // the target class (e.g., linux, windows, macosx).
     //
+    {
 #ifndef BUILD2_HOST_TRIPLET
 #error BUILD2_HOST_TRIPLET is not defined
 #endif
-    try
-    {
-      string canon;
-      triplet t (BUILD2_HOST_TRIPLET, canon);
-
-      l5 ([&]{trace << "canonical host: '" << canon << "'; "
-                    << "class: " << t.class_;});
-
-      // Enter as build.host.{cpu,vendor,system,version,class}.
+      // Did the user ask us to use config.guess?
       //
-      gs.assign ("build.host", string_type) = move (canon);
-      gs.assign ("build.host.cpu", string_type) = move (t.cpu);
-      gs.assign ("build.host.vendor", string_type) = move (t.vendor);
-      gs.assign ("build.host.system", string_type) = move (t.system);
-      gs.assign ("build.host.version", string_type) = move (t.version);
-      gs.assign ("build.host.class", string_type) = move (t.class_);
-    }
-    catch (const invalid_argument& e)
-    {
-      // This is where we could suggest that the user specifies --config-guess
-      // to help us out.
-      //
-      fail << "unable to parse build host '" << BUILD2_HOST_TRIPLET << "': "
-           << e.what ();
+      string orig (
+        ops.config_guess_specified ()
+        ? run<string> (ops.config_guess (), [] (string& l) {return move (l);})
+        : BUILD2_HOST_TRIPLET);
+
+      l5 ([&]{trace << "original host: '" << orig << "'";});
+
+      try
+      {
+        string canon;
+        triplet t (orig, canon);
+
+        l5 ([&]{trace << "canonical host: '" << canon << "'; "
+                      << "class: " << t.class_;});
+
+        // Enter as build.host.{cpu,vendor,system,version,class}.
+        //
+        gs.assign ("build.host", string_type) = move (canon);
+        gs.assign ("build.host.cpu", string_type) = move (t.cpu);
+        gs.assign ("build.host.vendor", string_type) = move (t.vendor);
+        gs.assign ("build.host.system", string_type) = move (t.system);
+        gs.assign ("build.host.version", string_type) = move (t.version);
+        gs.assign ("build.host.class", string_type) = move (t.class_);
+      }
+      catch (const invalid_argument& e)
+      {
+        fail << "unable to parse build host '" << orig << "': " << e.what () <<
+          info << "consider using the --config-guess option";
+      }
     }
 
     // Register builtin target types.

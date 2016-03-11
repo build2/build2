@@ -4,11 +4,10 @@
 
 #include <build2/cxx/module>
 
-#include <butl/process>
 #include <butl/triplet>
-#include <butl/fdstream>
 
 #include <build2/scope>
+#include <build2/context>
 #include <build2/diagnostics>
 
 #include <build2/config/utility>
@@ -213,6 +212,17 @@ namespace build2
 
         // Split/canonicalize the target.
         //
+
+        // Did the user ask us to use config.sub?
+        //
+        if (ops.config_sub_specified ())
+        {
+          ci.target = run<string> (ops.config_sub (),
+                                   ci.target.c_str (),
+                                   [] (string& l) {return move (l);});
+          l5 ([&]{trace << "config.sub target: '" << ci.target << "'";});
+        }
+
         try
         {
           string canon;
@@ -236,7 +246,8 @@ namespace build2
           // --config-sub to help us out.
           //
           fail << "unable to parse compiler target '" << ci.target << "': "
-               << e.what ();
+               << e.what () <<
+            info << "consider using the --config-sub option";
         }
       }
 
