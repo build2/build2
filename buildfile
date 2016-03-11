@@ -3,7 +3,11 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = build2/ tests/ doc/
-./: $d doc{INSTALL LICENSE version} file{INSTALL.cli bootstrap manifest}
+
+./: $d \
+doc{INSTALL LICENSE version} \
+file{INSTALL.cli config.guess config.sub bootstrap manifest}
+
 include $d
 
 doc{INSTALL*}: install = false
