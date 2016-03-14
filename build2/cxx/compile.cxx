@@ -651,15 +651,6 @@ namespace build2
 
         l6 ([&]{trace << "injecting " << f;});
 
-        // Verify/add it to the dependency database.
-        //
-        if (!cache)
-        {
-          string* dl (dd.read ());
-          if (dl == nullptr || *dl != f.string ())
-            dd.write (f);
-        }
-
         // Split the name into its directory part, the name part, and
         // extension. Here we can assume the name part is a valid filesystem
         // name.
@@ -718,6 +709,13 @@ namespace build2
         // chances are the cached data is stale).
         //
         bool restart (update (pt, cache ? dd.mtime () : timestamp_unknown));
+
+        // Verify/add it to the dependency database. We do it after update in
+        // order not to add bogus files (non-existent and without a way to
+        // update).
+        //
+        if (!cache)
+          dd.expect (pt.path ());
 
         // Add to our prerequisite target list.
         //
