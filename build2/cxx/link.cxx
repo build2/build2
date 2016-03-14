@@ -740,6 +740,20 @@ namespace build2
       }
     }
 
+    static void
+    append_rpath_link (strings& args, libso& t)
+    {
+      for (target* pt: t.prerequisite_targets)
+      {
+        if (libso* ls = pt->is_a<libso> ())
+        {
+          args.push_back ("-Wl,-rpath-link," +
+                          ls->path ().directory ().string ());
+          append_rpath_link (args, *ls);
+        }
+      }
+    }
+
     target_state link::
     perform_update (action a, target& xt)
     {
@@ -840,6 +854,10 @@ namespace build2
             // With Mac OS 10.5 (Leopard) Apple finally caved in and gave us
             // a way to emulate vanilla -rpath.
             //
+            // It may seem natural to do something different on update for
+            // install. However, if we don't make it @rpath, then the user
+            // won't be able to use config.bin.rpath for installed libraries.
+            //
             soname1 = "-install_name";
             soname2 = "@rpath/" + leaf;
           }
@@ -860,16 +878,27 @@ namespace build2
           for (const string& p: as<strings> (*l))
             sargs.push_back ("-Wl,-rpath," + p);
 
-        // Then the paths of the shared libraries we are linking to.
-        //
-        // I guess this is where we will do things differently if updating for
-        // install.
+        // Then the paths of the shared libraries we are linking to. Unless
+        // this is update for install, in which case we have to do something
+        // different.
         //
         for (target* pt: t.prerequisite_targets)
         {
           if (libso* ls = pt->is_a<libso> ())
-            sargs.push_back (
-              "-Wl,-rpath," + ls->path ().directory ().string ());
+          {
+            if (a.outer_operation () != install_id)
+            {
+              sargs.push_back ("-Wl,-rpath," +
+                               ls->path ().directory ().string ());
+            }
+            // Use -rpath-link on targets that support it (Linux, FreeBSD).
+            // Since with this option the paths are not stored in the library,
+            // we have to do this recursively (in fact, we don't really need
+            // it for top-level libraries).
+            //
+            else if (sys != "darwin")
+              append_rpath_link (sargs, *ls);
+          }
         }
       }
 
