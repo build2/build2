@@ -1,0 +1,41 @@
+// file      : build2/bin/guess -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_BIN_GUESS
+#define BUILD2_BIN_GUESS
+
+#include <build2/types>
+#include <build2/utility>
+
+namespace build2
+{
+  namespace bin
+  {
+    // ar/ranlib information.
+    //
+    // The signature is normally the --version/-V line.
+    //
+    // The checksum is used to detect ar/ranlib changes. It is calculated in
+    // a toolchain-specific manner (usually the output of --version/-V) and
+    // is not bulletproof.
+    //
+    struct bin_info
+    {
+      string ar_signature;
+      string ar_checksum;
+
+      string ranlib_signature;
+      string ranlib_checksum;
+    };
+
+    // The ranlib path can be empty, in which case no ranlib guessing will be
+    // attemplated and the returned ranlib_* members will be left empty as
+    // well.
+    //
+    bin_info
+    guess (const path& ar, const path& ranlib);
+  }
+}
+
+#endif // BUILD2_BIN_GUESS

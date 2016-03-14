@@ -6,7 +6,11 @@ namespace build2
 {
   template <typename T>
   T
-  run (const char* const* args, T (*f) (string&), bool err, sha256* checksum)
+  run (const char* const* args,
+       T (*f) (string&),
+       bool err,
+       bool ignore_exit,
+       sha256* checksum)
   {
     process pr (start_run (args, err));
     ifdstream is (pr.in_ofd);
@@ -28,7 +32,7 @@ namespace build2
 
     is.close (); // Don't block.
 
-    if (!finish_run (args, err, pr, l))
+    if (!(finish_run (args, err, pr, l) || ignore_exit))
       r = T ();
 
     return r;

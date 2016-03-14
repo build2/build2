@@ -9,7 +9,6 @@
 #include <build2/diagnostics>
 
 using namespace std;
-using namespace butl;
 
 namespace build2
 {
@@ -97,7 +96,6 @@ namespace build2
 
     static guess_result
     guess (const path& cxx, const string& pre)
-    try
     {
       tracer trace ("cxx::guess");
 
@@ -196,7 +194,7 @@ namespace build2
         // Suppress all the compiler errors because we may be trying an
         // unsupported option.
         //
-        r = run<guess_result> (cxx, "-v", f, false, &cs);
+        r = run<guess_result> (cxx, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -276,11 +274,6 @@ namespace build2
         l4 ([&]{trace << "unable to determine compiler type of " << cxx;});
 
       return r;
-    }
-    catch (const process_error& e)
-    {
-      error << "unable to execute " << cxx << ": " << e.what ();
-      throw failed ();
     }
 
     static compiler_info

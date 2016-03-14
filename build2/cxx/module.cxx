@@ -194,7 +194,7 @@ namespace build2
                << "  build      " << ci.version.build << "\n"
                << "  signature  " << ci.signature << "\n"
                << "  checksum   " << ci.checksum << "\n"
-               << "  target     " << ci.target << "";
+               << "  target     " << ci.target;
         }
 
         r.assign ("cxx.id", string_type) = ci.id.string ();

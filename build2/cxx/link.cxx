@@ -827,8 +827,10 @@ namespace build2
       if (lt == type::a)
       {
         // If the user asked for ranlib, don't try to do its function with -s.
+        // Some ar implementations (e.g., the LLVM one) doesn't support
+        // leading '-'.
         //
-        args.push_back (ranlib ? "-rc" : "-rcs");
+        args.push_back (ranlib ? "rc" : "rcs");
       }
       else
       {
@@ -1047,6 +1049,9 @@ namespace build2
       {
         const char* args[] = {
           as<string> (*ranlib).c_str (), relt.string ().c_str (), nullptr};
+
+        if (verb >= 2)
+          print_process (args);
 
         try
         {

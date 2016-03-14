@@ -33,6 +33,7 @@ exe{b}:                                    \
         {hxx ixx txx cxx}{ utility       } \
         {hxx ixx txx cxx}{ variable      } \
         {hxx            }{ version       } \
+    bin/{hxx         cxx}{ guess         } \
     bin/{hxx         cxx}{ module        } \
     bin/{hxx         cxx}{ rule          } \
     bin/{hxx         cxx}{ target        } \

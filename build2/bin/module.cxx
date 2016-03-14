@@ -12,6 +12,7 @@
 #include <build2/install/utility>
 
 #include <build2/bin/rule>
+#include <build2/bin/guess>
 #include <build2/bin/target>
 
 using namespace std;
@@ -164,20 +165,45 @@ namespace build2
       // specified by the user in order for us to use it (most targets support
       // the -s option to ar).
       //
-
-      // @@ Maybe, if explicitly specified by the user, we should try to run
-      // them?
-      //
       if (first)
       {
-        config::required (r, "config.bin.ar", "ar");
-        r.assign ("bin.ar.signature", string_type) = "Some ar";
-        r.assign ("bin.ar.checksum", string_type) = "123";
+        auto p (config::required (r, "config.bin.ar", "ar"));
+        auto& v (config::optional (r, "config.bin.ranlib"));
 
-        if (auto& v = config::optional (r, "config.bin.ranlib"))
+        const path& ar (path (as<string> (p.first))); // @@ VAR
+        const path& ranlib (v ? path (as<string> (v)) : path ()); // @@ VAR
+
+        bin_info bi (guess (ar, ranlib));
+
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (p.second ? 2 : 3))
         {
-          r.assign ("bin.ranlib.signature", string_type) = "Some ranlib";
-          r.assign ("bin.ranlib.checksum", string_type) = "234";
+          //@@ Print project out root or name? See cxx.
+
+          text << ar << ":\n"
+               << "  signature  " << bi.ar_signature << "\n"
+               << "  checksum   " << bi.ar_checksum;
+
+          if (!ranlib.empty ())
+          {
+            text << ranlib << ":\n"
+                 << "  signature  " << bi.ranlib_signature << "\n"
+                 << "  checksum   " << bi.ranlib_checksum;
+          }
+        }
+
+        r.assign ("bin.ar.signature", string_type) = move (bi.ar_signature);
+        r.assign ("bin.ar.checksum", string_type) = move (bi.ar_checksum);
+
+        if (!ranlib.empty ())
+        {
+          r.assign ("bin.ranlib.signature", string_type) =
+            move (bi.ranlib_signature);
+
+          r.assign ("bin.ranlib.checksum", string_type) =
+            move (bi.ranlib_checksum);
         }
       }
 
