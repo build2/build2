@@ -90,6 +90,10 @@ namespace build2
     gs.assign ("build.work", dir_path_type) = work;
     gs.assign ("build.home", dir_path_type) = home;
 
+    // @@ Backwards-compatibility hack.
+    //
+    gs.assign ("__build2_greater_than_0_2_0_hack__", bool_type) = true;
+
     // Enter the version.
     //
     // @@ VAR types
