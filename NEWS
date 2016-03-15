@@ -2,13 +2,13 @@ Version 0.3.0
 
   * Support for High Fidelity Builds (HFB).
 
-    The C++ compiler and link rules now detect when the compiler, options, or
+    The C++ compile and link rules now detect when the compiler, options, or
     input file set have changed and trigger the update of the target. Some
     examples of the events that would now trigger an automatic update:
 
     * Compiler change (e.g., g++ to clang++), upgrade, or reconfiguration.
     * Change of compile/link options (e.g., -O2 to -O3).
-    * Rename of a source file name (e.g., foo.cpp to foo.cxx).
+    * Replacement of a source file (e.g., foo.cpp with foo.cxx).
     * Removal of a file from a library/executable.
 
   * Support for the Intel C++ compiler on Linux.
