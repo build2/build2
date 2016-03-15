@@ -644,9 +644,11 @@ namespace build2
         {
           // We used to just normalize the path but that could result in an
           // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
-          // symlinks. So now we realize (i.e., realpath(3)) it instead.
+          // symlinks. So now we realize (i.e., realpath(3)) it instead. If
+          // it comes from the depdb, in which case we've already done that.
           //
-          f.realize ();
+          if (!cache)
+            f.realize ();
         }
 
         l6 ([&]{trace << "injecting " << f;});
