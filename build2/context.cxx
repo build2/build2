@@ -6,9 +6,10 @@
 
 #include <butl/triplet>
 
+#include <build2/rule>
 #include <build2/scope>
 #include <build2/target>
-#include <build2/rule>
+#include <build2/version>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -88,6 +89,27 @@ namespace build2
 
     gs.assign ("build.work", dir_path_type) = work;
     gs.assign ("build.home", dir_path_type) = home;
+
+    // Enter the version.
+    //
+    // @@ VAR types
+    //
+    {
+      gs.assign ("build.version", string_type) = to_string (BUILD2_VERSION);
+      gs.assign ("build.version.string", string_type) = BUILD2_VERSION_STR;
+
+      // AABBCCDD
+      //
+      auto comp = [] (unsigned int d) -> string
+      {
+        return to_string ((BUILD2_VERSION / d)% 100);
+      };
+
+      gs.assign ("build.version.release", string_type) = comp (1);
+      gs.assign ("build.version.patch",   string_type) = comp (100);
+      gs.assign ("build.version.minor",   string_type) = comp (10000);
+      gs.assign ("build.version.major",   string_type) = comp (1000000);
+    }
 
     // Enter the host information. Rather than jumping through hoops like
     // config.guess, for now we are just going to use the compiler target we

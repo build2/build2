@@ -57,6 +57,9 @@ Version 0.3.0
     build2 was built with but a more precise value can be obtained with the
     --config-guess option.
 
+  * Set build.version, build.version.{major,minor,patch,release,string} build
+    system variables to the build2 version.
+
   * Extracted header dependencies (-M*) are now cached in the auxiliary
     dependency (.d) files rather than being re-extracted on every run. This
     speeds up the up-to-date check significantly.
