@@ -81,8 +81,10 @@ namespace build2
       // code (below) takes care of the ones it is adding.
       //
       // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of ours.
+      // or a subdirectory of our project root.
       //
+      scope& rs (t.root_scope ());
+
       link::search_paths_cache lib_paths; // Extract lazily.
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -115,7 +117,7 @@ namespace build2
 
         target& pt (p.search ());
 
-        if (a.operation () == clean_id && !pt.dir.sub (t.dir))
+        if (a.operation () == clean_id && !pt.dir.sub (rs.out_path ()))
           continue;
 
         build2::match (a, pt);
@@ -128,7 +130,6 @@ namespace build2
       //
       if (a == perform_update_id)
       {
-        scope& rs (t.root_scope ());
         const string& sys (as<string> (*rs["cxx.target.system"]));
 
         // The cached prerequisite target should be the same as what is in

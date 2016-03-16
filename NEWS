@@ -64,7 +64,7 @@ Version 0.3.0
     dependency (.d) files rather than being re-extracted on every run. This
     speeds up the up-to-date check significantly.
 
-  * Revert back to only cleaning targets in subdirectories.
+  * Revert back to only cleaning prerequisites if they are in the same project.
 
     Cleaning everything as long as it is in the same strong amalgamation had
     some undesirable side effects. For example, in bpkg, upgrading a package

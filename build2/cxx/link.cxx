@@ -543,7 +543,7 @@ namespace build2
       // files as well as search and match.
       //
       // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of ours.
+      // or a subdirectory of our project root.
       //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -562,7 +562,7 @@ namespace build2
           if (pt == nullptr)
             pt = &p.search ();
 
-          if (a.operation () == clean_id && !pt->dir.sub (t.dir))
+          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue; // Skip.
 
           // If this is the obj{} or lib{} target group, then pick the
@@ -624,9 +624,9 @@ namespace build2
         target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
-        // a subdirectory of ours.
+        // a subdirectory of our project root.
         //
-        if (a.operation () == clean_id && !ot.dir.sub (t.dir))
+        if (a.operation () == clean_id && !ot.dir.sub (rs.out_path ()))
         {
           // If we shouldn't clean obj{}, then it is fair to assume
           // we shouldn't clean cxx{} either (generated source will
