@@ -38,12 +38,12 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find ("test", bool_type);
-        v.find ("test.input", name_type);
-        v.find ("test.output", name_type);
-        v.find ("test.roundtrip", name_type);
-        v.find ("test.options", strings_type);
-        v.find ("test.arguments", strings_type);
+        v.find<bool> ("test");
+        v.find<name> ("test.input");
+        v.find<name> ("test.output");
+        v.find<name> ("test.roundtrip");
+        v.find<strings> ("test.options");
+        v.find<strings> ("test.arguments");
       }
     }
 

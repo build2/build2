@@ -63,19 +63,19 @@ namespace build2
     {
       auto& v (var_pool);
 
-      v.find ("src_root", dir_path_type);
-      v.find ("out_root", dir_path_type);
-      v.find ("src_base", dir_path_type);
-      v.find ("out_base", dir_path_type);
+      v.find<dir_path> ("src_root");
+      v.find<dir_path> ("out_root");
+      v.find<dir_path> ("src_base");
+      v.find<dir_path> ("out_base");
 
-      v.find ("project", string_type);
-      v.find ("amalgamation", dir_path_type);
+      v.find<string> ("project");
+      v.find<dir_path> ("amalgamation");
 
-      // Shouldn't be typed since the value requires pre-processing.
+      // Not typed since the value requires pre-processing.
       //
       v.find ("subprojects", nullptr, '=');
 
-      v.find ("extension", string_type);
+      v.find<string> ("extension");
     }
 
     // Create global scope. For Win32 this is not a "real" root path.

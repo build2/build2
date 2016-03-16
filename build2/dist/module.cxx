@@ -39,20 +39,20 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find ("dist", bool_type);
+        v.find<bool> ("dist");
 
-        v.find ("dist.package", string_type);
+        v.find<string> ("dist.package");
 
-        v.find ("dist.root", dir_path_type);
-        v.find ("config.dist.root", dir_path_type);
+        v.find<dir_path> ("dist.root");
+        v.find<dir_path> ("config.dist.root");
 
         //@@ VAR type
         //
-        v.find ("dist.cmd", string_type);
-        v.find ("config.dist.cmd", string_type);
+        v.find<string> ("dist.cmd");
+        v.find<string> ("config.dist.cmd");
 
-        v.find ("dist.archives", strings_type);
-        v.find ("config.dist.archives", strings_type);
+        v.find<strings> ("dist.archives");
+        v.find<strings> ("config.dist.archives");
       }
     }
 

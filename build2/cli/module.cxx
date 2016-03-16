@@ -55,12 +55,12 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find ("config.cli.configured", bool_type);
+        v.find<bool> ("config.cli.configured");
 
-        v.find ("config.cli", string_type); //@@ VAR type
+        v.find<string> ("config.cli"); //@@ VAR type
 
-        v.find ("config.cli.options", strings_type);
-        v.find ("cli.options", strings_type);
+        v.find<strings> ("config.cli.options");
+        v.find<strings> ("cli.options");
       }
 
       // Register target types.

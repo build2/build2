@@ -68,7 +68,7 @@ namespace build2
         //
         if (!l.defined ())
           l = t.base_scope ()[
-            var_pool.find (string("test.") + t.type ().name, bool_type)];
+            var_pool.find<bool> (string("test.") + t.type ().name)];
 
         r = l && as<bool> (*l);
       }
@@ -146,9 +146,9 @@ namespace build2
         string n ("test.");
         n += t.type ().name;
 
-        const variable& in (var_pool.find (n + ".input", name_type));
-        const variable& on (var_pool.find (n + ".output", name_type));
-        const variable& rn (var_pool.find (n + ".roundtrip", name_type));
+        const variable& in (var_pool.find<name> (n + ".input"));
+        const variable& on (var_pool.find<name> (n + ".output"));
+        const variable& rn (var_pool.find<name> (n + ".roundtrip"));
 
         // We should only keep value(s) that were specified together
         // in the innermost scope.
@@ -292,7 +292,7 @@ namespace build2
         var += t.type ().name;
         var += '.';
         var += n;
-        l = t.base_scope ()[var_pool.find (var, strings_type)];
+        l = t.base_scope ()[var_pool.find<strings> (var)];
       }
 
       if (l)

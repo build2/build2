@@ -630,6 +630,13 @@ namespace build2
   using variable_pool_base = std::unordered_set<variable>;
   struct variable_pool: private variable_pool_base
   {
+    template <typename T>
+    const variable&
+    find (string name, char p = '\0')
+    {
+      return find (name, nullptr, &value_traits<T>::value_type, p);
+    }
+
     const variable&
     find (string name, const build2::value_type* t = nullptr, char p = '\0')
     {

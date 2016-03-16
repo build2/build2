@@ -62,24 +62,24 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find ("config.cxx", string_type); //@@ VAR type
+        v.find<string> ("config.cxx"); //@@ VAR type
 
-        v.find ("config.cxx.poptions", strings_type);
-        v.find ("config.cxx.coptions", strings_type);
-        v.find ("config.cxx.loptions", strings_type);
-        v.find ("config.cxx.libs", strings_type);
+        v.find<strings> ("config.cxx.poptions");
+        v.find<strings> ("config.cxx.coptions");
+        v.find<strings> ("config.cxx.loptions");
+        v.find<strings> ("config.cxx.libs");
 
-        v.find ("cxx.poptions", strings_type);
-        v.find ("cxx.coptions", strings_type);
-        v.find ("cxx.loptions", strings_type);
-        v.find ("cxx.libs", strings_type);
+        v.find<strings> ("cxx.poptions");
+        v.find<strings> ("cxx.coptions");
+        v.find<strings> ("cxx.loptions");
+        v.find<strings> ("cxx.libs");
 
-        v.find ("cxx.export.poptions", strings_type);
-        v.find ("cxx.export.coptions", strings_type);
-        v.find ("cxx.export.loptions", strings_type);
-        v.find ("cxx.export.libs", strings_type);
+        v.find<strings> ("cxx.export.poptions");
+        v.find<strings> ("cxx.export.coptions");
+        v.find<strings> ("cxx.export.loptions");
+        v.find<strings> ("cxx.export.libs");
 
-        v.find ("cxx.std", string_type);
+        v.find<string> ("cxx.std");
       }
 
       // Register target types.

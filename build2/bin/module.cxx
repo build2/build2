@@ -47,22 +47,22 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find ("config.bin.ar", string_type); //@@ VAR path_type
-        v.find ("config.bin.ranlib", string_type); //@@ VAR path_type
+        v.find<string> ("config.bin.ar");     //@@ VAR path_type
+        v.find<string> ("config.bin.ranlib"); //@@ VAR path_type
 
-        v.find ("config.bin.lib", string_type);
-        v.find ("config.bin.exe.lib", strings_type);
-        v.find ("config.bin.liba.lib", strings_type);
-        v.find ("config.bin.libso.lib", strings_type);
-        v.find ("config.bin.rpath", strings_type); //@@ VAR paths_type
+        v.find<string> ("config.bin.lib");
+        v.find<strings> ("config.bin.exe.lib");
+        v.find<strings> ("config.bin.liba.lib");
+        v.find<strings> ("config.bin.libso.lib");
+        v.find<strings> ("config.bin.rpath"); //@@ VAR paths_type
 
-        v.find ("bin.lib", string_type);
-        v.find ("bin.exe.lib", strings_type);
-        v.find ("bin.liba.lib", strings_type);
-        v.find ("bin.libso.lib", strings_type);
-        v.find ("bin.rpath", strings_type); //@@ VAR paths_type
+        v.find<string> ("bin.lib");
+        v.find<strings> ("bin.exe.lib");
+        v.find<strings> ("bin.liba.lib");
+        v.find<strings> ("bin.libso.lib");
+        v.find<strings> ("bin.rpath"); //@@ VAR paths_type
 
-        v.find ("bin.libprefix", string_type);
+        v.find<string> ("bin.libprefix");
       }
 
       // Register target types.
