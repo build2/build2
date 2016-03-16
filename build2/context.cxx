@@ -87,20 +87,20 @@ namespace build2
 
     scope& gs (*global_scope);
 
-    gs.assign ("build.work", dir_path_type) = work;
-    gs.assign ("build.home", dir_path_type) = home;
+    gs.assign<dir_path> ("build.work") = work;
+    gs.assign<dir_path> ("build.home") = home;
 
     // @@ Backwards-compatibility hack.
     //
-    gs.assign ("__build2_greater_than_0_2_0_hack__", bool_type) = true;
+    gs.assign<bool> ("__build2_greater_than_0_2_0_hack__") = true;
 
     // Enter the version.
     //
     // @@ VAR types
     //
     {
-      gs.assign ("build.version", string_type) = to_string (BUILD2_VERSION);
-      gs.assign ("build.version.string", string_type) = BUILD2_VERSION_STR;
+      gs.assign<string> ("build.version") = to_string (BUILD2_VERSION);
+      gs.assign<string> ("build.version.string") = BUILD2_VERSION_STR;
 
       // AABBCCDD
       //
@@ -109,10 +109,10 @@ namespace build2
         return to_string ((BUILD2_VERSION / d)% 100);
       };
 
-      gs.assign ("build.version.release", string_type) = comp (1);
-      gs.assign ("build.version.patch",   string_type) = comp (100);
-      gs.assign ("build.version.minor",   string_type) = comp (10000);
-      gs.assign ("build.version.major",   string_type) = comp (1000000);
+      gs.assign<string> ("build.version.release") = comp (1);
+      gs.assign<string> ("build.version.patch")   = comp (100);
+      gs.assign<string> ("build.version.minor")   = comp (10000);
+      gs.assign<string> ("build.version.major")   = comp (1000000);
     }
 
     // Enter the host information. Rather than jumping through hoops like
@@ -145,12 +145,12 @@ namespace build2
 
         // Enter as build.host.{cpu,vendor,system,version,class}.
         //
-        gs.assign ("build.host", string_type) = move (canon);
-        gs.assign ("build.host.cpu", string_type) = move (t.cpu);
-        gs.assign ("build.host.vendor", string_type) = move (t.vendor);
-        gs.assign ("build.host.system", string_type) = move (t.system);
-        gs.assign ("build.host.version", string_type) = move (t.version);
-        gs.assign ("build.host.class", string_type) = move (t.class_);
+        gs.assign<string> ("build.host") = move (canon);
+        gs.assign<string> ("build.host.cpu") = move (t.cpu);
+        gs.assign<string> ("build.host.vendor") = move (t.vendor);
+        gs.assign<string> ("build.host.system") = move (t.system);
+        gs.assign<string> ("build.host.version") = move (t.version);
+        gs.assign<string> ("build.host.class") = move (t.class_);
       }
       catch (const invalid_argument& e)
       {

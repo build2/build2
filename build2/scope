@@ -146,6 +146,10 @@ namespace build2
       return vars.assign (name, type).first.get ();
     }
 
+    template <typename T>
+    value&
+    assign (const string& name) {return vars.assign<T> (name).first.get ();}
+
     // Return a value suitable for appending. If the variable does not
     // exist in this scope's map, then outer scopes are searched for
     // the same variable. If found then a new variable with the found
@@ -156,10 +160,7 @@ namespace build2
     append (const variable&);
 
     value&
-    append (const string& name)
-    {
-      return append (var_pool.find (name));
-    }
+    append (const string& name) {return append (var_pool.find (name));}
 
     // Target type/pattern-specific variables.
     //

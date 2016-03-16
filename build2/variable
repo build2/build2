@@ -161,6 +161,12 @@ namespace build2
   inline bool
   operator!= (const value& x, const value& y) {return !(x == y);}
 
+  // Assign value type to the value. This triggers the assign callback.
+  //
+  template <typename T>
+  void assign (value&, const variable&);
+  void assign (value&, const value_type*, const variable&);
+
   // lookup
   //
   // A variable can be undefined, NULL, or contain a (potentially
@@ -203,12 +209,8 @@ namespace build2
   //
   template <typename T> struct value_traits;
 
-  // Assign value type to the value.
+  // Value cast.
   //
-  template <typename T>
-  void assign (value&, const variable&);
-  void assign (value&, const value_type*, const variable&);
-
   template <typename T> typename value_traits<T>::type as (value&);
   template <typename T> typename value_traits<T>::const_type as (const value&);
 
@@ -758,8 +760,8 @@ namespace build2
       return operator[] (var_pool.find (name));
     }
 
-    // The second member in the pair indicates whether the new
-    // value (which will be NULL) was assigned.
+    // The second member in the pair indicates whether the new value (which
+    // will be NULL) was assigned.
     //
     pair<reference_wrapper<value>, bool>
     assign (const variable& var)
@@ -779,6 +781,13 @@ namespace build2
     assign (const string& name, const build2::value_type* type = nullptr)
     {
       return assign (var_pool.find (name, type));
+    }
+
+    template <typename T>
+    pair<reference_wrapper<value>, bool>
+    assign (const string& name)
+    {
+      return assign (var_pool.find (name, &value_traits<T>::value_type));
     }
 
     pair<const_iterator, const_iterator>

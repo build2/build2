@@ -194,16 +194,14 @@ namespace build2
           }
         }
 
-        r.assign ("bin.ar.signature", string_type) = move (bi.ar_signature);
-        r.assign ("bin.ar.checksum", string_type) = move (bi.ar_checksum);
+        r.assign<string> ("bin.ar.signature") = move (bi.ar_signature);
+        r.assign<string> ("bin.ar.checksum") = move (bi.ar_checksum);
 
         if (!ranlib.empty ())
         {
-          r.assign ("bin.ranlib.signature", string_type) =
+          r.assign<string> ("bin.ranlib.signature") =
             move (bi.ranlib_signature);
-
-          r.assign ("bin.ranlib.checksum", string_type) =
-            move (bi.ranlib_checksum);
+          r.assign<string> ("bin.ranlib.checksum") = move (bi.ranlib_checksum);
         }
       }
 

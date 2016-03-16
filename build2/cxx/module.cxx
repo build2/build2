@@ -197,18 +197,18 @@ namespace build2
                << "  target     " << ci.target;
         }
 
-        r.assign ("cxx.id", string_type) = ci.id.string ();
-        r.assign ("cxx.id.type", string_type) = move (ci.id.type);
-        r.assign ("cxx.id.variant", string_type) = move (ci.id.variant);
+        r.assign<string> ("cxx.id") = ci.id.string ();
+        r.assign<string> ("cxx.id.type") = move (ci.id.type);
+        r.assign<string> ("cxx.id.variant") = move (ci.id.variant);
 
-        r.assign ("cxx.version", string_type) = ci.version.string ();
-        r.assign ("cxx.version.major", string_type) = move (ci.version.major);
-        r.assign ("cxx.version.minor", string_type) = move (ci.version.minor);
-        r.assign ("cxx.version.patch", string_type) = move (ci.version.patch);
-        r.assign ("cxx.version.build", string_type) = move (ci.version.build);
+        r.assign<string> ("cxx.version") = ci.version.string ();
+        r.assign<string> ("cxx.version.major") = move (ci.version.major);
+        r.assign<string> ("cxx.version.minor") = move (ci.version.minor);
+        r.assign<string> ("cxx.version.patch") = move (ci.version.patch);
+        r.assign<string> ("cxx.version.build") = move (ci.version.build);
 
-        r.assign ("cxx.signature", string_type) = move (ci.signature);
-        r.assign ("cxx.checksum", string_type) = move (ci.checksum);
+        r.assign<string> ("cxx.signature") = move (ci.signature);
+        r.assign<string> ("cxx.checksum") = move (ci.checksum);
 
         // Split/canonicalize the target.
         //
@@ -233,12 +233,12 @@ namespace build2
 
           // Enter as cxx.target.{cpu,vendor,system,version,class}.
           //
-          r.assign ("cxx.target", string_type) = move (canon);
-          r.assign ("cxx.target.cpu", string_type) = move (t.cpu);
-          r.assign ("cxx.target.vendor", string_type) = move (t.vendor);
-          r.assign ("cxx.target.system", string_type) = move (t.system);
-          r.assign ("cxx.target.version", string_type) = move (t.version);
-          r.assign ("cxx.target.class", string_type) = move (t.class_);
+          r.assign<string> ("cxx.target") = move (canon);
+          r.assign<string> ("cxx.target.cpu") = move (t.cpu);
+          r.assign<string> ("cxx.target.vendor") = move (t.vendor);
+          r.assign<string> ("cxx.target.system") = move (t.system);
+          r.assign<string> ("cxx.target.version") = move (t.version);
+          r.assign<string> ("cxx.target.class") = move (t.class_);
         }
         catch (const invalid_argument& e)
         {
