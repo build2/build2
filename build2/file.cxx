@@ -837,6 +837,8 @@ namespace build2
           // a warning issued by the config module about global/root scope
           // value mismatch. Not very clean.
           //
+          // @@ CMDVAR
+          //
           dir_path& d (as<dir_path> (const_cast<value&> (*l)));
           if (d != out_root)
             d = out_root;

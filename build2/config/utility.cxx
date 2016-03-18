@@ -37,6 +37,8 @@ namespace build2
       // a warning issued by the config module about global/root scope
       // value mismatch.
       //
+      // @@ CMDVAR
+      //
       value& v (const_cast<value&> (*l));
 
       if (v && !v.empty ())

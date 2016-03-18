@@ -214,8 +214,8 @@ namespace build2
   template <typename T> typename value_traits<T>::type as (value&);
   template <typename T> typename value_traits<T>::const_type as (const value&);
 
-  // "Assign" simple value type to the value stored in name. Return false
-  // if the value is not valid for this type.
+  // Try to "assign" a simple value type to the value stored in name. Return
+  // false if the value is not valid for this type.
   //
   template <typename T> bool assign (name&);
 
@@ -301,7 +301,7 @@ namespace build2
     static const build2::value_type value_type;
   };
 
-  extern const value_type* string_type;
+  extern const value_type* string_type; //@@ Get rid (and others).
 
   // dir_path
   //
