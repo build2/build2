@@ -50,7 +50,6 @@ namespace build2
     string name;
     const value_type* type;         // If NULL, then not (yet) typed.
     variable_visibility visibility;
-    char pairs;                     // Pair symbold or '\0' if not used.
   };
 
   inline bool
@@ -632,24 +631,23 @@ namespace build2
   {
     template <typename T>
     const variable&
-    find (string name, char p = '\0')
+    find (string name)
     {
-      return find (name, nullptr, &value_traits<T>::value_type, p);
+      return find (name, nullptr, &value_traits<T>::value_type);
     }
 
     const variable&
-    find (string name, const build2::value_type* t = nullptr, char p = '\0')
+    find (string name, const build2::value_type* t = nullptr)
     {
-      return find (name, nullptr, t, p);
+      return find (name, nullptr, t);
     }
 
     const variable&
     find (string name,
           variable_visibility v,
-          const build2::value_type* t = nullptr,
-          char p = '\0')
+          const build2::value_type* t = nullptr)
     {
-      return find (name, &v, t, p);
+      return find (name, &v, t);
     }
 
     using variable_pool_base::clear;
@@ -658,16 +656,14 @@ namespace build2
     const variable&
     find (string name,
           const variable_visibility* vv,
-          const build2::value_type* t,
-          char p)
+          const build2::value_type* t)
     {
       auto r (
         insert (
           variable {
             move (name),
             t,
-            vv != nullptr ? *vv : variable_visibility::normal,
-            p}));
+            vv != nullptr ? *vv : variable_visibility::normal}));
       const variable& v (*r.first);
 
       // Update type?

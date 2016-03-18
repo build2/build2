@@ -86,7 +86,7 @@ namespace build2
     dir_path dir;
     std::string type;
     std::string value;
-    char pair = '\0'; // Pair symbol, if any.
+    bool pair = false; // True if first half of a pair.
   };
 
   inline bool

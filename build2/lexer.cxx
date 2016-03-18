@@ -75,7 +75,7 @@ namespace build2
     // Handle pair separator.
     //
     if (m == lexer_mode::pairs && c == pair_separator_)
-      return token (c, sep, ln, cn);
+      return token (type::pair_separator, sep, ln, cn);
 
     // The following characters are not treated as special in the
     // value or pairs mode.

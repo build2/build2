@@ -50,8 +50,8 @@ namespace build2
       ++i;
       os << n;
 
-      if (n.pair != '\0')
-        os << n.pair;
+      if (n.pair)
+        os << '@';
       else if (i != e)
         os << ' ';
     }

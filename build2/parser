@@ -85,7 +85,7 @@ namespace build2
     variable_name (names_type&&, const location&);
 
     names_type
-    variable_value (token&, token_type&, const variable_type&);
+    variable_value (token&, token_type&);
 
     names_type
     eval (token&, token_type&);
@@ -208,7 +208,7 @@ namespace build2
         lexer_->expire_mode ();
     }
 
-    // Token saving and replaying. Note that is can only be used in certain
+    // Token saving and replaying. Note that it can only be used in certain
     // contexts. Specifically, the lexer mode should be the same and the code
     // that parses a replay must not interact with the lexer directly (e.g.,
     // the keyword() test). For now we don't enforce any of this.

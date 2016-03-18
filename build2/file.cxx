@@ -568,13 +568,11 @@ namespace build2
         else
         {
           // Pre-scan the value and convert it to the "canonical" form,
-          // that is, a list of simple=dir pairs.
+          // that is, a list of name@dir pairs.
           //
           for (auto i (v.data_.begin ()); i != v.data_.end (); ++i)
           {
-            bool p (i->pair != '\0');
-
-            if (p)
+            if (i->pair)
             {
               // Project name.
               //
@@ -593,7 +591,7 @@ namespace build2
 
             // Figure out the project name if the user didn't specify one.
             //
-            if (!p)
+            if (!i->pair)
             {
               // Pass fallback src_root since this is a subproject that
               // was specified by the user so it is most likely in our
@@ -608,7 +606,7 @@ namespace build2
 
               i = v.data_.emplace (i, move (n));
 
-              i->pair = '=';
+              i->pair = true;
               ++i;
             }
           }
@@ -681,7 +679,7 @@ namespace build2
     {
       for (const name& n: *l)
       {
-        if (n.pair != '\0')
+        if (n.pair)
           continue; // Skip project names.
 
         dir_path out_root (root.out_path () / n.dir);

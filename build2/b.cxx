@@ -549,7 +549,7 @@ main (int argc, char* argv[])
           {
             for (const name& n: *l)
             {
-              if (n.pair != '\0')
+              if (n.pair)
                 continue; // Skip project names.
 
               if (out_base.sub (out_root / n.dir))

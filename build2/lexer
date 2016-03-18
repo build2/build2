@@ -75,7 +75,7 @@ namespace build2
     next ();
 
     // Peek at the first character of the next token. Return the character
-    // or 0 if the next token will be eos. Also return an indicator of
+    // or '\0' if the next token will be eos. Also return an indicator of
     // whether the next token will be separated.
     //
     pair<char, bool>

@@ -380,12 +380,12 @@ namespace build2
                     fail (at) << "append to target type/pattern-specific "
                               << "variable " << v;
 
-                  const auto& var (var_pool.find (v));
-
-                  // Note: expand variables in the value in the context of
+                  // Note: expanding variables in the value in the context of
                   // the scope.
                   //
-                  names_type vns (variable_value (t, tt, var));
+                  names_type vns (variable_value (t, tt));
+
+                  const auto& var (var_pool.find (v));
                   value& val (scope_->target_vars[*ti][move (n.value)].assign (
                                 var).first);
                   val.assign (move (vns), var);
@@ -495,7 +495,7 @@ namespace build2
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -504,7 +504,7 @@ namespace build2
 
     for (name& n: ns)
     {
-      if (n.qualified () || n.empty () || n.value.empty ())
+      if (n.pair || n.qualified () || n.empty () || n.value.empty ())
         fail (l) << "expected buildfile instead of " << n;
 
       // Construct the buildfile path.
@@ -576,7 +576,7 @@ namespace build2
     // The rest should be a list of buildfiles. Parse them as names
     // to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -585,7 +585,7 @@ namespace build2
 
     for (name& n: ns)
     {
-      if (n.qualified () || n.empty ())
+      if (n.pair || n.qualified () || n.empty ())
         fail (l) << "expected buildfile instead of " << n;
 
       // Construct the buildfile path. If it is a directory, then append
@@ -718,30 +718,92 @@ namespace build2
     if (root_->src_path_ == nullptr)
       fail (t) << "import during bootstrap";
 
-    next (t, tt);
-
     // General import format:
     //
     // import [<var>=](<project>|<project>/<target>])+
     //
+    type at; // Assignment type.
     value* val (nullptr);
     const build2::variable* var (nullptr);
 
-    type at; // Assignment type.
+    // We are now in the normal lexing mode and here is the problem: we need
+    // to switch to the value mode so that we don't treat certain characters
+    // as separators (e.g., + in 'libstdc++'). But at the same time we need
+    // to detect if we have the <var>= part. So what we are going to do is
+    // switch to the value mode, get the first token, and then re-parse it
+    // manually looking for =/=+/+=.
+    //
+    mode (lexer_mode::pairs, '@');
+    next (t, tt);
+
     if (tt == type::name)
     {
-      at = peek ();
-
-      if (at == type::assign || at == type::prepend || at == type::append)
+      // Split the token into the variable name and value at position (p) of
+      // '=', taking into account leading/trailing '+'. The variable name is
+      // returned while the token is set to value. If the resulting token
+      // value is empty, get the next token. Also set assignment type (at).
+      //
+      auto split = [&at, &t, &tt, this] (size_t p) -> string
       {
-        var = &var_pool.find (t.value);
+        string& v (t.value);
+        size_t e;
+
+        if (p != 0 && v[p - 1] == '+') // +=
+        {
+          e = p--;
+          at = type::append;
+        }
+        else if (p + 1 != v.size () && v[p + 1] == '+') // =+
+        {
+          e = p + 1;
+          at = type::prepend;
+        }
+        else // =
+        {
+          e = p;
+          at = type::assign;
+        }
+
+        string nv (v, e + 1); // value
+        v.resize (p);         // var name
+        v.swap (nv);
+
+        if (v.empty ())
+          next (t, tt);
+
+        return nv;
+      };
+
+      // Is this the 'foo=...' case?
+      //
+      size_t p (t.value.find ('='));
+
+      if (p != string::npos)
+        var = &var_pool.find (split (p));
+      //
+      // This could still be the 'foo =...' case.
+      //
+      else if (peek () == type::name)
+      {
+        const string& v (peeked ().value);
+        size_t n (v.size ());
+
+        // We should start with =/+=/=+.
+        //
+        if (n > 0 &&
+            (v[p = 0] == '=' ||
+             (n > 1 && v[0] == '+' && v[p = 1] == '=')))
+        {
+          var = &var_pool.find (t.value);
+          next (t, tt); // Get the peeked token.
+          split (p);    // Returned name should be empty.
+        }
+      }
+
+      if (var != nullptr)
         val = at == type::assign
           ? &scope_->assign (*var)
           : &scope_->append (*var);
-        next (t, tt); // Consume =/=+/+=.
-        mode (lexer_mode::value);
-        next (t, tt);
-      }
     }
 
     // The rest should be a list of projects and/or targets. Parse
@@ -754,6 +816,9 @@ namespace build2
 
     for (name& n: ns)
     {
+      if (n.pair)
+        fail (l) << "unexpected pair in import";
+
       // build2::import() will check the name, if required.
       //
       names_type r (build2::import (*scope_, move (n), l));
@@ -790,7 +855,7 @@ namespace build2
     // The rest is a value. Parse it as names to get variable expansion.
     // build2::import() will check the names, if required.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
 
     if (tt != type::newline && tt != type::eos)
@@ -1059,11 +1124,11 @@ namespace build2
   void parser::
   print (token& t, type& tt)
   {
-    // Parse the rest as names to get variable expansion, etc. Switch
-    // to the variable value lexing mode so that we don't treat special
-    // characters (e.g., ':') as the end of the names.
+    // Parse the rest as names to get variable expansion, etc. Switch to the
+    // variable lexing mode so that we don't treat special characters (e.g.,
+    // ':') as the end of the names.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
@@ -1095,8 +1160,8 @@ namespace build2
   void parser::
   variable (token& t, type& tt, string name, type kind)
   {
+    names_type vns (variable_value (t, tt));
     const auto& var (var_pool.find (move (name)));
-    names_type vns (variable_value (t, tt, var));
 
     if (kind == type::assign)
     {
@@ -1119,13 +1184,9 @@ namespace build2
   }
 
   names parser::
-  variable_value (token& t, type& tt, const variable_type& var)
+  variable_value (token& t, type& tt)
   {
-    if (var.pairs != '\0')
-      mode (lexer_mode::pairs, var.pairs);
-    else
-      mode (lexer_mode::value);
-
+    mode (lexer_mode::pairs, '@');
     next (t, tt);
     return (tt != type::newline && tt != type::eos
             ? names (t, tt)
@@ -1204,7 +1265,7 @@ namespace build2
            false,
            (pair != 0
             ? pair
-            : (ns.empty () || ns.back ().pair == '\0' ? 0 : ns.size ())),
+            : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
            pp, dp, tp);
     count = ns.size () - count;
 
@@ -1319,8 +1380,8 @@ namespace build2
     string concat;
 
     // Number of names in the last group. This is used to detect when
-    // we need to add an empty first pair element (e.g., {=y}) or when
-    // we have a for now unsupported multi-name LHS (e.g., {x y}=z).
+    // we need to add an empty first pair element (e.g., {@y}) or when
+    // we have a for now unsupported multi-name LHS (e.g., {x y}@z).
     //
     size_t count (0);
 
@@ -1343,7 +1404,7 @@ namespace build2
       {
         // If we are chunking, stop at the next separated token. Unless
         // current or next token is a pair separator, since we want the
-        // "x = y" pair to be parsed as a single chunk.
+        // "x @ y" pair to be parsed as a single chunk.
         //
         bool p (t.type == type::pair_separator); // Current token.
 
@@ -1711,7 +1772,7 @@ namespace build2
             {
               // Check that there are no nested pairs.
               //
-              if (n.pair != '\0')
+              if (n.pair)
                 fail (loc) << "nested pair in " << what;
 
               // And add another first half unless this is the first instance.
@@ -1755,7 +1816,7 @@ namespace build2
 
         if (count == 0)
         {
-          // Empty LHS, (e.g., {=y}), create an empty name.
+          // Empty LHS, (e.g., {@y}), create an empty name.
           //
           ns.emplace_back (pp,
                            (dp != nullptr ? *dp : dir_path ()),
@@ -1764,7 +1825,7 @@ namespace build2
           count = 1;
         }
 
-        ns.back ().pair = t.pair;
+        ns.back ().pair = true;
         tt = peek ();
         continue;
       }
@@ -1792,9 +1853,9 @@ namespace build2
         fail (t) << "expected name instead of " << t;
     }
 
-    // Handle the empty RHS in a pair, (e.g., {y=}).
+    // Handle the empty RHS in a pair, (e.g., {y@}).
     //
-    if (!ns.empty () && ns.back ().pair != '\0')
+    if (!ns.empty () && ns.back ().pair)
     {
       ns.emplace_back (pp,
                        (dp != nullptr ? *dp : dir_path ()),
@@ -1929,7 +1990,7 @@ namespace build2
   {
     // First it has to be a non-empty simple name.
     //
-    if (n.pair != '\0' || !n.simple () || n.empty ())
+    if (n.pair || !n.simple () || n.empty ())
       return false;
 
     // C identifier.
@@ -2073,7 +2134,7 @@ namespace build2
             // Do we have the src_base?
             //
             dir_path src_base;
-            if (i->pair != '\0')
+            if (i->pair)
             {
               if (i->typed ())
                 fail (l) << "expected target src_base instead of " << *i;

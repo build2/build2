@@ -64,7 +64,7 @@ namespace build2
     for (auto& p: m)
     {
       d->emplace_back (p.first); // Const, can't move.
-      d->back ().pair = '=';
+      d->back ().pair = true;
       d->emplace_back (move (p.second));
     }
 
@@ -106,7 +106,7 @@ namespace build2
     //
     for (auto i (v.begin ()); i != v.end (); ++i)
     {
-      if (i->pair == '\0')
+      if (!i->pair)
         fail << value_traits<std::map<K, V>>::value_type.name << " key-value "
              << "pair expected instead of '" << *i << "' "
              << "in variable '" << var.name << "'";

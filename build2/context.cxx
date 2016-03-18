@@ -71,9 +71,9 @@ namespace build2
       v.find<string> ("project");
       v.find<dir_path> ("amalgamation");
 
-      // Not typed since the value requires pre-processing.
+      // Not typed since the value requires pre-processing (see file.cxx).
       //
-      v.find ("subprojects", nullptr, '=');
+      v.find ("subprojects");
 
       v.find<string> ("extension");
     }
