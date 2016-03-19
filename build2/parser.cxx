@@ -1064,7 +1064,7 @@ namespace build2
 
           // Should evaluate to true or false.
           //
-          if (ns.size () != 1 || !value_traits<bool>::assign (ns[0]))
+          if (ns.size () != 1 || !assign<bool> (ns[0]))
             fail (nsl) << "expected " << k << "-expression to evaluate to "
                        << "'true' or 'false' instead of '" << ns << "'";
 

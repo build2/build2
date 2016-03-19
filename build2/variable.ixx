@@ -34,7 +34,14 @@ namespace build2
   inline bool
   assign (name& n)
   {
-    return value_traits<T>::assign (n);
+    return value_traits<T>::assign (n, nullptr);
+  }
+
+  template <typename T>
+  inline bool
+  assign (name& l, name& r)
+  {
+    return value_traits<T>::assign (l, &r);
   }
 
   template <typename T>

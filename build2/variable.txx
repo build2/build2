@@ -12,13 +12,30 @@ namespace build2
   bool
   vector_assign (names& v, const variable& var)
   {
-    // Verify each element has valid value of T.
+    // Verify each element has valid value of T. Merge pairs.
     //
-    for (name& n: v)
+    for (auto i (v.begin ()); i != v.end (); )
     {
-      if (!assign<T> (n))
-        fail << "invalid " << value_traits<T>::value_type.name << " element "
-             << "'" << n << "' in variable '" << var.name << "'";
+      name& n (*i);
+
+      if (n.pair)
+      {
+        name& r (*++i);
+
+        if (!assign<T> (n, r))
+          fail << "invalid " << value_traits<T>::value_type.name
+               << " pair '" << n << "'@'" << r << "'"
+               << " in variable '" << var.name << "'";
+
+        i = v.erase (i);
+      }
+      else
+      {
+        if (!assign<T> (n))
+          fail << "invalid " << value_traits<T>::value_type.name
+               << " element '" << n << "' in variable '" << var.name << "'";
+        ++i;
+      }
     }
 
     return !v.empty ();

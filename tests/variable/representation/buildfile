@@ -10,11 +10,19 @@ val += ///
 val += //foo/
 #val += dir{-L/}
 
+# Note that this is "reversed" when we assign it to test.options
+# since that variable is of type strings.
+#
+val += foo@bar foo/@bar/ foo@ @bar @ "@@"
+
 val += foo%bar
 val += foo%
 val += %bar
 val += foo%{bar}
 #val += foo%file{x}
+
+val += x%foo@y%bar
+val += x%foo/@y%bar/
 
 using cxx
 cxx.ext = cxx

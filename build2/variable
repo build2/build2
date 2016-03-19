@@ -214,10 +214,15 @@ namespace build2
   template <typename T> typename value_traits<T>::const_type as (const value&);
 
   // Try to "assign" a simple value type to the value stored in name. Return
-  // false if the value is not valid for this type.
+  // false if the value is not valid for this type. The second version is
+  // called for a pair and it is expected to merge the result into the first
+  // name.
   //
   template <typename T> bool assign (name&);
+  template <typename T> bool assign (name&, name&);
 
+  // Name cast. Can only be called after assign() above returned true.
+  //
   template <typename T> typename value_traits<T>::type as (name&);
   template <typename T> typename value_traits<T>::const_type as (const name&);
 
@@ -270,7 +275,7 @@ namespace build2
     static type       as (value&);
     static const_type as (const value&);
 
-    static bool assign (name&);
+    static bool assign (name&, name*);
     static void assign (value&, bool);
     static void append (value&, bool);
 
@@ -293,7 +298,7 @@ namespace build2
     static type       as (value&);
     static const_type as (const value&);
 
-    static bool assign (name&);
+    static bool assign (name&, name*);
     static void assign (value&, string);
     static void append (value&, string);
 
@@ -316,7 +321,7 @@ namespace build2
     static type       as (value&);
     static const_type as (const value&);
 
-    static bool assign (name&);
+    static bool assign (name&, name*);
     static void assign (value&, dir_path);
     static void append (value&, dir_path);
 
@@ -339,7 +344,7 @@ namespace build2
     static type       as (value&);
     static const_type as (const value&);
 
-    static bool assign (name&) {return true;}
+    static bool assign (name&, name* r) {return r == nullptr;}
     static void assign (value&, name);
     static void append (value&, name) = delete;
 

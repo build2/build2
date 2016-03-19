@@ -123,9 +123,9 @@ namespace build2
   // bool value
   //
   bool value_traits<bool>::
-  assign (name& n)
+  assign (name& n, name* r)
   {
-    if (n.simple ())
+    if (r == nullptr && n.simple ())
     {
       const string& s (n.value);
 
@@ -145,7 +145,7 @@ namespace build2
     {
       name& n (v.front ());
 
-      if (value_traits<bool>::assign (n))
+      if (assign<bool> (n))
         return true;
     }
 
@@ -178,45 +178,62 @@ namespace build2
   // string value
   //
   bool value_traits<string>::
-  assign (name& n)
+  assign (name& n, name* r)
   {
-    // The below code is quite convoluted because we don't want to
-    // modify the name until we know it good (if it is not, then it
-    // will most likely be printed by the caller in diagnostics).
-
-    // Suspend project qualification.
+    // The goal is to reverse the name into its original representation. The
+    // code is a bit convoluted because we try to avoid extra allocation for
+    // the common cases (unqualified, unpaired simple name or directory).
     //
-    const string* p (n.proj);
-    n.proj = nullptr;
 
-    // Convert directory to string.
+    // We can only convert project-qualified simple and directory names.
     //
-    if (n.directory ())
+    if (!(n.simple (true) || n.directory (true)) ||
+        !(r == nullptr || r->simple (true) || r->directory (true)))
+      return false;
+
+    if (n.directory (true))
     {
       n.value = move (n.dir).string (); // Move string out of path.
 
-      // Add / back to the end of the path unless it is already there.
-      // Note that the string cannot be empty (n.directory () would
-      // have been false).
+      // Add / back to the end of the path unless it is already there. Note
+      // that the string cannot be empty (n.directory () would have been
+      // false).
       //
       if (!dir_path::traits::is_separator (n.value[n.value.size () - 1]))
         n.value += '/';
     }
 
-    if (!n.simple ())
-    {
-      n.proj = p; // Restore.
-      return false;
-    }
-
     // Convert project qualification to its string representation.
     //
-    if (p != nullptr)
+    if (n.qualified ())
     {
-      string s (*p);
+      string s (*n.proj);
       s += '%';
       s += n.value;
       s.swap (n.value);
+    }
+
+    // The same for the RHS of a pair, if we have one.
+    //
+    if (r != nullptr)
+    {
+      n.value += '@';
+
+      if (r->qualified ())
+      {
+        n.value += *r->proj;
+        n.value += '%';
+      }
+
+      if (r->directory (true))
+      {
+        n.value += r->dir.string ();
+
+        if (!dir_path::traits::is_separator (n.value[n.value.size () - 1]))
+          n.value += '/';
+      }
+      else
+        n.value += r->value;
     }
 
     return true;
@@ -236,7 +253,7 @@ namespace build2
     {
       name& n (v.front ());
 
-      if (value_traits<string>::assign (n))
+      if (assign<string> (n))
         return !n.value.empty ();
     }
 
@@ -271,8 +288,11 @@ namespace build2
   // dir_path value
   //
   bool value_traits<dir_path>::
-  assign (name& n)
+  assign (name& n, name* r)
   {
+    if (r != nullptr)
+      return false;
+
     if (n.directory ())
       return true;
 
@@ -304,7 +324,7 @@ namespace build2
     {
       name& n (v.front ());
 
-      if (value_traits<dir_path>::assign (n))
+      if (assign<dir_path> (n))
         return !n.dir.empty ();
     }
 

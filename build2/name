@@ -68,19 +68,24 @@ namespace build2
     bool
     empty () const {return dir.empty () && value.empty ();}
 
-    // Note that strictly speaking the following tests should be
-    // orthogonal to qualification. However, the vast majority of
-    // cases where we expect a simple or directory name, we also
-    // expect it to be unqualified.
+    // Note that strictly speaking the following tests should be orthogonal
+    // to qualification. However, the vast majority of cases where we expect
+    // a simple or directory name, we also expect it to be unqualified.
     //
     // Note also that empty name is simple but not a directory.
     //
     bool
-    simple () const {return unqualified () && untyped () && dir.empty ();}
+    simple (bool ignore_qual = false) const
+    {
+      return (ignore_qual || unqualified ()) && untyped () && dir.empty ();
+    }
 
     bool
-    directory () const
-    {return unqualified () && untyped () && !dir.empty () && value.empty ();}
+    directory (bool ignore_qual = false) const
+    {
+      return (ignore_qual || unqualified ()) &&
+        untyped () && !dir.empty () && value.empty ();
+    }
 
     const std::string* proj = nullptr; // Points to project_name_pool.
     dir_path dir;
