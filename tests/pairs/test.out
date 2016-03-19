@@ -1,0 +1,27 @@
+foo@bar
+foo@bar
+foo@bar
+foo@bar
+foo@bar
+{foo}@bar
+foo@{}
+foo@{}
+foo@{}
+foo@{} FOO@{}
+foo@{}
+{}@bar
+{}@bar
+{}@bar
+{}@BAR {}@bar
+{}@bar
+{}@{}
+{}@{}
+{}@{}
+{}@{}
+{}@{}
+{}@{}
+{}@{} {}@{}
+{}@{} {}@{}
+{}@bar {}@BAR
+{}@bar {}@BAR
+foo@bar foo@BAR

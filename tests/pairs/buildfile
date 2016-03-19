@@ -1,0 +1,40 @@
+print foo@bar       # foo@bar
+print foo@{bar}     # foo@bar
+print {foo}@bar     # foo@bar
+print {foo@bar}     # foo@bar
+print {{foo}@{bar}} # foo@bar
+print "{foo}@bar"   # {foo}@bar
+
+print foo@          # foo@{}
+print {foo}@        # foo@{}
+print {foo}@{}      # foo@{}
+print {foo}@ {FOO}@ # foo@{} FOO@{}
+v=foo@
+print $v            # foo@{}
+
+print @bar          # {}@bar
+print @{bar}        # {}@bar
+print {}@{bar}      # {}@bar
+print @{BAR} @{bar} # {}@BAR {}@bar
+v=@bar
+print $v            # {}@bar
+
+print @             # {}@{}
+print @{}           # {}@{}
+print {}@           # {}@{}
+print {}@{}         # {}@{}
+print {@}           # {}@{}
+v=@
+print $v            # {}@{}
+
+print @ @           # {}@{} {}@{}
+v=@ @
+print $v            # {}@{} {}@{}
+
+print @{bar BAR}    # {}@bar {}@BAR
+print @{bar {BAR}}  # {}@bar {}@BAR
+print foo@{bar BAR} # foo@bar foo@BAR
+
+#print @@           # error: double pair separator
+
+./:

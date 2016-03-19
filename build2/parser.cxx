@@ -1368,7 +1368,7 @@ namespace build2
   {
     // If pair is not 0, then it is an index + 1 of the first half of
     // the pair for which we are parsing the second halves, e.g.,
-    // a={b c d{e f} {}}.
+    // a@{b c d{e f} {}}.
     //
 
     // Buffer that is used to collect the complete name in case of
@@ -1380,8 +1380,8 @@ namespace build2
     string concat;
 
     // Number of names in the last group. This is used to detect when
-    // we need to add an empty first pair element (e.g., {@y}) or when
-    // we have a for now unsupported multi-name LHS (e.g., {x y}@z).
+    // we need to add an empty first pair element (e.g., @y) or when
+    // we have a (for now unsupported) multi-name LHS (e.g., {x y}@z).
     //
     size_t count (0);
 
@@ -1402,15 +1402,11 @@ namespace build2
       }
       else if (!first)
       {
-        // If we are chunking, stop at the next separated token. Unless
-        // current or next token is a pair separator, since we want the
-        // "x @ y" pair to be parsed as a single chunk.
+        // If we are chunking, stop at the next separated token.
         //
-        bool p (t.type == type::pair_separator); // Current token.
-
         next (t, tt);
 
-        if (chunk && t.separated && (tt != type::pair_separator && !p))
+        if (chunk && t.separated)
           break;
       }
 
@@ -1811,12 +1807,15 @@ namespace build2
         if (pair != 0)
           fail (t) << "nested pair on the right hand side of a pair";
 
-        if (count > 1)
-          fail (t) << "multiple names on the left hand side of a pair";
+        // Catch '@@'. Maybe we can use for something later (e.g., escaping).
+        //
+        if (!ns.empty () && ns.back ().pair)
+          fail (t) << "double pair separator";
 
-        if (count == 0)
+        if (t.separated || count == 0)
         {
-          // Empty LHS, (e.g., {@y}), create an empty name.
+          // Empty LHS, (e.g., @y), create an empty name. The second test
+          // will be in effect if we have something like v=@y.
           //
           ns.emplace_back (pp,
                            (dp != nullptr ? *dp : dir_path ()),
@@ -1824,9 +1823,25 @@ namespace build2
                            string ());
           count = 1;
         }
+        else if (count > 1)
+          fail (t) << "multiple names on the left hand side of a pair";
 
         ns.back ().pair = true;
         tt = peek ();
+
+        // If the next token is separated, then we have an empty RHS. Note
+        // that the case where it is not a name/group (e.g., a newline/eos)
+        // is handled below, once we are out of the loop.
+        //
+        if (peeked ().separated)
+        {
+          ns.emplace_back (pp,
+                           (dp != nullptr ? *dp : dir_path ()),
+                           (tp != nullptr ? *tp : string ()),
+                           string ());
+          count = 0;
+        }
+
         continue;
       }
 
@@ -1853,7 +1868,7 @@ namespace build2
         fail (t) << "expected name instead of " << t;
     }
 
-    // Handle the empty RHS in a pair, (e.g., {y@}).
+    // Handle the empty RHS in a pair, (e.g., y@).
     //
     if (!ns.empty () && ns.back ().pair)
     {
