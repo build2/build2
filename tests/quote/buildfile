@@ -40,6 +40,10 @@ print \
 bar"
 
 print \
+'foo\
+bar'
+
+print \
 "foo (fox  \
 )
 bar"
