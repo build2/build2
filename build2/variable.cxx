@@ -316,6 +316,43 @@ namespace build2
     nullptr               // No compare (compare as POD).
   };
 
+  // uint64_t value
+  //
+  uint64_t value_traits<uint64_t>::
+  convert (name&& n, name* r)
+  {
+    if (r == nullptr && n.simple ())
+    {
+      try
+      {
+        // May throw invalid_argument or out_of_range.
+        //
+        return stoull (n.value);
+      }
+      catch (const out_of_range&)
+      {
+        // Fall through.
+      }
+    }
+
+    throw invalid_argument (string ());
+  }
+
+  const value_type value_traits<uint64_t>::value_type
+  {
+    "uint64",
+    sizeof (uint64_t),
+    nullptr,                          // No dtor (POD).
+    nullptr,                          // No copy_ctor (POD).
+    nullptr,                          // No copy_assign (POD).
+    &simple_assign<uint64_t, false>,  // No empty value.
+    &simple_append<uint64_t, false>,
+    &simple_append<uint64_t, false>,  // Prepend same as append.
+    &simple_reverse<uint64_t>,
+    nullptr,                          // No cast (cast data_ directly).
+    nullptr                           // No compare (compare as POD).
+  };
+
   // string value
   //
   string value_traits<string>::
@@ -397,6 +434,48 @@ namespace build2
     &simple_reverse<string>,
     nullptr,                      // No cast (cast data_ directly).
     &simple_compare<string>
+  };
+
+  // path value
+  //
+  path value_traits<path>::
+  convert (name&& n, name* r)
+  {
+    if (r == nullptr)
+    {
+      // A directory path is a path.
+      //
+      if (n.directory ())
+        return move (n.dir);
+
+      if (n.simple ())
+      {
+        try
+        {
+          return path (move (n.value));
+        }
+        catch (const invalid_path&) {} // Fall through.
+      }
+
+      // Fall through.
+    }
+
+    throw invalid_argument (string ());
+  }
+
+  const value_type value_traits<path>::value_type
+  {
+    "path",
+    sizeof (path),
+    &default_dtor<path>,
+    &default_copy_ctor<path>,
+    &default_copy_assign<path>,
+    &simple_assign<path, true>, // Allow empty paths.
+    &simple_append<path, true>,
+    &simple_prepend<path, true>,
+    &simple_reverse<path>,
+    nullptr,                    // No cast (cast data_ directly).
+    &simple_compare<path>
   };
 
   // dir_path value

@@ -461,10 +461,10 @@ namespace build2
 
       auto init_args = [&t, &s, &rs, &args, &cxx_std] ()
       {
-        const string& cxx (cast<string> (rs["config.cxx"]));
+        const path& cxx (cast<path> (rs["config.cxx"]));
         const string& sys (cast<string> (rs["cxx.target.system"]));
 
-        args.push_back (cxx.c_str ());
+        args.push_back (cxx.string ().c_str ());
 
         // Add cxx.export.poptions from prerequisite libraries. Note
         // that here we don't need to see group members (see apply()).
@@ -923,10 +923,10 @@ namespace build2
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cxx (cast<string> (rs["config.cxx"]));
+      const path& cxx (cast<path> (rs["config.cxx"]));
       const string& sys (cast<string> (rs["cxx.target.system"]));
 
-      cstrings args {cxx.c_str ()};
+      cstrings args {cxx.string ().c_str ()};
 
       // Add cxx.export.poptions from prerequisite libraries. Note that
       // here we don't need to see group members (see apply()).

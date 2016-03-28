@@ -96,23 +96,21 @@ namespace build2
 
     // Enter the version.
     //
-    // @@ VAR types
-    //
     {
-      gs.assign<string> ("build.version") = to_string (BUILD2_VERSION);
+      gs.assign<uint64_t> ("build.version") = uint64_t (BUILD2_VERSION);
       gs.assign<string> ("build.version.string") = BUILD2_VERSION_STR;
 
       // AABBCCDD
       //
-      auto comp = [] (unsigned int d) -> string
+      auto comp = [] (unsigned int d) -> uint64_t
       {
-        return to_string ((BUILD2_VERSION / d)% 100);
+        return (BUILD2_VERSION / d) % 100;
       };
 
-      gs.assign<string> ("build.version.release") = comp (1);
-      gs.assign<string> ("build.version.patch")   = comp (100);
-      gs.assign<string> ("build.version.minor")   = comp (10000);
-      gs.assign<string> ("build.version.major")   = comp (1000000);
+      gs.assign<uint64_t> ("build.version.release") = comp (1);
+      gs.assign<uint64_t> ("build.version.patch")   = comp (100);
+      gs.assign<uint64_t> ("build.version.minor")   = comp (10000);
+      gs.assign<uint64_t> ("build.version.major")   = comp (1000000);
     }
 
     // Enter the host information. Rather than jumping through hoops like

@@ -244,9 +244,9 @@ namespace build2
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cli (cast<string> (rs["config.cli"]));
+      const path& cli (cast<path> (rs["config.cli"]));
 
-      cstrings args {cli.c_str ()};
+      cstrings args {cli.string ().c_str ()};
 
       // See if we need to pass --output-{prefix,suffix}
       //

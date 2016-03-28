@@ -77,21 +77,23 @@ namespace build2
     }
 
     static void
-    set_dir (bool s,                         // specified
-             scope& r,                       // root scope
-             const char* n,                  // var name
-             const string& ps,               // path (as string)
-             const string& fm = string (),   // file mode
-             const string& dm = string (),   // dir mode
-             const string& c = string (),    // command
-             bool o = false)                 // override
+    set_dir (bool s,                                  // specified
+             scope& r,                                // root scope
+             const char* n,                           // var name
+             const string& ps,                        // path (as string)
+             const string& fm = string (),            // file mode
+             const string& dm = string (),            // dir mode
+             const build2::path& c = build2::path (), // command
+             bool o = false)                          // override
     {
+      using build2::path;
+
       dir_path p (ps);
       set_var          (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
       set_var          (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
       set_var          (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
       set_var<string>  (s, r, n, ".sudo",     nullptr);
-      set_var          (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<path>    (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
       set_var<strings> (s, r, n, ".options",  nullptr);
     }
 
@@ -153,22 +155,24 @@ namespace build2
       //
       if (first)
       {
+        using build2::path;
+
         bool s (config::specified (r, "config.install"));
         const string& n (cast<string> (r["project"]));
 
-        set_dir (s, r, "root",      "",      "", "755", "install");
+        set_dir (s, r, "root",      "",      "", "755", path ("install"));
         set_dir (s, r, "data_root", "root",  "644");
         set_dir (s, r, "exec_root", "root",  "755");
 
         set_dir (s, r, "sbin",    "exec_root/sbin");
         set_dir (s, r, "bin",     "exec_root/bin");
         set_dir (s, r, "lib",     "exec_root/lib");
-        set_dir (s, r, "libexec", "exec_root/libexec/" + n, "", "", "", true);
+        set_dir (s, r, "libexec", "exec_root/libexec/" + n, "", "", path (), true);
 
-        set_dir (s, r, "data",    "data_root/share/" + n, "", "", "", true);
+        set_dir (s, r, "data",    "data_root/share/" + n, "", "", path (), true);
         set_dir (s, r, "include", "data_root/include");
 
-        set_dir (s, r, "doc",     "data_root/share/doc/" + n, "", "", "", true);
+        set_dir (s, r, "doc",     "data_root/share/doc/" + n, "", "", path (), true);
         set_dir (s, r, "man",     "data_root/share/man");
 
         set_dir (s, r, "man1",    "man/man1");

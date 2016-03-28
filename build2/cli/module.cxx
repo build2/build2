@@ -57,7 +57,7 @@ namespace build2
 
         v.find<bool> ("config.cli.configured");
 
-        v.find<string> ("config.cli"); //@@ VAR type
+        v.find<path> ("config.cli");
 
         v.find<strings> ("config.cli.options");
         v.find<strings> ("cli.options");
@@ -174,13 +174,13 @@ namespace build2
           }
           else
           {
-            auto p (config::required (root, "config.cli", cli));
+            auto p (config::required (root, "config.cli", path (cli)));
             assert (p.second && cast<string> (p.first) == cli);
           }
         }
         else
         {
-          auto p (config::required (root, "config.cli", cli));
+          auto p (config::required (root, "config.cli", path (cli)));
 
           // If we actually set a new value, test it by trying to execute.
           //

@@ -47,20 +47,20 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find<string> ("config.bin.ar");     //@@ VAR path_type
-        v.find<string> ("config.bin.ranlib"); //@@ VAR path_type
+        v.find<path> ("config.bin.ar");
+        v.find<path> ("config.bin.ranlib");
 
-        v.find<string> ("config.bin.lib");
-        v.find<strings> ("config.bin.exe.lib");
-        v.find<strings> ("config.bin.liba.lib");
-        v.find<strings> ("config.bin.libso.lib");
-        v.find<strings> ("config.bin.rpath"); //@@ VAR paths_type
+        v.find<string>    ("config.bin.lib");
+        v.find<strings>   ("config.bin.exe.lib");
+        v.find<strings>   ("config.bin.liba.lib");
+        v.find<strings>   ("config.bin.libso.lib");
+        v.find<dir_paths> ("config.bin.rpath");
 
-        v.find<string> ("bin.lib");
-        v.find<strings> ("bin.exe.lib");
-        v.find<strings> ("bin.liba.lib");
-        v.find<strings> ("bin.libso.lib");
-        v.find<strings> ("bin.rpath"); //@@ VAR paths_type
+        v.find<string>    ("bin.lib");
+        v.find<strings>   ("bin.exe.lib");
+        v.find<strings>   ("bin.liba.lib");
+        v.find<strings>   ("bin.libso.lib");
+        v.find<dir_paths> ("bin.rpath");
 
         v.find<string> ("bin.libprefix");
       }
@@ -156,7 +156,7 @@ namespace build2
       // See the cxx module for details on merging.
       //
       if (const value& v = config::optional (r, "config.bin.rpath"))
-        b.assign ("bin.rpath") += cast<strings> (v);
+        b.assign ("bin.rpath") += cast<dir_paths> (v);
 
       // config.bin.ar
       // config.bin.ranlib
@@ -167,11 +167,11 @@ namespace build2
       //
       if (first)
       {
-        auto p (config::required (r, "config.bin.ar", "ar"));
+        auto p (config::required (r, "config.bin.ar", path ("ar")));
         auto& v (config::optional (r, "config.bin.ranlib"));
 
-        const path& ar (path (cast<string> (p.first))); // @@ VAR
-        const path& ranlib (v ? path (cast<string> (v)) : path ()); // @@ VAR
+        const path& ar (cast<path> (p.first));
+        const path& ranlib (v ? cast<path> (v) : path ());
 
         bin_info bi (guess (ar, ranlib));
 

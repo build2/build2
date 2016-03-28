@@ -49,12 +49,12 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const string& cmd, const dir_path&);
+    install (const path& cmd, const dir_path&);
 
     // install <file> <dir>
     //
     static void
-    install (const string& cmd, file&, const dir_path&);
+    install (const path& cmd, file&, const dir_path&);
 
     // cd <root> && tar|zip ... <pkg>.<ext> <pkg>
     //
@@ -103,7 +103,7 @@ namespace build2
           info << "did you forget to set dist.package?";
 
       const string& dist_package (cast<string> (l));
-      const string& dist_cmd (cast<string> (rs->vars["dist.cmd"]));
+      const path& dist_cmd (cast<path> (rs->vars["dist.cmd"]));
 
       // Get the list of operations supported by this project. Skip
       // default_id.
@@ -303,11 +303,11 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const string& cmd, const dir_path& d)
+    install (const path& cmd, const dir_path& d)
     {
       path reld (relative (d));
 
-      cstrings args {cmd.c_str (), "-d"};
+      cstrings args {cmd.string ().c_str (), "-d"};
 
       args.push_back ("-m");
       args.push_back ("755");
@@ -340,12 +340,12 @@ namespace build2
     // install <file> <dir>
     //
     static void
-    install (const string& cmd, file& t, const dir_path& d)
+    install (const path& cmd, file& t, const dir_path& d)
     {
       path reld (relative (d));
       path relf (relative (t.path ()));
 
-      cstrings args {cmd.c_str ()};
+      cstrings args {cmd.string ().c_str ()};
 
       // Preserve timestamps. This could becomes important if, for
       // example, we have pre-generated sources. Note that the

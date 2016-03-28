@@ -8,8 +8,6 @@
 #include <build2/types>
 #include <build2/utility>
 
-#include <build2/variable>
-
 namespace build2
 {
   namespace cxx
@@ -62,22 +60,18 @@ namespace build2
     //
     struct compiler_version
     {
-      std::string major;
-      std::string minor;
-      std::string patch;
-      std::string build;
+      std::string string;
 
-      // The format is always A.B[.C][-D].
+      // Currently all the compilers that we support have numeric MAJOR,
+      // MINOR, and PATCH components and it makes sense to represent them as
+      // integers for easy comparison. If we meet a compiler for which this
+      // doesn't hold, then we will probably just set these to 0 and let the
+      // user deal with the string representation.
       //
-      std::string
-      string () const
-      {
-        std::string r (major);
-        r += '.'; r += minor;
-        if (!patch.empty ()) {r += '.'; r += patch;}
-        if (!build.empty ()) {r += '-'; r += build;}
-        return r;
-      }
+      uint64_t major;
+      uint64_t minor;
+      uint64_t patch;
+      std::string build;
     };
 
     // C++ compiler information.
@@ -106,7 +100,7 @@ namespace build2
     };
 
     compiler_info
-    guess (const path& cxx, lookup<const value> coptions); // @@ VAR
+    guess (const path& cxx, const strings* coptions);
   }
 }
 

@@ -118,6 +118,34 @@ namespace build2
   }
 
   template <typename T>
+  inline T*
+  cast_null (value& v)
+  {
+    return v ? &cast<T> (v) : nullptr;
+  }
+
+  template <typename T>
+  inline const T*
+  cast_null (const value& v)
+  {
+    return v ? &cast<T> (v) : nullptr;
+  }
+
+  template <typename T>
+  inline T*
+  cast_null (const lookup<value>& l)
+  {
+    return l ? &cast<T> (*l) : nullptr;
+  }
+
+  template <typename T>
+  inline const T*
+  cast_null (const lookup<const value>& l)
+  {
+    return l ? &cast<T> (*l) : nullptr;
+  }
+
+  template <typename T>
   inline void
   typify (value& v, const variable& var)
   {
@@ -184,6 +212,38 @@ namespace build2
     return l < r ? -1 : (l > r ? 1 : 0);
   }
 
+  // uint64_t value
+  //
+  inline bool value_traits<uint64_t>::
+  assign (value& v, uint64_t x)
+  {
+    if (v.null ())
+      new (&v.data_) uint64_t (x);
+    else
+      v.as<uint64_t> () = x;
+
+    return true;
+  }
+
+  inline bool value_traits<uint64_t>::
+  append (value& v, uint64_t x)
+  {
+    // ADD.
+    //
+    if (v.null ())
+      new (&v.data_) uint64_t (x);
+    else
+      v.as<uint64_t> () += x;
+
+    return true;
+  }
+
+  inline int value_traits<uint64_t>::
+  compare (uint64_t l, uint64_t r)
+  {
+    return l < r ? -1 : (l > r ? 1 : 0);
+  }
+
   // string value
   //
   inline bool value_traits<string>::
@@ -241,6 +301,67 @@ namespace build2
 
   inline int value_traits<string>::
   compare (const string& l, const string& r)
+  {
+    return l.compare (r);
+  }
+
+  // path value
+  //
+  inline bool value_traits<path>::
+  assign (value& v, path&& x)
+  {
+    path* p;
+
+    if (v.null ())
+      p = new (&v.data_) path (move (x));
+    else
+      p = &(v.as<path> () = move (x));
+
+    return !p->empty ();
+  }
+
+  inline bool value_traits<path>::
+  append (value& v, path&& x)
+  {
+    path* p;
+
+    if (v.null ())
+      p = new (&v.data_) path (move (x));
+    else
+    {
+      p = &v.as<path> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        *p /= x;
+    }
+
+    return !p->empty ();
+  }
+
+  inline bool value_traits<path>::
+  prepend (value& v, path&& x)
+  {
+    path* p;
+
+    if (v.null ())
+      new (&v.data_) path (move (x));
+    else
+    {
+      p = &v.as<path> ();
+
+      if (!p->empty ())
+        x /= *p;
+
+      p->swap (x);
+    }
+
+    return !p->empty ();
+  }
+
+  inline int value_traits<path>::
+  compare (const path& l, const path& r)
   {
     return l.compare (r);
   }

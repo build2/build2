@@ -221,7 +221,7 @@ namespace build2
 
       dir_path dir;
       string sudo;
-      string cmd; //@@ VAR type
+      path cmd;
       strings options;
       string mode;
       string dir_mode;
@@ -239,7 +239,7 @@ namespace build2
       if (!base.sudo.empty ())
         args.push_back (base.sudo.c_str ());
 
-      args.push_back (base.cmd.c_str ());
+      args.push_back (base.cmd.string ().c_str ());
       args.push_back ("-d");
 
       if (!base.options.empty ())
@@ -286,7 +286,7 @@ namespace build2
       if (!base.sudo.empty ())
         args.push_back (base.sudo.c_str ());
 
-      args.push_back (base.cmd.c_str ());
+      args.push_back (base.cmd.string ().c_str ());
 
       if (!base.options.empty ())
         append_options (args, base.options);
@@ -359,7 +359,7 @@ namespace build2
         if (var != nullptr)
         {
           if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (l);
-          if (auto l = s[*var + ".cmd"])      r.cmd = cast<string> (l);
+          if (auto l = s[*var + ".cmd"])      r.cmd = cast<path> (l);
           if (auto l = s[*var + ".mode"])     r.mode = cast<string> (l);
           if (auto l = s[*var + ".dir_mode"]) r.dir_mode = cast<string> (l);
           if (auto l = s[*var + ".options"])  r.options = cast<strings> (l);
@@ -367,7 +367,7 @@ namespace build2
 
         // Set defaults for unspecified components.
         //
-        if (r.cmd.empty ()) r.cmd = "install";
+        if (r.cmd.empty ()) r.cmd = path ("install");
         if (r.mode.empty ()) r.mode = "644";
         if (r.dir_mode.empty ()) r.dir_mode = "755";
 

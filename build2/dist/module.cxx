@@ -46,10 +46,8 @@ namespace build2
         v.find<dir_path> ("dist.root");
         v.find<dir_path> ("config.dist.root");
 
-        //@@ VAR type
-        //
-        v.find<string> ("dist.cmd");
-        v.find<string> ("config.dist.cmd");
+        v.find<path> ("dist.cmd");
+        v.find<path> ("config.dist.cmd");
 
         v.find<strings> ("dist.archives");
         v.find<strings> ("config.dist.archives");
@@ -112,13 +110,13 @@ namespace build2
         if (s)
         {
           const value& cv (
-            config::required (r, "config.dist.cmd", "install").first);
+            config::required (r, "config.dist.cmd", path ("install")).first);
 
           if (cv && !cv.empty ())
             v = cv;
         }
         else
-          v = "install";
+          v = path ("install");
       }
 
       // dist.archives

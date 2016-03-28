@@ -277,9 +277,7 @@ namespace build2
     }
 
     static compiler_info
-    guess_gcc (const path& cxx,
-               lookup<const value> coptions,
-               guess_result&& gr)
+    guess_gcc (const path& cxx, const strings* coptions, guess_result&& gr)
     {
       tracer trace ("cxx::guess_gcc");
 
@@ -309,19 +307,27 @@ namespace build2
       if (b == e)
         fail << "unable to extract gcc version from '" << s << "'";
 
+      compiler_version v;
+      v.string.assign (s, b, string::npos);
+
       // Split the version into components.
       //
       size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> string
+      auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
       {
-        if (!next_word (s, e, vb, ve, '.'))
-          fail << "unable to extract gcc " << m << " version from '"
-               << string (s, b, e - b) << "'";
+        try
+        {
+          if (next_word (s, e, vb, ve, '.'))
+            return stoull (string (s, vb, ve - vb));
+        }
+        catch (const invalid_argument&) {}
+        catch (const out_of_range&) {}
 
-        return string (s, vb, ve - vb);
+        error << "unable to extract gcc " << m << " version from '"
+              << string (s, b, e - b) << "'";
+        throw failed ();
       };
 
-      compiler_version v;
       v.major = next ("major");
       v.minor = next ("minor");
       v.patch = next ("patch");
@@ -351,7 +357,8 @@ namespace build2
       // -dumpmachine (older gcc or not multi-arch).
       //
       cstrings args {cxx.string ().c_str (), "-print-multiarch"};
-      append_options (args, coptions);
+      if (coptions != nullptr)
+        append_options (args, *coptions);
       args.push_back (nullptr);
 
       // The output of both -print-multiarch and -dumpmachine is a single line
@@ -383,9 +390,7 @@ namespace build2
     }
 
     static compiler_info
-    guess_clang (const path& cxx,
-                 lookup<const value> coptions,
-                 guess_result&& gr)
+    guess_clang (const path& cxx, const strings* coptions, guess_result&& gr)
     {
       // Extract the version. Here we will try to handle both vanilla and
       // Apple clang since the signature lines are fairly similar. They have
@@ -425,25 +430,33 @@ namespace build2
       if (b == e)
         fail << "unable to extract clang version from '" << s << "'";
 
+      compiler_version v;
+      v.string.assign (s, b, string::npos);
+
       // Split the version into components.
       //
       size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> string
+      auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
       {
-        if (next_word (s, e, vb, ve, '.'))
-          return string (s, vb, ve - vb);
+        try
+        {
+          if (next_word (s, e, vb, ve, '.'))
+            return stoull (string (s, vb, ve - vb));
 
-        if (m != nullptr)
-          fail << "unable to extract clang " << m << " version from '"
-               << string (s, b, e - b) << "'";
+          if (opt)
+            return 0;
+        }
+        catch (const invalid_argument&) {}
+        catch (const out_of_range&) {}
 
-        return string ();
+        error << "unable to extract clang " << m << " version from '"
+              << string (s, b, e - b) << "'";
+        throw failed ();
       };
 
-      compiler_version v;
-      v.major = next ("major");
-      v.minor = next ("minor");
-      v.patch = next (gr.id.variant == "apple" ? nullptr : "patch");
+      v.major = next ("major", false);
+      v.minor = next ("minor", false);
+      v.patch = next ("patch", gr.id.variant == "apple");
 
       if (e != s.size ())
         v.build.assign (s, e + 1, string::npos);
@@ -454,7 +467,8 @@ namespace build2
       // however, respects the compile options (e.g., -m32).
       //
       cstrings args {cxx.string ().c_str (), "-dumpmachine"};
-      append_options (args, coptions);
+      if (coptions != nullptr)
+        append_options (args, *coptions);
       args.push_back (nullptr);
 
       // The output of -dumpmachine is a single line containing just the
@@ -475,9 +489,7 @@ namespace build2
     }
 
     static compiler_info
-    guess_icc (const path& cxx,
-               lookup<const value> coptions,
-               guess_result&& gr)
+    guess_icc (const path& cxx, const strings* coptions, guess_result&& gr)
     {
       // Extract the version. If the version has the fourth component, then
       // the signature line (extracted with --version) won't include it. So we
@@ -513,7 +525,9 @@ namespace build2
           : string ();
       };
 
-      s = run<string> (cxx, "-V", f);
+      // The -V output is sent to STDERR.
+      //
+      s = run<string> (cxx, "-V", f, false);
 
       if (s.empty ())
         fail << "unable to extract signature from " << cxx << " -V output";
@@ -553,27 +567,36 @@ namespace build2
       if (b == e)
         fail << "unable to extract icc version from '" << s << "'";
 
+      compiler_version v;
+      v.string.assign (s, b, string::npos);
+
       // Split the version into components.
       //
       size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> string
+      auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
       {
-        if (next_word (s, e, vb, ve, '.'))
-          return string (s, vb, ve - vb);
+        try
+        {
+          if (next_word (s, e, vb, ve, '.'))
+            return stoull (string (s, vb, ve - vb));
 
-        if (m != nullptr)
-          fail << "unable to extract icc " << m << " version from '"
-               << string (s, b, e - b) << "'";
+          if (opt)
+            return 0;
+        }
+        catch (const invalid_argument&) {}
+        catch (const out_of_range&) {}
 
-        return "";
+        error << "unable to extract icc " << m << " version from '"
+              << string (s, b, e - b) << "'";
+        throw failed ();
       };
 
-      compiler_version v;
-      v.major = next ("major");
-      v.minor = next ("minor");
-      v.patch = next (nullptr);
-      if (!v.patch.empty ())
-        v.build = next (nullptr);
+      v.major = next ("major", false);
+      v.minor = next ("minor", false);
+      v.patch = next ("patch", true);
+
+      if (vb != ve && next_word (s, e, vb, ve, '.'))
+        v.build.assign (s, vb, ve - vb);
 
       if (e != s.size ())
       {
@@ -597,10 +620,13 @@ namespace build2
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
       cstrings args {cxx.string ().c_str (), "-V"};
-      append_options (args, coptions);
+      if (coptions != nullptr)
+        append_options (args, *coptions);
       args.push_back (nullptr);
 
-      string t (run<string> (args.data (), f));
+      // The -V output is sent to STDERR.
+      //
+      string t (run<string> (args.data (), f, false));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << cxx
@@ -735,26 +761,33 @@ namespace build2
       if (b == e)
         fail << "unable to extract msvc version from '" << s << "'";
 
+      compiler_version v;
+      v.string.assign (s, b, e - b);
+
       // Split the version into components.
       //
       size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> string
+      auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
       {
-        if (next_word (s, e, vb, ve, '.'))
-          return string (s, vb, ve - vb);
+        try
+        {
+          if (next_word (s, e, vb, ve, '.'))
+            return stoull (string (s, vb, ve - vb));
+        }
+        catch (const invalid_argument&) {}
+        catch (const out_of_range&) {}
 
-        if (m != nullptr)
-          fail << "unable to extract msvc " << m << " version from '"
-               << string (s, b, e - b) << "'";
-
-        return "";
+        error << "unable to extract msvc " << m << " version from '"
+              << string (s, b, e - b) << "'";
+        throw failed ();
       };
 
-      compiler_version v;
       v.major = next ("major");
       v.minor = next ("minor");
       v.patch = next ("patch");
-      v.build = next (nullptr);
+
+      if (next_word (s, e, vb, ve, '.'))
+        v.build.assign (s, vb, ve - vb);
 
       // Continue scanning for the CPU.
       //
@@ -837,14 +870,14 @@ namespace build2
         // 14.00   80/8.0   VS2005
         // 13.10   71/7.1   VS2003
         //
-        /**/ if (v.major == "19" && v.minor == "00") arch += "14.0";
-        else if (v.major == "18" && v.minor == "00") arch += "12.0";
-        else if (v.major == "17" && v.minor == "00") arch += "11.0";
-        else if (v.major == "16" && v.minor == "00") arch += "10.0";
-        else if (v.major == "15" && v.minor == "00") arch += "9.0";
-        else if (v.major == "14" && v.minor == "00") arch += "8.0";
-        else if (v.major == "13" && v.minor == "10") arch += "7.1";
-        else fail << "unable to map msvc compiler version '" << v.string ()
+        /**/ if (v.major == 19 && v.minor == 0)  arch += "14.0";
+        else if (v.major == 18 && v.minor == 0)  arch += "12.0";
+        else if (v.major == 17 && v.minor == 0)  arch += "11.0";
+        else if (v.major == 16 && v.minor == 0)  arch += "10.0";
+        else if (v.major == 15 && v.minor == 0)  arch += "9.0";
+        else if (v.major == 14 && v.minor == 0)  arch += "8.0";
+        else if (v.major == 13 && v.minor == 10) arch += "7.1";
+        else fail << "unable to map msvc compiler version '" << v.string
                   << "' to runtime version";
       }
 
@@ -861,7 +894,7 @@ namespace build2
     }
 
     compiler_info
-    guess (const path& cxx, lookup<const value> coptions)
+    guess (const path& cxx, const strings* coptions)
     {
       string pre (pre_guess (cxx));
       guess_result gr;

@@ -62,7 +62,7 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find<string> ("config.cxx"); //@@ VAR type
+        v.find<path> ("config.cxx");
 
         v.find<strings> ("config.cxx.poptions");
         v.find<strings> ("config.cxx.coptions");
@@ -172,12 +172,12 @@ namespace build2
       //
       if (first)
       {
-        auto p (config::required (r, "config.cxx", "g++"));
+        auto p (config::required (r, "config.cxx", path ("g++")));
 
         // Figure out which compiler we are dealing with, its target, etc.
         //
-        const path& cxx (path (cast<string> (p.first))); // @@ VAR
-        compiler_info ci (guess (cxx, r["cxx.coptions"]));
+        const path& cxx (cast<path> (p.first));
+        compiler_info ci (guess (cxx, cast_null<strings> (r["cxx.coptions"])));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -188,6 +188,7 @@ namespace build2
 
           text << cxx << ":\n"
                << "  id         " << ci.id << "\n"
+               << "  version    " << ci.version.string << "\n"
                << "  major      " << ci.version.major << "\n"
                << "  minor      " << ci.version.minor << "\n"
                << "  patch      " << ci.version.patch << "\n"
@@ -201,10 +202,10 @@ namespace build2
         r.assign<string> ("cxx.id.type") = move (ci.id.type);
         r.assign<string> ("cxx.id.variant") = move (ci.id.variant);
 
-        r.assign<string> ("cxx.version") = ci.version.string ();
-        r.assign<string> ("cxx.version.major") = move (ci.version.major);
-        r.assign<string> ("cxx.version.minor") = move (ci.version.minor);
-        r.assign<string> ("cxx.version.patch") = move (ci.version.patch);
+        r.assign<string> ("cxx.version") = move (ci.version.string);
+        r.assign<uint64_t> ("cxx.version.major") = ci.version.major;
+        r.assign<uint64_t> ("cxx.version.minor") = ci.version.minor;
+        r.assign<uint64_t> ("cxx.version.patch") = ci.version.patch;
         r.assign<string> ("cxx.version.build") = move (ci.version.build);
 
         r.assign<string> ("cxx.signature") = move (ci.signature);

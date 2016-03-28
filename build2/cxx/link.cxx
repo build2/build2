@@ -123,7 +123,7 @@ namespace build2
       cstrings args;
       string std_storage;
 
-      args.push_back (cast<string> (rs["config.cxx"]).c_str ());
+      args.push_back (cast<path> (rs["config.cxx"]).string ().c_str ());
       append_options (args, bs, "cxx.coptions");
       append_std (args, bs, std_storage);
       append_options (args, bs, "cxx.loptions");
@@ -877,8 +877,8 @@ namespace build2
         // precedence.
         //
         if (auto l = t["bin.rpath"])
-          for (const string& p: cast<strings> (l))
-            sargs.push_back ("-Wl,-rpath," + p);
+          for (const dir_path& p: cast<dir_paths> (l))
+            sargs.push_back ("-Wl,-rpath," + p.string ());
 
         // Then the paths of the shared libraries we are linking to. Unless
         // this is update for install, in which case we have to do something
@@ -978,12 +978,12 @@ namespace build2
 
       if (lt == type::a)
       {
-        args[0] = cast<string> (rs["config.bin.ar"]).c_str ();
+        args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
         args.push_back (relt.string ().c_str ());
       }
       else
       {
-        args[0] = cast<string> (rs["config.cxx"]).c_str ();
+        args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
         args.push_back ("-o");
         args.push_back (relt.string ().c_str ());
       }
@@ -1048,7 +1048,9 @@ namespace build2
       if (ranlib)
       {
         const char* args[] = {
-          cast<string> (ranlib).c_str (), relt.string ().c_str (), nullptr};
+          cast<path> (ranlib).string ().c_str (),
+          relt.string ().c_str (),
+          nullptr};
 
         if (verb >= 2)
           print_process (args);

@@ -200,6 +200,15 @@ namespace build2
   template <typename T> T& cast (const lookup<value>&);
   template <typename T> const T& cast (const lookup<const value>&);
 
+  // As above but returns NULL if the value is NULL (or not defined, in
+  // case of lookup).
+  //
+  template <typename T> T* cast_null (value&);
+  template <typename T> const T* cast_null (const value&);
+
+  template <typename T> T* cast_null (const lookup<value>&);
+  template <typename T> const T* cast_null (const lookup<const value>&);
+
   // Assign value type to the value. Variable is normally only used for
   // diagnostics.
   //
@@ -367,6 +376,20 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  template <>
+  struct value_traits<uint64_t>
+  {
+    static_assert (sizeof (uint64_t) <= value::size_, "insufficient space");
+
+    static uint64_t convert (name&&, name*);
+    static bool assign (value&, uint64_t);
+    static bool append (value&, uint64_t); // ADD.
+    static name reverse (uint64_t x) {return name (to_string (x));}
+    static int compare (uint64_t, uint64_t);
+
+    static const build2::value_type value_type;
+  };
+
   // string
   //
   template <>
@@ -380,6 +403,23 @@ namespace build2
     static bool prepend (value&, string&&);
     static name reverse (const string& x) {return name (x);}
     static int compare (const string&, const string&);
+
+    static const build2::value_type value_type;
+  };
+
+  // path
+  //
+  template <>
+  struct value_traits<path>
+  {
+    static_assert (sizeof (path) <= value::size_, "insufficient space");
+
+    static path convert (name&&, name*);
+    static bool assign (value&, path&&);
+    static bool append (value&, path&&);  // operator/
+    static bool prepend (value&, path&&); // operator/
+    static name reverse (const path& x) {return name (x.string ());}
+    static int compare (const path&, const path&);
 
     static const build2::value_type value_type;
   };
