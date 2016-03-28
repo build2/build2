@@ -45,7 +45,7 @@ namespace build2
       {
         auto l (base["cxx.loaded"]);
 
-        if (!l || !cast<bool> (*l))
+        if (!l || !cast<bool> (l))
           fail (loc) << "cxx module must be loaded before cli";
       }
 
@@ -90,7 +90,7 @@ namespace build2
       {
         auto l (root["config.cli.configured"]);
 
-        if (l && !cast<bool> (*l))
+        if (l && !cast<bool> (l))
           return false;
       }
 

@@ -86,7 +86,7 @@ namespace build2
 
         if (auto l = root.vars["amalgamation"])
         {
-          const dir_path& d (cast<dir_path> (*l));
+          const dir_path& d (cast<dir_path> (l));
 
           ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;
@@ -188,7 +188,7 @@ namespace build2
       //
       if (auto l = root.vars["subprojects"])
       {
-        for (auto p: cast<subprojects> (*l))
+        for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -313,7 +313,7 @@ namespace build2
       //
       if (auto l = root.vars["subprojects"])
       {
-        for (auto p: cast<subprojects> (*l))
+        for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
 

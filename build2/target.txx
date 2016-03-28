@@ -26,7 +26,7 @@ namespace build2
     {
       // Help the user here and strip leading '.' from the extension.
       //
-      const string& e (cast<string> (*l));
+      const string& e (cast<string> (l));
       return &extension_pool.find (
         !e.empty () && e.front () == '.' ? string (e, 1) : e);
     }

@@ -147,14 +147,14 @@ namespace build2
   append_options (cstrings& args, const lookup<const value>& l)
   {
     if (l)
-      append_options (args, cast<strings> (*l));
+      append_options (args, cast<strings> (l));
   }
 
   void
   hash_options (sha256& csum, const lookup<const value>& l)
   {
     if (l)
-      hash_options (csum, cast<strings> (*l));
+      hash_options (csum, cast<strings> (l));
   }
 
   void
@@ -181,7 +181,7 @@ namespace build2
   {
     if (l)
     {
-      for (const string& s: cast<strings> (*l))
+      for (const string& s: cast<strings> (l))
       {
         if (s == option)
           return true;

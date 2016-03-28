@@ -555,7 +555,7 @@ main (int argc, char* argv[])
           //
           if (auto l = rs.vars["subprojects"])
           {
-            for (const auto& p: cast<subprojects> (*l))
+            for (const auto& p: cast<subprojects> (l))
             {
               if (out_base.sub (out_root / p.second))
                 fail << tn << " is in a subproject of " << out_root <<

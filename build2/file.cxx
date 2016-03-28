@@ -660,7 +660,7 @@ namespace build2
     if (!l)
       return;
 
-    const dir_path& d (cast<dir_path> (*l));
+    const dir_path& d (cast<dir_path> (l));
     dir_path out_root (root.out_path () / d);
     out_root.normalize ();
 
@@ -712,7 +712,7 @@ namespace build2
   {
     if (auto l = root.vars["subprojects"])
     {
-      for (const auto& p: cast<subprojects> (*l))
+      for (const auto& p: cast<subprojects> (l))
       {
         dir_path out_root (root.out_path () / p.second);
 
@@ -819,7 +819,7 @@ namespace build2
     {
       // First check the amalgamation itself.
       //
-      if (r != &iroot && cast<string> (*r->vars["project"]) == project)
+      if (r != &iroot && cast<string> (r->vars["project"]) == project)
       {
         out_root = r->out_path ();
         break;
@@ -827,7 +827,7 @@ namespace build2
 
       if (auto l = r->vars["subprojects"])
       {
-        const auto& m (cast<subprojects> (*l));
+        const auto& m (cast<subprojects> (l));
         auto i (m.find (project));
 
         if (i != m.end ())
@@ -851,7 +851,7 @@ namespace build2
 
       if (auto l = iroot[var])
       {
-        out_root = cast<dir_path> (*l);
+        out_root = cast<dir_path> (l);
 
         if (l.belongs (*global_scope)) // A value from command line.
         {
@@ -911,7 +911,7 @@ namespace build2
         //
         if (auto l = root->vars["src_root"])
         {
-          const dir_path& p (cast<dir_path> (*l));
+          const dir_path& p (cast<dir_path> (l));
 
           if (!src_root.empty () && p != src_root)
             fail (loc) << "bootstrapped src_root " << p << " does not match "
@@ -928,12 +928,12 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<string> (*root->vars["project"]) == project)
+      if (cast<string> (root->vars["project"]) == project)
         break;
 
       if (auto l = root->vars["subprojects"])
       {
-        const auto& m (cast<subprojects> (*l));
+        const auto& m (cast<subprojects> (l));
         auto i (m.find (project));
 
         if (i != m.end ())

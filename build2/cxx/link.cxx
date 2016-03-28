@@ -42,7 +42,7 @@ namespace build2
       case type::so: var = "bin.libso.lib"; break;
       }
 
-      const auto& v (cast<strings> (*t[var]));
+      const auto& v (cast<strings> (t[var]));
       return v[0] == "shared"
         ? v.size () > 1 && v[1] == "static" ? order::so_a : order::so
         : v.size () > 1 && v[1] == "shared" ? order::a_so : order::a;
@@ -52,7 +52,7 @@ namespace build2
     link_member (bin::lib& l, order lo)
     {
       bool lso (true);
-      const string& at (cast<string> (*l["bin.lib"])); // Available types.
+      const string& at (cast<string> (l["bin.lib"])); // Available types.
 
       switch (lo)
       {
@@ -92,7 +92,7 @@ namespace build2
       //
       if (auto l = bs["cxx.loptions"])
       {
-        const auto& v (cast<strings> (*l));
+        const auto& v (cast<strings> (l));
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
@@ -123,7 +123,7 @@ namespace build2
       cstrings args;
       string std_storage;
 
-      args.push_back (cast<string> (*rs["config.cxx"]).c_str ());
+      args.push_back (cast<string> (rs["config.cxx"]).c_str ());
       append_options (args, bs, "cxx.coptions");
       append_std (args, bs, std_storage);
       append_options (args, bs, "cxx.loptions");
@@ -218,7 +218,7 @@ namespace build2
         return p.target;
 
       scope& rs (*p.scope.root_scope ());
-      const string& sys (cast<string> (*rs["cxx.target.system"]));
+      const string& sys (cast<string> (rs["cxx.target.system"]));
 
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libso.
@@ -483,7 +483,7 @@ namespace build2
       path_target& t (static_cast<path_target&> (xt));
 
       scope& rs (t.root_scope ());
-      const string& sys (cast<string> (*rs["cxx.target.system"]));
+      const string& sys (cast<string> (rs["cxx.target.system"]));
 
       type lt (link_type (t));
       bool so (lt == type::so);
@@ -510,7 +510,7 @@ namespace build2
         case type::so:
           {
             auto l (t["bin.libprefix"]);
-            const char* p (l ? cast<string> (*l).c_str () : "lib");
+            const char* p (l ? cast<string> (l).c_str () : "lib");
 
             const char* e;
             if (lt == type::a)
@@ -769,7 +769,7 @@ namespace build2
       bool up (execute_prerequisites (a, t, t.mtime ()));
 
       scope& rs (t.root_scope ());
-      const string& sys (cast<string> (*rs["cxx.target.system"]));
+      const string& sys (cast<string> (rs["cxx.target.system"]));
 
       // Check/update the dependency database.
       //
@@ -793,10 +793,10 @@ namespace build2
 
         const char* rl (
           ranlib
-          ? cast<string> (*rs["bin.ranlib.checksum"]).c_str ()
+          ? cast<string> (rs["bin.ranlib.checksum"]).c_str ()
           : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 
-        if (dd.expect (cast<string> (*rs["bin.ar.checksum"])) != nullptr)
+        if (dd.expect (cast<string> (rs["bin.ar.checksum"])) != nullptr)
           l4 ([&]{trace << "ar mismatch forcing update of " << t;});
 
         if (dd.expect (rl) != nullptr)
@@ -804,7 +804,7 @@ namespace build2
       }
       else
       {
-        if (dd.expect (cast<string> (*rs["cxx.checksum"])) != nullptr)
+        if (dd.expect (cast<string> (rs["cxx.checksum"])) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
       }
 
@@ -877,7 +877,7 @@ namespace build2
         // precedence.
         //
         if (auto l = t["bin.rpath"])
-          for (const string& p: cast<strings> (*l))
+          for (const string& p: cast<strings> (l))
             sargs.push_back ("-Wl,-rpath," + p);
 
         // Then the paths of the shared libraries we are linking to. Unless
@@ -978,12 +978,12 @@ namespace build2
 
       if (lt == type::a)
       {
-        args[0] = cast<string> (*rs["config.bin.ar"]).c_str ();
+        args[0] = cast<string> (rs["config.bin.ar"]).c_str ();
         args.push_back (relt.string ().c_str ());
       }
       else
       {
-        args[0] = cast<string> (*rs["config.cxx"]).c_str ();
+        args[0] = cast<string> (rs["config.cxx"]).c_str ();
         args.push_back ("-o");
         args.push_back (relt.string ().c_str ());
       }
@@ -1048,7 +1048,7 @@ namespace build2
       if (ranlib)
       {
         const char* args[] = {
-          cast<string> (*ranlib).c_str (), relt.string ().c_str (), nullptr};
+          cast<string> (ranlib).c_str (), relt.string ().c_str (), nullptr};
 
         if (verb >= 2)
           print_process (args);

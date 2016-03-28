@@ -31,7 +31,7 @@ namespace build2
       if (!l)
         return nullptr;
 
-      const dir_path& r (cast<dir_path> (*l));
+      const dir_path& r (cast<dir_path> (l));
       return r.simple () && r.string () == "false" ? nullptr : &r;
     }
 
@@ -64,7 +64,7 @@ namespace build2
         //
         auto l (pt["install"]);
 
-        if (l && cast<dir_path> (*l).string () == "false")
+        if (l && cast<dir_path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << pt;});
           continue;
@@ -148,7 +148,7 @@ namespace build2
         // See if the user instructed us not to install it.
         //
         auto l ((*pt)["install"]);
-        if (l && cast<dir_path> (*l).string () == "false")
+        if (l && cast<dir_path> (l).string () == "false")
           continue;
 
         build2::match (a, *pt);
@@ -358,11 +358,11 @@ namespace build2
         //
         if (var != nullptr)
         {
-          if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (*l);
-          if (auto l = s[*var + ".cmd"])      r.cmd = cast<string> (*l);
-          if (auto l = s[*var + ".mode"])     r.mode = cast<string> (*l);
-          if (auto l = s[*var + ".dir_mode"]) r.dir_mode = cast<string> (*l);
-          if (auto l = s[*var + ".options"])  r.options = cast<strings> (*l);
+          if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (l);
+          if (auto l = s[*var + ".cmd"])      r.cmd = cast<string> (l);
+          if (auto l = s[*var + ".mode"])     r.mode = cast<string> (l);
+          if (auto l = s[*var + ".dir_mode"]) r.dir_mode = cast<string> (l);
+          if (auto l = s[*var + ".options"])  r.options = cast<strings> (l);
         }
 
         // Set defaults for unspecified components.
@@ -403,12 +403,12 @@ namespace build2
       //
       install_dir d (
         resolve (t.base_scope (),
-                 cast<dir_path> (*t["install"]))); // We know it's there.
+                 cast<dir_path> (t["install"]))); // We know it's there.
 
       // Override mode if one was specified.
       //
       if (auto l = t["install.mode"])
-        d.mode = cast<string> (*l);
+        d.mode = cast<string> (l);
 
       install (d, ft);
       return (r |= target_state::changed);

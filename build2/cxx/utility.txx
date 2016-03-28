@@ -14,7 +14,7 @@ namespace build2
     {
       if (auto l = t["cxx.std"])
       {
-        const string& v (cast<string> (*l));
+        const string& v (cast<string> (l));
 
         // Translate 11 to 0x and 14 to 1y for compatibility with older
         // versions of the compiler.

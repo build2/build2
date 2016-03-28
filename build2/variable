@@ -21,6 +21,7 @@ namespace build2
 {
   class value;
   struct variable;
+  template <typename> struct lookup;
 
   struct value_type
   {
@@ -185,14 +186,19 @@ namespace build2
   bool operator== (const value&, const value&);
   bool operator!= (const value&, const value&);
 
-  // Value cast.
+  // Value cast. The first three expect the value to be not NULL. The cast
+  // from lookup expects the value to aslo be defined.
   //
   // Why are these non-members? The cast is easier on the eyes and is also
   // consistent with the cast operators. The other two are for symmetry.
   //
+  //
   template <typename T> T& cast (value&);
   template <typename T> T&& cast (value&&);
   template <typename T> const T& cast (const value&);
+
+  template <typename T> T& cast (const lookup<value>&);
+  template <typename T> const T& cast (const lookup<const value>&);
 
   // Assign value type to the value. Variable is normally only used for
   // diagnostics.

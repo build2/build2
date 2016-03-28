@@ -104,6 +104,20 @@ namespace build2
   }
 
   template <typename T>
+  inline T&
+  cast (const lookup<value>& l)
+  {
+    return cast<T> (*l);
+  }
+
+  template <typename T>
+  inline const T&
+  cast (const lookup<const value>& l)
+  {
+    return cast<T> (*l);
+  }
+
+  template <typename T>
   inline void
   typify (value& v, const variable& var)
   {

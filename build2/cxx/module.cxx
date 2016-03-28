@@ -46,7 +46,7 @@ namespace build2
       {
         auto l (b["bin.loaded"]);
 
-        if (!l || !cast<bool> (*l))
+        if (!l || !cast<bool> (l))
           load_module (false, "bin", r, b, loc);
       }
 
