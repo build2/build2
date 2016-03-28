@@ -93,6 +93,16 @@ namespace build2
   bool
   bootstrap_src (scope& root);
 
+  // Return true if this scope has already been bootstrapped, that is, the
+  // following calls have already been made:
+  //
+  //   bootstrap_out()
+  //   setup_root()
+  //   bootstrap_src()
+  //
+  bool
+  bootstrapped (scope& root);
+
   // Create and bootstrap outer root scopes, if any. Loading is
   // done by load_root_pre() below.
   //

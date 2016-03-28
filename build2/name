@@ -2,21 +2,19 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+// Note: include <build2/types> instead of this file directly.
+//
+
 #ifndef BUILD2_NAME
 #define BUILD2_NAME
 
-#include <string>
-#include <vector>
-#include <iosfwd>
+// We cannot include <build2/utility> since it includes <build2/types>.
+//
 #include <utility> // move()
 
-#include <butl/path>
-
-// Note: include <build2/types> instead of this file directly.
-//
 namespace build2
 {
-  using butl::dir_path;
+  using std::move;
 
   // A name is what we operate on by default. Depending on the context,
   // it can be interpreted as a target or prerequisite name. A name
@@ -31,27 +29,29 @@ namespace build2
   //
   struct name
   {
+    const string* proj = nullptr; // Points to project_name_pool.
+    dir_path dir;
+    string type;
+    string value;
+    bool pair = false; // True if first half of a pair.
+
     name () = default;
 
-    explicit name (std::string v): value (std::move (v)) {}
-    name& operator= (std::string v) {return *this = name (std::move (v));}
+    explicit name (string v): value (move (v)) {}
+    name& operator= (string v) {return *this = name (move (v));}
 
-    explicit name (dir_path d): dir (std::move (d)) {}
-    name& operator= (dir_path d) {return *this = name (std::move (d));}
+    explicit name (dir_path d): dir (move (d)) {}
+    name& operator= (dir_path d) {return *this = name (move (d));}
 
-    name (std::string t, std::string v)
-        : type (std::move (t)), value (std::move (v)) {}
+    name (string t, string v): type (move (t)), value (move (v)) {}
 
-    name (dir_path d, std::string t, std::string v)
-        : dir (std::move (d)), type (std::move (t)), value (std::move (v)) {}
+    name (dir_path d, string t, string v)
+        : dir (move (d)), type (move (t)), value (move (v)) {}
 
     // The first argument should be from project_name_pool.
     //
-    name (const std::string* p, dir_path d, std::string t, std::string v)
-        : proj (p),
-          dir (std::move (d)),
-          type (std::move (t)),
-          value (std::move (v)) {}
+    name (const string* p, dir_path d, string t, string v)
+        : proj (p), dir (move (d)), type (move (t)), value (move (v)) {}
 
     bool
     qualified () const {return proj != nullptr;}
@@ -87,32 +87,39 @@ namespace build2
         untyped () && !dir.empty () && value.empty ();
     }
 
-    const std::string* proj = nullptr; // Points to project_name_pool.
-    dir_path dir;
-    std::string type;
-    std::string value;
-    bool pair = false; // True if first half of a pair.
+    int
+    compare (const name&) const;
+
+    // The result is an unqualified, simple empty name.
+    //
+    void
+    clear ();
   };
 
   inline bool
-  operator== (const name& x, const name& y)
-  {
-    return x.proj == y.proj && // Pooled, so can just compare pointers.
-      x.type == y.type &&
-      x.dir == y.dir &&
-      x.value == y.value;
-  }
+  operator== (const name& x, const name& y) {return x.compare (y) == 0;}
 
   inline bool
   operator!= (const name& x, const name& y) {return !(x == y);}
 
-  typedef std::vector<name> names;
+  inline bool
+  operator< (const name& x, const name& y) {return x.compare (y) < 0;}
 
-  std::ostream&
-  operator<< (std::ostream&, const name&);
+  ostream&
+  operator<< (ostream&, const name&);
 
-  std::ostream&
-  operator<< (std::ostream&, const names&);
+  // Vector of names.
+  //
+  using names = vector<name>;
+  using names_view = vector_view<const name>;
+
+  ostream&
+  operator<< (ostream&, const names_view&);
+
+  inline ostream&
+  operator<< (ostream& os, const names& n) {return os << names_view (n);}
 }
+
+#include <build2/name.ixx>
 
 #endif // BUILD2_NAME

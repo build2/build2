@@ -154,7 +154,7 @@ namespace build2
       if (first)
       {
         bool s (config::specified (r, "config.install"));
-        const string& n (as<string> (*r["project"]));
+        const string& n (cast<string> (*r["project"]));
 
         set_dir (s, r, "root",      "",      "", "755", "install");
         set_dir (s, r, "data_root", "root",  "644");

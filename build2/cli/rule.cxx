@@ -244,7 +244,7 @@ namespace build2
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cli (as<string> (*rs["config.cli"]));
+      const string& cli (cast<string> (*rs["config.cli"]));
 
       cstrings args {cli.c_str ()};
 

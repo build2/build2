@@ -86,7 +86,7 @@ namespace build2
 
         if (auto l = root.vars["amalgamation"])
         {
-          const dir_path& d (as<dir_path> (*l));
+          const dir_path& d (cast<dir_path> (*l));
 
           ofs << "# Base configuration inherited from " << d << endl
               << "#" << endl;
@@ -95,6 +95,8 @@ namespace build2
         // Save all the variables in the config namespace that are set
         // on the project's root scope.
         //
+        names storage;
+
         for (auto p (root.vars.find_namespace ("config"));
              p.first != p.second;
              ++p.first)
@@ -115,7 +117,7 @@ namespace build2
           if (n.size () > 11 &&
               n.compare (n.size () - 11, 11, ".configured") == 0)
           {
-            if (val == nullptr || as<bool> (val))
+            if (val == nullptr || cast<bool> (val))
               continue;
           }
 
@@ -132,14 +134,11 @@ namespace build2
 
           if (val)
           {
-            ofs << var.name << " = " << val.data_ << endl;
-            //text << var.name << " = " << val.data_;
+            storage.clear ();
+            ofs << var.name << " = " << reverse (val, storage) << endl;
           }
           else
-          {
             ofs << var.name << " = #[null]" << endl; // @@ TODO: [null]
-            //text << var.name << " = [null]";
-          }
         }
       }
       catch (const ofstream::failure&)
@@ -189,7 +188,7 @@ namespace build2
       //
       if (auto l = root.vars["subprojects"])
       {
-        for (auto p: as<subprojects> (*l))
+        for (auto p: cast<subprojects> (*l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -314,7 +313,7 @@ namespace build2
       //
       if (auto l = root.vars["subprojects"])
       {
-        for (auto p: as<subprojects> (*l))
+        for (auto p: cast<subprojects> (*l))
         {
           const dir_path& pd (p.second);
 
@@ -325,16 +324,19 @@ namespace build2
           // The same logic for src_root as in create_bootstrap_inner().
           //
           scope& nroot (create_root (out_nroot, dir_path ()));
-          bootstrap_out (nroot);
 
-          value& val (nroot.assign ("src_root"));
+          if (!bootstrapped (nroot))
+          {
+            bootstrap_out (nroot);
 
-          if (!val)
-            val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
+            value& val (nroot.assign ("src_root"));
 
-          setup_root (nroot);
+            if (!val)
+              val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
 
-          bootstrap_src (nroot);
+            setup_root (nroot);
+            bootstrap_src (nroot);
+          }
 
           m = disfigure_project (a, nroot) || m;
 

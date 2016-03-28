@@ -43,7 +43,7 @@ namespace build2
 
       if (v && !v.empty ())
       {
-        dir_path& d (as<dir_path> (v));
+        dir_path& d (cast<dir_path> (v));
 
         if (d.relative ())
         {

@@ -154,7 +154,7 @@ namespace build2
         v = out_root;
       else
       {
-        const dir_path& p (as<dir_path> (v));
+        const dir_path& p (cast<dir_path> (v));
 
         if (p != out_root)
           fail << "new out_root " << out_root << " does not match "
@@ -170,7 +170,7 @@ namespace build2
         v = src_root;
       else
       {
-        const dir_path& p (as<dir_path> (v));
+        const dir_path& p (cast<dir_path> (v));
 
         if (p != src_root)
           fail << "new src_root " << src_root << " does not match "
@@ -190,7 +190,8 @@ namespace build2
     // Register and set src_path.
     //
     if (s.src_path_ == nullptr)
-      s.src_path_ = &scopes.insert (as<dir_path> (v), &s, false, true)->first;
+      s.src_path_ = &scopes.insert (
+        cast<dir_path> (v), &s, false, true)->first;
   }
 
   scope&
@@ -227,7 +228,7 @@ namespace build2
       if (!v)
         v = out_base;
       else
-        assert (as<dir_path> (v) == out_base);
+        assert (cast<dir_path> (v) == out_base);
     }
 
     {
@@ -236,7 +237,7 @@ namespace build2
       if (!v)
         v = src_base;
       else
-        assert (as<dir_path> (v) == src_base);
+        assert (cast<dir_path> (v) == src_base);
     }
 
     return s;
@@ -330,7 +331,7 @@ namespace build2
       else
       {
         src_root_v = extract_variable (f, "src_root");
-        src_root = &as<dir_path> (src_root_v);
+        src_root = &cast<dir_path> (src_root_v);
         l5 ([&]{trace << "extracted src_root " << *src_root << " for "
                       << out_root;});
       }
@@ -339,7 +340,7 @@ namespace build2
     string name;
     {
       value v (extract_variable (*src_root / bootstrap_file, "project"));
-      name = move (as<string> (v));
+      name = cast<string> (move (v));
     }
 
     l5 ([&]{trace << "extracted project name '" << name << "' for "
@@ -486,7 +487,7 @@ namespace build2
           }
           else
           {
-            const dir_path& vd (as<dir_path> (v));
+            const dir_path& vd (cast<dir_path> (v));
 
             if (vd != rd)
             {
@@ -523,16 +524,15 @@ namespace build2
     }
 
     // See if we have any subprojects. In a sense, this is the other
-    // side/direction of the amalgamation logic above. Here, the
-    // subprojects variable may or may not be set by the user (in
-    // bootstrap.build) or by an earlier call to this function for
-    // the same scope. When set by the user, the empty special value
-    // means that there are no subproject and none should be searched
-    // for (and which we convert to NULL below). Otherwise, it is a
-    // list of directory[=project] pairs. The directory must be
-    // relative to our out_root. If the project name is not specified,
-    // then we have to figure it out. When subprojects are calculated,
-    // the NULL value indicates that we found no subprojects.
+    // side/direction of the amalgamation logic above. Here, the subprojects
+    // variable may or may not be set by the user (in bootstrap.build) or by
+    // an earlier call to this function for the same scope. When set by the
+    // user, the empty special value means that there are no subproject and
+    // none should be searched for (and which we convert to NULL below).
+    // Otherwise, it is a list of [project@]directory pairs. The directory
+    // must be relative to our out_root. If the project name is not specified,
+    // then we have to figure it out. When subprojects are calculated, the
+    // NULL value indicates that we found no subprojects.
     //
     {
       const variable& var (var_pool.find ("subprojects"));
@@ -567,58 +567,89 @@ namespace build2
           v = nullptr;
         else
         {
-          // Pre-scan the value and convert it to the "canonical" form,
+          // Scan the (untyped) value and convert it to the "canonical" form,
           // that is, a list of name@dir pairs.
           //
-          for (auto i (v.data_.begin ()); i != v.data_.end (); ++i)
+          subprojects sps;
+          names& ns (cast<names> (v));
+
+          for (auto i (ns.begin ()); i != ns.end (); ++i)
           {
+            // Project name.
+            //
+            string n;
             if (i->pair)
             {
-              // Project name.
-              //
-              if (!assign<string> (*i) || as<string> (*i).empty ())
+              try
+              {
+                n = convert<string> (move (*i));
+
+                if (n.empty ())
+                  fail << "empty project name in variable subprojects";
+              }
+              catch (const invalid_argument&)
+              {
                 fail << "expected project name instead of '" << *i << "' in "
-                     << "the subprojects variable";
+                     << "variable subprojects";
+              }
 
               ++i; // Got to have the second half of the pair.
             }
 
-            if (!assign<dir_path> (*i))
-              fail << "expected directory instead of '" << *i << "' in the "
-                   << "subprojects variable";
+            // Directory.
+            //
+            dir_path d;
+            try
+            {
+              d = convert<dir_path> (move (*i));
 
-            auto& d (as<dir_path> (*i));
+              if (d.empty ())
+                fail << "empty directory in variable subprojects";
+            }
+            catch (const invalid_argument&)
+            {
+              fail << "expected directory instead of '" << *i << "' in "
+                   << "variable subprojects";
+            }
 
             // Figure out the project name if the user didn't specify one.
             //
-            if (!i->pair)
+            if (n.empty ())
             {
               // Pass fallback src_root since this is a subproject that
               // was specified by the user so it is most likely in our
               // src.
               //
-              string n (find_project_name (out_root / d, src_root / d));
+              n = find_project_name (out_root / d, src_root / d);
 
               // See find_subprojects() for details on unnamed projects.
               //
               if (n.empty ())
                 n = d.posix_string () + '/';
-
-              i = v.data_.emplace (i, move (n));
-
-              i->pair = true;
-              ++i;
             }
+
+            sps.emplace (move (n), move (d));
           }
 
-          // Make it of the map type.
+          // Change the value to the typed map.
           //
-          assign<subprojects> (v, var);
+          v = move (sps);
         }
       }
     }
 
     return r;
+  }
+
+  bool
+  bootstrapped (scope& root)
+  {
+    // Use the subprojects variable set by bootstrap_src() as an indicator.
+    // It should either be NULL or typed (so we assume that the user will
+    // never set it to NULL).
+    //
+    auto l (root.vars["subprojects"]);
+    return l.defined () && (l->null () || l->type != nullptr);
   }
 
   void
@@ -629,7 +660,7 @@ namespace build2
     if (!l)
       return;
 
-    const dir_path& d (as<dir_path> (*l));
+    const dir_path& d (cast<dir_path> (*l));
     dir_path out_root (root.out_path () / d);
     out_root.normalize ();
 
@@ -645,25 +676,29 @@ namespace build2
     // by #1 seems reasonable.
     //
     scope& rs (create_root (out_root, dir_path ()));
-    bootstrap_out (rs); // #3 happens here, if at all.
 
-    value& v (rs.assign ("src_root"));
-
-    if (!v)
+    if (!bootstrapped (rs))
     {
-      if (is_src_root (out_root)) // #2
-        v = out_root;
-      else // #1
+      bootstrap_out (rs); // #3 happens here, if at all.
+
+      value& v (rs.assign ("src_root"));
+
+      if (!v)
       {
-        dir_path src_root (root.src_path () / d);
-        src_root.normalize ();
-        v = move (src_root);
+        if (is_src_root (out_root)) // #2
+          v = out_root;
+        else // #1
+        {
+          dir_path src_root (root.src_path () / d);
+          src_root.normalize ();
+          v = move (src_root);
+        }
       }
+
+      setup_root (rs);
+      bootstrap_src (rs);
     }
 
-    setup_root (rs);
-
-    bootstrap_src (rs);
     create_bootstrap_outer (rs);
 
     // Check if we are strongly amalgamated by this outer root scope.
@@ -677,12 +712,9 @@ namespace build2
   {
     if (auto l = root.vars["subprojects"])
     {
-      for (const name& n: *l)
+      for (const auto& p: cast<subprojects> (*l))
       {
-        if (n.pair)
-          continue; // Skip project names.
-
-        dir_path out_root (root.out_path () / n.dir);
+        dir_path out_root (root.out_path () / p.second);
 
         if (!out_base.sub (out_root))
           continue;
@@ -690,18 +722,21 @@ namespace build2
         // The same logic to src_root as in create_bootstrap_outer().
         //
         scope& rs (create_root (out_root, dir_path ()));
-        bootstrap_out (rs);
 
-        value& v (rs.assign ("src_root"));
+        if (!bootstrapped (rs))
+        {
+          bootstrap_out (rs);
 
-        if (!v)
-          v = is_src_root (out_root)
-            ? out_root
-            : (root.src_path () / n.dir);
+          value& v (rs.assign ("src_root"));
 
-        setup_root (rs);
+          if (!v)
+            v = is_src_root (out_root)
+              ? out_root
+              : (root.src_path () / p.second);
 
-        bootstrap_src (rs);
+          setup_root (rs);
+          bootstrap_src (rs);
+        }
 
         // Check if we strongly amalgamated this inner root scope.
         //
@@ -784,7 +819,7 @@ namespace build2
     {
       // First check the amalgamation itself.
       //
-      if (r != &iroot && as<string> (*r->vars["project"]) == project)
+      if (r != &iroot && cast<string> (*r->vars["project"]) == project)
       {
         out_root = r->out_path ();
         break;
@@ -792,7 +827,7 @@ namespace build2
 
       if (auto l = r->vars["subprojects"])
       {
-        const auto& m (as<subprojects> (*l));
+        const auto& m (cast<subprojects> (*l));
         auto i (m.find (project));
 
         if (i != m.end ())
@@ -812,11 +847,11 @@ namespace build2
     if (out_root.empty ())
     {
       const variable& var (
-        var_pool.find ("config.import." + project, dir_path_type));
+        var_pool.find<dir_path> ("config.import." + project));
 
       if (auto l = iroot[var])
       {
-        out_root = as<dir_path> (*l);
+        out_root = cast<dir_path> (*l);
 
         if (l.belongs (*global_scope)) // A value from command line.
         {
@@ -837,7 +872,7 @@ namespace build2
           //
           // @@ CMDVAR
           //
-          dir_path& d (as<dir_path> (const_cast<value&> (*l)));
+          dir_path& d (cast<dir_path> (const_cast<value&> (*l)));
           if (d != out_root)
             d = out_root;
         }
@@ -868,34 +903,37 @@ namespace build2
       src_root = is_src_root (out_root) ? out_root : dir_path ();
       root = &create_root (out_root, src_root);
 
-      bootstrap_out (*root);
-
-      // Check that the bootstrap process set src_root.
-      //
-      if (auto l = root->vars["src_root"])
+      if (!bootstrapped (*root))
       {
-        const dir_path& p (as<dir_path> (*l));
+        bootstrap_out (*root);
 
-        if (!src_root.empty () && p != src_root)
-          fail (loc) << "bootstrapped src_root " << p << " does not match "
-                     << "discovered " << src_root;
+        // Check that the bootstrap process set src_root.
+        //
+        if (auto l = root->vars["src_root"])
+        {
+          const dir_path& p (cast<dir_path> (*l));
+
+          if (!src_root.empty () && p != src_root)
+            fail (loc) << "bootstrapped src_root " << p << " does not match "
+                       << "discovered " << src_root;
+        }
+        else
+          fail (loc) << "unable to determine src_root for imported "
+                     << project <<
+            info << "consider configuring " << out_root;
+
+        setup_root (*root);
+        bootstrap_src (*root);
       }
-      else
-        fail (loc) << "unable to determine src_root for imported "
-                   << project <<
-          info << "consider configuring " << out_root;
-
-      setup_root (*root);
-      bootstrap_src (*root);
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (as<string> (*root->vars["project"]) == project)
+      if (cast<string> (*root->vars["project"]) == project)
         break;
 
       if (auto l = root->vars["subprojects"])
       {
-        const auto& m (as<subprojects> (*l));
+        const auto& m (cast<subprojects> (*l));
         auto i (m.find (project));
 
         if (i != m.end ())

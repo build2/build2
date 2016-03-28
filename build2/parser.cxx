@@ -1062,14 +1062,21 @@ namespace build2
           const location nsl (get_location (t, &path_));
           names_type ns (names (t, tt));
 
-          // Should evaluate to true or false.
+          // Should evaluate to 'true' or 'false'.
           //
-          if (ns.size () != 1 || !assign<bool> (ns[0]))
+          try
+          {
+            if (ns.size () != 1)
+              throw invalid_argument (string ());
+
+            bool e (convert<bool> (move (ns[0])));
+            take = (k.back () == '!' ? !e : e);
+          }
+          catch (const invalid_argument&)
+          {
             fail (nsl) << "expected " << k << "-expression to evaluate to "
                        << "'true' or 'false' instead of '" << ns << "'";
-
-          bool e (ns[0].value == "true");
-          take = (k.back () == '!' ? !e : e);
+          }
         }
       }
       else
@@ -1574,8 +1581,8 @@ namespace build2
         // pretty quickly end up with a list of names that we need
         // to splice into the result.
         //
-        names_type lv_data;
-        const names_type* plv;
+        names_type lv_storage;
+        names_view lv;
 
         location loc;
         const char* what; // Variable or evaluation context.
@@ -1630,10 +1637,10 @@ namespace build2
 
             tt = peek ();
 
-            if (lv_data.empty ())
+            if (lv_storage.empty ())
               continue;
 
-            plv = &lv_data;
+            lv = lv_storage;
             what = "function call";
           }
           else
@@ -1660,27 +1667,26 @@ namespace build2
             if (!l || l->empty ())
               continue;
 
-            plv = &l->data_;
+            lv = reverse (*l, lv_storage);
             what = "variable expansion";
           }
         }
         else
         {
           loc = get_location (t, &path_);
-          lv_data = eval (t, tt);
+          lv_storage = eval (t, tt);
 
           tt = peek ();
 
-          if (lv_data.empty ())
+          if (lv_storage.empty ())
             continue;
 
-          plv = &lv_data;
+          lv = lv_storage;
           what = "context evaluation";
         }
 
-        // @@ Could move if (lv == &lv_data).
+        // @@ Could move if lv is lv_storage.
         //
-        const names_type& lv (*plv);
 
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated

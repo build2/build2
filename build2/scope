@@ -141,10 +141,7 @@ namespace build2
     assign (const variable& var) {return vars.assign (var).first.get ();}
 
     value&
-    assign (const string& name, const build2::value_type* type = nullptr)
-    {
-      return vars.assign (name, type).first.get ();
-    }
+    assign (const string& name) {return vars.assign (name).first.get ();}
 
     template <typename T>
     value&

@@ -4,6 +4,8 @@
 
 #include <build2/variable>
 
+#include <cstring> // memcmp()
+
 #include <build2/diagnostics>
 
 using namespace std;
@@ -12,23 +14,50 @@ namespace build2
 {
   // value
   //
-  void
-  assign (value& v, const value_type* t, const variable& var)
+  value& value::
+  operator= (nullptr_t)
   {
-    if (v.type == nullptr)
+    if (!null ())
     {
-      v.type = t;
+      if (type == nullptr)
+        as<names> ().~names ();
+      else if (type->dtor != nullptr)
+        type->dtor (*this);
 
-      if (v && t->assign != nullptr)
-        v.state_ = t->assign (v.data_, var)
-          ? value::state_type::filled
-          : value::state_type::empty;
+      state = value_state::null;
     }
-    else
-      fail << "variable '" << var.name << "' type mismatch" <<
-        info << "value '" << v.data_ << "' is " << v.type->name <<
-        info << (t == var.type ? "variable" : "new type") << " is "
-           << (var.type != nullptr ? var.type->name : "untyped");
+
+    return *this;
+  }
+
+  value::
+  value (value&& v)
+      : type (v.type), state (v.state)
+  {
+    if (!null ())
+    {
+      if (type == nullptr)
+        as<names> () = move (v).as<names> ();
+      else if (type->copy_ctor != nullptr)
+        type->copy_ctor (*this, v, true);
+      else
+        data_ = v.data_; // Copy as POD.
+    }
+  }
+
+  value::
+  value (const value& v)
+      : type (v.type), state (v.state)
+  {
+    if (!null ())
+    {
+      if (type == nullptr)
+        as<names> () = v.as<names> ();
+      else if (type->copy_ctor != nullptr)
+        type->copy_ctor (*this, v, false);
+      else
+        data_ = v.data_; // Copy as POD.
+    }
   }
 
   value& value::
@@ -36,152 +65,264 @@ namespace build2
   {
     assert (type == nullptr || type == v.type);
 
-    // Since the types are the same, we don't need to call
-    // the callbacks.
-    //
-    type = v.type;
-    state_ = v.state_;
-    data_ = move (v.data_);
+    if (this != &v)
+    {
+      // Prepare the receiving value.
+      //
+      if (type == nullptr && v.type != nullptr)
+      {
+        if (!null ())
+          *this = nullptr;
+
+        type = v.type;
+      }
+
+      // Now our types are the same. If the receiving value is NULL, then call
+      // copy_ctor() instead of copy_assign().
+      //
+      if (type == nullptr)
+        as<names> () = move (v).as<names> ();
+      else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+        f (*this, v, true);
+      else
+        data_ = v.data_; // Assign as POD.
+
+      state = v.state;
+    }
 
     return *this;
   }
 
   value& value::
-  append (value v, const variable& var)
+  operator= (const value& v)
   {
-    assert (type == v.type);
-    append (move (v.data_), var);
-    return *this;
-  }
+    assert (type == nullptr || type == v.type);
 
-  value& value::
-  prepend (value v, const variable& var)
-  {
-    assert (type == v.type);
-    prepend (move (v.data_), var);
+    if (this != &v)
+    {
+      // Prepare the receiving value.
+      //
+      if (type == nullptr && v.type != nullptr)
+      {
+        if (!null ())
+        {
+          reinterpret_cast<names&> (data_).~names ();
+          state = value_state::null;
+        }
+
+        type = v.type;
+      }
+
+      // Now our types are the same. If the receiving value is NULL, then call
+      // copy_ctor() instead of copy_assign().
+      //
+      if (type == nullptr)
+        as<names> () = v.as<names> ();
+      else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+        f (*this, v, false);
+      else
+        data_ = v.data_; // Assign as POD.
+
+      state = v.state;
+    }
+
     return *this;
   }
 
   void value::
-  append (names v, const variable& var)
+  assign (names&& ns, const variable& var)
   {
-    // Treat append to NULL as assign.
-    //
-    if (!null () && type != nullptr && type->append != nullptr)
+    assert (type == nullptr || type->assign != nullptr);
+
+    bool r;
+
+    if (type == nullptr)
     {
-      state_ = type->append (data_, move (v), var)
-        ? state_type::filled
-        : state_type::empty;
-      return;
+      names* p;
+
+      if (null ())
+        p = new (&data_) names (move (ns));
+      else
+      {
+        p = &as<names> ();
+        *p = move (ns);
+      }
+
+      r = !p->empty ();
     }
-
-    if (data_.empty ())
-      data_ = move (v);
     else
-      data_.insert (data_.end (),
-                    make_move_iterator (v.begin ()),
-                    make_move_iterator (v.end ()));
+      r = type->assign (*this, move (ns), var);
 
-    state_ = (type != nullptr && type->assign != nullptr
-              ? type->assign (data_, var)
-              : !data_.empty ())
-      ? state_type::filled
-      : state_type::empty;
+    state = r ? value_state::filled : value_state::empty;
   }
 
   void value::
-  prepend (names v, const variable& var)
+  append (names&& ns, const variable& var)
   {
-    // Reduce to append.
-    //
-    if (!null () && type != nullptr && type->append != nullptr)
-    {
-      state_ = type->append (v, move (data_), var)
-        ? state_type::filled
-        : state_type::empty;
-      swap (data_, v);
-      return;
-    }
+    bool r;
 
-    if (data_.empty ())
-      data_ = move (v);
+    if (type == nullptr)
+    {
+      names* p;
+
+      if (null ())
+        p = new (&data_) names (move (ns));
+      else
+      {
+        p = &as<names> ();
+
+        if (p->empty ())
+          *p = move (ns);
+        else if (!ns.empty ())
+        {
+          p->insert (p->end (),
+                     make_move_iterator (ns.begin ()),
+                     make_move_iterator (ns.end ()));
+        }
+      }
+
+      r = !p->empty ();
+    }
     else
     {
-      v.insert (v.end (),
-                make_move_iterator (data_.begin ()),
-                make_move_iterator (data_.end ()));
-      swap (data_, v);
+      if (type->append == nullptr)
+        fail << type->name << " value in variable " << var.name
+             << " cannot be appended to";
+
+      r = type->append (*this, move (ns), var);
     }
 
-    state_ = (type != nullptr && type->assign != nullptr
-              ? type->assign (data_, var)
-              : !data_.empty ())
-      ? state_type::filled
-      : state_type::empty;
+    state = r ? value_state::filled : value_state::empty;
+  }
+
+  void value::
+  prepend (names&& ns, const variable& var)
+  {
+    bool r;
+
+    if (type == nullptr)
+    {
+      names* p;
+
+      if (null ())
+        p = new (&data_) names (move (ns));
+      else
+      {
+        p = &as<names> ();
+
+        if (p->empty ())
+          *p = move (ns);
+        else if (!ns.empty ())
+        {
+          ns.insert (ns.end (),
+                     make_move_iterator (p->begin ()),
+                     make_move_iterator (p->end ()));
+          p->swap (ns);
+        }
+      }
+
+      r = !p->empty ();
+    }
+    else
+    {
+      if (type->prepend == nullptr)
+        fail << type->name << " value in variable " << var.name
+             << " cannot be prepended to";
+
+      r = type->prepend (*this, move (ns), var);
+    }
+
+    state = r ? value_state::filled : value_state::empty;
+  }
+
+  bool
+  operator== (const value& x, const value& y)
+  {
+    assert (x.type == y.type);
+
+    if (x.state != y.state)
+      return false;
+
+    if (x.null ())
+      return true;
+
+    if (x.type == nullptr)
+      return x.as<names> () == y.as<names> ();
+
+    if (x.type->compare == nullptr)
+      return memcmp (&x.data_, &y.data_, x.type->size) == 0;
+
+    return x.type->compare (x, y) == 0;
+  }
+
+  void
+  typify (value& v, const value_type& t, const variable& var)
+  {
+    if (v.type == nullptr)
+    {
+      if (!v.null ())
+      {
+        // Note: the order in which we do things here is important.
+        //
+        names ns (move (v).as<names> ());
+        v = nullptr;
+        v.type = &t;
+        v.assign (move (ns), var);
+      }
+      else
+        v.type = &t;
+    }
+    else if (v.type != &t)
+    {
+      fail << "variable " << var.name << " type mismatch" <<
+        info << "value type is " << v.type->name <<
+        info << (&t == var.type ? "variable" : "new") << " type is " << t.name;
+    }
   }
 
   // bool value
   //
   bool value_traits<bool>::
-  assign (name& n, name* r)
+  convert (name&& n, name* r)
   {
     if (r == nullptr && n.simple ())
     {
       const string& s (n.value);
 
-      if (s == "true" || s == "false")
+      if (s == "true")
         return true;
+
+      if (s == "false")
+        return false;
+
+      // Fall through.
     }
 
-    return false;
-  }
-
-  static bool
-  bool_assign (names& v, const variable& var)
-  {
-    // Verify the value is either "true" or "false".
-    //
-    if (v.size () == 1)
-    {
-      name& n (v.front ());
-
-      if (assign<bool> (n))
-        return true;
-    }
-
-    fail << "invalid bool variable '" << var.name << "' value '" << v << "'";
-    return false;
-  }
-
-  static bool
-  bool_append (names& v, names a, const variable& var)
-  {
-    // Translate append to OR.
-    //
-    bool_assign (a, var); // Verify "true" or "false".
-
-    if (a.front ().value[0] == 't' && v.front ().value[0] == 'f')
-      v = move (a);
-
-    return true;
+    throw invalid_argument (string ());
   }
 
   const value_type value_traits<bool>::value_type
   {
     "bool",
-    &bool_assign,
-    &bool_append
+    sizeof (bool),
+    nullptr,                      // No dtor (POD).
+    nullptr,                      // No copy_ctor (POD).
+    nullptr,                      // No copy_assign (POD).
+    &simple_assign<bool, false>,  // No empty value.
+    &simple_append<bool, false>,
+    &simple_append<bool, false>,  // Prepend same as append.
+    &simple_reverse<bool>,
+    nullptr,              // No cast (cast data_ directly).
+    nullptr               // No compare (compare as POD).
   };
-
-  const value_type* bool_type = &value_traits<bool>::value_type;
 
   // string value
   //
-  bool value_traits<string>::
-  assign (name& n, name* r)
+  string value_traits<string>::
+  convert (name&& n, name* r)
   {
     // The goal is to reverse the name into its original representation. The
-    // code is a bit convoluted because we try to avoid extra allocation for
+    // code is a bit convoluted because we try to avoid extra allocations for
     // the common cases (unqualified, unpaired simple name or directory).
     //
 
@@ -189,215 +330,194 @@ namespace build2
     //
     if (!(n.simple (true) || n.directory (true)) ||
         !(r == nullptr || r->simple (true) || r->directory (true)))
-      return false;
+      throw invalid_argument (string ());
+
+    string s;
 
     if (n.directory (true))
     {
-      n.value = move (n.dir).string (); // Move string out of path.
+      s = move (n.dir).string (); // Move string out of path.
 
       // Add / back to the end of the path unless it is already there. Note
       // that the string cannot be empty (n.directory () would have been
       // false).
       //
-      if (!dir_path::traits::is_separator (n.value[n.value.size () - 1]))
-        n.value += '/';
+      if (!dir_path::traits::is_separator (s[s.size () - 1]))
+        s += '/';
     }
+    else
+      s.swap (n.value);
 
     // Convert project qualification to its string representation.
     //
     if (n.qualified ())
     {
-      string s (*n.proj);
-      s += '%';
-      s += n.value;
-      s.swap (n.value);
+      string p (*n.proj);
+      p += '%';
+      p += s;
+      p.swap (s);
     }
 
     // The same for the RHS of a pair, if we have one.
     //
     if (r != nullptr)
     {
-      n.value += '@';
+      s += '@';
 
       if (r->qualified ())
       {
-        n.value += *r->proj;
-        n.value += '%';
+        s += *r->proj;
+        s += '%';
       }
 
       if (r->directory (true))
       {
-        n.value += r->dir.string ();
+        s += r->dir.string ();
 
-        if (!dir_path::traits::is_separator (n.value[n.value.size () - 1]))
-          n.value += '/';
+        if (!dir_path::traits::is_separator (s[s.size () - 1]))
+          s += '/';
       }
       else
-        n.value += r->value;
+        s += r->value;
     }
 
-    return true;
-  }
-
-  static bool
-  string_assign (names& v, const variable& var)
-  {
-    // Verify/convert the value is/to a single simple name.
-    //
-    if (v.empty ())
-    {
-      v.emplace_back (name ()); // Canonical empty string representation.
-      return false;
-    }
-    else if (v.size () == 1)
-    {
-      name& n (v.front ());
-
-      if (assign<string> (n))
-        return !n.value.empty ();
-    }
-
-    fail << "invalid string variable '" << var.name << "' value '" << v << "'";
-    return false;
-  }
-
-  static bool
-  string_append (names& v, names a, const variable& var)
-  {
-    // Translate append to string concatenation.
-    //
-    string_assign (a, var); // Verify/convert value is/to string.
-
-    if (v.front ().value.empty ())
-      v = move (a);
-    else
-      v.front ().value += a.front ().value;
-
-    return !v.front ().value.empty ();
+    return s;
   }
 
   const value_type value_traits<string>::value_type
   {
     "string",
-    &string_assign,
-    &string_append
+    sizeof (string),
+    &default_dtor<string>,
+    &default_copy_ctor<string>,
+    &default_copy_assign<string>,
+    &simple_assign<string, true>, // Allow empty strings.
+    &simple_append<string, true>,
+    &simple_prepend<string, true>,
+    &simple_reverse<string>,
+    nullptr,                      // No cast (cast data_ directly).
+    &simple_compare<string>
   };
-
-  const value_type* string_type = &value_traits<string>::value_type;
 
   // dir_path value
   //
-  bool value_traits<dir_path>::
-  assign (name& n, name* r)
+  dir_path value_traits<dir_path>::
+  convert (name&& n, name* r)
   {
-    if (r != nullptr)
-      return false;
-
-    if (n.directory ())
-      return true;
-
-    if (n.simple ())
+    if (r == nullptr)
     {
-      try
+      if (n.directory ())
+        return move (n.dir);
+
+      if (n.simple ())
       {
-        n.dir = n.empty () ? dir_path () : dir_path (move (n.value));
-        n.value.clear ();
-        return true;
+        try
+        {
+          return dir_path (move (n.value));
+        }
+        catch (const invalid_path&) {} // Fall through.
       }
-      catch (const invalid_path&) {} // Fall through.
+
+      // Fall through.
     }
 
-    return false;
-  }
-
-  static bool
-  dir_path_assign (names& v, const variable& var)
-  {
-    // Verify/convert the value is/to a single directory name.
-    //
-    if (v.empty ())
-    {
-      v.emplace_back (dir_path ()); // Canonical empty path representation.
-      return false;
-    }
-    else if (v.size () == 1)
-    {
-      name& n (v.front ());
-
-      if (assign<dir_path> (n))
-        return !n.dir.empty ();
-    }
-
-    fail << "invalid dir_path variable '" << var.name << "' "
-         << "value '" << v << "'";
-    return false;
-  }
-
-  static bool
-  dir_path_append (names& v, names a, const variable& var)
-  {
-    // Translate append to path concatenation.
-    //
-    dir_path_assign (a, var); // Verify/convert value is/to dir_path.
-
-    dir_path& d (a.front ().dir);
-    if (d.relative ())
-      return !(v.front ().dir /= d).empty ();
-    else
-      fail << "append of absolute path '" << d << "' to dir_path variable "
-           << var.name;
-
-    return false;
+    throw invalid_argument (string ());
   }
 
   const value_type value_traits<dir_path>::value_type
   {
     "dir_path",
-    &dir_path_assign,
-    &dir_path_append
+    sizeof (dir_path),
+    &default_dtor<dir_path>,
+    &default_copy_ctor<dir_path>,
+    &default_copy_assign<dir_path>,
+    &simple_assign<dir_path, true>, // Allow empty paths.
+    &simple_append<dir_path, true>,
+    &simple_prepend<dir_path, true>,
+    &simple_reverse<dir_path>,
+    nullptr,                        // No cast (cast data_ directly).
+    &simple_compare<dir_path>
   };
-
-  const value_type* dir_path_type = &value_traits<dir_path>::value_type;
 
   // name value
   //
-  static bool
-  name_assign (names& v, const variable& var)
+  name value_traits<name>::
+  convert (name&& n, name* r)
   {
-    // Verify the value is a single name.
-    //
-    if (v.size () == 1)
-      return v.front ().empty ();
+    if (r != nullptr)
+      throw invalid_argument (string ());
 
-    fail << "invalid string variable '" << var.name << "' value '" << v << "'";
-    return false;
+    return move (n);
   }
 
-  static bool
-  name_append (names&, names, const variable& var)
+  static names_view
+  name_reverse (const value& v, names&)
   {
-    fail << "append to name variable '" << var.name << "'";
-    return false;
+    return names_view (&v.as<name> (), 1);
   }
 
   const value_type value_traits<name>::value_type
   {
     "name",
-    &name_assign,
-    &name_append
+    sizeof (name),
+    &default_dtor<name>,
+    &default_copy_ctor<name>,
+    &default_copy_assign<name>,
+    &simple_assign<name, true>, // Allow empty names.
+    nullptr,                    // Append not supported.
+    nullptr,                    // Prepend not supported.
+    &name_reverse,
+    nullptr,                    // No cast (cast data_ directly).
+    &simple_compare<name>
   };
 
-  const value_type* name_type = &value_traits<name>::value_type;
-
-  // vector<T> value
-  //
-  const value_type* strings_type = &value_traits<strings>::value_type;
-  const value_type* dir_paths_type = &value_traits<dir_paths>::value_type;
-  const value_type* names_type = &value_traits<names>::value_type;
-
-  // variable_set
+  // variable_pool
   //
   variable_pool var_pool;
+
+  // variable_map
+  //
+  const value* variable_map::
+  find (const variable& var) const
+  {
+    auto i (m_.find (var));
+    const value* r (i != m_.end () ? &i->second : nullptr);
+
+    // First access after being assigned a type?
+    //
+    if (r != nullptr && var.type != nullptr && r->type != var.type)
+      typify (const_cast<value&> (*r), *var.type, var);
+
+    return  r;
+  }
+
+  value* variable_map::
+  find (const variable& var)
+  {
+    auto i (m_.find (var));
+    value* r (i != m_.end () ? &i->second : nullptr);
+
+    // First access after being assigned a type?
+    //
+    if (r != nullptr && var.type != nullptr && r->type != var.type)
+      typify (*r, *var.type, var);
+
+    return  r;
+  }
+
+  pair<reference_wrapper<value>, bool> variable_map::
+  assign (const variable& var)
+  {
+    auto r (m_.emplace (var, value (var.type)));
+    value& v (r.first->second);
+
+    // First access after being assigned a type?
+    //
+    if (!r.second && var.type != nullptr && v.type != var.type)
+      typify (v, *var.type, var);
+
+    return make_pair (reference_wrapper<value> (v), r.second);
+  }
 
   // variable_type_map
   //

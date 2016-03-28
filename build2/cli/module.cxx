@@ -45,7 +45,7 @@ namespace build2
       {
         auto l (base["cxx.loaded"]);
 
-        if (!l || !as<bool> (*l))
+        if (!l || !cast<bool> (*l))
           fail (loc) << "cxx module must be loaded before cli";
       }
 
@@ -90,7 +90,7 @@ namespace build2
       {
         auto l (root["config.cli.configured"]);
 
-        if (l && !as<bool> (*l))
+        if (l && !cast<bool> (*l))
           return false;
       }
 
@@ -175,7 +175,7 @@ namespace build2
           else
           {
             auto p (config::required (root, "config.cli", cli));
-            assert (p.second && as<string> (p.first) == cli);
+            assert (p.second && cast<string> (p.first) == cli);
           }
         }
         else
@@ -186,7 +186,7 @@ namespace build2
           //
           if (p.second)
           {
-            cli = as<string> (p.first).c_str ();
+            cli = cast<string> (p.first).c_str ();
             ver = test (cli);
 
             if (ver.empty ())
@@ -209,7 +209,7 @@ namespace build2
       // this merging semantics and some of its tricky aspects.
       //
       if (const value& v = config::optional (root, "config.cli.options"))
-        base.assign ("cli.options") += as<strings> (v);
+        base.assign ("cli.options") += cast<strings> (v);
 
       // Register our rules.
       //

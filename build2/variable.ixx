@@ -2,67 +2,44 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <type_traits> // is_same
+
 namespace build2
 {
   // value
   //
-  template <typename T>
-  inline void
-  assign (value& v, const variable& var)
+  inline value& value::
+  operator= (reference_wrapper<value> v)
   {
-    auto t (&value_traits<T>::value_type);
-
-    if (v.type != t)
-      assign (v, t, var);
+    return *this = v.get ();
   }
 
-  template <typename T>
-  inline typename value_traits<T>::type
-  as (value& v)
+  inline value& value::
+  operator= (reference_wrapper<const value> v)
   {
-    return value_traits<T>::as (v);
-  }
-
-  template <typename T>
-  inline typename value_traits<T>::const_type
-  as (const value& v)
-  {
-    return value_traits<T>::as (v);
-  }
-
-  template <typename T>
-  inline bool
-  assign (name& n)
-  {
-    return value_traits<T>::assign (n, nullptr);
-  }
-
-  template <typename T>
-  inline bool
-  assign (name& l, name& r)
-  {
-    return value_traits<T>::assign (l, &r);
-  }
-
-  template <typename T>
-  inline typename value_traits<T>::type
-  as (name& n)
-  {
-    return value_traits<T>::as (n);
-  }
-
-  template <typename T>
-  inline typename value_traits<T>::const_type
-  as (const name& n)
-  {
-    return value_traits<T>::as (n);
+    return *this = v.get ();
   }
 
   template <typename T>
   inline value& value::
   operator= (T v)
   {
-    value_traits<T>::assign (*this, move (v));
+    assert (type == &value_traits<T>::value_type || type == nullptr);
+
+    // Prepare the receiving value.
+    //
+    if (type == nullptr)
+    {
+      if (!null ())
+        *this = nullptr;
+
+      type = &value_traits<T>::value_type;
+    }
+
+    state = value_traits<T>::assign (*this, move (v))
+      ? value_state::filled
+      : value_state::empty;
+
     return *this;
   }
 
@@ -70,303 +47,407 @@ namespace build2
   inline value& value::
   operator+= (T v)
   {
-    value_traits<T>::append (*this, move (v));
+    assert (type == &value_traits<T>::value_type ||
+            (type == nullptr && null ()));
+
+    // Prepare the receiving value.
+    //
+    if (type == nullptr)
+      type = &value_traits<T>::value_type;
+
+    state = value_traits<T>::append (*this, move (v))
+      ? value_state::filled
+      : value_state::empty;
+
     return *this;
   }
 
-  inline void value::
-  assign (names v, const variable& var)
+  inline bool
+  operator!= (const value& x, const value& y)
   {
-    data_ = move (v);
-    state_ = (type != nullptr && type->assign != nullptr
-              ? type->assign (data_, var)
-              : !data_.empty ())
-      ? state_type::filled
-      : state_type::empty;
+    return !(x == y);
+  }
+
+  template <>
+  inline const names&
+  cast (const value& v)
+  {
+    // Note that it can still be a typed vector<names>.
+    //
+    assert (!v.null () &&
+            (v.type == nullptr || v.type == &value_traits<names>::value_type));
+    return v.as<names> ();
+  }
+
+  template <typename T>
+  inline const T&
+  cast (const value& v)
+  {
+    assert (!v.null () && v.type == &value_traits<T>::value_type);
+    return *static_cast<const T*> (v.type->cast == nullptr
+                                   ? static_cast<const void*> (&v.data_)
+                                   : v.type->cast (v));
+  }
+
+  template <typename T>
+  inline T&
+  cast (value& v)
+  {
+    return const_cast<T&> (cast<T> (static_cast<const value&> (v)));
+  }
+
+  template <typename T>
+  inline T&&
+  cast (value&& v)
+  {
+    return move (cast<T> (v)); // Forward to T&.
+  }
+
+  template <typename T>
+  inline void
+  typify (value& v, const variable& var)
+  {
+    value_type& t (value_traits<T>::value_type);
+
+    if (v.type != &t)
+      typify (v, t, var);
+  }
+
+  inline names_view
+  reverse (const value& v, names& storage)
+  {
+    assert (!v.null () &&
+            storage.empty () &&
+            (v.type == nullptr || v.type->reverse != nullptr));
+    return v.type == nullptr ? v.as<names> () : v.type->reverse (v, storage);
+  }
+
+  // value_traits
+  //
+  template <typename T>
+  inline T
+  convert (name&& n)
+  {
+    return value_traits<T>::convert (move (n), nullptr);
+  }
+
+  template <typename T>
+  inline T
+  convert (name&& l, name&& r)
+  {
+    return value_traits<T>::convert (move (l), &r);
   }
 
   // bool value
   //
-  inline bool_value<name> value_traits<bool>::
-  as (value& v)
-  {
-    assert (v.type == bool_type);
-    return bool_value<name> (v.data_.front ());
-  }
-
-  inline bool_value<const name> value_traits<bool>::
-  as (const value& v)
-  {
-    assert (v.type == bool_type);
-    return bool_value<const name> (v.data_.front ());
-  }
-
-  inline void value_traits<bool>::
+  inline bool value_traits<bool>::
   assign (value& v, bool x)
   {
     if (v.null ())
-    {
-      if (v.type == nullptr)
-        v.type = bool_type;
-      v.data_.emplace_back (name ());
-      v.state_ = value::state_type::empty;
-    }
+      new (&v.data_) bool (x);
+    else
+      v.as<bool> () = x;
 
-    as (v) = x;
-    v.state_ = value::state_type::filled;
+    return true;
   }
 
-  inline void value_traits<bool>::
+  inline bool value_traits<bool>::
   append (value& v, bool x)
   {
+    // Logical OR.
+    //
     if (v.null ())
-      assign (v, x);
+      new (&v.data_) bool (x);
     else
-      as (v) += x; // Cannot be empty.
+      v.as<bool> () = v.as<bool> () || x;
+
+    return true;
+  }
+
+  inline int value_traits<bool>::
+  compare (bool l, bool r)
+  {
+    return l < r ? -1 : (l > r ? 1 : 0);
   }
 
   // string value
   //
-  inline string& value_traits<string>::
-  as (value& v)
+  inline bool value_traits<string>::
+  assign (value& v, string&& x)
   {
-    assert (v.type == string_type);
-    return v.data_.front ().value;
-  }
+    string* p;
 
-  inline const string& value_traits<string>::
-  as (const value& v)
-  {
-    assert (v.type == string_type);
-    return v.data_.front ().value;
-  }
-
-  inline void value_traits<string>::
-  assign (value& v, string x)
-  {
     if (v.null ())
+      p = new (&v.data_) string (move (x));
+    else
+      p = &(v.as<string> () = move (x));
+
+    return !p->empty ();
+  }
+
+  inline bool value_traits<string>::
+  append (value& v, string&& x)
+  {
+    string* p;
+
+    if (v.null ())
+      p = new (&v.data_) string (move (x));
+    else
     {
-      if (v.type == nullptr)
-        v.type = string_type;
-      v.data_.emplace_back (name ());
-      v.state_ = value::state_type::empty;
+      p = &v.as<string> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        *p += x;
     }
 
-    v.state_ = (as (v) = move (x)).empty ()
-      ? value::state_type::empty
-      : value::state_type::filled;
+    return !p->empty ();
   }
 
-  inline void value_traits<string>::
-  append (value& v, string x)
+  inline bool value_traits<string>::
+  prepend (value& v, string&& x)
   {
+    string* p;
+
     if (v.null ())
-      assign (v, move (x));
+      new (&v.data_) string (move (x));
     else
-      v.state_ = (as (v) += move (x)).empty ()
-        ? value::state_type::empty
-        : value::state_type::filled;
+    {
+      p = &v.as<string> ();
+
+      if (!p->empty ())
+        x += *p;
+
+      p->swap (x);
+    }
+
+    return !p->empty ();
+  }
+
+  inline int value_traits<string>::
+  compare (const string& l, const string& r)
+  {
+    return l.compare (r);
   }
 
   // dir_path value
   //
-  inline dir_path& value_traits<dir_path>::
-  as (value& v)
+  inline bool value_traits<dir_path>::
+  assign (value& v, dir_path&& x)
   {
-    assert (v.type == dir_path_type);
-    return v.data_.front ().dir;
-  }
+    dir_path* p;
 
-  inline const dir_path& value_traits<dir_path>::
-  as (const value& v)
-  {
-    assert (v.type == dir_path_type);
-    return v.data_.front ().dir;
-  }
-
-  inline void value_traits<dir_path>::
-  assign (value& v, dir_path x)
-  {
     if (v.null ())
+      p = new (&v.data_) dir_path (move (x));
+    else
+      p = &(v.as<dir_path> () = move (x));
+
+    return !p->empty ();
+  }
+
+  inline bool value_traits<dir_path>::
+  append (value& v, dir_path&& x)
+  {
+    dir_path* p;
+
+    if (v.null ())
+      p = new (&v.data_) dir_path (move (x));
+    else
     {
-      if (v.type == nullptr)
-        v.type = dir_path_type;
-      v.data_.emplace_back (name ());
-      v.state_ = value::state_type::empty;
+      p = &v.as<dir_path> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        *p /= x;
     }
 
-    v.state_ = (as (v) = move (x)).empty ()
-      ? value::state_type::empty
-      : value::state_type::filled;
+    return !p->empty ();
   }
 
-  inline void value_traits<dir_path>::
-  append (value& v, dir_path x)
+  inline bool value_traits<dir_path>::
+  prepend (value& v, dir_path&& x)
   {
+    dir_path* p;
+
     if (v.null ())
-      assign (v, move (x));
+      new (&v.data_) dir_path (move (x));
     else
-      v.state_ = (as (v) /= move (x)).empty ()
-        ? value::state_type::empty
-        : value::state_type::filled;
+    {
+      p = &v.as<dir_path> ();
+
+      if (!p->empty ())
+        x /= *p;
+
+      p->swap (x);
+    }
+
+    return !p->empty ();
+  }
+
+  inline int value_traits<dir_path>::
+  compare (const dir_path& l, const dir_path& r)
+  {
+    return l.compare (r);
   }
 
   // name value
   //
-  inline name& value_traits<name>::
-  as (value& v)
+  inline bool value_traits<name>::
+  assign (value& v, name&& x)
   {
-    assert (v.type == name_type);
-    return v.data_.front ();
-  }
+    name* p;
 
-  inline const name& value_traits<name>::
-  as (const value& v)
-  {
-    assert (v.type == name_type);
-    return v.data_.front ();
-  }
-
-  inline void value_traits<name>::
-  assign (value& v, name x)
-  {
     if (v.null ())
-    {
-      if (v.type == nullptr)
-        v.type = name_type;
-      v.data_.emplace_back (name ());
-      v.state_ = value::state_type::empty;
-    }
+      p = new (&v.data_) name (move (x));
+    else
+      p = &(v.as<name> () = move (x));
 
-    v.state_ = (as (v) = move (x)).empty ()
-      ? value::state_type::empty
-      : value::state_type::filled;
+    return !p->empty ();
+  }
+
+  inline int value_traits<name>::
+  compare (const name& l, const name& r)
+  {
+    return l.compare (r);
   }
 
   // vector<T> value
   //
-  template <typename T, typename D>
-  inline vector_value<T, D>& vector_value<T, D>::
-  assign (vector<T> v)
-  {
-    d->clear ();
-    d->insert (d->end (),
-               make_move_iterator (v.begin ()),
-               make_move_iterator (v.end ()));
-    return *this;
-  }
-
-  template <typename T, typename D>
-  template <typename D1>
-  inline vector_value<T, D>& vector_value<T, D>::
-  assign (const vector_value<T, D1>& v)
-  {
-    d->clear ();
-    d->insert (d->end (), v.begin (), v.end ());
-    return *this;
-  }
-
-  template <typename T, typename D>
-  template <typename D1>
-  inline vector_value<T, D>& vector_value<T, D>::
-  append (const vector_value<T, D1>& v)
-  {
-    d->insert (d->end (), v.begin (), v.end ());
-    return *this;
-  }
-
   template <typename T>
-  inline vector_value<T, names> value_traits<vector<T>>::
-  as (value& v)
+  inline bool value_traits<vector<T>>::
+  assign (value& v, vector<T>&& x)
   {
-    assert (v.type == &value_traits<vector<T>>::value_type);
-    return vector_value<T, names> (v.data_);
-  }
+    vector<T>* p;
 
-  template <typename T>
-  inline vector_value<T, const names> value_traits<vector<T>>::
-  as (const value& v)
-  {
-    assert (v.type == &value_traits<vector<T>>::value_type);
-    return vector_value<T, const names> (v.data_);
-  }
-
-  template <typename T>
-  template <typename V>
-  inline void value_traits<vector<T>>::
-  assign (value& v, V x)
-  {
     if (v.null ())
+      p = new (&v.data_) vector<T> (move (x));
+    else
+      p = &(v.as<vector<T>> () = move (x));
+
+    return !p->empty ();
+  }
+
+  template <typename T>
+  inline bool value_traits<vector<T>>::
+  append (value& v, vector<T>&& x)
+  {
+    vector<T>* p;
+
+    if (v.null ())
+      p = new (&v.data_) vector<T> (move (x));
+    else
     {
-      if (v.type == nullptr)
-        v.type = &value_traits<vector<T>>::value_type;
-      v.state_ = value::state_type::empty;
+      p = &v.as<vector<T>> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        p->insert (p->end (),
+                   make_move_iterator (x.begin ()),
+                   make_move_iterator (x.end ()));
     }
 
-    v.state_ = (as (v).assign (move (x))).empty ()
-      ? value::state_type::empty
-      : value::state_type::filled;
+    return !p->empty ();
   }
 
   template <typename T>
-  template <typename V>
-  inline void value_traits<vector<T>>::
-  append (value& v, V x)
+  inline bool value_traits<vector<T>>::
+  prepend (value& v, vector<T>&& x)
   {
+    vector<T>* p;
+
     if (v.null ())
-      assign (v, move (x));
+      new (&v.data_) vector<T> (move (x));
     else
-      v.state_ = (as (v).append (move (x))).empty ()
-        ? value::state_type::empty
-        : value::state_type::filled;
+    {
+      p = &v.as<vector<T>> ();
+
+      if (!p->empty ())
+        x.insert (x.end (),
+                  make_move_iterator (p->begin ()),
+                  make_move_iterator (p->end ()));
+
+      p->swap (x);
+    }
+
+    return !p->empty ();
   }
 
   // map<K, V> value
   //
   template <typename K, typename V>
-  inline map_value<K, V, names> value_traits<std::map<K, V>>::
-  as (value& v)
+  inline bool value_traits<std::map<K, V>>::
+  assign (value& v, map<K, V>&& x)
   {
-    assert ((v.type == &value_traits<std::map<K, V>>::value_type));
-    return map_value<K, V, names> (v.data_);
-  }
+    map<K, V>* p;
 
-  template <typename K, typename V>
-  inline map_value<K, V, const names> value_traits<std::map<K, V>>::
-  as (const value& v)
-  {
-    assert ((v.type == &value_traits<std::map<K, V>>::value_type));
-    return map_value<K, V, const names> (v.data_);
-  }
-
-  template <typename K, typename V>
-  template <typename M>
-  inline void value_traits<std::map<K, V>>::
-  assign (value& v, M x)
-  {
     if (v.null ())
+      p = new (&v.data_) map<K, V> (move (x));
+    else
+      p = &(v.as<map<K, V>> () = move (x));
+
+    return !p->empty ();
+  }
+
+  template <typename K, typename V>
+  inline bool value_traits<std::map<K, V>>::
+  append (value& v, map<K, V>&& x)
+  {
+    map<K, V>* p;
+
+    if (v.null ())
+      p = new (&v.data_) map<K, V> (move (x));
+    else
     {
-      if (v.type == nullptr)
-        v.type = &value_traits<std::map<K, V>>::value_type;
-      v.state_ = value::state_type::empty;
+      p = &v.as<map<K, V>> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        // Note that this will only move values. Keys (being const) are still
+        // copied.
+        //
+        p->insert (p->end (),
+                   make_move_iterator (x.begin ()),
+                   make_move_iterator (x.end ()));
     }
 
-    v.state_ = (as (v).assign (move (x))).empty ()
-      ? value::state_type::empty
-      : value::state_type::filled;
+    return !p->empty ();
   }
 
-  template <typename K, typename V>
-  template <typename M>
-  inline void value_traits<std::map<K, V>>::
-  append (value& v, M x)
+  inline const variable& variable_pool::
+  find (string n, const variable_visibility* vv, const build2::value_type* t)
   {
-    if (v.null ())
-      assign (v, move (x));
-    else
-      v.state_ = (as (v).append (move (x))).empty ()
-        ? value::state_type::empty
-        : value::state_type::filled;
+    auto r (
+      insert (
+        variable {
+          move (n),
+          t,
+          vv != nullptr ? *vv : variable_visibility::normal}));
+    const variable& v (*r.first);
+
+    // Update type?
+    //
+    if (!r.second && t != nullptr && v.type != t)
+    {
+      assert (v.type == nullptr);
+      const_cast<variable&> (v).type = t; // Not changing the key.
+    }
+
+    // Change visibility? While this might at first seem like a bad idea,
+    // it can happen that the variable lookup happens before any values
+    // were set, in which case the variable will be entered with the
+    // default visibility.
+    //
+    if (!r.second && vv != nullptr && v.visibility != *vv)
+    {
+      assert (v.visibility == variable_visibility::normal); // Default.
+      const_cast<variable&> (v).visibility = *vv; // Not changing the key.
+    }
+
+    return v;
   }
 
   // variable_map::iterator_adapter
@@ -382,7 +463,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      build2::assign (const_cast<value&> (val), var.type, var);
+      typify (const_cast<value&> (val), *var.type, var);
 
     return r;
   }
@@ -398,7 +479,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      build2::assign (const_cast<value&> (val), var.type, var);
+      typify (const_cast<value&> (val), *var.type, var);
 
     return p;
   }

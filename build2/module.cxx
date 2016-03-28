@@ -98,12 +98,10 @@ namespace build2
     bool l (i != lm.end ());
     bool c (l && i->second.init (rs, bs, loc, i->second.module, f, opt));
 
-    const variable& lv (var_pool.find (name + ".loaded",
-                                       variable_visibility::project,
-                                       bool_type));
-    const variable& cv (var_pool.find (name + ".configured",
-                                       variable_visibility::project,
-                                       bool_type));
+    const variable& lv (var_pool.find<bool> (name + ".loaded",
+                                             variable_visibility::project));
+    const variable& cv (var_pool.find<bool> (name + ".configured",
+                                             variable_visibility::project));
     bs.assign (lv) = l;
     bs.assign (cv) = c;
 

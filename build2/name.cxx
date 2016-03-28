@@ -2,11 +2,9 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/name>
+#include <build2/types> // Note: not <build2/names>
 
 #include <build2/diagnostics>
-
-using namespace std;
 
 namespace build2
 {
@@ -42,7 +40,7 @@ namespace build2
   }
 
   ostream&
-  operator<< (ostream& os, const names& ns)
+  operator<< (ostream& os, const names_view& ns)
   {
     for (auto i (ns.begin ()), e (ns.end ()); i != e; )
     {

@@ -130,7 +130,7 @@ namespace build2
       //
       if (a == perform_update_id)
       {
-        const string& sys (as<string> (*rs["cxx.target.system"]));
+        const string& sys (cast<string> (*rs["cxx.target.system"]));
 
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
@@ -165,7 +165,7 @@ namespace build2
 
         // Then the compiler checksum.
         //
-        if (dd.expect (as<string> (*rs["cxx.checksum"])) != nullptr)
+        if (dd.expect (cast<string> (*rs["cxx.checksum"])) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
 
         // Then the options checksum.
@@ -237,7 +237,7 @@ namespace build2
         -> const target_type*
       {
         if (auto l = s.lookup (tt, n, var))
-          if (as<string> (*l) == e)
+          if (cast<string> (*l) == e)
             return &tt;
 
         return nullptr;
@@ -283,7 +283,7 @@ namespace build2
 
       if (auto l = t[var])
       {
-        const auto& v (as<strings> (*l));
+        const auto& v (cast<strings> (*l));
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
@@ -461,8 +461,8 @@ namespace build2
 
       auto init_args = [&t, &s, &rs, &args, &cxx_std] ()
       {
-        const string& cxx (as<string> (*rs["config.cxx"]));
-        const string& sys (as<string> (*rs["cxx.target.system"]));
+        const string& cxx (cast<string> (*rs["config.cxx"]));
+        const string& sys (cast<string> (*rs["cxx.target.system"]));
 
         args.push_back (cxx.c_str ());
 
@@ -923,8 +923,8 @@ namespace build2
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const string& cxx (as<string> (*rs["config.cxx"]));
-      const string& sys (as<string> (*rs["cxx.target.system"]));
+      const string& cxx (cast<string> (*rs["config.cxx"]));
+      const string& sys (cast<string> (*rs["cxx.target.system"]));
 
       cstrings args {cxx.c_str ()};
 

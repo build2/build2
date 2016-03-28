@@ -6,9 +6,8 @@
 #define BUILD2_VARIABLE
 
 #include <map>
-#include <iterator>      // tags, etc.
 #include <functional>    // hash
-#include <type_traits>   // conditional, is_reference, remove_reference, etc.
+#include <type_traits>   // aligned_storage
 #include <unordered_set>
 
 #include <butl/prefix-map>
@@ -20,18 +19,50 @@
 
 namespace build2
 {
+  class value;
   struct variable;
 
-  // If assign is NULL, then the value is assigned as is. If append
-  // is NULL, then the names are appended to the end of the value
-  // and assign is called, if not NULL. Variable is provided primarily
-  // for diagnostics. Return true if the resulting value is not empty.
-  //
   struct value_type
   {
-    const char* name;
-    bool (*const assign) (names&, const variable&);
-    bool (*const append) (names&, names, const variable&);
+    const char* name;  // Type name for diagnostics.
+    const size_t size; // Type size in value::data_ (only used for PODs).
+
+    // Destroy the value. If it is NULL, then the type is assumed to be POD
+    // with a trivial destructor.
+    //
+    void (*const dtor) (value&);
+
+    // Copy/move constructor and copy/move assignment for data_. If NULL, then
+    // assume the stored data is POD. If move is true then the second argument
+    // can be const_cast and moved from. copy_assign() is only called with
+    // non-NULL first argument.
+    //
+    void (*const copy_ctor) (value&, const value&, bool move);
+    void (*const copy_assign) (value&, const value&, bool move);
+
+    // While assign cannot be NULL, if append or prepend is NULL, then this
+    // means this type doesn't support this operation. Variable is provided
+    // primarily for diagnostics. Return true if the resulting value is not
+    // empty.
+    //
+    bool (*const assign) (value&, names&&, const variable&);
+    bool (*const append) (value&, names&&, const variable&);
+    bool (*const prepend) (value&, names&&, const variable&);
+
+    // Reverse the value back to a vector of names. Storage can be used by the
+    // implementation if necessary. Cannot be NULL.
+    //
+    names_view (*const reverse) (const value&, names& storage);
+
+    // Cast value::data_ storage to value type so that the result can be
+    // static_cast to const T*. If it is NULL, then cast data_ directly. Note
+    // that this function is used for both const and non-const values.
+    //
+    const void* (*const cast) (const value&);
+
+    // If NULL, then the types are compared as PODs using memcmp().
+    //
+    int (*const compare) (const value&, const value&);
   };
 
   enum class variable_visibility
@@ -59,117 +90,127 @@ namespace build2
 
   // value
   //
+  enum class value_state {null, empty, filled};
+
   class value
   {
   public:
-    // By default we create NULL value.
-    //
-    explicit value (const value_type* t = nullptr)
-        : type (t), state_ (state_type::null) {}
-
-    value (value&&) = default;
-
-    value&
-    operator= (nullptr_t)
-    {
-      data_.clear ();
-      state_ = state_type::null;
-      return *this;
-    }
-
-    value&
-    operator= (value&&);
-
-    value&
-    operator= (const value& v)
-    {
-      if (&v != this)
-        *this = value (v);
-      return *this;
-    }
-
-    value&
-    operator= (reference_wrapper<value> v) {return *this = v.get ();}
-
-    value&
-    operator= (reference_wrapper<const value> v) {return *this = v.get ();}
-
-    value&
-    append (value, const variable&); // Aka operator+=().
-
-    value&
-    prepend (value, const variable&); // Aka operator=+().
-
-    // Forwarded to the representation type's assign()/append() (see below).
-    //
-    template <typename T> value& operator= (T);
-    value& operator= (const char* v) {return *this = string (v);}
-
-    template <typename T> value& operator+= (T);
-    value& operator+= (const char* v) {return *this += string (v);}
-
-  private:
-    explicit value (const value&) = default;
-
-  public:
     const value_type* type; // NULL means this value is not (yet) typed.
+    value_state state;
 
-    bool null () const {return state_ == state_type::null;}
-    bool empty () const {return state_ == state_type::empty;}
+    bool null () const {return state == value_state::null;}
+    bool empty () const {return state == value_state::empty;}
 
     explicit operator bool () const {return !null ();}
     bool operator== (nullptr_t) const {return null ();}
     bool operator!= (nullptr_t) const {return !null ();}
 
-    // Raw data read interface.
+    // Creation. A newly created value is NULL and can be reset back to NULL
+    // by assigning nullptr. Values can be copied and copy-assigned. Note that
+    // for assignment, the values' types should be the same of LHS should be
+    // untyped.
     //
-    using const_iterator = names::const_iterator;
+    //
+  public:
+    ~value () {if (!null ()) *this = nullptr;}
 
-    const_iterator begin () const {return data_.begin ();}
-    const_iterator end () const {return data_.end ();}
+    explicit
+    value (const value_type* t = nullptr)
+        : type (t), state (value_state::null) {}
 
-    // Raw data write interface. Note that it triggers callbacks for
-    // typed values. Variable is passed for diagnostics.
+    value&
+    operator= (nullptr_t);
+
+    value (value&&);
+    explicit value (const value&);
+    value& operator= (value&&);
+    value& operator= (const value&);
+    value& operator= (reference_wrapper<value>);
+    value& operator= (reference_wrapper<const value>);
+
+    // Assign/Append/Prepend.
+    //
+  public:
+    // Assign/append a typed value. For assign, LHS should be either of the
+    // same type or untyped. For append, LHS should be either of the same type
+    // or untyped and NULL.
+    //
+    template <typename T> value& operator= (T);
+    template <typename T> value& operator+= (T);
+
+    value& operator= (const char* v) {return *this = string (v);}
+    value& operator+= (const char* v) {return *this += string (v);}
+
+    // Assign/append/prepend raw data. Variable is normally only used for
+    // diagnostics.
     //
     void
-    assign (names, const variable&);
+    assign (names&&, const variable&);
 
     void
-    append (names, const variable&);
+    append (names&&, const variable&);
 
     void
-    prepend (names, const variable&);
+    prepend (names&&, const variable&);
+
+    // Implementation details, don't use directly except in representation
+    // type implementations.
+    //
+  public:
+    // Fast, unchecked cast of data_ to T.
+    //
+    template<typename T> T& as () & {return reinterpret_cast<T&> (data_);}
+    template<typename T> T&& as () && {return reinterpret_cast<T&&> (data_);}
+    template<typename T> const T& as () const& {
+      return reinterpret_cast<const T&> (data_);}
 
   public:
-    // Don't use directly except in the implementation of representation
-    // types, in which case take care to update state.
+    // The maximum size we can store directly in the value is that of a name,
+    // which is sufficient for the most commonly used types (string, vector,
+    // map) on all the platforms that we support (each type should static
+    // assert this in its value_traits specialization below). Types that don't
+    // fit will have to be handled with an extra dynamic allocation.
     //
-    enum class state_type {null, empty, filled} state_;
-    names data_;
+    std::aligned_storage<sizeof (name)>::type data_;
+    static const size_t size_ = sizeof (data_);
+
+    // Make sure we have sufficient storage for untyped values.
+    //
+    static_assert (sizeof (names) <= size_, "insufficient space");
   };
 
-  //@@ Right now we assume that for each value type each value has a
-  //   unique representation. This is currently not the case for map.
+  // The values should be of the same type (or both be untyped). NULL values
+  // compare equal.
   //
-  inline bool
-  operator== (const value& x, const value& y)
-  {
-    return x.state_ == y.state_ && x.data_ == y.data_;
-  }
+  bool operator== (const value&, const value&);
+  bool operator!= (const value&, const value&);
 
-  inline bool
-  operator!= (const value& x, const value& y) {return !(x == y);}
+  // Value cast.
+  //
+  // Why are these non-members? The cast is easier on the eyes and is also
+  // consistent with the cast operators. The other two are for symmetry.
+  //
+  template <typename T> T& cast (value&);
+  template <typename T> T&& cast (value&&);
+  template <typename T> const T& cast (const value&);
 
-  // Assign value type to the value. This triggers the assign callback.
+  // Assign value type to the value. Variable is normally only used for
+  // diagnostics.
   //
   template <typename T>
-  void assign (value&, const variable&);
-  void assign (value&, const value_type*, const variable&);
+  void typify (value&, const variable&);
+  void typify (value&, const value_type&, const variable&);
+
+  // Reverse the value back to names. The value should no be NULL and storage
+  // should be empty.
+  //
+  names_view
+  reverse (const value&, names& storage);
 
   // lookup
   //
-  // A variable can be undefined, NULL, or contain a (potentially
-  // empty) value.
+  // A variable can be undefined, NULL, or contain a (potentially empty)
+  // value.
   //
   struct variable_map;
 
@@ -206,390 +247,207 @@ namespace build2
 
   // Representation types.
   //
-  template <typename T> struct value_traits;
-
-  // Value cast.
+  // Potential optimizations:
   //
-  template <typename T> typename value_traits<T>::type as (value&);
-  template <typename T> typename value_traits<T>::const_type as (const value&);
-
-  // Try to "assign" a simple value type to the value stored in name. Return
-  // false if the value is not valid for this type. The second version is
-  // called for a pair and it is expected to merge the result into the first
-  // name.
+  // - Split value::operator=/+=() into const T and T&&, also overload
+  //   value_traits functions that they call.
   //
-  template <typename T> bool assign (name&);
-  template <typename T> bool assign (name&, name&);
-
-  // Name cast. Can only be called after assign() above returned true.
+  // - Specialization for vector<names> (if used and becomes critical).
   //
-  template <typename T> typename value_traits<T>::type as (name&);
-  template <typename T> typename value_traits<T>::const_type as (const name&);
+  //
+  template <typename T>
+  struct value_traits;
+  // {
+  //   static_assert (sizeof (T) <= value::size_, "insufficient space");
+  //
+  //   // Convert name to T. If rhs is not NULL, then it is the second half
+  //   // of a pair. Only needs to be provided by simple types. Throw
+  //   // invalid_argument (without a message) if the name is not a valid
+  //   // representation of value (in which case the name should remain
+  //   // unchanged for diagnostics).
+  //   //
+  //   static T convert (name&&, name* rhs);
+  //
+  //   // Assign/append/prepend T to value and return true if the result is
+  //   // not empty. Value is already of type T but can be NULL.
+  //   //
+  //   static bool assign (value&, T&&);
+  //   static bool append (value&, T&&);
+  //   static bool prepend (value&, T&&);
+  //
+  //   // Reverse a value back to name. Only needs to be provided by simple
+  //   // types.
+  //   //
+  //   static name reverse (const T&);
+  //
+  //   // Compare two values. Only needs to be provided by simple types.
+  //   //
+  //   static int compare (const T&, const T&);
+  //
+  //   static const build2::value_type value_type;
+  // };
+
+  // Convert name to a simple value. Throw invalid_argument (without any
+  // message) if the name is not a valid representation of value (in which
+  // case the name remains unchanged for diagnostics). The second version is
+  // called for a pair.
+  //
+  template <typename T> T convert (name&&);
+  template <typename T> T convert (name&&, name&&);
+
+  // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
+  // types that are stored directly in value::data_ and the provide all the
+  // necessary functions (copy/move ctor and assignment operator).
+  //
+  template <typename T>
+  static void
+  default_dtor (value&);
+
+  template <typename T>
+  static void
+  default_copy_ctor (value&, const value&, bool);
+
+  template <typename T>
+  static void
+  default_copy_assign (value&, const value&, bool);
+
+  // Default implementations of the assign/append/prepend callbacks for simple
+  // types. They call value_traits<T>::convert() and then pass the result to
+  // value_traits<T>::assign()/append()/prepend(). As a result, it may not be
+  // the most efficient way to do it. If the empty template parameter is true,
+  // then an empty names sequence is converted to a default-constructed T. And
+  // if false, then an empty value is not allowed.
+  //
+  template <typename T, bool empty>
+  static bool
+  simple_assign (value&, names&&, const variable&);
+
+  template <typename T, bool empty>
+  static bool
+  simple_append (value&, names&&, const variable&);
+
+  template <typename T, bool empty>
+  static bool
+  simple_prepend (value&, names&&, const variable&);
+
+  // Default implementations of the reverse callback for simple types that
+  // calls value_traits<T>::reverse() and adds the result to the vector. As a
+  // result, it may not be the most efficient way to do it.
+  //
+  template <typename T>
+  static names_view
+  simple_reverse (const value&, names&);
+
+  // Default implementations of the compare callback for simple types that
+  // calls value_traits<T>::compare().
+  //
+  template <typename T>
+  static int
+  simple_compare (const value&, const value&);
 
   // bool
   //
-  template <typename D>
-  struct bool_value
-  {
-    explicit
-    operator bool () const {return d->value[0] == 't';}
-
-    bool_value&
-    operator= (bool v)
-    {
-      d->value = v ? "true" : "false";
-      return *this;
-    }
-
-    bool_value&
-    operator+= (bool v)
-    {
-      if (!*this && v)
-        d->value = "true";
-      return *this;
-    }
-
-    // Implementation details.
-    //
-  public:
-    explicit bool_value (D& d): d (&d) {}
-
-    bool_value (const bool_value&) = delete;
-    bool_value& operator= (const bool_value&) = delete; // Rebind or deep?
-
-    bool_value (bool_value&&) = default;
-    bool_value& operator= (bool_value&&) = delete;
-
-    D* d; // name
-  };
-
   template <>
   struct value_traits<bool>
   {
-    using type = bool_value<name>;
-    using const_type = bool_value<const name>;
+    static_assert (sizeof (bool) <= value::size_, "insufficient space");
 
-    static type       as (name& n) {return type (n);}
-    static const_type as (const name& n) {return const_type (n);}
-
-    static type       as (value&);
-    static const_type as (const value&);
-
-    static bool assign (name&, name*);
-    static void assign (value&, bool);
-    static void append (value&, bool);
+    static bool convert (name&&, name*);
+    static bool assign (value&, bool);
+    static bool append (value&, bool); // OR.
+    static name reverse (bool x) {return name (x ? "true" : "false");}
+    static int compare (bool, bool);
 
     static const build2::value_type value_type;
   };
-
-  extern const value_type* bool_type;
 
   // string
   //
   template <>
   struct value_traits<string>
   {
-    using type = string&;
-    using const_type = const string&;
+    static_assert (sizeof (string) <= value::size_, "insufficient space");
 
-    static type       as (name& n) {return n.value;}
-    static const_type as (const name& n) {return n.value;}
-
-    static type       as (value&);
-    static const_type as (const value&);
-
-    static bool assign (name&, name*);
-    static void assign (value&, string);
-    static void append (value&, string);
+    static string convert (name&&, name*);
+    static bool assign (value&, string&&);
+    static bool append (value&, string&&);
+    static bool prepend (value&, string&&);
+    static name reverse (const string& x) {return name (x);}
+    static int compare (const string&, const string&);
 
     static const build2::value_type value_type;
   };
-
-  extern const value_type* string_type; //@@ Get rid (and others).
 
   // dir_path
   //
   template <>
   struct value_traits<dir_path>
   {
-    using type = dir_path&;
-    using const_type = const dir_path&;
+    static_assert (sizeof (dir_path) <= value::size_, "insufficient space");
 
-    static type       as (name& n) {return n.dir;}
-    static const_type as (const name& n) {return n.dir;}
-
-    static type       as (value&);
-    static const_type as (const value&);
-
-    static bool assign (name&, name*);
-    static void assign (value&, dir_path);
-    static void append (value&, dir_path);
+    static dir_path convert (name&&, name*);
+    static bool assign (value&, dir_path&&);
+    static bool append (value&, dir_path&&);  // operator/
+    static bool prepend (value&, dir_path&&); // operator/
+    static name reverse (const dir_path& x) {return name (x);}
+    static int compare (const dir_path&, const dir_path&);
 
     static const build2::value_type value_type;
   };
-
-  extern const value_type* dir_path_type;
 
   // name
   //
   template <>
   struct value_traits<name>
   {
-    using type = name&;
-    using const_type = const name&;
+    static_assert (sizeof (name) <= value::size_, "insufficient space");
 
-    static type       as (name& n) {return n;}
-    static const_type as (const name& n) {return n;}
-
-    static type       as (value&);
-    static const_type as (const value&);
-
-    static bool assign (name&, name* r) {return r == nullptr;}
-    static void assign (value&, name);
-    static void append (value&, name) = delete;
+    static name convert (name&&, name*);
+    static bool assign (value&, name&&);
+    static bool append (value&, name&&);
+    static bool prepend (value&, name&&);
+    static name reverse (const name& x) {return x;}
+    static int compare (const name&, const name&);
 
     static const build2::value_type value_type;
   };
-
-  extern const value_type* name_type;
 
   // vector<T>
   //
-  template <typename T, typename D>
-  struct vector_value
-  {
-    using size_type = typename D::size_type;
-
-    using value_type = typename value_traits<T>::type;
-    using const_value_type = typename value_traits<T>::const_type;
-
-    template <typename I, typename V, typename R>
-    struct iterator_impl: I
-    {
-      using value_type = V;
-      using pointer = value_type*;
-      using reference = R;
-      using difference_type = typename I::difference_type;
-
-      iterator_impl () = default;
-      iterator_impl (const I& i): I (i) {}
-
-      // Note: operator->() is unavailable if R is a value.
-      //
-      reference operator* () const {return as<T> (I::operator* ());}
-      pointer operator-> () const {return &as<T> (I::operator* ());}
-      reference operator[] (difference_type n) const
-      {
-        return as<T> (I::operator[] (n));
-      }
-    };
-
-    // Make iterator the same as const_iterator if our data type is const.
-    //
-    using const_iterator =
-      iterator_impl<names::const_iterator, const T, const_value_type>;
-    using iterator = typename std::conditional<
-      std::is_const<D>::value,
-      const_iterator,
-      iterator_impl<names::iterator, T, value_type>>::type;
-
-  public:
-    vector_value&
-    operator= (vector<T> v) {assign (move (v)); return *this;}
-
-    vector_value&
-    assign (vector<T>);
-
-    template <typename D1>
-    vector_value&
-    assign (const vector_value<T, D1>&);
-
-    template <typename D1>
-    vector_value&
-    append (const vector_value<T, D1>&);
-
-  public:
-    bool empty () const {return d->empty ();}
-    size_type size () const {return d->size ();}
-
-    value_type operator[] (size_type i) {return as<T> ((*d)[i]);}
-    const_value_type operator[] (size_type i) const {return as<T> ((*d)[i]);}
-
-    iterator begin () {return iterator (d->begin ());}
-    iterator end () {return iterator (d->end ());}
-
-    const_iterator begin () const {return const_iterator (d->begin ());}
-    const_iterator end () const {return const_iterator (d->end ());}
-
-    const_iterator cbegin () const {return const_iterator (d->begin ());}
-    const_iterator cend () const {return const_iterator (d->end ());}
-
-    // Implementation details.
-    //
-  public:
-    explicit vector_value (D& d): d (&d) {}
-
-    vector_value (const vector_value&) = delete;
-    vector_value& operator= (const vector_value&) = delete; // Rebind or deep?
-
-    vector_value (vector_value&&) = default;
-    vector_value& operator= (vector_value&&) = default; //@@ TMP
-
-    explicit vector_value (nullptr_t): d (nullptr) {} //@@ TMP
-
-    D* d; // names
-  };
-
   template <typename T>
   struct value_traits<vector<T>>
   {
-    using type = vector_value<T, names>;
-    using const_type = vector_value<T, const names>;
+    static_assert (sizeof (vector<T>) <= value::size_, "insufficient space");
 
-    static type       as (value&);
-    static const_type as (const value&);
-
-    template <typename V> static void assign (value&, V);
-    template <typename V> static void append (value&, V);
+    static bool assign (value&, vector<T>&&);
+    static bool append (value&, vector<T>&&);
+    static bool prepend (value&, vector<T>&&);
 
     static const string type_name;
     static const build2::value_type value_type;
   };
-
-  template <typename T, typename D>
-  struct value_traits<vector_value<T, D>>: value_traits<vector<T>> {};
-
-  using strings_value = vector_value<string, names>;
-  using const_strings_value = vector_value<string, const names>;
-
-  extern const value_type* strings_type;   // vector<string> aka strings
-  extern const value_type* dir_paths_type; // vector<dir_path> aka dir_paths
-  extern const value_type* names_type;     // vector<name> aka names
 
   // map<K, V>
   //
-  template <typename K, typename V, typename D>
-  struct map_value
-  {
-    template <typename F, typename S>
-    struct pair
-    {
-      using first_type = typename std::conditional<
-        std::is_reference<F>::value,
-        reference_wrapper<typename std::remove_reference<F>::type>,
-        F>::type;
-
-      using second_type = typename std::conditional<
-        std::is_reference<S>::value,
-        reference_wrapper<typename std::remove_reference<S>::type>,
-        S>::type;
-
-      first_type first;
-      second_type second;
-    };
-
-    template <typename I, typename T>
-    struct iterator_impl
-    {
-      using value_type = T;
-      using pointer = value_type*;
-      using reference = value_type; // Note: value.
-      using difference_type = typename I::difference_type;
-      using iterator_category = std::bidirectional_iterator_tag;
-
-      iterator_impl () = default;
-      iterator_impl (const I& i): i_ (i) {}
-
-      pointer operator-> () const = delete;
-      reference operator* () const
-      {
-        return value_type {as<K> (*i_), as<V> (*(i_ + 1))};
-      }
-
-      iterator_impl& operator++ () {i_ += 2; return *this;}
-      iterator_impl operator++ (int) {auto r (*this); operator++ (); return r;}
-
-      iterator_impl& operator-- () {i_ -= 2; return *this;}
-      iterator_impl operator-- (int) {auto r (*this); operator-- (); return r;}
-
-      bool operator== (const iterator_impl& y) const {return i_ == y.i_;}
-      bool operator!= (const iterator_impl& y) const {return i_ != y.i_;}
-
-    private:
-      I i_;
-    };
-
-    using size_type = typename D::size_type;
-
-    using value_type = pair<typename value_traits<K>::const_type,
-                            typename value_traits<V>::type>;
-
-    using const_value_type = pair<typename value_traits<K>::const_type,
-                                  typename value_traits<V>::const_type>;
-
-    // Make iterator the same as const_iterator if our data type is const.
-    //
-    using const_iterator =
-      iterator_impl<names::const_iterator, const_value_type>;
-    using iterator = typename std::conditional<
-      std::is_const<D>::value,
-      const_iterator,
-      iterator_impl<names::iterator, value_type>>::type;
-
-
-  public:
-    map_value&
-    operator= (std::map<K, V> m) {assign (move (m)); return *this;}
-
-    map_value&
-    assign (std::map<K, V>);
-
-    bool empty () const {return d->empty ();}
-    size_type size () const {return d->size ();}
-
-    iterator find (const K&);
-    const_iterator find (const K&) const;
-
-    iterator begin () {return iterator (d->begin ());}
-    iterator end () {return iterator (d->end ());}
-
-    const_iterator begin () const {return const_iterator (d->begin ());}
-    const_iterator end () const {return const_iterator (d->end ());}
-
-    // Implementation details.
-    //
-  public:
-    explicit map_value (D& d): d (&d) {}
-
-    map_value (const map_value&) = delete;
-    map_value& operator= (const map_value&) = delete; // Rebind or deep?
-
-    map_value (map_value&&) = default;
-    map_value& operator= (map_value&&) = delete;
-
-    D* d; // names
-  };
-
   template <typename K, typename V>
   struct value_traits<std::map<K, V>>
   {
-    using type = map_value<K, V, names>;
-    using const_type = map_value<K, V, const names>;
+    template <typename K1, typename V1> using map = std::map<K1, V1>;
 
-    static type       as (value&);
-    static const_type as (const value&);
+    static_assert (sizeof (map<K, V>) <= value::size_, "insufficient space");
 
-    template <typename M> static void assign (value&, M);
-    template <typename M> static void append (value&, M);
+    static bool assign (value&, map<K, V>&&);
+    static bool append (value&, map<K, V>&&);
+    static bool prepend (value& v, map<K, V>&& x) {
+      return append (v, move (x));}
 
     static const string type_name;
     static const build2::value_type value_type;
   };
-
-  template <typename K, typename V, typename D>
-  struct value_traits<map_value<K, V, D>>: value_traits<std::map<K, V>> {};
 }
 
+// Variable map.
+//
 namespace std
 {
   template <>
@@ -634,6 +492,12 @@ namespace build2
   using variable_pool_base = std::unordered_set<variable>;
   struct variable_pool: private variable_pool_base
   {
+    const variable&
+    find (string name)
+    {
+      return find (name, nullptr, nullptr);
+    }
+
     template <typename T>
     const variable&
     find (string name)
@@ -642,56 +506,23 @@ namespace build2
     }
 
     const variable&
-    find (string name, const build2::value_type* t = nullptr)
+    find (string name, variable_visibility v)
     {
-      return find (name, nullptr, t);
+      return find (name, &v, nullptr);
     }
 
+    template <typename T>
     const variable&
-    find (string name,
-          variable_visibility v,
-          const build2::value_type* t = nullptr)
+    find (string name, variable_visibility v)
     {
-      return find (name, &v, t);
+      return find (name, &v, &value_traits<T>::value_type);
     }
 
     using variable_pool_base::clear;
 
   private:
     const variable&
-    find (string name,
-          const variable_visibility* vv,
-          const build2::value_type* t)
-    {
-      auto r (
-        insert (
-          variable {
-            move (name),
-            t,
-            vv != nullptr ? *vv : variable_visibility::normal}));
-      const variable& v (*r.first);
-
-      // Update type?
-      //
-      if (!r.second && t != nullptr && v.type != t)
-      {
-        assert (v.type == nullptr);
-        const_cast<variable&> (v).type = t; // Not changing the key.
-      }
-
-      // Change visibility? While this might at first seem like a bad idea,
-      // it can happen that the variable lookup happens before any values
-      // were set, in which case the variable will be entered with the
-      // default visibility.
-      //
-      if (!r.second && vv != nullptr && v.visibility != *vv)
-      {
-        assert (v.visibility == variable_visibility::normal); // Default.
-        const_cast<variable&> (v).visibility = *vv; // Not changing the key.
-      }
-
-      return v;
-    }
+    find (string name, const variable_visibility*, const build2::value_type*);
   };
 
   extern variable_pool var_pool;
@@ -713,34 +544,6 @@ namespace build2
     };
 
     using const_iterator = iterator_adapter<map_type::const_iterator>;
-
-    const value*
-    find (const variable& var) const
-    {
-      auto i (m_.find (var));
-      const value* r (i != m_.end () ? &i->second : nullptr);
-
-      // First access after being assigned a type?
-      //
-      if (r != nullptr && var.type != nullptr && r->type != var.type)
-        build2::assign (const_cast<value&> (*r), var.type, var);
-
-      return  r;
-    }
-
-    value*
-    find (const variable& var)
-    {
-      auto i (m_.find (var));
-      value* r (i != m_.end () ? &i->second : nullptr);
-
-      // First access after being assigned a type?
-      //
-      if (r != nullptr && var.type != nullptr && r->type != var.type)
-        build2::assign (*r, var.type, var);
-
-      return  r;
-    }
 
     lookup<const value>
     operator[] (const variable& var) const
@@ -768,34 +571,29 @@ namespace build2
       return operator[] (var_pool.find (name));
     }
 
+    const value*
+    find (const variable&) const;
+
+    value*
+    find (const variable&);
+
     // The second member in the pair indicates whether the new value (which
     // will be NULL) was assigned.
     //
     pair<reference_wrapper<value>, bool>
-    assign (const variable& var)
-    {
-      auto r (m_.emplace (var, value (var.type)));
-      value& v (r.first->second);
-
-      // First access after being assigned a type?
-      //
-      if (!r.second && var.type != nullptr && v.type != var.type)
-        build2::assign (v, var.type, var);
-
-      return make_pair (reference_wrapper<value> (v), r.second);
-    }
+    assign (const variable&);
 
     pair<reference_wrapper<value>, bool>
-    assign (const string& name, const build2::value_type* type = nullptr)
+    assign (const string& name)
     {
-      return assign (var_pool.find (name, type));
+      return assign (var_pool.find (name));
     }
 
     template <typename T>
     pair<reference_wrapper<value>, bool>
     assign (const string& name)
     {
-      return assign (var_pool.find (name, &value_traits<T>::value_type));
+      return assign (var_pool.find<T> (name));
     }
 
     pair<const_iterator, const_iterator>

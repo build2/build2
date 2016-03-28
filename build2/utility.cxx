@@ -147,18 +147,18 @@ namespace build2
   append_options (cstrings& args, const lookup<const value>& l)
   {
     if (l)
-      append_options (args, as<strings> (*l));
+      append_options (args, cast<strings> (*l));
   }
 
   void
   hash_options (sha256& csum, const lookup<const value>& l)
   {
     if (l)
-      hash_options (csum, as<strings> (*l));
+      hash_options (csum, cast<strings> (*l));
   }
 
   void
-  append_options (cstrings& args, const const_strings_value& sv)
+  append_options (cstrings& args, const strings& sv)
   {
     if (!sv.empty ())
     {
@@ -170,7 +170,7 @@ namespace build2
   }
 
   void
-  hash_options (sha256& csum, const const_strings_value& sv)
+  hash_options (sha256& csum, const strings& sv)
   {
     for (const string& s: sv)
       csum.append (s);
@@ -181,7 +181,7 @@ namespace build2
   {
     if (l)
     {
-      for (const string& s: as<strings> (*l))
+      for (const string& s: cast<strings> (*l))
       {
         if (s == option)
           return true;

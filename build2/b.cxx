@@ -482,51 +482,61 @@ main (int argc, char* argv[])
           //
           scope& rs (create_root (out_root, src_root));
 
-          bootstrap_out (rs);
+          bool bootstrapped (build2::bootstrapped (rs));
 
-          // See if the bootstrap process set/changed src_root.
-          //
-          value& v (rs.assign ("src_root"));
-
-          if (v)
+          if (!bootstrapped)
           {
-            // If we also have src_root specified by the user, make
-            // sure they match.
-            //
-            const dir_path& p (as<dir_path> (v));
+            bootstrap_out (rs);
 
-            if (src_root.empty ())
-              src_root = p;
-            else if (src_root != p)
-              fail << "bootstrapped src_root " << p << " does not match "
-                   << "specified " << src_root;
-          }
-          else
-          {
-            // Neither bootstrap nor the user produced src_root.
+            // See if the bootstrap process set/changed src_root.
             //
-            if (src_root.empty ())
+            value& v (rs.assign ("src_root"));
+
+            if (v)
             {
-              // If it also wasn't explicitly specified, see if it is
-              // the same as out_root.
+              // If we also have src_root specified by the user, make
+              // sure they match.
               //
-              if (is_src_root (out_root))
-                src_root = out_root;
-              else
+              const dir_path& p (cast<dir_path> (v));
+
+              if (src_root.empty ())
+                src_root = p;
+              else if (src_root != p)
+                fail << "bootstrapped src_root " << p << " does not match "
+                     << "specified " << src_root;
+            }
+            else
+            {
+              // Neither bootstrap nor the user produced src_root.
+              //
+              if (src_root.empty ())
               {
-                // If not, then assume we are running from src_base
-                // and calculate src_root based on out_root/out_base.
+                // If it also wasn't explicitly specified, see if it is
+                // the same as out_root.
                 //
-                src_base = work;
-                src_root = src_base.directory (out_base.leaf (out_root));
-                guessing = true;
+                if (is_src_root (out_root))
+                  src_root = out_root;
+                else
+                {
+                  // If not, then assume we are running from src_base
+                  // and calculate src_root based on out_root/out_base.
+                  //
+                  src_base = work;
+                  src_root = src_base.directory (out_base.leaf (out_root));
+                  guessing = true;
+                }
               }
+
+              v = src_root;
             }
 
-            v = src_root;
-          }
+            setup_root (rs);
 
-          setup_root (rs);
+            // Now that we have src_root, load the src_root bootstrap file,
+            // if there is one.
+            //
+            bootstrapped = bootstrap_src (rs);
+          }
 
           // At this stage we should have both roots and out_base figured
           // out. If src_base is still undetermined, calculate it.
@@ -534,25 +544,20 @@ main (int argc, char* argv[])
           if (src_base.empty ())
             src_base = src_root / out_base.leaf (out_root);
 
-          // Now that we have src_root, load the src_root bootstrap file,
-          // if there is one.
-          //
-          bool bootstrapped (bootstrap_src (rs));
-
           // Check that out_root that we have found is the innermost root
           // for this project. If it is not, then it means we are trying
           // to load a disfigured sub-project and that we do not support.
           // Why don't we support it? Because things are already complex
           // enough here.
           //
+          // Note that the subprojects variable has already been processed
+          // and converted to a map by the bootstrap_src() call above.
+          //
           if (auto l = rs.vars["subprojects"])
           {
-            for (const name& n: *l)
+            for (const auto& p: cast<subprojects> (*l))
             {
-              if (n.pair)
-                continue; // Skip project names.
-
-              if (out_base.sub (out_root / n.dir))
+              if (out_base.sub (out_root / p.second))
                 fail << tn << " is in a subproject of " << out_root <<
                   info << "explicitly specify src_base for this target";
             }

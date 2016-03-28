@@ -46,7 +46,7 @@ namespace build2
       {
         auto l (b["bin.loaded"]);
 
-        if (!l || !as<bool> (*l))
+        if (!l || !cast<bool> (*l))
           load_module (false, "bin", r, b, loc);
       }
 
@@ -157,16 +157,16 @@ namespace build2
       // cxx.coptions += <overriding options> # Note: '+='.
       //
       if (const value& v = config::optional (r, "config.cxx.poptions"))
-        b.assign ("cxx.poptions") += as<strings> (v);
+        b.assign ("cxx.poptions") += cast<strings> (v);
 
       if (const value& v = config::optional (r, "config.cxx.coptions"))
-        b.assign ("cxx.coptions") += as<strings> (v);
+        b.assign ("cxx.coptions") += cast<strings> (v);
 
       if (const value& v = config::optional (r, "config.cxx.loptions"))
-        b.assign ("cxx.loptions") += as<strings> (v);
+        b.assign ("cxx.loptions") += cast<strings> (v);
 
       if (const value& v = config::optional (r, "config.cxx.libs"))
-        b.assign ("cxx.libs") += as<strings> (v);
+        b.assign ("cxx.libs") += cast<strings> (v);
 
       // config.cxx
       //
@@ -176,7 +176,7 @@ namespace build2
 
         // Figure out which compiler we are dealing with, its target, etc.
         //
-        const path& cxx (path (as<string> (p.first))); // @@ VAR
+        const path& cxx (path (cast<string> (p.first))); // @@ VAR
         compiler_info ci (guess (cxx, r["cxx.coptions"]));
 
         // If this is a new value (e.g., we are configuring), then print the

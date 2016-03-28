@@ -44,6 +44,7 @@ namespace build2
   inline void
   hash_options (sha256& csum, T& s, const char* var)
   {
+
     hash_options (csum, s[var]);
   }
 

@@ -70,7 +70,7 @@ namespace build2
           l = t.base_scope ()[
             var_pool.find<bool> (string("test.") + t.type ().name)];
 
-        r = l && as<bool> (*l);
+        r = l && cast<bool> (*l);
       }
 
       // If this is the update pre-operation, then all we really need to
@@ -181,12 +181,12 @@ namespace build2
           fail << "both test.roundtrip and test.input/output specified "
                << "for target " << t;
 
-        in = on = &as<name> (*rl);
+        in = on = &cast<name> (*rl);
       }
       else
       {
-        in = il ? &as<name> (*il) : nullptr;
-        on = ol ? &as<name> (*ol) : nullptr;
+        in = il ? &cast<name> (*il) : nullptr;
+        on = ol ? &cast<name> (*ol) : nullptr;
       }
 
       // Resolve them to targets, which normally would be existing files
@@ -296,7 +296,7 @@ namespace build2
       }
 
       if (l)
-        append_options (args, as<strings> (*l));
+        append_options (args, cast<strings> (*l));
     }
 
     // The format of args shall be:

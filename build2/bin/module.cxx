@@ -156,7 +156,7 @@ namespace build2
       // See the cxx module for details on merging.
       //
       if (const value& v = config::optional (r, "config.bin.rpath"))
-        b.assign ("bin.rpath") += as<strings> (v);
+        b.assign ("bin.rpath") += cast<strings> (v);
 
       // config.bin.ar
       // config.bin.ranlib
@@ -170,8 +170,8 @@ namespace build2
         auto p (config::required (r, "config.bin.ar", "ar"));
         auto& v (config::optional (r, "config.bin.ranlib"));
 
-        const path& ar (path (as<string> (p.first))); // @@ VAR
-        const path& ranlib (v ? path (as<string> (v)) : path ()); // @@ VAR
+        const path& ar (path (cast<string> (p.first))); // @@ VAR
+        const path& ranlib (v ? path (cast<string> (v)) : path ()); // @@ VAR
 
         bin_info bi (guess (ar, ranlib));
 

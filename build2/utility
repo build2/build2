@@ -150,8 +150,6 @@ namespace build2
   //
   class value;
   template <typename> struct lookup;
-  template <typename, typename> struct vector_value;
-  using const_strings_value = vector_value<string, const names>;
 
   void
   append_options (cstrings&, const lookup<const value>&);
@@ -160,10 +158,10 @@ namespace build2
   hash_options (sha256&, const lookup<const value>&);
 
   void
-  append_options (cstrings&, const const_strings_value&);
+  append_options (cstrings&, const strings&);
 
   void
-  hash_options (sha256&, const const_strings_value&);
+  hash_options (sha256&, const strings&);
 
   // Check if a specified option is present in the variable value.
   // T is either target or scope.

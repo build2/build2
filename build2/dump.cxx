@@ -22,7 +22,10 @@ namespace build2
     if (val.null ())
       os << "[null]";
     else
-      os << val.data_;
+    {
+      names storage;
+      os << reverse (val, storage);
+    }
   }
 
   static void

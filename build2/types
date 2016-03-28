@@ -25,8 +25,7 @@
 #include <butl/fdstream>
 #include <butl/optional>
 #include <butl/timestamp>
-
-#include <build2/name>
+#include <butl/vector-view>
 
 namespace build2
 {
@@ -50,6 +49,7 @@ namespace build2
   using std::weak_ptr;
 
   using std::vector;
+  using butl::vector_view; // <butl/vector-view>
 
   using strings = vector<string>;
   using cstrings = vector<const char*>;
@@ -109,9 +109,10 @@ namespace build2
 
   using butl::ifdstream;
   using butl::ofdstream;
-
-  // <build2/name>
-  //
 }
+
+// <build2/name>
+//
+#include <build2/name>
 
 #endif // BUILD2_TYPES

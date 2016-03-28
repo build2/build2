@@ -90,7 +90,7 @@ namespace build2
         fail << "unknown root distribution directory" <<
           info << "did you forget to specify config.dist.root?";
 
-      const dir_path& dist_root (as<dir_path> (*l));
+      const dir_path& dist_root (cast<dir_path> (*l));
 
       if (!dir_exists (dist_root))
         fail << "root distribution directory " << dist_root
@@ -102,8 +102,8 @@ namespace build2
         fail << "unknown distribution package name" <<
           info << "did you forget to set dist.package?";
 
-      const string& dist_package (as<string> (*l));
-      const string& dist_cmd (as<string> (*rs->vars["dist.cmd"]));
+      const string& dist_package (cast<string> (*l));
+      const string& dist_cmd (cast<string> (*rs->vars["dist.cmd"]));
 
       // Get the list of operations supported by this project. Skip
       // default_id.
@@ -171,7 +171,7 @@ namespace build2
       //
       if (auto l = rs->vars["subprojects"])
       {
-        for (auto p: as<subprojects> (*l))
+        for (auto p: cast<subprojects> (*l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -209,7 +209,7 @@ namespace build2
           //
           auto l ((*ft)[dist_var]);
 
-          if (l && !as<bool> (*l))
+          if (l && !cast<bool> (*l))
             l5 ([&]{trace << "excluding " << *ft;});
           else
             files.push_back (ft);
@@ -223,7 +223,7 @@ namespace build2
           //
           auto l ((*ft)[dist_var]);
 
-          if (l && as<bool> (*l))
+          if (l && cast<bool> (*l))
           {
             l5 ([&]{trace << "including " << *ft;});
             files.push_back (ft);
@@ -295,7 +295,7 @@ namespace build2
       //
       if (auto l = rs->vars["dist.archives"])
       {
-        for (const string& e: as<strings> (*l))
+        for (const string& e: cast<strings> (*l))
           archive (dist_root, dist_package, e);
       }
     }
