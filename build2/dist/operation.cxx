@@ -19,18 +19,6 @@ namespace build2
 {
   namespace dist
   {
-    static void
-    dist_meta_operation_pre ()
-    {
-      // Reset the dependency state so that we don't end up with stray
-      // files from previous batches.
-      //
-      // @@ This is called too late, after we have bootstrapped the
-      //    project.
-      //
-      //reset ();
-    }
-
     static operation_id
     dist_operation_pre (operation_id o)
     {
@@ -441,7 +429,7 @@ namespace build2
       "distribute",
       "distributing",
       "has nothing to distribute", // We cannot "be distributed".
-      &dist_meta_operation_pre,
+      nullptr, // meta-operation pre
       &dist_operation_pre,
       &load,   // normal load
       &search, // normal search

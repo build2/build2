@@ -4,6 +4,8 @@
 
 #include <build2/context>
 
+#include <sstream>
+
 #include <butl/triplet>
 
 #include <build2/rule>
@@ -11,6 +13,12 @@
 #include <build2/target>
 #include <build2/version>
 #include <build2/diagnostics>
+
+// For command line variable parsing.
+//
+#include <build2/token>
+#include <build2/lexer>
+#include <build2/parser>
 
 using namespace std;
 using namespace butl;
@@ -31,19 +39,21 @@ namespace build2
   uint64_t dependency_count;
 
   void
-  reset ()
+  reset (const strings& cmd_vars)
   {
     tracer trace ("reset");
 
-    extension_pool.clear ();
-    project_name_pool.clear ();
+    l6 ([&]{trace << "resetting build state";});
 
     targets.clear ();
     scopes.clear ();
     var_pool.clear ();
 
-    // Reset meta/operation tables. Note that the order should match
-    // the id constants in <build2/operation>.
+    extension_pool.clear ();
+    project_name_pool.clear ();
+
+    // Reset meta/operation tables. Note that the order should match the id
+    // constants in <build2/operation>.
     //
     meta_operation_table.clear ();
     meta_operation_table.insert ("perform");
@@ -57,6 +67,45 @@ namespace build2
     operation_table.insert ("clean");
     operation_table.insert ("test");
     operation_table.insert ("install");
+
+    // Create global scope. For Win32 this is not a "real" root path.
+    // On POSIX, however, this is a real path. See the comment in
+    // <build2/path-map> for details.
+    //
+    scope& gs (*scopes.insert (dir_path ("/"), nullptr, true, false)->second);
+    global_scope = &gs;
+
+    // Parse and enter the command line variables. We do it before entering
+    // any other variables so that all the variables that are overriden are
+    // marked as such first. Then, as we enter variables, we can verify that
+    // the override is alowed.
+    //
+    for (const string& v: cmd_vars)
+    {
+      istringstream is (v);
+      is.exceptions (istringstream::failbit | istringstream::badbit);
+      lexer l (is, path ("<cmdline>"));
+
+      // This should be a name followed by =, +=, or =+.
+      //
+      token t (l.next ());
+      token_type tt (l.next ().type);
+
+      if (t.type != token_type::name ||
+          (tt != token_type::assign &&
+           tt != token_type::prepend &&
+           tt != token_type::append))
+      {
+        fail << "expected variable assignment instead of '" << v << "'" <<
+          info << "use double '--' to treat this argument as buildspec";
+      }
+
+      parser p;
+      t = p.parse_variable (l, gs, t.value, tt);
+
+      if (t.type != token_type::eos)
+        fail << "unexpected " << t << " in variable assignment '" << v << "'";
+    }
 
     // Enter builtin variables.
     //
@@ -77,15 +126,6 @@ namespace build2
 
       v.find<string> ("extension");
     }
-
-    // Create global scope. For Win32 this is not a "real" root path.
-    // On POSIX, however, this is a real path. See the comment in
-    // <build2/path-map> for details.
-    //
-    global_scope = scopes.insert (
-      dir_path ("/"), nullptr, true, false)->second;
-
-    scope& gs (*global_scope);
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;

@@ -427,18 +427,6 @@ namespace build2
       }
     }
 
-    static void
-    disfigure_meta_operation_post ()
-    {
-      tracer trace ("disfigure_meta_operation_post");
-
-      // Reset the dependency state since anything that could have been
-      // loaded earlier using a previous configuration is now invalid.
-      //
-      l6 ([&]{trace << "resetting dependency state";});
-      reset ();
-    }
-
     meta_operation_info disfigure {
       "disfigure",
       "disfigure",
@@ -451,7 +439,7 @@ namespace build2
       &disfigure_match,
       &disfigure_execute,
       nullptr, // operation post
-      &disfigure_meta_operation_post
+      nullptr, // meta-operation post
     };
   }
 }

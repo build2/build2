@@ -41,11 +41,11 @@ namespace build2
   //
   extern uint64_t dependency_count;
 
-  // Reset the dependency state. In particular, this removes all the
-  // targets, scopes, and variable names.
+  // Reset the build state. In particular, this removes all the targets,
+  // scopes, and variables.
   //
   void
-  reset ();
+  reset (const strings& cmd_vars);
 
   // The dual interface wrapper for the {mk,rm}{file,dir}() functions
   // below that allows you to use it as a true/false return or a more

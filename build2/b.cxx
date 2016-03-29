@@ -65,7 +65,7 @@ main (int argc, char* argv[])
     // and buildspecs in any order (it is really handy to just add -v at the
     // end of the command line).
     //
-    strings vars;
+    strings cmd_vars;
     string args;
     try
     {
@@ -115,7 +115,7 @@ main (int argc, char* argv[])
 
           if (strchr (s, '=') != nullptr) // Covers =, +=, and =+.
           {
-            vars.push_back (s);
+            cmd_vars.push_back (s);
             continue;
           }
 
@@ -224,39 +224,6 @@ main (int argc, char* argv[])
       trace << "home dir: " << home;
     }
 
-    // Initialize the dependency state.
-    //
-    reset ();
-
-    // Parse the command line variables.
-    //
-    for (const string& v: vars)
-    {
-      istringstream is (v);
-      is.exceptions (istringstream::failbit | istringstream::badbit);
-      lexer l (is, path ("<cmdline>"));
-
-      // This should be a name followed by =, +=, or =+.
-      //
-      token t (l.next ());
-      token_type tt (l.next ().type);
-
-      if (t.type != token_type::name ||
-          (tt != token_type::assign &&
-           tt != token_type::prepend &&
-           tt != token_type::append))
-      {
-        fail << "expected variable assignment instead of '" << v << "'" <<
-          info << "use double '--' to treat this argument as buildspec";
-      }
-
-      parser p;
-      t = p.parse_variable (l, *global_scope, t.value, tt);
-
-      if (t.type != token_type::eos)
-        fail << "unexpected " << t << " in variable assignment '" << v << "'";
-    }
-
     // Parse the buildspec.
     //
     buildspec bspec;
@@ -278,23 +245,76 @@ main (int argc, char* argv[])
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
 
-    for (metaopspec& ms: bspec)
+    // If not NULL, then lifted points to the operation that has been "lifted"
+    // to the meta-operaion (see the logic below for details). Skip is the
+    // position of the next operation. Dirty indicated whether we managed to
+    // execute anything before lifting an operation.
+    //
+    opspec* lifted (nullptr);
+    size_t skip (0);
+    bool dirty (true);
+
+    for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {
-      if (ms.empty ())
-        ms.push_back (opspec ()); // Default operation.
+      vector_view<opspec> opspecs;
+      const string& mname (lifted == nullptr ? mit->name : lifted->name);
+
+      if (lifted == nullptr)
+      {
+        metaopspec& ms (*mit);
+
+        if (ms.empty ())
+          ms.push_back (opspec ()); // Default operation.
+
+        // Continue where we left off after lifting an operation.
+        //
+        opspecs.assign (ms.data () + skip, ms.size () - skip);
+
+        // Reset since unless we lift another operation, we move to the
+        // next meta-operation (see bottom of the loop).
+        //
+        skip = 0;
+
+        // This can happen if we have lifted the last operation in opspecs.
+        //
+        if (opspecs.empty ())
+        {
+          ++mit;
+          continue;
+        }
+      }
+      else
+        opspecs.assign (lifted, 1);
+
+      // Reset the build state for each meta-operation since there is no
+      // guarantee their assumptions (e.g., in the load callback) are
+      // compatible.
+      //
+      if (dirty)
+      {
+        reset (cmd_vars);
+        dirty = false;
+      }
 
       meta_operation_id mid (0); // Not yet translated.
       const meta_operation_info* mif (nullptr);
 
-      bool lifted (false); // See below.
-
-      for (opspec& os: ms)
+      for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
-        const path p ("<buildspec>");
-        const location l (&p, 1, 0); //@@ TODO
+        opspec& os (*oit);
+
+        // A lifted meta-operation will always have default operation.
+        //
+        const string& oname (lifted == nullptr ? os.name : string ());
+
+        if (lifted != nullptr)
+          lifted = nullptr; // Clear for the next iteration.
 
         if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", string ())));
+
+        const path p ("<buildspec>");
+        const location l (&p, 1, 0); //@@ TODO
 
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);
@@ -311,21 +331,6 @@ main (int argc, char* argv[])
         //
         action_targets tgs;
         tgs.reserve (os.size ());
-
-        // If the previous operation was lifted to meta-operation,
-        // end the meta-operation batch.
-        //
-        if (lifted)
-        {
-          if (mif->meta_operation_post != nullptr)
-            mif->meta_operation_post ();
-
-          l5 ([&]{trace << "end meta-operation batch " << mif->name << ", id "
-                        << static_cast<uint16_t> (mid);});
-
-          mid = 0;
-          lifted = false;
-        }
 
         for (targetspec& ts: os)
         {
@@ -585,50 +590,34 @@ main (int argc, char* argv[])
           // known.
           //
           {
-            const auto& mn (ms.name);
-            const auto& on (os.name);
-
             meta_operation_id m (0);
             operation_id o (0);
 
-            if (!on.empty ())
+            if (!oname.empty ())
             {
-              m = meta_operation_table.find (on);
+              m = meta_operation_table.find (oname);
 
               if (m != 0)
               {
-                if (!mn.empty ())
-                  fail (l) << "nested meta-operation " << mn
-                           << '(' << on << ')';
+                if (!mname.empty ())
+                  fail (l) << "nested meta-operation " << mname
+                           << '(' << oname << ')';
 
-                if (!lifted) // If this is the first target.
-                {
-                  // End the previous meta-operation batch if there was one
-                  // and start a new one.
-                  //
-                  if (mid != 0)
-                  {
-                    assert (oid == 0);
+                l5 ([&]{trace << "lifting operation " << oname
+                              << ", id " << uint16_t (m);});
 
-                    if (mif->meta_operation_post != nullptr)
-                      mif->meta_operation_post ();
-
-                    l5 ([&]{trace << "end meta-operation batch " << mif->name
-                                  << ", id " << static_cast<uint16_t> (mid);});
-                    mid = 0;
-                  }
-
-                  lifted = true; // Flag to also end it; see above.
-                }
+                lifted = &os;
+                skip = lifted - mit->data () + 1;
+                break; // Out of targetspec loop.
               }
               else
               {
-                o = operation_table.find (on);
+                o = operation_table.find (oname);
 
                 if (o == 0)
                 {
                   diag_record dr;
-                  dr << fail (l) << "unknown operation " << on;
+                  dr << fail (l) << "unknown operation " << oname;
 
                   // If we guessed src_root and didn't load anything during
                   // bootstrap, then this is probably a meta-operation that
@@ -642,14 +631,14 @@ main (int argc, char* argv[])
               }
             }
 
-            if (!mn.empty ())
+            if (!mname.empty ())
             {
-              m = meta_operation_table.find (mn);
+              m = meta_operation_table.find (mname);
 
               if (m == 0)
               {
                 diag_record dr;
-                dr << fail (l) << "unknown meta-operation " << mn;
+                dr << fail (l) << "unknown meta-operation " << mname;
 
                 // Same idea as for the operation case above.
                 //
@@ -684,6 +673,7 @@ main (int argc, char* argv[])
                 mif->meta_operation_pre ();
 
               current_mif = mif;
+              dirty = true;
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -834,78 +824,94 @@ main (int argc, char* argv[])
           }
         }
 
-        if (pre_oid != 0)
+        // We don't do anything if we lifted the first operation.
+        //
+        if (oid != 0)
         {
-          l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
-                        << ", id " << static_cast<uint16_t> (pre_oid);});
+          if (pre_oid != 0)
+          {
+            l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
+                          << ", id " << static_cast<uint16_t> (pre_oid);});
 
-          if (mif->operation_pre != nullptr)
-            mif->operation_pre (pre_oid); // Cannot be translated.
+            if (mif->operation_pre != nullptr)
+              mif->operation_pre (pre_oid); // Cannot be translated.
 
-          current_inner_oif = pre_oif;
-          current_outer_oif = oif;
-          current_mode = pre_oif->mode;
+            current_inner_oif = pre_oif;
+            current_outer_oif = oif;
+            current_mode = pre_oif->mode;
+            dependency_count = 0;
+
+            action a (mid, pre_oid, oid);
+
+            mif->match (a, tgs);
+            mif->execute (a, tgs, true); // Run quiet.
+
+            if (mif->operation_post != nullptr)
+              mif->operation_post (pre_oid);
+
+            l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
+                          << ", id " << static_cast<uint16_t> (pre_oid);});
+          }
+
+          current_inner_oif = oif;
+          current_outer_oif = nullptr;
+          current_mode = oif->mode;
           dependency_count = 0;
 
-          action a (mid, pre_oid, oid);
+          action a (mid, oid, 0);
 
           mif->match (a, tgs);
-          mif->execute (a, tgs, true); // Run quiet.
+          mif->execute (a, tgs, verb == 0);
+
+          if (post_oid != 0)
+          {
+            l5 ([&]{trace << "start post-operation batch " << post_oif->name
+                          << ", id " << static_cast<uint16_t> (post_oid);});
+
+            if (mif->operation_pre != nullptr)
+              mif->operation_pre (post_oid); // Cannot be translated.
+
+            current_inner_oif = post_oif;
+            current_outer_oif = oif;
+            current_mode = post_oif->mode;
+            dependency_count = 0;
+
+            action a (mid, post_oid, oid);
+
+            mif->match (a, tgs);
+            mif->execute (a, tgs, true); // Run quiet.
+
+            if (mif->operation_post != nullptr)
+              mif->operation_post (post_oid);
+
+            l5 ([&]{trace << "end post-operation batch " << post_oif->name
+                          << ", id " << static_cast<uint16_t> (post_oid);});
+          }
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (pre_oid);
+            mif->operation_post (oid);
 
-          l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
-                        << ", id " << static_cast<uint16_t> (pre_oid);});
+          l5 ([&]{trace << "end operation batch " << oif->name
+                        << ", id " << static_cast<uint16_t> (oid);});
         }
 
-        current_inner_oif = oif;
-        current_outer_oif = nullptr;
-        current_mode = oif->mode;
-        dependency_count = 0;
-
-        action a (mid, oid, 0);
-
-        mif->match (a, tgs);
-        mif->execute (a, tgs, verb == 0);
-
-        if (post_oid != 0)
-        {
-          l5 ([&]{trace << "start post-operation batch " << post_oif->name
-                        << ", id " << static_cast<uint16_t> (post_oid);});
-
-          if (mif->operation_pre != nullptr)
-            mif->operation_pre (post_oid); // Cannot be translated.
-
-          current_inner_oif = post_oif;
-          current_outer_oif = oif;
-          current_mode = post_oif->mode;
-          dependency_count = 0;
-
-          action a (mid, post_oid, oid);
-
-          mif->match (a, tgs);
-          mif->execute (a, tgs, true); // Run quiet.
-
-          if (mif->operation_post != nullptr)
-            mif->operation_post (post_oid);
-
-          l5 ([&]{trace << "end post-operation batch " << post_oif->name
-                        << ", id " << static_cast<uint16_t> (post_oid);});
-        }
-
-        if (mif->operation_post != nullptr)
-          mif->operation_post (oid);
-
-        l5 ([&]{trace << "end operation batch " << oif->name
-                      << ", id " << static_cast<uint16_t> (oid);});
+        // If this operation has been lifted, break out.
+        //
+        if (lifted == &os)
+          break;
       }
 
-      if (mif->meta_operation_post != nullptr)
-        mif->meta_operation_post ();
+      if (mid != 0)
+      {
+        if (mif->meta_operation_post != nullptr)
+          mif->meta_operation_post ();
 
-      l5 ([&]{trace << "end meta-operation batch " << mif->name
-                    << ", id " << static_cast<uint16_t> (mid);});
+        l5 ([&]{trace << "end meta-operation batch " << mif->name
+                      << ", id " << static_cast<uint16_t> (mid);});
+      }
+
+      if (lifted == nullptr && skip == 0)
+        ++mit;
     }
   }
   catch (const failed&)
