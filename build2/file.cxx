@@ -264,7 +264,7 @@ namespace build2
   // any variable expansion other than those from the global scope.
   //
   static value
-  extract_variable (const path& bf, const char* var)
+  extract_variable (const path& bf, const char* name)
   {
     try
     {
@@ -278,18 +278,20 @@ namespace build2
       token t (lex.next ());
       token_type tt;
 
-      if (t.type != token_type::name || t.value != var ||
+      if (t.type != token_type::name || t.value != name ||
           ((tt = lex.next ().type) != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))
       {
-        error << "variable '" << var << "' expected as first line in " << bf;
+        error << "variable '" << name << "' expected as first line in " << bf;
         throw failed (); // Suppress "used uninitialized" warning.
       }
 
+      const variable& var (var_pool.find (move (t.value)));
+
       parser p;
       temp_scope tmp (*global_scope);
-      p.parse_variable (lex, tmp, t.value, tt);
+      p.parse_variable (lex, tmp, var, tt);
 
       auto l (tmp.vars[var]);
       assert (l.defined ());

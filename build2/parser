@@ -11,13 +11,13 @@
 #include <build2/spec>
 #include <build2/lexer>
 #include <build2/token>
-#include <build2/variable>    // list_value
 #include <build2/diagnostics>
 
 namespace build2
 {
   class scope;
   class target;
+  struct variable;
 
   class parser
   {
@@ -39,7 +39,7 @@ namespace build2
     parse_buildspec (istream&, const path& name);
 
     token
-    parse_variable (lexer&, scope&, string var_name, token_type kind);
+    parse_variable (lexer&, scope&, const variable_type&, token_type kind);
 
     names_type
     parse_export_stub (istream& is, const path& p, scope& r, scope& b)
@@ -79,7 +79,7 @@ namespace build2
     if_else (token&, token_type&);
 
     void
-    variable (token&, token_type&, string name, token_type kind);
+    variable (token&, token_type&, const variable_type&, token_type kind);
 
     string
     variable_name (names_type&&, const location&);

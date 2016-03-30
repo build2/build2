@@ -101,7 +101,7 @@ namespace build2
       }
 
       parser p;
-      t = p.parse_variable (l, gs, t.value, tt);
+      t = p.parse_variable (l, gs, var_pool.find (t.value), tt);
 
       if (t.type != token_type::eos)
         fail << "unexpected " << t << " in variable assignment '" << v << "'";

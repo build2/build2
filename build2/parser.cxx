@@ -55,7 +55,7 @@ namespace build2
   }
 
   token parser::
-  parse_variable (lexer& l, scope& s, string name, type kind)
+  parse_variable (lexer& l, scope& s, const variable_type& var, type kind)
   {
     path_ = &l.name ();
     lexer_ = &l;
@@ -64,7 +64,7 @@ namespace build2
 
     type tt;
     token t (type::eos, false, 0, 0);
-    variable (t, tt, move (name), kind);
+    variable (t, tt, var, kind);
     return t;
   }
 
@@ -301,7 +301,9 @@ namespace build2
             token at (t);
             type att (tt);
 
-            string v (variable_name (move (pns), ploc));
+            const variable_type& var (
+              var_pool.find (
+                variable_name (move (pns), ploc)));
 
             // If we have multiple targets/scopes, then we save the value
             // tokens when parsing the first one and then replay them for
@@ -331,7 +333,7 @@ namespace build2
                 scope* ocs (scope_);
                 switch_scope (p);
 
-                variable (t, tt, v, att);
+                variable (t, tt, var, att);
 
                 scope_ = ocs;
                 root_ = ors;
@@ -347,7 +349,7 @@ namespace build2
                 {
                   target* ot (target_);
                   target_ = &enter_target (move (n));
-                  variable (t, tt, v, att);
+                  variable (t, tt, var, att);
                   target_ = ot;
                 }
                 else
@@ -374,18 +376,16 @@ namespace build2
 
                   if (att == type::prepend)
                     fail (at) << "prepend to target type/pattern-specific "
-                              << "variable " << v;
+                              << "variable " << var.name;
 
                   if (att == type::append)
                     fail (at) << "append to target type/pattern-specific "
-                              << "variable " << v;
+                              << "variable " << var.name;
 
                   // Note: expanding variables in the value in the context of
                   // the scope.
                   //
                   names_type vns (variable_value (t, tt));
-
-                  const auto& var (var_pool.find (v));
                   value& val (scope_->target_vars[*ti][move (n.value)].assign (
                                 var).first);
                   val.assign (move (vns), var);
@@ -465,7 +465,7 @@ namespace build2
       //
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
-        variable (t, tt, variable_name (move (ns), nloc), tt);
+        variable (t, tt, var_pool.find (variable_name (move (ns), nloc)), tt);
 
         if (tt == type::newline)
           next (t, tt);
@@ -1165,10 +1165,9 @@ namespace build2
   }
 
   void parser::
-  variable (token& t, type& tt, string name, type kind)
+  variable (token& t, type& tt, const variable_type& var, type kind)
   {
     names_type vns (variable_value (t, tt));
-    const auto& var (var_pool.find (move (name)));
 
     if (kind == type::assign)
     {
