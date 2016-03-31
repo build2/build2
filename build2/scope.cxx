@@ -12,21 +12,30 @@ namespace build2
 {
   // scope
   //
-  lookup<const value> scope::
-  lookup (const target_type* tt, const string* name, const variable& var) const
+  lookup scope::
+  find (const variable& var,
+        const target_type* tt, const string* tn,
+        const target_type* gt, const string* gn) const
   {
-    using result = build2::lookup<const value>;
-
     for (const scope* s (this); s != nullptr; )
     {
-      if (tt != nullptr && !s->target_vars.empty ())
+      if (!s->target_vars.empty ())
       {
-        if (auto l = s->target_vars.lookup (*tt, *name, var))
-          return l;
+        if (tt != nullptr)
+        {
+          if (auto l = s->target_vars.find (*tt, *tn, var))
+            return l;
+        }
+
+        if (gt != nullptr)
+        {
+          if (auto l = s->target_vars.find (*gt, *gn, var))
+            return l;
+        }
       }
 
       if (auto r = s->vars.find (var))
-        return result (r, &s->vars);
+        return lookup (r, &s->vars);
 
       switch (var.visibility)
       {
@@ -42,7 +51,7 @@ namespace build2
       }
     }
 
-    return result ();
+    return lookup ();
   }
 
   value& scope::

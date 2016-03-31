@@ -236,7 +236,7 @@ namespace build2
       auto test = [&s, &n, &e, &var] (const target_type& tt)
         -> const target_type*
       {
-        if (auto l = s.lookup (tt, n, var))
+        if (auto l = s.find (var, tt, n))
           if (cast<string> (l) == e)
             return &tt;
 

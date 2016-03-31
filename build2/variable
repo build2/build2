@@ -21,7 +21,7 @@ namespace build2
 {
   class value;
   struct variable;
-  template <typename> struct lookup;
+  struct lookup;
 
   struct value_type
   {
@@ -76,6 +76,8 @@ namespace build2
   // variable
   //
   // The two variables are considered the same if they have the same name.
+  //
+  // @@ Document override semantics.
   //
   struct variable
   {
@@ -197,18 +199,14 @@ namespace build2
   template <typename T> T& cast (value&);
   template <typename T> T&& cast (value&&);
   template <typename T> const T& cast (const value&);
-
-  template <typename T> T& cast (const lookup<value>&);
-  template <typename T> const T& cast (const lookup<const value>&);
+  template <typename T> const T& cast (const lookup&);
 
   // As above but returns NULL if the value is NULL (or not defined, in
   // case of lookup).
   //
   template <typename T> T* cast_null (value&);
   template <typename T> const T* cast_null (const value&);
-
-  template <typename T> T* cast_null (const lookup<value>&);
-  template <typename T> const T* cast_null (const lookup<const value>&);
+  template <typename T> const T* cast_null (const lookup&);
 
   // Assign value type to the value. Variable is normally only used for
   // diagnostics.
@@ -230,10 +228,11 @@ namespace build2
   //
   struct variable_map;
 
-  template <typename V>
   struct lookup
   {
-    V* value;
+    using value_type = build2::value;
+
+    const value_type* value;
     const variable_map* vars;
 
     bool
@@ -243,22 +242,23 @@ namespace build2
     //
     explicit operator bool () const {return defined () && !value->null ();}
 
-    V& operator*  () const {return *value;}
-    V* operator-> () const {return value;}
+    const value_type& operator*  () const {return *value;}
+    const value_type* operator-> () const {return value;}
 
     // Return true if this value belongs to the specified scope or target.
-    // Note that it can also be a target type/pattern-specific value.
+    // Note that it can also be a target type/pattern-specific value (in
+    // which case it won't belong to either).
     //
     template <typename T>
     bool
     belongs (const T& x) const {return vars == &x.vars;}
 
     lookup (): value (nullptr), vars (nullptr) {}
-    lookup (V* v, const variable_map* vs)
+    lookup (const value_type* v, const variable_map* vs)
         : value (v), vars (v != nullptr ? vs : nullptr) {}
 
     template <typename T>
-    lookup (V& v, const T& x): lookup (&v, &x.vars) {}
+    lookup (const value_type& v, const T& x): lookup (&v, &x.vars) {}
   };
 
   // Representation types.
@@ -590,28 +590,17 @@ namespace build2
 
     using const_iterator = iterator_adapter<map_type::const_iterator>;
 
-    lookup<const value>
+    // Lookup. Note that variable overrides will not be applied, even if
+    // set in this map.
+    //
+    lookup
     operator[] (const variable& var) const
     {
-      return lookup<const value> (find (var), this);
+      return lookup (find (var), this);
     }
 
-    lookup<const value>
+    lookup
     operator[] (const string& name) const
-    {
-      return operator[] (var_pool.find (name));
-    }
-
-    // Non-const lookup. Only exposed on the map directly.
-    //
-    lookup<value>
-    operator[] (const variable& var)
-    {
-      return lookup<value> (find (var), this);
-    }
-
-    lookup<value>
-    operator[] (const string& name)
     {
       return operator[] (var_pool.find (name));
     }
@@ -675,12 +664,13 @@ namespace build2
   //    consider its lifetime.
   //
   using variable_pattern_map = std::map<string, variable_map>;
+  using variable_type_map_base = std::map<reference_wrapper<const target_type>,
+                                          variable_pattern_map>;
 
-  struct variable_type_map: std::map<reference_wrapper<const target_type>,
-                                     variable_pattern_map>
+  struct variable_type_map: variable_type_map_base
   {
-    build2::lookup<const value>
-    lookup (const target_type&, const string& name, const variable&) const;
+    lookup
+    find (const target_type&, const string& tname, const variable&) const;
   };
 }
 

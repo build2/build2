@@ -780,7 +780,7 @@ namespace build2
       if (dd.expect ("cxx.link 1") != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
-      lookup<const value> ranlib;
+      lookup ranlib;
 
       // Then the linker checksum (ar/ranlib or C++ compiler).
       //
@@ -789,7 +789,7 @@ namespace build2
         ranlib = rs["config.bin.ranlib"];
 
         if (ranlib->empty ()) // @@ TMP until proper NULL support.
-          ranlib = lookup<const value> ();
+          ranlib = lookup ();
 
         const char* rl (
           ranlib

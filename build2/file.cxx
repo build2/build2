@@ -263,9 +263,9 @@ namespace build2
     source_once (bf, root, root);
   }
 
-  // Extract the specified variable value from a buildfile. It is
-  // expected to be the first non-comment line and not to rely on
-  // any variable expansion other than those from the global scope.
+  // Extract the specified variable value from a buildfile. It is expected to
+  // be the first non-comment line and not to rely on any variable expansion
+  // other than those from the global scope or any variable overrides.
   //
   static value
   extract_variable (const path& bf, const char* name)
@@ -297,10 +297,9 @@ namespace build2
       temp_scope tmp (*global_scope);
       p.parse_variable (lex, tmp, var, tt);
 
-      auto l (tmp.vars[var]);
-      assert (l.defined ());
-      value& v (*l);
-      return move (v); // Steal the value, the scope is going away.
+      value* v (tmp.vars.find (var));
+      assert (v != nullptr);
+      return move (*v); // Steal the value, the scope is going away.
     }
     catch (const ifstream::failure&)
     {

@@ -142,10 +142,9 @@ namespace build2
     virtual void
     reset (action_type);
 
-    const dir_path dir;      // Absolute and normalized.
+    const dir_path dir; // Absolute and normalized.
     const string name;
-    const string* ext;  // Extension, NULL means unspecified,
-                             // empty means no extension.
+    const string* ext;  // Extension, NULL - unspecified, empty - no extension.
 
     // Target group to which this target belongs, if any. Note that
     // we assume that the group and all its members are in the same
@@ -271,15 +270,15 @@ namespace build2
   public:
     variable_map vars;
 
-    // Lookup, including in groups to which this target belongs and
-    // then in outer scopes (including target type/pattern-specific
-    // variables). If you only want to lookup in this target, do it
-    // on the variable map directly.
+    // Lookup, including in groups to which this target belongs and then in
+    // outer scopes (including target type/pattern-specific variables). If you
+    // only want to lookup in this target, do it on the variable map directly
+    // (and note that there will be no overrides).
     //
-    lookup<const value>
+    lookup
     operator[] (const variable&) const;
 
-    lookup<const value>
+    lookup
     operator[] (const string& name) const
     {
       return operator[] (var_pool.find (name));

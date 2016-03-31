@@ -22,7 +22,7 @@ namespace build2
   {
     // Include target type/pattern-specific variables.
     //
-    if (auto l = s.lookup (tk, var))
+    if (auto l = s.find (var, tk))
     {
       // Help the user here and strip leading '.' from the extension.
       //

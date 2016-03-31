@@ -144,14 +144,14 @@ namespace build2
   const dir_path empty_dir_path;
 
   void
-  append_options (cstrings& args, const lookup<const value>& l)
+  append_options (cstrings& args, const lookup& l)
   {
     if (l)
       append_options (args, cast<strings> (l));
   }
 
   void
-  hash_options (sha256& csum, const lookup<const value>& l)
+  hash_options (sha256& csum, const lookup& l)
   {
     if (l)
       hash_options (csum, cast<strings> (l));
@@ -177,7 +177,7 @@ namespace build2
   }
 
   bool
-  find_option (const char* option, const lookup<const value>& l)
+  find_option (const char* option, const lookup& l)
   {
     if (l)
     {

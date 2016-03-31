@@ -149,13 +149,13 @@ namespace build2
   // As above but from the strings value directly.
   //
   class value;
-  template <typename> struct lookup;
+  struct lookup;
 
   void
-  append_options (cstrings&, const lookup<const value>&);
+  append_options (cstrings&, const lookup&);
 
   void
-  hash_options (sha256&, const lookup<const value>&);
+  hash_options (sha256&, const lookup&);
 
   void
   append_options (cstrings&, const strings&);
@@ -171,7 +171,7 @@ namespace build2
   find_option (const char* option, T&, const char* variable);
 
   bool
-  find_option (const char* option, const lookup<const value>&);
+  find_option (const char* option, const lookup&);
 
   // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
   // AABBCCDD form, where:

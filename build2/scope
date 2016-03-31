@@ -85,51 +85,52 @@ namespace build2
   public:
     variable_map vars;
 
-    // Lookup, including in outer scopes. If you only want to lookup
-    // in this scope, do it on the the variables map directly.
+    // Lookup, including in outer scopes. If you only want to lookup in this
+    // scope, do it on the the variables map directly (and note that there
+    // will be no overrides).
     //
-    build2::lookup<const value>
+    lookup
     operator[] (const variable& var) const
     {
-      return lookup (nullptr, nullptr, var);
+      return find (var, nullptr, nullptr);
     }
 
-    build2::lookup<const value>
+    lookup
     operator[] (const string& name) const
     {
       return operator[] (var_pool.find (name));
     }
 
-    // As above, but includes target type/pattern-specific variables.
+    // As above, but include target type/pattern-specific variables.
     //
-    build2::lookup<const value>
-    lookup (const target_key& tk, const variable& var) const
+    lookup
+    find (const variable& var, const target_key& tk) const
     {
-      return lookup (tk.type, tk.name, var);
+      return find (var, tk.type, tk.name);
     }
 
-    build2::lookup<const value>
-    lookup (const target_key& tk, const string& var) const
+    lookup
+    find (const string& var, const target_key& tk) const
     {
-      return lookup (tk, var_pool.find (var));
+      return find (var_pool.find (var), tk);
     }
 
-    build2::lookup<const value>
-    lookup (const target_type& tt,
-            const string& name,
-            const variable& var) const
+    lookup
+    find (const variable& var, const target_type& tt, const string& tn) const
     {
-      return lookup (&tt, &name, var);
+      return find (var, &tt, &tn);
     }
 
-    build2::lookup<const value>
-    lookup (const target_type& tt, const string& name, const string& var) const
+    lookup
+    find (const string& var, const target_type& tt, const string& tn) const
     {
-      return lookup (tt, name, var_pool.find (var));
+      return find (var_pool.find (var), tt, tn);
     }
 
-    build2::lookup<const value>
-    lookup (const target_type*, const string* name, const variable&) const;
+    lookup
+    find (const variable&,
+          const target_type* tt, const string* tn,
+          const target_type* gt = nullptr, const string* gn = nullptr) const;
 
     // Return a value suitable for assignment (or append if you only
     // want to append to the value from this scope). If the variable

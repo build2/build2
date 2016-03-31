@@ -640,18 +640,16 @@ namespace build2
 
   // variable_type_map
   //
-  lookup<const value> variable_type_map::
-  lookup (const target_type& type,
-          const string& name,
-          const variable& var) const
+  lookup variable_type_map::
+  find (const target_type& type,
+        const string& name,
+        const variable& var) const
   {
-    using result = build2::lookup<const value>;
-
     // Search across target type hierarchy.
     //
     for (auto tt (&type); tt != nullptr; tt = tt->base)
     {
-      auto i (find (*tt));
+      auto i (variable_type_map_base::find (*tt));
 
       if (i == end ())
         continue;
@@ -698,11 +696,11 @@ namespace build2
           //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and
           //   'foo-foo'? Right now the last defined will be used.
           //
-          return result (v, &j->second);
+          return lookup (v, &j->second);
         }
       }
     }
 
-    return result ();
+    return lookup ();
   }
 }

@@ -104,15 +104,8 @@ namespace build2
   }
 
   template <typename T>
-  inline T&
-  cast (const lookup<value>& l)
-  {
-    return cast<T> (*l);
-  }
-
-  template <typename T>
   inline const T&
-  cast (const lookup<const value>& l)
+  cast (const lookup& l)
   {
     return cast<T> (*l);
   }
@@ -132,15 +125,8 @@ namespace build2
   }
 
   template <typename T>
-  inline T*
-  cast_null (const lookup<value>& l)
-  {
-    return l ? &cast<T> (*l) : nullptr;
-  }
-
-  template <typename T>
   inline const T*
-  cast_null (const lookup<const value>& l)
+  cast_null (const lookup& l)
   {
     return l ? &cast<T> (*l) : nullptr;
   }

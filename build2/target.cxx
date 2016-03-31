@@ -114,55 +114,26 @@ namespace build2
     return *r;
   }
 
-  lookup<const value> target::
+  lookup target::
   operator[] (const variable& var) const
   {
-    using result = lookup<const value>;
-
     if (auto p = vars.find (var))
-      return result (p, &vars);
+      return lookup (p, &vars);
 
     if (group != nullptr)
     {
       if (auto p = group->vars.find (var))
-        return result (p, &group->vars);
+        return lookup (p, &group->vars);
     }
 
-    // We cannot simply delegate to scope's lookup() since we also need
-    // to check the group.
+    // Delegate to scope's find().
     //
-    for (const scope* s (&base_scope ()); s != nullptr; )
-    {
-      if (!s->target_vars.empty ())
-      {
-        if (auto l = s->target_vars.lookup (type (), name, var))
-          return l;
-
-        if (group != nullptr)
-        {
-          if (auto l = s->target_vars.lookup (group->type (), group->name, var))
-            return l;
-        }
-      }
-
-      if (auto r = s->vars.find (var))
-        return result (r, &s->vars);
-
-      switch (var.visibility)
-      {
-      case variable_visibility::scope:
-        s = nullptr;
-        break;
-      case variable_visibility::project:
-        s = s->root () ? nullptr : s->parent_scope ();
-        break;
-      case variable_visibility::normal:
-        s = s->parent_scope ();
-        break;
-      }
-    }
-
-    return result ();
+    return base_scope ().find (
+      var,
+      &type (),
+      &name,
+      group != nullptr ? &group->type () : nullptr,
+      group != nullptr ? &group->name : nullptr);
   }
 
   value& target::

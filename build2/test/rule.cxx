@@ -26,7 +26,7 @@ namespace build2
       // this is a test. So take care of that as well.
       //
       bool r (false);
-      lookup<const value> l;
+      lookup l;
 
       // @@ This logic doesn't take into account target type/pattern-
       // specific variables.
@@ -44,7 +44,7 @@ namespace build2
         //
         if (var.name == "test")
         {
-          l = lookup<const value> (val, t);
+          l = lookup (val, t);
           break;
         }
 
@@ -126,6 +126,7 @@ namespace build2
       // First check the target-specific vars since they override any
       // scope ones.
       //
+      //@@ OVR
       auto il (t.vars["test.input"]);
       auto ol (t.vars["test.output"]);
       auto rl (t.vars["test.roundtrip"]);
@@ -162,12 +163,12 @@ namespace build2
         //
         for (scope* s (&bs); s != nullptr; s = s->parent_scope ())
         {
-          ol = s->vars[on];
+          ol = s->vars[on]; //@@ OVR
 
           if (!al) // Not overriden at target level by test.arguments?
           {
-            il = s->vars[in];
-            rl = s->vars[rn];
+            il = s->vars[in]; //@@ OVR
+            rl = s->vars[rn]; //@@ OVR
           }
 
           if (il || ol || rl)
@@ -289,7 +290,7 @@ namespace build2
       string var ("test.");
       var += n;
 
-      auto l (t.vars[var]);
+      auto l (t.vars[var]); //@@ OVR
 
       if (!l)
       {
