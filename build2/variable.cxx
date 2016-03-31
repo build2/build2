@@ -552,6 +552,46 @@ namespace build2
 
   // variable_pool
   //
+  const variable& variable_pool::
+  insert (string n,
+          const build2::value_type* t,
+          variable_visibility v,
+          bool o)
+  {
+    auto p (variable_pool_base::insert (variable {move (n), t, nullptr, v}));
+    const variable& r (*p.first);
+
+    if (!p.second)
+    {
+      // Update type?
+      //
+      if (t != nullptr && r.type != t)
+      {
+        assert (r.type == nullptr);
+        const_cast<variable&> (r).type = t; // Not changing the key.
+      }
+
+      // Change visibility? While this might at first seem like a bad idea,
+      // it can happen that the variable lookup happens before any values
+      // were set, in which case the variable will be entered with the
+      // default visibility.
+      //
+      if (r.visibility != v)
+      {
+        assert (r.visibility == variable_visibility::normal); // Default.
+        const_cast<variable&> (r).visibility = v; // Not changing the key.
+      }
+
+      // Check overridability (all overrides, if any, should already have
+      // been enetered (see context.cxx:reset()).
+      //
+      if (r.override != nullptr && !o)
+        fail << "variable " << r.name << " cannot be overridden";
+    }
+
+    return r;
+  }
+
   variable_pool var_pool;
 
   // variable_map

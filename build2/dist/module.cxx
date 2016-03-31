@@ -39,18 +39,20 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find<bool> ("dist");
+        // @@ OVR
 
-        v.find<string> ("dist.package");
+        v.insert<bool> ("dist");
 
-        v.find<dir_path> ("dist.root");
-        v.find<dir_path> ("config.dist.root");
+        v.insert<string> ("dist.package");
 
-        v.find<path> ("dist.cmd");
-        v.find<path> ("config.dist.cmd");
+        v.insert<dir_path> ("dist.root");
+        v.insert<dir_path> ("config.dist.root");
 
-        v.find<strings> ("dist.archives");
-        v.find<strings> ("config.dist.archives");
+        v.insert<path> ("dist.cmd");
+        v.insert<path> ("config.dist.cmd");
+
+        v.insert<strings> ("dist.archives");
+        v.insert<strings> ("config.dist.archives");
       }
     }
 

@@ -68,6 +68,20 @@ namespace build2
     return t;
   }
 
+  token parser::
+  parse_variable_value (lexer& l, scope& s, names_type& result)
+  {
+    path_ = &l.name ();
+    lexer_ = &l;
+    target_ = nullptr;
+    scope_ = &s;
+
+    type tt;
+    token t (type::eos, false, 0, 0);
+    result = variable_value (t, tt);
+    return t;
+  }
+
   void parser::
   clause (token& t, type& tt)
   {

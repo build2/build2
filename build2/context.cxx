@@ -38,12 +38,14 @@ namespace build2
   execution_mode current_mode;
   uint64_t dependency_count;
 
-  void
+  variable_overrides
   reset (const strings& cmd_vars)
   {
     tracer trace ("reset");
 
     l6 ([&]{trace << "resetting build state";});
+
+    variable_overrides vos;
 
     targets.clear ();
     scopes.clear ();
@@ -80,9 +82,12 @@ namespace build2
     // marked as such first. Then, as we enter variables, we can verify that
     // the override is alowed.
     //
-    for (const string& v: cmd_vars)
+    for (const string& s: cmd_vars)
     {
-      istringstream is (v);
+      char c (s[0]); // Should at least have '='.
+      string a (s, c == '!' || c == '%' ? 1 : 0);
+
+      istringstream is (a);
       is.exceptions (istringstream::failbit | istringstream::badbit);
       lexer l (is, path ("<cmdline>"));
 
@@ -96,15 +101,73 @@ namespace build2
            tt != token_type::prepend &&
            tt != token_type::append))
       {
-        fail << "expected variable assignment instead of '" << v << "'" <<
+        fail << "expected variable assignment instead of '" << s << "'" <<
           info << "use double '--' to treat this argument as buildspec";
       }
 
+      const variable& var (var_pool.find (t.value));
+      const string& n (var.name);
+
+      // The first variable in the override list is always the cache. Note
+      // that we might already be overridden by an earlier cmd line var.
+      //
+      if (var.override == nullptr)
+        var.override.reset (new variable {
+            n + ".__cache", nullptr, nullptr, variable_visibility::normal});
+
+      // Calculate visibility and kind.
+      //
+      variable_visibility v (c == '%'
+                             ? variable_visibility::project
+                             : variable_visibility::normal);
+      const char* k (tt == token_type::assign ? ".__override" :
+                     tt == token_type::append ? ".__suffix" : ".__prefix");
+
+      // We might already have a variable for this kind of override.
+      //
+      const variable* o (var.override.get ());
+      for (; o->override != nullptr; o = o->override.get ())
+      {
+        if (o->override->visibility == v &&
+            o->override->name.rfind (k) != string::npos)
+          break;
+      }
+
+      // Add it if not found.
+      //
+      if (o->override == nullptr)
+        o->override.reset (new variable {n + k, nullptr, nullptr, v});
+
+      o = o->override.get ();
+
+      // Currently we expand project overrides in the global scope to keep
+      // things simple.
+      //
       parser p;
-      t = p.parse_variable (l, gs, var_pool.find (t.value), tt);
+      names val;
+      t = p.parse_variable_value (l, gs, val);
 
       if (t.type != token_type::eos)
-        fail << "unexpected " << t << " in variable assignment '" << v << "'";
+        fail << "unexpected " << t << " in variable assignment '" << s << "'";
+
+      if (c == '!')
+      {
+        auto p (gs.vars.assign (*o));
+
+        if (!p.second)
+          fail << "multiple global overrides of variable " << var.name;
+
+        value& v (p.first);
+        v.assign (move (val), var); // Original var for diagnostics.
+
+        // Also make sure the original variable itself is set (to at least
+        // NULL) so that lookup finds something if nobody actually sets it
+        // down the line.
+        //
+        gs.vars.assign (var);
+      }
+      else
+        vos.emplace_back (variable_override {var, *o, move (val)});
     }
 
     // Enter builtin variables.
@@ -112,19 +175,19 @@ namespace build2
     {
       auto& v (var_pool);
 
-      v.find<dir_path> ("src_root");
-      v.find<dir_path> ("out_root");
-      v.find<dir_path> ("src_base");
-      v.find<dir_path> ("out_base");
+      v.insert<dir_path> ("src_root");
+      v.insert<dir_path> ("out_root");
+      v.insert<dir_path> ("src_base");
+      v.insert<dir_path> ("out_base");
 
-      v.find<string> ("project");
-      v.find<dir_path> ("amalgamation");
+      v.insert<string> ("project");
+      v.insert<dir_path> ("amalgamation");
 
       // Not typed since the value requires pre-processing (see file.cxx).
       //
-      v.find ("subprojects");
+      v.insert ("subprojects");
 
-      v.find<string> ("extension");
+      v.insert<string> ("extension");
     }
 
     gs.assign<dir_path> ("build.work") = work;
@@ -224,6 +287,8 @@ namespace build2
       r.insert<file> (perform_update_id, "file", file_rule::instance);
       r.insert<file> (perform_clean_id, "file", file_rule::instance);
     }
+
+    return vos;
   }
 
   fs_status<mkdir_status>

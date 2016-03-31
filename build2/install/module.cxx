@@ -50,7 +50,7 @@ namespace build2
         vn = "config.install.";
         vn += name;
         vn += var;
-        const variable& vr (var_pool.find<T> (move (vn)));
+        const variable& vr (var_pool.insert<T> (move (vn))); // @@ OVR
 
         cv = dv != nullptr
           ? &config::required (r, vr, *dv, override).first.get ()
@@ -60,7 +60,7 @@ namespace build2
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (var_pool.find<T> (move (vn)));
+      const variable& vr (var_pool.insert<T> (move (vn))); // @@ OVR
 
       value& v (r.assign (vr));
 
@@ -139,7 +139,9 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find<dir_path> ("install");
+        // @@ OVR
+        //
+        v.insert<dir_path> ("install");
       }
 
       // Register our alias and file installer rule.

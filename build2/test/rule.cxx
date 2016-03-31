@@ -66,9 +66,12 @@ namespace build2
       {
         // See if there is a scope variable.
         //
+        // @@ I don't think we use this (e.g., test.exe = true) anymore.
+        //    We now do exe{*}: test = true.
+        //
         if (!l.defined ())
           l = t.base_scope ()[
-            var_pool.find<bool> (string("test.") + t.type ().name)];
+            var_pool.insert<bool> (string("test.") + t.type ().name)];
 
         r = l && cast<bool> (l);
       }
@@ -143,12 +146,14 @@ namespace build2
 
       if (!il && !ol && !rl)
       {
+        // @@ Again, don't think we use this anymore.
+        //
         string n ("test.");
         n += t.type ().name;
 
-        const variable& in (var_pool.find<name> (n + ".input"));
-        const variable& on (var_pool.find<name> (n + ".output"));
-        const variable& rn (var_pool.find<name> (n + ".roundtrip"));
+        const variable& in (var_pool.insert<name> (n + ".input"));
+        const variable& on (var_pool.insert<name> (n + ".output"));
+        const variable& rn (var_pool.insert<name> (n + ".roundtrip"));
 
         // We should only keep value(s) that were specified together
         // in the innermost scope.
@@ -288,11 +293,13 @@ namespace build2
 
       if (!l)
       {
+        // @@ Again, don't think we do it.
+        //
         var.resize (5);
         var += t.type ().name;
         var += '.';
         var += n;
-        l = t.base_scope ()[var_pool.find<strings> (var)];
+        l = t.base_scope ()[var_pool.insert<strings> (var)];
       }
 
       if (l)

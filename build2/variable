@@ -80,7 +80,8 @@ namespace build2
   struct variable
   {
     string name;
-    const value_type* type;         // If NULL, then not (yet) typed.
+    const value_type* type;                // If NULL, then not (yet) typed.
+    mutable unique_ptr<variable> override;
     variable_visibility visibility;
   };
 
@@ -539,36 +540,34 @@ namespace build2
   struct variable_pool: private variable_pool_base
   {
     const variable&
-    find (string name)
+    insert (string name,
+            bool overridable = false,
+            variable_visibility v = variable_visibility::normal)
     {
-      return find (name, nullptr, nullptr);
+      return insert (move (name), nullptr, v, overridable);
     }
 
     template <typename T>
     const variable&
-    find (string name)
+    insert (string name,
+            bool overridable = false,
+            variable_visibility v = variable_visibility::normal)
     {
-      return find (name, nullptr, &value_traits<T>::value_type);
+      return insert (
+        move (name), &value_traits<T>::value_type, v, overridable);
     }
 
     const variable&
-    find (string name, variable_visibility v)
-    {
-      return find (name, &v, nullptr);
-    }
-
-    template <typename T>
-    const variable&
-    find (string name, variable_visibility v)
-    {
-      return find (name, &v, &value_traits<T>::value_type);
-    }
+    find (const string& name);
 
     using variable_pool_base::clear;
 
   private:
     const variable&
-    find (string name, const variable_visibility*, const build2::value_type*);
+    insert (string name,
+            const build2::value_type*,
+            variable_visibility,
+            bool overridable);
   };
 
   extern variable_pool var_pool;
@@ -635,11 +634,14 @@ namespace build2
       return assign (var_pool.find (name));
     }
 
+    // Unlike the two above, assign a non-overridable variable with normal
+    // visibility.
+    //
     template <typename T>
     pair<reference_wrapper<value>, bool>
-    assign (const string& name)
+    assign (string name)
     {
-      return assign (var_pool.find<T> (name));
+      return assign (var_pool.insert<T> (move (name)));
     }
 
     pair<const_iterator, const_iterator>

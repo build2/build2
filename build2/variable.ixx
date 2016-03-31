@@ -552,37 +552,14 @@ namespace build2
     return !p->empty ();
   }
 
+  // variable_pool
+  //
   inline const variable& variable_pool::
-  find (string n, const variable_visibility* vv, const build2::value_type* t)
+  find (const string& n)
   {
-    auto r (
-      insert (
-        variable {
-          move (n),
-          t,
-          vv != nullptr ? *vv : variable_visibility::normal}));
-    const variable& v (*r.first);
-
-    // Update type?
-    //
-    if (!r.second && t != nullptr && v.type != t)
-    {
-      assert (v.type == nullptr);
-      const_cast<variable&> (v).type = t; // Not changing the key.
-    }
-
-    // Change visibility? While this might at first seem like a bad idea,
-    // it can happen that the variable lookup happens before any values
-    // were set, in which case the variable will be entered with the
-    // default visibility.
-    //
-    if (!r.second && vv != nullptr && v.visibility != *vv)
-    {
-      assert (v.visibility == variable_visibility::normal); // Default.
-      const_cast<variable&> (v).visibility = *vv; // Not changing the key.
-    }
-
-    return v;
+    auto p (variable_pool_base::insert (
+              variable {n, nullptr, nullptr, variable_visibility::normal}));
+    return *p.first;
   }
 
   // variable_map::iterator_adapter

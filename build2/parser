@@ -41,6 +41,9 @@ namespace build2
     token
     parse_variable (lexer&, scope&, const variable_type&, token_type kind);
 
+    token
+    parse_variable_value (lexer&, scope&, names_type& result);
+
     names_type
     parse_export_stub (istream& is, const path& p, scope& r, scope& b)
     {

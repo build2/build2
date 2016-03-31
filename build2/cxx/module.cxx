@@ -62,24 +62,26 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.find<path> ("config.cxx");
+        // @@ OVR
 
-        v.find<strings> ("config.cxx.poptions");
-        v.find<strings> ("config.cxx.coptions");
-        v.find<strings> ("config.cxx.loptions");
-        v.find<strings> ("config.cxx.libs");
+        v.insert<path> ("config.cxx", true);
 
-        v.find<strings> ("cxx.poptions");
-        v.find<strings> ("cxx.coptions");
-        v.find<strings> ("cxx.loptions");
-        v.find<strings> ("cxx.libs");
+        v.insert<strings> ("config.cxx.poptions");
+        v.insert<strings> ("config.cxx.coptions");
+        v.insert<strings> ("config.cxx.loptions");
+        v.insert<strings> ("config.cxx.libs");
 
-        v.find<strings> ("cxx.export.poptions");
-        v.find<strings> ("cxx.export.coptions");
-        v.find<strings> ("cxx.export.loptions");
-        v.find<strings> ("cxx.export.libs");
+        v.insert<strings> ("cxx.poptions");
+        v.insert<strings> ("cxx.coptions");
+        v.insert<strings> ("cxx.loptions");
+        v.insert<strings> ("cxx.libs");
 
-        v.find<string> ("cxx.std");
+        v.insert<strings> ("cxx.export.poptions");
+        v.insert<strings> ("cxx.export.coptions");
+        v.insert<strings> ("cxx.export.loptions");
+        v.insert<strings> ("cxx.export.libs");
+
+        v.insert<string> ("cxx.std");
       }
 
       // Register target types.

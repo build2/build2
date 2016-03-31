@@ -10,12 +10,12 @@
 
 #include <build2/scope>
 #include <build2/context>
-#include <build2/parser>
 #include <build2/prerequisite>
 #include <build2/diagnostics>
 
 #include <build2/token>
 #include <build2/lexer>
+#include <build2/parser>
 
 using namespace std;
 using namespace butl;
@@ -131,11 +131,15 @@ namespace build2
       rs.out_path_ = &i->first;
     }
 
+    // First time create_root() is called on this scope.
+    //
+    bool first (rs.meta_operations.empty ());
+
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in
     // additional meta/operations being added.
     //
-    if (rs.meta_operations.empty ())
+    if (first)
     {
       rs.meta_operations.insert (perform_id, perform);
 
@@ -844,12 +848,14 @@ namespace build2
         break;
     }
 
-    // Then try the config.import.* mechanism.
+    // Then try the config.import.* mechanism (overridable variable).
     //
     if (out_root.empty ())
     {
+      // @@ OVR
+      //
       const variable& var (
-        var_pool.find<dir_path> ("config.import." + project));
+        var_pool.insert<dir_path> ("config.import." + project, true));
 
       if (auto l = iroot[var])
       {

@@ -294,9 +294,12 @@ namespace build2
     value&
     assign (const string& name) {return vars.assign (name).first;}
 
+    // Unlike the two above, assign a non-overridable variable with normal
+    // visibility.
+    //
     template <typename T>
     value&
-    assign (const string& name) {return vars.assign<T> (name).first.get ();}
+    assign (string name) {return vars.assign<T> (move (name)).first.get ();}
 
     // Return a value suitable for appending. See class scope for
     // details.

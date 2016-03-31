@@ -253,6 +253,7 @@ main (int argc, char* argv[])
     opspec* lifted (nullptr);
     size_t skip (0);
     bool dirty (true);
+    variable_overrides var_ovs;
 
     for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {
@@ -292,7 +293,7 @@ main (int argc, char* argv[])
       //
       if (dirty)
       {
-        reset (cmd_vars);
+        var_ovs = reset (cmd_vars);
         dirty = false;
       }
 
@@ -326,12 +327,14 @@ main (int argc, char* argv[])
         const operation_info* post_oif (nullptr);
 
         // We do meta-operation and operation batches sequentially (no
-        // parallelism). But multiple targets in an operation batch
-        // can be done in parallel.
-        //
-        action_targets tgs;
-        tgs.reserve (os.size ());
+        // parallelism). But multiple targets in an operation batch can be
+        // done in parallel.
 
+        // First bootstrap projects for all the target so that all the
+        // variable overrides are set (if we also load/search/match in the
+        // same loop then we may end up loading a project (via import) before
+        // this happends.
+        //
         for (targetspec& ts: os)
         {
           name& tn (ts.name);
@@ -776,7 +779,7 @@ main (int argc, char* argv[])
 
           if (verb >= 5)
           {
-            trace << "target " << tn << ':';
+            trace << "bootstrapped " << tn << ':';
             trace << "  out_base: " << out_base;
             trace << "  src_base: " << src_base;
             trace << "  out_root: " << out_root;
@@ -793,16 +796,75 @@ main (int argc, char* argv[])
                  << info << "consider explicitly specifying src_base "
                  << "for " << tn;
 
+          // Enter project-wide (as opposed to global) variable overrides.
+          //
+          // The mildly tricky part here is to distinguish the situation where
+          // we are bootstrapping the same project multiple times (which is
+          // ok) vs overriding the same variable multiple times (which is not
+          // ok). The first override that we set cannot possibly end up in the
+          // second sitution so if it is already set, then it can only be the
+          // first case.
+          //
+          bool first (true);
+          for (const variable_override& o: var_ovs)
+          {
+            auto p (rs.vars.assign (o.ovr));
+
+            if (!p.second)
+            {
+              if (first)
+                break;
+
+              fail << "multiple project overrides of variable " << o.var.name;
+            }
+
+            value& v (p.first);
+            v.assign (names (o.val), o.var); // Original var for diagnostics.
+
+            // Also make sure the original variable itself is set (to at least
+            // NULL) so that lookup finds something if nobody actually sets it
+            // down the line.
+            //
+            rs.vars.assign (o.var);
+
+            first = false;
+          }
+
+          ts.root_scope = &rs;
+          ts.out_base = move (out_base);
+          ts.buildfile = move (bf);
+        }
+
+        // If this operation has been lifted, break out.
+        //
+        if (lifted == &os)
+        {
+          assert (oid == 0); // Should happend on the first target.
+          break;
+        }
+
+        // Now load/search/match the targets.
+        //
+        action_targets tgs;
+        tgs.reserve (os.size ());
+
+        for (targetspec& ts: os)
+        {
+          name& tn (ts.name);
+          scope& rs (*ts.root_scope);
+
+          l5 ([&]{trace << "loading " << tn;});
+
           // Load the buildfile.
           //
-          mif->load (bf, rs, out_base, src_base, l);
+          mif->load (ts.buildfile, rs, ts.out_base, ts.src_base, l);
 
           // Next search and match the targets. We don't want to start
           // building before we know how to for all the targets in this
           // operation batch.
           //
           {
-            scope& bs (scopes.find (out_base));
+            scope& bs (scopes.find (ts.out_base));
 
             const string* e;
             const target_type* ti (bs.find_target_type (tn, e));
@@ -824,81 +886,73 @@ main (int argc, char* argv[])
           }
         }
 
-        // We don't do anything if we lifted the first operation.
+        // Finally perform the operation.
         //
-        if (oid != 0)
+        if (pre_oid != 0)
         {
-          if (pre_oid != 0)
-          {
-            l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
-                          << ", id " << static_cast<uint16_t> (pre_oid);});
+          l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
+                        << ", id " << static_cast<uint16_t> (pre_oid);});
 
-            if (mif->operation_pre != nullptr)
-              mif->operation_pre (pre_oid); // Cannot be translated.
+          if (mif->operation_pre != nullptr)
+            mif->operation_pre (pre_oid); // Cannot be translated.
 
-            current_inner_oif = pre_oif;
-            current_outer_oif = oif;
-            current_mode = pre_oif->mode;
-            dependency_count = 0;
-
-            action a (mid, pre_oid, oid);
-
-            mif->match (a, tgs);
-            mif->execute (a, tgs, true); // Run quiet.
-
-            if (mif->operation_post != nullptr)
-              mif->operation_post (pre_oid);
-
-            l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
-                          << ", id " << static_cast<uint16_t> (pre_oid);});
-          }
-
-          current_inner_oif = oif;
-          current_outer_oif = nullptr;
-          current_mode = oif->mode;
+          current_inner_oif = pre_oif;
+          current_outer_oif = oif;
+          current_mode = pre_oif->mode;
           dependency_count = 0;
 
-          action a (mid, oid, 0);
+          action a (mid, pre_oid, oid);
 
           mif->match (a, tgs);
-          mif->execute (a, tgs, verb == 0);
-
-          if (post_oid != 0)
-          {
-            l5 ([&]{trace << "start post-operation batch " << post_oif->name
-                          << ", id " << static_cast<uint16_t> (post_oid);});
-
-            if (mif->operation_pre != nullptr)
-              mif->operation_pre (post_oid); // Cannot be translated.
-
-            current_inner_oif = post_oif;
-            current_outer_oif = oif;
-            current_mode = post_oif->mode;
-            dependency_count = 0;
-
-            action a (mid, post_oid, oid);
-
-            mif->match (a, tgs);
-            mif->execute (a, tgs, true); // Run quiet.
-
-            if (mif->operation_post != nullptr)
-              mif->operation_post (post_oid);
-
-            l5 ([&]{trace << "end post-operation batch " << post_oif->name
-                          << ", id " << static_cast<uint16_t> (post_oid);});
-          }
+          mif->execute (a, tgs, true); // Run quiet.
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (oid);
+            mif->operation_post (pre_oid);
 
-          l5 ([&]{trace << "end operation batch " << oif->name
-                        << ", id " << static_cast<uint16_t> (oid);});
+          l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
+                        << ", id " << static_cast<uint16_t> (pre_oid);});
         }
 
-        // If this operation has been lifted, break out.
-        //
-        if (lifted == &os)
-          break;
+        current_inner_oif = oif;
+        current_outer_oif = nullptr;
+        current_mode = oif->mode;
+        dependency_count = 0;
+
+        action a (mid, oid, 0);
+
+        mif->match (a, tgs);
+        mif->execute (a, tgs, verb == 0);
+
+        if (post_oid != 0)
+        {
+          l5 ([&]{trace << "start post-operation batch " << post_oif->name
+                        << ", id " << static_cast<uint16_t> (post_oid);});
+
+          if (mif->operation_pre != nullptr)
+            mif->operation_pre (post_oid); // Cannot be translated.
+
+          current_inner_oif = post_oif;
+          current_outer_oif = oif;
+          current_mode = post_oif->mode;
+          dependency_count = 0;
+
+          action a (mid, post_oid, oid);
+
+          mif->match (a, tgs);
+          mif->execute (a, tgs, true); // Run quiet.
+
+          if (mif->operation_post != nullptr)
+            mif->operation_post (post_oid);
+
+          l5 ([&]{trace << "end post-operation batch " << post_oif->name
+                        << ", id " << static_cast<uint16_t> (post_oid);});
+        }
+
+        if (mif->operation_post != nullptr)
+          mif->operation_post (oid);
+
+        l5 ([&]{trace << "end operation batch " << oif->name
+                      << ", id " << static_cast<uint16_t> (oid);});
       }
 
       if (mid != 0)

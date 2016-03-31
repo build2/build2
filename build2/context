@@ -17,6 +17,7 @@ namespace build2
 {
   class scope;
   class file;
+  struct variable;
 
   extern dir_path work;
   extern dir_path home;
@@ -41,10 +42,22 @@ namespace build2
   //
   extern uint64_t dependency_count;
 
+  // Project-wide (as opposed to global) variable overrides. Returned by
+  // reset().
+  //
+  struct variable_override
+  {
+    const variable& var; // Original variable.
+    const variable& ovr; // Override variable.
+    names val;
+  };
+
+  using variable_overrides = vector<variable_override>;
+
   // Reset the build state. In particular, this removes all the targets,
   // scopes, and variables.
   //
-  void
+  variable_overrides
   reset (const strings& cmd_vars);
 
   // The dual interface wrapper for the {mk,rm}{file,dir}() functions

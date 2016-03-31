@@ -10,6 +10,8 @@
 
 namespace build2
 {
+  class scope;
+
   struct targetspec
   {
     typedef build2::name name_type;
@@ -21,6 +23,12 @@ namespace build2
 
     dir_path src_base;
     name_type name;
+
+    // The rest is calculated and cached.
+    //
+    scope* root_scope = nullptr;
+    dir_path out_base;
+    path buildfile;
   };
 
   struct opspec: vector<targetspec>
