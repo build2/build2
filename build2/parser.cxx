@@ -174,6 +174,37 @@ namespace build2
 
       if (tt == type::colon)
       {
+        scope* old_root (nullptr);
+        scope* old_scope (nullptr);
+
+        auto enter_scope = [&old_root, &old_scope, this] (dir_path&& p)
+        {
+          // Relative scopes are opened relative to out, not src.
+          //
+          if (p.relative ())
+            p = scope_->out_path () / p;
+
+          p.normalize ();
+
+          old_root = root_;
+          old_scope = scope_;
+          switch_scope (p);
+        };
+
+        // If called without the corresponding enter_scope(), then a noop.
+        //
+        auto leave_scope = [&old_root, &old_scope, this] ()
+        {
+          if (old_root != nullptr)
+          {
+            scope_ = old_scope;
+            root_ = old_root;
+
+            old_scope = nullptr;
+            old_root = nullptr;
+          }
+        };
+
         // While '{}:' means empty name, '{$x}:' where x is empty list
         // means empty list.
         //
@@ -220,27 +251,11 @@ namespace build2
 
             if (dir)
             {
-              // Directory scope.
+              // Directory scope. Can contain anything that a top level can.
               //
-              dir_path p (move (ns[0].dir)); // Steal.
-
-              // Relative scopes are opened relative to out, not src.
-              //
-              if (p.relative ())
-                p = scope_->out_path () / p;
-
-              p.normalize ();
-
-              scope* ors (root_);
-              scope* ocs (scope_);
-              switch_scope (p);
-
-              // A directory scope can contain anything that a top level can.
-              //
+              enter_scope (move (ns[0].dir)); // Steal.
               clause (t, tt);
-
-              scope_ = ocs;
-              root_ = ors;
+              leave_scope ();
             }
             else
             {
@@ -334,23 +349,9 @@ namespace build2
 
               if (n.directory ())
               {
-                // The same code as in directory scope handling code above.
-                //
-                dir_path p (move (n.dir));
-
-                if (p.relative ())
-                  p = scope_->out_path () / p;
-
-                p.normalize ();
-
-                scope* ors (root_);
-                scope* ocs (scope_);
-                switch_scope (p);
-
+                enter_scope (move (n.dir));
                 variable (t, tt, var, att);
-
-                scope_ = ocs;
-                root_ = ors;
+                leave_scope ();
               }
               else
               {
@@ -370,12 +371,14 @@ namespace build2
                 {
                   // See tests/variable/type-pattern.
                   //
-                  if (!n.dir.empty ())
-                    fail (nloc) << "directory in target type/pattern " << n;
-
                   if (n.value.find ('*', p + 1) != string::npos)
                     fail (nloc) << "multiple wildcards in target type/pattern "
                                 << n;
+
+                  // If we have the directory, then it is the scope.
+                  //
+                  if (!n.dir.empty ())
+                    enter_scope (move (n.dir));
 
                   // Resolve target type. If none is specified, use the root
                   // of the hierarchy.
@@ -403,6 +406,8 @@ namespace build2
                   value& val (scope_->target_vars[*ti][move (n.value)].assign (
                                 var).first);
                   val.assign (move (vns), var);
+
+                  leave_scope ();
                 }
               }
 
