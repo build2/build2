@@ -117,23 +117,38 @@ namespace build2
   lookup target::
   operator[] (const variable& var) const
   {
-    if (auto p = vars.find (var))
-      return lookup (p, &vars);
+    lookup l;
+    bool tspec (false);
 
-    if (group != nullptr)
+    scope& s (base_scope ());
+
+    if (auto p = vars.find (var))
+    {
+      tspec = true;
+      l = lookup (p, &vars);
+    }
+
+    if (!l && group != nullptr)
     {
       if (auto p = group->vars.find (var))
-        return lookup (p, &group->vars);
+      {
+        tspec = true;
+        l = lookup (p, &group->vars);
+      }
     }
 
     // Delegate to scope's find().
     //
-    return base_scope ().find (
-      var,
-      &type (),
-      &name,
-      group != nullptr ? &group->type () : nullptr,
-      group != nullptr ? &group->name : nullptr);
+    if (!l)
+      l = s.find_original (var,
+                           &type (),
+                           &name,
+                           group != nullptr ? &group->type () : nullptr,
+                           group != nullptr ? &group->name : nullptr);
+
+    return var.override == nullptr
+      ? l
+      : s.find_override (var, move (l), tspec);
   }
 
   value& target::

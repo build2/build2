@@ -820,13 +820,6 @@ main (int argc, char* argv[])
 
             value& v (p.first);
             v.assign (names (o.val), o.var); // Original var for diagnostics.
-
-            // Also make sure the original variable itself is set (to at least
-            // NULL) so that lookup finds something if nobody actually sets it
-            // down the line.
-            //
-            rs.vars.assign (o.var);
-
             first = false;
           }
 

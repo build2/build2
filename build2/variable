@@ -79,6 +79,10 @@ namespace build2
   //
   // @@ Document override semantics.
   //
+  // Note that we don't propagate variable type to override variables and we
+  // keep override values as untyped names. So they get "typed" when they are
+  // applied.
+  //
   struct variable
   {
     string name;
@@ -111,7 +115,7 @@ namespace build2
 
     // Creation. A newly created value is NULL and can be reset back to NULL
     // by assigning nullptr. Values can be copied and copy-assigned. Note that
-    // for assignment, the values' types should be the same of LHS should be
+    // for assignment, the values' types should be the same or LHS should be
     // untyped.
     //
     //
@@ -672,6 +676,17 @@ namespace build2
     lookup
     find (const target_type&, const string& tname, const variable&) const;
   };
+
+  // Override cache.
+  //
+  struct variable_override_value
+  {
+    build2::value value;
+    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
+  };
+
+  extern std::map<const variable_map*,
+                  variable_override_value> variable_override_cache;
 }
 
 #include <build2/variable.ixx>

@@ -703,4 +703,8 @@ namespace build2
 
     return lookup ();
   }
+
+  // variable_override
+  //
+  map<const variable_map*, variable_override_value> variable_override_cache;
 }

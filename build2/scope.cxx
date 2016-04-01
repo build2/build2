@@ -13,9 +13,9 @@ namespace build2
   // scope
   //
   lookup scope::
-  find (const variable& var,
-        const target_type* tt, const string* tn,
-        const target_type* gt, const string* gn) const
+  find_original (const variable& var,
+                 const target_type* tt, const string* tn,
+                 const target_type* gt, const string* gn) const
   {
     for (const scope* s (this); s != nullptr; )
     {
@@ -52,6 +52,214 @@ namespace build2
     }
 
     return lookup ();
+  }
+
+  lookup scope::
+  find_override (const variable& var, lookup&& orig, bool tspec) const
+  {
+    // Normally there would be no overrides and if there are, there will only
+    // be a few of them. As a result, here we concentrate on keeping the logic
+    // as straightforward as possible without trying to optimize anything.
+    //
+    assert (var.override != nullptr);
+
+    // The first step is to find out where our cache will reside. After some
+    // meditation it becomes clear it should be next to the innermost (scope-
+    // wise) value (override or original) that contributes to the end result.
+    //
+    // One special case is if the original is target-specific, which is the
+    // most innermost (or is it inermostest).
+    //
+    const variable_map* vars (tspec ? orig.vars : nullptr);
+
+    const scope* s;
+
+    // Return override value if it is present, applies, and ends with suffix.
+    //
+    auto find = [&vars, &s, this] (const variable* o, const char* sf = nullptr)
+      -> lookup
+    {
+      if (s != nullptr && o->name.rfind (sf) == string::npos)
+        return lookup ();
+
+      // Next see if it would apply. If there is nothing "inner", then any
+      // override will still be "visible".
+      //
+      if (vars != nullptr)
+      {
+        switch (o->visibility)
+        {
+        case variable_visibility::scope:
+        {
+          // Does not apply if the innermost value is not in this scope.
+          //
+          if (vars != &s->vars)
+            return lookup ();
+
+          break;
+        }
+        case variable_visibility::project:
+        {
+          // Does not apply if in a different project.
+          //
+          if (root_scope () != s->root_scope ())
+            return lookup ();
+
+          break;
+        }
+        case variable_visibility::normal:
+          break;
+        }
+      }
+
+      return lookup (s->vars.find (*o), &s->vars);
+    };
+
+    // Return true if a value is from this scope (either target-specific or
+    // normal).
+    //
+    auto test = [&s] (const lookup& l) -> bool
+    {
+      for (auto& p1: s->target_vars)
+        for (auto& p2: p1.second)
+          if (l.vars == &p2.second)
+            return true;
+
+      return l.vars == &s->vars;
+    };
+
+    // While looking for the cache we can also detect if none of the overrides
+    // apply. In this case the result is simply the original value (if any).
+    //
+    bool apply (false);
+
+    for (s = this; s != nullptr; s = s->parent_scope ())
+    {
+      // If we are still looking for the cache, see if the original comes from
+      // this scope. We check this before the overrides since it can come from
+      // the target type/patter-specific variables, which is "more inner" than
+      // normal scope variables (see find_original()).
+      //
+      if (vars == nullptr && orig && test (orig))
+        vars = orig.vars;
+
+      for (const variable* o (var.override.get ());
+           o != nullptr;
+           o = o->override.get ())
+      {
+        if (auto l = find (o))
+        {
+          if (vars == nullptr)
+            vars = l.vars;
+
+          apply = true;
+          break;
+        }
+      }
+
+      // If we found the cache and at least one override applies, then we can
+      // stop.
+      //
+      if (vars != nullptr && apply)
+        break;
+    }
+
+    if (!apply)
+      return move (orig);
+
+    assert (vars != nullptr);
+
+    // Implementing proper caching is tricky so for now we are going to re-
+    // calculate the value every time. Later, the plan is to use value
+    // versioning (incremented on every update) to detect stem value changes.
+    // We also need to watch out for the change of the stem itself in addition
+    // to its value (think of a new variable set since last lookup which is
+    // now a new stem).
+    //
+    // @@ MT
+    //
+    variable_override_value& cache (variable_override_cache[vars]);
+
+    // Now find our "stem", that is the value to which we will be appending
+    // suffixes and prepending prefixes. This is either the original or the
+    // __override, depending on which one is the innermost. We may also not
+    // have one at all.
+    //
+    lookup stem (tspec ? orig : lookup ());
+
+    for (s = this; s != nullptr; s = s->parent_scope ())
+    {
+      // First check if the original is from this scope.
+      //
+      if (orig && test (orig))
+      {
+        stem = orig;
+        break;
+      }
+
+      // Then look for an __override that applies.
+      //
+      for (const variable* o (var.override.get ());
+           o != nullptr;
+           o = o->override.get ())
+      {
+        if ((stem = find (o, ".__override")))
+          break;
+      }
+
+      if (stem)
+        break;
+    }
+
+    // If there is a stem, set it as the initial value of the cache.
+    // Otherwise, start with a NULL value.
+    //
+    if (stem)
+    {
+      cache.value = *stem;
+      cache.stem_vars = stem.vars;
+    }
+    else
+    {
+      cache.value = nullptr;
+      cache.stem_vars = nullptr; // No stem.
+    }
+
+    // Typify the cache value. If the stem is the original, then the type
+    // would get propagated automatically. But the stem could also be the
+    // override, which is kept untyped. Or the stem might not be there at all
+    // while we still need to apply prefixes/suffixes in the type-aware way.
+    //
+    if (cache.value.type != var.type)
+      typify (cache.value, *var.type, var);
+
+    // Now apply override prefixes and suffixes.
+    //
+    for (s = this; s != nullptr; s = s->parent_scope ())
+    {
+      for (const variable* o (var.override.get ());
+           o != nullptr;
+           o = o->override.get ())
+      {
+        // Note that we keep override values as untyped names even if the
+        // variable itself is typed. We also pass the original variable for
+        // diagnostics.
+        //
+        if (auto l = find (o, ".__prefix"))
+        {
+          cache.value.prepend (names (cast<names> (l)), var);
+        }
+        else if (auto l = find (o, ".__suffix"))
+        {
+          cache.value.append (names (cast<names> (l)), var);
+        }
+      }
+    }
+
+    // Use the location of the cache (innermost value that contributes) as
+    // the location of the result.
+    //
+    return lookup (&cache.value, vars);
   }
 
   value& scope::

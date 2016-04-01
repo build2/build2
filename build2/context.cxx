@@ -47,6 +47,8 @@ namespace build2
 
     variable_overrides vos;
 
+    variable_override_cache.clear ();
+
     targets.clear ();
     scopes.clear ();
     var_pool.clear ();
@@ -108,13 +110,6 @@ namespace build2
       const variable& var (var_pool.find (t.value));
       const string& n (var.name);
 
-      // The first variable in the override list is always the cache. Note
-      // that we might already be overridden by an earlier cmd line var.
-      //
-      if (var.override == nullptr)
-        var.override.reset (new variable {
-            n + ".__cache", nullptr, nullptr, variable_visibility::normal});
-
       // Calculate visibility and kind.
       //
       variable_visibility v (c == '%'
@@ -125,7 +120,7 @@ namespace build2
 
       // We might already have a variable for this kind of override.
       //
-      const variable* o (var.override.get ());
+      const variable* o (&var); // Step behind.
       for (; o->override != nullptr; o = o->override.get ())
       {
         if (o->override->visibility == v &&
@@ -159,12 +154,6 @@ namespace build2
 
         value& v (p.first);
         v.assign (move (val), var); // Original var for diagnostics.
-
-        // Also make sure the original variable itself is set (to at least
-        // NULL) so that lookup finds something if nobody actually sets it
-        // down the line.
-        //
-        gs.vars.assign (var);
       }
       else
         vos.emplace_back (variable_override {var, *o, move (val)});
