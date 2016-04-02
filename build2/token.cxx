@@ -19,6 +19,8 @@ namespace build2
     case token_type::colon:          os << ":"; break;
     case token_type::lcbrace:        os << "{"; break;
     case token_type::rcbrace:        os << "}"; break;
+    case token_type::lsbrace:        os << "["; break;
+    case token_type::rsbrace:        os << "]"; break;
     case token_type::assign:         os << "="; break;
     case token_type::prepend:        os << "=+"; break;
     case token_type::append:         os << "+="; break;

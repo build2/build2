@@ -1,0 +1,21 @@
+#[]                   # error: standalone attribute sequence
+#[foo]                # error: standalone attribute sequence
+#[[]                  # error: expected name instead of '['
+#[foo                 # error: expected ']' instead of <newline>
+#[dir/file{foo}]      # error: invalid attribute key
+#[foo=dir/file{bar}]  # error: invalid attribute key
+
+#[foo] print hello    # error: attributes before print
+#[foo]./:             # error: attributes before directory scope
+#{
+#}
+#[foo]./:             # error: attributes before target/scope
+#./: [foo] buildfile  # error: attributes before prerequisites
+#import [foo] libz    # error: attributes without variable
+
+#foo="F[O]O"
+#[{x y z}]
+#[$foo]
+#["[]"]
+
+./:

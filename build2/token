@@ -17,8 +17,10 @@ namespace build2
     newline,
     pair_separator,
     colon,
-    lcbrace,
-    rcbrace,
+    lcbrace,   // {
+    rcbrace,   // }
+    lsbrace,   // [
+    rsbrace,   // ]
     assign,    // =
     prepend,   // =+
     append,    // +=

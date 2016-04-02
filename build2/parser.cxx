@@ -95,6 +95,11 @@ namespace build2
     //
     while (tt != type::eos)
     {
+      // Extract attributes if any.
+      //
+      location al (get_location (t, &path_));
+      bool ha (attributes (t, tt));
+
       // We always start with one or more names.
       //
       if (tt != type::name    &&
@@ -109,51 +114,44 @@ namespace build2
       if (tt == type::name && keyword (t))
       {
         const string& n (t.value);
+        void (parser::*f) (token&, token_type&) = nullptr;
 
         if (n == "print")
         {
           // @@ Is this the only place where it is valid? Probably also
           // in var namespace.
           //
-          print (t, tt);
-          continue;
+          f = &parser::print;
         }
         else if (n == "source")
         {
-          source (t, tt);
-          continue;
+          f = &parser::source;
         }
         else if (n == "include")
         {
-          include (t, tt);
-          continue;
+          f = &parser::include;
         }
         else if (n == "import")
         {
-          import (t, tt);
-          continue;
+          f = &parser::import;
         }
         else if (n == "export")
         {
-          export_ (t, tt);
-          continue;
+          f = &parser::export_;
         }
         else if (n == "using" ||
                  n == "using?")
         {
-          using_ (t, tt);
-          continue;
+          f = &parser::using_;
         }
         else if (n == "define")
         {
-          define (t, tt);
-          continue;
+          f = &parser::define;
         }
         else if (n == "if" ||
                  n == "if!")
         {
-          if_else (t, tt);
-          continue;
+          f = &parser::if_else;
         }
         else if (n == "else" ||
                  n == "elif" ||
@@ -163,9 +161,20 @@ namespace build2
           //
           fail (t) << n << " without if";
         }
+
+        if (f != nullptr)
+        {
+          if (ha)
+            fail (al) << "attributes before " << n;
+
+          (this->*f) (t, tt);
+          continue;
+        }
       }
 
       // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
+      //
+      // @@ I think we should make ': foo' invalid.
       //
       const location nloc (get_location (t, &path_));
       names_type ns (tt != type::colon
@@ -232,8 +241,6 @@ namespace build2
             bool dir (false);
             for (const auto& n: ns)
             {
-              // A name represents directory as an empty value.
-              //
               if (n.directory ())
               {
                 if (ns.size () != 1)
@@ -251,7 +258,12 @@ namespace build2
 
             if (dir)
             {
-              // Directory scope. Can contain anything that a top level can.
+              // Directory scope.
+              //
+              if (ha)
+                fail (al) << "attributes before directory scope";
+
+              // Can contain anything that a top level can.
               //
               enter_scope (move (ns[0].dir)); // Steal.
               clause (t, tt);
@@ -259,6 +271,9 @@ namespace build2
             }
             else
             {
+              if (ha)
+                fail (al) << "attributes before target scope";
+
               // @@ TODO: target scope.
             }
 
@@ -276,13 +291,23 @@ namespace build2
           }
 
           // If this is not a scope, then it is a target without any
-          // prerequisites.
+          // prerequisites. Fall through.
           //
         }
 
         // Dependency declaration or scope/target-specific variable
         // assignment.
         //
+
+        // Will have to stash them if later support attributes on
+        // target/scope.
+        //
+        if (ha)
+          fail (al) << "attributes before target/scope";
+
+        al = get_location (t, &path_);
+        ha = attributes (t, tt);
+
         if (tt == type::name    ||
             tt == type::lcbrace ||
             tt == type::dollar  ||
@@ -334,6 +359,8 @@ namespace build2
               var_pool.find (
                 variable_name (move (pns), ploc)));
 
+            //@@ TODO: handle attrs.
+
             // If we have multiple targets/scopes, then we save the value
             // tokens when parsing the first one and then replay them for
             // the subsequent. We have to do it this way because the value
@@ -349,13 +376,15 @@ namespace build2
 
               if (n.directory ())
               {
+                // Scope variable.
+                //
                 enter_scope (move (n.dir));
                 variable (t, tt, var, att);
                 leave_scope ();
               }
               else
               {
-                // Figure out if this is a target or type/pattern specific
+                // Figure out if this is a target or type/pattern-specific
                 // variable.
                 //
                 size_t p (n.value.find ('*'));
@@ -418,6 +447,9 @@ namespace build2
           //
           else
           {
+            if (ha)
+              fail (al) << "attributes before prerequisites";
+
             // Prepare the prerequisite list.
             //
             target::prerequisites_type ps;
@@ -484,6 +516,8 @@ namespace build2
       //
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
+        //@@ TODO handle attrs.
+
         variable (t, tt, var_pool.find (variable_name (move (ns), nloc)), tt);
 
         if (tt == type::newline)
@@ -498,6 +532,9 @@ namespace build2
       //
       if (tt == type::newline && ns.empty ())
       {
+        if (ha)
+          fail (al) << "standalone attributes";
+
         next (t, tt);
         continue;
       }
@@ -755,6 +792,12 @@ namespace build2
     mode (lexer_mode::pairs, '@');
     next (t, tt);
 
+    // Get attributes, if any (note that here we will go into a nested pairs
+    // mode).
+    //
+    location al (get_location (t, &path_));
+    bool ha (attributes (t, tt));
+
     if (tt == type::name)
     {
       // Split the token into the variable name and value at position (p) of
@@ -818,12 +861,18 @@ namespace build2
           split (p);    // Returned name should be empty.
         }
       }
-
-      if (var != nullptr)
-        val = at == type::assign
-          ? &scope_->assign (*var)
-          : &scope_->append (*var);
     }
+
+    if (var != nullptr)
+    {
+      // @@ TODO handle attrs.
+
+      val = at == type::assign
+        ? &scope_->assign (*var)
+        : &scope_->append (*var);
+    }
+    else if (ha)
+      fail (al) << "attributes without variable";
 
     // The rest should be a list of projects and/or targets. Parse
     // them as names to get variable expansion and directory prefixes.
@@ -1269,6 +1318,73 @@ namespace build2
     default:
       fail (t) << "expected ')' instead of " << t;
     }
+  }
+
+  bool parser::
+  attributes (token& t, token_type& tt)
+  {
+    attrs_.clear ();
+
+    if (tt != type::lsbrace)
+      return false;
+
+    // Using '@' for key-value pairs would be just too ugly. Seeing that we
+    // control what goes into keys/values, let's use a much nicer '='.
+    //
+    mode (lexer_mode::pairs, '=');
+    next (t, tt);
+
+    if (tt != type::rsbrace && tt != type::newline && tt != type::eos)
+    {
+      const location l (get_location (t, &path_));
+      names_type ns (names (t, tt));
+
+      text << '[' << ns << ']';
+
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
+      {
+        string k, v;
+
+        try
+        {
+          k = convert<string> (move (*i));
+        }
+        catch (const invalid_argument&)
+        {
+          fail (l) << "invalid attribute key '" << *i << "'";
+        }
+
+        if (i->pair)
+        {
+          try
+          {
+            v = convert<string> (move (*++i));
+          }
+          catch (const invalid_argument&)
+          {
+            fail (l) << "invalid attribute value '" << *i << "'";
+          }
+        }
+
+        attrs_.emplace_back (move (k), move (v));
+      }
+    }
+
+    // Manually expire the pairs mode if we haven't reached newline/eos (where
+    // it expires automatically).
+    //
+    if (lexer_->mode () == lexer_mode::pairs)
+      lexer_->expire_mode ();
+
+    if (tt != type::rsbrace)
+      fail (t) << "expected ']' instead of " << t;
+
+    next (t, tt);
+
+    if (tt == type::newline || tt == type::eos)
+      fail (t) << "standalone attributes";
+
+    return true;
   }
 
   // Parse names inside {} and handle the following "crosses" (i.e.,

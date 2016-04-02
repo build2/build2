@@ -24,7 +24,7 @@ namespace build2
   {
     // In the quoted mode we don't skip spaces.
     //
-    sep_ = mode_.top () != lexer_mode::quoted && skip_spaces ();
+    sep_ = state_.top ().mode != lexer_mode::quoted && skip_spaces ();
     xchar c (peek ());
     return make_pair (eos (c) ? '\0' : char (c), sep_);
   }
@@ -32,7 +32,8 @@ namespace build2
   token lexer::
   next_impl ()
   {
-    lexer_mode m (mode_.top ());
+    lexer_mode m (state_.top ().mode);
+    char ps (state_.top ().pair_separator);
 
     // For some modes we have dedicated imlementations of next().
     //
@@ -61,12 +62,14 @@ namespace build2
         // Expire value/pairs mode at the end of the line.
         //
         if (m == lexer_mode::value || m == lexer_mode::pairs)
-          mode_.pop ();
+          state_.pop ();
 
         return token (type::newline, sep, ln, cn);
       }
     case '{': return token (type::lcbrace, sep, ln, cn);
     case '}': return token (type::rcbrace, sep, ln, cn);
+    case '[': return token (type::lsbrace, sep, ln, cn);
+    case ']': return token (type::rsbrace, sep, ln, cn);
     case '$': return token (type::dollar, sep, ln, cn);
     case '(': return token (type::lparen, sep, ln, cn);
     case ')': return token (type::rparen, sep, ln, cn);
@@ -74,7 +77,7 @@ namespace build2
 
     // Handle pair separator.
     //
-    if (m == lexer_mode::pairs && c == pair_separator_)
+    if (m == lexer_mode::pairs && c == ps)
       return token (type::pair_separator, sep, ln, cn);
 
     // The following characters are not treated as special in the
@@ -129,6 +132,9 @@ namespace build2
     // This mode is quite a bit like the value mode when it comes to special
     // characters, except that we have some of our own.
     //
+    // Note: we don't treat [ and ] as special here. Maybe can use them for
+    // something later.
+    //
     switch (c)
     {
       // NOTE: remember to update name() if adding new special characters.
@@ -140,7 +146,7 @@ namespace build2
     case '(': return token (type::lparen, sep, ln, cn);
     case ')':
       {
-        mode_.pop (); // Expire eval mode.
+        state_.pop (); // Expire eval mode.
         return token (type::rparen, sep, ln, cn);
       }
     case '=':
@@ -191,7 +197,8 @@ namespace build2
     uint64_t ln (c.line), cn (c.column);
     string lexeme;
 
-    lexer_mode m (mode_.top ());
+    lexer_mode m (state_.top ().mode);
+    char ps (state_.top ().pair_separator);
     bool quoted (m == lexer_mode::quoted);
 
     for (; !eos (c); c = peek ())
@@ -200,7 +207,7 @@ namespace build2
 
       // Handle pair separator.
       //
-      if (m == lexer_mode::pairs && c == pair_separator_)
+      if (m == lexer_mode::pairs && c == ps)
         break;
 
       // The following characters are only special in the normal and
@@ -297,6 +304,8 @@ namespace build2
         case '#':
         case '{':
         case '}':
+        case '[':
+        case ']':
         case ')':
           {
             done = true;
@@ -355,14 +364,14 @@ namespace build2
             get ();
 
             if (m == lexer_mode::quoted)
-              mode_.pop ();
+              state_.pop ();
             else
             {
-              mode_.push (lexer_mode::quoted);
+              mode (lexer_mode::quoted);
               quoted = true;
             }
 
-            m = mode_.top ();
+            m = state_.top ().mode;
             continue;
           }
         }
@@ -384,7 +393,7 @@ namespace build2
     // Expire variable mode at the end of the name.
     //
     if (m == lexer_mode::variable)
-      mode_.pop ();
+      state_.pop ();
 
     return token (lexeme, sep, quoted, ln, cn);
   }
