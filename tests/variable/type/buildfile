@@ -1,0 +1,21 @@
+# Variable typing.
+#
+[string] str1 = bar
+str1 =+ foo
+str1 += baz
+print $str1
+
+str2 = bar
+[string] str2 =+ foo
+str2 += baz
+print $str2
+
+#[string] str3 = foo
+#[bool] str3 = false       # error: changing str3 type from string to bool
+
+#[bool string] str3 = foo  # error: multiple variable types: bool, string
+
+#[junk] jnk = foo          # error: unknown variable attribute junk
+
+
+./:

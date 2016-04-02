@@ -22,8 +22,9 @@ namespace build2
   class parser
   {
   public:
-    typedef build2::names names_type;
-    typedef build2::variable variable_type;
+    using names_type = build2::names;
+    using variable_type = build2::variable;
+    using attributes_type = vector<pair<string, string>>;
 
     // If boot is true, then we are parsing bootstrap.build and modules
     // should only be bootstrapped.
@@ -90,17 +91,23 @@ namespace build2
     names_type
     variable_value (token&, token_type&);
 
+    void
+    variable_attribute (const variable_type&,
+                        attributes_type&,
+                        const location&);
+
     names_type
     eval (token&, token_type&);
 
     void
     eval_trailer (token&, token_type&, names_type&);
 
-    // If the next token is [, parse the attribute sequence until ] storing
-    // it in attrs_, get the next token, verify it is not a newline or eos,
-    // and return true. Otherwise return false.
+    // If the next token is '[' parse the attribute sequence until ']', get
+    // the next token, verify it is not newline/eos, and return the pointer to
+    // the extracted attributes (which is only valid until the next call).
+    // Otherwise return NULL.
     //
-    bool
+    attributes_type*
     attributes (token&, token_type&);
 
     // If chunk is true, then parse the smallest but complete, name-wise,
@@ -298,7 +305,7 @@ namespace build2
     scope* scope_;   // Current base scope (out_base).
     scope* root_;    // Current root scope (out_root).
 
-    vector<pair<string, string>> attrs_; // Current attributes, if any.
+    attributes_type attrs_; // Current attributes, if any.
 
     target* default_target_;
     names_type export_value_;

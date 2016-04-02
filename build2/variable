@@ -86,7 +86,7 @@ namespace build2
   struct variable
   {
     string name;
-    const value_type* type;                // If NULL, then not (yet) typed.
+    mutable const value_type* type;        // If NULL, then not (yet) typed.
     mutable unique_ptr<variable> override;
     variable_visibility visibility;
   };

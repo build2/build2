@@ -98,7 +98,7 @@ namespace build2
       // Extract attributes if any.
       //
       location al (get_location (t, &path_));
-      bool ha (attributes (t, tt));
+      attributes_type* as (attributes (t, tt));
 
       // We always start with one or more names.
       //
@@ -164,7 +164,7 @@ namespace build2
 
         if (f != nullptr)
         {
-          if (ha)
+          if (as != nullptr)
             fail (al) << "attributes before " << n;
 
           (this->*f) (t, tt);
@@ -260,7 +260,7 @@ namespace build2
             {
               // Directory scope.
               //
-              if (ha)
+              if (as != nullptr)
                 fail (al) << "attributes before directory scope";
 
               // Can contain anything that a top level can.
@@ -271,7 +271,7 @@ namespace build2
             }
             else
             {
-              if (ha)
+              if (as != nullptr)
                 fail (al) << "attributes before target scope";
 
               // @@ TODO: target scope.
@@ -302,11 +302,11 @@ namespace build2
         // Will have to stash them if later support attributes on
         // target/scope.
         //
-        if (ha)
+        if (as != nullptr)
           fail (al) << "attributes before target/scope";
 
         al = get_location (t, &path_);
-        ha = attributes (t, tt);
+        as = attributes (t, tt);
 
         if (tt == type::name    ||
             tt == type::lcbrace ||
@@ -359,7 +359,10 @@ namespace build2
               var_pool.find (
                 variable_name (move (pns), ploc)));
 
-            //@@ TODO: handle attrs.
+            // Handle variable attributes.
+            //
+            if (as != nullptr)
+              variable_attribute (var, *as, al);
 
             // If we have multiple targets/scopes, then we save the value
             // tokens when parsing the first one and then replay them for
@@ -447,7 +450,7 @@ namespace build2
           //
           else
           {
-            if (ha)
+            if (as != nullptr)
               fail (al) << "attributes before prerequisites";
 
             // Prepare the prerequisite list.
@@ -516,9 +519,15 @@ namespace build2
       //
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
-        //@@ TODO handle attrs.
+        const variable_type& var (
+          var_pool.find (variable_name (move (ns), nloc)));
 
-        variable (t, tt, var_pool.find (variable_name (move (ns), nloc)), tt);
+        // Handle variable attributes.
+        //
+        if (as != nullptr)
+          variable_attribute (var, *as, al);
+
+        variable (t, tt, var, tt);
 
         if (tt == type::newline)
           next (t, tt);
@@ -532,7 +541,7 @@ namespace build2
       //
       if (tt == type::newline && ns.empty ())
       {
-        if (ha)
+        if (as != nullptr)
           fail (al) << "standalone attributes";
 
         next (t, tt);
@@ -796,7 +805,7 @@ namespace build2
     // mode).
     //
     location al (get_location (t, &path_));
-    bool ha (attributes (t, tt));
+    attributes_type* as (attributes (t, tt));
 
     if (tt == type::name)
     {
@@ -865,13 +874,16 @@ namespace build2
 
     if (var != nullptr)
     {
-      // @@ TODO handle attrs.
+      // Handle variable attributes.
+      //
+      if (as != nullptr)
+        variable_attribute (*var, *as, al);
 
       val = at == type::assign
         ? &scope_->assign (*var)
         : &scope_->append (*var);
     }
-    else if (ha)
+    else if (as != nullptr)
       fail (al) << "attributes without variable";
 
     // The rest should be a list of projects and/or targets. Parse
@@ -1267,6 +1279,54 @@ namespace build2
             : names_type ());
   }
 
+  void parser::
+  variable_attribute (const variable_type& var,
+                      attributes_type& as,
+                      const location& al)
+  {
+    const value_type* type (nullptr);
+
+    for (auto& p: as)
+    {
+      string& k (p.first);
+      string& v (p.second);
+
+      if (const value_type* t =
+          k == "bool"      ? &value_traits<bool>::value_type       :
+          k == "uint64"    ? &value_traits<uint64_t>::value_type   :
+          k == "string"    ? &value_traits<string>::value_type     :
+          k == "path"      ? &value_traits<path>::value_type       :
+          k == "dir_path"  ? &value_traits<dir_path>::value_type   :
+          k == "name"      ? &value_traits<name>::value_type       :
+          k == "strings"   ? &value_traits<strings>::value_type    :
+          k == "paths"     ? &value_traits<paths>::value_type      :
+          k == "dir_paths" ? &value_traits<dir_paths>::value_type  :
+          k == "names"     ? &value_traits<names_type>::value_type :
+          nullptr)
+      {
+        if (!v.empty ())
+          fail (al) << "value in variable type " << k << ": " << v;
+
+        if (type != nullptr)
+          fail (al) << "multiple variable types: " << k << ", " << type->name;
+
+        type = t;
+        continue;
+      }
+
+      fail (al) << "unknown variable attribute " << k;
+    }
+
+    if (type != nullptr)
+    {
+      if (var.type == nullptr)
+        var.type = type;
+      else if (var.type != type)
+        fail (al) << "changing variable " << var.name << " type from "
+                  << var.type->name << " to " << type->name;
+    }
+  }
+
   parser::names_type parser::
   eval (token& t, type& tt)
   {
@@ -1320,13 +1380,13 @@ namespace build2
     }
   }
 
-  bool parser::
+  parser::attributes_type* parser::
   attributes (token& t, token_type& tt)
   {
     attrs_.clear ();
 
     if (tt != type::lsbrace)
-      return false;
+      return nullptr;
 
     // Using '@' for key-value pairs would be just too ugly. Seeing that we
     // control what goes into keys/values, let's use a much nicer '='.
@@ -1338,8 +1398,6 @@ namespace build2
     {
       const location l (get_location (t, &path_));
       names_type ns (names (t, tt));
-
-      text << '[' << ns << ']';
 
       for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
@@ -1384,7 +1442,7 @@ namespace build2
     if (tt == type::newline || tt == type::eos)
       fail (t) << "standalone attributes";
 
-    return true;
+    return &attrs_;
   }
 
   // Parse names inside {} and handle the following "crosses" (i.e.,
