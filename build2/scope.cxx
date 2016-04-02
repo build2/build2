@@ -249,23 +249,30 @@ namespace build2
     // If there is a stem, set it as the initial value of the cache.
     // Otherwise, start with a NULL value.
     //
+
+    // Un-typify the cache. This can be necessary, for example, if we are
+    // changing from one value-typed stem to another.
+    //
+    if (!stem.defined () || cache.value.type != stem->type)
+    {
+      cache.value = nullptr;
+      cache.value.type = nullptr; // Un-typify.
+    }
+
     if (stem.defined ())
     {
       cache.value = *stem;
       cache.stem_vars = stem.vars;
     }
     else
-    {
-      cache.value = nullptr;
       cache.stem_vars = nullptr; // No stem.
-    }
 
     // Typify the cache value. If the stem is the original, then the type
     // would get propagated automatically. But the stem could also be the
     // override, which is kept untyped. Or the stem might not be there at all
     // while we still need to apply prefixes/suffixes in the type-aware way.
     //
-    if (cache.value.type != var.type)
+    if (cache.value.type == nullptr && var.type != nullptr)
       typify (cache.value, *var.type, var);
 
     // Now apply override prefixes and suffixes.
