@@ -114,41 +114,44 @@ namespace build2
     return *r;
   }
 
-  lookup target::
-  operator[] (const variable& var) const
+  pair<lookup, size_t> target::
+  find (const variable& var) const
   {
-    lookup l;
-    bool tspec (false);
+    pair<lookup, size_t> r (lookup (), 0);
 
     scope& s (base_scope ());
 
+    ++r.second;
     if (auto p = vars.find (var))
-    {
-      tspec = true;
-      l = lookup (p, &vars);
-    }
+      r.first = lookup (p, &vars);
 
-    if (!l && group != nullptr)
+    if (!r.first)
     {
-      if (auto p = group->vars.find (var))
+      ++r.second;
+      if (group != nullptr)
       {
-        tspec = true;
-        l = lookup (p, &group->vars);
+        if (auto p = group->vars.find (var))
+          r.first = lookup (p, &group->vars);
       }
     }
 
     // Delegate to scope's find().
     //
-    if (!l)
-      l = s.find_original (var,
-                           &type (),
-                           &name,
-                           group != nullptr ? &group->type () : nullptr,
-                           group != nullptr ? &group->name : nullptr);
+    if (!r.first)
+    {
+      auto p (s.find_original (var,
+                               &type (),
+                               &name,
+                               group != nullptr ? &group->type () : nullptr,
+                               group != nullptr ? &group->name : nullptr));
+
+      r.first = move (p.first);
+      r.second = r.first ? r.second + p.second : p.second;
+    }
 
     return var.override == nullptr
-      ? l
-      : s.find_override (var, move (l), tspec);
+      ? r
+      : s.find_override (var, move (r), true);
   }
 
   value& target::

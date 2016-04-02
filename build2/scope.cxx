@@ -12,30 +12,33 @@ namespace build2
 {
   // scope
   //
-  lookup scope::
+  pair<lookup, size_t> scope::
   find_original (const variable& var,
                  const target_type* tt, const string* tn,
                  const target_type* gt, const string* gn) const
   {
+    size_t d (0);
+
     for (const scope* s (this); s != nullptr; )
     {
-      if (!s->target_vars.empty ())
+      if (tt != nullptr) // This started from the target.
       {
-        if (tt != nullptr)
-        {
-          if (auto l = s->target_vars.find (*tt, *tn, var))
-            return l;
-        }
+        bool f (!s->target_vars.empty ());
 
-        if (gt != nullptr)
-        {
+        ++d;
+        if (f)
+          if (auto l = s->target_vars.find (*tt, *tn, var))
+            return make_pair (move (l), d);
+
+        ++d;
+        if (f && gt != nullptr)
           if (auto l = s->target_vars.find (*gt, *gn, var))
-            return l;
-        }
+            return make_pair (move (l), d);
       }
 
+      ++d;
       if (auto r = s->vars.find (var))
-        return lookup (r, &s->vars);
+        return make_pair (lookup (r, &s->vars), d);
 
       switch (var.visibility)
       {
@@ -51,11 +54,13 @@ namespace build2
       }
     }
 
-    return lookup ();
+    return make_pair (lookup (), size_t (~0));
   }
 
-  lookup scope::
-  find_override (const variable& var, lookup&& orig, bool tspec) const
+  pair<lookup, size_t> scope::
+  find_override (const variable& var,
+                 pair<lookup, size_t>&& original,
+                 bool target) const
   {
     // Normally there would be no overrides and if there are, there will only
     // be a few of them. As a result, here we concentrate on keeping the logic
@@ -63,14 +68,32 @@ namespace build2
     //
     assert (var.override != nullptr);
 
+    lookup& origl (original.first);
+    size_t origd (original.second);
+
     // The first step is to find out where our cache will reside. After some
     // meditation it becomes clear it should be next to the innermost (scope-
     // wise) value (override or original) that contributes to the end result.
     //
+    size_t depth (0);
+    const variable_map* vars (nullptr);
+
     // One special case is if the original is target-specific, which is the
-    // most innermost (or is it inermostest).
+    // most innermost. Or is it innermostest?
     //
-    const variable_map* vars (tspec ? orig.vars : nullptr);
+    bool targetspec (false);
+    if (target)
+    {
+      targetspec = origl.defined () && (origd == 1 || origd == 2);
+
+      if (targetspec)
+      {
+        vars = origl.vars;
+        depth = origd;
+      }
+      else
+        depth = 2; // For implied target-specific lookup.
+    }
 
     const scope* s;
 
@@ -115,8 +138,8 @@ namespace build2
       return lookup (s->vars.find (*o), &s->vars);
     };
 
-    // Return true if a value is from this scope (either target-specific or
-    // normal).
+    // Return true if a value is from this scope (either target type/pattern-
+    // specific or ordinary).
     //
     auto test = [&s] (const lookup& l) -> bool
     {
@@ -140,14 +163,24 @@ namespace build2
       // the target type/patter-specific variables, which is "more inner" than
       // normal scope variables (see find_original()).
       //
-      if (vars == nullptr && orig && test (orig))
-        vars = orig.vars;
+      if (vars == nullptr && origl.defined () && test (origl))
+      {
+        vars = origl.vars;
+        depth = origd;
+      }
+
+      if (vars == nullptr)
+        // Extra 2 for implied target type/pattern-specific lookup.
+        //
+        depth += target ? 3 : 1;
 
       for (const variable* o (var.override.get ());
            o != nullptr;
            o = o->override.get ())
       {
-        if (auto l = find (o))
+        auto l (find (o));
+
+        if (l.defined ())
         {
           if (vars == nullptr)
             vars = l.vars;
@@ -165,7 +198,7 @@ namespace build2
     }
 
     if (!apply)
-      return move (orig);
+      return move (original);
 
     assert (vars != nullptr);
 
@@ -185,15 +218,15 @@ namespace build2
     // __override, depending on which one is the innermost. We may also not
     // have one at all.
     //
-    lookup stem (tspec ? orig : lookup ());
+    lookup stem (targetspec ? origl : lookup ());
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {
       // First check if the original is from this scope.
       //
-      if (orig && test (orig))
+      if (origl.defined () && test (origl))
       {
-        stem = orig;
+        stem = origl;
         break;
       }
 
@@ -203,18 +236,20 @@ namespace build2
            o != nullptr;
            o = o->override.get ())
       {
-        if ((stem = find (o, ".__override")))
+        stem = find (o, ".__override");
+
+        if (stem.defined ())
           break;
       }
 
-      if (stem)
+      if (stem.defined ())
         break;
     }
 
     // If there is a stem, set it as the initial value of the cache.
     // Otherwise, start with a NULL value.
     //
-    if (stem)
+    if (stem.defined ())
     {
       cache.value = *stem;
       cache.stem_vars = stem.vars;
@@ -245,11 +280,11 @@ namespace build2
         // variable itself is typed. We also pass the original variable for
         // diagnostics.
         //
-        if (auto l = find (o, ".__prefix"))
+        if (auto l = find (o, ".__prefix")) // No sense if NULL.
         {
           cache.value.prepend (names (cast<names> (l)), var);
         }
-        else if (auto l = find (o, ".__suffix"))
+        else if (auto l = find (o, ".__suffix")) // No sense if NULL.
         {
           cache.value.append (names (cast<names> (l)), var);
         }
@@ -259,7 +294,7 @@ namespace build2
     // Use the location of the cache (innermost value that contributes) as
     // the location of the result.
     //
-    return lookup (&cache.value, vars);
+    return make_pair (lookup (&cache.value, vars), depth);
   }
 
   value& scope::

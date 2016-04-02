@@ -130,22 +130,24 @@ namespace build2
     lookup
     find (const variable& var, const target_type* tt, const string* tn) const
     {
-      lookup l (find_original (var, tt, tn));
+      auto p (find_original (var, tt, tn));
       return var.override == nullptr
-        ? l
-        : find_override (var, move (l), false);
+        ? p.first
+        : find_override (var, move (p), false).first;
     }
 
-    // Implementation details (used by target lookup).
+    // Implementation details (used by scope target lookup).
     //
-    lookup
+    pair<lookup, size_t>
     find_original (
       const variable&,
       const target_type* tt, const string* tn,
       const target_type* gt = nullptr, const string* gn = nullptr) const;
 
-    lookup
-    find_override (const variable&, lookup&& original, bool orig_tspec) const;
+    pair<lookup, size_t>
+    find_override (const variable&,
+                   pair<lookup, size_t>&& original,
+                   bool target) const;
 
     // Return a value suitable for assignment (or append if you only
     // want to append to the value from this scope). If the variable
