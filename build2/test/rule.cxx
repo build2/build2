@@ -19,61 +19,31 @@ namespace build2
     match_result rule::
     match (action a, target& t, const string&) const
     {
-      // First determine if this is a test. This is controlled by
-      // the test target variable and text.<tt> scope variables.
-      // Also, it feels redundant to specify, say, "test = true"
-      // and "test.output = test.out" -- the latter already says
-      // this is a test. So take care of that as well.
+      // First determine if this is a test. This is controlled by the test
+      // variable. Also, it feels redundant to specify, say, "test = true" and
+      // "test.output = test.out" -- the latter already says this is a test.
       //
       bool r (false);
-      lookup l;
-
-      // @@ This logic doesn't take into account target type/pattern-
-      // specific variables.
-      //
-      // @@ Perhaps a find_any(<list-of-vars>)?
-      //
-      for (auto p (t.vars.find_namespace ("test"));
-           p.first != p.second;
-           ++p.first)
       {
-        const variable& var (p.first->first);
-        const value& val (p.first->second);
-
-        // If we have test, then always use that.
+        // Use lookup depths to figure out who "overrides" whom.
         //
-        if (var.name == "test")
-        {
-          l = lookup (val, t);
-          break;
-        }
+        auto p (t.find ("test"));
 
-        // Otherwise check for variables that would indicate this
-        // is a test.
-        //
-        if (var.name == "test.input"     ||
-            var.name == "test.output"    ||
-            var.name == "test.roundtrip" ||
-            var.name == "test.options"   ||
-            var.name == "test.arguments")
-        {
+        if (p.first && cast<bool> (p.first))
           r = true;
-          break;
+        else
+        {
+          auto test = [&t, &p] (const char* n)
+          {
+            return t.find (n).second < p.second;
+          };
+
+          r = test ("test.input")   ||
+            test ("test.output")    ||
+            test ("test.roundtrip") ||
+            test ("test.options")   ||
+            test ("test.arguments");
         }
-      }
-
-      if (!r)
-      {
-        // See if there is a scope variable.
-        //
-        // @@ I don't think we use this (e.g., test.exe = true) anymore.
-        //    We now do exe{*}: test = true.
-        //
-        if (!l.defined ())
-          l = t.base_scope ()[
-            var_pool.insert<bool> (string("test.") + t.type ().name)];
-
-        r = l && cast<bool> (l);
       }
 
       // If this is the update pre-operation, then all we really need to
@@ -123,81 +93,53 @@ namespace build2
       // output,roundtrip}.
       //
 
-      // First check the target-specific vars since they override any
-      // scope ones.
+      // We should have either arguments or input/roundtrip. Again, use
+      // lookup depth to figure out who takes precedence.
       //
       //@@ OVR
-      auto il (t.vars["test.input"]);
-      auto ol (t.vars["test.output"]);
-      auto rl (t.vars["test.roundtrip"]);
-      auto al (t.vars["test.arguments"]); // Should be input or arguments.
+      auto ip (t.find ("test.input"));
+      auto op (t.find ("test.output"));
+      auto rp (t.find ("test.roundtrip"));
+      auto ap (t.find ("test.arguments"));
 
-      if (al)
+      auto test = [&t] (pair<lookup, size_t>& x, const char* xn,
+                        pair<lookup, size_t>& y, const char* yn)
       {
-        if (il)
-          fail << "both test.input and test.arguments specified for "
-               << "target " << t;
-
-        if (rl)
-          fail << "both test.roundtrip and test.arguments specified for "
-               << "target " << t;
-      }
-
-      scope& bs (t.base_scope ());
-
-      if (!il && !ol && !rl)
-      {
-        // @@ Again, don't think we use this anymore.
-        //
-        string n ("test.");
-        n += t.type ().name;
-
-        const variable& in (var_pool.insert<name> (n + ".input"));
-        const variable& on (var_pool.insert<name> (n + ".output"));
-        const variable& rn (var_pool.insert<name> (n + ".roundtrip"));
-
-        // We should only keep value(s) that were specified together
-        // in the innermost scope.
-        //
-        // @@ Shouldn't we stop at project root?
-        //
-        for (scope* s (&bs); s != nullptr; s = s->parent_scope ())
+        if (x.first && y.first)
         {
-          ol = s->vars[on]; //@@ OVR
+          if (x.second == y.second)
+            fail << "both " << xn << " and " << yn << " specified for "
+                 << "target " << t;
 
-          if (!al) // Not overriden at target level by test.arguments?
-          {
-            il = s->vars[in]; //@@ OVR
-            rl = s->vars[rn]; //@@ OVR
-          }
-
-          if (il || ol || rl)
-            break;
+          (x.second < y.second ? y : x) = make_pair (lookup (), size_t (~0));
         }
-      }
+      };
+
+      test (ip, "test.input",     ap, "test.arguments");
+      test (rp, "test.roundtrip", ap, "test.arguments");
+      test (ip, "test.input",     rp, "test.roundtrip");
+      test (op, "test.output",    rp, "test.roundtrip");
 
       const name* in;
       const name* on;
 
       // Reduce the roundtrip case to input/output.
       //
-      if (rl)
+      if (rp.first)
       {
-        if (il || ol)
-          fail << "both test.roundtrip and test.input/output specified "
-               << "for target " << t;
-
-        in = on = &cast<name> (rl);
+        in = on = &cast<name> (rp.first);
       }
       else
       {
-        in = il ? &cast<name> (il) : nullptr;
-        on = ol ? &cast<name> (ol) : nullptr;
+        in = ip.first ? &cast<name> (ip.first) : nullptr;
+        on = op.first ? &cast<name> (op.first) : nullptr;
       }
 
       // Resolve them to targets, which normally would be existing files
       // but could also be targets that need updating.
       //
+      scope& bs (t.base_scope ());
+
       target* it (in != nullptr ? &search (*in, bs) : nullptr);
       target* ot (on != nullptr ? in == on ? it : &search (*on, bs) : nullptr);
 
@@ -284,29 +226,6 @@ namespace build2
       }
     }
 
-    static void
-    add_arguments (cstrings& args, const target& t, const char* n)
-    {
-      string var ("test.");
-      var += n;
-
-      auto l (t.vars[var]); //@@ OVR
-
-      if (!l)
-      {
-        // @@ Again, don't think we do it.
-        //
-        var.resize (5);
-        var += t.type ().name;
-        var += '.';
-        var += n;
-        l = t.base_scope ()[var_pool.insert<strings> (var)];
-      }
-
-      if (l)
-        append_options (args, cast<strings> (l));
-    }
-
     // The format of args shall be:
     //
     // name1 arg arg ... nullptr
@@ -388,7 +307,8 @@ namespace build2
 
       // Do we have options?
       //
-      add_arguments (args, t, "options");
+      if (auto l = t["test.options"]) //@@ OVR
+        append_options (args, cast<strings> (l));
 
       // Do we have input?
       //
@@ -402,7 +322,10 @@ namespace build2
       // Maybe arguments then?
       //
       else
-        add_arguments (args, t, "arguments");
+      {
+        if (auto l = t["test.arguments"]) //@@ OVR
+          append_options (args, cast<strings> (l));
+      }
 
       args.push_back (nullptr);
 
