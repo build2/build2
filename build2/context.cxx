@@ -182,7 +182,7 @@ namespace build2
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
 
-    // @@ Backwards-compatibility hack.
+    // @@ BACK
     //
     gs.assign<bool> ("__build2_greater_than_0_2_0_hack__") = true;
 
