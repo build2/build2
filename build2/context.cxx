@@ -136,14 +136,19 @@ namespace build2
       o = o->override.get ();
 
       // Currently we expand project overrides in the global scope to keep
-      // things simple.
+      // things simple. Pass original variable for diagnostics.
       //
       parser p;
-      names val;
-      t = p.parse_variable_value (l, gs, val);
+      pair<value, token> r (p.parse_variable_value (l, gs, var));
 
-      if (t.type != token_type::eos)
-        fail << "unexpected " << t << " in variable assignment '" << s << "'";
+      if (r.second.type != token_type::eos)
+        fail << "unexpected " << r.second << " in variable assignment "
+             << "'" << s << "'";
+
+      // Make sure the value is not typed.
+      //
+      if (r.first.type != nullptr)
+        fail << "typed override of variable " << var.name;
 
       if (c == '!')
       {
@@ -153,10 +158,10 @@ namespace build2
           fail << "multiple global overrides of variable " << var.name;
 
         value& v (p.first);
-        v.assign (move (val), var); // Original var for diagnostics.
+        v = move (r.first);
       }
       else
-        vos.emplace_back (variable_override {var, *o, move (val)});
+        vos.emplace_back (variable_override {var, *o, move (r.first)});
     }
 
     // Enter builtin variables.

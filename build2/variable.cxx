@@ -14,20 +14,15 @@ namespace build2
 {
   // value
   //
-  value& value::
-  operator= (nullptr_t)
+  void value::
+  reset ()
   {
-    if (!null ())
-    {
-      if (type == nullptr)
-        as<names> ().~names ();
-      else if (type->dtor != nullptr)
-        type->dtor (*this);
+    if (type == nullptr)
+      as<names> ().~names ();
+    else if (type->dtor != nullptr)
+      type->dtor (*this);
 
-      state = value_state::null;
-    }
-
-    return *this;
+    state = value_state::null;
   }
 
   value::
@@ -37,7 +32,7 @@ namespace build2
     if (!null ())
     {
       if (type == nullptr)
-        as<names> () = move (v).as<names> ();
+        new (&data_) names (move (v).as<names> ());
       else if (type->copy_ctor != nullptr)
         type->copy_ctor (*this, v, true);
       else
@@ -52,7 +47,7 @@ namespace build2
     if (!null ())
     {
       if (type == nullptr)
-        as<names> () = v.as<names> ();
+        new (&data_) names (v.as<names> ());
       else if (type->copy_ctor != nullptr)
         type->copy_ctor (*this, v, false);
       else
@@ -71,9 +66,7 @@ namespace build2
       //
       if (type == nullptr && v.type != nullptr)
       {
-        if (!null ())
-          *this = nullptr;
-
+        *this = nullptr;
         type = v.type;
       }
 
@@ -81,7 +74,12 @@ namespace build2
       // copy_ctor() instead of copy_assign().
       //
       if (type == nullptr)
-        as<names> () = move (v).as<names> ();
+      {
+        if (null ())
+          new (&data_) names (move (v).as<names> ());
+        else
+          as<names> () = move (v).as<names> ();
+      }
       else if (auto f = null () ? type->copy_ctor : type->copy_assign)
         f (*this, v, true);
       else
@@ -104,12 +102,7 @@ namespace build2
       //
       if (type == nullptr && v.type != nullptr)
       {
-        if (!null ())
-        {
-          reinterpret_cast<names&> (data_).~names ();
-          state = value_state::null;
-        }
-
+        *this = nullptr;
         type = v.type;
       }
 
@@ -117,7 +110,12 @@ namespace build2
       // copy_ctor() instead of copy_assign().
       //
       if (type == nullptr)
-        as<names> () = v.as<names> ();
+      {
+        if (null ())
+          new (&data_) names (v.as<names> ());
+        else
+          as<names> () = v.as<names> ();
+      }
       else if (auto f = null () ? type->copy_ctor : type->copy_assign)
         f (*this, v, false);
       else

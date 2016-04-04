@@ -30,9 +30,7 @@ namespace build2
     //
     if (type == nullptr)
     {
-      if (!null ())
-        *this = nullptr;
-
+      *this = nullptr;
       type = &value_traits<T>::value_type;
     }
 

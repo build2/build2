@@ -819,7 +819,7 @@ main (int argc, char* argv[])
             }
 
             value& v (p.first);
-            v.assign (names (o.val), o.var); // Original var for diagnostics.
+            v = o.val;
             first = false;
           }
 

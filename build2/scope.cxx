@@ -307,15 +307,18 @@ namespace build2
   value& scope::
   append (const variable& var)
   {
-    auto l (operator[] (var));
+    // Note that here we want the original value without any overrides
+    // applied.
+    //
+    lookup l (find_original (var).first);
 
-    if (l && l.belongs (*this)) // Existing variable in this scope.
-      return const_cast<value&> (*l);
+    if (l.defined () && l.belongs (*this)) // Existing var in this scope.
+      return const_cast<value&> (*l); // Ok since this is original.
 
-    value& r (assign (var));
+    value& r (assign (var)); // NULL.
 
-    if (l)
-      r = *l; // Copy value from the outer scope.
+    if (l.defined ())
+      r = *l; // Copy value (and type) from the outer scope.
 
     return r;
   }

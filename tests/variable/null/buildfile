@@ -1,0 +1,22 @@
+#v = [null=junk]  # error: unexpected value for attribute null: junk
+#v = [null] junk  # error: empty null value expected instead of 'junk'
+
+print $v0 # Undefined.
+
+v1 = [null]
+print $v1
+
+v2 = x
+v2 = [null]
+print $v2
+
+v3a = [null]
+v3b = $v3a
+print $v3b
+v3b = ($v3a)
+print $v3b
+print ($v3b)
+
+print [null]
+
+./:

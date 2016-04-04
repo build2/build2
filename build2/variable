@@ -120,14 +120,16 @@ namespace build2
     //
     //
   public:
-    ~value () {if (!null ()) *this = nullptr;}
+    ~value () {*this = nullptr;}
 
     explicit
     value (const value_type* t = nullptr)
         : type (t), state (value_state::null) {}
 
+    // Note: preserves type.
+    //
     value&
-    operator= (nullptr_t);
+    operator= (nullptr_t) {if (!null ()) reset (); return *this;}
 
     value (value&&);
     explicit value (const value&);
@@ -185,6 +187,10 @@ namespace build2
     // Make sure we have sufficient storage for untyped values.
     //
     static_assert (sizeof (names) <= size_, "insufficient space");
+
+  private:
+    void
+    reset ();
   };
 
   // The values should be of the same type (or both be untyped). NULL values

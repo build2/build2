@@ -141,7 +141,7 @@ namespace build2
     pair<lookup, size_t>
     find_original (
       const variable&,
-      const target_type* tt, const string* tn,
+      const target_type* tt = nullptr, const string* tn = nullptr,
       const target_type* gt = nullptr, const string* gn = nullptr) const;
 
     pair<lookup, size_t>

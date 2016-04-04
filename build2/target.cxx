@@ -115,11 +115,9 @@ namespace build2
   }
 
   pair<lookup, size_t> target::
-  find (const variable& var) const
+  find_original (const variable& var) const
   {
     pair<lookup, size_t> r (lookup (), 0);
-
-    scope& s (base_scope ());
 
     ++r.second;
     if (auto p = vars.find (var))
@@ -135,37 +133,39 @@ namespace build2
       }
     }
 
-    // Delegate to scope's find().
+    // Delegate to scope's find_original().
     //
     if (!r.first)
     {
-      auto p (s.find_original (var,
-                               &type (),
-                               &name,
-                               group != nullptr ? &group->type () : nullptr,
-                               group != nullptr ? &group->name : nullptr));
+      auto p (base_scope ().find_original (
+                var,
+                &type (),
+                &name,
+                group != nullptr ? &group->type () : nullptr,
+                group != nullptr ? &group->name : nullptr));
 
       r.first = move (p.first);
       r.second = r.first ? r.second + p.second : p.second;
     }
 
-    return var.override == nullptr
-      ? r
-      : s.find_override (var, move (r), true);
+    return r;
   }
 
   value& target::
   append (const variable& var)
   {
-    auto l (operator[] (var));
+    // Note that here we want the original value without any overrides
+    // applied.
+    //
+    lookup l (find_original (var).first);
 
-    if (l && l.belongs (*this)) // Existing variable in this target.
-      return const_cast<value&> (*l);
+    if (l.defined () && l.belongs (*this)) // Existing var in this target.
+      return const_cast<value&> (*l); // Ok since this is original.
 
-    value& r (assign (var));
+    value& r (assign (var)); // NULL.
 
-    if (l)
-      r = *l; // Copy value from the outer scope.
+    if (l.defined ())
+      r = *l; // Copy value (and type) from the outer scope.
 
     return r;
   }

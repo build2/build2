@@ -10,6 +10,7 @@
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/variable>
 #include <build2/operation>
 #include <build2/b-options>
 
@@ -17,7 +18,6 @@ namespace build2
 {
   class scope;
   class file;
-  struct variable;
 
   extern dir_path work;
   extern dir_path home;
@@ -49,7 +49,7 @@ namespace build2
   {
     const variable& var; // Original variable.
     const variable& ovr; // Override variable.
-    names val;
+    value val;
   };
 
   using variable_overrides = vector<variable_override>;

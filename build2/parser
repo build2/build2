@@ -11,20 +11,19 @@
 #include <build2/spec>
 #include <build2/lexer>
 #include <build2/token>
+#include <build2/variable>
 #include <build2/diagnostics>
 
 namespace build2
 {
   class scope;
   class target;
-  struct variable;
 
   class parser
   {
   public:
     using names_type = build2::names;
     using variable_type = build2::variable;
-    using attributes_type = vector<pair<string, string>>;
 
     // If boot is true, then we are parsing bootstrap.build and modules
     // should only be bootstrapped.
@@ -42,8 +41,8 @@ namespace build2
     token
     parse_variable (lexer&, scope&, const variable_type&, token_type kind);
 
-    token
-    parse_variable_value (lexer&, scope&, names_type& result);
+    pair<value, token>
+    parse_variable_value (lexer&, scope&, const variable_type&);
 
     names_type
     parse_export_stub (istream& is, const path& p, scope& r, scope& b)
@@ -88,27 +87,31 @@ namespace build2
     string
     variable_name (names_type&&, const location&);
 
-    names_type
+    pair<names_type, bool> // See names_null() return type.
     variable_value (token&, token_type&);
 
     void
-    variable_attribute (const variable_type&,
-                        attributes_type&,
-                        const location&);
-
-    names_type
-    eval (token&, token_type&);
+    variable_attributes (const variable_type&);
 
     void
+    value_attributes (const variable_type&,
+                      value& lhs,
+                      pair<names_type, bool>&& rhs,
+                      token_type kind);
+
+    pair<names_type, bool> // See names_null() return type.
+    eval (token&, token_type&);
+
+    bool
     eval_trailer (token&, token_type&, names_type&);
 
-    // If the next token is '[' parse the attribute sequence until ']', get
-    // the next token, verify it is not newline/eos, and return the pointer to
-    // the extracted attributes (which is only valid until the next call).
-    // Otherwise return NULL.
+    // If the next token is '[' parse the attribute sequence until ']' storing
+    // the result in the ha_/as_/al_ members (which are only valid until the
+    // next call). Then get the next token and, if standalone is false, verify
+    // it is not newline/eos (i.e., there is something after it).  Return ha_.
     //
-    attributes_type*
-    attributes (token&, token_type&);
+    bool
+    attributes (token&, token_type&, bool standalone = false);
 
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with
@@ -122,13 +125,25 @@ namespace build2
       return ns;
     }
 
-    void
-    names (token& t, token_type& tt, names_type& ns, bool chunk = false)
+    // As above but also indicate if the value is NOT NULL. The only way for
+    // the value to be NULL is if it is the result of a sole, unquoted
+    // variable expansion, function call, or context evaluation.
+    //
+    pair<names_type, bool>
+    names_null (token& t, token_type& tt)
     {
-      names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
+      names_type ns;
+      bool n (names (t, tt, ns, false, 0, nullptr, nullptr, nullptr));
+      return make_pair (move (ns), n);
     }
 
-    void
+    bool
+    names (token& t, token_type& tt, names_type& ns, bool chunk = false)
+    {
+      return names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
+    }
+
+    bool
     names (token&, token_type&,
            names_type&,
            bool chunk,
@@ -305,7 +320,9 @@ namespace build2
     scope* scope_;   // Current base scope (out_base).
     scope* root_;    // Current root scope (out_root).
 
-    attributes_type attrs_; // Current attributes, if any.
+    bool ha_;                         // Has attributes flag.
+    location al_;                     // Current attributes location.
+    vector<pair<string, string>> as_; // Current attributes.
 
     target* default_target_;
     names_type export_value_;

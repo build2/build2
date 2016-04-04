@@ -288,7 +288,7 @@ namespace build2
     }
 
     // As above but also return the depth at which the value is found. The
-    // depth is calculated by adding 1 for each test performed.  So a value
+    // depth is calculated by adding 1 for each test performed. So a value
     // that is from the target will have depth 1. That from the group -- 2.
     // From the innermost scope's target type/patter-specific variables --
     // 3. From the innermost scope's variables -- 4. And so on.  The idea is
@@ -296,14 +296,21 @@ namespace build2
     // earlier. If no value is found, then the depth is set to ~0.
     //
     pair<lookup, size_t>
-    find (const variable&) const;
+    find (const variable& var) const
+    {
+      auto p (find_original (var));
+      return var.override == nullptr
+        ? p
+        : base_scope ().find_override (var, move (p), true);
+    }
 
     pair<lookup, size_t>
     find (const string& name) const {return find (var_pool.find (name));}
 
+    pair<lookup, size_t>
+    find_original (const variable&) const;
 
-    // Return a value suitable for assignment. See class scope for
-    // details.
+    // Return a value suitable for assignment. See scope for details.
     //
     value&
     assign (const variable& var) {return vars.assign (var).first;}
