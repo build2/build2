@@ -37,6 +37,6 @@ namespace build2
     dir.clear ();
     type.clear ();
     value.clear ();
-    pair = false;
+    pair = '\0';
   }
 }

@@ -33,7 +33,8 @@ namespace build2
     dir_path dir;
     string type;
     string value;
-    bool pair = false; // True if first half of a pair.
+    char pair = '\0'; // Pair character if first half of a pair. Can be used
+                      // as bool.
 
     name () = default;
 

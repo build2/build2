@@ -991,6 +991,9 @@ namespace build2
 
       if (i->pair)
       {
+        if (i->pair != '@')
+          fail << "unexpected pair style in using directive";
+
         ++i;
         if (!i->simple ())
           fail (l) << "module version expected instead of " << *i;
@@ -1547,6 +1550,9 @@ namespace build2
 
         if (i->pair)
         {
+          if (i->pair != '=')
+            fail << "unexpected pair style in attributes";
+
           try
           {
             v = convert<string> (move (*++i));
@@ -2178,7 +2184,8 @@ namespace build2
         if (pair != 0)
           fail (t) << "nested pair on the right hand side of a pair";
 
-        // Catch '@@'. Maybe we can use for something later (e.g., escaping).
+        // Catch double pair separator ('@@'). Maybe we can use for something
+        // later (e.g., escaping).
         //
         if (!ns.empty () && ns.back ().pair)
           fail (t) << "double pair separator";
@@ -2197,7 +2204,7 @@ namespace build2
         else if (count > 1)
           fail (t) << "multiple names on the left hand side of a pair";
 
-        ns.back ().pair = true;
+        ns.back ().pair = lexer_->pair_separator ();
         tt = peek ();
 
         // If the next token is separated, then we have an empty RHS. Note
@@ -2527,6 +2534,9 @@ namespace build2
             dir_path src_base;
             if (i->pair)
             {
+              if (i->pair != '@')
+                fail << "unexpected pair style in buildspec";
+
               if (i->typed ())
                 fail (l) << "expected target src_base instead of " << *i;
 

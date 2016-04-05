@@ -49,7 +49,7 @@ namespace build2
       os << n;
 
       if (n.pair)
-        os << '@';
+        os << n.pair;
       else if (i != e)
         os << ' ';
     }

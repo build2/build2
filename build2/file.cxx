@@ -594,6 +594,9 @@ namespace build2
             string n;
             if (i->pair)
             {
+              if (i->pair != '@')
+                fail << "unexpected pair style in variable subprojects";
+
               try
               {
                 n = convert<string> (move (*i));

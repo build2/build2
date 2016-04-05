@@ -138,7 +138,18 @@ namespace build2
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
       name& n (*i);
-      name* r (n.pair ? &*++i : nullptr);
+      name* r (nullptr);
+
+      if (n.pair)
+      {
+        r = &*++i;
+
+        if (n.pair != '@')
+          fail << "unexpected pair style for "
+               << value_traits<T>::value_type.name << " value "
+               << "'" << n << "'" << n.pair << "'" << *r << "' "
+               << "in variable " << var.name;
+      }
 
       try
       {
@@ -279,6 +290,12 @@ namespace build2
 
       name& r (*++i); // Got to have the second half of the pair.
 
+      if (l.pair != '@')
+        fail << "unexpected pair style for "
+             << value_traits<map<K, V>>::value_type.name << " key-value "
+             << "'" << l << "'" << l.pair << "'" << r << "' "
+             << "in variable " << var.name;
+
       try
       {
         K k (value_traits<K>::convert (move (l), nullptr));
@@ -329,7 +346,7 @@ namespace build2
     for (const auto& p: vm)
     {
       s.push_back (value_traits<K>::reverse (p.first));
-      s.back ().pair = true;
+      s.back ().pair = '@';
       s.push_back (value_traits<V>::reverse (p.second));
     }
 
