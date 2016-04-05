@@ -183,11 +183,12 @@ namespace build2
     // Utilities.
     //
   protected:
+    class enter_scope;
+    class enter_target;
 
-    // Switch to a new current scope. Note that this function might
-    // also have to switch to a new root scope if the new current
-    // scope is in another project. So both must be saved and
-    // restored.
+    // Switch to a new current scope. Note that this function might also have
+    // to switch to a new root scope if the new current scope is in another
+    // project. So both must be saved and restored.
     //
     void
     switch_scope (const dir_path&);

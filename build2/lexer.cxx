@@ -140,6 +140,7 @@ namespace build2
       // NOTE: remember to update name() if adding new special characters.
       //
     case '\n': fail (c) << "newline in evaluation context";
+    case ':': return token (type::colon, sep, ln, cn);
     case '{': return token (type::lcbrace, sep, ln, cn);
     case '}': return token (type::rcbrace, sep, ln, cn);
     case '$': return token (type::dollar, sep, ln, cn);
@@ -267,6 +268,11 @@ namespace build2
       {
         switch (c)
         {
+        case ':':
+          {
+            done = true;
+            break;
+          }
         case '=':
         case '!':
           {

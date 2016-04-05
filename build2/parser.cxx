@@ -28,6 +28,95 @@ namespace build2
 
   typedef token_type type;
 
+  class parser::enter_scope
+  {
+  public:
+    enter_scope (): p_ (nullptr) {}
+    enter_scope (parser& p, dir_path&& d): p_ (&p), r_ (p.root_), s_ (p.scope_)
+    {
+      // Relative scopes are opened relative to out, not src.
+      //
+      if (d.relative ())
+        d = p.scope_->out_path () / d;
+
+      d.normalize ();
+      p.switch_scope (d);
+    }
+
+    ~enter_scope ()
+    {
+      if (p_ != nullptr)
+      {
+        p_->scope_ = s_;
+        p_->root_ = r_;
+      }
+    }
+
+    // Note: move-assignable to empty only.
+    //
+    enter_scope (enter_scope&& x) {*this = move (x);}
+    enter_scope& operator= (enter_scope&& x) {
+      p_ = x.p_; r_ = x.r_; s_ = x.s_; x.p_ = nullptr; return *this;}
+
+    enter_scope (const enter_scope&) = delete;
+    enter_scope& operator= (const enter_scope&) = delete;
+
+  private:
+    parser* p_;
+    scope* r_;
+    scope* s_;
+  };
+
+  class parser::enter_target
+  {
+  public:
+    enter_target (): p_ (nullptr) {}
+    enter_target (parser& p, name&& n, const location& loc, tracer& tr)
+        : p_ (&p), t_ (p.target_)
+    {
+      const string* e;
+      const target_type* ti (p.scope_->find_target_type (n, e));
+
+      if (ti == nullptr)
+        p.fail (loc) << "unknown target type " << n.type;
+
+      dir_path& d (n.dir);
+
+      if (d.empty ())
+        d = p.scope_->out_path (); // Already normalized.
+      else
+      {
+        if (d.relative ())
+          d = p.scope_->out_path () / d;
+
+        d.normalize ();
+      }
+
+      // Find or insert.
+      //
+      p.target_ = &targets.insert (*ti, move (d), move (n.value), e, tr).first;
+    }
+
+    ~enter_target ()
+    {
+      if (p_ != nullptr)
+        p_->target_ = t_;
+    }
+
+    // Note: move-assignable to empty only.
+    //
+    enter_target (enter_target&& x) {*this = move (x);}
+    enter_target& operator= (enter_target&& x) {
+      p_ = x.p_; t_ = x.t_; x.p_ = nullptr; return *this;}
+
+    enter_target (const enter_target&) = delete;
+    enter_target& operator= (const enter_target&) = delete;
+
+  private:
+    parser* p_;
+    target* t_;
+  };
+
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
@@ -186,37 +275,6 @@ namespace build2
 
       if (tt == type::colon)
       {
-        scope* old_root (nullptr);
-        scope* old_scope (nullptr);
-
-        auto enter_scope = [&old_root, &old_scope, this] (dir_path&& p)
-        {
-          // Relative scopes are opened relative to out, not src.
-          //
-          if (p.relative ())
-            p = scope_->out_path () / p;
-
-          p.normalize ();
-
-          old_root = root_;
-          old_scope = scope_;
-          switch_scope (p);
-        };
-
-        // If called without the corresponding enter_scope(), then a noop.
-        //
-        auto leave_scope = [&old_root, &old_scope, this] ()
-        {
-          if (old_root != nullptr)
-          {
-            scope_ = old_scope;
-            root_ = old_root;
-
-            old_scope = nullptr;
-            old_root = nullptr;
-          }
-        };
-
         // While '{}:' means empty name, '{$x}:' where x is empty list
         // means empty list.
         //
@@ -268,9 +326,8 @@ namespace build2
 
               // Can contain anything that a top level can.
               //
-              enter_scope (move (ns[0].dir)); // Steal.
+              enter_scope sg (*this, move (ns[0].dir));
               clause (t, tt);
-              leave_scope ();
             }
             else
             {
@@ -322,34 +379,6 @@ namespace build2
                           ? names (t, tt)
                           : names_type ());
 
-          // Common target entering code used in both cases.
-          //
-          auto enter_target = [this, &nloc, &trace] (name&& tn) -> target&
-          {
-            const string* e;
-            const target_type* ti (scope_->find_target_type (tn, e));
-
-            if (ti == nullptr)
-              fail (nloc) << "unknown target type " << tn.type;
-
-            path& d (tn.dir);
-
-            if (d.empty ())
-              d = scope_->out_path (); // Already normalized.
-            else
-            {
-              if (d.relative ())
-                d = scope_->out_path () / d;
-
-              d.normalize ();
-            }
-
-            // Find or insert.
-            //
-            return targets.insert (
-              *ti, move (tn.dir), move (tn.value), e, trace).first;
-          };
-
           // Scope/target-specific variable assignment.
           //
           if (tt == type::assign || tt == type::prepend || tt == type::append)
@@ -383,9 +412,8 @@ namespace build2
               {
                 // Scope variable.
                 //
-                enter_scope (move (n.dir));
+                enter_scope sg (*this, move (n.dir));
                 variable (t, tt, var, att);
-                leave_scope ();
               }
               else
               {
@@ -396,10 +424,8 @@ namespace build2
 
                 if (p == string::npos)
                 {
-                  target* ot (target_);
-                  target_ = &enter_target (move (n));
+                  enter_target tg (*this, move (n), nloc, trace);
                   variable (t, tt, var, att);
-                  target_ = ot;
                 }
                 else
                 {
@@ -411,8 +437,9 @@ namespace build2
 
                   // If we have the directory, then it is the scope.
                   //
+                  enter_scope sg;
                   if (!n.dir.empty ())
-                    enter_scope (move (n.dir));
+                    sg = enter_scope (*this, move (n.dir));
 
                   // Resolve target type. If none is specified, use the root
                   // of the hierarchy.
@@ -439,8 +466,6 @@ namespace build2
                   value& v (scope_->target_vars[*ti][move (n.value)].assign (
                               var).first);
                   value_attributes (var, v, move (p), type::assign);
-
-                  leave_scope ();
                 }
               }
 
@@ -489,16 +514,15 @@ namespace build2
               if (tn.qualified ())
                 fail (nloc) << "project name in target " << tn;
 
-              target& t (enter_target (move (tn)));
+              enter_target tg (*this, move (tn), nloc, trace);
 
               //@@ OPT: move if last/single target (common cases).
               //
-              t.prerequisites.insert (t.prerequisites.end (),
-                                      ps.begin (),
-                                      ps.end ());
+              target_->prerequisites.insert (
+                target_->prerequisites.end (), ps.begin (), ps.end ());
 
               if (default_target_ == nullptr)
-                default_target_ = &t;
+                default_target_ = target_;
             }
           }
 
@@ -1471,8 +1495,8 @@ namespace build2
   {
     bool null (false);
 
-    // Note that names() will handle the ( == foo) case since if it gets
-    // called, it expects to see a name.
+    // Note that names() will handle cases like ( == foo) or (:foo) since if
+    // it gets called, it expects to see a name.
     //
     if (tt != type::rparen)
     {
@@ -1482,6 +1506,23 @@ namespace build2
 
     switch (tt)
     {
+    case type::colon:
+      {
+        // Later, when we support '?:', we will need to decide which case this
+        // is. But for now ':' is always a scope/target qualified name which
+        // we represent as a special ':'-style pair.
+        //
+        size_t n (ns.size ());
+        ns.back ().pair = ':';
+
+        next (t, tt);
+        eval_trailer (t, tt, ns);
+
+        if (ns.size () == n)
+          fail (t) << "scope/target expected after ':'";
+
+        break;
+      }
     case type::equal:
     case type::not_equal:
       {
@@ -1704,6 +1745,8 @@ namespace build2
          const dir_path* dp,
          const string* tp)
   {
+    tracer trace ("parser::names", &path_);
+
     bool null (false);
 
     // If pair is not 0, then it is an index + 1 of the first half of
@@ -1935,36 +1978,49 @@ namespace build2
 
         if (tt == type::dollar)
         {
-          // Switch to the variable name mode. We want to use this
-          // mode for $foo but not for $(foo). Since we don't know
-          // whether the next token is a paren or a name, we turn
-          // it on and switch to the eval mode if what we get next
-          // is a paren.
+          // Switch to the variable name mode. We want to use this mode for
+          // $foo but not for $(foo). Since we don't know whether the next
+          // token is a paren or a name, we turn it on and switch to the eval
+          // mode if what we get next is a paren.
           //
           mode (lexer_mode::variable);
           next (t, tt);
           loc = get_location (t, &path_);
 
-          string n;
+          name qual;
+          string name;
+
           if (tt == type::name)
-            n = t.value;
+            name = t.value;
           else if (tt == type::lparen)
           {
             expire_mode ();
             names_type ns (eval (t, tt).first);
+            size_t n (ns.size ());
 
-            // Make sure the result of evaluation is a single, simple name.
+            // Make sure the result of evaluation is a potentially-qualified
+            // simple name.
             //
-            if (ns.size () != 1 || !ns.front ().simple ())
+            if (n > 2 ||
+                (n == 2 && ns[0].pair != ':') ||
+                !ns[n - 1].simple ())
               fail (loc) << "variable/function name expected instead of '"
                          << ns << "'";
 
-            n = move (ns.front ().value);
+            if (n == 2)
+            {
+              qual = move (ns[0]);
+
+              if (qual.empty ())
+                fail (loc) << "empty variable/function qualification";
+            }
+
+            name = move (ns[n - 1].value);
           }
           else
             fail (t) << "variable/function name expected instead of " << t;
 
-          if (n.empty ())
+          if (name.empty ())
             fail (loc) << "empty variable/function name";
 
           // Figure out whether this is a variable expansion or a function
@@ -1978,8 +2034,11 @@ namespace build2
 
             // Just a stub for now.
             //
+            // Should we use qualification as the context in which to call
+            // the function?
+            //
             std::pair<names_type, bool> a (eval (t, tt));
-            cout << n << "(" << a.first << ")" << endl;
+            cout << name << "(" << a.first << ")" << endl;
 
             std::pair<names_type, bool> r (names_type (), false); // NULL.
             lv_storage.swap (r.first);
@@ -2001,16 +2060,26 @@ namespace build2
           {
             // Process variable name.
             //
-            if (n.front () == '.') // Fully qualified name.
-              n.erase (0, 1);
+            if (name.front () == '.') // Fully qualified name.
+              name.erase (0, 1);
             else
             {
               //@@ TODO: append namespace if any.
             }
 
+            // If we are qualified, it can be a scope or a target.
+            //
+            enter_scope sg;
+            enter_target tg;
+
+            if (qual.directory ())
+              sg = enter_scope (*this, move (qual.dir));
+            else if (!qual.empty ())
+              tg = enter_target (*this, move (qual), loc, trace);
+
             // Lookup.
             //
-            const auto& var (var_pool.find (move (n)));
+            const auto& var (var_pool.find (move (name)));
             auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
 
             if (!l)
