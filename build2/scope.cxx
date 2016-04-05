@@ -102,7 +102,7 @@ namespace build2
     auto find = [&vars, &s, this] (const variable* o, const char* sf = nullptr)
       -> lookup
     {
-      if (s != nullptr && o->name.rfind (sf) == string::npos)
+      if (sf != nullptr && o->name.rfind (sf) == string::npos)
         return lookup ();
 
       // Next see if it would apply. If there is nothing "inner", then any
