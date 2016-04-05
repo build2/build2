@@ -5,6 +5,7 @@
 #include <build2/file>
 
 #include <fstream>
+#include <iostream> // cin
 
 #include <butl/filesystem>
 
@@ -80,16 +81,24 @@ namespace build2
 
     try
     {
-      ifstream ifs (bf.string ());
-      if (!ifs.is_open ())
-        fail << "unable to open " << bf;
+      bool sin (bf.string () == "-");
 
-      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+      ifstream ifs;
+      if (!sin)
+      {
+        ifs.open (bf.string ());
+
+        if (!ifs.is_open ())
+          fail << "unable to open " << bf;
+      }
+
+      istream& is (sin ? std::cin : ifs);
+      is.exceptions (ifstream::failbit | ifstream::badbit);
 
       l5 ([&]{trace << "sourcing " << bf;});
 
       parser p (boot);
-      p.parse_buildfile (ifs, bf, root, base);
+      p.parse_buildfile (is, bf, root, base);
     }
     catch (const ifstream::failure&)
     {

@@ -49,11 +49,13 @@ namespace build2
   dir_path
   find_out_root (const dir_path&, bool* src = nullptr);
 
+  // If buildfile is '-', then read from STDIN.
+  //
   void
   source (const path& buildfile, scope& root, scope& base);
 
-  // As above but first check if this buildfile has already been
-  // sourced for the base scope.
+  // As above but first check if this buildfile has already been sourced for
+  // the base scope.
   //
   void
   source_once (const path& buildfile, scope& root, scope& base);

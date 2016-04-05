@@ -408,6 +408,12 @@ namespace build2
     verbose_specified () const;
 
     const path&
+    buildfile () const;
+
+    bool
+    buildfile_specified () const;
+
+    const path&
     config_guess () const;
 
     bool
@@ -460,6 +466,8 @@ namespace build2
     bool q_;
     uint16_t verbose_;
     bool verbose_specified_;
+    path buildfile_;
+    bool buildfile_specified_;
     path config_guess_;
     bool config_guess_specified_;
     path config_sub_;

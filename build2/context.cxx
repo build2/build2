@@ -406,6 +406,9 @@ namespace build2
   string
   diag_relative (const path& p)
   {
+    if (p.string () == "-")
+      return "<stdin>";
+
     const path& b (*relative_base);
 
     if (p.absolute ())

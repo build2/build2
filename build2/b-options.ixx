@@ -241,6 +241,18 @@ namespace build2
   }
 
   inline const path& options::
+  buildfile () const
+  {
+    return this->buildfile_;
+  }
+
+  inline bool options::
+  buildfile_specified () const
+  {
+    return this->buildfile_specified_;
+  }
+
+  inline const path& options::
   config_guess () const
   {
     return this->config_guess_;

@@ -786,12 +786,13 @@ main (int argc, char* argv[])
             trace << "  src_root: " << src_root;
           }
 
-          path bf (src_base / path ("buildfile"));
+          const path& bfn (ops.buildfile ());
+          path bf (bfn.string () != "-" ? src_base / bfn : bfn);
 
           // If we were guessing src_base, check that the buildfile
           // exists and if not, issue more detailed diagnostics.
           //
-          if (guessing && !file_exists (bf))
+          if (guessing && bf.string () != "-" && !file_exists (bf))
             fail << bf << " does not exist"
                  << info << "consider explicitly specifying src_base "
                  << "for " << tn;

@@ -573,6 +573,8 @@ namespace build2
     q_ (),
     verbose_ (1),
     verbose_specified_ (false),
+    buildfile_ ("buildfile"),
+    buildfile_specified_ (false),
     config_guess_ (),
     config_guess_specified_ (false),
     config_sub_ (),
@@ -677,6 +679,16 @@ namespace build2
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--buildfile\033[0m \033[4mpath\033[0m     The alternative file to read build information from. The" << ::std::endl
+       << "                     default is \033[1mbuildfile\033[0m. If \033[4mpath\033[0m is '\033[1m-\033[0m', then read from" << ::std::endl
+       << "                     \033[1mSTDIN\033[0m. Note that this option only affects the files read" << ::std::endl
+       << "                     as part of the buildspec processing. Specifically, it has" << ::std::endl
+       << "                     no effect on the \033[1msource\033[0m and \033[1minclude\033[0m directives. As a" << ::std::endl
+       << "                     result, this option is primarily intended for testing" << ::std::endl
+       << "                     rather than changing the build file names in real" << ::std::endl
+       << "                     projects." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--config-guess\033[0m \033[4mpath\033[0m  The path to the \033[1mconfig.guess(1)\033[0m script that should be used" << ::std::endl
        << "                     to guess the host machine triplet. If this option is not" << ::std::endl
        << "                     specified, then \033[1mb\033[0m will fall back on to using the target it" << ::std::endl
@@ -732,6 +744,9 @@ namespace build2
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
+      _cli_options_map_["--buildfile"] = 
+      &::build2::cl::thunk< options, path, &options::buildfile_,
+        &options::buildfile_specified_ >;
       _cli_options_map_["--config-guess"] = 
       &::build2::cl::thunk< options, path, &options::config_guess_,
         &options::config_guess_specified_ >;

@@ -220,6 +220,17 @@ namespace build2
        \li|Even more detailed information, including state dumps.||"
     }
 
+    path --buildfile = "buildfile"
+    {
+      "<path>",
+      "The alternative file to read build information from. The default is
+       \cb{buildfile}. If <path> is '\cb{-}', then read from \cb{STDIN}. Note
+       that this option only affects the files read as part of the buildspec
+       processing. Specifically, it has no effect on the \cb{source} and
+       \cb{include} directives. As a result, this option is primarily intended
+       for testing rather than changing the build file names in real projects."
+    }
+
     path --config-guess
     {
       "<path>",
