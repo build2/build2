@@ -15,33 +15,71 @@ using namespace std;
 namespace build2
 {
   static void
-  dump_variable (ostream& os, const variable& var, const value& val)
+  dump_variable (ostream& os,
+                 const variable& var,
+                 const lookup& org,
+                 scope& s,
+                 bool target)
   {
     os << var.name << " = ";
 
-    if (val.null ())
+    // If this variable is overriden, print both the override and the
+    // original.
+    //
+    if (var.override != nullptr &&
+        var.name.rfind (".__override") == string::npos &&
+        var.name.rfind (".__suffix") == string::npos &&
+        var.name.rfind (".__prefix") == string::npos)
+    {
+      // The original is always from this scope/target, so depth is 1.
+      //
+      lookup l (s.find_override (var, make_pair (org, 1), target).first);
+      assert (l.defined ()); // We at least have  the original.
+
+      if (org != l)
+      {
+        if (l->null ())
+          os << "[null]";
+        else
+        {
+          names storage;
+          os << reverse (*l, storage);
+        }
+
+        os << " # original: ";
+      }
+    }
+
+    if (org->null ())
       os << "[null]";
     else
     {
       names storage;
-      os << reverse (val, storage);
+      os << reverse (*org, storage);
     }
   }
 
   static void
-  dump_variables (ostream& os, string& ind, const variable_map& vars)
+  dump_variables (ostream& os,
+                  string& ind,
+                  const variable_map& vars,
+                  scope& s,
+                  bool target)
   {
     for (const auto& e: vars)
     {
       os << endl
          << ind;
 
-      dump_variable (os, e.first, e.second);
+      dump_variable (os, e.first, lookup (&e.second, &vars), s, target);
     }
   }
 
   static void
-  dump_variables (ostream& os, string& ind, const variable_type_map& vtm)
+  dump_variables (ostream& os,
+                  string& ind,
+                  const variable_type_map& vtm,
+                  scope& s)
   {
     for (const auto& vt: vtm)
     {
@@ -69,14 +107,18 @@ namespace build2
         if (vars.size () == 1)
         {
           os << ' ';
-          dump_variable (os, vars.begin ()->first, vars.begin ()->second);
+          dump_variable (os,
+                         vars.begin ()->first,
+                         lookup (&vars.begin ()->second, &vars),
+                         s,
+                         false);
         }
         else
         {
           os << endl
              << ind << '{';
           ind += "  ";
-          dump_variables (os, ind, vars);
+          dump_variables (os, ind, vars, s, false);
           ind.resize (ind.size () - 2);
           os << endl
              << ind << '}';
@@ -86,7 +128,7 @@ namespace build2
   }
 
   static void
-  dump_target (ostream& os, string& ind, action a, const target& t)
+  dump_target (ostream& os, string& ind, action a, const target& t, scope& s)
   {
     // Print the target and its prerequisites relative to the scope. To achieve
     // this we are going to temporarily lower the stream verbosity to level 1.
@@ -141,7 +183,7 @@ namespace build2
       os << endl
          << ind << '{';
       ind += "  ";
-      dump_variables (os, ind, t.vars);
+      dump_variables (os, ind, t.vars, s, true);
       ind.resize (ind.size () - 2);
       os << endl
          << ind << '}';
@@ -176,7 +218,7 @@ namespace build2
     //
     if (!p.target_vars.empty ())
     {
-      dump_variables (os, ind, p.target_vars);
+      dump_variables (os, ind, p.target_vars, p);
       vb = true;
     }
 
@@ -187,7 +229,7 @@ namespace build2
       if (vb)
         os << endl;
 
-      dump_variables (os, ind, p.vars);
+      dump_variables (os, ind, p.vars, p, false);
       vb = true;
     }
 
@@ -240,7 +282,7 @@ namespace build2
       }
 
       os << endl;
-      dump_target (os, ind, a, t);
+      dump_target (os, ind, a, t, p);
     }
 
     ind.resize (ind.size () - 2);

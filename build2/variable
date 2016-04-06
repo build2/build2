@@ -271,6 +271,20 @@ namespace build2
     lookup (const value_type& v, const T& x): lookup (&v, &x.vars) {}
   };
 
+  // Two lookups are equal if they point to the same variable.
+  //
+  inline bool
+  operator== (const lookup& x, const lookup& y)
+  {
+    bool r (x.value == y.value);
+    assert (!r || x.vars == y.vars);
+    return r;
+  }
+
+  inline bool
+  operator!= (const lookup& x, const lookup& y) {return !(x == y);}
+
+
   // Representation types.
   //
   // Potential optimizations:
