@@ -76,8 +76,14 @@ namespace build2
     // On POSIX, however, this is a real path. See the comment in
     // <build2/path-map> for details.
     //
-    scope& gs (*scopes.insert (dir_path ("/"), nullptr, true, false)->second);
-    global_scope = &gs;
+    {
+      auto i (scopes.insert (dir_path ("/"), nullptr, true, false));
+      global_scope = i->second;
+      global_scope->out_path_ = global_scope->src_path_ = &i->first;
+    }
+
+    scope& gs (*global_scope);
+
 
     // Parse and enter the command line variables. We do it before entering
     // any other variables so that all the variables that are overriden are
