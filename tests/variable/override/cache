@@ -1,0 +1,13 @@
+x = [string] 0
+print $x
+
+x = [uint64] 1
+print $x
+
+y = 0
+print $y
+
+[uint64] y = [null]
+print $y
+
+./:

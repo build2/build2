@@ -78,6 +78,10 @@ namespace build2
     size_t depth (0);
     const variable_map* vars (nullptr);
 
+    // Root scope of a project from which our initial value comes. See below.
+    //
+    const scope* proj (nullptr);
+
     // One special case is if the original is target-specific, which is the
     // most innermost. Or is it innermostest?
     //
@@ -88,8 +92,9 @@ namespace build2
 
       if (targetspec)
       {
-        vars = origl.vars;
         depth = origd;
+        vars = origl.vars;
+        proj = root_scope ();
       }
       else
         depth = 2; // For implied target-specific lookup.
@@ -97,43 +102,45 @@ namespace build2
 
     const scope* s;
 
-    // Return override value if it is present, applies, and ends with suffix.
+    // Return true if the override applies. Note that it expects vars and proj
+    // to be not NULL; if there is nothing "inner", then any override will
+    // still be "visible".
     //
-    auto find = [&vars, &s, this] (const variable* o, const char* sf = nullptr)
-      -> lookup
+    auto applies = [&vars, &s] (const variable* o, const scope* proj) -> bool
+    {
+      switch (o->visibility)
+      {
+      case variable_visibility::scope:
+      {
+        // Does not apply if the innermost value is not in this scope.
+        //
+        if (vars != &s->vars)
+          return false;
+
+        break;
+      }
+      case variable_visibility::project:
+      {
+        // Does not apply if in a different project.
+        //
+        if (proj != s->root_scope ())
+          return false;
+
+        break;
+      }
+      case variable_visibility::normal:
+        break;
+      }
+
+      return true;
+    };
+
+    // Return override value if it is present and optionally ends with suffix.
+    //
+    auto find = [&s] (const variable* o, const char* sf = nullptr) -> lookup
     {
       if (sf != nullptr && o->name.rfind (sf) == string::npos)
         return lookup ();
-
-      // Next see if it would apply. If there is nothing "inner", then any
-      // override will still be "visible".
-      //
-      if (vars != nullptr)
-      {
-        switch (o->visibility)
-        {
-        case variable_visibility::scope:
-        {
-          // Does not apply if the innermost value is not in this scope.
-          //
-          if (vars != &s->vars)
-            return lookup ();
-
-          break;
-        }
-        case variable_visibility::project:
-        {
-          // Does not apply if in a different project.
-          //
-          if (root_scope () != s->root_scope ())
-            return lookup ();
-
-          break;
-        }
-        case variable_visibility::normal:
-          break;
-        }
-      }
 
       return lookup (s->vars.find (*o), &s->vars);
     };
@@ -141,7 +148,7 @@ namespace build2
     // Return true if a value is from this scope (either target type/pattern-
     // specific or ordinary).
     //
-    auto test = [&s] (const lookup& l) -> bool
+    auto belongs = [&s] (const lookup& l) -> bool
     {
       for (auto& p1: s->target_vars)
         for (auto& p2: p1.second)
@@ -163,10 +170,11 @@ namespace build2
       // the target type/patter-specific variables, which is "more inner" than
       // normal scope variables (see find_original()).
       //
-      if (vars == nullptr && origl.defined () && test (origl))
+      if (vars == nullptr && origl.defined () && belongs (origl))
       {
-        vars = origl.vars;
         depth = origd;
+        vars = origl.vars;
+        proj = s->root_scope ();
       }
 
       if (vars == nullptr)
@@ -178,6 +186,9 @@ namespace build2
            o != nullptr;
            o = o->override.get ())
       {
+        if (vars != 0 && !applies (o, proj))
+          continue;
+
         auto l (find (o));
 
         if (l.defined ())
@@ -215,19 +226,21 @@ namespace build2
 
     // Now find our "stem", that is the value to which we will be appending
     // suffixes and prepending prefixes. This is either the original or the
-    // __override, depending on which one is the innermost. We may also not
-    // have one at all.
+    // __override provided it applies. We may also not have either.
     //
     lookup stem (targetspec ? origl : lookup ());
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {
+      bool done (false);
+
       // First check if the original is from this scope.
       //
-      if (origl.defined () && test (origl))
+      if (origl.defined () && belongs (origl))
       {
         stem = origl;
-        break;
+        proj = s->root_scope ();
+        // Keep searching.
       }
 
       // Then look for an __override that applies.
@@ -236,13 +249,24 @@ namespace build2
            o != nullptr;
            o = o->override.get ())
       {
-        stem = find (o, ".__override");
+        // If we haven't yet found anything, then any override will still be
+        // "visible" even if it doesn't apply.
+        //
+        if (stem.defined () && !applies (o, root_scope ()))
+          continue;
 
-        if (stem.defined ())
+        auto l (find (o, ".__override"));
+
+        if (l.defined ())
+        {
+          stem = move (l);
+          proj = s->root_scope ();
+          done = true;
           break;
+        }
       }
 
-      if (stem.defined ())
+      if (done)
         break;
     }
 
@@ -283,18 +307,35 @@ namespace build2
            o != nullptr;
            o = o->override.get ())
       {
+        // First see if this override applies. This is actually tricky: what
+        // if the stem is a "visible" override from an outer project?
+        // Shouldn't its overrides apply? Sure sounds logical. So it seems
+        // we should use the project of the stem's scope and not the project
+        // of this scope.
+        //
+        if (proj != nullptr && !applies (o, proj))
+          continue;
+
         // Note that we keep override values as untyped names even if the
         // variable itself is typed. We also pass the original variable for
         // diagnostics.
         //
-        if (auto l = find (o, ".__prefix")) // No sense if NULL.
+        auto l (find (o, ".__prefix"));
+
+        if (l) // No sense to prepend/append if NULL.
         {
           cache.value.prepend (names (cast<names> (l)), var);
         }
-        else if (auto l = find (o, ".__suffix")) // No sense if NULL.
+        else if ((l = find (o, ".__suffix")))
         {
           cache.value.append (names (cast<names> (l)), var);
         }
+
+        // If we had no stem, use the scope of the first override that applies
+        // as the project.
+        //
+        if (proj == nullptr && l.defined ())
+          proj = s;
       }
     }
 

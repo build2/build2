@@ -1,0 +1,58 @@
+if ("$t" != "")
+{
+  [$t] v = [null]
+}
+
+print "/     :" $(/: v)
+
+if ($a == as)
+{
+  v = x
+}
+elif ($a == ap)
+{
+  v += s
+}
+elif ($a == pr)
+{
+  v =+ p
+}
+
+print ".     :" $v
+
+d/:
+{
+  if ($d_a == as)
+  {
+    v = x
+  }
+  elif ($d_a == ap)
+  {
+    v += s
+  }
+  elif ($d_a == pr)
+  {
+    v =+ p
+  }
+
+  print "d     :" $v
+
+
+  if ($d_t_a == as)
+  {
+    file{t}: v = x
+  }
+  elif ($d_t_a == ap)
+  {
+    file{t}: v += s
+  }
+  elif ($d_t_a == pr)
+  {
+    file{t}: v =+ p
+  }
+
+  print "d/t   :" $(file{t}: v)
+}
+
+include p/
+./:
