@@ -73,19 +73,24 @@ namespace build2
       // Now our types are the same. If the receiving value is NULL, then call
       // copy_ctor() instead of copy_assign().
       //
-      if (type == nullptr)
+      if (!v.null ())
       {
-        if (null ())
-          new (&data_) names (move (v).as<names> ());
+        if (type == nullptr)
+        {
+          if (null ())
+            new (&data_) names (move (v).as<names> ());
+          else
+            as<names> () = move (v).as<names> ();
+        }
+        else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+          f (*this, v, true);
         else
-          as<names> () = move (v).as<names> ();
-      }
-      else if (auto f = null () ? type->copy_ctor : type->copy_assign)
-        f (*this, v, true);
-      else
-        data_ = v.data_; // Assign as POD.
+          data_ = v.data_; // Assign as POD.
 
-      state = v.state;
+        state = v.state;
+      }
+      else
+        *this = nullptr;
     }
 
     return *this;
@@ -109,19 +114,24 @@ namespace build2
       // Now our types are the same. If the receiving value is NULL, then call
       // copy_ctor() instead of copy_assign().
       //
-      if (type == nullptr)
+      if (!v.null ())
       {
-        if (null ())
-          new (&data_) names (v.as<names> ());
+        if (type == nullptr)
+        {
+          if (null ())
+            new (&data_) names (v.as<names> ());
+          else
+            as<names> () = v.as<names> ();
+        }
+        else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+          f (*this, v, false);
         else
-          as<names> () = v.as<names> ();
-      }
-      else if (auto f = null () ? type->copy_ctor : type->copy_assign)
-        f (*this, v, false);
-      else
-        data_ = v.data_; // Assign as POD.
+          data_ = v.data_; // Assign as POD.
 
-      state = v.state;
+        state = v.state;
+      }
+      else
+        *this = nullptr;
     }
 
     return *this;
