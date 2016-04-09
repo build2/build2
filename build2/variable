@@ -77,11 +77,24 @@ namespace build2
   //
   // The two variables are considered the same if they have the same name.
   //
-  // @@ Document override semantics.
+  // If the variable is overridden on the command line, then override is the
+  // chain of the special override variables. Their names are derived from the
+  // main variable name as <name>.{__override,__prefix,__suffix} and they are
+  // not entered into the var_pool. The override variables only vary in their
+  // names and visibility.
   //
-  // Note that we don't propagate variable type to override variables and we
-  // keep override values as untyped names. So they get "typed" when they are
-  // applied.
+  // Note also that we don't propagate the variable type to override variables
+  // and we keep override values as untyped names. They get "typed" when they
+  // are applied.
+  //
+  // We use the "modify original, override on query" model. Because of that, a
+  // modified value does not necessarily represent the actual value so care
+  // must be taken to re-query after (direct) modification. And because of
+  // that, variables set by the C++ code are by default non-overridable.
+  //
+  // Initial processing including entering of global overrides happens in
+  // reset() before any other variables. Project wide overrides are entered in
+  // main(). Overriding happens in scope::find_override().
   //
   struct variable
   {
