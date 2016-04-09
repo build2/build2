@@ -742,5 +742,6 @@ namespace build2
 
   // variable_override
   //
-  map<const variable_map*, variable_override_value> variable_override_cache;
+  map<pair<const variable_map*, const variable*>, variable_override_value>
+  variable_override_cache;
 }

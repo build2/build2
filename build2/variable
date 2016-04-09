@@ -277,11 +277,15 @@ namespace build2
     belongs (const T& x) const {return vars == &x.vars;}
 
     lookup (): value (nullptr), vars (nullptr) {}
-    lookup (const value_type* v, const variable_map* vs)
-        : value (v), vars (v != nullptr ? vs : nullptr) {}
 
     template <typename T>
     lookup (const value_type& v, const T& x): lookup (&v, &x.vars) {}
+
+    lookup (const value_type& v, const variable_map& vs)
+        : value (&v), vars (&vs) {}
+
+    lookup (const value_type* v, const variable_map* vs)
+        : value (v), vars (v != nullptr ? vs : nullptr) {}
   };
 
   // Two lookups are equal if they point to the same variable.
@@ -735,7 +739,7 @@ namespace build2
     const variable_map* stem_vars = nullptr; // NULL means there is no stem.
   };
 
-  extern std::map<const variable_map*,
+  extern std::map<pair<const variable_map*, const variable*>,
                   variable_override_value> variable_override_cache;
 }
 

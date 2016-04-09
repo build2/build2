@@ -92,7 +92,7 @@ namespace build2
     lookup
     operator[] (const variable& var) const
     {
-      return find (var, nullptr, nullptr);
+      return find (var).first;
     }
 
     lookup
@@ -106,7 +106,7 @@ namespace build2
     lookup
     find (const variable& var, const target_key& tk) const
     {
-      return find (var, tk.type, tk.name);
+      return find (var, tk.type, tk.name).first;
     }
 
     lookup
@@ -118,7 +118,7 @@ namespace build2
     lookup
     find (const variable& var, const target_type& tt, const string& tn) const
     {
-      return find (var, &tt, &tn);
+      return find (var, &tt, &tn).first;
     }
 
     lookup
@@ -127,13 +127,13 @@ namespace build2
       return find (var_pool.find (var), tt, tn);
     }
 
-    lookup
-    find (const variable& var, const target_type* tt, const string* tn) const
+    pair<lookup, size_t>
+    find (const variable& var,
+          const target_type* tt = nullptr,
+          const string* tn = nullptr) const
     {
       auto p (find_original (var, tt, tn));
-      return var.override == nullptr
-        ? p.first
-        : find_override (var, move (p), false).first;
+      return var.override == nullptr ? p : find_override (var, move (p));
     }
 
     // Implementation details (used by scope target lookup).
@@ -147,7 +147,7 @@ namespace build2
     pair<lookup, size_t>
     find_override (const variable&,
                    pair<lookup, size_t>&& original,
-                   bool target) const;
+                   bool target = false) const;
 
     // Return a value suitable for assignment (or append if you only
     // want to append to the value from this scope). If the variable
