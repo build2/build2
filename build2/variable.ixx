@@ -411,6 +411,47 @@ namespace build2
     return l.compare (r);
   }
 
+  // abs_dir_path value
+  //
+  inline bool value_traits<abs_dir_path>::
+  assign (value& v, abs_dir_path&& x)
+  {
+    abs_dir_path* p;
+
+    if (v.null ())
+      p = new (&v.data_) abs_dir_path (move (x));
+    else
+      p = &(v.as<abs_dir_path> () = move (x));
+
+    return !p->empty ();
+  }
+
+  inline bool value_traits<abs_dir_path>::
+  append (value& v, abs_dir_path&& x)
+  {
+    abs_dir_path* p;
+
+    if (v.null ())
+      p = new (&v.data_) abs_dir_path (move (x));
+    else
+    {
+      p = &v.as<abs_dir_path> ();
+
+      if (p->empty ())
+        p->swap (x);
+      else
+        *p /= x;
+    }
+
+    return !p->empty ();
+  }
+
+  inline int value_traits<abs_dir_path>::
+  compare (const abs_dir_path& l, const abs_dir_path& r)
+  {
+    return l.compare (static_cast<const dir_path&> (r));
+  }
+
   // name value
   //
   inline bool value_traits<name>::

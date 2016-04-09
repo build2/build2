@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 #include <memory>        // unique_ptr, shared_ptr
-#include <utility>       // pair
+#include <utility>       // pair, move()
 #include <cstddef>       // size_t, nullptr_t
 #include <cstdint>       // uint{8,16,32,64}_t
 #include <istream>
@@ -76,6 +76,22 @@ namespace build2
   using butl::dir_path;
   using butl::basic_path;
   using butl::invalid_path;
+
+  // Absolute directory path. Note that for now we don't do any checking that
+  // the path is in fact absolute.
+  //
+  // The idea is to have a different type that we automatically complete when
+  // a (variable) value of this type gets initialized from untyped names. See
+  // value_type<abs_dir_path> for details.
+  //
+  struct abs_dir_path: dir_path
+  {
+    using dir_path::dir_path;
+
+    explicit
+    abs_dir_path (dir_path d): dir_path (std::move (d).string (), false) {}
+    abs_dir_path () = default;
+  };
 
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;

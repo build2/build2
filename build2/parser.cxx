@@ -1335,16 +1335,17 @@ namespace build2
   map_type (const string& n)
   {
     return
-      n == "bool"      ? &value_traits<bool>::value_type       :
-      n == "uint64"    ? &value_traits<uint64_t>::value_type   :
-      n == "string"    ? &value_traits<string>::value_type     :
-      n == "path"      ? &value_traits<path>::value_type       :
-      n == "dir_path"  ? &value_traits<dir_path>::value_type   :
-      n == "name"      ? &value_traits<name>::value_type       :
-      n == "strings"   ? &value_traits<strings>::value_type    :
-      n == "paths"     ? &value_traits<paths>::value_type      :
-      n == "dir_paths" ? &value_traits<dir_paths>::value_type  :
-      n == "names"     ? &value_traits<names>::value_type      :
+      n == "bool"         ? &value_traits<bool>::value_type         :
+      n == "uint64"       ? &value_traits<uint64_t>::value_type     :
+      n == "string"       ? &value_traits<string>::value_type       :
+      n == "path"         ? &value_traits<path>::value_type         :
+      n == "dir_path"     ? &value_traits<dir_path>::value_type     :
+      n == "abs_dir_path" ? &value_traits<abs_dir_path>::value_type :
+      n == "name"         ? &value_traits<name>::value_type         :
+      n == "strings"      ? &value_traits<strings>::value_type      :
+      n == "paths"        ? &value_traits<paths>::value_type        :
+      n == "dir_paths"    ? &value_traits<dir_paths>::value_type    :
+      n == "names"        ? &value_traits<names>::value_type        :
       nullptr;
   }
 

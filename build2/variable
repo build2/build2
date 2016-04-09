@@ -479,6 +479,23 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  // abs_dir_path
+  //
+  template <>
+  struct value_traits<abs_dir_path>
+  {
+    static_assert (sizeof (abs_dir_path) <= value::size_,
+                   "insufficient space");
+
+    static abs_dir_path convert (name&&, name*);
+    static bool assign (value&, abs_dir_path&&);
+    static bool append (value&, abs_dir_path&&);  // operator/
+    static name reverse (const abs_dir_path& x) {return name (x);}
+    static int compare (const abs_dir_path&, const abs_dir_path&);
+
+    static const build2::value_type value_type;
+  };
+
   // name
   //
   template <>

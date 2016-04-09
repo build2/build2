@@ -526,6 +526,34 @@ namespace build2
     &simple_compare<dir_path>
   };
 
+  // abs_dir_path value
+  //
+  abs_dir_path value_traits<abs_dir_path>::
+  convert (name&& n, name* r)
+  {
+    dir_path d (value_traits<dir_path>::convert (move (n), r));
+
+    if (d.relative ())
+      d.complete ();
+
+    return abs_dir_path (move (d));
+  }
+
+  const value_type value_traits<abs_dir_path>::value_type
+  {
+    "abs_dir_path",
+    sizeof (abs_dir_path),
+    &default_dtor<abs_dir_path>,
+    &default_copy_ctor<abs_dir_path>,
+    &default_copy_assign<abs_dir_path>,
+    &simple_assign<abs_dir_path, true>, // Allow empty paths.
+    &simple_append<abs_dir_path, true>,
+    nullptr,                            // No prepend.
+    &simple_reverse<abs_dir_path>,
+    nullptr,                            // No cast (cast data_ directly).
+    &simple_compare<abs_dir_path>
+  };
+
   // name value
   //
   name value_traits<name>::
