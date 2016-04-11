@@ -872,7 +872,7 @@ namespace build2
 
       if (auto l = iroot[var])
       {
-        out_root = cast<abs_dir_path> (l);
+        out_root = cast<dir_path> (l);
         config::save_variable (iroot, var); // Mark as part of configuration.
       }
       else

@@ -33,13 +33,13 @@ namespace build2
     // configurations. We have to do this for paths that contain the
     // package name.
     //
-    template <typename T>
+    template <typename T, typename CT>
     static void
     set_var (bool spec,
              scope& r,
              const char* name,
              const char* var,
-             const T* dv,
+             const CT* dv,
              bool override = false)
     {
       string vn;
@@ -50,7 +50,7 @@ namespace build2
         vn = "config.install.";
         vn += name;
         vn += var;
-        const variable& vr (var_pool.insert<T> (move (vn), true));
+        const variable& vr (var_pool.insert<CT> (move (vn), true));
 
         cv = dv != nullptr
           ? &config::required (r, vr, *dv, override).first.get ()
@@ -67,7 +67,7 @@ namespace build2
       if (spec)
       {
         if (*cv && !cv->empty ())
-          v = *cv;
+          v = cast<T> (*cv); // Strip CT to T.
       }
       else
       {
@@ -82,19 +82,19 @@ namespace build2
              scope& r,                                // root scope
              const char* n,                           // var name
              const T& p,                              // path
+             bool o = false,                          // override
              const string& fm = string (),            // file mode
              const string& dm = string (),            // dir mode
-             const build2::path& c = build2::path (), // command
-             bool o = false)                          // override
+             const build2::path& c = build2::path ()) // command
     {
       using build2::path;
 
-      set_var          (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
-      set_var          (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
-      set_var          (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
-      set_var<string>  (s, r, n, ".sudo",     nullptr);
-      set_var<path>    (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
-      set_var<strings> (s, r, n, ".options",  nullptr);
+      set_var<dir_path> (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
+      set_var<string>   (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
+      set_var<string>   (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
+      set_var<string>   (s, r, n, ".sudo",     (string*) (nullptr));
+      set_var<path>     (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<strings>  (s, r, n, ".options",  (strings*) (nullptr));
     }
 
     static alias_rule alias_;
@@ -162,19 +162,19 @@ namespace build2
         bool s (config::specified (r, "config.install"));
         const string& n (cast<string> (r["project"]));
 
-        set_dir (s, r, "root",      abs_dir_path (), "", "755", path ("install"));
-        set_dir (s, r, "data_root", dir_path ("root"), "644");
-        set_dir (s, r, "exec_root", dir_path ("root"), "755");
+        set_dir (s, r, "root",      abs_dir_path (), false, "", "755", path ("install"));
+        set_dir (s, r, "data_root", dir_path ("root"), false, "644");
+        set_dir (s, r, "exec_root", dir_path ("root"), false, "755");
 
         set_dir (s, r, "sbin",      dir_path ("exec_root/sbin"));
         set_dir (s, r, "bin",       dir_path ("exec_root/bin"));
         set_dir (s, r, "lib",       dir_path ("exec_root/lib"));
-        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n), "", "", path (), true);
+        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n), true);
 
-        set_dir (s, r, "data",      dir_path ("data_root/share/" + n), "", "", path (), true);
+        set_dir (s, r, "data",      dir_path ("data_root/share/" + n), true);
         set_dir (s, r, "include",   dir_path ("data_root/include"));
 
-        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n), "", "", path (), true);
+        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n), true);
         set_dir (s, r, "man",       dir_path ("data_root/share/man"));
         set_dir (s, r, "man1",      dir_path ("man/man1"));
       }
