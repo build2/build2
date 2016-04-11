@@ -76,24 +76,23 @@ namespace build2
     //
     // Note also that we rely (e.g., in the config module) on the fact that if
     // no overrides apply, then we return the original value and not its copy
-    // in the cache (this can be used to detect if the value was overriden).
-    //
+    // in the cache (this is used to detect if the value was overriden).
     //
     assert (var.override != nullptr);
 
-    lookup& origl (original.first);
-    size_t origd (original.second);
+    const lookup& orig (original.first);
+    size_t orig_depth (original.second);
 
     // The first step is to find out where our cache will reside. After some
-    // meditation it becomes clear it should be next to the innermost (scope-
-    // wise) value (override or original) that could contribute to the end
-    // result.
+    // meditation you will see it should be next to the innermost (scope-wise)
+    // value of this variable (override or original).
     //
-    const variable_map* vars (nullptr);
-
-    // Root scope of a project from which our initial value comes. See below.
+    // We also keep track of the root scope of the project from which this
+    // innermost value comes. This is used to decide whether a non-recursive
+    // project-wise override applies.
     //
-    const scope* proj (nullptr);
+    const variable_map* inner_vars (nullptr);
+    const scope* inner_proj (nullptr);
 
     // One special case is if the original is target-specific, which is the
     // most innermost. Or is it innermostest?
@@ -101,28 +100,30 @@ namespace build2
     bool targetspec (false);
     if (target)
     {
-      targetspec = origl.defined () && (origd == 1 || origd == 2);
+      targetspec = orig.defined () && (orig_depth == 1 || orig_depth == 2);
 
       if (targetspec)
       {
-        vars = origl.vars;
-        proj = root_scope ();
+        inner_vars = orig.vars;
+        inner_proj = root_scope ();
       }
     }
 
     const scope* s;
 
     // Return true if the override applies. Note that it expects vars and proj
-    // to be not NULL; if there is nothing "inner", then any override will
-    // still be "visible".
+    // to be not NULL; if there is nothing "more inner", then any override
+    // will still be "visible".
     //
-    auto applies = [&vars, &s] (const variable* o, const scope* proj) -> bool
+    auto applies = [&s] (const variable* o,
+                         const variable_map* vars,
+                         const scope* proj) -> bool
     {
       switch (o->visibility)
       {
       case variable_visibility::scope:
       {
-        // Does not apply if the innermost value is not in this scope.
+        // Does not apply if in a different scope.
         //
         if (vars != &s->vars)
           return false;
@@ -145,7 +146,8 @@ namespace build2
       return true;
     };
 
-    // Return override value if it is present and optionally ends with suffix.
+    // Return the override value if it is present and (optionally) ends with
+    // a suffix.
     //
     auto find = [&s] (const variable* o, const char* sf = nullptr) -> lookup
     {
@@ -158,17 +160,20 @@ namespace build2
     // Return true if a value is from this scope (either target type/pattern-
     // specific or ordinary).
     //
-    auto belongs = [&s] (const lookup& l) -> bool
+    auto belongs = [&s, target] (const lookup& l) -> bool
     {
-      for (auto& p1: s->target_vars)
-        for (auto& p2: p1.second)
-          if (l.vars == &p2.second)
-            return true;
+      if (target)
+      {
+        for (auto& p1: s->target_vars)
+          for (auto& p2: p1.second)
+            if (l.vars == &p2.second)
+              return true;
+      }
 
       return l.vars == &s->vars;
     };
 
-    // While looking for the cache we can also detect if none of the overrides
+    // While looking for the cache we also detect if none of the overrides
     // apply. In this case the result is simply the original value (if any).
     //
     bool apply (false);
@@ -180,43 +185,44 @@ namespace build2
       // the target type/patter-specific variables, which is "more inner" than
       // normal scope variables (see find_original()).
       //
-      if (vars == nullptr && origl.defined () && belongs (origl))
+      if (inner_vars == nullptr && orig.defined () && belongs (orig))
       {
-        vars = origl.vars;
-        proj = s->root_scope (); // This is so we skip non-recursive overrides
-                                 // that would not apply. We reset it later.
+        inner_vars = orig.vars;
+        inner_proj = s->root_scope ();
       }
 
       for (const variable* o (var.override.get ());
            o != nullptr;
            o = o->override.get ())
       {
-        if (vars != 0 && !applies (o, proj))
+        if (inner_vars != nullptr && !applies (o, inner_vars, inner_proj))
           continue;
 
         auto l (find (o));
 
         if (l.defined ())
         {
-          if (vars == nullptr)
-            vars = l.vars;
+          if (inner_vars == nullptr)
+          {
+            inner_vars = l.vars;
+            inner_proj = s->root_scope (); // Not actually used.
+          }
 
           apply = true;
           break;
         }
       }
 
-      // If we found the cache and at least one override applies, then we can
-      // stop.
+      // We can stop if we found the cache and at least one override applies.
       //
-      if (vars != nullptr && apply)
+      if (inner_vars != nullptr && apply)
         break;
     }
 
     if (!apply)
       return move (original);
 
-    assert (vars != nullptr);
+    assert (inner_vars != nullptr);
 
     // Implementing proper caching is tricky so for now we are going to re-
     // calculate the value every time. Later, the plan is to use value
@@ -228,15 +234,26 @@ namespace build2
     // @@ MT
     //
     variable_override_value& cache (
-      variable_override_cache[make_pair (vars, &var)]);
+      variable_override_cache[make_pair (inner_vars, &var)]);
 
     // Now find our "stem", that is the value to which we will be appending
     // suffixes and prepending prefixes. This is either the original or the
-    // __override provided it applies. We may also not have either.
+    // __override, provided it applies. We may also not have either.
     //
-    lookup stem (targetspec ? origl : lookup ());
-    size_t depth (targetspec ? origd : 0);
-    size_t ovrd (target ? 2 : 0); // For implied target-specific lookup.
+    lookup stem;
+    size_t stem_depth (0);
+    const scope* stem_proj (nullptr);
+
+    // Again the special case of a target-specific variable.
+    //
+    if (targetspec)
+    {
+      stem = orig;
+      stem_depth = orig_depth;
+      stem_proj = root_scope ();
+    }
+
+    size_t ovr_depth (target ? 2 : 0); // For implied target-specific lookup.
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {
@@ -244,15 +261,15 @@ namespace build2
 
       // First check if the original is from this scope.
       //
-      if (origl.defined () && belongs (origl))
+      if (orig.defined () && belongs (orig))
       {
-        stem = origl;
-        depth = origd;
-        proj = s->root_scope ();
+        stem = orig;
+        stem_depth = orig_depth;
+        stem_proj = s->root_scope ();
         // Keep searching.
       }
 
-      ++ovrd;
+      ++ovr_depth;
 
       // Then look for an __override that applies.
       //
@@ -263,16 +280,16 @@ namespace build2
         // If we haven't yet found anything, then any override will still be
         // "visible" even if it doesn't apply.
         //
-        if (stem.defined () && !applies (o, root_scope ()))
+        if (stem.defined () && !applies (o, stem.vars, stem_proj))
           continue;
 
         auto l (find (o, ".__override"));
 
         if (l.defined ())
         {
-          depth = ovrd;
           stem = move (l);
-          proj = s->root_scope ();
+          stem_depth = ovr_depth;
+          stem_proj = s->root_scope ();
           done = true;
           break;
         }
@@ -311,26 +328,30 @@ namespace build2
     if (cache.value.type == nullptr && var.type != nullptr)
       typify (cache.value, *var.type, var);
 
-    // Now apply override prefixes and suffixes.
+    // Now apply override prefixes and suffixes. Also calculate the vars and
+    // depth of the result, which will be those of the stem or prefix/suffix
+    // that applies, whichever is the innermost.
     //
-    ovrd = target ? 2 : 0;
-    const variable_map* ovrv (cache.stem_vars);
+    size_t depth (stem_depth);
+    const variable_map* vars (stem.vars);
+    const scope* proj (stem_proj);
+
+    ovr_depth = target ? 2 : 0;
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {
-      ++ovrd;
+      ++ovr_depth;
 
       for (const variable* o (var.override.get ());
            o != nullptr;
            o = o->override.get ())
       {
-        // First see if this override applies. This is actually tricky: what
-        // if the stem is a "visible" override from an outer project?
-        // Shouldn't its overrides apply? Sure sounds logical. So it seems
-        // we should use the project of the stem's scope and not the project
-        // of this scope.
+        // First see if this override applies. This is tricky: what if the
+        // stem is a "visible" override from an outer project?  Shouldn't its
+        // overrides apply? Sure sounds logical. So we use the project of the
+        // stem's scope.
         //
-        if (proj != nullptr && !applies (o, proj))
+        if (vars != nullptr && !applies (o, vars, proj))
           continue;
 
         // Note that we keep override values as untyped names even if the
@@ -350,20 +371,21 @@ namespace build2
 
         if (l.defined ())
         {
-          // If we had no stem, use the scope of the first override that
-          // applies as the project. For vars/depth we need to pick the
-          // innermost.
+          // If we had no stem, use the first override as a surrogate stem.
           //
-          if (proj == nullptr)
+          if (vars == nullptr)
           {
+            depth = ovr_depth;
+            vars = &s->vars;
             proj = s->root_scope ();
-            depth = ovrd;
-            ovrv = &s->vars;
           }
-          else if (ovrd < depth)
+          // Otherwise, pick the innermost location between the stem and
+          // prefix/suffix.
+          //
+          else if (ovr_depth < depth)
           {
-            depth = ovrd;
-            ovrv = &s->vars;
+            depth = ovr_depth;
+            vars = &s->vars;
           }
         }
       }
@@ -372,7 +394,7 @@ namespace build2
     // Use the location of the innermost value that contributed as the
     // location of the result.
     //
-    return make_pair (lookup (&cache.value, ovrv), depth);
+    return make_pair (lookup (&cache.value, vars), depth);
   }
 
   value& scope::
