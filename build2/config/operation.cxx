@@ -94,6 +94,35 @@ namespace build2
               << "#" << endl;
         }
 
+        // Separate variables for modules with blank lines.
+        //
+        const string* mod_s (nullptr);
+        size_t mod_n (0);
+
+        auto next_module = [&mod_s, &mod_n] (const variable& var) -> bool
+        {
+          const string& s (var.name);
+
+          size_t p (s.find ('.', 7)); // 7 for "config."
+          size_t n (p != string::npos ? p - 7 : s.size () - 7);
+
+          if (mod_s == nullptr)
+          {
+            mod_s = &s;
+            mod_n = n;
+            return false; // First
+          }
+
+          if (s.compare (7, n, *mod_s, 7, mod_n) != 0)
+          {
+            mod_s = &s;
+            mod_n = n;
+            return true; // Next.
+          }
+
+          return false;
+        };
+
         // Save config variables.
         //
         names storage;
@@ -194,6 +223,9 @@ namespace build2
             if (val == nullptr || cast<bool> (val))
               continue;
           }
+
+          if (next_module (var))
+            ofs << endl;
 
           if (val)
           {
