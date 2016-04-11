@@ -315,7 +315,7 @@ main (int argc, char* argv[])
           os.push_back (targetspec (name ("dir", string ())));
 
         const path p ("<buildspec>");
-        const location l (&p, 1, 0); //@@ TODO
+        const location l (&p, 0, 0); //@@ TODO
 
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);

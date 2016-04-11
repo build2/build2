@@ -127,8 +127,11 @@ namespace build2
         //
         names storage;
 
-        for (const auto& p: mod.vars)
+        for (auto b (mod.vars.begin ()), i (b), e (mod.vars.end ());
+             i != e;
+             ++i)
         {
+          const auto& p (*i);
           const variable& var (p.first);
 
           pair<lookup, size_t> org (root.find_original (var));
@@ -208,32 +211,49 @@ namespace build2
             }
           }
 
-          const value& val (*l);
+          const string& n (var.name);
+          const value& v (*l);
 
           // We will only write config.*.configured if it is false (true is
-          // implied by its absence).
+          // implied by its absence). We will also ignore false values if
+          // there is any other value for this module (see unconfigured()).
           //
-          // @@ Do we still need this?
-          //
-          const string& n (var.name);
-
           if (n.size () > 11 &&
               n.compare (n.size () - 11, 11, ".configured") == 0)
           {
-            if (val == nullptr || cast<bool> (val))
+            if (cast<bool> (v))
+              continue;
+
+            size_t m (n.size () - 11); // Prefix size.
+            auto same = [&n, m] (const variable& v)
+            {
+              return v.name.size () >= m &&
+                v.name.compare (0, m, n, 0, m) == 0;
+            };
+
+            // Check if this is the first value for this module.
+            //
+            auto j (i);
+            if (j != b && same ((--j)->first))
+              continue;
+
+            // Check if this is the last value for this module.
+            //
+            j = i;
+            if (++j != e && same (j->first))
               continue;
           }
 
           if (next_module (var))
             ofs << endl;
 
-          if (val)
+          if (v)
           {
             storage.clear ();
-            ofs << var.name << " = " << reverse (val, storage) << endl;
+            ofs << n << " = " << reverse (v, storage) << endl;
           }
           else
-            ofs << var.name << " = [null]" << endl;
+            ofs << n << " = [null]" << endl;
         }
       }
       catch (const ofstream::failure&)

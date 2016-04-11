@@ -87,7 +87,7 @@ namespace build2
       // Don't re-run tests if the configuration says we are unconfigured.
       //
       if (optional && config::unconfigured (root, "config.cli"))
-          return false;
+        return false;
 
       // config.cli
       //
@@ -96,9 +96,9 @@ namespace build2
         // Return version or empty string if unable to execute (e.g.,
         // the cli executable is not found).
         //
-        auto test = [optional] (const char* cli) -> string
+        auto test = [optional] (const path& cli) -> string
         {
-          const char* args[] = {cli, "--version", nullptr};
+          const char* args[] = {cli.string ().c_str (), "--version", nullptr};
 
           if (verb >= 2)
             print_process (args);
@@ -145,7 +145,7 @@ namespace build2
         };
 
         string ver;
-        const char* cli ("cli"); // Default.
+        path cli ("cli"); // Default.
 
         if (optional)
         {
@@ -169,31 +169,25 @@ namespace build2
           }
           else
           {
-            auto p (config::required (root, "config.cli", path (cli)));
-            assert (p.second && cast<string> (p.first) == cli);
+            auto p (config::required (root, "config.cli", cli));
+            assert (p.second && cast<path> (p.first) == cli);
           }
         }
         else
         {
-          auto p (config::required (root, "config.cli", path (cli)));
+          auto p (config::required (root, "config.cli", cli));
 
           // If we actually set a new value, test it by trying to execute.
           //
           if (p.second)
           {
-            cli = cast<string> (p.first).c_str ();
+            cli = cast<path> (p.first);
             ver = test (cli);
 
             if (ver.empty ())
               throw failed ();
           }
         }
-
-        // Clear the unconfigured flag, if any.
-        //
-        // @@ Get rid of needing to do this.
-        //
-        config::unconfigured (root, "config.cli", false);
 
         if (!ver.empty () && verb >= 2)
           text << cli << " " << ver;
