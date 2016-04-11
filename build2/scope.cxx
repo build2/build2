@@ -67,7 +67,7 @@ namespace build2
 
   pair<lookup, size_t> scope::
   find_override (const variable& var,
-                 pair<lookup, size_t>&& original,
+                 pair<lookup, size_t> original,
                  bool target) const
   {
     // Normally there would be no overrides and if there are, there will only

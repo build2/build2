@@ -102,15 +102,82 @@ namespace build2
         {
           const variable& var (p.first);
 
-          lookup l (root[var]);
+          pair<lookup, size_t> org (root.find_original (var));
+          pair<lookup, size_t> ovr (var.override == nullptr
+                                    ? org
+                                    : root.find_override (var, org));
+          const lookup& l (ovr.first);
 
-          // We only write values that are set on our root scope or are global
-          // overrides. Anything in-between is inherited. We might also not
-          // have any value at all (see unconfigured()).
+          // We definitely write values that are set on our root scope or are
+          // global overrides. Anything in-between is presumably inherited.
+          // We might also not have any value at all (see unconfigured()).
           //
-          if (!l.defined () ||
-              !(l.belongs (root) || l.belongs (*global_scope)))
+          if (!l.defined ())
             continue;
+
+          if (!(l.belongs (root) || l.belongs (*global_scope)))
+          {
+            // This is presumably an inherited value. But it could also be
+            // some left-over garbage. For example, our amalgamation could
+            // have used a module but then dropped it while its configuration
+            // values are still lingering in config.build. They are probably
+            // still valid and we should probably continue using them but we
+            // definitely want to move them to our config.build since they
+            // will be dropped from the amalgamation's config.build. Let's
+            // also warn the user just in case.
+            //
+            bool found (false);
+            scope* r (&root);
+            while ((r = r->parent_scope ()->root_scope ()) != nullptr)
+            {
+              if (l.belongs (*r))
+              {
+                if (auto* m = r->modules.lookup<const module> (module::name))
+                  found = m->vars.find (var) != m->vars.end ();
+
+                break;
+              }
+            }
+
+            if (found) // Inherited.
+              continue;
+
+            location loc (&f);
+
+            // If this value is not defined in a project's root scope, then
+            // something is broken.
+            //
+            if (r == nullptr)
+              fail (loc) << "inherited variable " << var.name << " value "
+                         << "is not from a root scope";
+
+            // If none of the outer project's configurations use this value,
+            // then we warn and save as our own. One special case where we
+            // don't want to warn the user is if the variable is overriden.
+            //
+            if (org.first == ovr.first)
+            {
+              diag_record dr;
+              dr << warn (loc) << "saving previously inherited variable "
+                 << var.name;
+
+              dr << info (loc) << "because project " << r->out_path ()
+                 << " no longer uses it in its configuration";
+
+              if (verb >= 2)
+              {
+                dr << info (loc) << "variable value: ";
+
+                if (*l)
+                {
+                  names storage;
+                  dr << "'" << reverse (*l, storage) << "'";
+                }
+                else
+                  dr << "[null]";
+              }
+            }
+          }
 
           const value& val (*l);
 

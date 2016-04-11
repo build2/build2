@@ -27,7 +27,7 @@ namespace build2
 
   value::
   value (value&& v)
-      : type (v.type), state (v.state)
+      : type (v.type), state (v.state), extra (v.extra)
   {
     if (!null ())
     {
@@ -42,7 +42,7 @@ namespace build2
 
   value::
   value (const value& v)
-      : type (v.type), state (v.state)
+      : type (v.type), state (v.state), extra (v.extra)
   {
     if (!null ())
     {

@@ -280,10 +280,11 @@ namespace build2
   class location
   {
   public:
-    // Note that location maintains a shallow reference to path.
+    // Note that location maintains a shallow reference to path. Zero lines
+    // or columns are not printed.
     //
     location (): file (nullptr), line (0), column (0) {}
-    location (const path* f, uint64_t l, uint64_t c)
+    location (const path* f, uint64_t l = 0, uint64_t c = 0)
         : file (f), line (l), column (c) {}
 
     const path* file;

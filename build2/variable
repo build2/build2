@@ -119,13 +119,20 @@ namespace build2
 
   // value
   //
-  enum class value_state {null, empty, filled};
+  enum class value_state: uint8_t {null, empty, filled};
 
   class value
   {
   public:
     const value_type* type; // NULL means this value is not (yet) typed.
     value_state state;
+
+    // Extra data that is associated with the value that can be used to store
+    // flags, etc. It is initialized to 0 and copied (but not assigned) from
+    // one value to another but is otherwise untouched (not even when the
+    // value is reset to NULL).
+    //
+    uint16_t extra;
 
     bool null () const {return state == value_state::null;}
     bool empty () const {return state == value_state::empty;}
@@ -145,7 +152,7 @@ namespace build2
 
     explicit
     value (const value_type* t = nullptr)
-        : type (t), state (value_state::null) {}
+        : type (t), state (value_state::null), extra (0) {}
 
     // Note: preserves type.
     //

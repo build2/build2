@@ -17,8 +17,9 @@ namespace build2
         save_variable (root, var);
 
       pair<lookup, size_t> org (root.find_original (var));
+
+      bool n (false); // New flag.
       lookup l (org.first);
-      bool n (false);
 
       // The interaction with command line overrides can get tricky. For
       // example, the override to defaul value could make (non-recursive)
@@ -28,10 +29,17 @@ namespace build2
       //
       if (!l.defined () || (def_ovr && !l.belongs (root)))
       {
-        l = lookup ((root.assign (var) = def_val), root);
-        org = make_pair (l, 1); // Lookup depth is 1 since in root.vars.
+        value& v (root.assign (var) = def_val);
+        v.extra = true; // Default value flag.
+
         n = true;
+        l = lookup (v, root);
+        org = make_pair (l, 1); // Lookup depth is 1 since it's in root.vars.
       }
+      // Treat an inherited value that was set to default as new.
+      //
+      else if (l->extra)
+        n = true;
 
       if (var.override != nullptr)
       {
@@ -39,11 +47,10 @@ namespace build2
 
         if (l != ovr.first) // Overriden?
         {
-          l = move (ovr.first);
-
-          // Overriden and not inherited (same logic as in save_config()).
+          // Override is always treated as new.
           //
-          n = l.belongs (root) || l.belongs (*global_scope);
+          n = true;
+          l = move (ovr.first);
         }
       }
 

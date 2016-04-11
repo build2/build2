@@ -146,7 +146,7 @@ namespace build2
 
     pair<lookup, size_t>
     find_override (const variable&,
-                   pair<lookup, size_t>&& original,
+                   pair<lookup, size_t> original,
                    bool target = false) const;
 
     // Return a value suitable for assignment (or append if you only
