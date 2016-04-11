@@ -254,6 +254,7 @@ namespace build2
   {
     value_traits<vector<T>>::type_name.c_str (),
     sizeof (vector<T>),
+    nullptr,                          // No base.
     &default_dtor<vector<T>>,
     &default_copy_ctor<vector<T>>,
     &default_copy_assign<vector<T>>,
@@ -392,6 +393,7 @@ namespace build2
   {
     value_traits<map<K, V>>::type_name.c_str (),
     sizeof (map<K, V>),
+    nullptr,             // No base.
     &default_dtor<map<K, V>>,
     &default_copy_ctor<map<K, V>>,
     &default_copy_assign<map<K, V>>,

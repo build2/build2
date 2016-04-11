@@ -313,6 +313,7 @@ namespace build2
   {
     "bool",
     sizeof (bool),
+    nullptr,                      // No base.
     nullptr,                      // No dtor (POD).
     nullptr,                      // No copy_ctor (POD).
     nullptr,                      // No copy_assign (POD).
@@ -350,6 +351,7 @@ namespace build2
   {
     "uint64",
     sizeof (uint64_t),
+    nullptr,                          // No base.
     nullptr,                          // No dtor (POD).
     nullptr,                          // No copy_ctor (POD).
     nullptr,                          // No copy_assign (POD).
@@ -433,6 +435,7 @@ namespace build2
   {
     "string",
     sizeof (string),
+    nullptr,                      // No base.
     &default_dtor<string>,
     &default_copy_ctor<string>,
     &default_copy_assign<string>,
@@ -475,6 +478,7 @@ namespace build2
   {
     "path",
     sizeof (path),
+    nullptr,                    // No base.
     &default_dtor<path>,
     &default_copy_ctor<path>,
     &default_copy_assign<path>,
@@ -515,6 +519,7 @@ namespace build2
   {
     "dir_path",
     sizeof (dir_path),
+    nullptr,                        // No base, or should it be path?
     &default_dtor<dir_path>,
     &default_copy_ctor<dir_path>,
     &default_copy_assign<dir_path>,
@@ -545,14 +550,15 @@ namespace build2
   {
     "abs_dir_path",
     sizeof (abs_dir_path),
+    &value_traits<dir_path>::value_type, // Assume direct cast works for both.
     &default_dtor<abs_dir_path>,
     &default_copy_ctor<abs_dir_path>,
     &default_copy_assign<abs_dir_path>,
-    &simple_assign<abs_dir_path, true>, // Allow empty paths.
+    &simple_assign<abs_dir_path, true>,  // Allow empty paths.
     &simple_append<abs_dir_path, true>,
-    nullptr,                            // No prepend.
+    nullptr,                             // No prepend.
     &simple_reverse<abs_dir_path>,
-    nullptr,                            // No cast (cast data_ directly).
+    nullptr,                             // No cast (cast data_ directly).
     &simple_compare<abs_dir_path>
   };
 
@@ -577,6 +583,7 @@ namespace build2
   {
     "name",
     sizeof (name),
+    nullptr,                    // No base.
     &default_dtor<name>,
     &default_copy_ctor<name>,
     &default_copy_assign<name>,

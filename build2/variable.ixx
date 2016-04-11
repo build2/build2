@@ -81,17 +81,27 @@ namespace build2
   inline const T&
   cast (const value& v)
   {
-    assert (!v.null () && v.type == &value_traits<T>::value_type);
+    assert (!v.null ());
+
+    // Find base if any.
+    //
+    const value_type* b (v.type);
+    for (; b != nullptr && b != &value_traits<T>::value_type; b = b->base) ;
+    assert (b != nullptr);
+
     return *static_cast<const T*> (v.type->cast == nullptr
                                    ? static_cast<const void*> (&v.data_)
-                                   : v.type->cast (v));
+                                   : v.type->cast (v, b));
   }
 
   template <typename T>
   inline T&
   cast (value& v)
   {
-    return const_cast<T&> (cast<T> (static_cast<const value&> (v)));
+    assert (!v.null () && v.type == &value_traits<T>::value_type);
+    return *static_cast<T*> (v.type->cast == nullptr
+                             ? static_cast<void*> (&v.data_)
+                             : const_cast<void*> (v.type->cast (v, v.type)));
   }
 
   template <typename T>
