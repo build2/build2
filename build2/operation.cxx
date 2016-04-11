@@ -172,6 +172,7 @@ namespace build2
   }
 
   meta_operation_info perform {
+    perform_id,
     "perform",
     "",
     "",
@@ -189,6 +190,7 @@ namespace build2
   // operations
   //
   operation_info default_ {
+    default_id,
     "<default>",
     "",
     "",
@@ -199,6 +201,7 @@ namespace build2
   };
 
   operation_info update {
+    update_id,
     "update",
     "update",
     "updating",
@@ -209,6 +212,7 @@ namespace build2
   };
 
   operation_info clean {
+    clean_id,
     "clean",
     "clean",
     "cleaning",

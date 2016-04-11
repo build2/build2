@@ -23,7 +23,7 @@ namespace build2
     static rule rule_;
 
     extern "C" void
-    dist_boot (scope& r, const location&, unique_ptr<module>&)
+    dist_boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("dist::boot");
 
@@ -39,20 +39,18 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
+        // Note: some overridable, some not.
+        //
+        v.insert<abs_dir_path> ("config.dist.root",     true);
+        v.insert<strings>      ("config.dist.archives", true);
+        v.insert<path>         ("config.dist.cmd",      true);
 
-        v.insert<bool> ("dist");
+        v.insert<dir_path>     ("dist.root");
+        v.insert<path>         ("dist.cmd");
+        v.insert<strings>      ("dist.archives");
 
-        v.insert<string> ("dist.package");
-
-        v.insert<dir_path> ("dist.root");
-        v.insert<dir_path> ("config.dist.root");
-
-        v.insert<path> ("dist.cmd");
-        v.insert<path> ("config.dist.cmd");
-
-        v.insert<strings> ("dist.archives");
-        v.insert<strings> ("config.dist.archives");
+        v.insert<bool>         ("dist");         // Flag.
+        v.insert<string>       ("dist.package"); // Project's package name.
       }
     }
 
@@ -60,7 +58,7 @@ namespace build2
     dist_init (scope& r,
                scope&,
                const location& l,
-               unique_ptr<module>&,
+               unique_ptr<module_base>&,
                bool first,
                bool)
     {
@@ -97,10 +95,10 @@ namespace build2
 
         if (s)
         {
-          const value& cv (config::optional_absolute (r, "config.dist.root"));
+          const value& cv (config::optional (r, "config.dist.root"));
 
           if (cv && !cv.empty ())
-            v = cv;
+            v = cast<dir_path> (cv); // Strip abs_dir_path.
         }
       }
 

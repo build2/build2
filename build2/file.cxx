@@ -18,6 +18,8 @@
 #include <build2/lexer>
 #include <build2/parser>
 
+#include <build2/config/utility>
+
 using namespace std;
 using namespace butl;
 
@@ -859,42 +861,19 @@ namespace build2
         break;
     }
 
-    // Then try the config.import.* mechanism (overridable variable).
+    // Then try the config.import.* mechanism.
     //
     if (out_root.empty ())
     {
-      // @@ OVR
+      // Note: overridable variable with path auto-completion.
       //
       const variable& var (
-        var_pool.insert<dir_path> ("config.import." + project, true));
+        var_pool.insert<abs_dir_path> ("config.import." + project, true));
 
       if (auto l = iroot[var])
       {
-        out_root = cast<dir_path> (l);
-
-        if (l.belongs (*global_scope)) // A value from command line.
-        {
-          // Process the path by making it absolute and normalized.
-          //
-          if (out_root.relative ())
-            out_root = work / out_root;
-
-          out_root.normalize ();
-
-          // Set on our root scope (part of our configuration).
-          //
-          iroot.assign (var) = out_root;
-
-          // Also update the command-line value. This is necessary to avoid
-          // a warning issued by the config module about global/root scope
-          // value mismatch. Not very clean.
-          //
-          // @@ CMDVAR
-          //
-          dir_path& d (cast<dir_path> (const_cast<value&> (*l)));
-          if (d != out_root)
-            d = out_root;
-        }
+        out_root = cast<abs_dir_path> (l);
+        config::save_variable (iroot, var); // Mark as part of configuration.
       }
       else
       {

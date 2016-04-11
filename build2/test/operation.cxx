@@ -20,6 +20,7 @@ namespace build2
     }
 
     operation_info test {
+      test_id,
       "test",
       "test",
       "testing",

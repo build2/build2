@@ -96,7 +96,6 @@ namespace build2
       // We should have either arguments or input/roundtrip. Again, use
       // lookup depth to figure out who takes precedence.
       //
-      //@@ OVR
       auto ip (t.find ("test.input"));
       auto op (t.find ("test.output"));
       auto rp (t.find ("test.roundtrip"));
@@ -307,7 +306,7 @@ namespace build2
 
       // Do we have options?
       //
-      if (auto l = t["test.options"]) //@@ OVR
+      if (auto l = t["test.options"])
         append_options (args, cast<strings> (l));
 
       // Do we have input?
@@ -323,7 +322,7 @@ namespace build2
       //
       else
       {
-        if (auto l = t["test.arguments"]) //@@ OVR
+        if (auto l = t["test.arguments"])
           append_options (args, cast<strings> (l));
       }
 

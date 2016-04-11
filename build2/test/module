@@ -15,11 +15,11 @@ namespace build2
   namespace test
   {
     extern "C" void
-    test_boot (scope&, const location&, unique_ptr<module>&);
+    test_boot (scope&, const location&, unique_ptr<module_base>&);
 
     extern "C" bool
     test_init (
-      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
   }
 }
 

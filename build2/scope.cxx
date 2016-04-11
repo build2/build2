@@ -27,18 +27,26 @@ namespace build2
 
         ++d;
         if (f)
-          if (auto l = s->target_vars.find (*tt, *tn, var))
+        {
+          lookup l (s->target_vars.find (*tt, *tn, var));
+
+          if (l.defined ())
             return make_pair (move (l), d);
+        }
 
         ++d;
         if (f && gt != nullptr)
-          if (auto l = s->target_vars.find (*gt, *gn, var))
+        {
+          lookup l (s->target_vars.find (*gt, *gn, var));
+
+          if (l.defined ())
             return make_pair (move (l), d);
+        }
       }
 
       ++d;
-      if (auto r = s->vars.find (var))
-        return make_pair (lookup (r, &s->vars), d);
+      if (const value* v = s->vars.find (var))
+        return make_pair (lookup (v, &s->vars), d);
 
       switch (var.visibility)
       {

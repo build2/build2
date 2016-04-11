@@ -536,6 +536,8 @@ namespace build2
     if (d.relative ())
       d.complete ();
 
+    d.normalize ();
+
     return abs_dir_path (move (d));
   }
 

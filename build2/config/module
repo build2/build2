@@ -5,21 +5,35 @@
 #ifndef BUILD2_CONFIG_MODULE
 #define BUILD2_CONFIG_MODULE
 
+#include <butl/prefix-map>
+
 #include <build2/types>
 #include <build2/utility>
 
 #include <build2/module>
+#include <build2/variable>
 
 namespace build2
 {
   namespace config
   {
+    struct module: module_base
+    {
+      // A sorted list of config.* variables and flags (currently unused) that
+      // are used (as opposed to just specified) in this configuration.
+      // Populated by the config utility functions (required(), optional())
+      //
+      butl::prefix_map<variable_cref, uint64_t, '.'> vars;
+
+      static const string name;
+    };
+
     extern "C" void
-    config_boot (scope&, const location&, unique_ptr<module>&);
+    config_boot (scope&, const location&, unique_ptr<module_base>&);
 
     extern "C" bool
     config_init (
-    scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
   }
 }
 

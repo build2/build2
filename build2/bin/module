@@ -16,7 +16,7 @@ namespace build2
   {
     extern "C" bool
     bin_init (
-      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
   }
 }
 

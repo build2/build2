@@ -17,16 +17,16 @@ namespace build2
   class scope;
   class location;
 
-  class module
+  class module_base
   {
   public:
     virtual
-    ~module () = default;
+    ~module_base () = default;
   };
 
   extern "C"
   using module_boot_function =
-    void (scope& root, const location&, unique_ptr<module>&);
+    void (scope& root, const location&, unique_ptr<module_base>&);
 
   // Return false if the module configuration (normally based on the default
   // values) was unsuccessful but this is not (yet) an error. One example
@@ -39,7 +39,7 @@ namespace build2
     bool (scope& root,
           scope& base,
           const location&,
-          unique_ptr<module>&,
+          unique_ptr<module_base>&,
           bool first,     // First time for this project.
           bool optional); // Loaded with 'using?' (optional module).
 
@@ -48,11 +48,22 @@ namespace build2
   {
     bool boot; // True if the module boot'ed but not yet init'ed.
     module_init_function* init;
-    unique_ptr<build2::module> module;
+    unique_ptr<module_base> module;
     const location loc; // Boot location.
   };
 
-  using loaded_module_map = std::map<string, module_state>;
+  struct loaded_module_map: std::map<string, module_state>
+  {
+    template<typename T>
+    T*
+    lookup (const string& name) const
+    {
+      auto i (find (name));
+      return i != end ()
+        ? static_cast<T*> (i->second.module.get ())
+        : nullptr;
+    }
+  };
 
   // Load and boot the specified module.
   //

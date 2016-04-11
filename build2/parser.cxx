@@ -2660,16 +2660,15 @@ namespace build2
       scope* nrs (&create_bootstrap_inner (*rs, out_base));
 
       if (rs != nrs)
-      {
-        load_root_pre (*nrs); // Load outer roots recursively.
         rs = nrs;
-      }
     }
 
     // Switch to the new root scope.
     //
     if (rs != root_)
     {
+      load_root_pre (*rs); // Load new root(s) recursively.
+
       l5 ([&]{trace << "switching to root scope " << rs->out_path ();});
       root_ = rs;
     }

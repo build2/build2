@@ -22,7 +22,7 @@ namespace build2
     static rule rule_;
 
     extern "C" void
-    test_boot (scope& root, const location&, unique_ptr<module>&)
+    test_boot (scope& root, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("test::boot");
 
@@ -38,12 +38,12 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
-
-        v.insert<bool> ("test");
-        v.insert<name> ("test.input");
-        v.insert<name> ("test.output");
-        v.insert<name> ("test.roundtrip");
+        // Note: none are overridable.
+        //
+        v.insert<bool>    ("test");
+        v.insert<name>    ("test.input");
+        v.insert<name>    ("test.output");
+        v.insert<name>    ("test.roundtrip");
         v.insert<strings> ("test.options");
         v.insert<strings> ("test.arguments");
       }
@@ -53,7 +53,7 @@ namespace build2
     test_init (scope& root,
                scope&,
                const location& l,
-               unique_ptr<module>&,
+               unique_ptr<module_base>&,
                bool first,
                bool)
     {

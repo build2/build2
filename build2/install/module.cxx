@@ -50,7 +50,7 @@ namespace build2
         vn = "config.install.";
         vn += name;
         vn += var;
-        const variable& vr (var_pool.insert<T> (move (vn))); // @@ OVR
+        const variable& vr (var_pool.insert<T> (move (vn), true));
 
         cv = dv != nullptr
           ? &config::required (r, vr, *dv, override).first.get ()
@@ -60,7 +60,7 @@ namespace build2
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (var_pool.insert<T> (move (vn))); // @@ OVR
+      const variable& vr (var_pool.insert<T> (move (vn))); // Not overridable.
 
       value& v (r.assign (vr));
 
@@ -76,11 +76,12 @@ namespace build2
       }
     }
 
+    template <typename T>
     static void
     set_dir (bool s,                                  // specified
              scope& r,                                // root scope
              const char* n,                           // var name
-             const string& ps,                        // path (as string)
+             const T& p,                              // path
              const string& fm = string (),            // file mode
              const string& dm = string (),            // dir mode
              const build2::path& c = build2::path (), // command
@@ -88,7 +89,6 @@ namespace build2
     {
       using build2::path;
 
-      dir_path p (ps);
       set_var          (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
       set_var          (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
       set_var          (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
@@ -101,7 +101,7 @@ namespace build2
     static file_rule file_;
 
     extern "C" void
-    install_boot (scope& r, const location&, unique_ptr<module>&)
+    install_boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
 
@@ -116,7 +116,7 @@ namespace build2
     install_init (scope& r,
                   scope& b,
                   const location& l,
-                  unique_ptr<module>&,
+                  unique_ptr<module_base>&,
                   bool first,
                   bool)
     {
@@ -139,9 +139,9 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
+        // Note: not overridable.
         //
-        v.insert<dir_path> ("install");
+        v.insert<dir_path> ("install"); // Flag.
       }
 
       // Register our alias and file installer rule.
@@ -162,22 +162,21 @@ namespace build2
         bool s (config::specified (r, "config.install"));
         const string& n (cast<string> (r["project"]));
 
-        set_dir (s, r, "root",      "",      "", "755", path ("install"));
-        set_dir (s, r, "data_root", "root",  "644");
-        set_dir (s, r, "exec_root", "root",  "755");
+        set_dir (s, r, "root",      abs_dir_path (), "", "755", path ("install"));
+        set_dir (s, r, "data_root", dir_path ("root"), "644");
+        set_dir (s, r, "exec_root", dir_path ("root"), "755");
 
-        set_dir (s, r, "sbin",    "exec_root/sbin");
-        set_dir (s, r, "bin",     "exec_root/bin");
-        set_dir (s, r, "lib",     "exec_root/lib");
-        set_dir (s, r, "libexec", "exec_root/libexec/" + n, "", "", path (), true);
+        set_dir (s, r, "sbin",      dir_path ("exec_root/sbin"));
+        set_dir (s, r, "bin",       dir_path ("exec_root/bin"));
+        set_dir (s, r, "lib",       dir_path ("exec_root/lib"));
+        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n), "", "", path (), true);
 
-        set_dir (s, r, "data",    "data_root/share/" + n, "", "", path (), true);
-        set_dir (s, r, "include", "data_root/include");
+        set_dir (s, r, "data",      dir_path ("data_root/share/" + n), "", "", path (), true);
+        set_dir (s, r, "include",   dir_path ("data_root/include"));
 
-        set_dir (s, r, "doc",     "data_root/share/doc/" + n, "", "", path (), true);
-        set_dir (s, r, "man",     "data_root/share/man");
-
-        set_dir (s, r, "man1",    "man/man1");
+        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n), "", "", path (), true);
+        set_dir (s, r, "man",       dir_path ("data_root/share/man"));
+        set_dir (s, r, "man1",      dir_path ("man/man1"));
       }
 
       // Configure "installability" for built-in target types.

@@ -34,7 +34,7 @@ namespace build2
     bin_init (scope& r,
               scope& b,
               const location&,
-              unique_ptr<module>&,
+              unique_ptr<module_base>&,
               bool first,
               bool)
     {
@@ -47,17 +47,16 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
+        // Note: some overridable, some not.
         //
+        v.insert<path>      ("config.bin.ar",        true);
+        v.insert<path>      ("config.bin.ranlib",    true);
 
-        v.insert<path> ("config.bin.ar");
-        v.insert<path> ("config.bin.ranlib");
-
-        v.insert<string>    ("config.bin.lib");
-        v.insert<strings>   ("config.bin.exe.lib");
-        v.insert<strings>   ("config.bin.liba.lib");
-        v.insert<strings>   ("config.bin.libso.lib");
-        v.insert<dir_paths> ("config.bin.rpath");
+        v.insert<string>    ("config.bin.lib",       true);
+        v.insert<strings>   ("config.bin.exe.lib",   true);
+        v.insert<strings>   ("config.bin.liba.lib",  true);
+        v.insert<strings>   ("config.bin.libso.lib", true);
+        v.insert<dir_paths> ("config.bin.rpath",     true);
 
         v.insert<string>    ("bin.lib");
         v.insert<strings>   ("bin.exe.lib");
@@ -65,7 +64,7 @@ namespace build2
         v.insert<strings>   ("bin.libso.lib");
         v.insert<dir_paths> ("bin.rpath");
 
-        v.insert<string> ("bin.libprefix");
+        v.insert<string>    ("bin.libprefix",        true);
       }
 
       // Register target types.
@@ -158,8 +157,8 @@ namespace build2
       // This one is optional and we merge it into bin.rpath, if any.
       // See the cxx module for details on merging.
       //
-      if (const value& v = config::optional (r, "config.bin.rpath"))
-        b.assign ("bin.rpath") += cast<dir_paths> (v);
+      b.assign ("bin.rpath") += cast_null<dir_paths> (
+        config::optional (r, "config.bin.rpath"));
 
       // config.bin.ar
       // config.bin.ranlib

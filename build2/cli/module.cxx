@@ -29,7 +29,7 @@ namespace build2
     cli_init (scope& root,
               scope& base,
               const location& loc,
-              unique_ptr<module>&,
+              unique_ptr<module_base>&,
               bool first,
               bool optional)
     {
@@ -55,13 +55,11 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
+        // Note: some overridable, some not.
+        //
+        v.insert<path>    ("config.cli",         true);
+        v.insert<strings> ("config.cli.options", true);
 
-        v.insert<bool> ("config.cli.configured");
-
-        v.insert<path> ("config.cli");
-
-        v.insert<strings> ("config.cli.options");
         v.insert<strings> ("cli.options");
       }
 
@@ -88,13 +86,8 @@ namespace build2
 
       // Don't re-run tests if the configuration says we are unconfigured.
       //
-      if (optional)
-      {
-        auto l (root["config.cli.configured"]);
-
-        if (l && !cast<bool> (l))
+      if (optional && config::unconfigured (root, "config.cli"))
           return false;
-      }
 
       // config.cli
       //
@@ -167,7 +160,7 @@ namespace build2
             // Note that we are unconfigured so that we don't keep re-testing
             // this on each run.
             //
-            root.assign ("config.cli.configured") = false;
+            config::unconfigured (root, "config.cli", true);
 
             if (verb >= 2)
               text << cli << " not found, leaving cli module unconfigured";
@@ -198,7 +191,9 @@ namespace build2
 
         // Clear the unconfigured flag, if any.
         //
-        root.assign ("config.cli.configured") = true;
+        // @@ Get rid of needing to do this.
+        //
+        config::unconfigured (root, "config.cli", false);
 
         if (!ver.empty () && verb >= 2)
           text << cli << " " << ver;
@@ -210,8 +205,8 @@ namespace build2
       // cli.* variables. See the cxx module for more information on
       // this merging semantics and some of its tricky aspects.
       //
-      if (const value& v = config::optional (root, "config.cli.options"))
-        base.assign ("cli.options") += cast<strings> (v);
+      base.assign ("cli.options") += cast_null<strings> (
+        config::optional (root, "config.cli.options"));
 
       // Register our rules.
       //

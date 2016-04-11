@@ -9,6 +9,7 @@
 #include <build2/file>
 #include <build2/rule>
 #include <build2/scope>
+#include <build2/context>
 #include <build2/diagnostics>
 
 #include <build2/config/operation>
@@ -20,12 +21,14 @@ namespace build2
 {
   namespace config
   {
+    const string module::name ("config");
+
     //@@ Same as in operation.cxx
     //
     static const path config_file ("build/config.build");
 
     extern "C" void
-    config_boot (scope& root, const location&, unique_ptr<module>&)
+    config_boot (scope& root, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("config::boot");
 
@@ -54,7 +57,7 @@ namespace build2
     config_init (scope& root,
                  scope&,
                  const location& l,
-                 unique_ptr<module>&,
+                 unique_ptr<module_base>& mod,
                  bool first,
                  bool)
     {
@@ -67,6 +70,11 @@ namespace build2
       }
 
       l5 ([&]{trace << "for " << root.out_path ();});
+
+      // Only create the module if we are configuring.
+      //
+      if (current_mif->id == configure_id)
+        mod.reset (new module);
 
       // Register alias and fallback rule for the configure meta-operation.
       //

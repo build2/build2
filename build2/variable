@@ -161,6 +161,9 @@ namespace build2
     template <typename T> value& operator= (T);
     template <typename T> value& operator+= (T);
 
+    template <typename T> value& operator+= (T* v) {
+      return v != nullptr ? *this += *v : *this;}
+
     value& operator= (const char* v) {return *this = string (v);}
     value& operator+= (const char* v) {return *this += string (v);}
 

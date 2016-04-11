@@ -33,7 +33,7 @@ namespace build2
     cxx_init (scope& r,
               scope& b,
               const location& loc,
-              unique_ptr<module>&,
+              unique_ptr<module_base>&,
               bool first,
               bool)
     {
@@ -62,14 +62,13 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // @@ OVR
-
-        v.insert<path> ("config.cxx", true);
-
-        v.insert<strings> ("config.cxx.poptions");
-        v.insert<strings> ("config.cxx.coptions");
-        v.insert<strings> ("config.cxx.loptions");
-        v.insert<strings> ("config.cxx.libs");
+        // Note: some overridable, some not.
+        //
+        v.insert<path>    ("config.cxx",          true);
+        v.insert<strings> ("config.cxx.poptions", true);
+        v.insert<strings> ("config.cxx.coptions", true);
+        v.insert<strings> ("config.cxx.loptions", true);
+        v.insert<strings> ("config.cxx.libs",     true);
 
         v.insert<strings> ("cxx.poptions");
         v.insert<strings> ("cxx.coptions");
@@ -81,7 +80,7 @@ namespace build2
         v.insert<strings> ("cxx.export.loptions");
         v.insert<strings> ("cxx.export.libs");
 
-        v.insert<string> ("cxx.std");
+        v.insert<string> ("cxx.std",              true);
       }
 
       // Register target types.
@@ -158,17 +157,17 @@ namespace build2
       // using cxx
       // cxx.coptions += <overriding options> # Note: '+='.
       //
-      if (const value& v = config::optional (r, "config.cxx.poptions"))
-        b.assign ("cxx.poptions") += cast<strings> (v);
+      b.assign ("cxx.poptions") += cast_null<strings> (
+        config::optional (r, "config.cxx.poptions"));
 
-      if (const value& v = config::optional (r, "config.cxx.coptions"))
-        b.assign ("cxx.coptions") += cast<strings> (v);
+      b.assign ("cxx.coptions") += cast_null<strings> (
+        config::optional (r, "config.cxx.coptions"));
 
-      if (const value& v = config::optional (r, "config.cxx.loptions"))
-        b.assign ("cxx.loptions") += cast<strings> (v);
+      b.assign ("cxx.loptions") += cast_null<strings> (
+        config::optional (r, "config.cxx.loptions"));
 
-      if (const value& v = config::optional (r, "config.cxx.libs"))
-        b.assign ("cxx.libs") += cast<strings> (v);
+      b.assign ("cxx.libs") += cast_null<strings> (
+        config::optional (r, "config.cxx.libs"));
 
       // config.cxx
       //

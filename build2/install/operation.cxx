@@ -20,6 +20,7 @@ namespace build2
     }
 
     operation_info install {
+      install_id,
       "install",
       "install",
       "installing",

@@ -15,6 +15,8 @@
 #include <build2/algorithm>
 #include <build2/diagnostics>
 
+#include <build2/config/module>
+
 using namespace std;
 using namespace butl;
 
@@ -51,8 +53,6 @@ namespace build2
 
         ofs.exceptions (ofstream::failbit | ofstream::badbit);
 
-        //@@ TODO: quote path
-        //
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "src_root = " << src_root << endl;
@@ -72,6 +72,8 @@ namespace build2
       if (verb)
         text << (verb >= 2 ? "config::save " : "save ") << f;
 
+      const module& mod (*root.modules.lookup<const module> (module::name));
+
       try
       {
         ofstream ofs (f.string ());
@@ -80,8 +82,8 @@ namespace build2
 
         ofs.exceptions (ofstream::failbit | ofstream::badbit);
 
-        ofs << "# Created automatically by the config module, but" << endl
-            << "# feel free to edit." << endl
+        ofs << "# Created automatically by the config module, but feel " <<
+          "free to edit." << endl
             << "#" << endl;
 
         if (auto l = root.vars["amalgamation"])
@@ -92,44 +94,38 @@ namespace build2
               << "#" << endl;
         }
 
-        // Save all the variables in the config namespace that are set
-        // on the project's root scope.
+        // Save config variables.
         //
         names storage;
 
-        for (auto p (root.vars.find_namespace ("config"));
-             p.first != p.second;
-             ++p.first)
+        for (const auto& p: mod.vars)
         {
-          const variable& var (p.first->first);
-          const value& val (p.first->second);
-          const string& n (var.name);
+          const variable& var (p.first);
 
-          // Skip special variables.
+          lookup l (root[var]);
+
+          // We only write values that are set on our root scope or are global
+          // overrides. Anything in-between is inherited. We might also not
+          // have any value at all (see unconfigured()).
           //
-          if (n == "config.loaded" ||
-              n == "config.configured")
+          if (!l.defined () ||
+              !(l.belongs (root) || l.belongs (*global_scope)))
             continue;
 
-          // We will only write config.*.configured if it is false
-          // (true is implied by its absence).
+          const value& val (*l);
+
+          // We will only write config.*.configured if it is false (true is
+          // implied by its absence).
           //
+          // @@ Do we still need this?
+          //
+          const string& n (var.name);
+
           if (n.size () > 11 &&
               n.compare (n.size () - 11, 11, ".configured") == 0)
           {
             if (val == nullptr || cast<bool> (val))
               continue;
-          }
-
-          // Warn the user if the value that we are saving differs
-          // from the one they specified on the command line.
-          //
-          auto l ((*global_scope)[var]);
-          if (l.defined () && *l != val)
-          {
-            warn << "variable " << var.name << " configured value "
-                 << "differs from command line value" <<
-              info << "reconfigure the project to use command line value";
           }
 
           if (val)
@@ -138,7 +134,7 @@ namespace build2
             ofs << var.name << " = " << reverse (val, storage) << endl;
           }
           else
-            ofs << var.name << " = #[null]" << endl; // @@ TODO: [null]
+            ofs << var.name << " = [null]" << endl;
         }
       }
       catch (const ofstream::failure&)
@@ -148,12 +144,18 @@ namespace build2
     }
 
     static void
-    configure_project (action a, scope& root)
+    configure_project (action a, scope& root, set<scope*>& projects)
     {
       tracer trace ("configure_project");
 
       const dir_path& out_root (root.out_path ());
       const dir_path& src_root (root.src_path ());
+
+      if (!projects.insert (&root).second)
+      {
+        l5 ([&]{trace << "skipping already configured " << out_root;});
+        return;
+      }
 
       // Make sure the directories exist.
       //
@@ -200,7 +202,7 @@ namespace build2
           if (nroot.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
-          configure_project (a, nroot);
+          configure_project (a, nroot, projects);
         }
       }
     }
@@ -219,6 +221,8 @@ namespace build2
       // callbacks here since the meta operation is configure and we
       // know what we are doing.
       //
+      set<scope*> projects;
+
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
@@ -243,11 +247,12 @@ namespace build2
           match (action (configure_id, id), t);
         }
 
-        configure_project (a, *rs);
+        configure_project (a, *rs, projects);
       }
     }
 
     meta_operation_info configure {
+      configure_id,
       "configure",
       "configure",
       "configuring",
@@ -299,14 +304,20 @@ namespace build2
     disfigure_match (action, action_targets&) {}
 
     static bool
-    disfigure_project (action a, scope& root)
+    disfigure_project (action a, scope& root, set<scope*>& projects)
     {
       tracer trace ("disfigure_project");
 
-      bool m (false); // Keep track of whether we actually did anything.
-
       const dir_path& out_root (root.out_path ());
       const dir_path& src_root (root.src_path ());
+
+      if (!projects.insert (&root).second)
+      {
+        l5 ([&]{trace << "skipping already disfigured " << out_root;});
+        return true;
+      }
+
+      bool m (false); // Keep track of whether we actually did anything.
 
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
@@ -338,7 +349,7 @@ namespace build2
             bootstrap_src (nroot);
           }
 
-          m = disfigure_project (a, nroot) || m;
+          m = disfigure_project (a, nroot, projects) || m;
 
           // We use mkdir_p() to create the out_root of a subproject
           // which means there could be empty parent directories left
@@ -408,11 +419,13 @@ namespace build2
     {
       tracer trace ("disfigure_execute");
 
+      set<scope*> projects;
+
       for (void* v: ts)
       {
         scope& root (*static_cast<scope*> (v));
 
-        if (!disfigure_project (a, root))
+        if (!disfigure_project (a, root, projects))
         {
           // Create a dir{$out_root/} target to signify the project's
           // root in diagnostics. Not very clean but seems harmless.
@@ -428,6 +441,7 @@ namespace build2
     }
 
     meta_operation_info disfigure {
+      disfigure_id,
       "disfigure",
       "disfigure",
       "disfiguring",

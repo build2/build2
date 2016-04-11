@@ -72,7 +72,7 @@ namespace build2
       // Make sure we have the necessary configuration before
       // we get down to business.
       //
-      auto l (rs->vars["dist.root"]); //@@ OVR
+      auto l (rs->vars["dist.root"]);
 
       if (!l || l->empty ())
         fail << "unknown root distribution directory" <<
@@ -84,14 +84,14 @@ namespace build2
         fail << "root distribution directory " << dist_root
              << " does not exist";
 
-      l = rs->vars["dist.package"]; //@@ OVR
+      l = rs->vars["dist.package"];
 
       if (!l || l->empty ())
         fail << "unknown distribution package name" <<
           info << "did you forget to set dist.package?";
 
       const string& dist_package (cast<string> (l));
-      const path& dist_cmd (cast<path> (rs->vars["dist.cmd"])); // @@ OVR
+      const path& dist_cmd (cast<path> (rs->vars["dist.cmd"]));
 
       // Get the list of operations supported by this project. Skip
       // default_id.
@@ -281,7 +281,7 @@ namespace build2
 
       // Archive if requested.
       //
-      if (auto l = rs->vars["dist.archives"]) // @@ OVR
+      if (auto l = rs->vars["dist.archives"])
       {
         for (const string& e: cast<strings> (l))
           archive (dist_root, dist_package, e);
@@ -425,6 +425,7 @@ namespace build2
     }
 
     meta_operation_info dist {
+      dist_id,
       "dist",
       "distribute",
       "distributing",

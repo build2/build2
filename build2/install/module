@@ -15,11 +15,11 @@ namespace build2
   namespace install
   {
     extern "C" void
-    install_boot (scope&, const location&, unique_ptr<module>&);
+    install_boot (scope&, const location&, unique_ptr<module_base>&);
 
     extern "C" bool
     install_init (
-      scope&, scope&, const location&, unique_ptr<module>&, bool, bool);
+      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
   }
 }
 
