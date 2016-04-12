@@ -82,6 +82,6 @@ distribution. The following is the recommended sequence of steps:
     $ build2/b config.install.root=/usr/local config.install.root.sudo=sudo \
     'install(../libbutl-X.Y.Z/ ./)'
 
-    Note: you may want to use the config.bin.rpath configuration variable on
-    step 3 if your installation location is not searched automatically for
-    shared libraries. See the INSTALL file in build2-toolchain for details.
+    Note: you may want to add the config.bin.rpath configuration variable if
+    your installation location is not searched automatically for shared
+    libraries. See the INSTALL file in build2-toolchain for details.
