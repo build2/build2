@@ -39,7 +39,7 @@ fail "%foo=bar" "%foo=BAR" # error: multiple project overrides of variable foo
 
 test --buildfile simple foo=bar ./ ./ <<< "bar"  # Multiple bootstraps of the same project.
 
-# Visibility.
+# Visibility/qualification.
 #
 test !v=X <<EOF
 /     : X
@@ -61,7 +61,37 @@ p/d   : X
 p/d/t : X
 EOF
 
-test v=X p_a=assing <<EOF
+test ./:v=X <<EOF
+/     :
+.     : X
+d     : X
+d/t   : X
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
+test ./p/:v=X <<EOF
+/     :
+.     :
+d     :
+d/t   :
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
+test /v=X <<EOF
+/     :
+.     : X
+d     : X
+d/t   : X
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
+test v=X p_a=as <<EOF
 /     :
 .     : X
 d     : X
@@ -87,6 +117,16 @@ test %v=X p_a=as <<EOF
 d     : X
 d/t   : X
 p     : x
+p/d   : x
+p/d/t : x
+EOF
+
+test /v=X d_a=as p_d_a=as <<EOF
+/     :
+.     : X
+d     : x
+d/t   : x
+p     : X
 p/d   : x
 p/d/t : x
 EOF

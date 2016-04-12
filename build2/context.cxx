@@ -92,19 +92,37 @@ namespace build2
     //
     for (const string& s: cmd_vars)
     {
-      char c (s[0]); // Should at least have '='.
-      string a (s, c == '!' || c == '%' ? 1 : 0);
-
-      istringstream is (a);
+      istringstream is (s);
       is.exceptions (istringstream::failbit | istringstream::badbit);
       lexer l (is, path ("<cmdline>"));
 
-      // This should be a name followed by =, +=, or =+.
+      // The first token should be a name, either the variable name or the
+      // scope qualification.
       //
       token t (l.next ());
       token_type tt (l.next ().type);
 
-      if (t.type != token_type::name ||
+      dir_path dir;
+      if (t.type == token_type::name && tt == token_type::colon)
+      {
+        if (!path::traits::is_separator (t.value.back ()))
+          fail << "expected directory (with trailing slash) instead of "
+               << "'" << t.value << "'";
+
+        dir = dir_path (move (t.value));
+
+        if (dir.relative ())
+          dir.complete ();
+
+        dir.normalize ();
+
+        t = l.next ();
+        tt = l.next ().type;
+      }
+
+      // This should be the variable name followed by =, +=, or =+.
+      //
+      if (t.type != token_type::name || t.value.empty () ||
           (tt != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))
@@ -113,14 +131,20 @@ namespace build2
           info << "use double '--' to treat this argument as buildspec";
       }
 
-      const variable& var (var_pool.find (t.value));
-      const string& n (var.name);
-
-      // Calculate visibility and kind.
+      // Take care of the visibility. Note that here we rely on the fact that
+      // none of these characters are lexer's name separators.
       //
-      variable_visibility v (c == '%'
-                             ? variable_visibility::project
-                             : variable_visibility::normal);
+      char c (t.value[0]);
+      string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
+
+      if (c == '!' && !dir.empty ())
+        fail << "scope-qualified global override of variable " << n;
+
+      variable_visibility v (c == '/' ? variable_visibility::scope :
+                             c == '%' ? variable_visibility::project :
+                             variable_visibility::normal);
+
+      const variable& var (var_pool.find (n));
       const char* k (tt == token_type::assign ? ".__override" :
                      tt == token_type::append ? ".__suffix" : ".__prefix");
 
@@ -154,14 +178,24 @@ namespace build2
       // Make sure the value is not typed.
       //
       if (r.first.type != nullptr)
-        fail << "typed override of variable " << var.name;
+        fail << "typed override of variable " << n;
 
-      if (c == '!')
+      if (c == '!' || !dir.empty ())
       {
-        auto p (gs.vars.assign (*o));
+        scope& s (c == '!'
+                  ? gs
+                  : *scopes.insert (dir, nullptr, true, false)->second);
+
+        auto p (s.vars.assign (*o));
 
         if (!p.second)
-          fail << "multiple global overrides of variable " << var.name;
+        {
+          if (c == '!')
+            fail << "multiple global overrides of variable " << n;
+          else
+            fail << "multiple overrides of variable " << n
+                 << " in scope " << dir;
+        }
 
         value& v (p.first);
         v = move (r.first);
