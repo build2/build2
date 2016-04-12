@@ -97,7 +97,7 @@ namespace build2
         {
           const value& cv (config::optional (r, "config.dist.root"));
 
-          if (cv && !cv.empty ())
+          if (cv && !cv.empty ()) // @@ BC LT [null]
             v = cast<dir_path> (cv); // Strip abs_dir_path.
         }
       }
@@ -112,11 +112,9 @@ namespace build2
           const value& cv (
             config::required (r, "config.dist.cmd", path ("install")).first);
 
-          if (cv && !cv.empty ())
+          if (cv && !cv.empty ()) // @@ BC LT [null]
             v = cv;
         }
-        else
-          v = path ("install");
       }
 
       // dist.archives
@@ -128,7 +126,7 @@ namespace build2
         {
           const value& cv (config::optional (r, "config.dist.archives"));
 
-          if (cv && !cv.empty ())
+          if (cv && !cv.empty ()) // @@ BC LT [null]
             v = cv;
         }
       }

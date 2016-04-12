@@ -66,7 +66,7 @@ namespace build2
 
       if (spec)
       {
-        if (*cv && !cv->empty ())
+        if (*cv && !cv->empty ()) // @@ BC LT [null]
           v = cast<T> (*cv); // Strip CT to T.
       }
       else
