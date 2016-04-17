@@ -13,12 +13,110 @@ Version 0.3.0
 
   * Support for the Intel C++ compiler on Linux.
 
+  * New command line variable override semantics. A command line variable can
+    be an override (=), prefix (=+), or suffix (+=), for example:
+
+    b config.cxx=clang++ config.cxx.coptions+=-g config.cxx.poptions=+-I/tmp
+
+    Prefixes/suffixes are applied at the outsets of values set in buildfiles
+    provided these values were set using =+/+= and not expansion, for example:
+
+    b x=+P x+=S
+
+    x = y
+    print $x # P y S
+
+    x =+ p
+    x += s
+    print $x # P p y s S
+
+    But:
+
+    x = A $x B
+    print $x # A P p y s S B
+
+    By default an override is applied in all the projects mentioned in the
+    buildspec as well as in their subprojects. We can restrict an override
+    to not apply in subprojects by prefixing it with '%', for example:
+
+    b %config.cxx=clang++ configure
+
+    An override can also be made global (i.e., it applies in all projects,
+    including imported) by prefixing it with '!'. As an example, compare
+    these two command lines:
+
+    b config.cxx.coptions+=-g
+    b '!config.cxx.coptions+=-g'
+
+    In the first case only the current project and its subprojects will be
+    recompiled with the debug information. In the second case, everything that
+    the current project requires (e.g., imported libraries) will be rebuilt
+    with the debug information.
+
+    Finally, we can also specify the scope from which an override should
+    apply. For example, we may only want to rebuild tests with the debug
+    information:
+
+    b tests/:config.cxx.coptions+=-g
+
   * Command line options, variables, and buildspec can now be specified in any
     order. This is especially useful if you want to re-run the previous
     command with -v or add a forgotten config variable:
 
     b test -v
     b configure config.cxx=clang++
+
+  * Attribute support. Attributes are key or key=value pairs enclosed in []
+    and separated with spaces. They come before the entity they apply to.
+    Currently we recognize attributes for variables and values. For variables
+    we recognize the following keys as types:
+
+    bool
+    uint64
+    string
+    path
+    dir_path
+    abs_dir_path
+    name
+    strings
+    paths
+    dir_paths
+    names
+
+    For example:
+
+    [uint64] x = 01
+    print $x # 1
+    x += 1
+    print $x # 2
+
+    Note that variable types are global, which means you could type a variable
+    that is used by another project for something completely different. As a
+    result, typing of values (see below) is recommended over variables. If you
+    do type a variable, make sure it has a namespace (typing of unqualified
+    variables may become an illegal).
+
+    For values we recognize the same set of types plus 'null'. The value type
+    is preserved in prepend/append (=+/+=) but not in assignment. For example:
+
+    x = [uint64] 01
+    print $x # 1
+    x += 1
+    print $x # 2
+
+    x = [string] 01
+    print $x # 01
+    x += 1
+    print $x # 011
+
+    x = [null]
+    print $x # [null]
+
+  * Add support for scope/target-qualified variable expansion. For example:
+
+    print $(dir/:x)
+    print $(file{target}:x)
+    print $(dir/file{target}:x)
 
   * Implement C++ compiler detection. Currently recognized compilers and their
     ids (in the <type>[-<variant>] form):
@@ -73,6 +171,9 @@ Version 0.3.0
     least.
 
   * Allow escaping in double-quoted strings.
+
+  * Implement --buildfile option that can be used to specify the alternative
+    file to read build information from. If '-' is specified, read from STDIN.
 
 Version 0.2.0
 
