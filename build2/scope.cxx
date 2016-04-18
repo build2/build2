@@ -326,7 +326,7 @@ namespace build2
     // while we still need to apply prefixes/suffixes in the type-aware way.
     //
     if (cache.value.type == nullptr && var.type != nullptr)
-      typify (cache.value, *var.type, var);
+      typify (cache.value, *var.type, &var);
 
     // Now apply override prefixes and suffixes. Also calculate the vars and
     // depth of the result, which will be those of the stem or prefix/suffix
@@ -362,11 +362,11 @@ namespace build2
 
         if (l) // No sense to prepend/append if NULL.
         {
-          cache.value.prepend (names (cast<names> (l)), var);
+          cache.value.prepend (names (cast<names> (l)), &var);
         }
         else if ((l = find (o, ".__suffix")))
         {
-          cache.value.append (names (cast<names> (l)), var);
+          cache.value.append (names (cast<names> (l)), &var);
         }
 
         if (l.defined ())

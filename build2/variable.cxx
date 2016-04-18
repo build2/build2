@@ -138,7 +138,7 @@ namespace build2
   }
 
   void value::
-  assign (names&& ns, const variable& var)
+  assign (names&& ns, const variable* var)
   {
     assert (type == nullptr || type->assign != nullptr);
 
@@ -165,7 +165,7 @@ namespace build2
   }
 
   void value::
-  append (names&& ns, const variable& var)
+  append (names&& ns, const variable* var)
   {
     bool r;
 
@@ -194,8 +194,14 @@ namespace build2
     else
     {
       if (type->append == nullptr)
-        fail << type->name << " value in variable " << var.name
-             << " cannot be appended to";
+      {
+        diag_record dr (fail);
+
+        dr << "cannot append to " << type->name << " value";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
 
       r = type->append (*this, move (ns), var);
     }
@@ -204,7 +210,7 @@ namespace build2
   }
 
   void value::
-  prepend (names&& ns, const variable& var)
+  prepend (names&& ns, const variable* var)
   {
     bool r;
 
@@ -234,8 +240,14 @@ namespace build2
     else
     {
       if (type->prepend == nullptr)
-        fail << type->name << " value in variable " << var.name
-             << " cannot be prepended to";
+      {
+        diag_record dr (fail);
+
+        dr << "cannot prepend to " << type->name << " value";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
 
       r = type->prepend (*this, move (ns), var);
     }
@@ -246,13 +258,18 @@ namespace build2
   bool
   operator== (const value& x, const value& y)
   {
-    assert (x.type == y.type);
+    bool xn (x.null ());
+    bool yn (y.null ());
+
+    assert (x.type == y.type ||
+            (xn && x.type == nullptr) ||
+            (yn && y.type == nullptr));
 
     if (x.state != y.state)
       return false;
 
-    if (x.null ())
-      return true;
+    if (xn)
+      return true; // Both are NULL since same state.
 
     if (x.type == nullptr)
       return x.as<names> () == y.as<names> ();
@@ -264,7 +281,7 @@ namespace build2
   }
 
   void
-  typify (value& v, const value_type& t, const variable& var)
+  typify (value& v, const value_type& t, const variable* var)
   {
     if (v.type == nullptr)
     {
@@ -282,9 +299,16 @@ namespace build2
     }
     else if (v.type != &t)
     {
-      fail << "variable " << var.name << " type mismatch" <<
-        info << "value type is " << v.type->name <<
-        info << (&t == var.type ? "variable" : "new") << " type is " << t.name;
+      diag_record dr (fail);
+
+      dr << "type mismatch";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << info << "value type is " << v.type->name;
+      dr << info << (var != nullptr && &t == var->type ? "variable" : "new")
+         << " type is " << t.name;
     }
   }
 
@@ -650,7 +674,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (r != nullptr && var.type != nullptr && r->type != var.type)
-      typify (const_cast<value&> (*r), *var.type, var);
+      typify (const_cast<value&> (*r), *var.type, &var);
 
     return  r;
   }
@@ -664,7 +688,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (r != nullptr && var.type != nullptr && r->type != var.type)
-      typify (*r, *var.type, var);
+      typify (*r, *var.type, &var);
 
     return  r;
   }
@@ -678,7 +702,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (!r.second && var.type != nullptr && v.type != var.type)
-      typify (v, *var.type, var);
+      typify (v, *var.type, &var);
 
     return make_pair (reference_wrapper<value> (v), r.second);
   }

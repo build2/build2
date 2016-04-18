@@ -5,6 +5,8 @@
 #ifndef BUILD2_PARSER
 #define BUILD2_PARSER
 
+#include <stack>
+
 #include <build2/types>
 #include <build2/utility>
 
@@ -87,31 +89,61 @@ namespace build2
     string
     variable_name (names_type&&, const location&);
 
-    pair<names_type, bool> // See names_null() return type.
+    // Note: calls attributes_push() that the caller must pop.
+    //
+    value
     variable_value (token&, token_type&);
 
     void
     variable_attributes (const variable_type&);
 
     void
-    value_attributes (const variable_type&,
+    value_attributes (const variable_type*, // Optional.
                       value& lhs,
-                      pair<names_type, bool>&& rhs,
+                      value&& rhs,
                       token_type kind);
 
-    pair<names_type, bool> // See names_null() return type.
+    value
     eval (token&, token_type&);
 
-    bool
-    eval_trailer (token&, token_type&, names_type&);
+    value
+    eval_trailer (token&, token_type&);
 
-    // If the next token is '[' parse the attribute sequence until ']' storing
-    // the result in the ha_/as_/al_ members (which are only valid until the
-    // next call). Then get the next token and, if standalone is false, verify
-    // it is not newline/eos (i.e., there is something after it).  Return ha_.
+    // Attributes stack. We can have nested attributes, for example:
     //
-    bool
-    attributes (token&, token_type&, bool standalone = false);
+    // x = [bool] ([uint64] $x == [uint64] $y)
+    //
+    // In this example we only apply the value attributes after evaluating
+    // the context, which has its own attributes.
+    //
+    struct attributes
+    {
+      bool has;                         // Has attributes flag.
+      location loc;                     // Start of attributes location.
+      vector<pair<string, string>> ats; // Attributes.
+
+      explicit operator bool () const {return has;}
+    };
+
+    // Push a new entry into the attributes_ stack. If the next token is '['
+    // parse the attribute sequence until ']' setting the 'has' flag and
+    // storing the result on the stack. Then get the next token and, if
+    // standalone is false, verify it is not newline/eos (i.e., there is
+    // something after it). Return the top of the stack.
+    //
+    attributes&
+    attributes_push (token&, token_type&, bool standalone = false);
+
+    attributes
+    attributes_pop ()
+    {
+      attributes r (move (attributes_.top ()));
+      attributes_.pop ();
+      return r;
+    }
+
+    attributes&
+    attributes_top () {return attributes_.top ();}
 
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with
@@ -125,18 +157,22 @@ namespace build2
       return ns;
     }
 
-    // As above but also indicate if the value is NOT NULL. The only way for
-    // the value to be NULL is if it is the result of a sole, unquoted
-    // variable expansion, function call, or context evaluation.
+    // As above but return the result as a value (always untyped) indicating
+    // if it is NULL. The only way for the value to be NULL is if it is the
+    // result of a sole, unquoted variable expansion, function call, or
+    // context evaluation.
     //
-    pair<names_type, bool>
-    names_null (token& t, token_type& tt)
+    value
+    names_value (token& t, token_type& tt)
     {
       names_type ns;
-      bool n (names (t, tt, ns, false, 0, nullptr, nullptr, nullptr));
-      return make_pair (move (ns), n);
+      return names (t, tt, ns, false, 0, nullptr, nullptr, nullptr)
+        ? value (move (ns))
+        : value (nullptr);
     }
 
+    // Return true if the parsed value is NOT NULL.
+    //
     bool
     names (token& t, token_type& tt, names_type& ns, bool chunk = false)
     {
@@ -321,9 +357,7 @@ namespace build2
     scope* scope_;   // Current base scope (out_base).
     scope* root_;    // Current root scope (out_root).
 
-    bool ha_;                         // Has attributes flag.
-    location al_;                     // Current attributes location.
-    vector<pair<string, string>> as_; // Current attributes.
+    std::stack<attributes> attributes_;
 
     target* default_target_;
     names_type export_value_;

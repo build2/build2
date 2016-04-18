@@ -143,6 +143,8 @@ namespace build2
     case ':': return token (type::colon, sep, ln, cn);
     case '{': return token (type::lcbrace, sep, ln, cn);
     case '}': return token (type::rcbrace, sep, ln, cn);
+    case '[': return token (type::lsbrace, sep, ln, cn);
+    case ']': return token (type::rsbrace, sep, ln, cn);
     case '$': return token (type::dollar, sep, ln, cn);
     case '(': return token (type::lparen, sep, ln, cn);
     case ')':

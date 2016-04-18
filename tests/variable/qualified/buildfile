@@ -1,5 +1,5 @@
-#v = (:bar) # error: expected name instead of ':'
-#v = (foo:) # error: scope/target expected after ':'
+#v = (foo:) # error: variable name expected before ':'
+#v = (:bar) # error: scope/target expected after ':'
 
 print (foo:bar)
 print (foo :bar)

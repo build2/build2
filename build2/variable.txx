@@ -37,7 +37,7 @@ namespace build2
 
   template <typename T, bool empty>
   bool
-  simple_assign (value& v, names&& ns, const variable& var)
+  simple_assign (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
@@ -54,14 +54,20 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    error << "invalid " << value_traits<T>::value_type.name
-          << " value '" << ns << "' in variable " << var.name;
+    diag_record dr (error);
+
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
+
+    if (var != nullptr)
+      dr << " in variable " << var->name;
+
     throw failed ();
   }
 
   template <typename T, bool empty>
   bool
-  simple_append (value& v, names&& ns, const variable& var)
+  simple_append (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
@@ -78,14 +84,20 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    error << "invalid " << value_traits<T>::value_type.name
-          << " value '" << ns << "' in variable " << var.name;
+    diag_record dr (error);
+
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
+
+    if (var != nullptr)
+      dr << " in variable " << var->name;
+
     throw failed ();
   }
 
   template <typename T, bool empty>
   bool
-  simple_prepend (value& v, names&& ns, const variable& var)
+  simple_prepend (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
@@ -102,8 +114,14 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    error << "invalid " << value_traits<T>::value_type.name
-          << " value '" << ns << "' in variable " << var.name;
+    diag_record dr (error);
+
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
+
+    if (var != nullptr)
+      dr << " in variable " << var->name;
+
     throw failed ();
   }
 
@@ -127,7 +145,7 @@ namespace build2
 
   template <typename T>
   bool
-  vector_append (value& v, names&& ns, const variable& var)
+  vector_append (value& v, names&& ns, const variable* var)
   {
     vector<T>* p (v.null ()
                   ? new (&v.data_) vector<T> ()
@@ -145,10 +163,16 @@ namespace build2
         r = &*++i;
 
         if (n.pair != '@')
-          fail << "unexpected pair style for "
-               << value_traits<T>::value_type.name << " value "
-               << "'" << n << "'" << n.pair << "'" << *r << "' "
-               << "in variable " << var.name;
+        {
+          diag_record dr (fail);
+
+          dr << "unexpected pair style for "
+             << value_traits<T>::value_type.name << " value "
+             << "'" << n << "'" << n.pair << "'" << *r << "'";
+
+          if (var != nullptr)
+            dr << " in variable " << var->name;
+        }
       }
 
       try
@@ -166,7 +190,8 @@ namespace build2
         else
           dr << " element '" << n << "'";
 
-        dr << " in variable " << var.name;
+        if (var != nullptr)
+          dr << " in variable " << var->name;
       }
     }
 
@@ -175,7 +200,7 @@ namespace build2
 
   template <typename T>
   bool
-  vector_assign (value& v, names&& ns, const variable& var)
+  vector_assign (value& v, names&& ns, const variable* var)
   {
     if (!v.null ())
       v.as<vector<T>> ().clear ();
@@ -185,7 +210,7 @@ namespace build2
 
   template <typename T>
   bool
-  vector_prepend (value& v, names&& ns, const variable& var)
+  vector_prepend (value& v, names&& ns, const variable* var)
   {
     // Reduce to append.
     //
@@ -270,7 +295,7 @@ namespace build2
   //
   template <typename K, typename V>
   bool
-  map_append (value& v, names&& ns, const variable& var)
+  map_append (value& v, names&& ns, const variable* var)
   {
     using std::map;
 
@@ -285,17 +310,29 @@ namespace build2
       name& l (*i);
 
       if (!l.pair)
-        fail << value_traits<map<K, V>>::value_type.name << " key-value "
-             << "pair expected instead of '" << l << "' "
-             << "in variable " << var.name;
+      {
+        diag_record dr (fail);
+
+        dr << value_traits<map<K, V>>::value_type.name << " key-value "
+           << "pair expected instead of '" << l << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
 
       name& r (*++i); // Got to have the second half of the pair.
 
       if (l.pair != '@')
-        fail << "unexpected pair style for "
-             << value_traits<map<K, V>>::value_type.name << " key-value "
-             << "'" << l << "'" << l.pair << "'" << r << "' "
-             << "in variable " << var.name;
+      {
+        diag_record dr (fail);
+
+        dr << "unexpected pair style for "
+           << value_traits<map<K, V>>::value_type.name << " key-value "
+           << "'" << l << "'" << l.pair << "'" << r << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
 
       try
       {
@@ -309,14 +346,24 @@ namespace build2
         }
         catch (const invalid_argument&)
         {
-          fail << "invalid " << value_traits<V>::value_type.name
-               << " element value '" << r << "' in variable " << var.name;
+          diag_record dr (fail);
+
+          dr << "invalid " << value_traits<V>::value_type.name
+             << " element value '" << r << "'";
+
+          if (var != nullptr)
+            dr << " in variable " << var->name;
         }
       }
       catch (const invalid_argument&)
       {
-        fail << "invalid " << value_traits<K>::value_type.name
-             << " element key '" << l << "' in variable " << var.name;
+        diag_record dr (fail);
+
+        dr << "invalid " << value_traits<K>::value_type.name
+           << " element key '" << l << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
       }
     }
 
@@ -325,7 +372,7 @@ namespace build2
 
   template <typename K, typename V>
   bool
-  map_assign (value& v, names&& ns, const variable& var)
+  map_assign (value& v, names&& ns, const variable* var)
   {
     using std::map;
 

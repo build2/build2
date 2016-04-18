@@ -50,13 +50,13 @@ namespace build2
     void (*const copy_assign) (value&, const value&, bool move);
 
     // While assign cannot be NULL, if append or prepend is NULL, then this
-    // means this type doesn't support this operation. Variable is provided
-    // primarily for diagnostics. Return true if the resulting value is not
-    // empty.
+    // means this type doesn't support this operation. Variable is optional
+    // and is provided only for diagnostics. Return true if the resulting
+    // value is not empty.
     //
-    bool (*const assign) (value&, names&&, const variable&);
-    bool (*const append) (value&, names&&, const variable&);
-    bool (*const prepend) (value&, names&&, const variable&);
+    bool (*const assign) (value&, names&&, const variable*);
+    bool (*const append) (value&, names&&, const variable*);
+    bool (*const prepend) (value&, names&&, const variable*);
 
     // Reverse the value back to a vector of names. Storage can be used by the
     // implementation if necessary. Cannot be NULL.
@@ -141,10 +141,10 @@ namespace build2
     bool operator== (nullptr_t) const {return null ();}
     bool operator!= (nullptr_t) const {return !null ();}
 
-    // Creation. A newly created value is NULL and can be reset back to NULL
-    // by assigning nullptr. Values can be copied and copy-assigned. Note that
-    // for assignment, the values' types should be the same or LHS should be
-    // untyped.
+    // Creation. A default-initialzied value is NULL and can be reset back to
+    // NULL by assigning nullptr. Values can be copied and copy-assigned. Note
+    // that for assignment, the values' types should be the same or LHS should
+    // be untyped.
     //
     //
   public:
@@ -153,6 +153,9 @@ namespace build2
     explicit
     value (const value_type* t = nullptr)
         : type (t), state (value_state::null), extra (0) {}
+
+    explicit
+    value (names&&); // Create untyped value.
 
     // Note: preserves type.
     //
@@ -182,17 +185,17 @@ namespace build2
     value& operator= (const char* v) {return *this = string (v);}
     value& operator+= (const char* v) {return *this += string (v);}
 
-    // Assign/append/prepend raw data. Variable is normally only used for
-    // diagnostics.
+    // Assign/append/prepend raw data. Variable is optional and is only used
+    // for diagnostics.
     //
     void
-    assign (names&&, const variable&);
+    assign (names&&, const variable*);
 
     void
-    append (names&&, const variable&);
+    append (names&&, const variable*);
 
     void
-    prepend (names&&, const variable&);
+    prepend (names&&, const variable*);
 
     // Implementation details, don't use directly except in representation
     // type implementations.
@@ -224,8 +227,8 @@ namespace build2
     reset ();
   };
 
-  // The values should be of the same type (or both be untyped). NULL values
-  // compare equal.
+  // The values should be of the same type (or both be untyped) except NULL
+  // values can also be untyped. NULL values compare equal.
   //
   bool operator== (const value&, const value&);
   bool operator!= (const value&, const value&);
@@ -249,18 +252,21 @@ namespace build2
   template <typename T> const T* cast_null (const value&);
   template <typename T> const T* cast_null (const lookup&);
 
-  // Assign value type to the value. Variable is normally only used for
-  // diagnostics.
+  // Assign value type to the value. In the second version the variable is
+  // optional and is only used for diagnostics.
   //
   template <typename T>
   void typify (value&, const variable&);
-  void typify (value&, const value_type&, const variable&);
+  void typify (value&, const value_type&, const variable*);
 
   // Reverse the value back to names. The value should no be NULL and storage
   // should be empty.
   //
   names_view
   reverse (const value&, names& storage);
+
+  vector_view<name>
+  reverse (value&, names& storage);
 
   // lookup
   //
@@ -395,15 +401,15 @@ namespace build2
   //
   template <typename T, bool empty>
   static bool
-  simple_assign (value&, names&&, const variable&);
+  simple_assign (value&, names&&, const variable*);
 
   template <typename T, bool empty>
   static bool
-  simple_append (value&, names&&, const variable&);
+  simple_append (value&, names&&, const variable*);
 
   template <typename T, bool empty>
   static bool
-  simple_prepend (value&, names&&, const variable&);
+  simple_prepend (value&, names&&, const variable*);
 
   // Default implementations of the reverse callback for simple types that
   // calls value_traits<T>::reverse() and adds the result to the vector. As a

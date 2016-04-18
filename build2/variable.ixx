@@ -8,6 +8,15 @@ namespace build2
 {
   // value
   //
+  inline value::
+  value (names&& ns)
+      : type (nullptr),
+        state (ns.empty () ? value_state::empty : value_state::filled),
+        extra (0)
+  {
+    new (&data_) names (move (ns));
+  }
+
   inline value& value::
   operator= (reference_wrapper<value> v)
   {
@@ -146,7 +155,7 @@ namespace build2
     value_type& t (value_traits<T>::value_type);
 
     if (v.type != &t)
-      typify (v, t, var);
+      typify (v, t, &var);
   }
 
   inline names_view
@@ -156,6 +165,13 @@ namespace build2
             storage.empty () &&
             (v.type == nullptr || v.type->reverse != nullptr));
     return v.type == nullptr ? v.as<names> () : v.type->reverse (v, storage);
+  }
+
+  inline vector_view<name>
+  reverse (value& v, names& storage)
+  {
+    names_view cv (reverse (static_cast<const value&> (v), storage));
+    return vector_view<name> (const_cast<name*> (cv.data ()), cv.size ());
   }
 
   // value_traits
@@ -610,7 +626,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      typify (const_cast<value&> (val), *var.type, var);
+      typify (const_cast<value&> (val), *var.type, &var);
 
     return r;
   }
@@ -626,7 +642,7 @@ namespace build2
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      typify (const_cast<value&> (val), *var.type, var);
+      typify (const_cast<value&> (val), *var.type, &var);
 
     return p;
   }

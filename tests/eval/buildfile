@@ -42,3 +42,19 @@ print "foo equals bar is (foo == bar)"
 foo = foo
 print ($foo == foo)
 print (bar != $foo)
+
+print ([null])
+print (([null]))
+print ([uint64] 01)
+
+n = [null]
+print ($n == [null])
+print ($N == [null])
+print ([null] == [null])
+
+print ($n == $N == true)
+
+n =
+print ($n == )
+n = {}
+print ($n == "")
