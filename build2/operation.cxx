@@ -54,11 +54,10 @@ namespace build2
     //
     load_root_pre (root);
 
-    // Create the base scope. Note that its existence doesn't
-    // mean it was already setup as a base scope; it can be the
-    // same as root.
+    // Create the base scope. Note that its existence doesn't mean it was
+    // already setup as a base scope; it can be the same as root.
     //
-    auto i (scopes.insert (out_base, nullptr, true, false));
+    auto i (scopes.insert (out_base, false));
     scope& base (setup_base (i, out_base, src_base));
 
     // Load the buildfile unless it has already been loaded.

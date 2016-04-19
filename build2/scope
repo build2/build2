@@ -27,16 +27,14 @@ namespace build2
   public:
     // Absolute and normalized.
     //
-    const dir_path&
-    out_path () const {return *out_path_;}
+    const dir_path& out_path () const {return *out_path_;}
+    const dir_path& src_path () const {return *src_path_;}
 
-    const dir_path&
-    src_path () const {return *src_path_;}
-
-    // These are pointers to the keys in scope_map.
+    // The first is a pointer to the key in scope_map. The second is a pointer
+    // to the src_root/base variable value, if any (i.e., it can be NULL).
     //
-    const dir_path* out_path_ {nullptr};
-    const dir_path* src_path_ {nullptr};
+    const dir_path* out_path_ = nullptr;
+    const dir_path* src_path_ = nullptr;
 
     bool
     root () const {return root_ == this;}
@@ -230,22 +228,6 @@ namespace build2
   public:
     loaded_module_map modules; // Only on root scope.
 
-  public:
-    bool
-    empty () const
-    {
-      return
-        vars.empty () &&
-        target_vars.empty () &&
-        prerequisites.empty () &&
-        meta_operations.empty () &&
-        operations.empty () &&
-        buildfiles.empty () &&
-        target_types.empty () &&
-        rules.empty () &&
-        modules.empty ();
-    }
-
   private:
     friend class scope_map;
     friend class temp_scope;
@@ -284,27 +266,26 @@ namespace build2
     }
   };
 
-  class scope_map
+  // Note that the scope map is only for paths from the out tree.
+  //
+  using scope_map_base = butl::dir_path_map<scope>;
+
+  class scope_map: public scope_map_base
   {
   public:
-    using map_type = butl::dir_path_map<scope*>;
-    using iterator = map_type::iterator;
-    using const_iterator = map_type::const_iterator;
-
-    // Note that we assume the first insertion into the map is that
-    // of the global scope. If the passed scope pointer is not NULL,
-    // then insert this scope instead of a new one.
+    // Note that we assume the first insertion into the map is always the
+    // global scope.
     //
     iterator
-    insert (const dir_path&, scope*, bool parent, bool root);
+    insert (const dir_path&, bool root);
 
     // Find the most qualified scope that encompasses this path.
     //
     scope&
-    find (const dir_path&) const;
+    find (const dir_path&);
 
     scope&
-    find (const path& p) const
+    find (const path& p)
     {
       // Natural thing to do here would be to call find (p.directory ()).
       // However, there could be a situation where the passed path is a
@@ -313,17 +294,6 @@ namespace build2
       //
       return find (dir_path (p.string ()));
     }
-
-    const_iterator begin () const {return map_.begin ();}
-    const_iterator end () const {return map_.end ();}
-
-    void
-    clear ();
-
-    ~scope_map () {clear ();}
-
-  private:
-    map_type map_;
   };
 
   extern scope_map scopes;

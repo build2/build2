@@ -77,9 +77,9 @@ namespace build2
     // <build2/path-map> for details.
     //
     {
-      auto i (scopes.insert (dir_path ("/"), nullptr, true, false));
-      global_scope = i->second;
-      global_scope->out_path_ = global_scope->src_path_ = &i->first;
+      auto i (scopes.insert (dir_path ("/"), false));
+      global_scope = &i->second;
+      global_scope->out_path_ = &i->first;
     }
 
     scope& gs (*global_scope);
@@ -182,10 +182,7 @@ namespace build2
 
       if (c == '!' || !dir.empty ())
       {
-        scope& s (c == '!'
-                  ? gs
-                  : *scopes.insert (dir, nullptr, true, false)->second);
-
+        scope& s (c == '!' ? gs : scopes.insert (dir, false)->second);
         auto p (s.vars.assign (*o));
 
         if (!p.second)
@@ -412,31 +409,29 @@ namespace build2
   dir_path
   src_out (const dir_path& out, scope& s)
   {
-    scope& rs (*s.root_scope ());
-    return src_out (out, rs.out_path (), rs.src_path ());
+    return src_out (out, s.out_path (), s.src_path ());
   }
 
   dir_path
   out_src (const dir_path& src, scope& s)
   {
-    scope& rs (*s.root_scope ());
-    return out_src (src, rs.out_path (), rs.src_path ());
+    return out_src (src, s.out_path (), s.src_path ());
   }
 
   dir_path
   src_out (const dir_path& o,
-           const dir_path& out_root, const dir_path& src_root)
+           const dir_path& out_base, const dir_path& src_base)
   {
-    assert (o.sub (out_root));
-    return src_root / o.leaf (out_root);
+    assert (o.sub (out_base));
+    return src_base / o.leaf (out_base);
   }
 
   dir_path
   out_src (const dir_path& s,
-           const dir_path& out_root, const dir_path& src_root)
+           const dir_path& out_base, const dir_path& src_base)
   {
-    assert (s.sub (src_root));
-    return out_root / s.leaf (src_root);
+    assert (s.sub (src_base));
+    return out_base / s.leaf (src_base);
   }
 
   // relative()

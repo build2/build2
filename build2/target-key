@@ -22,7 +22,8 @@ namespace build2
   {
   public:
     const target_type* const  type;
-    const dir_path* const     dir;
+    const dir_path* const dir; // Can be relative if part of prerequisite_key.
+    const dir_path* const out; // Can be relative if part of prerequisite_key.
     const string* const  name;
     const string* const& ext;
 
@@ -32,17 +33,18 @@ namespace build2
       const target_type* xt (x.type);
       const target_type* yt (y.type);
 
-      //@@ TODO: use compare() to compare once.
+      int t, n, d, o;
 
       // Unspecified and specified extension are assumed equal. The
       // extension strings are from the pool, so we can just compare
       // pointers.
       //
       return
-        (xt < yt) ||
-        (xt == yt && *x.name < *y.name) ||
-        (xt == yt && *x.name == *y.name && *x.dir < *y.dir) ||
-        (xt == yt && *x.name == *y.name && *x.dir == *y.dir &&
+        ((t = xt < yt ? -1 : xt > yt ? 1 : 0) < 0) ||
+        (t == 0 && (n = x.name->compare (*y.name)) < 0) ||
+        (t == 0 &&  n == 0 && (d = x.dir->compare (*y.dir)) < 0) ||
+        (t == 0 &&  n == 0 &&  d == 0 && (o = x.out->compare (*y.out)) < 0) ||
+        (t == 0 &&  n == 0 &&  d == 0 &&  o == 0 &&
          x.ext != nullptr && y.ext != nullptr && *x.ext < *y.ext);
     }
   };

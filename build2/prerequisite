@@ -27,8 +27,8 @@ namespace build2
     typedef build2::scope scope_type;
 
     mutable const string* proj; // Can be NULL, from project_name_pool.
-    target_key tk;
-    mutable scope_type* scope; // Can be NULL if tk.dir is absolute.
+    target_key tk;              // .dir and .out can be relative.
+    mutable scope_type* scope;  // Can be NULL if tk.dir is absolute.
   };
 
   inline bool
@@ -51,30 +51,36 @@ namespace build2
     typedef build2::target_type target_type_type;
     typedef build2::scope scope_type;
 
+    // Note that unlike targets, for prerequisites an empty out directory
+    // means undetermined rather than being definitely in the out tree.
+    //
+    const string* const proj; // NULL if not project-qualified.
+    const target_type_type& type;
+    const dir_path dir;      // Normalized absolute or relative (to scope).
+    const dir_path out;      // Empty, normalized absolute, or relative.
+    const string name;
+    const string* ext;       // NULL if unspecified.
+    scope_type& scope;
+    target_type* target;     // NULL if not yet resolved. Note that this should
+                             // always be the "primary target", not a member of
+                             // a target group.
+
+  public:
     prerequisite (const string* p,
                   const target_type_type& t,
                   dir_path d,
+                  dir_path o,
                   string n,
                   const string* e,
                   scope_type& s)
         : proj (p),
           type (t),
           dir (move (d)),
+          out (move (o)),
           name (move (n)),
           ext (e),
           scope (s),
           target (nullptr) {}
-
-  public:
-    const string* const proj; // NULL if not project-qualified.
-    const target_type_type& type;
-    const dir_path dir;      // Normalized absolute or relative (to scope).
-    const string name;
-    const string* ext;  // NULL if unspecified.
-    scope_type& scope;
-    target_type* target;     // NULL if not yet resolved. Note that this should
-                             // always be the "primary target", not a member of
-                             // a target group.
 
     // Note that the returned key "tracks" the prerequisite; that is, any
     // updates to the prerequisite's members will be reflected in the key.
@@ -82,7 +88,7 @@ namespace build2
     prerequisite_key
     key () const
     {
-      return prerequisite_key {proj, {&type, &dir, &name, ext}, &scope};
+      return prerequisite_key {proj, {&type, &dir, &out, &name, ext}, &scope};
     }
 
   public:
@@ -113,6 +119,7 @@ namespace build2
     insert (const string* proj,
             const target_type&,
             dir_path dir,
+            dir_path out,
             string name,
             const string* ext,
             scope&,
@@ -121,7 +128,7 @@ namespace build2
     pair<prerequisite&, bool>
     insert (const string* proj, const target_key& tk, scope& s, tracer& t)
     {
-      return insert (proj, *tk.type, *tk.dir, *tk.name, tk.ext, s, t);
+      return insert (proj, *tk.type, *tk.dir, *tk.out, *tk.name, tk.ext, s, t);
     }
   };
 }

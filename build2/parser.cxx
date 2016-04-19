@@ -94,7 +94,12 @@ namespace build2
 
       // Find or insert.
       //
-      p.target_ = &targets.insert (*ti, move (d), move (n.value), e, tr).first;
+      // @@ OUT: for now we assume the target is always in the out tree. The
+      // only way to specify an src prerequisite will be with the explicit
+      // @-syntax.
+      //
+      p.target_ = &targets.insert (
+        *ti, move (d), dir_path (), move (n.value), e, tr).first;
     }
 
     ~enter_target ()
@@ -120,8 +125,6 @@ namespace build2
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
-    enter_buildfile (p);
-
     path_ = &p;
 
     lexer l (is, *path_);
@@ -130,6 +133,8 @@ namespace build2
     scope_ = &base;
     root_ = &root;
     default_target_ = nullptr;
+
+    enter_buildfile (p); // Needs scope_.
 
     token t (type::eos, false, 0, 0);
     type tt;
@@ -512,11 +517,22 @@ namespace build2
 
               // Find or insert.
               //
+              // @@ OUT: for now we assume the prerequisite's out is
+              // undetermined. The only way to specify an src prerequisite
+              // will be with the explicit @-syntax.
+              //
+              // Perhaps use @file{foo} as a way to specify it is in the out
+              // tree, e.g., to suppress any src searches? The issue is what
+              // to use for such a special indicator. Also, one can easily and
+              // natually suppress any searches by specifying the absolute
+              // path.
+              //
               prerequisite& p (
                 scope_->prerequisites.insert (
                   pn.proj,
                   *ti,
                   move (pn.dir),
+                  dir_path (),
                   move (pn.value),
                   e,
                   *scope_,
@@ -622,8 +638,8 @@ namespace build2
       // If the path is relative then use the src directory corresponding
       // to the current directory scope.
       //
-      if (root_->src_path_ != nullptr && p.relative ())
-        p = src_out (scope_->out_path (), *root_) / p;
+      if (scope_->src_path_ != nullptr && p.relative ())
+        p = scope_->src_path () / p;
 
       p.normalize ();
 
@@ -1084,7 +1100,11 @@ namespace build2
   }
 
   static target*
-  derived_factory (const target_type& t, dir_path d, string n, const string* e)
+  derived_factory (const target_type& t,
+                   dir_path d,
+                   dir_path o,
+                   string n,
+                   const string* e)
   {
     // Pass our type to the base factory so that it can detect that it is
     // being called to construct a derived target. This can be used, for
@@ -1097,7 +1117,7 @@ namespace build2
     const target_type* bt (t.base);
     for (; bt->factory == &derived_factory; bt = bt->base) ;
 
-    target* r (bt->factory (t, move (d), move (n), e));
+    target* r (bt->factory (t, move (d), move (o), move (n), e));
     r->derived_type = &t;
     return r;
   }
@@ -2734,11 +2754,11 @@ namespace build2
   {
     tracer trace ("parser::switch_scope", &path_);
 
-    // First, enter the scope into the map and see if it is in any
-    // project. If it is not, then there is nothing else to do.
+    // First, enter the scope into the map and see if it is in any project. If
+    // it is not, then there is nothing else to do.
     //
-    auto i (scopes.insert (p, nullptr, true, false));
-    scope_ = i->second;
+    auto i (scopes.insert (p, false));
+    scope_ = &i->second;
     scope* rs (scope_->root_scope ());
 
     if (rs == nullptr)
@@ -2791,6 +2811,7 @@ namespace build2
     if (default_target_ == nullptr ||      // No targets in this buildfile.
         targets.find (dir::static_type,    // Explicit current dir target.
                       scope_->out_path (),
+                      dir_path (),         // Out tree target.
                       "",
                       nullptr,
                       trace) != targets.end ())
@@ -2801,17 +2822,18 @@ namespace build2
     l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
 
     target& ct (
-      targets.insert (
-        dir::static_type, scope_->out_path (), "", nullptr, trace).first);
+      targets.insert (dir::static_type,
+                      scope_->out_path (),
+                      dir_path (),
+                      "",
+                      nullptr,
+                      trace).first);
 
     prerequisite& p (
       scope_->prerequisites.insert (
         nullptr,
-        dt.type (),
-        dt.dir,
-        dt.name,
-        dt.ext,
-        *scope_, // Doesn't matter which scope since dir is absolute.
+        dt.key (),
+        *scope_,   // Doesn't matter which scope since dir is absolute.
         trace).first);
 
     p.target = &dt;
@@ -2823,9 +2845,22 @@ namespace build2
   {
     tracer trace ("parser::enter_buildfile", &path_);
 
+    dir_path d (p.directory ());
+
+    // Figure out if we need out.
+    //
+    dir_path out;
+    if (scope_->src_path_ != nullptr &&
+        scope_->src_path () != scope_->out_path () &&
+        d.sub (scope_->src_path ()))
+    {
+      out = out_src (d, *scope_);
+    }
+
     const char* e (p.extension ());
     targets.insert<buildfile> (
-      p.directory (),
+      move (d),
+      move (out),
       p.leaf ().base ().string (),
       &extension_pool.find (e == nullptr ? "" : e), // Always specified.
       trace);

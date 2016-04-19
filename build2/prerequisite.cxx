@@ -52,6 +52,7 @@ namespace build2
   insert (const string* proj,
           const target_type& tt,
           dir_path dir,
+          dir_path out,
           string name,
           const string* ext,
           scope& s,
@@ -62,10 +63,12 @@ namespace build2
 
     // Find or insert.
     //
-    auto r (emplace (proj, tt, move (dir), move (name), ext, s));
+    auto r (emplace (proj, tt, move (dir), move (out), move (name), ext, s));
     prerequisite& p (const_cast<prerequisite&> (*r.first));
 
     // Update extension if the existing prerequisite has it unspecified.
+    //
+    // @@ Changing the key!
     //
     if (p.ext != ext)
     {

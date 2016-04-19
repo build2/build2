@@ -18,7 +18,7 @@ namespace build2
   dump_variable (ostream& os,
                  const variable& var,
                  const lookup& org,
-                 scope& s,
+                 const scope& s,
                  bool target)
   {
     os << var.name << " = ";
@@ -63,7 +63,7 @@ namespace build2
   dump_variables (ostream& os,
                   string& ind,
                   const variable_map& vars,
-                  scope& s,
+                  const scope& s,
                   bool target)
   {
     for (const auto& e: vars)
@@ -79,7 +79,7 @@ namespace build2
   dump_variables (ostream& os,
                   string& ind,
                   const variable_type_map& vtm,
-                  scope& s)
+                  const scope& s)
   {
     for (const auto& vt: vtm)
     {
@@ -128,7 +128,11 @@ namespace build2
   }
 
   static void
-  dump_target (ostream& os, string& ind, action a, const target& t, scope& s)
+  dump_target (ostream& os,
+               string& ind,
+               action a,
+               const target& t,
+               const scope& s)
   {
     // Print the target and its prerequisites relative to the scope. To achieve
     // this we are going to temporarily lower the stream verbosity to level 1.
@@ -196,7 +200,7 @@ namespace build2
               action a,
               scope_map::const_iterator& i)
   {
-    scope& p (*i->second);
+    const scope& p (i->second);
     const dir_path& d (i->first);
     ++i;
 
@@ -235,23 +239,8 @@ namespace build2
 
     // Nested scopes of which we are an immediate parent.
     //
-    for (auto e (scopes.end ()); i != e && i->second->parent_scope () == &p;)
+    for (auto e (scopes.end ()); i != e && i->second.parent_scope () == &p;)
     {
-      // See what kind of scope entry this is. It can be:
-      //
-      // 1. Out-of-project scope.
-      // 2. In-project out entry.
-      // 3. In-project src entry.
-      //
-      // We want to print #2 and #3 as a single, unified scope.
-      //
-      scope& s (*i->second);
-      if (s.src_path_ != s.out_path_ && s.src_path_ == &i->first)
-      {
-        ++i;
-        continue;
-      }
-
       if (vb)
       {
         os << endl;
@@ -295,8 +284,8 @@ namespace build2
   void
   dump (action a)
   {
-    auto i (scopes.begin ());
-    assert (i->second == global_scope);
+    auto i (scopes.cbegin ());
+    assert (&i->second == global_scope);
 
     string ind;
     ostream& os (*diag_stream);

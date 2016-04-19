@@ -131,8 +131,8 @@ namespace build2
   scope&
   create_root (const dir_path& out_root, const dir_path& src_root)
   {
-    auto i (scopes.insert (out_root, nullptr, true, true));
-    scope& rs (*i->second);
+    auto i (scopes.insert (out_root, true));
+    scope& rs (i->second);
 
     // Set out_path. src_path is set in setup_root() below.
     //
@@ -199,14 +199,16 @@ namespace build2
   void
   setup_root (scope& s)
   {
+    // The caller must have made sure src_root is set on this scope.
+    //
     value& v (s.assign ("src_root"));
     assert (v);
+    const dir_path& d (cast<dir_path> (v));
 
-    // Register and set src_path.
-    //
     if (s.src_path_ == nullptr)
-      s.src_path_ = &scopes.insert (
-        cast<dir_path> (v), &s, false, true)->first;
+      s.src_path_ = &d;
+    else
+      assert (s.src_path_ == &d);
   }
 
   scope&
@@ -214,46 +216,35 @@ namespace build2
               const dir_path& out_base,
               const dir_path& src_base)
   {
-    scope& s (*i->second);
-
-    // Set src/out_path. The key (i->first) can be either out_base
-    // or src_base.
-    //
-    if (s.out_path_ == nullptr)
-    {
-      s.out_path_ =
-        i->first == out_base
-        ? &i->first
-        : &scopes.insert (out_base, &s, true, false)->first;
-    }
-
-    if (s.src_path_ == nullptr)
-    {
-      s.src_path_ =
-        i->first == src_base
-        ? &i->first
-        : &scopes.insert (src_base, &s, false, false)->first;
-    }
+    scope& s (i->second);
 
     // Set src/out_base variables.
     //
-    {
-      value& v (s.assign ("out_base"));
+    value& ov (s.assign ("out_base"));
 
-      if (!v)
-        v = out_base;
-      else
-        assert (cast<dir_path> (v) == out_base);
-    }
+    if (!ov)
+      ov = out_base;
+    else
+      assert (cast<dir_path> (ov) == out_base);
 
-    {
-      value& v (s.assign ("src_base"));
+    value& sv (s.assign ("src_base"));
 
-      if (!v)
-        v = src_base;
-      else
-        assert (cast<dir_path> (v) == src_base);
-    }
+    if (!sv)
+      sv = src_base;
+    else
+      assert (cast<dir_path> (sv) == src_base);
+
+    // Set src/out_path. The key (i->first) is out_base.
+    //
+    if (s.out_path_ == nullptr)
+      s.out_path_ = &i->first;
+    else
+      assert (*s.out_path_ == out_base);
+
+    if (s.src_path_ == nullptr)
+      s.src_path_ = &cast<dir_path> (sv);
+    else
+      assert (*s.src_path_ == src_base);
 
     return s;
   }

@@ -876,7 +876,13 @@ main (int argc, char* argv[])
 
             d.normalize ();
 
-            mif->search (rs, target_key {ti, &d, &tn.value, e}, l, tgs);
+            // Figure out if this target is in the src tree.
+            //
+            dir_path out (ts.out_base != ts.src_base && d.sub (ts.src_base)
+                          ? out_src (d, ts.out_base, ts.src_base)
+                          : dir_path ());
+
+            mif->search (rs, target_key {ti, &d, &out, &tn.value, e}, l, tgs);
           }
         }
 

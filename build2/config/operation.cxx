@@ -550,8 +550,12 @@ namespace build2
           // root in diagnostics. Not very clean but seems harmless.
           //
           target& t (
-            targets.insert (
-              dir::static_type, root.out_path (), "", nullptr, trace).first);
+            targets.insert (dir::static_type,
+                            root.out_path (),
+                            dir_path (), // Out tree.
+                            "",
+                            nullptr,
+                            trace).first);
 
           if (!quiet)
             info << diag_done (a, t);

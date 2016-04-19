@@ -114,21 +114,21 @@ namespace build2
   rmdir_r (const dir_path&);
 
   // Return the src/out directory corresponding to the given out/src. The
-  // passed directory should be a sub-directory of out/src_root.
+  // passed directory should be a sub-directory of out/src_base.
   //
   dir_path
   src_out (const dir_path& out, scope&);
 
   dir_path
   src_out (const dir_path& out,
-           const dir_path& out_root, const dir_path& src_root);
+           const dir_path& out_base, const dir_path& src_base);
 
   dir_path
   out_src (const dir_path& src, scope&);
 
   dir_path
   out_src (const dir_path& src,
-           const dir_path& out_root, const dir_path& src_root);
+           const dir_path& out_base, const dir_path& src_base);
 
   // If possible and beneficial, translate an absolute, normalized path
   // into relative to the relative_base directory, which is normally

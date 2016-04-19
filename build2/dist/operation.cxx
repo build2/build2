@@ -139,21 +139,30 @@ namespace build2
       // ignored on the next step if the user explicitly marked them
       // nodist.
       //
-      auto add_adhoc = [&src_root, &trace] (const dir_path& d, const char* f)
+      auto add_adhoc = [&trace] (scope& rs, const char* f)
+      {
+        path p (rs.src_path () / path (f));
+        if (file_exists (p))
         {
-          path p (d / path (f));
-          if (file_exists (p))
-          {
-            const char* e (p.extension ());
-            targets.insert<buildfile> (
-              p.directory (),
-              p.leaf ().base ().string (),
-              &extension_pool.find (e == nullptr ? "" : e), // Specified.
-              trace);
-          }
-        };
+          dir_path d (p.directory ());
 
-      add_adhoc (src_root, "build/export.build");
+          // Figure out if we need out.
+          //
+          dir_path out (rs.src_path () != rs.out_path ()
+                        ? out_src (d, rs)
+                        : dir_path ());
+
+          const char* e (p.extension ());
+          targets.insert<buildfile> (
+            move (d),
+            move (out),
+            p.leaf ().base ().string (),
+            &extension_pool.find (e == nullptr ? "" : e), // Specified.
+            trace);
+        }
+      };
+
+      add_adhoc (*rs, "build/export.build");
 
       // The same for subprojects that have been loaded.
       //
@@ -168,12 +177,10 @@ namespace build2
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
-          const dir_path& src_nroot (nrs.src_path ());
-
-          if (!src_nroot.sub (src_root)) // Not a strong amalgamation.
+          if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
             continue;
 
-          add_adhoc (src_nroot, "build/export.build");
+          add_adhoc (nrs, "build/export.build");
         }
       }
 

@@ -304,7 +304,10 @@ namespace build2
             // Enter the target. Note that because the search paths are
             // normalized, the result is automatically normalized as well.
             //
-            a = &targets.insert<liba> (d, p.name, ae, trace);
+            // Note that this target is outside any project which we treat
+            // as out trees.
+            //
+            a = &targets.insert<liba> (d, dir_path (), p.name, ae, trace);
 
             if (a->path ().empty ())
               a->path (move (f));
@@ -322,7 +325,7 @@ namespace build2
 
           if ((mt = file_mtime (f)) != timestamp_nonexistent)
           {
-            s = &targets.insert<libso> (d, p.name, se, trace);
+            s = &targets.insert<libso> (d, dir_path (), p.name, se, trace);
 
             if (s->path ().empty ())
               s->path (move (f));
@@ -345,7 +348,7 @@ namespace build2
       {
         // Enter the target group.
         //
-        lib& l (targets.insert<lib> (*pd, p.name, p.ext, trace));
+        lib& l (targets.insert<lib> (*pd, dir_path (), p.name, p.ext, trace));
 
         // It should automatically link-up to the members we have found.
         //
@@ -597,12 +600,12 @@ namespace build2
           ? obj::static_type
           : (so ? objso::static_type : obja::static_type));
 
-        // Come up with the obj*{} target. The c(xx){} prerequisite
-        // directory can be relative (to the scope) or absolute. If it is
-        // relative, then use it as is. If it is absolute, then translate
-        // it to the corresponding directory under out_root. While the
-        // c(xx){} directory is most likely under src_root, it is also
-        // possible it is under out_root (e.g., generated source).
+        // Come up with the obj*{} target. The c(xx){} prerequisite directory
+        // can be relative (to the scope) or absolute. If it is relative, then
+        // use it as is. If absolute, then translate it to the corresponding
+        // directory under out_root. While the c(xx){} directory is most
+        // likely under src_root, it is also possible it is under out_root
+        // (e.g., generated source).
         //
         dir_path d;
         {
@@ -621,7 +624,10 @@ namespace build2
           }
         }
 
-        target& ot (search (o_type, d, *cp.tk.name, nullptr, cp.scope));
+        // obj*{} is always in the out tree.
+        //
+        target& ot (
+          search (o_type, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of our project root.
@@ -646,7 +652,7 @@ namespace build2
 
           if (pt == nullptr)
             pt = &search (so ? objso::static_type : obja::static_type,
-                          o.dir, o.name, o.ext, nullptr);
+                          o.dir, o.out, o.name, o.ext, nullptr);
         }
         else
           pt = &ot;

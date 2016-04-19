@@ -127,24 +127,24 @@ namespace build2
   public:
     typedef build2::action action_type;
 
-    virtual
-    ~target () = default;
-
-    target (const target&) = delete;
-    target& operator= (const target&) = delete;
-
-    target (dir_path d, string n, const string* e)
-        : dir (move (d)), name (move (n)), ext (e) {}
-
-    // Reset the target before matching a rule for it. The
-    // default implementation clears prerequisite_targets.
+    // For targets that are in the src tree of a project we also keep the
+    // corresponding out directory. As a result we may end up with multiple
+    // targets for the same file if we are building multiple configurations of
+    // the same project at once. We do it this way because, in a sense, a
+    // target's out directory is its "configuration" (in terms of variables).
+    // As an example, consider installing the same README file (src) but for
+    // two different project configurations at once. Which installation
+    // directory should we use? The answer depends on which configuration you
+    // ask.
     //
-    virtual void
-    reset (action_type);
-
+    // Empty out directory indicates this target is in the out tree (including
+    // when src == out). We also treat out of project targets as being in the
+    // out tree.
+    //
     const dir_path dir; // Absolute and normalized.
+    const dir_path out; // Empty or absolute and normalized.
     const string name;
-    const string* ext;  // Extension, NULL - unspecified, empty - no extension.
+    const string* ext;  // Extension. NULL - unspecified, empty - no extension.
 
     // Target group to which this target belongs, if any. Note that
     // we assume that the group and all its members are in the same
@@ -187,6 +187,22 @@ namespace build2
     //
     target* group = nullptr;
 
+  public:
+    virtual
+    ~target () = default;
+
+    target (const target&) = delete;
+    target& operator= (const target&) = delete;
+
+    target (dir_path d, dir_path o, string n, const string* e)
+        : dir (move (d)), out (move (o)), name (move (n)), ext (e) {}
+
+    // Reset the target before matching a rule for it. The default
+    // implementation clears prerequisite_targets.
+    //
+    virtual void
+    reset (action_type);
+
     // You should not call this function directly; rather use
     // resolve_group_members() from <build2/algorithm>.
     //
@@ -197,7 +213,7 @@ namespace build2
     // to the targets's members will be reflected in the key.
     //
     target_key
-    key () const {return target_key {&type (), &dir, &name, ext};}
+    key () const {return target_key {&type (), &dir, &out, &name, ext};}
 
     // Scoping.
     //
@@ -227,13 +243,10 @@ namespace build2
     scope&
     weak_scope () const {return *root_scope ().weak_scope ();}
 
-
     bool
     in (const scope& s) const
     {
-      return
-        (s.out_path_ != nullptr && dir.sub (*s.out_path_)) ||
-        (s.src_path_ != nullptr && dir.sub (*s.src_path_));
+      return (out.empty () ? dir : out).sub (s.out_path ());
     }
 
     // Prerequisites.
@@ -401,8 +414,9 @@ namespace build2
     recipe_type recipe_;
   };
 
-  ostream&
-  operator<< (ostream&, const target&);
+  inline ostream&
+  operator<< (ostream& os, const target& t) {return os << t.key ();}
+
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as
@@ -780,21 +794,23 @@ namespace build2
     iterator
     find (const target_type& type,
           const dir_path& dir,
+          const dir_path& out,
           const string& name,
           const string* ext,
           tracer& trace) const
     {
-      return find (target_key {&type, &dir, &name, ext}, trace);
+      return find (target_key {&type, &dir, &out, &name, ext}, trace);
     }
 
-    // As above but ignore the extension and return the target or
-    // nullptr instead of the iterator.
+    // As above but ignore the extension and return the target or nullptr
+    // instead of the iterator.
     //
     template <typename T>
     T*
-    find (const dir_path& dir, const string& name) const
+    find (const dir_path& dir, const dir_path& out, const string& name) const
     {
-      auto i (map_.find (target_key {&T::static_type, &dir, &name, nullptr}));
+      auto i (map_.find (
+                target_key {&T::static_type, &dir, &out, &name, nullptr}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
     }
 
@@ -804,27 +820,33 @@ namespace build2
     pair<target&, bool>
     insert (const target_type&,
             dir_path dir,
+            dir_path out,
             string name,
             const string* ext,
             tracer&);
 
+
     template <typename T>
     T&
     insert (const dir_path& dir,
+            const dir_path& out,
             const string& name,
             const string* ext,
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, name, ext, t).first);
+        insert (T::static_type, dir, out, name, ext, t).first);
     }
 
     template <typename T>
     T&
-    insert (const dir_path& dir, const string& name, tracer& t)
+    insert (const dir_path& dir,
+            const dir_path& out,
+            const string& name,
+            tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, name, nullptr, t).first);
+        insert (T::static_type, dir, out, name, nullptr, t).first);
     }
 
     void
@@ -1072,9 +1094,13 @@ namespace build2
   //
   template <typename T>
   target*
-  target_factory (const target_type&, dir_path d, string n, const string* e)
+  target_factory (const target_type&,
+                  dir_path d,
+                  dir_path o,
+                  string n,
+                  const string* e)
   {
-    return new T (move (d), move (n), e);
+    return new T (move (d), move (o), move (n), e);
   }
 
   // Return fixed target extension.
@@ -1094,11 +1120,6 @@ namespace build2
   //
   const string*
   target_extension_null (const target_key&, scope&);
-
-  // Issue diagnostics and fail if called.
-  //
-  const string*
-  target_extension_fail (const target_key&, scope&);
 
   // Assert if called.
   //

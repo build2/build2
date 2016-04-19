@@ -23,7 +23,7 @@ namespace build2
 
     const target_key& tk (pk.tk);
 
-    // Look for an existing target in this directory scope.
+    // Look for an existing target in the prerequisite's scope.
     //
     dir_path d;
     if (tk.dir->absolute ())
@@ -39,7 +39,23 @@ namespace build2
       }
     }
 
-    auto i (targets.find (*tk.type, d, *tk.name, tk.ext, trace));
+    // Prerequisite's out directory can be on of the following:
+    //
+    // empty    This means out is undetermined and we simply search for a
+    //          target that is in the out tree which happens to be indicated
+    //          by an empty value, so we can just pass this as is.
+    //
+    // absolute This is the "final" value that doesn't require any processing
+    //          and we simply use it as is.
+    //
+    // relative The out directory was specified using @-syntax as relative (to
+    //          the prerequisite's scope) and we need to complete it similar
+    //          to how we complete the relative dir above. This is @@ OUT TODO.
+    //
+    // What if we have user-supplied out but it is in-src build. Shouldn't we
+    // drop it?
+    //
+    auto i (targets.find (*tk.type, d, *tk.out, *tk.name, tk.ext, trace));
 
     if (i == targets.end ())
       return 0;
@@ -51,7 +67,7 @@ namespace build2
   }
 
   target*
-  search_existing_file (const prerequisite_key& cpk, const dir_paths& sp)
+  search_existing_file (const prerequisite_key& cpk)
   {
     tracer trace ("search_existing_file");
 
@@ -85,50 +101,73 @@ namespace build2
     // Make a copy with the updated extension.
     //
     const prerequisite_key pk {
-      cpk.proj, target_key {ctk.type, ctk.dir, ctk.name, ext}, cpk.scope};
+      cpk.proj, {ctk.type, ctk.dir, ctk.out, ctk.name, ext}, cpk.scope};
     const target_key& tk (pk.tk);
 
-    // Go over paths looking for a file.
+    // Check if there is a file.
     //
-    for (const dir_path& d: sp)
+    const dir_path& s (pk.scope->src_path ());
+    path f (s / *tk.dir / path (*tk.name));
+    f.normalize ();
+
+    if (!ext->empty ())
     {
-      path f (d / *tk.dir / path (*tk.name));
-      f.normalize ();
-
-      if (!ext->empty ())
-      {
-        f += '.';
-        f += *ext;
-      }
-
-      timestamp mt (file_mtime (f));
-
-      if (mt == timestamp_nonexistent)
-        continue;
-
-      l5 ([&]{trace << "found existing file " << f << " for prerequisite "
-                    << cpk;});
-
-      // Find or insert. Note: using our updated extension.
-      //
-      auto r (targets.insert (*tk.type, f.directory (), *tk.name, ext, trace));
-
-      // Has to be a file_target.
-      //
-      file& t (dynamic_cast<file&> (r.first));
-
-      l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
-                    << " for prerequisite " << cpk;});
-
-      if (t.path ().empty ())
-        t.path (move (f));
-
-      t.mtime (mt);
-      return &t;
+      f += '.';
+      f += *ext;
     }
 
-    l4 ([&]{trace << "no existing file for prerequisite " << cpk;});
-    return nullptr;
+    timestamp mt (file_mtime (f));
+
+    if (mt == timestamp_nonexistent)
+    {
+      l4 ([&]{trace << "no existing file for prerequisite " << cpk;});
+      return nullptr;
+    }
+
+    l5 ([&]{trace << "found existing file " << f << " for prerequisite "
+                  << cpk;});
+
+    dir_path d (f.directory ());
+
+    // Calculate the corresponding out. We have the same three options for the
+    // prerequisite's out directory as in search_existing_target(). If it is
+    // empty (undetermined), then we need to calculate it since this target
+    // will be from the src tree.
+    //
+    // In the other two cases we use the prerequisite's out (in case it is
+    // relative, we need to complete it, which is @@ OUT TODO). Note that we
+    // blindly trust the user's value which can be use for some interesting
+    // tricks, for example:
+    //
+    // ../cxx{foo}@./
+    //
+    dir_path out;
+
+    if (tk.out->empty ())
+    {
+      if (pk.scope->out_path () != s)
+        out = out_src (d, *pk.scope);
+    }
+    else
+      out = *tk.out;
+
+    // Find or insert. Note that we are using our updated extension.
+    //
+    auto r (targets.insert (
+              *tk.type, move (d), move (out), *tk.name, ext, trace));
+
+    // Has to be a file_target.
+    //
+    file& t (dynamic_cast<file&> (r.first));
+
+    l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
+                  << " for prerequisite " << cpk;});
+
+    if (t.path ().empty ())
+      t.path (move (f));
+
+    t.mtime (mt);
+    return &t;
   }
 
   target&
@@ -156,7 +195,10 @@ namespace build2
 
     // Find or insert.
     //
-    auto r (targets.insert (*tk.type, move (d), *tk.name, tk.ext, trace));
+    // @@ OUT: same story as in search_existing_target() re out.
+    //
+    auto r (targets.insert (
+              *tk.type, move (d), *tk.out, *tk.name, tk.ext, trace));
     assert (r.second);
 
     target& t (r.first);

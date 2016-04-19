@@ -66,7 +66,7 @@ namespace build2
       if (ar)
       {
         if (t.a == nullptr)
-          t.a = &search<liba> (t.dir, t.name, t.ext, nullptr);
+          t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
 
         match_only (a, *t.a);
       }
@@ -74,7 +74,7 @@ namespace build2
       if (so)
       {
         if (t.so == nullptr)
-          t.so = &search<libso> (t.dir, t.name, t.ext, nullptr);
+          t.so = &search<libso> (t.dir, t.out, t.name, nullptr, nullptr);
 
         match_only (a, *t.so);
       }

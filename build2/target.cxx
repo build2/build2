@@ -101,7 +101,10 @@ namespace build2
   scope& target::
   base_scope () const
   {
-    return scopes.find (dir);
+    // If this target is from the src tree, use its out directory to find
+    // the scope.
+    //
+    return scopes.find (out.empty () ? dir : out);
   }
 
   scope& target::
@@ -109,7 +112,7 @@ namespace build2
   {
     // This is tricky to cache so we do the lookup for now.
     //
-    scope* r (scopes.find (dir).root_scope ());
+    scope* r (base_scope ().root_scope ());
     assert (r != nullptr);
     return *r;
   }
@@ -170,12 +173,6 @@ namespace build2
     return r;
   }
 
-  ostream&
-  operator<< (ostream& os, const target& t)
-  {
-    return os << target_key {&t.type (), &t.dir, &t.name, t.ext};
-  }
-
   // target_set
   //
   target_set targets;
@@ -216,18 +213,20 @@ namespace build2
   pair<target&, bool> target_set::
   insert (const target_type& tt,
           dir_path dir,
+          dir_path out,
           string name,
           const string* ext,
           tracer& trace)
   {
-    iterator i (find (target_key {&tt, &dir, &name, ext}, trace));
+    iterator i (find (target_key {&tt, &dir, &out, &name, ext}, trace));
     bool r (i == end ());
 
     if (r)
     {
-      unique_ptr<target> pt (tt.factory (tt, move (dir), move (name), ext));
+      unique_ptr<target> pt (
+        tt.factory (tt, move (dir), move (out), move (name), ext));
       i = map_.emplace (
-        make_pair (target_key {&tt, &pt->dir, &pt->name, pt->ext},
+        make_pair (target_key {&tt, &pt->dir, &pt->out, &pt->name, pt->ext},
                    move (pt))).first;
     }
 
@@ -279,6 +278,11 @@ namespace build2
       os << *k.dir;
 
     os << '}';
+
+    // If this target is from src, print its out.
+    //
+    if (!k.out->empty ())
+      os << '@' << diag_relative (*k.out, false); // Don't print './'.
 
     return os;
   }
@@ -382,17 +386,9 @@ namespace build2
     if (target* t = search_existing_target (pk))
       return t;
 
-    // Then look for an existing file in this target-type-specific
-    // list of paths (@@ TODO: comes from the variable).
+    // Then look for an existing file in the src tree.
     //
-    if (pk.tk.dir->relative ())
-    {
-      dir_paths sp;
-      sp.push_back (pk.scope->src_path ()); // src_base
-      return search_existing_file (pk, sp);
-    }
-    else
-      return nullptr;
+    return pk.tk.dir->relative () ? search_existing_file (pk) : nullptr;
   }
 
   static target*
@@ -413,27 +409,6 @@ namespace build2
   target_extension_null (const target_key&, scope&)
   {
     return nullptr;
-  }
-
-  const string*
-  target_extension_fail (const target_key& tk, scope& s)
-  {
-    {
-      diag_record dr;
-      dr << error << "no default extension to derive file name for ";
-
-      // This is a bit hacky: we may be dealing with a target (see
-      // file::derive_path()) or prerequisite (see search_existing_file()). So
-      // we are going to check if dir is absolute. If it is, then we assume
-      // this is a target, otherwise -- prerequisite.
-      //
-      if (tk.dir->absolute ())
-        dr << "target " << tk;
-      else
-        dr << "prerequisite " << prerequisite_key {nullptr, tk, &s};
-    }
-
-    throw failed ();
   }
 
   const string*
@@ -495,13 +470,18 @@ namespace build2
 
   template <typename T>
   static target*
-  file_factory (const target_type&, dir_path d, string n, const string* e)
+  file_factory (const target_type&,
+                dir_path d,
+                dir_path o,
+                string n,
+                const string* e)
   {
-    // The file target type doesn't imply any extension. So if one
-    // wasn't specified, set it to empty rather than unspecified.
-    // In other words, we always treat file{foo} as file{foo.}.
+    // The file target type doesn't imply any extension. So if one wasn't
+    // specified, set it to empty rather than unspecified. In other words, we
+    // always treat file{foo} as file{foo.}.
     //
     return new T (move (d),
+                  move (o),
                   move (n),
                   (e != nullptr ? e : &extension_pool.find ("")));
   }
@@ -585,12 +565,16 @@ namespace build2
   };
 
   static target*
-  man_factory (const target_type&, dir_path d, string n, const string* e)
+  man_factory (const target_type&,
+               dir_path d,
+               dir_path o,
+               string n,
+               const string* e)
   {
     if (e == nullptr)
       fail << "man target '" << n << "' must include extension (man section)";
 
-    return new man (move (d), move (n), e);
+    return new man (move (d), move (o), move (n), e);
   }
 
   const target_type man::static_type

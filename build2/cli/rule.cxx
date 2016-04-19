@@ -87,15 +87,15 @@ namespace build2
         //
         if (t.h == nullptr)
         {
-          t.h = &search<cxx::hxx> (t.dir, t.name, nullptr, nullptr);
+          t.h = &search<cxx::hxx> (t.dir, t.out, t.name, nullptr, nullptr);
           t.h->group = &t;
 
-          t.c = &search<cxx::cxx> (t.dir, t.name, nullptr, nullptr);
+          t.c = &search<cxx::cxx> (t.dir, t.out, t.name, nullptr, nullptr);
           t.c->group = &t;
 
           if (!find_option ("--suppress-inline", t, "cli.options"))
           {
-            t.i = &search<cxx::ixx> (t.dir, t.name, nullptr, nullptr);
+            t.i = &search<cxx::ixx> (t.dir, t.out, t.name, nullptr, nullptr);
             t.i->group = &t;
           }
         }
@@ -116,7 +116,7 @@ namespace build2
 
         // Then check if there is a corresponding cli.cxx{} group.
         //
-        cli_cxx* g (targets.find<cli_cxx> (t.dir, t.name));
+        cli_cxx* g (targets.find<cli_cxx> (t.dir, t.out, t.name));
 
         // If not or if it has no prerequisites (happens when we use it to
         // set cli.options) and this target has a cli{} prerequisite, then
@@ -133,7 +133,7 @@ namespace build2
               if (match_stem (t.name, p.name ()))
               {
                 if (g == nullptr)
-                  g = &targets.insert<cli_cxx> (t.dir, t.name, trace);
+                  g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
                 g->prerequisites.emplace_back (p.as_prerequisite (trace));
               }

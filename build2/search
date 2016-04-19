@@ -18,10 +18,14 @@ namespace build2
   target*
   search_existing_target (const prerequisite_key&);
 
-  // Search for an existing file in the specified list of search paths.
+  // Search for an existing file in the scope's src directory. Prerequisite
+  // directory should be relative.
+  //
+  // Originally the plan was to have a target-type specific variable that
+  // contains the search paths. But there wasn't any need for this yet.
   //
   target*
-  search_existing_file (const prerequisite_key&, const dir_paths&);
+  search_existing_file (const prerequisite_key&);
 
   // Create a new target in this prerequisite's scope.
   //

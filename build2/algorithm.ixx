@@ -21,29 +21,32 @@ namespace build2
   search (const target_type& t, const prerequisite_key& k)
   {
     return search (
-      prerequisite_key
-        {k.proj, {&t, k.tk.dir, k.tk.name, k.tk.ext}, k.scope});
+      prerequisite_key {
+        k.proj, {&t, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
   }
 
   inline target&
   search (const target_type& type,
           const dir_path& dir,
+          const dir_path& out,
           const string& name,
           const string* ext,
           scope* scope)
   {
     return search (
-      prerequisite_key {nullptr, {&type, &dir, &name, ext}, scope});
+      prerequisite_key {nullptr, {&type, &dir, &out, &name, ext}, scope});
   }
 
   template <typename T>
   inline T&
   search (const dir_path& dir,
+          const dir_path& out,
           const string& name,
           const string* ext,
           scope* scope)
   {
-    return static_cast<T&> (search (T::static_type, dir, name, ext, scope));
+    return static_cast<T&> (
+      search (T::static_type, dir, out, name, ext, scope));
   }
 
   pair<const rule*, match_result>

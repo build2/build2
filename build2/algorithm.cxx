@@ -44,7 +44,10 @@ namespace build2
 
     n.dir.normalize ();
 
-    return search (*tt, move (n.dir), move (n.value), e, &s);
+    // @@ OUT: for now we assume the prerequisite's out is undetermined.
+    //         Would need to pass a pair of names.
+    //
+    return search (*tt, n.dir, dir_path (), n.value, e, &s);
   }
 
   pair<const rule*, match_result>
@@ -323,7 +326,9 @@ namespace build2
 
     l6 ([&]{trace << "for " << t;});
 
-    fsdir* r (&search<fsdir> (d, string (), nullptr, &s));
+    // Target in the out tree, so out directory is empty.
+    //
+    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullptr, &s));
     match (a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;

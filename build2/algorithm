@@ -42,6 +42,7 @@ namespace build2
   target&
   search (const target_type& type,
           const dir_path& dir,
+          const dir_path& out,
           const string& name,
           const string* ext,
           scope*);
@@ -51,6 +52,7 @@ namespace build2
   template <typename T>
   T&
   search (const dir_path& dir,
+          const dir_path& out,
           const string& name,
           const string* ext,
           scope*);

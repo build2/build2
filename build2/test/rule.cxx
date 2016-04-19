@@ -139,6 +139,8 @@ namespace build2
       //
       scope& bs (t.base_scope ());
 
+      // @@ OUT: what if this is a @-qualified pair or names?
+      //
       target* it (in != nullptr ? &search (*in, bs) : nullptr);
       target* ot (on != nullptr ? in == on ? it : &search (*on, bs) : nullptr);
 

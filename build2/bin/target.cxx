@@ -13,10 +13,14 @@ namespace build2
     constexpr const char ext_var[] = "extension";
 
     static target*
-    obja_factory (const target_type&, dir_path d, string n, const string* e)
+    obja_factory (const target_type&,
+                  dir_path dir,
+                  dir_path out,
+                  string n,
+                  const string* e)
     {
-      obj* o (targets.find<obj> (d, n));
-      obja* a (new obja (move (d), move (n), e));
+      obj* o (targets.find<obj> (dir, out, n));
+      obja* a (new obja (move (dir), move (out), move (n), e));
 
       if ((a->group = o))
         o->a = a;
@@ -36,10 +40,14 @@ namespace build2
     };
 
     static target*
-    objso_factory (const target_type&, dir_path d, string n, const string* e)
+    objso_factory (const target_type&,
+                   dir_path dir,
+                   dir_path out,
+                   string n,
+                   const string* e)
     {
-      obj* o (targets.find<obj> (d, n));
-      objso* so (new objso (move (d), move (n), e));
+      obj* o (targets.find<obj> (dir, out, n));
+      objso* so (new objso (move (dir), move (out), move (n), e));
 
       if ((so->group = o))
         o->so = so;
@@ -59,11 +67,15 @@ namespace build2
     };
 
     static target*
-    obj_factory (const target_type&, dir_path d, string n, const string* e)
+    obj_factory (const target_type&,
+                 dir_path dir,
+                 dir_path out,
+                 string n,
+                 const string* e)
     {
-      obja* a (targets.find<obja> (d, n));
-      objso* so (targets.find<objso> (d, n));
-      obj* o (new obj (move (d), move (n), e));
+      obja* a (targets.find<obja> (dir, out, n));
+      objso* so (targets.find<objso> (dir, out, n));
+      obj* o (new obj (move (dir), move (out), move (n), e));
 
       if ((o->a = a))
         a->group = o;
@@ -108,12 +120,16 @@ namespace build2
     };
 
     static target*
-    liba_factory (const target_type& t, dir_path d, string n, const string* e)
+    liba_factory (const target_type& t,
+                  dir_path d,
+                  dir_path o,
+                  string n,
+                  const string* e)
     {
       // Only link-up to the group if the types match exactly.
       //
-      lib* l (t == liba::static_type ? targets.find<lib> (d, n) : nullptr);
-      liba* a (new liba (move (d), move (n), e));
+      lib* l (t == liba::static_type ? targets.find<lib> (d, o, n) : nullptr);
+      liba* a (new liba (move (d), move (o), move (n), e));
 
       if ((a->group = l))
         l->a = a;
@@ -145,12 +161,16 @@ namespace build2
     };
 
     static target*
-    libso_factory (const target_type& t, dir_path d, string n, const string* e)
+    libso_factory (const target_type& t,
+                   dir_path d,
+                   dir_path o,
+                   string n,
+                   const string* e)
     {
       // Only link-up to the group if the types match exactly.
       //
-      lib* l (t == libso::static_type ? targets.find<lib> (d, n) : nullptr);
-      libso* so (new libso (move (d), move (n), e));
+      lib* l (t == libso::static_type ? targets.find<lib> (d, o, n) : nullptr);
+      libso* so (new libso (move (d), move (o), move (n), e));
 
       if ((so->group = l))
         l->so = so;
@@ -179,11 +199,15 @@ namespace build2
     }
 
     static target*
-    lib_factory (const target_type&, dir_path d, string n, const string* e)
+    lib_factory (const target_type&,
+                 dir_path d,
+                 dir_path o,
+                 string n,
+                 const string* e)
     {
-      liba* a (targets.find<liba> (d, n));
-      libso* so (targets.find<libso> (d, n));
-      lib* l (new lib (move (d), move (n), e));
+      liba* a (targets.find<liba> (d, o, n));
+      libso* so (targets.find<libso> (d, o, n));
+      lib* l (new lib (move (d), move (o), move (n), e));
 
       if ((l->a = a))
         a->group = l;

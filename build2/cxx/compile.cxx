@@ -679,9 +679,19 @@ namespace build2
         // purposes: it is only important for us to accurately determine
         // target types for headers that could be auto-generated.
         //
-        scope& b (scopes.find (d));
-        if (b.root_scope () != nullptr)
-          tt = map_extension (b, n, *e);
+        // While at it also try to determine if this target is from the src
+        // or out tree of said project.
+        //
+        dir_path out;
+
+        scope& bs (scopes.find (d));
+        if (bs.root_scope () != nullptr)
+        {
+          tt = map_extension (bs, n, *e);
+
+          if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
+            out = out_src (d, bs);
+        }
 
         // If it is outside any project, or the project doesn't have
         // such an extension, assume it is a plain old C header.
@@ -691,8 +701,10 @@ namespace build2
 
         // Find or insert target.
         //
+        // @@ OPT: move d, out, n
+        //
         path_target& pt (
-          static_cast<path_target&> (search (*tt, d, n, e, &ds)));
+          static_cast<path_target&> (search (*tt, d, out, n, e, &ds)));
 
         // Assign path.
         //
