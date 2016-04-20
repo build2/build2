@@ -86,6 +86,15 @@ namespace build2
     return v.as<names> ();
   }
 
+  template <>
+  inline names&
+  cast (value& v)
+  {
+    assert (!v.null () &&
+            (v.type == nullptr || v.type == &value_traits<names>::value_type));
+    return v.as<names> ();
+  }
+
   template <typename T>
   inline const T&
   cast (const value& v)
