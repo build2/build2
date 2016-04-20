@@ -141,7 +141,8 @@ namespace build2
 
         // Note: not overridable.
         //
-        v.insert<dir_path> ("install"); // Flag.
+        v.insert<dir_path> ("install");
+        v.insert<string> ("install.mode");
       }
 
       // Register our alias and file installer rule.
