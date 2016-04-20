@@ -14,6 +14,45 @@ using namespace std;
 
 namespace build2
 {
+  // If type is false, don't print the value's type (e.g., because it is the
+  // same as variable's).
+  //
+  static void
+  dump_value (ostream& os, const value& v, bool type)
+  {
+    // First print attributes if any.
+    //
+    bool a (v.null () || (type && v.type != nullptr));
+
+    if (a)
+      os << '[';
+
+    const char* s ("");
+
+    if (type && v.type != nullptr)
+    {
+      os << s << v.type->name;
+      s = " ";
+    }
+
+    if (v.null ())
+    {
+      os << s << "null";
+      s = " ";
+    }
+
+    if (a)
+      os << ']';
+
+    // Now the value if there is one.
+    //
+    if (!v.null ())
+    {
+      names storage;
+      os << (a ? " " : "") << reverse (v, storage);
+    }
+  }
+
   static void
   dump_variable (ostream& os,
                  const variable& var,
@@ -21,10 +60,13 @@ namespace build2
                  const scope& s,
                  bool target)
   {
+    if (var.type != nullptr)
+      os << '[' << var.type->name << "] ";
+
     os << var.name << " = ";
 
     // If this variable is overriden, print both the override and the
-    // original.
+    // original values.
     //
     if (var.override != nullptr &&
         var.name.rfind (".__override") == string::npos &&
@@ -38,25 +80,12 @@ namespace build2
 
       if (org != l)
       {
-        if (l->null ())
-          os << "[null]";
-        else
-        {
-          names storage;
-          os << reverse (*l, storage);
-        }
-
+        dump_value (os, *l, l->type != var.type);
         os << " # original: ";
       }
     }
 
-    if (org->null ())
-      os << "[null]";
-    else
-    {
-      names storage;
-      os << reverse (*org, storage);
-    }
+    dump_value (os, *org, org->type != var.type);
   }
 
   static void
