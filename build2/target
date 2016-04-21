@@ -59,16 +59,15 @@ namespace build2
 
   // Recipe.
   //
-  // The returned target state should be changed, unchanged, or
-  // postponed, though you shouldn't be returning postponed
-  // directly. If there is an error, then the recipe should
-  // throw rather than returning failed.
+  // The returned target state should be changed, unchanged, or postponed,
+  // though you shouldn't be returning postponed directly. If there is an
+  // error, then the recipe should throw rather than returning failed.
   //
-  // The return value of the recipe is used to update the target
-  // state except if the state was manually set by the recipe to
-  // target_state::group. Note that in this case the returned by
-  // the recipe value is still used as the resulting target state
-  // so it should match the group's state.
+  // The return value of the recipe is used to update the target state except
+  // if the state is target_state::group (either was was manually set by the
+  // recipe or already that value). Note that in this case the returned by the
+  // recipe value is still used as the resulting target state so it should
+  // match the group's state.
   //
   using recipe_function = target_state (action, target&);
   using recipe = function<recipe_function>;
@@ -146,44 +145,45 @@ namespace build2
     const string name;
     const string* ext;  // Extension. NULL - unspecified, empty - no extension.
 
-    // Target group to which this target belongs, if any. Note that
-    // we assume that the group and all its members are in the same
-    // scope (for example, in variable lookup). We also don't support
-    // nested groups.
+    // Target group to which this target belongs, if any. Note that we assume
+    // that the group and all its members are in the same scope (for example,
+    // in variable lookup). We also don't support nested groups.
     //
-    // The semantics of the interaction between the group and its
-    // members and what it means to, say, update the group, is
-    // unspecified and determined by the group's type. In particular,
-    // a group can be created out of member types that have no idea
-    // they are part of this group (e.g., cli.cxx{}).
+    // The semantics of the interaction between the group and its members and
+    // what it means to, say, update the group, is unspecified and is
+    // determined by the group's type. In particular, a group can be created
+    // out of member types that have no idea they are part of this group
+    // (e.g., cli.cxx{}).
     //
-    // Normally, however, there are two kinds of groups: "alternatives"
-    // and "combination". In an alternatives group, normally one of the
-    // members is selected when the group is mentioned as a prerequisite
-    // with, perhaps, an exception for special rules, like aliases, where
-    // it makes more sense to treat the group as a whole. In this case we
-    // say that the rule "semantically recognizes" the group and picks
-    // some of its members.
+    // Normally, however, there are two kinds of groups: "alternatives" and
+    // "combination". In an alternatives group, normally one of the members is
+    // selected when the group is mentioned as a prerequisite with, perhaps,
+    // an exception for special rules, like aliases, where it makes more sense
+    // to treat the group as a whole. In this case we say that the rule
+    // "semantically recognizes" the group and picks some of its members.
     //
-    // Updating an alternatives group as a whole can mean updating some
-    // subset of its members (e.g., lib{}). Or the group may not support
-    // this at all (e.g., obj{}).
+    // Updating an alternatives group as a whole can mean updating some subset
+    // of its members (e.g., lib{}). Or the group may not support this at all
+    // (e.g., obj{}).
     //
-    // In a combination group, when a group is updated, normally all
-    // members are updates (and usually with a single command), though
-    // there could be some members that are omitted, depending on the
-    // configuration (e.g., an inline file not/being generated). When
-    // a combination group is mentioned as a prerequisite, the rule
-    // is usually interested in the individual members rather than
-    // the whole group. For example, a C++ compile rule would like to
-    // "see" the ?xx{} members when it gets a cli.cxx{} group.
+    // In a combination group, when a group is updated, normally all members
+    // are updates (and usually with a single command), though there could be
+    // some members that are omitted, depending on the configuration (e.g., an
+    // inline file not/being generated). When a combination group is mentioned
+    // as a prerequisite, the rule is usually interested in the individual
+    // members rather than the whole group. For example, a C++ compile rule
+    // would like to "see" the ?xx{} members when it gets a cli.cxx{} group.
     //
-    // Which brings us to the group iteration mode. The target type
-    // contains a member called see_through that indicates whether the
-    // default iteration mode for the group should be "see through";
-    // that is, whether we see the members or the group itself. For
-    // the iteration support itself, see the *_prerequisite_members()
-    // machinery below.
+    // Which brings us to the group iteration mode. The target type contains a
+    // member called see_through that indicates whether the default iteration
+    // mode for the group should be "see through"; that is, whether we see the
+    // members or the group itself. For the iteration support itself, see the
+    // *_prerequisite_members() machinery below.
+    //
+    // In a combination group we usually want the state (and timestamp; see
+    // mtime()) for members to come from the group. This is achieved with the
+    // special target_state::group state. You would normally also use the
+    // group_recipe for group members.
     //
     target* group = nullptr;
 
@@ -197,8 +197,9 @@ namespace build2
     target (dir_path d, dir_path o, string n, const string* e)
         : dir (move (d)), out (move (o)), name (move (n)), ext (e) {}
 
-    // Reset the target before matching a rule for it. The default
-    // implementation clears prerequisite_targets.
+    // Reset the target before matching it to a rule. The default
+    // implementation clears prerequisite_targets and sets the state to
+    // unknown.
     //
     virtual void
     reset (action_type);
@@ -353,10 +354,27 @@ namespace build2
   public:
     target_state raw_state = target_state::unknown;
 
+    // By default we go an extra step and short-circuit to the target state
+    // even if the raw state is not group provided the recipe is group_recipe.
+    // This is normally what you want or need, as in inject_prerequisites()
+    // in the cxx module. But sometimes not, as in execute().
+    //
     target_state
-    state () const
+    state (bool shortcircuit = true) const
     {
-      return raw_state != target_state::group ? raw_state : group->raw_state;
+      if (raw_state == target_state::group)
+        return group->raw_state;
+
+      if (group == nullptr || !shortcircuit)
+        return raw_state;
+
+      if (recipe_function* const* f = recipe_.target<recipe_function*> ())
+      {
+        if (*f == &group_action)
+          return group->raw_state;
+      }
+
+      return raw_state;
     }
 
     // Number of direct targets that depend on this target in the current

@@ -571,7 +571,9 @@ namespace build2
 
           if (ns != os && ns != target_state::unchanged)
           {
-            l6 ([&]{trace << "updated " << pt;});
+            l6 ([&]{trace << "updated " << pt
+                          << "; old state " << os
+                          << "; new state " << ns;});
             return true;
           }
         }
@@ -588,8 +590,8 @@ namespace build2
         return false;
       };
 
-      // Update and add header file to the list of prerequisite targets.
-      // Depending on the cache flag, the file is assumed to either have comes
+      // Update and add a header file to the list of prerequisite targets.
+      // Depending on the cache flag, the file is assumed to either have come
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //

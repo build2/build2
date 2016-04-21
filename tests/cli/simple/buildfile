@@ -1,8 +1,8 @@
 using cxx
 
-hxx.ext =
-cxx.ext = cpp
-ixx.ext = ipp
+hxx{*}: extension =
+cxx{*}: extension = cpp
+ixx{*}: extension = ipp
 
 cxx.poptions += -I$out_root
 

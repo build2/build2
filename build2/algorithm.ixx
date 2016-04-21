@@ -135,11 +135,14 @@ namespace build2
     if (dependency_count != 0) // Re-examination of a postponed target?
     {
       assert (t.dependents != 0);
-      t.dependents--;
-      dependency_count--;
+      --t.dependents;
+      --dependency_count;
     }
 
-    switch (target_state ts = t.state ())
+    // Don't short-circuit to the group state since we need to execute the
+    // member's recipe to keep the dependency counts straight.
+    //
+    switch (target_state ts = t.state (false))
     {
     case target_state::unchanged:
     case target_state::changed:
@@ -188,6 +191,8 @@ namespace build2
   inline target_state
   execute_direct (action a, target& t)
   {
+    // Here we don't care about the counts so short-circuit state is ok.
+    //
     switch (target_state ts = t.state ())
     {
     case target_state::unchanged:

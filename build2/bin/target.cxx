@@ -196,6 +196,8 @@ namespace build2
     {
       // Don't clear prerequisite_targets since it is "given" to our
       // members to implement "library meta-information protocol".
+      //
+      raw_state = target_state::unknown;
     }
 
     static target*

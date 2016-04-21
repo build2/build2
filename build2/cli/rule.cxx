@@ -108,13 +108,13 @@ namespace build2
         //
         target& t (xt);
 
-        // First see if we are already linked-up to the cli.cxx{} group.
-        // If it is some other group, then we are definitely not a match.
+        // First see if we are already linked-up to the cli.cxx{} group. If
+        // it is some other group, then we are definitely not a match.
         //
         if (t.group != nullptr)
           return t.group->is_a<cli_cxx> ();
 
-        // Then check if there is a corresponding cli.cxx{} group.
+        // Check if there is a corresponding cli.cxx{} group.
         //
         cli_cxx* g (targets.find<cli_cxx> (t.dir, t.out, t.name));
 
@@ -147,8 +147,8 @@ namespace build2
 
         if (g != nullptr)
         {
-          // Resolve the group's members. This should link us up to
-          // the group.
+          // Resolve the group's members. This should link us up to the
+          // group.
           //
           resolve_group_members (a, *g);
 
