@@ -2,9 +2,6 @@
 #
 using cxx
 
-hxx.ext = hxx
-cxx.ext = cxx
-
 exe{utility}: cxx{utility}
 exe{driver}: cxx{driver}
 exe{driver}: test.input = exe{utility}

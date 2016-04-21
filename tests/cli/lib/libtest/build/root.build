@@ -1,5 +1,5 @@
 using cxx
 
-hxx.ext =
-ixx.ext = ipp
-cxx.ext = cpp
+hxx{*}: extension =
+ixx{*}: extension = ipp
+cxx{*}: extension = cpp

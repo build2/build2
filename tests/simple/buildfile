@@ -1,6 +1,3 @@
 using cxx
 
-hxx.ext = hxx
-cxx.ext = cxx
-
 exe{driver}: cxx{driver}

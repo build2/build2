@@ -1,6 +1,4 @@
 using cxx
-hxx.ext = hxx
-cxx.ext = cxx
 
 exe{driver}: cxx{driver} fsdir{$out_root/out}
 

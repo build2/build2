@@ -1,15 +1,12 @@
 using cxx
 
-hxx.ext = hxx
-cxx.ext = cxx
-
 lib{utility}: cxx{utility}
 exe{driver}: cxx{driver} #lib{utility}
 
 #exe{driver}: test.roundtrip = test.out
 
-test.exe = true
-test.exe.output = test.out
+exe{*}: test = true
+exe{*}: test.output = test.out
 
 .: lib{utility} exe{driver}
 #.: exe{driver}

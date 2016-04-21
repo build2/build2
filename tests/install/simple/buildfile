@@ -1,7 +1,4 @@
 using cxx
 
-hxx.ext = hxx
-cxx.ext = cxx
-
 exe{driver}: cxx{driver} hxx{utility} doc{README}
 exe{driver}: install = sbin

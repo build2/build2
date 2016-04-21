@@ -25,7 +25,6 @@ val += x%foo@y%bar
 val += x%foo/@y%bar/
 
 using cxx
-cxx.ext = cxx
 
 exe{driver}: cxx{driver}
 exe{driver}: test.output = test.out

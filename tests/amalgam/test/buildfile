@@ -1,8 +1,5 @@
 using cxx
 
-hxx.ext = hxx
-cxx.ext = cxx
-
 import libs = amalgam-libtest%lib{test}
 
 exe{driver}: cxx{driver} $libs
