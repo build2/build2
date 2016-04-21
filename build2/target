@@ -64,10 +64,9 @@ namespace build2
   // error, then the recipe should throw rather than returning failed.
   //
   // The return value of the recipe is used to update the target state except
-  // if the state is target_state::group (either was was manually set by the
-  // recipe or already that value). Note that in this case the returned by the
-  // recipe value is still used as the resulting target state so it should
-  // match the group's state.
+  // if the state is set to target_state::group by the recipe. Note that in
+  // this case the returned by the recipe value is still used as the resulting
+  // target state so it should match the group's state.
   //
   using recipe_function = target_state (action, target&);
   using recipe = function<recipe_function>;
@@ -198,8 +197,7 @@ namespace build2
         : dir (move (d)), out (move (o)), name (move (n)), ext (e) {}
 
     // Reset the target before matching it to a rule. The default
-    // implementation clears prerequisite_targets and sets the state to
-    // unknown.
+    // implementation clears prerequisite_targets.
     //
     virtual void
     reset (action_type);

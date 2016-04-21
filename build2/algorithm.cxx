@@ -449,8 +449,9 @@ namespace build2
   }
 
   target_state
-  noop_action (action, target&)
+  noop_action (action a, target& t)
   {
+    text << "noop action triggered for " << diag_doing (a, t);
     assert (false); // We shouldn't be called, see target::recipe().
     return target_state::unchanged;
   }

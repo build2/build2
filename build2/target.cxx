@@ -66,6 +66,8 @@ namespace build2
     action = a;
     recipe_ = move (r);
 
+    raw_state = target_state::unknown;
+
     // If this is a noop recipe, then mark the target unchanged so that we
     // don't waste time executing the recipe.
     //
@@ -86,7 +88,6 @@ namespace build2
   reset (action_type)
   {
     prerequisite_targets.clear ();
-    raw_state = target_state::unknown;
   }
 
   group_view target::
