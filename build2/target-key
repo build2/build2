@@ -22,11 +22,22 @@ namespace build2
   class target_key
   {
   public:
-    const target_type* const  type;
+    const target_type* const type;
     const dir_path* const dir; // Can be relative if part of prerequisite_key.
     const dir_path* const out; // Can be relative if part of prerequisite_key.
-    const string* const  name;
-    const string* const& ext; //@@ Iffy, whan happens when move/copy?
+    const string* const name;
+    const string* const& ext;
+
+    // The above references have to track the original objects so we cannot
+    // have assignment.
+    //
+    // @@ We could use references for all members, not just ext.
+    //
+    target_key (target_key&&) = default;
+    target_key (const target_key&) = default;
+
+    target_key& operator= (target_key&&) = delete;
+    target_key& operator= (const target_key&) = delete;
   };
 
   inline bool
