@@ -59,7 +59,8 @@ namespace build2
           tracer& trace) -> pair<prerequisite&, bool>
   {
     //@@ OPT: would be nice to somehow first check if this prerequisite is
-    //   already in the set before allocating a new instance.
+    //   already in the set before allocating a new instance. Something with
+    //   bounds and insert hints?
 
     // Find or insert.
     //
@@ -67,8 +68,6 @@ namespace build2
     prerequisite& p (const_cast<prerequisite&> (*r.first));
 
     // Update extension if the existing prerequisite has it unspecified.
-    //
-    // @@ Changing the key!
     //
     if (p.ext != ext)
     {

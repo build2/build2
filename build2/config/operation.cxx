@@ -4,6 +4,7 @@
 
 #include <build2/config/operation>
 
+#include <set>
 #include <fstream>
 
 #include <butl/filesystem>

@@ -5,9 +5,9 @@
 #ifndef BUILD2_TARGET
 #define BUILD2_TARGET
 
-#include <map>
 #include <iterator>     // tags, etc.
 #include <type_traits>
+#include <unordered_map>
 
 #include <butl/multi-index> // map_iterator_adapter
 
@@ -779,13 +779,18 @@ namespace build2
       a, reverse_iterate (group_prerequisites (t)), members);
   }
 
-  //
+  // A target with an unspecified extension is considered equal to the one
+  // with the specified one. And when we find a target with an unspecified
+  // extension via a key with the specified one, we update the extension,
+  // essentially modifying the map's key. To make this work we use a hash
+  // map. The key's hash ignores the extension, so the hash will stay stable
+  // across extension updates.
   //
   struct target_set
   {
-    // @@ When we update ext in key, don't we change it? I think we do.
+    // @@ Why do we dynalloc target?
     //
-    typedef std::map<target_key, unique_ptr<target>> map;
+    typedef std::unordered_map<target_key, unique_ptr<target>> map;
     typedef butl::map_iterator_adapter<map::const_iterator> iterator;
 
     iterator

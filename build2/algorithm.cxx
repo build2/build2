@@ -21,8 +21,8 @@ namespace build2
   target&
   search (const prerequisite_key& pk)
   {
-    // If this is a project-qualified prerequisite, then this
-    // is import's business.
+    // If this is a project-qualified prerequisite, then this is import's
+    // business.
     //
     if (pk.proj != nullptr)
       return import (pk);

@@ -5,7 +5,8 @@
 #ifndef BUILD2_PREREQUISITE
 #define BUILD2_PREREQUISITE
 
-#include <set>
+#include <functional> // hash
+#include <unordered_set>
 
 #include <build2/types>
 #include <build2/utility>
@@ -32,18 +33,50 @@ namespace build2
   };
 
   inline bool
-  operator< (const prerequisite_key& x, const prerequisite_key& y)
+  operator== (const prerequisite_key& x, const prerequisite_key& y)
   {
     assert (x.scope == y.scope);
 
     // Can compare project name pointers since they are from project_name_pool.
     //
-    return x.proj < y.proj || (x.proj == y.proj && x.tk < y.tk);
+    return x.proj == y.proj && x.tk == y.tk;
+  }
+
+  inline bool
+  operator!= (const prerequisite_key& x, const prerequisite_key& y)
+  {
+    return !(x == y);
   }
 
   ostream&
   operator<< (ostream&, const prerequisite_key&);
+}
 
+
+namespace std
+{
+  // Note that we ignore the extension when calculating the hash because of
+  // its special "unspecified" logic (see target_key::operator==).
+  //
+  template <>
+  struct hash<build2::prerequisite_key>
+  {
+    using argument_type = build2::prerequisite_key;
+    using result_type = size_t;
+
+    size_t
+    operator() (const build2::prerequisite_key& k) const noexcept
+    {
+      // Can hash project name pointers since they are from project_name_pool.
+      //
+      return build2::combine_hash (hash<const string*> () (k.proj),
+                                   hash<build2::target_key> () (k.tk));
+    }
+  };
+}
+
+namespace build2
+{
   class prerequisite
   {
   public:
@@ -100,9 +133,15 @@ namespace build2
   };
 
   inline bool
-  operator< (const prerequisite& x, const prerequisite& y)
+  operator== (const prerequisite& x, const prerequisite& y)
   {
-    return x.key () < y.key ();
+    return x.key () == y.key ();
+  }
+
+  inline bool
+  operator!= (const prerequisite& x, const prerequisite& y)
+  {
+    return !(x == y);
   }
 
   inline ostream&
@@ -111,9 +150,33 @@ namespace build2
     return os << p.key ();
   }
 
+}
+
+namespace std
+{
+  template <>
+  struct hash<build2::prerequisite>
+  {
+    using argument_type = build2::prerequisite;
+    using result_type = size_t;
+
+    size_t
+    operator() (const build2::prerequisite& p) const noexcept
+    {
+      return hash<build2::prerequisite_key> () (p.key ());
+    }
+  };
+}
+
+namespace build2
+{
   // Set of prerequisites in a scope.
   //
-  struct prerequisite_set: std::set<prerequisite>
+  // Similar to targets, specified and unspecified extensions are considered
+  // equal and we may update the extension in the existing entry. To make
+  // this work we use a hash set.
+  //
+  struct prerequisite_set: std::unordered_set<prerequisite>
   {
     pair<prerequisite&, bool>
     insert (const string* proj,
