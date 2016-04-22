@@ -4,12 +4,12 @@ Version 0.3.0
 
     The C++ compile and link rules now detect when the compiler, options, or
     input file set have changed and trigger the update of the target. Some
-    examples of the events that would now trigger an automatic update:
+    examples of the events that would now trigger an automatic update are:
 
-    * Compiler change (e.g., g++ to clang++), upgrade, or reconfiguration.
-    * Change of compile/link options (e.g., -O2 to -O3).
-    * Replacement of a source file (e.g., foo.cpp with foo.cxx).
-    * Removal of a file from a library/executable.
+    * compiler change (e.g., g++ to clang++), upgrade, or reconfiguration
+    * change of compile/link options (e.g., -O2 to -O3)
+    * replacement of a source file (e.g., foo.cpp with foo.cxx)
+    * removal of a file from a library/executable
 
   * New command line variable override semantics. A command line variable can
     be an override (=), prefix (=+), or suffix (+=), for example:
@@ -18,7 +18,7 @@ Version 0.3.0
 
     Prefixes/suffixes are applied at the outsets of values set in buildfiles,
     provided these values were set (in those buildfiles) using =+/+= and not
-    expansion, for example:
+    an expansion, for example:
 
     b x=+P x+=S
 
@@ -41,8 +41,8 @@ Version 0.3.0
     b %config.cxx=clang++ configure
 
     An override can also be made global (i.e., it applies to all projects,
-    including imported) by prefixing it with '!'. As an example, compare these
-    two command lines:
+    including the imported ones) by prefixing it with '!'. As an example,
+    compare these two command lines:
 
     b config.cxx.coptions+=-g
     b '!config.cxx.coptions+=-g'
