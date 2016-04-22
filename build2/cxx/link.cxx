@@ -794,7 +794,7 @@ namespace build2
       {
         ranlib = rs["config.bin.ranlib"];
 
-        if (ranlib->empty ()) // @@ TMP until proper NULL support.
+        if (ranlib->empty ()) // @@ BC LT [null].
           ranlib = lookup ();
 
         const char* rl (
