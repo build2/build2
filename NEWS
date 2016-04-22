@@ -11,15 +11,14 @@ Version 0.3.0
     * Replacement of a source file (e.g., foo.cpp with foo.cxx).
     * Removal of a file from a library/executable.
 
-  * Support for the Intel C++ compiler on Linux.
-
   * New command line variable override semantics. A command line variable can
     be an override (=), prefix (=+), or suffix (+=), for example:
 
     b config.cxx=clang++ config.cxx.coptions+=-g config.cxx.poptions=+-I/tmp
 
-    Prefixes/suffixes are applied at the outsets of values set in buildfiles
-    provided these values were set using =+/+= and not expansion, for example:
+    Prefixes/suffixes are applied at the outsets of values set in buildfiles,
+    provided these values were set (in those buildfiles) using =+/+= and not
+    expansion, for example:
 
     b x=+P x+=S
 
@@ -35,15 +34,15 @@ Version 0.3.0
     x = A $x B
     print $x # A P p y s S B
 
-    By default an override is applied in all the projects mentioned in the
-    buildspec as well as in their subprojects. We can restrict an override
-    to not apply in subprojects by prefixing it with '%', for example:
+    By default an override applies to all the projects mentioned in the
+    buildspec as well as to their subprojects. We can restrict an override to
+    not apply to subprojects by prefixing it with '%', for example:
 
     b %config.cxx=clang++ configure
 
-    An override can also be made global (i.e., it applies in all projects,
-    including imported) by prefixing it with '!'. As an example, compare
-    these two command lines:
+    An override can also be made global (i.e., it applies to all projects,
+    including imported) by prefixing it with '!'. As an example, compare these
+    two command lines:
 
     b config.cxx.coptions+=-g
     b '!config.cxx.coptions+=-g'
@@ -58,13 +57,6 @@ Version 0.3.0
     information:
 
     b tests/:config.cxx.coptions+=-g
-
-  * Command line options, variables, and buildspec can now be specified in any
-    order. This is especially useful if you want to re-run the previous
-    command with -v or add a forgotten config variable:
-
-    b test -v
-    b configure config.cxx=clang++
 
   * Attribute support. Attributes are key or key=value pairs enclosed in []
     and separated with spaces. They come before the entity they apply to.
@@ -94,7 +86,7 @@ Version 0.3.0
     that is used by another project for something completely different. As a
     result, typing of values (see below) is recommended over variables. If you
     do type a variable, make sure it has a namespace (typing of unqualified
-    variables may become an illegal).
+    variables may become illegal).
 
     For values we recognize the same set of types plus 'null'. The value type
     is preserved in prepend/append (=+/+=) but not in assignment. For example:
@@ -112,11 +104,26 @@ Version 0.3.0
     x = [null]
     print $x # [null]
 
-  * Add support for scope/target-qualified variable expansion. For example:
+    Value attributes can also be used in the evaluation contexts, for example:
+
+    if ($x == [null])
+
+    if ([uint64] $x == [uint64] 0)
+
+  * Support for scope/target-qualified variable expansion. For example:
 
     print $(dir/:x)
     print $(file{target}:x)
     print $(dir/file{target}:x)
+
+  * Command line options, variables, and buildspec can now be specified in any
+    order. This is especially useful if you want to re-run the previous
+    command with -v or add a forgotten config variable:
+
+    b test -v
+    b configure config.cxx=clang++
+
+  * Support for the Intel C++ compiler on Linux.
 
   * Implement C++ compiler detection. Currently recognized compilers and their
     ids (in the <type>[-<variant>] form):
@@ -166,14 +173,20 @@ Version 0.3.0
 
     Cleaning everything as long as it is in the same strong amalgamation had
     some undesirable side effects. For example, in bpkg, upgrading a package
-    (which requires clean/reconfigure) led to all its prerequisite being
-    cleaned as well and then rebuilt. That was very surprising, to say the
-    least.
+    (which requires clean/reconfigure) led to all its prerequisites being
+    cleaned as well and then rebuilt. That was surprising, to say the least.
 
   * Allow escaping in double-quoted strings.
 
   * Implement --buildfile option that can be used to specify the alternative
     file to read build information from. If '-' is specified, read from STDIN.
+
+  * New scoping semantics. The src tree paths are no longer entered into the
+    scope map. Instead, targets from the src tree now include their out tree
+    directories (which are, in essence, their "configuration", with regards to
+    variable lookup). The only user-visible result of this change is the extra
+    '@<out-dir>/' suffix that is added when a target is printed, for example,
+    as part of the compilation command lines.
 
 Version 0.2.0
 
