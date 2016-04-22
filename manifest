@@ -1,6 +1,6 @@
 : 1
 name: build2
-version: 0.3.0-a1
+version: 0.3.0
 summary: build2 build system
 license: MIT
 tags: build2, c++, build, system
@@ -12,4 +12,4 @@ requires: c++11
 requires: build2 >= 0.2.0
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
-depends: libbutl == 0.3.0-a1
+depends: libbutl [0.3.0 0.4.0-)
