@@ -146,7 +146,7 @@ namespace build2
     if (tk.out->empty ())
     {
       if (pk.scope->out_path () != s)
-        out = out_src (d, *pk.scope);
+        out = out_src (d, *pk.scope->root_scope ());
     }
     else
       out = *tk.out;

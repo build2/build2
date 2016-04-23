@@ -2854,7 +2854,7 @@ namespace build2
         scope_->src_path () != scope_->out_path () &&
         d.sub (scope_->src_path ()))
     {
-      out = out_src (d, *scope_);
+      out = out_src (d, *root_);
     }
 
     const char* e (p.extension ());

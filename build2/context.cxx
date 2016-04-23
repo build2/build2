@@ -407,31 +407,33 @@ namespace build2
   }
 
   dir_path
-  src_out (const dir_path& out, scope& s)
+  src_out (const dir_path& out, scope& r)
   {
-    return src_out (out, s.out_path (), s.src_path ());
+    assert (r.root ());
+    return src_out (out, r.out_path (), r.src_path ());
   }
 
   dir_path
-  out_src (const dir_path& src, scope& s)
+  out_src (const dir_path& src, scope& r)
   {
-    return out_src (src, s.out_path (), s.src_path ());
+    assert (r.root ());
+    return out_src (src, r.out_path (), r.src_path ());
   }
 
   dir_path
   src_out (const dir_path& o,
-           const dir_path& out_base, const dir_path& src_base)
+           const dir_path& out_root, const dir_path& src_root)
   {
-    assert (o.sub (out_base));
-    return src_base / o.leaf (out_base);
+    assert (o.sub (out_root));
+    return src_root / o.leaf (out_root);
   }
 
   dir_path
   out_src (const dir_path& s,
-           const dir_path& out_base, const dir_path& src_base)
+           const dir_path& out_root, const dir_path& src_root)
   {
-    assert (s.sub (src_base));
-    return out_base / s.leaf (src_base);
+    assert (s.sub (src_root));
+    return out_root / s.leaf (src_root);
   }
 
   // relative()

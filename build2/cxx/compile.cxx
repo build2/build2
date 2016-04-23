@@ -687,12 +687,12 @@ namespace build2
         dir_path out;
 
         scope& bs (scopes.find (d));
-        if (bs.root_scope () != nullptr)
+        if (scope* rs = bs.root_scope ())
         {
           tt = map_extension (bs, n, *e);
 
           if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
-            out = out_src (d, bs);
+            out = out_src (d, *rs);
         }
 
         // If it is outside any project, or the project doesn't have
