@@ -15,5 +15,11 @@ cxx.poptions =+ -I$out_root -I$src_root
 # All exe{} in tests/ are, well, tests. Don't install them.
 #
 tests/: test.exe = true # @@ BC
-tests/exe{*}: test = true
+
+#tests/exe{*}: test = true # @@ BC
+tests/:
+{
+  exe{*}: test = true
+}
+
 tests/: install = false
