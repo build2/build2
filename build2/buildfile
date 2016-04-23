@@ -15,7 +15,7 @@ exe{b}:                                    \
         {hxx ixx     cxx}{ file          } \
         {hxx         cxx}{ lexer         } \
         {hxx         cxx}{ module        } \
-        {hxx         cxx}{ name          } \
+        {hxx ixx     cxx}{ name          } \
         {hxx         cxx}{ operation     } \
         {hxx         cxx}{ parser        } \
         {hxx         cxx}{ prerequisite  } \
