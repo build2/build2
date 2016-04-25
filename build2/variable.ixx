@@ -304,7 +304,7 @@ namespace build2
     string* p;
 
     if (v.null ())
-      new (&v.data_) string (move (x));
+      p = new (&v.data_) string (move (x));
     else
     {
       p = &v.as<string> ();
@@ -365,7 +365,7 @@ namespace build2
     path* p;
 
     if (v.null ())
-      new (&v.data_) path (move (x));
+      p = new (&v.data_) path (move (x));
     else
     {
       p = &v.as<path> ();
@@ -426,7 +426,7 @@ namespace build2
     dir_path* p;
 
     if (v.null ())
-      new (&v.data_) dir_path (move (x));
+      p = new (&v.data_) dir_path (move (x));
     else
     {
       p = &v.as<dir_path> ();
@@ -554,7 +554,7 @@ namespace build2
     vector<T>* p;
 
     if (v.null ())
-      new (&v.data_) vector<T> (move (x));
+      p = new (&v.data_) vector<T> (move (x));
     else
     {
       p = &v.as<vector<T>> ();
