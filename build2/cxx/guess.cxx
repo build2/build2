@@ -902,7 +902,7 @@ namespace build2
       // If we could pre-guess the type based on the excutable name, then
       // try the test just for that compiler.
       //
-      if (pre.empty ())
+      if (!pre.empty ())
       {
         gr = guess (cxx, pre);
 
