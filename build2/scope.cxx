@@ -220,7 +220,7 @@ namespace build2
     }
 
     if (!apply)
-      return move (original);
+      return original;
 
     assert (inner_vars != nullptr);
 
