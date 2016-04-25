@@ -29,8 +29,6 @@ namespace build2
     class cli_cxx: public mtime_target
     {
     public:
-      using mtime_target::mtime_target;
-
       union
       {
         // It is theoretically possible that the compiler will add
@@ -46,8 +44,16 @@ namespace build2
           cxx::cxx* c;
           cxx::ixx* i;
         };
-        target* m[3] = {nullptr, nullptr, nullptr};
+        target* m[3] /*= {nullptr, nullptr, nullptr}*/; // @@ GCC 4.8
       };
+
+      //using mtime_target::mtime_target; // @@ GCC 4.8
+
+      cli_cxx (dir_path d, dir_path o, string n, const string* e)
+          : mtime_target (move (d), move (o), move (n), e)
+      {
+        m[0] = m[1] = m[2] = nullptr;
+      }
 
       virtual group_view
       group_members (action_type) const;
