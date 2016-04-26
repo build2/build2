@@ -22,15 +22,15 @@
 // 2.2.0-a1    02019901
 // 3.0.0-b2    02999952
 //
-#define BUILD2_VERSION 30000
-#define BUILD2_VERSION_STR "0.3.0"
+#define BUILD2_VERSION 39901
+#define BUILD2_VERSION_STR "0.4.0-a1"
 
 // Generally, we expect minor versions to be source code backwards-
 // compatible, thought we might have a minimum version requirement.
 //
 // Note: does not apply during early development.
 //
-#if LIBBUTL_VERSION < 30000 || LIBBUTL_VERSION > 39900
+#if LIBBUTL_VERSION != 39901
 #  error incompatible libbutl version
 #endif
 

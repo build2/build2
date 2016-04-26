@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-version="0.3.0"
+version="0.4.0"
 date="April 2016"
 
 trap 'exit 1' ERR
