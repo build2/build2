@@ -879,16 +879,16 @@ namespace build2
             args.push_back (soname2.c_str ());
         }
 
-        // Add rpaths. First the ones specified by the user so that they take
-        // precedence.
+        // Add rpaths. We used to first add the ones specified by the user so
+        // that they take precedence. But that caused problems if we have old
+        // versions of the libraries sitting in the rpath location (e.g.,
+        // installed libraries). And if you think about this, it's probably
+        // correct to prefer libraries that we explicitly imported to the
+        // ones found via rpath.
         //
-        if (auto l = t["bin.rpath"])
-          for (const dir_path& p: cast<dir_paths> (l))
-            sargs.push_back ("-Wl,-rpath," + p.string ());
-
-        // Then the paths of the shared libraries we are linking to. Unless
-        // this is update for install, in which case we have to do something
-        // different.
+        // Note also that if this is update for install, then we don't add
+        // rpath of the imported libraries (i.e., we assume the are also
+        // installed).
         //
         for (target* pt: t.prerequisite_targets)
         {
@@ -908,6 +908,10 @@ namespace build2
               append_rpath_link (sargs, *ls);
           }
         }
+
+        if (auto l = t["bin.rpath"])
+          for (const dir_path& p: cast<dir_paths> (l))
+            sargs.push_back ("-Wl,-rpath," + p.string ());
       }
 
       // All the options should now be in. Hash them and compare with the db.
