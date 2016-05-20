@@ -746,6 +746,38 @@ namespace build2
       }
     }
 
+    // Recursively append/hash prerequisite libraries of a static library.
+    //
+    static void
+    append_libraries (strings& args, liba& a)
+    {
+      for (target* pt: a.prerequisite_targets)
+      {
+        if (liba* pa = pt->is_a<liba> ())
+        {
+          args.push_back (relative (pa->path ()).string ()); // string()&&
+          append_libraries (args, *pa);
+        }
+        else if (libso* ps = pt->is_a<libso> ())
+          args.push_back (relative (ps->path ()).string ()); // string()&&
+      }
+    }
+
+    static void
+    hash_libraries (sha256& cs, liba& a)
+    {
+      for (target* pt: a.prerequisite_targets)
+      {
+        if (liba* pa = pt->is_a<liba> ())
+        {
+          cs.append (pa->path ().string ());
+          hash_libraries (cs, *pa);
+        }
+        else if (libso* ps = pt->is_a<libso> ())
+          cs.append (ps->path ().string ());
+      }
+    }
+
     static void
     append_rpath_link (strings& args, libso& t)
     {
@@ -945,13 +977,21 @@ namespace build2
         for (target* pt: t.prerequisite_targets)
         {
           path_target* ppt;
+          liba* a (nullptr);
 
           if ((ppt = pt->is_a<obja> ())  ||
               (ppt = pt->is_a<objso> ()) ||
-              (ppt = pt->is_a<liba> ())  ||
-              (ppt = pt->is_a<libso> ()))
+              (lt != type::a &&
+               ((ppt = a = pt->is_a<liba> ()) ||
+                (ppt = pt->is_a<libso> ()))))
           {
             cs.append (ppt->path ().string ());
+
+            // If this is a static library, link all the libraries it depends
+            // on, recursively.
+            //
+            if (a != nullptr)
+              hash_libraries (cs, *a);
           }
         }
 
@@ -1003,13 +1043,21 @@ namespace build2
       for (target* pt: t.prerequisite_targets)
       {
         path_target* ppt;
+        liba* a (nullptr);
 
         if ((ppt = pt->is_a<obja> ())  ||
             (ppt = pt->is_a<objso> ()) ||
-            (ppt = pt->is_a<liba> ())  ||
-            (ppt = pt->is_a<libso> ()))
+            (lt != type::a &&
+             ((ppt = a = pt->is_a<liba> ()) ||
+              (ppt = pt->is_a<libso> ()))))
         {
           sargs.push_back (relative (ppt->path ()).string ()); // string()&&
+
+          // If this is a static library, link all the libraries it depends
+          // on, recursively.
+          //
+          if (a != nullptr)
+            append_libraries (sargs, *a);
         }
       }
 
