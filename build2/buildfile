@@ -49,7 +49,7 @@ exe{b}:                                    \
     cxx/{hxx         cxx}{ link          } \
     cxx/{hxx         cxx}{ module        } \
     cxx/{hxx         cxx}{ target        } \
-    cxx/{hxx     txx cxx}{ utility       } \
+    cxx/{hxx ixx     cxx}{ utility       } \
    dist/{hxx         cxx}{ module        } \
    dist/{hxx         cxx}{ operation     } \
    dist/{hxx         cxx}{ rule          } \

@@ -14,6 +14,14 @@ namespace build2
   {
     // ar/ranlib information.
     //
+    // Currently recognized ar/ranlib and their ids:
+    //
+    // gnu          GNU binutils
+    // llvm         LLVM
+    // bsd          FreeBSD (and maybe other BSDs)
+    // msvc         Microsoft's lib.exe
+    // generic      Generic/unrecognized
+    //
     // The signature is normally the --version/-V line.
     //
     // The checksum is used to detect ar/ranlib changes. It is calculated in
@@ -22,9 +30,11 @@ namespace build2
     //
     struct bin_info
     {
+      string ar_id;
       string ar_signature;
       string ar_checksum;
 
+      string ranlib_id;
       string ranlib_signature;
       string ranlib_checksum;
     };

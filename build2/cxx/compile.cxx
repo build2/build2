@@ -68,10 +68,17 @@ namespace build2
 
       path_target& t (static_cast<path_target&> (xt));
 
+      scope& rs (t.root_scope ());
+      const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
+
       // Derive file name from target name.
       //
       if (t.path ().empty ())
-        t.derive_path ("o", nullptr, (t.is_a<objso> () ? "-so" : nullptr));
+      {
+        const char* ext (cid == "msvc" ? "obj" : "o");
+        t.derive_path (ext, nullptr, (t.is_a<objso> () ? "-so" : nullptr));
+      }
 
       // Inject dependency on the output directory.
       //
@@ -83,9 +90,7 @@ namespace build2
       // When cleaning, ignore prerequisites that are not in the same
       // or a subdirectory of our project root.
       //
-      scope& rs (t.root_scope ());
-
-      link::search_paths_cache lib_paths; // Extract lazily.
+      optional<dir_paths> lib_paths; // Extract lazily.
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -130,8 +135,6 @@ namespace build2
       //
       if (a == perform_update_id)
       {
-        const string& sys (cast<string> (rs["cxx.target.system"]));
-
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
         // above.
@@ -187,11 +190,13 @@ namespace build2
 
         hash_options (cs, t, "cxx.poptions");
         hash_options (cs, t, "cxx.coptions");
-        hash_std (cs, t);
+        hash_std (cs, rs, cid, t);
 
         if (t.is_a<objso> ())
         {
-          if (sys != "darwin")
+          // On Darwin -fPIC is the default.
+          //
+          if (tclass == "linux" || tclass == "freebsd")
             cs.append ("-fPIC");
         }
 
@@ -288,6 +293,8 @@ namespace build2
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
           // -I can either be in the "-Ifoo" or "-I foo" form.
+          //
+          // @@ VC: should we also handle /I?
           //
           dir_path d;
           if (*i == "-I")
@@ -398,7 +405,7 @@ namespace build2
     // following prerequisite or l.size() if there are none left.
     //
     static string
-    next (const string& l, size_t& p)
+    next_make (const string& l, size_t& p)
     {
       size_t n (l.size ());
 
@@ -435,6 +442,122 @@ namespace build2
       return r;
     }
 
+    // Extract the include path from the VC++ /showIncludes output line.
+    // Return empty string if the line is not an include note or include
+    // error. Set the good_error flag if it is an include error (which means
+    // the process will terminate with the error status that needs to be
+    // ignored).
+    //
+    static string
+    next_show (const string& l, bool& good_error)
+    {
+      // The include error should be the last line that we handle.
+      //
+      assert (!good_error);
+
+      // VC++ /showIncludes output. The first line is the file being
+      // compiled. Then we have the list of headers, one per line, in this
+      // form (text can presumably be translated):
+      //
+      // Note: including file: C:\Program Files (x86)\[...]\iostream
+      //
+      // Finally, if we hit a non-existent header, then we end with an error
+      // line in this form:
+      //
+      // x.cpp(3): fatal error C1083: Cannot open include file: 'd/h.hpp':
+      // No such file or directory
+      //
+
+      // Distinguishing between the include note and the include error is
+      // easy: we can just check for C1083. Distinguising between the note and
+      // other errors/warnings is harder: an error could very well end with
+      // what looks like a path so we cannot look for the note but rather have
+      // to look for an error. Here we assume that a line containing ' CNNNN:'
+      // is an error. Should be robust enough in the face of language
+      // translation, etc.
+      //
+      size_t p (l.find (':'));
+      size_t n (l.size ());
+
+      for (; p != string::npos; p = ++p != n ? l.find (':', p) : string::npos)
+      {
+        auto isnum = [](char c) {return c >= '0' && c <= '9';};
+
+        if (p > 5 &&
+            l[p - 6] == ' '  &&
+            l[p - 5] == 'C'  &&
+            isnum (l[p - 4]) &&
+            isnum (l[p - 3]) &&
+            isnum (l[p - 2]) &&
+            isnum (l[p - 1]))
+        {
+          p -= 4; // Start of the error code.
+          break;
+        }
+      }
+
+      if (p == string::npos)
+      {
+        // Include note. We assume the path is always at the end but
+        // need to handle both absolute Windows and POSIX ones.
+        //
+        size_t p (l.rfind (':'));
+
+        if (p != string::npos)
+        {
+          // See if this one is part of the Windows drive letter.
+          //
+          auto isalpha = [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');};
+
+          if (p > 1 && p + 1 < n && // 2 chars before, 1 after.
+              l[p - 2] == ' ' &&
+              isalpha (l[p - 1]) &&
+              path::traits::is_separator (l[p + 1]))
+            p = l.rfind (':', p - 2);
+        }
+
+        if (p != string::npos)
+        {
+          // VC uses indentation to indicate the include nesting so there
+          // could be any number of spaces after ':'. Skip them.
+          //
+          p = l.find_first_not_of (' ', p + 1);
+        }
+
+        if (p == string::npos)
+          fail << "unable to parse /showIncludes include note line";
+
+        return string (l, p);
+      }
+      else if (l.compare (p, 4, "1083") == 0)
+      {
+        // Include error. The path is conveniently quoted with ''.
+        //
+        size_t p2 (l.rfind ('\''));
+
+        if (p2 != string::npos && p2 != 0)
+        {
+          size_t p1 (l.rfind ('\'', p2 - 1));
+
+          if (p1 != string::npos)
+          {
+            good_error = true;
+            return string (l, p1 + 1 , p2 - p1 - 1);
+          }
+        }
+
+        error << "unable to parse /showIncludes include error line";
+        throw failed ();
+      }
+      else
+      {
+        // Some other error.
+        //
+        return string ();
+      }
+    }
+
     static void
     inject_prerequisites (action a, target& t, cxx& s, scope& ds, depdb& dd)
     {
@@ -453,16 +576,17 @@ namespace build2
           }));
 
       scope& rs (t.root_scope ());
+      const string& cid (cast<string> (rs["cxx.id"]));
 
       // Initialize lazily, only if required.
       //
       cstrings args;
       string cxx_std; // Storage.
 
-      auto init_args = [&t, &s, &rs, &args, &cxx_std] ()
+      auto init_args = [&t, &s, &rs, &cid, &args, &cxx_std] ()
       {
         const path& cxx (cast<path> (rs["config.cxx"]));
-        const string& sys (cast<string> (rs["cxx.target.system"]));
+        const string& tclass (cast<string> (rs["cxx.target.class"]));
 
         args.push_back (cxx.string ().c_str ());
 
@@ -482,19 +606,30 @@ namespace build2
         // Some C++ options (e.g., -std, -m) affect the preprocessor.
         //
         append_options (args, t, "cxx.coptions");
-
-        append_std (args, t, cxx_std);
+        append_std (args, rs, cid, t, cxx_std);
 
         if (t.is_a<objso> ())
         {
-          if (sys != "darwin") // fPIC by default.
+          // On Darwin -fPIC is the default.
+          //
+          if (tclass == "linux" || tclass == "freebsd")
             args.push_back ("-fPIC");
         }
 
-        args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
-        args.push_back ("-MG"); // Treat missing headers as generated.
-        args.push_back ("-MQ"); // Quoted target name.
-        args.push_back ("*");   // Old versions can't do empty target name.
+        if (cid == "msvc")
+        {
+          args.push_back ("/nologo");
+          args.push_back ("/EP");           // Preprocess to stdout.
+          args.push_back ("/TP");           // Preprocess as C++.
+          args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
+        }
+        else
+        {
+          args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
+          args.push_back ("-MG"); // Treat missing headers as generated.
+          args.push_back ("-MQ"); // Quoted target name.
+          args.push_back ("*");   // Old versions can't do empty target name.
+        }
 
         // We are using absolute source file path in order to get absolute
         // paths in the result. Any relative paths in the result are non-
@@ -513,8 +648,8 @@ namespace build2
       prefix_map pm;
 
       // If any prerequisites that we have extracted changed, then we have to
-      // redo the whole thing. The reason for this is auto- generated headers:
-      // the updated header may now include a yet- non-existent header. Unless
+      // redo the whole thing. The reason for this is auto-generated headers:
+      // the updated header may now include a yet-non-existent header. Unless
       // we discover this and generate it (which, BTW, will trigger another
       // restart since that header, in turn, can also include auto-generated
       // headers), we will end up with an error during compilation proper.
@@ -811,69 +946,154 @@ namespace build2
             if (verb >= 3)
               print_process (args);
 
-            process pr (args.data (), 0, -1); // Open pipe to stdout.
-            ifdstream is (pr.in_ofd);
+            // For VC with /EP we need a pipe to stderr and stdout should go
+            // to /dev/null.
+            //
+            process pr (args.data (),
+                        0,
+                        cid == "msvc" ? -2 : -1,
+                        cid == "msvc" ? -1 : 2);
+
+            ifdstream is (cid == "msvc" ? pr.in_efd : pr.in_ofd,
+                          fdtranslate::text);
+
+            // In some cases we may need to ignore the error return
+            // status. The good_error flag keeps track of that. Similarly
+            // we sometimes expect the error return status based on the
+            // output we see. The bad_error flag is for that.
+            //
+            bool good_error (false), bad_error (false);
 
             size_t skip (skip_count);
-            for (bool first (true), second (true); !(restart || is.eof ()); )
+            for (bool first (true), second (false); !(restart || is.eof ()); )
             {
               string l;
               getline (is, l);
 
-              if (is.fail () && !is.eof ())
-                fail << "error reading C++ compiler -M output";
-
-              size_t pos (0);
-
-              if (first)
+              if (is.fail ())
               {
-                // Empty output should mean the wait() call below will return
-                // false.
-                //
-                if (l.empty ())
+                if (is.eof ()) // Trailing newline.
                   break;
 
-                assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
+                fail << "unable to read C++ compiler header dependency output";
+              }
 
-                first = false;
+              l6 ([&]{trace << "header dependency line '" << l << "'";});
 
-                // While normally we would have the source file on the first
-                // line, if too long, it will be moved to the next line and
-                // all we will have on this line is "*: \".
-                //
-                if (l.size () == 4 && l[3] == '\\')
+              // Parse different dependency output formats.
+              //
+              if (cid == "msvc")
+              {
+                if (first)
+                {
+                  // The first line should be the file we are compiling. If it
+                  // is not, then something went wrong even before we could
+                  // compile anything (e.g., file does not exist). In this
+                  // case the first line (and everything after it) is
+                  // presumably diagnostics.
+                  //
+                  if (l != s.path ().leaf ().string ())
+                  {
+                    text << l;
+                    bad_error = true;
+                    break;
+                  }
+
+                  first = false;
                   continue;
-                else
-                  pos = 3; // Skip "*: ".
+                }
 
-                // Fall through to the 'second' block.
-              }
+                string f (next_show (l, good_error));
 
-              if (second)
-              {
-                second = false;
-                next (l, pos); // Skip the source file.
-              }
-
-              while (pos != l.size ())
-              {
-                string f (next (l, pos));
+                if (f.empty ()) // Some other diagnostics.
+                {
+                  text << l;
+                  bad_error = true;
+                  break;
+                }
 
                 // Skip until where we left off.
                 //
                 if (skip != 0)
                 {
+                  // We can't be skipping over a non-existent header.
+                  //
+                  assert (!good_error);
                   skip--;
-                  continue;
+                }
+                else
+                {
+                  restart = add (path (move (f)), false);
+                  skip_count++;
+
+                  // If the header does not exist, we better restart.
+                  //
+                  assert (!good_error || restart);
+
+                  if (restart)
+                    l6 ([&]{trace << "restarting";});
+                }
+              }
+              else
+              {
+                // Make dependency declaration.
+                //
+                size_t pos (0);
+
+                if (first)
+                {
+                  // Empty output should mean the wait() call below will
+                  // return false.
+                  //
+                  if (l.empty ())
+                  {
+                    bad_error = true;
+                    break;
+                  }
+
+                  assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
+
+                  first = false;
+                  second = true;
+
+                  // While normally we would have the source file on the first
+                  // line, if too long, it will be moved to the next line and
+                  // all we will have on this line is "*: \".
+                  //
+                  if (l.size () == 4 && l[3] == '\\')
+                    continue;
+                  else
+                    pos = 3; // Skip "*: ".
+
+                  // Fall through to the 'second' block.
                 }
 
-                restart = add (path (move (f)), false);
-                skip_count++;
-
-                if (restart)
+                if (second)
                 {
-                  l6 ([&]{trace << "restarting";});
-                  break;
+                  second = false;
+                  next_make (l, pos); // Skip the source file.
+                }
+
+                while (pos != l.size ())
+                {
+                  string f (next_make (l, pos));
+
+                  // Skip until where we left off.
+                  //
+                  if (skip != 0)
+                  {
+                    skip--;
+                    continue;
+                  }
+
+                  restart = add (path (move (f)), false);
+                  skip_count++;
+
+                  if (restart)
+                  {
+                    l6 ([&]{trace << "restarting";});
+                    break;
+                  }
                 }
               }
             }
@@ -885,24 +1105,29 @@ namespace build2
             // complains, loudly (broken pipe). So now we are going to skip
             // until the end.
             //
+            // Also, in case of VC++, we are parsing stderr and if things go
+            // south, we need to copy the diagnostics for the user to see.
+            //
             if (!is.eof ())
-              is.ignore (numeric_limits<streamsize>::max ());
+            {
+              if (cid == "msvc" && bad_error)
+                *diag_stream << is.rdbuf ();
+              else
+                is.ignore (numeric_limits<streamsize>::max ());
+            }
+
             is.close ();
 
             // We assume the child process issued some diagnostics.
             //
             if (!pr.wait ())
             {
-              // In case of a restarts, we closed our end of the pipe early
-              // which might have caused the other end to fail. So far we
-              // experienced this on Fedora 23 with GCC 5.3.1 and there were
-              // no diagnostics issued, just the non-zero exit status. If we
-              // do get diagnostics, then we will have to read and discard the
-              // output until eof.
-              //
-              if (!restart)
+              if (!good_error) // Ignore expected errors (restart).
                 throw failed ();
             }
+            else if (bad_error)
+              fail << "expected error exist status from C++ compiler";
+
           }
           catch (const process_error& e)
           {
@@ -938,7 +1163,8 @@ namespace build2
 
       scope& rs (t.root_scope ());
       const path& cxx (cast<path> (rs["config.cxx"]));
-      const string& sys (cast<string> (rs["cxx.target.system"]));
+      const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       cstrings args {cxx.string ().c_str ()};
 
@@ -956,20 +1182,53 @@ namespace build2
       append_options (args, t, "cxx.poptions");
       append_options (args, t, "cxx.coptions");
 
-      string std; // Storage.
-      append_std (args, t, std);
+      string std, out; // Storage.
 
-      if (t.is_a<objso> ())
+      append_std (args, rs, cid, t, std);
+
+      if (cid == "msvc")
       {
-        if (sys != "darwin") // fPIC by default.
-          args.push_back ("-fPIC");
+        uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
+
+        if (verb < 3)
+          args.push_back ("/nologo");
+
+        //@@ VC: What is the default value for /MP, should we override?
+
+        // The /Fo: option (object file name) only became available in
+        // VS2013/12.0.
+        //
+        if (cver >= 18)
+        {
+          args.push_back ("/Fo:");
+          args.push_back (relo.string ().c_str ());
+        }
+        else
+        {
+          out = "/Fo" + relo.string ();
+          args.push_back (out.c_str ());
+        }
+
+        args.push_back ("/c");  // Compile only.
+        args.push_back ("/TP"); // Compile as C++.
+        args.push_back (rels.string ().c_str ());
       }
+      else
+      {
+        if (t.is_a<objso> ())
+        {
+          // On Darwin -fPIC is the default.
+          //
+          if (tclass == "linux" || tclass == "freebsd")
+            args.push_back ("-fPIC");
+        }
 
-      args.push_back ("-o");
-      args.push_back (relo.string ().c_str ());
+        args.push_back ("-o");
+        args.push_back (relo.string ().c_str ());
 
-      args.push_back ("-c");
-      args.push_back (rels.string ().c_str ());
+        args.push_back ("-c");
+        args.push_back (rels.string ().c_str ());
+      }
 
       args.push_back (nullptr);
 
@@ -980,7 +1239,17 @@ namespace build2
 
       try
       {
-        process pr (args.data ());
+        // @@ VC prints file name being compiled to stdout as the first
+        //    line, would be good to weed it out (but check if it is
+        //    always printed, for example if the file does not exist).
+        //
+
+        // VC++ cl.exe sends diagnostics to stdout. To fix this (and any other
+        // insane compilers that may want to do something like this) we are
+        // going to always redirect stdout to stderr. For sane compilers this
+        // should be harmless.
+        //
+        process pr (args.data (), 0, 2);
 
         if (!pr.wait ())
           throw failed ();

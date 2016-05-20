@@ -18,11 +18,11 @@ namespace build2
     //
     template <typename T>
     void
-    append_std (cstrings&, T&, string& storage);
+    append_std (cstrings&, scope& rs, const string& cid, T&, string& storage);
 
     template <typename T>
     void
-    hash_std (sha256&, T&);
+    hash_std (sha256&, scope& rs, const string& cid, T&);
 
     // Append or hash library options from one of the cxx.export.* variables
     // recursively, prerequisite libraries first.
@@ -35,6 +35,6 @@ namespace build2
   }
 }
 
-#include <build2/cxx/utility.txx>
+#include <build2/cxx/utility.ixx>
 
 #endif // BUILD2_CXX_UTILITY

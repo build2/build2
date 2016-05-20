@@ -53,13 +53,10 @@ namespace build2
     private:
       friend class compile;
 
-      using search_paths = vector<dir_path>;
-      using search_paths_cache = optional<search_paths>;
-
       static target*
-      search_library (search_paths_cache&, prerequisite&);
+      search_library (optional<dir_paths>&, prerequisite&);
 
-      static search_paths
+      static dir_paths
       extract_library_paths (scope&);
     };
   }

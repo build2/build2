@@ -82,50 +82,20 @@ namespace build2
       return *r;
     }
 
-    link::search_paths link::
-    extract_library_paths (scope& bs)
+    // Extract system library search paths from GCC or compatible (Clang,
+    // Intel C++) using the -print-search-dirs option.
+    //
+    static void
+    gcc_library_search_paths (scope& bs, const string& cid, dir_paths& r)
     {
-      search_paths r;
       scope& rs (*bs.root_scope ());
 
-      // Extract user-supplied search paths (i.e., -L).
-      //
-      if (auto l = bs["cxx.loptions"])
-      {
-        const auto& v (cast<strings> (l));
-
-        for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
-        {
-          // -L can either be in the "-Lfoo" or "-L foo" form.
-          //
-          dir_path d;
-          if (*i == "-L")
-          {
-            if (++i == e)
-              break; // Let the compiler complain.
-
-            d = dir_path (*i);
-          }
-          else if (i->compare (0, 2, "-L") == 0)
-            d = dir_path (*i, 2, string::npos);
-          else
-            continue;
-
-          // Ignore relative paths. Or maybe we should warn?
-          //
-          if (!d.relative ())
-            r.push_back (move (d));
-        }
-      }
-
-      // Extract system search paths.
-      //
       cstrings args;
       string std_storage;
 
       args.push_back (cast<path> (rs["config.cxx"]).string ().c_str ());
       append_options (args, bs, "cxx.coptions");
-      append_std (args, bs, std_storage);
+      append_std (args, rs, cid, bs, std_storage);
       append_options (args, bs, "cxx.loptions");
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
@@ -172,15 +142,13 @@ namespace build2
       if (l.empty ())
         fail << "unable to extract C++ compiler system library paths";
 
-      // Now the fun part: figuring out which delimiter is used.
-      // Normally it is ':' but on Windows it is ';' (or can be;
-      // who knows for sure). Also note that these paths are
-      // absolute (or should be). So here is what we are going
-      // to do: first look for ';'. If found, then that's the
-      // delimiter. If not found, then there are two cases:
-      // it is either a single Windows path or the delimiter
-      // is ':'. To distinguish these two cases we check if
-      // the path starts with a Windows drive.
+      // Now the fun part: figuring out which delimiter is used. Normally it
+      // is ':' but on Windows it is ';' (or can be; who knows for sure). Also
+      // note that these paths are absolute (or should be). So here is what we
+      // are going to do: first look for ';'. If found, then that's the
+      // delimiter. If not found, then there are two cases: it is either a
+      // single Windows path or the delimiter is ':'. To distinguish these two
+      // cases we check if the path starts with a Windows drive.
       //
       char d (';');
       string::size_type e (l.find (d));
@@ -192,8 +160,8 @@ namespace build2
         e = l.find (d);
       }
 
-      // Now chop it up. We already have the position of the
-      // first delimiter (if any).
+      // Now chop it up. We already have the position of the first delimiter
+      // (if any).
       //
       for (string::size_type b (0);; e = l.find (d, (b = e + 1)))
       {
@@ -203,12 +171,80 @@ namespace build2
         if (e == string::npos)
           break;
       }
+    }
+
+    // Extract system library search paths from MSVC. The linker doesn't seem
+    // to have any built-in paths and all of them are passed via the LIB
+    // environment variable.
+    //
+    static void
+    msvc_library_search_paths (scope&, const string&, dir_paths&)
+    {
+      // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
+      //    Maybe that cld.c hack, seems to be passing stuff from INCLUDE..?
+    }
+
+    dir_paths link::
+    extract_library_paths (scope& bs)
+    {
+      dir_paths r;
+      scope& rs (*bs.root_scope ());
+      const string& cid (cast<string> (rs["cxx.id"]));
+
+      // Extract user-supplied search paths (i.e., -L, /LIBPATH).
+      //
+      if (auto l = bs["cxx.loptions"])
+      {
+        const auto& v (cast<strings> (l));
+
+        for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
+        {
+          dir_path d;
+
+          if (cid == "msvc")
+          {
+            // /LIBPATH:<dir>
+            //
+            if (i->compare (0, 9, "/LIBPATH:") == 0 ||
+                i->compare (0, 9, "-LIBPATH:") == 0)
+              d = dir_path (*i, 9, string::npos);
+            else
+              continue;
+          }
+          else
+          {
+            // -L can either be in the "-L<dir>" or "-L <dir>" form.
+            //
+            if (*i == "-L")
+            {
+              if (++i == e)
+                break; // Let the compiler complain.
+
+              d = dir_path (*i);
+            }
+            else if (i->compare (0, 2, "-L") == 0)
+              d = dir_path (*i, 2, string::npos);
+            else
+              continue;
+          }
+
+          // Ignore relative paths. Or maybe we should warn?
+          //
+          if (!d.relative ())
+            r.push_back (move (d));
+        }
+      }
+
+      if (cid == "msvc")
+        msvc_library_search_paths (bs, cid, r);
+      else
+        gcc_library_search_paths (bs, cid, r);
 
       return r;
     }
 
     target* link::
-    search_library (search_paths_cache& spc, prerequisite& p)
+    search_library (optional<dir_paths>& spc, prerequisite& p)
     {
       tracer trace ("cxx::link::search_library");
 
@@ -218,6 +254,7 @@ namespace build2
         return p.target;
 
       scope& rs (*p.scope.root_scope ());
+      const string& cid (cast<string> (rs["cxx.id"]));
       const string& sys (cast<string> (rs["cxx.target.system"]));
 
       bool l (p.is_a<lib> ());
@@ -234,12 +271,25 @@ namespace build2
       if (l || p.is_a<liba> ())
       {
         // We are trying to find a library in the search paths extracted from
-        // the compiler. It would only be natural if we use the library
-        // prefix/extension that correspond to this compiler's target.
+        // the compiler. It would only be natural if we used the library
+        // prefix/extension that correspond to this compiler and/or its
+        // target.
         //
-        an = path ("lib" + p.name);
+        const char* e ("");
+
+        if (cid == "msvc")
+        {
+          an = path (p.name);
+          e = "lib";
+        }
+        else
+        {
+          an = path ("lib" + p.name);
+          e = "a";
+        }
+
         ae = ext == nullptr
-          ? &extension_pool.find ("a")
+          ? &extension_pool.find (e)
           : ext;
 
         if (!ae->empty ())
@@ -256,6 +306,9 @@ namespace build2
 
       if (l || p.is_a<libso> ())
       {
+        // @@ VC TODO
+        //
+
         sn = path ("lib" + p.name);
 
         if (ext == nullptr)
@@ -430,7 +483,7 @@ namespace build2
       //
       if (seen_c && !seen_cxx && hint < "cxx")
       {
-        l4 ([&]{trace << "c prerequisite(s) without c++ or hint";});
+        l4 ([&]{trace << "C prerequisite(s) without C++ or hint";});
         return nullptr;
       }
 
@@ -445,7 +498,7 @@ namespace build2
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s
 
-        search_paths_cache lib_paths; // Extract lazily.
+        optional<dir_paths> lib_paths; // Extract lazily.
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
@@ -486,11 +539,15 @@ namespace build2
       path_target& t (static_cast<path_target&> (xt));
 
       scope& rs (t.root_scope ());
-      const string& sys (cast<string> (rs["cxx.target.system"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       type lt (link_type (t));
-      bool so (lt == type::so);
       order lo (link_order (t));
+
+      // Some targets have all object files the same.
+      //
+      bool so (lt == type::so);
+      bool oso (so && tclass != "macosx" && tclass != "windows");
 
       // Derive file name from target name.
       //
@@ -501,7 +558,7 @@ namespace build2
         case type::e:
           {
             const char* e;
-            if (sys == "mingw32")
+            if (tclass == "windows")
               e = "exe";
             else
               e = "";
@@ -513,19 +570,33 @@ namespace build2
         case type::so:
           {
             auto l (t["bin.libprefix"]);
-            const char* p (l ? cast<string> (l).c_str () : "lib");
 
-            const char* e;
+            const char* p (l ? cast<string> (l).c_str () : nullptr);
+            const char* e (nullptr);
+
             if (lt == type::a)
             {
-              e = "a";
+              // To be anally precise, let's use the ar id to decide how to
+              // name the library in case, for example, someone wants to
+              // archive VC-compiled object files with MINGW ar.
+              //
+              if (cast<string> (rs["bin.ar.id"]) == "msvc")
+              {
+                e = "lib";
+              }
+              else
+              {
+                e = "a";
+                if (p == nullptr) p = "lib";
+              }
             }
             else
             {
-              if (sys == "darwin")
-                e = "dylib";
-              else
-                e = "so";
+              //@@ VC: DLL name.
+
+              if (tclass == "macosx") e = "dylib";
+              else                    e = "so";
+              if (p == nullptr)       p = "lib";
             }
 
             t.derive_path (e, p);
@@ -540,7 +611,7 @@ namespace build2
       //
       inject_parent_fsdir (a, t);
 
-      search_paths_cache lib_paths; // Extract lazily.
+      optional<dir_paths> lib_paths; // Extract lazily.
 
       // Process prerequisites: do rule chaining for C and C++ source
       // files as well as search and match.
@@ -550,7 +621,6 @@ namespace build2
       //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
         target* pt (nullptr);
 
         if (!p.is_a<c> () && !p.is_a<cxx> ())
@@ -573,11 +643,12 @@ namespace build2
           //
           if (obj* o = pt->is_a<obj> ())
           {
-            pt = so ? static_cast<target*> (o->so) : o->a;
+            pt = oso ? static_cast<target*> (o->so) : o->a;
 
             if (pt == nullptr)
-              pt = &search (so ? objso::static_type : obja::static_type,
+              pt = &search (oso ? objso::static_type : obja::static_type,
                             p.key ());
+
           }
           else if (lib* l = pt->is_a<lib> ())
           {
@@ -594,11 +665,16 @@ namespace build2
         // altogether. So we are going to use the target's project.
         //
 
+        // @@ Why are we creating the obj{} group if the source came from a
+        //    group?
+        //
+        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+
         const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
-        const target_type& o_type (
+        const target_type& otype (
           group
           ? obj::static_type
-          : (so ? objso::static_type : obja::static_type));
+          : (oso ? objso::static_type : obja::static_type));
 
         // Come up with the obj*{} target. The c(xx){} prerequisite directory
         // can be relative (to the scope) or absolute. If it is relative, then
@@ -617,7 +693,7 @@ namespace build2
           {
             if (!cpd.sub (rs.src_path ()))
               fail << "out of project prerequisite " << cp <<
-                info << "specify corresponding " << o_type.name << "{} "
+                info << "specify corresponding " << otype.name << "{} "
                    << "target explicitly";
 
             d = rs.out_path () / cpd.leaf (rs.src_path ());
@@ -627,7 +703,7 @@ namespace build2
         // obj*{} is always in the out tree.
         //
         target& ot (
-          search (o_type, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+          search (otype, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of our project root.
@@ -648,10 +724,10 @@ namespace build2
         if (group)
         {
           obj& o (static_cast<obj&> (ot));
-          pt = so ? static_cast<target*> (o.so) : o.a;
+          pt = oso ? static_cast<target*> (o.so) : o.a;
 
           if (pt == nullptr)
-            pt = &search (so ? objso::static_type : obja::static_type,
+            pt = &search (oso ? objso::static_type : obja::static_type,
                           o.dir, o.out, o.name, o.ext, nullptr);
         }
         else
@@ -703,7 +779,7 @@ namespace build2
                    << "be incompatible with existing target " << *pt <<
                 info << "existing prerequisite " << p1 << " does not match "
                    << cp <<
-                info << "specify corresponding " << o_type.name << "{} target "
+                info << "specify corresponding " << otype.name << "{} target "
                    << "explicitly";
 
             found = true;
@@ -807,7 +883,13 @@ namespace build2
       bool up (execute_prerequisites (a, t, t.mtime ()));
 
       scope& rs (t.root_scope ());
-      const string& sys (cast<string> (rs["cxx.target.system"]));
+
+      const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
+
+      const string& aid (lt == type::a
+                         ? cast<string> (rs["bin.ar.id"])
+                         : string ());
 
       // Check/update the dependency database.
       //
@@ -864,32 +946,44 @@ namespace build2
 
       if (lt == type::a)
       {
-        // If the user asked for ranlib, don't try to do its function with -s.
-        // Some ar implementations (e.g., the LLVM one) doesn't support
-        // leading '-'.
-        //
-        args.push_back (ranlib ? "rc" : "rcs");
+        if (aid == "msvc")
+        {
+          // Translate the compiler target CPU to the /MACHINE option value.
+          //
+          const string& tcpu (cast<string> (rs["cxx.target.cpu"]));
+
+          const char* m (tcpu == "i386" || tcpu == "i686"  ? "/MACHINE:x86"   :
+                         tcpu == "x86_64"                  ? "/MACHINE:x64"   :
+                         tcpu == "arm"                     ? "/MACHINE:ARM"   :
+                         tcpu == "arm64"                   ? "/MACHINE:ARM64" :
+                         nullptr);
+
+          if (m == nullptr)
+            fail << "unable to translate CPU " << tcpu << " to /MACHINE";
+
+          args.push_back (m);
+        }
+        else
+        {
+          // If the user asked for ranlib, don't try to do its function with -s.
+          // Some ar implementations (e.g., the LLVM one) doesn't support
+          // leading '-'.
+          //
+          args.push_back (ranlib ? "rc" : "rcs");
+        }
       }
       else
       {
         append_options (args, t, "cxx.coptions");
-        append_std (args, t, std);
-
-        if (so)
-        {
-          if (sys == "darwin")
-            args.push_back ("-dynamiclib");
-          else
-            args.push_back ("-shared");
-        }
+        append_std (args, rs, cid, t, std);
 
         // Set soname.
         //
-        if (so)
+        if (so && cid != "msvc")
         {
           const string& leaf (t.path ().leaf ().string ());
 
-          if (sys == "darwin")
+          if (tclass == "macosx")
           {
             // With Mac OS 10.5 (Leopard) Apple finally caved in and gave us
             // a way to emulate vanilla -rpath.
@@ -922,28 +1016,33 @@ namespace build2
         // rpath of the imported libraries (i.e., we assume the are also
         // installed).
         //
-        for (target* pt: t.prerequisite_targets)
+        // @@ VC TODO: emulate own rpath somehow and complain on user's.
+        //
+        if (cid != "msvc")
         {
-          if (libso* ls = pt->is_a<libso> ())
+          for (target* pt: t.prerequisite_targets)
           {
-            if (a.outer_operation () != install_id)
+            if (libso* ls = pt->is_a<libso> ())
             {
-              sargs.push_back ("-Wl,-rpath," +
-                               ls->path ().directory ().string ());
+              if (a.outer_operation () != install_id)
+              {
+                sargs.push_back ("-Wl,-rpath," +
+                                 ls->path ().directory ().string ());
+              }
+              // Use -rpath-link on targets that support it (Linux, FreeBSD).
+              // Since with this option the paths are not stored in the
+              // library, we have to do this recursively (in fact, we don't
+              // really need it for top-level libraries).
+              //
+              else if (tclass == "linux" || tclass == "freebsd")
+                append_rpath_link (sargs, *ls);
             }
-            // Use -rpath-link on targets that support it (Linux, FreeBSD).
-            // Since with this option the paths are not stored in the library,
-            // we have to do this recursively (in fact, we don't really need
-            // it for top-level libraries).
-            //
-            else if (sys != "darwin")
-              append_rpath_link (sargs, *ls);
           }
-        }
 
-        if (auto l = t["bin.rpath"])
-          for (const dir_path& p: cast<dir_paths> (l))
-            sargs.push_back ("-Wl,-rpath," + p.string ());
+          if (auto l = t["bin.rpath"])
+            for (const dir_path& p: cast<dir_paths> (l))
+              sargs.push_back ("-Wl,-rpath," + p.string ());
+        }
       }
 
       // All the options should now be in. Hash them and compare with the db.
@@ -969,7 +1068,7 @@ namespace build2
       // Should we capture actual files or their checksum? The only good
       // reason for capturing actual files is diagnostics: we will be able
       // to pinpoint exactly what is causing the update. On the other hand,
-      // the checksum is faster and simpler.
+      // the checksum is faster and simpler. And we like simple.
       //
       {
         sha256 cs;
@@ -1020,6 +1119,7 @@ namespace build2
 
       // Ok, so we are updating. Finish building the command line.
       //
+      string out; // Storage.
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -1028,14 +1128,64 @@ namespace build2
 
       if (lt == type::a)
       {
+        //@@ VC: what are /LIBPATH, /NODEFAULTLIB for?
+        //
+
         args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
-        args.push_back (relt.string ().c_str ());
+
+        if (aid == "msvc")
+        {
+          if (verb < 3)
+            args.push_back ("/NOLOGO");
+
+          out = "/OUT:" + relt.string ();
+          args.push_back (out.c_str ());
+        }
+        else
+          args.push_back (relt.string ().c_str ());
       }
       else
       {
         args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
-        args.push_back ("-o");
-        args.push_back (relt.string ().c_str ());
+
+        if (cid == "msvc")
+        {
+          uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
+
+          if (verb < 3)
+            args.push_back ("/nologo");
+
+          //@@ VC TODO: DLL building (names via /link?)
+
+          // The /Fe: option (executable file name) only became available in
+          // VS2013/12.0.
+          //
+          if (cver >= 18)
+          {
+            args.push_back ("/Fe:");
+            args.push_back (relt.string ().c_str ());
+          }
+          else
+          {
+            out = "/Fe" + relt.string ();
+            args.push_back (out.c_str ());
+          }
+        }
+        else
+        {
+          // Add the option that triggers building a shared library.
+          //
+          if (so)
+          {
+            if (tclass == "macosx")
+              args.push_back ("-dynamiclib");
+            else
+              args.push_back ("-shared");
+          }
+
+          args.push_back ("-o");
+          args.push_back (relt.string ().c_str ());
+        }
       }
 
       size_t oend (sargs.size ()); // Note the end of options in sargs.
@@ -1061,13 +1211,19 @@ namespace build2
         }
       }
 
-      // Copy sargs to args. Why not do it as we go along pusing into sargs?
+      // Copy sargs to args. Why not do it as we go along pushing into sargs?
       // Because of potential realocations.
       //
       for (size_t i (0); i != sargs.size (); ++i)
       {
         if (lt != type::a && i == oend)
-          append_options (args, t, "cxx.loptions");
+        {
+          //@@ VC: TMP, until we use link.exe directly (would need to
+          //   prefix them with /link otherwise).
+          //
+          if (cid != "msvc")
+            append_options (args, t, "cxx.loptions");
+        }
 
         args.push_back (sargs[i].c_str ());
       }
@@ -1084,7 +1240,17 @@ namespace build2
 
       try
       {
-        process pr (args.data ());
+        //@@ VC: I think it prints each object file being added.
+        //
+        // Not for lib.exe
+        //
+
+        // VC++ (cl.exe, lib.exe, and link.exe) sends diagnostics to
+        // stdout. To fix this (and any other insane compilers that may want
+        // to do something like this) we are going to always redirect stdout
+        // to stderr. For sane compilers this should be harmless.
+        //
+        process pr (args.data (), 0, 2);
 
         if (!pr.wait ())
           throw failed ();

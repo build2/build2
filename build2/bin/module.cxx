@@ -185,22 +185,26 @@ namespace build2
           //@@ Print project out root or name? See cxx.
 
           text << ar << ":\n"
+               << "  id         " << bi.ar_id << "\n"
                << "  signature  " << bi.ar_signature << "\n"
                << "  checksum   " << bi.ar_checksum;
 
           if (!ranlib.empty ())
           {
             text << ranlib << ":\n"
+                 << "  id         " << bi.ranlib_id << "\n"
                  << "  signature  " << bi.ranlib_signature << "\n"
                  << "  checksum   " << bi.ranlib_checksum;
           }
         }
 
+        r.assign<string> ("bin.ar.id") = move (bi.ar_id);
         r.assign<string> ("bin.ar.signature") = move (bi.ar_signature);
         r.assign<string> ("bin.ar.checksum") = move (bi.ar_checksum);
 
         if (!ranlib.empty ())
         {
+          r.assign<string> ("bin.ranlib.id") = move (bi.ranlib_id);
           r.assign<string> ("bin.ranlib.signature") =
             move (bi.ranlib_signature);
           r.assign<string> ("bin.ranlib.checksum") = move (bi.ranlib_checksum);
