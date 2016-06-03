@@ -8,7 +8,6 @@
 #include <stdlib.h>    // getenv()
 #include <unistd.h>    // getuid()
 #include <sys/types.h> // uid_t
-#include <pwd.h>       // struct passwd, getpwuid()
 
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
@@ -202,21 +201,7 @@ main (int argc, char* argv[])
     // Figure out work and home directories.
     //
     work = dir_path::current ();
-
-    if (const char* h = getenv ("HOME"))
-      home = dir_path (h);
-    else
-    {
-      struct passwd* pw (getpwuid (getuid ()));
-
-      if (pw == nullptr)
-      {
-        const char* msg (strerror (errno));
-        fail << "unable to determine home directory: " << msg;
-      }
-
-      home = dir_path (pw->pw_dir);
-    }
+    home = dir_path::home ();
 
     if (verb >= 5)
     {

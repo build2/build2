@@ -106,19 +106,42 @@ namespace build2
   inline bool
   operator< (const name& x, const name& y) {return x.compare (y) < 0;}
 
+  // Serialize the name to the stream. If requested, the name components
+  // containing special characters are quoted. The special characters are:
+  //
+  // {}[]$() \t\n#\"'%
+  //
+  // If the pair argument is not '\0', then it is added to the above special
+  // characters set. If the quote character is present in the component then
+  // it is double quoted rather than single quoted. In this case the following
+  // characters are escaped:
+  //
+  // \$("
+  //
   ostream&
-  operator<< (ostream&, const name&);
+  to_stream (ostream&, const name&, bool quote, char pair);
+
+  inline ostream&
+  operator<< (ostream& os, const name& n) {
+    return to_stream (os, n, false, '\0');}
+
 
   // Vector of names.
   //
   using names = vector<name>;
   using names_view = vector_view<const name>;
 
+  // The same semantics as to_stream(name).
+  //
   ostream&
-  operator<< (ostream&, const names_view&);
+  to_stream (ostream&, const names_view&, bool quote, char pair);
 
   inline ostream&
-  operator<< (ostream& os, const names& n) {return os << names_view (n);}
+  operator<< (ostream& os, const names_view& ns) {
+    return to_stream (os, ns, false, '\0');}
+
+  inline ostream&
+  operator<< (ostream& os, const names& ns) {return os << names_view (ns);}
 }
 
 #include <build2/name.ixx>

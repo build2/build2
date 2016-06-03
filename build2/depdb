@@ -154,7 +154,17 @@ namespace build2
     }
 
     string*
-    expect (const path& v) {return expect (v.string ());}
+    expect (const path& v)
+    {
+      string* l (read ());
+      if (l == nullptr || path::traits::compare (*l, v.string ()) != 0)
+      {
+        write (v);
+        return l;
+      }
+
+      return nullptr;
+    }
 
     string*
     expect (const char* v)

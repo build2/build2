@@ -132,7 +132,7 @@ namespace build2
           {
             // In some cases this is not enough (e.g., the runtime linker
             // will print scary errors if some shared libraries are not
-            // found. So it would be good to redirect child's STDERR.
+            // found). So it would be good to redirect child's STDERR.
             //
             if (!optional)
               error << "unable to execute " << cli << ": " << e.what ();
@@ -140,7 +140,7 @@ namespace build2
             if (e.child ())
               exit (1);
 
-            throw failed ();
+            return string (); // Not found.
           }
         };
 

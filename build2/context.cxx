@@ -339,7 +339,8 @@ namespace build2
       if (verb)
         text << "mkdir " << d;
 
-      fail << "unable to create directory " << d << ": " << e.what ();
+      error << "unable to create directory " << d << ": " << e.what ();
+      throw failed ();
     }
 
     if (ms == mkdir_status::success)
@@ -368,7 +369,8 @@ namespace build2
       if (verb)
         text << "mkdir -p " << d;
 
-      fail << "unable to create directory " << d << ": " << e.what ();
+      error << "unable to create directory " << d << ": " << e.what ();
+      throw failed ();
     }
 
     if (ms == mkdir_status::success)

@@ -266,7 +266,7 @@ namespace build2
       // liba
       //
       path an;
-      const string* ae;
+      const string* ae (nullptr);
 
       if (l || p.is_a<liba> ())
       {
@@ -302,7 +302,7 @@ namespace build2
       // libso
       //
       path sn;
-      const string* se;
+      const string* se (nullptr);
 
       if (l || p.is_a<libso> ())
       {

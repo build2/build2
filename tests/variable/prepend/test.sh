@@ -1,3 +1,3 @@
 #!/bin/sh
 
-b -q | diff -u test.out -
+b -q | diff --strip-trailing-cr -u test.out -

@@ -35,7 +35,8 @@ namespace build2
       else if (verb >= l2)
         text << "rm " << t;
 
-      fail << "unable to remove file " << f << ": " << e.what ();
+      error << "unable to remove file " << f << ": " << e.what ();
+      throw failed ();
     }
 
     if (rs == rmfile_status::success)
@@ -74,7 +75,8 @@ namespace build2
       else if (verb)
         text << "rmdir " << t;
 
-      fail << "unable to remove directory " << d << ": " << e.what ();
+      error << "unable to remove directory " << d << ": " << e.what ();
+      throw failed ();
     }
 
     switch (rs)

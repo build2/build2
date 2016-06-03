@@ -424,8 +424,28 @@ namespace build2
       {
         char c (l[p]);
 
-        if (c == '\\')
-          c = l[++p];
+        if (p + 1 != n)
+        {
+          if (c == '$')
+          {
+            // Got to be another (escaped) '$'.
+            //
+            if (l[p + 1] == '$')
+              ++p;
+          }
+          else if (c == '\\')
+          {
+            // This may or may not be an escape sequence depending on whether
+            // what follows is "escapable".
+            //
+            switch (c = l[++p])
+            {
+            case '\\': break;
+            case ' ': break;
+            default: c = '\\'; --p; // Restore.
+            }
+          }
+        }
 
         r += c;
       }
@@ -627,8 +647,14 @@ namespace build2
         {
           args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
           args.push_back ("-MG"); // Treat missing headers as generated.
+
+          // Previously we used '*' as a target name but it gets expanded to
+          // the current directory file names by GCC (4.9) that comes with
+          // MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC being
+          // executed in the shell with -MQ '*' option and not just -MQ *.
+          //
           args.push_back ("-MQ"); // Quoted target name.
-          args.push_back ("*");   // Old versions can't do empty target name.
+          args.push_back ("^");   // Old versions can't do empty target name.
         }
 
         // We are using absolute source file path in order to get absolute
@@ -1051,19 +1077,19 @@ namespace build2
                     break;
                   }
 
-                  assert (l[0] == '*' && l[1] == ':' && l[2] == ' ');
+                  assert (l[0] == '^' && l[1] == ':' && l[2] == ' ');
 
                   first = false;
                   second = true;
 
                   // While normally we would have the source file on the first
                   // line, if too long, it will be moved to the next line and
-                  // all we will have on this line is "*: \".
+                  // all we will have on this line is "^: \".
                   //
                   if (l.size () == 4 && l[3] == '\\')
                     continue;
                   else
-                    pos = 3; // Skip "*: ".
+                    pos = 3; // Skip "^: ".
 
                   // Fall through to the 'second' block.
                 }

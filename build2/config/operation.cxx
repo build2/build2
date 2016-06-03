@@ -56,7 +56,9 @@ namespace build2
 
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
-            << "src_root = " << src_root << endl;
+            << "src_root = ";
+        to_stream (ofs, name (src_root), true, '@'); // Quote.
+        ofs << endl;
       }
       catch (const ofstream::failure&)
       {
@@ -251,7 +253,10 @@ namespace build2
           if (v)
           {
             storage.clear ();
-            ofs << n << " = " << reverse (v, storage) << endl;
+
+            ofs << n << " = ";
+            to_stream (ofs, reverse (v, storage), true, '@'); // Quote.
+            ofs << endl;
           }
           else
             ofs << n << " = [null]" << endl;

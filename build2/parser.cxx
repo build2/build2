@@ -31,15 +31,26 @@ namespace build2
   class parser::enter_scope
   {
   public:
-    enter_scope (): p_ (nullptr) {}
+    enter_scope (): p_ (nullptr), r_ (nullptr), s_ (nullptr) {}
+
     enter_scope (parser& p, dir_path&& d): p_ (&p), r_ (p.root_), s_ (p.scope_)
     {
-      // Relative scopes are opened relative to out, not src.
+      // Check for the global scope as a special case. While on POSIX the
+      // check is redundant, on Windows the path completion/normalization
+      // would otherwise transform it to the out path of the current scope
+      // since "/" is a relative path on Windows (and we use "/" even on
+      // Windows for that gloabl scope).
       //
-      if (d.relative ())
-        d = p.scope_->out_path () / d;
+      if (d != dir_path ("/"))
+      {
+        // Relative scopes are opened relative to out, not src.
+        //
+        if (d.relative ())
+          d = p.scope_->out_path () / d;
 
-      d.normalize ();
+        d.normalize ();
+      }
+
       p.switch_scope (d);
     }
 
@@ -70,7 +81,8 @@ namespace build2
   class parser::enter_target
   {
   public:
-    enter_target (): p_ (nullptr) {}
+    enter_target (): p_ (nullptr), t_ (nullptr) {}
+
     enter_target (parser& p, name&& n, const location& loc, tracer& tr)
         : p_ (&p), t_ (p.target_)
     {
@@ -1074,7 +1086,8 @@ namespace build2
           try {iv = to_version (v);}
           catch (const invalid_argument& e)
           {
-            fail (l) << "invalid version '" << v << "': " << e.what ();
+            error (l) << "invalid version '" << v << "': " << e.what ();
+            throw failed ();
           }
 
           if (iv > BUILD2_VERSION)

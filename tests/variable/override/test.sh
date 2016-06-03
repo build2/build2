@@ -2,6 +2,25 @@
 
 verbose=n
 
+# By default when MSYS2 executable (bash.exe in particular) runs another
+# executable it converts arguments that look like POSIX paths to Windows
+# representations. More about it at:
+#
+# http://www.mingw.org/wiki/Posix_path_conversion
+#
+# So when you run b /v=X, build2 gets 'C:/msys64/v=X' argument instead of
+# '/v=X'. To disable this behavior set MSYS2_ARG_CONV_EXCL environment
+# variable, so all arguments starting with / will not be converted. You can
+# list more prefixes using ';' as a separator.
+#
+export MSYS2_ARG_CONV_EXCL=/
+
+tmp_file=`mktemp`
+
+# Remove temporary file on exit. Cover the case when exit due to an error.
+#
+trap 'rm -f $tmp_file' EXIT
+
 function error () { echo "$*" 1>&2; exit 1; }
 
 function fail ()
@@ -21,10 +40,13 @@ function fail ()
 
 function test ()
 {
-  # There is no way to get the exit code in process substitution
-  # so ruin the output.
-  #
-  diff -u - <(b -q $* || echo "<invalid output>")
+  b -q $* >$tmp_file
+
+  if [ $? -ne 0 ]; then
+    error "failed: b -q $* >$tmp_file"
+  fi
+
+  diff --strip-trailing-cr -u - $tmp_file
 
   if [ $? -ne 0 ]; then
     error "failed: b $*"
