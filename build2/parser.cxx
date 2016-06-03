@@ -1911,7 +1911,9 @@ namespace build2
           continue;
         }
 
-        string::size_type p (name.find_last_of ("/%"));
+        //@@ PATH
+        //
+        string::size_type p (name.find_last_of ("/\\%"));
 
         // First take care of project. A project-qualified name is
         // not very common, so we can afford some copying for the
@@ -2001,24 +2003,45 @@ namespace build2
 
         count = 1;
 
-        // If it ends with a directory separator, then it is a directory.
-        // Note that at this stage we don't treat '.' and '..' as special
-        // (unless they are specified with a directory separator) because
-        // then we would have ended up treating '.: ...' as a directory
-        // scope. Instead, this is handled higher up the processing chain,
-        // in target_types::find(). This would also mess up reversibility
-        // to simple name.
+        // If it ends with a directory separator, then it is a directory. Note
+        // that at this stage we don't treat '.' and '..' as special (unless
+        // they are specified with a directory separator) because then we
+        // would have ended up treating '.: ...' as a directory scope.
+        // Instead, this is handled higher up the processing chain, in
+        // scope::find_target_type(). This would also mess up reversibility to
+        // simple name.
         //
         // @@ TODO: and not quoted
         //
         if (p == n)
         {
+          // @@ PATH: currently we treat backslashes as directory separators
+          //    which means they will be reversed as forward slashes. We have
+          //    no choice here since otherwise Windows paths will be pretty
+          //    much unusable (e.g., configure(C:\foo\@...)). Some ideas on
+          //    how we could mitigate this:
+          //
+          //    - Only do this in buildspec parsing (but what about command
+          //      line vars).
+          //
+          //    - When reversing, employ some heuristics to decide which
+          //      slash to use. E.g., if it already contains back slashes.
+          //      Though the problem is with reversing something that isn't
+          //      a path, say 'foo\'.
+          //
+
+          // Take care of "/" and "...//" (the latter is not reversible).
+          //
+          char t ('\0');
+          if (p != 0 && !path::traits::is_separator (name[p - 1]))
+          {
+            t = name[p];
+            name.resize (p); // Strip trailing '/'.
+          }
+
           // For reversibility to simple name, only treat it as a directory
           // if the string is an exact representation.
           //
-          if (p != 0 && name[p - 1] != '/') // Take care of the "//" case.
-            name.resize (p); // Strip trailing '/'.
-
           dir_path dir (move (name), dir_path::exact);
 
           if (!dir.empty ())
@@ -2035,8 +2058,8 @@ namespace build2
 
           // Add the trailing slash back and treat it as a simple name.
           //
-          if (p != 0 && name[p - 1] != '/')
-            name.push_back ('/');
+          if (t != '\0')
+            name.push_back (t);
         }
 
         ns.emplace_back (pp1,
