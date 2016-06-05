@@ -338,6 +338,7 @@ namespace build2
         assert (!ot.path ().empty ()); // Should have been assigned by update.
 
         args.push_back ("diff");
+        args.push_back ("--strip-trailing-cr"); //@@ TMP: see module.cxx
         args.push_back ("-u");
         args.push_back (ot.path ().string ().c_str ());
         args.push_back ("-");

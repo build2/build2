@@ -68,6 +68,8 @@ namespace build2
       const dir_path& out_root (root.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
+      //@@ Need ability to specify extra diff options (--strip-trailing-cr).
+
       // Register rules.
       //
       {
