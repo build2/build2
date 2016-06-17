@@ -255,7 +255,7 @@ namespace build2
 
       scope& rs (*p.scope.root_scope ());
       const string& cid (cast<string> (rs["cxx.id"]));
-      const string& sys (cast<string> (rs["cxx.target.system"]));
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
 
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libso.
@@ -306,23 +306,31 @@ namespace build2
 
       if (l || p.is_a<libso> ())
       {
-        // @@ VC TODO
-        //
+        const char* e ("");
 
-        sn = path ("lib" + p.name);
-
-        if (ext == nullptr)
+        if (cid == "msvc")
         {
-          const char* e;
-          if (sys == "darwin")
-            e = "dylib";
-          else
-            e = "so";
+          // @@ VC TODO: still .lib, right?
+          //
+        }
+        else
+        {
+          sn = path ("lib" + p.name);
 
-          ext = &extension_pool.find (e);
+          if      (tsys == "darwin")  e = "dylib";
+          //
+          // @@ Here we are searching for the import library but if it's not
+          // found, then we could also search for the DLL since we can link
+          // directly to it. Of course, we would also need some way to mark
+          // this libso{} as "import-less".
+          //
+          else if (tsys == "mingw32") e = "dll.a";
+          else                        e = "so";
         }
 
-        se = ext;
+        se = ext == nullptr
+          ? &extension_pool.find (e)
+          : ext;
 
         if (!se->empty ())
         {
@@ -594,9 +602,11 @@ namespace build2
             {
               //@@ VC: DLL name.
 
-              if (tclass == "macosx") e = "dylib";
-              else                    e = "so";
-              if (p == nullptr)       p = "lib";
+              if (tclass == "macosx")  e = "dylib";
+              if (tclass == "windows") e = "dll";
+              else                     e = "so";
+
+              if (p == nullptr)        p = "lib";
             }
 
             t.derive_path (e, p);
@@ -817,7 +827,7 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean_depdb;
+      case perform_clean_id: return &perform_clean;
       default: return noop_recipe; // Configure update.
       }
     }
@@ -885,6 +895,7 @@ namespace build2
       scope& rs (t.root_scope ());
 
       const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       const string& aid (lt == type::a
@@ -979,7 +990,7 @@ namespace build2
 
         // Set soname.
         //
-        if (so && cid != "msvc")
+        if (so && tclass != "windows")
         {
           const string& leaf (t.path ().leaf ().string ());
 
@@ -1016,9 +1027,11 @@ namespace build2
         // rpath of the imported libraries (i.e., we assume the are also
         // installed).
         //
-        // @@ VC TODO: emulate own rpath somehow and complain on user's.
-        //
-        if (cid != "msvc")
+        if (tclass == "windows")
+        {
+          // @@ VC TODO: emulate own rpath somehow and complain on user's.
+        }
+        else
         {
           for (target* pt: t.prerequisite_targets)
           {
@@ -1185,6 +1198,17 @@ namespace build2
 
           args.push_back ("-o");
           args.push_back (relt.string ().c_str ());
+
+          // Add any additional options (import library name, etc).
+          //
+          if (so)
+          {
+            if (tsys == "mingw32")
+            {
+              out = "-Wl,--out-implib=" + relt.string () + ".a";
+              args.push_back (out.c_str ());
+            }
+          }
         }
       }
 
@@ -1194,14 +1218,23 @@ namespace build2
       {
         path_target* ppt;
         liba* a (nullptr);
+        libso* so (nullptr);
 
         if ((ppt = pt->is_a<obja> ())  ||
             (ppt = pt->is_a<objso> ()) ||
             (lt != type::a &&
              ((ppt = a = pt->is_a<liba> ()) ||
-              (ppt = pt->is_a<libso> ()))))
+              (ppt = so = pt->is_a<libso> ()))))
         {
-          sargs.push_back (relative (ppt->path ()).string ()); // string()&&
+          string p (relative (ppt->path ()).string ()); // string()&&
+
+          if (so != nullptr)
+          {
+            if (tsys == "mingw32")
+              p += ".a"; // Link to the import library (*.dll -> *.dll.a).
+          }
+
+          sargs.push_back (move (p));
 
           // If this is a static library, link all the libraries it depends
           // on, recursively.
@@ -1303,6 +1336,25 @@ namespace build2
       //
       t.mtime (system_clock::now ());
       return target_state::changed;
+    }
+
+    target_state link::
+    perform_clean (action a, target& xt)
+    {
+      file& t (static_cast<file&> (xt));
+
+      scope& rs (t.root_scope ());
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
+
+      const char* e (nullptr);
+
+      if (link_type (t) == type::so)
+      {
+        if (tsys == "mingw32")
+          e = "+.a"; // Import library (*.dll.a).
+      }
+
+      return clean_extra (a, t, {"+.d", e});
     }
 
     link link::instance;

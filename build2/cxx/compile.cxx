@@ -194,7 +194,7 @@ namespace build2
 
         if (t.is_a<objso> ())
         {
-          // On Darwin -fPIC is the default.
+          // On Darwin, Win32 -fPIC is the default.
           //
           if (tclass == "linux" || tclass == "freebsd")
             cs.append ("-fPIC");
@@ -610,7 +610,7 @@ namespace build2
 
         if (t.is_a<objso> ())
         {
-          // On Darwin -fPIC is the default.
+          // On Darwin, Win32 -fPIC is the default.
           //
           if (tclass == "linux" || tclass == "freebsd")
             args.push_back ("-fPIC");
@@ -1217,7 +1217,7 @@ namespace build2
       {
         if (t.is_a<objso> ())
         {
-          // On Darwin -fPIC is the default.
+          // On Darwin, Win32 -fPIC is the default.
           //
           if (tclass == "linux" || tclass == "freebsd")
             args.push_back ("-fPIC");

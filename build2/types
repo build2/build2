@@ -7,13 +7,15 @@
 
 #include <vector>
 #include <string>
-#include <memory>        // unique_ptr, shared_ptr
-#include <utility>       // pair, move()
-#include <cstddef>       // size_t, nullptr_t
-#include <cstdint>       // uint{8,16,32,64}_t
+#include <memory>           // unique_ptr, shared_ptr
+#include <utility>          // pair, move()
+#include <cstddef>          // size_t, nullptr_t
+#include <cstdint>          // uint{8,16,32,64}_t
 #include <istream>
 #include <ostream>
-#include <functional>    // function, reference_wrapper
+#include <functional>       // function, reference_wrapper
+#include <initializer_list>
+
 
 #include <exception>     // exception
 #include <stdexcept>     // logic_error, invalid_argument, runtime_error
@@ -43,6 +45,8 @@ namespace build2
   using std::string;
   using std::function;
   using std::reference_wrapper;
+
+  using std::initializer_list;
 
   using std::unique_ptr;
   using std::shared_ptr;
