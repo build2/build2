@@ -513,8 +513,8 @@ namespace build2
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
     private:
-      target* t_ {nullptr};
-      prerequisites_type* c_ {nullptr};
+      target* t_ = nullptr;
+      prerequisites_type* c_ = nullptr;
       base_iterator i_;
     };
 
@@ -908,12 +908,12 @@ namespace build2
       return t->mtime_;
     }
 
+    // Note that while we can cache the mtime at any time, it may be ignored
+    // if the target state is group (see the mtime() accessor).
+    //
     void
     mtime (timestamp mt)
     {
-      // While we can cache the mtime at any time, it may be ignored
-      // if the target state is group (see the mtime() accessor).
-      //
       mtime_ = mt;
     }
 

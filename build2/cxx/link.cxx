@@ -658,7 +658,6 @@ namespace build2
             if (pt == nullptr)
               pt = &search (oso ? objso::static_type : obja::static_type,
                             p.key ());
-
           }
           else if (lib* l = pt->is_a<lib> ())
           {
