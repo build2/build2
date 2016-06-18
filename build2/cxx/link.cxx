@@ -318,13 +318,7 @@ namespace build2
           sn = path ("lib" + p.name);
 
           if      (tsys == "darwin")  e = "dylib";
-          //
-          // @@ Here we are searching for the import library but if it's not
-          // found, then we could also search for the DLL since we can link
-          // directly to it. Of course, we would also need some way to mark
-          // this libso{} as "import-less".
-          //
-          else if (tsys == "mingw32") e = "dll.a";
+          else if (tsys == "mingw32") e = "dll";
           else                        e = "so";
         }
 
@@ -384,7 +378,20 @@ namespace build2
           f = d;
           f /= sn;
 
-          if ((mt = file_mtime (f)) != timestamp_nonexistent)
+          // @@ Here we are searching for the import library but if it's not
+          // found, then we could also search for the DLL since we can link
+          // directly to it. Of course, we would also need some way to mark
+          // this libso{} as "import-less".
+          //
+          // @@ This is a bit of hack until we get support for the explicit
+          // import lib specification.
+          //
+          if (tsys == "mingw32")
+            mt = file_mtime (f + ".a");
+          else
+            mt = file_mtime (f);
+
+          if (mt != timestamp_nonexistent)
           {
             s = &targets.insert<libso> (d, dir_path (), p.name, se, trace);
 
