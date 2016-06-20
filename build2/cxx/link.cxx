@@ -318,7 +318,7 @@ namespace build2
           sn = path ("lib" + p.name);
 
           if      (tsys == "darwin")  e = "dylib";
-          else if (tsys == "mingw32") e = "dll";
+          else if (tsys == "mingw32") e = "dll.a"; // See search code below.
           else                        e = "so";
         }
 
@@ -377,19 +377,32 @@ namespace build2
         {
           f = d;
           f /= sn;
+          mt = file_mtime (f);
 
-          // @@ Here we are searching for the import library but if it's not
-          // found, then we could also search for the DLL since we can link
-          // directly to it. Of course, we would also need some way to mark
-          // this libso{} as "import-less".
-          //
-          // @@ This is a bit of hack until we get support for the explicit
-          // import lib specification.
-          //
           if (tsys == "mingw32")
-            mt = file_mtime (f + ".a");
-          else
-            mt = file_mtime (f);
+          {
+            // Above we searched for the import library (.dll.a) but if it's
+            // not found, then we also search for the .dll (unless the
+            // extension was specified explicitly) since we can link to it
+            // directly.
+            //
+            // Note also that the resulting libso{} would end up being the .a
+            // import library. We could have tried to always find the
+            // corresponding .dll, but when installed they normally end up in
+            // different directories (lib/ and bin/). In fact, there is no
+            // reason to require the presence of the .dll at all (think cross-
+            // compilation). So while having libso{} being .a is a bit of
+            // hack, it is simple and appears harmless (think of it as the
+            // import library being a proxy for the real thing). But let me
+            // know if you have a better idea.
+            //
+            if (mt == timestamp_nonexistent && ext == nullptr)
+            {
+              se = &extension_pool.find ("dll");
+              f = f.base (); // Remove .a from .dll.a.
+              mt = file_mtime (f);
+            }
+          }
 
           if (mt != timestamp_nonexistent)
           {
@@ -1232,15 +1245,30 @@ namespace build2
              ((ppt = a = pt->is_a<liba> ()) ||
               (ppt = so = pt->is_a<libso> ()))))
         {
-          string p (relative (ppt->path ()).string ()); // string()&&
+          path p (relative (ppt->path ()));
 
           if (so != nullptr)
           {
             if (tsys == "mingw32")
-              p += ".a"; // Link to the import library (*.dll -> *.dll.a).
+            {
+              // Normally we want to link to the import library (*.dll ->
+              // *.dll.a). However, this could already be an import library
+              // (see search_library()).
+              //
+              // @@ It could also be a DLL which we should try to link
+              // directly. We cannot handle it until we have the group
+              // support: we will check if there is an implib in
+              // the group, if there is, then we link to it. Otherwise,
+              // we assumy this is a DLL without the import library and
+              // try to link to it directly.
+              //
+              const char* e (p.extension ());
+              if (e == nullptr || e[0] != 'a' || e[1] != '\0')
+                p += ".a";
+            }
           }
 
-          sargs.push_back (move (p));
+          sargs.push_back (move (p).string ()); // string()&&
 
           // If this is a static library, link all the libraries it depends
           // on, recursively.
