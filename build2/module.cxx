@@ -50,11 +50,11 @@ namespace build2
   }
 
   bool
-  load_module (bool opt,
-               const string& name,
+  load_module (const string& name,
                scope& rs,
                scope& bs,
-               const location& loc)
+               const location& loc,
+               bool opt)
   {
     // First see if this modules has already been loaded for this project.
     //

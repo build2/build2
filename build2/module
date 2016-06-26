@@ -76,11 +76,11 @@ namespace build2
   // (false can only be returned if optional).
   //
   bool
-  load_module (bool optional,
-               const string& name,
+  load_module (const string& name,
                scope& root,
                scope& base,
-               const location&);
+               const location&,
+               bool optional = false);
 
   // Builtin modules.
   //

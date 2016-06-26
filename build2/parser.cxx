@@ -1102,7 +1102,7 @@ namespace build2
         if (boot_)
           boot_module (n, *root_, l);
         else
-          load_module (optional, n, *root_, *scope_, l);
+          load_module (n, *root_, *scope_, l, optional);
       }
     }
 

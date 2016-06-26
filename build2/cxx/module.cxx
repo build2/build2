@@ -40,15 +40,11 @@ namespace build2
       tracer trace ("cxx::init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Initialize the bin module. Only do this if it hasn't already
-      // been loaded so that we don't overwrite user's bin.* settings.
+      // Initialize the bin module. Only do this if it hasn't already been
+      // loaded so that we don't overwrite user's bin.* settings.
       //
-      {
-        auto l (b["bin.loaded"]);
-
-        if (!l || !cast<bool> (l))
-          load_module (false, "bin", r, b, loc);
-      }
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc);
 
       // Enter module variables.
       //

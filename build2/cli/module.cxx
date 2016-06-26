@@ -36,18 +36,13 @@ namespace build2
       tracer trace ("cli::init");
       l5 ([&]{trace << "for " << base.out_path ();});
 
-      // Make sure the cxx module has been loaded since we need its
-      // targets types (?xx{}). Note that we don't try to load it
-      // ourselves because of the non-trivial variable merging
-      // semantics. So it is better to let the user load cxx
-      // explicitly.
+      // Make sure the cxx module has been loaded since we need its targets
+      // types (?xx{}). Note that we don't try to load it ourselves because of
+      // the non-trivial variable merging semantics. So it is better to let
+      // the user load cxx explicitly.
       //
-      {
-        auto l (base["cxx.loaded"]);
-
-        if (!l || !cast<bool> (l))
-          fail (loc) << "cxx module must be loaded before cli";
-      }
+      if (!cast_false<bool> (base["cxx.loaded"]))
+        fail (loc) << "cxx module must be loaded before cli";
 
       // Enter module variables.
       //

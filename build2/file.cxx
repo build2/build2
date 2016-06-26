@@ -781,7 +781,7 @@ namespace build2
 
       if (s.boot)
       {
-        load_module (false, n, root, root, s.loc);
+        load_module (n, root, root, s.loc);
         assert (!s.boot);
       }
     }
