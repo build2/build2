@@ -213,7 +213,9 @@ namespace build2
 
       // Configure "installability" of our target types.
       //
-      install::path<exe> (b, dir_path ("bin"));  // Install into install.bin.
+      using namespace install;
+
+      install_path<exe> (b, dir_path ("bin"));  // Install into install.bin.
 
       // Should shared libraries have executable bit? That depends on
       // who you ask. In Debian, for example, it should not unless, it
@@ -233,10 +235,12 @@ namespace build2
       //
       // Everyone is happy then?
       //
-      install::path<libso> (b, dir_path ("lib")); // Install into install.lib.
+      install_path<libso> (b, dir_path ("lib")); // Install into install.lib.
 
-      install::path<liba> (b, dir_path ("lib"));  // Install into install.lib.
-      install::mode<liba> (b, "644");
+      //@@ For Windows, libso{} is an import library and shouldn't be exec.
+
+      install_path<liba> (b, dir_path ("lib"));  // Install into install.lib.
+      install_mode<liba> (b, "644");
 
       return true;
     }

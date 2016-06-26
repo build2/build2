@@ -182,9 +182,9 @@ namespace build2
 
       // Configure "installability" for built-in target types.
       //
-      path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
-      path<man>  (b, dir_path ("man"));  // Install into install.man.
-      path<man1> (b, dir_path ("man1")); // Install into install.man1.
+      install_path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
+      install_path<man>  (b, dir_path ("man"));  // Install into install.man.
+      install_path<man1> (b, dir_path ("man1")); // Install into install.man1.
 
       return true;
     }

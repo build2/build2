@@ -1112,31 +1112,6 @@ namespace build2
       fail (t) << "expected newline instead of " << t;
   }
 
-  static target*
-  derived_factory (const target_type& t,
-                   dir_path d,
-                   dir_path o,
-                   string n,
-                   const string* e)
-  {
-    // Pass our type to the base factory so that it can detect that it is
-    // being called to construct a derived target. This can be used, for
-    // example, to decide whether to "link up" to the group.
-    //
-    // One exception: if we are derived from a derived target type, the this
-    // logic will lead to infinite recursion. In this case get the ultimate
-    // base.
-    //
-    const target_type* bt (t.base);
-    for (; bt->factory == &derived_factory; bt = bt->base) ;
-
-    target* r (bt->factory (t, move (d), move (o), move (n), e));
-    r->derived_type = &t;
-    return r;
-  }
-
-  constexpr const char derived_ext_var[] = "extension";
-
   void parser::
   define (token& t, type& tt)
   {
@@ -1167,28 +1142,8 @@ namespace build2
       if (bt == nullptr)
         fail (t) << "unknown target type " << bn;
 
-      unique_ptr<target_type> dt (new target_type (*bt));
-      dt->base = bt;
-      dt->factory = &derived_factory;
-
-      // Override extension derivation function: we most likely don't want
-      // to use the same default as our base (think cli: file). But, if our
-      // base doesn't use extensions, then most likely neither do we (think
-      // foo: alias).
-      //
-      if (bt->extension != nullptr)
-        dt->extension = &target_extension_var<derived_ext_var, nullptr>;
-
-      target_type& rdt (*dt); // Save a non-const reference to the object.
-
-      auto pr (scope_->target_types.emplace (dn, target_type_ref (move (dt))));
-
-      if (!pr.second)
+      if (!scope_->derive_target_type (move (dn), *bt).second)
         fail (dnl) << "target type " << dn << " already define in this scope";
-
-      // Patch the alias name to use the map's key storage.
-      //
-      rdt.name = pr.first->first.c_str ();
 
       next (t, tt); // Get newline.
     }

@@ -125,13 +125,21 @@ namespace build2
     if (auto p = vars.find (var))
       r.first = lookup (p, &vars);
 
+    target* g (nullptr);
+
     if (!r.first)
     {
       ++r.second;
-      if (group != nullptr)
+
+      // Skip looking up in the ad hoc group, which is semantically the
+      // first/primary member.
+      //
+      if ((g = group == nullptr
+           ? nullptr
+           : group->adhoc_group () ? group->group : group))
       {
-        if (auto p = group->vars.find (var))
-          r.first = lookup (p, &group->vars);
+        if (auto p = g->vars.find (var))
+          r.first = lookup (p, &g->vars);
       }
     }
 
@@ -143,8 +151,8 @@ namespace build2
                 var,
                 &type (),
                 &name,
-                group != nullptr ? &group->type () : nullptr,
-                group != nullptr ? &group->name : nullptr));
+                g != nullptr ? &g->type () : nullptr,
+                g != nullptr ? &g->name : nullptr));
 
       r.first = move (p.first);
       r.second = r.first ? r.second + p.second : p.second;
@@ -348,7 +356,7 @@ namespace build2
     const path_type& ep (path ());
 
     if (ep.empty ())
-      path (p);
+       path (p);
     else if (p != ep)
       fail << "path mismatch for target " << *this <<
         info << "assigned '" << ep << "'" <<
@@ -467,22 +475,27 @@ namespace build2
     false
   };
 
-  template <typename T>
+  template <typename T, const char* ext>
   static target*
-  file_factory (const target_type&,
+  file_factory (const target_type& tt,
                 dir_path d,
                 dir_path o,
                 string n,
                 const string* e)
   {
-    // The file target type doesn't imply any extension. So if one wasn't
-    // specified, set it to empty rather than unspecified. In other words, we
-    // always treat file{foo} as file{foo.}.
+    // A generic file target type doesn't imply any extension while a very
+    // specific one (say man1) may have a fixed extension. So if one wasn't
+    // specified and this is not a dynamically derived target type, then set
+    // it to fixed ext rather than unspecified. For file{} we make it empty
+    // which means we treat file{foo} as file{foo.}.
     //
-    return new T (move (d),
-                  move (o),
-                  move (n),
-                  (e != nullptr ? e : &extension_pool.find ("")));
+    return new T (
+      move (d),
+      move (o),
+      move (n),
+      (e != nullptr || ext == nullptr || tt.factory != &file_factory<T, ext>
+       ? e
+       : &extension_pool.find (ext)));
   }
 
   constexpr const char file_ext_var[] = "extension";
@@ -492,7 +505,7 @@ namespace build2
   {
     "file",
     &path_target::static_type,
-    &file_factory<file>,
+    &file_factory<file, file_ext_def>,
     &target_extension_var<file_ext_var, file_ext_def>,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
@@ -532,6 +545,19 @@ namespace build2
     false
   };
 
+  static target*
+  buildfile_factory (const target_type&,
+                     dir_path d,
+                     dir_path o,
+                     string n,
+                     const string* e)
+  {
+    if (e == nullptr)
+      e = &extension_pool.find (n == "buildfile" ? "" : "build");
+
+    return new buildfile (move (d), move (o), move (n), e);
+  }
+
   static const string*
   buildfile_target_extension (const target_key& tk, scope&)
   {
@@ -545,7 +571,7 @@ namespace build2
   {
     "buildfile",
     &file::static_type,
-    &file_factory<buildfile>,
+    &buildfile_factory,
     &buildfile_target_extension,
     nullptr,
     &search_file,
@@ -556,7 +582,7 @@ namespace build2
   {
     "doc",
     &file::static_type,
-    &file_factory<doc>,
+    &file_factory<doc, file_ext_def>, // No extension by default.
     &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
     &target_print_1_ext_verb, // Same as file.
     &search_file,
@@ -592,7 +618,7 @@ namespace build2
   {
     "man1",
     &man::static_type,
-    &file_factory<man1>,
+    &file_factory<man1, man1_ext>,
     &target_extension_fix<man1_ext>,
     &target_print_0_ext_verb, // Fixed extension, no use printing.
     &search_file,

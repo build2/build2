@@ -36,7 +36,9 @@ namespace build2
         if (p.proj () != nullptr)
           continue;
 
-        // If we can, go inside see-through groups.
+        // If we can, go inside see-through groups. Note that here we are
+        // not going into ad hoc groups but maybe we should (which would
+        // have to be done after match()).
         //
         if (p.type ().see_through && i.enter_group ())
           continue;

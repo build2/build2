@@ -146,7 +146,8 @@ namespace build2
 
     // Target group to which this target belongs, if any. Note that we assume
     // that the group and all its members are in the same scope (for example,
-    // in variable lookup). We also don't support nested groups.
+    // in variable lookup). We also don't support nested groups (with a small
+    // exception for ad hoc groups; see below).
     //
     // The semantics of the interaction between the group and its members and
     // what it means to, say, update the group, is unspecified and is
@@ -185,6 +186,63 @@ namespace build2
     // group_recipe for group members.
     //
     target* group = nullptr;
+
+    // What has been described above is a "normal" group. That is, there is
+    // a dedicated target type that explicitly serves as a group and there
+    // is an explicit mechanism for discovering the group's members.
+    //
+    // However, sometimes, we may want to create a group on the fly out of a
+    // normal target type. For example, we have the libso{} target type. But
+    // on Windows a shared library consist of (at least) two files: the import
+    // library and the DLL itself. So we somehow need to be able to capture
+    // that. One approach would be to imply the presence of the second file.
+    // However, that means that a lot of generic rules (e.g., clean, install,
+    // etc) will need to know about this special semantics on Windows. Also,
+    // there would be no convenient way to customize things like extensions,
+    // etc (for which we use target-specific variables). In other words, it
+    // would be much easier and more consistent to make these extra files
+    // proper targets.
+    //
+    // So to support this requirement we have "ad hoc" groups. The idea is
+    // that any target can be turned (by the rule that matched it) into an ad
+    // hoc group by chaining several targets. Ad hoc groups have a more
+    // restricted semantics compared to the normal groups. In particular:
+    //
+    // - The ad hoc group itself is in a sense its first/primary target.
+    //
+    // - Group member's recipes should be set to group_recipe by the group's
+    //   rule.
+    //
+    // - Members are discovered lazily, they are only known after the group's
+    //   rule's apply() call.
+    //
+    // - Members cannot be used as prerequisites but can be used as targets
+    // - (e.g., to set variables, etc).
+    //
+    // - Members don't have prerequisites.
+    //
+    // - Ad hoc group cannot have sub group (of any kind) though an ad hoc
+    //   group can be a sub-group of a normal group.
+    //
+    // - Member variable lookup skips the ad hoc group (since the group is
+    //   the first member, this is normally what we want).
+    //
+    target* member = nullptr;
+
+    bool
+    adhoc_group () const
+    {
+      // An ad hoc group can be a member of a normal group.
+      //
+      return member != nullptr &&
+        (group == nullptr || group->member == nullptr);
+    }
+
+    bool
+    adhoc_member () const
+    {
+      return group != nullptr && group->member != nullptr;
+    }
 
   public:
     virtual
@@ -454,7 +512,12 @@ namespace build2
     typedef target::prerequisites_type prerequisites_type;
 
     explicit
-    group_prerequisites (target& t): t_ (t) {}
+    group_prerequisites (target& t)
+        : t_ (t),
+          g_ (t_.group == nullptr ||
+              t_.group->member != nullptr || // Ad hoc group member.
+              t_.group->prerequisites.empty ()
+              ? nullptr : t_.group) {}
 
     struct iterator
     {
@@ -467,8 +530,8 @@ namespace build2
       typedef std::bidirectional_iterator_tag iterator_category;
 
       iterator () {}
-      iterator (target* t, prerequisites_type* c, base_iterator i)
-          : t_ (t), c_ (c), i_ (i) {}
+      iterator (target* t, target* g, prerequisites_type* c, base_iterator i)
+          : t_ (t), g_ (g), c_ (c), i_ (i) {}
 
       iterator&
       operator++ ()
@@ -489,7 +552,7 @@ namespace build2
       {
         if (i_ == c_->begin () && c_ == &t_->prerequisites)
         {
-          c_ = &t_->group->prerequisites;
+          c_ = &g_->prerequisites;
           i_ = c_->end ();
         }
 
@@ -506,7 +569,7 @@ namespace build2
       friend bool
       operator== (const iterator& x, const iterator& y)
       {
-        return x.t_ == y.t_ && x.c_ == y.c_ && x.i_ == y.i_;
+        return x.t_ == y.t_ && x.g_ == y.g_ && x.c_ == y.c_ && x.i_ == y.i_;
       }
 
       friend bool
@@ -514,6 +577,7 @@ namespace build2
 
     private:
       target* t_ = nullptr;
+      target* g_ = nullptr;
       prerequisites_type* c_ = nullptr;
       base_iterator i_;
     };
@@ -523,16 +587,15 @@ namespace build2
     iterator
     begin () const
     {
-      auto& c ((t_.group != nullptr && !t_.group->prerequisites.empty ()
-                ? *t_.group : t_).prerequisites);
-      return iterator (&t_, &c, c.begin ());
+      auto& c ((g_ != nullptr ? *g_ : t_).prerequisites);
+      return iterator (&t_, g_, &c, c.begin ());
     }
 
     iterator
     end () const
     {
       auto& c (t_.prerequisites);
-      return iterator (&t_, &c, c.end ());
+      return iterator (&t_, g_, &c, c.end ());
     }
 
     reverse_iterator
@@ -545,11 +608,12 @@ namespace build2
     size () const
     {
       return t_.prerequisites.size () +
-        (t_.group != nullptr ? t_.group->prerequisites.size () : 0);
+        (g_ != nullptr ? g_->prerequisites.size () : 0);
     }
 
   private:
     target& t_;
+    target* g_;
   };
 
   // A member of a prerequisite. If 'target' is NULL, then this is the
@@ -618,12 +682,12 @@ namespace build2
   }
 
   // A "range" that presents a sequence of prerequisites (e.g., from
-  // group_prerequisites()) as a sequence of prerequisite_member's. For
-  // each group prerequisite you will "see" either the prerequisite
-  // itself or all its members, depending on the default iteration
-  // mode of the target group type. You can skip the rest of the
-  // group members with leave_group() and you can force iteration
-  // over the members with enter_group(). Usage:
+  // group_prerequisites()) as a sequence of prerequisite_member's. For each
+  // group prerequisite you will "see" either the prerequisite itself or all
+  // its members, depending on the default iteration mode of the target group
+  // type (ad hoc groups are always see through). You can skip the rest of the
+  // group members with leave_group() and you can force iteration over the
+  // members with enter_group(). Usage:
   //
   // for (prerequisite_member pm: prerequisite_members (a, ...))
   //
@@ -670,48 +734,37 @@ namespace build2
 
       iterator (): r_ (nullptr) {}
       iterator (const prerequisite_members_range* r, const base_iterator& i)
-          : r_ (r), i_ (i), g_ {nullptr, 0}
+          : r_ (r), i_ (i), g_ {nullptr, 0}, k_ (nullptr)
       {
         if (r_->members_ && i_ != r_->e_ && i_->get ().type.see_through)
-        {
-          bool r (switch_members ());
-          assert (r); // Group could not be resolved.
-        }
+          switch_mode ();
       }
 
       iterator& operator++ ();
       iterator operator++ (int) {iterator r (*this); operator++ (); return r;}
 
-      // Skip iterating over the rest of this group's members, if any.
-      // Note that the only valid operation after this call is to
-      // increment the iterator.
+      // Skip iterating over the rest of this group's members, if any. Note
+      // that the only valid operation after this call is to increment the
+      // iterator. Note that it can be used on ad hoc groups.
       //
       void
-      leave_group ()
-      {
-        // Pretend we are on the last member of some group.
-        //
-        j_ = 0;
-        g_.count = 1;
-      }
+      leave_group ();
 
       // Iterate over this group's members. Return false if the member
-      // information is not available. Similar to leave_group(), you
-      // should increment the iterator after calling this function
-      // (provided it returned true).
+      // information is not available. Similar to leave_group(), you should
+      // increment the iterator after calling this function (provided it
+      // returned true). Note that it cannot be used on ad hoc groups (which
+      // will be always be entered).
       //
       bool
-      enter_group ()
-      {
-        bool r (switch_members ());
-        if (r)
-          --j_; // Compensate for the increment that will follow.
-        return r;
-      }
+      enter_group ();
 
       value_type operator* () const
       {
-        return value_type {*i_, g_.count != 0 ? g_.members[j_ - 1] : nullptr};
+        target* t (k_ != nullptr ? k_:
+                   g_.count != 0 ? g_.members[j_ - 1] : nullptr);
+
+        return value_type {*i_, t};
       }
 
       pointer operator-> () const
@@ -720,8 +773,10 @@ namespace build2
           std::is_trivially_destructible<prerequisite_member>::value,
           "prerequisite_member is not trivially destructible");
 
-        return new (&m_)
-          value_type {*i_, g_.count != 0 ? g_.members[j_ - 1] : nullptr};
+        target* t (k_ != nullptr ? k_:
+                   g_.count != 0 ? g_.members[j_ - 1] : nullptr);
+
+        return new (&m_) value_type {*i_, t};
       }
 
       friend bool
@@ -729,21 +784,34 @@ namespace build2
       {
         return x.i_ == y.i_ &&
           x.g_.count == y.g_.count &&
-          (x.g_.count == 0 || x.j_ == y.j_);
+          (x.g_.count == 0 || x.j_ == y.j_) &&
+          x.k_ == y.k_;
       }
 
       friend bool
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
+      // What we have here is a state for three nested iteration modes (and
+      // no, I am not proud of it). The innermost mode is iteration over an ad
+      // hoc group (k_). Then we have iteration over a normal group (g_ and
+      // j_). Finally, at the outer level, we have the range itself (i_).
+      //
+      // The ad hoc iteration is peculiar in that we only switch to this mode
+      // once the caller tries to increment past the group itself (which is
+      // the primary/first member). The reason for this is that the members
+      // will normally only be known once the caller searched and matched
+      // the group.
+      //
     private:
-      bool
-      switch_members ();
+      void
+      switch_mode ();
 
     private:
       const prerequisite_members_range* r_;
       base_iterator i_;
       group_view g_;
       size_t j_; // 1-based index, to support enter_group().
+      target* k_; // Current member of ad hoc group or NULL.
       mutable std::aligned_storage<sizeof (prerequisite_member),
                                    alignof (prerequisite_member)>::type m_;
     };
@@ -1173,7 +1241,6 @@ namespace build2
   //
   target*
   search_file (const prerequisite_key&);
-
 }
 
 #include <build2/target.ixx>

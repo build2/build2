@@ -517,6 +517,74 @@ namespace build2
     return r;
   }
 
+  static target*
+  derived_tt_factory (const target_type& t,
+                      dir_path d,
+                      dir_path o,
+                      string n,
+                      const string* e)
+  {
+    // Pass our type to the base factory so that it can detect that it is
+    // being called to construct a derived target. This can be used, for
+    // example, to decide whether to "link up" to the group.
+    //
+    // One exception: if we are derived from a derived target type, then this
+    // logic would lead to infinite recursion. So in this case get the
+    // ultimate base.
+    //
+    const target_type* bt (t.base);
+    for (; bt->factory == &derived_tt_factory; bt = bt->base) ;
+
+    target* r (bt->factory (t, move (d), move (o), move (n), e));
+    r->derived_type = &t;
+    return r;
+  }
+
+  constexpr const char derived_tt_ext_var[] = "extension";
+
+  pair<reference_wrapper<const target_type>, bool> scope::
+  derive_target_type (const string& name, const target_type& base)
+  {
+    // @@ Looks like we may need the ability to specify a fixed extension
+    //    (which will be used to compare existing targets and not just
+    //    search for existing files that is handled by the target_type::
+    //    extension hook). See the file_factory() for details. We will
+    //    probably need to specify it as part of the define directive (and
+    //    have the ability to specify empty).
+    //
+    //    Currently, if we define myfile{}: file{}, then myfile{foo} and
+    //    myfile{foo.x} are the same target.
+    //
+    // @@ Also, if derived from file{}, then we use its print function
+    //    which always prints extension by default (e.g., we get
+    //    dll{libhello.dll}).
+    //
+
+    unique_ptr<target_type> dt (new target_type (base));
+    dt->base = &base;
+    dt->factory = &derived_tt_factory;
+
+    // Override extension derivation function: we most likely don't want
+    // to use the same default as our base (think cli: file). But, if our
+    // base doesn't use extensions, then most likely neither do we (think
+    // foo: alias).
+    //
+    if (base.extension != nullptr)
+      dt->extension = &target_extension_var<derived_tt_ext_var, nullptr>;
+
+    target_type& rdt (*dt); // Save a non-const reference to the object.
+
+    auto pr (target_types.emplace (name, target_type_ref (move (dt))));
+
+    // Patch the alias name to use the map's key storage.
+    //
+    if (pr.second)
+      rdt.name = pr.first->first.c_str ();
+
+    return pair<reference_wrapper<const target_type>, bool> (
+      pr.first->second.get (), pr.second);
+  }
+
   // scope_map
   //
   scope_map scopes;

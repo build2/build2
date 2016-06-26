@@ -384,17 +384,8 @@ namespace build2
             // Above we searched for the import library (.dll.a) but if it's
             // not found, then we also search for the .dll (unless the
             // extension was specified explicitly) since we can link to it
-            // directly.
-            //
-            // Note also that the resulting libso{} would end up being the .a
-            // import library. We could have tried to always find the
-            // corresponding .dll, but when installed they normally end up in
-            // different directories (lib/ and bin/). In fact, there is no
-            // reason to require the presence of the .dll at all (think cross-
-            // compilation). So while having libso{} being .a is a bit of
-            // hack, it is simple and appears harmless (think of it as the
-            // import library being a proxy for the real thing). But let me
-            // know if you have a better idea.
+            // directly. Note also that the resulting libso{} would end up
+            // being the .dll.
             //
             if (mt == timestamp_nonexistent && ext == nullptr)
             {
@@ -566,7 +557,9 @@ namespace build2
 
       path_target& t (static_cast<path_target&> (xt));
 
-      scope& rs (t.root_scope ());
+      scope& bs (t.base_scope ());
+      scope& rs (*bs.root_scope ());
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       type lt (link_type (t));
@@ -581,58 +574,117 @@ namespace build2
       //
       if (t.path ().empty ())
       {
+        const char* p (nullptr);
+        const char* e (nullptr);
+
         switch (lt)
         {
         case type::e:
           {
-            const char* e;
             if (tclass == "windows")
               e = "exe";
             else
               e = "";
 
-            t.derive_path (e);
             break;
           }
         case type::a:
+          {
+            // To be anally precise, let's use the ar id to decide how to name
+            // the library in case, for example, someone wants to archive
+            // VC-compiled object files with MinGW ar.
+            //
+            if (cast<string> (rs["bin.ar.id"]) == "msvc")
+            {
+              e = "lib";
+            }
+            else
+            {
+              p = "lib";
+              e = "a";
+            }
+
+            if (auto l = t["bin.libprefix"])
+              p = cast<string> (l).c_str ();
+
+            break;
+          }
         case type::so:
           {
-            auto l (t["bin.libprefix"]);
+            //@@ VC: DLL name.
 
-            const char* p (l ? cast<string> (l).c_str () : nullptr);
-            const char* e (nullptr);
-
-            if (lt == type::a)
+            if (tclass == "macosx")
             {
-              // To be anally precise, let's use the ar id to decide how to
-              // name the library in case, for example, someone wants to
-              // archive VC-compiled object files with MINGW ar.
+              p = "lib";
+              e = "dylib";
+            }
+            else if (tclass == "windows")
+            {
+              // On Windows libso{} is an ad hoc group. The libso{} itself is
+              // the import library and we add dll{} as a member (see below).
+              // While at first it may seem strange that libso{} is the import
+              // library and not the DLL, if you meditate on it, you will see
+              // it makes a lot of sense: our main task here is building and
+              // for that we need the import library, not the DLL.
               //
-              if (cast<string> (rs["bin.ar.id"]) == "msvc")
+              if (tsys == "mingw32")
               {
-                e = "lib";
+                p = "lib";
+                e = "dll.a";
               }
               else
               {
-                e = "a";
-                if (p == nullptr) p = "lib";
+                // Usually on Windows the import library is called the same as
+                // the DLL but with the .lib extension. Which means it clashes
+                // with the static library. Instead of decorating the static
+                // library name with ugly suffixes (as is customary), let's
+                // use the MinGW approach (one must admit it's quite elegant)
+                // and call it .dll.lib.
+                //
+                e = "dll.lib";
               }
             }
             else
             {
-              //@@ VC: DLL name.
-
-              if (tclass == "macosx")  e = "dylib";
-              if (tclass == "windows") e = "dll";
-              else                     e = "so";
-
-              if (p == nullptr)        p = "lib";
+              p = "lib";
+              e = "so";
             }
 
-            t.derive_path (e, p);
+            if (auto l = t["bin.libprefix"])
+              p = cast<string> (l).c_str ();
+
             break;
           }
         }
+
+        t.derive_path (e, p);
+      }
+
+      // On Windows add the DLL as an ad hoc group member.
+      //
+      if (so && tclass == "windows")
+      {
+        file* dll (nullptr);
+
+        // Registered by cxx module's init().
+        //
+        const target_type& tt (*bs.find_target_type ("dll"));
+
+        if (t.member != nullptr) // Might already be there.
+        {
+          assert (t.member->type () == tt);
+          dll = static_cast<file*> (t.member);
+        }
+        else
+        {
+          t.member = dll = static_cast<file*> (
+            &search (tt, t.dir, t.out, t.name, nullptr, nullptr));
+        }
+
+        if (dll->path ().empty ())
+          dll->derive_path ("dll", tsys == "mingw32" ? "lib" : nullptr);
+
+        dll->recipe (a, group_recipe);
       }
 
       t.prerequisite_targets.clear (); // See lib pre-match in match() above.
@@ -846,7 +898,7 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
+      case perform_clean_id: return &perform_clean_depdb;
       default: return noop_recipe; // Configure update.
       }
     }
@@ -1158,76 +1210,98 @@ namespace build2
       //
       path relt (relative (t.path ()));
 
-      if (lt == type::a)
+      switch (lt)
       {
-        //@@ VC: what are /LIBPATH, /NODEFAULTLIB for?
-        //
-
-        args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
-
-        if (aid == "msvc")
+      case type::e:
         {
-          if (verb < 3)
-            args.push_back ("/NOLOGO");
+          args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
 
-          out = "/OUT:" + relt.string ();
-          args.push_back (out.c_str ());
-        }
-        else
-          args.push_back (relt.string ().c_str ());
-      }
-      else
-      {
-        args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
-
-        if (cid == "msvc")
-        {
-          uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
-
-          if (verb < 3)
-            args.push_back ("/nologo");
-
-          //@@ VC TODO: DLL building (names via /link?)
-
-          // The /Fe: option (executable file name) only became available in
-          // VS2013/12.0.
-          //
-          if (cver >= 18)
+          if (cid == "msvc")
           {
-            args.push_back ("/Fe:");
-            args.push_back (relt.string ().c_str ());
+            uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
+
+            if (verb < 3)
+              args.push_back ("/nologo");
+
+            // The /Fe: option (executable file name) only became available in
+            // VS2013/12.0.
+            //
+            if (cver >= 18)
+            {
+              args.push_back ("/Fe:");
+              args.push_back (relt.string ().c_str ());
+            }
+            else
+            {
+              out = "/Fe" + relt.string ();
+              args.push_back (out.c_str ());
+            }
           }
           else
           {
-            out = "/Fe" + relt.string ();
+            args.push_back ("-o");
+            args.push_back (relt.string ().c_str ());
+          }
+
+          break;
+        }
+      case type::a:
+        {
+          //@@ VC: what are /LIBPATH, /NODEFAULTLIB for?
+          //
+
+          args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
+
+          if (aid == "msvc")
+          {
+            if (verb < 3)
+              args.push_back ("/NOLOGO");
+
+            out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
           }
+          else
+            args.push_back (relt.string ().c_str ());
+
+          break;
         }
-        else
+      case type::so:
         {
-          // Add the option that triggers building a shared library.
-          //
-          if (so)
+          args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
+
+          if (cid == "msvc")
           {
+            //@@ VC TODO: DLL building (names via /link?)
+          }
+          else
+          {
+            // Add the option that triggers building a shared library.
+            //
             if (tclass == "macosx")
               args.push_back ("-dynamiclib");
             else
               args.push_back ("-shared");
-          }
 
-          args.push_back ("-o");
-          args.push_back (relt.string ().c_str ());
-
-          // Add any additional options (import library name, etc).
-          //
-          if (so)
-          {
             if (tsys == "mingw32")
             {
-              out = "-Wl,--out-implib=" + relt.string () + ".a";
+              // On Windows libso{} is the import stub and its first ad hoc
+              // group member is dll{}.
+              //
+              out = "-Wl,--out-implib=" + relt.string ();
+              relt = relative (static_cast<file*> (t.member)->path ());
+
+              args.push_back ("-o");
+              args.push_back (relt.string ().c_str ());
               args.push_back (out.c_str ());
             }
+            else
+            {
+              args.push_back ("-o");
+              args.push_back (relt.string ().c_str ());
+            }
           }
+
+          break;
         }
       }
 
@@ -1245,30 +1319,7 @@ namespace build2
              ((ppt = a = pt->is_a<liba> ()) ||
               (ppt = so = pt->is_a<libso> ()))))
         {
-          path p (relative (ppt->path ()));
-
-          if (so != nullptr)
-          {
-            if (tsys == "mingw32")
-            {
-              // Normally we want to link to the import library (*.dll ->
-              // *.dll.a). However, this could already be an import library
-              // (see search_library()).
-              //
-              // @@ It could also be a DLL which we should try to link
-              // directly. We cannot handle it until we have the group
-              // support: we will check if there is an implib in
-              // the group, if there is, then we link to it. Otherwise,
-              // we assumy this is a DLL without the import library and
-              // try to link to it directly.
-              //
-              const char* e (p.extension ());
-              if (e == nullptr || e[0] != 'a' || e[1] != '\0')
-                p += ".a";
-            }
-          }
-
-          sargs.push_back (move (p).string ()); // string()&&
+          sargs.push_back (relative (ppt->path ()).string ()); // string()&&
 
           // If this is a static library, link all the libraries it depends
           // on, recursively.
@@ -1370,25 +1421,6 @@ namespace build2
       //
       t.mtime (system_clock::now ());
       return target_state::changed;
-    }
-
-    target_state link::
-    perform_clean (action a, target& xt)
-    {
-      file& t (static_cast<file&> (xt));
-
-      scope& rs (t.root_scope ());
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-
-      const char* e (nullptr);
-
-      if (link_type (t) == type::so)
-      {
-        if (tsys == "mingw32")
-          e = "+.a"; // Import library (*.dll.a).
-      }
-
-      return clean_extra (a, t, {"+.d", e});
     }
 
     link link::instance;

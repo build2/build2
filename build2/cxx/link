@@ -28,9 +28,6 @@ namespace build2
       static target_state
       perform_update (action, target&);
 
-      static target_state
-      perform_clean (action, target&);
-
       static link instance;
 
     public:

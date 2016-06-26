@@ -255,13 +255,21 @@ namespace build2
 
       // Configure "installability" of our target types.
       //
-      {
-        using build2::install::path;
+      using namespace install;
 
-        path<hxx> (b, dir_path ("include")); // Install into install.include.
-        path<ixx> (b, dir_path ("include"));
-        path<txx> (b, dir_path ("include"));
-        path<h>   (b, dir_path ("include"));
+      install_path<hxx> (b, dir_path ("include")); // Into install.include.
+      install_path<ixx> (b, dir_path ("include"));
+      install_path<txx> (b, dir_path ("include"));
+      install_path<h>   (b, dir_path ("include"));
+
+      // Create additional target types for certain target platforms.
+      //
+      const string& tclass (cast<string> (r["cxx.target.class"]));
+
+      if (tclass == "windows")
+      {
+        const target_type& dll (b.derive_target_type<file> ("dll").first);
+        install_path (dll, b, dir_path ("bin"));
       }
 
       return true;

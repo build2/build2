@@ -39,7 +39,7 @@ namespace build2
       }
     }
 
-    // Prerequisite's out directory can be on of the following:
+    // Prerequisite's out directory can be one of the following:
     //
     // empty    This means out is undetermined and we simply search for a
     //          target that is in the out tree which happens to be indicated

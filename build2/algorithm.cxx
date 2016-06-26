@@ -502,9 +502,28 @@ namespace build2
                       : target_state::unchanged);
 
       if (r == target_state::changed && ef.empty ())
-      {
         ef = move (f);
-      }
+
+      er |= r;
+    }
+
+    // Now clean the ad hoc group file members, if any.
+    //
+    for (target* m (ft.member); m != nullptr; m = m->member)
+    {
+      file* fm (dynamic_cast<file*> (m));
+
+      if (fm == nullptr || fm->path ().empty ())
+        continue;
+
+      const path& f (fm->path ());
+
+      target_state r (rmfile (f, false)
+                      ? target_state::changed
+                      : target_state::unchanged);
+
+      if (r == target_state::changed && ef.empty ())
+        ef = f;
 
       er |= r;
     }

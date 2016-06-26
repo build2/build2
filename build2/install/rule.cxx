@@ -18,9 +18,9 @@ namespace build2
 {
   namespace install
   {
-    // Lookup the install or install.* variable. Return NULL if
-    // not found or if the value is the special 'false' name (which
-    // means do not install). T is either scope or target.
+    // Lookup the install or install.* variable. Return NULL if not found or
+    // if the value is the special 'false' name (which means do not install).
+    // T is either scope or target.
     //
     template <typename T>
     static const dir_path*
@@ -131,8 +131,11 @@ namespace build2
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      auto r (group_prerequisite_members (a, t));
+      for (auto i (r.begin ()); i != r.end (); ++i)
       {
+        prerequisite_member p (*i);
+
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
@@ -145,7 +148,7 @@ namespace build2
         if (pt == nullptr)
           continue;
 
-        // See if the user instructed us not to install it.
+        // See if were explicitly instructed not to install this target.
         //
         auto l ((*pt)["install"]);
         if (l && cast<dir_path> (l).string () == "false")
@@ -163,6 +166,11 @@ namespace build2
           t.prerequisite_targets.push_back (pt);
         else
           unmatch (a, *pt); // No intent to execute.
+
+        // Skip members of ad hoc groups. We handle them explicitly below.
+        //
+        if (pt->adhoc_group ())
+          i.leave_group ();
       }
 
       // This is where we diverge depending on the operation. In the
@@ -275,8 +283,11 @@ namespace build2
 
     // install <file> <dir>
     //
+    // If verbose is false, then only print the command at verbosity level 2
+    // or higher.
+    //
     static void
-    install (const install_dir& base, file& t)
+    install (const install_dir& base, file& t, bool verbose = true)
     {
       path reld (relative (base.dir));
       path relf (relative (t.path ()));
@@ -299,7 +310,7 @@ namespace build2
 
       if (verb >= 2)
         print_process (args);
-      else if (verb)
+      else if (verb && verbose)
         text << "install " << t;
 
       try
@@ -390,27 +401,44 @@ namespace build2
     }
 
     target_state file_rule::
-    perform_install (action a, target& t)
+    perform_install (action a, target& xt)
     {
-      file& ft (static_cast<file&> (t));
-      assert (!ft.path ().empty ()); // Should have been assigned by update.
+      file& t (static_cast<file&> (xt));
+      assert (!t.path ().empty ()); // Should have been assigned by update.
+
+      scope& bs (t.base_scope ());
+
+      auto install_target = [&bs](file& t, const dir_path& d, bool verbose)
+      {
+        // Resolve and, if necessary, create target directory.
+        //
+        install_dir id (resolve (bs, d));
+
+        // Override mode if one was specified.
+        //
+        if (auto l = t["install.mode"])
+          id.mode = cast<string> (l);
+
+        install (id, t, verbose);
+      };
 
       // First handle installable prerequisites.
       //
       target_state r (execute_prerequisites (a, t));
 
-      // Resolve and, if necessary, create target directory.
+      // Then installable ad hoc group members, if any.
       //
-      install_dir d (
-        resolve (t.base_scope (),
-                 cast<dir_path> (t["install"]))); // We know it's there.
+      for (target* m (t.member); m != nullptr; m = m->member)
+      {
+        if (const dir_path* d = lookup (*m, "install"))
+          install_target (static_cast<file&> (*m), *d, false);
+      }
 
-      // Override mode if one was specified.
+      // Finally install the target itself (since we got here we know the
+      // install variable is there).
       //
-      if (auto l = t["install.mode"])
-        d.mode = cast<string> (l);
+      install_target (t, cast<dir_path> (t["install"]), true);
 
-      install (d, ft);
       return (r |= target_state::changed);
     }
   }
