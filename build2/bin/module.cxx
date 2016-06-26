@@ -36,10 +36,13 @@ namespace build2
               const location&,
               unique_ptr<module_base>&,
               bool first,
-              bool)
+              bool,
+              const variable_map& config_hints)
     {
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << b.out_path ();});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Enter module variables.
       //

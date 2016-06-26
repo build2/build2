@@ -118,7 +118,8 @@ namespace build2
                   const location& l,
                   unique_ptr<module_base>&,
                   bool first,
-                  bool)
+                  bool,
+                  const variable_map& config_hints)
     {
       tracer trace ("install::init");
 
@@ -130,6 +131,8 @@ namespace build2
 
       const dir_path& out_root (r.out_path ());
       l5 ([&]{trace << "for " << out_root;});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Enter module variables.
       //

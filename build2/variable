@@ -663,8 +663,9 @@ namespace build2
 
   // variable_map
   //
-  struct variable_map
+  class variable_map
   {
+  public:
     using map_type = butl::prefix_map<variable_cref, value, '.'>;
     using size_type = map_type::size_type;
 

@@ -55,7 +55,8 @@ namespace build2
                const location& l,
                unique_ptr<module_base>&,
                bool first,
-               bool)
+               bool,
+               const variable_map& config_hints)
     {
       tracer trace ("test::init");
 
@@ -68,7 +69,10 @@ namespace build2
       const dir_path& out_root (root.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
-      //@@ Need ability to specify extra diff options (--strip-trailing-cr).
+      assert (config_hints.empty ()); // We don't known any hints.
+
+      //@@ TODO: Need ability to specify extra diff options (e.g.,
+      //   --strip-trailing-cr, now hardcoded).
 
       // Register rules.
       //

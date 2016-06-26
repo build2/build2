@@ -59,7 +59,8 @@ namespace build2
                  const location& l,
                  unique_ptr<module_base>& mod,
                  bool first,
-                 bool)
+                 bool,
+                 const variable_map& config_hints)
     {
       tracer trace ("config::init");
 
@@ -70,6 +71,8 @@ namespace build2
       }
 
       l5 ([&]{trace << "for " << root.out_path ();});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Only create the module if we are configuring.
       //

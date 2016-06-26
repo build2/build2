@@ -10,6 +10,7 @@
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/variable>
 #include <build2/diagnostics>
 
 namespace build2
@@ -40,8 +41,9 @@ namespace build2
           scope& base,
           const location&,
           unique_ptr<module_base>&,
-          bool first,     // First time for this project.
-          bool optional); // Loaded with 'using?' (optional module).
+          bool first,                 // First time for this project.
+          bool optional,              // Loaded with using? (optional module).
+          const variable_map& hints); // Configuration hints (see below).
 
 
   struct module_state
@@ -75,12 +77,19 @@ namespace build2
   // Return true if the module was both successfully loaded and configured
   // (false can only be returned if optional).
   //
+  // The config_hints variable map can be used to pass configuration hints
+  // from one module to another. For example, the cxx modude may pass the
+  // target platform (which was extracted from the C++ compiler) to the bin
+  // module (which may not always be able to extract the same information from
+  // its tools).
+  //
   bool
   load_module (const string& name,
                scope& root,
                scope& base,
                const location&,
-               bool optional = false);
+               bool optional = false,
+               const variable_map& config_hints = variable_map ());
 
   // Builtin modules.
   //

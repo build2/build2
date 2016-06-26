@@ -60,7 +60,8 @@ namespace build2
                const location& l,
                unique_ptr<module_base>&,
                bool first,
-               bool)
+               bool,
+               const variable_map& config_hints)
     {
       tracer trace ("dist::init");
 
@@ -72,6 +73,8 @@ namespace build2
 
       const dir_path& out_root (r.out_path ());
       l5 ([&]{trace << "for " << out_root;});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Register our wildcard rule. Do it explicitly for the alias
       // to prevent something like insert<target>(dist_id, test_id)

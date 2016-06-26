@@ -35,10 +35,13 @@ namespace build2
               const location& loc,
               unique_ptr<module_base>&,
               bool first,
-              bool)
+              bool,
+              const variable_map& config_hints)
     {
       tracer trace ("cxx::init");
       l5 ([&]{trace << "for " << b.out_path ();});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Initialize the bin module. Only do this if it hasn't already been
       // loaded so that we don't overwrite user's bin.* settings.

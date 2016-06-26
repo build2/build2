@@ -54,7 +54,8 @@ namespace build2
                scope& rs,
                scope& bs,
                const location& loc,
-               bool opt)
+               bool opt,
+               const variable_map& hints)
   {
     // First see if this modules has already been loaded for this project.
     //
@@ -96,7 +97,8 @@ namespace build2
     }
 
     bool l (i != lm.end ());
-    bool c (l && i->second.init (rs, bs, loc, i->second.module, f, opt));
+    bool c (l &&
+            i->second.init (rs, bs, loc, i->second.module, f, opt, hints));
 
     const variable& lv (var_pool.insert<bool> (name + ".loaded",
                                                false,

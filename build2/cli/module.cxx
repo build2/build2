@@ -31,10 +31,13 @@ namespace build2
               const location& loc,
               unique_ptr<module_base>&,
               bool first,
-              bool optional)
+              bool optional,
+              const variable_map& config_hints)
     {
       tracer trace ("cli::init");
       l5 ([&]{trace << "for " << base.out_path ();});
+
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Make sure the cxx module has been loaded since we need its targets
       // types (?xx{}). Note that we don't try to load it ourselves because of

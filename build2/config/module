@@ -32,8 +32,13 @@ namespace build2
     config_boot (scope&, const location&, unique_ptr<module_base>&);
 
     extern "C" bool
-    config_init (
-      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
+    config_init (scope&,
+                 scope&,
+                 const location&,
+                 unique_ptr<module_base>&,
+                 bool,
+                 bool,
+                 const variable_map&);
   }
 }
 

@@ -18,8 +18,13 @@ namespace build2
     test_boot (scope&, const location&, unique_ptr<module_base>&);
 
     extern "C" bool
-    test_init (
-      scope&, scope&, const location&, unique_ptr<module_base>&, bool, bool);
+    test_init (scope&,
+               scope&,
+               const location&,
+               unique_ptr<module_base>&,
+               bool,
+               bool,
+               const variable_map&);
   }
 }
 
