@@ -22,8 +22,8 @@ namespace build2
   {
     static rule rule_;
 
-    extern "C" void
-    dist_boot (scope& r, const location&, unique_ptr<module_base>&)
+    void
+    boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("dist::boot");
 
@@ -54,14 +54,14 @@ namespace build2
       }
     }
 
-    extern "C" bool
-    dist_init (scope& r,
-               scope&,
-               const location& l,
-               unique_ptr<module_base>&,
-               bool first,
-               bool,
-               const variable_map& config_hints)
+    bool
+    init (scope& r,
+          scope&,
+          const location& l,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& config_hints)
     {
       tracer trace ("dist::init");
 

@@ -25,14 +25,14 @@ namespace build2
   {
     static compile compile_;
 
-    extern "C" bool
-    cli_init (scope& root,
-              scope& base,
-              const location& loc,
-              unique_ptr<module_base>&,
-              bool first,
-              bool optional,
-              const variable_map& config_hints)
+    bool
+    init (scope& root,
+          scope& base,
+          const location& loc,
+          unique_ptr<module_base>&,
+          bool first,
+          bool optional,
+          const variable_map& config_hints)
     {
       tracer trace ("cli::init");
       l5 ([&]{trace << "for " << base.out_path ();});

@@ -28,17 +28,17 @@ namespace build2
       static const string name;
     };
 
-    extern "C" void
-    config_boot (scope&, const location&, unique_ptr<module_base>&);
+    void
+    boot (scope&, const location&, unique_ptr<module_base>&);
 
-    extern "C" bool
-    config_init (scope&,
-                 scope&,
-                 const location&,
-                 unique_ptr<module_base>&,
-                 bool,
-                 bool,
-                 const variable_map&);
+    bool
+    init (scope&,
+          scope&,
+          const location&,
+          unique_ptr<module_base>&,
+          bool,
+          bool,
+          const variable_map&);
   }
 }
 

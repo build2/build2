@@ -27,8 +27,8 @@ namespace build2
     //
     static const path config_file ("build/config.build");
 
-    extern "C" void
-    config_boot (scope& root, const location&, unique_ptr<module_base>&)
+    void
+    boot (scope& root, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("config::boot");
 
@@ -53,14 +53,14 @@ namespace build2
         source (f, root, root);
     }
 
-    extern "C" bool
-    config_init (scope& root,
-                 scope&,
-                 const location& l,
-                 unique_ptr<module_base>& mod,
-                 bool first,
-                 bool,
-                 const variable_map& config_hints)
+    bool
+    init (scope& root,
+          scope&,
+          const location& l,
+          unique_ptr<module_base>& mod,
+          bool first,
+          bool,
+          const variable_map& config_hints)
     {
       tracer trace ("config::init");
 

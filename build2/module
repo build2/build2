@@ -25,7 +25,6 @@ namespace build2
     ~module_base () = default;
   };
 
-  extern "C"
   using module_boot_function =
     void (scope& root, const location&, unique_ptr<module_base>&);
 
@@ -35,7 +34,6 @@ namespace build2
   // unconfigured for as long as it is actually not used (e.g., install,
   // dist). The return value is used to set the <module>.configured variable.
   //
-  extern "C"
   using module_init_function =
     bool (scope& root,
           scope& base,
@@ -45,7 +43,21 @@ namespace build2
           bool optional,              // Loaded with using? (optional module).
           const variable_map& hints); // Configuration hints (see below).
 
+  struct module_functions
+  {
+    module_boot_function* boot;
+    module_init_function* init;
+  };
 
+  // The register() function will be written in C++ and will be called from
+  // C++ but we need to suppress name mangling to be able to use dlsym() and
+  // equivalent.
+  //
+  extern "C"
+  using module_register_function = module_functions ();
+
+  // Loaded modules state.
+  //
   struct module_state
   {
     bool boot; // True if the module boot'ed but not yet init'ed.
@@ -93,12 +105,6 @@ namespace build2
 
   // Builtin modules.
   //
-  struct module_functions
-  {
-    module_boot_function* boot;
-    module_init_function* init;
-  };
-
   using available_module_map = std::map<string, module_functions>;
   extern available_module_map builtin_modules;
 }

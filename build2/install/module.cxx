@@ -100,8 +100,8 @@ namespace build2
     static alias_rule alias_;
     static file_rule file_;
 
-    extern "C" void
-    install_boot (scope& r, const location&, unique_ptr<module_base>&)
+    void
+    boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
 
@@ -112,14 +112,14 @@ namespace build2
       r.operations.insert (install_id, install);
     }
 
-    extern "C" bool
-    install_init (scope& r,
-                  scope& b,
-                  const location& l,
-                  unique_ptr<module_base>&,
-                  bool first,
-                  bool,
-                  const variable_map& config_hints)
+    bool
+    init (scope& r,
+          scope& b,
+          const location& l,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& config_hints)
     {
       tracer trace ("install::init");
 

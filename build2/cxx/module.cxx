@@ -29,14 +29,14 @@ namespace build2
 {
   namespace cxx
   {
-    extern "C" bool
-    cxx_init (scope& r,
-              scope& b,
-              const location& loc,
-              unique_ptr<module_base>&,
-              bool first,
-              bool,
-              const variable_map& config_hints)
+    bool
+    init (scope& r,
+          scope& b,
+          const location& loc,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& config_hints)
     {
       tracer trace ("cxx::init");
       l5 ([&]{trace << "for " << b.out_path ();});

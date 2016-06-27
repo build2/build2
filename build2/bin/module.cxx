@@ -30,14 +30,14 @@ namespace build2
     static const strings liba_lib {"static"};
     static const strings libso_lib {"shared"};
 
-    extern "C" bool
-    bin_init (scope& r,
-              scope& b,
-              const location&,
-              unique_ptr<module_base>&,
-              bool first,
-              bool,
-              const variable_map& config_hints)
+    bool
+    init (scope& r,
+          scope& b,
+          const location&,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& config_hints)
     {
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << b.out_path ();});
