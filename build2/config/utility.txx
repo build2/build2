@@ -13,6 +13,9 @@ namespace build2
     pair<reference_wrapper<const value>, bool>
     required (scope& root, const variable& var, const T& def_val, bool def_ovr)
     {
+      // Note: see also the other required() version if changing anything
+      // here.
+
       if (current_mif->id == configure_id)
         save_variable (root, var);
 

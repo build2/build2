@@ -494,8 +494,8 @@ namespace build2
                   // Note: expanding the value in the context of the scope.
                   //
                   value rhs (variable_value (t, tt));
-                  value& lhs (scope_->target_vars[*ti][move (n.value)].assign (
-                                var).first);
+                  value& lhs (
+                    scope_->target_vars[*ti][move (n.value)].assign (var));
                   value_attributes (&var, lhs, move (rhs), type::assign);
                 }
               }

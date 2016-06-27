@@ -43,6 +43,9 @@ namespace build2
   {
     tracer trace ("reset");
 
+    // @@ Need to unload modules when we dynamically load them.
+    //
+
     l6 ([&]{trace << "resetting build state";});
 
     variable_overrides vos;
@@ -183,7 +186,7 @@ namespace build2
       if (c == '!' || !dir.empty ())
       {
         scope& s (c == '!' ? gs : scopes.insert (dir, false)->second);
-        auto p (s.vars.assign (*o));
+        auto p (s.vars.insert (*o));
 
         if (!p.second)
         {

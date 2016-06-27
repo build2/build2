@@ -19,7 +19,7 @@ namespace build2
     inline void
     install_path (const target_type& tt, scope& s, dir_path d)
     {
-      auto r (s.target_vars[tt]["*"].assign ("install"));
+      auto r (s.target_vars[tt]["*"].insert ("install"));
       if (r.second) // Already set by the user?
         r.first.get () = move (d);
     }
@@ -34,7 +34,7 @@ namespace build2
     inline void
     install_mode (const target_type& tt, scope& s, string m)
     {
-      auto r (s.target_vars[tt]["*"].assign ("install.mode"));
+      auto r (s.target_vars[tt]["*"].insert ("install.mode"));
       if (r.second) // Already set by the user?
         r.first.get () = move (m);
     }

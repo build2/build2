@@ -383,13 +383,13 @@ namespace build2
     // Return a value suitable for assignment. See scope for details.
     //
     value&
-    assign (const variable& var) {return vars.assign (var).first;}
+    assign (const variable& var) {return vars.assign (var);}
 
     value&
-    assign (const string& name) {return vars.assign (name).first;}
+    assign (const string& name) {return vars.assign (name);}
 
-    // Unlike the two above, assign a non-overridable variable with normal
-    // visibility.
+    // Unlike the two above, assign a typed non-overridable variable with
+    // normal visibility.
     //
     template <typename T>
     value&

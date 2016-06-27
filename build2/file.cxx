@@ -471,7 +471,7 @@ namespace build2
     // amalgamated.
     //
     {
-      auto rp (root.vars.assign ("amalgamation")); // Set NULL by default.
+      auto rp (root.vars.insert ("amalgamation")); // Set NULL by default.
       value& v (rp.first);
 
       if (v && v.empty ()) // Convert empty to NULL.
@@ -543,7 +543,7 @@ namespace build2
     //
     {
       const variable& var (var_pool.find ("subprojects"));
-      auto rp (root.vars.assign(var)); // Set NULL by default.
+      auto rp (root.vars.insert (var)); // Set NULL by default.
       value& v (rp.first);
 
       if (rp.second)

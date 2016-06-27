@@ -694,7 +694,7 @@ namespace build2
   }
 
   pair<reference_wrapper<value>, bool> variable_map::
-  assign (const variable& var)
+  insert (const variable& var)
   {
     auto r (m_.emplace (var, value (var.type)));
     value& v (r.first->second);

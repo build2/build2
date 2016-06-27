@@ -792,7 +792,7 @@ main (int argc, char* argv[])
           bool first (true);
           for (const variable_override& o: var_ovs)
           {
-            auto p (rs.vars.assign (o.ovr));
+            auto p (rs.vars.insert (o.ovr));
 
             if (!p.second)
             {

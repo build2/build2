@@ -280,13 +280,13 @@ namespace build2
   // A variable can be undefined, NULL, or contain a (potentially empty)
   // value.
   //
-  struct variable_map;
+  class variable_map;
 
   struct lookup
   {
     using value_type = build2::value;
 
-    const value_type* value;
+    const value_type* value;  // NULL if undefined.
     const variable_map* vars;
 
     bool
@@ -701,26 +701,34 @@ namespace build2
     value*
     find (const variable&);
 
-    // The second member in the pair indicates whether the new value (which
-    // will be NULL) was assigned.
+    // Return a value suitable for assignment. See scope for details.
     //
-    pair<reference_wrapper<value>, bool>
-    assign (const variable&);
+    value&
+    assign (const variable& var) {return insert (var).first;}
 
-    pair<reference_wrapper<value>, bool>
-    assign (const string& name)
-    {
-      return assign (var_pool.find (name));
-    }
+    value&
+    assign (const string& name) {return insert (name).first;}
 
-    // Unlike the two above, assign a non-overridable variable with normal
-    // visibility.
+    // Unlike the two above, assign a typed, non-overridable variable with
+    // normal visibility.
     //
     template <typename T>
-    pair<reference_wrapper<value>, bool>
+    value&
     assign (string name)
     {
       return assign (var_pool.insert<T> (move (name)));
+    }
+
+    // As above but also return an indication of whether the new value (which
+    // will be NULL) was actually inserted.
+    //
+    pair<reference_wrapper<value>, bool>
+    insert (const variable&);
+
+    pair<reference_wrapper<value>, bool>
+    insert (const string& name)
+    {
+      return insert (var_pool.find (name));
     }
 
     pair<const_iterator, const_iterator>

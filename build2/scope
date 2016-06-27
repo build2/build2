@@ -154,17 +154,17 @@ namespace build2
     // is returned.
     //
     value&
-    assign (const variable& var) {return vars.assign (var).first.get ();}
+    assign (const variable& var) {return vars.assign (var);}
 
     value&
-    assign (const string& name) {return vars.assign (name).first.get ();}
+    assign (const string& name) {return vars.assign (name);}
 
-    // Unlike the two above, assign a non-overridable variable with normal
-    // visibility.
+    // Unlike the two above, assign a typed non-overridable variable with
+    // normal visibility.
     //
     template <typename T>
     value&
-    assign (string name) {return vars.assign<T> (move (name)).first.get ();}
+    assign (string name) {return vars.assign<T> (move (name));}
 
     // Return a value suitable for appending. If the variable does not
     // exist in this scope's map, then outer scopes are searched for

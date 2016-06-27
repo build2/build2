@@ -15,28 +15,63 @@ namespace build2
   namespace config
   {
     void
-    save_variable (scope& root, const variable& var, uint64_t flags)
+    save_variable (scope& r, const variable& var, uint64_t flags)
     {
       if (current_mif->id == configure_id)
       {
         // The project might not be using the config module. But then how
         // could we be configuring it? Good question.
         //
-        if (module* mod = root.modules.lookup<module> (module::name))
+        if (module* mod = r.modules.lookup<module> (module::name))
           mod->vars.emplace (var, flags);
       }
     }
 
+    pair<const value*, bool>
+    required (scope& r, const variable& var)
+    {
+      // This is a stripped-down version of the other required() twisted
+      // implementation.
+
+      pair<lookup, size_t> org (r.find_original (var));
+
+      bool n (false); // New flag.
+      lookup l (org.first);
+
+      // Treat an inherited value that was set to default as new.
+      //
+      if (l.defined () && l->extra)
+        n = true;
+
+      if (var.override != nullptr)
+      {
+        pair<lookup, size_t> ovr (r.find_override (var, move (org)));
+
+        if (l != ovr.first) // Overriden?
+        {
+          // Override is always treated as new.
+          //
+          n = true;
+          l = move (ovr.first);
+        }
+      }
+
+      if (l.defined () && current_mif->id == configure_id)
+          save_variable (r, var);
+
+      return pair<const value*, bool> (l.value, n);
+    }
+
     const value&
-    optional (scope& root, const variable& var)
+    optional (scope& r, const variable& var)
     {
       if (current_mif->id == configure_id)
-        save_variable (root, var);
+        save_variable (r, var);
 
-      auto l (root[var]);
+      auto l (r[var]);
       return l.defined ()
         ? *l
-        : root.assign (var); // NULL.
+        : r.assign (var); // NULL.
     }
 
     bool

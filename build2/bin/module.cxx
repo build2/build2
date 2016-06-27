@@ -4,6 +4,8 @@
 
 #include <build2/bin/module>
 
+#include <butl/triplet>
+
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/diagnostics>
@@ -16,6 +18,7 @@
 #include <build2/bin/target>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -33,7 +36,7 @@ namespace build2
     bool
     init (scope& r,
           scope& b,
-          const location&,
+          const location& loc,
           unique_ptr<module_base>&,
           bool first,
           bool,
@@ -41,8 +44,6 @@ namespace build2
     {
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << b.out_path ();});
-
-      assert (config_hints.empty ()); // We don't known any hints.
 
       // Enter module variables.
       //
@@ -52,6 +53,8 @@ namespace build2
 
         // Note: some overridable, some not.
         //
+        v.insert<string>    ("config.bin.target",    true);
+
         v.insert<path>      ("config.bin.ar",        true);
         v.insert<path>      ("config.bin.ranlib",    true);
 
@@ -68,45 +71,6 @@ namespace build2
         v.insert<dir_paths> ("bin.rpath");
 
         v.insert<string>    ("bin.libprefix",        true);
-      }
-
-      // Register target types.
-      //
-      {
-        auto& t (b.target_types);
-
-        t.insert<obja>  ();
-        t.insert<objso> ();
-        t.insert<obj>   ();
-        t.insert<exe>   ();
-        t.insert<liba>  ();
-        t.insert<libso> ();
-        t.insert<lib>   ();
-      }
-
-      // Register rules.
-      //
-      {
-        auto& r (b.rules);
-
-        r.insert<obj> (perform_update_id, "bin.obj", obj_);
-        r.insert<obj> (perform_clean_id, "bin.obj", obj_);
-
-        r.insert<lib> (perform_update_id, "bin.lib", lib_);
-        r.insert<lib> (perform_clean_id, "bin.lib", lib_);
-
-        // Configure member.
-        //
-        r.insert<lib> (configure_update_id, "bin.lib", lib_);
-
-        //@@ Should we check if the install module was loaded
-        //   (by checking if install operation is registered
-        //   for this project)? If we do that, then install
-        //   will have to be loaded before bin. Perhaps we
-        //   should enforce loading of all operation-defining
-        //   modules before all others?
-        //
-        r.insert<lib> (perform_install_id, "bin.lib", lib_);
       }
 
       // Configure.
@@ -163,15 +127,99 @@ namespace build2
       b.assign ("bin.rpath") += cast_null<dir_paths> (
         config::optional (r, "config.bin.rpath"));
 
-      // config.bin.ar
-      // config.bin.ranlib
-      //
-      // For config.bin.ar we default to 'ar' while ranlib should be explicitly
-      // specified by the user in order for us to use it (most targets support
-      // the -s option to ar).
-      //
       if (first)
       {
+        // config.bin.target
+        //
+        {
+          const variable& cbt (var_pool.find ("config.bin.target"));
+
+          // We first see if the value was specified via the configuration
+          // mechanism.
+          //
+          auto p (config::required (r, cbt));
+          const value* v (p.first);
+
+          // Then see if there is a config hint (e.g., from the C++ module).
+          //
+          bool hint (false);
+          if (v == nullptr)
+          {
+            if (auto l = config_hints[cbt])
+            {
+              v = l.value;
+              hint = true;
+            }
+          }
+
+          if (v == nullptr)
+            fail (loc) << "unable to determine binutils target" <<
+              info << "consider specifying it with config.bin.target" <<
+              info << "or first load a module that can provide it as a hint, "
+                       << "such as c or cxx";
+
+          // Split/canonicalize the target.
+          //
+          string s (cast<string> (*v));
+
+          // Did the user ask us to use config.sub? If this is a hinted value,
+          // then we assume it has already been passed through config.sub.
+          //
+          if (!hint && ops.config_sub_specified ())
+          {
+            s = run<string> (ops.config_sub (),
+                             s.c_str (),
+                             [] (string& l) {return move (l);});
+            l5 ([&]{trace << "config.sub target: '" << s << "'";});
+          }
+
+          try
+          {
+            string canon;
+            triplet t (s, canon);
+
+            l5 ([&]{trace << "canonical target: '" << canon << "'; "
+                          << "class: " << t.class_;});
+
+            assert (!hint || s == canon);
+
+            // Enter as bin.target.{cpu,vendor,system,version,class}.
+            //
+            r.assign<string> ("bin.target") = move (canon);
+            r.assign<string> ("bin.target.cpu") = move (t.cpu);
+            r.assign<string> ("bin.target.vendor") = move (t.vendor);
+            r.assign<string> ("bin.target.system") = move (t.system);
+            r.assign<string> ("bin.target.version") = move (t.version);
+            r.assign<string> ("bin.target.class") = move (t.class_);
+          }
+          catch (const invalid_argument& e)
+          {
+            // This is where we suggest that the user specifies --config-sub
+            // to help us out.
+            //
+            fail << "unable to parse binutils target '" << s << "': "
+                 << e.what () <<
+              info << "consider using the --config-sub option";
+          }
+
+          // If this is a new value (e.g., we are configuring), then print the
+          // report at verbosity level 2 and up (-v). Note that a hinted value
+          // will automatically only be printed at level 3 and up.
+          //
+          if (verb >= (p.second ? 2 : 3))
+          {
+            text << "bin\n"
+                 << "  target     " << cast<string> (r["bin.target"]);
+          }
+        }
+
+        // config.bin.ar
+        // config.bin.ranlib
+        //
+        // For config.bin.ar we default to 'ar' while ranlib should be
+        // explicitly specified by the user in order for us to use it (most
+        // targets support the -s option to ar).
+        //
         auto p (config::required (r, "config.bin.ar", path ("ar")));
         auto& v (config::optional (r, "config.bin.ranlib"));
 
@@ -187,16 +235,18 @@ namespace build2
         {
           //@@ Print project out root or name? See cxx.
 
-          text << ar << ":\n"
-               << "  id         " << bi.ar_id << "\n"
-               << "  signature  " << bi.ar_signature << "\n"
+          text << "bin.ar\n"
+               << "  exe        " << ar << '\n'
+               << "  id         " << bi.ar_id << '\n'
+               << "  signature  " << bi.ar_signature << '\n'
                << "  checksum   " << bi.ar_checksum;
 
           if (!ranlib.empty ())
           {
-            text << ranlib << ":\n"
-                 << "  id         " << bi.ranlib_id << "\n"
-                 << "  signature  " << bi.ranlib_signature << "\n"
+            text << "bin.ranlib\n"
+                 << "  exe        " << ranlib << '\n'
+                 << "  id         " << bi.ranlib_id << '\n'
+                 << "  signature  " << bi.ranlib_signature << '\n'
                  << "  checksum   " << bi.ranlib_checksum;
           }
         }
@@ -212,6 +262,49 @@ namespace build2
             move (bi.ranlib_signature);
           r.assign<string> ("bin.ranlib.checksum") = move (bi.ranlib_checksum);
         }
+      }
+
+      // Cache some config values we will be needing below.
+      //
+      const string& tclass (cast<string> (r["bin.target.class"]));
+
+      // Register target types.
+      //
+      {
+        auto& t (b.target_types);
+
+        t.insert<obja>  ();
+        t.insert<objso> ();
+        t.insert<obj>   ();
+        t.insert<exe>   ();
+        t.insert<liba>  ();
+        t.insert<libso> ();
+        t.insert<lib>   ();
+      }
+
+      // Register rules.
+      //
+      {
+        auto& r (b.rules);
+
+        r.insert<obj> (perform_update_id, "bin.obj", obj_);
+        r.insert<obj> (perform_clean_id, "bin.obj", obj_);
+
+        r.insert<lib> (perform_update_id, "bin.lib", lib_);
+        r.insert<lib> (perform_clean_id, "bin.lib", lib_);
+
+        // Configure member.
+        //
+        r.insert<lib> (configure_update_id, "bin.lib", lib_);
+
+        //@@ Should we check if the install module was loaded
+        //   (by checking if install operation is registered
+        //   for this project)? If we do that, then install
+        //   will have to be loaded before bin. Perhaps we
+        //   should enforce loading of all operation-defining
+        //   modules before all others?
+        //
+        r.insert<lib> (perform_install_id, "bin.lib", lib_);
       }
 
       // Configure "installability" of our target types.
@@ -236,11 +329,13 @@ namespace build2
       //
       // libso{foo}: install.mode=755
       //
-      // Everyone is happy then?
+      // Everyone is happy then? Not Windows users. When targeting Windows
+      // libso{} is an import library and shouldn't be exec.
       //
       install_path<libso> (b, dir_path ("lib")); // Install into install.lib.
 
-      //@@ For Windows, libso{} is an import library and shouldn't be exec.
+      if (tclass == "windows")
+        install_mode<libso> (b, "644");
 
       install_path<liba> (b, dir_path ("lib"));  // Install into install.lib.
       install_mode<liba> (b, "644");
