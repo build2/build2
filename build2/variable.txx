@@ -272,7 +272,7 @@ namespace build2
 
   template <typename T>
   const string value_traits<vector<T>>::type_name = string (
-    value_traits<T>::value_type.name) + 's';
+    value_traits<T>::type_name) + 's';
 
   template <typename T>
   const value_type value_traits<vector<T>>::value_type
@@ -432,8 +432,8 @@ namespace build2
 
   template <typename K, typename V>
   const string value_traits<std::map<K, V>>::type_name = string (
-    value_traits<K>::value_type.name) + '_' +
-    value_traits<V>::value_type.name + "_map";
+    value_traits<K>::type_name) + '_' +
+    value_traits<V>::type_name + "_map";
 
   template <typename K, typename V>
   const value_type value_traits<std::map<K, V>>::value_type

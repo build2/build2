@@ -372,6 +372,13 @@ namespace build2
   //   //
   //   static int compare (const T&, const T&);
   //
+  //   // For simple types (those that can be used as elements of containers),
+  //   // type_name must be constexpr in order to sidestep the static init
+  //   // order issue (in fact, that's the only reason we have it both here
+  //   // and in value_type.name -- value_type cannot be constexpr because
+  //   // of pointers to function template instantiations).
+  //   //
+  //   static const char* const type_name;
   //   static const build2::value_type value_type;
   // };
 
@@ -446,6 +453,7 @@ namespace build2
     static name reverse (bool x) {return name (x ? "true" : "false");}
     static int compare (bool, bool);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -460,6 +468,7 @@ namespace build2
     static name reverse (uint64_t x) {return name (to_string (x));}
     static int compare (uint64_t, uint64_t);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -477,6 +486,7 @@ namespace build2
     static name reverse (const string& x) {return name (x);}
     static int compare (const string&, const string&);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -494,6 +504,7 @@ namespace build2
     static name reverse (const path& x) {return name (x.string ());}
     static int compare (const path&, const path&);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -511,6 +522,7 @@ namespace build2
     static name reverse (const dir_path& x) {return name (x);}
     static int compare (const dir_path&, const dir_path&);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -528,6 +540,7 @@ namespace build2
     static name reverse (const abs_dir_path& x) {return name (x);}
     static int compare (const abs_dir_path&, const abs_dir_path&);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 
@@ -545,6 +558,7 @@ namespace build2
     static name reverse (const name& x) {return x;}
     static int compare (const name&, const name&);
 
+    static const char* const type_name;
     static const build2::value_type value_type;
   };
 

@@ -333,9 +333,11 @@ namespace build2
     throw invalid_argument (string ());
   }
 
+  constexpr const char* const value_traits<bool>::type_name = "bool";
+
   const value_type value_traits<bool>::value_type
   {
-    "bool",
+    type_name,
     sizeof (bool),
     nullptr,                      // No base.
     nullptr,                      // No dtor (POD).
@@ -371,9 +373,11 @@ namespace build2
     throw invalid_argument (string ());
   }
 
+  constexpr const char* const value_traits<uint64_t>::type_name = "uint64";
+
   const value_type value_traits<uint64_t>::value_type
   {
-    "uint64",
+    type_name,
     sizeof (uint64_t),
     nullptr,                          // No base.
     nullptr,                          // No dtor (POD).
@@ -455,9 +459,11 @@ namespace build2
     return s;
   }
 
+  constexpr const char* const value_traits<string>::type_name = "string";
+
   const value_type value_traits<string>::value_type
   {
-    "string",
+    type_name,
     sizeof (string),
     nullptr,                      // No base.
     &default_dtor<string>,
@@ -498,9 +504,11 @@ namespace build2
     throw invalid_argument (string ());
   }
 
+  constexpr const char* const value_traits<path>::type_name = "path";
+
   const value_type value_traits<path>::value_type
   {
-    "path",
+    type_name,
     sizeof (path),
     nullptr,                    // No base.
     &default_dtor<path>,
@@ -539,9 +547,11 @@ namespace build2
     throw invalid_argument (string ());
   }
 
+  constexpr const char* const value_traits<dir_path>::type_name = "dir_path";
+
   const value_type value_traits<dir_path>::value_type
   {
-    "dir_path",
+    type_name,
     sizeof (dir_path),
     nullptr,                        // No base, or should it be path?
     &default_dtor<dir_path>,
@@ -570,9 +580,12 @@ namespace build2
     return abs_dir_path (move (d));
   }
 
+  constexpr const char* const value_traits<abs_dir_path>::type_name =
+    "abs_dir_path";
+
   const value_type value_traits<abs_dir_path>::value_type
   {
-    "abs_dir_path",
+    type_name,
     sizeof (abs_dir_path),
     &value_traits<dir_path>::value_type, // Assume direct cast works for both.
     &default_dtor<abs_dir_path>,
@@ -603,9 +616,11 @@ namespace build2
     return names_view (&v.as<name> (), 1);
   }
 
+  constexpr const char* const value_traits<name>::type_name = "name";
+
   const value_type value_traits<name>::value_type
   {
-    "name",
+    type_name,
     sizeof (name),
     nullptr,                    // No base.
     &default_dtor<name>,
