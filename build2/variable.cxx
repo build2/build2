@@ -333,7 +333,7 @@ namespace build2
     throw invalid_argument (string ());
   }
 
-  constexpr const char* const value_traits<bool>::type_name = "bool";
+  const char* const value_traits<bool>::type_name = "bool";
 
   const value_type value_traits<bool>::value_type
   {
@@ -373,7 +373,7 @@ namespace build2
     throw invalid_argument (string ());
   }
 
-  constexpr const char* const value_traits<uint64_t>::type_name = "uint64";
+  const char* const value_traits<uint64_t>::type_name = "uint64";
 
   const value_type value_traits<uint64_t>::value_type
   {
@@ -459,7 +459,7 @@ namespace build2
     return s;
   }
 
-  constexpr const char* const value_traits<string>::type_name = "string";
+  const char* const value_traits<string>::type_name = "string";
 
   const value_type value_traits<string>::value_type
   {
@@ -504,7 +504,7 @@ namespace build2
     throw invalid_argument (string ());
   }
 
-  constexpr const char* const value_traits<path>::type_name = "path";
+  const char* const value_traits<path>::type_name = "path";
 
   const value_type value_traits<path>::value_type
   {
@@ -547,7 +547,7 @@ namespace build2
     throw invalid_argument (string ());
   }
 
-  constexpr const char* const value_traits<dir_path>::type_name = "dir_path";
+  const char* const value_traits<dir_path>::type_name = "dir_path";
 
   const value_type value_traits<dir_path>::value_type
   {
@@ -580,8 +580,7 @@ namespace build2
     return abs_dir_path (move (d));
   }
 
-  constexpr const char* const value_traits<abs_dir_path>::type_name =
-    "abs_dir_path";
+  const char* const value_traits<abs_dir_path>::type_name = "abs_dir_path";
 
   const value_type value_traits<abs_dir_path>::value_type
   {
@@ -616,7 +615,7 @@ namespace build2
     return names_view (&v.as<name> (), 1);
   }
 
-  constexpr const char* const value_traits<name>::type_name = "name";
+  const char* const value_traits<name>::type_name = "name";
 
   const value_type value_traits<name>::value_type
   {

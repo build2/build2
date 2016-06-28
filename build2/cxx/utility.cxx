@@ -36,9 +36,9 @@ namespace build2
 
           // @@ Is mapping for 14 and 17 correct? Maybe Update 2 for 14?
           //
-          if ((v == "11" && cver <= 16) || // C++11 since VS2010/10.0.
-              (v == "14" && cver <= 19) || // C++14 since VS2015/14.0.
-              (v == "17" && cver <= 20))   // C++17 since VS20??/15.0.
+          if ((v == "11" && cver < 16) || // C++11 since VS2010/10.0.
+              (v == "14" && cver < 19) || // C++14 since VS2015/14.0.
+              (v == "17" && cver < 20))   // C++17 since VS20??/15.0.
           {
             fail << "C++" << v << " is not supported by "
                  << cast<string> (rs["cxx.signature"]) <<

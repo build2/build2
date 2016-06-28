@@ -15,8 +15,8 @@ namespace build2
   {
     // cli
     //
-    constexpr const char cli_ext_var[] = "extension";
-    constexpr const char cli_ext_def[] = "cli";
+    extern const char cli_ext_var[] = "extension";  // VC 19 rejects constexpr.
+    extern const char cli_ext_def[] = "cli";
 
     const target_type cli::static_type
     {

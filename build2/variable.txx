@@ -275,7 +275,7 @@ namespace build2
     value_traits<T>::type_name) + 's';
 
   template <typename T>
-  const value_type value_traits<vector<T>>::value_type
+  const value_type value_traits<vector<T>>::value_type = // VC 19 wants =.
   {
     value_traits<vector<T>>::type_name.c_str (),
     sizeof (vector<T>),
@@ -436,7 +436,7 @@ namespace build2
     value_traits<V>::type_name + "_map";
 
   template <typename K, typename V>
-  const value_type value_traits<std::map<K, V>>::value_type
+  const value_type value_traits<std::map<K, V>>::value_type = // VC 19 wants =.
   {
     value_traits<map<K, V>>::type_name.c_str (),
     sizeof (map<K, V>),

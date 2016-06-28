@@ -140,7 +140,7 @@ namespace build2
     diag_record (const diag_mark<B>& m)
         : empty_ (true), epilogue_ (nullptr) { *this << m;}
 
-    ~diag_record () noexcept(false);
+    ~diag_record () noexcept (false);
 
     void
     append (diag_epilogue e) const
@@ -159,30 +159,25 @@ namespace build2
 
     // Move constructible-only type.
     //
-    /*
-    @@ libstdc++ doesn't yet have the ostringstream move support.
-
+    // Older versions of libstdc++ don't have the ostringstream move support
+    // and accuratly detecting its version is non-trivial. So we always use
+    // the pessimized implementation with libstdc++. Luckily, GCC doesn't seem
+    // to be needing move due to copy/move elision.
+    //
     diag_record (diag_record&& r)
+#ifndef __GLIBCXX__
         : os_ (move (r.os_))
-    {
-      empty_ = r.empty_;
-      r.empty_ = true;
-
-      epilogue_ = r.epilogue_;
-      r.epilogue_ = nullptr;
-    }
-    */
-
-    diag_record (diag_record&& r)
+#endif
     {
       empty_ = r.empty_;
       epilogue_ = r.epilogue_;
 
       if (!empty_)
       {
-        assert (false); //@@ Stream verbosity will not be transferred.
+#ifdef __GLIBCXX__
+        stream_verb (os_, stream_verb (r.os_));
         os_ << r.os_.str ();
-
+#endif
         r.empty_ = true;
         r.epilogue_ = nullptr;
       }

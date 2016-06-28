@@ -540,7 +540,9 @@ namespace build2
     return r;
   }
 
-  constexpr const char derived_tt_ext_var[] = "extension";
+  // VC 19 rejects constexpr.
+  //
+  extern const char derived_tt_ext_var[] = "extension";
 
   pair<reference_wrapper<const target_type>, bool> scope::
   derive_target_type (const string& name, const target_type& base)

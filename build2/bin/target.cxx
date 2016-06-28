@@ -10,7 +10,7 @@ namespace build2
 {
   namespace bin
   {
-    constexpr const char ext_var[] = "extension";
+    extern const char ext_var[] = "extension"; // VC 19 rejects constexpr.
 
     static target*
     obja_factory (const target_type&,

@@ -5,10 +5,6 @@
 #include <time.h>      // tzset()
 #include <string.h>    // strerror()
 
-#include <stdlib.h>    // getenv()
-#include <unistd.h>    // getuid()
-#include <sys/types.h> // uid_t
-
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
 #include <typeinfo>

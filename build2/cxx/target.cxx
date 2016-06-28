@@ -10,9 +10,9 @@ namespace build2
 {
   namespace cxx
   {
-    constexpr const char ext_var[] = "extension";
+    extern const char ext_var[] = "extension";  // VC 19 rejects constexpr.
 
-    constexpr const char hxx_ext_def[] = "hxx";
+    extern const char hxx_ext_def[] = "hxx";
     const target_type hxx::static_type
     {
       "hxx",
@@ -24,7 +24,7 @@ namespace build2
       false
     };
 
-    constexpr const char ixx_ext_def[] = "ixx";
+    extern const char ixx_ext_def[] = "ixx";
     const target_type ixx::static_type
     {
       "ixx",
@@ -36,7 +36,7 @@ namespace build2
       false
     };
 
-    constexpr const char txx_ext_def[] = "txx";
+    extern const char txx_ext_def[] = "txx";
     const target_type txx::static_type
     {
       "txx",
@@ -48,7 +48,7 @@ namespace build2
       false
     };
 
-    constexpr const char cxx_ext_def[] = "cxx";
+    extern const char cxx_ext_def[] = "cxx";
     const target_type cxx::static_type
     {
       "cxx",
@@ -60,7 +60,7 @@ namespace build2
       false
     };
 
-    constexpr const char h_ext_def[] = "h";
+    extern const char h_ext_def[] = "h";
     const target_type h::static_type
     {
       "h",
@@ -72,7 +72,7 @@ namespace build2
       false
     };
 
-    constexpr const char c_ext_def[] = "c";
+    extern const char c_ext_def[] = "c";
     const target_type c::static_type
     {
       "c",
