@@ -116,6 +116,12 @@ namespace build2
             if (p != string::npos)
               ver = string (ver, p + 1);
 
+            // Skip until the end as cli doesn't handle writing to the closed
+            // pipe very well (SIGPIPE).
+            //
+            if (is.good ())
+              is.ignore (numeric_limits<streamsize>::max ());
+
             is.close (); // Don't block the other end.
 
             if (!pr.wait ())
