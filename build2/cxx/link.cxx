@@ -694,7 +694,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      inject_parent_fsdir (a, t);
+      inject_fsdir (a, t);
 
       optional<dir_paths> lib_paths; // Extract lazily.
 

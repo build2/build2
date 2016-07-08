@@ -82,7 +82,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      fsdir* dir (inject_parent_fsdir (a, t));
+      fsdir* dir (inject_fsdir (a, t));
 
       // Search and match all the existing prerequisites. The injection
       // code (below) takes care of the ones it is adding.

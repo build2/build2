@@ -305,31 +305,33 @@ namespace build2
   }
 
   fsdir*
-  inject_parent_fsdir (action a, target& t)
+  inject_fsdir (action a, target& t, bool parent)
   {
-    tracer trace ("inject_parent_fsdir");
+    tracer trace ("inject_fsdir");
 
-    scope& s (t.base_scope ());
-    scope* rs (s.root_scope ());
+    scope& bs (t.base_scope ());
+    scope* rs (bs.root_scope ());
 
-    if (rs == nullptr) // Could be outside any project.
+    // Handle the outside of any project and at root scope cases.
+    //
+    if (rs == nullptr || &bs == rs)
       return nullptr;
 
-    const dir_path& out_root (rs->out_path ());
-
-    // If t is a directory (name is empty), say foo/bar/, then
-    // t is bar and its parent directory is foo/.
+    // If t is a directory (name is empty), say foo/bar/, then t is bar and
+    // its parent directory is foo/.
     //
-    const dir_path& d (t.name.empty () ? t.dir.directory () : t.dir);
+    const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    if (!d.sub (out_root))
+    // Handle the src = out and (again) root scope cases.
+    //
+    if (d.sub (rs->src_path ()) || d == rs->out_path ())
       return nullptr;
 
-    l6 ([&]{trace << "for " << t;});
+    l6 ([&]{trace << d << " for " << t;});
 
-    // Target in the out tree, so out directory is empty.
+    // Target is in the out tree, so out directory is empty.
     //
-    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullptr, &s));
+    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullptr, nullptr));
     match (a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;

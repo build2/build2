@@ -36,8 +36,8 @@ namespace build2
   target&
   search (const target_type&, const prerequisite_key&);
 
-  // As above but specify the prerequisite to search as individual
-  // key components.
+  // As above but specify the prerequisite to search as individual key
+  // components. Scope can be NULL if the directory is absolute.
   //
   target&
   search (const target_type& type,
@@ -130,13 +130,15 @@ namespace build2
   group_view
   resolve_group_members (action, target&);
 
-  // Inject dependency on the parent directory's fsdir{}, unless it is outside
-  // of any project (say, for example, an installation directory). Return the
-  // injected target or NULL. Normally this function is called from the rule's
-  // apply() function.
+  // Inject dependency on the target's directory fsdir{}, unless it is in the
+  // src tree, root of the project, or is outside of any project (say, for
+  // example, an installation directory). If the parent argument is true, then
+  // inject the parent directory of a target that is itself a directory (name
+  // is empty). Return the injected target or NULL. Normally this function is
+  // called from the rule's apply() function.
   //
   fsdir*
-  inject_parent_fsdir (action, target&);
+  inject_fsdir (action, target&, bool parent = true);
 
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set. This is the default

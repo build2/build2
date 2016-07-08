@@ -144,6 +144,11 @@ namespace build2
   recipe alias_rule::
   apply (action a, target& t, const match_result&) const
   {
+    // Inject dependency on our directory (note: not parent) so that it is
+    // automatically created on update and removed on clean.
+    //
+    inject_fsdir (a, t, false);
+
     search_and_match_prerequisites (a, t);
     return default_recipe;
   }
@@ -161,11 +166,12 @@ namespace build2
   recipe fsdir_rule::
   apply (action a, target& t, const match_result&) const
   {
-    // Inject dependency on the parent directory. Note that we
-    // don't do it for clean since we shouldn't be removing it.
+    // Inject dependency on the parent directory. Note that we don't do it for
+    // clean since we shouldn't (and can't possibly, since it's our parent) be
+    // removing it.
     //
     if (a.operation () != clean_id)
-      inject_parent_fsdir (a, t);
+      inject_fsdir (a, t);
 
     search_and_match_prerequisites (a, t);
 
