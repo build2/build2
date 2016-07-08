@@ -8,20 +8,25 @@ namespace build2
 {
   template <typename T>
   fs_status<butl::rmfile_status>
-  rmfile (const path& f, const T& t, bool verbose)
+  rmfile (const path& f, const T& t, uint16_t v)
   {
     using namespace butl;
 
-    // Verbosity thresholds.
+    // We don't want to print the command if we couldn't remove the file
+    // because it does not exist (just like we don't print the update command
+    // if the file is up to date). This makes the below code a bit ugly.
     //
-    uint16_t l1 (verbose ? 2 : 3);
-    uint16_t l2 (verbose ? 1 : 3);
+    auto print = [&f, &t, v] ()
+    {
+      if (verb >= v)
+      {
+        if (verb >= 2)
+          text << "rm " << f;
+        else if (verb)
+          text << "rm " << t;
+      }
+    };
 
-    // We don't want to print the command if we couldn't remove the
-    // file because it does not exist (just like we don't print the
-    // update command if the file is up to date). This makes the
-    // below code a bit ugly.
-    //
     rmfile_status rs;
 
     try
@@ -30,51 +35,48 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      if (verb >= l1)
-        text << "rm " << f;
-      else if (verb >= l2)
-        text << "rm " << t;
-
+      print ();
       error << "unable to remove file " << f << ": " << e.what ();
       throw failed ();
     }
 
     if (rs == rmfile_status::success)
-    {
-      if (verb >= l1)
-        text << "rm " << f;
-      else if (verb >= l2)
-        text << "rm " << t;
-    }
+      print ();
 
     return rs;
   }
 
   template <typename T>
   fs_status<butl::rmdir_status>
-  rmdir (const dir_path& d, const T& t)
+  rmdir (const dir_path& d, const T& t, uint16_t v)
   {
     using namespace butl;
 
     bool w (work.sub (d)); // Don't try to remove working directory.
     rmdir_status rs;
 
-    // We don't want to print the command if we couldn't remove the
-    // directory because it does not exist (just like we don't print
-    // mkdir if it already exists) or if it is not empty. This makes
-    // the below code a bit ugly.
+    // We don't want to print the command if we couldn't remove the directory
+    // because it does not exist (just like we don't print mkdir if it already
+    // exists) or if it is not empty. This makes the below code a bit ugly.
     //
+    auto print = [&d, &t, v] ()
+    {
+      if (verb >= v)
+      {
+        if (verb >= 2)
+          text << "rm " << d;
+        else if (verb)
+          text << "rm " << t;
+      }
+    };
+
     try
     {
       rs = !w ? try_rmdir (d) : rmdir_status::not_empty;
     }
     catch (const system_error& e)
     {
-      if (verb >= 2)
-        text << "rmdir " << d;
-      else if (verb)
-        text << "rmdir " << t;
-
+      print ();
       error << "unable to remove directory " << d << ": " << e.what ();
       throw failed ();
     }
@@ -83,20 +85,17 @@ namespace build2
     {
     case rmdir_status::success:
       {
-        if (verb >= 2)
-          text << "rmdir " << d;
-        else if (verb)
-          text << "rmdir " << t;
-
+        print ();
         break;
       }
     case rmdir_status::not_empty:
       {
-        if (verb >= 2)
-          text << "directory " << d << " is "
+        if (verb >= v && verb >= 2)
+        {
+          text << d << " is "
                << (w ? "current working directory" : "not empty")
                << ", not removing";
-
+        }
         break;
       }
     case rmdir_status::not_exist:

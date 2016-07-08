@@ -80,6 +80,7 @@ namespace build2
   using butl::dir_path;
   using butl::basic_path;
   using butl::invalid_path;
+  using butl::path_cast;
 
   // Absolute directory path. Note that for now we don't do any checking that
   // the path is in fact absolute.

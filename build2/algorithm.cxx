@@ -481,28 +481,62 @@ namespace build2
   clean_extra (action a, file& ft, initializer_list<const char*> es)
   {
     // Clean the extras first and don't print the commands at verbosity level
-    // below 3.
+    // below 3. Note the first extra file/directory that actually got removed
+    // for diagnostics below.
     //
     target_state er (target_state::unchanged);
-    path ef; // First extra file that actually got removed (see below).
+    bool ed (false);
+    path ep;
 
     for (const char* e: es)
     {
       if (e == nullptr)
         continue;
 
-      path f;
+      bool d (*e == '/');
+      if (d)
+        ++e;
+
+      path p;
       if (*e == '+')
-        f = ft.path () + ++e;
+        p = ft.path () + ++e;
       else
-        f = ft.path ().base () + e;
+        p = ft.path ().base () + e;
 
-      target_state r (rmfile (f, false)
-                      ? target_state::changed
-                      : target_state::unchanged);
+      target_state r (target_state::unchanged);
 
-      if (r == target_state::changed && ef.empty ())
-        ef = move (f);
+      if (d)
+      {
+        dir_path dp (path_cast<dir_path> (p));
+
+        switch (build2::rmdir_r (dp, true, 3))
+        {
+        case rmdir_status::success:
+          {
+            r = target_state::changed;
+            break;
+          }
+        case rmdir_status::not_empty:
+          {
+            if (verb >= 3)
+              text << dp << " is current working directory, not removing";
+            break;
+          }
+        case rmdir_status::not_exist:
+          break;
+        }
+      }
+      else
+      {
+        if (rmfile (p, 3))
+          r = target_state::changed;
+      }
+
+      if (r == target_state::changed && ep.empty ())
+      {
+        ed = d;
+        ep = move (p);
+      }
 
       er |= r;
     }
@@ -518,12 +552,12 @@ namespace build2
 
       const path& f (fm->path ());
 
-      target_state r (rmfile (f, false)
+      target_state r (rmfile (f, 3)
                       ? target_state::changed
                       : target_state::unchanged);
 
-      if (r == target_state::changed && ef.empty ())
-        ef = f;
+      if (r == target_state::changed && ep.empty ())
+        ep = f;
 
       er |= r;
     }
@@ -556,7 +590,12 @@ namespace build2
     if (tr != target_state::changed && er == target_state::changed)
     {
       if (verb > 0 && verb < 3)
-        text << "rm " << ef;
+      {
+        if (ed)
+          text << "rm -r " << path_cast<dir_path> (ep);
+        else
+          text << "rm " << ep;
+      }
     }
 
     tr |= er;

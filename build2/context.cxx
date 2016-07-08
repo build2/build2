@@ -326,10 +326,10 @@ namespace build2
   }
 
   fs_status<mkdir_status>
-  mkdir (const dir_path& d)
+  mkdir (const dir_path& d, uint16_t v)
   {
-    // We don't want to print the command if the directory already
-    // exists. This makes the below code a bit ugly.
+    // We don't want to print the command if the directory already exists.
+    // This makes the below code a bit ugly.
     //
     mkdir_status ms;
 
@@ -339,7 +339,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      if (verb)
+      if (verb >= v)
         text << "mkdir " << d;
 
       error << "unable to create directory " << d << ": " << e.what ();
@@ -348,7 +348,7 @@ namespace build2
 
     if (ms == mkdir_status::success)
     {
-      if (verb)
+      if (verb >= v)
         text << "mkdir " << d;
     }
 
@@ -356,10 +356,10 @@ namespace build2
   }
 
   fs_status<mkdir_status>
-  mkdir_p (const dir_path& d)
+  mkdir_p (const dir_path& d, uint16_t v)
   {
-    // We don't want to print the command if the directory already
-    // exists. This makes the below code a bit ugly.
+    // We don't want to print the command if the directory already exists.
+    // This makes the below code a bit ugly.
     //
     mkdir_status ms;
 
@@ -369,7 +369,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      if (verb)
+      if (verb >= v)
         text << "mkdir -p " << d;
 
       error << "unable to create directory " << d << ": " << e.what ();
@@ -378,7 +378,7 @@ namespace build2
 
     if (ms == mkdir_status::success)
     {
-      if (verb)
+      if (verb >= v)
         text << "mkdir -p " << d;
     }
 
@@ -386,7 +386,7 @@ namespace build2
   }
 
   fs_status<butl::rmdir_status>
-  rmdir_r (const dir_path& d)
+  rmdir_r (const dir_path& d, bool dir, uint16_t v)
   {
     using namespace butl;
 
@@ -396,12 +396,12 @@ namespace build2
     if (!dir_exists (d))
       return rmdir_status::not_exist;
 
-    if (verb)
+    if (verb >= v)
       text << "rmdir -r " << d;
 
     try
     {
-      butl::rmdir_r (d);
+      butl::rmdir_r (d, dir);
     }
     catch (const system_error& e)
     {

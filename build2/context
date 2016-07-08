@@ -5,6 +5,8 @@
 #ifndef BUILD2_CONTEXT
 #define BUILD2_CONTEXT
 
+#include <type_traits> // enable_if
+
 #include <butl/filesystem>
 
 #include <build2/types>
@@ -73,45 +75,59 @@ namespace build2
     explicit operator bool () const {return v == T::success;}
   };
 
-  // Create the directory and print the standard diagnostics. Note that
-  // this implementation is not suitable if it is expected that the
-  // directory will exist in the majority of case and performance is
+  // Create the directory and print the standard diagnostics starting from
+  // the specified verbosity level.
+  //
+  // Note that this implementation is not suitable if it is expected that the
+  // directory will exist in the majority of cases and performance is
   // important. See the fsdir{} rule for details.
   //
-  fs_status<butl::mkdir_status>
-  mkdir (const dir_path&);
+  using mkdir_status = butl::mkdir_status;
 
-  fs_status<butl::mkdir_status>
-  mkdir_p (const dir_path&);
+  fs_status<mkdir_status>
+  mkdir (const dir_path&, uint16_t verbosity = 1);
 
-  // Remove the file and print the standard diagnostics. The second argument
-  // is only used in diagnostics, to print the target name. Passing the path
-  // for target will result in the relative path being printed.
+  fs_status<mkdir_status>
+  mkdir_p (const dir_path&, uint16_t verbosity = 1);
+
+  // Remove the file and print the standard diagnostics starting from the
+  // specified verbosity level. The second argument is only used in
+  // diagnostics, to print the target name. Passing the path for target will
+  // result in the relative path being printed.
   //
-  // If verbose is false, then only print the command at verbosity level 3
-  // or higher.
-  //
+  using rmfile_status = butl::rmfile_status;
+
   template <typename T>
-  fs_status<butl::rmfile_status>
-  rmfile (const path&, const T& target, bool verbose = true);
+  fs_status<rmfile_status>
+  rmfile (const path&, const T& target, uint16_t verbosity = 1);
 
-  inline fs_status<butl::rmfile_status>
-  rmfile (const path& f, bool verbose = true) {return rmfile (f, f, verbose);}
+  inline fs_status<rmfile_status>
+  rmfile (const path& f, int verbosity = 1) // Literal overload (int).
+  {
+    return rmfile (f, f, static_cast<uint16_t> (verbosity));
+  }
 
-  // Similar to rmfile() but for directories.
+  // Similar to rmfile() but for directories (note: not -r).
   //
+  using rmdir_status = butl::rmdir_status;
+
   template <typename T>
-  fs_status<butl::rmdir_status>
-  rmdir (const dir_path&, const T& target);
+  fs_status<rmdir_status>
+  rmdir (const dir_path&, const T& target, uint16_t verbosity = 1);
 
-  inline fs_status<butl::rmdir_status>
-  rmdir (const dir_path& d) {return rmdir (d, d);}
+  inline fs_status<rmdir_status>
+  rmdir (const dir_path& d, int verbosity = 1) // Literal overload (int).
+  {
+    return rmdir (d, d, static_cast<uint16_t> (verbosity));
+  }
 
-  // Note that this function returns not_empty if we try to remove
-  // a working directory.
+  // Remove the directory recursively and print the standard diagnostics
+  // starting from the specified verbosity level. Note that this function
+  // returns not_empty if we try to remove a working directory. If the dir
+  // argument is false, then the directory itself is not removed.
   //
-  fs_status<butl::rmdir_status>
-  rmdir_r (const dir_path&);
+  fs_status<rmdir_status>
+  rmdir_r (const dir_path&, bool dir = true, uint16_t verbosity = 1);
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.
