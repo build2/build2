@@ -7,13 +7,12 @@
 #include <set>
 #include <fstream>
 
-#include <butl/filesystem>
-
 #include <build2/file>
 #include <build2/scope>
 #include <build2/target>
 #include <build2/context>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 
 #include <build2/config/module>

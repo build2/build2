@@ -6,12 +6,13 @@
 
 #include <build2/scope>
 #include <build2/target>
-#include <build2/prerequisite>
 #include <build2/rule>
 #include <build2/file> // import()
 #include <build2/search>
 #include <build2/context>
+#include <build2/filesystem>
 #include <build2/diagnostics>
+#include <build2/prerequisite>
 
 using namespace std;
 using namespace butl;

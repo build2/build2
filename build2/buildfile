@@ -13,6 +13,7 @@ exe{b}:                                    \
         {hxx         cxx}{ diagnostics   } \
         {hxx         cxx}{ dump          } \
         {hxx ixx     cxx}{ file          } \
+	{hxx     txx cxx}{ filesystem    } \
         {hxx         cxx}{ lexer         } \
         {hxx         cxx}{ module        } \
         {hxx ixx     cxx}{ name          } \

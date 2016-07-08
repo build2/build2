@@ -10,14 +10,14 @@
 #include <cstdlib>  // exit()
 
 #include <butl/path-map>
-#include <butl/filesystem>
 
 #include <build2/depdb>
 #include <build2/scope>
+#include <build2/context>
 #include <build2/variable>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
-#include <build2/context>
 
 #include <build2/bin/target>
 #include <build2/cxx/target>

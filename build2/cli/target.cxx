@@ -4,7 +4,7 @@
 
 #include <build2/cli/target>
 
-#include <butl/filesystem>
+#include <build2/filesystem> // file_mtime()
 
 using namespace std;
 using namespace butl;

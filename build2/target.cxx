@@ -4,7 +4,7 @@
 
 #include <build2/target>
 
-#include <butl/filesystem>
+#include <butl/filesystem> // file_mtime()
 
 #include <build2/scope>
 #include <build2/search>

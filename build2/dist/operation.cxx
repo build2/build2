@@ -10,6 +10,7 @@
 #include <build2/target>
 #include <build2/context>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 
 using namespace std;

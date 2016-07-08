@@ -4,12 +4,11 @@
 
 #include <build2/config/module>
 
-#include <butl/filesystem>
-
 #include <build2/file>
 #include <build2/rule>
 #include <build2/scope>
 #include <build2/context>
+#include <build2/filesystem> // file_exists()
 #include <build2/diagnostics>
 
 #include <build2/config/operation>

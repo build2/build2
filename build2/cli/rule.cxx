@@ -8,6 +8,7 @@
 #include <build2/target>
 #include <build2/context>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 
 #include <build2/cli/target>
@@ -318,6 +319,8 @@ namespace build2
       // The reverse order of update: first delete the files, then clean
       // prerequisites. Also update timestamp in case there are operations
       // after us that could use the information.
+      //
+      // @@ Can't we use clean_extra() for this?
       //
       bool r (false);
 

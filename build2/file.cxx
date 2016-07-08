@@ -7,7 +7,7 @@
 #include <fstream>
 #include <iostream> // cin
 
-#include <butl/filesystem>
+#include <butl/filesystem> // file_exists()
 
 #include <build2/scope>
 #include <build2/context>

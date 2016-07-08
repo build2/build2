@@ -4,13 +4,12 @@
 
 #include <build2/rule>
 
-#include <butl/filesystem>
-
 #include <build2/scope>
 #include <build2/target>
-#include <build2/algorithm>
-#include <build2/diagnostics>
 #include <build2/context>
+#include <build2/algorithm>
+#include <build2/filesystem>
+#include <build2/diagnostics>
 
 using namespace std;
 using namespace butl;

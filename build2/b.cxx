@@ -11,7 +11,6 @@
 #include <iostream>
 
 #include <butl/pager>
-#include <butl/filesystem>
 
 #include <build2/types>
 #include <build2/utility>
@@ -26,6 +25,7 @@
 #include <build2/file>
 #include <build2/module>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 #include <build2/context>
 #include <build2/variable>
