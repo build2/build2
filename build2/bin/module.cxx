@@ -33,6 +33,26 @@ namespace build2
     static const strings liba_lib {"static"};
     static const strings libso_lib {"shared"};
 
+    // Apply the specified stem to the config.bin.pattern. If there is no
+    // pattern, then return the stem itself. Assume the pattern is valid,
+    // i.e., contains single '*'.
+    //
+    static string
+    apply (const lookup& pattern, const char* stem)
+    {
+      if (!pattern)
+        return stem;
+
+      const string& p (cast<string> (pattern));
+      size_t i (p.find ('*'));
+      assert (i != string::npos);
+
+      string r (p, 0, i++);
+      r.append (stem);
+      r.append (p, i, p.size () - i);
+      return r;
+    }
+
     bool
     init (scope& r,
           scope& b,
@@ -54,6 +74,7 @@ namespace build2
         // Note: some overridable, some not.
         //
         v.insert<string>    ("config.bin.target",    true);
+        v.insert<string>    ("config.bin.pattern",   true);
 
         v.insert<path>      ("config.bin.ar",        true);
         v.insert<path>      ("config.bin.ranlib",    true);
@@ -76,6 +97,7 @@ namespace build2
       // Configure.
       //
       using config::required;
+      using config::optional;
 
       // The idea here is as follows: if we already have one of
       // the bin.* variables set, then we assume this is static
@@ -125,19 +147,21 @@ namespace build2
       // See the cxx module for details on merging.
       //
       b.assign ("bin.rpath") += cast_null<dir_paths> (
-        config::optional (r, "config.bin.rpath"));
+        optional (r, "config.bin.rpath"));
 
       if (first)
       {
+        bool new_val (false); // Set any new values?
+
         // config.bin.target
         //
         {
-          const variable& cbt (var_pool.find ("config.bin.target"));
+          const variable& var (var_pool.find ("config.bin.target"));
 
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (config::required (r, cbt));
+          auto p (required (r, var));
           const value* v (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
@@ -145,7 +169,7 @@ namespace build2
           bool hint (false);
           if (v == nullptr)
           {
-            if (auto l = config_hints[cbt])
+            if (auto l = config_hints[var])
             {
               v = l.value;
               hint = true;
@@ -154,7 +178,7 @@ namespace build2
 
           if (v == nullptr)
             fail (loc) << "unable to determine binutils target" <<
-              info << "consider specifying it with config.bin.target" <<
+              info << "consider specifying it with " << var.name <<
               info << "or first load a module that can provide it as a hint, "
                        << "such as c or cxx";
 
@@ -202,26 +226,81 @@ namespace build2
               info << "consider using the --config-sub option";
           }
 
-          // If this is a new value (e.g., we are configuring), then print the
-          // report at verbosity level 2 and up (-v). Note that a hinted value
-          // will automatically only be printed at level 3 and up.
+          new_val = new_val || p.second; // False for a hinted value.
+        }
+
+        // config.bin.pattern
+        //
+        {
+          const variable& var (var_pool.find ("config.bin.pattern"));
+
+          // We first see if the value was specified via the configuration
+          // mechanism.
           //
-          if (verb >= (p.second ? 2 : 3))
+          auto p (required (r, var));
+          const value* v (p.first);
+
+          // Then see if there is a config hint (e.g., from the C++ module).
+          //
+          if (v == nullptr)
           {
-            text << "bin\n"
-                 << "  target     " << cast<string> (r["bin.target"]);
+            if (auto l = config_hints[var])
+              v = l.value;
           }
+
+          // For ease of use enter it as bin.pattern (it can come from
+          // different places).
+          //
+          if (v != nullptr)
+          {
+            const string& s (cast<string> (*v));
+
+            if (s.find ('*') == string::npos)
+              fail << "missing '*' in binutils pattern '" << s << "'";
+
+            r.assign<string> ("bin.pattern") = s;
+            new_val = new_val || p.second; // False for a hinted value.
+          }
+        }
+
+        // If we set any new values (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (new_val ? 2 : 3))
+        {
+          diag_record dr (text);
+
+          dr << "bin\n"
+             << "  target     " << cast<string> (r["bin.target"]);
+
+          if (auto l = r["bin.pattern"])
+            dr << '\n'
+               << "  pattern    " << cast<string> (l);
         }
 
         // config.bin.ar
         // config.bin.ranlib
         //
-        // For config.bin.ar we default to 'ar' while ranlib should be
-        // explicitly specified by the user in order for us to use it (most
-        // targets support the -s option to ar).
+        // For config.bin.ar we have the default (plus the pattern) while
+        // ranlib should be explicitly specified by the user in order for us
+        // to use it (all targets that we currently care to support have the
+        // ar -s option but if that changes we can always force the use of
+        // ranlib for certain targets).
         //
-        auto p (config::required (r, "config.bin.ar", path ("ar")));
-        auto& v (config::optional (r, "config.bin.ranlib"));
+        // Another idea is to refuse to use default 'ar' (without the pattern)
+        // if the host/build targets don't match. On the other hand, a cross-
+        // toolchain can be target-unprefixed. Also, without canonicalization,
+        // comparing targets will be unreliable.
+        //
+        auto pattern (r["bin.pattern"]);
+
+        // Use the target to decide on the default binutils program names.
+        //
+        const string& tsys (cast<string> (r["bin.target.system"]));
+        const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
+
+        auto p (required (r, "config.bin.ar", path (apply (pattern, ar_d))));
+        auto& v (optional (r, "config.bin.ranlib"));
 
         const path& ar (cast<path> (p.first));
         const path& ranlib (v ? cast<path> (v) : path ());

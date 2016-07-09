@@ -101,6 +101,12 @@ namespace build2
       b.assign ("cxx.libs") += cast_null<strings> (
         config::optional (r, "config.cxx.libs"));
 
+      // Configuration hints for the bin module. They will only be used on the
+      // first loading of the bin module (for this project) so we only
+      // populate them on our first loading.
+      //
+      variable_map bin_hints;
+
       // config.cxx
       //
       if (first)
@@ -145,6 +151,65 @@ namespace build2
         r.assign<string> ("cxx.signature") = move (ci.signature);
         r.assign<string> ("cxx.checksum") = move (ci.checksum);
 
+        // While we still have the original, compiler-reported target, see if
+        // we can derive a binutils program pattern.
+        //
+        // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
+        // LTO plugin though it seems more recent GNU binutils (2.25) are able
+        // to load the plugin when needed automatically. So it doesn't seem we
+        // should bother trying to support this on our end (the way we could
+        // do it is by passing config.bin.{ar,ranlib} as hints).
+        //
+        string pattern;
+
+        if (cast<string> (r["cxx.id"]) == "msvc")
+        {
+          // If the compiler name is/starts with 'cl' (e.g., cl.exe, cl-14),
+          // then replace it with '*' and use it as a pattern for lib, link,
+          // etc.
+          //
+          if (cxx.size () > 2)
+          {
+            const string& l (cxx.leaf ().string ());
+            size_t n (l.size ());
+
+            if (n >= 2 &&
+                (l[0] == 'c' || l[0] == 'C') &&
+                (l[1] == 'l' || l[1] == 'L') &&
+                (n == 2 || l[2] == '.' || l[2] == '-'))
+            {
+              path p (cxx.directory ());
+              p /= "*";
+              p += l.c_str () + 2;
+              pattern = move (p).string ();
+            }
+          }
+        }
+        else
+        {
+          // When cross-compiling the whole toolchain is normally prefixed
+          // with the target triplet, e.g., x86_64-w64-mingw32-{g++,ar,ld}.
+          //
+          const string& t (ci.target);
+          size_t n (t.size ());
+
+          if (cxx.size () > n + 1)
+          {
+            const string& l (cxx.leaf ().string ());
+
+            if (l.size () > n + 1 && l.compare (0, n, t) == 0 && l[n] == '-')
+            {
+              path p (cxx.directory ());
+              p /= t;
+              p += "-*";
+              pattern = move (p).string ();
+            }
+          }
+        }
+
+        if (!pattern.empty ())
+          bin_hints.assign ("config.bin.pattern") = move (pattern);
+
         // Split/canonicalize the target.
         //
 
@@ -165,6 +230,11 @@ namespace build2
 
           l5 ([&]{trace << "canonical target: '" << canon << "'; "
                         << "class: " << t.class_;});
+
+          // Pass the target we extracted from the C++ compiler as a config
+          // hint to the bin module.
+          //
+          bin_hints.assign ("config.bin.target") = canon;
 
           // Enter as cxx.target.{cpu,vendor,system,version,class}.
           //
@@ -189,28 +259,19 @@ namespace build2
       // Initialize the bin module. Only do this if it hasn't already been
       // loaded so that we don't overwrite user's bin.* settings.
       //
-      const string& target (cast<string> (r["cxx.target"]));
-
       if (!cast_false<bool> (b["bin.loaded"]))
-      {
-        // Pass the target we extracted from the C++ compiler as a config hint
-        // to the bin module.
-        //
-        variable_map hints;
-        hints.assign ("config.bin.target") = target;
-
-        load_module ("bin", r, b, loc, false, hints);
-      }
+        load_module ("bin", r, b, loc, false, bin_hints);
 
       // Verify bin's target matches ours.
       //
       {
         const string& bt (cast<string> (r["bin.target"]));
+        const string& ct (cast<string> (r["cxx.target"]));
 
-        if (bt != target)
+        if (bt != ct)
           fail (loc) << "bin and cxx module target platform mismatch" <<
             info << "bin.target is " << bt <<
-            info << "cxx.target is " << target;
+            info << "cxx.target is " << ct;
       }
 
       // Register target types.
