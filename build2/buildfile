@@ -4,63 +4,65 @@
 
 import libs = libbutl%lib{butl}
 
-exe{b}:                                    \
-        {hxx ixx txx cxx}{ algorithm     } \
-        {            cxx}{ b             } \
-        {hxx ixx     cxx}{ b-options     } \
-        {hxx     txx cxx}{ context       } \
-        {hxx         cxx}{ depdb         } \
-        {hxx         cxx}{ diagnostics   } \
-        {hxx         cxx}{ dump          } \
-        {hxx ixx     cxx}{ file          } \
-	{hxx     txx cxx}{ filesystem    } \
-        {hxx         cxx}{ lexer         } \
-        {hxx         cxx}{ module        } \
-        {hxx ixx     cxx}{ name          } \
-        {hxx         cxx}{ operation     } \
-        {hxx         cxx}{ parser        } \
-        {hxx         cxx}{ prerequisite  } \
-        {hxx         cxx}{ rule          } \
-        {hxx            }{ rule-map      } \
-        {hxx         cxx}{ scope         } \
-        {hxx         cxx}{ search        } \
-        {hxx         cxx}{ spec          } \
-        {hxx ixx txx cxx}{ target        } \
-        {hxx            }{ target-key    } \
-        {hxx            }{ target-type   } \
-        {hxx         cxx}{ token         } \
-        {hxx            }{ types         } \
-	{hxx         cxx}{ types-parsers } \
-        {hxx ixx txx cxx}{ utility       } \
-        {hxx ixx txx cxx}{ variable      } \
-        {hxx            }{ version       } \
-    bin/{hxx         cxx}{ guess         } \
-    bin/{hxx         cxx}{ module        } \
-    bin/{hxx         cxx}{ rule          } \
-    bin/{hxx         cxx}{ target        } \
-    cli/{hxx         cxx}{ module        } \
-    cli/{hxx         cxx}{ rule          } \
-    cli/{hxx         cxx}{ target        } \
- config/{hxx         cxx}{ module        } \
- config/{hxx         cxx}{ operation     } \
- config/{hxx     txx cxx}{ utility       } \
-    cxx/{hxx         cxx}{ compile       } \
-    cxx/{hxx         cxx}{ guess         } \
-    cxx/{hxx         cxx}{ install       } \
-    cxx/{hxx         cxx}{ link          } \
-    cxx/{hxx         cxx}{ module        } \
-    cxx/{hxx         cxx}{ target        } \
-    cxx/{hxx ixx     cxx}{ utility       } \
-   dist/{hxx         cxx}{ module        } \
-   dist/{hxx         cxx}{ operation     } \
-   dist/{hxx         cxx}{ rule          } \
-install/{hxx         cxx}{ module        } \
-install/{hxx         cxx}{ operation     } \
-install/{hxx         cxx}{ rule          } \
-install/{hxx            }{ utility       } \
-   test/{hxx         cxx}{ module        } \
-   test/{hxx         cxx}{ operation     } \
-   test/{hxx         cxx}{ rule          } \
+exe{b}:                                       \
+        {hxx ixx txx cxx}{ algorithm        } \
+        {            cxx}{ b                } \
+        {hxx ixx     cxx}{ b-options        } \
+        {hxx     txx cxx}{ context          } \
+        {hxx         cxx}{ depdb            } \
+        {hxx         cxx}{ diagnostics      } \
+        {hxx         cxx}{ dump             } \
+        {hxx ixx     cxx}{ file             } \
+	{hxx     txx cxx}{ filesystem       } \
+        {hxx         cxx}{ lexer            } \
+        {hxx         cxx}{ module           } \
+        {hxx ixx     cxx}{ name             } \
+        {hxx         cxx}{ operation        } \
+        {hxx         cxx}{ parser           } \
+        {hxx         cxx}{ prerequisite     } \
+        {hxx         cxx}{ rule             } \
+        {hxx            }{ rule-map         } \
+        {hxx         cxx}{ scope            } \
+        {hxx         cxx}{ search           } \
+        {hxx         cxx}{ spec             } \
+        {hxx ixx txx cxx}{ target           } \
+        {hxx            }{ target-key       } \
+        {hxx            }{ target-type      } \
+        {hxx         cxx}{ token            } \
+        {hxx            }{ types            } \
+	{hxx         cxx}{ types-parsers    } \
+        {hxx ixx txx cxx}{ utility          } \
+        {hxx ixx txx cxx}{ variable         } \
+        {hxx            }{ version          } \
+    bin/{hxx         cxx}{ guess            } \
+    bin/{hxx         cxx}{ module           } \
+    bin/{hxx         cxx}{ rule             } \
+    bin/{hxx         cxx}{ target           } \
+    cli/{hxx         cxx}{ module           } \
+    cli/{hxx         cxx}{ rule             } \
+    cli/{hxx         cxx}{ target           } \
+ config/{hxx         cxx}{ module           } \
+ config/{hxx         cxx}{ operation        } \
+ config/{hxx     txx cxx}{ utility          } \
+    cxx/{hxx         cxx}{ compile          } \
+    cxx/{hxx         cxx}{ guess            } \
+    cxx/{hxx         cxx}{ install          } \
+    cxx/{hxx         cxx}{ link             } \
+    cxx/{hxx         cxx}{ module           } \
+    cxx/{hxx         cxx}{ target           } \
+    cxx/{hxx ixx     cxx}{ utility          } \
+    cxx/{            cxx}{ windows-manifest } \
+    cxx/{            cxx}{ windows-rpath    } \
+   dist/{hxx         cxx}{ module           } \
+   dist/{hxx         cxx}{ operation        } \
+   dist/{hxx         cxx}{ rule             } \
+install/{hxx         cxx}{ module           } \
+install/{hxx         cxx}{ operation        } \
+install/{hxx         cxx}{ rule             } \
+install/{hxx            }{ utility          } \
+   test/{hxx         cxx}{ module           } \
+   test/{hxx         cxx}{ operation        } \
+   test/{hxx         cxx}{ rule             } \
 $libs
 
 # Pass our compiler target to be used as build2 host.

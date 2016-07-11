@@ -256,6 +256,9 @@ namespace build2
         }
       }
 
+      const string& tsys (cast<string> (r["cxx.target.system"]));
+      const string& tclass (cast<string> (r["cxx.target.class"]));
+
       // Initialize the bin module. Only do this if it hasn't already been
       // loaded so that we don't overwrite user's bin.* settings.
       //
@@ -272,6 +275,15 @@ namespace build2
           fail (loc) << "bin and cxx module target platform mismatch" <<
             info << "bin.target is " << bt <<
             info << "cxx.target is " << ct;
+      }
+
+      // If our target is MinGW, then we will need the resource compiler
+      // (windres) in order to embed the manifest.
+      //
+      if (tsys == "mingw32")
+      {
+        if (!cast_false<bool> (b["bin.rc.loaded"]))
+          load_module ("bin.rc", r, b, loc, false, bin_hints);
       }
 
       // Register target types.
@@ -329,8 +341,6 @@ namespace build2
         r.insert<libso> (perform_install_id, "cxx.install", install::instance);
       }
 
-
-
       // Configure "installability" of our target types.
       //
       using namespace install;
@@ -342,8 +352,6 @@ namespace build2
 
       // Create additional target types for certain target platforms.
       //
-      const string& tclass (cast<string> (r["cxx.target.class"]));
-
       if (tclass == "windows")
       {
         const target_type& dll (b.derive_target_type<file> ("dll").first);

@@ -4,9 +4,6 @@
 
 #include <build2/cxx/link>
 
-#include <errno.h> // E*
-
-#include <set>
 #include <cstdlib>  // exit()
 
 #include <butl/path-map>
@@ -952,325 +949,18 @@ namespace build2
       }
     }
 
-    // Provide limited emulation of the rpath functionality on Windows using a
-    // manifest and a side-by-side assembly. In a nutshell, the idea is to
-    // create an assembly with links to all the prerequisite DLLs.
+    // See windows-manifest.cxx.
     //
-    // The scratch argument should be true if the DLL set has changed and we
-    // need to regenerate everything from scratch. Otherwise, we try to avoid
-    // unnecessary work by comparing the DLL timestamps against the assembly
-    // manifest file.
+    path
+    windows_manifest (file&, bool rpath_assembly);
+
+    // See windows-rpath.cxx.
     //
-    // If the manifest argument is false, then don't generate the target
-    // manifest (i.e., it will be embedded).
-    //
-    // Note that currently our assemblies contain all the DLLs that the
-    // executable depends on, recursively. The alternative approach could be
-    // to also create assemblies for DLLs. This appears to be possible (but we
-    // will have to use the resource ID 2 for such a manifest). And it will
-    // probably be necessary for DLLs that are loaded dynamically with
-    // LoadLibrary(). The tricky part is how such nested assemblies will be
-    // found. Since we are effectively (from the loader's point of view)
-    // copying the DLLs, we will also have to copy their assemblies (because
-    // the loader looks for them in the same directory as the DLL).  It's not
-    // clear how well such nested assemblies are supported.
-    //
-    static timestamp
-    timestamp_dlls (target&);
+    timestamp
+    windows_rpath_timestamp (file&);
 
-    static void
-    collect_dlls (set<file*>&, target&);
-
-    static void
-    emulate_rpath_windows (file& t, bool scratch, bool manifest)
-    {
-      // Assembly paths and name.
-      //
-      dir_path ad (path_cast<dir_path> (t.path () + ".dlls"));
-      string an (ad.leaf ().string ());
-      path am (ad / path (an + ".manifest"));
-
-      // First check if we actually need to do anything. Since most of the
-      // time we won't, we don't want to combine it with the collect_dlls()
-      // call below which allocates memory, etc.
-      //
-      if (!scratch)
-      {
-        // The corner case here is when timestamp_dlls() returns nonexistent
-        // signalling that there aren't any DLLs but the assembly manifest
-        // file exists. This, however, can only happen if we somehow managed
-        // to transition from the "have DLLs" state to "no DLLs" without going
-        // through the from scratch update. And this shouldn't happen (famous
-        // last words before a core dump).
-        //
-        if (timestamp_dlls (t) <= file_mtime (am))
-          return;
-      }
-
-      scope& rs (t.root_scope ());
-
-      // Next collect the set of DLLs that will be in our assembly. We need to
-      // do this recursively which means we may end up with duplicates. Also,
-      // it is possible that there will (no longer) be any DLLs which means we
-      // just need to clean things up.
-      //
-      set<file*> dlls;
-      collect_dlls (dlls, t);
-      bool empty (dlls.empty ());
-
-      // Target manifest.
-      //
-      path tm;
-      if (manifest)
-        tm = t.path () + ".manifest";
-
-      // Clean the assembly directory and make sure it exists. Maybe it would
-      // have been faster to overwrite the existing manifest rather than
-      // removing the old one and creating a new one. But this is definitely
-      // simpler.
-      //
-      {
-        rmdir_status s (build2::rmdir_r (ad, empty, 3));
-
-        // What if there is a user-defined manifest in the src directory? We
-        // would just overwrite it if src == out. While we could add a comment
-        // with some signature that can be used to detect an auto-generated
-        // manifest, we can also use the presence of the assembly directory as
-        // such a marker.
-        //
-        // @@ And what can we do instead? One idea is for the user to call it
-        // something else and we merge the two. Perhaps the link rule could
-        // have support for manifests (i.e., manifest will be one of the
-        // prerequisites). A similar problem is with embedded vs standalone
-        // manifests (embedded preferred starting from Vista). I guess if we
-        // support embedding manifests, then we can also merge them.
-        //
-        if (manifest &&
-            s == rmdir_status::not_exist &&
-            rs.src_path () == rs.out_path () &&
-            file_exists (tm))
-        {
-          fail << tm << " looks like a custom manifest" <<
-            info << "remove it manually if that's not the case";
-        }
-
-        if (empty)
-        {
-          if (manifest)
-            rmfile (tm, 3);
-
-          return;
-        }
-
-        if (s == rmdir_status::not_exist)
-          mkdir (ad, 3);
-      }
-
-      // Translate the compiler target CPU value to the processorArchitecture
-      // attribute value.
-      //
-      const string& tcpu (cast<string> (rs["cxx.target.cpu"]));
-
-      const char* pa (tcpu == "i386" || tcpu == "i686"  ? "x86"   :
-                      tcpu == "x86_64"                  ? "amd64" :
-                      nullptr);
-
-      if (pa == nullptr)
-        fail << "unable to translate CPU " << tcpu << " to manifest "
-             << "processor architecture";
-
-      if (verb >= 3)
-        text << "cat >" << am;
-
-      try
-      {
-        ofstream ofs;
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
-        ofs.open (am.string ());
-
-        ofs << "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
-            << "<assembly xmlns='urn:schemas-microsoft-com:asm.v1'\n"
-            << "          manifestVersion='1.0'>\n"
-            << "  <assemblyIdentity name='" << an << "'\n"
-            << "                    type='win32'\n"
-            << "                    processorArchitecture='" << pa << "'\n"
-            << "                    version='0.0.0.0'/>\n";
-
-        scope& as (*rs.weak_scope ()); // Amalgamation scope.
-
-        for (file* dt: dlls)
-        {
-          const path& dp (dt->path ()); // DLL path.
-          const path dn (dp.leaf ());   // DLL name.
-          const path lp (ad / dn);      // Link path.
-
-          auto print = [&dp, &lp] (const char* cmd)
-          {
-            if (verb >= 3)
-              text << cmd << ' ' << dp << ' ' << lp;
-          };
-
-          // First we try to create a symlink. If that fails (e.g., "Windows
-          // happens"), then we resort to hard links. If that doesn't work
-          // out either (e.g., not on the same filesystem), then we fall back
-          // to copies. So things are going to get a bit nested.
-          //
-          try
-          {
-            // For the symlink use a relative target path if both paths are
-            // part of the same amalgamation. This way if the amalgamation is
-            // moved as a whole, the links will remain valid.
-            //
-            if (dp.sub (as.out_path ()))
-              mksymlink (dp.relative (ad), lp);
-            else
-              mksymlink (dp, lp);
-
-            print ("ln -s");
-          }
-          catch (const system_error& e)
-          {
-            int c (e.code ().value ());
-
-            if (c != EPERM && c != ENOSYS)
-            {
-              print ("ln -s");
-              fail << "unable to create symlink " << lp << ": " << e.what ();
-            }
-
-            try
-            {
-              mkhardlink (dp, lp);
-              print ("ln");
-            }
-            catch (const system_error& e)
-            {
-              int c (e.code ().value ());
-
-              if (c != EPERM && c != ENOSYS)
-              {
-                print ("ln");
-                fail << "unable to create hard link " << lp << ": "
-                     << e.what ();
-              }
-
-              try
-              {
-                cpfile (dp, lp);
-                print ("cp");
-              }
-              catch (const system_error& e)
-              {
-                print ("cp");
-                fail << "unable to create copy " << lp << ": " << e.what ();
-              }
-            }
-          }
-
-          ofs << "  <file name='" << dn.string () << "'/>\n";
-        }
-
-        ofs << "</assembly>\n";
-      }
-      catch (const ofstream::failure&)
-      {
-        fail << "unable to write to " << am;
-      }
-
-      // Create the manifest if requested.
-      //
-      if (!manifest)
-        return;
-
-      if (verb >= 3)
-        text << "cat >" << tm;
-
-      try
-      {
-        ofstream ofs;
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
-        ofs.open (tm.string (), ofstream::out | ofstream::trunc);
-
-        ofs << "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
-            << "<!-- Note: auto-generated, do not edit. -->\n"
-            << "<assembly xmlns='urn:schemas-microsoft-com:asm.v1'\n"
-            << "          manifestVersion='1.0'>\n"
-            << "  <assemblyIdentity name='" << t.path ().leaf () << "'\n"
-            << "                    type='win32'\n"
-            << "                    processorArchitecture='" << pa << "'\n"
-            << "                    version='0.0.0.0'/>\n"
-            << "  <dependency>\n"
-            << "    <dependentAssembly>\n"
-            << "      <assemblyIdentity name='" << an << "'\n"
-            << "                        type='win32'\n"
-            << "                        processorArchitecture='" << pa << "'\n"
-            << "                        language='*'\n"
-            << "                        version='0.0.0.0'/>\n"
-            << "    </dependentAssembly>\n"
-            << "  </dependency>\n"
-            << "</assembly>\n";
-      }
-      catch (const ofstream::failure&)
-      {
-        fail << "unable to write to " << tm;
-      }
-    }
-
-    // Return the greatest (newest) timestamp of all the DLLs that we will be
-    // adding to the assembly or timestamp_nonexistent if there aren't any.
-    //
-    static timestamp
-    timestamp_dlls (target& t)
-    {
-      timestamp r (timestamp_nonexistent);
-
-      for (target* pt: t.prerequisite_targets)
-      {
-        if (libso* ls = pt->is_a<libso> ())
-        {
-          // This can be an installed library in which case we will have just
-          // the import stub but may also have just the DLL. For now we don't
-          // bother with installed libraries.
-          //
-          if (ls->member == nullptr)
-            continue;
-
-          file& dll (static_cast<file&> (*ls->member));
-
-          // What if the DLL is in the same directory as the executable, will
-          // it still be found even if there is an assembly? On the other
-          // hand, handling it as any other won't hurt us much.
-          //
-          timestamp t;
-
-          if ((t = dll.mtime ()) > r)
-            r = t;
-
-          if ((t = timestamp_dlls (*ls)) > r)
-            r = t;
-        }
-      }
-
-      return r;
-    }
-
-    static void
-    collect_dlls (set<file*>& s, target& t)
-    {
-      for (target* pt: t.prerequisite_targets)
-      {
-        if (libso* ls = pt->is_a<libso> ())
-        {
-          if (ls->member == nullptr)
-            continue;
-
-          file& dll (static_cast<file&> (*ls->member));
-
-          s.insert (&dll);
-          collect_dlls (s, *ls);
-        }
-      }
-    }
+    void
+    windows_rpath_assembly (file&, timestamp, bool scratch);
 
     target_state link::
     perform_update (action a, target& xt)
@@ -1295,6 +985,96 @@ namespace build2
       const string& aid (lt == type::a
                          ? cast<string> (rs["bin.ar.id"])
                          : string ());
+
+      // If targeting Windows, take care of the manifest.
+      //
+      path manifest; // Manifest itself (msvc) or compiled object file.
+      timestamp rpath_timestamp (timestamp_nonexistent); // DLLs timestamp.
+
+      if (lt == type::e && tclass == "windows")
+      {
+        // First determine if we need to add our rpath emulating assembly. The
+        // assembly itself is generated later, after updating the target. Omit
+        // it if we are updating for install.
+        //
+        if (a.outer_operation () != install_id)
+          rpath_timestamp = windows_rpath_timestamp (t);
+
+        // Whether
+        //
+        path mf (
+          windows_manifest (
+            t,
+            rpath_timestamp != timestamp_nonexistent));
+
+        if (tsys == "mingw32")
+        {
+          // Compile the manifest into the object file with windres. While we
+          // are going to synthesize an .rc file to pipe to windres' stdin, we
+          // will still use .manifest to check if everything is up-to-date.
+          //
+          manifest = mf + ".o";
+
+          if (file_mtime (mf) > file_mtime (manifest))
+          {
+            path of (relative (manifest));
+
+            // @@ Would be good to add this to depdb (e.g,, rc changes).
+            //
+            const char* args[] = {
+              cast<path> (rs["config.bin.rc"]).string ().c_str (),
+              "--input-format=rc",
+              "--output-format=coff",
+              "-o", of.string ().c_str (),
+              nullptr};
+
+            if (verb >= 3)
+              print_process (args);
+
+            try
+            {
+              process pr (args, -1);
+
+              try
+              {
+                ofdstream os (pr.out_fd);
+                os.exceptions (ofdstream::badbit | ofdstream::failbit);
+
+                // 1 is resource ID, 24 is RT_MANIFEST.
+                //
+                os << "1 24 \"" << mf << "\"" << endl;
+
+                os.close ();
+              }
+              catch (const ofdstream::failure&)
+              {
+                if (pr.wait ()) // Ignore if child failed.
+                  fail << "unable to pipe resource file to " << args[0];
+              }
+
+              if (!pr.wait ())
+                throw failed (); // Assume diagnostics issued.
+            }
+            catch (const process_error& e)
+            {
+              error << "unable to execute " << args[0] << ": " << e.what ();
+
+              if (e.child ())
+                exit (1);
+
+              throw failed ();
+            }
+
+            update = true; // Force update.
+          }
+        }
+        else
+        {
+          // @@ VC: /MANIFESTINPUT should do the trick (via manifest).
+          //
+          manifest = move (mf);
+        }
+      }
 
       // Check/update the dependency database.
       //
@@ -1382,11 +1162,13 @@ namespace build2
         append_options (args, t, "cxx.coptions");
         append_std (args, rs, cid, t, std);
 
-        // Handle soname/rpath. Emulation for Windows is done after we have
-        // built the target.
+        // Handle soname/rpath.
         //
         if (tclass == "windows")
         {
+          // Limited emulation for Windows with no support for user-defined
+          // rpaths.
+          //
           auto l (t["bin.rpath"]);
 
           if (l && !l->empty ())
@@ -1506,6 +1288,9 @@ namespace build2
               hash_libraries (cs, *a);
           }
         }
+
+        if (!manifest.empty ())
+          cs.append (manifest.string ());
 
         // Treat them as inputs, not options.
         //
@@ -1660,8 +1445,13 @@ namespace build2
         }
       }
 
+      // For MinGW manifest is an object file.
+      //
+      if (!manifest.empty () && tsys == "mingw32")
+        sargs.push_back (relative (manifest).string ());
+
       // Copy sargs to args. Why not do it as we go along pushing into sargs?
-      // Because of potential realocations.
+      // Because of potential reallocations.
       //
       for (size_t i (0); i != sargs.size (); ++i)
       {
@@ -1751,10 +1541,14 @@ namespace build2
         }
       }
 
-      // Emulate rpath on Windows.
+      // For Windows generate rpath-emulating assembly (unless updaing for
+      // install).
       //
       if (lt == type::e && tclass == "windows")
-        emulate_rpath_windows (t, scratch, cid != "msvc");
+      {
+        if (a.outer_operation () != install_id)
+          windows_rpath_assembly (t, rpath_timestamp, scratch);
+      }
 
       rm.cancel ();
 
@@ -1769,35 +1563,24 @@ namespace build2
     target_state link::
     perform_clean (action a, target& xt)
     {
-      tracer trace ("cxx::link::perform_clean");
-
       file& t (static_cast<file&> (xt));
 
       type lt (link_type (t));
 
       scope& rs (t.root_scope ());
-      const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
+      // On Windows we need to clean up manifest business.
+      //
       if (lt == type::e && tclass == "windows")
       {
-        bool m (cid != "msvc");
-
-        // Check for custom manifest, just like in emulate_rpath_windows().
-        //
-        if (m &&
-            rs.src_path () == rs.out_path () &&
-            file_exists (t.path () + ".manifest") &&
-            !dir_exists (path_cast<dir_path> (t.path () + ".dlls")))
-        {
-          fail << t.path () + ".manifest" << " looks like a custom manifest" <<
-            info << "remove it manually if that's not the case";
-        }
-
-        return clean_extra (
-          a,
-          t,
-          {"+.d", (m ? "+.manifest" : nullptr), "/+.dlls"});
+        return clean_extra (a,
+                            t,
+                            {"+.d",
+                             "/+.dlls",
+                             tsys == "mingw32" ? "+.manifest.o" : nullptr,
+                             "+.manifest"});
       }
       else
         return clean_extra (a, t, {"+.d"});
