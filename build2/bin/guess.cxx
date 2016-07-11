@@ -282,5 +282,62 @@ namespace build2
 
       return ld_info {move (r.id), move (r.signature), move (r.checksum)};
     }
+
+    rc_info
+    guess_rc (const path& rc)
+    {
+      tracer trace ("bin::guess_rc");
+
+      guess_result r;
+
+      // Binutils windres recognizes the --version option.
+      //
+      {
+        auto f = [] (string& l) -> guess_result
+        {
+          // Binutils windres --version output has a line that starts with
+          // "GNU windres ".
+          //
+          if (l.compare (0, 12, "GNU windres ") == 0)
+            return guess_result {"gnu", move (l), ""};
+
+          return guess_result ();
+        };
+
+        // Suppress all the errors because we may be trying an unsupported
+        // option.
+        //
+        sha256 cs;
+        r = run<guess_result> (rc, "--version", f, false, false, &cs);
+
+        if (!r.empty ())
+          r.checksum = cs.string ();
+      }
+
+      // Microsoft rc.exe /? prints its standard banner and exits with zero
+      // status.
+      //
+      if (r.empty ())
+      {
+        auto f = [] (string& l) -> guess_result
+        {
+          if (l.compare (0, 14, "Microsoft (R) ") == 0)
+            return guess_result {"msvc", move (l), ""};
+
+          return guess_result ();
+        };
+
+        sha256 cs;
+        r = run<guess_result> (rc, "/?", f, false, false, &cs);
+
+        if (!r.empty ())
+          r.checksum = cs.string ();
+      }
+
+      if (r.empty ())
+        fail << "unable to guess " << rc << " signature";
+
+      return rc_info {move (r.id), move (r.signature), move (r.checksum)};
+    }
   }
 }

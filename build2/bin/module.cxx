@@ -305,7 +305,7 @@ namespace build2
         const path& ar (cast<path> (p.first));
         const path& ranlib (v ? cast<path> (v) : path ());
 
-        ar_info ai (guess_ar (ar, ranlib));
+        ar_info ari (guess_ar (ar, ranlib));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -316,30 +316,31 @@ namespace build2
 
           text << "bin.ar\n"
                << "  exe        " << ar << '\n'
-               << "  id         " << ai.ar_id << '\n'
-               << "  signature  " << ai.ar_signature << '\n'
-               << "  checksum   " << ai.ar_checksum;
+               << "  id         " << ari.ar_id << '\n'
+               << "  signature  " << ari.ar_signature << '\n'
+               << "  checksum   " << ari.ar_checksum;
 
           if (!ranlib.empty ())
           {
             text << "bin.ranlib\n"
                  << "  exe        " << ranlib << '\n'
-                 << "  id         " << ai.ranlib_id << '\n'
-                 << "  signature  " << ai.ranlib_signature << '\n'
-                 << "  checksum   " << ai.ranlib_checksum;
+                 << "  id         " << ari.ranlib_id << '\n'
+                 << "  signature  " << ari.ranlib_signature << '\n'
+                 << "  checksum   " << ari.ranlib_checksum;
           }
         }
 
-        r.assign<string> ("bin.ar.id") = move (ai.ar_id);
-        r.assign<string> ("bin.ar.signature") = move (ai.ar_signature);
-        r.assign<string> ("bin.ar.checksum") = move (ai.ar_checksum);
+        r.assign<string> ("bin.ar.id") = move (ari.ar_id);
+        r.assign<string> ("bin.ar.signature") = move (ari.ar_signature);
+        r.assign<string> ("bin.ar.checksum") = move (ari.ar_checksum);
 
         if (!ranlib.empty ())
         {
-          r.assign<string> ("bin.ranlib.id") = move (ai.ranlib_id);
+          r.assign<string> ("bin.ranlib.id") = move (ari.ranlib_id);
           r.assign<string> ("bin.ranlib.signature") =
-            move (ai.ranlib_signature);
-          r.assign<string> ("bin.ranlib.checksum") = move (ai.ranlib_checksum);
+            move (ari.ranlib_signature);
+          r.assign<string> ("bin.ranlib.checksum") =
+            move (ari.ranlib_checksum);
         }
       }
 
@@ -464,7 +465,7 @@ namespace build2
                                   path (apply (r["bin.pattern"], ld_d))));
 
         const path& ld (cast<path> (p.first));
-        ld_info li (guess_ld (ld));
+        ld_info ldi (guess_ld (ld));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -473,14 +474,78 @@ namespace build2
         {
           text << "bin.ld\n"
                << "  exe        " << ld << '\n'
-               << "  id         " << li.ld_id << '\n'
-               << "  signature  " << li.ld_signature << '\n'
-               << "  checksum   " << li.ld_checksum;
+               << "  id         " << ldi.id << '\n'
+               << "  signature  " << ldi.signature << '\n'
+               << "  checksum   " << ldi.checksum;
         }
 
-        r.assign<string> ("bin.ld.id") = move (li.ld_id);
-        r.assign<string> ("bin.ld.signature") = move (li.ld_signature);
-        r.assign<string> ("bin.ld.checksum") = move (li.ld_checksum);
+        r.assign<string> ("bin.ld.id") = move (ldi.id);
+        r.assign<string> ("bin.ld.signature") = move (ldi.signature);
+        r.assign<string> ("bin.ld.checksum") = move (ldi.checksum);
+      }
+
+      return true;
+    }
+
+    bool
+    rc_init (scope& r,
+             scope& b,
+             const location& loc,
+             unique_ptr<module_base>&,
+             bool first,
+             bool,
+             const variable_map& config_hints)
+    {
+      tracer trace ("bin::rc_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure the bin core is loaded.
+      //
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc, false, config_hints);
+
+      // Enter module variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.insert<path> ("config.bin.rc", true);
+      }
+
+      // Configure.
+      //
+      if (first)
+      {
+        // config.bin.rc
+        //
+        // Use the target to decide on the default rc name.
+        //
+        const string& tsys (cast<string> (r["bin.target.system"]));
+        const char* rc_d (tsys == "win32-msvc" ? "rc" : "windres");
+
+        auto p (config::required (r,
+                                  "config.bin.rc",
+                                  path (apply (r["bin.pattern"], rc_d))));
+
+        const path& rc (cast<path> (p.first));
+        rc_info rci (guess_rc (rc));
+
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (p.second ? 2 : 3))
+        {
+          text << "bin.rc\n"
+               << "  exe        " << rc << '\n'
+               << "  id         " << rci.id << '\n'
+               << "  signature  " << rci.signature << '\n'
+               << "  checksum   " << rci.checksum;
+        }
+
+        r.assign<string> ("bin.rc.id") = move (rci.id);
+        r.assign<string> ("bin.rc.signature") = move (rci.signature);
+        r.assign<string> ("bin.rc.checksum") = move (rci.checksum);
       }
 
       return true;

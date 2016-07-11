@@ -190,6 +190,7 @@ main (int argc, char* argv[])
 
     builtin_modules["bin"] = module_functions {nullptr, &bin::init};
     builtin_modules["bin.ld"] = module_functions {nullptr, &bin::ld_init};
+    builtin_modules["bin.rc"] = module_functions {nullptr, &bin::rc_init};
     builtin_modules["cxx"] = module_functions {nullptr, &cxx::init};
     builtin_modules["cli"] = module_functions {nullptr, &cli::init};
 

@@ -31,6 +31,15 @@ namespace build2
              bool,
              bool,
              const variable_map&);
+
+    bool
+    rc_init (scope&,
+             scope&,
+             const location&,
+             unique_ptr<module_base>&,
+             bool,
+             bool,
+             const variable_map&);
   }
 }
 

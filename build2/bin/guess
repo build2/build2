@@ -48,7 +48,7 @@ namespace build2
 
     // ld information.
     //
-    // Currently recognized ld and their ids:
+    // Currently recognized linkers and their ids:
     //
     // gnu          GNU binutils ld.bfd
     // gold         GNU binutils ld.gold
@@ -68,13 +68,36 @@ namespace build2
     //
     struct ld_info
     {
-      string ld_id;
-      string ld_signature;
-      string ld_checksum;
+      string id;
+      string signature;
+      string checksum;
     };
 
     ld_info
     guess_ld (const path& ld);
+
+    // rc information.
+    //
+    // Currently recognized resource compilers and their ids:
+    //
+    // gnu          GNU binutils windres
+    // msvc         Microsoft's rc.exe
+    //
+    // The signature is normally the --version line.
+    //
+    // The checksum is used to detect rc changes. It is calculated in a
+    // toolchain-specific manner (usually the output of --version) and is not
+    // bulletproof.
+    //
+    struct rc_info
+    {
+      string id;
+      string signature;
+      string checksum;
+    };
+
+    rc_info
+    guess_rc (const path& rc);
   }
 }
 
