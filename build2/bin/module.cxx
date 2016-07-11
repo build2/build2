@@ -305,7 +305,7 @@ namespace build2
         const path& ar (cast<path> (p.first));
         const path& ranlib (v ? cast<path> (v) : path ());
 
-        bin_info bi (guess (ar, ranlib));
+        ar_info ai (guess_ar (ar, ranlib));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -316,30 +316,30 @@ namespace build2
 
           text << "bin.ar\n"
                << "  exe        " << ar << '\n'
-               << "  id         " << bi.ar_id << '\n'
-               << "  signature  " << bi.ar_signature << '\n'
-               << "  checksum   " << bi.ar_checksum;
+               << "  id         " << ai.ar_id << '\n'
+               << "  signature  " << ai.ar_signature << '\n'
+               << "  checksum   " << ai.ar_checksum;
 
           if (!ranlib.empty ())
           {
             text << "bin.ranlib\n"
                  << "  exe        " << ranlib << '\n'
-                 << "  id         " << bi.ranlib_id << '\n'
-                 << "  signature  " << bi.ranlib_signature << '\n'
-                 << "  checksum   " << bi.ranlib_checksum;
+                 << "  id         " << ai.ranlib_id << '\n'
+                 << "  signature  " << ai.ranlib_signature << '\n'
+                 << "  checksum   " << ai.ranlib_checksum;
           }
         }
 
-        r.assign<string> ("bin.ar.id") = move (bi.ar_id);
-        r.assign<string> ("bin.ar.signature") = move (bi.ar_signature);
-        r.assign<string> ("bin.ar.checksum") = move (bi.ar_checksum);
+        r.assign<string> ("bin.ar.id") = move (ai.ar_id);
+        r.assign<string> ("bin.ar.signature") = move (ai.ar_signature);
+        r.assign<string> ("bin.ar.checksum") = move (ai.ar_checksum);
 
         if (!ranlib.empty ())
         {
-          r.assign<string> ("bin.ranlib.id") = move (bi.ranlib_id);
+          r.assign<string> ("bin.ranlib.id") = move (ai.ranlib_id);
           r.assign<string> ("bin.ranlib.signature") =
-            move (bi.ranlib_signature);
-          r.assign<string> ("bin.ranlib.checksum") = move (bi.ranlib_checksum);
+            move (ai.ranlib_signature);
+          r.assign<string> ("bin.ranlib.checksum") = move (ai.ranlib_checksum);
         }
       }
 
@@ -418,6 +418,70 @@ namespace build2
 
       install_path<liba> (b, dir_path ("lib"));  // Install into install.lib.
       install_mode<liba> (b, "644");
+
+      return true;
+    }
+
+    bool
+    ld_init (scope& r,
+             scope& b,
+             const location& loc,
+             unique_ptr<module_base>&,
+             bool first,
+             bool,
+             const variable_map& config_hints)
+    {
+      tracer trace ("bin::ld_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure the bin core is loaded.
+      //
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc, false, config_hints);
+
+      // Enter module variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.insert<path> ("config.bin.ld", true);
+      }
+
+      // Configure.
+      //
+      if (first)
+      {
+        // config.bin.ld
+        //
+        // Use the target to decide on the default ld name.
+        //
+        const string& tsys (cast<string> (r["bin.target.system"]));
+        const char* ld_d (tsys == "win32-msvc" ? "link" : "ld");
+
+        auto p (config::required (r,
+                                  "config.bin.ld",
+                                  path (apply (r["bin.pattern"], ld_d))));
+
+        const path& ld (cast<path> (p.first));
+        ld_info li (guess_ld (ld));
+
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (p.second ? 2 : 3))
+        {
+          text << "bin.ld\n"
+               << "  exe        " << ld << '\n'
+               << "  id         " << li.ld_id << '\n'
+               << "  signature  " << li.ld_signature << '\n'
+               << "  checksum   " << li.ld_checksum;
+        }
+
+        r.assign<string> ("bin.ld.id") = move (li.ld_id);
+        r.assign<string> ("bin.ld.signature") = move (li.ld_signature);
+        r.assign<string> ("bin.ld.checksum") = move (li.ld_checksum);
+      }
 
       return true;
     }

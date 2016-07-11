@@ -28,7 +28,7 @@ namespace build2
     // a toolchain-specific manner (usually the output of --version/-V) and
     // is not bulletproof.
     //
-    struct bin_info
+    struct ar_info
     {
       string ar_id;
       string ar_signature;
@@ -43,8 +43,38 @@ namespace build2
     // attemplated and the returned ranlib_* members will be left empty as
     // well.
     //
-    bin_info
-    guess (const path& ar, const path& ranlib);
+    ar_info
+    guess_ar (const path& ar, const path& ranlib);
+
+    // ld information.
+    //
+    // Currently recognized ld and their ids:
+    //
+    // gnu          GNU binutils ld.bfd
+    // gold         GNU binutils ld.gold
+    // llvm         LLVM lld (note: not llvm-ld or llvm-link)
+    // ld64         Apple's new linker
+    // cctools      Apple's old/classic linker
+    // msvc         Microsoft's link.exe
+    //
+    // Note that BSDs are currently using GNU ld but some of them (e.g.,
+    // FreeBSD) are hoping to migrate to lld.
+    //
+    // The signature is normally the --version/-version/-v line.
+    //
+    // The checksum is used to detect ld changes. It is calculated in a
+    // toolchain-specific manner (usually the output of --version/-version/-v)
+    // and is not bulletproof.
+    //
+    struct ld_info
+    {
+      string ld_id;
+      string ld_signature;
+      string ld_checksum;
+    };
+
+    ld_info
+    guess_ld (const path& ld);
   }
 }
 
