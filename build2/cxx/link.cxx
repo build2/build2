@@ -1040,9 +1040,25 @@ namespace build2
                 ofdstream os (pr.out_fd);
                 os.exceptions (ofdstream::badbit | ofdstream::failbit);
 
-                // 1 is resource ID, 24 is RT_MANIFEST.
+                // 1 is resource ID, 24 is RT_MANIFEST. We also need to escape
+                // Windows path backslashes.
                 //
-                os << "1 24 \"" << mf << "\"" << endl;
+                os << "1 24 \"";
+
+                const string& s (mf.string ());
+                for (size_t i (0), j;; i = j + 1)
+                {
+                  j = s.find ('\\', i);
+                  os.write (s.c_str () + i,
+                            (j == string::npos ? s.size () : j) - i);
+
+                  if (j == string::npos)
+                    break;
+
+                  os.write ("\\\\", 2);
+                }
+
+                os << "\"" << endl;
 
                 os.close ();
               }
