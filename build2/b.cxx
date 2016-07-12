@@ -526,6 +526,8 @@ main (int argc, char* argv[])
             //
             bootstrapped = bootstrap_src (rs);
           }
+          else if (src_root.empty ())
+            src_root = rs.src_path ();
 
           // At this stage we should have both roots and out_base figured
           // out. If src_base is still undetermined, calculate it.
