@@ -7,4 +7,4 @@ lib{test}: cxx.export.poptions = -I$src_root
 
 exe{driver}: cxx{driver} hxx{driver} lib{test}
 
-.: lib{test} exe{driver}
+./: lib{test} exe{driver}

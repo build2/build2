@@ -6,4 +6,4 @@ exe{utility}: cxx{utility}
 exe{driver}: cxx{driver}
 exe{driver}: test.input = exe{utility}
 
-.: exe{driver}
+./: exe{driver}

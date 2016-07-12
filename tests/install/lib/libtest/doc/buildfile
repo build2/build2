@@ -1,1 +1,1 @@
-.: doc{test.txt} man1{test}
+./: doc{test.txt} man1{test}

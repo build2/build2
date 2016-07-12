@@ -8,5 +8,5 @@ exe{driver}: cxx{driver} #lib{utility}
 exe{*}: test = true
 exe{*}: test.output = test.out
 
-.: lib{utility} exe{driver}
-#.: exe{driver}
+./: lib{utility} exe{driver}
+#./: exe{driver}

@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 d=
-.: $d
+./: $d
 include $d
