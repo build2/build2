@@ -256,6 +256,7 @@ namespace build2
         }
       }
 
+      const string& cid (cast<string> (r["cxx.id"]));
       const string& tsys (cast<string> (r["cxx.target.system"]));
       const string& tclass (cast<string> (r["cxx.target.class"]));
 
@@ -275,6 +276,14 @@ namespace build2
           fail (loc) << "bin and cxx module target platform mismatch" <<
             info << "bin.target is " << bt <<
             info << "cxx.target is " << ct;
+      }
+
+      // In the VC world you link things directly with link.exe.
+      //
+      if (cid == "msvc")
+      {
+        if (!cast_false<bool> (b["bin.ld.loaded"]))
+          load_module ("bin.ld", r, b, loc, false, bin_hints);
       }
 
       // If our target is MinGW, then we will need the resource compiler

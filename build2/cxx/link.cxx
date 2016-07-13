@@ -199,14 +199,17 @@ namespace build2
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
+          const string& o (*i);
+
           dir_path d;
 
           if (cid == "msvc")
           {
-            // /LIBPATH:<dir>
+            // /LIBPATH:<dir> (case-insensitive).
             //
-            if (i->compare (0, 9, "/LIBPATH:") == 0 ||
-                i->compare (0, 9, "-LIBPATH:") == 0)
+            if ((o[0] == '/' || o[0] == '-') &&
+                (i->compare (1, 8, "LIBPATH:") == 0 ||
+                 i->compare (1, 8, "libpath:") == 0))
               d = dir_path (*i, 9, string::npos);
             else
               continue;
@@ -311,6 +314,22 @@ namespace build2
         if (cid == "msvc")
         {
           // @@ VC TODO: still .lib, right?
+          //
+          // @@ Unlike MinGW, .dll.lib naming is by no means standard. So
+          //    we might need to search for other names. In fact, there is
+          //    no reliable way to guess from the file name what kind of
+          //    library it is, static or import lib. I wonder if there is
+          //    any way to tell by examining it (e.g., presence of __imp_*
+          //    symbols)?
+          //
+          //    Yes, there are several, in fact. One is lib.exe /LIST -- if
+          //    there aren't any members, then it is most likely an import (or
+          //    an empty static library -- is such a thing possible?).
+          //
+          //    Another approach is dumpbin.exe (or link.exe /DUMP equivalent)
+          //    /ARCHIVEMEMBERS and /LINKERMEMBER options and the __impl__
+          //    symbols (or _IMPORT_DESCRIPTOR_). Note, however, that
+          //    apparently it is possible to have a hybrid library.
           //
         }
         else
@@ -592,7 +611,7 @@ namespace build2
           {
             // To be anally precise, let's use the ar id to decide how to name
             // the library in case, for example, someone wants to archive
-            // VC-compiled object files with MinGW ar.
+            // VC-compiled object files with MinGW ar or vice versa.
             //
             if (cast<string> (rs["bin.ar.id"]) == "msvc")
             {
@@ -982,10 +1001,6 @@ namespace build2
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
-      const string& aid (lt == type::a
-                         ? cast<string> (rs["bin.ar.id"])
-                         : string ());
-
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
@@ -1085,11 +1100,7 @@ namespace build2
           }
         }
         else
-        {
-          // @@ VC: /MANIFESTINPUT should do the trick (via manifest).
-          //
-          manifest = move (mf);
-        }
+          manifest = move (mf); // Save for link.exe's /MANIFESTINPUT.
       }
 
       // Check/update the dependency database.
@@ -1125,8 +1136,14 @@ namespace build2
       }
       else
       {
-        if (dd.expect (cast<string> (rs["cxx.checksum"])) != nullptr)
-          l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+        // For VC we use link.exe directly.
+        //
+        const string& cs (
+          cast<string> (
+            rs[cid == "msvc" ? "bin.ld.checksum" : "cxx.checksum"]));
+
+        if (dd.expect (cs) != nullptr)
+          l4 ([&]{trace << "linker mismatch forcing update of " << t;});
       }
 
       // Start building the command line. While we don't yet know whether we
@@ -1137,7 +1154,7 @@ namespace build2
       // second is simpler. Let's got with the simpler for now (actually it's
       // kind of a hybrid).
       //
-      cstrings args {nullptr}; // Reserve for config.bin.ar/config.cxx.
+      cstrings args {nullptr}; // Reserve one for config.bin.ar/config.cxx.
 
       // Storage.
       //
@@ -1145,25 +1162,28 @@ namespace build2
       string soname1, soname2;
       strings sargs;
 
+      if (cid == "msvc")
+      {
+        // Translate the compiler target CPU to the /MACHINE option value.
+        // This applies to both link.exe and lib.exe.
+        //
+        const string& tcpu (cast<string> (rs["cxx.target.cpu"]));
+
+        const char* m (tcpu == "i386" || tcpu == "i686"  ? "/MACHINE:x86"   :
+                       tcpu == "x86_64"                  ? "/MACHINE:x64"   :
+                       tcpu == "arm"                     ? "/MACHINE:ARM"   :
+                       tcpu == "arm64"                   ? "/MACHINE:ARM64" :
+                       nullptr);
+
+        if (m == nullptr)
+          fail << "unable to translate CPU " << tcpu << " to /MACHINE";
+
+        args.push_back (m);
+      }
+
       if (lt == type::a)
       {
-        if (aid == "msvc")
-        {
-          // Translate the compiler target CPU to the /MACHINE option value.
-          //
-          const string& tcpu (cast<string> (rs["cxx.target.cpu"]));
-
-          const char* m (tcpu == "i386" || tcpu == "i686"  ? "/MACHINE:x86"   :
-                         tcpu == "x86_64"                  ? "/MACHINE:x64"   :
-                         tcpu == "arm"                     ? "/MACHINE:ARM"   :
-                         tcpu == "arm64"                   ? "/MACHINE:ARM64" :
-                         nullptr);
-
-          if (m == nullptr)
-            fail << "unable to translate CPU " << tcpu << " to /MACHINE";
-
-          args.push_back (m);
-        }
+        if (cid == "msvc") ;
         else
         {
           // If the user asked for ranlib, don't try to do its function with -s.
@@ -1175,8 +1195,16 @@ namespace build2
       }
       else
       {
-        append_options (args, t, "cxx.coptions");
-        append_std (args, rs, cid, t, std);
+        if (cid == "msvc")
+        {
+          // We are using link.exe directly so we don't pass the C++ compiler
+          // options.
+        }
+        else
+        {
+          append_options (args, t, "cxx.coptions");
+          append_std (args, rs, cid, t, std);
+        }
 
         // Handle soname/rpath.
         //
@@ -1305,6 +1333,8 @@ namespace build2
           }
         }
 
+        // Treat it as input for both MinGW and VC.
+        //
         if (!manifest.empty ())
           cs.append (manifest.string ());
 
@@ -1346,31 +1376,38 @@ namespace build2
       {
       case type::e:
         {
-          args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
-
           if (cid == "msvc")
           {
-            uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
+            // Using link.exe directly.
+            //
+            args[0] = cast<path> (rs["config.bin.ld"]).string ().c_str ();
 
             if (verb < 3)
-              args.push_back ("/nologo");
+              args.push_back ("/NOLOGO");
 
-            // The /Fe: option (executable file name) only became available in
-            // VS2013/12.0.
+            // Take care of the manifest.
             //
-            if (cver >= 18)
+            if (!manifest.empty ())
             {
-              args.push_back ("/Fe:");
-              args.push_back (relt.string ().c_str ());
+              std = "/MANIFESTINPUT:"; // Repurpose storage for std.
+              std += relative (manifest).string ();
+              args.push_back ("/MANIFEST:EMBED");
+              args.push_back (std.c_str ());
             }
-            else
-            {
-              out = "/Fe" + relt.string ();
-              args.push_back (out.c_str ());
-            }
+
+            out = "/OUT:" + relt.string ();
+            args.push_back (out.c_str ());
+
+            //@@ VC: /PDB: if /DEBUG is specified, then created. By default
+            //   is basename.pdb. Do we want it to be basename.exe.pdb?
+            //   Probably not, too unconventional. Need to clean it though.
+            //
+            //   In a similar vein, we may also be generating an import lib
+            //   for the executable.
           }
           else
           {
+            args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
             args.push_back ("-o");
             args.push_back (relt.string ().c_str ());
           }
@@ -1379,13 +1416,14 @@ namespace build2
         }
       case type::a:
         {
-          //@@ VC: what are /LIBPATH, /NODEFAULTLIB for?
-          //
-
           args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
 
-          if (aid == "msvc")
+          if (cid == "msvc")
           {
+            // lib.exe has /LIBPATH but it's not clear/documented what it's
+            // used for. Perhaps for link-time code generation (/LTCG)? If
+            // that's the case, then we may need to pass cxx.loptions.
+            //
             if (verb < 3)
               args.push_back ("/NOLOGO");
 
@@ -1399,14 +1437,14 @@ namespace build2
         }
       case type::so:
         {
-          args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
-
           if (cid == "msvc")
           {
             //@@ VC TODO: DLL building (names via /link?)
           }
           else
           {
+            args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
+
             // Add the option that triggers building a shared library.
             //
             if (tclass == "macosx")
@@ -1472,13 +1510,7 @@ namespace build2
       for (size_t i (0); i != sargs.size (); ++i)
       {
         if (lt != type::a && i == oend)
-        {
-          //@@ VC: TMP, until we use link.exe directly (would need to
-          //   prefix them with /link otherwise).
-          //
-          if (cid != "msvc")
-            append_options (args, t, "cxx.loptions");
-        }
+          append_options (args, t, "cxx.loptions");
 
         args.push_back (sargs[i].c_str ());
       }
@@ -1495,15 +1527,10 @@ namespace build2
 
       try
       {
-        //@@ VC: I think it prints each object file being added.
-        //
-        // Not for lib.exe
-        //
-
-        // VC++ (cl.exe, lib.exe, and link.exe) sends diagnostics to
-        // stdout. To fix this (and any other insane compilers that may want
-        // to do something like this) we are going to always redirect stdout
-        // to stderr. For sane compilers this should be harmless.
+        // VC++ (cl.exe, lib.exe, and link.exe) sends diagnostics to stdout.
+        // To fix this (and any other insane compilers that may want to do
+        // something like this) we are going to always redirect stdout to
+        // stderr. For sane compilers this should be harmless.
         //
         process pr (args.data (), 0, 2);
 
@@ -1586,6 +1613,10 @@ namespace build2
       scope& rs (t.root_scope ());
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
+
+      // @@ VC .pdb, etc cleanup -- maybe make them ad hoc group members?
+      //    One might want to install PDBs.
+      //
 
       // On Windows we need to clean up manifest business.
       //
