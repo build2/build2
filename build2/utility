@@ -164,15 +164,24 @@ namespace build2
   void
   hash_options (sha256&, const strings&);
 
-  // Check if a specified option is present in the variable value.
+  // Check if a specified option is present in the variable or value.
   // T is either target or scope.
   //
   template <typename T>
   bool
-  find_option (const char* option, T&, const char* variable);
+  find_option (const char* option,
+               T&,
+               const char* variable,
+               bool ignore_case = false);
 
   bool
-  find_option (const char* option, const lookup&);
+  find_option (const char* option, const lookup&, bool ignore_case = false);
+
+  bool
+  find_option (const char* option, const strings&, bool ignore_case = false);
+
+  bool
+  find_option (const char* option, const cstrings&, bool ignore_case = false);
 
   // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
   // AABBCCDD form, where:

@@ -177,15 +177,34 @@ namespace build2
   }
 
   bool
-  find_option (const char* option, const lookup& l)
+  find_option (const char* option, const lookup& l, bool ic)
   {
-    if (l)
+    return l && find_option (option, cast<strings> (l), ic);
+  }
+
+  bool
+  find_option (const char* option, const strings& strs, bool)
+  {
+    //@@ TODO ignore case
+
+    for (const string& s: strs)
     {
-      for (const string& s: cast<strings> (l))
-      {
-        if (s == option)
-          return true;
-      }
+      if (s == option)
+        return true;
+    }
+
+    return false;
+  }
+
+  bool
+  find_option (const char* option, const cstrings& cstrs, bool)
+  {
+    //@@ TODO ignore case
+
+    for (const char* s: cstrs)
+    {
+      if (s != nullptr && strcmp (s, option) == 0)
+        return true;
     }
 
     return false;

@@ -223,7 +223,7 @@ namespace build2
       switch (a)
       {
       case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean_depdb;
+      case perform_clean_id: return &perform_clean;
       default: return noop_recipe; // Configure update.
       }
     }
@@ -1208,7 +1208,7 @@ namespace build2
       append_options (args, t, "cxx.poptions");
       append_options (args, t, "cxx.coptions");
 
-      string std, out; // Storage.
+      string std, out, out1; // Storage.
 
       append_std (args, rs, cid, t, std);
 
@@ -1219,11 +1219,38 @@ namespace build2
         if (verb < 3)
           args.push_back ("/nologo");
 
-        //@@ VC: What is the default value for /MP, should we override?
+        // The /F*: option variants with separate names only became available
+        // in VS2013/12.0. Why do we bother? Because the command line suddenly
+        // becomes readable.
 
-        // The /Fo: option (object file name) only became available in
-        // VS2013/12.0.
+        // The presence of /Zi or /ZI causes the compiler to write debug info
+        // to the .pdb file. By default it is a shared file called vcNN.pdb
+        // (where NN is the VC version) created (wait for it) in the current
+        // working directory (and not the directory of the .obj file). Also,
+        // because it is shared, there is a special Windows service that
+        // serializes access. We, of course, want none of that so we will
+        // create a .pdb per object file.
         //
+        // Note that this also changes the name of the .idb file (used for
+        // minimal rebuild and incremental compilation) by taking /Fd value
+        // replacing the .pdb extension to .idb.
+        //
+        // Note also that what we are doing here appears to be incompatible
+        // with PCH (/Y* options) and /Gm (minimal rebuild).
+        //
+        if (find_option ("/Zi", args) || find_option ("/ZI", args))
+        {
+          if (cver >= 18)
+            args.push_back ("/Fd:");
+          else
+            out1 = "/Fd";
+
+          out1 += relo.string ();
+          out1 += ".pdb";
+
+          args.push_back (out1.c_str ());
+        }
+
         if (cver >= 18)
         {
           args.push_back ("/Fo:");
@@ -1301,6 +1328,24 @@ namespace build2
 
         throw failed ();
       }
+    }
+
+    target_state compile::
+    perform_clean (action a, target& xt)
+    {
+      file& t (static_cast<file&> (xt));
+
+      scope& rs (t.root_scope ());
+      const string& cid (cast<string> (rs["cxx.id"]));
+
+      initializer_list<const char*> e;
+
+      if (cid == "msvc")
+        e = {"+.d", "+.idb", "+.pdb"};
+      else
+        e = {"+.d"};
+
+      return clean_extra (a, t, e);
     }
 
     compile compile::instance;

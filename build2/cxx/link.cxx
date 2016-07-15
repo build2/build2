@@ -1206,6 +1206,8 @@ namespace build2
           append_std (args, rs, cid, t, std);
         }
 
+        append_options (args, t, "cxx.loptions");
+
         // Handle soname/rpath.
         //
         if (tclass == "windows")
@@ -1295,9 +1297,6 @@ namespace build2
         for (size_t i (0); i != sargs.size (); ++i)
           cs.append (sargs[i]);
 
-        if (lt != type::a)
-          hash_options (cs, t, "cxx.loptions");
-
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "options mismatch forcing update of " << t;});
       }
@@ -1365,7 +1364,7 @@ namespace build2
 
       // Ok, so we are updating. Finish building the command line.
       //
-      string out; // Storage.
+      string out, out1; // Storage.
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -1385,6 +1384,22 @@ namespace build2
             if (verb < 3)
               args.push_back ("/NOLOGO");
 
+            // Unless explicitly enabled with /INCREMENTAL, disable
+            // incremental linking (it is implicitly enabled if /DEBUG is
+            // specified). The reason is the .ilk file: its name cannot be
+            // changed and if we have, say, foo.exe and foo.dll, then they
+            // will end up stomping on each other's .ilk's.
+            //
+            // So the idea is to disable it by default but let the user
+            // request it explicitly if they are sure their project doesn't
+            // suffer from the above issue. We can also have something like
+            // 'incremental' config initializer keyword for this.
+            //
+            // It might also be a good idea to ask Microsoft to add an option.
+            //
+            if (!find_option ("/INCREMENTAL", args, true))
+              args.push_back ("/INCREMENTAL:NO");
+
             // Take care of the manifest.
             //
             if (!manifest.empty ())
@@ -1395,15 +1410,21 @@ namespace build2
               args.push_back (std.c_str ());
             }
 
+            // If we have /DEBUG then name the .pdb file. We call it
+            // foo.exe.pdb rather than foo.pdb because we can have, say,
+            // foo.dll in the same directory.
+            //
+            if (find_option ("/DEBUG", args, true))
+            {
+              out1 = "/PDB:" + relt.string () + ".pdb";
+              args.push_back (out1.c_str ());
+            }
+
+            // @@ An executable can have an import library and VS seems to
+            //    always name it. I wonder what would trigger its generation?
+
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
-
-            //@@ VC: /PDB: if /DEBUG is specified, then created. By default
-            //   is basename.pdb. Do we want it to be basename.exe.pdb?
-            //   Probably not, too unconventional. Need to clean it though.
-            //
-            //   In a similar vein, we may also be generating an import lib
-            //   for the executable.
           }
           else
           {
@@ -1475,8 +1496,6 @@ namespace build2
         }
       }
 
-      size_t oend (sargs.size ()); // Note the end of options in sargs.
-
       for (target* pt: t.prerequisite_targets)
       {
         path_target* ppt;
@@ -1508,12 +1527,7 @@ namespace build2
       // Because of potential reallocations.
       //
       for (size_t i (0); i != sargs.size (); ++i)
-      {
-        if (lt != type::a && i == oend)
-          append_options (args, t, "cxx.loptions");
-
         args.push_back (sargs[i].c_str ());
-      }
 
       if (lt != type::a)
         append_options (args, t, "cxx.libs");
@@ -1608,29 +1622,49 @@ namespace build2
     {
       file& t (static_cast<file&> (xt));
 
-      type lt (link_type (t));
-
       scope& rs (t.root_scope ());
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
-      // @@ VC .pdb, etc cleanup -- maybe make them ad hoc group members?
-      //    One might want to install PDBs.
-      //
+      initializer_list<const char*> e;
 
-      // On Windows we need to clean up manifest business.
-      //
-      if (lt == type::e && tclass == "windows")
+      switch (link_type (t))
       {
-        return clean_extra (a,
-                            t,
-                            {"+.d",
-                             "/+.dlls",
-                             tsys == "mingw32" ? "+.manifest.o" : nullptr,
-                             "+.manifest"});
+      case type::a:
+        {
+          e = {"+.d"};
+          break;
+        }
+      case type::e:
+        {
+          if (tclass == "windows")
+          {
+            if (tsys == "mingw32")
+            {
+              e = {"+.d", "/+.dlls", "+.manifest.o", "+.manifest"};
+            }
+            else
+            {
+              // Assuming it's VC or alike.
+              //
+              // Clean up .ilk in case the user enabled incremental linking.
+              //
+              e = {"+.d", "/+.dlls", "+.manifest", ".ilk", "+.pdb"};
+            }
+          }
+          else
+            e = {"+.d"};
+
+          break;
+        }
+      case type::so:
+        {
+          e = {"+.d"};
+          break;
+        }
       }
-      else
-        return clean_extra (a, t, {"+.d"});
+
+      return clean_extra (a, t, e);
     }
 
     link link::instance;

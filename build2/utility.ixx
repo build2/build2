@@ -50,8 +50,8 @@ namespace build2
 
   template <typename T>
   inline bool
-  find_option (const char* option, T& s, const char* var)
+  find_option (const char* option, T& s, const char* var, bool ic)
   {
-    return find_option (option, s[var]);
+    return find_option (option, s[var], ic);
   }
 }
