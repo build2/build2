@@ -365,6 +365,13 @@ namespace build2
       {
         const target_type& dll (b.derive_target_type<file> ("dll").first);
         install_path (dll, b, dir_path ("bin"));
+
+        if (cid == "msvc")
+        {
+          const target_type& pdb (b.derive_target_type<file> ("pdb").first);
+          install_path (pdb, b, dir_path ("bin"));
+          install_mode (pdb, b, "644");
+        }
       }
 
       return true;

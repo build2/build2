@@ -307,21 +307,10 @@ namespace build2
 
   // path_target
   //
-  void path_target::
-  derive_path (const char* de, const char* np, const char* ns)
+  const string& path_target::
+  derive_extension (const char* de)
   {
-    string n;
-
-    if (np != nullptr)
-      n += np;
-
-    n += name;
-
-    if (ns != nullptr)
-      n += ns;
-
-    // Update the extension. See also search_existing_file() if updating
-    // anything here.
+    // See also search_existing_file() if updating anything here.
     //
     assert (de == nullptr || type ().extension != nullptr);
 
@@ -344,23 +333,48 @@ namespace build2
       }
     }
 
-    // Add the extension.
+    return *ext;
+  }
+
+  const path& path_target::
+  derive_path (const char* de, const char* np, const char* ns)
+  {
+    string n;
+
+    if (np != nullptr)
+      n += np;
+
+    n += name;
+
+    if (ns != nullptr)
+      n += ns;
+
+    return derive_path (dir / path_type (move (n)), de);
+  }
+
+  const path& path_target::
+  derive_path (path_type p, const char* de)
+  {
+    // Derive and add the extension if any.
     //
+    derive_extension (de);
+
     if (!ext->empty ())
     {
-      n += '.';
-      n += *ext;
+      p += '.';
+      p += *ext;
     }
 
-    path_type p (dir / path_type (move (n)));
     const path_type& ep (path ());
 
     if (ep.empty ())
-       path (p);
+      path (move (p));
     else if (p != ep)
       fail << "path mismatch for target " << *this <<
-        info << "assigned '" << ep << "'" <<
+        info << "existing '" << ep << "'" <<
         info << "derived  '" << p << "'";
+
+    return path ();
   }
 
   // file_target

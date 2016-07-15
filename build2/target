@@ -1025,10 +1025,22 @@ namespace build2
     // Finally, if the path was already assigned to this target, then this
     // function verifies that the two are the same.
     //
-    void
+    const path_type&
     derive_path (const char* default_ext = nullptr,
                  const char* name_prefix = nullptr,
                  const char* name_suffix = nullptr);
+
+    // This version can be used to derive the path from another target's path
+    // by adding another extension.
+    //
+    const path_type&
+    derive_path (path_type base, const char* default_ext = nullptr);
+
+    // As above but only derives (and returns) the extension (empty means no
+    // extension used).
+    //
+    const string&
+    derive_extension (const char* default_ext = nullptr);
 
   public:
     static const target_type static_type;

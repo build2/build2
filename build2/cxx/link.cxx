@@ -578,6 +578,8 @@ namespace build2
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
+
+      const string& cid (cast<string> (rs["cxx.id"]));
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
@@ -679,31 +681,47 @@ namespace build2
         t.derive_path (e, p);
       }
 
-      // On Windows add the DLL as an ad hoc group member.
+      // Add ad hoc group members.
       //
-      if (so && tclass == "windows")
+      auto add_adhoc = [a, &bs] (target& t, const char* type) -> file&
       {
-        file* dll (nullptr);
-
-        // Registered by cxx module's init().
-        //
-        const target_type& tt (*bs.find_target_type ("dll"));
+        const target_type& tt (*bs.find_target_type (type));
 
         if (t.member != nullptr) // Might already be there.
-        {
           assert (t.member->type () == tt);
-          dll = static_cast<file*> (t.member);
-        }
         else
+          t.member = &search (tt, t.dir, t.out, t.name, nullptr, nullptr);
+
+        file& r (static_cast<file&> (*t.member));
+        r.recipe (a, group_recipe);
+        return r;
+      };
+
+      if (tclass == "windows")
+      {
+        // DLL
+        //
+        if (so)
         {
-          t.member = dll = static_cast<file*> (
-            &search (tt, t.dir, t.out, t.name, nullptr, nullptr));
+          file& dll (add_adhoc (t, "dll"));
+
+          if (dll.path ().empty ())
+            dll.derive_path ("dll", tsys == "mingw32" ? "lib" : nullptr);
         }
 
-        if (dll->path ().empty ())
-          dll->derive_path ("dll", tsys == "mingw32" ? "lib" : nullptr);
+        // PDB
+        //
+        if (lt != type::a &&
+            cid == "msvc" &&
+            find_option ("/DEBUG", t, "cxx.loptions", true))
+        {
+          // Add after the DLL if any.
+          //
+          file& pdb (add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
 
-        dll->recipe (a, group_recipe);
+          if (pdb.path ().empty ())
+            pdb.derive_path (t.path (), "pdb");
+        }
       }
 
       t.prerequisite_targets.clear (); // See lib pre-match in match() above.
@@ -1649,7 +1667,7 @@ namespace build2
               //
               // Clean up .ilk in case the user enabled incremental linking.
               //
-              e = {"+.d", "/+.dlls", "+.manifest", ".ilk", "+.pdb"};
+              e = {"+.d", "/+.dlls", "+.manifest", ".ilk"};
             }
           }
           else
