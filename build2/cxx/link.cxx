@@ -585,11 +585,7 @@ namespace build2
 
       type lt (link_type (t));
       order lo (link_order (t));
-
-      // Some targets have all object files the same.
-      //
       bool so (lt == type::so);
-      bool oso (so && tclass != "macosx" && tclass != "windows");
 
       // Derive file name from target name.
       //
@@ -762,10 +758,10 @@ namespace build2
           //
           if (obj* o = pt->is_a<obj> ())
           {
-            pt = oso ? static_cast<target*> (o->so) : o->a;
+            pt = so ? static_cast<target*> (o->so) : o->a;
 
             if (pt == nullptr)
-              pt = &search (oso ? objso::static_type : obja::static_type,
+              pt = &search (so ? objso::static_type : obja::static_type,
                             p.key ());
           }
           else if (lib* l = pt->is_a<lib> ())
@@ -792,7 +788,7 @@ namespace build2
         const target_type& otype (
           group
           ? obj::static_type
-          : (oso ? objso::static_type : obja::static_type));
+          : (so ? objso::static_type : obja::static_type));
 
         // Come up with the obj*{} target. The c(xx){} prerequisite directory
         // can be relative (to the scope) or absolute. If it is relative, then
@@ -842,10 +838,10 @@ namespace build2
         if (group)
         {
           obj& o (static_cast<obj&> (ot));
-          pt = oso ? static_cast<target*> (o.so) : o.a;
+          pt = so ? static_cast<target*> (o.so) : o.a;
 
           if (pt == nullptr)
-            pt = &search (oso ? objso::static_type : obja::static_type,
+            pt = &search (so ? objso::static_type : obja::static_type,
                           o.dir, o.out, o.name, o.ext, nullptr);
         }
         else
