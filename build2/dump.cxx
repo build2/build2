@@ -53,35 +53,51 @@ namespace build2
     }
   }
 
+  enum class variable_kind {scope, tt_pat, target};
+
   static void
   dump_variable (ostream& os,
                  const variable& var,
                  const lookup& org,
                  const scope& s,
-                 bool target)
+                 variable_kind k)
   {
-    if (var.type != nullptr)
-      os << '[' << var.type->name << "] ";
-
-    os << var.name << " = ";
-
-    // If this variable is overriden, print both the override and the
-    // original values.
+    // Target type/pattern-specific prepends/appends are kept untyped and not
+    // overriden.
     //
-    if (var.override != nullptr &&
-        var.name.rfind (".__override") == string::npos &&
-        var.name.rfind (".__suffix") == string::npos &&
-        var.name.rfind (".__prefix") == string::npos)
+    if (k == variable_kind::tt_pat && org->extra != 0)
     {
-      // The original is always from this scope/target, so depth is 1.
+      // @@ Might be useful to dump the cache.
       //
-      lookup l (s.find_override (var, make_pair (org, 1), target).first);
-      assert (l.defined ()); // We at least have  the original.
+      os << var.name << (org->extra == 1 ? " =+ " : " += ");
+    }
+    else
+    {
+      if (var.type != nullptr)
+        os << '[' << var.type->name << "] ";
 
-      if (org != l)
+      os << var.name << " = ";
+
+      // If this variable is overriden, print both the override and the
+      // original values.
+      //
+      if (var.override != nullptr &&
+          var.name.rfind (".__override") == string::npos &&
+          var.name.rfind (".__suffix") == string::npos &&
+          var.name.rfind (".__prefix") == string::npos)
       {
-        dump_value (os, *l, l->type != var.type);
-        os << " # original: ";
+        // The original is always from this scope/target, so depth is 1.
+        //
+        lookup l (
+          s.find_override (
+            var, make_pair (org, 1), k == variable_kind::target).first);
+        assert (l.defined ()); // We at least have the original.
+
+        if (org != l)
+        {
+          dump_value (os, *l, l->type != var.type);
+          os << " # original: ";
+        }
       }
     }
 
@@ -93,17 +109,19 @@ namespace build2
                   string& ind,
                   const variable_map& vars,
                   const scope& s,
-                  bool target)
+                  variable_kind k)
   {
     for (const auto& e: vars)
     {
       os << endl
          << ind;
 
-      dump_variable (os, e.first, lookup (&e.second, &vars), s, target);
+      dump_variable (os, e.first, lookup (&e.second, &vars), s, k);
     }
   }
 
+  // Dump target type/pattern-specific variables.
+  //
   static void
   dump_variables (ostream& os,
                   string& ind,
@@ -140,14 +158,14 @@ namespace build2
                          vars.begin ()->first,
                          lookup (&vars.begin ()->second, &vars),
                          s,
-                         false);
+                         variable_kind::tt_pat);
         }
         else
         {
           os << endl
              << ind << '{';
           ind += "  ";
-          dump_variables (os, ind, vars, s, false);
+          dump_variables (os, ind, vars, s, variable_kind::tt_pat);
           ind.resize (ind.size () - 2);
           os << endl
              << ind << '}';
@@ -216,7 +234,7 @@ namespace build2
       os << endl
          << ind << '{';
       ind += "  ";
-      dump_variables (os, ind, t.vars, s, true);
+      dump_variables (os, ind, t.vars, s, variable_kind::target);
       ind.resize (ind.size () - 2);
       os << endl
          << ind << '}';
@@ -262,7 +280,7 @@ namespace build2
       if (vb)
         os << endl;
 
-      dump_variables (os, ind, p.vars, p, false);
+      dump_variables (os, ind, p.vars, p, variable_kind::scope);
       vb = true;
     }
 

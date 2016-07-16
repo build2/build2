@@ -134,13 +134,15 @@ namespace build2
       return var.override == nullptr ? p : find_override (var, move (p));
     }
 
-    // Implementation details (used by scope target lookup).
+    // Implementation details (used by scope target lookup). The start_depth
+    // can be used to skip a number of initial lookups.
     //
     pair<lookup, size_t>
     find_original (
       const variable&,
       const target_type* tt = nullptr, const string* tn = nullptr,
-      const target_type* gt = nullptr, const string* gn = nullptr) const;
+      const target_type* gt = nullptr, const string* gn = nullptr,
+      size_t start_depth = 1) const;
 
     pair<lookup, size_t>
     find_override (const variable&,

@@ -680,42 +680,42 @@ namespace build2
   // variable_map
   //
   const value* variable_map::
-  find (const variable& var) const
+  find (const variable& var, bool typed) const
   {
     auto i (m_.find (var));
     const value* r (i != m_.end () ? &i->second : nullptr);
 
     // First access after being assigned a type?
     //
-    if (r != nullptr && var.type != nullptr && r->type != var.type)
+    if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
       typify (const_cast<value&> (*r), *var.type, &var);
 
     return  r;
   }
 
   value* variable_map::
-  find (const variable& var)
+  find (const variable& var, bool typed)
   {
     auto i (m_.find (var));
     value* r (i != m_.end () ? &i->second : nullptr);
 
     // First access after being assigned a type?
     //
-    if (r != nullptr && var.type != nullptr && r->type != var.type)
+    if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
       typify (*r, *var.type, &var);
 
     return  r;
   }
 
   pair<reference_wrapper<value>, bool> variable_map::
-  insert (const variable& var)
+  insert (const variable& var, bool typed)
   {
-    auto r (m_.emplace (var, value (var.type)));
+    auto r (m_.emplace (var, value (typed ? var.type : nullptr)));
     value& v (r.first->second);
 
     // First access after being assigned a type?
     //
-    if (!r.second && var.type != nullptr && v.type != var.type)
+    if (typed && !r.second && var.type != nullptr && v.type != var.type)
       typify (v, *var.type, &var);
 
     return make_pair (reference_wrapper<value> (v), r.second);
@@ -772,13 +772,20 @@ namespace build2
             name.compare (nn - pn, pn, p, w, pn) != 0)
           continue;
 
+        //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and 'foo-foo'?
+        //   Right now the last defined will be used.
+
         // Ok, this pattern matches. But is there a variable?
         //
-        if (const value* v = j->second.find (var))
+        // Since we store append/prepend values untyped, instruct find() not
+        // to automatically type it. And if it is assignment, then typify it
+        // ourselves.
+        //
+        if (const value* v = j->second.find (var, false))
         {
-          //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and
-          //   'foo-foo'? Right now the last defined will be used.
-          //
+          if (v->extra == 0 && var.type != nullptr && v->type != var.type)
+            typify (const_cast<value&> (*v), *var.type, &var);
+
           return lookup (v, &j->second);
         }
       }

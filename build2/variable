@@ -712,11 +712,13 @@ namespace build2
       return operator[] (var_pool.find (name));
     }
 
+    // If typed is false, leave the value untyped even if the variable is.
+    //
     const value*
-    find (const variable&) const;
+    find (const variable&, bool typed = true) const;
 
     value*
-    find (const variable&);
+    find (const variable&, bool typed = true);
 
     // Return a value suitable for assignment. See scope for details.
     //
@@ -737,15 +739,16 @@ namespace build2
     }
 
     // As above but also return an indication of whether the new value (which
-    // will be NULL) was actually inserted.
+    // will be NULL) was actually inserted. Similar to find(), if typed is
+    // false, leave the value untyped even if the variable is.
     //
     pair<reference_wrapper<value>, bool>
-    insert (const variable&);
+    insert (const variable&, bool typed = true);
 
     pair<reference_wrapper<value>, bool>
-    insert (const string& name)
+    insert (const string& name, bool typed = true)
     {
-      return insert (var_pool.find (name));
+      return insert (var_pool.find (name), typed);
     }
 
     pair<const_iterator, const_iterator>
@@ -773,11 +776,6 @@ namespace build2
 
   // Target type/pattern-specific variables.
   //
-  // @@ In quite a few places we assume that we can store a reference
-  //    to the returned value (e.g., install::lookup_install()). If
-  //    we "instantiate" the value on the fly, then we will need to
-  //    consider its lifetime.
-  //
   using variable_pattern_map = std::map<string, variable_map>;
   using variable_type_map_base = std::map<reference_wrapper<const target_type>,
                                           variable_pattern_map>;
@@ -786,6 +784,19 @@ namespace build2
   {
     lookup
     find (const target_type&, const string& tname, const variable&) const;
+
+    // In many places we assume that we can store a reference to the returned
+    // variable value (e.g., install::lookup_install()). As a result, in case
+    // of append/prepent where we calculate the value dynamically, we have to
+    // cache it.
+    //
+    // The key is the combination of the "original value idenity" (as a
+    // pointer to the value in variable_pattern_map) and the "target identity"
+    // (as target type and target name). The target name, unfortunately, has
+    // to be stored by value (maybe will pool them at some point).
+    //
+    mutable
+    std::map<tuple<const value*, const target_type*, string>, value> cache;
   };
 
   // Override cache.

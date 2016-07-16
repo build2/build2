@@ -15,9 +15,78 @@ namespace build2
   pair<lookup, size_t> scope::
   find_original (const variable& var,
                  const target_type* tt, const string* tn,
-                 const target_type* gt, const string* gn) const
+                 const target_type* gt, const string* gn,
+                 size_t start_d) const
   {
     size_t d (0);
+
+    // Process target type/pattern-specific prepend/append values.
+    //
+    auto pre_app = [&var] (lookup& l,
+                           const scope* s,
+                           const target_type* tt, const string* tn,
+                           const target_type* gt, const string* gn)
+    {
+      const value& v (*l);
+      assert ((v.extra == 1 || v.extra == 2) && v.type == nullptr);
+
+      // First we need to look for the stem value starting from the "next
+      // lookup point". That is, if we have the group, then from the
+      // s->target_vars (for the group), otherwise from s->vars, and then
+      // continuing looking in the outer scopes (for both target and group).
+      // Note that this may have to be repeated recursively, i.e., we may have
+      // prepents/appends in outer scopes. Also, if the value is for the
+      // group, then we shouldn't be looking for stem in the target's
+      // variables. In other words, once we "jump" to group, we stay there.
+      //
+      lookup stem (s->find_original (var, tt, tn, gt, gn, 2).first);
+
+      // Implementing proper caching is tricky so for now we are going to re-
+      // calculate the value every time. This is the same issue and the same
+      // planned solution as for the override cache (see below).
+      //
+      // Note: very similar logic as in the override cache population code
+      // below.
+      //
+      // @@ MT
+      //
+      value& cache (s->target_vars.cache[make_tuple (&v, tt, *tn)]);
+
+      // Un-typify the cache. This can be necessary, for example, if we are
+      // changing from one value-typed stem to another.
+      //
+      if (!stem.defined () || cache.type != stem->type)
+      {
+        cache = nullptr;
+        cache.type = nullptr; // Un-typify.
+      }
+
+      // Copy the stem.
+      //
+      if (stem.defined ())
+        cache = *stem;
+
+      // Typify the cache value in case there is no stem (we still want to
+      // prepend/append things in type-aware way).
+      //
+      if (cache.type == nullptr && var.type != nullptr)
+        typify (cache, *var.type, &var);
+
+      // Now prepend/append the value, unless it is NULL.
+      //
+      if (v)
+      {
+        if (v.extra == 1)
+          cache.prepend (names (cast<names> (v)), &var);
+        else
+          cache.append (names (cast<names> (v)), &var);
+      }
+
+      // Return cache as the resulting value but retain l.vars, so it looks as
+      // if the value came from s->target_vars.
+      //
+      l.value = &cache;
+    };
 
     for (const scope* s (this); s != nullptr; )
     {
@@ -25,28 +94,48 @@ namespace build2
       {
         bool f (!s->target_vars.empty ());
 
-        ++d;
-        if (f)
+        // Target.
+        //
+        if (++d >= start_d)
         {
-          lookup l (s->target_vars.find (*tt, *tn, var));
+          if (f)
+          {
+            lookup l (s->target_vars.find (*tt, *tn, var));
 
-          if (l.defined ())
-            return make_pair (move (l), d);
+            if (l.defined ())
+            {
+              if (l->extra != 0) // Prepend/append?
+                pre_app (l, s, tt, tn, gt, gn);
+
+              return make_pair (move (l), d);
+            }
+          }
         }
 
-        ++d;
-        if (f && gt != nullptr)
+        // Group.
+        //
+        if (++d >= start_d)
         {
-          lookup l (s->target_vars.find (*gt, *gn, var));
+          if (f && gt != nullptr)
+          {
+            lookup l (s->target_vars.find (*gt, *gn, var));
 
-          if (l.defined ())
-            return make_pair (move (l), d);
+            if (l.defined ())
+            {
+              if (l->extra != 0) // Prepend/append?
+                pre_app (l, s, gt, gn, nullptr, nullptr);
+
+              return make_pair (move (l), d);
+            }
+          }
         }
       }
 
-      ++d;
-      if (const value* v = s->vars.find (var))
-        return make_pair (lookup (v, &s->vars), d);
+      if (++d >= start_d)
+      {
+        if (const value* v = s->vars.find (var))
+          return make_pair (lookup (v, &s->vars), d);
+      }
 
       switch (var.visibility)
       {
@@ -301,6 +390,9 @@ namespace build2
 
     // If there is a stem, set it as the initial value of the cache.
     // Otherwise, start with a NULL value.
+    //
+    // Note: very similar logic as in the target type/pattern specific cache
+    // population code above.
     //
 
     // Un-typify the cache. This can be necessary, for example, if we are

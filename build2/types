@@ -5,6 +5,7 @@
 #ifndef BUILD2_TYPES
 #define BUILD2_TYPES
 
+#include <tuple>
 #include <vector>
 #include <string>
 #include <memory>           // unique_ptr, shared_ptr
@@ -42,6 +43,7 @@ namespace build2
   using std::nullptr_t;
 
   using std::pair;
+  using std::tuple;
   using std::string;
   using std::function;
   using std::reference_wrapper;

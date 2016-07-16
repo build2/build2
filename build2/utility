@@ -5,6 +5,7 @@
 #ifndef BUILD2_UTILITY
 #define BUILD2_UTILITY
 
+#include <tuple>    // make_tuple()
 #include <memory>   // make_shared()
 #include <string>   // to_string()
 #include <utility>  // move(), forward(), declval(), make_pair()
@@ -25,6 +26,7 @@ namespace build2
   using std::declval;
 
   using std::make_pair;
+  using std::make_tuple;
   using std::make_shared;
   using std::make_move_iterator;
   using std::to_string;

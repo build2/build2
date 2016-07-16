@@ -1,0 +1,59 @@
+# Typed append/prepend.
+#
+#dir{a*}: x += [bool] true
+#dir{p*}: x =+ [bool] true
+
+[string] typed = [null]
+dir{a*}: typed += abc    # ok
+dir{p*}: typed =+ abc    # ok
+
+# Prepend/append before/after assignment.
+#
+[string] x1 = [null]
+dir{*}: x1 += A
+dir{*}: x1 = b
+dir{*}: x1 += c
+dir{*}: x1 =+ a
+print $(dir{./}:x1)
+
+# Without stem, mixed prepend/append.
+#
+dir{*}: x2 += b
+dir{*}: x2 += c
+#dir{*}: x2 =+ a     # error
+print $(dir{./}:x2)
+
+dir{*}: x3 =+ b
+dir{*}: x3 =+ a
+#dir{*}: x3 += c     # error
+print $(dir{./}:x3)
+
+# With stem, typing.
+#
+x4 = a
+dir{*}: x4 += b
+dir{*}: x4 += c
+print $(dir{./}:x4)
+
+[string] x5 = b
+dir{*}: x5 =+ a
+x = $(dir{./}:x5)
+print $(dir{./}:x5)
+
+x6 = [string] a
+sub/:
+{
+  dir{*}: x6 += b
+  dir{*}: x6 += [null]
+  print $(dir{./}:x6)
+}
+
+x7 = [string] b
+dir{*}: x7 =+ a
+sub/:
+{
+  dir{*}: x7 += c
+  print $(dir{./}:x7)
+}
+
+./:

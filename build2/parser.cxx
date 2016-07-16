@@ -483,20 +483,89 @@ namespace build2
                   if (ti == nullptr)
                     fail (nloc) << "unknown target type " << n.type;
 
-                  if (att == type::prepend)
-                    fail (at) << "prepend to target type/pattern-specific "
-                              << "variable " << var.name;
-
-                  if (att == type::append)
-                    fail (at) << "append to target type/pattern-specific "
-                              << "variable " << var.name;
-
                   // Note: expanding the value in the context of the scope.
                   //
                   value rhs (variable_value (t, tt));
-                  value& lhs (
-                    scope_->target_vars[*ti][move (n.value)].assign (var));
-                  value_attributes (&var, lhs, move (rhs), type::assign);
+
+                  // Leave the value untyped unless we are assigning.
+                  //
+                  pair<reference_wrapper<value>, bool> p (
+                    scope_->target_vars[*ti][move (n.value)].insert (
+                      var, att == type::assign));
+
+                  value& lhs (p.first);
+
+                  // We store prepend/append values untyped (similar to
+                  // overrides).
+                  //
+                  if (p.second)
+                  {
+                    // Note: we are always using assign and we don't pass the
+                    // variable in case of prepend/append in order to keep the
+                    // value untyped.
+                    //
+                    value_attributes (att == type::assign ? &var : nullptr,
+                                      lhs,
+                                      move (rhs),
+                                      type::assign);
+
+                    // Map assignment type to value::extra constant.
+                    //
+                    lhs.extra =
+                      att == type::prepend ? 1 :
+                      att == type::append  ? 2 :
+                      0;
+                  }
+                  else
+                  {
+                    // Existing value. What happens next depends what we are
+                    // trying to do and what's already there.
+                    //
+                    // Assignment is the easy one: we simply overwrite what's
+                    // already there. Also, if we are appending/prepending to
+                    // a previously assigned value, then we simply append or
+                    // prepend normally.
+                    //
+                    if (att == type::assign || lhs.extra == 0)
+                    {
+                      // Above we instructed insert() not to type the value so
+                      // we have to compensate for that now.
+                      //
+                      if (att != type::assign)
+                      {
+                        if (var.type != nullptr && lhs.type != var.type)
+                          typify (lhs, *var.type, &var);
+                      }
+                      else
+                        lhs.extra = 0; // Change to assignment.
+
+                      value_attributes (&var, lhs, move (rhs), att);
+                    }
+                    else
+                    {
+                      // This is an append/prepent to a previously appended or
+                      // prepended value. We can handle it as long as things
+                      // are consistent.
+                      //
+                      if (att == type::prepend && lhs.extra == 2)
+                        fail (at) << "prepend to a previously appended target "
+                                  << "type/pattern-specific variable "
+                                  << var.name;
+
+                      if (att == type::append && lhs.extra == 1)
+                        fail (at) << "append to a previously prepended target "
+                                  << "type/pattern-specific variable "
+                                  << var.name;
+
+                      // Do untyped prepend/append.
+                      //
+                      value_attributes (nullptr, lhs, move (rhs), att);
+                    }
+                  }
+
+                  if (lhs.extra != 0 && lhs.type != nullptr)
+                    fail (at) << "typed prepend/append to target type/pattern-"
+                              << "specific variable " << var.name;
                 }
               }
 
@@ -1479,7 +1548,10 @@ namespace build2
     }
 
     if (null)
-      v = nullptr;
+    {
+      if (kind == token_type::assign) // Ignore for prepend/append.
+        v = nullptr;
+    }
     else
     {
       if (kind == token_type::assign)
