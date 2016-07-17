@@ -31,7 +31,7 @@ namespace build2
     //
     static const strings exe_lib {"shared", "static"};
     static const strings liba_lib {"static"};
-    static const strings libso_lib {"shared"};
+    static const strings libs_lib {"shared"};
 
     // Apply the specified stem to the config.bin.pattern. If there is no
     // pattern, then return the stem itself. Assume the pattern is valid,
@@ -73,22 +73,22 @@ namespace build2
 
         // Note: some overridable, some not.
         //
-        v.insert<string>    ("config.bin.target",    true);
-        v.insert<string>    ("config.bin.pattern",   true);
+        v.insert<string>    ("config.bin.target",   true);
+        v.insert<string>    ("config.bin.pattern",  true);
 
-        v.insert<path>      ("config.bin.ar",        true);
-        v.insert<path>      ("config.bin.ranlib",    true);
+        v.insert<path>      ("config.bin.ar",       true);
+        v.insert<path>      ("config.bin.ranlib",   true);
 
-        v.insert<string>    ("config.bin.lib",       true);
-        v.insert<strings>   ("config.bin.exe.lib",   true);
-        v.insert<strings>   ("config.bin.liba.lib",  true);
-        v.insert<strings>   ("config.bin.libso.lib", true);
-        v.insert<dir_paths> ("config.bin.rpath",     true);
+        v.insert<string>    ("config.bin.lib",      true);
+        v.insert<strings>   ("config.bin.exe.lib",  true);
+        v.insert<strings>   ("config.bin.liba.lib", true);
+        v.insert<strings>   ("config.bin.libs.lib", true);
+        v.insert<dir_paths> ("config.bin.rpath",    true);
 
         v.insert<string>    ("bin.lib");
         v.insert<strings>   ("bin.exe.lib");
         v.insert<strings>   ("bin.liba.lib");
-        v.insert<strings>   ("bin.libso.lib");
+        v.insert<strings>   ("bin.libs.lib");
         v.insert<dir_paths> ("bin.rpath");
 
         v.insert<string>    ("bin.libprefix",        true);
@@ -133,12 +133,12 @@ namespace build2
           v = required (r, "config.bin.liba.lib", liba_lib).first;
       }
 
-      // config.bin.libso.lib
+      // config.bin.libs.lib
       //
       {
-        value& v (b.assign ("bin.libso.lib"));
+        value& v (b.assign ("bin.libs.lib"));
         if (!v)
-          v = required (r, "config.bin.libso.lib", libso_lib).first;
+          v = required (r, "config.bin.libs.lib", libs_lib).first;
       }
 
       // config.bin.rpath
@@ -353,13 +353,14 @@ namespace build2
       {
         auto& t (b.target_types);
 
-        t.insert<obja>  ();
-        t.insert<objso> ();
-        t.insert<obj>   ();
-        t.insert<exe>   ();
-        t.insert<liba>  ();
-        t.insert<libso> ();
-        t.insert<lib>   ();
+        t.insert<obje> ();
+        t.insert<obja> ();
+        t.insert<objs> ();
+        t.insert<obj>  ();
+        t.insert<exe>  ();
+        t.insert<liba> ();
+        t.insert<libs> ();
+        t.insert<lib>  ();
       }
 
       // Register rules.
@@ -407,15 +408,15 @@ namespace build2
       // And a library that wants to override any such overrides (e.g.,
       // because it does have main()) can do:
       //
-      // libso{foo}: install.mode=755
+      // libs{foo}: install.mode=755
       //
       // Everyone is happy then? Not Windows users. When targeting Windows
-      // libso{} is an import library and shouldn't be exec.
+      // libs{} is an import library and shouldn't be exec.
       //
-      install_path<libso> (b, dir_path ("lib")); // Install into install.lib.
+      install_path<libs> (b, dir_path ("lib")); // Install into install.lib.
 
       if (tclass == "windows")
-        install_mode<libso> (b, "644");
+        install_mode<libs> (b, "644");
 
       install_path<liba> (b, dir_path ("lib"));  // Install into install.lib.
       install_mode<liba> (b, "644");

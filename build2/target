@@ -192,7 +192,7 @@ namespace build2
     // is an explicit mechanism for discovering the group's members.
     //
     // However, sometimes, we may want to create a group on the fly out of a
-    // normal target type. For example, we have the libso{} target type. But
+    // normal target type. For example, we have the libs{} target type. But
     // on Windows a shared library consist of (at least) two files: the import
     // library and the DLL itself. So we somehow need to be able to capture
     // that. One approach would be to imply the presence of the second file.

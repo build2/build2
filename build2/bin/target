@@ -16,6 +16,16 @@ namespace build2
   {
     // The obj{} target group.
     //
+    class obje: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
     class obja: public file
     {
     public:
@@ -26,7 +36,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class objso: public file
+    class objs: public file
     {
     public:
       using file::file;
@@ -41,8 +51,9 @@ namespace build2
     public:
       using target::target;
 
+      obje* e {nullptr};
       obja* a {nullptr};
-      objso* so {nullptr};
+      objs* s {nullptr};
 
     public:
       static const target_type static_type;
@@ -71,7 +82,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class libso: public file
+    class libs: public file
     {
     public:
       using file::file;
@@ -87,7 +98,7 @@ namespace build2
       using target::target;
 
       liba* a {nullptr};
-      libso* so {nullptr};
+      libs* s {nullptr};
 
       virtual void
       reset (action_type);

@@ -13,14 +13,41 @@ namespace build2
     extern const char ext_var[] = "extension"; // VC 19 rejects constexpr.
 
     static target*
+    obje_factory (const target_type&,
+                  dir_path dir,
+                  dir_path out,
+                  string n,
+                  const string* ext)
+    {
+      obj* o (targets.find<obj> (dir, out, n));
+      obje* e (new obje (move (dir), move (out), move (n), ext));
+
+      if ((e->group = o))
+        o->e = e;
+
+      return e;
+    }
+
+    const target_type obje::static_type
+    {
+      "obje",
+      &file::static_type,
+      &obje_factory,
+      &target_extension_var<ext_var, nullptr>,
+      nullptr,
+      &search_target, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    static target*
     obja_factory (const target_type&,
                   dir_path dir,
                   dir_path out,
                   string n,
-                  const string* e)
+                  const string* ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      obja* a (new obja (move (dir), move (out), move (n), e));
+      obja* a (new obja (move (dir), move (out), move (n), ext));
 
       if ((a->group = o))
         o->a = a;
@@ -40,26 +67,26 @@ namespace build2
     };
 
     static target*
-    objso_factory (const target_type&,
+    objs_factory (const target_type&,
                    dir_path dir,
                    dir_path out,
                    string n,
-                   const string* e)
+                   const string* ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      objso* so (new objso (move (dir), move (out), move (n), e));
+      objs* s (new objs (move (dir), move (out), move (n), ext));
 
-      if ((so->group = o))
-        o->so = so;
+      if ((s->group = o))
+        o->s = s;
 
-      return so;
+      return s;
     }
 
-    const target_type objso::static_type
+    const target_type objs::static_type
     {
-      "objso",
+      "objs",
       &file::static_type,
-      &objso_factory,
+      &objs_factory,
       &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
@@ -71,17 +98,22 @@ namespace build2
                  dir_path dir,
                  dir_path out,
                  string n,
-                 const string* e)
+                 const string* ext)
     {
+      obje* e (targets.find<obje> (dir, out, n));
       obja* a (targets.find<obja> (dir, out, n));
-      objso* so (targets.find<objso> (dir, out, n));
-      obj* o (new obj (move (dir), move (out), move (n), e));
+      objs* s (targets.find<objs> (dir, out, n));
+
+      obj* o (new obj (move (dir), move (out), move (n), ext));
+
+      if ((o->e = e))
+        e->group = o;
 
       if ((o->a = a))
         a->group = o;
 
-      if ((o->so = so))
-        so->group = o;
+      if ((o->s = s))
+        s->group = o;
 
       return o;
     }
@@ -124,12 +156,12 @@ namespace build2
                   dir_path d,
                   dir_path o,
                   string n,
-                  const string* e)
+                  const string* ext)
     {
       // Only link-up to the group if the types match exactly.
       //
       lib* l (t == liba::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      liba* a (new liba (move (d), move (o), move (n), e));
+      liba* a (new liba (move (d), move (o), move (n), ext));
 
       if ((a->group = l))
         l->a = a;
@@ -161,28 +193,28 @@ namespace build2
     };
 
     static target*
-    libso_factory (const target_type& t,
-                   dir_path d,
-                   dir_path o,
-                   string n,
-                   const string* e)
+    libs_factory (const target_type& t,
+                  dir_path d,
+                  dir_path o,
+                  string n,
+                  const string* ext)
     {
       // Only link-up to the group if the types match exactly.
       //
-      lib* l (t == libso::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      libso* so (new libso (move (d), move (o), move (n), e));
+      lib* l (t == libs::static_type ? targets.find<lib> (d, o, n) : nullptr);
+      libs* s (new libs (move (d), move (o), move (n), ext));
 
-      if ((so->group = l))
-        l->so = so;
+      if ((s->group = l))
+        l->s = s;
 
-      return so;
+      return s;
     }
 
-    const target_type libso::static_type
+    const target_type libs::static_type
     {
-      "libso",
+      "libs",
       &file::static_type,
-      &libso_factory,
+      &libs_factory,
       &target_extension_var<ext_var, nullptr>,
       nullptr,
       &search_file,
@@ -203,17 +235,18 @@ namespace build2
                  dir_path d,
                  dir_path o,
                  string n,
-                 const string* e)
+                 const string* ext)
     {
       liba* a (targets.find<liba> (d, o, n));
-      libso* so (targets.find<libso> (d, o, n));
-      lib* l (new lib (move (d), move (o), move (n), e));
+      libs* s (targets.find<libs> (d, o, n));
+
+      lib* l (new lib (move (d), move (o), move (n), ext));
 
       if ((l->a = a))
         a->group = l;
 
-      if ((l->so = so))
-        so->group = l;
+      if ((l->s = s))
+        s->group = l;
 
       return l;
     }

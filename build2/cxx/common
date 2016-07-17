@@ -1,0 +1,60 @@
+// file      : build2/cxx/common -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CXX_COMMON
+#define BUILD2_CXX_COMMON
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/bin/target>
+
+namespace build2
+{
+  namespace cxx
+  {
+    // Compile/link output type (executable, static, or shared).
+    //
+    enum class otype {e, a, s};
+
+    inline otype
+    compile_type (target& t)
+    {
+      return
+        t.is_a<bin::obje> () ? otype::e :
+        t.is_a<bin::obja> () ? otype::a :
+        otype::s;
+    }
+
+    inline otype
+    link_type (target& t)
+    {
+      return
+        t.is_a<bin::exe> ()  ? otype::e :
+        t.is_a<bin::liba> () ? otype::a :
+        otype::s;
+    }
+
+    // Library link order.
+    //
+    enum class lorder {a, s, a_s, s_a};
+
+    // The reason we pass scope and not the target is because this function is
+    // called not only for exe/lib but also for obj as part of the library
+    // meta-information protocol implementation. Normally the bin.*.lib values
+    // will be project-wide. With this scheme they can be customized on the
+    // per-directory basis but not per-target which means all exe/lib in the
+    // same directory have to have the same link order.
+    //
+    lorder
+    link_order (scope& base, otype);
+
+    // Given the link order return the library member (liba or libs) to link.
+    //
+    target&
+    link_member (bin::lib&, lorder);
+  }
+}
+
+#endif // BUILD2_CXX_COMMON

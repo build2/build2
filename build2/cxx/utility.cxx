@@ -79,7 +79,7 @@ namespace build2
 
       for (target* t: l.prerequisite_targets)
       {
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
           append_lib_options (args, *t, var);
       }
 
@@ -93,7 +93,7 @@ namespace build2
 
       for (target* t: l.prerequisite_targets)
       {
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
           hash_lib_options (csum, *t, var);
       }
 

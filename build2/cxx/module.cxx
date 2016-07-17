@@ -316,38 +316,40 @@ namespace build2
 
         auto& r (b.rules);
 
-        r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<obje> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<obje> (perform_clean_id, "cxx.compile", compile::instance);
 
         r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
         r.insert<obja> (perform_clean_id, "cxx.compile", compile::instance);
 
-        r.insert<objso> (perform_update_id, "cxx.compile", compile::instance);
-        r.insert<objso> (perform_clean_id, "cxx.compile", compile::instance);
+        r.insert<objs> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<objs> (perform_clean_id, "cxx.compile", compile::instance);
 
-        r.insert<exe> (perform_update_id, "cxx.link", link::instance);
-        r.insert<exe> (perform_clean_id, "cxx.link", link::instance);
+        r.insert<exe>  (perform_update_id, "cxx.link", link::instance);
+        r.insert<exe>  (perform_clean_id, "cxx.link", link::instance);
 
         r.insert<liba> (perform_update_id, "cxx.link", link::instance);
         r.insert<liba> (perform_clean_id, "cxx.link", link::instance);
 
-        r.insert<libso> (perform_update_id, "cxx.link", link::instance);
-        r.insert<libso> (perform_clean_id, "cxx.link", link::instance);
+        r.insert<libs> (perform_update_id, "cxx.link", link::instance);
+        r.insert<libs> (perform_clean_id, "cxx.link", link::instance);
 
-        // Register for configure so that we detect unresolved imports
-        // during configuration rather that later, e.g., during update.
+        // Register for configure so that we detect unresolved imports during
+        // configuration rather that later, e.g., during update.
         //
+        r.insert<obje> (configure_update_id, "cxx.compile", compile::instance);
         r.insert<obja> (configure_update_id, "cxx.compile", compile::instance);
-        r.insert<objso> (configure_update_id, "cxx.compile", compile::instance);
+        r.insert<objs> (configure_update_id, "cxx.compile", compile::instance);
 
-        r.insert<exe> (configure_update_id, "cxx.link", link::instance);
+        r.insert<exe>  (configure_update_id, "cxx.link", link::instance);
         r.insert<liba> (configure_update_id, "cxx.link", link::instance);
-        r.insert<libso> (configure_update_id, "cxx.link", link::instance);
+        r.insert<libs> (configure_update_id, "cxx.link", link::instance);
 
         //@@ Should we check if install module was loaded (see bin)?
         //
-        r.insert<exe> (perform_install_id, "cxx.install", install::instance);
+        r.insert<exe>  (perform_install_id, "cxx.install", install::instance);
         r.insert<liba> (perform_install_id, "cxx.install", install::instance);
-        r.insert<libso> (perform_install_id, "cxx.install", install::instance);
+        r.insert<libs> (perform_install_id, "cxx.install", install::instance);
       }
 
       // Configure "installability" of our target types.

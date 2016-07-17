@@ -23,7 +23,7 @@ namespace build2
     match (action a, target& t, const string&) const
     {
       fail << diag_doing (a, t) << " target group" <<
-        info << "explicitly select either obja{} or objso{} member";
+        info << "explicitly select obje{}, obja{}, or objs{} member";
 
       return nullptr;
     }
@@ -33,25 +33,25 @@ namespace build2
 
     // lib
     //
-    // The whole logic is pretty much as if we had our two group
-    // members as our prerequisites.
+    // The whole logic is pretty much as if we had our two group members as
+    // our prerequisites.
     //
     match_result lib_rule::
-    match (action a, target& xt, const string&) const
+    match (action act, target& xt, const string&) const
     {
       lib& t (static_cast<lib&> (xt));
 
       // @@ We have to re-query it on each match_only()!
 
       // Get the library type to build. If not set for a target, this
-      // should be configured at the project scope by init_lib().
+      // should be configured at the project scope by init().
       //
       const string& type (cast<string> (t["bin.lib"]));
 
-      bool ar (type == "static" || type == "both");
-      bool so (type == "shared" || type == "both");
+      bool a (type == "static" || type == "both");
+      bool s (type == "shared" || type == "both");
 
-      if (!ar && !so)
+      if (!a && !s)
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
@@ -63,20 +63,20 @@ namespace build2
       // meta-information about the library, such as the options to use
       // when linking it, etc.
       //
-      if (ar)
+      if (a)
       {
         if (t.a == nullptr)
           t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
 
-        match_only (a, *t.a);
+        match_only (act, *t.a);
       }
 
-      if (so)
+      if (s)
       {
-        if (t.so == nullptr)
-          t.so = &search<libso> (t.dir, t.out, t.name, nullptr, nullptr);
+        if (t.s == nullptr)
+          t.s = &search<libs> (t.dir, t.out, t.name, nullptr, nullptr);
 
-        match_only (a, *t.so);
+        match_only (act, *t.s);
       }
 
       match_result mr (t, &type);
@@ -84,35 +84,35 @@ namespace build2
       // If there is an outer operation, indicate that we match
       // unconditionally so that we don't override ourselves.
       //
-      if (a.outer_operation () != 0)
-        mr.recipe_action = action (a.meta_operation (), a.operation ());
+      if (act.outer_operation () != 0)
+        mr.recipe_action = action (act.meta_operation (), act.operation ());
 
       return mr;
     }
 
     recipe lib_rule::
-    apply (action a, target& xt, const match_result& mr) const
+    apply (action act, target& xt, const match_result& mr) const
     {
       lib& t (static_cast<lib&> (xt));
 
       const string& type (*static_cast<const string*> (mr.cpvalue));
 
-      bool ar (type == "static" || type == "both");
-      bool so (type == "shared" || type == "both");
+      bool a (type == "static" || type == "both");
+      bool s (type == "shared" || type == "both");
 
       // Now we do full match.
       //
-      if (ar)
-        build2::match (a, *t.a);
+      if (a)
+        build2::match (act, *t.a);
 
-      if (so)
-        build2::match (a, *t.so);
+      if (s)
+        build2::match (act, *t.s);
 
       return &perform;
     }
 
     target_state lib_rule::
-    perform (action a, target& xt)
+    perform (action act, target& xt)
     {
       lib& t (static_cast<lib&> (xt));
 
@@ -122,11 +122,12 @@ namespace build2
       //
       //
       const string& type (cast<string> (t["bin.lib"]));
-      bool ar (type == "static" || type == "both");
-      bool so (type == "shared" || type == "both");
 
-      target* m1 (ar ? t.a : nullptr);
-      target* m2 (so ? t.so : nullptr);
+      bool a (type == "static" || type == "both");
+      bool s (type == "shared" || type == "both");
+
+      target* m1 (a ? t.a : nullptr);
+      target* m2 (s ? t.s : nullptr);
 
       if (current_mode == execution_mode::last)
         swap (m1, m2);
@@ -134,10 +135,10 @@ namespace build2
       target_state r (target_state::unchanged);
 
       if (m1 != nullptr)
-        r |= execute (a, *m1);
+        r |= execute (act, *m1);
 
       if (m2 != nullptr)
-        r |= execute (a, *m2);
+        r |= execute (act, *m2);
 
       return r;
     }

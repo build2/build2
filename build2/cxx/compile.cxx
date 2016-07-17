@@ -21,6 +21,7 @@
 #include <build2/cxx/target>
 
 #include <build2/cxx/link>
+#include <build2/cxx/common>
 #include <build2/cxx/utility>
 
 
@@ -69,15 +70,57 @@ namespace build2
       path_target& t (static_cast<path_target&> (xt));
 
       scope& rs (t.root_scope ());
+
       const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
+
+      otype ct (compile_type (t));
 
       // Derive file name from target name.
       //
       if (t.path ().empty ())
       {
-        const char* ext (cid == "msvc" ? "obj" : "o");
-        t.derive_path (ext, nullptr, (t.is_a<objso> () ? "-so" : nullptr));
+        const char* e (nullptr);
+
+        if (tsys == "win32-msvc")
+        {
+          switch (ct)
+          {
+          case otype::e: e = "exe.obj"; break;
+          case otype::a: e = "lib.obj"; break;
+          case otype::s: e = "dll.obj"; break;
+          }
+        }
+        else if (tsys == "mingw32")
+        {
+          switch (ct)
+          {
+          case otype::e: e = "exe.o"; break;
+          case otype::a: e = "a.o";   break;
+          case otype::s: e = "dll.o"; break;
+          }
+        }
+        else if (tsys == "darwin")
+        {
+          switch (ct)
+          {
+          case otype::e: e = "o";       break;
+          case otype::a: e = "a.o";     break;
+          case otype::s: e = "dylib.o"; break;
+          }
+        }
+        else
+        {
+          switch (ct)
+          {
+          case otype::e: e = "o"; break;
+          case otype::a: e = "a.o"; break;
+          case otype::s: e = "so.o"; break;
+          }
+        }
+
+        t.derive_path (e);
       }
 
       // Inject dependency on the output directory.
@@ -102,7 +145,7 @@ namespace build2
         // meta-information protocol". See also append_lib_options()
         // above.
         //
-        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
           if (a.operation () == update_id)
           {
@@ -184,7 +227,7 @@ namespace build2
         {
           target& pt (*p.target); // Already searched and matched.
 
-          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
             hash_lib_options (cs, pt, "cxx.export.poptions");
         }
 
@@ -192,7 +235,7 @@ namespace build2
         hash_options (cs, t, "cxx.coptions");
         hash_std (cs, rs, cid, t);
 
-        if (t.is_a<objso> ())
+        if (ct == otype::s)
         {
           // On Darwin, Win32 -fPIC is the default.
           //
@@ -369,7 +412,7 @@ namespace build2
         if (t == nullptr)
           continue;
 
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libso> ())
+        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
           append_lib_prefixes (m, *t);
       }
 
@@ -389,7 +432,7 @@ namespace build2
       {
         target& pt (*p.target); // Already searched and matched.
 
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
           append_lib_prefixes (m, pt);
       }
 
@@ -617,7 +660,7 @@ namespace build2
         {
           target& pt (*p.target); // Already searched and matched.
 
-          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
             append_lib_options (args, pt, "cxx.export.poptions");
         }
 
@@ -628,7 +671,7 @@ namespace build2
         append_options (args, t, "cxx.coptions");
         append_std (args, rs, cid, t, cxx_std);
 
-        if (t.is_a<objso> ())
+        if (t.is_a<objs> ())
         {
           // On Darwin, Win32 -fPIC is the default.
           //
@@ -1181,18 +1224,21 @@ namespace build2
       if (s == nullptr)
         return target_state::unchanged;
 
+      scope& rs (t.root_scope ());
+
+      const path& cxx (cast<path> (rs["config.cxx"]));
+      const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
+
+      otype ct (compile_type (t));
+
+      cstrings args {cxx.string ().c_str ()};
+
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
       path relo (relative (t.path ()));
       path rels (relative (s->path ()));
-
-      scope& rs (t.root_scope ());
-      const path& cxx (cast<path> (rs["config.cxx"]));
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
-
-      cstrings args {cxx.string ().c_str ()};
 
       // Add cxx.export.poptions from prerequisite libraries. Note that
       // here we don't need to see group members (see apply()).
@@ -1201,7 +1247,7 @@ namespace build2
       {
         target& pt (*p.target); // Already searched and matched.
 
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libso> ())
+        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
           append_lib_options (args, pt, "cxx.export.poptions");
       }
 
@@ -1268,7 +1314,7 @@ namespace build2
       }
       else
       {
-        if (t.is_a<objso> ())
+        if (ct == otype::s)
         {
           // On Darwin, Win32 -fPIC is the default.
           //

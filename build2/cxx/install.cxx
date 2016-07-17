@@ -6,8 +6,9 @@
 
 #include <build2/bin/target>
 
-#include <build2/cxx/target>
 #include <build2/cxx/link>
+#include <build2/cxx/common>
+#include <build2/cxx/target>
 
 using namespace std;
 
@@ -31,17 +32,20 @@ namespace build2
       // If this is a shared library prerequisite, install it as long as it
       // is in the same amalgamation as we are.
       //
-      if ((t.is_a<exe> () || t.is_a<libso> ()) &&
-          (p.is_a<lib> () || p.is_a<libso> ()))
+      // @@ Shouldn't we also install a static library prerequisite of a
+      //    static library?
+      //
+      if ((t.is_a<exe> () || t.is_a<libs> ()) &&
+          (p.is_a<lib> () || p.is_a<libs> ()))
       {
         target* pt (&p.search ());
 
         // If this is the lib{} group, pick a member which we would link.
         //
         if (lib* l = pt->is_a<lib> ())
-          pt = &link::link_member (*l, link::link_order (t));
+          pt = &link_member (*l, link_order (t.base_scope (), link_type (t)));
 
-        if (pt->is_a<libso> ()) // Can be liba{}.
+        if (pt->is_a<libs> ()) // Can be liba{}.
           return pt->in (t.weak_scope ()) ? pt : nullptr;
       }
 

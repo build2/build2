@@ -33,26 +33,6 @@ namespace build2
 
       static link instance;
 
-    public:
-      enum class type {e, a, so};
-      enum class order {a, so, a_so, so_a};
-
-      static type
-      link_type (target& t)
-      {
-        return t.is_a<bin::exe> ()
-          ? type::e
-          : (t.is_a<bin::liba> () ? type::a : type::so);
-      }
-
-      static order
-      link_order (target&);
-
-      // Determine the library member (liba or libso) to link.
-      //
-      static target&
-      link_member (bin::lib&, order);
-
     private:
       friend class compile;
 

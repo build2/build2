@@ -49,7 +49,7 @@ namespace build2
 
       for (target* pt: t.prerequisite_targets)
       {
-        if (libso* ls = pt->is_a<libso> ())
+        if (libs* ls = pt->is_a<libs> ())
         {
           // This can be an installed library in which case we will have just
           // the import stub but may also have just the DLL. For now we don't
@@ -84,7 +84,7 @@ namespace build2
     {
       for (target* pt: t.prerequisite_targets)
       {
-        if (libso* ls = pt->is_a<libso> ())
+        if (libs* ls = pt->is_a<libs> ())
         {
           if (ls->member == nullptr)
             continue;

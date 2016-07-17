@@ -19,6 +19,7 @@
 #include <build2/bin/target>
 #include <build2/cxx/target>
 
+#include <build2/cxx/common>
 #include <build2/cxx/utility>
 
 using namespace std;
@@ -29,58 +30,6 @@ namespace build2
   namespace cxx
   {
     using namespace bin;
-
-    link::order link::
-    link_order (target& t)
-    {
-      const char* var;
-
-      switch (link_type (t))
-      {
-      case type::e:  var = "bin.exe.lib";   break;
-      case type::a:  var = "bin.liba.lib";  break;
-      case type::so: var = "bin.libso.lib"; break;
-      }
-
-      const auto& v (cast<strings> (t[var]));
-      return v[0] == "shared"
-        ? v.size () > 1 && v[1] == "static" ? order::so_a : order::so
-        : v.size () > 1 && v[1] == "shared" ? order::a_so : order::a;
-    }
-
-    target& link::
-    link_member (bin::lib& l, order lo)
-    {
-      bool lso (true);
-      const string& at (cast<string> (l["bin.lib"])); // Available types.
-
-      switch (lo)
-      {
-      case order::a:
-      case order::a_so:
-        lso = false; // Fall through.
-      case order::so:
-      case order::so_a:
-        {
-          if (lso ? at == "static" : at == "shared")
-          {
-            if (lo == order::a_so || lo == order::so_a)
-              lso = !lso;
-            else
-              fail << (lso ? "shared" : "static") << " build of " << l
-                   << " is not available";
-          }
-        }
-      }
-
-      target* r (lso ? static_cast<target*> (l.so) : l.a);
-
-      if (r == nullptr)
-        r = &search (lso ? libso::static_type : liba::static_type,
-                     prerequisite_key {nullptr, l.key (), nullptr});
-
-      return *r;
-    }
 
     // Extract system library search paths from GCC or compatible (Clang,
     // Intel C++) using the -print-search-dirs option.
@@ -261,7 +210,7 @@ namespace build2
       const string& tsys (cast<string> (rs["cxx.target.system"]));
 
       bool l (p.is_a<lib> ());
-      const string* ext (l ? nullptr : p.ext); // Only for liba/libso.
+      const string* ext (l ? nullptr : p.ext); // Only for liba/libs.
 
       // Then figure out what we need to search for.
       //
@@ -302,12 +251,12 @@ namespace build2
         }
       }
 
-      // libso
+      // libs
       //
       path sn;
       const string* se (nullptr);
 
-      if (l || p.is_a<libso> ())
+      if (l || p.is_a<libs> ())
       {
         const char* e ("");
 
@@ -358,7 +307,7 @@ namespace build2
         spc = extract_library_paths (p.scope);
 
       liba* a (nullptr);
-      libso* s (nullptr);
+      libs* s (nullptr);
 
       path f; // Reuse the buffer.
       const dir_path* pd;
@@ -390,7 +339,7 @@ namespace build2
           }
         }
 
-        // libso
+        // libs
         //
         if (!sn.empty ())
         {
@@ -403,7 +352,7 @@ namespace build2
             // Above we searched for the import library (.dll.a) but if it's
             // not found, then we also search for the .dll (unless the
             // extension was specified explicitly) since we can link to it
-            // directly. Note also that the resulting libso{} would end up
+            // directly. Note also that the resulting libs{} would end up
             // being the .dll.
             //
             if (mt == timestamp_nonexistent && ext == nullptr)
@@ -416,7 +365,7 @@ namespace build2
 
           if (mt != timestamp_nonexistent)
           {
-            s = &targets.insert<libso> (d, dir_path (), p.name, se, trace);
+            s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
 
             if (s->path ().empty ())
               s->path (move (f));
@@ -444,7 +393,7 @@ namespace build2
         // It should automatically link-up to the members we have found.
         //
         assert (l.a == a);
-        assert (l.so == s);
+        assert (l.s == s);
 
         // Set the bin.lib variable to indicate what's available.
         //
@@ -474,11 +423,11 @@ namespace build2
       //
       // - if there is no .o, are we going to check if the one derived
       //   from target exist or can be built? A: No.
-      //   What if there is a library. Probably ok if .a, not if .so.
+      //   What if there is a library. Probably ok if static, not if shared,
       //   (i.e., a utility library).
       //
 
-      type lt (link_type (t));
+      otype lt (link_type (t));
 
       // Scan prerequisites and see if we can work with what we've got.
       //
@@ -495,22 +444,34 @@ namespace build2
         {
           seen_c = seen_c || true;
         }
-        else if (p.is_a<obja> ())
+        else if (p.is_a<obj> ())
         {
-          if (lt == type::so)
-            fail << "shared library " << t << " prerequisite " << p
-                 << " is static object";
+          seen_obj = seen_obj || true;
+        }
+        else if (p.is_a<obje> ())
+        {
+          if (lt != otype::e)
+            fail << "obje{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<objso> () ||
-                 p.is_a<obj> ())
+        else if (p.is_a<obja> ())
         {
+          if (lt != otype::a)
+            fail << "obja{} as prerequisite of " << t;
+
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<liba> ()  ||
-                 p.is_a<libso> () ||
-                 p.is_a<lib> ())
+        else if (p.is_a<objs> ())
+        {
+          if (lt != otype::s)
+            fail << "objs{} as prerequisite of " << t;
+
+          seen_obj = seen_obj || true;
+        }
+        else if (p.is_a<lib> ()  ||
+                 p.is_a<liba> () ||
+                 p.is_a<libs> ())
         {
           seen_lib = seen_lib || true;
         }
@@ -530,7 +491,7 @@ namespace build2
       // "library meta-information protocol". Don't do this if we are
       // called from the install rule just to check if we would match.
       //
-      if (seen_lib && lt != type::e &&
+      if (seen_lib && lt != otype::e &&
           a.operation () != install_id && a.outer_operation () != install_id)
       {
         if (t.group != nullptr)
@@ -540,7 +501,7 @@ namespace build2
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
-          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
           {
             target* pt (nullptr);
 
@@ -583,9 +544,8 @@ namespace build2
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
-      type lt (link_type (t));
-      order lo (link_order (t));
-      bool so (lt == type::so);
+      otype lt (link_type (t));
+      lorder lo (link_order (bs, lt));
 
       // Derive file name from target name.
       //
@@ -596,7 +556,7 @@ namespace build2
 
         switch (lt)
         {
-        case type::e:
+        case otype::e:
           {
             if (tclass == "windows")
               e = "exe";
@@ -605,7 +565,7 @@ namespace build2
 
             break;
           }
-        case type::a:
+        case otype::a:
           {
             // To be anally precise, let's use the ar id to decide how to name
             // the library in case, for example, someone wants to archive
@@ -626,7 +586,7 @@ namespace build2
 
             break;
           }
-        case type::so:
+        case otype::s:
           {
             //@@ VC: DLL name.
 
@@ -637,9 +597,9 @@ namespace build2
             }
             else if (tclass == "windows")
             {
-              // On Windows libso{} is an ad hoc group. The libso{} itself is
+              // On Windows libs{} is an ad hoc group. The libs{} itself is
               // the import library and we add dll{} as a member (see below).
-              // While at first it may seem strange that libso{} is the import
+              // While at first it may seem strange that libs{} is the import
               // library and not the DLL, if you meditate on it, you will see
               // it makes a lot of sense: our main task here is building and
               // for that we need the import library, not the DLL.
@@ -697,7 +657,7 @@ namespace build2
       {
         // DLL
         //
-        if (so)
+        if (lt == otype::s)
         {
           file& dll (add_adhoc (t, "dll"));
 
@@ -707,7 +667,7 @@ namespace build2
 
         // PDB
         //
-        if (lt != type::a &&
+        if (lt != otype::a &&
             cid == "msvc" &&
             find_option ("/DEBUG", t, "cxx.loptions", true))
         {
@@ -734,6 +694,10 @@ namespace build2
       // When cleaning, ignore prerequisites that are not in the same
       // or a subdirectory of our project root.
       //
+      const target_type& ott (lt == otype::e ? obje::static_type :
+                              lt == otype::a ? obja::static_type :
+                              objs::static_type);
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         target* pt (nullptr);
@@ -758,11 +722,15 @@ namespace build2
           //
           if (obj* o = pt->is_a<obj> ())
           {
-            pt = so ? static_cast<target*> (o->so) : o->a;
+            switch (lt)
+            {
+            case otype::e: pt = o->e; break;
+            case otype::a: pt = o->a; break;
+            case otype::s: pt = o->s; break;
+            }
 
             if (pt == nullptr)
-              pt = &search (so ? objso::static_type : obja::static_type,
-                            p.key ());
+              pt = &search (ott, p.key ());
           }
           else if (lib* l = pt->is_a<lib> ())
           {
@@ -785,10 +753,7 @@ namespace build2
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
 
         const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
-        const target_type& otype (
-          group
-          ? obj::static_type
-          : (so ? objso::static_type : obja::static_type));
+        const target_type& tt (group ? obj::static_type : ott);
 
         // Come up with the obj*{} target. The c(xx){} prerequisite directory
         // can be relative (to the scope) or absolute. If it is relative, then
@@ -807,7 +772,7 @@ namespace build2
           {
             if (!cpd.sub (rs.src_path ()))
               fail << "out of project prerequisite " << cp <<
-                info << "specify corresponding " << otype.name << "{} "
+                info << "specify corresponding " << tt.name << "{} "
                    << "target explicitly";
 
             d = rs.out_path () / cpd.leaf (rs.src_path ());
@@ -817,7 +782,7 @@ namespace build2
         // obj*{} is always in the out tree.
         //
         target& ot (
-          search (otype, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+          search (tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of our project root.
@@ -838,11 +803,16 @@ namespace build2
         if (group)
         {
           obj& o (static_cast<obj&> (ot));
-          pt = so ? static_cast<target*> (o.so) : o.a;
+
+          switch (lt)
+          {
+          case otype::e: pt = o.e; break;
+          case otype::a: pt = o.a; break;
+          case otype::s: pt = o.s; break;
+          }
 
           if (pt == nullptr)
-            pt = &search (so ? objso::static_type : obja::static_type,
-                          o.dir, o.out, o.name, o.ext, nullptr);
+            pt = &search (ott, o.dir, o.out, o.name, o.ext, nullptr);
         }
         else
           pt = &ot;
@@ -869,9 +839,9 @@ namespace build2
               (p.is_a<cxx> () && (p1.is_a<hxx> () ||
                                   p1.is_a<ixx> () ||
                                   p1.is_a<txx> ())) ||
-              p1.is_a<lib> ()  ||
+              p1.is_a<lib>  () ||
               p1.is_a<liba> () ||
-              p1.is_a<libso> ())
+              p1.is_a<libs> ())
           {
             continue;
           }
@@ -893,7 +863,7 @@ namespace build2
                    << "be incompatible with existing target " << *pt <<
                 info << "existing prerequisite " << p1 << " does not match "
                    << cp <<
-                info << "specify corresponding " << otype.name << "{} target "
+                info << "specify corresponding " << tt.name << "{} target "
                    << "explicitly";
 
             found = true;
@@ -918,7 +888,7 @@ namespace build2
           //
           for (prerequisite& p: group_prerequisites (t))
           {
-            if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libso> ())
+            if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
               ot.prerequisites.emplace_back (p);
           }
 
@@ -948,7 +918,7 @@ namespace build2
           args.push_back (relative (pa->path ()).string ()); // string()&&
           append_libraries (args, *pa);
         }
-        else if (libso* ps = pt->is_a<libso> ())
+        else if (libs* ps = pt->is_a<libs> ())
           args.push_back (relative (ps->path ()).string ()); // string()&&
       }
     }
@@ -963,17 +933,17 @@ namespace build2
           cs.append (pa->path ().string ());
           hash_libraries (cs, *pa);
         }
-        else if (libso* ps = pt->is_a<libso> ())
+        else if (libs* ps = pt->is_a<libs> ())
           cs.append (ps->path ().string ());
       }
     }
 
     static void
-    append_rpath_link (strings& args, libso& t)
+    append_rpath_link (strings& args, libs& t)
     {
       for (target* pt: t.prerequisite_targets)
       {
-        if (libso* ls = pt->is_a<libso> ())
+        if (libs* ls = pt->is_a<libs> ())
         {
           args.push_back ("-Wl,-rpath-link," +
                           ls->path ().directory ().string ());
@@ -1002,8 +972,7 @@ namespace build2
 
       file& t (static_cast<file&> (xt));
 
-      type lt (link_type (t));
-      bool so (lt == type::so);
+      otype lt (link_type (t));
 
       // Update prerequisites.
       //
@@ -1020,7 +989,7 @@ namespace build2
       path manifest; // Manifest itself (msvc) or compiled object file.
       timestamp rpath_timestamp (timestamp_nonexistent); // DLLs timestamp.
 
-      if (lt == type::e && tclass == "windows")
+      if (lt == otype::e && tclass == "windows")
       {
         // First determine if we need to add our rpath emulating assembly. The
         // assembly itself is generated later, after updating the target. Omit
@@ -1130,7 +1099,7 @@ namespace build2
 
       // Then the linker checksum (ar/ranlib or C++ compiler).
       //
-      if (lt == type::a)
+      if (lt == otype::a)
       {
         ranlib = rs["config.bin.ranlib"];
 
@@ -1195,7 +1164,7 @@ namespace build2
         args.push_back (m);
       }
 
-      if (lt == type::a)
+      if (lt == otype::a)
       {
         if (cid == "msvc") ;
         else
@@ -1238,7 +1207,7 @@ namespace build2
         {
           // Set soname.
           //
-          if (so)
+          if (lt == otype::s)
           {
             const string& leaf (t.path ().leaf ().string ());
 
@@ -1277,7 +1246,7 @@ namespace build2
           //
           for (target* pt: t.prerequisite_targets)
           {
-            if (libso* ls = pt->is_a<libso> ())
+            if (libs* ls = pt->is_a<libs> ())
             {
               if (a.outer_operation () != install_id)
               {
@@ -1330,11 +1299,12 @@ namespace build2
           path_target* ppt;
           liba* a (nullptr);
 
-          if ((ppt = pt->is_a<obja> ())  ||
-              (ppt = pt->is_a<objso> ()) ||
-              (lt != type::a &&
+          if ((ppt = pt->is_a<obje> ()) ||
+              (ppt = pt->is_a<obja> ()) ||
+              (ppt = pt->is_a<objs> ()) ||
+              (lt != otype::a &&
                ((ppt = a = pt->is_a<liba> ()) ||
-                (ppt = pt->is_a<libso> ()))))
+                (ppt =     pt->is_a<libs> ()))))
           {
             cs.append (ppt->path ().string ());
 
@@ -1353,7 +1323,7 @@ namespace build2
 
         // Treat them as inputs, not options.
         //
-        if (lt != type::a)
+        if (lt != otype::a)
           hash_options (cs, t, "cxx.libs");
 
         if (dd.expect (cs.string ()) != nullptr)
@@ -1387,7 +1357,7 @@ namespace build2
 
       switch (lt)
       {
-      case type::e:
+      case otype::e:
         {
           if (cid == "msvc")
           {
@@ -1449,7 +1419,7 @@ namespace build2
 
           break;
         }
-      case type::a:
+      case otype::a:
         {
           args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
 
@@ -1470,7 +1440,7 @@ namespace build2
 
           break;
         }
-      case type::so:
+      case otype::s:
         {
           if (cid == "msvc")
           {
@@ -1489,7 +1459,7 @@ namespace build2
 
             if (tsys == "mingw32")
             {
-              // On Windows libso{} is the import stub and its first ad hoc
+              // On Windows libs{} is the import stub and its first ad hoc
               // group member is dll{}.
               //
               out = "-Wl,--out-implib=" + relt.string ();
@@ -1514,13 +1484,13 @@ namespace build2
       {
         path_target* ppt;
         liba* a (nullptr);
-        libso* so (nullptr);
 
-        if ((ppt = pt->is_a<obja> ())  ||
-            (ppt = pt->is_a<objso> ()) ||
-            (lt != type::a &&
+        if ((ppt = pt->is_a<obje> ()) ||
+            (ppt = pt->is_a<obja> ()) ||
+            (ppt = pt->is_a<objs> ()) ||
+            (lt != otype::a &&
              ((ppt = a = pt->is_a<liba> ()) ||
-              (ppt = so = pt->is_a<libso> ()))))
+              (ppt     = pt->is_a<libs> ()))))
         {
           sargs.push_back (relative (ppt->path ()).string ()); // string()&&
 
@@ -1543,7 +1513,7 @@ namespace build2
       for (size_t i (0); i != sargs.size (); ++i)
         args.push_back (sargs[i].c_str ());
 
-      if (lt != type::a)
+      if (lt != otype::a)
         append_options (args, t, "cxx.libs");
 
       args.push_back (nullptr);
@@ -1615,7 +1585,7 @@ namespace build2
       // For Windows generate rpath-emulating assembly (unless updaing for
       // install).
       //
-      if (lt == type::e && tclass == "windows")
+      if (lt == otype::e && tclass == "windows")
       {
         if (a.outer_operation () != install_id)
           windows_rpath_assembly (t, rpath_timestamp, scratch);
@@ -1644,12 +1614,12 @@ namespace build2
 
       switch (link_type (t))
       {
-      case type::a:
+      case otype::a:
         {
           e = {"+.d"};
           break;
         }
-      case type::e:
+      case otype::e:
         {
           if (tclass == "windows")
           {
@@ -1671,7 +1641,7 @@ namespace build2
 
           break;
         }
-      case type::so:
+      case otype::s:
         {
           e = {"+.d"};
           break;

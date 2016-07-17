@@ -44,6 +44,7 @@ exe{b}:                                       \
  config/{hxx         cxx}{ module           } \
  config/{hxx         cxx}{ operation        } \
  config/{hxx     txx cxx}{ utility          } \
+    cxx/{hxx         cxx}{ common           } \
     cxx/{hxx         cxx}{ compile          } \
     cxx/{hxx         cxx}{ guess            } \
     cxx/{hxx         cxx}{ install          } \
