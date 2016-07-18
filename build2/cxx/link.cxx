@@ -4,7 +4,7 @@
 
 #include <build2/cxx/link>
 
-#include <cstdlib>  // exit()
+#include <cstdlib> // exit()
 
 #include <butl/path-map>
 
@@ -383,6 +383,53 @@ namespace build2
 
       if (a == nullptr && s == nullptr)
         return nullptr;
+
+      // Add the "using static/shared library" macro (used, for example, to
+      // handle DLL export). The absence of either of these macros would mean
+      // some other build system that cannot distinguish between the two.
+      //
+      auto add_macro = [] (target& t, const char* suffix)
+      {
+        // If there is already a value, don't add anything, we don't want to
+        // be accumulating defines nor messing with custom values.
+        //
+        auto p (t.vars.insert ("cxx.export.poptions"));
+
+        if (p.second)
+        {
+          // The "standard" macro name will be LIB<NAME>_{STATIC,SHARED},
+          // where <name> is the target name. Here we want to strike a balance
+          // between being unique and not too noisy.
+          //
+          string d ("-DLIB");
+
+          //@@ CASE
+
+          auto upcase = [] (char c)
+          {
+            const unsigned char shift ('a' - 'A');
+            return c >= 'a' && c <='z' ? c - shift : c;
+          };
+
+          transform (t.name.begin (),
+                     t.name.end (),
+                     back_inserter (d),
+                     upcase);
+
+          d += '_';
+          d += suffix;
+
+          strings o;
+          o.push_back (move (d));
+          p.first.get () = move (o);
+        }
+      };
+
+      if (a != nullptr)
+        add_macro (*a, "STATIC");
+
+      if (s != nullptr)
+        add_macro (*s, "SHARED");
 
       if (l)
       {

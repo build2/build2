@@ -185,7 +185,7 @@ namespace build2
   bool
   find_option (const char* option, const strings& strs, bool)
   {
-    //@@ TODO ignore case
+    //@@ CASE ignore case
 
     for (const string& s: strs)
     {
@@ -199,7 +199,7 @@ namespace build2
   bool
   find_option (const char* option, const cstrings& cstrs, bool)
   {
-    //@@ TODO ignore case
+    //@@ CASE ignore case
 
     for (const char* s: cstrs)
     {
