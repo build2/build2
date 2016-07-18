@@ -878,13 +878,19 @@ namespace build2
           ot.prerequisites.emplace_back (p.as_prerequisite (trace));
 
           // Add our lib*{} prerequisites to the object file (see
-          // cxx.export.poptions above for details). Note: no need
-          // to go into group members.
+          // cxx.export.poptions above for details).
           //
-          // Initially, we were only adding imported libraries, but
-          // there is a problem with this approach: the non-imported
-          // library might depend on the imported one(s) which we will
-          // never "see" unless we start with this library.
+          // Note that we don't resolve lib{} to liba{}/libs{} here instead
+          // leaving it to whoever (e.g., the compile rule) will be needing
+          // cxx.export.*. One reason for doing it there is that the object
+          // target might be specified explicitly by the user in which case
+          // they will have to specify the set of lib{} prerequisites and it's
+          // much cleaner to do as lib{} rather than liba{}/libs{}.
+          //
+          // Initially, we were only adding imported libraries, but there is a
+          // problem with this approach: the non-imported library might depend
+          // on the imported one(s) which we will never "see" unless we start
+          // with this library.
           //
           for (prerequisite& p: group_prerequisites (t))
           {

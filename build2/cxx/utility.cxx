@@ -73,28 +73,34 @@ namespace build2
     }
 
     void
-    append_lib_options (cstrings& args, target& l, const char* var)
+    append_lib_options (cstrings& args, target& l, const char* var, lorder lo)
     {
       using namespace bin;
 
       for (target* t: l.prerequisite_targets)
       {
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
-          append_lib_options (args, *t, var);
+        if (lib* l = t->is_a<lib> ())
+          t = &link_member (*l, lo); // Pick one of the members.
+
+        if (t->is_a<liba> () || t->is_a<libs> ())
+          append_lib_options (args, *t, var, lo);
       }
 
       append_options (args, l, var);
     }
 
     void
-    hash_lib_options (sha256& csum, target& l, const char* var)
+    hash_lib_options (sha256& csum, target& l, const char* var, lorder lo)
     {
       using namespace bin;
 
       for (target* t: l.prerequisite_targets)
       {
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
-          hash_lib_options (csum, *t, var);
+        if (lib* l = t->is_a<lib> ())
+          t = &link_member (*l, lo); // Pick one of the members.
+
+        if (t->is_a<liba> () || t->is_a<libs> ())
+          hash_lib_options (csum, *t, var, lo);
       }
 
       hash_options (csum, l, var);

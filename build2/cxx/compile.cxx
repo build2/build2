@@ -60,7 +60,7 @@ namespace build2
     }
 
     static void
-    inject_prerequisites (action, target&, cxx&, scope&, depdb&);
+    inject_prerequisites (action, target&, lorder, cxx&, scope&, depdb&);
 
     recipe compile::
     apply (action a, target& xt, const match_result& mr) const
@@ -69,7 +69,8 @@ namespace build2
 
       path_target& t (static_cast<path_target&> (xt));
 
-      scope& rs (t.root_scope ());
+      scope& bs (t.base_scope ());
+      scope& rs (*bs.root_scope ());
 
       const string& cid (cast<string> (rs["cxx.id"]));
       const string& tsys (cast<string> (rs["cxx.target.system"]));
@@ -223,12 +224,16 @@ namespace build2
 
         // Hash cxx.export.poptions from prerequisite libraries.
         //
+        lorder lo (link_order (bs, ct));
         for (prerequisite& p: group_prerequisites (t))
         {
-          target& pt (*p.target); // Already searched and matched.
+          target* pt (p.target); // Already searched and matched.
 
-          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
-            hash_lib_options (cs, pt, "cxx.export.poptions");
+          if (lib* l = pt->is_a<lib> ())
+            pt = &link_member (*l, lo);
+
+          if (pt->is_a<liba> () || pt->is_a<libs> ())
+            hash_lib_options (cs, *pt, "cxx.export.poptions", lo);
         }
 
         hash_options (cs, t, "cxx.poptions");
@@ -258,7 +263,7 @@ namespace build2
         if (dd.writing () || dd.mtime () > t.mtime ())
           t.mtime (timestamp_nonexistent);
 
-        inject_prerequisites (a, t, st, mr.prerequisite->scope, dd);
+        inject_prerequisites (a, t, lo, st, mr.prerequisite->scope, dd);
 
         dd.close ();
       }
@@ -405,22 +410,25 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     static void
-    append_lib_prefixes (prefix_map& m, target& l)
+    append_lib_prefixes (prefix_map& m, target& l, lorder lo)
     {
       for (target* t: l.prerequisite_targets)
       {
         if (t == nullptr)
           continue;
 
-        if (t->is_a<lib> () || t->is_a<liba> () || t->is_a<libs> ())
-          append_lib_prefixes (m, *t);
+        if (lib* l = t->is_a<lib> ())
+          t = &link_member (*l, lo); // Pick one of the members.
+
+        if (t->is_a<liba> () || t->is_a<libs> ())
+          append_lib_prefixes (m, *t, lo);
       }
 
       append_prefixes (m, l, "cxx.export.poptions");
     }
 
     static prefix_map
-    build_prefix_map (target& t)
+    build_prefix_map (target& t, lorder lo)
     {
       prefix_map m;
 
@@ -430,10 +438,13 @@ namespace build2
       //
       for (prerequisite& p: group_prerequisites (t))
       {
-        target& pt (*p.target); // Already searched and matched.
+        target* pt (p.target); // Already searched and matched.
 
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
-          append_lib_prefixes (m, pt);
+        if (lib* l = pt->is_a<lib> ())
+          pt = &link_member (*l, lo); // Pick one of the members.
+
+        if (pt->is_a<liba> () || pt->is_a<libs> ())
+          append_lib_prefixes (m, *pt, lo);
       }
 
       // Then process our own.
@@ -622,7 +633,8 @@ namespace build2
     }
 
     static void
-    inject_prerequisites (action a, target& t, cxx& s, scope& ds, depdb& dd)
+    inject_prerequisites (action a, target& t, lorder lo,
+                          cxx& s, scope& ds, depdb& dd)
     {
       tracer trace ("cxx::compile::inject_prerequisites");
 
@@ -646,7 +658,7 @@ namespace build2
       cstrings args;
       string cxx_std; // Storage.
 
-      auto init_args = [&t, &s, &rs, &cid, &args, &cxx_std] ()
+      auto init_args = [&t, lo, &s, &rs, &cid, &args, &cxx_std] ()
       {
         const path& cxx (cast<path> (rs["config.cxx"]));
         const string& tclass (cast<string> (rs["cxx.target.class"]));
@@ -658,10 +670,13 @@ namespace build2
         //
         for (prerequisite& p: group_prerequisites (t))
         {
-          target& pt (*p.target); // Already searched and matched.
+          target* pt (p.target); // Already searched and matched.
 
-          if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
-            append_lib_options (args, pt, "cxx.export.poptions");
+          if (lib* l = pt->is_a<lib> ())
+            pt = &link_member (*l, lo);
+
+          if (pt->is_a<liba> () || pt->is_a<libs> ())
+            append_lib_options (args, *pt, "cxx.export.poptions", lo);
         }
 
         append_options (args, t, "cxx.poptions");
@@ -799,8 +814,8 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, a, &t, &ds, &dd] (path f, bool cache)
-        -> bool
+      auto add = [&trace, &update, &pm, a, &t, lo, &ds, &dd]
+        (path f, bool cache) -> bool
       {
         if (!f.absolute ())
         {
@@ -815,7 +830,7 @@ namespace build2
           // then we would have failed below.
           //
           if (pm.empty ())
-            pm = build_prefix_map (t);
+            pm = build_prefix_map (t, lo);
 
           // First try the whole file. Then just the directory.
           //
@@ -1224,7 +1239,8 @@ namespace build2
       if (s == nullptr)
         return target_state::unchanged;
 
-      scope& rs (t.root_scope ());
+      scope& bs (t.base_scope ());
+      scope& rs (*bs.root_scope ());
 
       const path& cxx (cast<path> (rs["config.cxx"]));
       const string& cid (cast<string> (rs["cxx.id"]));
@@ -1243,12 +1259,16 @@ namespace build2
       // Add cxx.export.poptions from prerequisite libraries. Note that
       // here we don't need to see group members (see apply()).
       //
+      lorder lo (link_order (bs, ct));
       for (prerequisite& p: group_prerequisites (t))
       {
-        target& pt (*p.target); // Already searched and matched.
+        target* pt (p.target); // Already searched and matched.
 
-        if (pt.is_a<lib> () || pt.is_a<liba> () || pt.is_a<libs> ())
-          append_lib_options (args, pt, "cxx.export.poptions");
+        if (lib* l = pt->is_a<lib> ())
+          pt = &link_member (*l, lo);
+
+        if (pt->is_a<liba> () || pt->is_a<libs> ())
+          append_lib_options (args, *pt, "cxx.export.poptions", lo);
       }
 
       append_options (args, t, "cxx.poptions");

@@ -10,6 +10,8 @@
 
 #include <build2/target>
 
+#include <build2/cxx/common>
+
 namespace build2
 {
   namespace cxx
@@ -28,10 +30,10 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void
-    append_lib_options (cstrings&, target&, const char* variable);
+    append_lib_options (cstrings&, target&, const char* variable, lorder);
 
     void
-    hash_lib_options (sha256&, target&, const char* variable);
+    hash_lib_options (sha256&, target&, const char* variable, lorder);
   }
 }
 
