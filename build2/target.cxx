@@ -383,8 +383,7 @@ namespace build2
   load_mtime () const
   {
     const path_type& f (path ());
-    assert (!f.empty ());
-    return file_mtime (f);
+    return f.empty () ? timestamp_unknown : file_mtime (f);
   }
 
   // Search functions.

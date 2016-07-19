@@ -954,10 +954,12 @@ namespace build2
   public:
     using target::target;
 
-    // Generally, modification time for a target can only be queried
-    // after a rule has been matched since that's where the path is
-    // normally gets assigned. Normally, however, it would make sense
-    // to first execute the rule to get the "updated" timestamp.
+    // Generally, modification time for a target can only be queried after a
+    // rule has been matched since that's where the path is normally gets
+    // assigned (if the path was not assigned and no timestamp was set
+    // manually, this function will return timestamp_unknown). Normally,
+    // however, it would make sense to first execute the rule to get the
+    // "updated" timestamp.
     //
     // The rule for groups that utilize the group state is as follows:
     // if it has any members that are mtime_targets, then the group
@@ -986,6 +988,8 @@ namespace build2
     }
 
   protected:
+    // Return timestamp_unknown if the mtime cannot be loaded.
+    //
     virtual timestamp
     load_mtime () const = 0;
 

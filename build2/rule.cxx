@@ -44,18 +44,25 @@ namespace build2
       {
         path_target& pt (dynamic_cast<path_target&> (t));
 
-        // Assign the path. While normally we shouldn't do this in match(),
-        // no other rule should ever be ambiguous with the fallback one.
+        // First check the timestamp. This allows for the special "trust me,
+        // this file exists" situations (used, for example, for installed
+        // stuff where we know it's there, just not exactly where).
         //
-        if (pt.path ().empty ())
-          pt.derive_path ();
+        timestamp ts (pt.mtime ());
 
-        // We cannot just call pt.mtime() since we haven't matched yet.
-        //
-        timestamp ts (file_mtime (pt.path ()));
-        pt.mtime (ts);
+        if (ts == timestamp_unknown)
+        {
+          // Assign the path. While normally we shouldn't do this in match(),
+          // no other rule should ever be ambiguous with the fallback one.
+          //
+          if (pt.path ().empty ())
+          {
+            pt.derive_path ();
+            ts = pt.mtime ();
+          }
+        }
 
-        if (ts != timestamp_nonexistent)
+        if (ts != timestamp_unknown && ts != timestamp_nonexistent)
           return t;
 
         l4 ([&]{trace << "no existing file for target " << t;});

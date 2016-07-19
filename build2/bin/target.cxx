@@ -261,5 +261,18 @@ namespace build2
       &search_target,
       false
     };
+
+    // libi
+    //
+    const target_type libi::static_type
+    {
+      "libi",
+      &file::static_type,
+      &target_factory<libi>,
+      &target_extension_var<ext_var, nullptr>,
+      nullptr,
+      &search_file,
+      false
+    };
   }
 }

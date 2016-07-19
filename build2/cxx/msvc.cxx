@@ -227,11 +227,24 @@ namespace build2
     libs*
     msvc_search_shared (const path& ld, const dir_path& d, prerequisite& p)
     {
+      tracer trace ("cxx::msvc_search_shared");
+
       libs* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p] (const char* pf, const char* sf) -> bool
+      auto search = [&r, &ld, &d, &p, &trace] (
+        const char* pf, const char* sf) -> bool
       {
-        r = search_library<libs> (ld, d, p, otype::s, pf, sf);
+        if (libi* i = search_library<libi> (ld, d, p, otype::s, pf, sf))
+        {
+          r = &targets.insert<libs> (d, dir_path (), p.name, nullptr, trace);
+
+          if (r->member == nullptr)
+          {
+            r->mtime (i->mtime ());
+            r->member = i;
+          }
+        }
+
         return r != nullptr;
       };
 

@@ -258,7 +258,6 @@ namespace build2
 
       const string& cid (cast<string> (r["cxx.id"]));
       const string& tsys (cast<string> (r["cxx.target.system"]));
-      const string& tclass (cast<string> (r["cxx.target.class"]));
 
       // Initialize the bin module. Only do this if it hasn't already been
       // loaded so that we don't overwrite user's bin.* settings.
@@ -360,21 +359,6 @@ namespace build2
       install_path<ixx> (b, dir_path ("include"));
       install_path<txx> (b, dir_path ("include"));
       install_path<h>   (b, dir_path ("include"));
-
-      // Create additional target types for certain target platforms.
-      //
-      if (tclass == "windows")
-      {
-        const target_type& dll (b.derive_target_type<file> ("dll").first);
-        install_path (dll, b, dir_path ("bin"));
-
-        if (cid == "msvc")
-        {
-          const target_type& pdb (b.derive_target_type<file> ("pdb").first);
-          install_path (pdb, b, dir_path ("bin"));
-          install_mode (pdb, b, "644");
-        }
-      }
 
       return true;
     }

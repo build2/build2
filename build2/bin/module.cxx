@@ -348,19 +348,59 @@ namespace build2
       //
       const string& tclass (cast<string> (r["bin.target.class"]));
 
-      // Register target types.
+      // Register target types and configure their default "installability".
       //
+      using namespace install;
+
       {
         auto& t (b.target_types);
 
+        t.insert<obj>  ();
         t.insert<obje> ();
         t.insert<obja> ();
         t.insert<objs> ();
-        t.insert<obj>  ();
+
         t.insert<exe>  ();
+        install_path<exe> (b, dir_path ("bin")); // Install into install.bin.
+
+        t.insert<lib>  ();
         t.insert<liba> ();
         t.insert<libs> ();
-        t.insert<lib>  ();
+
+        install_path<liba> (b, dir_path ("lib")); // Install into install.lib.
+        install_mode<liba> (b, "644");
+
+        // Should shared libraries have the executable bit? That depends on
+        // who you ask. In Debian, for example, it should not unless, it
+        // really is executable (i.e., has main()). On the other hand, on
+        // some systems, this may be required in order for the dynamic
+        // linker to be able to load the library. So, by default, we will
+        // keep it executable, especially seeing that this is also the
+        // behavior of autotools. At the same time, it is easy to override
+        // this, for example:
+        //
+        // config.install.lib.mode=644
+        //
+        // And a library that wants to override any such overrides (e.g.,
+        // because it does have main()) can do:
+        //
+        // libs{foo}: install.mode=755
+        //
+        // Everyone is happy then? On Windows libs{} is the DLL and goes to
+        // bin/, not lib/.
+        //
+        install_path<libs> (b, dir_path (tclass == "windows" ? "bin" : "lib"));
+
+        // Create additional target types for certain targets.
+        //
+        if (tclass == "windows")
+        {
+          // Import library.
+          //
+          t.insert<libi> ();
+          install_path<libi> (b, dir_path ("lib"));
+          install_mode<libi> (b, "644");
+        }
       }
 
       // Register rules.
@@ -387,39 +427,6 @@ namespace build2
         //
         r.insert<lib> (perform_install_id, "bin.lib", lib_);
       }
-
-      // Configure "installability" of our target types.
-      //
-      using namespace install;
-
-      install_path<exe> (b, dir_path ("bin"));  // Install into install.bin.
-
-      // Should shared libraries have executable bit? That depends on
-      // who you ask. In Debian, for example, it should not unless, it
-      // really is executable (i.e., has main()). On the other hand, on
-      // some systems, this may be required in order for the dynamic
-      // linker to be able to load the library. So, by default, we will
-      // keep it executable, especially seeing that this is also the
-      // behavior of autotools. At the same time, it is easy to override
-      // this, for example:
-      //
-      // config.install.lib.mode=644
-      //
-      // And a library that wants to override any such overrides (e.g.,
-      // because it does have main()) can do:
-      //
-      // libs{foo}: install.mode=755
-      //
-      // Everyone is happy then? Not Windows users. When targeting Windows
-      // libs{} is an import library and shouldn't be exec.
-      //
-      install_path<libs> (b, dir_path ("lib")); // Install into install.lib.
-
-      if (tclass == "windows")
-        install_mode<libs> (b, "644");
-
-      install_path<liba> (b, dir_path ("lib"));  // Install into install.lib.
-      install_mode<liba> (b, "644");
 
       return true;
     }
@@ -483,6 +490,19 @@ namespace build2
         r.assign<string> ("bin.ld.id") = move (ldi.id);
         r.assign<string> ("bin.ld.signature") = move (ldi.signature);
         r.assign<string> ("bin.ld.checksum") = move (ldi.checksum);
+      }
+
+      const string& lid (cast<string> (r["bin.ld.id"]));
+
+      // Register the pdb{} target if using the VC toolchain.
+      //
+      using namespace install;
+
+      if (lid == "msvc")
+      {
+        const target_type& pdb (b.derive_target_type<file> ("pdb").first);
+        install_path (pdb, b, dir_path ("bin")); // Goes to install.bin
+        install_mode (pdb, b, "644");            // But not executable.
       }
 
       return true;

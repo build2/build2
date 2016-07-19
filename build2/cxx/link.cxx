@@ -202,6 +202,10 @@ namespace build2
     {
       tracer trace ("cxx::link::search_library");
 
+      // @@ This is hairy enough to warrant a separate implementation for
+      //    Windows.
+      //
+
       // First check the cache.
       //
       if (p.target != nullptr)
@@ -210,6 +214,7 @@ namespace build2
       scope& rs (*p.scope.root_scope ());
       const string& cid (cast<string> (rs["cxx.id"]));
       const string& tsys (cast<string> (rs["cxx.target.system"]));
+      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libs.
@@ -321,7 +326,48 @@ namespace build2
           f /= sn;
           mt = file_mtime (f);
 
-          if (tsys == "mingw32")
+          if (mt != timestamp_nonexistent)
+          {
+            // On Windows what we found is the import library which we need
+            // to make the first ad hoc member of libs{}.
+            //
+            if (tclass == "windows")
+            {
+              s = &targets.insert<libs> (
+                d, dir_path (), p.name, nullptr, trace);
+
+              if (s->member == nullptr)
+              {
+                libi& i (
+                  targets.insert<libi> (
+                    d, dir_path (), p.name, se, trace));
+
+                if (i.path ().empty ())
+                  i.path (move (f));
+
+                i.mtime (mt);
+
+                // Presumably there is a DLL somewhere, we just don't know
+                // where (and its possible we might have to look for one if we
+                // decide we need to do rpath emulation for installed
+                // libraries as well). We will represent this as empty path
+                // but valid timestamp (aka "trust me, it's there").
+                //
+                s->mtime (mt);
+                s->member = &i;
+              }
+            }
+            else
+            {
+              s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
+
+              if (s->path ().empty ())
+                s->path (move (f));
+
+              s->mtime (mt);
+            }
+          }
+          else if (ext == nullptr && tsys == "mingw32")
           {
             // Above we searched for the import library (.dll.a) but if it's
             // not found, then we also search for the .dll (unless the
@@ -329,22 +375,19 @@ namespace build2
             // directly. Note also that the resulting libs{} would end up
             // being the .dll.
             //
-            if (mt == timestamp_nonexistent && ext == nullptr)
+            se = &extension_pool.find ("dll");
+            f = f.base (); // Remove .a from .dll.a.
+            mt = file_mtime (f);
+
+            if (mt != timestamp_nonexistent)
             {
-              se = &extension_pool.find ("dll");
-              f = f.base (); // Remove .a from .dll.a.
-              mt = file_mtime (f);
+              s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
+
+              if (s->path ().empty ())
+                s->path (move (f));
+
+              s->mtime (mt);
             }
-          }
-
-          if (mt != timestamp_nonexistent)
-          {
-            s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
-
-            if (s->path ().empty ())
-              s->path (move (f));
-
-            s->mtime (mt);
           }
         }
 
@@ -595,7 +638,7 @@ namespace build2
     {
       tracer trace ("cxx::link::apply");
 
-      path_target& t (static_cast<path_target&> (xt));
+      file& t (static_cast<file&> (xt));
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
@@ -656,28 +699,13 @@ namespace build2
             else if (tclass == "windows")
             {
               // On Windows libs{} is an ad hoc group. The libs{} itself is
-              // the import library and we add dll{} as a member (see below).
-              // While at first it may seem strange that libs{} is the import
-              // library and not the DLL, if you meditate on it, you will see
-              // it makes a lot of sense: our main task here is building and
-              // for that we need the import library, not the DLL.
+              // the DLL and we add libi{} import library as its member (see
+              // below).
               //
               if (tsys == "mingw32")
-              {
                 p = "lib";
-                e = "dll.a";
-              }
-              else
-              {
-                // Usually on Windows the import library is called the same as
-                // the DLL but with the .lib extension. Which means it clashes
-                // with the static library. Instead of decorating the static
-                // library name with ugly suffixes (as is customary), let's
-                // use the MinGW approach (one must admit it's quite elegant)
-                // and call it .dll.lib.
-                //
-                e = "dll.lib";
-              }
+
+              e = "dll";
             }
             else
             {
@@ -713,14 +741,21 @@ namespace build2
 
       if (tclass == "windows")
       {
-        // DLL
+        // Import library.
         //
         if (lt == otype::s)
         {
-          file& dll (add_adhoc (t, "dll"));
+          file& imp (add_adhoc (t, "libi"));
 
-          if (dll.path ().empty ())
-            dll.derive_path ("dll", tsys == "mingw32" ? "lib" : nullptr);
+          // Usually on Windows the import library is called the same as the
+          // DLL but with the .lib extension. Which means it clashes with the
+          // static library. Instead of decorating the static library name
+          // with ugly suffixes (as is customary), let's use the MinGW
+          // approach (one must admit it's quite elegant) and call it
+          // .dll.lib.
+          //
+          if (imp.path ().empty ())
+            imp.derive_path (t.path (), tsys == "mingw32" ? "a" : "lib");
         }
 
         // PDB
@@ -729,10 +764,13 @@ namespace build2
             cid == "msvc" &&
             find_option ("/DEBUG", t, "cxx.loptions", true))
         {
-          // Add after the DLL if any.
+          // Add after the import library if any.
           //
           file& pdb (add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
 
+          // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
+          // can have both foo.exe and foo.dll in the same directory.
+          //
           if (pdb.path ().empty ())
             pdb.derive_path (t.path (), "pdb");
         }
@@ -1360,17 +1398,28 @@ namespace build2
 
         for (target* pt: t.prerequisite_targets)
         {
-          path_target* ppt;
+          file* f;
           liba* a (nullptr);
+          libs* s (nullptr);
 
-          if ((ppt = pt->is_a<obje> ()) ||
-              (ppt = pt->is_a<obja> ()) ||
-              (ppt = pt->is_a<objs> ()) ||
+          if ((f = pt->is_a<obje> ()) ||
+              (f = pt->is_a<obja> ()) ||
+              (f = pt->is_a<objs> ()) ||
               (lt != otype::a &&
-               ((ppt = a = pt->is_a<liba> ()) ||
-                (ppt =     pt->is_a<libs> ()))))
+               ((f = a = pt->is_a<liba> ()) ||
+                (f = s = pt->is_a<libs> ()))))
           {
-            cs.append (ppt->path ().string ());
+            // On Windows a shared library is a DLL with the import library as
+            // a first ad hoc group member. MinGW though can link directly to
+            // DLLs (see search_library() for details).
+            //
+            if (s != nullptr && tclass == "windows")
+            {
+              if (s->member != nullptr)
+                f = static_cast<file*> (s->member);
+            }
+
+            cs.append (f->path ().string ());
 
             // If this is a static library, link all the libraries it depends
             // on, recursively.
@@ -1487,26 +1536,26 @@ namespace build2
 
             if (lt == otype::s)
             {
-              // On Windows libs{} is the import stub and its first ad hoc
-              // group member is dll{}.
+              // On Windows libs{} is the DLL and its first ad hoc group
+              // member is the import library.
               //
               // This will also create the .exp export file. Its name will be
               // derived from the import library by changing the extension.
-              // Lucky us -- there is no option to name it.
+              // Lucky for us -- there is no option to name it.
               //
-              out2 = "/IMPLIB:" + relt.string ();
+              auto imp (static_cast<file*> (t.member));
+              out2 = "/IMPLIB:" + relative (imp->path ()).string ();
               args.push_back (out2.c_str ());
-
-              relt = relative (static_cast<file*> (t.member)->path ());
             }
 
-            // If we have /DEBUG then name the .pdb file. We call it
-            // foo.{exe,dll}.pdb rather than just foo.pdb because we can have,
-            // both foo.exe and foo.dll in the same directory.
+            // If we have /DEBUG then name the .pdb file. It is either the
+            // first (exe) or the second (dll) ad hoc group member.
             //
             if (find_option ("/DEBUG", args, true))
             {
-              out1 = "/PDB:" + relt.string () + ".pdb";
+              auto pdb (static_cast<file*> (
+                          lt == otype::e ? t.member : t.member->member));
+              out1 = "/PDB:" + relative (pdb->path ()).string ();
               args.push_back (out1.c_str ());
             }
 
@@ -1533,13 +1582,12 @@ namespace build2
 
               if (tsys == "mingw32")
               {
-                // On Windows libs{} is the import stub and its first ad hoc
-                // group member is dll{}.
+                // On Windows libs{} is the DLL and its first ad hoc group
+                // member is the import library.
                 //
-                out = "-Wl,--out-implib=" + relt.string ();
+                auto imp (static_cast<file*> (t.member));
+                out = "-Wl,--out-implib=" + relative (imp->path ()).string ();
                 args.push_back (out.c_str ());
-
-                relt = relative (static_cast<file*> (t.member)->path ());
               }
             }
 
@@ -1553,17 +1601,28 @@ namespace build2
 
       for (target* pt: t.prerequisite_targets)
       {
-        path_target* ppt;
+        file* f;
         liba* a (nullptr);
+        libs* s (nullptr);
 
-        if ((ppt = pt->is_a<obje> ()) ||
-            (ppt = pt->is_a<obja> ()) ||
-            (ppt = pt->is_a<objs> ()) ||
+        if ((f = pt->is_a<obje> ()) ||
+            (f = pt->is_a<obja> ()) ||
+            (f = pt->is_a<objs> ()) ||
             (lt != otype::a &&
-             ((ppt = a = pt->is_a<liba> ()) ||
-              (ppt     = pt->is_a<libs> ()))))
+             ((f = a = pt->is_a<liba> ()) ||
+              (f = s = pt->is_a<libs> ()))))
         {
-          sargs.push_back (relative (ppt->path ()).string ()); // string()&&
+          // On Windows a shared library is a DLL with the import library as a
+          // first ad hoc group member. MinGW though can link directly to DLLs
+          // (see search_library() for details).
+          //
+          if (s != nullptr && tclass == "windows")
+          {
+            if (s->member != nullptr)
+              f = static_cast<file*> (s->member);
+          }
+
+          sargs.push_back (relative (f->path ()).string ()); // string()&&
 
           // If this is a static library, link all the libraries it depends
           // on, recursively.
@@ -1687,7 +1746,7 @@ namespace build2
       {
       case otype::a:
         {
-          e = {"+.d"};
+          e = {".d"};
           break;
         }
       case otype::e:
@@ -1717,7 +1776,7 @@ namespace build2
           {
             // Assuming it's VC or alike. Clean up .exp and .ilk.
             //
-            e = {".d", "-.exp", "--.ilk"};
+            e = {".d", ".exp", "-.ilk"};
           }
           else
             e = {".d"};

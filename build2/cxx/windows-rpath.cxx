@@ -51,14 +51,10 @@ namespace build2
       {
         if (libs* ls = pt->is_a<libs> ())
         {
-          // This can be an installed library in which case we will have just
-          // the import stub but may also have just the DLL. For now we don't
-          // bother with installed libraries.
+          // Skip installed DLLs.
           //
-          if (ls->member == nullptr)
+          if (ls->path ().empty ())
             continue;
-
-          file& dll (static_cast<file&> (*ls->member));
 
           // What if the DLL is in the same directory as the executable, will
           // it still be found even if there is an assembly? On the other
@@ -66,7 +62,7 @@ namespace build2
           //
           timestamp t;
 
-          if ((t = dll.mtime ()) > r)
+          if ((t = ls->mtime ()) > r)
             r = t;
 
           if ((t = windows_rpath_timestamp (*ls)) > r)
@@ -80,18 +76,18 @@ namespace build2
     // Like *_timestamp() but actually collect the DLLs.
     //
     static void
-    rpath_dlls (set<file*>& s, file& t)
+    rpath_dlls (set<libs*>& s, file& t)
     {
       for (target* pt: t.prerequisite_targets)
       {
         if (libs* ls = pt->is_a<libs> ())
         {
-          if (ls->member == nullptr)
+          // Skip installed DLLs.
+          //
+          if (ls->path ().empty ())
             continue;
 
-          file& dll (static_cast<file&> (*ls->member));
-
-          s.insert (&dll);
+          s.insert (ls);
           rpath_dlls (s, *ls);
         }
       }
@@ -143,7 +139,7 @@ namespace build2
       //
       bool empty (ts == timestamp_nonexistent);
 
-      set<file*> dlls;
+      set<libs*> dlls;
       if (!empty)
         rpath_dlls (dlls, t);
 
@@ -185,16 +181,12 @@ namespace build2
 
         scope& as (*rs.weak_scope ()); // Amalgamation scope.
 
-        for (file* dt: dlls)
+        auto link = [&as, &ad] (const path& f, const path& l)
         {
-          const path& dp (dt->path ()); // DLL path.
-          const path dn (dp.leaf ());   // DLL name.
-          const path lp (ad / dn);      // Link path.
-
-          auto print = [&dp, &lp] (const char* cmd)
+          auto print = [&f, &l] (const char* cmd)
           {
             if (verb >= 3)
-              text << cmd << ' ' << dp << ' ' << lp;
+              text << cmd << ' ' << f << ' ' << l;
           };
 
           // First we try to create a symlink. If that fails (e.g., "Windows
@@ -208,10 +200,10 @@ namespace build2
             // part of the same amalgamation. This way if the amalgamation is
             // moved as a whole, the links will remain valid.
             //
-            if (dp.sub (as.out_path ()))
-              mksymlink (dp.relative (ad), lp);
+            if (f.sub (as.out_path ()))
+              mksymlink (f.relative (ad), l);
             else
-              mksymlink (dp, lp);
+              mksymlink (f, l);
 
             print ("ln -s");
           }
@@ -222,12 +214,12 @@ namespace build2
             if (c != EPERM && c != ENOSYS)
             {
               print ("ln -s");
-              fail << "unable to create symlink " << lp << ": " << e.what ();
+              fail << "unable to create symlink " << l << ": " << e.what ();
             }
 
             try
             {
-              mkhardlink (dp, lp);
+              mkhardlink (f, l);
               print ("ln");
             }
             catch (const system_error& e)
@@ -237,21 +229,36 @@ namespace build2
               if (c != EPERM && c != ENOSYS)
               {
                 print ("ln");
-                fail << "unable to create hard link " << lp << ": "
-                     << e.what ();
+                fail << "unable to create hardlink " << l << ": " << e.what ();
               }
 
               try
               {
-                cpfile (dp, lp);
+                cpfile (f, l);
                 print ("cp");
               }
               catch (const system_error& e)
               {
                 print ("cp");
-                fail << "unable to create copy " << lp << ": " << e.what ();
+                fail << "unable to create copy " << l << ": " << e.what ();
               }
             }
+          }
+
+        };
+
+        for (libs* dll: dlls)
+        {
+          const path& dp (dll->path ()); // DLL path.
+          const path dn (dp.leaf ());    // DLL name.
+          link (dp, ad / dn);
+
+          // Link .pdb if there is one (second member of the ad hoc group).
+          //
+          if (dll->member != nullptr && dll->member->member != nullptr)
+          {
+            file& pdb (static_cast<file&> (*dll->member->member));
+            link (pdb.path (), ad / pdb.path ().leaf ());
           }
 
           ofs << "  <file name='" << dn.string () << "'/>\n";

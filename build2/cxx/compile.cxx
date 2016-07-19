@@ -67,7 +67,7 @@ namespace build2
     {
       tracer trace ("cxx::compile");
 
-      path_target& t (static_cast<path_target&> (xt));
+      file& t (static_cast<file&> (xt));
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
@@ -1235,7 +1235,7 @@ namespace build2
     target_state compile::
     perform_update (action a, target& xt)
     {
-      path_target& t (static_cast<path_target&> (xt));
+      file& t (static_cast<file&> (xt));
       cxx* s (execute_prerequisites<cxx> (a, t, t.mtime ()));
 
       if (s == nullptr)
