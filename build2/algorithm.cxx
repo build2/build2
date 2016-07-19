@@ -500,11 +500,11 @@ namespace build2
       if (d)
         ++e;
 
-      path p;
-      if (*e == '+')
-        p = ft.path () + ++e;
-      else
-        p = ft.path ().base () + e;
+      path p (ft.path ());
+      for (; *e == '-'; ++e)
+        p = p.base ();
+
+      p += e;
 
       target_state r (target_state::unchanged);
 
@@ -614,6 +614,6 @@ namespace build2
   target_state
   perform_clean_depdb (action a, target& t)
   {
-    return clean_extra (a, dynamic_cast<file&> (t), {"+.d"});
+    return clean_extra (a, dynamic_cast<file&> (t), {".d"});
   }
 }

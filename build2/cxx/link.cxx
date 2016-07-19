@@ -122,16 +122,10 @@ namespace build2
       }
     }
 
-    // Extract system library search paths from MSVC. The linker doesn't seem
-    // to have any built-in paths and all of them are passed via the LIB
-    // environment variable.
+    // Extract system library search paths from MSVC.
     //
-    static void
-    msvc_library_search_paths (scope&, const string&, dir_paths&)
-    {
-      // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
-      //    Maybe that cld.c hack, seems to be passing stuff from INCLUDE..?
-    }
+    void
+    msvc_library_search_paths (scope&, const string&, dir_paths&); // msvc.cxx
 
     dir_paths link::
     extract_library_paths (scope& bs)
@@ -195,6 +189,14 @@ namespace build2
       return r;
     }
 
+    // Alternative search for VC (msvc.cxx).
+    //
+    liba*
+    msvc_search_static (const path& ld, const dir_path&, prerequisite&);
+
+    libs*
+    msvc_search_shared (const path& ld, const dir_path&, prerequisite&);
+
     target* link::
     search_library (optional<dir_paths>& spc, prerequisite& p)
     {
@@ -226,6 +228,14 @@ namespace build2
         // the compiler. It would only be natural if we used the library
         // prefix/extension that correspond to this compiler and/or its
         // target.
+        //
+        // Unlike MinGW, VC's .lib/.dll.lib naming is by no means standard and
+        // we might need to search for other names. In fact, there is no
+        // reliable way to guess from the file name what kind of library it
+        // is, static or import and we will have to do deep inspection of such
+        // alternative names. However, if we did find .dll.lib, then we can
+        // assume that .lib is the static library without any deep inspection
+        // overhead.
         //
         const char* e ("");
 
@@ -262,24 +272,8 @@ namespace build2
 
         if (cid == "msvc")
         {
-          // @@ VC TODO: still .lib, right?
-          //
-          // @@ Unlike MinGW, .dll.lib naming is by no means standard. So
-          //    we might need to search for other names. In fact, there is
-          //    no reliable way to guess from the file name what kind of
-          //    library it is, static or import lib. I wonder if there is
-          //    any way to tell by examining it (e.g., presence of __imp_*
-          //    symbols)?
-          //
-          //    Yes, there are several, in fact. One is lib.exe /LIST -- if
-          //    there aren't any members, then it is most likely an import (or
-          //    an empty static library -- is such a thing possible?).
-          //
-          //    Another approach is dumpbin.exe (or link.exe /DUMP equivalent)
-          //    /ARCHIVEMEMBERS and /LINKERMEMBER options and the __impl__
-          //    symbols (or _IMPORT_DESCRIPTOR_). Note, however, that
-          //    apparently it is possible to have a hybrid library.
-          //
+          sn = path (p.name);
+          e = "dll.lib";
         }
         else
         {
@@ -315,31 +309,11 @@ namespace build2
       {
         timestamp mt;
 
-        // liba
-        //
-        if (!an.empty ())
-        {
-          f = d;
-          f /= an;
-
-          if ((mt = file_mtime (f)) != timestamp_nonexistent)
-          {
-            // Enter the target. Note that because the search paths are
-            // normalized, the result is automatically normalized as well.
-            //
-            // Note that this target is outside any project which we treat
-            // as out trees.
-            //
-            a = &targets.insert<liba> (d, dir_path (), p.name, ae, trace);
-
-            if (a->path ().empty ())
-              a->path (move (f));
-
-            a->mtime (mt);
-          }
-        }
-
         // libs
+        //
+        // Look for the shared library first. The order is important for VC:
+        // only if we found .dll.lib can we safely assumy that just .lib is a
+        // static library.
         //
         if (!sn.empty ())
         {
@@ -372,6 +346,45 @@ namespace build2
 
             s->mtime (mt);
           }
+        }
+
+        // liba
+        //
+        // If we didn't find .dll.lib then we cannot assume .lib is static.
+        //
+        if (!an.empty () && (s != nullptr || cid != "msvc"))
+        {
+          f = d;
+          f /= an;
+
+          if ((mt = file_mtime (f)) != timestamp_nonexistent)
+          {
+            // Enter the target. Note that because the search paths are
+            // normalized, the result is automatically normalized as well.
+            //
+            // Note that this target is outside any project which we treat
+            // as out trees.
+            //
+            a = &targets.insert<liba> (d, dir_path (), p.name, ae, trace);
+
+            if (a->path ().empty ())
+              a->path (move (f));
+
+            a->mtime (mt);
+          }
+        }
+
+        // Alternative search for VC.
+        //
+        if (cid == "msvc")
+        {
+          const path& ld (cast<path> (rs["config.bin.ld"]));
+
+          if (s == nullptr && !sn.empty ())
+            s = msvc_search_shared (ld, d, p);
+
+          if (a == nullptr && !an.empty ())
+            a = msvc_search_static (ld, d, p);
         }
 
         if (a != nullptr || s != nullptr)
@@ -635,8 +648,6 @@ namespace build2
           }
         case otype::s:
           {
-            //@@ VC: DLL name.
-
             if (tclass == "macosx")
             {
               p = "lib";
@@ -1401,7 +1412,7 @@ namespace build2
 
       // Ok, so we are updating. Finish building the command line.
       //
-      string out, out1; // Storage.
+      string out, out1, out2; // Storage.
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -1410,68 +1421,6 @@ namespace build2
 
       switch (lt)
       {
-      case otype::e:
-        {
-          if (cid == "msvc")
-          {
-            // Using link.exe directly.
-            //
-            args[0] = cast<path> (rs["config.bin.ld"]).string ().c_str ();
-
-            if (verb < 3)
-              args.push_back ("/NOLOGO");
-
-            // Unless explicitly enabled with /INCREMENTAL, disable
-            // incremental linking (it is implicitly enabled if /DEBUG is
-            // specified). The reason is the .ilk file: its name cannot be
-            // changed and if we have, say, foo.exe and foo.dll, then they
-            // will end up stomping on each other's .ilk's.
-            //
-            // So the idea is to disable it by default but let the user
-            // request it explicitly if they are sure their project doesn't
-            // suffer from the above issue. We can also have something like
-            // 'incremental' config initializer keyword for this.
-            //
-            // It might also be a good idea to ask Microsoft to add an option.
-            //
-            if (!find_option ("/INCREMENTAL", args, true))
-              args.push_back ("/INCREMENTAL:NO");
-
-            // Take care of the manifest.
-            //
-            if (!manifest.empty ())
-            {
-              std = "/MANIFESTINPUT:"; // Repurpose storage for std.
-              std += relative (manifest).string ();
-              args.push_back ("/MANIFEST:EMBED");
-              args.push_back (std.c_str ());
-            }
-
-            // If we have /DEBUG then name the .pdb file. We call it
-            // foo.exe.pdb rather than foo.pdb because we can have, say,
-            // foo.dll in the same directory.
-            //
-            if (find_option ("/DEBUG", args, true))
-            {
-              out1 = "/PDB:" + relt.string () + ".pdb";
-              args.push_back (out1.c_str ());
-            }
-
-            // @@ An executable can have an import library and VS seems to
-            //    always name it. I wonder what would trigger its generation?
-
-            out = "/OUT:" + relt.string ();
-            args.push_back (out.c_str ());
-          }
-          else
-          {
-            args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
-            args.push_back ("-o");
-            args.push_back (relt.string ().c_str ());
-          }
-
-          break;
-        }
       case otype::a:
         {
           args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
@@ -1493,40 +1442,109 @@ namespace build2
 
           break;
         }
+        // The options are usually similar enough to handle them together.
+        //
+      case otype::e:
       case otype::s:
         {
           if (cid == "msvc")
           {
-            //@@ VC TODO: DLL building (names via /link?)
+            // Using link.exe directly.
+            //
+            args[0] = cast<path> (rs["config.bin.ld"]).string ().c_str ();
+
+            if (verb < 3)
+              args.push_back ("/NOLOGO");
+
+            if (lt == otype::s)
+              args.push_back ("/DLL");
+
+            // Unless explicitly enabled with /INCREMENTAL, disable
+            // incremental linking (it is implicitly enabled if /DEBUG is
+            // specified). The reason is the .ilk file: its name cannot be
+            // changed and if we have, say, foo.exe and foo.dll, then they
+            // will end up stomping on each other's .ilk's.
+            //
+            // So the idea is to disable it by default but let the user
+            // request it explicitly if they are sure their project doesn't
+            // suffer from the above issue. We can also have something like
+            // 'incremental' config initializer keyword for this.
+            //
+            // It might also be a good idea to ask Microsoft to add an option.
+            //
+            if (!find_option ("/INCREMENTAL", args, true))
+              args.push_back ("/INCREMENTAL:NO");
+
+            // Take care of the manifest (will be empty for the DLL).
+            //
+            if (!manifest.empty ())
+            {
+              std = "/MANIFESTINPUT:"; // Repurpose storage for std.
+              std += relative (manifest).string ();
+              args.push_back ("/MANIFEST:EMBED");
+              args.push_back (std.c_str ());
+            }
+
+            if (lt == otype::s)
+            {
+              // On Windows libs{} is the import stub and its first ad hoc
+              // group member is dll{}.
+              //
+              // This will also create the .exp export file. Its name will be
+              // derived from the import library by changing the extension.
+              // Lucky us -- there is no option to name it.
+              //
+              out2 = "/IMPLIB:" + relt.string ();
+              args.push_back (out2.c_str ());
+
+              relt = relative (static_cast<file*> (t.member)->path ());
+            }
+
+            // If we have /DEBUG then name the .pdb file. We call it
+            // foo.{exe,dll}.pdb rather than just foo.pdb because we can have,
+            // both foo.exe and foo.dll in the same directory.
+            //
+            if (find_option ("/DEBUG", args, true))
+            {
+              out1 = "/PDB:" + relt.string () + ".pdb";
+              args.push_back (out1.c_str ());
+            }
+
+            // @@ An executable can have an import library and VS seems to
+            //    always name it. I wonder what would trigger its generation?
+            //    Could it be the presence of export symbols?
+
+            out = "/OUT:" + relt.string ();
+            args.push_back (out.c_str ());
           }
           else
           {
             args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
 
-            // Add the option that triggers building a shared library.
+            // Add the option that triggers building a shared library and take
+            // care of any extras (e.g., import library).
             //
-            if (tclass == "macosx")
-              args.push_back ("-dynamiclib");
-            else
-              args.push_back ("-shared");
-
-            if (tsys == "mingw32")
+            if (lt == otype::s)
             {
-              // On Windows libs{} is the import stub and its first ad hoc
-              // group member is dll{}.
-              //
-              out = "-Wl,--out-implib=" + relt.string ();
-              relt = relative (static_cast<file*> (t.member)->path ());
+              if (tclass == "macosx")
+                args.push_back ("-dynamiclib");
+              else
+                args.push_back ("-shared");
 
-              args.push_back ("-o");
-              args.push_back (relt.string ().c_str ());
-              args.push_back (out.c_str ());
+              if (tsys == "mingw32")
+              {
+                // On Windows libs{} is the import stub and its first ad hoc
+                // group member is dll{}.
+                //
+                out = "-Wl,--out-implib=" + relt.string ();
+                args.push_back (out.c_str ());
+
+                relt = relative (static_cast<file*> (t.member)->path ());
+              }
             }
-            else
-            {
-              args.push_back ("-o");
-              args.push_back (relt.string ().c_str ());
-            }
+
+            args.push_back ("-o");
+            args.push_back (relt.string ().c_str ());
           }
 
           break;
@@ -1678,25 +1696,32 @@ namespace build2
           {
             if (tsys == "mingw32")
             {
-              e = {"+.d", "/+.dlls", "+.manifest.o", "+.manifest"};
+              e = {".d", "/.dlls", ".manifest.o", ".manifest"};
             }
             else
             {
-              // Assuming it's VC or alike.
+              // Assuming it's VC or alike. Clean up .ilk in case the user
+              // enabled incremental linking (note that .ilk replaces .exe).
               //
-              // Clean up .ilk in case the user enabled incremental linking.
-              //
-              e = {"+.d", "/+.dlls", "+.manifest", ".ilk"};
+              e = {".d", "/.dlls", ".manifest", "-.ilk"};
             }
           }
           else
-            e = {"+.d"};
+            e = {".d"};
 
           break;
         }
       case otype::s:
         {
-          e = {"+.d"};
+          if (tclass == "windows" && tsys != "mingw32")
+          {
+            // Assuming it's VC or alike. Clean up .exp and .ilk.
+            //
+            e = {".d", "-.exp", "--.ilk"};
+          }
+          else
+            e = {".d"};
+
           break;
         }
       }

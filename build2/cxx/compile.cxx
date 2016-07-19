@@ -340,22 +340,24 @@ namespace build2
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
-          // -I can either be in the "-Ifoo" or "-I foo" form.
+          // -I can either be in the "-Ifoo" or "-I foo" form. For VC it can
+          // also be /I.
           //
-          // @@ VC: should we also handle /I?
-          //
+          const string& o (*i);
+
+          if (o.size () < 2 || (o[0] != '-' && o[0] != '/') || o[1] != 'I')
+            continue;
+
           dir_path d;
-          if (*i == "-I")
+          if (o.size () == 2)
           {
             if (++i == e)
               break; // Let the compiler complain.
 
             d = dir_path (*i);
           }
-          else if (i->compare (0, 2, "-I") == 0)
-            d = dir_path (*i, 2, string::npos);
           else
-            continue;
+            d = dir_path (*i, 2, string::npos);
 
           l6 ([&]{trace << "-I '" << d << "'";});
 
@@ -1298,8 +1300,8 @@ namespace build2
         // create a .pdb per object file.
         //
         // Note that this also changes the name of the .idb file (used for
-        // minimal rebuild and incremental compilation) by taking /Fd value
-        // replacing the .pdb extension to .idb.
+        // minimal rebuild and incremental compilation): cl.exe take the /Fd
+        // value and replaces the .pdb extension with .idb.
         //
         // Note also that what we are doing here appears to be incompatible
         // with PCH (/Y* options) and /Gm (minimal rebuild).
@@ -1361,6 +1363,8 @@ namespace build2
         // @@ VC prints file name being compiled to stdout as the first
         //    line, would be good to weed it out (but check if it is
         //    always printed, for example if the file does not exist).
+        //    Seems always. The same story with link.exe when creating
+        //    the DLL.
         //
 
         // VC++ cl.exe sends diagnostics to stdout. To fix this (and any other
@@ -1407,9 +1411,9 @@ namespace build2
       initializer_list<const char*> e;
 
       if (cid == "msvc")
-        e = {"+.d", "+.idb", "+.pdb"};
+        e = {".d", ".idb", ".pdb"};
       else
-        e = {"+.d"};
+        e = {".d"};
 
       return clean_extra (a, t, e);
     }

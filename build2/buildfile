@@ -50,6 +50,7 @@ exe{b}:                                       \
     cxx/{hxx         cxx}{ install          } \
     cxx/{hxx         cxx}{ link             } \
     cxx/{hxx         cxx}{ module           } \
+    cxx/{            cxx}{ msvc             } \
     cxx/{hxx         cxx}{ target           } \
     cxx/{hxx ixx     cxx}{ utility          } \
     cxx/{            cxx}{ windows-manifest } \

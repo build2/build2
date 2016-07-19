@@ -227,12 +227,12 @@ namespace build2
   // and directories (recursively) specified as a list of extensions. The
   // extension string can be NULL, in which case it is ignored. If the first
   // character is '/', then the resulting path is treated as a directory
-  // rather than a file.  The next character can be '+', in which case the
-  // extension is added (without the plus) to the existing extension (if
-  // any). In all other cases, the old extension is replaced with the new one
-  // (so if you want to strip the extension, specify ""). For example:
+  // rather than a file. Next can come zero or more '-' characters which
+  // indicate the number of extensions that should stripped before the new
+  // extension (if any) is added (so if you want to strip the extension,
+  // specify "-"). For example:
   //
-  // clean_extra (a, t, {"+.d", "/+.dlls", ".dll"});
+  // clean_extra (a, t, {".d", "/.dlls", "-.dll"});
   //
   // The extra files/directories are removed first in the specified order
   // followed by the ad hoc group member, then target itself, and, finally,
