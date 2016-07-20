@@ -267,7 +267,7 @@ namespace build2
         {
           diag_record dr (text);
 
-          dr << "bin\n"
+          dr << "bin " << project (r) << '@' << r.out_path () << '\n'
              << "  target     " << cast<string> (r["bin.target"]);
 
           if (auto l = r["bin.pattern"])
@@ -430,21 +430,21 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          //@@ Print project out root or name? See cxx.
+          diag_record dr (text);
 
-          text << "bin.ar\n"
-               << "  exe        " << ar << '\n'
-               << "  id         " << ari.ar_id << '\n'
-               << "  signature  " << ari.ar_signature << '\n'
-               << "  checksum   " << ari.ar_checksum;
+          dr << "bin.ar " << project (r) << '@' << r.out_path () << '\n'
+             << "  ar         " << ar << '\n'
+             << "  id         " << ari.ar_id << '\n'
+             << "  signature  " << ari.ar_signature << '\n'
+             << "  checksum   " << ari.ar_checksum;
 
           if (!ranlib.empty ())
           {
-            text << "bin.ranlib\n"
-                 << "  exe        " << ranlib << '\n'
-                 << "  id         " << ari.ranlib_id << '\n'
-                 << "  signature  " << ari.ranlib_signature << '\n'
-                 << "  checksum   " << ari.ranlib_checksum;
+            dr << '\n'
+               << "  ranlib     " << ranlib << '\n'
+               << "  id         " << ari.ranlib_id << '\n'
+               << "  signature  " << ari.ranlib_signature << '\n'
+               << "  checksum   " << ari.ranlib_checksum;
           }
         }
 
@@ -514,8 +514,8 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.ld\n"
-               << "  exe        " << ld << '\n'
+          text << "bin.ld " << project (r) << '@' << r.out_path () << '\n'
+               << "  ld         " << ld << '\n'
                << "  id         " << ldi.id << '\n'
                << "  signature  " << ldi.signature << '\n'
                << "  checksum   " << ldi.checksum;
@@ -591,8 +591,8 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.rc\n"
-               << "  exe        " << rc << '\n'
+          text << "bin.rc " << project (r) << '@' << r.out_path () << '\n'
+               << "  rc         " << rc << '\n'
                << "  id         " << rci.id << '\n'
                << "  signature  " << rci.signature << '\n'
                << "  checksum   " << rci.checksum;

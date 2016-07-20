@@ -123,10 +123,8 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          //@@ Print project out root or name? Don't print if unnamed?
-
-          text << "cxx\n"
-               << "  exe        " << cxx << '\n'
+          text << "cxx " << project (r) << '@' << r.out_path () << '\n'
+               << "  cxx        " << cxx << '\n'
                << "  id         " << ci.id << '\n'
                << "  version    " << ci.version.string << '\n'
                << "  major      " << ci.version.major << '\n'

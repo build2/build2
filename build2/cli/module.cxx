@@ -26,8 +26,8 @@ namespace build2
     static compile compile_;
 
     bool
-    init (scope& root,
-          scope& base,
+    init (scope& rs,
+          scope& bs,
           const location& loc,
           unique_ptr<module_base>&,
           bool first,
@@ -35,7 +35,7 @@ namespace build2
           const variable_map& config_hints)
     {
       tracer trace ("cli::init");
-      l5 ([&]{trace << "for " << base.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       assert (config_hints.empty ()); // We don't known any hints.
 
@@ -44,7 +44,7 @@ namespace build2
       // the non-trivial variable merging semantics. So it is better to let
       // the user load cxx explicitly.
       //
-      if (!cast_false<bool> (base["cxx.loaded"]))
+      if (!cast_false<bool> (bs["cxx.loaded"]))
         fail (loc) << "cxx module must be loaded before cli";
 
       // Enter module variables.
@@ -64,7 +64,7 @@ namespace build2
       // Register target types.
       //
       {
-        auto& t (base.target_types);
+        auto& t (bs.target_types);
 
         t.insert<cli> ();
         t.insert<cli_cxx> ();
@@ -80,19 +80,20 @@ namespace build2
       // We will only honor optional if the user didn't specify any cli
       // configuration explicitly.
       //
-      optional = optional && !config::specified (root, "config.cli");
+      optional = optional && !config::specified (rs, "config.cli");
 
-      // Don't re-run tests if the configuration says we are unconfigured.
+      // If the configuration says we are unconfigured, then we don't need to
+      // re-run tests, etc. But we may still need to print the config report.
       //
-      if (optional && config::unconfigured (root, "config.cli"))
-        return false;
+      bool unconf (optional && config::unconfigured (rs, "config.cli"));
 
-      // config.cli
-      //
       if (first)
       {
-        // Return version or empty string if unable to execute (e.g.,
-        // the cli executable is not found).
+        // config.cli
+        //
+
+        // Return version or empty string if unable to execute (e.g., the cli
+        // executable is not found).
         //
         auto test = [optional] (const path& cli) -> string
         {
@@ -124,7 +125,7 @@ namespace build2
 
             is.close (); // Don't block the other end.
 
-            if (!pr.wait ())
+            if (!pr.wait ())    // Presumably issued diagnostics.
               return string (); // Not found.
 
             if (ver.empty ())
@@ -148,8 +149,9 @@ namespace build2
           }
         };
 
-        string ver;
+        string ver;       // Empty means unconfigured.
         path cli ("cli"); // Default.
+        bool nv (false);  // New value.
 
         if (optional)
         {
@@ -157,45 +159,60 @@ namespace build2
           // so that if we fail to configure, nothing will be written to
           // config.build.
           //
-          ver = test (cli);
-
-          if (ver.empty ())
+          if (!unconf)
           {
-            // Note that we are unconfigured so that we don't keep re-testing
-            // this on each run.
-            //
-            config::unconfigured (root, "config.cli", true);
+            ver = test (cli);
 
-            if (verb >= 2)
-              text << cli << " not found, leaving cli module unconfigured";
+            if (ver.empty ())
+            {
+              // Note that we are unconfigured so that we don't keep
+              // re-testing this on each run.
+              //
+              config::unconfigured (rs, "config.cli", true);
+              unconf = true;
+            }
+            else
+            {
+              auto p (config::required (rs, "config.cli", cli));
+              assert (p.second && cast<path> (p.first) == cli);
+            }
 
-            return false;
-          }
-          else
-          {
-            auto p (config::required (root, "config.cli", cli));
-            assert (p.second && cast<path> (p.first) == cli);
+            nv = true;
           }
         }
         else
         {
-          auto p (config::required (root, "config.cli", cli));
+          auto p (config::required (rs, "config.cli", cli));
 
-          // If we actually set a new value, test it by trying to execute.
-          //
-          if (p.second)
-          {
-            cli = cast<path> (p.first);
-            ver = test (cli);
+          cli = cast<path> (p.first);
+          ver = test (cli);
 
-            if (ver.empty ())
-              throw failed ();
-          }
+          if (ver.empty ())
+            throw failed (); // Diagnostics already issued.
+
+          nv = p.second;
         }
 
-        if (!ver.empty () && verb >= 2)
-          text << cli << " " << ver;
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (nv ? 2 : 3))
+        {
+          diag_record dr (text);
+          dr << "cli " << project (rs) << '@' << rs.out_path () << '\n';
+
+          if (unconf)
+            dr << "  cli        " << "not found, leaving unconfigured";
+          else
+            dr << "  cli        " << cli << '\n'
+               << "  version    " << ver;
+        }
       }
+
+      // Nothing else to do if we are unconfigured.
+      //
+      if (unconf)
+        return false;
 
       // config.cli.options
       //
@@ -203,13 +220,13 @@ namespace build2
       // cli.* variables. See the cxx module for more information on
       // this merging semantics and some of its tricky aspects.
       //
-      base.assign ("cli.options") += cast_null<strings> (
-        config::optional (root, "config.cli.options"));
+      bs.assign ("cli.options") += cast_null<strings> (
+        config::optional (rs, "config.cli.options"));
 
       // Register our rules.
       //
       {
-        auto& r (base.rules);
+        auto& r (bs.rules);
 
         r.insert<cli_cxx> (perform_update_id, "cli.compile", compile_);
         r.insert<cli_cxx> (perform_clean_id, "cli.compile", compile_);
