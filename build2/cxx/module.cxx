@@ -277,7 +277,20 @@ namespace build2
             info << "cxx.target is " << ct;
       }
 
-      // In the VC world you link things directly with link.exe.
+      // Load the bin.ar module unless we were asked to only build shared
+      // libraries.
+      //
+      if (auto l = r["config.bin.lib"])
+      {
+        if (cast<string> (l) != "shared")
+        {
+          if (!cast_false<bool> (b["bin.ar.loaded"]))
+            load_module ("bin.ar", r, b, loc, false, bin_hints);
+        }
+      }
+
+      // In the VC world you link things directly with link.exe so load the
+      // bin.ld module.
       //
       if (cid == "msvc")
       {
@@ -315,39 +328,46 @@ namespace build2
 
         auto& r (b.rules);
 
+        // We register for configure so that we detect unresolved imports
+        // during configuration rather that later, e.g., during update.
+        //
+        // @@ Should we check if install module was loaded (see bin)?
+        //
+
         r.insert<obje> (perform_update_id, "cxx.compile", compile::instance);
         r.insert<obje> (perform_clean_id, "cxx.compile", compile::instance);
-
-        r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
-        r.insert<obja> (perform_clean_id, "cxx.compile", compile::instance);
-
-        r.insert<objs> (perform_update_id, "cxx.compile", compile::instance);
-        r.insert<objs> (perform_clean_id, "cxx.compile", compile::instance);
+        r.insert<obje> (configure_update_id, "cxx.compile", compile::instance);
 
         r.insert<exe>  (perform_update_id, "cxx.link", link::instance);
         r.insert<exe>  (perform_clean_id, "cxx.link", link::instance);
+        r.insert<exe>  (configure_update_id, "cxx.link", link::instance);
 
-        r.insert<liba> (perform_update_id, "cxx.link", link::instance);
-        r.insert<liba> (perform_clean_id, "cxx.link", link::instance);
+        r.insert<exe>  (perform_install_id, "cxx.install", install::instance);
+
+        // Only register static object/library rules if the bin.ar module is
+        // loaded (by us or by the user).
+        //
+        if (cast_false<bool> (b["bin.ar.loaded"]))
+        {
+          r.insert<obja> (perform_update_id, "cxx.compile", compile::instance);
+          r.insert<obja> (perform_clean_id, "cxx.compile", compile::instance);
+          r.insert<obja> (configure_update_id, "cxx.compile", compile::instance);
+
+          r.insert<liba> (perform_update_id, "cxx.link", link::instance);
+          r.insert<liba> (perform_clean_id, "cxx.link", link::instance);
+          r.insert<liba> (configure_update_id, "cxx.link", link::instance);
+
+          r.insert<liba> (perform_install_id, "cxx.install", install::instance);
+        }
+
+        r.insert<objs> (perform_update_id, "cxx.compile", compile::instance);
+        r.insert<objs> (perform_clean_id, "cxx.compile", compile::instance);
+        r.insert<objs> (configure_update_id, "cxx.compile", compile::instance);
 
         r.insert<libs> (perform_update_id, "cxx.link", link::instance);
         r.insert<libs> (perform_clean_id, "cxx.link", link::instance);
-
-        // Register for configure so that we detect unresolved imports during
-        // configuration rather that later, e.g., during update.
-        //
-        r.insert<obje> (configure_update_id, "cxx.compile", compile::instance);
-        r.insert<obja> (configure_update_id, "cxx.compile", compile::instance);
-        r.insert<objs> (configure_update_id, "cxx.compile", compile::instance);
-
-        r.insert<exe>  (configure_update_id, "cxx.link", link::instance);
-        r.insert<liba> (configure_update_id, "cxx.link", link::instance);
         r.insert<libs> (configure_update_id, "cxx.link", link::instance);
 
-        //@@ Should we check if install module was loaded (see bin)?
-        //
-        r.insert<exe>  (perform_install_id, "cxx.install", install::instance);
-        r.insert<liba> (perform_install_id, "cxx.install", install::instance);
         r.insert<libs> (perform_install_id, "cxx.install", install::instance);
       }
 

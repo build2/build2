@@ -76,9 +76,6 @@ namespace build2
         v.insert<string>    ("config.bin.target",   true);
         v.insert<string>    ("config.bin.pattern",  true);
 
-        v.insert<path>      ("config.bin.ar",       true);
-        v.insert<path>      ("config.bin.ranlib",   true);
-
         v.insert<string>    ("config.bin.lib",      true);
         v.insert<strings>   ("config.bin.exe.lib",  true);
         v.insert<strings>   ("config.bin.liba.lib", true);
@@ -277,71 +274,6 @@ namespace build2
             dr << '\n'
                << "  pattern    " << cast<string> (l);
         }
-
-        // config.bin.ar
-        // config.bin.ranlib
-        //
-        // For config.bin.ar we have the default (plus the pattern) while
-        // ranlib should be explicitly specified by the user in order for us
-        // to use it (all targets that we currently care to support have the
-        // ar -s option but if that changes we can always force the use of
-        // ranlib for certain targets).
-        //
-        // Another idea is to refuse to use default 'ar' (without the pattern)
-        // if the host/build targets don't match. On the other hand, a cross-
-        // toolchain can be target-unprefixed. Also, without canonicalization,
-        // comparing targets will be unreliable.
-        //
-        auto pattern (r["bin.pattern"]);
-
-        // Use the target to decide on the default binutils program names.
-        //
-        const string& tsys (cast<string> (r["bin.target.system"]));
-        const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
-
-        auto p (required (r, "config.bin.ar", path (apply (pattern, ar_d))));
-        auto& v (optional (r, "config.bin.ranlib"));
-
-        const path& ar (cast<path> (p.first));
-        const path& ranlib (v ? cast<path> (v) : path ());
-
-        ar_info ari (guess_ar (ar, ranlib));
-
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
-        //
-        if (verb >= (p.second ? 2 : 3))
-        {
-          //@@ Print project out root or name? See cxx.
-
-          text << "bin.ar\n"
-               << "  exe        " << ar << '\n'
-               << "  id         " << ari.ar_id << '\n'
-               << "  signature  " << ari.ar_signature << '\n'
-               << "  checksum   " << ari.ar_checksum;
-
-          if (!ranlib.empty ())
-          {
-            text << "bin.ranlib\n"
-                 << "  exe        " << ranlib << '\n'
-                 << "  id         " << ari.ranlib_id << '\n'
-                 << "  signature  " << ari.ranlib_signature << '\n'
-                 << "  checksum   " << ari.ranlib_checksum;
-          }
-        }
-
-        r.assign<string> ("bin.ar.id") = move (ari.ar_id);
-        r.assign<string> ("bin.ar.signature") = move (ari.ar_signature);
-        r.assign<string> ("bin.ar.checksum") = move (ari.ar_checksum);
-
-        if (!ranlib.empty ())
-        {
-          r.assign<string> ("bin.ranlib.id") = move (ari.ranlib_id);
-          r.assign<string> ("bin.ranlib.signature") =
-            move (ari.ranlib_signature);
-          r.assign<string> ("bin.ranlib.checksum") =
-            move (ari.ranlib_checksum);
-        }
       }
 
       // Cache some config values we will be needing below.
@@ -426,6 +358,108 @@ namespace build2
         //   modules before all others?
         //
         r.insert<lib> (perform_install_id, "bin.lib", lib_);
+      }
+
+      return true;
+    }
+
+    bool
+    ar_init (scope& r,
+             scope& b,
+             const location& loc,
+             unique_ptr<module_base>&,
+             bool first,
+             bool,
+             const variable_map& config_hints)
+    {
+      tracer trace ("bin::ar_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure the bin core is loaded.
+      //
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc, false, config_hints);
+
+      // Enter module variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.insert<path> ("config.bin.ar", true);
+        v.insert<path> ("config.bin.ranlib", true);
+      }
+
+      // Configure.
+      //
+      if (first)
+      {
+        // config.bin.ar
+        // config.bin.ranlib
+        //
+        // For config.bin.ar we have the default (plus the pattern) while
+        // ranlib should be explicitly specified by the user in order for us
+        // to use it (all targets that we currently care to support have the
+        // ar -s option but if that changes we can always force the use of
+        // ranlib for certain targets).
+        //
+        // Another idea is to refuse to use default 'ar' (without the pattern)
+        // if the host/build targets don't match. On the other hand, a cross-
+        // toolchain can be target-unprefixed. Also, without canonicalization,
+        // comparing targets will be unreliable.
+        //
+        auto pattern (r["bin.pattern"]);
+
+        // Use the target to decide on the default binutils program names.
+        //
+        const string& tsys (cast<string> (r["bin.target.system"]));
+        const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
+
+        auto p (config::required (r,
+                                  "config.bin.ar",
+                                  path (apply (pattern, ar_d))));
+        auto& v (config::optional (r, "config.bin.ranlib"));
+
+        const path& ar (cast<path> (p.first));
+        const path& ranlib (v ? cast<path> (v) : path ());
+
+        ar_info ari (guess_ar (ar, ranlib));
+
+        // If this is a new value (e.g., we are configuring), then print the
+        // report at verbosity level 2 and up (-v).
+        //
+        if (verb >= (p.second ? 2 : 3))
+        {
+          //@@ Print project out root or name? See cxx.
+
+          text << "bin.ar\n"
+               << "  exe        " << ar << '\n'
+               << "  id         " << ari.ar_id << '\n'
+               << "  signature  " << ari.ar_signature << '\n'
+               << "  checksum   " << ari.ar_checksum;
+
+          if (!ranlib.empty ())
+          {
+            text << "bin.ranlib\n"
+                 << "  exe        " << ranlib << '\n'
+                 << "  id         " << ari.ranlib_id << '\n'
+                 << "  signature  " << ari.ranlib_signature << '\n'
+                 << "  checksum   " << ari.ranlib_checksum;
+          }
+        }
+
+        r.assign<string> ("bin.ar.id") = move (ari.ar_id);
+        r.assign<string> ("bin.ar.signature") = move (ari.ar_signature);
+        r.assign<string> ("bin.ar.checksum") = move (ari.ar_checksum);
+
+        if (!ranlib.empty ())
+        {
+          r.assign<string> ("bin.ranlib.id") = move (ari.ranlib_id);
+          r.assign<string> ("bin.ranlib.signature") =
+            move (ari.ranlib_signature);
+          r.assign<string> ("bin.ranlib.checksum") =
+            move (ari.ranlib_checksum);
+        }
       }
 
       return true;
