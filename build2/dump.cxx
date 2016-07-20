@@ -22,7 +22,7 @@ namespace build2
   {
     // First print attributes if any.
     //
-    bool a (v.null () || (type && v.type != nullptr));
+    bool a (!v || (type && v.type != nullptr));
 
     if (a)
       os << '[';
@@ -35,7 +35,7 @@ namespace build2
       s = " ";
     }
 
-    if (v.null ())
+    if (!v)
     {
       os << s << "null";
       s = " ";
@@ -46,7 +46,7 @@ namespace build2
 
     // Now the value if there is one.
     //
-    if (!v.null ())
+    if (v)
     {
       names storage;
       os << (a ? " " : "") << reverse (v, storage);

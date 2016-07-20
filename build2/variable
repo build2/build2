@@ -54,9 +54,9 @@ namespace build2
     // and is provided only for diagnostics. Return true if the resulting
     // value is not empty.
     //
-    bool (*const assign) (value&, names&&, const variable*);
-    bool (*const append) (value&, names&&, const variable*);
-    bool (*const prepend) (value&, names&&, const variable*);
+    void (*const assign) (value&, names&&, const variable*);
+    void (*const append) (value&, names&&, const variable*);
+    void (*const prepend) (value&, names&&, const variable*);
 
     // Reverse the value back to a vector of names. Storage can be used by the
     // implementation if necessary. Cannot be NULL.
@@ -72,6 +72,10 @@ namespace build2
     // If NULL, then the types are compared as PODs using memcmp().
     //
     int (*const compare) (const value&, const value&);
+
+    // If NULL, then the value is never empty.
+    //
+    bool (*const empty) (const value&);
   };
 
   enum class variable_visibility
@@ -117,29 +121,33 @@ namespace build2
 
   typedef reference_wrapper<const variable> variable_cref;
 
-  // value
   //
-  enum class value_state: uint8_t {null, empty, filled}; // Order is important.
-
+  //
   class value
   {
   public:
     const value_type* type; // NULL means this value is not (yet) typed.
-    value_state state;
+    bool null;
 
     // Extra data that is associated with the value that can be used to store
     // flags, etc. It is initialized to 0 and copied (but not assigned) from
     // one value to another but is otherwise untouched (not even when the
     // value is reset to NULL).
     //
+    // Note: if deciding to use for something make sure it is not overlapping
+    // with an existing usage.
+    //
     uint16_t extra;
 
-    bool null () const {return state == value_state::null;}
-    bool empty () const {return state == value_state::empty;}
+    explicit operator bool () const {return !null;}
+    bool operator== (nullptr_t) const {return null;}
+    bool operator!= (nullptr_t) const {return !null;}
 
-    explicit operator bool () const {return !null ();}
-    bool operator== (nullptr_t) const {return null ();}
-    bool operator!= (nullptr_t) const {return !null ();}
+    // Check in a type-independent way if the value is empty. The value must
+    // not be NULL.
+    //
+    bool
+    empty () const;
 
     // Creation. A default-initialzied value is NULL and can be reset back to
     // NULL by assigning nullptr. Values can be copied and copy-assigned. Note
@@ -151,8 +159,7 @@ namespace build2
     ~value () {*this = nullptr;}
 
     explicit
-    value (const value_type* t = nullptr)
-        : type (t), state (value_state::null), extra (0) {}
+    value (const value_type* t = nullptr): type (t), null (true), extra (0) {}
 
     explicit
     value (names&&); // Create untyped value.
@@ -160,7 +167,7 @@ namespace build2
     // Note: preserves type.
     //
     value&
-    operator= (nullptr_t) {if (!null ()) reset (); return *this;}
+    operator= (nullptr_t) {if (!null) reset (); return *this;}
 
     value (value&&);
     explicit value (const value&);
@@ -302,7 +309,7 @@ namespace build2
 
     // Note: returns true if defined and not NULL.
     //
-    explicit operator bool () const {return defined () && !value->null ();}
+    explicit operator bool () const {return defined () && !value->null;}
 
     const value_type& operator*  () const {return *value;}
     const value_type* operator-> () const {return value;}
@@ -364,12 +371,12 @@ namespace build2
   //   //
   //   static T convert (name&&, name* rhs);
   //
-  //   // Assign/append/prepend T to value and return true if the result is
-  //   // not empty. Value is already of type T but can be NULL.
+  //   // Assign/append/prepend T to value which is already of type T but can
+  //   // be NULL.
   //   //
-  //   static bool assign (value&, T&&);
-  //   static bool append (value&, T&&);
-  //   static bool prepend (value&, T&&);
+  //   static void assign (value&, T&&);
+  //   static void append (value&, T&&);
+  //   static void prepend (value&, T&&);
   //
   //   // Reverse a value back to name. Only needs to be provided by simple
   //   // types.
@@ -379,6 +386,10 @@ namespace build2
   //   // Compare two values. Only needs to be provided by simple types.
   //   //
   //   static int compare (const T&, const T&);
+  //
+  //   // Return true if the value is empty.
+  //   //
+  //   static bool empty (const T&);
   //
   //   // For simple types (those that can be used as elements of containers),
   //   // type_name must be constexpr in order to sidestep the static init
@@ -414,6 +425,13 @@ namespace build2
   static void
   default_copy_assign (value&, const value&, bool);
 
+  // Default implementations of the empty callback that calls
+  // value_traits<T>::empty().
+  //
+  template <typename T>
+  static bool
+  default_empty (const value&);
+
   // Default implementations of the assign/append/prepend callbacks for simple
   // types. They call value_traits<T>::convert() and then pass the result to
   // value_traits<T>::assign()/append()/prepend(). As a result, it may not be
@@ -422,15 +440,15 @@ namespace build2
   // if false, then an empty value is not allowed.
   //
   template <typename T, bool empty>
-  static bool
+  static void
   simple_assign (value&, names&&, const variable*);
 
   template <typename T, bool empty>
-  static bool
+  static void
   simple_append (value&, names&&, const variable*);
 
   template <typename T, bool empty>
-  static bool
+  static void
   simple_prepend (value&, names&&, const variable*);
 
   // Default implementations of the reverse callback for simple types that
@@ -456,8 +474,8 @@ namespace build2
     static_assert (sizeof (bool) <= value::size_, "insufficient space");
 
     static bool convert (name&&, name*);
-    static bool assign (value&, bool);
-    static bool append (value&, bool); // OR.
+    static void assign (value&, bool);
+    static void append (value&, bool); // OR.
     static name reverse (bool x) {return name (x ? "true" : "false");}
     static int compare (bool, bool);
 
@@ -471,8 +489,8 @@ namespace build2
     static_assert (sizeof (uint64_t) <= value::size_, "insufficient space");
 
     static uint64_t convert (name&&, name*);
-    static bool assign (value&, uint64_t);
-    static bool append (value&, uint64_t); // ADD.
+    static void assign (value&, uint64_t);
+    static void append (value&, uint64_t); // ADD.
     static name reverse (uint64_t x) {return name (to_string (x));}
     static int compare (uint64_t, uint64_t);
 
@@ -488,11 +506,12 @@ namespace build2
     static_assert (sizeof (string) <= value::size_, "insufficient space");
 
     static string convert (name&&, name*);
-    static bool assign (value&, string&&);
-    static bool append (value&, string&&);
-    static bool prepend (value&, string&&);
+    static void assign (value&, string&&);
+    static void append (value&, string&&);
+    static void prepend (value&, string&&);
     static name reverse (const string& x) {return name (x);}
     static int compare (const string&, const string&);
+    static bool empty (const string& x) {return x.empty ();}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -506,11 +525,12 @@ namespace build2
     static_assert (sizeof (path) <= value::size_, "insufficient space");
 
     static path convert (name&&, name*);
-    static bool assign (value&, path&&);
-    static bool append (value&, path&&);  // operator/
-    static bool prepend (value&, path&&); // operator/
+    static void assign (value&, path&&);
+    static void append (value&, path&&);  // operator/
+    static void prepend (value&, path&&); // operator/
     static name reverse (const path& x) {return name (x.string ());}
     static int compare (const path&, const path&);
+    static bool empty (const path& x) {return x.empty ();}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -524,11 +544,12 @@ namespace build2
     static_assert (sizeof (dir_path) <= value::size_, "insufficient space");
 
     static dir_path convert (name&&, name*);
-    static bool assign (value&, dir_path&&);
-    static bool append (value&, dir_path&&);  // operator/
-    static bool prepend (value&, dir_path&&); // operator/
+    static void assign (value&, dir_path&&);
+    static void append (value&, dir_path&&);  // operator/
+    static void prepend (value&, dir_path&&); // operator/
     static name reverse (const dir_path& x) {return name (x);}
     static int compare (const dir_path&, const dir_path&);
+    static bool empty (const dir_path& x) {return x.empty ();}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -543,10 +564,11 @@ namespace build2
                    "insufficient space");
 
     static abs_dir_path convert (name&&, name*);
-    static bool assign (value&, abs_dir_path&&);
-    static bool append (value&, abs_dir_path&&);  // operator/
+    static void assign (value&, abs_dir_path&&);
+    static void append (value&, abs_dir_path&&);  // operator/
     static name reverse (const abs_dir_path& x) {return name (x);}
     static int compare (const abs_dir_path&, const abs_dir_path&);
+    static bool empty (const abs_dir_path& x) {return x.empty ();}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -560,11 +582,12 @@ namespace build2
     static_assert (sizeof (name) <= value::size_, "insufficient space");
 
     static name convert (name&&, name*);
-    static bool assign (value&, name&&);
-    static bool append (value&, name&&);
-    static bool prepend (value&, name&&);
+    static void assign (value&, name&&);
+    static void append (value&, name&&);
+    static void prepend (value&, name&&);
     static name reverse (const name& x) {return x;}
     static int compare (const name&, const name&);
+    static bool empty (const name& x) {return x.empty ();}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -577,9 +600,10 @@ namespace build2
   {
     static_assert (sizeof (vector<T>) <= value::size_, "insufficient space");
 
-    static bool assign (value&, vector<T>&&);
-    static bool append (value&, vector<T>&&);
-    static bool prepend (value&, vector<T>&&);
+    static void assign (value&, vector<T>&&);
+    static void append (value&, vector<T>&&);
+    static void prepend (value&, vector<T>&&);
+    static bool empty (const vector<T>& x) {return x.empty ();}
 
     static const string type_name;
     static const build2::value_type value_type;
@@ -594,10 +618,11 @@ namespace build2
 
     static_assert (sizeof (map<K, V>) <= value::size_, "insufficient space");
 
-    static bool assign (value&, map<K, V>&&);
-    static bool append (value&, map<K, V>&&);
-    static bool prepend (value& v, map<K, V>&& x) {
+    static void assign (value&, map<K, V>&&);
+    static void append (value&, map<K, V>&&);
+    static void prepend (value& v, map<K, V>&& x) {
       return append (v, move (x));}
+    static bool empty (const map<K, V>& x) {return x.empty ();}
 
     static const string type_name;
     static const build2::value_type value_type;

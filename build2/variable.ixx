@@ -8,11 +8,17 @@ namespace build2
 {
   // value
   //
+  inline bool value::
+  empty () const
+  {
+    assert (!null);
+    return type == nullptr ? as<names> ().empty () :
+      type->empty == nullptr ? false : type->empty (*this);
+  }
+
   inline value::
   value (names&& ns)
-      : type (nullptr),
-        state (ns.empty () ? value_state::empty : value_state::filled),
-        extra (0)
+      : type (nullptr), null (false), extra (0)
   {
     new (&data_) names (move (ns));
   }
@@ -43,10 +49,8 @@ namespace build2
       type = &value_traits<T>::value_type;
     }
 
-    state = value_traits<T>::assign (*this, move (v))
-      ? value_state::filled
-      : value_state::empty;
-
+    value_traits<T>::assign (*this, move (v));
+    null = false;
     return *this;
   }
 
@@ -54,18 +58,15 @@ namespace build2
   inline value& value::
   operator+= (T v)
   {
-    assert (type == &value_traits<T>::value_type ||
-            (type == nullptr && null ()));
+    assert (type == &value_traits<T>::value_type || (type == nullptr && null));
 
     // Prepare the receiving value.
     //
     if (type == nullptr)
       type = &value_traits<T>::value_type;
 
-    state = value_traits<T>::append (*this, move (v))
-      ? value_state::filled
-      : value_state::empty;
-
+    value_traits<T>::append (*this, move (v));
+    null = false;
     return *this;
   }
 
@@ -94,7 +95,7 @@ namespace build2
   {
     // Note that it can still be a typed vector<names>.
     //
-    assert (!v.null () &&
+    assert (v &&
             (v.type == nullptr || v.type == &value_traits<names>::value_type));
     return v.as<names> ();
   }
@@ -103,7 +104,7 @@ namespace build2
   inline names&
   cast (value& v)
   {
-    assert (!v.null () &&
+    assert (v &&
             (v.type == nullptr || v.type == &value_traits<names>::value_type));
     return v.as<names> ();
   }
@@ -112,7 +113,7 @@ namespace build2
   inline const T&
   cast (const value& v)
   {
-    assert (!v.null ());
+    assert (v);
 
     // Find base if any.
     //
@@ -129,7 +130,7 @@ namespace build2
   inline T&
   cast (value& v)
   {
-    assert (!v.null () && v.type == &value_traits<T>::value_type);
+    assert (v && v.type == &value_traits<T>::value_type);
     return *static_cast<T*> (v.type->cast == nullptr
                              ? static_cast<void*> (&v.data_)
                              : const_cast<void*> (v.type->cast (v, v.type)));
@@ -191,7 +192,7 @@ namespace build2
   inline names_view
   reverse (const value& v, names& storage)
   {
-    assert (!v.null () &&
+    assert (v &&
             storage.empty () &&
             (v.type == nullptr || v.type->reverse != nullptr));
     return v.type == nullptr ? v.as<names> () : v.type->reverse (v, storage);
@@ -222,28 +223,25 @@ namespace build2
 
   // bool value
   //
-  inline bool value_traits<bool>::
+  inline void value_traits<bool>::
   assign (value& v, bool x)
   {
-    if (v.null ())
-      new (&v.data_) bool (x);
-    else
+    if (v)
       v.as<bool> () = x;
+    else
+      new (&v.data_) bool (x);
 
-    return true;
   }
 
-  inline bool value_traits<bool>::
+  inline void value_traits<bool>::
   append (value& v, bool x)
   {
     // Logical OR.
     //
-    if (v.null ())
-      new (&v.data_) bool (x);
-    else
+    if (v)
       v.as<bool> () = v.as<bool> () || x;
-
-    return true;
+    else
+      new (&v.data_) bool (x);
   }
 
   inline int value_traits<bool>::
@@ -254,28 +252,24 @@ namespace build2
 
   // uint64_t value
   //
-  inline bool value_traits<uint64_t>::
+  inline void value_traits<uint64_t>::
   assign (value& v, uint64_t x)
   {
-    if (v.null ())
-      new (&v.data_) uint64_t (x);
-    else
+    if (v)
       v.as<uint64_t> () = x;
-
-    return true;
+    else
+      new (&v.data_) uint64_t (x);
   }
 
-  inline bool value_traits<uint64_t>::
+  inline void value_traits<uint64_t>::
   append (value& v, uint64_t x)
   {
     // ADD.
     //
-    if (v.null ())
-      new (&v.data_) uint64_t (x);
-    else
+    if (v)
       v.as<uint64_t> () += x;
-
-    return true;
+    else
+      new (&v.data_) uint64_t (x);
   }
 
   inline int value_traits<uint64_t>::
@@ -286,57 +280,45 @@ namespace build2
 
   // string value
   //
-  inline bool value_traits<string>::
+  inline void value_traits<string>::
   assign (value& v, string&& x)
   {
-    string* p;
-
-    if (v.null ())
-      p = new (&v.data_) string (move (x));
+    if (v)
+      v.as<string> () = move (x);
     else
-      p = &(v.as<string> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) string (move (x));
   }
 
-  inline bool value_traits<string>::
+  inline void value_traits<string>::
   append (value& v, string&& x)
   {
-    string* p;
-
-    if (v.null ())
-      p = new (&v.data_) string (move (x));
-    else
+    if (v)
     {
-      p = &v.as<string> ();
+      string& s (v.as<string> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (s.empty ())
+        s.swap (x);
       else
-        *p += x;
+        s += x;
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) string (move (x));
   }
 
-  inline bool value_traits<string>::
+  inline void value_traits<string>::
   prepend (value& v, string&& x)
   {
-    string* p;
-
-    if (v.null ())
-      p = new (&v.data_) string (move (x));
-    else
+    if (v)
     {
-      p = &v.as<string> ();
+      string& s (v.as<string> ());
 
-      if (!p->empty ())
-        x += *p;
+      if (!s.empty ())
+        x += s;
 
-      p->swap (x);
+      s.swap (x);
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) string (move (x));
   }
 
   inline int value_traits<string>::
@@ -347,57 +329,45 @@ namespace build2
 
   // path value
   //
-  inline bool value_traits<path>::
+  inline void value_traits<path>::
   assign (value& v, path&& x)
   {
-    path* p;
-
-    if (v.null ())
-      p = new (&v.data_) path (move (x));
+    if (v)
+      v.as<path> () = move (x);
     else
-      p = &(v.as<path> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) path (move (x));
   }
 
-  inline bool value_traits<path>::
+  inline void value_traits<path>::
   append (value& v, path&& x)
   {
-    path* p;
-
-    if (v.null ())
-      p = new (&v.data_) path (move (x));
-    else
+    if (v)
     {
-      p = &v.as<path> ();
+      path& p (v.as<path> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (p.empty ())
+        p.swap (x);
       else
-        *p /= x;
+        p /= x;
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) path (move (x));
   }
 
-  inline bool value_traits<path>::
+  inline void value_traits<path>::
   prepend (value& v, path&& x)
   {
-    path* p;
-
-    if (v.null ())
-      p = new (&v.data_) path (move (x));
-    else
+    if (v)
     {
-      p = &v.as<path> ();
+      path& p (v.as<path> ());
 
-      if (!p->empty ())
-        x /= *p;
+      if (!p.empty ())
+        x /= p;
 
-      p->swap (x);
+      p.swap (x);
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) path (move (x));
   }
 
   inline int value_traits<path>::
@@ -408,57 +378,45 @@ namespace build2
 
   // dir_path value
   //
-  inline bool value_traits<dir_path>::
+  inline void value_traits<dir_path>::
   assign (value& v, dir_path&& x)
   {
-    dir_path* p;
-
-    if (v.null ())
-      p = new (&v.data_) dir_path (move (x));
+    if (v)
+      v.as<dir_path> () = move (x);
     else
-      p = &(v.as<dir_path> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) dir_path (move (x));
   }
 
-  inline bool value_traits<dir_path>::
+  inline void value_traits<dir_path>::
   append (value& v, dir_path&& x)
   {
-    dir_path* p;
-
-    if (v.null ())
-      p = new (&v.data_) dir_path (move (x));
-    else
+    if (v)
     {
-      p = &v.as<dir_path> ();
+      dir_path& p (v.as<dir_path> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (p.empty ())
+        p.swap (x);
       else
-        *p /= x;
+        p /= x;
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) dir_path (move (x));
   }
 
-  inline bool value_traits<dir_path>::
+  inline void value_traits<dir_path>::
   prepend (value& v, dir_path&& x)
   {
-    dir_path* p;
-
-    if (v.null ())
-      p = new (&v.data_) dir_path (move (x));
-    else
+    if (v)
     {
-      p = &v.as<dir_path> ();
+      dir_path& p (v.as<dir_path> ());
 
-      if (!p->empty ())
-        x /= *p;
+      if (!p.empty ())
+        x /= p;
 
-      p->swap (x);
+      p.swap (x);
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) dir_path (move (x));
   }
 
   inline int value_traits<dir_path>::
@@ -469,37 +427,29 @@ namespace build2
 
   // abs_dir_path value
   //
-  inline bool value_traits<abs_dir_path>::
+  inline void value_traits<abs_dir_path>::
   assign (value& v, abs_dir_path&& x)
   {
-    abs_dir_path* p;
-
-    if (v.null ())
-      p = new (&v.data_) abs_dir_path (move (x));
+    if (v)
+      v.as<abs_dir_path> () = move (x);
     else
-      p = &(v.as<abs_dir_path> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) abs_dir_path (move (x));
   }
 
-  inline bool value_traits<abs_dir_path>::
+  inline void value_traits<abs_dir_path>::
   append (value& v, abs_dir_path&& x)
   {
-    abs_dir_path* p;
-
-    if (v.null ())
-      p = new (&v.data_) abs_dir_path (move (x));
-    else
+    if (v)
     {
-      p = &v.as<abs_dir_path> ();
+      abs_dir_path& p (v.as<abs_dir_path> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (p.empty ())
+        p.swap (x);
       else
-        *p /= x;
+        p /= x;
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) abs_dir_path (move (x));
   }
 
   inline int value_traits<abs_dir_path>::
@@ -510,17 +460,13 @@ namespace build2
 
   // name value
   //
-  inline bool value_traits<name>::
+  inline void value_traits<name>::
   assign (value& v, name&& x)
   {
-    name* p;
-
-    if (v.null ())
-      p = new (&v.data_) name (move (x));
+    if (v)
+      v.as<name> () = move (x);
     else
-      p = &(v.as<name> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) name (move (x));
   }
 
   inline int value_traits<name>::
@@ -532,105 +478,85 @@ namespace build2
   // vector<T> value
   //
   template <typename T>
-  inline bool value_traits<vector<T>>::
+  inline void value_traits<vector<T>>::
   assign (value& v, vector<T>&& x)
   {
-    vector<T>* p;
-
-    if (v.null ())
-      p = new (&v.data_) vector<T> (move (x));
+    if (v)
+      v.as<vector<T>> () = move (x);
     else
-      p = &(v.as<vector<T>> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) vector<T> (move (x));
   }
 
   template <typename T>
-  inline bool value_traits<vector<T>>::
+  inline void value_traits<vector<T>>::
   append (value& v, vector<T>&& x)
   {
-    vector<T>* p;
-
-    if (v.null ())
-      p = new (&v.data_) vector<T> (move (x));
-    else
+    if (v)
     {
-      p = &v.as<vector<T>> ();
+      vector<T>& p (v.as<vector<T>> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (p.empty ())
+        p.swap (x);
       else
-        p->insert (p->end (),
-                   make_move_iterator (x.begin ()),
-                   make_move_iterator (x.end ()));
+        p.insert (p.end (),
+                  make_move_iterator (x.begin ()),
+                  make_move_iterator (x.end ()));
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) vector<T> (move (x));
   }
 
   template <typename T>
-  inline bool value_traits<vector<T>>::
+  inline void value_traits<vector<T>>::
   prepend (value& v, vector<T>&& x)
   {
-    vector<T>* p;
-
-    if (v.null ())
-      p = new (&v.data_) vector<T> (move (x));
-    else
+    if (v)
     {
-      p = &v.as<vector<T>> ();
+      vector<T>& p (v.as<vector<T>> ());
 
-      if (!p->empty ())
+      if (!p.empty ())
         x.insert (x.end (),
-                  make_move_iterator (p->begin ()),
-                  make_move_iterator (p->end ()));
+                  make_move_iterator (p.begin ()),
+                  make_move_iterator (p.end ()));
 
-      p->swap (x);
+      p.swap (x);
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) vector<T> (move (x));
   }
 
   // map<K, V> value
   //
   template <typename K, typename V>
-  inline bool value_traits<std::map<K, V>>::
+  inline void value_traits<std::map<K, V>>::
   assign (value& v, map<K, V>&& x)
   {
-    map<K, V>* p;
-
-    if (v.null ())
-      p = new (&v.data_) map<K, V> (move (x));
+    if (v)
+      v.as<map<K, V>> () = move (x);
     else
-      p = &(v.as<map<K, V>> () = move (x));
-
-    return !p->empty ();
+      new (&v.data_) map<K, V> (move (x));
   }
 
   template <typename K, typename V>
-  inline bool value_traits<std::map<K, V>>::
+  inline void value_traits<std::map<K, V>>::
   append (value& v, map<K, V>&& x)
   {
-    map<K, V>* p;
-
-    if (v.null ())
-      p = new (&v.data_) map<K, V> (move (x));
-    else
+    if (v)
     {
-      p = &v.as<map<K, V>> ();
+      map<K, V>& m (v.as<map<K, V>> ());
 
-      if (p->empty ())
-        p->swap (x);
+      if (m.empty ())
+        m.swap (x);
       else
         // Note that this will only move values. Keys (being const) are still
         // copied.
         //
-        p->insert (p->end (),
-                   make_move_iterator (x.begin ()),
-                   make_move_iterator (x.end ()));
+        m.insert (m.end (),
+                  make_move_iterator (x.begin ()),
+                  make_move_iterator (x.end ()));
     }
-
-    return !p->empty ();
+    else
+      new (&v.data_) map<K, V> (move (x));
   }
 
   // variable_pool

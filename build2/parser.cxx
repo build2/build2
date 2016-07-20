@@ -1093,7 +1093,7 @@ namespace build2
     else
       attributes_pop ();
 
-    if (rhs.null ())
+    if (!rhs)
       fail (t) << "null value in export";
 
     export_value_ = move (rhs).as<names_type> ();
@@ -1342,22 +1342,22 @@ namespace build2
       value tv;
       value_attributes (nullptr, tv, move (v), type::assign);
 
-      if (tv.null ())
-        cout << "[null]" << endl;
-      else
+      if (tv)
       {
         names_type storage;
         cout << reverse (tv, storage) << endl;
       }
+      else
+        cout << "[null]" << endl;
     }
     else
     {
       attributes_pop ();
 
-      if (v.null ())
-        cout << "[null]" << endl;
-      else
+      if (v)
         cout << v.as<names_type> () << endl;
+      else
+        cout << "[null]" << endl;
     }
 
     if (tt != type::eos)
@@ -1490,7 +1490,7 @@ namespace build2
 
       if (k == "null")
       {
-        if (!rhs.empty ()) // Note: null means we had an expansion.
+        if (rhs && !rhs.empty ()) // Note: null means we had an expansion.
           fail (l) << "value with null attribute";
 
         null = true;
@@ -1637,7 +1637,7 @@ namespace build2
           // this is. But for now ':' is always a scope/target qualified name
           // which we represent as a special ':'-style pair.
           //
-          if (lhs.type != nullptr || lhs.null () || lhs.empty ())
+          if (lhs.type != nullptr || !lhs || lhs.empty ())
             fail (l) << "scope/target expected before ':'";
 
           names_type& ns (lhs.as<names_type> ());
@@ -1647,7 +1647,7 @@ namespace build2
           value rhs (eval_trailer (t, tt));
 
           if (tt != type::rparen ||
-              rhs.type != nullptr || rhs.null () || rhs.empty ())
+              rhs.type != nullptr || !rhs || rhs.empty ())
             fail (l) << "variable name expected after ':'";
 
           ns.insert (ns.end (),
@@ -2202,7 +2202,7 @@ namespace build2
             expire_mode ();
             value v (eval (t, tt));
 
-            if (v.null ())
+            if (!v)
               fail (loc) << "null variable/function name";
 
             names_type storage;
@@ -2251,10 +2251,14 @@ namespace build2
             value a (eval (t, tt));
             cout << name << "(";
 
-            if (a.null ())
+            if (a)
+            {
+              if (!a.empty ())
+                cout << reverse (a, lv_storage);
+            }
+            else
               cout << "[null]";
-            else if (!a.empty ())
-              cout << reverse (a, lv_storage);
+
 
             cout << ")" << endl;
 
@@ -2264,7 +2268,7 @@ namespace build2
 
             // See if we should propagate the NULL indicator.
             //
-            if (result.null ())
+            if (!result)
             {
               if (set_null ())
                 null = true;
@@ -2335,7 +2339,7 @@ namespace build2
 
           // See if we should propagate the NULL indicator.
           //
-          if (result.null ())
+          if (!result)
           {
             if (set_null ())
               null = true;

@@ -659,7 +659,7 @@ namespace build2
     // never set it to NULL).
     //
     auto l (root.vars["subprojects"]);
-    return l.defined () && (l->null () || l->type != nullptr);
+    return l.defined () && (l->null || l->type != nullptr);
   }
 
   void

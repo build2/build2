@@ -22,14 +22,14 @@ namespace build2
     else if (type->dtor != nullptr)
       type->dtor (*this);
 
-    state = value_state::null;
+    null = true;
   }
 
   value::
   value (value&& v)
-      : type (v.type), state (v.state), extra (v.extra)
+      : type (v.type), null (v.null), extra (v.extra)
   {
-    if (!null ())
+    if (!null)
     {
       if (type == nullptr)
         new (&data_) names (move (v).as<names> ());
@@ -42,9 +42,9 @@ namespace build2
 
   value::
   value (const value& v)
-      : type (v.type), state (v.state), extra (v.extra)
+      : type (v.type), null (v.null), extra (v.extra)
   {
-    if (!null ())
+    if (!null)
     {
       if (type == nullptr)
         new (&data_) names (v.as<names> ());
@@ -73,21 +73,21 @@ namespace build2
       // Now our types are the same. If the receiving value is NULL, then call
       // copy_ctor() instead of copy_assign().
       //
-      if (!v.null ())
+      if (v)
       {
         if (type == nullptr)
         {
-          if (null ())
+          if (null)
             new (&data_) names (move (v).as<names> ());
           else
             as<names> () = move (v).as<names> ();
         }
-        else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+        else if (auto f = null ? type->copy_ctor : type->copy_assign)
           f (*this, v, true);
         else
           data_ = v.data_; // Assign as POD.
 
-        state = v.state;
+        null = v.null;
       }
       else
         *this = nullptr;
@@ -114,21 +114,21 @@ namespace build2
       // Now our types are the same. If the receiving value is NULL, then call
       // copy_ctor() instead of copy_assign().
       //
-      if (!v.null ())
+      if (v)
       {
         if (type == nullptr)
         {
-          if (null ())
+          if (null)
             new (&data_) names (v.as<names> ());
           else
             as<names> () = v.as<names> ();
         }
-        else if (auto f = null () ? type->copy_ctor : type->copy_assign)
+        else if (auto f = null ? type->copy_ctor : type->copy_assign)
           f (*this, v, false);
         else
           data_ = v.data_; // Assign as POD.
 
-        state = v.state;
+        null = v.null;
       }
       else
         *this = nullptr;
@@ -142,54 +142,39 @@ namespace build2
   {
     assert (type == nullptr || type->assign != nullptr);
 
-    bool r;
-
     if (type == nullptr)
     {
-      names* p;
-
-      if (null ())
-        p = new (&data_) names (move (ns));
+      if (null)
+        new (&data_) names (move (ns));
       else
-      {
-        p = &as<names> ();
-        *p = move (ns);
-      }
-
-      r = !p->empty ();
+        as<names> () = move (ns);
     }
     else
-      r = type->assign (*this, move (ns), var);
+      type->assign (*this, move (ns), var);
 
-    state = r ? value_state::filled : value_state::empty;
+    null = false;
   }
 
   void value::
   append (names&& ns, const variable* var)
   {
-    bool r;
-
     if (type == nullptr)
     {
-      names* p;
-
-      if (null ())
-        p = new (&data_) names (move (ns));
+      if (null)
+        new (&data_) names (move (ns));
       else
       {
-        p = &as<names> ();
+        names& p (as<names> ());
 
-        if (p->empty ())
-          *p = move (ns);
+        if (p.empty ())
+          p = move (ns);
         else if (!ns.empty ())
         {
-          p->insert (p->end (),
-                     make_move_iterator (ns.begin ()),
-                     make_move_iterator (ns.end ()));
+          p.insert (p.end (),
+                    make_move_iterator (ns.begin ()),
+                    make_move_iterator (ns.end ()));
         }
       }
-
-      r = !p->empty ();
     }
     else
     {
@@ -203,39 +188,33 @@ namespace build2
           dr << " in variable " << var->name;
       }
 
-      r = type->append (*this, move (ns), var);
+      type->append (*this, move (ns), var);
     }
 
-    state = r ? value_state::filled : value_state::empty;
+    null = false;
   }
 
   void value::
   prepend (names&& ns, const variable* var)
   {
-    bool r;
-
     if (type == nullptr)
     {
-      names* p;
-
-      if (null ())
-        p = new (&data_) names (move (ns));
+      if (null)
+        new (&data_) names (move (ns));
       else
       {
-        p = &as<names> ();
+        names& p (as<names> ());
 
-        if (p->empty ())
-          *p = move (ns);
+        if (p.empty ())
+          p = move (ns);
         else if (!ns.empty ())
         {
           ns.insert (ns.end (),
-                     make_move_iterator (p->begin ()),
-                     make_move_iterator (p->end ()));
-          p->swap (ns);
+                     make_move_iterator (p.begin ()),
+                     make_move_iterator (p.end ()));
+          p.swap (ns);
         }
       }
-
-      r = !p->empty ();
     }
     else
     {
@@ -249,27 +228,24 @@ namespace build2
           dr << " in variable " << var->name;
       }
 
-      r = type->prepend (*this, move (ns), var);
+      type->prepend (*this, move (ns), var);
     }
 
-    state = r ? value_state::filled : value_state::empty;
+    null = false;
   }
 
   bool
   operator== (const value& x, const value& y)
   {
-    bool xn (x.null ());
-    bool yn (y.null ());
+    bool xn (x.null);
+    bool yn (y.null);
 
     assert (x.type == y.type ||
             (xn && x.type == nullptr) ||
             (yn && y.type == nullptr));
 
-    if (x.state != y.state)
-      return false;
-
-    if (xn)
-      return true; // Both are NULL since same state.
+    if (xn || yn)
+      return xn == yn;
 
     if (x.type == nullptr)
       return x.as<names> () == y.as<names> ();
@@ -283,25 +259,18 @@ namespace build2
   bool
   operator< (const value& x, const value& y)
   {
-    bool xn (x.null ());
-    bool yn (y.null ());
+    bool xn (x.null);
+    bool yn (y.null);
 
     assert (x.type == y.type ||
             (xn && x.type == nullptr) ||
             (yn && y.type == nullptr));
 
-    // NULL value is always less than non-NULL and we assume that empty
-    // value is always less than non-empty.
+    // NULL value is always less than non-NULL.
     //
-    if (x.state < y.state)
-      return true;
-    else if (x.state > y.state)
-      return false;
-    else if (x.state != value_state::filled) // Both are NULL or empty.
-      return false;
+    if (xn || yn)
+      return xn > yn; // !xn < !yn
 
-    // Both are filled.
-    //
     if (x.type == nullptr)
       return x.as<names> () < y.as<names> ();
 
@@ -314,25 +283,18 @@ namespace build2
   bool
   operator> (const value& x, const value& y)
   {
-    bool xn (x.null ());
-    bool yn (y.null ());
+    bool xn (x.null);
+    bool yn (y.null);
 
     assert (x.type == y.type ||
             (xn && x.type == nullptr) ||
             (yn && y.type == nullptr));
 
-    // NULL value is always less than non-NULL and we assume that empty
-    // value is always less than non-empty.
+    // NULL value is always less than non-NULL.
     //
-    if (x.state > y.state)
-      return true;
-    else if (x.state < y.state)
-      return false;
-    else if (x.state != value_state::filled) // Both are NULL or empty.
-      return false;
+    if (xn || yn)
+      return xn < yn; // !xn > !yn
 
-    // Both are filled.
-    //
     if (x.type == nullptr)
       return x.as<names> () > y.as<names> ();
 
@@ -347,7 +309,7 @@ namespace build2
   {
     if (v.type == nullptr)
     {
-      if (!v.null ())
+      if (v)
       {
         // Note: the order in which we do things here is important.
         //
@@ -410,7 +372,8 @@ namespace build2
     &simple_append<bool, false>,  // Prepend same as append.
     &simple_reverse<bool>,
     nullptr,              // No cast (cast data_ directly).
-    nullptr               // No compare (compare as POD).
+    nullptr,              // No compare (compare as POD).
+    nullptr               // Never empty.
   };
 
   // uint64_t value
@@ -450,7 +413,8 @@ namespace build2
     &simple_append<uint64_t, false>,  // Prepend same as append.
     &simple_reverse<uint64_t>,
     nullptr,                          // No cast (cast data_ directly).
-    nullptr                           // No compare (compare as POD).
+    nullptr,                          // No compare (compare as POD).
+    nullptr                           // Never empty.
   };
 
   // string value
@@ -536,7 +500,8 @@ namespace build2
     &simple_prepend<string, true>,
     &simple_reverse<string>,
     nullptr,                      // No cast (cast data_ directly).
-    &simple_compare<string>
+    &simple_compare<string>,
+    &default_empty<string>
   };
 
   // path value
@@ -581,7 +546,8 @@ namespace build2
     &simple_prepend<path, true>,
     &simple_reverse<path>,
     nullptr,                    // No cast (cast data_ directly).
-    &simple_compare<path>
+    &simple_compare<path>,
+    &default_empty<path>
   };
 
   // dir_path value
@@ -624,7 +590,8 @@ namespace build2
     &simple_prepend<dir_path, true>,
     &simple_reverse<dir_path>,
     nullptr,                        // No cast (cast data_ directly).
-    &simple_compare<dir_path>
+    &simple_compare<dir_path>,
+    &default_empty<dir_path>
   };
 
   // abs_dir_path value
@@ -657,7 +624,8 @@ namespace build2
     nullptr,                             // No prepend.
     &simple_reverse<abs_dir_path>,
     nullptr,                             // No cast (cast data_ directly).
-    &simple_compare<abs_dir_path>
+    &simple_compare<abs_dir_path>,
+    &default_empty<abs_dir_path>
   };
 
   // name value
@@ -692,7 +660,8 @@ namespace build2
     nullptr,                    // Prepend not supported.
     &name_reverse,
     nullptr,                    // No cast (cast data_ directly).
-    &simple_compare<name>
+    &simple_compare<name>,
+    &default_empty<name>
   };
 
   // variable_pool

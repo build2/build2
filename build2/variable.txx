@@ -35,8 +35,15 @@ namespace build2
       l.as<T> () = r.as<T> ();
   }
 
-  template <typename T, bool empty>
+  template <typename T>
   bool
+  default_empty (const value& v)
+  {
+    return value_traits<T>::empty (v.as<T> ());
+  }
+
+  template <typename T, bool empty>
+  void
   simple_assign (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
@@ -45,11 +52,13 @@ namespace build2
     {
       try
       {
-        return value_traits<T>::assign (
+        value_traits<T>::assign (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
+
+        return;
       }
       catch (const invalid_argument&) {} // Fall through.
     }
@@ -68,7 +77,7 @@ namespace build2
   }
 
   template <typename T, bool empty>
-  bool
+  void
   simple_append (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
@@ -77,11 +86,13 @@ namespace build2
     {
       try
       {
-        return value_traits<T>::append (
+        value_traits<T>::append (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
+
+        return;
       }
       catch (const invalid_argument&) {} // Fall through.
     }
@@ -100,7 +111,7 @@ namespace build2
   }
 
   template <typename T, bool empty>
-  bool
+  void
   simple_prepend (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
@@ -109,11 +120,13 @@ namespace build2
     {
       try
       {
-        return value_traits<T>::prepend (
+        value_traits<T>::prepend (
           v,
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
+
+        return;
       }
       catch (const invalid_argument&) {} // Fall through.
     }
@@ -150,12 +163,12 @@ namespace build2
   //
 
   template <typename T>
-  bool
+  void
   vector_append (value& v, names&& ns, const variable* var)
   {
-    vector<T>* p (v.null ()
-                  ? new (&v.data_) vector<T> ()
-                  : &v.as<vector<T>> ());
+    vector<T>& p (v
+                  ? v.as<vector<T>> ()
+                  : *new (&v.data_) vector<T> ());
 
     // Convert each element to T while merging pairs.
     //
@@ -183,7 +196,7 @@ namespace build2
 
       try
       {
-        p->push_back (value_traits<T>::convert (move (n), r));
+        p.push_back (value_traits<T>::convert (move (n), r));
       }
       catch (const invalid_argument&)
       {
@@ -200,22 +213,20 @@ namespace build2
           dr << " in variable " << var->name;
       }
     }
-
-    return !p->empty ();
   }
 
   template <typename T>
-  bool
+  void
   vector_assign (value& v, names&& ns, const variable* var)
   {
-    if (!v.null ())
+    if (v)
       v.as<vector<T>> ().clear ();
 
-    return vector_append<T> (v, move (ns), var);
+    vector_append<T> (v, move (ns), var);
   }
 
   template <typename T>
-  bool
+  void
   vector_prepend (value& v, names&& ns, const variable* var)
   {
     // Reduce to append.
@@ -223,21 +234,19 @@ namespace build2
     vector<T> t;
     vector<T>* p;
 
-    if (v.null ())
-      p = new (&v.data_) vector<T> ();
-    else
+    if (v)
     {
       p = &v.as<vector<T>> ();
       p->swap (t);
     }
+    else
+      p = new (&v.data_) vector<T> ();
 
     vector_append<T> (v, move (ns), var);
 
     p->insert (p->end (),
                make_move_iterator (t.begin ()),
                make_move_iterator (t.end ()));
-
-    return !p->empty ();
   }
 
   template <typename T>
@@ -294,20 +303,21 @@ namespace build2
     &vector_prepend<T>,
     &vector_reverse<T>,
     nullptr,                          // No cast (cast data_ directly).
-    &vector_compare<T>
+    &vector_compare<T>,
+    &default_empty<vector<T>>
   };
 
   // map<K, V> value
   //
   template <typename K, typename V>
-  bool
+  void
   map_append (value& v, names&& ns, const variable* var)
   {
     using std::map;
 
-    map<K, V>* p (v.null ()
-                  ? new (&v.data_) map<K, V> ()
-                  : &v.as<map<K, V>> ());
+    map<K, V>& p (v
+                  ? v.as<map<K, V>> ()
+                  : *new (&v.data_) map<K, V> ());
 
     // Verify we have a sequence of pairs and convert each lhs/rhs to K/V.
     //
@@ -348,7 +358,7 @@ namespace build2
         {
           V v (value_traits<V>::convert (move (r), nullptr));
 
-          p->emplace (move (k), move (v));
+          p.emplace (move (k), move (v));
         }
         catch (const invalid_argument&)
         {
@@ -372,20 +382,18 @@ namespace build2
           dr << " in variable " << var->name;
       }
     }
-
-    return !p->empty ();
   }
 
   template <typename K, typename V>
-  bool
+  void
   map_assign (value& v, names&& ns, const variable* var)
   {
     using std::map;
 
-    if (!v.null ())
+    if (v)
       v.as<map<K, V>> ().clear ();
 
-    return map_append<K, V> (v, move (ns), var);
+    map_append<K, V> (v, move (ns), var);
   }
 
   template <typename K, typename V>
@@ -455,6 +463,7 @@ namespace build2
     &map_append<K, V>,   // Prepend is the same as append.
     &map_reverse<K, V>,
     nullptr,             // No cast (cast data_ directly).
-    &map_compare<K, V>
+    &map_compare<K, V>,
+    &default_empty<map<K, V>>
   };
 }
