@@ -123,6 +123,11 @@ if!(foo == bar)
   print 1
 }
 
+if ([uint64] 01 == [uint64] 1)
+{
+  print 1
+}
+
 # EOF test.
 #
 if true

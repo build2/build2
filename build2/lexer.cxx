@@ -160,6 +160,19 @@ namespace build2
           get ();
           return token (c == '=' ? type::equal : type::not_equal, sep, ln, cn);
         }
+        break;
+      }
+    case '<':
+    case '>':
+      {
+        bool e (peek () == '=');
+        if (e)
+          get ();
+
+        return token (c == '<'
+                      ? e ? type::less_equal : type::less
+                      : e ? type::greater_equal : type::greater,
+                      sep, ln, cn);
       }
     }
 
@@ -271,6 +284,8 @@ namespace build2
         switch (c)
         {
         case ':':
+        case '<':
+        case '>':
           {
             done = true;
             break;

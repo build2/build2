@@ -17,15 +17,19 @@ namespace build2
     newline,
     pair_separator,
     colon,
-    lcbrace,   // {
-    rcbrace,   // }
-    lsbrace,   // [
-    rsbrace,   // ]
-    assign,    // =
-    prepend,   // =+
-    append,    // +=
-    equal,     // ==
-    not_equal, // !=
+    lcbrace,       // {
+    rcbrace,       // }
+    lsbrace,       // [
+    rsbrace,       // ]
+    assign,        // =
+    prepend,       // =+
+    append,        // +=
+    equal,         // ==
+    not_equal,     // !=
+    less,          // <
+    greater,       // >
+    less_equal,    // <=
+    greater_equal, // >=
     dollar,
     lparen,
     rparen

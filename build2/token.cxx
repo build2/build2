@@ -26,6 +26,10 @@ namespace build2
     case token_type::append:         os << "'+='"; break;
     case token_type::equal:          os << "'=='"; break;
     case token_type::not_equal:      os << "'!='"; break;
+    case token_type::less:           os << "'<'";  break;
+    case token_type::greater:        os << "'>'";  break;
+    case token_type::less_equal:     os << "'<='"; break;
+    case token_type::greater_equal:  os << "'>='"; break;
     case token_type::dollar:         os << "'$'"; break;
     case token_type::lparen:         os << "'('"; break;
     case token_type::rparen:         os << "')'"; break;

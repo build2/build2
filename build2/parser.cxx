@@ -1593,10 +1593,14 @@ namespace build2
 
       // Note that if names() gets called, it expects to see a name.
       //
-      value r (tt != type::rparen &&
-               tt != type::colon &&
-               tt != type::equal &&
-               tt != type::not_equal
+      value r (tt != type::rparen     &&
+               tt != type::colon      &&
+               tt != type::equal      &&
+               tt != type::not_equal  &&
+               tt != type::less       &&
+               tt != type::less_equal &&
+               tt != type::greater    &&
+               tt != type::greater_equal
                ? names_value (t, tt)
                : value (names_type ()));
 
@@ -1654,33 +1658,73 @@ namespace build2
         }
       case type::equal:
       case type::not_equal:
+      case type::less:
+      case type::less_equal:
+      case type::greater:
+      case type::greater_equal:
         {
           type op (tt);
 
-          // ==, != are left-associative, so get the rhs value and evaluate.
+          // These are left-associative, so get the rhs value and evaluate.
+          //
+          // @@ In C++ == and != have lower precedence than <, etc.
           //
           next (t, tt);
           value rhs (parse_value ());
 
-          // Use (potentially typed) comparison via value.
+          // Use (potentially typed) comparison via value. If one of the
+          // values is typed while the other is not, then try to convert the
+          // untyped one to the other's type instead of complaining. This
+          // seems like a reasonable thing to do and will allow us to write:
           //
-          // @@ Should we detect type mismatch here?
+          // if (build.version > 30000)
           //
+          // Rather than having to write:
+          //
+          // if (build.version > [uint64] 30000)
+          //
+          if (lhs.type != rhs.type)
+          {
+            // @@ Would be nice to pass location for diagnostics.
+            //
+            if (lhs.type == nullptr)
+            {
+              if (lhs)
+                typify (lhs, *rhs.type, nullptr);
+            }
+            else if (rhs.type == nullptr)
+            {
+              if (rhs)
+                typify (rhs, *lhs.type, nullptr);
+            }
+            else
+              fail (l) << "comparison between " << lhs.type->name << " and "
+                       << rhs.type->name;
+          }
+
           bool r;
           switch (op)
           {
-          case type::equal:     r = lhs == rhs; break;
-          case type::not_equal: r = lhs != rhs; break;
-          default:              r = false;     assert (false);
+          case type::equal:         r = lhs == rhs; break;
+          case type::not_equal:     r = lhs != rhs; break;
+          case type::less:          r = lhs <  rhs; break;
+          case type::less_equal:    r = lhs <= rhs; break;
+          case type::greater:       r = lhs >  rhs; break;
+          case type::greater_equal: r = lhs >= rhs; break;
+          default:                  r = false;      assert (false);
           }
 
-          // While storing the result as a bool value might seem like a good
-          // idea, this would mean the user won't be able to compare it to
-          // (untyped) true/false names.
+          // Store the result as a bool value.
           //
-          names_type ns;
-          ns.push_back (name (r ? "true" : "false"));
-          lhs = value (move (ns));
+          if (lhs.type != nullptr)
+          {
+            // Reset to NULL and untype.
+            //
+            lhs = nullptr;
+            lhs.type = nullptr;
+          }
+
+          lhs = r;
           break;
         }
       default:

@@ -280,6 +280,68 @@ namespace build2
     return x.type->compare (x, y) == 0;
   }
 
+  bool
+  operator< (const value& x, const value& y)
+  {
+    bool xn (x.null ());
+    bool yn (y.null ());
+
+    assert (x.type == y.type ||
+            (xn && x.type == nullptr) ||
+            (yn && y.type == nullptr));
+
+    // NULL value is always less than non-NULL and we assume that empty
+    // value is always less than non-empty.
+    //
+    if (x.state < y.state)
+      return true;
+    else if (x.state > y.state)
+      return false;
+    else if (x.state != value_state::filled) // Both are NULL or empty.
+      return false;
+
+    // Both are filled.
+    //
+    if (x.type == nullptr)
+      return x.as<names> () < y.as<names> ();
+
+    if (x.type->compare == nullptr)
+      return memcmp (&x.data_, &y.data_, x.type->size) < 0;
+
+    return x.type->compare (x, y) < 0;
+  }
+
+  bool
+  operator> (const value& x, const value& y)
+  {
+    bool xn (x.null ());
+    bool yn (y.null ());
+
+    assert (x.type == y.type ||
+            (xn && x.type == nullptr) ||
+            (yn && y.type == nullptr));
+
+    // NULL value is always less than non-NULL and we assume that empty
+    // value is always less than non-empty.
+    //
+    if (x.state > y.state)
+      return true;
+    else if (x.state < y.state)
+      return false;
+    else if (x.state != value_state::filled) // Both are NULL or empty.
+      return false;
+
+    // Both are filled.
+    //
+    if (x.type == nullptr)
+      return x.as<names> () > y.as<names> ();
+
+    if (x.type->compare == nullptr)
+      return memcmp (&x.data_, &y.data_, x.type->size) > 0;
+
+    return x.type->compare (x, y) > 0;
+  }
+
   void
   typify (value& v, const value_type& t, const variable* var)
   {

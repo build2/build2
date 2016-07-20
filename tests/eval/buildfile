@@ -58,3 +58,15 @@ n =
 print ($n == )
 n = {}
 print ($n == "")
+
+#print ([uint64] 01 == [string] 01)
+
+# <, <=, >, >= evaluation
+#
+print (a < b)
+print (a b > a a)
+print (123 <= 123)
+print ([uint64] 02 > [uint64] 01)
+print (a > [null])
+print ([uint64] 02 > [null])
+print ($build.version > 30000)

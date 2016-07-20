@@ -119,7 +119,7 @@ namespace build2
 
   // value
   //
-  enum class value_state: uint8_t {null, empty, filled};
+  enum class value_state: uint8_t {null, empty, filled}; // Order is important.
 
   class value
   {
@@ -231,10 +231,15 @@ namespace build2
   };
 
   // The values should be of the same type (or both be untyped) except NULL
-  // values can also be untyped. NULL values compare equal.
+  // values can also be untyped. NULL values compare equal and a NULL value
+  // is always less than a non-NULL.
   //
   bool operator== (const value&, const value&);
   bool operator!= (const value&, const value&);
+  bool operator<  (const value&, const value&);
+  bool operator<= (const value&, const value&);
+  bool operator>  (const value&, const value&);
+  bool operator>= (const value&, const value&);
 
   // Value cast. The first three expect the value to be not NULL. The cast
   // from lookup expects the value to aslo be defined.

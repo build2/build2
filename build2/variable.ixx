@@ -75,6 +75,19 @@ namespace build2
     return !(x == y);
   }
 
+  inline bool
+  operator<= (const value& x, const value& y)
+  {
+    return !(x > y);
+  }
+
+  inline bool
+  operator>= (const value& x, const value& y)
+  {
+    return !(x < y);
+  }
+
+
   template <>
   inline const names&
   cast (const value& v)
