@@ -459,18 +459,23 @@ namespace build2
           //
           string d ("-DLIB");
 
-          //@@ CASE
-
-          auto upcase = [] (char c)
+          auto upcase_sanitize = [] (char c) -> char
           {
-            const unsigned char shift ('a' - 'A');
-            return c >= 'a' && c <='z' ? c - shift : c;
+            if (c >= 'a' && c <='z')
+            {
+              const unsigned char shift ('a' - 'A');
+              return c - shift;
+            }
+            else if (c == '-' || c == '+' || c == '.')
+              return '_';
+            else
+              return c;
           };
 
           transform (t.name.begin (),
                      t.name.end (),
                      back_inserter (d),
-                     upcase);
+                     upcase_sanitize);
 
           d += '_';
           d += suffix;
