@@ -99,10 +99,8 @@ namespace build2
         {
           const char* args[] = {cli.string ().c_str (), "--version", nullptr};
 
-          if (verb >= 2)
+          if (verb >= 3)
             print_process (args);
-          else if (verb)
-            text << "test " << cli;
 
           string ver;
           try
