@@ -192,8 +192,8 @@ namespace build2
     return make_pair (move (lhs), move (t));
   }
 
-  void parser::
-  clause (token& t, type& tt)
+  bool parser::
+  clause (token& t, type& tt, bool one)
   {
     tracer trace ("parser::clause", &path_);
 
@@ -203,7 +203,9 @@ namespace build2
     // for if-else blocks, directory scopes, etc., that assume the } token
     // they see is on the new line.
     //
-    while (tt != type::eos)
+    bool parsed (false);
+
+    while (tt != type::eos && !(one && parsed))
     {
       // Extract attributes if any.
       //
@@ -227,6 +229,11 @@ namespace build2
 
         break;
       }
+
+      // Now we will either parse something or fail.
+      //
+      if (!parsed)
+        parsed = true;
 
       // See if this is one of the directives.
       //
@@ -689,6 +696,8 @@ namespace build2
 
       fail (t) << "unexpected " << t;
     }
+
+    return parsed;
   }
 
   void parser::
@@ -1286,33 +1295,51 @@ namespace build2
         fail (t) << "expected newline instead of " << t << " after " << k
                  << (k != "else" ? "-expression" : "");
 
-      if (next (t, tt) != type::lcbrace)
-        fail (t) << "expected { instead of " << t << " at the beginning of "
-                 << k << "-block";
-
-      if (next (t, tt) != type::newline)
-        fail (t) << "expected newline after {";
-
-      next (t, tt);
-
-      if (take)
+      // This can be a block or a single line.
+      //
+      if (next (t, tt) == type::lcbrace)
       {
-        clause (t, tt);
-        taken = true;
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after {";
+
+        next (t, tt);
+
+        if (take)
+        {
+          clause (t, tt);
+          taken = true;
+        }
+        else
+          skip_block (t, tt);
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected } instead of " << t << " at the end of " << k
+                   << "-block";
+
+        next (t, tt);
+
+        if (tt == type::newline)
+          next (t, tt);
+        else if (tt != type::eos)
+          fail (t) << "expected newline after }";
       }
       else
-        skip_block (t, tt);
+      {
+        if (take)
+        {
+          if (!clause (t, tt, true))
+            fail (t) << "expected " << k << "-line instead of " << t;
 
-      if (tt != type::rcbrace)
-        fail (t) << "expected } instead of " << t << " at the end of " << k
-                 << "-block";
+          taken = true;
+        }
+        else
+        {
+          skip_line (t, tt);
 
-      next (t, tt);
-
-      if (tt == type::newline)
-        next (t, tt);
-      else if (tt != type::eos)
-        fail (t) << "expected newline after }";
+          if (tt == type::newline)
+            next (t, tt);
+        }
+      }
 
       // See if we have another el* keyword.
       //

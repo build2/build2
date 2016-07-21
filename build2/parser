@@ -56,8 +56,15 @@ namespace build2
     // Recursive descent parser.
     //
   protected:
-    void
-    clause (token&, token_type&);
+    // If one is true then parse a single (logical) line (logical means it
+    // can actually be several lines, e.g., an if-block). Return false if
+    // nothing has been parsed (i.e., we are on the same token).
+    //
+    // Note that after this function returns, the token is the first token on
+    // the next line (or eos).
+    //
+    bool
+    clause (token&, token_type&, bool one = false);
 
     void
     print (token&, token_type&);

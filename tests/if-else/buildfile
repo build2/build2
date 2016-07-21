@@ -104,8 +104,6 @@ if! $f
   print 1
 }
 
-./:
-
 # With eval context.
 #
 if (foo == foo)
@@ -128,8 +126,32 @@ if ([uint64] 01 == [uint64] 1)
   print 1
 }
 
+# Single line.
+#
+
+#if true
+#}        # expected if-line
+
+if true
+  print 1
+
+if false
+
+  print 0
+else
+  # Comment.
+  print 1
+
+if true
+  if false
+    print 0
+  else
+    print 1
+
 # EOF test.
 #
+./:
+
 if true
 {
   print 1
