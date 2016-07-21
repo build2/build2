@@ -23,7 +23,7 @@ namespace build2
     };
 
     ar_info
-    guess_ar (const path& ar, const path& rl)
+    guess_ar (const path& ar, const path* rl)
     {
       tracer trace ("bin::guess_ar");
 
@@ -106,7 +106,7 @@ namespace build2
 
       // Now repeat pretty much the same steps for ranlib if requested.
       //
-      if (!rl.empty ())
+      if (rl != nullptr)
       {
         // Binutils, LLVM, and FreeBSD.
         //
@@ -133,7 +133,7 @@ namespace build2
           };
 
           sha256 cs;
-          rlr = run<guess_result> (rl, "--version", f, false, false, &cs);
+          rlr = run<guess_result> (*rl, "--version", f, false, false, &cs);
 
           if (!rlr.empty ())
             rlr.checksum = cs.string ();
@@ -153,7 +153,7 @@ namespace build2
           // Redirect STDERR to STDOUT and ignore exit status.
           //
           sha256 cs;
-          rlr = run<guess_result> (rl, f, false, true, &cs);
+          rlr = run<guess_result> (*rl, f, false, true, &cs);
 
           if (!rlr.empty ())
           {
@@ -163,7 +163,7 @@ namespace build2
         }
 
         if (rlr.empty ())
-          fail << "unable to guess " << rl << " signature";
+          fail << "unable to guess " << *rl << " signature";
       }
 
       return ar_info {

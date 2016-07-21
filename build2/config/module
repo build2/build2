@@ -19,9 +19,10 @@ namespace build2
   {
     struct module: module_base
     {
-      // A sorted list of config.* variables and flags (currently unused) that
-      // are used (as opposed to just specified) in this configuration.
-      // Populated by the config utility functions (required(), optional())
+      // A sorted list of config.* variables and their "save flags" (see
+      // save_variable()) that are used (as opposed to just being specified)
+      // in this configuration. Populated by the config utility functions
+      // (required(), optional())
       //
       butl::prefix_map<variable_cref, uint64_t, '.'> vars;
 

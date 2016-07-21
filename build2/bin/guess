@@ -39,12 +39,11 @@ namespace build2
       string ranlib_checksum;
     };
 
-    // The ranlib path can be empty, in which case no ranlib guessing will be
-    // attemplated and the returned ranlib_* members will be left empty as
-    // well.
+    // The ranlib path can be NULL, in which case no ranlib guessing will be
+    // attemplated and the returned ranlib_* members will be left empty.
     //
     ar_info
-    guess_ar (const path& ar, const path& ranlib);
+    guess_ar (const path& ar, const path* ranlib);
 
     // ld information.
     //

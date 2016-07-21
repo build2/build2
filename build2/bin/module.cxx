@@ -245,7 +245,7 @@ namespace build2
               v = l.value;
           }
 
-          // For ease of use enter it as bin.pattern (it can come from
+          // For ease of use enter it as bin.pattern (since it can come from
           // different places).
           //
           if (v != nullptr)
@@ -415,20 +415,31 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
 
-        auto p (config::required (r,
+        // Don't save the default value to config.build so that if the user
+        // changes, say, the C++ compiler (which hinted the pattern), then
+        // ar will automatically change as well.
+        //
+        auto ap (config::required (r,
                                   "config.bin.ar",
-                                  path (apply (pattern, ar_d))));
-        auto& v (config::optional (r, "config.bin.ranlib"));
+                                  path (apply (pattern, ar_d)),
+                                  false,
+                                  config::save_commented));
 
-        const path& ar (cast<path> (p.first));
-        const path& ranlib (v ? cast<path> (v) : path ());
+        auto rp (config::required (r,
+                                   "config.bin.ranlib",
+                                   nullptr,
+                                   false,
+                                   config::save_commented));
+
+        const path& ar (cast<path> (ap.first));
+        const path* ranlib (cast_null<path> (rp.first));
 
         ar_info ari (guess_ar (ar, ranlib));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
         //
-        if (verb >= (p.second ? 2 : 3))
+        if (verb >= (ap.second || rp.second ? 2 : 3))
         {
           diag_record dr (text);
 
@@ -438,10 +449,10 @@ namespace build2
              << "  signature  " << ari.ar_signature << '\n'
              << "  checksum   " << ari.ar_checksum;
 
-          if (!ranlib.empty ())
+          if (ranlib != nullptr)
           {
             dr << '\n'
-               << "  ranlib     " << ranlib << '\n'
+               << "  ranlib     " << *ranlib << '\n'
                << "  id         " << ari.ranlib_id << '\n'
                << "  signature  " << ari.ranlib_signature << '\n'
                << "  checksum   " << ari.ranlib_checksum;
@@ -452,7 +463,7 @@ namespace build2
         r.assign<string> ("bin.ar.signature") = move (ari.ar_signature);
         r.assign<string> ("bin.ar.checksum") = move (ari.ar_checksum);
 
-        if (!ranlib.empty ())
+        if (ranlib != nullptr)
         {
           r.assign<string> ("bin.ranlib.id") = move (ari.ranlib_id);
           r.assign<string> ("bin.ranlib.signature") =
@@ -504,7 +515,9 @@ namespace build2
 
         auto p (config::required (r,
                                   "config.bin.ld",
-                                  path (apply (r["bin.pattern"], ld_d))));
+                                  path (apply (r["bin.pattern"], ld_d)),
+                                  false,
+                                  config::save_commented));
 
         const path& ld (cast<path> (p.first));
         ld_info ldi (guess_ld (ld));
@@ -581,7 +594,9 @@ namespace build2
 
         auto p (config::required (r,
                                   "config.bin.rc",
-                                  path (apply (r["bin.pattern"], rc_d))));
+                                  path (apply (r["bin.pattern"], rc_d)),
+                                  false,
+                                  config::save_commented));
 
         const path& rc (cast<path> (p.first));
         rc_info rci (guess_rc (rc));

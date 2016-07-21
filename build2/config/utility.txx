@@ -11,13 +11,17 @@ namespace build2
   {
     template <typename T>
     pair<reference_wrapper<const value>, bool>
-    required (scope& root, const variable& var, const T& def_val, bool def_ovr)
+    required (scope& root,
+              const variable& var,
+              const T& def_val,
+              bool def_ovr,
+              uint64_t save_flags)
     {
       // Note: see also the other required() version if changing anything
       // here.
 
       if (current_mif->id == configure_id)
-        save_variable (root, var);
+        save_variable (root, var, save_flags);
 
       pair<lookup, size_t> org (root.find_original (var));
 

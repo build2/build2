@@ -16,6 +16,7 @@
 #include <build2/diagnostics>
 
 #include <build2/config/module>
+#include <build2/config/utility>
 
 using namespace std;
 using namespace butl;
@@ -86,14 +87,16 @@ namespace build2
 
         ofs << "# Created automatically by the config module, but feel " <<
           "free to edit." << endl
-            << "#" << endl;
+            << "#" << endl
+            << endl;
 
         if (auto l = root.vars["amalgamation"])
         {
           const dir_path& d (cast<dir_path> (l));
 
           ofs << "# Base configuration inherited from " << d << endl
-              << "#" << endl;
+              << "#" << endl
+              << endl;
         }
 
         // Separate variables for modules with blank lines.
@@ -135,6 +138,7 @@ namespace build2
         {
           const auto& p (*i);
           const variable& var (p.first);
+          uint64_t sflags (p.second);
 
           pair<lookup, size_t> org (root.find_original (var));
           pair<lookup, size_t> ovr (var.override == nullptr
@@ -248,6 +252,16 @@ namespace build2
 
           if (next_module (var))
             ofs << endl;
+
+          // Handle the save_commented flag.
+          //
+          if (org.first->extra &&       // Default value.
+              org.first == ovr.first && // Not overriden.
+              (sflags & save_commented) == save_commented)
+          {
+            ofs << '#' << n << " =" << endl;
+            continue;
+          }
 
           if (v)
           {
