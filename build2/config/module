@@ -17,15 +17,39 @@ namespace build2
 {
   namespace config
   {
+    // An ordered list of modules each with an ordered list of list of
+    // config.* variables and their "save flags" (see save_variable()) that
+    // are used (as opposed to just being specified) in this configuration.
+    // Populated by the config utility functions (required(), optional())
+    // and saved in the order populated.
+    //
+    struct saved_variable
+    {
+      reference_wrapper<const variable> var;
+      uint64_t flags;
+    };
+
+    using saved_variables = vector<saved_variable>;
+
+    struct saved_modules: butl::prefix_map<string, saved_variables, '.'>
+    {
+      vector<const_iterator> sequence;
+
+      iterator
+      insert (string name)
+      {
+        auto p (emplace (move (name), saved_variables ()));
+
+        if (p.second)
+          sequence.push_back (p.first);
+
+        return p.first;
+      }
+    };
+
     struct module: module_base
     {
-      // A sorted list of config.* variables and their "save flags" (see
-      // save_variable()) that are used (as opposed to just being specified)
-      // in this configuration. Populated by the config utility functions
-      // (required(), optional())
-      //
-      butl::prefix_map<variable_cref, uint64_t, '.'> vars;
-
+      config::saved_modules saved_modules;
       static const string name;
     };
 

@@ -14,19 +14,6 @@ namespace build2
 {
   namespace config
   {
-    void
-    save_variable (scope& r, const variable& var, uint64_t flags)
-    {
-      if (current_mif->id == configure_id)
-      {
-        // The project might not be using the config module. But then how
-        // could we be configuring it? Good question.
-        //
-        if (module* mod = r.modules.lookup<module> (module::name))
-          mod->vars.emplace (var, flags);
-      }
-    }
-
     pair<const value*, bool>
     required (scope& r, const variable& var)
     {
@@ -129,6 +116,52 @@ namespace build2
         save_variable (root, var);
 
       root.assign (var) = !v;
+    }
+
+    void
+    save_variable (scope& r, const variable& var, uint64_t flags)
+    {
+      if (current_mif->id != configure_id)
+        return;
+
+      // The project might not be using the config module. But then how
+      // could we be configuring it? Good question.
+      //
+      if (module* m = r.modules.lookup<module> (module::name))
+      {
+        const string& n (var.name);
+
+        // First try to find the module with the name that is the longest
+        // prefix of this variable name.
+        //
+        saved_modules& sm (m->saved_modules);
+        auto i (sm.end ());
+
+        if (!sm.empty ())
+        {
+          i = sm.upper_bound (n);
+
+          // Get the greatest less than, if any. We might still not be a
+          // suffix. And we still have to check the last element if
+          // upper_bound() returned end().
+          //
+          if (i == sm.begin () || !sm.key_comp ().prefix ((--i)->first, n))
+            i = sm.end ();
+        }
+
+        // If no module matched, then create one based on the variable name.
+        //
+        if (i == sm.end ())
+        {
+          // @@ For now with 'config.' prefix.
+          //
+          i = sm.insert (string (n, 0, n.find ('.', 7)));
+        }
+
+        // We assume each variable is saved/configured once.
+        //
+        i->second.push_back (saved_variable {var, flags});
+      }
     }
   }
 }

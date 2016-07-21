@@ -851,7 +851,7 @@ namespace build2
             i = pm.upper_bound (d);
 
             // Get the greatest less than, if any. We might still not be a
-            // sub. Note also that we still have to check the last element is
+            // sub. Note also that we still have to check the last element if
             // upper_bound() returned end().
             //
             if (i == pm.begin () || !d.sub ((--i)->first))

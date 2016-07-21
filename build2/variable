@@ -119,8 +119,6 @@ namespace build2
   inline bool
   operator== (const variable& x, const variable& y) {return x.name == y.name;}
 
-  typedef reference_wrapper<const variable> variable_cref;
-
   //
   //
   class value
@@ -647,7 +645,8 @@ namespace std
 namespace butl
 {
   template <>
-  struct compare_prefix<build2::variable_cref>: compare_prefix<std::string>
+  struct compare_prefix<std::reference_wrapper<const build2::variable>>:
+    compare_prefix<std::string>
   {
     typedef compare_prefix<std::string> base;
 
@@ -713,7 +712,9 @@ namespace build2
   class variable_map
   {
   public:
-    using map_type = butl::prefix_map<variable_cref, value, '.'>;
+    using map_type = butl::prefix_map<reference_wrapper<const variable>,
+                                      value,
+                                      '.'>;
     using size_type = map_type::size_type;
 
     template <typename I>

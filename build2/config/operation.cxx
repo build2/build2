@@ -87,192 +87,166 @@ namespace build2
 
         ofs << "# Created automatically by the config module, but feel " <<
           "free to edit." << endl
-            << "#" << endl
-            << endl;
+            << "#" << endl;
 
         if (auto l = root.vars["amalgamation"])
         {
           const dir_path& d (cast<dir_path> (l));
 
-          ofs << "# Base configuration inherited from " << d << endl
-              << "#" << endl
-              << endl;
+          ofs << endl
+              << "# Base configuration inherited from " << d << endl
+              << "#" << endl;
         }
-
-        // Separate variables for modules with blank lines.
-        //
-        const string* mod_s (nullptr);
-        size_t mod_n (0);
-
-        auto next_module = [&mod_s, &mod_n] (const variable& var) -> bool
-        {
-          const string& s (var.name);
-
-          size_t p (s.find ('.', 7)); // 7 for "config."
-          size_t n (p != string::npos ? p - 7 : s.size () - 7);
-
-          if (mod_s == nullptr)
-          {
-            mod_s = &s;
-            mod_n = n;
-            return false; // First
-          }
-
-          if (s.compare (7, n, *mod_s, 7, mod_n) != 0)
-          {
-            mod_s = &s;
-            mod_n = n;
-            return true; // Next.
-          }
-
-          return false;
-        };
 
         // Save config variables.
         //
         names storage;
 
-        for (auto b (mod.vars.begin ()), i (b), e (mod.vars.end ());
-             i != e;
-             ++i)
+        for (const saved_modules::const_iterator& i:
+               mod.saved_modules.sequence)
         {
-          const auto& p (*i);
-          const variable& var (p.first);
-          uint64_t sflags (p.second);
+          const string& sname (i->first);
+          const saved_variables& svars (i->second);
 
-          pair<lookup, size_t> org (root.find_original (var));
-          pair<lookup, size_t> ovr (var.override == nullptr
-                                    ? org
-                                    : root.find_override (var, org));
-          const lookup& l (ovr.first);
-
-          // We definitely write values that are set on our root scope or are
-          // global overrides. Anything in-between is presumably inherited.
-          // We might also not have any value at all (see unconfigured()).
+          // Separate modules with a blank line.
           //
-          if (!l.defined ())
-            continue;
+          ofs << endl;
 
-          if (!(l.belongs (root) || l.belongs (*global_scope)))
+          for (const saved_variable& sv: svars)
           {
-            // This is presumably an inherited value. But it could also be
-            // some left-over garbage. For example, our amalgamation could
-            // have used a module but then dropped it while its configuration
-            // values are still lingering in config.build. They are probably
-            // still valid and we should probably continue using them but we
-            // definitely want to move them to our config.build since they
-            // will be dropped from the amalgamation's config.build. Let's
-            // also warn the user just in case.
+            const variable& var (sv.var);
+
+            pair<lookup, size_t> org (root.find_original (var));
+            pair<lookup, size_t> ovr (var.override == nullptr
+                                      ? org
+                                      : root.find_override (var, org));
+            const lookup& l (ovr.first);
+
+            // We definitely write values that are set on our root scope or
+            // are global overrides. Anything in-between is presumably
+            // inherited. We might also not have any value at all (see
+            // unconfigured()).
             //
-            bool found (false);
-            scope* r (&root);
-            while ((r = r->parent_scope ()->root_scope ()) != nullptr)
-            {
-              if (l.belongs (*r))
-              {
-                if (auto* m = r->modules.lookup<const module> (module::name))
-                  found = m->vars.find (var) != m->vars.end ();
-
-                break;
-              }
-            }
-
-            if (found) // Inherited.
+            if (!l.defined ())
               continue;
 
-            location loc (&f);
-
-            // If this value is not defined in a project's root scope, then
-            // something is broken.
-            //
-            if (r == nullptr)
-              fail (loc) << "inherited variable " << var.name << " value "
-                         << "is not from a root scope";
-
-            // If none of the outer project's configurations use this value,
-            // then we warn and save as our own. One special case where we
-            // don't want to warn the user is if the variable is overriden.
-            //
-            if (org.first == ovr.first)
+            if (!(l.belongs (root) || l.belongs (*global_scope)))
             {
-              diag_record dr;
-              dr << warn (loc) << "saving previously inherited variable "
-                 << var.name;
-
-              dr << info (loc) << "because project " << r->out_path ()
-                 << " no longer uses it in its configuration";
-
-              if (verb >= 2)
+              // This is presumably an inherited value. But it could also be
+              // some left-over garbage. For example, an amalgamation could
+              // have used a module but then dropped it while its config
+              // values are still lingering in config.build. They are probably
+              // still valid and we should probably continue using them but we
+              // definitely want to move them to our config.build since they
+              // will be dropped from the amalgamation's config.build. Let's
+              // also warn the user just in case.
+              //
+              bool found (false);
+              scope* r (&root);
+              while ((r = r->parent_scope ()->root_scope ()) != nullptr)
               {
-                dr << info (loc) << "variable value: ";
-
-                if (*l)
+                if (l.belongs (*r))
                 {
-                  names storage;
-                  dr << "'" << reverse (*l, storage) << "'";
+                  // Find config module.
+                  //
+                  if (auto* m = r->modules.lookup<const module> (module::name))
+                  {
+                    // Find the corresponding saved module.
+                    //
+                    auto i (m->saved_modules.find (sname));
+
+                    if (i != m->saved_modules.end ())
+                    {
+                      // Find the variable. For now we do linear search.
+                      //
+                      const saved_variables& sv (i->second);
+                      found = find_if (
+                        sv.begin (),
+                        sv.end (),
+                        [&var] (const saved_variable& v) {
+                          return var == v.var;}) != sv.end ();
+                    }
+                  }
+
+                  break;
                 }
-                else
-                  dr << "[null]";
+              }
+
+              if (found) // Inherited.
+                continue;
+
+              location loc (&f);
+
+              // If this value is not defined in a project's root scope, then
+              // something is broken.
+              //
+              if (r == nullptr)
+                fail (loc) << "inherited variable " << var.name << " value "
+                           << "is not from a root scope";
+
+              // If none of the outer project's configurations use this value,
+              // then we warn and save as our own. One special case where we
+              // don't want to warn the user is if the variable is overriden.
+              //
+              if (org.first == ovr.first)
+              {
+                diag_record dr;
+                dr << warn (loc) << "saving previously inherited variable "
+                   << var.name;
+
+                dr << info (loc) << "because project " << r->out_path ()
+                   << " no longer uses it in its configuration";
+
+                if (verb >= 2)
+                {
+                  dr << info (loc) << "variable value: ";
+
+                  if (*l)
+                  {
+                    storage.clear ();
+                    dr << "'" << reverse (*l, storage) << "'";
+                  }
+                  else
+                    dr << "[null]";
+                }
               }
             }
-          }
 
-          const string& n (var.name);
-          const value& v (*l);
+            const string& n (var.name);
+            const value& v (*l);
 
-          // We will only write config.*.configured if it is false (true is
-          // implied by its absence). We will also ignore false values if
-          // there is any other value for this module (see unconfigured()).
-          //
-          if (n.size () > 11 &&
-              n.compare (n.size () - 11, 11, ".configured") == 0)
-          {
-            if (cast<bool> (v))
-              continue;
-
-            size_t m (n.size () - 11); // Prefix size.
-            auto same = [&n, m] (const variable& v)
+            // We will only write config.*.configured if it is false (true is
+            // implied by its absence). We will also ignore false values if
+            // there is any other value for this module (see unconfigured()).
+            //
+            if (n.size () > 11 &&
+                n.compare (n.size () - 11, 11, ".configured") == 0)
             {
-              return v.name.size () >= m &&
-                v.name.compare (0, m, n, 0, m) == 0;
-            };
+              if (cast<bool> (v) || svars.size () != 1)
+                continue;
+            }
 
-            // Check if this is the first value for this module.
+            // Handle the save_commented flag.
             //
-            auto j (i);
-            if (j != b && same ((--j)->first))
+            if ((org.first.defined () && org.first->extra) && // Default value.
+                org.first == ovr.first &&                     // Not overriden.
+                (sv.flags & save_commented) == save_commented)
+            {
+              ofs << '#' << n << " =" << endl;
               continue;
+            }
 
-            // Check if this is the last value for this module.
-            //
-            j = i;
-            if (++j != e && same (j->first))
-              continue;
+            if (v)
+            {
+              storage.clear ();
+
+              ofs << n << " = ";
+              to_stream (ofs, reverse (v, storage), true, '@'); // Quote.
+              ofs << endl;
+            }
+            else
+              ofs << n << " = [null]" << endl;
           }
-
-          if (next_module (var))
-            ofs << endl;
-
-          // Handle the save_commented flag.
-          //
-          if ((org.first.defined () && org.first->extra) && // Default value.
-              org.first == ovr.first &&                     // Not overriden.
-              (sflags & save_commented) == save_commented)
-          {
-            ofs << '#' << n << " =" << endl;
-            continue;
-          }
-
-          if (v)
-          {
-            storage.clear ();
-
-            ofs << n << " = ";
-            to_stream (ofs, reverse (v, storage), true, '@'); // Quote.
-            ofs << endl;
-          }
-          else
-            ofs << n << " = [null]" << endl;
         }
       }
       catch (const ofstream::failure&)
