@@ -434,6 +434,9 @@ namespace build2
         const path& ar (cast<path> (ap.first));
         const path* ranlib (cast_null<path> (rp.first));
 
+        if (ranlib != nullptr && ranlib->empty ()) // @@ BC LT [null].
+          ranlib = nullptr;
+
         ar_info ari (guess_ar (ar, ranlib));
 
         // If this is a new value (e.g., we are configuring), then print the
