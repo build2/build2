@@ -86,6 +86,11 @@ namespace build2
     // common cases, such as an upgrade to a new version or a configuration
     // change.
     //
+    // Note that we assume the checksum incorporates the (default) target so
+    // that if the compiler changes but only in what it targets, then the
+    // checksum will still change. This is currently the case for all the
+    // compilers that we support.
+    //
     // The target is the compiler's traget architecture triplet. Note that
     // unlike all the preceding fields, this one takes into account the
     // compile options (e.g., -m32).

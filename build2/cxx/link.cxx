@@ -1091,6 +1091,7 @@ namespace build2
       scope& rs (t.root_scope ());
 
       const string& cid (cast<string> (rs["cxx.id"]));
+      const string& tgt (cast<string> (rs["cxx.target"]));
       const string& tsys (cast<string> (rs["cxx.target.system"]));
       const string& tclass (cast<string> (rs["cxx.target.class"]));
 
@@ -1239,6 +1240,12 @@ namespace build2
           l4 ([&]{trace << "linker mismatch forcing update of " << t;});
       }
 
+      // Next check the target. While it might be incorporated into the linker
+      // checksum, it also might not (e.g., MS link.exe).
+      //
+      if (dd.expect (tgt) != nullptr)
+        l4 ([&]{trace << "target mismatch forcing update of " << t;});
+
       // Start building the command line. While we don't yet know whether we
       // will really need it, we need to hash it to find out. So the options
       // are to either replicate the exact process twice, first for hashing
@@ -1292,7 +1299,7 @@ namespace build2
           auto l (t["bin.rpath"]);
 
           if (l && !l->empty ())
-            fail << cast<string> (rs["cxx.target"]) << " does not have rpath";
+            fail << tgt << " does not support rpath";
         }
         else
         {

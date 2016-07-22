@@ -210,7 +210,9 @@ namespace build2
         if (dd.expect ("cxx.compile 1") != nullptr)
           l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
-        // Then the compiler checksum.
+        // Then the compiler checksum. Note that here we assume it
+        // incorporates the (default) target so that if the compiler changes
+        // but only in what it targets, then the checksum will still change.
         //
         if (dd.expect (cast<string> (rs["cxx.checksum"])) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
