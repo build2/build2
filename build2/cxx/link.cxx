@@ -1529,6 +1529,25 @@ namespace build2
             if (!find_option ("/INCREMENTAL", args, true))
               args.push_back ("/INCREMENTAL:NO");
 
+            // If you look at the list of libraries Visual Studio links by
+            // default, it includes everything and a couple of kitchen sinks
+            // (winspool32.lib, ole32.lib, odbc32.lib, etc) while we want to
+            // keep our low-level build as pure as possible. However, there
+            // seem to be fairly essential libraries that are not linked by
+            // link.exe by default (use /VERBOSE:LIB to see the list). For
+            // example, MinGW by default links advapi32, shell32, user32, and
+            // kernel32. And so we follow suit and make sure those are linked.
+            // advapi32 and kernel32 are already on the default list and we
+            // only need to add the other two.
+            //
+            // The way we are going to do it is via the /DEFAULTLIB option
+            // rather than specifying the libraries as normal inputs (as VS
+            // does). This way the user can override our actions with the
+            // /NODEFAULTLIB option.
+            //
+            args.push_back ("/DEFAULTLIB:shell32.lib");
+            args.push_back ("/DEFAULTLIB:user32.lib");
+
             // Take care of the manifest (will be empty for the DLL).
             //
             if (!manifest.empty ())
