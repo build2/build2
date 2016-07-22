@@ -1072,6 +1072,9 @@ namespace build2
     void
     windows_rpath_assembly (file&, timestamp, bool scratch);
 
+    const char*
+    msvc_machine (const string& cpu); // msvc.cxx
+
     target_state link::
     perform_update (action a, target& xt)
     {
@@ -1251,25 +1254,6 @@ namespace build2
       string std;
       string soname1, soname2;
       strings sargs;
-
-      if (cid == "msvc")
-      {
-        // Translate the compiler target CPU to the /MACHINE option value.
-        // This applies to both link.exe and lib.exe.
-        //
-        const string& tcpu (cast<string> (rs["cxx.target.cpu"]));
-
-        const char* m (tcpu == "i386" || tcpu == "i686"  ? "/MACHINE:x86"   :
-                       tcpu == "x86_64"                  ? "/MACHINE:x64"   :
-                       tcpu == "arm"                     ? "/MACHINE:ARM"   :
-                       tcpu == "arm64"                   ? "/MACHINE:ARM64" :
-                       nullptr);
-
-        if (m == nullptr)
-          fail << "unable to translate CPU " << tcpu << " to /MACHINE";
-
-        args.push_back (m);
-      }
 
       if (lt == otype::a)
       {
@@ -1488,6 +1472,11 @@ namespace build2
             if (verb < 3)
               args.push_back ("/NOLOGO");
 
+            // Add /MACHINE.
+            //
+            args.push_back (
+              msvc_machine (cast<string> (rs["cxx.target.cpu"])));
+
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
           }
@@ -1512,6 +1501,11 @@ namespace build2
 
             if (lt == otype::s)
               args.push_back ("/DLL");
+
+            // Add /MACHINE.
+            //
+            args.push_back (
+              msvc_machine (cast<string> (rs["cxx.target.cpu"])));
 
             // Unless explicitly enabled with /INCREMENTAL, disable
             // incremental linking (it is implicitly enabled if /DEBUG is

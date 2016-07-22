@@ -20,6 +20,23 @@ namespace build2
   {
     using namespace bin;
 
+    // Translate the target triplet CPU to lib.exe/link.exe /MACHINE option.
+    //
+    const char*
+    msvc_machine (const string& cpu)
+    {
+      const char* m (cpu == "i386" || cpu == "i686"  ? "/MACHINE:x86"   :
+                     cpu == "x86_64"                 ? "/MACHINE:x64"   :
+                     cpu == "arm"                    ? "/MACHINE:ARM"   :
+                     cpu == "arm64"                  ? "/MACHINE:ARM64" :
+                     nullptr);
+
+      if (m == nullptr)
+        fail << "unable to translate CPU " << cpu << " to /MACHINE";
+
+      return m;
+    }
+
     // Extract system library search paths from MSVC.
     //
     void
