@@ -183,6 +183,9 @@ namespace build2
       if (r.first.type != nullptr)
         fail << "typed override of variable " << n;
 
+      // Global and scope overrides we can enter directly. Project ones will
+      // be entered by the caller for for each amalgamation/project.
+      //
       if (c == '!' || !dir.empty ())
       {
         scope& s (c == '!' ? gs : scopes.insert (dir, false)->second);

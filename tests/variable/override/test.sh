@@ -103,6 +103,16 @@ p/d   : X
 p/d/t : X
 EOF
 
+test v=X --buildfile loader ./p/ <<EOF
+/     :
+.     : X
+d     : X
+d/t   : X
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
 test /v=X <<EOF
 /     :
 .     : X

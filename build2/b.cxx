@@ -790,14 +790,44 @@ main (int argc, char* argv[])
           // second sitution so if it is already set, then it can only be the
           // first case.
           //
-          bool first (true);
+          // This is further complicated by the project vs amalgamation logic
+          // (we may have already done the amalgamation but not the project).
+          //
+          bool first_a (true);
           for (const variable_override& o: var_ovs)
           {
+            if (o.ovr.visibility != variable_visibility::normal)
+              continue;
+
+            auto p (rs.weak_scope ()->vars.insert (o.ovr));
+
+            if (!p.second)
+            {
+              if (first_a)
+                break;
+
+              fail << "multiple amalgamation overrides of variable "
+                   << o.var.name;
+            }
+
+            value& v (p.first);
+            v = o.val;
+            first_a = false;
+          }
+
+          bool first_p (true);
+          for (const variable_override& o: var_ovs)
+          {
+            // Ours is either project (%foo) or scope (/foo).
+            //
+            if (o.ovr.visibility == variable_visibility::normal)
+              continue;
+
             auto p (rs.vars.insert (o.ovr));
 
             if (!p.second)
             {
-              if (first)
+              if (first_p)
                 break;
 
               fail << "multiple project overrides of variable " << o.var.name;
@@ -805,7 +835,7 @@ main (int argc, char* argv[])
 
             value& v (p.first);
             v = o.val;
-            first = false;
+            first_p = false;
           }
 
           ts.root_scope = &rs;
