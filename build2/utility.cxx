@@ -126,7 +126,7 @@ namespace build2
     // want to let through is the inability to execute the program itself.
     // We cannot reserve a special exit status to signal this so we will
     // just have to compare the output. This particular situation will
-    // result in a single error line printed by run_start() above.
+    // result in a single error line printed by start_run() above.
     //
     if (l.compare (0, 18, "unable to execute ") == 0)
       fail << l;

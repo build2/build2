@@ -4,7 +4,6 @@
 
 #include <build2/file>
 
-#include <fstream>
 #include <iostream> // cin
 
 #include <butl/filesystem> // file_exists()
@@ -85,26 +84,23 @@ namespace build2
     {
       bool sin (bf.string () == "-");
 
-      ifstream ifs;
+      ifdstream ifs;
+
       if (!sin)
-      {
-        ifs.open (bf.string ());
+        ifs.open (bf);
+      else
+        cin.exceptions (ifdstream::failbit | ifdstream::badbit);
 
-        if (!ifs.is_open ())
-          fail << "unable to open " << bf;
-      }
-
-      istream& is (sin ? std::cin : ifs);
-      is.exceptions (ifstream::failbit | ifstream::badbit);
+      istream& is (sin ? cin : ifs);
 
       l5 ([&]{trace << "sourcing " << bf;});
 
       parser p (boot);
       p.parse_buildfile (is, bf, root, base);
     }
-    catch (const ifstream::failure&)
+    catch (const ifdstream::failure& e)
     {
-      fail << "unable to read buildfile " << bf;
+      fail << "unable to read buildfile " << bf << ": " << e.what ();
     }
   }
 
@@ -274,11 +270,7 @@ namespace build2
   {
     try
     {
-      ifstream ifs (bf.string ());
-      if (!ifs.is_open ())
-        fail << "unable to open " << bf;
-
-      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+      ifdstream ifs (bf);
 
       lexer lex (ifs, bf);
       token t (lex.next ());
@@ -303,9 +295,9 @@ namespace build2
       assert (v != nullptr);
       return move (*v); // Steal the value, the scope is going away.
     }
-    catch (const ifstream::failure&)
+    catch (const ifdstream::failure& e)
     {
-      fail << "unable to read buildfile " << bf;
+      fail << "unable to read buildfile " << bf << ": " << e.what ();
     }
 
     return value (); // Never reaches.
@@ -973,11 +965,7 @@ namespace build2
 
     try
     {
-      ifstream ifs (es.string ());
-      if (!ifs.is_open ())
-        fail (loc) << "unable to open " << es;
-
-      ifs.exceptions (ifstream::failbit | ifstream::badbit);
+      ifdstream ifs (es);
 
       l5 ([&]{trace << "importing " << es;});
 
@@ -988,9 +976,9 @@ namespace build2
       parser p;
       return p.parse_export_stub (ifs, es, iroot, ts);
     }
-    catch (const ifstream::failure&)
+    catch (const ifdstream::failure& e)
     {
-      fail (loc) << "unable to read buildfile " << es;
+      fail (loc) << "unable to read buildfile " << es << ": " << e.what ();
     }
 
     return names (); // Never reached.

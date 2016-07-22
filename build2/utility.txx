@@ -13,24 +13,30 @@ namespace build2
        sha256* checksum)
   {
     process pr (start_run (args, err));
-    ifdstream is (pr.in_ofd);
 
     T r;
-
     string l; // Last line of output.
-    while (is.peek () != ifdstream::traits_type::eof () && // Keep last line.
-           getline (is, l))
+
+    try
     {
-      trim (l);
+      ifdstream is (pr.in_ofd);
 
-      if (checksum != nullptr)
-        checksum->append (l);
+      while (is.peek () != ifdstream::traits_type::eof () && // Keep last line.
+             getline (is, l))
+      {
+        trim (l);
 
-      if (r.empty ())
-        r = f (l);
+        if (checksum != nullptr)
+          checksum->append (l);
+
+        if (r.empty ())
+          r = f (l);
+      }
     }
-
-    is.close (); // Don't block.
+    catch (const ifdstream::failure&)
+    {
+      // Presumably the child process failed. Let finish_run() deal with that.
+    }
 
     if (!(finish_run (args, err, pr, l) || ignore_exit))
       r = T ();

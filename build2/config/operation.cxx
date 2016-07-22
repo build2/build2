@@ -5,7 +5,6 @@
 #include <build2/config/operation>
 
 #include <set>
-#include <fstream>
 
 #include <build2/file>
 #include <build2/scope>
@@ -48,21 +47,19 @@ namespace build2
 
       try
       {
-        ofstream ofs (f.string ());
-        if (!ofs.is_open ())
-          fail << "unable to open " << f;
-
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
+        ofdstream ofs (f);
 
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "src_root = ";
         to_stream (ofs, name (src_root), true, '@'); // Quote.
         ofs << endl;
+
+        ofs.close ();
       }
-      catch (const ofstream::failure&)
+      catch (const ofdstream::failure& e)
       {
-        fail << "unable to write " << f;
+        fail << "unable to write " << f << ": " << e.what ();
       }
     }
 
@@ -79,11 +76,7 @@ namespace build2
 
       try
       {
-        ofstream ofs (f.string ());
-        if (!ofs.is_open ())
-          fail << "unable to open " << f;
-
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
+        ofdstream ofs (f);
 
         ofs << "# Created automatically by the config module, but feel " <<
           "free to edit." << endl
@@ -248,10 +241,12 @@ namespace build2
               ofs << n << " = [null]" << endl;
           }
         }
+
+        ofs.close ();
       }
-      catch (const ofstream::failure&)
+      catch (const ofdstream::failure& e)
       {
-        fail << "unable to write " << f;
+        fail << "unable to write " << f << ": " << e.what ();
       }
     }
 

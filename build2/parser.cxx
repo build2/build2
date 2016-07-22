@@ -5,7 +5,6 @@
 #include <build2/parser>
 
 #include <cctype>   // is{alpha alnum}()
-#include <fstream>
 #include <iostream>
 
 #include <build2/version>
@@ -735,12 +734,7 @@ namespace build2
 
       try
       {
-        ifstream ifs (p.string ());
-
-        if (!ifs.is_open ())
-          fail (l) << "unable to open " << p;
-
-        ifs.exceptions (ifstream::failbit | ifstream::badbit);
+        ifdstream ifs (p);
 
         l5 ([&]{trace (t) << "entering " << p;});
 
@@ -766,9 +760,9 @@ namespace build2
         lexer_ = ol;
         path_ = op;
       }
-      catch (const ifstream::failure&)
+      catch (const ifdstream::failure& e)
       {
-        fail (l) << "unable to read buildfile " << p;
+        fail (l) << "unable to read buildfile " << p << ": " << e.what ();
       }
     }
 
@@ -871,12 +865,7 @@ namespace build2
 
       try
       {
-        ifstream ifs (p.string ());
-
-        if (!ifs.is_open ())
-          fail (l) << "unable to open " << p;
-
-        ifs.exceptions (ifstream::failbit | ifstream::badbit);
+        ifdstream ifs (p);
 
         l5 ([&]{trace (t) << "entering " << p;});
 
@@ -908,9 +897,9 @@ namespace build2
         lexer_ = ol;
         path_ = op;
       }
-      catch (const ifstream::failure&)
+      catch (const ifdstream::failure& e)
       {
-        fail (l) << "unable to read buildfile " << p;
+        fail (l) << "unable to read buildfile " << p << ": " << e.what ();
       }
 
       scope_ = ocs;

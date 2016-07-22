@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <fstream>
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/context>
@@ -103,12 +101,19 @@ namespace build2
 
       if (file_exists (mf))
       {
-        ifstream ifs (mf.string ());
-        string s;
-        getline (ifs, s, '\0');
+        try
+        {
+          ifdstream ifs (mf);
+          string s;
+          getline (ifs, s, '\0');
 
-        if (s == m)
-          return mf;
+          if (s == m)
+            return mf;
+        }
+        catch (const ifdstream::failure&)
+        {
+          // Whatever the reason we failed for , let's rewrite the file.
+        }
       }
 
       if (verb >= 3)
@@ -116,14 +121,13 @@ namespace build2
 
       try
       {
-        ofstream ofs;
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
-        ofs.open (mf.string (), ofstream::out | ofstream::trunc);
+        ofdstream ofs (mf);
         ofs << m;
+        ofs.close ();
       }
-      catch (const ofstream::failure&)
+      catch (const ofdstream::failure& e)
       {
-        fail << "unable to write to " << m;
+        fail << "unable to write to " << m << ": " << e.what ();
       }
 
       return mf;

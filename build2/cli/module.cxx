@@ -102,34 +102,42 @@ namespace build2
           if (verb >= 3)
             print_process (args);
 
-          string ver;
           try
           {
             process pr (args, 0, -1); // Open pipe to stdout.
-            ifdstream is (pr.in_ofd);
 
-            // The version should be the last word on the first line.
-            //
-            getline (is, ver);
-            auto p (ver.rfind (' '));
-            if (p != string::npos)
-              ver = string (ver, p + 1);
+            try
+            {
+              ifdstream is (pr.in_ofd, fdstream_mode::skip);
 
-            // Skip until the end as cli doesn't handle writing to the closed
-            // pipe very well (SIGPIPE).
-            //
-            if (is.good ())
-              is.ignore (numeric_limits<streamsize>::max ());
+              // The version should be the last word on the first line.
+              //
+              string ver;
+              getline (is, ver);
+              auto p (ver.rfind (' '));
+              if (p != string::npos)
+                ver = string (ver, p + 1);
 
-            is.close (); // Don't block the other end.
+              is.close (); // Don't block the other end.
 
-            if (!pr.wait ())    // Presumably issued diagnostics.
-              return string (); // Not found.
+              if (pr.wait ())
+              {
+                if (ver.empty ())
+                  fail << "unexpected output from " << cli;
 
-            if (ver.empty ())
-              fail << "unexpected output from " << cli;
+                return ver;
+              }
 
-            return ver;
+              // Presumably issued diagnostics. Fall through.
+            }
+            catch (const ifdstream::failure&)
+            {
+              pr.wait ();
+
+              // Fall through.
+            }
+
+            // Fall through.
           }
           catch (const process_error& e)
           {
@@ -143,8 +151,10 @@ namespace build2
             if (e.child ())
               exit (1);
 
-            return string (); // Not found.
+            // Fall through.
           }
+
+          return string (); // Not found.
         };
 
         string ver;       // Empty means unconfigured.

@@ -89,56 +89,63 @@ namespace build2
       // redirect stderr to stdout.
       //
       process pr (start_run (args, false));
-      ifdstream is (pr.in_ofd);
 
       bool obj (false), dll (false);
-
       string s;
-      while (getline (is, s))
+
+      try
       {
-        // Detect the one error we should let through.
-        //
-        if (s.compare (0, 18, "unable to execute ") == 0)
-          break;
+        ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
 
-        // The lines we are interested in seem to have this form (though
-        // presumably the "Archive member name at" part can be translated):
-        //
-        // Archive member name at 746: [...]hello.dll[/][ ]*
-        // Archive member name at 8C70: [...]hello.lib.obj[/][ ]*
-        //
-        size_t n (s.size ());
-
-        for (; n != 0 && s[n - 1] == ' '; --n) ; // Skip trailing spaces.
-
-        if (n >= 7) // At least ": X.obj" or ": X.dll".
+        while (getline (is, s))
         {
-          --n;
+          // Detect the one error we should let through.
+          //
+          if (s.compare (0, 18, "unable to execute ") == 0)
+            break;
 
-          if (s[n] == '/') // Skip trailing slash if one is there.
+          // The lines we are interested in seem to have this form (though
+          // presumably the "Archive member name at" part can be translated):
+          //
+          // Archive member name at 746: [...]hello.dll[/][ ]*
+          // Archive member name at 8C70: [...]hello.lib.obj[/][ ]*
+          //
+          size_t n (s.size ());
+
+          for (; n != 0 && s[n - 1] == ' '; --n) ; // Skip trailing spaces.
+
+          if (n >= 7) // At least ": X.obj" or ": X.dll".
+          {
             --n;
 
-          n -= 3; // Beginning of extension.
+            if (s[n] == '/') // Skip trailing slash if one is there.
+              --n;
 
-          if (s[n] == '.')
-          {
-            // Make sure there is ": ".
-            //
-            size_t p (s.rfind (':', n - 1));
+            n -= 3; // Beginning of extension.
 
-            if (p != string::npos && s[p + 1] == ' ')
+            if (s[n] == '.')
             {
-              if (s.compare (n + 1, 3, "obj") == 0) // @@ CASE
-                obj = true;
+              // Make sure there is ": ".
+              //
+              size_t p (s.rfind (':', n - 1));
 
-              if (s.compare (n + 1, 3, "dll") == 0) // @@ CASE
-                dll = true;
+              if (p != string::npos && s[p + 1] == ' ')
+              {
+                if (s.compare (n + 1, 3, "obj") == 0) // @@ CASE
+                  obj = true;
+
+                if (s.compare (n + 1, 3, "dll") == 0) // @@ CASE
+                  dll = true;
+              }
             }
           }
         }
       }
-
-      is.close (); // Don't block.
+      catch (const ifdstream::failure&)
+      {
+        // Presumably the child process failed. Let finish_run() deal with
+        // that.
+      }
 
       if (!finish_run (args, false, pr, s))
         return otype::e;

@@ -5,7 +5,6 @@
 #include <errno.h> // E*
 
 #include <set>
-#include <fstream>
 
 #include <build2/scope>
 #include <build2/context>
@@ -167,9 +166,7 @@ namespace build2
 
       try
       {
-        ofstream ofs;
-        ofs.exceptions (ofstream::failbit | ofstream::badbit);
-        ofs.open (am.string ());
+        ofdstream ofs (am);
 
         ofs << "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
             << "<assembly xmlns='urn:schemas-microsoft-com:asm.v1'\n"
@@ -265,10 +262,12 @@ namespace build2
         }
 
         ofs << "</assembly>\n";
+
+        ofs.close ();
       }
-      catch (const ofstream::failure&)
+      catch (const ofdstream::failure& e)
       {
-        fail << "unable to write to " << am;
+        fail << "unable to write to " << am << ": " << e.what ();
       }
     }
   }

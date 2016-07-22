@@ -56,27 +56,31 @@ namespace build2
       try
       {
         process pr (args.data (), 0, -1); // Open pipe to stdout.
-        ifdstream is (pr.in_ofd);
 
-        while (!is.eof ())
+        try
         {
+          ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
+
           string s;
-          getline (is, s);
-
-          if (is.fail () && !is.eof ())
-            fail << "error reading C++ compiler -print-search-dirs output";
-
-          if (s.compare (0, 12, "libraries: =") == 0)
+          while (getline (is, s))
           {
-            l.assign (s, 12, string::npos);
-            break;
+            if (s.compare (0, 12, "libraries: =") == 0)
+            {
+              l.assign (s, 12, string::npos);
+              break;
+            }
           }
+
+          is.close (); // Don't block.
+
+          if (!pr.wait ())
+            throw failed ();
         }
-
-        is.close (); // Don't block.
-
-        if (!pr.wait ())
-          throw failed ();
+        catch (const ifdstream::failure&)
+        {
+          pr.wait ();
+          fail << "error reading C++ compiler -print-search-dirs output";
+        }
       }
       catch (const process_error& e)
       {
@@ -1147,7 +1151,6 @@ namespace build2
               try
               {
                 ofdstream os (pr.out_fd);
-                os.exceptions (ofdstream::badbit | ofdstream::failbit);
 
                 // 1 is resource ID, 24 is RT_MANIFEST. We also need to escape
                 // Windows path backslashes.
@@ -1170,15 +1173,16 @@ namespace build2
                 os << "\"" << endl;
 
                 os.close ();
+
+                if (!pr.wait ())
+                  throw failed (); // Assume diagnostics issued.
               }
-              catch (const ofdstream::failure&)
+              catch (const ofdstream::failure& e)
               {
                 if (pr.wait ()) // Ignore if child failed.
-                  fail << "unable to pipe resource file to " << args[0];
+                  fail << "unable to pipe resource file to " << args[0]
+                       << ": " << e.what ();
               }
-
-              if (!pr.wait ())
-                throw failed (); // Assume diagnostics issued.
             }
             catch (const process_error& e)
             {

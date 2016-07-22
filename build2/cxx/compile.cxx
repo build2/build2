@@ -1042,180 +1042,184 @@ namespace build2
                         cid == "msvc" ? -2 : -1,
                         cid == "msvc" ? -1 : 2);
 
-            ifdstream is (cid == "msvc" ? pr.in_efd : pr.in_ofd,
-                          fdtranslate::text);
-
-            // In some cases we may need to ignore the error return
-            // status. The good_error flag keeps track of that. Similarly
-            // we sometimes expect the error return status based on the
-            // output we see. The bad_error flag is for that.
-            //
-            bool good_error (false), bad_error (false);
-
-            size_t skip (skip_count);
-            for (bool first (true), second (false); !(restart || is.eof ()); )
+            try
             {
-              string l;
-              getline (is, l);
-
-              if (is.fail ())
-              {
-                if (is.eof ()) // Trailing newline.
-                  break;
-
-                fail << "unable to read C++ compiler header dependency output";
-              }
-
-              l6 ([&]{trace << "header dependency line '" << l << "'";});
-
-              // Parse different dependency output formats.
+              // We may not read all the output (e.g., due to a restart).
+              // Before we used to just close the file descriptor to signal to
+              // the other end that we are not interested in the rest. This
+              // works fine with GCC but Clang (3.7.0) finds this impolite and
+              // complains, loudly (broken pipe). So now we are going to skip
+              // until the end.
               //
-              if (cid == "msvc")
+              ifdstream is (cid == "msvc" ? pr.in_efd : pr.in_ofd,
+                            fdstream_mode::text | fdstream_mode::skip,
+                            ifdstream::badbit);
+
+              // In some cases we may need to ignore the error return
+              // status. The good_error flag keeps track of that. Similarly
+              // we sometimes expect the error return status based on the
+              // output we see. The bad_error flag is for that.
+              //
+              bool good_error (false), bad_error (false);
+
+              size_t skip (skip_count);
+              for (bool first (true), second (false);
+                   !(restart || is.eof ()); )
               {
-                if (first)
+                string l;
+                getline (is, l);
+
+                if (is.fail ())
                 {
-                  // The first line should be the file we are compiling. If it
-                  // is not, then something went wrong even before we could
-                  // compile anything (e.g., file does not exist). In this
-                  // case the first line (and everything after it) is
-                  // presumably diagnostics.
-                  //
-                  if (l != s.path ().leaf ().string ())
+                  if (is.eof ()) // Trailing newline.
+                    break;
+
+                  throw ifdstream::failure ("");
+                }
+
+                l6 ([&]{trace << "header dependency line '" << l << "'";});
+
+                // Parse different dependency output formats.
+                //
+                if (cid == "msvc")
+                {
+                  if (first)
+                  {
+                    // The first line should be the file we are compiling. If
+                    // it is not, then something went wrong even before we
+                    // could compile anything (e.g., file does not exist). In
+                    // this case the first line (and everything after it) is
+                    // presumably diagnostics.
+                    //
+                    if (l != s.path ().leaf ().string ())
+                    {
+                      text << l;
+                      bad_error = true;
+                      break;
+                    }
+
+                    first = false;
+                    continue;
+                  }
+
+                  string f (next_show (l, good_error));
+
+                  if (f.empty ()) // Some other diagnostics.
                   {
                     text << l;
                     bad_error = true;
                     break;
                   }
 
-                  first = false;
-                  continue;
-                }
-
-                string f (next_show (l, good_error));
-
-                if (f.empty ()) // Some other diagnostics.
-                {
-                  text << l;
-                  bad_error = true;
-                  break;
-                }
-
-                // Skip until where we left off.
-                //
-                if (skip != 0)
-                {
-                  // We can't be skipping over a non-existent header.
-                  //
-                  assert (!good_error);
-                  skip--;
-                }
-                else
-                {
-                  restart = add (path (move (f)), false);
-                  skip_count++;
-
-                  // If the header does not exist, we better restart.
-                  //
-                  assert (!good_error || restart);
-
-                  if (restart)
-                    l6 ([&]{trace << "restarting";});
-                }
-              }
-              else
-              {
-                // Make dependency declaration.
-                //
-                size_t pos (0);
-
-                if (first)
-                {
-                  // Empty output should mean the wait() call below will
-                  // return false.
-                  //
-                  if (l.empty ())
-                  {
-                    bad_error = true;
-                    break;
-                  }
-
-                  assert (l[0] == '^' && l[1] == ':' && l[2] == ' ');
-
-                  first = false;
-                  second = true;
-
-                  // While normally we would have the source file on the first
-                  // line, if too long, it will be moved to the next line and
-                  // all we will have on this line is "^: \".
-                  //
-                  if (l.size () == 4 && l[3] == '\\')
-                    continue;
-                  else
-                    pos = 3; // Skip "^: ".
-
-                  // Fall through to the 'second' block.
-                }
-
-                if (second)
-                {
-                  second = false;
-                  next_make (l, pos); // Skip the source file.
-                }
-
-                while (pos != l.size ())
-                {
-                  string f (next_make (l, pos));
-
                   // Skip until where we left off.
                   //
                   if (skip != 0)
                   {
+                    // We can't be skipping over a non-existent header.
+                    //
+                    assert (!good_error);
                     skip--;
-                    continue;
+                  }
+                  else
+                  {
+                    restart = add (path (move (f)), false);
+                    skip_count++;
+
+                    // If the header does not exist, we better restart.
+                    //
+                    assert (!good_error || restart);
+
+                    if (restart)
+                      l6 ([&]{trace << "restarting";});
+                  }
+                }
+                else
+                {
+                  // Make dependency declaration.
+                  //
+                  size_t pos (0);
+
+                  if (first)
+                  {
+                    // Empty output should mean the wait() call below will
+                    // return false.
+                    //
+                    if (l.empty ())
+                    {
+                      bad_error = true;
+                      break;
+                    }
+
+                    assert (l[0] == '^' && l[1] == ':' && l[2] == ' ');
+
+                    first = false;
+                    second = true;
+
+                    // While normally we would have the source file on the
+                    // first line, if too long, it will be moved to the next
+                    // line and all we will have on this line is "^: \".
+                    //
+                    if (l.size () == 4 && l[3] == '\\')
+                      continue;
+                    else
+                      pos = 3; // Skip "^: ".
+
+                    // Fall through to the 'second' block.
                   }
 
-                  restart = add (path (move (f)), false);
-                  skip_count++;
-
-                  if (restart)
+                  if (second)
                   {
-                    l6 ([&]{trace << "restarting";});
-                    break;
+                    second = false;
+                    next_make (l, pos); // Skip the source file.
+                  }
+
+                  while (pos != l.size ())
+                  {
+                    string f (next_make (l, pos));
+
+                    // Skip until where we left off.
+                    //
+                    if (skip != 0)
+                    {
+                      skip--;
+                      continue;
+                    }
+
+                    restart = add (path (move (f)), false);
+                    skip_count++;
+
+                    if (restart)
+                    {
+                      l6 ([&]{trace << "restarting";});
+                      break;
+                    }
                   }
                 }
               }
-            }
 
-            // We may not have read all the output (e.g., due to a restart).
-            // Before we used to just close the file descriptor to signal to
-            // the other end that we are not interested in the rest. This
-            // works fine with GCC but Clang (3.7.0) finds this impolite and
-            // complains, loudly (broken pipe). So now we are going to skip
-            // until the end.
-            //
-            // Also, in case of VC++, we are parsing stderr and if things go
-            // south, we need to copy the diagnostics for the user to see.
-            //
-            if (!is.eof ())
-            {
-              if (cid == "msvc" && bad_error)
+              // In case of VC++, we are parsing stderr and if things go south,
+              // we need to copy the diagnostics for the user to see.
+              //
+              if (!is.eof () && cid == "msvc" && bad_error)
                 *diag_stream << is.rdbuf ();
-              else
-                is.ignore (numeric_limits<streamsize>::max ());
+
+              is.close ();
+
+              // We assume the child process issued some diagnostics.
+              //
+              if (!pr.wait ())
+              {
+                if (!good_error) // Ignore expected errors (restart).
+                  throw failed ();
+              }
+              else if (bad_error)
+                fail << "expected error exist status from C++ compiler";
             }
-
-            is.close ();
-
-            // We assume the child process issued some diagnostics.
-            //
-            if (!pr.wait ())
+            catch (const ifdstream::failure&)
             {
-              if (!good_error) // Ignore expected errors (restart).
-                throw failed ();
+              pr.wait ();
+              fail << "unable to read C++ compiler header dependency output";
             }
-            else if (bad_error)
-              fail << "expected error exist status from C++ compiler";
-
           }
           catch (const process_error& e)
           {
