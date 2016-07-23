@@ -101,10 +101,7 @@ namespace build2
           const string& sname (i->first);
           const saved_variables& svars (i->second);
 
-          // Separate modules with a blank line.
-          //
-          ofs << endl;
-
+          bool first (true); // Separate modules with a blank line.
           for (const saved_variable& sv: svars)
           {
             const variable& var (sv.var);
@@ -217,6 +214,15 @@ namespace build2
             {
               if (cast<bool> (v) || svars.size () != 1)
                 continue;
+            }
+
+            // If we got here then we are saving this variable. Handle the
+            // blank line.
+            //
+            if (first)
+            {
+              ofs << endl;
+              first = false;
             }
 
             // Handle the save_commented flag.
