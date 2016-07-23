@@ -64,7 +64,7 @@ namespace build2
     }
 
     static void
-    save_config (scope& root)
+    save_config (scope& root, const set<scope*>& projects)
     {
       const dir_path& out_root (root.out_path ());
       path f (out_root / config_file);
@@ -131,6 +131,12 @@ namespace build2
               // will be dropped from the amalgamation's config.build. Let's
               // also warn the user just in case.
               //
+              // There is also another case that falls under this now that
+              // overrides are by default amalgamation-wide rather than just
+              // "project and subprojects": we may be (re-)configuring a
+              // subproject but the override is now set on the outer project's
+              // root.
+              //
               bool found (false);
               scope* r (&root);
               while ((r = r->parent_scope ()->root_scope ()) != nullptr)
@@ -150,11 +156,27 @@ namespace build2
                       // Find the variable. For now we do linear search.
                       //
                       const saved_variables& sv (i->second);
+
                       found = find_if (
                         sv.begin (),
                         sv.end (),
                         [&var] (const saved_variable& v) {
                           return var == v.var;}) != sv.end ();
+
+                      // Handle that other case: if this is an override but
+                      // the outer project itself is not being configured,
+                      // then we need to save this override.
+                      //
+                      // One problem with using the already configured project
+                      // set is that the outer project may be configured only
+                      // after us in which case both projects will save the
+                      // value. But perhaps this is a feature, not a bug since
+                      // this is how project-local (%) override behaves.
+                      //
+                      if (found &&
+                          org.first != ovr.first &&
+                          projects.find (r) == projects.end ())
+                        found = false;
                     }
                   }
 
@@ -293,7 +315,7 @@ namespace build2
 
         // Save config.build.
         //
-        save_config (root);
+        save_config (root, projects);
       }
       else
       {
