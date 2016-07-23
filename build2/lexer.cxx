@@ -4,6 +4,8 @@
 
 #include <build2/lexer>
 
+#include <cstring> // strchr()
+
 using namespace std;
 
 namespace build2
@@ -309,10 +311,23 @@ namespace build2
       if (c == '\\')
       {
         get ();
-        c = escape ();
-        if (c != '\n') // Ignore.
-          lexeme += c;
-        continue;
+        xchar e (peek ());
+
+        if (escapes_ == nullptr ||
+            (!eos (e) && strchr (escapes_, e) != nullptr))
+        {
+          get ();
+
+          if (eos (e))
+            fail (e) << "unterminated escape sequence";
+
+          if (e != '\n') // Ignore.
+            lexeme += e;
+
+          continue;
+        }
+        else
+          unget (c); // Treat as a normal character.
       }
 
       // If we are quoted, these are ordinary characters.
@@ -482,17 +497,6 @@ namespace build2
     }
 
     return r;
-  }
-
-  lexer::xchar lexer::
-  escape ()
-  {
-    xchar c (get ());
-
-    if (eos (c))
-      fail (c) << "unterminated escape sequence";
-
-    return c;
   }
 
   location_prologue lexer::fail_mark_base::

@@ -178,6 +178,21 @@ namespace build2
        config.install.root=/usr/local config.install.root.sudo=sudo \
        configure
      \
+
+     Note also that buildspec and command line variable values are treated as
+     \cb{buildfile} fragments and so can use quoting and escaping as well as
+     contain variable expansions and evaluation contexts. However, to be more
+     usable on various platforms, escaping in these two situations is limited
+     to the \i{effective sequences} of \cb{\\'}, \cb{\\\"}, \cb{\\\\},
+     \cb{\\$}, and \cb{\\(} with all other sequences interpreted as is.
+     Together with double-quoting this is sufficient to represent any value.
+     For example:
+
+     \
+     b config.install.root=c:\projects\install
+     b \"config.install.root='c:\Program Files (x86)\test\'\"
+     b 'config.cxx.poptions=-DFOO_STR=\"foo\"'
+     \
      "
   }
 

@@ -2680,7 +2680,10 @@ namespace build2
   {
     path_ = &name;
 
-    lexer l (is, *path_, &paren_processor);
+    // We do "effective escaping" and only for ['"\$(] (basically what's
+    // necessary inside a double-quoted literal plus the single quote).
+    //
+    lexer l (is, *path_, "\'\"\\$(", &paren_processor);
     lexer_ = &l;
     target_ = nullptr;
     scope_ = root_ = global_scope;

@@ -30,8 +30,6 @@
 #include <build2/context>
 #include <build2/variable>
 
-#include <build2/token>
-#include <build2/lexer>
 #include <build2/parser>
 
 #include <build2/b-options>

@@ -37,10 +37,19 @@ namespace build2
   class lexer: protected butl::char_scanner
   {
   public:
+    // If escape is not NULL then only escape sequences with characters from
+    // this string are considered "effective escapes" with all others passed
+    // through as is. Note that the escape string is not copied.
+    //
     lexer (istream& is,
            const path& name,
+           const char* escapes = nullptr,
            void (*processor) (token&, const lexer&) = nullptr)
-        : char_scanner (is), fail (name), processor_ (processor), sep_ (false)
+        : char_scanner (is),
+          fail (name),
+          escapes_ (escapes),
+          processor_ (processor),
+          sep_ (false)
     {
       mode (lexer_mode::normal);
     }
@@ -100,9 +109,6 @@ namespace build2
     bool
     skip_spaces ();
 
-    xchar
-    escape ();
-
     // Diagnostics.
     //
   private:
@@ -120,7 +126,9 @@ namespace build2
   private:
     fail_mark fail;
 
+    const char* escapes_;
     void (*processor_) (token&, const lexer&);
+
 
     struct state
     {

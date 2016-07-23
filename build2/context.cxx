@@ -97,7 +97,12 @@ namespace build2
     {
       istringstream is (s);
       is.exceptions (istringstream::failbit | istringstream::badbit);
-      lexer l (is, path ("<cmdline>"));
+
+      // Similar to buildspec we do "effective escaping" and only for ['"\$(]
+      // (basically what's necessary inside a double-quoted literal plus the
+      // single quote).
+      //
+      lexer l (is, path ("<cmdline>"), "\'\"\\$(");
 
       // The first token should be a name, either the variable name or the
       // scope qualification.
@@ -143,7 +148,7 @@ namespace build2
       if (c == '!' && !dir.empty ())
         fail << "scope-qualified global override of variable " << n;
 
-      variable_visibility v (c == '/' ? variable_visibility::scope :
+      variable_visibility v (c == '/' ? variable_visibility::scope   :
                              c == '%' ? variable_visibility::project :
                              variable_visibility::normal);
 
