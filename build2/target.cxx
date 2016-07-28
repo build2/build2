@@ -289,7 +289,19 @@ namespace build2
     // If this target is from src, print its out.
     //
     if (!k.out->empty ())
-      os << '@' << diag_relative (*k.out, false); // Don't print './'.
+    {
+      if (stream_verb (os) < 2)
+      {
+        // Don't print '@./'.
+        //
+        const string& o (diag_relative (*k.out, false));
+
+        if (!o.empty ())
+          os << '@' << o;
+      }
+      else
+        os << '@' << k.out;
+    }
 
     return os;
   }
