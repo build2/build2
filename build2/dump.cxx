@@ -57,23 +57,32 @@ namespace build2
 
   static void
   dump_variable (ostream& os,
-                 const variable& var,
-                 const lookup& org,
+                 const variable_map& vm,
+                 const variable_map::const_iterator& vi,
                  const scope& s,
                  variable_kind k)
   {
     // Target type/pattern-specific prepends/appends are kept untyped and not
     // overriden.
     //
-    if (k == variable_kind::tt_pat && org->extra != 0)
+    if (k == variable_kind::tt_pat && vi.extra () != 0)
     {
       // @@ Might be useful to dump the cache.
       //
-      assert (org->type == nullptr);
-      os << var.name << (org->extra == 1 ? " =+ " : " += ");
+      const auto& p (vi.untyped ());
+      const variable& var (p.first);
+      const value& v (p.second);
+      assert (v.type == nullptr);
+
+      os << var.name << (v.extra == 1 ? " =+ " : " += ");
+      dump_value (os, v, false);
     }
     else
     {
+      const auto& p (*vi);
+      const variable& var (p.first);
+      const value& v (p.second);
+
       if (var.type != nullptr)
         os << '[' << var.type->name << "] ";
 
@@ -87,11 +96,14 @@ namespace build2
           var.name.rfind (".__suffix") == string::npos &&
           var.name.rfind (".__prefix") == string::npos)
       {
+        lookup org (v, vm);
+
         // The original is always from this scope/target, so depth is 1.
         //
         lookup l (
           s.find_override (
             var, make_pair (org, 1), k == variable_kind::target).first);
+
         assert (l.defined ()); // We at least have the original.
 
         if (org != l)
@@ -100,9 +112,9 @@ namespace build2
           os << " # original: ";
         }
       }
-    }
 
-    dump_value (os, *org, org->type != var.type);
+      dump_value (os, v, v.type != var.type);
+    }
   }
 
   static void
@@ -112,12 +124,12 @@ namespace build2
                   const scope& s,
                   variable_kind k)
   {
-    for (const auto& e: vars)
+    for (auto i (vars.begin ()), e (vars.end ()); i != e; ++i)
     {
       os << endl
          << ind;
 
-      dump_variable (os, e.first, lookup (&e.second, &vars), s, k);
+      dump_variable (os, vars, i, s, k);
     }
   }
 
@@ -155,11 +167,7 @@ namespace build2
         if (vars.size () == 1)
         {
           os << ' ';
-          dump_variable (os,
-                         vars.begin ()->first,
-                         lookup (&vars.begin ()->second, &vars),
-                         s,
-                         variable_kind::tt_pat);
+          dump_variable (os, vars, vars.begin (), s, variable_kind::tt_pat);
         }
         else
         {

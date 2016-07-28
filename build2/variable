@@ -720,8 +720,16 @@ namespace build2
     {
       iterator_adapter () = default;
       iterator_adapter (const I& i): I (i) {}
+
+      // Automatically type a newly typed value on access.
+      //
       typename I::reference operator* () const;
       typename I::pointer operator-> () const;
+
+      // Untyped access.
+      //
+      uint16_t extra () const {return I::operator* ().second.extra;}
+      typename I::reference untyped () const {return I::operator* ();}
     };
 
     using const_iterator = iterator_adapter<map_type::const_iterator>;
