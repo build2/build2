@@ -29,14 +29,4 @@ namespace build2
 
     return r;
   }
-
-  inline void name::
-  clear ()
-  {
-    proj = nullptr;
-    dir.clear ();
-    type.clear ();
-    value.clear ();
-    pair = '\0';
-  }
 }

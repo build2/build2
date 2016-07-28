@@ -101,16 +101,12 @@ namespace build2
   extern const dir_path* relative_base;
 
   // In addition to calling relative(), this function also uses shorter
-  // notations such as '~/'.
+  // notations such as '~/'. For directories the result includes the trailing
+  // slash. If the path is the same as base, returns "./" if current is true
+  // and empty string otherwise.
   //
   string
-  diag_relative (const path&);
-
-  // As above but also adds trailing '/'. If the path is the same as
-  // base, returns "./" if current is true and empty string otherwise.
-  //
-  string
-  diag_relative (const dir_path&, bool current = true);
+  diag_relative (const path&, bool current = true);
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} is configured". Use like this:

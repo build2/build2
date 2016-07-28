@@ -368,7 +368,7 @@ namespace build2
   const dir_path* relative_base = &work;
 
   string
-  diag_relative (const path& p)
+  diag_relative (const path& p, bool cur)
   {
     if (p.string () == "-")
       return "<stdin>";
@@ -378,11 +378,11 @@ namespace build2
     if (p.absolute ())
     {
       if (p == b)
-        return ".";
+        return cur ? "." + p.separator_string () : string ();
 
 #ifndef _WIN32
       if (p == home)
-        return "~";
+        return "~" + p.separator_string ();
 #endif
 
       path rb (relative (p));
@@ -396,36 +396,18 @@ namespace build2
         if (p.sub (home))
         {
           path rh (p.leaf (home));
-          if (rb.string ().size () > rh.string ().size () + 2) // 2 for '~/'
-            return "~/" + rh.string ();
+          if (rb.size () > rh.size () + 2) // 2 for '~/'
+            return "~/" + move (rh).representation ();
         }
       }
       else if (rb.sub (home))
-        return "~/" + rb.leaf (home).string ();
+        return "~/" + rb.leaf (home).representation ();
 #endif
 
-      return rb.string ();
+      return move (rb).representation ();
     }
 
-    return p.string ();
-  }
-
-  string
-  diag_relative (const dir_path& d, bool cur)
-  {
-    string r (diag_relative (static_cast<const path&> (d)));
-
-    // Translate "." to empty.
-    //
-    if (!cur && d.absolute () && r == ".")
-      r.clear ();
-
-    // Add trailing '/'.
-    //
-    if (!r.empty () && !dir_path::traits::is_separator (r.back ()))
-      r += '/';
-
-    return r;
+    return p.representation ();
   }
 
   // diag_do(), etc.

@@ -69,6 +69,7 @@ namespace build2
     {
       // @@ Might be useful to dump the cache.
       //
+      assert (org->type == nullptr);
       os << var.name << (org->extra == 1 ? " =+ " : " += ");
     }
     else

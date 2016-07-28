@@ -308,7 +308,7 @@ namespace build2
       // directory (i.e., the calling code does not know what it is dealing
       // with), so let's use the whole path.
       //
-      return find (dir_path (p.string ()));
+      return find (path_cast<dir_path> (p));
     }
   };
 

@@ -239,7 +239,7 @@ namespace build2
     static void
     install (const install_dir& base, const dir_path& d)
     {
-      path reld (relative (d));
+      dir_path reld (relative (d));
 
       cstrings args;
 
@@ -288,7 +288,7 @@ namespace build2
     static void
     install (const install_dir& base, file& t, bool verbose = true)
     {
-      path reld (relative (base.dir));
+      dir_path reld (relative (base.dir));
       path relf (relative (t.path ()));
 
       cstrings args;

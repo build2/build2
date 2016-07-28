@@ -436,16 +436,13 @@ namespace build2
     string s;
 
     if (n.directory (true))
-    {
-      s = move (n.dir).string (); // Move string out of path.
-
-      // Add / back to the end of the path unless it is already there. Note
-      // that the string cannot be empty (n.directory () would have been
-      // false).
+      // Use either the precise or traditional representation depending on
+      // whethe this is the original name (if it is, then this might not be
+      // a path after all; think s/foo/bar/).
       //
-      if (!dir_path::traits::is_separator (s[s.size () - 1]))
-        s += '/';
-    }
+      s = n.original
+        ? move (n.dir).representation () // Move out of path.
+        : move (n.dir).string ();
     else
       s.swap (n.value);
 
@@ -473,10 +470,10 @@ namespace build2
 
       if (r->directory (true))
       {
-        s += r->dir.string ();
-
-        if (!dir_path::traits::is_separator (s[s.size () - 1]))
-          s += '/';
+        if (r->original)
+          s += move (r->dir).representation ();
+        else
+          s += r->dir.string ();
       }
       else
         s += r->value;
@@ -636,6 +633,7 @@ namespace build2
     if (r != nullptr)
       throw invalid_argument (string ());
 
+    n.original = false;
     return move (n);
   }
 

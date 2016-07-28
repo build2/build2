@@ -803,8 +803,7 @@ namespace build2
         p /= path ("buildfile");
       else
       {
-        bool d (path::traits::is_separator (n.value.back ())
-                || n.type == "dir");
+        bool d (path::traits::is_separator (n.value.back ()));
 
         p /= path (move (n.value));
         if (d)
@@ -1933,6 +1932,12 @@ namespace build2
     return count;
   }
 
+  // Slashe(s) plus '%'. Note that here we assume '/' is there since that's
+  // in our buildfile "syntax".
+  //
+  static const string name_separators (
+    string (path::traits::directory_separators) + '%');
+
   bool parser::
   names (token& t, type& tt,
          names_type& ns,
@@ -2011,9 +2016,9 @@ namespace build2
           continue;
         }
 
-        //@@ PATH
+        // Find slash or %.
         //
-        string::size_type p (name.find_last_of ("/\\%"));
+        string::size_type p (name.find_last_of (name_separators));
 
         // First take care of project. A project-qualified name is
         // not very common, so we can afford some copying for the
@@ -2115,30 +2120,6 @@ namespace build2
         //
         if (p == n)
         {
-          // @@ PATH: currently we treat backslashes as directory separators
-          //    which means they will be reversed as forward slashes. We have
-          //    no choice here since otherwise Windows paths will be pretty
-          //    much unusable (e.g., configure(C:\foo\@...)). Some ideas on
-          //    how we could mitigate this:
-          //
-          //    - Only do this in buildspec parsing (but what about command
-          //      line vars).
-          //
-          //    - When reversing, employ some heuristics to decide which
-          //      slash to use. E.g., if it already contains back slashes.
-          //      Though the problem is with reversing something that isn't
-          //      a path, say 'foo\'.
-          //
-
-          // Take care of "/" and "...//" (the latter is not reversible).
-          //
-          char t ('\0');
-          if (p != 0 && !path::traits::is_separator (name[p - 1]))
-          {
-            t = name[p];
-            name.resize (p); // Strip trailing '/'.
-          }
-
           // For reversibility to simple name, only treat it as a directory
           // if the string is an exact representation.
           //
@@ -2155,11 +2136,6 @@ namespace build2
                              string ());
             continue;
           }
-
-          // Add the trailing slash back and treat it as a simple name.
-          //
-          if (t != '\0')
-            name.push_back (t);
         }
 
         ns.emplace_back (pp1,
@@ -2257,6 +2233,9 @@ namespace build2
 
           if (tt == type::lparen)
           {
+            // Function call.
+            //
+
             next (t, tt); // Get '('.
 
             // Just a stub for now.
@@ -2300,6 +2279,9 @@ namespace build2
           }
           else
           {
+            // Variable expansion.
+            //
+
             // Process variable name.
             //
             if (name.front () == '.') // Fully qualified name.
@@ -2404,7 +2386,11 @@ namespace build2
             if (!n.value.empty ())
               fail (loc) << "concatenating " << what << " contains directory";
 
-            concat += n.dir.string ();
+            // If this is an original name, then we cannot assume it is
+            // actually a directory path (think s/foo/bar/) so we have to
+            // reverse it exactly.
+            //
+            concat += n.original ? n.dir.representation () : n.dir.string ();
           }
           else
             concat += n.value;
@@ -2474,6 +2460,7 @@ namespace build2
                              n.value);
 
             ns.back ().pair = n.pair;
+            ns.back ().original = n.original;
           }
 
           count = lv.size ();

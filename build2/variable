@@ -279,10 +279,10 @@ namespace build2
   void typify (value&, const variable&);
   void typify (value&, const value_type&, const variable*);
 
-  // Reverse the value back to names. The value should no be NULL and storage
+  // Reverse the value back to names. The value should not be NULL and storage
   // should be empty.
   //
-  names_view
+  vector_view<const name>
   reverse (const value&, names& storage);
 
   vector_view<name>
@@ -474,7 +474,7 @@ namespace build2
     static bool convert (name&&, name*);
     static void assign (value&, bool);
     static void append (value&, bool); // OR.
-    static name reverse (bool x) {return name (x ? "true" : "false");}
+    static name reverse (bool x) {return name (x ? "true" : "false", false);}
     static int compare (bool, bool);
 
     static const char* const type_name;
@@ -489,7 +489,7 @@ namespace build2
     static uint64_t convert (name&&, name*);
     static void assign (value&, uint64_t);
     static void append (value&, uint64_t); // ADD.
-    static name reverse (uint64_t x) {return name (to_string (x));}
+    static name reverse (uint64_t x) {return name (to_string (x), false);}
     static int compare (uint64_t, uint64_t);
 
     static const char* const type_name;
@@ -507,7 +507,7 @@ namespace build2
     static void assign (value&, string&&);
     static void append (value&, string&&);
     static void prepend (value&, string&&);
-    static name reverse (const string& x) {return name (x);}
+    static name reverse (const string& x) {return name (x, false);}
     static int compare (const string&, const string&);
     static bool empty (const string& x) {return x.empty ();}
 
@@ -526,7 +526,7 @@ namespace build2
     static void assign (value&, path&&);
     static void append (value&, path&&);  // operator/
     static void prepend (value&, path&&); // operator/
-    static name reverse (const path& x) {return name (x.string ());}
+    static name reverse (const path& x) {return name (x.string (), false);}
     static int compare (const path&, const path&);
     static bool empty (const path& x) {return x.empty ();}
 
@@ -545,7 +545,7 @@ namespace build2
     static void assign (value&, dir_path&&);
     static void append (value&, dir_path&&);  // operator/
     static void prepend (value&, dir_path&&); // operator/
-    static name reverse (const dir_path& x) {return name (x);}
+    static name reverse (const dir_path& x) {return name (x, false);}
     static int compare (const dir_path&, const dir_path&);
     static bool empty (const dir_path& x) {return x.empty ();}
 
@@ -564,7 +564,7 @@ namespace build2
     static abs_dir_path convert (name&&, name*);
     static void assign (value&, abs_dir_path&&);
     static void append (value&, abs_dir_path&&);  // operator/
-    static name reverse (const abs_dir_path& x) {return name (x);}
+    static name reverse (const abs_dir_path& x) {return name (x, false);}
     static int compare (const abs_dir_path&, const abs_dir_path&);
     static bool empty (const abs_dir_path& x) {return x.empty ();}
 
@@ -581,8 +581,6 @@ namespace build2
 
     static name convert (name&&, name*);
     static void assign (value&, name&&);
-    static void append (value&, name&&);
-    static void prepend (value&, name&&);
     static name reverse (const name& x) {return x;}
     static int compare (const name&, const name&);
     static bool empty (const name& x) {return x.empty ();}

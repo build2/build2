@@ -1,3 +1,6 @@
+# @@ I wonder if we can redo this test in terms of print?
+#
+
 # Test reversibility of variable representation.
 #
 val  = -L/

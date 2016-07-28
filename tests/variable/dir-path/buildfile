@@ -1,0 +1,45 @@
+# Untyped dir path reversability.
+#
+x = s/foo/bar/
+print -e=$x
+print -e $x
+
+y = $x
+print -e=$y
+print -e $y
+print
+
+# Typed dir path reversability and expansion.
+#
+x = [dir_path] foo/bar/
+print -I$x
+print -I$x/baz
+print -I $x
+print [strings] -I $x
+print -I $x/baz
+print
+
+y = $x             # No longer typed but still not original.
+print -I$y
+print -I$y/baz
+print -I $y
+print [strings] -I $y
+print -I $y/baz
+print
+
+z = [strings] $x   # Re-typed.
+print $z
+print
+
+# The root case.
+#
+r = [dir_path] /
+print $r/foo
+
+r += foo
+print [strings] $r
+
+r += bar
+print [strings] $r
+
+./:

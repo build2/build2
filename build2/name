@@ -16,16 +16,21 @@ namespace build2
 {
   using std::move;
 
-  // A name is what we operate on by default. Depending on the context,
-  // it can be interpreted as a target or prerequisite name. A name
-  // without a type and directory can be used to represent any text.
-  // A name with directory and empty value represents a directory.
-  // A name may also be project-qualified. If the project name is
-  // empty, then it means the name is in a project other than our
-  // own (e.g., it is installed).
+  // A name is what we operate on by default. Depending on the context, it can
+  // be interpreted as a target or prerequisite name. A name without a type
+  // and directory can be used to represent any text. A name with directory
+  // and empty value represents a directory. A name may also be qualified with
+  // a project. If the project name is empty, then it means the name is in a
+  // project other than our own (e.g., it is installed).
   //
-  // If pair is not '\0', then this name and the next in the list
-  // form a pair.
+  // If pair is not '\0', then this name and the next in the list form a
+  // pair. Can be used as a bool flag.
+  //
+  // The original flag indicates whether this is the original name (e.g., came
+  // from the buildfile) or if it is the result of reversing a typed value.
+  // Original names have stricter representation requirements since we don't
+  // know what they actually mean (e.g., is s/foo/bar/ really a directory or
+  // a sed script).
   //
   struct name
   {
@@ -33,17 +38,12 @@ namespace build2
     dir_path dir;
     string type;
     string value;
-    char pair = '\0'; // Pair character if first half of a pair. Can be used
-                      // as bool.
+    char pair = '\0';
+    bool original = true;
 
     name () = default;
-
-    explicit name (string v): value (move (v)) {}
-    name& operator= (string v) {return *this = name (move (v));}
-
-    explicit name (dir_path d): dir (move (d)) {}
-    name& operator= (dir_path d) {return *this = name (move (d));}
-
+    name (string v, bool o): value (move (v)), original (o) {}
+    name (dir_path d, bool o): dir (move (d)), original (o) {}
     name (string t, string v): type (move (t)), value (move (v)) {}
 
     name (dir_path d, string t, string v)
@@ -90,11 +90,6 @@ namespace build2
 
     int
     compare (const name&) const;
-
-    // The result is an unqualified, simple empty name.
-    //
-    void
-    clear ();
   };
 
   inline bool

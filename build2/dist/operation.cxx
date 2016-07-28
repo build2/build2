@@ -338,7 +338,7 @@ namespace build2
     static void
     install (const path& cmd, file& t, const dir_path& d)
     {
-      path reld (relative (d));
+      dir_path reld (relative (d));
       path relf (relative (t.path ()));
 
       cstrings args {cmd.string ().c_str ()};

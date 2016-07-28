@@ -189,7 +189,7 @@ namespace build2
       typify (v, t, &var);
   }
 
-  inline names_view
+  inline vector_view<const name>
   reverse (const value& v, names& storage)
   {
     assert (v &&
@@ -463,10 +463,11 @@ namespace build2
   inline void value_traits<name>::
   assign (value& v, name&& x)
   {
-    if (v)
-      v.as<name> () = move (x);
-    else
-      new (&v.data_) name (move (x));
+    name* p (v
+             ? &(v.as<name> () = move (x))
+             : new (&v.data_) name (move (x)));
+
+    p->original = false;
   }
 
   inline int value_traits<name>::

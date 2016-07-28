@@ -96,20 +96,17 @@ namespace build2
     using dir_path::dir_path;
 
     explicit
-    abs_dir_path (dir_path d): dir_path (std::move (d).string (), false) {}
+    abs_dir_path (dir_path d): dir_path (std::move (d)) {}
     abs_dir_path () = default;
   };
 
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
-  // Custom path printing (implemented in utility.cxx).
+  // Path printing with trailing slash for directories (utility.cxx).
   //
   ostream&
   operator<< (ostream&, const path&);
-
-  ostream&
-  operator<< (ostream&, const dir_path&);
 
   // <butl/timestamp>
   //

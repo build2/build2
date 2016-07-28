@@ -7,7 +7,7 @@ export PATH=$cur_dir/../build2:$PATH
 
 function test ()
 {
-  echo "Testing $1"
+  echo "testing $1"
   cd "$cur_dir/$1"
   ./test.sh
 }
@@ -22,10 +22,12 @@ test "names"
 test "pairs"
 test "quote"
 test "scope"
+test "variable/dir-path"
 test "variable/expansion"
 test "variable/null"
 test "variable/override"
 test "variable/prepend"
 test "variable/qualified"
+test "variable/representation"
 test "variable/type"
 test "variable/type-pattern-append"
