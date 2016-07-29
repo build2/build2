@@ -57,7 +57,8 @@ namespace build2
 
     if (k_ == nullptr && g_.count != 0) // Iterating over a normal group.
     {
-      if (++j_ > g_.count)
+      if (g_.members == nullptr || // leave_group()
+          ++j_ > g_.count)
         g_.count = 0;
     }
 
@@ -133,6 +134,7 @@ namespace build2
       //
       j_ = 0;
       g_.count = 1;
+      g_.members = nullptr; // Ugly "special case signal" for operator++.
     }
   }
 }

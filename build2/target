@@ -802,6 +802,8 @@ namespace build2
       // will normally only be known once the caller searched and matched
       // the group.
       //
+      // Also, the enter/leave group support is full of ugly, special cases.
+      //
     private:
       void
       switch_mode ();
