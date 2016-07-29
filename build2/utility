@@ -166,8 +166,8 @@ namespace build2
   void
   hash_options (sha256&, const strings&);
 
-  // Check if a specified option is present in the variable or value.
-  // T is either target or scope.
+  // Check if a specified option is present in the variable or value. T is
+  // either target or scope.
   //
   template <typename T>
   bool
@@ -184,6 +184,59 @@ namespace build2
 
   bool
   find_option (const char* option, const cstrings&, bool ignore_case = false);
+
+  // As above but look for several options.
+  //
+  template <typename T>
+  bool
+  find_options (initializer_list<const char*>, T&, const char*, bool = false);
+
+  bool
+  find_options (initializer_list<const char*>, const lookup&, bool = false);
+
+  bool
+  find_options (initializer_list<const char*>, const strings&, bool = false);
+
+  bool
+  find_options (initializer_list<const char*>, const cstrings&, bool = false);
+
+  // As above but look for an option that has the specified prefix.
+  //
+  template <typename T>
+  bool
+  find_option_prefix (const char* prefix, T&, const char*, bool = false);
+
+  bool
+  find_option_prefix (const char* prefix, const lookup&, bool = false);
+
+  bool
+  find_option_prefix (const char* prefix, const strings&, bool = false);
+
+  bool
+  find_option_prefix (const char* prefix, const cstrings&, bool = false);
+
+  // As above but look for several option prefixes.
+  //
+  template <typename T>
+  bool
+  find_option_prefixes (initializer_list<const char*>,
+                        T&,
+                        const char*,
+                        bool = false);
+
+  bool
+  find_option_prefixes (initializer_list<const char*>,
+                        const lookup&, bool = false);
+
+  bool
+  find_option_prefixes (initializer_list<const char*>,
+                        const strings&,
+                        bool = false);
+
+  bool
+  find_option_prefixes (initializer_list<const char*>,
+                        const cstrings&,
+                        bool = false);
 
   // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
   // AABBCCDD form, where:

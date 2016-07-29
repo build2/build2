@@ -701,6 +701,16 @@ namespace build2
         if (cid == "msvc")
         {
           args.push_back ("/nologo");
+
+          // See perform_update() for details on overriding the default
+          // exceptions and runtime.
+          //
+          if (!find_option_prefix ("/EH", args))
+            args.push_back ("/EHsc");
+
+          if (!find_option_prefixes ({"/MD", "/MT"}, args))
+            args.push_back ("/MD");
+
           args.push_back ("/EP");           // Preprocess to stdout.
           args.push_back ("/TP");           // Preprocess as C++.
           args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
@@ -1288,14 +1298,45 @@ namespace build2
 
       if (cid == "msvc")
       {
+        // The /F*: option variants with separate names only became available
+        // in VS2013/12.0. Why do we bother? Because the command line suddenly
+        // becomes readable.
+        //
         uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
 
         if (verb < 3)
           args.push_back ("/nologo");
 
-        // The /F*: option variants with separate names only became available
-        // in VS2013/12.0. Why do we bother? Because the command line suddenly
-        // becomes readable.
+        // While we want to keep the low-level build as "pure" as possible,
+        // the two misguided defaults, exceptions and runtime, just have to be
+        // fixed. Otherwise the default build is pretty much unusable. But we
+        // also make sure that the user can easily disable our defaults: if we
+        // see any relevant options explicitly specified, we take our hands
+        // off.
+        //
+        if (!find_option_prefix ("/EH", args))
+          args.push_back ("/EHsc");
+
+        // The runtime is a bit more interesting. At first it may seem like a
+        // good idea to be a bit clever and use the static runtime if we are
+        // building obja{}. And for obje{} we could decide which runtime to
+        // use based on the library link order: if it is static-only, then we
+        // could assume the static runtime. But it is indeed too clever: when
+        // building liba{} we have no idea who is going to use it. It could be
+        // an exe{} that links both static and shared libraries (and is
+        // therefore built with the shared runtime). And to safely use the
+        // static runtime, everything must be built with /MT and there should
+        // be no DLLs in the picture. So we are going to play it safe and
+        // always default to the shared runtime.
+        //
+        // In a similar vein, it would seem reasonable to use the debug runtime
+        // if we are compiling with debug. But, again, there will be fireworks
+        // if we have some projects built with debug and some without and then
+        // we try to link them together (which is not an unreasonable thing to
+        // do). So by default we will always use the release runtime.
+        //
+        if (!find_option_prefixes ({"/MD", "/MT"}, args))
+          args.push_back ("/MD");
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -1312,7 +1353,7 @@ namespace build2
         // Note also that what we are doing here appears to be incompatible
         // with PCH (/Y* options) and /Gm (minimal rebuild).
         //
-        if (find_option ("/Zi", args) || find_option ("/ZI", args))
+        if (find_options ({"/Zi", "/ZI"}, args))
         {
           if (cver >= 18)
             args.push_back ("/Fd:");

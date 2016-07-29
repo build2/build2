@@ -4,6 +4,7 @@
 
 #include <build2/utility>
 
+#include <cstring>  // strlen(), str[n]cmp()
 #include <cstdlib>  // strtol()
 #include <iostream> // cerr
 
@@ -161,35 +162,137 @@ namespace build2
   }
 
   bool
-  find_option (const char* option, const lookup& l, bool ic)
+  find_option (const char* o, const lookup& l, bool ic)
   {
-    return l && find_option (option, cast<strings> (l), ic);
+    return l && find_option (o, cast<strings> (l), ic);
   }
 
   bool
-  find_option (const char* option, const strings& strs, bool)
+  find_option (const char* o, const strings& strs, bool)
   {
     //@@ CASE ignore case
 
     for (const string& s: strs)
-    {
-      if (s == option)
+      if (s == o)
         return true;
-    }
 
     return false;
   }
 
   bool
-  find_option (const char* option, const cstrings& cstrs, bool)
+  find_option (const char* o, const cstrings& cstrs, bool)
   {
     //@@ CASE ignore case
 
     for (const char* s: cstrs)
-    {
-      if (s != nullptr && strcmp (s, option) == 0)
+      if (s != nullptr && strcmp (s, o) == 0)
         return true;
-    }
+
+    return false;
+  }
+
+  bool
+  find_options (initializer_list<const char*> os, const lookup& l, bool ic)
+  {
+    return l && find_options (os, cast<strings> (l), ic);
+  }
+
+  bool
+  find_options (initializer_list<const char*> os, const strings& strs, bool)
+  {
+    //@@ CASE ignore case
+
+    for (const string& s: strs)
+      for (const char* o: os)
+        if (s == o)
+          return true;
+
+    return false;
+  }
+
+  bool
+  find_options (initializer_list<const char*> os, const cstrings& cstrs, bool)
+  {
+    //@@ CASE ignore case
+
+    for (const char* s: cstrs)
+      if (s != nullptr)
+        for (const char* o: os)
+          if (strcmp (s, o) == 0)
+            return true;
+
+    return false;
+  }
+
+  bool
+  find_option_prefix (const char* p, const lookup& l, bool ic)
+  {
+    return l && find_option_prefix (p, cast<strings> (l), ic);
+  }
+
+  bool
+  find_option_prefix (const char* p, const strings& strs, bool)
+  {
+    //@@ CASE ignore case
+
+    size_t n (strlen (p));
+
+    for (const string& s: strs)
+      if (s.compare (0, n, p) == 0)
+        return true;
+
+    return false;
+  }
+
+  bool
+  find_option_prefix (const char* p, const cstrings& cstrs, bool)
+  {
+    //@@ CASE ignore case
+
+    size_t n (strlen (p));
+
+    for (const char* s: cstrs)
+      if (s != nullptr && strncmp (s, p, n) == 0)
+        return true;
+
+    return false;
+  }
+
+  bool
+  find_option_prefixes (initializer_list<const char*> ps,
+                        const lookup& l,
+                        bool ic)
+  {
+    return l && find_option_prefixes (ps, cast<strings> (l), ic);
+  }
+
+  bool
+  find_option_prefixes (initializer_list<const char*> ps,
+                        const strings& strs,
+                        bool)
+  {
+    //@@ CASE ignore case
+
+    for (const string& s: strs)
+      for (const char* p: ps)
+        if (s.compare (0, strlen (p), p) == 0)
+          return true;
+
+    return false;
+  }
+
+  bool
+  find_option_prefixes (initializer_list<const char*> ps,
+                        const cstrings& cstrs,
+                        bool)
+  {
+    //@@ CASE ignore case
+
+    for (const char* s: cstrs)
+      if (s != nullptr)
+        for (const char* p: ps)
+          if (strncmp (s, p, strlen (p)) == 0)
+            return true;
 
     return false;
   }
