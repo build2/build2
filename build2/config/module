@@ -5,6 +5,8 @@
 #ifndef BUILD2_CONFIG_MODULE
 #define BUILD2_CONFIG_MODULE
 
+#include <algorithm> // find_if()
+
 #include <butl/prefix-map>
 
 #include <build2/types>
@@ -29,7 +31,21 @@ namespace build2
       uint64_t flags;
     };
 
-    using saved_variables = vector<saved_variable>;
+    struct saved_variables: vector<saved_variable>
+    {
+      // Normally each module only have a handful of config variables and we
+      // only do this during configuration so for now we do linear search
+      // instead of adding a map.
+      //
+      const_iterator
+      find (const variable& var) const
+      {
+        return std::find_if (
+          begin (),
+          end (),
+          [&var] (const saved_variable& v) {return var == v.var;});
+      }
+    };
 
     struct saved_modules: butl::prefix_map<string, saved_variables, '.'>
     {

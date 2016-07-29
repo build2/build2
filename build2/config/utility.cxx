@@ -158,9 +158,16 @@ namespace build2
           i = sm.insert (string (n, 0, n.find ('.', 7)));
         }
 
-        // We assume each variable is saved/configured once.
+        // Don't insert duplicates. The config.import vars are particularly
+        // susceptible to duplication.
         //
-        i->second.push_back (saved_variable {var, flags});
+        saved_variables& sv (i->second);
+        auto j (sv.find (var));
+
+        if (j == sv.end ())
+          sv.push_back (saved_variable {var, flags});
+        else
+          assert (j->flags == flags);
       }
     }
   }

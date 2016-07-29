@@ -143,7 +143,7 @@ namespace build2
               {
                 if (l.belongs (*r))
                 {
-                  // Find config module.
+                  // Find the config module.
                   //
                   if (auto* m = r->modules.lookup<const module> (module::name))
                   {
@@ -153,15 +153,10 @@ namespace build2
 
                     if (i != m->saved_modules.end ())
                     {
-                      // Find the variable. For now we do linear search.
+                      // Find the variable.
                       //
                       const saved_variables& sv (i->second);
-
-                      found = find_if (
-                        sv.begin (),
-                        sv.end (),
-                        [&var] (const saved_variable& v) {
-                          return var == v.var;}) != sv.end ();
+                      found = sv.find (var) != sv.end ();
 
                       // Handle that other case: if this is an override but
                       // the outer project itself is not being configured,
