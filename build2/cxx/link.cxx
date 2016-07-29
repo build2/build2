@@ -1480,8 +1480,7 @@ namespace build2
             // used for. Perhaps for link-time code generation (/LTCG)? If
             // that's the case, then we may need to pass cxx.loptions.
             //
-            if (verb < 3)
-              args.push_back ("/NOLOGO");
+            args.push_back ("/NOLOGO");
 
             // Add /MACHINE.
             //
@@ -1506,9 +1505,7 @@ namespace build2
             // Using link.exe directly.
             //
             args[0] = cast<path> (rs["config.bin.ld"]).string ().c_str ();
-
-            if (verb < 3)
-              args.push_back ("/NOLOGO");
+            args.push_back ("/NOLOGO");
 
             if (lt == otype::s)
               args.push_back ("/DLL");

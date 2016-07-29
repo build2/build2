@@ -1304,8 +1304,7 @@ namespace build2
         //
         uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
 
-        if (verb < 3)
-          args.push_back ("/nologo");
+        args.push_back ("/nologo");
 
         // While we want to keep the low-level build as "pure" as possible,
         // the two misguided defaults, exceptions and runtime, just have to be
