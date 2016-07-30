@@ -601,7 +601,7 @@ namespace build2
     if (d.relative ())
       d.complete ();
 
-    d.normalize ();
+    d.normalize (true); // Actualize.
 
     return abs_dir_path (move (d));
   }

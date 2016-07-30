@@ -358,7 +358,9 @@ main (int argc, char* argv[])
           if (out_base.relative ())
             out_base = work / out_base;
 
-          out_base.normalize ();
+          // This directory came from the command line so actualize it.
+          //
+          out_base.normalize (true);
 
           // The order in which we determine the roots depends on whether
           // src_base was specified explicitly. There will also be a few
@@ -384,7 +386,9 @@ main (int argc, char* argv[])
             if (src_base.relative ())
               src_base = work / src_base;
 
-            src_base.normalize ();
+            // Also came from the command line, so actualize.
+            //
+            src_base.normalize (true);
 
             // If the src_base was explicitly specified, search for src_root.
             //
@@ -427,7 +431,7 @@ main (int argc, char* argv[])
             //
             if (out_root.empty ())
             {
-              src_root = find_src_root (work);
+              src_root = find_src_root (work); // Work is actualized.
 
               if (!src_root.empty ())
               {
@@ -512,7 +516,7 @@ main (int argc, char* argv[])
                   // If not, then assume we are running from src_base
                   // and calculate src_root based on out_root/out_base.
                   //
-                  src_base = work;
+                  src_base = work; // Work is actualized.
                   src_root = src_base.directory (out_base.leaf (out_root));
                   guessing = true;
                 }

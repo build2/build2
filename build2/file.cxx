@@ -664,7 +664,7 @@ namespace build2
 
     const dir_path& d (cast<dir_path> (l));
     dir_path out_root (root.out_path () / d);
-    out_root.normalize ();
+    out_root.normalize (); // No need to actualize (d is a bunch of ..)
 
     // src_root is a bit more complicated. Here we have three cases:
     //
@@ -692,7 +692,7 @@ namespace build2
         else // #1
         {
           dir_path src_root (root.src_path () / d);
-          src_root.normalize ();
+          src_root.normalize (); // No need to actualize (as above).
           v = move (src_root);
         }
       }
@@ -855,7 +855,7 @@ namespace build2
 
       if (auto l = iroot[var])
       {
-        out_root = cast<dir_path> (l);
+        out_root = cast<dir_path> (l); // Normalized and actualized.
         config::save_variable (iroot, var); // Mark as part of configuration.
       }
       else

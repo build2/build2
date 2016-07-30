@@ -91,6 +91,8 @@ namespace build2
   // a (variable) value of this type gets initialized from untyped names. See
   // value_type<abs_dir_path> for details.
   //
+  // Note that currently we also normalize and actualize the path.
+  //
   struct abs_dir_path: dir_path
   {
     using dir_path::dir_path;
