@@ -906,6 +906,8 @@ namespace build2
         setup_root (*root);
         bootstrap_src (*root);
       }
+      else if (src_root.empty ())
+        src_root = root->src_path ();
 
       // Now we know this project's name as well as all its subprojects.
       //
