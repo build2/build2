@@ -22,10 +22,6 @@ namespace build2
   {
     const string module::name ("config");
 
-    //@@ Same as in operation.cxx
-    //
-    static const path config_file ("build/config.build");
-
     void
     boot (scope& root, const location&, unique_ptr<module_base>&)
     {

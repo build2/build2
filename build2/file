@@ -27,6 +27,8 @@ namespace build2
   extern const path root_file;         // build/root.build
   extern const path bootstrap_file;    // build/bootstrap.build
   extern const path src_root_file;     // build/bootstrap/src-root.build
+  extern const path export_file;       // build/export.build
+  extern const path config_file;       // build/config.build
 
   bool
   is_src_root (const dir_path&);

@@ -25,11 +25,18 @@ using namespace butl;
 namespace build2
 {
   const dir_path build_dir ("build");
-  const dir_path bootstrap_dir ("build/bootstrap");
+  const dir_path bootstrap_dir (dir_path (build_dir) /= "bootstrap");
 
-  const path root_file ("build/root.build");
-  const path bootstrap_file ("build/bootstrap.build");
-  const path src_root_file ("build/bootstrap/src-root.build");
+  const path root_file (build_dir / "root.build");
+  const path bootstrap_file (build_dir / "bootstrap.build");
+  const path src_root_file (bootstrap_dir / "src-root.build");
+  const path export_file (build_dir / "export.build");
+
+  // While strictly speaking it belongs in, say, config/module.cxx, the static
+  // initialization order strikes again. If we ever make the config module
+  // loadable, then we can move it there.
+  //
+  const path config_file (build_dir / "config.build");
 
   bool
   is_src_root (const dir_path& d)
@@ -248,7 +255,7 @@ namespace build2
   void
   bootstrap_out (scope& root)
   {
-    path bf (root.out_path () / path ("build/bootstrap/src-root.build"));
+    path bf (root.out_path () / src_root_file);
 
     if (!file_exists (bf))
       return;
@@ -434,7 +441,7 @@ namespace build2
     const dir_path& out_root (root.out_path ());
     const dir_path& src_root (root.src_path ());
 
-    path bf (src_root / path ("build/bootstrap.build"));
+    path bf (src_root / bootstrap_file);
 
     if (file_exists (bf))
     {
@@ -780,7 +787,7 @@ namespace build2
 
     // Load root.build.
     //
-    path bf (root.src_path () / path ("build/root.build"));
+    path bf (root.src_path () / root_file);
 
     if (file_exists (bf))
       source_once (bf, root, root);
@@ -963,7 +970,7 @@ namespace build2
     // stub will normally switch to the imported root scope at some
     // point.
     //
-    path es (root->src_path () / path ("build/export.build"));
+    path es (root->src_path () / export_file);
 
     try
     {

@@ -112,6 +112,20 @@ namespace build2
       r.operations.insert (install_id, install);
     }
 
+    static const dir_path dir_root ("root");
+
+    static const dir_path dir_sbin    (dir_path ("exec_root") /= "sbin");
+    static const dir_path dir_bin     (dir_path ("exec_root") /= "bin");
+    static const dir_path dir_lib     (dir_path ("exec_root") /= "lib");
+    static const dir_path dir_libexec (dir_path ("exec_root") /= "libexec");
+
+    static const dir_path dir_data    (dir_path ("data_root") /= "share");
+    static const dir_path dir_include (dir_path ("data_root") /= "include");
+
+    static const dir_path dir_doc  (dir_path (dir_data) /= "doc");
+    static const dir_path dir_man  (dir_path (dir_data) /= "man");
+    static const dir_path dir_man1 (dir_path ("man") /= "man1");
+
     bool
     init (scope& r,
           scope& b,
@@ -167,20 +181,21 @@ namespace build2
         const string& n (cast<string> (r["project"]));
 
         set_dir (s, r, "root",      abs_dir_path (), false, "", "755", path ("install"));
-        set_dir (s, r, "data_root", dir_path ("root"), false, "644");
-        set_dir (s, r, "exec_root", dir_path ("root"), false, "755");
 
-        set_dir (s, r, "sbin",      dir_path ("exec_root/sbin"));
-        set_dir (s, r, "bin",       dir_path ("exec_root/bin"));
-        set_dir (s, r, "lib",       dir_path ("exec_root/lib"));
-        set_dir (s, r, "libexec",   dir_path ("exec_root/libexec/" + n), true);
+        set_dir (s, r, "data_root", dir_root, false, "644");
+        set_dir (s, r, "exec_root", dir_root, false, "755");
 
-        set_dir (s, r, "data",      dir_path ("data_root/share/" + n), true);
-        set_dir (s, r, "include",   dir_path ("data_root/include"));
+        set_dir (s, r, "sbin",      dir_sbin);
+        set_dir (s, r, "bin",       dir_bin);
+        set_dir (s, r, "lib",       dir_lib);
+        set_dir (s, r, "libexec",   dir_path (dir_libexec) /= n, true);
 
-        set_dir (s, r, "doc",       dir_path ("data_root/share/doc/" + n), true);
-        set_dir (s, r, "man",       dir_path ("data_root/share/man"));
-        set_dir (s, r, "man1",      dir_path ("man/man1"));
+        set_dir (s, r, "data",      dir_path (dir_data) /= n, true);
+        set_dir (s, r, "include",   dir_include);
+
+        set_dir (s, r, "doc",       dir_path (dir_doc) /= n, true);
+        set_dir (s, r, "man",       dir_man);
+        set_dir (s, r, "man1",      dir_man1);
       }
 
       // Configure "installability" for built-in target types.

@@ -140,9 +140,9 @@ namespace build2
       // ignored on the next step if the user explicitly marked them
       // nodist.
       //
-      auto add_adhoc = [&trace] (scope& rs, const char* f)
+      auto add_adhoc = [&trace] (scope& rs, const path& f)
       {
-        path p (rs.src_path () / path (f));
+        path p (rs.src_path () / f);
         if (file_exists (p))
         {
           dir_path d (p.directory ());
@@ -163,7 +163,7 @@ namespace build2
         }
       };
 
-      add_adhoc (*rs, "build/export.build");
+      add_adhoc (*rs, export_file);
 
       // The same for subprojects that have been loaded.
       //
@@ -181,7 +181,7 @@ namespace build2
           if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
             continue;
 
-          add_adhoc (nrs, "build/export.build");
+          add_adhoc (nrs, export_file);
         }
       }
 

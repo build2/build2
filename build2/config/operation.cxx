@@ -24,8 +24,6 @@ namespace build2
 {
   namespace config
   {
-    static const path config_file ("build/config.build");
-
     // configure
     //
     static operation_id
