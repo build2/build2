@@ -4,6 +4,8 @@
 
 #include <build2/install/rule>
 
+#include <cctype>  // tolower()
+
 #include <build2/scope>
 #include <build2/target>
 #include <build2/algorithm>
@@ -234,14 +236,41 @@ namespace build2
       string dir_mode;
     };
 
+    // On Windows we use MSYS2 install.exe and MSYS2 by default ignores
+    // filesystem permissions (noacl mount option). And this means, for
+    // example, that .exe that we install won't be runnable by Windows (MSYS2
+    // itself will still run them since it recognizes the file extension).
+    //
+    // The way we work around this (at least in our distribution of the MSYS2
+    // tools) is by changing the mount option for cygdrives (/c, /d, etc) to
+    // acl. But that's not all: we also have to install via a path that "hits"
+    // one of those mount points, c:\foo won't work, we have to use /c/foo.
+    // So this function translates an absolute Windows path to its MSYS
+    // representation.
+    //
+    static dir_path
+    msys_path (const dir_path& d)
+    {
+      assert (d.absolute ());
+
+      string s (d.representation ());
+      s[1] = tolower(s[0]); // Replace ':' with the drive letter.
+      s[0] = '/';
+
+      return dir_path (dir_path (move (s)).posix_representation ());
+    }
+
     // install -d <dir>
     //
     static void
     install (const install_dir& base, const dir_path& d)
     {
-      dir_path reld (relative (d));
-
       cstrings args;
+
+      dir_path reld (
+        cast<string> ((*global_scope)["build.host.class"]) == "windows"
+        ? msys_path (d)
+        : relative (d));
 
       if (!base.sudo.empty ())
         args.push_back (base.sudo.c_str ());
@@ -288,8 +317,12 @@ namespace build2
     static void
     install (const install_dir& base, file& t, bool verbose = true)
     {
-      dir_path reld (relative (base.dir));
       path relf (relative (t.path ()));
+
+      dir_path reld (
+        cast<string> ((*global_scope)["build.host.class"]) == "windows"
+        ? msys_path (base.dir)
+        : relative (base.dir));
 
       cstrings args;
 
