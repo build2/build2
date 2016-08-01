@@ -1113,12 +1113,12 @@ namespace build2
         if (a.outer_operation () != install_id)
           rpath_timestamp = windows_rpath_timestamp (t);
 
-        // Whether
-        //
         path mf (
           windows_manifest (
             t,
             rpath_timestamp != timestamp_nonexistent));
+
+        timestamp mt (file_mtime (mf));
 
         if (tsys == "mingw32")
         {
@@ -1128,7 +1128,7 @@ namespace build2
           //
           manifest = mf + ".o";
 
-          if (file_mtime (mf) > file_mtime (manifest))
+          if (mt > file_mtime (manifest))
           {
             path of (relative (manifest));
 
@@ -1194,11 +1194,16 @@ namespace build2
               throw failed ();
             }
 
-            update = true; // Force update.
+            update = true; // Manifest changed, force update.
           }
         }
         else
+        {
           manifest = move (mf); // Save for link.exe's /MANIFESTINPUT.
+
+          if (mt > t.mtime ())
+            update = true; // Manifest changed, force update.
+        }
       }
 
       // Check/update the dependency database.
