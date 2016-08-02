@@ -7,6 +7,7 @@
 #include <map>
 #include <limits>   // numeric_limits
 #include <cstdlib>  // exit()
+#include <iostream> // cerr
 
 #include <butl/path-map>
 
@@ -1211,7 +1212,7 @@ namespace build2
               // we need to copy the diagnostics for the user to see.
               //
               if (!is.eof () && cid == "msvc" && bad_error)
-                *diag_stream << is.rdbuf ();
+                cerr << is.rdbuf ();
 
               is.close ();
 
@@ -1247,6 +1248,11 @@ namespace build2
         }
       }
     }
+
+    // Filter cl.exe noise (msvc.cxx).
+    //
+    void
+    msvc_filter_cl (ifdstream&, const path& src);
 
     target_state compile::
     perform_update (action a, target& xt)
@@ -1406,19 +1412,38 @@ namespace build2
 
       try
       {
-        // @@ VC prints file name being compiled to stdout as the first
-        //    line, would be good to weed it out (but check if it is
-        //    always printed, for example if the file does not exist).
-        //    Seems always. The same story with link.exe when creating
-        //    the DLL.
+        // VC cl.exe sends diagnostics to stdout. It also prints the file name
+        // being compiled as the first line. So for cl.exe we redirect stdout
+        // to a pipe, filter that noise out, and send the rest to stderr.
         //
+        // For other compilers redirect stdout to stderr, in case any of them
+        // tries to pull off something similar. For sane compilers this should
+        // be harmless.
+        //
+        bool filter (cid == "msvc");
 
-        // VC++ cl.exe sends diagnostics to stdout. To fix this (and any other
-        // insane compilers that may want to do something like this) we are
-        // going to always redirect stdout to stderr. For sane compilers this
-        // should be harmless.
-        //
-        process pr (args.data (), 0, 2);
+        process pr (args.data (), 0, (filter ? -1 : 2));
+
+        if (filter)
+        {
+          try
+          {
+            ifdstream is (pr.in_ofd, fdstream_mode::text, ifdstream::badbit);
+
+            msvc_filter_cl (is, rels);
+
+            // If anything remains in the stream, send it all to stderr. Note
+            // that the eos check is important: if the stream is at eos, this
+            // and all subsequent writes to cerr will fail (and you won't see
+            // a thing).
+            //
+            if (is.peek () != ifdstream::traits_type::eof ())
+              cerr << is.rdbuf ();
+
+            is.close ();
+          }
+          catch (const ifdstream::failure&) {} // Assume exits with error.
+        }
 
         if (!pr.wait ())
           throw failed ();

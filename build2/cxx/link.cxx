@@ -4,7 +4,8 @@
 
 #include <build2/cxx/link>
 
-#include <cstdlib> // exit()
+#include <cstdlib>  // exit()
+#include <iostream> // cerr
 
 #include <butl/path-map>
 
@@ -1079,6 +1080,11 @@ namespace build2
     const char*
     msvc_machine (const string& cpu); // msvc.cxx
 
+    // Filter link.exe noise (msvc.cxx).
+    //
+    void
+    msvc_filter_link (ifdstream&, const file&, otype);
+
     target_state link::
     perform_update (action a, target& xt)
     {
@@ -1686,12 +1692,39 @@ namespace build2
 
       try
       {
-        // VC++ (cl.exe, lib.exe, and link.exe) sends diagnostics to stdout.
-        // To fix this (and any other insane compilers that may want to do
-        // something like this) we are going to always redirect stdout to
-        // stderr. For sane compilers this should be harmless.
+        // VC tools (both lib.exe and link.exe) send diagnostics to stdout.
+        // Also, link.exe likes to print various gratuitous messages. So for
+        // link.exe we redirect stdout to a pipe, filter that noise out, and
+        // send the rest to stderr.
         //
-        process pr (args.data (), 0, 2);
+        // For lib.exe (and any other insane compiler that may try to pull off
+        // something like this) we are going to redirect stdout to stderr. For
+        // sane compilers this should be harmless.
+        //
+        bool filter (cid == "msvc" && lt != otype::a);
+
+        process pr (args.data (), 0, (filter ? -1 : 2));
+
+        if (filter)
+        {
+          try
+          {
+            ifdstream is (pr.in_ofd, fdstream_mode::text, ifdstream::badbit);
+
+            msvc_filter_link (is, t, lt);
+
+            // If anything remains in the stream, send it all to stderr. Note
+            // that the eos check is important: if the stream is at eos, this
+            // and all subsequent writes to cerr will fail (and you won't see
+            // a thing).
+            //
+            if (is.peek () != ifdstream::traits_type::eof ())
+              cerr << is.rdbuf ();
+
+            is.close ();
+          }
+          catch (const ifdstream::failure&) {} // Assume exits with error.
+        }
 
         if (!pr.wait ())
           throw failed ();

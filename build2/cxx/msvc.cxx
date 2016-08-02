@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <iostream> // cerr
+
 #include <build2/scope>
 #include <build2/target>
 #include <build2/context>
@@ -35,6 +37,47 @@ namespace build2
         fail << "unable to translate CPU " << cpu << " to /MACHINE";
 
       return m;
+    }
+
+    // Filter cl.exe and link.exe noise.
+    //
+    void
+    msvc_filter_cl (ifdstream& is, const path& src)
+    {
+      // While it appears VC always prints the source name (event if the
+      // file does not exist), let's do a sanity check.
+      //
+      string l;
+      if (getline (is, l) && l != src.leaf ().string ())
+        cerr << l << endl;
+    }
+
+    void
+    msvc_filter_link (ifdstream& is, const file& t, otype lt)
+    {
+      // Filter lines until we encounter something we don't recognize. We also
+      // have to assume the messages can be translated.
+      //
+      for (string l; getline (is, l); )
+      {
+        // "   Creating library foo\foo.dll.lib and object foo\foo.dll.exp"
+        //
+        if (lt == otype::s && l.compare (0, 3, "   ") == 0)
+        {
+          path imp (static_cast<file*> (t.member)->path ().leaf ());
+
+          if (l.find (imp.string ()) != string::npos &&
+              l.find (imp.base ().string () + ".exp") != string::npos)
+            continue;
+        }
+
+        // /INCREMENTAL causes linker to sometimes issue messages but now I
+        // can't quite reproduce it.
+        //
+
+        cerr << l << endl;
+        break;
+      }
     }
 
     // Extract system library search paths from MSVC.
