@@ -1208,10 +1208,16 @@ namespace build2
                 }
               }
 
-              // In case of VC++, we are parsing stderr and if things go south,
-              // we need to copy the diagnostics for the user to see.
+              // In case of VC++, we are parsing stderr and if things go
+              // south, we need to copy the diagnostics for the user to see.
               //
-              if (!is.eof () && cid == "msvc" && bad_error)
+              // Note that the eos check is important: if the stream is at
+              // eos, this and all subsequent writes to cerr will fail (and
+              // you won't see a thing).
+              //
+              if (is.peek () != ifdstream::traits_type::eof () &&
+                  cid == "msvc" &&
+                  bad_error)
                 cerr << is.rdbuf ();
 
               is.close ();
