@@ -1211,8 +1211,8 @@ namespace build2
               // In case of VC++, we are parsing stderr and if things go
               // south, we need to copy the diagnostics for the user to see.
               //
-              // Note that the eos check is important: if the stream is at
-              // eos, this and all subsequent writes to cerr will fail (and
+              // Note that the eof check is important: if the stream is at
+              // eof, this and all subsequent writes to cerr will fail (and
               // you won't see a thing).
               //
               if (is.peek () != ifdstream::traits_type::eof () &&
@@ -1439,7 +1439,7 @@ namespace build2
             msvc_filter_cl (is, rels);
 
             // If anything remains in the stream, send it all to stderr. Note
-            // that the eos check is important: if the stream is at eos, this
+            // that the eof check is important: if the stream is at eof, this
             // and all subsequent writes to cerr will fail (and you won't see
             // a thing).
             //

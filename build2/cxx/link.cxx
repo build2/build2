@@ -1714,7 +1714,7 @@ namespace build2
             msvc_filter_link (is, t, lt);
 
             // If anything remains in the stream, send it all to stderr. Note
-            // that the eos check is important: if the stream is at eos, this
+            // that the eof check is important: if the stream is at eof, this
             // and all subsequent writes to cerr will fail (and you won't see
             // a thing).
             //
