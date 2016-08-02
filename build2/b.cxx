@@ -4,6 +4,7 @@
 
 #include <time.h>      // tzset()
 #include <string.h>    // strerror()
+#include <stdlib.h>    // getenv()
 
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
@@ -203,8 +204,11 @@ main (int argc, char* argv[])
 
     if (verb >= 5)
     {
-      trace << "work dir: " << work;
-      trace << "home dir: " << home;
+      const char* p (getenv ("PATH"));
+
+      trace << "work: " << work;
+      trace << "home: " << home;
+      trace << "path: " << (p != nullptr ? p : "<NULL>");
     }
 
     // Parse the buildspec.
