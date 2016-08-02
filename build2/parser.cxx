@@ -27,6 +27,8 @@ namespace build2
 
   typedef token_type type;
 
+  static const dir_path root_dir ("/");
+
   class parser::enter_scope
   {
   public:
@@ -40,14 +42,28 @@ namespace build2
       // since "/" is a relative path on Windows (and we use "/" even on
       // Windows for that gloabl scope).
       //
-      if (d != dir_path ("/"))
+      if (d != root_dir)
       {
-        // Relative scopes are opened relative to out, not src.
+        // Try hard not to call normalize(). Most of the time we will go just
+        // one level deeper.
         //
-        if (d.relative ())
-          d = p.scope_->out_path () / d;
+        bool n (true);
 
-        d.normalize ();
+        if (d.relative ())
+        {
+          // Relative scopes are opened relative to out, not src.
+          //
+          if (d.simple () && d.string () != "." && d.string () != "..")
+          {
+            d = dir_path (p.scope_->out_path ()) /= d.string ();
+            n = false;
+          }
+          else
+            d = p.scope_->out_path () / d;
+        }
+
+        if (n)
+          d.normalize ();
       }
 
       p.switch_scope (d);
@@ -600,7 +616,8 @@ namespace build2
               if (ti == nullptr)
                 fail (ploc) << "unknown target type " << pn.type;
 
-              pn.dir.normalize ();
+              if (!pn.dir.empty ())
+                pn.dir.normalize ();
 
               // Find or insert.
               //
@@ -800,14 +817,14 @@ namespace build2
       //
       path p (move (n.dir));
       if (n.value.empty ())
-        p /= path ("buildfile");
+        p /= "buildfile";
       else
       {
         bool d (path::traits::is_separator (n.value.back ()));
 
         p /= path (move (n.value));
         if (d)
-          p /= path ("buildfile");
+          p /= "buildfile";
       }
 
       l6 ([&]{trace (l) << "relative path " << p;});

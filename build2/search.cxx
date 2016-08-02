@@ -107,8 +107,14 @@ namespace build2
     // Check if there is a file.
     //
     const dir_path& s (pk.scope->src_path ());
-    path f (s / *tk.dir / path (*tk.name));
-    f.normalize ();
+
+    path f (s);
+    if (!tk.dir->empty ())
+    {
+      f /= *tk.dir;
+      f.normalize ();
+    }
+    f /= *tk.name;
 
     if (!ext->empty ())
     {

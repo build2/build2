@@ -43,7 +43,8 @@ namespace build2
     if (tt == nullptr)
       fail << "unknown target type " << n.type << " in name " << n;
 
-    n.dir.normalize ();
+    if (!n.dir.empty ())
+      n.dir.normalize ();
 
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
