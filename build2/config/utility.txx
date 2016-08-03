@@ -39,14 +39,14 @@ namespace build2
         value& v (root.assign (var) = def_val);
         v.extra = true; // Default value flag.
 
-        n = true;
+        n = (save_flags & save_commented) == 0; // Absence means default.
         l = lookup (v, root);
         org = make_pair (l, 1); // Lookup depth is 1 since it's in root.vars.
       }
       // Treat an inherited value that was set to default as new.
       //
       else if (l->extra)
-        n = true;
+        n = (save_flags & save_commented) == 0; // Absence means default.
 
       if (var.override != nullptr)
       {

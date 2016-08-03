@@ -28,7 +28,11 @@ namespace build2
     // the value is "new", that is, it was set to the default value (inherited
     // or not, including overrides). We also treat command line overrides
     // (inherited or not) as new. This flag is usually used to test that the
-    // new value is valid, etc.
+    // new value is valid, print report, etc.
+    //
+    // Note also that if save_flags has save_commented, then a default value
+    // is never considered "new" since for such variables absence of a value
+    // means the default value.
     //
     template <typename T>
     pair<reference_wrapper<const value>, bool>
