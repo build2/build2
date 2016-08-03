@@ -206,6 +206,12 @@ namespace build2
        \cb{--verbose 2}."
     }
 
+    bool -V
+    {
+      "Print all underlying commands being executed. This is equivalent to
+       \cb{--verbose 3}."
+    }
+
     bool -q
     {
       "Run quietly, only printing error messages. This is equivalent to

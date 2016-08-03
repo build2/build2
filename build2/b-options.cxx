@@ -570,6 +570,7 @@ namespace build2
   options::
   options ()
   : v_ (),
+    V_ (),
     q_ (),
     verbose_ (1),
     verbose_specified_ (false),
@@ -661,6 +662,10 @@ namespace build2
        << "                     to \033[1m--verbose 2\033[0m." << ::std::endl;
 
     os << std::endl
+       << "\033[1m-V\033[0m                   Print all underlying commands being executed. This is" << ::std::endl
+       << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
+
+    os << std::endl
        << "\033[1m-q\033[0m                   Run quietly, only printing error messages. This is" << ::std::endl
        << "                     equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
 
@@ -739,6 +744,8 @@ namespace build2
     {
       _cli_options_map_["-v"] = 
       &::build2::cl::thunk< options, bool, &options::v_ >;
+      _cli_options_map_["-V"] = 
+      &::build2::cl::thunk< options, bool, &options::V_ >;
       _cli_options_map_["-q"] = 
       &::build2::cl::thunk< options, bool, &options::q_ >;
       _cli_options_map_["--verbose"] = 

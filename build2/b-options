@@ -399,6 +399,9 @@ namespace build2
     v () const;
 
     const bool&
+    V () const;
+
+    const bool&
     q () const;
 
     const uint16_t&
@@ -463,6 +466,7 @@ namespace build2
 
     public:
     bool v_;
+    bool V_;
     bool q_;
     uint16_t verbose_;
     bool verbose_specified_;

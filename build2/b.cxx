@@ -137,7 +137,7 @@ main (int argc, char* argv[])
     //
     verb = ops.verbose_specified ()
       ? ops.verbose ()
-      : ops.v () ? 2 : ops.q () ? 0 : 1;
+      : ops.V () ? 3 : ops.v () ? 2 : ops.q () ? 0 : 1;
 
     // Version.
     //

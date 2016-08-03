@@ -223,6 +223,12 @@ namespace build2
   }
 
   inline const bool& options::
+  V () const
+  {
+    return this->V_;
+  }
+
+  inline const bool& options::
   q () const
   {
     return this->q_;
