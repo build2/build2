@@ -367,7 +367,7 @@ namespace build2
     // creating leading directories as necessary.
     //
     static install_dir
-    resolve (scope& s, dir_path d, const string* var = nullptr)
+    resolve (target& t, dir_path d, const string* var = nullptr)
     {
       install_dir r;
 
@@ -383,9 +383,9 @@ namespace build2
           //
           const string& sn (*d.begin ());
           const string var ("install." + sn);
-          if (const dir_path* dn = lookup (s, var))
+          if (const dir_path* dn = lookup (t.base_scope (), var))
           {
-            r = resolve (s, *dn, &var);
+            r = resolve (t, *dn, &var);
             d = r.dir / dir_path (++d.begin (), d.end ());
             r.dir = move (d.normalize ());
 
@@ -401,11 +401,34 @@ namespace build2
         //
         if (var != nullptr)
         {
+          scope& s (t.base_scope ());
+
           if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (l);
           if (auto l = s[*var + ".cmd"])      r.cmd = cast<path> (l);
           if (auto l = s[*var + ".mode"])     r.mode = cast<string> (l);
           if (auto l = s[*var + ".dir_mode"]) r.dir_mode = cast<string> (l);
           if (auto l = s[*var + ".options"])  r.options = cast<strings> (l);
+
+          if (auto l = s[*var + ".subdirs"])
+          {
+            if (cast<bool> (l))
+            {
+              // Find the scope from which this value came and use as a base
+              // to calculate the subdirectory.
+              //
+              for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
+              {
+                if (l.belongs (*p)) // Ok since no target/type in lookup.
+                {
+                  // The target can be in out or src.
+                  //
+                  r.dir /= (t.out.empty () ? t.dir : t.out).leaf (
+                    p->out_path ());
+                  break;
+                }
+              }
+            }
+          }
         }
 
         // Set defaults for unspecified components.
@@ -417,7 +440,10 @@ namespace build2
         // If the directory still doesn't exist, then this means it was
         // specified as absolute (it will normally be install.root with
         // everything else defined in term of it). We used to fail in this
-        // case but that proved to be just too anal. So now we just create it.
+        // case but that proved to be just too anal. So now we create it.
+        //
+        // Also, with the .subdirs logic we may end up with a non-existent
+        // subdirectory.
         //
         if (!dir_exists (r.dir)) // May throw (e.g., EACCES).
           // fail << "installation directory " << d << " does not exist";
@@ -438,13 +464,11 @@ namespace build2
       file& t (static_cast<file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      scope& bs (t.base_scope ());
-
-      auto install_target = [&bs](file& t, const dir_path& d, bool verbose)
+      auto install_target = [](file& t, const dir_path& d, bool verbose)
       {
         // Resolve and, if necessary, create target directory.
         //
-        install_dir id (resolve (bs, d));
+        install_dir id (resolve (t, d));
 
         // Override mode if one was specified.
         //

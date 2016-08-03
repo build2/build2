@@ -95,6 +95,10 @@ namespace build2
       set_var<string>   (s, r, n, ".sudo",     (string*) (nullptr));
       set_var<path>     (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
       set_var<strings>  (s, r, n, ".options",  (strings*) (nullptr));
+
+      // This one doesn't have config.* value (only set in a buildfile).
+      //
+      var_pool.insert<bool> (string ("install.") + n + ".subdirs");
     }
 
     static alias_rule alias_;
