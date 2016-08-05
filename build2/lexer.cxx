@@ -61,9 +61,9 @@ namespace build2
       //
     case '\n':
       {
-        // Expire value/pairs mode at the end of the line.
+        // Expire value mode at the end of the line.
         //
-        if (m == lexer_mode::value || m == lexer_mode::pairs)
+        if (m == lexer_mode::value)
           state_.pop ();
 
         return token (type::newline, sep, ln, cn);
@@ -79,13 +79,12 @@ namespace build2
 
     // Handle pair separator.
     //
-    if (m == lexer_mode::pairs && c == ps)
+    if (m == lexer_mode::value && c == ps)
       return token (type::pair_separator, sep, ln, cn);
 
-    // The following characters are not treated as special in the
-    // value or pairs mode.
+    // The following characters are not treated as special in the value mode.
     //
-    if (m != lexer_mode::value && m != lexer_mode::pairs)
+    if (m != lexer_mode::value)
     {
       switch (c)
       {
@@ -223,9 +222,9 @@ namespace build2
     {
       bool done (false);
 
-      // Handle pair separator.
+      // Handle the pair separator.
       //
-      if (m == lexer_mode::pairs && c == ps)
+      if (m == lexer_mode::value && c == ps)
         break;
 
       // The following characters are only special in the normal and

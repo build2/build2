@@ -17,22 +17,20 @@
 
 namespace build2
 {
-  // Context-dependent lexing mode. In the value mode we don't treat
-  // certain characters (e.g., +, =) as special so that we can use
-  // them in the variable values, e.g., 'foo = g++'. In contrast, in
-  // the variable mode, we restrict certain character (e.g., /) from
-  // appearing in the name. The pairs mode is just like value except
-  // that we split names separated by the pair character. The eval
-  // mode is used in the evaluation context.
+  // Context-dependent lexing mode. In the value mode we don't treat certain
+  // characters (e.g., '+', '=') as special so that we can use them in the
+  // variable values, e.g., 'foo = g++'. In contrast, in the variable mode, we
+  // restrict certain character (e.g., '/') from appearing in the name. The
+  // eval mode is used in the evaluation context. Quoted is an internal mode
+  // and should not be set explicitly.
   //
-  // The alternnative modes must be set manually. The value and pairs
-  // modes are automatically reset after the end of the line. The
-  // variable mode is reset after the name token. And the eval mode
-  // is reset after the closing ')'.
+  // Note that the value mode splits names separated by the pair character.
   //
-  // Quoted is an internal mode and should not be set explicitly.
+  // The alternnative modes must be set manually. The value mode is
+  // automatically reset after the end of the line. The variable mode is reset
+  // after the name token. And the eval mode is reset after the closing ')'.
   //
-  enum class lexer_mode {normal, variable, value, pairs, eval, quoted};
+  enum class lexer_mode {normal, variable, value, eval, quoted};
 
   class lexer: protected butl::char_scanner
   {
@@ -57,11 +55,11 @@ namespace build2
     const path&
     name () const {return fail.name_;}
 
-    // Note: sets mode for the next token. If mode is pairs, then the second
-    // argument specifies the separator character.
+    // Note: sets mode for the next token. For the value mode the second
+    // argument can be used to specify an alternative separator character.
     //
     void
-    mode (lexer_mode m, char pair_separator = '\0')
+    mode (lexer_mode m, char pair_separator = '@')
     {
       state_.push (state{m, pair_separator});
     }

@@ -721,10 +721,10 @@ namespace build2
   {
     tracer trace ("parser::source", &path_);
 
-    // The rest should be a list of buildfiles. Parse them as names
-    // to get variable expansion and directory prefixes.
+    // The rest should be a list of buildfiles. Parse them as names in the
+    // value mode to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -797,10 +797,10 @@ namespace build2
     if (root_->src_path_ == nullptr)
       fail (t) << "inclusion during bootstrap";
 
-    // The rest should be a list of buildfiles. Parse them as names
-    // to get variable expansion and directory prefixes.
+    // The rest should be a list of buildfiles. Parse them as names in the
+    // value mode to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -951,11 +951,11 @@ namespace build2
     // switch to the value mode, get the first token, and then re-parse it
     // manually looking for =/=+/+=.
     //
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
     next (t, tt);
 
     // Get variable attributes, if any (note that here we will go into a
-    // nested pairs mode).
+    // nested value mode with a different pair character).
     //
     attributes& a (attributes_push (t, tt));
 
@@ -1128,10 +1128,10 @@ namespace build2
     if (optional && boot_)
       fail (t) << "optional module in bootstrap";
 
-    // The rest should be a list of module names. Parse them as names
-    // to get variable expansion, etc.
+    // The rest should be a list of module names. Parse them as names in the
+    // value mode to get variable expansion, etc.
     //
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t, &path_));
     names_type ns (tt != type::newline && tt != type::eos
@@ -1429,7 +1429,7 @@ namespace build2
   value parser::
   variable_value (token& t, type& tt)
   {
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
     next (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
@@ -1779,10 +1779,10 @@ namespace build2
     if (!a.has)
       return a;
 
-    // Using '@' for key-value pairs would be just too ugly. Seeing that we
-    // control what goes into keys/values, let's use a much nicer '='.
+    // Using '@' for attribute key-value pairs would be just too ugly. Seeing
+    // that we control what goes into keys/values, let's use a much nicer '='.
     //
-    mode (lexer_mode::pairs, '=');
+    mode (lexer_mode::value, '=');
     next (t, tt);
 
     if (tt != type::rsbrace && tt != type::newline && tt != type::eos)
@@ -1821,10 +1821,10 @@ namespace build2
       }
     }
 
-    // Manually expire the pairs mode if we haven't reached newline/eos (where
+    // Manually expire the value mode if we haven't reached newline/eos (where
     // it expires automatically).
     //
-    if (lexer_->mode () == lexer_mode::pairs)
+    if (lexer_->mode () == lexer_mode::value)
       lexer_->expire_mode ();
 
     if (tt != type::rsbrace)
@@ -1938,7 +1938,7 @@ namespace build2
             // @@ TODO: need to handle pairs on lhs. I think all that needs
             //    to be done is skip pair's first elements. Maybe also check
             //    that there are no pairs on the rhs. There is just no easy
-            //    way to enable the pairs mode to test it, yet.
+            //    way to enable the value mode to test it, yet.
           }
         }
 
@@ -2495,7 +2495,7 @@ namespace build2
         continue;
       }
 
-      // A pair separator (only in the pairs mode).
+      // A pair separator (only in the value mode).
       //
       if (tt == type::pair_separator)
       {
@@ -2666,7 +2666,7 @@ namespace build2
   // we will make every opening paren token "separated" (i.e., as if it
   // was proceeded by a space). This will disable concatenating eval. In
   // fact, we will even go a step further and only do this if we are in
-  // the original pairs mode. This will allow us to still use eval
+  // the original value mode. This will allow us to still use eval
   // contexts in buildspec, provided that we quote it: '"cle(an)"'. Note
   // also that function calls still work as usual: '$filter (clean test)'.
   // To disable a function call and make it instead a var that is expanded
@@ -2675,7 +2675,7 @@ namespace build2
   static void
   paren_processor (token& t, const lexer& l)
   {
-    if (t.type == type::lparen && l.mode () == lexer_mode::pairs)
+    if (t.type == type::lparen && l.mode () == lexer_mode::value)
       t.separated = true;
   }
 
@@ -2692,10 +2692,10 @@ namespace build2
     target_ = nullptr;
     scope_ = root_ = global_scope;
 
-    // Turn on pairs recognition with '@' as the pair separator (e.g.,
-    // src_root/@out_root/exe{foo bar}).
+    // Turn on the value mode/pairs recognition with '@' as the pair separator
+    // (e.g., src_root/@out_root/exe{foo bar}).
     //
-    mode (lexer_mode::pairs, '@');
+    mode (lexer_mode::value);
 
     token t (type::eos, false, 0, 0);
     type tt;
