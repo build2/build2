@@ -300,7 +300,7 @@ namespace build2
           os << '@' << o;
       }
       else
-        os << '@' << k.out;
+        os << '@' << *k.out;
     }
 
     return os;

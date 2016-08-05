@@ -1,0 +1,5 @@
+./: file{foo}
+
+# Use --verbose 6 to debug.
+#
+file{foo}@./: x = y

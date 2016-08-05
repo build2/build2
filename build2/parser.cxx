@@ -98,7 +98,11 @@ namespace build2
   public:
     enter_target (): p_ (nullptr), t_ (nullptr) {}
 
-    enter_target (parser& p, name&& n, const location& loc, tracer& tr)
+    enter_target (parser& p,
+                  name&& n,  // If n.pair, then o is out dir.
+                  name&& o,
+                  const location& loc,
+                  tracer& tr)
         : p_ (&p), t_ (p.target_)
     {
       const string* e;
@@ -107,26 +111,41 @@ namespace build2
       if (ti == nullptr)
         p.fail (loc) << "unknown target type " << n.type;
 
+      bool src (n.pair); // If out-qualified, then it is from src.
+      if (src)
+      {
+        assert (n.pair == '@');
+
+        if (!o.directory ())
+          p.fail (loc) << "directory expected after @";
+      }
+
       dir_path& d (n.dir);
 
+      const dir_path& sd (p.scope_->src_path ());
+      const dir_path& od (p.scope_->out_path ());
+
       if (d.empty ())
-        d = p.scope_->out_path (); // Already normalized.
+        d = src ? sd : od; // Already dormalized.
       else
       {
         if (d.relative ())
-          d = p.scope_->out_path () / d;
+          d = (src ? sd : od) / d;
 
         d.normalize ();
       }
 
+      dir_path out;
+      if (src && sd != od) // If in-source build, then out must be empty.
+      {
+        out = o.dir.relative () ? od / o.dir : move (o.dir);
+        out.normalize ();
+      }
+
       // Find or insert.
       //
-      // @@ OUT: for now we assume the target is always in the out tree. The
-      // only way to specify an src prerequisite will be with the explicit
-      // @-syntax.
-      //
       p.target_ = &targets.insert (
-        *ti, move (d), dir_path (), move (n.value), e, tr).first;
+        *ti, move (d), move (out), move (n.value), e, tr).first;
     }
 
     ~enter_target ()
@@ -454,14 +473,19 @@ namespace build2
             // may contain variable expansions that would be sensitive to
             // the target/scope context in which they are evaluated.
             //
-            replay_guard rg (*this, ns.size () > 1);
+            // Note: watch out for an out-qualified single target (two names).
+            //
+            replay_guard rg (
+              *this, ns.size () > 2 || (ns.size () == 2 && !ns[0].pair));
 
-            for (name& n: ns)
+            for (auto i (ns.begin ()), e (ns.end ()); i != e; )
             {
+              name& n (*i);
+
               if (n.qualified ())
                 fail (nloc) << "project name in scope/target " << n;
 
-              if (n.directory ())
+              if (n.directory () && !n.pair) // Not out-qualified.
               {
                 // Scope variable.
                 //
@@ -477,13 +501,18 @@ namespace build2
 
                 if (p == string::npos)
                 {
-                  enter_target tg (*this, move (n), nloc, trace);
+                  name o (n.pair ? move (*++i) : name ());
+                  enter_target tg (*this, move (n), move (o), nloc, trace);
                   variable (t, tt, var, att);
                 }
                 else
                 {
                   // See tests/variable/type-pattern.
                   //
+                  if (n.pair)
+                    fail (nloc) << "out-qualified target type/pattern-"
+                                << "specific variable";
+
                   if (n.value.find ('*', p + 1) != string::npos)
                     fail (nloc) << "multiple wildcards in target type/pattern "
                                 << n;
@@ -591,7 +620,8 @@ namespace build2
                 }
               }
 
-              rg.play (); // Replay.
+              if (++i != e)
+                rg.play (); // Replay.
             }
           }
           // Dependency declaration.
@@ -650,7 +680,9 @@ namespace build2
               if (tn.qualified ())
                 fail (nloc) << "project name in target " << tn;
 
-              enter_target tg (*this, move (tn), nloc, trace);
+              // @@ OUT TODO
+              //
+              enter_target tg (*this, move (tn), name (), nloc, trace);
 
               //@@ OPT: move if last/single target (common cases).
               //
@@ -2209,7 +2241,7 @@ namespace build2
           else if (tt == type::lparen)
           {
             expire_mode ();
-            value v (eval (t, tt));
+            value v (eval (t, tt)); //@@ OUT will parse @-pair and do well?
 
             if (!v)
               fail (loc) << "null variable/function name";
@@ -2233,6 +2265,8 @@ namespace build2
 
               if (qual.empty ())
                 fail (loc) << "empty variable/function qualification";
+
+              qual.pair = '\0'; // We broke up the pair.
             }
 
             name = move (ns[n - 1].value);
@@ -2313,10 +2347,13 @@ namespace build2
             enter_scope sg;
             enter_target tg;
 
-            if (qual.directory ())
+            if (qual.directory ()) //@@ OUT
               sg = enter_scope (*this, move (qual.dir));
             else if (!qual.empty ())
-              tg = enter_target (*this, move (qual), loc, trace);
+              // @@ OUT TODO
+              //
+              tg = enter_target (
+                *this, move (qual), build2::name (), loc, trace);
 
             // Lookup.
             //
