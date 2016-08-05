@@ -35,7 +35,6 @@ namespace build2
   next_impl ()
   {
     lexer_mode m (state_.top ().mode);
-    char ps (state_.top ().pair_separator);
 
     // For some modes we have dedicated imlementations of next().
     //
@@ -53,6 +52,12 @@ namespace build2
 
     if (eos (c))
       return token (type::eos, sep, ln, cn);
+
+    // Handle pair separator.
+    //
+    if ((m == lexer_mode::normal || m == lexer_mode::value) &&
+        c == state_.top ().pair_separator)
+      return token (type::pair_separator, sep, ln, cn);
 
     switch (c)
     {
@@ -76,11 +81,6 @@ namespace build2
     case '(': return token (type::lparen, sep, ln, cn);
     case ')': return token (type::rparen, sep, ln, cn);
     }
-
-    // Handle pair separator.
-    //
-    if (m == lexer_mode::value && c == ps)
-      return token (type::pair_separator, sep, ln, cn);
 
     // The following characters are not treated as special in the value mode.
     //
@@ -133,6 +133,12 @@ namespace build2
     // This mode is quite a bit like the value mode when it comes to special
     // characters, except that we have some of our own.
     //
+
+    // Handle pair separator.
+    //
+    if (c == state_.top ().pair_separator)
+      return token (type::pair_separator, sep, ln, cn);
+
     // Note: we don't treat [ and ] as special here. Maybe can use them for
     // something later.
     //
@@ -224,7 +230,9 @@ namespace build2
 
       // Handle the pair separator.
       //
-      if (m == lexer_mode::value && c == ps)
+      if ((m == lexer_mode::normal ||
+           m == lexer_mode::value  ||
+           m == lexer_mode::eval)  && c == ps)
         break;
 
       // The following characters are only special in the normal and
