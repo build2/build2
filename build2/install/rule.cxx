@@ -4,8 +4,6 @@
 
 #include <build2/install/rule>
 
-#include <cctype>  // tolower()
-
 #include <build2/scope>
 #include <build2/target>
 #include <build2/algorithm>
@@ -254,7 +252,7 @@ namespace build2
       assert (d.absolute ());
 
       string s (d.representation ());
-      s[1] = tolower(s[0]); // Replace ':' with the drive letter.
+      s[1] = lcase (s[0]); // Replace ':' with the drive letter.
       s[0] = '/';
 
       return dir_path (dir_path (move (s)).posix_representation ());

@@ -168,24 +168,20 @@ namespace build2
   }
 
   bool
-  find_option (const char* o, const strings& strs, bool)
+  find_option (const char* o, const strings& strs, bool ic)
   {
-    //@@ CASE ignore case
-
     for (const string& s: strs)
-      if (s == o)
+      if (ic ? casecmp (s, o) == 0 : s == o)
         return true;
 
     return false;
   }
 
   bool
-  find_option (const char* o, const cstrings& cstrs, bool)
+  find_option (const char* o, const cstrings& cstrs, bool ic)
   {
-    //@@ CASE ignore case
-
     for (const char* s: cstrs)
-      if (s != nullptr && strcmp (s, o) == 0)
+      if (s != nullptr && (ic ? casecmp (s, o) : strcmp (s, o)) == 0)
         return true;
 
     return false;
@@ -198,27 +194,25 @@ namespace build2
   }
 
   bool
-  find_options (initializer_list<const char*> os, const strings& strs, bool)
+  find_options (initializer_list<const char*> os, const strings& strs, bool ic)
   {
-    //@@ CASE ignore case
-
     for (const string& s: strs)
       for (const char* o: os)
-        if (s == o)
+        if (ic ? casecmp (s, o) == 0 : s == o)
           return true;
 
     return false;
   }
 
   bool
-  find_options (initializer_list<const char*> os, const cstrings& cstrs, bool)
+  find_options (initializer_list<const char*> os,
+                const cstrings& cstrs,
+                bool ic)
   {
-    //@@ CASE ignore case
-
     for (const char* s: cstrs)
       if (s != nullptr)
         for (const char* o: os)
-          if (strcmp (s, o) == 0)
+          if ((ic ? casecmp (s, o) : strcmp (s, o)) == 0)
             return true;
 
     return false;
@@ -231,28 +225,24 @@ namespace build2
   }
 
   bool
-  find_option_prefix (const char* p, const strings& strs, bool)
+  find_option_prefix (const char* p, const strings& strs, bool ic)
   {
-    //@@ CASE ignore case
-
     size_t n (strlen (p));
 
     for (const string& s: strs)
-      if (s.compare (0, n, p) == 0)
+      if ((ic ? casecmp (s, p, n) : s.compare (0, n, p)) == 0)
         return true;
 
     return false;
   }
 
   bool
-  find_option_prefix (const char* p, const cstrings& cstrs, bool)
+  find_option_prefix (const char* p, const cstrings& cstrs, bool ic)
   {
-    //@@ CASE ignore case
-
     size_t n (strlen (p));
 
     for (const char* s: cstrs)
-      if (s != nullptr && strncmp (s, p, n) == 0)
+      if (s != nullptr && (ic ? casecmp (s, p, n) : strncmp (s, p, n)) == 0)
         return true;
 
     return false;
@@ -269,13 +259,13 @@ namespace build2
   bool
   find_option_prefixes (initializer_list<const char*> ps,
                         const strings& strs,
-                        bool)
+                        bool ic)
   {
-    //@@ CASE ignore case
-
     for (const string& s: strs)
       for (const char* p: ps)
-        if (s.compare (0, strlen (p), p) == 0)
+        if ((ic
+             ? casecmp (s, p, strlen (p))
+             : s.compare (0, strlen (p), p)) == 0)
           return true;
 
     return false;
@@ -284,14 +274,14 @@ namespace build2
   bool
   find_option_prefixes (initializer_list<const char*> ps,
                         const cstrings& cstrs,
-                        bool)
+                        bool ic)
   {
-    //@@ CASE ignore case
-
     for (const char* s: cstrs)
       if (s != nullptr)
         for (const char* p: ps)
-          if (strncmp (s, p, strlen (p)) == 0)
+          if ((ic
+               ? casecmp (s, p, strlen (p))
+               : strncmp (s, p, strlen (p))) == 0)
             return true;
 
     return false;

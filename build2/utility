@@ -12,7 +12,8 @@
 #include <cassert>  // assert()
 #include <iterator> // make_move_iterator()
 
-#include <butl/utility> // combine_hash(), reverse_iterate()
+#include <butl/utility> // combine_hash(), reverse_iterate(), casecmp(),
+                        // lcase()
 
 #include <exception>     // uncaught_exception()
 #include <unordered_set>
@@ -35,6 +36,10 @@ namespace build2
   //
   using butl::combine_hash;
   using butl::reverse_iterate;
+  using butl::casecmp;
+  using butl::lcase;
+  using butl::alpha;
+  using butl::alnum;
 
   // Basic string utilities.
   //

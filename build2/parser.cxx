@@ -4,7 +4,6 @@
 
 #include <build2/parser>
 
-#include <cctype>   // is{alpha alnum}()
 #include <iostream>
 
 #include <build2/version>
@@ -2754,7 +2753,7 @@ namespace build2
     for (size_t i (0); i != n.value.size (); ++i)
     {
       char c (n.value[i]);
-      if (c != '_' && !(i != 0 ? isalnum (c) : isalpha (c)))
+      if (c != '_' && !(i != 0 ? alnum (c) : alpha (c)))
         return false;
     }
 

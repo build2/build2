@@ -586,12 +586,9 @@ namespace build2
         {
           // See if this one is part of the Windows drive letter.
           //
-          auto isalpha = [](char c) {
-            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');};
-
           if (p > 1 && p + 1 < n && // 2 chars before, 1 after.
               l[p - 2] == ' ' &&
-              isalpha (l[p - 1]) &&
+              alpha (l[p - 1]) &&
               path::traits::is_separator (l[p + 1]))
             p = l.rfind (':', p - 2);
         }

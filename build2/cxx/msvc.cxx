@@ -174,10 +174,12 @@ namespace build2
 
               if (p != string::npos && s[p + 1] == ' ')
               {
-                if (s.compare (n + 1, 3, "obj") == 0) // @@ CASE
+                const char* e (s.c_str () + n + 1);
+
+                if (casecmp (e, "obj", 3) == 0)
                   obj = true;
 
-                if (s.compare (n + 1, 3, "dll") == 0) // @@ CASE
+                if (casecmp (e, "dll", 3) == 0)
                   dll = true;
               }
             }

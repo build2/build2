@@ -466,15 +466,10 @@ namespace build2
 
           auto upcase_sanitize = [] (char c) -> char
           {
-            if (c >= 'a' && c <='z')
-            {
-              const unsigned char shift ('a' - 'A');
-              return c - shift;
-            }
-            else if (c == '-' || c == '+' || c == '.')
+            if (c == '-' || c == '+' || c == '.')
               return '_';
             else
-              return c;
+              return ucase (c);
           };
 
           transform (t.name.begin (),
