@@ -69,7 +69,9 @@ namespace build2
     // both inner and outer operations match.
     //
     for (operation_id oo (a.outer_operation ()), io (a.operation ()),
-           o (oo != 0 ? oo : io); o != 0; o = (oo != 0 ? io : 0))
+           o (oo != 0 ? oo : io);
+         o != 0;
+         o = (oo != 0 && o != io ? io : 0))
     {
       // Adjust action for recipe: on the first iteration we want it
       // {inner, outer} (which is the same as 'a') while on the second
