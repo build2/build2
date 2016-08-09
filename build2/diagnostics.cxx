@@ -97,6 +97,9 @@ namespace build2
     if (type_ != nullptr)
       r << type_ << ": ";
 
+    if (mod_ != nullptr)
+      r << mod_ << "::";
+
     if (name_ != nullptr)
       r << name_ << ": ";
   }
@@ -118,6 +121,9 @@ namespace build2
 
     if (type_ != nullptr)
       r << type_ << ": ";
+
+    if (mod_ != nullptr)
+      r << mod_ << "::";
 
     if (name_ != nullptr)
       r << name_ << ": ";

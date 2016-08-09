@@ -1,8 +1,8 @@
-// file      : build2/cxx/module.cxx -*- C++ -*-
+// file      : build2/c/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/module>
+#include <build2/c/init>
 
 #include <build2/scope>
 #include <build2/context>
@@ -10,14 +10,14 @@
 
 #include <build2/cc/module>
 
-#include <build2/cxx/target>
+#include <build2/c/target>
 
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace c
   {
     using cc::config_module;
 
@@ -38,26 +38,30 @@ namespace build2
 
       if (cid == "msvc")
       {
-        // C++ standard-wise, with VC you get what you get. The question is
+        // Standard-wise, with VC you get what you get. The question is
         // whether we should verify that the requested standard is provided by
         // this VC version. And if so, from which version should we say VC
-        // supports 11, 14, and 17? We should probably be as loose as possible
+        // supports 90, 99, and 11? We should probably be as loose as possible
         // here since the author will always be able to tighten (but not
         // loosen) this in the buildfile (i.e., detect unsupported versions).
         //
-        // For now we are not going to bother doing this for C++03.
+        // The state of affairs seem to be (from Herb Sutter's blog):
         //
-        if (v != "98" && v != "03")
+        // 10.0 - most of C95 plus a few C99 features
+        // 11.0 - partial support for the C++11 subset of C11
+        // 12.0 - more C11 features from the C++11 subset, most of C99
+        //
+        // So let's say C99 is supported from 10.0 and C11 from 11.0. And C90
+        // is supported by everything we care to support.
+        //
+        if (v != "90")
         {
           uint64_t cver (cast<uint64_t> (r[x_version_major]));
 
-          // @@ Is mapping for 14 and 17 correct? Maybe Update 2 for 14?
-          //
-          if ((v == "11" && cver < 16) || // C++11 since VS2010/10.0.
-              (v == "14" && cver < 19) || // C++14 since VS2015/14.0.
-              (v == "17" && cver < 20))   // C++17 since VS20??/15.0.
+          if ((v == "99" && cver < 16) || // Since VS2010/10.0.
+              (v == "11" && cver < 17))   // Since VS2012/11.0.
           {
-            fail << "C++" << v << " is not supported by "
+            fail << "C" << v << " is not supported by "
                  << cast<string> (r[x_signature]) <<
               info << "required by " << project (r) << '@' << r.out_path ();
           }
@@ -67,23 +71,19 @@ namespace build2
       }
       else
       {
-        // Translate 11 to 0x, 14 to 1y, and 17 to 1z for compatibility with
-        // older versions of the compilers.
+        // 90 and 89 are the same standard. Translate 99 to 9x and 11 to 1x
+        // for compatibility with older versions of the compilers.
         //
         s = "-std=";
 
-        if (v == "98")
-          s += "c++98";
-        else if (v == "03")
-          s += "c++03";
+        if (v == "90")
+          s += "c90";
+        else if (v == "99")
+          s += "c9x";
         else if (v == "11")
-          s += "c++0x";
-        else if (v == "14")
-          s += "c++1y";
-        else if (v == "17")
-          s += "c++1z";
+          s += "c1x";
         else
-          s += v; // In case the user specifies something like 'gnu++17'.
+          s += v; // In case the user specifies something like 'gnu11'.
 
         return true;
       }
@@ -98,7 +98,7 @@ namespace build2
                  bool,
                  const variable_map& hints)
     {
-      tracer trace ("cxx::config_init");
+      tracer trace ("c::config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
       if (first)
@@ -113,61 +113,61 @@ namespace build2
         auto& v (var_pool);
 
         cc::config_data d {
-          cc::lang::cxx,
+          cc::lang::c,
 
-          "cxx",
-          "c++",
-          "g++",
+          "c",
+          "c",
+          "gcc",
 
           // Note: some overridable, some not.
           //
-          v.insert<path>     ("config.cxx",          true),
-          v.insert<strings>  ("config.cxx.poptions", true),
-          v.insert<strings>  ("config.cxx.coptions", true),
-          v.insert<strings>  ("config.cxx.loptions", true),
-          v.insert<strings>  ("config.cxx.libs",     true),
+          v.insert<path>     ("config.c",          true),
+          v.insert<strings>  ("config.c.poptions", true),
+          v.insert<strings>  ("config.c.coptions", true),
+          v.insert<strings>  ("config.c.loptions", true),
+          v.insert<strings>  ("config.c.libs",     true),
 
-          v.insert<strings>  ("cxx.poptions"),
-          v.insert<strings>  ("cxx.coptions"),
-          v.insert<strings>  ("cxx.loptions"),
-          v.insert<strings>  ("cxx.libs"),
+          v.insert<strings>  ("c.poptions"),
+          v.insert<strings>  ("c.coptions"),
+          v.insert<strings>  ("c.loptions"),
+          v.insert<strings>  ("c.libs"),
 
           v["cc.poptions"],
           v["cc.coptions"],
           v["cc.loptions"],
           v["cc.libs"],
 
-          v.insert<strings>  ("cxx.export.poptions"),
-          v.insert<strings>  ("cxx.export.coptions"),
-          v.insert<strings>  ("cxx.export.loptions"),
-          v.insert<strings>  ("cxx.export.libs"),
+          v.insert<strings>  ("c.export.poptions"),
+          v.insert<strings>  ("c.export.coptions"),
+          v.insert<strings>  ("c.export.loptions"),
+          v.insert<strings>  ("c.export.libs"),
 
           v["cc.export.poptions"],
           v["cc.export.coptions"],
           v["cc.export.loptions"],
           v["cc.export.libs"],
 
-          v.insert<string>   ("cxx.std", true),
+          v.insert<string>   ("c.std", true),
 
-          v.insert<string>   ("cxx.id"),
-          v.insert<string>   ("cxx.id.type"),
-          v.insert<string>   ("cxx.id.variant"),
+          v.insert<string>   ("c.id"),
+          v.insert<string>   ("c.id.type"),
+          v.insert<string>   ("c.id.variant"),
 
-          v.insert<string>   ("cxx.version"),
-          v.insert<uint64_t> ("cxx.version.major"),
-          v.insert<uint64_t> ("cxx.version.minor"),
-          v.insert<uint64_t> ("cxx.version.patch"),
-          v.insert<string>   ("cxx.version.build"),
+          v.insert<string>   ("c.version"),
+          v.insert<uint64_t> ("c.version.major"),
+          v.insert<uint64_t> ("c.version.minor"),
+          v.insert<uint64_t> ("c.version.patch"),
+          v.insert<string>   ("c.version.build"),
 
-          v.insert<string>   ("cxx.signature"),
-          v.insert<string>   ("cxx.checksum"),
+          v.insert<string>   ("c.signature"),
+          v.insert<string>   ("c.checksum"),
 
-          v.insert<string>   ("cxx.target"),
-          v.insert<string>   ("cxx.target.cpu"),
-          v.insert<string>   ("cxx.target.vendor"),
-          v.insert<string>   ("cxx.target.system"),
-          v.insert<string>   ("cxx.target.version"),
-          v.insert<string>   ("cxx.target.class")
+          v.insert<string>   ("c.target"),
+          v.insert<string>   ("c.target.cpu"),
+          v.insert<string>   ("c.target.vendor"),
+          v.insert<string>   ("c.target.system"),
+          v.insert<string>   ("c.target.version"),
+          v.insert<string>   ("c.target.class")
         };
 
         assert (m == nullptr);
@@ -180,19 +180,12 @@ namespace build2
 
     static const target_type* hdr[] =
     {
-      &hxx::static_type,
-      &ixx::static_type,
-      &txx::static_type,
       &h::static_type,
       nullptr
     };
 
     static const target_type* inc[] =
     {
-      &hxx::static_type,
-      &ixx::static_type,
-      &txx::static_type,
-      &cxx::static_type,
       &h::static_type,
       &c::static_type,
       nullptr
@@ -207,31 +200,31 @@ namespace build2
           bool,
           const variable_map& hints)
     {
-      tracer trace ("cxx::init");
+      tracer trace ("c::init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Load cxx.config.
+      // Load c.config.
       //
-      if (!cast_false<bool> (b["cxx.config.loaded"]))
-        load_module ("cxx.config", r, b, loc, false, hints);
+      if (!cast_false<bool> (b["c.config.loaded"]))
+        load_module ("c.config", r, b, loc, false, hints);
 
       if (first)
       {
-        config_module& cm (*r.modules.lookup<config_module> ("cxx.config"));
+        config_module& cm (*r.modules.lookup<config_module> ("c.config"));
 
         cc::data d {
           cm,
 
-          "cxx.compile",
-          "cxx.link",
-          "cxx.install",
+          "c.compile",
+          "c.link",
+          "c.install",
 
           cast<string> (r[cm.x_id]),
           cast<string> (r[cm.x_target]),
           cast<string> (r[cm.x_target_system]),
           cast<string> (r[cm.x_target_class]),
 
-          cxx::static_type,
+          c::static_type,
           hdr,
           inc
         };

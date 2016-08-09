@@ -146,13 +146,23 @@ namespace build2
   // Append all the values from a variable to the C-string list. T is either
   // target or scope. The variable is expected to be of type strings.
   //
-  template <typename T>
-  void
-  append_options (cstrings&, T&, const char* variable);
+  struct variable;
 
   template <typename T>
   void
-  hash_options (sha256&, T&, const char* variable);
+  append_options (cstrings&, T&, const variable&);
+
+  template <typename T>
+  void
+  append_options (cstrings&, T&, const char*);
+
+  template <typename T>
+  void
+  hash_options (sha256&, T&, const variable&);
+
+  template <typename T>
+  void
+  hash_options (sha256&, T&, const char*);
 
   // As above but from the strings value directly.
   //
@@ -178,6 +188,13 @@ namespace build2
   bool
   find_option (const char* option,
                T&,
+               const variable&,
+               bool ignore_case = false);
+
+  template <typename T>
+  bool
+  find_option (const char* option,
+               T&,
                const char* variable,
                bool ignore_case = false);
 
@@ -192,6 +209,13 @@ namespace build2
 
   // As above but look for several options.
   //
+  template <typename T>
+  bool
+  find_options (initializer_list<const char*>,
+                T&,
+                const variable&,
+                bool = false);
+
   template <typename T>
   bool
   find_options (initializer_list<const char*>, T&, const char*, bool = false);
@@ -209,6 +233,10 @@ namespace build2
   //
   template <typename T>
   bool
+  find_option_prefix (const char* prefix, T&, const variable&, bool = false);
+
+  template <typename T>
+  bool
   find_option_prefix (const char* prefix, T&, const char*, bool = false);
 
   bool
@@ -222,6 +250,13 @@ namespace build2
 
   // As above but look for several option prefixes.
   //
+  template <typename T>
+  bool
+  find_option_prefixes (initializer_list<const char*>,
+                        T&,
+                        const variable&,
+                        bool = false);
+
   template <typename T>
   bool
   find_option_prefixes (initializer_list<const char*>,

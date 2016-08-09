@@ -41,6 +41,8 @@ using namespace std;
 #include <build2/config/module>
 #include <build2/dist/module>
 #include <build2/bin/module>
+#include <build2/c/init>
+#include <build2/cc/init>
 #include <build2/cxx/module>
 #include <build2/cli/module>
 #include <build2/test/module>
@@ -183,19 +185,37 @@ main (int argc, char* argv[])
 
     // Register builtin modules.
     //
-    builtin_modules["config"]  = module_functions {&config::boot,
-                                                   &config::init};
-    builtin_modules["dist"]    = module_functions {&dist::boot, &dist::init};
-    builtin_modules["test"]    = module_functions {&test::boot, &test::init};
-    builtin_modules["install"] = module_functions {&install::boot,
-                                                   &install::init};
+    {
+      using mf = module_functions;
+      auto& bm (builtin_modules);
 
-    builtin_modules["bin"] = module_functions {nullptr, &bin::init};
-    builtin_modules["bin.ar"] = module_functions {nullptr, &bin::ar_init};
-    builtin_modules["bin.ld"] = module_functions {nullptr, &bin::ld_init};
-    builtin_modules["bin.rc"] = module_functions {nullptr, &bin::rc_init};
-    builtin_modules["cxx"] = module_functions {nullptr, &cxx::init};
-    builtin_modules["cli"] = module_functions {nullptr, &cli::init};
+      bm["config"]  = mf {&config::boot, &config::init};
+      bm["dist"]    = mf {&dist::boot, &dist::init};
+      bm["test"]    = mf {&test::boot, &test::init};
+      bm["install"] = mf {&install::boot, &install::init};
+
+      bm["bin.config"] = mf {nullptr, &bin::config_init};
+      bm["bin"] = mf {nullptr, &bin::init};
+      bm["bin.ar.config"] = mf {nullptr, &bin::ar_config_init};
+      bm["bin.ar"] = mf {nullptr, &bin::ar_init};
+      bm["bin.ld.config"] = mf {nullptr, &bin::ld_config_init};
+      bm["bin.ld"] = mf {nullptr, &bin::ld_init};
+      bm["bin.rc.config"] = mf {nullptr, &bin::rc_config_init};
+      bm["bin.rc"] = mf {nullptr, &bin::rc_init};
+
+      bm["cc.vars"] = mf {nullptr, &cc::vars_init};
+      bm["cc.config"] = mf {nullptr, &cc::config_init};
+      bm["cc.core"] = mf {nullptr, &cc::core_init};
+      bm["cc"] = mf {nullptr, &cc::init};
+
+      bm["c.config"] = mf {nullptr, &c::config_init};
+      bm["c"] = mf {nullptr, &c::init};
+
+      bm["cxx.config"] = mf {nullptr, &cxx::config_init};
+      bm["cxx"] = mf {nullptr, &cxx::init};
+
+      bm["cli"] = mf {nullptr, &cli::init};
+    }
 
     // Figure out work and home directories.
     //

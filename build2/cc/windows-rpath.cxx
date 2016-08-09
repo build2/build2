@@ -1,4 +1,4 @@
-// file      : build2/cxx/windows-rpath.cxx -*- C++ -*-
+// file      : build2/cc/windows-rpath.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -19,7 +19,7 @@ using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     // Provide limited emulation of the rpath functionality on Windows using a
     // side-by-side assembly. In a nutshell, the idea is to create an assembly
@@ -104,7 +104,10 @@ namespace build2
     // manifest file.
     //
     void
-    windows_rpath_assembly (file& t, timestamp ts, bool scratch)
+    windows_rpath_assembly (file& t,
+                            const string& tcpu,
+                            timestamp ts,
+                            bool scratch)
     {
       // Assembly paths and name.
       //
@@ -128,8 +131,6 @@ namespace build2
         if (ts <= file_mtime (am))
           return;
       }
-
-      scope& rs (t.root_scope ());
 
       // Next collect the set of DLLs that will be in our assembly. We need to
       // do this recursively which means we may end up with duplicates. Also,
@@ -157,9 +158,7 @@ namespace build2
           mkdir (ad, 3);
       }
 
-      const char* pa (
-        windows_manifest_arch (
-          cast<string> (rs["cxx.target.cpu"])));
+      const char* pa (windows_manifest_arch (tcpu));
 
       if (verb >= 3)
         text << "cat >" << am;
@@ -176,7 +175,7 @@ namespace build2
             << "                    processorArchitecture='" << pa << "'\n"
             << "                    version='0.0.0.0'/>\n";
 
-        scope& as (*rs.weak_scope ()); // Amalgamation scope.
+        scope& as (*t.root_scope ().weak_scope ()); // Amalgamation scope.
 
         auto link = [&as, &ad] (const path& f, const path& l)
         {

@@ -1,0 +1,172 @@
+// file      : build2/cc/common -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CC_COMMON
+#define BUILD2_CC_COMMON
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/variable>
+
+#include <build2/cc/types>
+
+namespace build2
+{
+  namespace cc
+  {
+    // Data entries that define a concrete c-family module (e.g., c or cxx).
+    // These classes are used as a virtual bases by the rules as well as the
+    // modules. This way the member variables can be referenced as is, without
+    // any extra decorations (in other words, it is a bunch of data members
+    // that can be shared between several classes/instances).
+    //
+    struct config_data
+    {
+      lang x_lang;
+
+      const char* x;         // Module name ("c", "cxx").
+      const char* x_name;    // Compiler name ("c", "c++").
+      const char* x_default; // Compiler default ("gcc", "g++").
+
+      const variable& config_x;
+      const variable& config_x_poptions;
+      const variable& config_x_coptions;
+      const variable& config_x_loptions;
+      const variable& config_x_libs;
+
+      const variable& x_poptions;
+      const variable& x_coptions;
+      const variable& x_loptions;
+      const variable& x_libs;
+
+      const variable& c_poptions; // cc.*
+      const variable& c_coptions;
+      const variable& c_loptions;
+      const variable& c_libs;
+
+      const variable& x_export_poptions;
+      const variable& x_export_coptions;
+      const variable& x_export_loptions;
+      const variable& x_export_libs;
+
+      const variable& c_export_poptions; // cc.export.*
+      const variable& c_export_coptions;
+      const variable& c_export_loptions;
+      const variable& c_export_libs;
+
+      const variable& x_std;
+
+      const variable& x_id;
+      const variable& x_id_type;
+      const variable& x_id_variant;
+
+      const variable& x_version;
+      const variable& x_version_major;
+      const variable& x_version_minor;
+      const variable& x_version_patch;
+      const variable& x_version_build;
+
+      const variable& x_signature;
+      const variable& x_checksum;
+
+      const variable& x_target;
+      const variable& x_target_cpu;
+      const variable& x_target_vendor;
+      const variable& x_target_system;
+      const variable& x_target_version;
+      const variable& x_target_class;
+    };
+
+    struct data: config_data
+    {
+      const char* x_compile; // Rule names.
+      const char* x_link;
+      const char* x_install;
+
+      // Cached values for some commonly-used variables.
+      //
+      const string& cid;     // x.id
+      const string& ctg;     // x.target
+      const string& tsys;    // x.target.system
+      const string& tclass;  // x.target.class
+
+      const target_type& x_src;  // Source target type (c{}, cxx{}).
+
+      // Array of target types that are considered headers. Keep them in the
+      // most likely to appear order and terminate with NULL.
+      //
+      const target_type* const* x_hdr;
+
+      template <typename T>
+      bool
+      x_header (const T& t) const
+      {
+        for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
+          if (t.is_a (**ht))
+            return true;
+
+        return false;
+      }
+
+      // Array of target types that can be #include'd. Used to reverse-lookup
+      // extensions to target types. Keep them in the most likely to appear
+      // order and terminate with NULL.
+      //
+      const target_type* const* x_inc;
+
+      // Aggregate-like constructor with from-base support.
+      //
+      data (const config_data& cd,
+            const char* compile,
+            const char* link,
+            const char* install,
+            const string& id,
+            const string& tg,
+            const string& sys,
+            const string& class_,
+            const target_type& src,
+            const target_type* const* hdr,
+            const target_type* const* inc)
+          : config_data (cd),
+            x_compile (compile), x_link (link), x_install (install),
+            cid (id), ctg (tg), tsys (sys), tclass (class_),
+            x_src (src), x_hdr (hdr), x_inc (inc) {}
+    };
+
+    class common: protected data
+    {
+    public:
+      common (data&& d): data (move (d)) {}
+
+      // Language standard (x.std) mapping. T is either target or scope.
+      //
+      template <typename T>
+      void
+      append_std (cstrings& args, scope& root, T& t, string& storage) const
+      {
+        if (auto l = t[x_std])
+          if (translate_std (storage, root, *l))
+            args.push_back (storage.c_str ());
+      }
+
+      template <typename T>
+      void
+      hash_std (sha256& csum, scope& root, T& t) const
+      {
+        string s;
+        if (auto l = t[x_std])
+          if (translate_std (s, root, *l))
+            csum.append (s);
+      }
+
+      // Return true if there is an option (stored in the first argument).
+      //
+      virtual bool
+      translate_std (string&, scope&, const value&) const = 0;
+    };
+  }
+}
+
+#endif // BUILD2_CC_COMMON

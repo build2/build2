@@ -46,12 +46,18 @@ namespace build2
     target* (*search) (const prerequisite_key&);
     bool see_through; // A group with the default "see through" semantics.
 
-    bool
-    is_a (const target_type&) const; // Defined in target.cxx
-
     template <typename T>
     bool
     is_a () const {return is_a (T::static_type);}
+
+    bool
+    is_a (const target_type& tt) const
+    {
+      return this == &tt || (base != nullptr && is_a_base (tt));
+    }
+
+    bool
+    is_a_base (const target_type&) const; // Defined in target.cxx
   };
 
   inline bool
@@ -97,12 +103,16 @@ namespace build2
   class target_type_map: public target_type_map_base
   {
   public:
-    void
-    insert (const target_type& tt) {emplace (tt.name, target_type_ref (tt));}
+    const target_type&
+    insert (const target_type& tt)
+    {
+      emplace (tt.name, target_type_ref (tt));
+      return tt;
+    }
 
     template <typename T>
-    void
-    insert () {insert (T::static_type);}
+    const target_type&
+    insert () {return insert (T::static_type);}
   };
 }
 

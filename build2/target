@@ -68,6 +68,11 @@ namespace build2
   // this case the returned by the recipe value is still used as the resulting
   // target state so it should match the group's state.
   //
+  // Note that max size for the "small capture optimization" in std::function
+  // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
+  // 14u2). With the size ranging (in bytes for 64-bit target) from 32 (GCC)
+  // to 64 (VC).
+  //
   using recipe_function = target_state (action, target&);
   using recipe = function<recipe_function>;
 
@@ -471,6 +476,9 @@ namespace build2
     const T*
     is_a () const {return dynamic_cast<const T*> (this);}
 
+    bool
+    is_a (const target_type& tt) const {return type ().is_a (tt);}
+
     // Dynamic derivation to support define.
     //
     const target_type* derived_type = nullptr;
@@ -622,8 +630,9 @@ namespace build2
   //
   struct prerequisite_member
   {
-    typedef build2::target target_type;
-    typedef build2::prerequisite prerequisite_type;
+    using target_type = build2::target;
+    using prerequisite_type = build2::prerequisite;
+    using target_type_type = build2::target_type;
 
     prerequisite_ref& prerequisite;
     target_type* target;
@@ -637,6 +646,14 @@ namespace build2
         : prerequisite.get ().is_a<T> ();
     }
 
+    bool
+    is_a (const target_type_type& tt) const
+    {
+      return target != nullptr
+        ? target->is_a (tt)
+        : prerequisite.get ().is_a (tt);
+    }
+
     prerequisite_key
     key () const
     {
@@ -645,7 +662,7 @@ namespace build2
         : prerequisite.get ().key ();
     }
 
-    const build2::target_type&
+    const target_type_type&
     type () const
     {
       return target != nullptr ? target->type () : prerequisite.get ().type;

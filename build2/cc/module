@@ -1,0 +1,59 @@
+// file      : build2/cc/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CC_MODULE
+#define BUILD2_CC_MODULE
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/module>
+#include <build2/variable>
+
+#include <build2/cc/common>
+
+#include <build2/cc/compile>
+#include <build2/cc/link>
+#include <build2/cc/install>
+
+namespace build2
+{
+  namespace cc
+  {
+    class config_module: public module_base, public virtual config_data
+    {
+    public:
+      explicit
+      config_module (config_data&& d) : config_data (move (d)) {}
+
+      void
+      init (scope&,
+            scope&,
+            const location&,
+            bool first,
+            const variable_map&);
+    };
+
+    class module: public module_base, protected virtual common,
+                  link, compile, install
+    {
+    public:
+      explicit
+      module (data&& d)
+          : common (move (d)),
+            link (move (d)),
+            compile (move (d), *this),
+            install (move (d), *this) {}
+
+      void
+      init (scope&,
+            scope&,
+            const location&,
+            bool first,
+            const variable_map&);
+    };
+  }
+}
+
+#endif // BUILD2_CC_MODULE

@@ -9,11 +9,15 @@
 #include <build2/utility>
 
 #include <build2/target>
+#include <build2/cc/target>
 
 namespace build2
 {
   namespace cxx
   {
+    using cc::h;
+    using cc::c;
+
     class hxx: public file
     {
     public:
@@ -45,28 +49,6 @@ namespace build2
     };
 
     class cxx: public file
-    {
-    public:
-      using file::file;
-
-    public:
-      static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
-    };
-
-    //@@ TMP: should be in c-common or some such.
-    //
-    class h: public file
-    {
-    public:
-      using file::file;
-
-    public:
-      static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
-    };
-
-    class c: public file
     {
     public:
       using file::file;

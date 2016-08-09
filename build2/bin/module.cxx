@@ -33,39 +33,19 @@ namespace build2
     static const strings liba_lib {"static"};
     static const strings libs_lib {"shared"};
 
-    // Apply the specified stem to the config.bin.pattern. If there is no
-    // pattern, then return the stem itself. Assume the pattern is valid,
-    // i.e., contains single '*'.
-    //
-    static string
-    apply (const lookup& pattern, const char* stem)
-    {
-      if (!pattern)
-        return stem;
-
-      const string& p (cast<string> (pattern));
-      size_t i (p.find ('*'));
-      assert (i != string::npos);
-
-      string r (p, 0, i++);
-      r.append (stem);
-      r.append (p, i, p.size () - i);
-      return r;
-    }
-
     bool
-    init (scope& r,
-          scope& b,
-          const location& loc,
-          unique_ptr<module_base>&,
-          bool first,
-          bool,
-          const variable_map& config_hints)
+    config_init (scope& r,
+                 scope& b,
+                 const location& loc,
+                 unique_ptr<module_base>&,
+                 bool first,
+                 bool,
+                 const variable_map& hints)
     {
-      tracer trace ("bin::init");
+      tracer trace ("bin::config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Enter module variables.
+      // Enter configuration variables.
       //
       if (first)
       {
@@ -87,8 +67,6 @@ namespace build2
         v.insert<strings>   ("bin.liba.lib");
         v.insert<strings>   ("bin.libs.lib");
         v.insert<dir_paths> ("bin.rpath");
-
-        v.insert<string>    ("bin.libprefix",        true);
       }
 
       // Configure.
@@ -166,7 +144,7 @@ namespace build2
           bool hint (false);
           if (v == nullptr)
           {
-            if (auto l = config_hints[var])
+            if (auto l = hints[var])
             {
               v = l.value;
               hint = true;
@@ -241,7 +219,7 @@ namespace build2
           //
           if (v == nullptr)
           {
-            if (auto l = config_hints[var])
+            if (auto l = hints[var])
               v = l.value;
           }
 
@@ -275,6 +253,35 @@ namespace build2
                << "  pattern    " << cast<string> (l);
         }
       }
+
+      return true;
+    }
+
+    bool
+    init (scope& r,
+          scope& b,
+          const location& loc,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& hints)
+    {
+      tracer trace ("bin::init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Enter the rest of the variables.
+      //
+      if (first)
+      {
+        auto& v (var_pool);
+
+        v.insert<string> ("bin.libprefix", true);
+      }
+
+      // Load bin.config.
+      //
+      if (!cast_false<bool> (b["bin.config.loaded"]))
+        load_module ("bin.config", r, b, loc, false, hints);
 
       // Cache some config values we will be needing below.
       //
@@ -363,24 +370,44 @@ namespace build2
       return true;
     }
 
-    bool
-    ar_init (scope& r,
-             scope& b,
-             const location& loc,
-             unique_ptr<module_base>&,
-             bool first,
-             bool,
-             const variable_map& config_hints)
+    // Apply the specified stem to the config.bin.pattern. If there is no
+    // pattern, then return the stem itself. Assume the pattern is valid,
+    // i.e., contains single '*'.
+    //
+    static string
+    apply (const lookup& pattern, const char* stem)
     {
-      tracer trace ("bin::ar_init");
+      if (!pattern)
+        return stem;
+
+      const string& p (cast<string> (pattern));
+      size_t i (p.find ('*'));
+      assert (i != string::npos);
+
+      string r (p, 0, i++);
+      r.append (stem);
+      r.append (p, i, p.size () - i);
+      return r;
+    }
+
+    bool
+    ar_config_init (scope& r,
+                    scope& b,
+                    const location& loc,
+                    unique_ptr<module_base>&,
+                    bool first,
+                    bool,
+                    const variable_map& hints)
+    {
+      tracer trace ("bin::ar_config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Make sure the bin core is loaded.
+      // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, config_hints);
+      if (!cast_false<bool> (b["bin.config.loaded"]))
+        load_module ("bin.config", r, b, loc, false, hints);
 
-      // Enter module variables.
+      // Enter configuration variables.
       //
       if (first)
       {
@@ -480,23 +507,46 @@ namespace build2
     }
 
     bool
-    ld_init (scope& r,
+    ar_init (scope& r,
              scope& b,
              const location& loc,
              unique_ptr<module_base>&,
-             bool first,
              bool,
-             const variable_map& config_hints)
+             bool,
+             const variable_map& hints)
     {
-      tracer trace ("bin::ld_init");
+      tracer trace ("bin::ar_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Make sure the bin core is loaded.
+      // Make sure the bin core and ar.config are loaded.
       //
       if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, config_hints);
+        load_module ("bin", r, b, loc, false, hints);
 
-      // Enter module variables.
+      if (!cast_false<bool> (b["bin.ar.config.loaded"]))
+        load_module ("bin.ar.config", r, b, loc, false, hints);
+
+      return true;
+    }
+
+    bool
+    ld_config_init (scope& r,
+                    scope& b,
+                    const location& loc,
+                    unique_ptr<module_base>&,
+                    bool first,
+                    bool,
+                    const variable_map& hints)
+    {
+      tracer trace ("bin::ld_config_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure bin.config is loaded.
+      //
+      if (!cast_false<bool> (b["bin.config.loaded"]))
+        load_module ("bin.config", r, b, loc, false, hints);
+
+      // Enter configuration variables.
       //
       if (first)
       {
@@ -542,6 +592,29 @@ namespace build2
         r.assign<string> ("bin.ld.checksum") = move (ldi.checksum);
       }
 
+      return true;
+    }
+
+    bool
+    ld_init (scope& r,
+             scope& b,
+             const location& loc,
+             unique_ptr<module_base>&,
+             bool,
+             bool,
+             const variable_map& hints)
+    {
+      tracer trace ("bin::ld_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure the bin core and ld.config are loaded.
+      //
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc, false, hints);
+
+      if (!cast_false<bool> (b["bin.ld.config.loaded"]))
+        load_module ("bin.ld.config", r, b, loc, false, hints);
+
       const string& lid (cast<string> (r["bin.ld.id"]));
 
       // Register the pdb{} target if using the VC toolchain.
@@ -559,23 +632,23 @@ namespace build2
     }
 
     bool
-    rc_init (scope& r,
-             scope& b,
-             const location& loc,
-             unique_ptr<module_base>&,
-             bool first,
-             bool,
-             const variable_map& config_hints)
+    rc_config_init (scope& r,
+                    scope& b,
+                    const location& loc,
+                    unique_ptr<module_base>&,
+                    bool first,
+                    bool,
+                    const variable_map& hints)
     {
-      tracer trace ("bin::rc_init");
+      tracer trace ("bin::rc_config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Make sure the bin core is loaded.
+      // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, config_hints);
+      if (!cast_false<bool> (b["bin.config.loaded"]))
+        load_module ("bin.config", r, b, loc, false, hints);
 
-      // Enter module variables.
+      // Enter configuration variables.
       //
       if (first)
       {
@@ -620,6 +693,29 @@ namespace build2
         r.assign<string> ("bin.rc.signature") = move (rci.signature);
         r.assign<string> ("bin.rc.checksum") = move (rci.checksum);
       }
+
+      return true;
+    }
+
+    bool
+    rc_init (scope& r,
+             scope& b,
+             const location& loc,
+             unique_ptr<module_base>&,
+             bool,
+             bool,
+             const variable_map& hints)
+    {
+      tracer trace ("bin::rc_init");
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // Make sure the bin core and rc.config are loaded.
+      //
+      if (!cast_false<bool> (b["bin.loaded"]))
+        load_module ("bin", r, b, loc, false, hints);
+
+      if (!cast_false<bool> (b["bin.rc.config.loaded"]))
+        load_module ("bin.rc.config", r, b, loc, false, hints);
 
       return true;
     }

@@ -1,4 +1,4 @@
-// file      : build2/cxx/windows-manifest.cxx -*- C++ -*-
+// file      : build2/cc/windows-manifest.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -9,12 +9,14 @@
 #include <build2/filesystem>
 #include <build2/diagnostics>
 
+#include <build2/cc/link>
+
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     // Translate the compiler target CPU value to the processorArchitecture
     // attribute value.
@@ -36,16 +38,14 @@ namespace build2
     // Generate a Windows manifest and if necessary create/update the manifest
     // file corresponding to the exe{} target. Return the manifest file path.
     //
-    path
-    windows_manifest (file& t, bool rpath_assembly)
+    path link::
+    windows_manifest (file& t, bool rpath_assembly) const
     {
-      tracer trace ("cxx::windows_manifest");
+      tracer trace (x, "windows_manifest");
 
       scope& rs (t.root_scope ());
 
-      const char* pa (
-        windows_manifest_arch (
-          cast<string> (rs["cxx.target.cpu"])));
+      const char* pa (windows_manifest_arch (cast<string> (rs[x_target_cpu])));
 
       string m;
 

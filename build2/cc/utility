@@ -1,45 +1,34 @@
-// file      : build2/cxx/common -*- C++ -*-
+// file      : build2/cc/utility -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CXX_COMMON
-#define BUILD2_CXX_COMMON
+#ifndef BUILD2_CC_UTILITY
+#define BUILD2_CC_UTILITY
 
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/target>
 #include <build2/bin/target>
+
+#include <build2/cc/types>
 
 namespace build2
 {
-  namespace cxx
+  struct variable;
+
+  namespace cc
   {
-    // Compile/link output type (executable, static, or shared).
+    // Compile/link output type.
     //
-    enum class otype {e, a, s};
+    otype
+    compile_type (target&);
 
-    inline otype
-    compile_type (target& t)
-    {
-      return
-        t.is_a<bin::obje> () ? otype::e :
-        t.is_a<bin::obja> () ? otype::a :
-        otype::s;
-    }
-
-    inline otype
-    link_type (target& t)
-    {
-      return
-        t.is_a<bin::exe> ()  ? otype::e :
-        t.is_a<bin::liba> () ? otype::a :
-        otype::s;
-    }
+    otype
+    link_type (target&);
 
     // Library link order.
     //
-    enum class lorder {a, s, a_s, s_a};
-
     // The reason we pass scope and not the target is because this function is
     // called not only for exe/lib but also for obj as part of the library
     // meta-information protocol implementation. Normally the bin.*.lib values
@@ -54,7 +43,22 @@ namespace build2
     //
     target&
     link_member (bin::lib&, lorder);
+
+    // Append or hash library options from a pair of *.export.* variables
+    // (first one is cc.export.*) recursively, prerequisite libraries first.
+    //
+    void
+    append_lib_options (cstrings&, target&, lorder,
+                        const variable&,
+                        const variable&);
+
+    void
+    hash_lib_options (sha256&, target&, lorder,
+                      const variable&,
+                      const variable&);
   }
 }
 
-#endif // BUILD2_CXX_COMMON
+#include <build2/cc/utility.ixx>
+
+#endif // BUILD2_CC_UTILITY

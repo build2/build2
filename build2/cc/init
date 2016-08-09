@@ -1,9 +1,9 @@
-// file      : build2/cxx/module -*- C++ -*-
+// file      : build2/cc/init -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CXX_MODULE
-#define BUILD2_CXX_MODULE
+#ifndef BUILD2_CC_INIT
+#define BUILD2_CC_INIT
 
 #include <build2/types>
 #include <build2/utility>
@@ -12,8 +12,17 @@
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
+    bool
+    vars_init (scope&,
+               scope&,
+               const location&,
+               unique_ptr<module_base>&,
+               bool,
+               bool,
+               const variable_map&);
+
     bool
     config_init (scope&,
                  scope&,
@@ -22,6 +31,15 @@ namespace build2
                  bool,
                  bool,
                  const variable_map&);
+
+    bool
+    core_init (scope&,
+               scope&,
+               const location&,
+               unique_ptr<module_base>&,
+               bool,
+               bool,
+               const variable_map&);
 
     bool
     init (scope&,
@@ -34,4 +52,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CXX_MODULE
+#endif // BUILD2_CC_INIT

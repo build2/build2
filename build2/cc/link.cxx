@@ -1,8 +1,8 @@
-// file      : build2/cxx/link.cxx -*- C++ -*-
+// file      : build2/cc/link.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/link>
+#include <build2/cc/link>
 
 #include <cstdlib>  // exit()
 #include <iostream> // cerr
@@ -18,35 +18,43 @@
 #include <build2/diagnostics>
 
 #include <build2/bin/target>
-#include <build2/cxx/target>
 
-#include <build2/cxx/common>
-#include <build2/cxx/utility>
+#include <build2/cc/target>  // c
+#include <build2/cc/utility>
 
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     using namespace bin;
 
+    link::
+    link (data&& d)
+        : common (move (d)),
+          rule_id (string (x) += ".link 1")
+    {
+    }
+
     // Extract system library search paths from GCC or compatible (Clang,
-    // Intel C++) using the -print-search-dirs option.
+    // Intel) using the -print-search-dirs option.
     //
-    static void
-    gcc_library_search_paths (scope& bs, const string& cid, dir_paths& r)
+    void link::
+    gcc_library_search_paths (scope& bs, dir_paths& r) const
     {
       scope& rs (*bs.root_scope ());
 
       cstrings args;
-      string std_storage;
+      string std; // Storage.
 
-      args.push_back (cast<path> (rs["config.cxx"]).string ().c_str ());
-      append_options (args, bs, "cxx.coptions");
-      append_std (args, rs, cid, bs, std_storage);
-      append_options (args, bs, "cxx.loptions");
+      args.push_back (cast<path> (rs[config_x]).string ().c_str ());
+      append_options (args, bs, c_coptions);
+      append_options (args, bs, x_coptions);
+      append_std (args, rs, bs, std);
+      append_options (args, bs, c_loptions);
+      append_options (args, bs, x_loptions);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
 
@@ -80,7 +88,8 @@ namespace build2
         catch (const ifdstream::failure&)
         {
           pr.wait ();
-          fail << "error reading C++ compiler -print-search-dirs output";
+          fail << "error reading " << x_lang << " compiler -print-search-dirs "
+               << "output";
         }
       }
       catch (const process_error& e)
@@ -94,7 +103,8 @@ namespace build2
       }
 
       if (l.empty ())
-        fail << "unable to extract C++ compiler system library paths";
+        fail << "unable to extract " << x_lang << " compiler system library "
+             << "search paths";
 
       // Now the fun part: figuring out which delimiter is used. Normally it
       // is ':' but on Windows it is ';' (or can be; who knows for sure). Also
@@ -127,23 +137,16 @@ namespace build2
       }
     }
 
-    // Extract system library search paths from MSVC.
-    //
-    void
-    msvc_library_search_paths (scope&, const string&, dir_paths&); // msvc.cxx
-
     dir_paths link::
-    extract_library_paths (scope& bs)
+    extract_library_paths (scope& bs) const
     {
       dir_paths r;
-      scope& rs (*bs.root_scope ());
-      const string& cid (cast<string> (rs["cxx.id"]));
 
       // Extract user-supplied search paths (i.e., -L, /LIBPATH).
       //
-      if (auto l = bs["cxx.loptions"])
+      auto extract = [&r, this] (const value& val)
       {
-        const auto& v (cast<strings> (l));
+        const auto& v (cast<strings> (val));
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
@@ -184,28 +187,23 @@ namespace build2
           if (!d.relative ())
             r.push_back (move (d));
         }
-      }
+      };
+
+      if (auto l = bs[c_loptions]) extract (*l);
+      if (auto l = bs[x_loptions]) extract (*l);
 
       if (cid == "msvc")
-        msvc_library_search_paths (bs, cid, r);
+        msvc_library_search_paths (bs, r);
       else
-        gcc_library_search_paths (bs, cid, r);
+        gcc_library_search_paths (bs, r);
 
       return r;
     }
 
-    // Alternative search for VC (msvc.cxx).
-    //
-    liba*
-    msvc_search_static (const path& ld, const dir_path&, prerequisite&);
-
-    libs*
-    msvc_search_shared (const path& ld, const dir_path&, prerequisite&);
-
     target* link::
-    search_library (optional<dir_paths>& spc, prerequisite& p)
+    search_library (optional<dir_paths>& spc, prerequisite& p) const
     {
-      tracer trace ("cxx::link::search_library");
+      tracer trace (x, "link::search_library");
 
       // @@ This is hairy enough to warrant a separate implementation for
       //    Windows.
@@ -215,11 +213,6 @@ namespace build2
       //
       if (p.target != nullptr)
         return p.target;
-
-      scope& rs (*p.scope.root_scope ());
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       bool l (p.is_a<lib> ());
       const string* ext (l ? nullptr : p.ext); // Only for liba/libs.
@@ -426,6 +419,7 @@ namespace build2
         //
         if (cid == "msvc")
         {
+          scope& rs (*p.scope.root_scope ());
           const path& ld (cast<path> (rs["config.bin.ld"]));
 
           if (s == nullptr && !sn.empty ())
@@ -449,40 +443,42 @@ namespace build2
       // handle DLL export). The absence of either of these macros would mean
       // some other build system that cannot distinguish between the two.
       //
-      auto add_macro = [] (target& t, const char* suffix)
+      auto add_macro = [this] (target& t, const char* suffix)
       {
-        // If there is already a value, don't add anything, we don't want to
-        // be accumulating defines nor messing with custom values.
+        // If there is already a value (either in cc.export or x.export),
+        // don't add anything: we don't want to be accumulating defines nor
+        // messing with custom values. And if we are adding, then use the
+        // generic cc.export.
         //
-        auto p (t.vars.insert ("cxx.export.poptions"));
-
-        if (p.second)
+        if (!t.vars[x_export_poptions])
         {
-          // The "standard" macro name will be LIB<NAME>_{STATIC,SHARED},
-          // where <name> is the target name. Here we want to strike a balance
-          // between being unique and not too noisy.
-          //
-          string d ("-DLIB");
+          auto p (t.vars.insert (c_export_poptions));
 
-          auto upcase_sanitize = [] (char c) -> char
+          if (p.second)
           {
-            if (c == '-' || c == '+' || c == '.')
-              return '_';
-            else
-              return ucase (c);
-          };
+            // The "standard" macro name will be LIB<NAME>_{STATIC,SHARED},
+            // where <name> is the target name. Here we want to strike a
+            // balance between being unique and not too noisy.
+            //
+            string d ("-DLIB");
 
-          transform (t.name.begin (),
-                     t.name.end (),
-                     back_inserter (d),
-                     upcase_sanitize);
+            auto upcase_sanitize = [] (char c)
+            {
+              return (c == '-' || c == '+' || c == '.') ? '_' : ucase (c);
+            };
 
-          d += '_';
-          d += suffix;
+            transform (t.name.begin (),
+                       t.name.end (),
+                       back_inserter (d),
+                       upcase_sanitize);
 
-          strings o;
-          o.push_back (move (d));
-          p.first.get () = move (o);
+            d += '_';
+            d += suffix;
+
+            strings o;
+            o.push_back (move (d));
+            p.first.get () = move (o);
+          }
         }
       };
 
@@ -521,7 +517,7 @@ namespace build2
     match_result link::
     match (action a, target& t, const string& hint) const
     {
-      tracer trace ("cxx::link::match");
+      tracer trace (x, "link::match");
 
       // @@ TODO:
       //
@@ -537,16 +533,16 @@ namespace build2
 
       otype lt (link_type (t));
 
-      // Scan prerequisites and see if we can work with what we've got.
+      // Scan prerequisites and see if we can work with what we've got. Note
+      // that X could be C. We handle this by always checking for X first.
       //
-      bool seen_cxx (false), seen_c (false), seen_obj (false),
-        seen_lib (false);
+      bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        if (p.is_a<cxx> ())
+        if (p.is_a (x_src))
         {
-          seen_cxx = seen_cxx || true;
+          seen_x = seen_x || true;
         }
         else if (p.is_a<c> ())
         {
@@ -585,12 +581,12 @@ namespace build2
         }
       }
 
-      // We will only chain a C source if there is also a C++ source or we
-      // were explicitly told to.
+      // We will only chain a C source if there is also an X source or we were
+      // explicitly told to.
       //
-      if (seen_c && !seen_cxx && hint < "cxx")
+      if (seen_c && !seen_x && hint < x)
       {
-        l4 ([&]{trace << "C prerequisite(s) without C++ or hint";});
+        l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint";});
         return nullptr;
       }
 
@@ -635,22 +631,18 @@ namespace build2
         }
       }
 
-      return seen_cxx || seen_c || seen_obj || seen_lib ? &t : nullptr;
+      return seen_x || seen_c || seen_obj || seen_lib ? &t : nullptr;
     }
 
     recipe link::
     apply (action a, target& xt, const match_result&) const
     {
-      tracer trace ("cxx::link::apply");
+      tracer trace (x, "link::apply");
 
       file& t (static_cast<file&> (xt));
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
-
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));
@@ -767,7 +759,8 @@ namespace build2
         //
         if (lt != otype::a &&
             cid == "msvc" &&
-            find_option ("/DEBUG", t, "cxx.loptions", true))
+            (find_option ("/DEBUG", t, c_loptions, true) ||
+             find_option ("/DEBUG", t, x_loptions, true)))
         {
           // Add after the import library if any.
           //
@@ -789,11 +782,11 @@ namespace build2
 
       optional<dir_paths> lib_paths; // Extract lazily.
 
-      // Process prerequisites: do rule chaining for C and C++ source
-      // files as well as search and match.
+      // Process prerequisites: do rule chaining for C and X source files as
+      // well as search and match.
       //
-      // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of our project root.
+      // When cleaning, ignore prerequisites that are not in the same or a
+      // subdirectory of our project root.
       //
       const target_type& ott (lt == otype::e ? obje::static_type :
                               lt == otype::a ? obja::static_type :
@@ -803,7 +796,7 @@ namespace build2
       {
         target* pt (nullptr);
 
-        if (!p.is_a<c> () && !p.is_a<cxx> ())
+        if (!p.is_a (x_src) && !p.is_a<c> ())
         {
           // Handle imported libraries.
           //
@@ -843,6 +836,9 @@ namespace build2
           continue;
         }
 
+        // The rest is rule chaining.
+        //
+
         // Which scope shall we use to resolve the root? Unlikely, but
         // possible, the prerequisite is from a different project
         // altogether. So we are going to use the target's project.
@@ -853,15 +849,15 @@ namespace build2
         //
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
 
-        const prerequisite_key& cp (p.key ()); // c(xx){} prerequisite key.
+        const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
         const target_type& tt (group ? obj::static_type : ott);
 
-        // Come up with the obj*{} target. The c(xx){} prerequisite directory
+        // Come up with the obj*{} target. The source prerequisite directory
         // can be relative (to the scope) or absolute. If it is relative, then
         // use it as is. If absolute, then translate it to the corresponding
-        // directory under out_root. While the c(xx){} directory is most
-        // likely under src_root, it is also possible it is under out_root
-        // (e.g., generated source).
+        // directory under out_root. While the source directory is most likely
+        // under src_root, it is also possible it is under out_root (e.g.,
+        // generated source).
         //
         dir_path d;
         {
@@ -890,16 +886,16 @@ namespace build2
         //
         if (a.operation () == clean_id && !ot.dir.sub (rs.out_path ()))
         {
-          // If we shouldn't clean obj{}, then it is fair to assume
-          // we shouldn't clean cxx{} either (generated source will
-          // be in the same directory as obj{} and if not, well, go
-          // find yourself another build system ;-)).
+          // If we shouldn't clean obj{}, then it is fair to assume we
+          // shouldn't clean the source either (generated source will be in
+          // the same directory as obj{} and if not, well, go find yourself
+          // another build system ;-)).
           //
           continue; // Skip.
         }
 
-        // If we have created the obj{} target group, pick one of its
-        // members; the rest would be primarily concerned with it.
+        // If we have created the obj{} target group, pick one of its members;
+        // the rest would be primarily concerned with it.
         //
         if (group)
         {
@@ -933,43 +929,45 @@ namespace build2
         for (prerequisite_member p1:
                reverse_group_prerequisite_members (a, *pt))
         {
+          // Most of the time we will have just a single source so fast-path
+          // that case.
+          //
+          if (p1.is_a (x_src))
+          {
+            if (!found)
+            {
+              build2::match (a, *pt); // Now p1 should be resolved.
+
+              // Searching our own prerequisite is ok.
+              //
+              if (&p.search () != &p1.search ())
+                fail << "synthesized target for prerequisite " << cp << " "
+                     << "would be incompatible with existing target " << *pt <<
+                  info << "existing prerequisite " << p1 << " does not match "
+                     << cp <<
+                  info << "specify corresponding " << tt.name << "{} target "
+                     << "explicitly";
+
+              found = true;
+            }
+
+            continue; // Check the rest of the prerequisites.
+          }
+
           // Ignore some known target types (fsdir, headers, libraries).
           //
           if (p1.is_a<fsdir> () ||
-              p1.is_a<h> ()     ||
-              (p.is_a<cxx> () && (p1.is_a<hxx> () ||
-                                  p1.is_a<ixx> () ||
-                                  p1.is_a<txx> ())) ||
-              p1.is_a<lib>  () ||
-              p1.is_a<liba> () ||
-              p1.is_a<libs> ())
-          {
+              p1.is_a<lib>  ()  ||
+              p1.is_a<liba> ()  ||
+              p1.is_a<libs> ()  ||
+              (p.is_a (x_src) && x_header (p1)) ||
+              (p.is_a<c> () && p1.is_a<h> ()))
             continue;
-          }
 
-          if (!p1.is_a<cxx> ())
-            fail << "synthesized target for prerequisite " << cp
-                 << " would be incompatible with existing target " << *pt <<
-              info << "unexpected existing prerequisite type " << p1 <<
-              info << "specify corresponding obj{} target explicitly";
-
-          if (!found)
-          {
-            build2::match (a, *pt); // Now p1 should be resolved.
-
-            // Searching our own prerequisite is ok.
-            //
-            if (&p.search () != &p1.search ())
-              fail << "synthesized target for prerequisite " << cp << " would "
-                   << "be incompatible with existing target " << *pt <<
-                info << "existing prerequisite " << p1 << " does not match "
-                   << cp <<
-                info << "specify corresponding " << tt.name << "{} target "
-                   << "explicitly";
-
-            found = true;
-            // Check the rest of the prerequisites.
-          }
+          fail << "synthesized target for prerequisite " << cp
+               << " would be incompatible with existing target " << *pt <<
+            info << "unexpected existing prerequisite type " << p1 <<
+            info << "specify corresponding obj{} target explicitly";
         }
 
         if (!found)
@@ -978,12 +976,12 @@ namespace build2
           //
           ot.prerequisites.emplace_back (p.as_prerequisite (trace));
 
-          // Add our lib*{} prerequisites to the object file (see
-          // cxx.export.poptions above for details).
+          // Add our lib*{} prerequisites to the object file (see the export.*
+          // machinery for details).
           //
           // Note that we don't resolve lib{} to liba{}/libs{} here instead
           // leaving it to whoever (e.g., the compile rule) will be needing
-          // cxx.export.*. One reason for doing it there is that the object
+          // *.export.*. One reason for doing it there is that the object
           // target might be specified explicitly by the user in which case
           // they will have to specify the set of lib{} prerequisites and it's
           // much cleaner to do as lib{} rather than liba{}/libs{}.
@@ -1007,9 +1005,12 @@ namespace build2
 
       switch (a)
       {
-      case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
-      default: return noop_recipe; // Configure update.
+      case perform_update_id:
+        return [this] (action a, target& t) {return perform_update (a, t);};
+      case perform_clean_id:
+        return [this] (action a, target& t) {return perform_clean (a, t);};
+      default:
+        return noop_recipe; // Configure update.
       }
     }
 
@@ -1059,46 +1060,37 @@ namespace build2
       }
     }
 
-    // See windows-manifest.cxx.
-    //
-    path
-    windows_manifest (file&, bool rpath_assembly);
-
     // See windows-rpath.cxx.
     //
     timestamp
     windows_rpath_timestamp (file&);
 
     void
-    windows_rpath_assembly (file&, timestamp, bool scratch);
-
-    const char*
-    msvc_machine (const string& cpu); // msvc.cxx
+    windows_rpath_assembly (file&, const string& cpu, timestamp, bool scratch);
 
     // Filter link.exe noise (msvc.cxx).
     //
     void
     msvc_filter_link (ifdstream&, const file&, otype);
 
+    // Translate target CPU to /MACHINE option.
+    //
+    const char*
+    msvc_machine (const string& cpu); // msvc.cxx
+
     target_state link::
-    perform_update (action a, target& xt)
+    perform_update (action a, target& xt) const
     {
-      tracer trace ("cxx::link::perform_update");
+      tracer trace (x, "link::perform_update");
 
       file& t (static_cast<file&> (xt));
 
+      scope& rs (t.root_scope ());
       otype lt (link_type (t));
 
       // Update prerequisites.
       //
       bool update (execute_prerequisites (a, t, t.mtime ()));
-
-      scope& rs (t.root_scope ());
-
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tgt (cast<string> (rs["cxx.target"]));
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       // If targeting Windows, take care of the manifest.
       //
@@ -1213,12 +1205,12 @@ namespace build2
 
       // First should come the rule name/version.
       //
-      if (dd.expect ("cxx.link 1") != nullptr)
+      if (dd.expect (rule_id) != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
       lookup ranlib;
 
-      // Then the linker checksum (ar/ranlib or C++ compiler).
+      // Then the linker checksum (ar/ranlib or the compiler).
       //
       if (lt == otype::a)
       {
@@ -1244,16 +1236,16 @@ namespace build2
         //
         const string& cs (
           cast<string> (
-            rs[cid == "msvc" ? "bin.ld.checksum" : "cxx.checksum"]));
+            rs[cid == "msvc" ? var_pool["bin.ld.checksum"] : x_checksum]));
 
         if (dd.expect (cs) != nullptr)
           l4 ([&]{trace << "linker mismatch forcing update of " << t;});
       }
 
       // Next check the target. While it might be incorporated into the linker
-      // checksum, it also might not (e.g., MS link.exe).
+      // checksum, it also might not (e.g., VC link.exe).
       //
-      if (dd.expect (tgt) != nullptr)
+      if (dd.expect (ctg) != nullptr)
         l4 ([&]{trace << "target mismatch forcing update of " << t;});
 
       // Start building the command line. While we don't yet know whether we
@@ -1264,7 +1256,7 @@ namespace build2
       // second is simpler. Let's got with the simpler for now (actually it's
       // kind of a hybrid).
       //
-      cstrings args {nullptr}; // Reserve one for config.bin.ar/config.cxx.
+      cstrings args {nullptr}; // Reserve one for config.bin.ar/config.x.
 
       // Storage.
       //
@@ -1277,8 +1269,8 @@ namespace build2
         if (cid == "msvc") ;
         else
         {
-          // If the user asked for ranlib, don't try to do its function with -s.
-          // Some ar implementations (e.g., the LLVM one) doesn't support
+          // If the user asked for ranlib, don't try to do its function with
+          // -s.  Some ar implementations (e.g., the LLVM one) don't support
           // leading '-'.
           //
           args.push_back (ranlib ? "rc" : "rcs");
@@ -1288,16 +1280,18 @@ namespace build2
       {
         if (cid == "msvc")
         {
-          // We are using link.exe directly so we don't pass the C++ compiler
+          // We are using link.exe directly so don't pass the compiler
           // options.
         }
         else
         {
-          append_options (args, t, "cxx.coptions");
-          append_std (args, rs, cid, t, std);
+          append_options (args, t, c_coptions);
+          append_options (args, t, x_coptions);
+          append_std (args, rs, t, std);
         }
 
-        append_options (args, t, "cxx.loptions");
+        append_options (args, t, c_loptions);
+        append_options (args, t, x_loptions);
 
         // Handle soname/rpath.
         //
@@ -1309,7 +1303,7 @@ namespace build2
           auto l (t["bin.rpath"]);
 
           if (l && !l->empty ())
-            fail << tgt << " does not support rpath";
+            fail << ctg << " does not support rpath";
         }
         else
         {
@@ -1443,7 +1437,10 @@ namespace build2
         // Treat them as inputs, not options.
         //
         if (lt != otype::a)
-          hash_options (cs, t, "cxx.libs");
+        {
+          hash_options (cs, t, c_libs);
+          hash_options (cs, t, x_libs);
+        }
 
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "file set mismatch forcing update of " << t;});
@@ -1451,8 +1448,8 @@ namespace build2
 
       // If any of the above checks resulted in a mismatch (different linker,
       // options or input file set), or if the database is newer than the
-      // target (interrupted update) then force the target update. Also
-      // note this situation in the "from scratch" flag.
+      // target (interrupted update) then force the target update. Also note
+      // this situation in the "from scratch" flag.
       //
       bool scratch (false);
       if (dd.writing () || dd.mtime () > t.mtime ())
@@ -1484,14 +1481,13 @@ namespace build2
           {
             // lib.exe has /LIBPATH but it's not clear/documented what it's
             // used for. Perhaps for link-time code generation (/LTCG)? If
-            // that's the case, then we may need to pass cxx.loptions.
+            // that's the case, then we may need to pass *.loptions.
             //
             args.push_back ("/NOLOGO");
 
             // Add /MACHINE.
             //
-            args.push_back (
-              msvc_machine (cast<string> (rs["cxx.target.cpu"])));
+            args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
 
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
@@ -1518,8 +1514,7 @@ namespace build2
 
             // Add /MACHINE.
             //
-            args.push_back (
-              msvc_machine (cast<string> (rs["cxx.target.cpu"])));
+            args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
 
             // Unless explicitly enabled with /INCREMENTAL, disable
             // incremental linking (it is implicitly enabled if /DEBUG is
@@ -1593,14 +1588,17 @@ namespace build2
 
             // @@ An executable can have an import library and VS seems to
             //    always name it. I wonder what would trigger its generation?
-            //    Could it be the presence of export symbols?
-
+            //    Could it be the presence of export symbols? Yes, link.exe
+            //    will generate the import library iff there are exported
+            //    symbols. Which means there could be a DLL without an import
+            //    library (which we currently don't handle very well).
+            //
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
           }
           else
           {
-            args[0] = cast<path> (rs["config.cxx"]).string ().c_str ();
+            args[0] = cast<path> (rs[config_x]).string ().c_str ();
 
             // Add the option that triggers building a shared library and take
             // care of any extras (e.g., import library).
@@ -1676,7 +1674,10 @@ namespace build2
         args.push_back (sargs[i].c_str ());
 
       if (lt != otype::a)
-        append_options (args, t, "cxx.libs");
+      {
+        append_options (args, t, c_libs);
+        append_options (args, t, x_libs);
+      }
 
       args.push_back (nullptr);
 
@@ -1777,7 +1778,10 @@ namespace build2
       if (lt == otype::e && tclass == "windows")
       {
         if (a.outer_operation () != install_id)
-          windows_rpath_assembly (t, rpath_timestamp, scratch);
+          windows_rpath_assembly (t,
+                                  cast<string> (rs[x_target_cpu]),
+                                  rpath_timestamp,
+                                  scratch);
       }
 
       rm.cancel ();
@@ -1791,13 +1795,9 @@ namespace build2
     }
 
     target_state link::
-    perform_clean (action a, target& xt)
+    perform_clean (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
-
-      scope& rs (t.root_scope ());
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
 
       initializer_list<const char*> e;
 
@@ -1846,7 +1846,5 @@ namespace build2
 
       return clean_extra (a, t, e);
     }
-
-    link link::instance;
   }
 }

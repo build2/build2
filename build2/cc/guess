@@ -1,28 +1,29 @@
-// file      : build2/cxx/guess -*- C++ -*-
+// file      : build2/cc/guess -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CXX_GUESS
-#define BUILD2_CXX_GUESS
+#ifndef BUILD2_CC_GUESS
+#define BUILD2_CC_GUESS
 
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/cc/types>
+
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
-    // C++ compiler id consisting of a type and optional variant. If the
-    // variant is not empty, then the id is spelled out as 'type-variant',
-    // similar to target triplets (this also means that the type cannot
-    // contain '-').
+    // Compiler id consisting of a type and optional variant. If the variant
+    // is not empty, then the id is spelled out as 'type-variant', similar to
+    // target triplets (this also means that the type cannot contain '-').
     //
     // Currently recognized compilers and their ids:
     //
-    // gcc          GCC g++
-    // clang        Vanilla Clang clang++
-    // clang-apple  Apple Clang clang++ and the g++ "alias"
-    // icc          Intel icpc
+    // gcc          GCC gcc/g++
+    // clang        Vanilla Clang clang/clang++
+    // clang-apple  Apple Clang clang/clang++ and the gcc/g++ "alias"
+    // icc          Intel icc/icpc
     // msvc         Microsoft cl.exe
     //
     struct compiler_id
@@ -43,8 +44,8 @@ namespace build2
       return os << id.string ();
     }
 
-    // C++ compiler version. Here we map the various compiler version formats
-    // to something that resembles the MAJOR.MINOR.PATCH-BUILD form of the
+    // Compiler version. Here we map the various compiler version formats to
+    // something that resembles the MAJOR.MINOR.PATCH-BUILD form of the
     // Semantic Versioning. While the MAJOR.MINOR part is relatively
     // straightforward, PATCH may be empty and BUILD can contain pretty much
     // anything (including spaces).
@@ -74,7 +75,7 @@ namespace build2
       std::string build;
     };
 
-    // C++ compiler information.
+    // Compiler information.
     //
     // The signature is normally the -v/--version line that was used to guess
     // the compiler id and its version.
@@ -95,6 +96,9 @@ namespace build2
     // unlike all the preceding fields, this one takes into account the
     // compile options (e.g., -m32).
     //
+    // The pattern is the toolchain program pattern that could sometimes be
+    // derived for some toolchains. For example, i686-w64-mingw32-*.
+    //
     struct compiler_info
     {
       compiler_id id;
@@ -102,11 +106,20 @@ namespace build2
       string signature;
       string checksum;
       string target;
+      string pattern;
     };
 
+    // In a sense this is analagous to the language standard which we handle
+    // via a virtual function in common. However, duplicating this hairy ball
+    // of fur in multiple places doesn't seem wise, especially considering
+    // that most of it will be the same, at least for C and C++.
+    //
     compiler_info
-    guess (const path& cxx, const strings* coptions);
+    guess (lang,
+           const path& xc,
+           const strings* c_coptions,
+           const strings* x_coptions);
   }
 }
 
-#endif // BUILD2_CXX_GUESS
+#endif // BUILD2_CC_GUESS

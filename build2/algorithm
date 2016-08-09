@@ -201,6 +201,15 @@ namespace build2
   T*
   execute_prerequisites (action, target&, const timestamp&);
 
+  target*
+  execute_prerequisites (const target_type&,
+                         action, target&, const timestamp&);
+
+  template <typename T>
+  T*
+  execute_prerequisites (const target_type&,
+                         action, target&, const timestamp&);
+
   // Return noop_recipe instead of using this function directly.
   //
   target_state
@@ -243,6 +252,5 @@ namespace build2
 }
 
 #include <build2/algorithm.ixx>
-#include <build2/algorithm.txx>
 
 #endif // BUILD2_ALGORITHM

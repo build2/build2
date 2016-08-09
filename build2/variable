@@ -691,7 +691,11 @@ namespace build2
     }
 
     const variable&
-    find (const string& name);
+    find (const string& name); //@@ TODO: Move to operator[], remove.
+                               //@@ ranmae var_pool to varpool or vpool?
+
+    const variable&
+    operator[] (const string& name) {return find (name);}
 
     using variable_pool_base::clear;
 

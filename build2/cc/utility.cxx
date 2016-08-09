@@ -1,25 +1,27 @@
-// file      : build2/cxx/common.cxx -*- C++ -*-
+// file      : build2/cc/utility.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/common>
+#include <build2/cc/utility>
 
 #include <build2/variable>
-#include <build2/algorithm>
+#include <build2/algorithm> // search()
+
+#include <build2/bin/target>
 
 using namespace std;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     using namespace bin;
 
     lorder
     link_order (scope& bs, otype ot)
     {
-      // Initialize to suppress 'may be used uninitialized' warning produced by
-      // MinGW GCC 5.4.0.
+      // Initialize to suppress 'may be used uninitialized' warning produced
+      // by MinGW GCC 5.4.0.
       //
       const char* var (nullptr);
 
@@ -68,6 +70,46 @@ namespace build2
                      prerequisite_key {nullptr, l.key (), nullptr});
 
       return *r;
+    }
+
+    void
+    append_lib_options (cstrings& args, target& l, lorder lo,
+                        const variable& cv,
+                        const variable& xv)
+    {
+      using namespace bin;
+
+      for (target* t: l.prerequisite_targets)
+      {
+        if (lib* l = t->is_a<lib> ())
+          t = &link_member (*l, lo); // Pick one of the members.
+
+        if (t->is_a<liba> () || t->is_a<libs> ())
+          append_lib_options (args, *t, lo, cv, xv);
+      }
+
+      append_options (args, l, cv);
+      append_options (args, l, xv);
+    }
+
+    void
+    hash_lib_options (sha256& csum, target& l, lorder lo,
+                      const variable& cv,
+                      const variable& xv)
+    {
+      using namespace bin;
+
+      for (target* t: l.prerequisite_targets)
+      {
+        if (lib* l = t->is_a<lib> ())
+          t = &link_member (*l, lo); // Pick one of the members.
+
+        if (t->is_a<liba> () || t->is_a<libs> ())
+          hash_lib_options (csum, *t, lo, cv, xv);
+      }
+
+      hash_options (csum, l, cv);
+      hash_options (csum, l, xv);
     }
   }
 }

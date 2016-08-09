@@ -1,0 +1,82 @@
+// file      : build2/cc/compile -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CC_COMPILE
+#define BUILD2_CC_COMPILE
+
+#include <butl/path-map>
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/rule>
+
+#include <build2/cc/types>
+#include <build2/cc/common>
+
+namespace build2
+{
+  class depdb;
+
+  namespace cc
+  {
+    class link;
+
+    class compile: public rule, virtual common
+    {
+    public:
+      compile (data&&, const link&);
+
+      virtual match_result
+      match (action, target&, const string& hint) const;
+
+      virtual recipe
+      apply (action, target&, const match_result&) const;
+
+      target_state
+      perform_update (action, target&) const;
+
+      target_state
+      perform_clean (action, target&) const;
+
+    private:
+      // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
+      // generated headers to directories where they will be generated.
+      //
+      // We are using a prefix map of directories (dir_path_map) instead
+      // of just a map in order also cover sub-paths (e.g., <foo/more/bar>
+      // if we continue with the example). Specifically, we need to make
+      // sure we don't treat foobar as a sub-directory of foo.
+      //
+      // @@ The keys should be normalized.
+      //
+      using prefix_map = butl::dir_path_map<dir_path>;
+
+      void
+      append_prefixes (prefix_map&, target&, const variable&) const;
+
+      void
+      append_lib_prefixes (prefix_map&, target&, lorder) const;
+
+      prefix_map
+      build_prefix_map (target&, lorder) const;
+
+      // Reverse-lookup target type from extension.
+      //
+      const target_type*
+      map_extension (scope&, const string&, const string&) const;
+
+      // Header dependency injection.
+      //
+      void
+      inject (action, target&, lorder, file&, scope&, depdb&) const;
+
+    private:
+      const link& link_;
+      const string rule_id;
+    };
+  }
+}
+
+#endif // BUILD2_CC_COMPILE

@@ -5,7 +5,7 @@
 import libs = libbutl%lib{butl}
 
 exe{b}:                                       \
-        {hxx ixx txx cxx}{ algorithm        } \
+        {hxx ixx     cxx}{ algorithm        } \
         {            cxx}{ b                } \
         {hxx ixx     cxx}{ b-options        } \
         {hxx     txx cxx}{ context          } \
@@ -38,23 +38,28 @@ exe{b}:                                       \
     bin/{hxx         cxx}{ module           } \
     bin/{hxx         cxx}{ rule             } \
     bin/{hxx         cxx}{ target           } \
+      c/{hxx         cxx}{ init             } \
+      c/{hxx            }{ target           } \
+     cc/{hxx            }{ common           } \
+     cc/{hxx         cxx}{ compile          } \
+     cc/{hxx         cxx}{ guess            } \
+     cc/{hxx         cxx}{ init             } \
+     cc/{hxx         cxx}{ install          } \
+     cc/{hxx         cxx}{ link             } \
+     cc/{hxx         cxx}{ module           } \
+     cc/{            cxx}{ msvc             } \
+     cc/{hxx         cxx}{ target           } \
+     cc/{hxx ixx     cxx}{ utility          } \
+     cc/{            cxx}{ windows-manifest } \
+     cc/{            cxx}{ windows-rpath    } \
     cli/{hxx         cxx}{ module           } \
     cli/{hxx         cxx}{ rule             } \
     cli/{hxx         cxx}{ target           } \
  config/{hxx         cxx}{ module           } \
  config/{hxx         cxx}{ operation        } \
  config/{hxx     txx cxx}{ utility          } \
-    cxx/{hxx         cxx}{ common           } \
-    cxx/{hxx         cxx}{ compile          } \
-    cxx/{hxx         cxx}{ guess            } \
-    cxx/{hxx         cxx}{ install          } \
-    cxx/{hxx         cxx}{ link             } \
     cxx/{hxx         cxx}{ module           } \
-    cxx/{            cxx}{ msvc             } \
     cxx/{hxx         cxx}{ target           } \
-    cxx/{hxx ixx     cxx}{ utility          } \
-    cxx/{            cxx}{ windows-manifest } \
-    cxx/{            cxx}{ windows-rpath    } \
    dist/{hxx         cxx}{ module           } \
    dist/{hxx         cxx}{ operation        } \
    dist/{hxx         cxx}{ rule             } \

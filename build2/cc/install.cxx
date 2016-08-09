@@ -1,22 +1,24 @@
-// file      : build2/cxx/install.cxx -*- C++ -*-
+// file      : build2/cc/install.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/install>
+#include <build2/cc/install>
 
 #include <build2/bin/target>
 
-#include <build2/cxx/link>
-#include <build2/cxx/common>
-#include <build2/cxx/target>
+#include <build2/cc/link>    // match()
+#include <build2/cc/utility>
 
 using namespace std;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     using namespace bin;
+
+    install::
+    install (data&& d, const link& l): common (move (d)), link_ (l) {}
 
     target* install::
     filter (action a, target& t, prerequisite_member p) const
@@ -25,7 +27,7 @@ namespace build2
       {
         // Don't install executable's prerequisite headers.
         //
-        if (p.is_a<hxx> () || p.is_a<ixx> () || p.is_a<txx> () || p.is_a<h> ())
+        if (x_header (p))
           return nullptr;
       }
 
@@ -61,10 +63,8 @@ namespace build2
       // We only want to handle installation if we are also the
       // ones building this target. So first run link's match().
       //
-      match_result r (link::instance.match (a, t, hint));
+      match_result r (link_.match (a, t, hint));
       return r ? install::file_rule::match (a, t, "") : r;
     }
-
-    install install::instance;
   }
 }

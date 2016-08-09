@@ -200,4 +200,19 @@ namespace build2
     default: return execute_impl (a, t);
     }
   }
+
+  template <typename T>
+  inline T*
+  execute_prerequisites (action a, target& t, const timestamp& mt)
+  {
+    return static_cast<T*> (execute_prerequisites (T::static_type, a, t, mt));
+  }
+
+  template <typename T>
+  inline T*
+  execute_prerequisites (const target_type& tt,
+                         action a, target& t, const timestamp& mt)
+  {
+    return static_cast<T*> (execute_prerequisites (tt, a, t, mt));
+  }
 }

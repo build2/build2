@@ -15,6 +15,15 @@ namespace build2
   namespace bin
   {
     bool
+    config_init (scope&,
+                 scope&,
+                 const location&,
+                 unique_ptr<module_base>&,
+                 bool,
+                 bool,
+                 const variable_map&);
+
+    bool
     init (scope&,
           scope&,
           const location&,
@@ -22,6 +31,15 @@ namespace build2
           bool,
           bool,
           const variable_map&);
+
+    bool
+    ar_config_init (scope&,
+                    scope&,
+                    const location&,
+                    unique_ptr<module_base>&,
+                    bool,
+                    bool,
+                    const variable_map&);
 
     bool
     ar_init (scope&,
@@ -33,6 +51,15 @@ namespace build2
              const variable_map&);
 
     bool
+    ld_config_init (scope&,
+                    scope&,
+                    const location&,
+                    unique_ptr<module_base>&,
+                    bool,
+                    bool,
+                    const variable_map&);
+
+    bool
     ld_init (scope&,
              scope&,
              const location&,
@@ -40,6 +67,15 @@ namespace build2
              bool,
              bool,
              const variable_map&);
+
+    bool
+    rc_config_init (scope&,
+                    scope&,
+                    const location&,
+                    unique_ptr<module_base>&,
+                    bool,
+                    bool,
+                    const variable_map&);
 
     bool
     rc_init (scope&,

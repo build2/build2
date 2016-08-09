@@ -1,8 +1,8 @@
-// file      : build2/cxx/guess.cxx -*- C++ -*-
+// file      : build2/cc/guess.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/guess>
+#include <build2/cc/guess>
 
 #include <cstring>  // strlen()
 
@@ -12,7 +12,7 @@ using namespace std;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     // Pre-guess the compiler type based on the compiler executable name.
     // Return empty string if can't make a guess (for example, because the
@@ -20,11 +20,11 @@ namespace build2
     // not the variant.
     //
     static string
-    pre_guess (const path& cxx)
+    pre_guess (lang xl, const path& xc)
     {
-      tracer trace ("cxx::pre_guess");
+      tracer trace ("cc::pre_guess");
 
-      const string s (cxx.leaf ().base ().string ());
+      const string s (xc.leaf ().base ().string ());
       size_t n (s.size ());
 
       // Name separator characters (e.g., '-' in 'g++-4.8').
@@ -44,39 +44,55 @@ namespace build2
           ((p += m) == n || sep (s[p])); // Separated at the end.
       };
 
-      if (stem ("g++"))
-        return "gcc";
-
-      if (stem ("clang++"))
-        return "clang";
-
-      if (stem ("icpc"))
-        return "icc";
-
-      // Keep this one last since 'cl' is very generic.
+      // Warn if the user specified a C compiler instead of C++ or vice versa.
       //
-      if (stem ("cl"))
-        return "msvc";
+      lang o;                   // Other language.
+      const char* as (nullptr); // Actual stem.
+      const char* es (nullptr); // Expected stem.
 
-      // Warn if the user specified a C compiler instead of C++.
-      //
-      if (stem ("gcc"))
+      switch (xl)
       {
-        warn << cxx << " looks like a C compiler" <<
-          info << "should it be 'g++' instead of 'gcc'?";
-      }
-      else if (stem ("clang"))
-      {
-        warn << cxx << " looks like a C compiler" <<
-          info << "should it be 'clang++' instead of 'clang'?";
-      }
-      else if (stem ("icc"))
-      {
-        warn << cxx << " looks like a C compiler" <<
-          info << "should it be 'icpc' instead of 'icc'?";
+      case lang::c:
+        {
+          // Keep msvc last since 'cl' is very generic.
+          //
+          if (stem ("gcc"))   return "gcc";
+          if (stem ("clang")) return "clang";
+          if (stem ("icc"))   return "icc";
+          if (stem ("cl"))    return "msvc";
+
+          if      (stem (as = "g++"))     es = "gcc";
+          else if (stem (as = "clang++")) es = "clang";
+          else if (stem (as = "icpc"))    es = "icc";
+          else if (stem (as = "c++"))     es = "cc";
+
+          o = lang::cxx;
+          break;
+        }
+      case lang::cxx:
+        {
+          // Keep msvc last since 'cl' is very generic.
+          //
+          if (stem ("g++"))     return "gcc";
+          if (stem ("clang++")) return "clang";
+          if (stem ("icpc"))    return "icc";
+          if (stem ("cl"))      return "msvc";
+
+          if      (stem (as = "gcc"))   es = "g++";
+          else if (stem (as = "clang")) es = "clang++";
+          else if (stem (as = "icc"))   es = "icpc";
+          else if (stem (as = "cc"))    es = "c++";
+
+          o = lang::c;
+          break;
+        }
       }
 
-      l4 ([&]{trace << "unable to guess compiler type of " << cxx;});
+      if (es != nullptr)
+        warn << xc << " looks like a " << o << " compiler" <<
+          info << "should it be '" << es << "' instead of '" << as << "'?";
+
+      l4 ([&]{trace << "unable to guess  compiler type of " << xc;});
       return "";
     }
 
@@ -95,9 +111,9 @@ namespace build2
     };
 
     static guess_result
-    guess (const path& cxx, const string& pre)
+    guess (lang, const path& xc, const string& pre)
     {
-      tracer trace ("cxx::guess");
+      tracer trace ("cc::guess");
 
       guess_result r;
 
@@ -120,7 +136,8 @@ namespace build2
       {
         auto f = [] (string& l) -> guess_result
         {
-          // The g++ -v output will have a line (currently last) in the form:
+          // The gcc/g++ -v output will have a line (currently last) in the
+          // form:
           //
           // "gcc version X.Y.Z ..."
           //
@@ -137,8 +154,8 @@ namespace build2
           if (l.compare (0, 4, "gcc ") == 0)
             return guess_result {{"gcc", ""}, move (l), ""};
 
-          // The Apple clang++ -v output will have a line (currently first)
-          // in the form:
+          // The Apple clang/clang++ -v output will have a line (currently
+          // first) in the form:
           //
           // "Apple (LLVM|clang) version X.Y.Z ..."
           //
@@ -155,19 +172,20 @@ namespace build2
           // Apple LLVM version 7.0.2 (clang-700.1.81)
           // Apple LLVM version 7.3.0 (clang-703.0.16.1)
           //
-          // Note that the g++ "alias" for clang++ also includes this line
-          // but it is (currently) preceded by "Configured with: ...".
+          // Note that the gcc/g++ "aliases" for clang/clang++ also include
+          // this line but it is (currently) preceded by "Configured with:
+          // ...".
           //
-          // Check for Apple clang before the vanilla one since the above
-          // line also includes "clang".
+          // Check for Apple clang before the vanilla one since the above line
+          // also includes "clang".
           //
           if (l.compare (0, 6, "Apple ") == 0 &&
               (l.compare (6, 5, "LLVM ") == 0 ||
                l.compare (6, 6, "clang ") == 0))
             return guess_result {{"clang", "apple"}, move (l), ""};
 
-          // The vanilla clang++ -v output will have a line (currently first)
-          // in the form:
+          // The vanilla clang/clang++ -v output will have a line (currently
+          // first) in the form:
           //
           // "[... ]clang version X.Y.Z[-...] ..."
           //
@@ -189,12 +207,16 @@ namespace build2
         // clang) which makes sense to include into the compiler checksum. So
         // ask run() to calculate it for every line of the -v ouput.
         //
+        // One notable consequence of this is that if the locale changes
+        // (e.g., via LC_ALL), then the compiler signature will most likely
+        // change as well because of the translated text.
+        //
         sha256 cs;
 
         // Suppress all the compiler errors because we may be trying an
         // unsupported option.
         //
-        r = run<guess_result> (cxx, "-v", f, false, false, &cs);
+        r = run<guess_result> (xc, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -214,6 +236,7 @@ namespace build2
           // icpc (ICC) 14.0.0 20130728
           // icpc (ICC) 15.0.2 20150121
           // icpc (ICC) 16.0.2 20160204
+          // icc (ICC) 16.0.2 20160204
           //
           if (l.find (" (ICC) ") != string::npos)
             return guess_result {{"icc", ""}, move (l), ""};
@@ -221,7 +244,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (cxx, "--version", f, false);
+        r = run<guess_result> (xc, "--version", f, false);
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -253,7 +276,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (cxx, f, false);
+        r = run<guess_result> (xc, f, false);
       }
 
       if (!r.empty ())
@@ -267,19 +290,23 @@ namespace build2
           r = guess_result ();
         }
         else
-          l5 ([&]{trace << cxx << " is " << r.id << ": '"
+          l5 ([&]{trace << xc << " is " << r.id << ": '"
                         << r.signature << "'";});
       }
       else
-        l4 ([&]{trace << "unable to determine compiler type of " << cxx;});
+        l4 ([&]{trace << "unable to determine compiler type of " << xc;});
 
       return r;
     }
 
     static compiler_info
-    guess_gcc (const path& cxx, const strings* coptions, guess_result&& gr)
+    guess_gcc (lang,
+               const path& xc,
+               const strings* c_coptions,
+               const strings* x_coptions,
+               guess_result&& gr)
     {
-      tracer trace ("cxx::guess_gcc");
+      tracer trace ("cc::guess_gcc");
 
       // Extract the version. The signature line has the following format
       // though language words can be translated and even rearranged (see
@@ -356,9 +383,9 @@ namespace build2
       // multi-arch support), then use the result. Otherwise, fallback to
       // -dumpmachine (older gcc or not multi-arch).
       //
-      cstrings args {cxx.string ().c_str (), "-print-multiarch"};
-      if (coptions != nullptr)
-        append_options (args, *coptions);
+      cstrings args {xc.string ().c_str (), "-print-multiarch"};
+      if (c_coptions != nullptr) append_options (args, *c_coptions);
+      if (x_coptions != nullptr) append_options (args, *x_coptions);
       args.push_back (nullptr);
 
       // The output of both -print-multiarch and -dumpmachine is a single line
@@ -370,7 +397,7 @@ namespace build2
 
       if (t.empty ())
       {
-        l5 ([&]{trace << cxx << " doesn's support -print-multiarch, "
+        l5 ([&]{trace << xc << " doesn's support -print-multiarch, "
                       << "falling back to -dumpmachine";});
 
         args[1] = "-dumpmachine";
@@ -378,7 +405,7 @@ namespace build2
       }
 
       if (t.empty ())
-        fail << "unable to extract target architecture from " << cxx
+        fail << "unable to extract target architecture from " << xc
              << " -print-multiarch or -dumpmachine output";
 
       return compiler_info {
@@ -386,11 +413,16 @@ namespace build2
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
-        move (t)};
+        move (t),
+        string ()};
     }
 
     static compiler_info
-    guess_clang (const path& cxx, const strings* coptions, guess_result&& gr)
+    guess_clang (lang,
+                 const path& xc,
+                 const strings* c_coptions,
+                 const strings* x_coptions,
+                 guess_result&& gr)
     {
       // Extract the version. Here we will try to handle both vanilla and
       // Apple clang since the signature lines are fairly similar. They have
@@ -466,9 +498,9 @@ namespace build2
       // Unlike gcc, clang doesn't have -print-multiarch. Its -dumpmachine,
       // however, respects the compile options (e.g., -m32).
       //
-      cstrings args {cxx.string ().c_str (), "-dumpmachine"};
-      if (coptions != nullptr)
-        append_options (args, *coptions);
+      cstrings args {xc.string ().c_str (), "-dumpmachine"};
+      if (c_coptions != nullptr) append_options (args, *c_coptions);
+      if (x_coptions != nullptr) append_options (args, *x_coptions);
       args.push_back (nullptr);
 
       // The output of -dumpmachine is a single line containing just the
@@ -477,7 +509,7 @@ namespace build2
       string t (run<string> (args.data (), [] (string& l) {return move (l);}));
 
       if (t.empty ())
-        fail << "unable to extract target architecture from " << cxx
+        fail << "unable to extract target architecture from " << xc
              << " -dumpmachine output";
 
       return compiler_info {
@@ -485,11 +517,16 @@ namespace build2
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
-        move (t)};
+        move (t),
+        string ()};
     }
 
     static compiler_info
-    guess_icc (const path& cxx, const strings* coptions, guess_result&& gr)
+    guess_icc (lang xl,
+               const path& xc,
+               const strings* c_coptions,
+               const strings* x_coptions,
+               guess_result&& gr)
     {
       // Extract the version. If the version has the fourth component, then
       // the signature line (extracted with --version) won't include it. So we
@@ -511,6 +548,7 @@ namespace build2
       // Intel(R) C++ Intel(R) 64 Compiler for applications running on Intel(R) 64, Version 16.0.2.181 Build 20160204
       // Intel(R) C++ Intel(R) 64 Compiler for applications running on IA-32, Version 16.0.2.181 Build 20160204
       // Intel(R) C++ Intel(R) 64 Compiler for applications running on Intel(R) MIC Architecture, Version 16.0.2.181 Build 20160204
+      // Intel(R) C Intel(R) 64 Compiler for applications running on Intel(R) MIC Architecture, Version 16.0.2.181 Build 20160204
       //
       // We should probably also assume the language words can be translated
       // and even rearranged.
@@ -527,13 +565,14 @@ namespace build2
 
       // The -V output is sent to STDERR.
       //
-      s = run<string> (cxx, "-V", f, false);
+      s = run<string> (xc, "-V", f, false);
 
       if (s.empty ())
-        fail << "unable to extract signature from " << cxx << " -V output";
+        fail << "unable to extract signature from " << xc << " -V output";
 
-      if (s.find ("C++") == string::npos)
-        fail << cxx << " does not appear to be the Intel C++ compiler" <<
+      if (s.find (xl == lang::c ? " C " : " C++ ") == string::npos)
+        fail << xc << " does not appear to be the Intel " << xl
+             << " compiler" <<
           info << "extracted signature: '" << s << "'";
 
       // Scan the string as words and look for the version. It consist of only
@@ -619,9 +658,9 @@ namespace build2
       // "Intel(R)" "64"
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
-      cstrings args {cxx.string ().c_str (), "-V"};
-      if (coptions != nullptr)
-        append_options (args, *coptions);
+      cstrings args {xc.string ().c_str (), "-V"};
+      if (c_coptions != nullptr) append_options (args, *c_coptions);
+      if (x_coptions != nullptr) append_options (args, *x_coptions);
       args.push_back (nullptr);
 
       // The -V output is sent to STDERR.
@@ -629,7 +668,7 @@ namespace build2
       string t (run<string> (args.data (), f, false));
 
       if (t.empty ())
-        fail << "unable to extract target architecture from " << cxx
+        fail << "unable to extract target architecture from " << xc
              << " -V output";
 
       string arch;
@@ -668,10 +707,10 @@ namespace build2
       // on which we are running), who knows what will happen in the future.
       // So instead we are going to use -dumpmachine and substitute the CPU.
       //
-      t = run<string> (cxx, "-dumpmachine", [] (string& l) {return move (l);});
+      t = run<string> (xc, "-dumpmachine", [] (string& l) {return move (l);});
 
       if (t.empty ())
-        fail << "unable to extract target architecture from " << cxx
+        fail << "unable to extract target architecture from " << xc
              << " -dumpmachine output";
 
       // The first component in the triplet is always CPU.
@@ -692,11 +731,16 @@ namespace build2
         move (v),
         move (gr.signature),
         cs.string (),
-        move (arch)};
+        move (arch),
+        string ()};
     }
 
     static compiler_info
-    guess_msvc (const path&, guess_result&& gr)
+    guess_msvc (lang,
+                const path& xc,
+                const strings*,
+                const strings*,
+                guess_result&& gr)
     {
       // Extract the version. The signature line has the following format
       // though language words can be translated and even rearranged (see
@@ -815,9 +859,9 @@ namespace build2
       //
       // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why not
       // omit it? Two reasons: firstly, there are other compilers with the
-      // otherwise same target, for example Intel C++, and it could be useful
-      // to distinguish between them. Secondly, by having all four components
-      // we remove any parsing ambiguity.
+      // otherwise same target, for example Intel C/C++, and it could be
+      // useful to distinguish between them. Secondly, by having all four
+      // components we remove any parsing ambiguity.
       //
       // OS-ABI is where things are not as clear cut. The OS part shouldn't
       // probably be just 'windows' since we have Win32 and WinCE. And WinRT.
@@ -881,6 +925,31 @@ namespace build2
                   << "' to runtime version";
       }
 
+      // Derive the toolchain pattern.
+      //
+      // If the compiler name is/starts with 'cl' (e.g., cl.exe, cl-14),
+      // then replace it with '*' and use it as a pattern for lib, link,
+      // etc.
+      //
+      string pat;
+
+      if (xc.size () > 2)
+      {
+        const string& l (xc.leaf ().string ());
+        size_t n (l.size ());
+
+        if (n >= 2 &&
+            (l[0] == 'c' || l[0] == 'C') &&
+            (l[1] == 'l' || l[1] == 'L') &&
+            (n == 2 || l[2] == '.' || l[2] == '-'))
+        {
+          path p (xc.directory ());
+          p /= "*";
+          p += l.c_str () + 2;
+          pat = move (p).string ();
+        }
+      }
+
       // Use the signature line to generate the checksum.
       //
       sha256 cs (s);
@@ -890,13 +959,17 @@ namespace build2
         move (v),
         move (gr.signature),
         cs.string (),
-        move (arch)};
+        move (arch),
+        move (pat)};
     }
 
     compiler_info
-    guess (const path& cxx, const strings* coptions)
+    guess (lang xl,
+           const path& xc,
+           const strings* c_coptions,
+           const strings* x_coptions)
     {
-      string pre (pre_guess (cxx));
+      string pre (pre_guess (xl, xc));
       guess_result gr;
 
       // If we could pre-guess the type based on the excutable name, then
@@ -904,45 +977,76 @@ namespace build2
       //
       if (!pre.empty ())
       {
-        gr = guess (cxx, pre);
+        gr = guess (xl, xc, pre);
 
         if (gr.empty ())
-          warn << cxx << " name looks like " << pre << " but it is not";
+          warn << xc << " name looks like " << pre << " but it is not";
       }
 
       if (gr.empty ())
-        gr = guess (cxx, "");
+        gr = guess (xl, xc, "");
 
       if (gr.empty ())
-        fail << "unable to guess C++ compiler type of " << cxx;
+        fail << "unable to guess " << xl << " compiler type of " << xc;
 
+      compiler_info r;
       const compiler_id& id (gr.id);
 
       if (id.type == "gcc")
       {
         assert (id.variant.empty ());
-        return guess_gcc (cxx, coptions, move (gr));
+        r = guess_gcc (xl, xc, c_coptions, x_coptions, move (gr));
       }
       else if (id.type == "clang")
       {
         assert (id.variant.empty () || id.variant == "apple");
-        return guess_clang (cxx, coptions, move (gr));
+        r = guess_clang (xl, xc, c_coptions, x_coptions, move (gr));
       }
       else if (id.type == "icc")
       {
         assert (id.variant.empty ());
-        return guess_icc (cxx, coptions, move (gr));
+        r = guess_icc (xl, xc, c_coptions, x_coptions, move (gr));
       }
       else if (id.type == "msvc")
       {
         assert (id.variant.empty ());
-        return guess_msvc (cxx, move (gr));
+        r = guess_msvc (xl, xc, c_coptions, x_coptions, move (gr));
       }
       else
-      {
         assert (false);
-        return compiler_info ();
+
+      // Derive binutils pattern unless this has already been done by the
+      // compiler-specific code.
+      //
+      if (r.pattern.empty ())
+      {
+        // When cross-compiling the whole toolchain is normally prefixed with
+        // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}.
+        //
+        // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
+        // LTO plugin though it seems more recent GNU binutils (2.25) are able
+        // to load the plugin when needed automatically. So it doesn't seem we
+        // should bother trying to support this on our end (one way we could
+        // do it is by passing config.bin.{ar,ranlib} as hints).
+        //
+        const string& t (r.target);
+        size_t n (t.size ());
+
+        if (xc.size () > n + 1)
+        {
+          const string& l (xc.leaf ().string ());
+
+          if (l.size () > n + 1 && l.compare (0, n, t) == 0 && l[n] == '-')
+          {
+            path p (xc.directory ());
+            p /= t;
+            p += "-*";
+            r.pattern = move (p).string ();
+          }
+        }
       }
+
+      return r;
     }
   }
 }

@@ -13,6 +13,9 @@
 
 namespace build2
 {
+  // @@ This is an ugly mess that is overdue for redesign. Perhaps
+  //    something similar to variable value storage?
+  //
   class match_result
   {
   public:
@@ -55,6 +58,14 @@ namespace build2
     operator bool () const
     {
       return target != nullptr || prerequisite != nullptr;
+    }
+
+    template <typename T>
+    T&
+    as_target () const
+    {
+      return static_cast<T&> (
+        target != nullptr ? *target : *prerequisite->target);
     }
   };
 

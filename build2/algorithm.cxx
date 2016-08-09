@@ -454,6 +454,54 @@ namespace build2
     return e;
   }
 
+  target*
+  execute_prerequisites (const target_type& tt,
+                         action a, target& t, const timestamp& mt)
+  {
+    bool e (mt == timestamp_nonexistent);
+    target* r (nullptr);
+
+    for (target* pt: t.prerequisite_targets)
+    {
+      if (pt == nullptr) // Skip ignored.
+        continue;
+
+      target_state ts (execute (a, *pt));
+
+      if (!e)
+      {
+        // If this is an mtime-based target, then compare timestamps.
+        //
+        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
+        {
+          timestamp mp (mpt->mtime ());
+
+          // What do we do if timestamps are equal? This can happen, for
+          // example, on filesystems that don't have subsecond resolution.
+          // There is not much we can do here except detect the case where
+          // the prerequisite was changed in this run which means the
+          // action must be executed on the target as well.
+          //
+          if (mt < mp || (mt == mp && ts == target_state::changed))
+            e = true;
+        }
+        else
+        {
+          // Otherwise we assume the prerequisite is newer if it was changed.
+          //
+          if (ts == target_state::changed)
+            e = true;
+        }
+      }
+
+      if (pt->is_a (tt))
+        r = pt;
+    }
+
+    assert (r != nullptr);
+    return e ? r : nullptr;
+  }
+
   target_state
   noop_action (action a, target& t)
   {

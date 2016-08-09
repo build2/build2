@@ -1,15 +1,11 @@
-// file      : build2/cxx/compile.cxx -*- C++ -*-
+// file      : build2/cc/compile.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/compile>
+#include <build2/cc/compile>
 
-#include <map>
-#include <limits>   // numeric_limits
 #include <cstdlib>  // exit()
 #include <iostream> // cerr
-
-#include <butl/path-map>
 
 #include <build2/depdb>
 #include <build2/scope>
@@ -19,26 +15,32 @@
 #include <build2/diagnostics>
 
 #include <build2/bin/target>
-#include <build2/cxx/target>
 
-#include <build2/cxx/link>
-#include <build2/cxx/common>
-#include <build2/cxx/utility>
-
+#include <build2/cc/link>    // search_library()
+#include <build2/cc/target>  // h
+#include <build2/cc/utility>
 
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     using namespace bin;
+
+    compile::
+    compile (data&& d, const link& l)
+        : common (move (d)),
+          link_ (l),
+          rule_id (string (x) += ".compile 1")
+    {
+    }
 
     match_result compile::
     match (action a, target& t, const string&) const
     {
-      tracer trace ("cxx::compile::match");
+      tracer trace (x, "compile::match");
 
       // @@ TODO:
       //
@@ -46,37 +48,29 @@ namespace build2
       // - if path already assigned, verify extension?
       //
 
-      // See if we have a C++ source file. Iterate in reverse so that
-      // a source file specified for an obj*{} member overrides the one
-      // specified for the group. Also "see through" groups.
+      // See if we have a source file. Iterate in reverse so that a source
+      // file specified for an obj*{} member overrides the one specified for
+      // the group. Also "see through" groups.
       //
       for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
       {
-        if (p.is_a<cxx> ())
+        if (p.is_a (x_src))
           return p;
       }
 
-      l4 ([&]{trace << "no c++ source file for target " << t;});
+      l4 ([&]{trace << "no " << x_lang << " source file for target " << t;});
       return nullptr;
     }
-
-    static void
-    inject_prerequisites (action, target&, lorder, cxx&, scope&, depdb&);
 
     recipe compile::
     apply (action a, target& xt, const match_result& mr) const
     {
-      tracer trace ("cxx::compile");
+      tracer trace (x, "compile::apply");
 
       file& t (static_cast<file&> (xt));
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
-
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tsys (cast<string> (rs["cxx.target.system"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
-
       otype ct (compile_type (t));
 
       // Derive file name from target name.
@@ -129,22 +123,21 @@ namespace build2
       //
       fsdir* dir (inject_fsdir (a, t));
 
-      // Search and match all the existing prerequisites. The injection
-      // code (below) takes care of the ones it is adding.
+      // Search and match all the existing prerequisites. The injection code
+      // takes care of the ones it is adding.
       //
-      // When cleaning, ignore prerequisites that are not in the same
-      // or a subdirectory of our project root.
+      // When cleaning, ignore prerequisites that are not in the same or a
+      // subdirectory of our project root.
       //
       optional<dir_paths> lib_paths; // Extract lazily.
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // A dependency on a library is there so that we can get its
-        // cxx.export.poptions. In particular, making sure it is
-        // executed before us will only restrict parallelism. But we
-        // do need to pre-match it in order to get its
-        // prerequisite_targets populated. This is the "library
-        // meta-information protocol". See also append_lib_options()
+        // *.export.poptions. In particular, making sure it is executed before
+        // us will only restrict parallelism. But we do need to pre-match it
+        // in order to get its prerequisite_targets populated. This is the
+        // "library meta-information protocol". See also append_lib_options()
         // above.
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
@@ -156,7 +149,7 @@ namespace build2
             // any, they would be set by search_library()).
             //
             if (p.proj () == nullptr ||
-                link::search_library (lib_paths, p.prerequisite) == nullptr)
+                link_.search_library (lib_paths, p.prerequisite) == nullptr)
             {
               match_only (a, p.search ());
             }
@@ -184,11 +177,7 @@ namespace build2
         // t.prerequisite_targets since we used standard search() and match()
         // above.
         //
-        // @@ Ugly.
-        //
-        cxx& st (
-          dynamic_cast<cxx&> (
-            mr.target != nullptr ? *mr.target : *mr.prerequisite->target));
+        file& src (mr.as_target<file> ());
 
         // Make sure the output directory exists.
         //
@@ -208,14 +197,14 @@ namespace build2
 
         // First should come the rule name/version.
         //
-        if (dd.expect ("cxx.compile 1") != nullptr)
+        if (dd.expect (rule_id) != nullptr)
           l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
         // Then the compiler checksum. Note that here we assume it
         // incorporates the (default) target so that if the compiler changes
         // but only in what it targets, then the checksum will still change.
         //
-        if (dd.expect (cast<string> (rs["cxx.checksum"])) != nullptr)
+        if (dd.expect (cast<string> (rs[x_checksum])) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
 
         // Then the options checksum.
@@ -225,7 +214,7 @@ namespace build2
         //
         sha256 cs;
 
-        // Hash cxx.export.poptions from prerequisite libraries.
+        // Hash *.export.poptions from prerequisite libraries.
         //
         lorder lo (link_order (bs, ct));
         for (prerequisite& p: group_prerequisites (t))
@@ -236,12 +225,16 @@ namespace build2
             pt = &link_member (*l, lo);
 
           if (pt->is_a<liba> () || pt->is_a<libs> ())
-            hash_lib_options (cs, *pt, "cxx.export.poptions", lo);
+            hash_lib_options (cs, *pt, lo,
+                              c_export_poptions,
+                              x_export_poptions);
         }
 
-        hash_options (cs, t, "cxx.poptions");
-        hash_options (cs, t, "cxx.coptions");
-        hash_std (cs, rs, cid, t);
+        hash_options (cs, t, c_poptions);
+        hash_options (cs, t, x_poptions);
+        hash_options (cs, t, c_coptions);
+        hash_options (cs, t, x_coptions);
+        hash_std (cs, rs, t);
 
         if (ct == otype::s)
         {
@@ -256,7 +249,7 @@ namespace build2
 
         // Finally the source file.
         //
-        if (dd.expect (st.path ()) != nullptr)
+        if (dd.expect (src.path ()) != nullptr)
           l4 ([&]{trace << "source file mismatch forcing update of " << t;});
 
         // If any of the above checks resulted in a mismatch (different
@@ -266,65 +259,51 @@ namespace build2
         if (dd.writing () || dd.mtime () > t.mtime ())
           t.mtime (timestamp_nonexistent);
 
-        inject_prerequisites (a, t, lo, st, mr.prerequisite->scope, dd);
+        inject (a, t, lo, src, mr.prerequisite->scope, dd);
 
         dd.close ();
       }
 
       switch (a)
       {
-      case perform_update_id: return &perform_update;
-      case perform_clean_id: return &perform_clean;
-      default: return noop_recipe; // Configure update.
+      case perform_update_id:
+        return [this] (action a, target& t) {return perform_update (a, t);};
+      case perform_clean_id:
+        return [this] (action a, target& t) {return perform_clean (a, t);};
+      default:
+        return noop_recipe; // Configure update.
       }
     }
 
     // Reverse-lookup target type from extension.
     //
-    static const target_type*
-    map_extension (scope& s, const string& n, const string& e)
+    const target_type* compile::
+    map_extension (scope& s, const string& n, const string& e) const
     {
-      // We will just have to try all of the possible ones, in the
-      // "most likely to match" order.
+      // We will just have to try all of the possible ones, in the "most
+      // likely to match" order.
       //
-      const variable& var (var_pool.find ("extension"));
+      const variable& var (var_pool["extension"]);
 
-      auto test = [&s, &n, &e, &var] (const target_type& tt)
-        -> const target_type*
+      auto test = [&s, &n, &e, &var] (const target_type& tt) -> bool
       {
         if (auto l = s.find (var, tt, n))
           if (cast<string> (l) == e)
-            return &tt;
+            return true;
 
-        return nullptr;
+        return false;
       };
 
-      if (auto r = test (hxx::static_type)) return r;
-      if (auto r = test (h::static_type))   return r;
-      if (auto r = test (ixx::static_type)) return r;
-      if (auto r = test (txx::static_type)) return r;
-      if (auto r = test (cxx::static_type)) return r;
-      if (auto r = test (c::static_type))   return r;
+      for (const target_type* const* p (x_inc); *p != nullptr; ++p)
+        if (test (**p)) return *p;
 
       return nullptr;
     }
 
-    // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
-    // generated headers to directories where they will be generated.
-    //
-    // We are using a prefix map of directories (dir_path_map) instead
-    // of just a map in order also cover sub-paths (e.g., <foo/more/bar>
-    // if we continue with the example). Specifically, we need to make
-    // sure we don't treat foobar as a sub-directory of foo.
-    //
-    // @@ The keys should be canonicalized.
-    //
-    using prefix_map = dir_path_map<dir_path>;
-
-    static void
-    append_prefixes (prefix_map& m, target& t, const char* var)
+    void compile::
+    append_prefixes (prefix_map& m, target& t, const variable& var) const
     {
-      tracer trace ("cxx::append_prefixes");
+      tracer trace (x, "append_prefixes");
 
       // If this target does not belong to any project (e.g, an
       // "imported as installed" library), then it can't possibly
@@ -411,11 +390,11 @@ namespace build2
       }
     }
 
-    // Append library prefixes based on the cxx.export.poptions variables
+    // Append library prefixes based on the *.export.poptions variables
     // recursively, prerequisite libraries first.
     //
-    static void
-    append_lib_prefixes (prefix_map& m, target& l, lorder lo)
+    void compile::
+    append_lib_prefixes (prefix_map& m, target& l, lorder lo) const
     {
       for (target* t: l.prerequisite_targets)
       {
@@ -429,17 +408,17 @@ namespace build2
           append_lib_prefixes (m, *t, lo);
       }
 
-      append_prefixes (m, l, "cxx.export.poptions");
+      append_prefixes (m, l, c_export_poptions);
+      append_prefixes (m, l, x_export_poptions);
     }
 
-    static prefix_map
-    build_prefix_map (target& t, lorder lo)
+    auto compile::
+    build_prefix_map (target& t, lorder lo) const -> prefix_map
     {
       prefix_map m;
 
-      // First process the include directories from prerequisite
-      // libraries. Note that here we don't need to see group
-      // members (see apply()).
+      // First process the include directories from prerequisite libraries.
+      // Note that here we don't need to see group members (see apply()).
       //
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -454,7 +433,8 @@ namespace build2
 
       // Then process our own.
       //
-      append_prefixes (m, t, "cxx.poptions");
+      append_prefixes (m, t, c_poptions);
+      append_prefixes (m, t, x_poptions);
 
       return m;
     }
@@ -521,11 +501,10 @@ namespace build2
       return r;
     }
 
-    // Extract the include path from the VC++ /showIncludes output line.
-    // Return empty string if the line is not an include note or include
-    // error. Set the good_error flag if it is an include error (which means
-    // the process will terminate with the error status that needs to be
-    // ignored).
+    // Extract the include path from the VC /showIncludes output line. Return
+    // empty string if the line is not an include note or include error. Set
+    // the good_error flag if it is an include error (which means the process
+    // will terminate with the error status that needs to be ignored).
     //
     static string
     next_show (const string& l, bool& good_error)
@@ -534,7 +513,7 @@ namespace build2
       //
       assert (!good_error);
 
-      // VC++ /showIncludes output. The first line is the file being
+      // VC /showIncludes output. The first line is the file being
       // compiled. Then we have the list of headers, one per line, in this
       // form (text can presumably be translated):
       //
@@ -634,11 +613,15 @@ namespace build2
       }
     }
 
-    static void
-    inject_prerequisites (action a, target& t, lorder lo,
-                          cxx& s, scope& ds, depdb& dd)
+    void compile::
+    inject (action a,
+            target& t,
+            lorder lo,
+            file& src,
+            scope& ds,
+            depdb& dd) const
     {
-      tracer trace ("cxx::compile::inject_prerequisites");
+      tracer trace (x, "compile::inject");
 
       l6 ([&]{trace << "target: " << t;});
 
@@ -647,28 +630,24 @@ namespace build2
       //
       auto g (
         make_exception_guard (
-          [&s]()
+          [&src]()
           {
-            info << "while extracting header dependencies from " << s;
+            info << "while extracting header dependencies from " << src;
           }));
 
       scope& rs (t.root_scope ());
-      const string& cid (cast<string> (rs["cxx.id"]));
 
       // Initialize lazily, only if required.
       //
       cstrings args;
-      string cxx_std; // Storage.
+      string std; // Storage.
 
-      auto init_args = [&t, lo, &s, &rs, &cid, &args, &cxx_std] ()
+      auto init_args = [&t, lo, &src, &rs, &args, &std, this] ()
       {
-        const path& cxx (cast<path> (rs["config.cxx"]));
-        const string& tclass (cast<string> (rs["cxx.target.class"]));
+        args.push_back (cast<path> (rs[config_x]).string ().c_str ());
 
-        args.push_back (cxx.string ().c_str ());
-
-        // Add cxx.export.poptions from prerequisite libraries. Note
-        // that here we don't need to see group members (see apply()).
+        // Add *.export.poptions from prerequisite libraries. Note that here
+        // we don't need to see group members (see apply()).
         //
         for (prerequisite& p: group_prerequisites (t))
         {
@@ -678,15 +657,20 @@ namespace build2
             pt = &link_member (*l, lo);
 
           if (pt->is_a<liba> () || pt->is_a<libs> ())
-            append_lib_options (args, *pt, "cxx.export.poptions", lo);
+            append_lib_options (args, *pt, lo,
+                                c_export_poptions,
+                                x_export_poptions);
         }
 
-        append_options (args, t, "cxx.poptions");
+        append_options (args, t, c_poptions);
+        append_options (args, t, x_poptions);
 
-        // Some C++ options (e.g., -std, -m) affect the preprocessor.
+        // Some compile options (e.g., -std, -m) affect the preprocessor.
         //
-        append_options (args, t, "cxx.coptions");
-        append_std (args, rs, cid, t, cxx_std);
+        append_options (args, t, c_coptions);
+        append_options (args, t, x_coptions);
+
+        append_std (args, rs, t, std);
 
         if (t.is_a<objs> ())
         {
@@ -703,15 +687,15 @@ namespace build2
           // See perform_update() for details on overriding the default
           // exceptions and runtime.
           //
-          if (!find_option_prefix ("/EH", args))
+          if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
             args.push_back ("/EHsc");
 
           if (!find_option_prefixes ({"/MD", "/MT"}, args))
             args.push_back ("/MD");
 
           args.push_back ("/EP");           // Preprocess to stdout.
-          args.push_back ("/TP");           // Preprocess as C++.
           args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
+          args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
         }
         else
         {
@@ -734,7 +718,7 @@ namespace build2
         // @@ We will also have to use absolute -I paths to guarantee
         // that. Or just detect relative paths and error out?
         //
-        args.push_back (s.path ().string ().c_str ());
+        args.push_back (src.path ().string ().c_str ());
         args.push_back (nullptr);
       };
 
@@ -826,7 +810,7 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, a, &t, lo, &ds, &dd]
+      auto add = [&trace, &update, &pm, a, &t, lo, &ds, &dd, this]
         (path f, bool cache) -> bool
       {
         if (!f.absolute ())
@@ -926,8 +910,8 @@ namespace build2
             out = out_src (d, *rs);
         }
 
-        // If it is outside any project, or the project doesn't have
-        // such an extension, assume it is a plain old C header.
+        // If it is outside any project, or the project doesn't have such an
+        // extension, assume it is a plain old C header.
         //
         if (tt == nullptr)
           tt = &h::static_type;
@@ -980,7 +964,7 @@ namespace build2
       // But, before we do all that, make sure the source file itself if up to
       // date.
       //
-      if (update (s, dd.mtime ()))
+      if (update (src, dd.mtime ()))
       {
         // If the file got updated or is newer than the database, then we
         // cannot rely on the cache any further. However, the cached data
@@ -1099,7 +1083,7 @@ namespace build2
                     // this case the first line (and everything after it) is
                     // presumably diagnostics.
                     //
-                    if (l != s.path ().leaf ().string ())
+                    if (l != src.path ().leaf ().string ())
                     {
                       text << l;
                       bad_error = true;
@@ -1205,8 +1189,8 @@ namespace build2
                 }
               }
 
-              // In case of VC++, we are parsing stderr and if things go
-              // south, we need to copy the diagnostics for the user to see.
+              // In case of VC, we are parsing stderr and if things go south,
+              // we need to copy the diagnostics for the user to see.
               //
               // Note that the eof check is important: if the stream is at
               // eof, this and all subsequent writes to cerr will fail (and
@@ -1227,12 +1211,14 @@ namespace build2
                   throw failed ();
               }
               else if (bad_error)
-                fail << "expected error exist status from C++ compiler";
+                fail << "expected error exist status from " << x_lang
+                     << " compiler";
             }
             catch (const ifdstream::failure&)
             {
               pr.wait ();
-              fail << "unable to read C++ compiler header dependency output";
+              fail << "unable to read " << x_lang << " compiler header "
+                   << "dependency output";
             }
           }
           catch (const process_error& e)
@@ -1258,24 +1244,19 @@ namespace build2
     msvc_filter_cl (ifdstream&, const path& src);
 
     target_state compile::
-    perform_update (action a, target& xt)
+    perform_update (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
-      cxx* s (execute_prerequisites<cxx> (a, t, t.mtime ()));
+      file* s (execute_prerequisites<file> (x_src, a, t, t.mtime ()));
 
       if (s == nullptr)
         return target_state::unchanged;
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
-
-      const path& cxx (cast<path> (rs["config.cxx"]));
-      const string& cid (cast<string> (rs["cxx.id"]));
-      const string& tclass (cast<string> (rs["cxx.target.class"]));
-
       otype ct (compile_type (t));
 
-      cstrings args {cxx.string ().c_str ()};
+      cstrings args {cast<path> (rs[config_x]).string ().c_str ()};
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
@@ -1283,8 +1264,8 @@ namespace build2
       path relo (relative (t.path ()));
       path rels (relative (s->path ()));
 
-      // Add cxx.export.poptions from prerequisite libraries. Note that
-      // here we don't need to see group members (see apply()).
+      // Add *.export.poptions from prerequisite libraries. Note that here we
+      // don't need to see group members (see apply()).
       //
       lorder lo (link_order (bs, ct));
       for (prerequisite& p: group_prerequisites (t))
@@ -1295,15 +1276,19 @@ namespace build2
           pt = &link_member (*l, lo);
 
         if (pt->is_a<liba> () || pt->is_a<libs> ())
-          append_lib_options (args, *pt, "cxx.export.poptions", lo);
+          append_lib_options (args, *pt, lo,
+                              c_export_poptions,
+                              x_export_poptions);
       }
 
-      append_options (args, t, "cxx.poptions");
-      append_options (args, t, "cxx.coptions");
+      append_options (args, t, c_poptions);
+      append_options (args, t, x_poptions);
+      append_options (args, t, c_coptions);
+      append_options (args, t, x_coptions);
 
       string std, out, out1; // Storage.
 
-      append_std (args, rs, cid, t, std);
+      append_std (args, rs, t, std);
 
       if (cid == "msvc")
       {
@@ -1311,7 +1296,7 @@ namespace build2
         // in VS2013/12.0. Why do we bother? Because the command line suddenly
         // becomes readable.
         //
-        uint64_t cver (cast<uint64_t> (rs["cxx.version.major"]));
+        uint64_t ver (cast<uint64_t> (rs[x_version_major]));
 
         args.push_back ("/nologo");
 
@@ -1322,7 +1307,10 @@ namespace build2
         // see any relevant options explicitly specified, we take our hands
         // off.
         //
-        if (!find_option_prefix ("/EH", args))
+        // For C looks like no /EH* (exceptions supported but no C++ objects
+        // destroyed) is a reasonable default.
+        //
+        if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
           args.push_back ("/EHsc");
 
         // The runtime is a bit more interesting. At first it may seem like a
@@ -1363,7 +1351,7 @@ namespace build2
         //
         if (find_options ({"/Zi", "/ZI"}, args))
         {
-          if (cver >= 18)
+          if (ver >= 18)
             args.push_back ("/Fd:");
           else
             out1 = "/Fd";
@@ -1374,7 +1362,7 @@ namespace build2
           args.push_back (out1.c_str ());
         }
 
-        if (cver >= 18)
+        if (ver >= 18)
         {
           args.push_back ("/Fo:");
           args.push_back (relo.string ().c_str ());
@@ -1385,8 +1373,8 @@ namespace build2
           args.push_back (out.c_str ());
         }
 
-        args.push_back ("/c");  // Compile only.
-        args.push_back ("/TP"); // Compile as C++.
+        args.push_back ("/c");                              // Compile only.
+        args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
         args.push_back (rels.string ().c_str ());
       }
       else
@@ -1411,7 +1399,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << "c++ " << *s;
+        text << x_name << ' ' << *s;
 
       try
       {
@@ -1475,12 +1463,9 @@ namespace build2
     }
 
     target_state compile::
-    perform_clean (action a, target& xt)
+    perform_clean (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
-
-      scope& rs (t.root_scope ());
-      const string& cid (cast<string> (rs["cxx.id"]));
 
       initializer_list<const char*> e;
 
@@ -1491,7 +1476,5 @@ namespace build2
 
       return clean_extra (a, t, e);
     }
-
-    compile compile::instance;
   }
 }

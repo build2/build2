@@ -18,10 +18,10 @@ namespace build2
   // target_type
   //
   bool target_type::
-  is_a (const target_type& tt) const
+  is_a_base (const target_type& tt) const
   {
-    for (const target_type* p (this); p != nullptr; p = p->base)
-      if (*p == tt)
+    for (const target_type* b (base); b != nullptr; b = b->base)
+      if (*b == tt)
         return true;
 
     return false;

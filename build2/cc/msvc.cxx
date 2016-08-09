@@ -1,4 +1,4 @@
-// file      : build2/cxx/msvc.cxx -*- C++ -*-
+// file      : build2/cc/msvc.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -11,14 +11,18 @@
 #include <build2/filesystem>
 #include <build2/diagnostics>
 
-#include <build2/cxx/common>
+#include <build2/bin/target>
+
+#include <build2/cc/types>
+
+#include <build2/cc/link>
 
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
-  namespace cxx
+  namespace cc
   {
     using namespace bin;
 
@@ -82,8 +86,8 @@ namespace build2
 
     // Extract system library search paths from MSVC.
     //
-    void
-    msvc_library_search_paths (scope&, const string&, dir_paths&)
+    void link::
+    msvc_library_search_paths (scope&, dir_paths&) const
     {
       // The linker doesn't seem to have any built-in paths and all of them
       // come from the LIB environment variable.
@@ -212,16 +216,17 @@ namespace build2
 
     template <typename T>
     static T*
-    search_library (const path& ld,
-                    const dir_path& d,
-                    prerequisite& p,
-                    otype lt,
-                    const char* pfx,
-                    const char* sfx)
+    msvc_search_library (const char* mod,
+                         const path& ld,
+                         const dir_path& d,
+                         prerequisite& p,
+                         otype lt,
+                         const char* pfx,
+                         const char* sfx)
     {
       // Pretty similar logic to link::search_library().
       //
-      tracer trace ("cxx::msvc_search_library");
+      tracer trace (mod, "msvc_search_library");
 
       // Assemble the file path.
       //
@@ -269,14 +274,17 @@ namespace build2
       return nullptr;
     }
 
-    liba*
-    msvc_search_static (const path& ld, const dir_path& d, prerequisite& p)
+    liba* link::
+    msvc_search_static (const path& ld,
+                        const dir_path& d,
+                        prerequisite& p) const
     {
       liba* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p] (const char* pf, const char* sf) -> bool
+      auto search = [&r, &ld, &d, &p, this] (const char* pf, const char* sf)
+        -> bool
       {
-        r = search_library<liba> (ld, d, p, otype::a, pf, sf);
+        r = msvc_search_library<liba> (x, ld, d, p, otype::a, pf, sf);
         return r != nullptr;
       };
 
@@ -293,17 +301,20 @@ namespace build2
         search ("",    "_static") ? r : nullptr;
     }
 
-    libs*
-    msvc_search_shared (const path& ld, const dir_path& d, prerequisite& p)
+    libs* link::
+    msvc_search_shared (const path& ld,
+                        const dir_path& d,
+                        prerequisite& p) const
     {
-      tracer trace ("cxx::msvc_search_shared");
+      tracer trace (x, "link::msvc_search_shared");
 
       libs* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p, &trace] (
+      auto search = [&r, &ld, &d, &p, &trace, this] (
         const char* pf, const char* sf) -> bool
       {
-        if (libi* i = search_library<libi> (ld, d, p, otype::s, pf, sf))
+        if (libi* i =
+              msvc_search_library<libi> (x, ld, d, p, otype::s, pf, sf))
         {
           r = &targets.insert<libs> (d, dir_path (), p.name, nullptr, trace);
 

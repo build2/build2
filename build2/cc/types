@@ -1,0 +1,32 @@
+// file      : build2/cc/types -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_CC_TYPES
+#define BUILD2_CC_TYPES
+
+#include <build2/types>
+#include <build2/utility>
+
+namespace build2
+{
+  namespace cc
+  {
+    // Compiler language.
+    //
+    enum class lang {c, cxx};
+
+    ostream&
+    operator<< (ostream&, lang); // utility.ixx
+
+    // Compile/link output type (executable, static, or shared).
+    //
+    enum class otype {e, a, s};
+
+    // Library link order.
+    //
+    enum class lorder {a, s, a_s, s_a};
+  }
+}
+
+#endif // BUILD2_CC_TYPES

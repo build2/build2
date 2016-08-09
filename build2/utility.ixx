@@ -35,6 +35,13 @@ namespace build2
 
   template <typename T>
   inline void
+  append_options (cstrings& args, T& s, const variable& var)
+  {
+    append_options (args, s[var]);
+  }
+
+  template <typename T>
+  inline void
   append_options (cstrings& args, T& s, const char* var)
   {
     append_options (args, s[var]);
@@ -42,10 +49,23 @@ namespace build2
 
   template <typename T>
   inline void
+  hash_options (sha256& csum, T& s, const variable& var)
+  {
+    hash_options (csum, s[var]);
+  }
+
+  template <typename T>
+  inline void
   hash_options (sha256& csum, T& s, const char* var)
   {
-
     hash_options (csum, s[var]);
+  }
+
+  template <typename T>
+  inline bool
+  find_option (const char* o, T& s, const variable& var, bool ic)
+  {
+    return find_option (o, s[var], ic);
   }
 
   template <typename T>
@@ -53,6 +73,16 @@ namespace build2
   find_option (const char* o, T& s, const char* var, bool ic)
   {
     return find_option (o, s[var], ic);
+  }
+
+  template <typename T>
+  inline bool
+  find_options (initializer_list<const char*> os,
+                T& s,
+                const variable& var,
+                bool ic)
+  {
+    return find_options (os, s[var], ic);
   }
 
   template <typename T>
@@ -67,9 +97,26 @@ namespace build2
 
   template <typename T>
   inline bool
+  find_option_prefix (const char* p, T& s, const variable& var, bool ic)
+  {
+    return find_option_prefix (p, s[var], ic);
+  }
+
+  template <typename T>
+  inline bool
   find_option_prefix (const char* p, T& s, const char* var, bool ic)
   {
     return find_option_prefix (p, s[var], ic);
+  }
+
+  template <typename T>
+  inline bool
+  find_option_prefixes (initializer_list<const char*> ps,
+                        T& s,
+                        const variable& var,
+                        bool ic)
+  {
+    return find_option_prefixes (ps, s[var], ic);
   }
 
   template <typename T>
