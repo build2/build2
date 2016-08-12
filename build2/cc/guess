@@ -96,7 +96,10 @@ namespace build2
     // unlike all the preceding fields, this one takes into account the
     // compile options (e.g., -m32).
     //
-    // The pattern is the toolchain program pattern that could sometimes be
+    // The cc_pattern is the toolchain program pattern that could sometimes be
+    // derived for some toolchains. For example, i686-w64-mingw32-*-4.9.
+    //
+    // The bin_pattern is the binutils program pattern that could sometimes be
     // derived for some toolchains. For example, i686-w64-mingw32-*.
     //
     struct compiler_info
@@ -106,7 +109,8 @@ namespace build2
       string signature;
       string checksum;
       string target;
-      string pattern;
+      string cc_pattern;
+      string bin_pattern;
     };
 
     // In a sense this is analagous to the language standard which we handle
@@ -119,6 +123,14 @@ namespace build2
            const path& xc,
            const strings* c_coptions,
            const strings* x_coptions);
+
+    // Given a language, toolchain id, and optionally a pattern, return an
+    // appropriate default compiler path.
+    //
+    // For example, for (lang::cxx, gcc, *-4.9) we will get g++-4.9.
+    //
+    path
+    guess_default (lang, const string& cid, const string* pattern);
   }
 }
 

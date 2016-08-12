@@ -167,7 +167,8 @@ namespace build2
         if (first)
         {
           h.assign ("config.bin.target") = cast<string> (r["cc.target"]);
-          if (auto l = r["cc.pattern"])
+
+          if (auto l = hints["config.bin.pattern"])
             h.assign ("config.bin.pattern") = cast<string> (l);
         }
 

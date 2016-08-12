@@ -35,9 +35,11 @@ namespace build2
     {
       tracer trace (x, "config_init");
 
+      bool cc_loaded (cast_false<bool> (b["cc.config.loaded"]));
+
       // Configure.
       //
-      string pattern; // Toolchain pattern.
+      compiler_info ci; // For program patterns.
 
       if (first)
       {
@@ -45,33 +47,69 @@ namespace build2
 
         // config.x
         //
-        auto p (config::required (r, config_x, path (x_default)));
+
+        // Normally we will have a persistent configuration and computing the
+        // default value every time will be a waste. So try without a default
+        // first.
+        //
+        auto p (config::required (r, config_x));
+
+        if (p.first == nullptr)
+        {
+          // If someone already loaded cc.config then use its toolchain id
+          // and (optional) pattern to guess an appropriate default (e.g.,
+          // for {gcc, *-4.9} we will get g++-4.9).
+          //
+          path d (cc_loaded
+                  ? guess_default (x_lang,
+                                   cast<string> (r["cc.id"]),
+                                   cast_null<string> (r["cc.pattern"]))
+                  : path (x_default));
+
+          auto p1 (config::required (r, config_x, d));
+          p.first = &p1.first.get ();
+          p.second = p1.second;
+        }
 
         // Figure out which compiler we are dealing with, its target, etc.
         //
-        const path& xc (cast<path> (p.first));
-        compiler_info ci (
-          guess (x_lang,
-                 xc,
-                 cast_null<strings> (r[config_c_coptions]),
-                 cast_null<strings> (r[config_x_coptions])));
+        const path& xc (cast<path> (*p.first));
+        ci = guess (x_lang,
+                    xc,
+                    cast_null<strings> (r[config_c_coptions]),
+                    cast_null<strings> (r[config_x_coptions]));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << x << ' ' << project (r) << '@' << r.out_path () << '\n'
+          diag_record dr (text);
+
+          {
+            dr << x << ' ' << project (r) << '@' << r.out_path () << '\n'
                << "  " << left << setw (11) << x << xc << '\n'
                << "  id         " << ci.id << '\n'
                << "  version    " << ci.version.string << '\n'
                << "  major      " << ci.version.major << '\n'
                << "  minor      " << ci.version.minor << '\n'
-               << "  patch      " << ci.version.patch << '\n'
-               << "  build      " << ci.version.build << '\n'
-               << "  signature  " << ci.signature << '\n'
-               << "  checksum   " << ci.checksum << '\n'
-               << "  target     " << ci.target;
+               << "  patch      " << ci.version.patch << '\n';
+          }
+
+          if (!ci.version.build.empty ())
+            dr << "  build      " << ci.version.build << '\n';
+
+          {
+            dr << "  signature  " << ci.signature << '\n'
+               << "  target     " << ci.target << '\n';
+          }
+
+          if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin
+            dr << "  pattern    " << ci.cc_pattern << '\n';
+
+          {
+            dr << "  checksum   " << ci.checksum;
+          }
         }
 
         r.assign (x_id) = ci.id.string ();
@@ -86,8 +124,6 @@ namespace build2
 
         r.assign (x_signature) = move (ci.signature);
         r.assign (x_checksum) = move (ci.checksum);
-
-        pattern = move (ci.pattern);
 
         // Split/canonicalize the target. First see if the user asked us to
         // use config.sub.
@@ -158,7 +194,7 @@ namespace build2
 
       // Load cc.config.
       //
-      if (!cast_false<bool> (b["cc.config.loaded"]))
+      if (!cc_loaded)
       {
         // Prepare configuration hints. They are only used on the first load
         // of cc.config so we only populate them on our first load.
@@ -168,8 +204,12 @@ namespace build2
         {
           h.assign ("config.cc.id") = cast<string> (r[x_id]);
           h.assign ("config.cc.target") = cast<string> (r[x_target]);
-          if (!pattern.empty ())
-            h.assign ("config.cc.pattern") = move (pattern);
+
+          if (!ci.cc_pattern.empty ())
+            h.assign ("config.cc.pattern") = move (ci.cc_pattern);
+
+          if (!ci.bin_pattern.empty ())
+            h.assign ("config.bin.pattern") = move (ci.bin_pattern);
         }
 
         load_module ("cc.config", r, b, loc, false, h);
@@ -179,24 +219,24 @@ namespace build2
         // If cc.config is already loaded, verify its configuration matched
         // ours since it could have been loaded by another c-family module.
         //
-        auto check = [&r, &loc, this](const char* cv,
-                                      const variable& xv,
+        auto check = [&r, &loc, this](const char* cvar,
+                                      const variable& xvar,
                                       const char* w)
         {
-          const string& c (cast<string> (r[cv]));
-          const string& x (cast<string> (r[xv]));
+          const string& cv (cast<string> (r[cvar]));
+          const string& xv (cast<string> (r[xvar]));
 
-          if (c != x)
+          if (cv != xv)
             fail (loc) << "cc and " << x << " module " << w << " mismatch" <<
-              info << cv << " is " << c <<
-              info << xv.name << " is " << x;
+              info << cvar << " is " << cv <<
+              info << xvar.name << " is " << xv;
         };
 
         // Note that we don't require that patterns match. Presumably, if the
         // toolchain id and target are the same, then where exactly the tools
-        // (e.g., ar) come from doesn't really matter.
+        // come from doesn't really matter.
         //
-        check ("cc.id",     x_id,     "toolchain id");
+        check ("cc.id",     x_id,     "toolchain");
         check ("cc.target", x_target, "target");
       }
     }

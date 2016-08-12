@@ -370,26 +370,6 @@ namespace build2
       return true;
     }
 
-    // Apply the specified stem to the config.bin.pattern. If there is no
-    // pattern, then return the stem itself. Assume the pattern is valid,
-    // i.e., contains single '*'.
-    //
-    static string
-    apply (const lookup& pattern, const char* stem)
-    {
-      if (!pattern)
-        return stem;
-
-      const string& p (cast<string> (pattern));
-      size_t i (p.find ('*'));
-      assert (i != string::npos);
-
-      string r (p, 0, i++);
-      r.append (stem);
-      r.append (p, i, p.size () - i);
-      return r;
-    }
-
     bool
     ar_config_init (scope& r,
                     scope& b,
@@ -435,7 +415,6 @@ namespace build2
         // toolchain can be target-unprefixed. Also, without canonicalization,
         // comparing targets will be unreliable.
         //
-        auto pattern (r["bin.pattern"]);
 
         // Use the target to decide on the default binutils program names.
         //
@@ -446,17 +425,21 @@ namespace build2
         // changes, say, the C++ compiler (which hinted the pattern), then
         // ar will automatically change as well.
         //
-        auto ap (config::required (r,
-                                  "config.bin.ar",
-                                  path (apply (pattern, ar_d)),
-                                  false,
-                                  config::save_commented));
+        auto ap (
+          config::required (
+            r,
+            "config.bin.ar",
+            path (apply_pattern (ar_d, cast_null<string> (r["bin.pattern"]))),
+            false,
+            config::save_commented));
 
-        auto rp (config::required (r,
-                                   "config.bin.ranlib",
-                                   nullptr,
-                                   false,
-                                   config::save_commented));
+        auto rp (
+          config::required (
+            r,
+            "config.bin.ranlib",
+            nullptr,
+            false,
+            config::save_commented));
 
         const path& ar (cast<path> (ap.first));
         const path* ranlib (cast_null<path> (rp.first));
@@ -566,11 +549,13 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* ld_d (tsys == "win32-msvc" ? "link" : "ld");
 
-        auto p (config::required (r,
-                                  "config.bin.ld",
-                                  path (apply (r["bin.pattern"], ld_d)),
-                                  false,
-                                  config::save_commented));
+        auto p (
+          config::required (
+            r,
+            "config.bin.ld",
+            path (apply_pattern (ld_d, cast_null<string> (r["bin.pattern"]))),
+            false,
+            config::save_commented));
 
         const path& ld (cast<path> (p.first));
         ld_info ldi (guess_ld (ld));
@@ -668,11 +653,13 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* rc_d (tsys == "win32-msvc" ? "rc" : "windres");
 
-        auto p (config::required (r,
-                                  "config.bin.rc",
-                                  path (apply (r["bin.pattern"], rc_d)),
-                                  false,
-                                  config::save_commented));
+        auto p (
+          config::required (
+            r,
+            "config.bin.rc",
+            path (apply_pattern (rc_d, cast_null<string> (r["bin.pattern"]))),
+            false,
+            config::save_commented));
 
         const path& rc (cast<path> (p.first));
         rc_info rci (guess_rc (rc));

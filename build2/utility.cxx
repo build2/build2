@@ -287,6 +287,21 @@ namespace build2
     return false;
   }
 
+  string
+  apply_pattern (const char* s, const string* p)
+  {
+    if (p == nullptr)
+      return s;
+
+    size_t i (p->find ('*'));
+    assert (i != string::npos);
+
+    string r (*p, 0, i++);
+    r.append (s);
+    r.append (*p, i, p->size () - i);
+    return r;
+  }
+
   unsigned int
   to_version (const string& s)
   {

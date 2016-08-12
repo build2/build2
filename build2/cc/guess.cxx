@@ -4,7 +4,7 @@
 
 #include <build2/cc/guess>
 
-#include <cstring>  // strlen()
+#include <cstring>  // strlen(), strchr()
 
 #include <build2/diagnostics>
 
@@ -299,8 +299,55 @@ namespace build2
       return r;
     }
 
+    // Try to derive the toolchain pattern.
+    //
+    // The s argument is the stem to look for in the leaf of the path. The ls
+    // and rs arguments are the left/right separator characters. If either is
+    // NULL, then the stem should be the prefix/suffix of the leaf,
+    // respectively. Note that a path that is equal to stem is not considered
+    // a pattern.
+    //
+    static string
+    pattern (const path& xc,
+             const char* s,
+             const char* ls = "-_.",
+             const char* rs = "-_.")
+    {
+      string r;
+      size_t sn (strlen (s));
+
+      if (xc.size () > sn)
+      {
+        string l (xc.leaf ().string ());
+        size_t ln (l.size ());
+
+        size_t b;
+        if (ln >= sn && (b = l.find (s)) != string::npos)
+        {
+          // Check left separators.
+          //
+          if (b == 0 || (ls != nullptr && strchr (ls, l[b - 1]) != nullptr))
+          {
+            // Check right separators.
+            //
+            size_t e (b + sn);
+            if (e == ln || (rs != nullptr && strchr (rs, l[e]) != nullptr))
+            {
+              l.replace (b, sn, "*", 1);
+              path p (xc.directory ());
+              p /= l;
+              r = move (p).string ();
+            }
+          }
+        }
+      }
+
+      return r;
+    }
+
+
     static compiler_info
-    guess_gcc (lang,
+    guess_gcc (lang xl,
                const path& xc,
                const strings* c_coptions,
                const strings* x_coptions,
@@ -408,17 +455,25 @@ namespace build2
         fail << "unable to extract target architecture from " << xc
              << " -print-multiarch or -dumpmachine output";
 
+      // Derive the toolchain pattern. Try cc/c++ as a fallback.
+      //
+      string pat (pattern (xc, xl == lang::c ? "gcc" : "g++"));
+
+      if (pat.empty ())
+        pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+
       return compiler_info {
         move (gr.id),
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
+        move (pat),
         string ()};
     }
 
     static compiler_info
-    guess_clang (lang,
+    guess_clang (lang xl,
                  const path& xc,
                  const strings* c_coptions,
                  const strings* x_coptions,
@@ -512,12 +567,24 @@ namespace build2
         fail << "unable to extract target architecture from " << xc
              << " -dumpmachine output";
 
+      // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
+      // as well as cc/c++.
+      //
+      string pat (pattern (xc, xl == lang::c ? "clang" : "clang++"));
+
+      if (pat.empty ())
+        pat = pattern (xc, xl == lang::c ? "gcc" : "g++");
+
+      if (pat.empty ())
+        pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+
       return compiler_info {
         move (gr.id),
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
+        move (pat),
         string ()};
     }
 
@@ -722,6 +789,10 @@ namespace build2
 
       arch.append (t, p, string::npos);
 
+      // Derive the toolchain pattern.
+      //
+      string pat (pattern (xc, xl == lang::c ? "icc" : "icpc"));
+
       // Use the signature line to generate the checksum.
       //
       sha256 cs (s);
@@ -732,6 +803,7 @@ namespace build2
         move (gr.signature),
         cs.string (),
         move (arch),
+        move (pat),
         string ()};
     }
 
@@ -931,24 +1003,8 @@ namespace build2
       // then replace it with '*' and use it as a pattern for lib, link,
       // etc.
       //
-      string pat;
-
-      if (xc.size () > 2)
-      {
-        const string& l (xc.leaf ().string ());
-        size_t n (l.size ());
-
-        if (n >= 2 &&
-            (l[0] == 'c' || l[0] == 'C') &&
-            (l[1] == 'l' || l[1] == 'L') &&
-            (n == 2 || l[2] == '.' || l[2] == '-'))
-        {
-          path p (xc.directory ());
-          p /= "*";
-          p += l.c_str () + 2;
-          pat = move (p).string ();
-        }
-      }
+      string cpat (pattern (xc, "cl", nullptr, ".-"));
+      string bpat (cpat); // Binutils pattern is the same as toolchain.
 
       // Use the signature line to generate the checksum.
       //
@@ -960,7 +1016,8 @@ namespace build2
         move (gr.signature),
         cs.string (),
         move (arch),
-        move (pat)};
+        move (cpat),
+        move (bpat)};
     }
 
     compiler_info
@@ -1018,7 +1075,7 @@ namespace build2
       // Derive binutils pattern unless this has already been done by the
       // compiler-specific code.
       //
-      if (r.pattern.empty ())
+      if (r.bin_pattern.empty ())
       {
         // When cross-compiling the whole toolchain is normally prefixed with
         // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}.
@@ -1041,12 +1098,44 @@ namespace build2
             path p (xc.directory ());
             p /= t;
             p += "-*";
-            r.pattern = move (p).string ();
+            r.bin_pattern = move (p).string ();
           }
         }
       }
 
       return r;
+    }
+
+    path
+    guess_default (lang xl, const string& c, const string* pat)
+    {
+      const char* s (nullptr);
+
+      switch (xl)
+      {
+      case lang::c:
+        {
+          if      (c == "gcc")         s = "gcc";
+          else if (c == "clang")       s = "clang";
+          else if (c == "clang-apple") s = "clang";
+          else if (c == "icc")         s = "icc";
+          else if (c == "msvc")        s = "cl";
+
+          break;
+        }
+      case lang::cxx:
+        {
+          if      (c == "gcc")         s = "g++";
+          else if (c == "clang")       s = "clang++";
+          else if (c == "clang-apple") s = "clang++";
+          else if (c == "icc")         s = "icpc";
+          else if (c == "msvc")        s = "cl";
+
+          break;
+        }
+      }
+
+      return path (apply_pattern (s, pat));
     }
   }
 }

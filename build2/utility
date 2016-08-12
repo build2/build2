@@ -278,6 +278,13 @@ namespace build2
                         const cstrings&,
                         bool = false);
 
+  // Apply the specified substitution (stem) to a '*'-pattern. If pattern
+  // is NULL, then return the stem itself. Assume the pattern is valid,
+  // i.e., contains a single '*' character.
+  //
+  string
+  apply_pattern (const char* stem, const string* pattern);
+
   // Parse version string in the X.Y.Z[-{a|b}N] to a version integer in the
   // AABBCCDD form, where:
   //
