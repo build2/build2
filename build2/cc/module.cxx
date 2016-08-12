@@ -43,6 +43,15 @@ namespace build2
 
       if (first)
       {
+        // Adjust module priority (compiler). Also order cc module before us
+        // (we don't want to use priorities for that in case someone manages
+        // to slot in-between).
+        //
+        if (!cc_loaded)
+          config::save_module (r, "cc", 250);
+
+        config::save_module (r, x, 250);
+
         const variable& config_c_coptions (var_pool["config.cc.coptions"]);
 
         // config.x
@@ -66,7 +75,15 @@ namespace build2
                                    cast_null<string> (r["cc.pattern"]))
                   : path (x_default));
 
-          auto p1 (config::required (r, config_x, d));
+          // If this value was hinted, save it as commented out so that if the
+          // user changes the source of the pattern, this one will get updated
+          // as well.
+          //
+          auto p1 (config::required (r,
+                                     config_x,
+                                     d,
+                                     false,
+                                     cc_loaded ? config::save_commented : 0));
           p.first = &p1.first.get ();
           p.second = p1.second;
         }

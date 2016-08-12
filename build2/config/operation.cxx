@@ -93,11 +93,10 @@ namespace build2
         //
         names storage;
 
-        for (const saved_modules::const_iterator& i:
-               mod.saved_modules.sequence)
+        for (auto p: mod.saved_modules.order)
         {
-          const string& sname (i->first);
-          const saved_variables& svars (i->second);
+          const string& sname (p.second->first);
+          const saved_variables& svars (p.second->second);
 
           bool first (true); // Separate modules with a blank line.
           for (const saved_variable& sv: svars)

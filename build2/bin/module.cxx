@@ -74,6 +74,10 @@ namespace build2
       using config::required;
       using config::optional;
 
+      // Adjust module priority (binutils).
+      //
+      config::save_module (r, "bin", 350);
+
       // The idea here is as follows: if we already have one of
       // the bin.* variables set, then we assume this is static
       // project configuration and don't bother setting the

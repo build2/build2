@@ -170,5 +170,15 @@ namespace build2
           assert (j->flags == flags);
       }
     }
+
+    void
+    save_module (scope& r, const char* name, int prio)
+    {
+      if (current_mif->id != configure_id)
+        return;
+
+      if (module* m = r.modules.lookup<module> (module::name))
+        m->saved_modules.insert (string ("config.") += name, prio);
+    }
   }
 }

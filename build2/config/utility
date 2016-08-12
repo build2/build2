@@ -132,6 +132,11 @@ namespace build2
 
     void
     save_variable (scope& root, const variable&, uint64_t flags = 0);
+
+    // Establish module order/priority. See config::module for details.
+    //
+    void
+    save_module (scope& root, const char* name, int prio = 0);
   }
 }
 

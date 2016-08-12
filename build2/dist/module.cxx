@@ -91,6 +91,12 @@ namespace build2
       //
       bool s (config::specified (r, "config.dist"));
 
+      // Adjust module priority so that the config.dist.* values are saved at
+      // the end of config.build.
+      //
+      if (s)
+        config::save_module (r, "dist", INT32_MAX);
+
       // dist.root
       //
       {

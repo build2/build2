@@ -11,6 +11,7 @@
 #include <build2/filesystem> // file_exists()
 #include <build2/diagnostics>
 
+#include <build2/config/utility>
 #include <build2/config/operation>
 
 using namespace std;
@@ -23,17 +24,17 @@ namespace build2
     const string module::name ("config");
 
     void
-    boot (scope& root, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("config::boot");
 
-      const dir_path& out_root (root.out_path ());
+      const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
       // Register meta-operations.
       //
-      root.meta_operations.insert (configure_id, configure);
-      root.meta_operations.insert (disfigure_id, disfigure);
+      rs.meta_operations.insert (configure_id, configure);
+      rs.meta_operations.insert (disfigure_id, disfigure);
 
       // Load config.build if one exists.
       //
@@ -45,11 +46,11 @@ namespace build2
       path f (out_root / config_file);
 
       if (file_exists (f))
-        source (f, root, root);
+        source (f, rs, rs);
     }
 
     bool
-    init (scope& root,
+    init (scope& rs,
           scope&,
           const location& l,
           unique_ptr<module_base>& mod,
@@ -65,7 +66,7 @@ namespace build2
         return true;
       }
 
-      l5 ([&]{trace << "for " << root.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       assert (config_hints.empty ()); // We don't known any hints.
 
@@ -73,6 +74,11 @@ namespace build2
       //
       if (current_mif->id == configure_id)
         mod.reset (new module);
+
+      // Adjust priority for the import pseudo-module so that config.import.*
+      // values come first in config.build.
+      //
+      config::save_module (rs, "import", INT32_MIN);
 
       // Register alias and fallback rule for the configure meta-operation.
       //
@@ -83,7 +89,7 @@ namespace build2
         global_scope->rules.insert<file> (
           configure_id, 0, "config.file", file_rule::instance);
 
-        auto& r (root.rules);
+        auto& r (rs.rules);
 
         r.insert<target> (configure_id, 0, "config", fallback_rule::instance);
         r.insert<file> (configure_id, 0, "config.file", fallback_rule::instance);

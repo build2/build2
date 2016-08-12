@@ -5,6 +5,7 @@
 #ifndef BUILD2_CONFIG_MODULE
 #define BUILD2_CONFIG_MODULE
 
+#include <map>
 #include <algorithm> // find_if()
 
 #include <butl/prefix-map>
@@ -49,15 +50,26 @@ namespace build2
 
     struct saved_modules: butl::prefix_map<string, saved_variables, '.'>
     {
-      vector<const_iterator> sequence;
+      // Priority order with INT32_MIN being the highest. Modules with the
+      // same priority are saved in the order inserted.
+      //
+      // Generally, the idea is that we want higher-level modules at the top
+      // of the file since that's the configuration that we usualy want to
+      // change. So we have the following priority bands/defaults:
+      //
+      // 101-200/150 - code generators (e.g., yacc, bison)
+      // 201-300/250 - compilers (e.g., C, C++),
+      // 301-400/350 - binutils (ar, ld)
+      //
+      std::multimap<std::int32_t, const_iterator> order;
 
       iterator
-      insert (string name)
+      insert (string name, int prio = 0)
       {
         auto p (emplace (move (name), saved_variables ()));
 
         if (p.second)
-          sequence.push_back (p.first);
+          order.emplace (prio, p.first);
 
         return p.first;
       }

@@ -157,6 +157,10 @@ namespace build2
           return string (); // Not found.
         };
 
+        // Adjust module priority (code generator).
+        //
+        config::save_module (rs, "cli", 150);
+
         string ver;       // Empty means unconfigured.
         path cli ("cli"); // Default.
         bool nv (false);  // New value.

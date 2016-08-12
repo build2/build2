@@ -156,7 +156,6 @@ namespace build2
       //
       // Note that the set_dir() calls below enter some more.
       //
-      if (first)
       {
         auto& v (var_pool);
 
@@ -177,11 +176,17 @@ namespace build2
       // must be explicitly specified or the installer will complain
       // if and when we try to install.
       //
-      if (first)
       {
         using build2::path;
 
         bool s (config::specified (r, "config.install"));
+
+        // Adjust module priority so that the (numerous) config.install.*
+        // values are saved at the end of config.build.
+        //
+        if (s)
+          config::save_module (r, "install", INT32_MAX);
+
         const string& n (cast<string> (r["project"]));
 
         set_dir (s, r, "root",      abs_dir_path (), false, "", "755", path ("install"));

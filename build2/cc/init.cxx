@@ -87,6 +87,10 @@ namespace build2
       //
       if (first)
       {
+        // Adjust module priority (compiler).
+        //
+        config::save_module (r, "cc", 250);
+
         // config.cc.id
         //
         {

@@ -74,6 +74,12 @@ namespace build2
       //@@ TODO: Need ability to specify extra diff options (e.g.,
       //   --strip-trailing-cr, now hardcoded).
 
+      // Adjust module priority so that the config.test.* values are saved at
+      // the end of config.build.
+      //
+      // if (s)
+      //   config::save_module (r, "test", INT32_MAX);
+
       // Register rules.
       //
       {
