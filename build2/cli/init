@@ -1,9 +1,9 @@
-// file      : build2/install/module -*- C++ -*-
+// file      : build2/cli/init -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_INSTALL_MODULE
-#define BUILD2_INSTALL_MODULE
+#ifndef BUILD2_CLI_INIT
+#define BUILD2_CLI_INIT
 
 #include <build2/types>
 #include <build2/utility>
@@ -12,11 +12,8 @@
 
 namespace build2
 {
-  namespace install
+  namespace cli
   {
-    void
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
     bool
     init (scope&,
           scope&,
@@ -28,4 +25,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_INSTALL_MODULE
+#endif // BUILD2_CLI_INIT

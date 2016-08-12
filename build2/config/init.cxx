@@ -1,8 +1,8 @@
-// file      : build2/config/module.cxx -*- C++ -*-
+// file      : build2/config/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/config/module>
+#include <build2/config/init>
 
 #include <build2/file>
 #include <build2/rule>
@@ -11,6 +11,7 @@
 #include <build2/filesystem> // file_exists()
 #include <build2/diagnostics>
 
+#include <build2/config/module>
 #include <build2/config/utility>
 #include <build2/config/operation>
 

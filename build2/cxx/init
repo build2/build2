@@ -1,9 +1,9 @@
-// file      : build2/test/module -*- C++ -*-
+// file      : build2/cxx/init -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_TEST_MODULE
-#define BUILD2_TEST_MODULE
+#ifndef BUILD2_CXX_INIT
+#define BUILD2_CXX_INIT
 
 #include <build2/types>
 #include <build2/utility>
@@ -12,10 +12,16 @@
 
 namespace build2
 {
-  namespace test
+  namespace cxx
   {
-    void
-    boot (scope&, const location&, unique_ptr<module_base>&);
+    bool
+    config_init (scope&,
+                 scope&,
+                 const location&,
+                 unique_ptr<module_base>&,
+                 bool,
+                 bool,
+                 const variable_map&);
 
     bool
     init (scope&,
@@ -28,4 +34,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_TEST_MODULE
+#endif // BUILD2_CXX_INIT

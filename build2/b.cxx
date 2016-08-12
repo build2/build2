@@ -38,15 +38,15 @@
 using namespace butl;
 using namespace std;
 
-#include <build2/config/module>
-#include <build2/dist/module>
-#include <build2/bin/module>
+#include <build2/config/init>
+#include <build2/dist/init>
+#include <build2/bin/init>
 #include <build2/c/init>
 #include <build2/cc/init>
-#include <build2/cxx/module>
-#include <build2/cli/module>
-#include <build2/test/module>
-#include <build2/install/module>
+#include <build2/cxx/init>
+#include <build2/cli/init>
+#include <build2/test/init>
+#include <build2/install/init>
 
 using namespace build2;
 

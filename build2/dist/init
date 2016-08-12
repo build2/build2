@@ -1,9 +1,9 @@
-// file      : build2/cxx/module -*- C++ -*-
+// file      : build2/dist/init -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CXX_MODULE
-#define BUILD2_CXX_MODULE
+#ifndef BUILD2_DIST_INIT
+#define BUILD2_DIST_INIT
 
 #include <build2/types>
 #include <build2/utility>
@@ -12,16 +12,10 @@
 
 namespace build2
 {
-  namespace cxx
+  namespace dist
   {
-    bool
-    config_init (scope&,
-                 scope&,
-                 const location&,
-                 unique_ptr<module_base>&,
-                 bool,
-                 bool,
-                 const variable_map&);
+    void
+    boot (scope&, const location&, unique_ptr<module_base>&);
 
     bool
     init (scope&,
@@ -34,4 +28,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CXX_MODULE
+#endif // BUILD2_DIST_INIT

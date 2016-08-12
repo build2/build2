@@ -1,8 +1,8 @@
-// file      : build2/cli/module.cxx -*- C++ -*-
+// file      : build2/cli/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cli/module>
+#include <build2/cli/init>
 
 #include <build2/scope>
 #include <build2/target>

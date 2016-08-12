@@ -1,9 +1,9 @@
-// file      : build2/dist/module -*- C++ -*-
+// file      : build2/config/init -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_DIST_MODULE
-#define BUILD2_DIST_MODULE
+#ifndef BUILD2_CONFIG_INIT
+#define BUILD2_CONFIG_INIT
 
 #include <build2/types>
 #include <build2/utility>
@@ -12,7 +12,7 @@
 
 namespace build2
 {
-  namespace dist
+  namespace config
   {
     void
     boot (scope&, const location&, unique_ptr<module_base>&);
@@ -28,4 +28,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_DIST_MODULE
+#endif // BUILD2_CONFIG_INIT

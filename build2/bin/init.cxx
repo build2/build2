@@ -1,8 +1,8 @@
-// file      : build2/bin/module.cxx -*- C++ -*-
+// file      : build2/bin/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bin/module>
+#include <build2/bin/init>
 
 #include <butl/triplet>
 

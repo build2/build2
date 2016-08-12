@@ -78,20 +78,8 @@ namespace build2
     struct module: module_base
     {
       config::saved_modules saved_modules;
-      static const string name;
+      static const string name; // init.cxx
     };
-
-    void
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
   }
 }
 

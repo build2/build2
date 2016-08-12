@@ -1,8 +1,8 @@
-// file      : build2/test/module.cxx -*- C++ -*-
+// file      : build2/test/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/module>
+#include <build2/test/init>
 
 #include <build2/scope>
 #include <build2/target>
