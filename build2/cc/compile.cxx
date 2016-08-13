@@ -283,12 +283,17 @@ namespace build2
       // We will just have to try all of the possible ones, in the "most
       // likely to match" order.
       //
-      const variable& var (var_pool["extension"]);
-
-      auto test = [&s, &n, &e, &var] (const target_type& tt) -> bool
+      auto test = [&s, &n, &e] (const target_type& tt) -> bool
       {
-        if (auto l = s.find (var, tt, n))
-          if (cast<string> (l) == e)
+        // Call the extension derivation function. Here we know that it will
+        // only use the target type and name from the target key so we can
+        // pass bogus values for the rest.
+        //
+        const string* dummy (nullptr);
+        target_key tk {&tt, nullptr, nullptr, &n, dummy};
+
+        if (const string* de = tt.extension (tk, s))
+          if (*de == e)
             return true;
 
         return false;

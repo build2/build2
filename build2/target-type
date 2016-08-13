@@ -31,7 +31,7 @@ namespace build2
   // respectively. If the extension function returns NULL, then that means the
   // default extension for this target could not be derived.
   //
-  // The extension function is used in two places: search_existing_file()
+  // The extension is primarily used in two places: search_existing_file()
   // (called for a prerequisite) and in target::derive_path() (called for a
   // target); see their implementations for details.
   //
