@@ -25,6 +25,8 @@ echo For example:
 echo.
 echo %0 cl.exe /nologo
 echo.
+echo See the INSTALL file for details.
+echo.
 goto end
 
 rem Clean up .obj files from all the directories passed as arguments.

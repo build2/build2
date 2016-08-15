@@ -20,6 +20,8 @@ echo example:
 echo.
 echo %0 g++ -O3
 echo.
+echo See the INSTALL file for details.
+echo.
 goto end
 
 :start

@@ -4,17 +4,20 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-usage="Usage: $0 [--help] [--cxx <compiler>] [--cxxflags <flags>] [<host>]"
+usage="Usage: $0 [-h] [--cxx <file>] [--libbutl <dir>] [--host <triplet>] [<options>]"
 
 cxx=g++
-cxxflags=
 libbutl=
 host=
 
 while test $# -ne 0; do
   case $1 in
-    --help)
+    -h|--help)
       echo "$usage" 1>&2
+      echo 1>&2
+      echo "The script expects to find the libbutl/ or libbutl-*/ directory either" 1>&2
+      echo "in the current directory (build2 root) or one level up." 1>&2
+      echo 1>&2
       echo "See the INSTALL file for details." 1>&2
       exit 0
       ;;
@@ -26,16 +29,6 @@ while test $# -ne 0; do
 	exit 1
       fi
       cxx=$1
-      shift
-      ;;
-    --cxxflags)
-      shift
-      if test $# -eq 0; then
-	echo "error: c++ compiler flags expected after --cxxflags" 1>&2
-	echo "$usage" 1>&2
-	exit 1
-      fi
-      cxxflags=$1
       shift
       ;;
     --libbutl)
@@ -52,9 +45,18 @@ while test $# -ne 0; do
       libbutl=$1
       shift
       ;;
-    *)
+    --host)
+      shift
+      if test $# -eq 0; then
+	echo "error: host triplet expected after --host" 1>&2
+	echo "$usage" 1>&2
+	exit 1
+      fi
       host=$1
       shift
+      ;;
+    *)
+      break
       ;;
   esac
 done
@@ -71,8 +73,6 @@ else
   fi
   host=$chost
 fi
-
-echo "using $host as build2 host" 1>&2
 
 # See if there is libbutl or libbutl-* in the current directory and
 # one directory up.
@@ -104,8 +104,6 @@ if test -z "$libbutl"; then
   exit 1
 fi
 
-cppflags='-DBUILD2_HOST_TRIPLET="'$host'"'
-
 src="build2/*.cxx"
 src="$src build2/config/*.cxx"
 src="$src build2/dist/*.cxx"
@@ -118,5 +116,5 @@ src="$src build2/test/*.cxx"
 src="$src build2/install/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
-echo $cxx -std=c++1y -I$libbutl -I. $cppflags $cxxflags -o build2/b-boot $src 1>&2
-exec $cxx -std=c++1y -I$libbutl -I. $cppflags $cxxflags -o build2/b-boot $src
+echo $cxx -I$libbutl -I. '-DBUILD2_HOST_TRIPLET="'$host'"' -std=c++1y $* -o build2/b-boot $src
+exec $cxx -I$libbutl -I. '-DBUILD2_HOST_TRIPLET="'$host'"' -std=c++1y $* -o build2/b-boot $src
