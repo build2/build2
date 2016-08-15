@@ -6,7 +6,8 @@ d = build2/ tests/ doc/
 
 ./: $d \
 doc{INSTALL LICENSE NEWS README version} \
-file{INSTALL.cli config.guess config.sub bootstrap.sh manifest}
+file{bootstrap.sh bootstrap-msvc.bat bootstrap-mingw.bat} \
+file{INSTALL.cli config.guess config.sub manifest}
 
 include $d
 

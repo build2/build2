@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# file      : bootstrap.sh
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 usage="Usage: $0 [--help] [--cxx <compiler>] [--cxxflags <flags>] [<host>]"
 
 cxx=g++
