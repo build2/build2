@@ -266,9 +266,6 @@ namespace build2
     // the target class (e.g., linux, windows, macosx).
     //
     {
-#ifndef BUILD2_HOST_TRIPLET
-#error BUILD2_HOST_TRIPLET is not defined
-#endif
       // Did the user ask us to use config.guess?
       //
       string orig (

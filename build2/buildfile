@@ -86,7 +86,7 @@ else
   var=cxx.host
 }
 
-obj{context}: cxx.poptions += -DBUILD2_HOST_TRIPLET='"'$($var)'"'
+obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET='"'$($var)'"'
 
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.
