@@ -12,7 +12,7 @@ later and Clang 3.4 or later are known to work.
 
 \c{build2} is self-hosted, which means that unless you have obtained a
 pre-built binary from somewhere else, you will need to bootstrap it. To
-accomplish this, use the '\c{bootstrap}' shell script found in the root
+accomplish this, use the '\c{bootstrap.sh}' shell script found in the root
 directory of the \c{build2} distribution. The following is the recommended
 sequence of steps:
 
@@ -31,13 +31,13 @@ build2/  (or build2-X.Y.Z/)
 
 \li|\n2. Bootstrapping\n
 
-Change to the \c{build2/} directory and execute \c{bootstrap} specifying
+Change to the \c{build2/} directory and execute \c{bootstrap.sh} specifying
 the C++ compiler to be used, if necessary (default is \c{g++}; run
-\c{./bootstrap --help} for other options). For example:
+\c{./bootstrap.sh --help} for other options). For example:
 
 \
 $ cd build2/
-$ ./bootstrap --cxx clang++-3.5
+$ ./bootstrap.sh --cxx clang++-3.5
 \
 
 Once the script completes successfully (which may take some time), the
