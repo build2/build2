@@ -49,6 +49,7 @@ exe{b}:                                       \
      cc/{hxx         cxx}{ module           } \
      cc/{            cxx}{ msvc             } \
      cc/{hxx         cxx}{ target           } \
+     cc/{hxx            }{ types            } \
      cc/{hxx ixx     cxx}{ utility          } \
      cc/{            cxx}{ windows-manifest } \
      cc/{            cxx}{ windows-rpath    } \
