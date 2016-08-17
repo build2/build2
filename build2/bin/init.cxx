@@ -62,6 +62,8 @@ namespace build2
         v.insert<strings>   ("config.bin.libs.lib", true);
         v.insert<dir_paths> ("config.bin.rpath",    true);
 
+        v.insert<string>    ("config.bin.prefix", true);
+        v.insert<string>    ("config.bin.suffix", true);
         v.insert<string>    ("config.bin.lib.prefix", true);
         v.insert<string>    ("config.bin.lib.suffix", true);
         v.insert<string>    ("config.bin.exe.prefix", true);
@@ -145,17 +147,25 @@ namespace build2
       // config.build if not specified. We also override any existing value
       // that might have been specified before loading the module.
       //
-      if (const value* v = omitted (r, "config.bin.lib.prefix").first)
-        b.assign ("bin.lib.prefix") = *v;
+      {
+        const value* p (omitted (r, "config.bin.prefix").first);
+        const value* s (omitted (r, "config.bin.suffix").first);
 
-      if (const value* v = omitted (r, "config.bin.lib.suffix").first)
-        b.assign ("bin.lib.suffix") = *v;
+        auto set = [&r, &b] (const char* bv, const char* cv, const value* v)
+        {
+          if (const value* o = omitted (r, cv).first)
+            v = o;
 
-      if (const value* v = omitted (r, "config.bin.exe.prefix").first)
-        b.assign ("bin.exe.prefix") = *v;
+          if (v != nullptr)
+            b.assign (bv) = *v;
+        };
 
-      if (const value* v = omitted (r, "config.bin.exe.suffix").first)
-        b.assign ("bin.exe.suffix") = *v;
+        set ("bin.lib.prefix", "config.bin.lib.prefix", p);
+        set ("bin.lib.suffix", "config.bin.lib.suffix", s);
+
+        set ("bin.exe.prefix", "config.bin.exe.prefix", p);
+        set ("bin.exe.suffix", "config.bin.exe.suffix", s);
+      }
 
       if (first)
       {
