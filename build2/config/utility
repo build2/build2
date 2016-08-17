@@ -72,12 +72,12 @@ namespace build2
     // out some fallback. See config.bin.target for an example.
     //
     pair<const value*, bool>
-    required (scope& root, const variable&);
+    omitted (scope& root, const variable&);
 
     inline pair<const value*, bool>
-    required (scope& root, const string& name)
+    omitted (scope& root, const string& name)
     {
-      return required (root, var_pool.find (name));
+      return omitted (root, var_pool.find (name));
     }
 
     // Set, if necessary, an optional config.* variable. In particular,

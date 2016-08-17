@@ -651,8 +651,9 @@ namespace build2
       //
       if (t.path ().empty ())
       {
-        const char* p (nullptr);
-        const char* e (nullptr);
+        const char* p (nullptr); // Prefix.
+        const char* s (nullptr); // Suffix.
+        const char* e (nullptr); // Extension.
 
         switch (lt)
         {
@@ -662,6 +663,9 @@ namespace build2
               e = "exe";
             else
               e = "";
+
+            if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
+            if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
 
             break;
           }
@@ -681,8 +685,8 @@ namespace build2
               e = "a";
             }
 
-            if (auto l = t["bin.libprefix"])
-              p = cast<string> (l).c_str ();
+            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
+            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
 
             break;
           }
@@ -710,14 +714,14 @@ namespace build2
               e = "so";
             }
 
-            if (auto l = t["bin.libprefix"])
-              p = cast<string> (l).c_str ();
+            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
+            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
 
             break;
           }
         }
 
-        t.derive_path (e, p);
+        t.derive_path (e, p, s);
       }
 
       // Add ad hoc group members.

@@ -17,8 +17,7 @@ namespace build2
               bool def_ovr,
               uint64_t save_flags)
     {
-      // Note: see also the other required() version if changing anything
-      // here.
+      // Note: see also omitted() if changing anything here.
 
       if (current_mif->id == configure_id)
         save_variable (root, var, save_flags);

@@ -45,7 +45,7 @@ namespace build2
       tracer trace ("bin::config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Enter configuration variables.
+      // Enter variables.
       //
       if (first)
       {
@@ -62,17 +62,28 @@ namespace build2
         v.insert<strings>   ("config.bin.libs.lib", true);
         v.insert<dir_paths> ("config.bin.rpath",    true);
 
+        v.insert<string>    ("config.bin.lib.prefix", true);
+        v.insert<string>    ("config.bin.lib.suffix", true);
+        v.insert<string>    ("config.bin.exe.prefix", true);
+        v.insert<string>    ("config.bin.exe.suffix", true);
+
         v.insert<string>    ("bin.lib");
         v.insert<strings>   ("bin.exe.lib");
         v.insert<strings>   ("bin.liba.lib");
         v.insert<strings>   ("bin.libs.lib");
         v.insert<dir_paths> ("bin.rpath");
+
+        v.insert<string>    ("bin.lib.prefix");
+        v.insert<string>    ("bin.lib.suffix");
+        v.insert<string>    ("bin.exe.prefix");
+        v.insert<string>    ("bin.exe.suffix");
       }
 
       // Configure.
       //
       using config::required;
       using config::optional;
+      using config::omitted;
 
       // Adjust module priority (binutils).
       //
@@ -128,6 +139,24 @@ namespace build2
       b.assign ("bin.rpath") += cast_null<dir_paths> (
         optional (r, "config.bin.rpath"));
 
+      // config.bin.{lib,exe}.{prefix,suffix}
+      //
+      // These ones are not used very often so we will omit them from the
+      // config.build if not specified. We also override any existing value
+      // that might have been specified before loading the module.
+      //
+      if (const value* v = omitted (r, "config.bin.lib.prefix").first)
+        b.assign ("bin.lib.prefix") = *v;
+
+      if (const value* v = omitted (r, "config.bin.lib.suffix").first)
+        b.assign ("bin.lib.suffix") = *v;
+
+      if (const value* v = omitted (r, "config.bin.exe.prefix").first)
+        b.assign ("bin.exe.prefix") = *v;
+
+      if (const value* v = omitted (r, "config.bin.exe.suffix").first)
+        b.assign ("bin.exe.suffix") = *v;
+
       if (first)
       {
         bool new_val (false); // Set any new values?
@@ -140,7 +169,7 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (required (r, var));
+          auto p (omitted (r, var));
           const value* v (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
@@ -216,7 +245,7 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (required (r, var));
+          auto p (omitted (r, var));
           const value* v (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
@@ -266,21 +295,12 @@ namespace build2
           scope& b,
           const location& loc,
           unique_ptr<module_base>&,
-          bool first,
+          bool,
           bool,
           const variable_map& hints)
     {
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << b.out_path ();});
-
-      // Enter the rest of the variables.
-      //
-      if (first)
-      {
-        auto& v (var_pool);
-
-        v.insert<string> ("bin.libprefix", true);
-      }
 
       // Load bin.config.
       //

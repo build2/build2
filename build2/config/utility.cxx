@@ -15,9 +15,9 @@ namespace build2
   namespace config
   {
     pair<const value*, bool>
-    required (scope& r, const variable& var)
+    omitted (scope& r, const variable& var)
     {
-      // This is a stripped-down version of the other required() twisted
+      // This is a stripped-down version of the required() twisted
       // implementation.
 
       pair<lookup, size_t> org (r.find_original (var));

@@ -61,7 +61,7 @@ namespace build2
         // default value every time will be a waste. So try without a default
         // first.
         //
-        auto p (config::required (r, config_x));
+        auto p (config::omitted (r, config_x));
 
         if (p.first == nullptr)
         {
