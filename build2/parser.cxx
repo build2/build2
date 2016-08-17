@@ -2363,8 +2363,10 @@ namespace build2
             {
               // Undefined/NULL namespace variables are not allowed.
               //
-              if (var.name.find ('.') != string::npos)
-                fail (loc) << "undefined/null namespace variable " << var.name;
+              // @@ TMP this isn't proving to be particularly useful.
+              //
+              //if (var.name.find ('.') != string::npos)
+              //fail (loc) << "undefined/null namespace variable " << var.name;
 
               // See if we should set the NULL indicator.
               //
