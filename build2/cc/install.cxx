@@ -4,6 +4,8 @@
 
 #include <build2/cc/install>
 
+#include <build2/algorithm>
+
 #include <build2/bin/target>
 
 #include <build2/cc/link>    // match()
