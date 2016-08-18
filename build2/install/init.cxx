@@ -33,7 +33,8 @@ namespace build2
     // configurations. We have to do this for paths that contain the
     // package name.
     //
-    // For global values we only set config.install.* variables.
+    // For global values we only set config.install.* variables. Non-global
+    // values with NULL defaults are omitted.
     //
     template <typename T, typename CT>
     static void
@@ -62,7 +63,9 @@ namespace build2
 
         cv = dv != nullptr
           ? &config::required (r, vr, *dv, override).first.get ()
-          : &config::optional (r, vr);
+          : (global
+             ? &config::optional (r, vr)
+             : config::omitted (r, vr).first);
       }
 
       if (global)
@@ -77,7 +80,7 @@ namespace build2
 
       if (spec)
       {
-        if (*cv && !cv->empty ()) // @@ BC LT [null]
+        if (cv != nullptr && *cv && !cv->empty ()) // @@ BC LT [null]
           v = cast<T> (*cv); // Strip CT to T.
       }
       else
