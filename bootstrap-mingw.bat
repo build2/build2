@@ -4,7 +4,7 @@ rem file      : bootstrap-mingw.bat
 rem copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 rem license   : MIT; see accompanying LICENSE file
 
-setlocal
+setlocal EnableDelayedExpansion
 goto start
 
 :usage
@@ -14,7 +14,7 @@ echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
 echo either in the current directory (build2 root) or one level up.
 echo.
-echo Note that is any cxx-option arguments are specified, then they must
+echo Note that if any cxx-option arguments are specified, then they must
 echo be preceded by the compiler executable (use g++ as the default). For
 echo example:
 echo.

@@ -19,7 +19,7 @@ echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
 echo either in the current directory (build2 root) or one level up.
 echo.
-echo Note that is any cl-option arguments are specified, then they must be
+echo Note that if any cl-option arguments are specified, then they must be
 echo preceded by the VC compiler executable (use cl.exe as the default).
 echo For example:
 echo.
@@ -38,6 +38,8 @@ rem
 goto :eof
 
 :start
+
+set "owd=%CD%"
 
 if "_%1_" == "_/?_" goto usage
 
@@ -108,19 +110,15 @@ rem VC dumps .obj files in the current directory not caring if the names
 rem clash. And boy do they clash.
 rem
 set "obj="
-set "cwd=%CD%"
 for %%d in (%src%) do (
   echo.
   echo compiling in %%d\
   echo.
   cd %%d
-  echo %cxx% /I%cwd%\%libbutl% /I%cwd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
-       %cxx% /I%cwd%\%libbutl% /I%cwd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
-  if errorlevel 1 (
-    cd %cwd%
-    goto error
-  )
-  cd %cwd%
+  echo %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
+       %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
+  if errorlevel 1 goto error
+  cd %owd%
   set "obj=!obj! %%d\*.obj"
 )
 
@@ -137,6 +135,7 @@ call :clean_obj %src%
 goto end
 
 :error
+cd %owd%
 endlocal
 exit /b 1
 
