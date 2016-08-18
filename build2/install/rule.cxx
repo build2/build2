@@ -395,12 +395,12 @@ namespace build2
               info << "did you forget to specify config." << var << "?";
         }
 
+        scope& s (t.base_scope ());
+
         // Override components in install_dir if we have our own.
         //
         if (var != nullptr)
         {
-          scope& s (t.base_scope ());
-
           if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (l);
           if (auto l = s[*var + ".cmd"])      r.cmd = cast<path> (l);
           if (auto l = s[*var + ".mode"])     r.mode = cast<string> (l);
@@ -429,11 +429,24 @@ namespace build2
           }
         }
 
-        // Set defaults for unspecified components.
+        // Set globals for unspecified components.
         //
-        if (r.cmd.empty ()) r.cmd = path ("install");
-        if (r.mode.empty ()) r.mode = "644";
-        if (r.dir_mode.empty ()) r.dir_mode = "755";
+        if (r.sudo.empty ())
+          if (auto l = s["config.install.sudo"])
+            r.sudo = cast<string> (l);
+
+        if (r.cmd.empty ())
+          r.cmd = cast<path> (s["config.install.cmd"]);
+
+        if (r.options.empty ())
+          if (auto l = s["config.install.options"])
+            r.options = cast<strings> (l);
+
+        if (r.mode.empty ())
+          r.mode = cast<string> (s["config.install.mode"]);
+
+        if (r.dir_mode.empty ())
+          r.dir_mode = cast<string> (s["config.install.dir_mode"]);
 
         // If the directory still doesn't exist, then this means it was
         // specified as absolute (it will normally be install.root with

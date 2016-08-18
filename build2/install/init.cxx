@@ -33,6 +33,8 @@ namespace build2
     // configurations. We have to do this for paths that contain the
     // package name.
     //
+    // For global values we only set config.install.* variables.
+    //
     template <typename T, typename CT>
     static void
     set_var (bool spec,
@@ -45,10 +47,16 @@ namespace build2
       string vn;
       const value* cv (nullptr);
 
+      bool global (*name == '\0');
+
       if (spec)
       {
-        vn = "config.install.";
-        vn += name;
+        vn = "config.install";
+        if (!global)
+        {
+          vn += '.';
+          vn += name;
+        }
         vn += var;
         const variable& vr (var_pool.insert<CT> (move (vn), true));
 
@@ -56,6 +64,9 @@ namespace build2
           ? &config::required (r, vr, *dv, override).first.get ()
           : &config::optional (r, vr);
       }
+
+      if (global)
+        return;
 
       vn = "install.";
       vn += name;
@@ -89,16 +100,21 @@ namespace build2
     {
       using build2::path;
 
-      set_var<dir_path> (s, r, n, "",          p.empty ()  ? nullptr : &p, o);
+      bool global (*n == '\0');
+
+      if (!global)
+        set_var<dir_path> (s, r, n, "",        p.empty ()  ? nullptr : &p, o);
+
+      set_var<path>     (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<strings>  (s, r, n, ".options",  (strings*) (nullptr));
       set_var<string>   (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
       set_var<string>   (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
       set_var<string>   (s, r, n, ".sudo",     (string*) (nullptr));
-      set_var<path>     (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
-      set_var<strings>  (s, r, n, ".options",  (strings*) (nullptr));
 
       // This one doesn't have config.* value (only set in a buildfile).
       //
-      var_pool.insert<bool> (string ("install.") + n + ".subdirs");
+      if (!global)
+        var_pool.insert<bool> (string ("install.") + n + ".subdirs");
     }
 
     static alias_rule alias_;
@@ -115,6 +131,8 @@ namespace build2
       //
       r.operations.insert (install_id, install);
     }
+
+    static const path cmd ("install");
 
     static const dir_path dir_root ("root");
 
@@ -189,9 +207,13 @@ namespace build2
 
         const string& n (cast<string> (r["project"]));
 
-        set_dir (s, r, "root",      abs_dir_path (), false, "", "755", path ("install"));
+        // Global config.install.* values.
+        //
+        set_dir (s, r, "",          abs_dir_path (), false, "644", "755", cmd);
 
-        set_dir (s, r, "data_root", dir_root, false, "644");
+        set_dir (s, r, "root",      abs_dir_path ());
+
+        set_dir (s, r, "data_root", dir_root);
         set_dir (s, r, "exec_root", dir_root, false, "755");
 
         set_dir (s, r, "sbin",      dir_sbin);
