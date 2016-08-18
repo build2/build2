@@ -6,12 +6,6 @@ namespace build2
 {
   namespace cc
   {
-    inline ostream&
-    operator<< (ostream& os, lang l)
-    {
-      return os << (l == lang::c ? "C" : "C++");
-    }
-
     inline otype
     compile_type (target& t)
     {

@@ -16,8 +16,11 @@ namespace build2
     //
     enum class lang {c, cxx};
 
-    ostream&
-    operator<< (ostream&, lang); // utility.ixx
+    inline ostream&
+    operator<< (ostream& os, lang l)
+    {
+      return os << (l == lang::c ? "C" : "C++");
+    }
 
     // Compile/link output type (executable, static, or shared).
     //
