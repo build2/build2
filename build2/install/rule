@@ -44,6 +44,9 @@ namespace build2
 
       static target_state
       perform_install (action, target&);
+
+      static target_state
+      perform_uninstall (action, target&);
     };
   }
 }

@@ -218,6 +218,7 @@ namespace build2
           "c.compile",
           "c.link",
           "c.install",
+          "c.uninstall",
 
           cast<string> (r[cm.x_id]),
           cast<string> (r[cm.x_target]),

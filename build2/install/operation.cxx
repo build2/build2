@@ -29,5 +29,25 @@ namespace build2
       &install_pre,
       nullptr
     };
+
+    // Note that we run update as a pre-operation, just like install. Which
+    // may seem bizarre at first. We do it to obtain the exact same dependency
+    // graph as install so that we uninstall exactly the same set of files as
+    // install would install. Note that just matching the rules without
+    // executing them may not be enough: for example, a presence of an ad hoc
+    // group member may only be discovered after executing the rule (e.g., VC
+    // link.exe only creates a DLL's import library if there are any exported
+    // symbols).
+    //
+    operation_info uninstall {
+      uninstall_id,
+      "uninstall",
+      "uninstall",
+      "uninstalling",
+      "is not installed",
+      execution_mode::last,
+      &install_pre,
+      nullptr
+    };
   }
 }

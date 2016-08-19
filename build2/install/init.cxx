@@ -130,9 +130,10 @@ namespace build2
 
       l5 ([&]{trace << "for " << r.out_path ();});
 
-      // Register the install operation.
+      // Register the install and uninstall operations.
       //
       r.operations.insert (install_id, install);
+      r.operations.insert (uninstall_id, uninstall);
     }
 
     static const path cmd ("install");
@@ -186,10 +187,13 @@ namespace build2
         v.insert<string> ("install.mode");
       }
 
-      // Register our alias and file installer rule.
+      // Register our alias and file rules.
       //
-      b.rules.insert<alias> (perform_install_id, "install.alias", alias_);
-      b.rules.insert<file> (perform_install_id, "install.file", file_);
+      b.rules.insert<alias> (perform_install_id,   "install.alias", alias_);
+      b.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", alias_);
+
+      b.rules.insert<file> (perform_install_id,   "install.file", file_);
+      b.rules.insert<file> (perform_uninstall_id, "uinstall.file", file_);
 
       // Configuration.
       //

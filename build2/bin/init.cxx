@@ -399,6 +399,7 @@ namespace build2
         //   modules before all others?
         //
         r.insert<lib> (perform_install_id, "bin.lib", lib_);
+        r.insert<lib> (perform_uninstall_id, "bin.lib", lib_);
       }
 
       return true;

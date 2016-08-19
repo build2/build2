@@ -84,6 +84,7 @@ namespace build2
       const char* x_compile; // Rule names.
       const char* x_link;
       const char* x_install;
+      const char* x_uninstall;
 
       // Cached values for some commonly-used variables.
       //
@@ -122,6 +123,7 @@ namespace build2
             const char* compile,
             const char* link,
             const char* install,
+            const char* uninstall,
             const string& id,
             const string& tg,
             const string& sys,
@@ -130,7 +132,10 @@ namespace build2
             const target_type* const* hdr,
             const target_type* const* inc)
           : config_data (cd),
-            x_compile (compile), x_link (link), x_install (install),
+            x_compile (compile),
+            x_link (link),
+            x_install (install),
+            x_uninstall (uninstall),
             cid (id), ctg (tg), tsys (sys), tclass (class_),
             x_src (src), x_hdr (hdr), x_inc (inc) {}
     };

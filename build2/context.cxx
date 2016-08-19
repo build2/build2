@@ -74,6 +74,7 @@ namespace build2
     operation_table.insert ("clean");
     operation_table.insert ("test");
     operation_table.insert ("install");
+    operation_table.insert ("uninstall");
 
     // Create global scope. For Win32 this is not a "real" root path.
     // On POSIX, however, this is a real path. See the comment in

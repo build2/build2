@@ -78,7 +78,6 @@ namespace build2
 
     // file_rule
     //
-
     match_result file_rule::
     match (action a, target& t, const string&) const
     {
@@ -119,11 +118,11 @@ namespace build2
       //
       // 1. This target is installable.
       // 2. The action is either
-      //    a. (perform, install, 0) or
-      //    b. (*, update, install)
+      //    a. (perform, [un]install, 0) or
+      //    b. (*, update, [un]install)
       //
-      // In both cases, the next step is to search, match, and collect
-      // all the installable prerequisites.
+      // In both cases, the next step is to search, match, and collect all the
+      // installable prerequisites.
       //
       // @@ Perhaps if [noinstall] will be handled by the
       // group_prerequisite_members machinery, then we can just
@@ -147,7 +146,7 @@ namespace build2
         if (pt == nullptr)
           continue;
 
-        // See if were explicitly instructed not to install this target.
+        // See if we were explicitly instructed not to touch this target.
         //
         auto l ((*pt)["install"]);
         if (l && cast<dir_path> (l).string () == "false")
@@ -218,21 +217,126 @@ namespace build2
         };
       }
       else
-        return &perform_install;
+        return a.operation () == uninstall_id
+          ? &perform_uninstall
+          : &perform_install;
     }
 
     struct install_dir
     {
-      // @@ Why do we copy these? Why not just point to the values in vars?
-      //
-
       dir_path dir;
-      string sudo;
-      path cmd;
-      strings options;
-      string mode;
-      string dir_mode;
+
+      // If not NULL, then point to the corresponding install.* value.
+      //
+      const string* sudo      = nullptr;
+      const path*   cmd       = nullptr;
+      const strings* options  = nullptr;
+      const string*  mode     = nullptr;
+      const string*  dir_mode = nullptr;
+
+      explicit
+      install_dir (dir_path d = dir_path ()): dir (move (d)) {}
+
+      install_dir (dir_path d, const install_dir& b)
+          : dir (move (d)),
+            sudo (b.sudo),
+            cmd (b.cmd),
+            options (b.options),
+            mode (b.mode),
+            dir_mode (b.dir_mode) {}
     };
+
+    using install_dirs = vector<install_dir>;
+
+    // Resolve installation directory name to absolute directory path. Return
+    // all the super-directories leading up to the destination (last).
+    //
+    static install_dirs
+    resolve (target& t, dir_path d, const string* var = nullptr)
+    {
+      install_dirs rs;
+
+      if (d.absolute ())
+        rs.emplace_back (move (d.normalize ()));
+      else
+      {
+        // If it is relative, then the first component is treated as the
+        // installation directory name, e.g., bin, sbin, lib, etc. Look it
+        // up and recurse.
+        //
+        const string& sn (*d.begin ());
+        const string var ("install." + sn);
+        if (const dir_path* dn = lookup (t.base_scope (), var))
+        {
+          rs = resolve (t, *dn, &var);
+          d = rs.back ().dir / dir_path (++d.begin (), d.end ());
+          rs.emplace_back (move (d.normalize ()), rs.back ());
+        }
+        else
+          fail << "unknown installation directory name " << sn <<
+            info << "did you forget to specify config." << var << "?";
+      }
+
+      install_dir* r (&rs.back ());
+      scope& s (t.base_scope ());
+
+      // Override components in install_dir if we have our own.
+      //
+      if (var != nullptr)
+      {
+        if (auto l = s[*var + ".sudo"])     r->sudo     = &cast<string> (l);
+        if (auto l = s[*var + ".cmd"])      r->cmd      = &cast<path> (l);
+        if (auto l = s[*var + ".mode"])     r->mode     = &cast<string> (l);
+        if (auto l = s[*var + ".dir_mode"]) r->dir_mode = &cast<string> (l);
+        if (auto l = s[*var + ".options"])  r->options  = &cast<strings> (l);
+
+        if (auto l = s[*var + ".subdirs"])
+        {
+          if (cast<bool> (l))
+          {
+            // Find the scope from which this value came and use as a base
+            // to calculate the subdirectory.
+            //
+            for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
+            {
+              if (l.belongs (*p)) // Ok since no target/type in lookup.
+              {
+                // The target can be in out or src.
+                //
+                const dir_path& d (
+                  (t.out.empty () ? t.dir : t.out).leaf (p->out_path ()));
+
+                // Add it as another leading directory rather than modifying
+                // the last one directly; somehow, it feels right.
+                //
+                rs.emplace_back (r->dir / d, rs.back ());
+                r = &rs.back ();
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // Set globals for unspecified components.
+      //
+      if (r->sudo == nullptr)
+        r->sudo = cast_null<string> (s["config.install.sudo"]);
+
+      if (r->cmd == nullptr)
+        r->cmd = &cast<path> (s["config.install.cmd"]);
+
+      if (r->options == nullptr)
+        r->options = cast_null<strings> (s["config.install.options"]);
+
+      if (r->mode == nullptr)
+        r->mode = &cast<string> (s["config.install.mode"]);
+
+      if (r->dir_mode == nullptr)
+        r->dir_mode = &cast<string> (s["config.install.dir_mode"]);
+
+      return rs;
+    }
 
     // On Windows we use MSYS2 install.exe and MSYS2 by default ignores
     // filesystem permissions (noacl mount option). And this means, for
@@ -260,9 +364,34 @@ namespace build2
 
     // install -d <dir>
     //
+    // If verbose is false, then only print the command at verbosity level 2
+    // or higher.
+    //
     static void
-    install (const install_dir& base, const dir_path& d)
+    install (const install_dir& base, const dir_path& d, bool verbose = true)
     {
+      try
+      {
+        if (dir_exists (d)) // May throw (e.g., EACCES).
+          return;
+      }
+      catch (const system_error& e)
+      {
+        fail << "invalid installation directory " << d << ": " << e.what ();
+      }
+
+      // While install -d will create all the intermediate components between
+      // base and dir, we do it explicitly, one at a time. This way the output
+      // is symmetrical to uninstall() below.
+      //
+      if (d != base.dir)
+      {
+        dir_path pd (d.directory ());
+
+        if (pd != base.dir)
+          install (base, pd, verbose);
+      }
+
       cstrings args;
 
       dir_path reld (
@@ -270,23 +399,23 @@ namespace build2
         ? msys_path (d)
         : relative (d));
 
-      if (!base.sudo.empty ())
-        args.push_back (base.sudo.c_str ());
+      if (base.sudo != nullptr)
+        args.push_back (base.sudo->c_str ());
 
-      args.push_back (base.cmd.string ().c_str ());
+      args.push_back (base.cmd->string ().c_str ());
       args.push_back ("-d");
 
-      if (!base.options.empty ())
-        append_options (args, base.options);
+      if (base.options != nullptr)
+        append_options (args, *base.options);
 
       args.push_back ("-m");
-      args.push_back (base.dir_mode.c_str ());
+      args.push_back (base.dir_mode->c_str ());
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
       if (verb >= 2)
         print_process (args);
-      else if (verb)
+      else if (verb && verbose)
         text << "install " << d;
 
       try
@@ -324,16 +453,16 @@ namespace build2
 
       cstrings args;
 
-      if (!base.sudo.empty ())
-        args.push_back (base.sudo.c_str ());
+      if (base.sudo != nullptr)
+        args.push_back (base.sudo->c_str ());
 
-      args.push_back (base.cmd.string ().c_str ());
+      args.push_back (base.cmd->string ().c_str ());
 
-      if (!base.options.empty ())
-        append_options (args, base.options);
+      if (base.options != nullptr)
+        append_options (args, *base.options);
 
       args.push_back ("-m");
-      args.push_back (base.mode.c_str ());
+      args.push_back (base.mode->c_str ());
       args.push_back (relf.string ().c_str ());
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
@@ -361,114 +490,6 @@ namespace build2
       }
     }
 
-    // Resolve installation directory name to absolute directory path,
-    // creating leading directories as necessary.
-    //
-    static install_dir
-    resolve (target& t, dir_path d, const string* var = nullptr)
-    {
-      install_dir r;
-
-      try
-      {
-        if (d.absolute ())
-          r.dir = move (d.normalize ());
-        else
-        {
-          // If it is relative, then the first component is treated
-          // as the installation directory name, e.g., bin, sbin, lib,
-          // etc. Look it up and recurse.
-          //
-          const string& sn (*d.begin ());
-          const string var ("install." + sn);
-          if (const dir_path* dn = lookup (t.base_scope (), var))
-          {
-            r = resolve (t, *dn, &var);
-            d = r.dir / dir_path (++d.begin (), d.end ());
-            r.dir = move (d.normalize ());
-
-            if (!dir_exists (r.dir)) // May throw (e.g., EACCES).
-              install (r, r.dir); // install -d
-          }
-          else
-            fail << "unknown installation directory name " << sn <<
-              info << "did you forget to specify config." << var << "?";
-        }
-
-        scope& s (t.base_scope ());
-
-        // Override components in install_dir if we have our own.
-        //
-        if (var != nullptr)
-        {
-          if (auto l = s[*var + ".sudo"])     r.sudo = cast<string> (l);
-          if (auto l = s[*var + ".cmd"])      r.cmd = cast<path> (l);
-          if (auto l = s[*var + ".mode"])     r.mode = cast<string> (l);
-          if (auto l = s[*var + ".dir_mode"]) r.dir_mode = cast<string> (l);
-          if (auto l = s[*var + ".options"])  r.options = cast<strings> (l);
-
-          if (auto l = s[*var + ".subdirs"])
-          {
-            if (cast<bool> (l))
-            {
-              // Find the scope from which this value came and use as a base
-              // to calculate the subdirectory.
-              //
-              for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
-              {
-                if (l.belongs (*p)) // Ok since no target/type in lookup.
-                {
-                  // The target can be in out or src.
-                  //
-                  r.dir /= (t.out.empty () ? t.dir : t.out).leaf (
-                    p->out_path ());
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        // Set globals for unspecified components.
-        //
-        if (r.sudo.empty ())
-          if (auto l = s["config.install.sudo"])
-            r.sudo = cast<string> (l);
-
-        if (r.cmd.empty ())
-          r.cmd = cast<path> (s["config.install.cmd"]);
-
-        if (r.options.empty ())
-          if (auto l = s["config.install.options"])
-            r.options = cast<strings> (l);
-
-        if (r.mode.empty ())
-          r.mode = cast<string> (s["config.install.mode"]);
-
-        if (r.dir_mode.empty ())
-          r.dir_mode = cast<string> (s["config.install.dir_mode"]);
-
-        // If the directory still doesn't exist, then this means it was
-        // specified as absolute (it will normally be install.root with
-        // everything else defined in term of it). We used to fail in this
-        // case but that proved to be just too anal. So now we create it.
-        //
-        // Also, with the .subdirs logic we may end up with a non-existent
-        // subdirectory.
-        //
-        if (!dir_exists (r.dir)) // May throw (e.g., EACCES).
-          // fail << "installation directory " << d << " does not exist";
-          install (r, r.dir); // install -d
-      }
-      catch (const system_error& e)
-      {
-        fail << "invalid installation directory " << r.dir << ": "
-             << e.what ();
-      }
-
-      return r;
-    }
-
     target_state file_rule::
     perform_install (action a, target& xt)
     {
@@ -477,14 +498,23 @@ namespace build2
 
       auto install_target = [](file& t, const dir_path& d, bool verbose)
       {
-        // Resolve and, if necessary, create target directory.
+        // Resolve target directory.
         //
-        install_dir id (resolve (t, d));
+        install_dirs ids (resolve (t, d));
+
+        // Create leading directories. Note that we are using the leading
+        // directory (if there is one) for the creation information (mode,
+        // sudo, etc).
+        //
+        for (auto i (ids.begin ()), j (i); i != ids.end (); j = i++)
+          install (*j, i->dir, verbose); // install -d
+
+        install_dir& id (ids.back ());
 
         // Override mode if one was specified.
         //
         if (auto l = t["install.mode"])
-          id.mode = cast<string> (l);
+          id.mode = &cast<string> (l);
 
         install (id, t, verbose);
       };
@@ -507,6 +537,240 @@ namespace build2
       install_target (t, cast<dir_path> (t["install"]), true);
 
       return (r |= target_state::changed);
+    }
+
+    // uninstall -d <dir>
+    //
+    // We try remove all the directories between base and dir but not base
+    // itself unless base == dir. Return false if nothing has been removed
+    // (i.e., the directories do not exist or are not empty).
+    //
+    // If verbose is false, then only print the command at verbosity level 2
+    // or higher.
+    //
+    static bool
+    uninstall (const install_dir& base, const dir_path& d, bool verbose = true)
+    {
+      // Figure out if we should try to remove this directory. Note that if
+      // it doesn't exist, then we may still need to remove outer ones.
+      //
+      bool r (false);
+      try
+      {
+        if ((r = dir_exists (d))) // May throw (e.g., EACCES).
+        {
+          if (!dir_empty (d)) // May also throw.
+            return false; // Won't be able to remove any outer directories.
+        }
+      }
+      catch (const system_error& e)
+      {
+        fail << "invalid installation directory " << d << ": " << e.what ();
+      }
+
+      if (r)
+      {
+        dir_path reld (relative (d));
+
+        // Normally when we need to remove a file or directory we do it
+        // directly without calling rm/rmdir. This however, won't work if we
+        // have sudo. So we are going to do it both ways. Thankfully, no sudo
+        // on Windows.
+        //
+        if (base.sudo == nullptr)
+        {
+          if (verb >= 2)
+            text << "rmdir " << reld;
+          else if (verb && verbose)
+            text << "uninstall " << reld;
+
+          try
+          {
+            try_rmdir (d);
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to remove directory " << d << ": " << e.what ();
+          }
+        }
+        else
+        {
+          cstrings args {base.sudo->c_str (),
+                         "rmdir",
+                         reld.string ().c_str (),
+                         nullptr};
+
+          if (verb >= 2)
+            print_process (args);
+          else if (verb && verbose)
+            text << "uninstall " << reld;
+
+          try
+          {
+            process pr (args.data ());
+
+            if (!pr.wait ())
+              throw failed ();
+          }
+          catch (const process_error& e)
+          {
+            error << "unable to execute " << args[0] << ": " << e.what ();
+
+            if (e.child ())
+              exit (1);
+
+            throw failed ();
+          }
+        }
+      }
+
+      // If we have more empty directories between base and dir, then try
+      // to clean them up as well.
+      //
+      if (d != base.dir)
+      {
+        dir_path pd (d.directory ());
+
+        if (pd != base.dir)
+          r = uninstall (base, pd, verbose) || r;
+      }
+
+      return r;
+    }
+
+    // uninstall <file> <dir>
+    //
+    // Return false if nothing has been removed (i.e., the file does not
+    // exist).
+    //
+    // If verbose is false, then only print the command at verbosity level 2
+    // or higher.
+    //
+    static bool
+    uninstall (const install_dir& base, file& t, bool verbose = true)
+    {
+      path f (base.dir / t.path ().leaf ());
+
+      try
+      {
+        if (!file_exists (f)) // May throw (e.g., EACCES).
+          return false;
+      }
+      catch (const system_error& e)
+      {
+        fail << "invalid installation path " << f << ": " << e.what ();
+      }
+
+      path relf (relative (f));
+
+      // The same story as with uninstall -d.
+      //
+      if (base.sudo == nullptr)
+      {
+        if (verb >= 2)
+          text << "rm " << relf;
+        else if (verb && verbose)
+          text << "uninstall " << t;
+
+        try
+        {
+          try_rmfile (f);
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to remove file " << f << ": " << e.what ();
+        }
+      }
+      else
+      {
+        cstrings args {base.sudo->c_str (),
+                       "rm",
+                       "-f",
+                       relf.string ().c_str (),
+                       nullptr};
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb && verbose)
+          text << "uninstall " << t;
+
+        try
+        {
+          process pr (args.data ());
+
+          if (!pr.wait ())
+            throw failed ();
+        }
+        catch (const process_error& e)
+        {
+          error << "unable to execute " << args[0] << ": " << e.what ();
+
+          if (e.child ())
+            exit (1);
+
+          throw failed ();
+        }
+      }
+
+      return true;
+    }
+
+    target_state file_rule::
+    perform_uninstall (action a, target& xt)
+    {
+      file& t (static_cast<file&> (xt));
+      assert (!t.path ().empty ()); // Should have been assigned by update.
+
+      auto uninstall_target = [](file& t, const dir_path& d, bool verbose)
+        -> target_state
+      {
+        // Resolve target directory.
+        //
+        install_dirs ids (resolve (t, d));
+
+        // Remove the target itself.
+        //
+        target_state r (uninstall (ids.back (), t, verbose)
+                        ? target_state::changed
+                        : target_state::unchanged);
+
+        // Clean up empty leading directories (in reverse).
+        //
+        // Note that we are using the leading directory (if there is one)
+        // for the clean up information (sudo, etc).
+        //
+        for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
+        {
+          if (uninstall (++j != e ? *j : *i, i->dir, verbose))
+            r |= target_state::changed;
+        }
+
+        return r;
+      };
+
+      // Reverse order of installation: first the target itself (since we got
+      // here we know the install variable is there).
+      //
+      target_state r (
+        uninstall_target (t, cast<dir_path> (t["install"]), true));
+
+      // Then installable ad hoc group members, if any. To be anally precise
+      // we would have to do it in reverse, but that's not easy (it's a
+      // single-linked list).
+      //
+      for (target* m (t.member); m != nullptr; m = m->member)
+      {
+        if (const dir_path* d = lookup (*m, "install"))
+          r |= uninstall_target (static_cast<file&> (*m),
+                                 *d,
+                                 r != target_state::changed);
+      }
+
+      // Finally handle installable prerequisites.
+      //
+      r |= reverse_execute_prerequisites (a, t);
+
+      return r;
     }
   }
 }

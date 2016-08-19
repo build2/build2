@@ -595,8 +595,12 @@ namespace build2
       // "library meta-information protocol". Don't do this if we are
       // called from the install rule just to check if we would match.
       //
+      auto op (a.operation ());
+      auto oop (a.outer_operation ());
+
       if (seen_lib && lt != otype::e &&
-          a.operation () != install_id && a.outer_operation () != install_id)
+          op != install_id   && oop != install_id &&
+          op != uninstall_id && oop != uninstall_id)
       {
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s
@@ -1087,6 +1091,8 @@ namespace build2
     {
       tracer trace (x, "link::perform_update");
 
+      auto oop (a.outer_operation ());
+
       file& t (static_cast<file&> (xt));
 
       scope& rs (t.root_scope ());
@@ -1107,7 +1113,7 @@ namespace build2
         // assembly itself is generated later, after updating the target. Omit
         // it if we are updating for install.
         //
-        if (a.outer_operation () != install_id)
+        if (oop != install_id && oop != uninstall_id)
           rpath_timestamp = windows_rpath_timestamp (t);
 
         path mf (
@@ -1354,7 +1360,7 @@ namespace build2
           {
             if (libs* ls = pt->is_a<libs> ())
             {
-              if (a.outer_operation () != install_id)
+              if (oop != install_id && oop != uninstall_id)
               {
                 sargs.push_back ("-Wl,-rpath," +
                                  ls->path ().directory ().string ());
@@ -1781,7 +1787,7 @@ namespace build2
       //
       if (lt == otype::e && tclass == "windows")
       {
-        if (a.outer_operation () != install_id)
+        if (oop != install_id && oop != uninstall_id)
           windows_rpath_assembly (t,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,

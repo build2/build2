@@ -225,6 +225,7 @@ namespace build2
           "cxx.compile",
           "cxx.link",
           "cxx.install",
+          "cxx.uninstall",
 
           cast<string> (r[cm.x_id]),
           cast<string> (r[cm.x_target]),

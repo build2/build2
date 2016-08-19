@@ -15,6 +15,7 @@ namespace build2
   namespace install
   {
     extern operation_info install;
+    extern operation_info uninstall;
   }
 }
 

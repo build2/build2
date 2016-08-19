@@ -108,16 +108,18 @@ namespace build2
   // that no operation was explicitly specified by the user. If adding
   // something here remember to update the man page.
   //
-  const operation_id default_id = 1; // Shall be first.
-  const operation_id update_id = 2;
-  const operation_id clean_id  = 3;
-  const operation_id test_id = 4;
-  const operation_id install_id = 5;
+  const operation_id default_id   = 1; // Shall be first.
+  const operation_id update_id    = 2;
+  const operation_id clean_id     = 3;
+  const operation_id test_id      = 4;
+  const operation_id install_id   = 5;
+  const operation_id uninstall_id = 6;
 
-  const action_id perform_update_id   = (perform_id << 4) | update_id;
-  const action_id perform_clean_id    = (perform_id << 4) | clean_id;
-  const action_id perform_test_id     = (perform_id << 4) | test_id;
-  const action_id perform_install_id  = (perform_id << 4) | install_id;
+  const action_id perform_update_id     = (perform_id << 4) | update_id;
+  const action_id perform_clean_id      = (perform_id << 4) | clean_id;
+  const action_id perform_test_id       = (perform_id << 4) | test_id;
+  const action_id perform_install_id    = (perform_id << 4) | install_id;
+  const action_id perform_uninstall_id  = (perform_id << 4) | uninstall_id;
 
   const action_id configure_update_id   = (configure_id << 4) | update_id;
 
@@ -140,7 +142,7 @@ namespace build2
   // If we use the last/back mode for, say, clean, then we will remove
   // targets in the order inverse to the way they were updated. While
   // this sounds like an elegant idea, are there any practical benefits
-  // of doing it this way. As it turns out there is (at least) one: when
+  // of doing it this way? As it turns out there is (at least) one: when
   // we are removing a directory (see fsdir{}), we want to do it after
   // all the targets that depend on it (such as files, sub-directories)
   // were removed. If we do it before, then the directory won't be empty
