@@ -9,21 +9,20 @@ goto start
 
 :usage
 echo.
-echo Usage: %0 [/?] [cl-exe [cl-option...]]
+echo Usage: %0 [/?] ^<cxx^> [^<cxx-option^>...]
 echo.
 echo Normally this batch file is executed from one of the Visual Studio
-echo command prompts. It assume that the VC compiler can be executed as
-echo just cl.exe and that all the relevant environment variables (INCLUDE,
-echo LIB) are set.
+echo command prompts with cl.exe as the compiler executable (^<cxx^>).
+echo It assumes that all the relevant compiler environment variables
+echo (INCLUDE, LIB) are set.
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
-echo either in the current directory (build2 root) or one level up.
+echo either in the current directory (build2 root) or one level up. The
+echo result is saved as build2\b-boot.exe.
 echo.
-echo Note that if any cl-option arguments are specified, then they must be
-echo preceded by the VC compiler executable (use cl.exe as the default).
-echo For example:
+echo Example usage:
 echo.
-echo %0 cl.exe /nologo
+echo %0 cl
 echo.
 echo See the INSTALL file for details.
 echo.
@@ -37,11 +36,36 @@ rem
   )
 goto :eof
 
+:compile
+  rem Note that echo does not override errorlevel.
+  rem
+  echo on
+  %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP %*
+  @echo off
+  if errorlevel 1 goto error
+goto :eof
+
+:link
+  echo on
+  %cxx% %ops% %*
+  @echo off
+  if errorlevel 1 goto error
+goto :eof
+
 :start
 
 set "owd=%CD%"
 
 if "_%1_" == "_/?_" goto usage
+
+rem Compiler executable.
+rem
+if "_%1_" == "__" (
+  echo error: compiler executable expected, run %0 /? for details
+  goto error
+) else (
+  set "cxx=%1"
+)
 
 rem See if there is libbutl or libbutl-* in the current directory and one
 rem directory up. Note that globbing returns paths in alphabetic order.
@@ -79,14 +103,6 @@ set "src=%src% build2\test"
 set "src=%src% build2\install"
 set "src=%src% %libbutl%\butl"
 
-rem Get the compiler executable.
-rem
-if "_%1_" == "__" (
-  set "cxx=cl.exe"
-) else (
-  set "cxx=%1"
-)
-
 rem Get the compile options.
 rem
 set "ops=/nologo /EHsc /MT /MP"
@@ -111,27 +127,20 @@ rem clash. And boy do they clash.
 rem
 set "obj="
 for %%d in (%src%) do (
-  echo.
-  echo compiling in %%d\
-  echo.
   cd %%d
-  echo %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
-       %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP *.cxx
-  if errorlevel 1 goto error
+  call :compile *.cxx
   cd %owd%
   set "obj=!obj! %%d\*.obj"
 )
 
 rem Link.
 rem
-echo.
-echo %cxx% %ops% /Fe: build2\b-boot.exe %obj% shell32.lib
-     %cxx% %ops% /Fe: build2\b-boot.exe %obj% shell32.lib
-if errorlevel 1 goto error
+call :link /Fe: build2\b-boot.exe %obj% shell32.lib
 
-rem Clean up .obj.
+rem Clean up.
 rem
 call :clean_obj %src%
+
 goto end
 
 :error

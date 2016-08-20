@@ -9,16 +9,15 @@ goto start
 
 :usage
 echo.
-echo Usage: %0 [/?] [cxx [cxx-option...]]
+echo Usage: %0 [/?] ^<cxx^> [^<cxx-option^>...]
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
-echo either in the current directory (build2 root) or one level up.
+echo either in the current directory (build2 root) or one level up. The
+echo result is saved as build2\b-boot.exe.
 echo.
-echo Note that if any cxx-option arguments are specified, then they must
-echo be preceded by the compiler executable (use g++ as the default). For
-echo example:
+echo Example usage:
 echo.
-echo %0 g++ -O3
+echo %0 C:\mingw\bin\g++ -static
 echo.
 echo See the INSTALL file for details.
 echo.
@@ -27,6 +26,15 @@ goto end
 :start
 
 if "_%1_" == "_/?_" goto usage
+
+rem Compiler executable.
+rem
+if "_%1_" == "__" (
+  echo error: compiler executable expected, run %0 /? for details
+  goto error
+) else (
+  set "cxx=%1"
+)
 
 rem See if there is libbutl or libbutl-* in the current directory and one
 rem directory up. Note that globbing returns paths in alphabetic order.
@@ -64,17 +72,9 @@ set "src=%src% build2\test\*.cxx"
 set "src=%src% build2\install\*.cxx"
 set "src=%src% %libbutl%\butl\*.cxx"
 
-rem Get the compiler executable.
-rem
-if "_%1_" == "__" (
-  set "cxx=g++"
-) else (
-  set "cxx=%1"
-)
-
 rem Get the compile options.
 rem
-set "ops=-std=c++1y -static"
+set "ops=-std=c++1y"
 :ops_next
 shift
 if "_%1_" == "__" (
@@ -87,8 +87,11 @@ if "_%1_" == "__" (
 
 rem Compile.
 rem
-echo %cxx% -I%libbutl% -I. -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src%
-     %cxx% -I%libbutl% -I. -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src%
+rem Note that echo does not override errorlevel.
+rem
+echo on
+%cxx% -I%libbutl% -I. -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src%
+@echo off
 if errorlevel 1 goto error
 
 goto end

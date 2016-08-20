@@ -4,74 +4,84 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-usage="Usage: $0 [-h] [--cxx <file>] [--libbutl <dir>] [--host <triplet>] [<options>]"
+usage="Usage: $0 [-h] [--libbutl <dir>] [--host <triplet>] <cxx> [<cxx-option>...]"
 
-cxx=g++
+diag ()
+{
+  echo "$*" 1>&2
+}
+
+cxx=
 libbutl=
 host=
 
 while test $# -ne 0; do
-  case $1 in
+  case "$1" in
     -h|--help)
-      echo "$usage" 1>&2
-      echo 1>&2
-      echo "The script expects to find the libbutl/ or libbutl-*/ directory either" 1>&2
-      echo "in the current directory (build2 root) or one level up." 1>&2
-      echo 1>&2
-      echo "See the INSTALL file for details." 1>&2
+      diag
+      diag "$usage"
+      diag
+      diag "The script expects to find the libbutl/ or libbutl-*/ directory either"
+      diag "in the current directory (build2 root) or one level up. The result is"
+      diag "saved as build2/b-boot."
+      diag
+      diag "Example usage:"
+      diag
+      diag "$0 g++"
+      diag
+      diag "See the INSTALL file for details."
+      diag
       exit 0
-      ;;
-    --cxx)
-      shift
-      if test $# -eq 0; then
-	echo "error: c++ compiler executable expected after --cxx" 1>&2
-	echo "$usage" 1>&2
-	exit 1
-      fi
-      cxx=$1
-      shift
       ;;
     --libbutl)
       shift
       if test $# -eq 0; then
-	echo "error: libbutl path expected after --libbutl" 1>&2
-	echo "$usage" 1>&2
+	diag "error: libbutl path expected after --libbutl"
+	diag "$usage"
 	exit 1
       fi
       if test ! -d "$1"; then
-	echo "error: libbutl directory '$1' does not exist" 1>&2
+	diag "error: libbutl directory '$1' does not exist"
 	exit 1
       fi
-      libbutl=$1
+      libbutl="$1"
       shift
       ;;
     --host)
       shift
       if test $# -eq 0; then
-	echo "error: host triplet expected after --host" 1>&2
-	echo "$usage" 1>&2
+	diag "error: host triplet expected after --host"
+	diag "$usage"
 	exit 1
       fi
-      host=$1
+      host="$1"
       shift
       ;;
     *)
+      cxx="$1"
+      shift
       break
       ;;
   esac
 done
 
+if test -z "$cxx"; then
+  diag "error: compiler executable expected"
+  diag "$usage"
+  exit 1
+fi
+
 if test -z "$host"; then
-  if ! host=`./config.guess`; then
-    echo "error: unable to guess host triplet" 1>&2
+  if ! host="$(./config.guess)"; then
+    diag "error: unable to guess host triplet"
     exit 1
   fi
 else
-  if ! chost=`./config.sub $host`; then
-    echo "error: unable to canonicalize host triplet '$host'" 1>&2
+  if ! chost="$(./config.sub "$host")"; then
+    diag "error: unable to canonicalize host triplet '$host'"
     exit 1
   fi
-  host=$chost
+  host="$chost"
 fi
 
 # See if there is libbutl or libbutl-* in the current directory and
@@ -79,9 +89,9 @@ fi
 #
 if test -z "$libbutl"; then
   if test -d libbutl; then
-    libbutl=libbutl
+    libbutl="libbutl"
   else
-    libbutl=`echo libbutl-*/`
+    libbutl="$(echo libbutl-*/)"
     if test ! -d "$libbutl"; then
       libbutl=
     fi
@@ -90,9 +100,9 @@ fi
 
 if test -z "$libbutl"; then
   if test -d ../libbutl; then
-    libbutl=../libbutl
+    libbutl="../libbutl"
   else
-    libbutl=`echo ../libbutl-*/`
+    libbutl="$(echo ../libbutl-*/)"
     if test ! -d "$libbutl"; then
       libbutl=
     fi
@@ -100,7 +110,7 @@ if test -z "$libbutl"; then
 fi
 
 if test -z "$libbutl"; then
-  echo "error: unable to find libbutl, use --libbutl to specify its location" 1>&2
+  diag "error: unable to find libbutl, use --libbutl to specify its location"
   exit 1
 fi
 
@@ -116,5 +126,5 @@ src="$src build2/test/*.cxx"
 src="$src build2/install/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
-echo $cxx -I$libbutl -I. '-DBUILD2_HOST_TRIPLET="'$host'"' -std=c++1y $* -o build2/b-boot $src
-exec $cxx -I$libbutl -I. '-DBUILD2_HOST_TRIPLET="'$host'"' -std=c++1y $* -o build2/b-boot $src
+set -x
+"$cxx" -I"$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src
