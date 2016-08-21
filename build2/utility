@@ -85,10 +85,10 @@ namespace build2
   // in case of an error.
   //
   process
-  start_run (const char* const* args, bool error);
+  start_run (const char* args[], bool error);
 
   bool
-  finish_run (const char* const* args, bool error, process&, const string&);
+  finish_run (const char* args[], bool error, process&, const string&);
 
   // Start the process as above and then call the specified function on each
   // trimmed line of the output until it returns a non-empty object T (tested
@@ -106,7 +106,7 @@ namespace build2
   //
   template <typename T>
   T
-  run (const char* const* args,
+  run (const char* args[],
        T (*) (string&),
        bool error = true,
        bool ignore_exit = false,

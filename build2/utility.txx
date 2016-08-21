@@ -6,7 +6,7 @@ namespace build2
 {
   template <typename T>
   T
-  run (const char* const* args,
+  run (const char* args[],
        T (*f) (string&),
        bool err,
        bool ignore_exit,

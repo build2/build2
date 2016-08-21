@@ -70,7 +70,7 @@ namespace build2
   }
 
   process
-  start_run (const char* const* args, bool err)
+  start_run (const char* args[], bool err)
   {
     if (verb >= 3)
       print_process (args);
@@ -96,7 +96,7 @@ namespace build2
   };
 
   bool
-  finish_run (const char* const* args, bool err, process& pr, const string& l)
+  finish_run (const char* args[], bool err, process& pr, const string& l)
   try
   {
     if (pr.wait ())
