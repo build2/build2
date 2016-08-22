@@ -124,7 +124,9 @@ namespace build2
           target& t (*static_cast<target*> (v));
 
           if (rs != t.base_scope ().root_scope ())
-            fail << "out of project target " << t;
+            fail << "target " << t << " is from a different project" <<
+              info << "one dist() meta-operation can handle one project" <<
+              info << "consider using several dist() meta-operations";
 
           l5 ([&]{trace << diag_doing (a, t);});
 
