@@ -1,7 +1,13 @@
 # Compiler/linker output.
 #
-*.o
 *.d
+*.o
+*.obj
 *.so
+*.dll
 *.a
-core
+*.lib
+*.exp
+*.exe
+*.exe.dlls/
+*.exe.manifest
