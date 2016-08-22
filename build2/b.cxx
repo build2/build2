@@ -794,10 +794,13 @@ main (int argc, char* argv[])
           if (verb >= 5)
           {
             trace << "bootstrapped " << tn << ':';
-            trace << "  out_base: " << out_base;
-            trace << "  src_base: " << src_base;
-            trace << "  out_root: " << out_root;
-            trace << "  src_root: " << src_root;
+            trace << "  out_base:  " << out_base;
+            trace << "  src_base:  " << src_base;
+            trace << "  out_root:  " << out_root;
+            trace << "  src_root:  " << src_root;
+
+            if (auto l = rs.vars["amalgamation"])
+              trace << "  amalgamat: " << cast<dir_path> (l);
           }
 
           const path& bfn (ops.buildfile ());

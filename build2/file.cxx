@@ -557,10 +557,16 @@ namespace build2
         subprojects sps;
 
         if (dir_exists (out_root))
+        {
+          l5 ([&]{trace << "looking for subprojects in " << out_root;});
           find_subprojects (sps, out_root, out_root, true);
+        }
 
         if (out_root != src_root)
+        {
+          l5 ([&]{trace << "looking for subprojects in " << src_root;});
           find_subprojects (sps, src_root, src_root, false);
+        }
 
         if (!sps.empty ()) // Keep it NULL if no subprojects.
           v = move (sps);
@@ -798,6 +804,8 @@ namespace build2
   {
     tracer trace ("import");
 
+    l5 ([&]{trace << target << " from " << ibase.out_path ();});
+
     // If there is no project specified for this target, then our
     // run will be short and sweet: we simply return it as empty-
     // project-qualified and let someone else (e.g., a rule) take
@@ -826,6 +834,8 @@ namespace build2
     //
     for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
     {
+      l5 ([&]{trace << "looking in " << r->out_path ();});
+
       // First check the amalgamation itself.
       //
       if (r != &iroot && cast<string> (r->vars["project"]) == project)
