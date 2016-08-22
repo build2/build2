@@ -4,7 +4,7 @@
 
 #include <time.h>      // tzset()
 #include <string.h>    // strerror()
-#include <stdlib.h>    // getenv()
+#include <stdlib.h>    // getenv() _putenv()(_WIN32)
 
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
@@ -53,6 +53,30 @@ using namespace build2;
 int
 main (int argc, char* argv[])
 {
+  // This is a little hack to make out baseutils for Windows work when called
+  // with absolute path. In a nutshell, MSYS2's exec*p() doesn't search in the
+  // parent's executable directory, only in PATH. And since we are running
+  // without a shell (that would read /etc/profile which sets PATH to some
+  // sensible values), we are only getting Win32 PATH values. And MSYS2 /bin
+  // is not one of them. So what we are going to do is add /bin at the end of
+  // PATH (which will be passed as is by the MSYS2 machinery). This will make
+  // MSYS2 search in /bin (where our baseutils live). And for everyone else
+  // this should be harmless since it is not a valid Win32 path.
+  //
+#ifdef _WIN32
+  {
+    string mp ("PATH=");
+    if (const char* p = getenv ("PATH"))
+    {
+      mp += p;
+      mp += ';';
+    }
+    mp += "/bin";
+
+    _putenv (mp.c_str ());
+  }
+#endif
+
   try
   {
     tracer trace ("main");
