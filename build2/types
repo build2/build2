@@ -127,7 +127,11 @@ namespace build2
   // <butl/fdstream>
   //
   using butl::process;
+  using butl::process_path;
   using butl::process_error;
+
+  ostream&
+  operator<< (ostream&, const process_path&); // Print as recall[@effect].
 
   using butl::ifdstream;
   using butl::ofdstream;

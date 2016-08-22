@@ -105,7 +105,7 @@ namespace build2
 
           {
             dr << x << ' ' << project (r) << '@' << r.out_path () << '\n'
-               << "  " << left << setw (11) << x << xc << '\n'
+               << "  " << left << setw (11) << x << ci.path << '\n'
                << "  id         " << ci.id << '\n'
                << "  version    " << ci.version.string << '\n'
                << "  major      " << ci.version.major << '\n'
@@ -129,6 +129,7 @@ namespace build2
           }
         }
 
+        r.assign (x_path) = move (ci.path);
         r.assign (x_id) = ci.id.string ();
         r.assign (x_id_type) = move (ci.id.type);
         r.assign (x_id_variant) = move (ci.id.variant);

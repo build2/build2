@@ -476,6 +476,35 @@ namespace build2
     return l.compare (r);
   }
 
+  // process_path value
+  //
+  inline void value_traits<process_path>::
+  assign (value& v, process_path&& x)
+  {
+    // Convert the value to its "self-sufficient" form.
+    //
+    if (x.recall.empty ())
+      x.recall = path (x.initial);
+
+    x.initial = x.recall.string ().c_str ();
+
+    if (v)
+      v.as<process_path> () = move (x);
+    else
+      new (&v.data_) process_path (move (x));
+  }
+
+  inline int value_traits<process_path>::
+  compare (const process_path& x, const process_path& y)
+  {
+    int r (x.recall.compare (y.recall));
+
+    if (r == 0)
+      r = x.effect.compare (y.effect);
+
+    return r;
+  }
+
   // vector<T> value
   //
   template <typename T>

@@ -30,10 +30,12 @@ namespace build2
     //
     struct ar_info
     {
+      process_path ar_path;
       string ar_id;
       string ar_signature;
       string ar_checksum;
 
+      process_path ranlib_path;
       string ranlib_id;
       string ranlib_signature;
       string ranlib_checksum;
@@ -43,7 +45,7 @@ namespace build2
     // attemplated and the returned ranlib_* members will be left empty.
     //
     ar_info
-    guess_ar (const path& ar, const path* ranlib);
+    guess_ar (const path& ar, const path* ranlib, const dir_path& fallback);
 
     // ld information.
     //
@@ -67,13 +69,14 @@ namespace build2
     //
     struct ld_info
     {
+      process_path path;
       string id;
       string signature;
       string checksum;
     };
 
     ld_info
-    guess_ld (const path& ld);
+    guess_ld (const path& ld, const dir_path& fallback);
 
     // rc information.
     //
@@ -90,13 +93,14 @@ namespace build2
     //
     struct rc_info
     {
+      process_path path;
       string id;
       string signature;
       string checksum;
     };
 
     rc_info
-    guess_rc (const path& rc);
+    guess_rc (const path& rc, const dir_path& fallback);
   }
 }
 

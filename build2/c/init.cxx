@@ -121,16 +121,17 @@ namespace build2
 
           // Note: some overridable, some not.
           //
-          v.insert<path>     ("config.c",          true),
-          v.insert<strings>  ("config.c.poptions", true),
-          v.insert<strings>  ("config.c.coptions", true),
-          v.insert<strings>  ("config.c.loptions", true),
-          v.insert<strings>  ("config.c.libs",     true),
+          v.insert<path>    ("config.c",          true),
+          v.insert<strings> ("config.c.poptions", true),
+          v.insert<strings> ("config.c.coptions", true),
+          v.insert<strings> ("config.c.loptions", true),
+          v.insert<strings> ("config.c.libs",     true),
 
-          v.insert<strings>  ("c.poptions"),
-          v.insert<strings>  ("c.coptions"),
-          v.insert<strings>  ("c.loptions"),
-          v.insert<strings>  ("c.libs"),
+          v.insert<process_path> ("c.path"),
+          v.insert<strings>      ("c.poptions"),
+          v.insert<strings>      ("c.coptions"),
+          v.insert<strings>      ("c.loptions"),
+          v.insert<strings>      ("c.libs"),
 
           v["cc.poptions"],
           v["cc.coptions"],

@@ -662,6 +662,104 @@ namespace build2
     &default_empty<name>
   };
 
+  // process_path value
+  //
+  process_path value_traits<process_path>::
+  convert (name&& n, name* r)
+  {
+    path rp (move (n.dir));
+    if (rp.empty ())
+      rp = path (move (n.value));
+    else
+      rp /= n.value;
+
+    path ep;
+    if (r != nullptr)
+    {
+      ep = move (r->dir);
+      if (ep.empty ())
+        ep = path (move (r->value));
+      else
+        ep /= r->value;
+    }
+
+    process_path pp (nullptr, move (rp), move (ep));
+    pp.initial = pp.recall.string ().c_str ();
+    return pp;
+  }
+
+  void
+  process_path_copy_ctor (value& l, const value& r, bool m)
+  {
+    const auto& rhs (r.as<process_path> ());
+
+    if (m)
+      new (&l.data_) process_path (move (const_cast<process_path&> (rhs)));
+    else
+    {
+      auto& lhs (
+        *new (&l.data_) process_path (
+          nullptr, path (rhs.recall), path (rhs.effect)));
+      lhs.initial = lhs.recall.string ().c_str ();
+    }
+  }
+
+  void
+  process_path_copy_assign (value& l, const value& r, bool m)
+  {
+    auto& lhs (l.as<process_path> ());
+    const auto& rhs (r.as<process_path> ());
+
+    if (m)
+      lhs = move (const_cast<process_path&> (rhs));
+    else
+    {
+      lhs.recall = rhs.recall;
+      lhs.effect = rhs.effect;
+      lhs.initial = lhs.recall.string ().c_str ();
+    }
+  }
+
+  static names_view
+  process_path_reverse (const value& v, names& s)
+  {
+    auto& pp (v.as<process_path> ());
+    s.reserve (pp.effect.empty () ? 1 : 2);
+
+    s.push_back (name (pp.recall.directory (),
+                       string (),
+                       pp.recall.leaf ().string ()));
+
+    if (!pp.effect.empty ())
+    {
+      s.back ().pair = '@';
+      s.push_back (name (pp.effect.directory (),
+                         string (),
+                         pp.effect.leaf ().string ()));
+    }
+
+    return s;
+  }
+
+  const char* const value_traits<process_path>::type_name = "process_path";
+
+  const value_type value_traits<process_path>::value_type
+  {
+    type_name,
+    sizeof (process_path),
+    nullptr,                            // No base.
+    &default_dtor<process_path>,
+    &process_path_copy_ctor,
+    &process_path_copy_assign,
+    &simple_assign<process_path, true>, // Allow empty values.
+    nullptr,                            // Append not supported.
+    nullptr,                            // Prepend not supported.
+    &process_path_reverse,
+    nullptr,                            // No cast (cast data_ directly).
+    &simple_compare<process_path>,
+    &default_empty<process_path>
+  };
+
   // variable_pool
   //
   const variable& variable_pool::

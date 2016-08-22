@@ -105,6 +105,11 @@ namespace build2
       compiler_id id;
       string signature;
       string checksum;
+      process_path path;
+
+      guess_result () = default;
+      guess_result (compiler_id&& i, string&& s)
+          : id (move (i)), signature (move (s)) {}
 
       bool
       empty () const {return id.empty ();}
@@ -116,6 +121,8 @@ namespace build2
       tracer trace ("cc::guess");
 
       guess_result r;
+
+      process_path pp (run_search (xc, true));
 
       // Start with -v. This will cover gcc and clang.
       //
@@ -152,7 +159,7 @@ namespace build2
           // gcc version 6.0.0 20160131 (experimental) (GCC)
           //
           if (l.compare (0, 4, "gcc ") == 0)
-            return guess_result {{"gcc", ""}, move (l), ""};
+            return guess_result (compiler_id {"gcc", ""}, move (l));
 
           // The Apple clang/clang++ -v output will have a line (currently
           // first) in the form:
@@ -182,7 +189,7 @@ namespace build2
           if (l.compare (0, 6, "Apple ") == 0 &&
               (l.compare (6, 5, "LLVM ") == 0 ||
                l.compare (6, 6, "clang ") == 0))
-            return guess_result {{"clang", "apple"}, move (l), ""};
+            return guess_result (compiler_id {"clang", "apple"}, move (l));
 
           // The vanilla clang/clang++ -v output will have a line (currently
           // first) in the form:
@@ -197,7 +204,7 @@ namespace build2
           // clang version 3.7.0 (tags/RELEASE_370/final)
           //
           if (l.find ("clang ") != string::npos)
-            return guess_result {{"clang", ""}, move (l), ""};
+            return guess_result (compiler_id {"clang", ""}, move (l));
 
           return guess_result ();
         };
@@ -216,7 +223,7 @@ namespace build2
         // Suppress all the compiler errors because we may be trying an
         // unsupported option.
         //
-        r = run<guess_result> (xc, "-v", f, false, false, &cs);
+        r = run<guess_result> (pp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -239,12 +246,12 @@ namespace build2
           // icc (ICC) 16.0.2 20160204
           //
           if (l.find (" (ICC) ") != string::npos)
-            return guess_result {{"icc", ""}, move (l), ""};
+            return guess_result (compiler_id {"icc", ""}, move (l));
 
           return guess_result ();
         };
 
-        r = run<guess_result> (xc, "--version", f, false);
+        r = run<guess_result> (pp, "--version", f, false);
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -271,12 +278,12 @@ namespace build2
           //
           if (l.find ("Microsoft (R)") != string::npos &&
               l.find ("C/C++") != string::npos)
-            return guess_result {{"msvc", ""}, move (l), ""};
+            return guess_result (compiler_id {"msvc", ""}, move (l));
 
           return guess_result ();
         };
 
-        r = run<guess_result> (xc, f, false);
+        r = run<guess_result> (pp, f, false);
       }
 
       if (!r.empty ())
@@ -290,8 +297,12 @@ namespace build2
           r = guess_result ();
         }
         else
+        {
           l5 ([&]{trace << xc << " is " << r.id << ": '"
                         << r.signature << "'";});
+
+          r.path = move (pp);
+        }
       }
       else
         l4 ([&]{trace << "unable to determine compiler type of " << xc;});
@@ -463,6 +474,7 @@ namespace build2
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
 
       return compiler_info {
+        move (gr.path),
         move (gr.id),
         move (v),
         move (gr.signature),
@@ -579,6 +591,7 @@ namespace build2
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
 
       return compiler_info {
+        move (gr.path),
         move (gr.id),
         move (v),
         move (gr.signature),
@@ -798,6 +811,7 @@ namespace build2
       sha256 cs (s);
 
       return compiler_info {
+        move (gr.path),
         move (gr.id),
         move (v),
         move (gr.signature),
@@ -1011,6 +1025,7 @@ namespace build2
       sha256 cs (s);
 
       return compiler_info {
+        move (gr.path),
         move (gr.id),
         move (v),
         move (gr.signature),
@@ -1075,11 +1090,12 @@ namespace build2
       // Derive binutils pattern unless this has already been done by the
       // compiler-specific code.
       //
+
+      // When cross-compiling the whole toolchain is normally prefixed with
+      // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}.
+      //
       if (r.bin_pattern.empty ())
       {
-        // When cross-compiling the whole toolchain is normally prefixed with
-        // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}.
-        //
         // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
         // LTO plugin though it seems more recent GNU binutils (2.25) are able
         // to load the plugin when needed automatically. So it doesn't seem we
@@ -1101,6 +1117,17 @@ namespace build2
             r.bin_pattern = move (p).string ();
           }
         }
+      }
+
+      // If we could not derive the pattern, then see if we can come up with a
+      // fallback search directory.
+      //
+      if (r.bin_pattern.empty ())
+      {
+        const path& p (r.path.recall.empty () ? xc : r.path.recall);
+
+        if (!p.simple ())
+          r.bin_pattern = p.directory ().representation (); // Trailing slash.
       }
 
       return r;

@@ -105,7 +105,7 @@ namespace build2
     // Return otype::e if it is neither (which we quietly ignore).
     //
     static otype
-    library_type (const path& ld, const path& l)
+    library_type (const process_path& ld, const path& l)
     {
       // The are several reasonably reliable methods to tell whether it is a
       // static or import library. One is lib.exe /LIST -- if there aren't any
@@ -125,7 +125,7 @@ namespace build2
       // for libraries then we have bin.ld. So we will use the link.exe /DUMP
       // /ARCHIVEMEMBERS.
       //
-      const char* args[] = {ld.string ().c_str (),
+      const char* args[] = {ld.recall_string (),
                             "/DUMP",               // Must come first.
                             "/NOLOGO",
                             "/ARCHIVEMEMBERS",
@@ -135,7 +135,7 @@ namespace build2
       // Link.exe seem to always dump everything to stdout but just in case
       // redirect stderr to stdout.
       //
-      process pr (start_run (args, false));
+      process pr (run_start (ld, args, false));
 
       bool obj (false), dll (false);
       string s;
@@ -192,11 +192,11 @@ namespace build2
       }
       catch (const ifdstream::failure&)
       {
-        // Presumably the child process failed. Let finish_run() deal with
+        // Presumably the child process failed. Let run_finish() deal with
         // that.
       }
 
-      if (!finish_run (args, false, pr, s))
+      if (!run_finish (args, false, pr, s))
         return otype::e;
 
       if (obj && dll)
@@ -217,7 +217,7 @@ namespace build2
     template <typename T>
     static T*
     msvc_search_library (const char* mod,
-                         const path& ld,
+                         const process_path& ld,
                          const dir_path& d,
                          prerequisite& p,
                          otype lt,
@@ -275,7 +275,7 @@ namespace build2
     }
 
     liba* link::
-    msvc_search_static (const path& ld,
+    msvc_search_static (const process_path& ld,
                         const dir_path& d,
                         prerequisite& p) const
     {
@@ -302,7 +302,7 @@ namespace build2
     }
 
     libs* link::
-    msvc_search_shared (const path& ld,
+    msvc_search_shared (const process_path& ld,
                         const dir_path& d,
                         prerequisite& p) const
     {

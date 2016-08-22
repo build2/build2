@@ -28,6 +28,17 @@ namespace build2
                   : p.representation ());
   }
 
+  ostream&
+  operator<< (ostream& os, const process_path& p)
+  {
+    os << p.recall_string ();
+
+    if (!p.effect.empty ())
+      os << '@' << p.effect.string (); // Suppress relative().
+
+    return os;
+  }
+
   //
   // <build2/utility>
   //
@@ -69,21 +80,47 @@ namespace build2
     return l;
   }
 
-  process
-  start_run (const char* args[], bool err)
+  process_path
+  run_search (const char*& args0)
+  try
   {
+    return process::path_search (args0);
+  }
+  catch (const process_error& e)
+  {
+    error << "unable to execute " << args0 << ": " << e.what ();
+    throw failed ();
+  }
+
+  process_path
+  run_search (const path& f, bool init, const dir_path& fallback)
+  try
+  {
+    return process::path_search (f, init, fallback);
+  }
+  catch (const process_error& e)
+  {
+    error << "unable execute " << f << ": " << e.what ();
+    throw failed ();
+  }
+
+  process
+  run_start (const process_path& pp, const char* args[], bool err)
+  {
+    assert (args[0] == pp.recall_string ());
+
     if (verb >= 3)
       print_process (args);
 
     try
     {
-      return process (args, 0, -1, (err ? 2 : 1));
+      return process (pp, args, 0, -1, (err ? 2 : 1));
     }
     catch (const process_error& e)
     {
       if (e.child ())
       {
-        // Note: finish_run() expects this exact message.
+        // Note: run_finish() expects this exact message.
         //
         cerr << "unable to execute " << args[0] << ": " << e.what () << endl;
         exit (1);
@@ -96,7 +133,7 @@ namespace build2
   };
 
   bool
-  finish_run (const char* args[], bool err, process& pr, const string& l)
+  run_finish (const char* args[], bool err, process& pr, const string& l)
   try
   {
     if (pr.wait ())
@@ -111,7 +148,7 @@ namespace build2
     // want to let through is the inability to execute the program itself.
     // We cannot reserve a special exit status to signal this so we will
     // just have to compare the output. This particular situation will
-    // result in a single error line printed by start_run() above.
+    // result in a single error line printed by run_start() above.
     //
     if (l.compare (0, 18, "unable to execute ") == 0)
       fail << l;

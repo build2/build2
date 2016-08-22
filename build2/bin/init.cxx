@@ -273,8 +273,12 @@ namespace build2
           {
             const string& s (cast<string> (*v));
 
-            if (s.find ('*') == string::npos)
+            if (s.empty () ||
+                (!path::traits::is_separator (s.back ()) &&
+                 s.find ('*') == string::npos))
+            {
               fail << "missing '*' in binutils pattern '" << s << "'";
+            }
 
             r.assign<string> ("bin.pattern") = s;
             new_val = new_val || p.second; // False for a hinted value.
@@ -428,8 +432,11 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.insert<path> ("config.bin.ar", true);
-        v.insert<path> ("config.bin.ranlib", true);
+        v.insert<process_path> ("bin.rc.path");
+        v.insert<process_path> ("bin.ranlib.path");
+
+        v.insert<path>         ("config.bin.ar", true);
+        v.insert<path>         ("config.bin.ranlib", true);
       }
 
       // Configure.
@@ -456,6 +463,11 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
 
+        // This can be either a pattern or a fallback search directory.
+        //
+        const string* pat (cast_null<string> (r["bin.pattern"]));
+        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
         // Don't save the default value to config.build so that if the user
         // changes, say, the C++ compiler (which hinted the pattern), then
         // ar will automatically change as well.
@@ -464,7 +476,7 @@ namespace build2
           config::required (
             r,
             "config.bin.ar",
-            path (apply_pattern (ar_d, cast_null<string> (r["bin.pattern"]))),
+            path (apply_pattern (ar_d, fb ? nullptr : pat)),
             false,
             config::save_commented));
 
@@ -482,7 +494,8 @@ namespace build2
         if (ranlib != nullptr && ranlib->empty ()) // @@ BC LT [null].
           ranlib = nullptr;
 
-        ar_info ari (guess_ar (ar, ranlib));
+        ar_info ari (
+          guess_ar (ar, ranlib, fb ? dir_path (*pat) : dir_path ()));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -492,7 +505,7 @@ namespace build2
           diag_record dr (text);
 
           dr << "bin.ar " << project (r) << '@' << r.out_path () << '\n'
-             << "  ar         " << ar << '\n'
+             << "  ar         " << ari.ar_path << '\n'
              << "  id         " << ari.ar_id << '\n'
              << "  signature  " << ari.ar_signature << '\n'
              << "  checksum   " << ari.ar_checksum;
@@ -500,23 +513,25 @@ namespace build2
           if (ranlib != nullptr)
           {
             dr << '\n'
-               << "  ranlib     " << *ranlib << '\n'
+               << "  ranlib     " << ari.ranlib_path << '\n'
                << "  id         " << ari.ranlib_id << '\n'
                << "  signature  " << ari.ranlib_signature << '\n'
                << "  checksum   " << ari.ranlib_checksum;
           }
         }
 
-        r.assign<string> ("bin.ar.id") = move (ari.ar_id);
-        r.assign<string> ("bin.ar.signature") = move (ari.ar_signature);
-        r.assign<string> ("bin.ar.checksum") = move (ari.ar_checksum);
+        r.assign<process_path> ("bin.ar.path")      = move (ari.ar_path);
+        r.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
+        r.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
+        r.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
 
         if (ranlib != nullptr)
         {
-          r.assign<string> ("bin.ranlib.id") = move (ari.ranlib_id);
-          r.assign<string> ("bin.ranlib.signature") =
+          r.assign<process_path> ("bin.ranlib.path") = move (ari.ranlib_path);
+          r.assign<string>       ("bin.ranlib.id") = move (ari.ranlib_id);
+          r.assign<string>       ("bin.ranlib.signature") =
             move (ari.ranlib_signature);
-          r.assign<string> ("bin.ranlib.checksum") =
+          r.assign<string>       ("bin.ranlib.checksum") =
             move (ari.ranlib_checksum);
         }
       }
@@ -570,7 +585,8 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.insert<path> ("config.bin.ld", true);
+        v.insert<process_path> ("bin.ld.path");
+        v.insert<path>         ("config.bin.ld", true);
       }
 
       // Configure.
@@ -584,16 +600,21 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* ld_d (tsys == "win32-msvc" ? "link" : "ld");
 
+        // This can be either a pattern or a fallback search directory.
+        //
+        const string* pat (cast_null<string> (r["bin.pattern"]));
+        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
         auto p (
           config::required (
             r,
             "config.bin.ld",
-            path (apply_pattern (ld_d, cast_null<string> (r["bin.pattern"]))),
+            path (apply_pattern (ld_d, fb ? nullptr : pat)),
             false,
             config::save_commented));
 
         const path& ld (cast<path> (p.first));
-        ld_info ldi (guess_ld (ld));
+        ld_info ldi (guess_ld (ld, fb ? dir_path (*pat) : dir_path ()));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -601,15 +622,16 @@ namespace build2
         if (verb >= (p.second ? 2 : 3))
         {
           text << "bin.ld " << project (r) << '@' << r.out_path () << '\n'
-               << "  ld         " << ld << '\n'
+               << "  ld         " << ldi.path << '\n'
                << "  id         " << ldi.id << '\n'
                << "  signature  " << ldi.signature << '\n'
                << "  checksum   " << ldi.checksum;
         }
 
-        r.assign<string> ("bin.ld.id") = move (ldi.id);
-        r.assign<string> ("bin.ld.signature") = move (ldi.signature);
-        r.assign<string> ("bin.ld.checksum") = move (ldi.checksum);
+        r.assign<process_path> ("bin.ld.path")      = move (ldi.path);
+        r.assign<string>       ("bin.ld.id")        = move (ldi.id);
+        r.assign<string>       ("bin.ld.signature") = move (ldi.signature);
+        r.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
       }
 
       return true;
@@ -674,7 +696,8 @@ namespace build2
       {
         auto& v (var_pool);
 
-        v.insert<path> ("config.bin.rc", true);
+        v.insert<process_path> ("bin.rc.path");
+        v.insert<path>         ("config.bin.rc", true);
       }
 
       // Configure.
@@ -688,16 +711,21 @@ namespace build2
         const string& tsys (cast<string> (r["bin.target.system"]));
         const char* rc_d (tsys == "win32-msvc" ? "rc" : "windres");
 
+        // This can be either a pattern or a fallback search directory.
+        //
+        const string* pat (cast_null<string> (r["bin.pattern"]));
+        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
         auto p (
           config::required (
             r,
             "config.bin.rc",
-            path (apply_pattern (rc_d, cast_null<string> (r["bin.pattern"]))),
+            path (apply_pattern (rc_d, fb ? nullptr : pat)),
             false,
             config::save_commented));
 
         const path& rc (cast<path> (p.first));
-        rc_info rci (guess_rc (rc));
+        rc_info rci (guess_rc (rc, fb ? dir_path (*pat) : dir_path ()));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -705,15 +733,16 @@ namespace build2
         if (verb >= (p.second ? 2 : 3))
         {
           text << "bin.rc " << project (r) << '@' << r.out_path () << '\n'
-               << "  rc         " << rc << '\n'
+               << "  rc         " << rci.path << '\n'
                << "  id         " << rci.id << '\n'
                << "  signature  " << rci.signature << '\n'
                << "  checksum   " << rci.checksum;
         }
 
-        r.assign<string> ("bin.rc.id") = move (rci.id);
-        r.assign<string> ("bin.rc.signature") = move (rci.signature);
-        r.assign<string> ("bin.rc.checksum") = move (rci.checksum);
+        r.assign<process_path> ("bin.rc.path")      = move (rci.path);
+        r.assign<string>       ("bin.rc.id")        = move (rci.id);
+        r.assign<string>       ("bin.rc.signature") = move (rci.signature);
+        r.assign<string>       ("bin.rc.checksum")  = move (rci.checksum);
       }
 
       return true;

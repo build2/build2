@@ -420,7 +420,7 @@ namespace build2
         if (cid == "msvc")
         {
           scope& rs (*p.scope.root_scope ());
-          const path& ld (cast<path> (rs["config.bin.ld"]));
+          const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
 
           if (s == nullptr && !sn.empty ())
             s = msvc_search_shared (ld, d, p);
@@ -1135,10 +1135,12 @@ namespace build2
           {
             path of (relative (manifest));
 
+            const process_path& rc (cast<process_path> (rs["bin.rc.path"]));
+
             // @@ Would be good to add this to depdb (e.g,, rc changes).
             //
             const char* args[] = {
-              cast<path> (rs["config.bin.rc"]).string ().c_str (),
+              rc.recall_string (),
               "--input-format=rc",
               "--output-format=coff",
               "-o", of.string ().c_str (),
@@ -1149,7 +1151,7 @@ namespace build2
 
             try
             {
-              process pr (args, -1);
+              process pr (rc, args, -1);
 
               try
               {
@@ -1224,7 +1226,7 @@ namespace build2
       //
       if (lt == otype::a)
       {
-        ranlib = rs["config.bin.ranlib"];
+        ranlib = rs["bin.ranlib.path"];
 
         if (ranlib && ranlib->empty ()) // @@ BC LT [null].
           ranlib = lookup ();
@@ -1481,11 +1483,12 @@ namespace build2
       //
       path relt (relative (t.path ()));
 
+      const process_path* ld (nullptr);
       switch (lt)
       {
       case otype::a:
         {
-          args[0] = cast<path> (rs["config.bin.ar"]).string ().c_str ();
+          ld = &cast<process_path> (rs["bin.ar.path"]);
 
           if (cid == "msvc")
           {
@@ -1516,7 +1519,7 @@ namespace build2
           {
             // Using link.exe directly.
             //
-            args[0] = cast<path> (rs["config.bin.ld"]).string ().c_str ();
+            ld = &cast<process_path> (rs["bin.ld.path"]);
             args.push_back ("/NOLOGO");
 
             if (lt == otype::s)
@@ -1608,7 +1611,7 @@ namespace build2
           }
           else
           {
-            args[0] = cast<path> (rs[config_x]).string ().c_str ();
+            ld = &cast<process_path> (rs[x_path]);
 
             // Add the option that triggers building a shared library and take
             // care of any extras (e.g., import library).
@@ -1638,6 +1641,8 @@ namespace build2
           break;
         }
       }
+
+      args[0] = ld->recall_string ();
 
       for (target* pt: t.prerequisite_targets)
       {
@@ -1709,7 +1714,7 @@ namespace build2
         //
         bool filter (cid == "msvc" && lt != otype::a);
 
-        process pr (args.data (), 0, (filter ? -1 : 2));
+        process pr (*ld, args.data (), 0, (filter ? -1 : 2));
 
         if (filter)
         {
@@ -1756,8 +1761,10 @@ namespace build2
 
       if (ranlib)
       {
+        const process_path& rl (cast<process_path> (ranlib));
+
         const char* args[] = {
-          cast<path> (ranlib).string ().c_str (),
+          rl.recall_string (),
           relt.string ().c_str (),
           nullptr};
 
@@ -1766,7 +1773,7 @@ namespace build2
 
         try
         {
-          process pr (args);
+          process pr (rl, args);
 
           if (!pr.wait ())
             throw failed ();

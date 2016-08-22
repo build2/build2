@@ -644,12 +644,14 @@ namespace build2
 
       // Initialize lazily, only if required.
       //
+      const process_path* xc (nullptr);
       cstrings args;
       string std; // Storage.
 
-      auto init_args = [&t, lo, &src, &rs, &args, &std, this] ()
+      auto init_args = [&t, lo, &src, &rs, &xc, &args, &std, this] ()
       {
-        args.push_back (cast<path> (rs[config_x]).string ().c_str ());
+        xc = &cast<process_path> (rs[x_path]);
+        args.push_back (xc->recall_string ());
 
         // Add *.export.poptions from prerequisite libraries. Note that here
         // we don't need to see group members (see apply()).
@@ -1034,7 +1036,8 @@ namespace build2
             // For VC with /EP we need a pipe to stderr and stdout should go
             // to /dev/null.
             //
-            process pr (args.data (),
+            process pr (*xc,
+                        args.data (),
                         0,
                         cid == "msvc" ? -2 : -1,
                         cid == "msvc" ? -1 : 2);
@@ -1261,7 +1264,8 @@ namespace build2
       scope& rs (*bs.root_scope ());
       otype ct (compile_type (t));
 
-      cstrings args {cast<path> (rs[config_x]).string ().c_str ()};
+      const process_path& xc (cast<process_path> (rs[x_path]));
+      cstrings args {xc.recall_string ()};
 
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
@@ -1418,7 +1422,7 @@ namespace build2
         //
         bool filter (cid == "msvc");
 
-        process pr (args.data (), 0, (filter ? -1 : 2));
+        process pr (xc, args.data (), 0, (filter ? -1 : 2));
 
         if (filter)
         {

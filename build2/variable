@@ -589,6 +589,28 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  // process_path
+  //
+  // Note that instances that we store always have non-empty recall and
+  // initial is its shallow copy.
+  //
+  template <>
+  struct value_traits<process_path>
+  {
+    static_assert (sizeof (process_path) <= value::size_, "insufficient space");
+
+    // This one is represented as a @-pair of names. As a result it cannot
+    // be stored in a container.
+    //
+    static process_path convert (name&&, name*);
+    static void assign (value&, process_path&&);
+    static int compare (const process_path&, const process_path&);
+    static bool empty (const process_path& x) {return x.empty ();}
+
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
   // vector<T>
   //
   template <typename T>

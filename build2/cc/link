@@ -56,10 +56,14 @@ namespace build2
       // Alternative search logic for VC (msvc.cxx).
       //
       bin::liba*
-      msvc_search_static (const path&, const dir_path&, prerequisite&) const;
+      msvc_search_static (const process_path&,
+                          const dir_path&,
+                          prerequisite&) const;
 
       bin::libs*
-      msvc_search_shared (const path&, const dir_path&, prerequisite&) const;
+      msvc_search_shared (const process_path&,
+                          const dir_path&,
+                          prerequisite&) const;
 
       target*
       search_library (optional<dir_paths>&, prerequisite&) const;

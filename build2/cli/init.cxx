@@ -58,7 +58,8 @@ namespace build2
         v.insert<path>    ("config.cli",         true);
         v.insert<strings> ("config.cli.options", true);
 
-        v.insert<strings> ("cli.options");
+        v.insert<process_path> ("cli.path");
+        v.insert<strings>      ("cli.options");
       }
 
       // Register target types.
@@ -91,20 +92,28 @@ namespace build2
       {
         // config.cli
         //
+        process_path pp;
 
-        // Return version or empty string if unable to execute (e.g., the cli
-        // executable is not found).
+        // Return version or empty string if the cli executable is not found.
         //
-        auto test = [optional] (const path& cli) -> string
+        // @@ This needs some more thinking/cleanup. Specifically, what does
+        //    it mean "cli not found"? Is it just not found in PATH? That plus
+        //    was not able to execute (e.g., some shared libraries missing)?
+        //    That plus cli that we found is something else?
+        //
+        auto test = [optional, &pp] (const path& cli) -> string
         {
-          const char* args[] = {cli.string ().c_str (), "--version", nullptr};
-
-          if (verb >= 3)
-            print_process (args);
+          const char* args[] = {nullptr, "--version", nullptr};
 
           try
           {
-            process pr (args, 0, -1); // Open pipe to stdout.
+            pp = process::path_search (cli, true); // Can throw.
+            args[0] = pp.recall_string ();
+
+            if (verb >= 3)
+              print_process (args);
+
+            process pr (pp, args, 0, -1); // Open pipe to stdout.
 
             try
             {
@@ -146,7 +155,7 @@ namespace build2
             // found). So it would be good to redirect child's STDERR.
             //
             if (!optional)
-              error << "unable to execute " << cli << ": " << e.what ();
+              error << "unable to execute " << args[0] << ": " << e.what ();
 
             if (e.child ())
               exit (1);
@@ -216,9 +225,12 @@ namespace build2
           if (unconf)
             dr << "  cli        " << "not found, leaving unconfigured";
           else
-            dr << "  cli        " << cli << '\n'
+            dr << "  cli        " << pp << '\n'
                << "  version    " << ver;
         }
+
+        if (!unconf)
+          rs.assign<process_path> ("cli.path") = move (pp);
       }
 
       // Nothing else to do if we are unconfigured.

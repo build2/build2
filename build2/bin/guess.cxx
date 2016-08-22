@@ -18,16 +18,25 @@ namespace build2
       string signature;
       string checksum;
 
+      guess_result () = default;
+      guess_result (string&& i, string&& s)
+          : id (move (i)), signature (move (s)) {}
+
       bool
       empty () const {return id.empty ();}
     };
 
     ar_info
-    guess_ar (const path& ar, const path* rl)
+    guess_ar (const path& ar, const path* rl, const dir_path& fallback)
     {
       tracer trace ("bin::guess_ar");
 
       guess_result arr, rlr;
+
+      process_path arp (run_search (ar, true, fallback));
+      process_path rlp (rl != nullptr
+                        ? run_search (*rl, true, fallback)
+                        : process_path ());
 
       // Binutils, LLVM, and FreeBSD ar/ranlib all recognize the --version
       // option. While Microsoft's lib.exe doesn't support --version, it only
@@ -43,23 +52,23 @@ namespace build2
           // "GNU ar ".
           //
           if (l.compare (0, 7, "GNU ar ") == 0)
-            return guess_result {"gnu", move (l), ""};
+            return guess_result ("gnu", move (l));
 
           // LLVM ar --version output has a line that starts with
           // "LLVM version ".
           //
           if (l.compare (0, 13, "LLVM version ") == 0)
-            return guess_result {"llvm", move (l), ""};
+            return guess_result ("llvm", move (l));
 
           // FreeBSD ar --verison output starts with "BSD ar ".
           //
           if (l.compare (0, 7, "BSD ar ") == 0)
-            return guess_result {"bsd", move (l), ""};
+            return guess_result ("bsd", move (l));
 
           // Microsoft lib.exe output starts with "Microsoft (R) ".
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result {"msvc", move (l), ""};
+            return guess_result ("msvc", move (l));
 
           return guess_result ();
         };
@@ -69,7 +78,7 @@ namespace build2
         // (yes, it goes to stdout) but that seems harmless.
         //
         sha256 cs;
-        arr = run<guess_result> (ar, "--version", f, false, false, &cs);
+        arr = run<guess_result> (arp, "--version", f, false, false, &cs);
 
         if (!arr.empty ())
           arr.checksum = cs.string ();
@@ -85,14 +94,14 @@ namespace build2
         auto f = [] (string& l) -> guess_result
         {
           return l.find (" ar ") != string::npos
-            ? guess_result {"generic", move (l), ""}
+            ? guess_result ("generic", move (l))
             : guess_result ();
         };
 
         // Redirect STDERR to STDOUT and ignore exit status.
         //
         sha256 cs;
-        arr = run<guess_result> (ar, f, false, true, &cs);
+        arr = run<guess_result> (arp, f, false, true, &cs);
 
         if (!arr.empty ())
         {
@@ -116,24 +125,24 @@ namespace build2
             // "GNU ranlib ".
             //
             if (l.compare (0, 11, "GNU ranlib ") == 0)
-              return guess_result {"gnu", move (l), ""};
+              return guess_result ("gnu", move (l));
 
             // "LLVM version ".
             //
             if (l.compare (0, 13, "LLVM version ") == 0)
-              return guess_result {"llvm", move (l), ""};
+              return guess_result ("llvm", move (l));
 
             // On FreeBSD we get "ranlib" rather than "BSD ranlib" for some
             // reason. Which means we can't really call it 'bsd' for sure.
             //
             //if (l.compare (0, 7, "ranlib ") == 0)
-            //  return guess_result {"bsd", move (l), ""};
+            //  return guess_result ("bsd", move (l));
 
             return guess_result ();
           };
 
           sha256 cs;
-          rlr = run<guess_result> (*rl, "--version", f, false, false, &cs);
+          rlr = run<guess_result> (rlp, "--version", f, false, false, &cs);
 
           if (!rlr.empty ())
             rlr.checksum = cs.string ();
@@ -146,14 +155,14 @@ namespace build2
           auto f = [] (string& l) -> guess_result
           {
             return l.find ("ranlib") != string::npos
-              ? guess_result {"generic", move (l), ""}
+              ? guess_result ("generic", move (l))
               : guess_result ();
           };
 
           // Redirect STDERR to STDOUT and ignore exit status.
           //
           sha256 cs;
-          rlr = run<guess_result> (*rl, f, false, true, &cs);
+          rlr = run<guess_result> (rlp, f, false, true, &cs);
 
           if (!rlr.empty ())
           {
@@ -167,16 +176,18 @@ namespace build2
       }
 
       return ar_info {
-        move (arr.id), move (arr.signature), move (arr.checksum),
-        move (rlr.id), move (rlr.signature), move (rlr.checksum)};
+        move (arp), move (arr.id), move (arr.signature), move (arr.checksum),
+        move (rlp), move (rlr.id), move (rlr.signature), move (rlr.checksum)};
     }
 
     ld_info
-    guess_ld (const path& ld)
+    guess_ld (const path& ld, const dir_path& fallback)
     {
       tracer trace ("bin::guess_ld");
 
       guess_result r;
+
+      process_path pp (run_search (ld, true, fallback));
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
       // doesn't support --version (nor any other way to get the version
@@ -194,16 +205,16 @@ namespace build2
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result {"msvc", move (l), ""};
+            return guess_result ("msvc", move (l));
 
           // Binutils ld.bfd --version output has a line that starts with
           // "GNU ld " while ld.gold -- "GNU gold".
           //
           if (l.compare (0, 7, "GNU ld ") == 0)
-            return guess_result {"gnu", move (l), ""};
+            return guess_result ("gnu", move (l));
 
           if (l.compare (0, 9, "GNU gold ") == 0)
-            return guess_result {"gold", move (l), ""};
+            return guess_result ("gold", move (l));
 
           return guess_result ();
         };
@@ -213,7 +224,7 @@ namespace build2
         // but that seems harmless.
         //
         sha256 cs;
-        r = run<guess_result> (ld, "--version", f, false, true, &cs);
+        r = run<guess_result> (pp, "--version", f, false, true, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -231,20 +242,20 @@ namespace build2
           // @(#)PROGRAM:ld  PROJECT:ld64-242.2
           //
           if (l.find ("PROJECT:ld64") != string::npos)
-            return guess_result {"ld64", move (l), ""};
+            return guess_result ("ld64", move (l));
 
           // Old ld has "cctools" in the first line, for example:
           //
           // Apple Computer, Inc. version cctools-622.9~2
           //
           if (l.find ("cctools") != string::npos)
-            return guess_result {"cctools", move (l), ""};
+            return guess_result ("cctools", move (l));
 
           return guess_result ();
         };
 
         sha256 cs;
-        r = run<guess_result> (ld, "-v", f, false, false, &cs);
+        r = run<guess_result> (pp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -262,7 +273,7 @@ namespace build2
           // LLVM Linker Version: 3.7
           //
           if (l.compare (0, 19, "LLVM Linker Version") == 0)
-            return guess_result {"llvm", move (l), ""};
+            return guess_result ("llvm", move (l));
 
           return guess_result ();
         };
@@ -271,7 +282,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (ld, "-version", f, false, false, &cs);
+        r = run<guess_result> (pp, "-version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -280,15 +291,18 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << ld << " signature";
 
-      return ld_info {move (r.id), move (r.signature), move (r.checksum)};
+      return ld_info {
+        move (pp), move (r.id), move (r.signature), move (r.checksum)};
     }
 
     rc_info
-    guess_rc (const path& rc)
+    guess_rc (const path& rc, const dir_path& fallback)
     {
       tracer trace ("bin::guess_rc");
 
       guess_result r;
+
+      process_path pp (run_search (rc, true, fallback));
 
       // Binutils windres recognizes the --version option.
       //
@@ -299,7 +313,7 @@ namespace build2
           // "GNU windres ".
           //
           if (l.compare (0, 12, "GNU windres ") == 0)
-            return guess_result {"gnu", move (l), ""};
+            return guess_result ("gnu", move (l));
 
           return guess_result ();
         };
@@ -308,7 +322,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (rc, "--version", f, false, false, &cs);
+        r = run<guess_result> (pp, "--version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -322,13 +336,13 @@ namespace build2
         auto f = [] (string& l) -> guess_result
         {
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result {"msvc", move (l), ""};
+            return guess_result ("msvc", move (l));
 
           return guess_result ();
         };
 
         sha256 cs;
-        r = run<guess_result> (rc, "/?", f, false, false, &cs);
+        r = run<guess_result> (pp, "/?", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -337,7 +351,8 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << rc << " signature";
 
-      return rc_info {move (r.id), move (r.signature), move (r.checksum)};
+      return rc_info {
+        move (pp), move (r.id), move (r.signature), move (r.checksum)};
     }
   }
 }

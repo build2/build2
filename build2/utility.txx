@@ -6,13 +6,14 @@ namespace build2
 {
   template <typename T>
   T
-  run (const char* args[],
+  run (const process_path& pp,
+       const char* args[],
        T (*f) (string&),
        bool err,
        bool ignore_exit,
        sha256* checksum)
   {
-    process pr (start_run (args, err));
+    process pr (run_start (pp, args, err));
 
     T r;
     string l; // Last line of output.
@@ -35,10 +36,10 @@ namespace build2
     }
     catch (const ifdstream::failure&)
     {
-      // Presumably the child process failed. Let finish_run() deal with that.
+      // Presumably the child process failed. Let run_finish() deal with that.
     }
 
-    if (!(finish_run (args, err, pr, l) || ignore_exit))
+    if (!(run_finish (args, err, pr, l) || ignore_exit))
       r = T ();
 
     return r;

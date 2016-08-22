@@ -84,11 +84,23 @@ namespace build2
   // diagnostics from the child process). Issue diagnostics and throw failed
   // in case of an error.
   //
+  process_path
+  run_search (const char*& args0);
+
+  process_path
+  run_search (const path&, bool init, const dir_path& fallback = dir_path ());
+
   process
-  start_run (const char* args[], bool error);
+  run_start (const process_path&, const char* args[], bool error);
+
+  inline process
+  run_start (const char* args[], bool error)
+  {
+    return run_start (run_search (args[0]), args, error);
+  }
 
   bool
-  finish_run (const char* args[], bool error, process&, const string&);
+  run_finish (const char* args[], bool error, process&, const string&);
 
   // Start the process as above and then call the specified function on each
   // trimmed line of the output until it returns a non-empty object T (tested
@@ -106,12 +118,26 @@ namespace build2
   //
   template <typename T>
   T
-  run (const char* args[],
+  run (const process_path&,
+       const char* args[],
        T (*) (string&),
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr);
 
+  template <typename T>
+  inline T
+  run (const char* args[],
+       T (*f) (string&),
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (run_search (args[0]), args, f, error, ignore_exit, checksum);
+  }
+
+  // run <prog>
+  //
   template <typename T>
   inline T
   run (const path& prog,
@@ -126,6 +152,20 @@ namespace build2
 
   template <typename T>
   inline T
+  run (const process_path& pp,
+       T (*f) (string&),
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    const char* args[] = {pp.recall_string (), nullptr};
+    return run<T> (pp, args, f, error, ignore_exit, checksum);
+  }
+
+  // run <prog> <arg>
+  //
+  template <typename T>
+  inline T
   run (const path& prog,
        const char* arg,
        T (*f) (string&),
@@ -135,6 +175,19 @@ namespace build2
   {
     const char* args[] = {prog.string ().c_str (), arg, nullptr};
     return run<T> (args, f, error, ignore_exit, checksum);
+  }
+
+  template <typename T>
+  inline T
+  run (const process_path& pp,
+       const char* arg,
+       T (*f) (string&),
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    const char* args[] = {pp.recall_string (), arg, nullptr};
+    return run<T> (pp, args, f, error, ignore_exit, checksum);
   }
 
   // Empty string and path.

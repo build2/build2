@@ -36,6 +36,7 @@ namespace build2
       const variable& config_x_loptions;
       const variable& config_x_libs;
 
+      const variable& x_path;
       const variable& x_poptions;
       const variable& x_coptions;
       const variable& x_loptions;
