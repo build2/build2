@@ -148,7 +148,21 @@ namespace build2
   names_view
   simple_reverse (const value& v, names& s)
   {
-    s.emplace_back (value_traits<T>::reverse (v.as<T> ()));
+    const T& x (v.as<T> ());
+
+    // Represent an empty simple value as empty name sequence rather than
+    // a single empty name. This way, for example, during serialization we
+    // end up with a much saner looking:
+    //
+    // config.import.foo =
+    //
+    // Rather than:
+    //
+    // config.import.foo = {}
+    //
+    if (!value_traits<T>::empty (x))
+      s.emplace_back (value_traits<T>::reverse (x));
+
     return s;
   }
 

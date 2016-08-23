@@ -643,7 +643,8 @@ namespace build2
   static names_view
   name_reverse (const value& v, names&)
   {
-    return names_view (&v.as<name> (), 1);
+    const name& n (v.as<name> ());
+    return n.empty () ? names_view (nullptr, 0) : names_view (&n, 1);
   }
 
   const char* const value_traits<name>::type_name = "name";
@@ -726,19 +727,23 @@ namespace build2
   static names_view
   process_path_reverse (const value& v, names& s)
   {
-    auto& pp (v.as<process_path> ());
-    s.reserve (pp.effect.empty () ? 1 : 2);
+    const process_path& x (v.as<process_path> ());
 
-    s.push_back (name (pp.recall.directory (),
-                       string (),
-                       pp.recall.leaf ().string ()));
-
-    if (!pp.effect.empty ())
+    if (!x.empty ())
     {
-      s.back ().pair = '@';
-      s.push_back (name (pp.effect.directory (),
+      s.reserve (x.effect.empty () ? 1 : 2);
+
+      s.push_back (name (x.recall.directory (),
                          string (),
-                         pp.effect.leaf ().string ()));
+                         x.recall.leaf ().string ()));
+
+      if (!x.effect.empty ())
+      {
+        s.back ().pair = '@';
+        s.push_back (name (x.effect.directory (),
+                           string (),
+                           x.effect.leaf ().string ()));
+      }
     }
 
     return s;

@@ -476,6 +476,7 @@ namespace build2
     static void append (value&, bool); // OR.
     static name reverse (bool x) {return name (x ? "true" : "false", false);}
     static int compare (bool, bool);
+    static bool empty (bool) {return false;}
 
     static const char* const type_name;
     static const build2::value_type value_type;
@@ -491,6 +492,7 @@ namespace build2
     static void append (value&, uint64_t); // ADD.
     static name reverse (uint64_t x) {return name (to_string (x), false);}
     static int compare (uint64_t, uint64_t);
+    static bool empty (bool) {return false;}
 
     static const char* const type_name;
     static const build2::value_type value_type;
