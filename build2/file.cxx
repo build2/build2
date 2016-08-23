@@ -829,62 +829,76 @@ namespace build2
     //
     dir_path out_root;
 
-    // First search subprojects, starting with our root and then trying
-    // outer roots for as long as we are inside an amalgamation.
+    // First try the config.import.* mechanism. The idea is that if the user
+    // explicitly told us the project's location, then we should prefer that
+    // over anything that we may discover. In particular, we will prefer it
+    // over any bundled subprojects.
     //
-    for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
+
+    // Note: overridable variable with path auto-completion.
+    //
+    const variable& var (
+      var_pool.insert<abs_dir_path> ("config.import." + project, true));
+
+    if (auto l = iroot[var])
     {
-      l5 ([&]{trace << "looking in " << r->out_path ();});
+      out_root = cast<dir_path> (l); // Normalized and actualized.
+      config::save_variable (iroot, var); // Mark as part of configuration.
 
-      // First check the amalgamation itself.
+      // Empty config.import.* value means don't look in subprojects or
+      // amalgamations and go straight to the rule-specific import (e.g., to
+      // use system-installed).
       //
-      if (r != &iroot && cast<string> (r->vars["project"]) == project)
+      if (out_root.empty ())
       {
-        out_root = r->out_path ();
-        break;
+        target.proj = &project;
+        l5 ([&]{trace << "skipping " << target;});
+        return names {move (target)};
       }
-
-      if (auto l = r->vars["subprojects"])
+    }
+    else
+    {
+      // Otherwise search subprojects, starting with our root and then trying
+      // outer roots for as long as we are inside an amalgamation.
+      //
+      for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
       {
-        const auto& m (cast<subprojects> (l));
-        auto i (m.find (project));
+        l5 ([&]{trace << "looking in " << r->out_path ();});
 
-        if (i != m.end ())
+        // First check the amalgamation itself.
+        //
+        if (r != &iroot && cast<string> (r->vars["project"]) == project)
         {
-          const dir_path& d ((*i).second);
-          out_root = r->out_path () / d;
+          out_root = r->out_path ();
           break;
         }
-      }
 
-      if (!r->vars["amalgamation"])
-        break;
+        if (auto l = r->vars["subprojects"])
+        {
+          const auto& m (cast<subprojects> (l));
+          auto i (m.find (project));
+
+          if (i != m.end ())
+          {
+            const dir_path& d ((*i).second);
+            out_root = r->out_path () / d;
+            break;
+          }
+        }
+
+        if (!r->vars["amalgamation"])
+          break;
+      }
     }
 
-    // Then try the config.import.* mechanism.
+    // If we couldn't find the project, convert it back into qualified target
+    // and return to let someone else (e.g., a rule) to take a stab at it.
     //
     if (out_root.empty ())
     {
-      // Note: overridable variable with path auto-completion.
-      //
-      const variable& var (
-        var_pool.insert<abs_dir_path> ("config.import." + project, true));
-
-      if (auto l = iroot[var])
-      {
-        out_root = cast<dir_path> (l); // Normalized and actualized.
-        config::save_variable (iroot, var); // Mark as part of configuration.
-      }
-      else
-      {
-        // If we can't find the project, convert it back into qualified
-        // target and return to let someone else (e.g., a rule) to take
-        // a stab at it.
-        //
-        target.proj = &project;
-        l5 ([&]{trace << "postponing " << target;});
-        return names {move (target)};
-      }
+      target.proj = &project;
+      l5 ([&]{trace << "postponing " << target;});
+      return names {move (target)};
     }
 
     // Bootstrap the imported root scope. This is pretty similar to what we do
