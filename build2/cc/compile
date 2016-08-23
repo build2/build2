@@ -44,10 +44,10 @@ namespace build2
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
       //
-      // We are using a prefix map of directories (dir_path_map) instead
-      // of just a map in order also cover sub-paths (e.g., <foo/more/bar>
-      // if we continue with the example). Specifically, we need to make
-      // sure we don't treat foobar as a sub-directory of foo.
+      // We are using a prefix map of directories (dir_path_map) instead of
+      // just a map in order to also cover sub-paths (e.g., <foo/more/bar> if
+      // we continue with the example). Specifically, we need to make sure we
+      // don't treat foobar as a sub-directory of foo.
       //
       // @@ The keys should be normalized.
       //
@@ -70,7 +70,7 @@ namespace build2
       // Header dependency injection.
       //
       void
-      inject (action, target&, lorder, file&, scope&, depdb&) const;
+      inject (action, target&, lorder, file&, depdb&) const;
 
     private:
       const link& link_;

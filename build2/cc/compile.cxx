@@ -259,7 +259,7 @@ namespace build2
         if (dd.writing () || dd.mtime () > t.mtime ())
           t.mtime (timestamp_nonexistent);
 
-        inject (a, t, lo, src, mr.prerequisite->scope, dd);
+        inject (a, t, lo, src, dd);
 
         dd.close ();
       }
@@ -619,12 +619,7 @@ namespace build2
     }
 
     void compile::
-    inject (action a,
-            target& t,
-            lorder lo,
-            file& src,
-            scope& ds,
-            depdb& dd) const
+    inject (action a, target& t, lorder lo, file& src, depdb& dd) const
     {
       tracer trace (x, "compile::inject");
 
@@ -817,9 +812,90 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, a, &t, lo, &ds, &dd, this]
+      auto add = [&trace, &update, &pm, a, &t, lo, &dd, this]
         (path f, bool cache) -> bool
       {
+        // Find or maybe insert the target.
+        //
+        auto find = [&trace, this] (const path& f, bool insert) -> path_target*
+        {
+          // Split the name into its directory part, the name part, and
+          // extension. Here we can assume the name part is a valid filesystem
+          // name.
+          //
+          // Note that if the file has no extension, we record an empty
+          // extension rather than NULL (which would signify that the default
+          // extension should be added).
+          //
+          dir_path d (f.directory ());
+          string n (f.leaf ().base ().string ());
+          const char* es (f.extension ());
+          const string* e (&extension_pool.find (es != nullptr ? es : ""));
+
+          // Determine the target type.
+          //
+          const target_type* tt (nullptr);
+
+          // See if this directory is part of any project out_root hierarchy.
+          // Note that this will miss all the headers that come from src_root
+          // (so they will be treated as generic C headers below). Generally,
+          // we don't have the ability to determine that some file belongs to
+          // src_root of some project. But that's not a problem for our
+          // purposes: it is only important for us to accurately determine
+          // target types for headers that could be auto-generated.
+          //
+          // While at it also try to determine if this target is from the src
+          // or out tree of said project.
+          //
+          dir_path out;
+
+          scope& bs (scopes.find (d));
+          if (scope* rs = bs.root_scope ())
+          {
+            tt = map_extension (bs, n, *e);
+
+            if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
+              out = out_src (d, *rs);
+          }
+
+          // If it is outside any project, or the project doesn't have such an
+          // extension, assume it is a plain old C header.
+          //
+          if (tt == nullptr)
+          {
+            // If the project doesn't "know" this extension then we won't
+            // possibly find an explicit target of this type.
+            //
+            if (!insert)
+              return nullptr;
+
+            tt = &h::static_type;
+          }
+
+          // Find or insert target.
+          //
+          // @@ OPT: move d, out, n
+          //
+          target* r;
+          if (insert)
+            r = &search (*tt, d, out, n, e, nullptr);
+          else
+          {
+            // Note that we skip any target type-specific searches (like for
+            // an existing file) and go straight for the target make since we
+            // need to find the target explicitly spelled out.
+            //
+            auto i (targets.find (*tt, d, out, n, e, trace));
+            r = i != targets.end () ? i->get () : nullptr;
+          }
+
+          return static_cast<path_target*> (r);
+        };
+
+        path_target* pt (nullptr);
+
+        // If it's not absolute then it does not exist.
+        //
         if (!f.absolute ())
         {
           f.normalize ();
@@ -859,11 +935,33 @@ namespace build2
               i = pm.end ();
           }
 
-          if (i == pm.end ())
-            fail << "unable to map presumably auto-generated header '"
-                 << f << "' to a project";
+          if (i != pm.end ())
+          {
+            // If this is a prefixless mapping, then only use it if we can
+            // resolve it to an existing target (i.e., it is explicitly
+            // spelled out in a buildfile).
+            //
+            // Note that at some point we will probably have a list of
+            // directories.
+            //
+            if (i->first.empty ())
+            {
+              path p (i->second / f);
+              l4 ([&]{trace << "trying as auto-generated " << p;});
+              pt = find (p, false);
+              if (pt != nullptr)
+                f = move (p);
+            }
+            else
+            {
+              f = i->second / f;
+              l4 ([&]{trace << "mapped as auto-generated " << f;});
+              pt = find (f, true);
+            }
+          }
 
-          f = i->second / f;
+          if (pt == nullptr)
+            fail << "header '" << f << "' not found and cannot be generated";
         }
         else
         {
@@ -874,72 +972,21 @@ namespace build2
           //
           if (!cache)
             f.realize ();
+
+          l6 ([&]{trace << "injecting " << f;});
+          pt = find (f, true);
         }
-
-        l6 ([&]{trace << "injecting " << f;});
-
-        // Split the name into its directory part, the name part, and
-        // extension. Here we can assume the name part is a valid filesystem
-        // name.
-        //
-        // Note that if the file has no extension, we record an empty
-        // extension rather than NULL (which would signify that the default
-        // extension should be added).
-        //
-        dir_path d (f.directory ());
-        string n (f.leaf ().base ().string ());
-        const char* es (f.extension ());
-        const string* e (&extension_pool.find (es != nullptr ? es : ""));
-
-        // Determine the target type.
-        //
-        const target_type* tt (nullptr);
-
-        // See if this directory is part of any project out_root hierarchy.
-        // Note that this will miss all the headers that come from src_root
-        // (so they will be treated as generic C headers below). Generally,
-        // we don't have the ability to determine that some file belongs to
-        // src_root of some project. But that's not a problem for our
-        // purposes: it is only important for us to accurately determine
-        // target types for headers that could be auto-generated.
-        //
-        // While at it also try to determine if this target is from the src
-        // or out tree of said project.
-        //
-        dir_path out;
-
-        scope& bs (scopes.find (d));
-        if (scope* rs = bs.root_scope ())
-        {
-          tt = map_extension (bs, n, *e);
-
-          if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
-            out = out_src (d, *rs);
-        }
-
-        // If it is outside any project, or the project doesn't have such an
-        // extension, assume it is a plain old C header.
-        //
-        if (tt == nullptr)
-          tt = &h::static_type;
-
-        // Find or insert target.
-        //
-        // @@ OPT: move d, out, n
-        //
-        path_target& pt (
-          static_cast<path_target&> (search (*tt, d, out, n, e, &ds)));
 
         // Assign path.
         //
-        if (pt.path ().empty ())
-          pt.path (move (f));
+        if (pt->path ().empty ())
+          pt->path (move (f));
         else
-          assert (pt.path () == f);
+          assert (pt->path () == f);
 
         // Match to a rule.
         //
-        build2::match (a, pt);
+        build2::match (a, *pt);
 
         // Update.
         //
@@ -947,18 +994,18 @@ namespace build2
         // the db itself (if it has changed since the db was written, then
         // chances are the cached data is stale).
         //
-        bool restart (update (pt, cache ? dd.mtime () : timestamp_unknown));
+        bool restart (update (*pt, cache ? dd.mtime () : timestamp_unknown));
 
         // Verify/add it to the dependency database. We do it after update in
         // order not to add bogus files (non-existent and without a way to
         // update).
         //
         if (!cache)
-          dd.expect (pt.path ());
+          dd.expect (pt->path ());
 
         // Add to our prerequisite target list.
         //
-        t.prerequisite_targets.push_back (&pt);
+        t.prerequisite_targets.push_back (pt);
 
         return restart;
       };
