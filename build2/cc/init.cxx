@@ -22,15 +22,15 @@ namespace build2
   namespace cc
   {
     bool
-    vars_init (scope& r,
-               scope&,
-               const location&,
-               unique_ptr<module_base>&,
-               bool first,
-               bool,
-               const variable_map&)
+    core_vars_init (scope& r,
+                    scope&,
+                    const location&,
+                    unique_ptr<module_base>&,
+                    bool first,
+                    bool,
+                    const variable_map&)
     {
-      tracer trace ("cc::vars_init");
+      tracer trace ("cc::core_vars_init");
       l5 ([&]{trace << "for " << r.out_path ();});
 
       assert (first);
@@ -64,23 +64,23 @@ namespace build2
     }
 
     bool
-    config_init (scope& r,
-                 scope& b,
-                 const location& loc,
-                 unique_ptr<module_base>&,
-                 bool first,
-                 bool,
-                 const variable_map& hints)
+    core_config_init (scope& r,
+                      scope& b,
+                      const location& loc,
+                      unique_ptr<module_base>&,
+                      bool first,
+                      bool,
+                      const variable_map& hints)
     {
-      tracer trace ("cc::config_init");
+      tracer trace ("cc::core_config_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Load cc.vars.
+      // Load cc.core.vars.
       //
       if (first)
       {
-        if (!cast_false<bool> (b["cc.vars.loaded"]))
-          load_module ("cc.vars", r, b, loc);
+        if (!cast_false<bool> (b["cc.core.vars.loaded"]))
+          load_module ("cc.core.vars", r, b, loc);
       }
 
       // Configure.
@@ -236,10 +236,10 @@ namespace build2
       tracer trace ("cc::core_init");
       l5 ([&]{trace << "for " << b.out_path ();});
 
-      // Load cc.config.
+      // Load cc.core.config.
       //
-      if (!cast_false<bool> (b["cc.config.loaded"]))
-        load_module ("cc.config", r, b, loc, false, hints);
+      if (!cast_false<bool> (b["cc.core.config.loaded"]))
+        load_module ("cc.core.config", r, b, loc, false, hints);
 
       // Load the bin module.
       //

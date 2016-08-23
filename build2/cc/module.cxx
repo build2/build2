@@ -35,7 +35,7 @@ namespace build2
     {
       tracer trace (x, "config_init");
 
-      bool cc_loaded (cast_false<bool> (b["cc.config.loaded"]));
+      bool cc_loaded (cast_false<bool> (b["cc.core.config.loaded"]));
 
       // Configure.
       //
@@ -65,8 +65,8 @@ namespace build2
 
         if (p.first == nullptr)
         {
-          // If someone already loaded cc.config then use its toolchain id
-          // and (optional) pattern to guess an appropriate default (e.g.,
+          // If someone already loaded cc.core.config then use its toolchain
+          // id and (optional) pattern to guess an appropriate default (e.g.,
           // for {gcc, *-4.9} we will get g++-4.9).
           //
           path d (cc_loaded
@@ -210,12 +210,12 @@ namespace build2
       b.assign (x_libs) += cast_null<strings> (
         config::optional (r, config_x_libs));
 
-      // Load cc.config.
+      // Load cc.core.config.
       //
       if (!cc_loaded)
       {
         // Prepare configuration hints. They are only used on the first load
-        // of cc.config so we only populate them on our first load.
+        // of cc.core.config so we only populate them on our first load.
         //
         variable_map h;
         if (first)
@@ -230,12 +230,13 @@ namespace build2
             h.assign ("config.bin.pattern") = move (ci.bin_pattern);
         }
 
-        load_module ("cc.config", r, b, loc, false, h);
+        load_module ("cc.core.config", r, b, loc, false, h);
       }
       else if (first)
       {
-        // If cc.config is already loaded, verify its configuration matched
-        // ours since it could have been loaded by another c-family module.
+        // If cc.core.config is already loaded, verify its configuration
+        // matched ours since it could have been loaded by another c-family
+        // module.
         //
         auto check = [&r, &loc, this](const char* cvar,
                                       const variable& xvar,

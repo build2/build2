@@ -103,10 +103,10 @@ namespace build2
 
       if (first)
       {
-        // Load cc.vars so that we can cache all the cc.* variables.
+        // Load cc.core.vars so that we can cache all the cc.* variables.
         //
-        if (!cast_false<bool> (b["cc.vars.loaded"]))
-          load_module ("cc.vars", r, b, loc);
+        if (!cast_false<bool> (b["cc.core.vars.loaded"]))
+          load_module ("cc.core.vars", r, b, loc);
 
         // Enter all the variables and initialize the module data.
         //

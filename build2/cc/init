@@ -15,22 +15,22 @@ namespace build2
   namespace cc
   {
     bool
-    vars_init (scope&,
-               scope&,
-               const location&,
-               unique_ptr<module_base>&,
-               bool,
-               bool,
-               const variable_map&);
+    core_vars_init (scope&,
+                    scope&,
+                    const location&,
+                    unique_ptr<module_base>&,
+                    bool,
+                    bool,
+                    const variable_map&);
 
     bool
-    config_init (scope&,
-                 scope&,
-                 const location&,
-                 unique_ptr<module_base>&,
-                 bool,
-                 bool,
-                 const variable_map&);
+    core_config_init (scope&,
+                      scope&,
+                      const location&,
+                      unique_ptr<module_base>&,
+                      bool,
+                      bool,
+                      const variable_map&);
 
     bool
     core_init (scope&,
