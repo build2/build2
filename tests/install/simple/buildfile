@@ -1,4 +1,4 @@
 using cxx
 
 exe{driver}: cxx{driver} hxx{utility} doc{README}
-exe{driver}: install = sbin
+exe{driver}: install = sbin/
