@@ -252,9 +252,18 @@ namespace build2
             if (v)
             {
               storage.clear ();
+              names_view ns (reverse (v, storage));
 
-              ofs << n << " = ";
-              to_stream (ofs, reverse (v, storage), true, '@'); // Quote.
+              ofs << n;
+
+              if (ns.empty ())
+                ofs << " =";
+              else
+              {
+                ofs << " = ";
+                to_stream (ofs, ns, true, '@'); // Quote.
+              }
+
               ofs << endl;
             }
             else
