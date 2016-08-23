@@ -598,10 +598,13 @@ namespace build2
   {
     dir_path d (value_traits<dir_path>::convert (move (n), r));
 
-    if (d.relative ())
-      d.complete ();
+    if (!d.empty ())
+    {
+      if (d.relative ())
+        d.complete ();
 
-    d.normalize (true); // Actualize.
+      d.normalize (true); // Actualize.
+    }
 
     return abs_dir_path (move (d));
   }
