@@ -240,6 +240,7 @@ main (int argc, char* argv[])
       bm["cxx.config"] = mf {nullptr, &cxx::config_init};
       bm["cxx"] = mf {nullptr, &cxx::init};
 
+      bm["cli.config"] = mf {nullptr, &cli::config_init};
       bm["cli"] = mf {nullptr, &cli::init};
     }
 

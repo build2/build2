@@ -26,28 +26,20 @@ namespace build2
     static compile compile_;
 
     bool
-    init (scope& rs,
-          scope& bs,
-          const location& loc,
-          unique_ptr<module_base>&,
-          bool first,
-          bool optional,
-          const variable_map& config_hints)
+    config_init (scope& rs,
+                 scope& bs,
+                 const location&,
+                 unique_ptr<module_base>&,
+                 bool first,
+                 bool optional,
+                 const variable_map& hints)
     {
-      tracer trace ("cli::init");
+      tracer trace ("cli::config_init");
       l5 ([&]{trace << "for " << bs.out_path ();});
 
-      assert (config_hints.empty ()); // We don't known any hints.
+      assert (hints.empty ()); // We don't known any hints.
 
-      // Make sure the cxx module has been loaded since we need its targets
-      // types (?xx{}). Note that we don't try to load it ourselves because of
-      // the non-trivial variable merging semantics. So it is better to let
-      // the user load cxx explicitly.
-      //
-      if (!cast_false<bool> (bs["cxx.loaded"]))
-        fail (loc) << "cxx module must be loaded before cli";
-
-      // Enter module variables.
+      // Enter variables.
       //
       if (first)
       {
@@ -60,15 +52,6 @@ namespace build2
 
         v.insert<process_path> ("cli.path");
         v.insert<strings>      ("cli.options");
-      }
-
-      // Register target types.
-      //
-      {
-        auto& t (bs.target_types);
-
-        t.insert<cli> ();
-        t.insert<cli_cxx> ();
       }
 
       // Configure.
@@ -86,7 +69,7 @@ namespace build2
       // If the configuration says we are unconfigured, then we don't need to
       // re-run tests, etc. But we may still need to print the config report.
       //
-      bool unconf (optional && config::unconfigured (rs, "config.cli"));
+      bool conf (!optional || !config::unconfigured (rs, "config.cli"));
 
       if (first)
       {
@@ -180,7 +163,7 @@ namespace build2
           // so that if we fail to configure, nothing will be written to
           // config.build.
           //
-          if (!unconf)
+          if (conf)
           {
             ver = test (cli);
 
@@ -190,7 +173,7 @@ namespace build2
               // re-testing this on each run.
               //
               config::unconfigured (rs, "config.cli", true);
-              unconf = true;
+              conf = false;
             }
             else
             {
@@ -222,30 +205,81 @@ namespace build2
           diag_record dr (text);
           dr << "cli " << project (rs) << '@' << rs.out_path () << '\n';
 
-          if (unconf)
-            dr << "  cli        " << "not found, leaving unconfigured";
-          else
+          if (conf)
             dr << "  cli        " << pp << '\n'
                << "  version    " << ver;
+          else
+            dr << "  cli        " << "not found, leaving unconfigured";
         }
 
-        if (!unconf)
+        if (conf)
           rs.assign<process_path> ("cli.path") = move (pp);
       }
 
-      // Nothing else to do if we are unconfigured.
-      //
-      if (unconf)
-        return false;
+      if (conf)
+      {
+        // config.cli.options
+        //
+        // This one is optional. We also merge it into the corresponding
+        // cli.* variables. See the cxx module for more information on
+        // this merging semantics and some of its tricky aspects.
+        //
+        bs.assign ("cli.options") += cast_null<strings> (
+          config::optional (rs, "config.cli.options"));
+      }
 
-      // config.cli.options
+      return conf;
+    }
+
+    bool
+    init (scope& rs,
+          scope& bs,
+          const location& loc,
+          unique_ptr<module_base>&,
+          bool,
+          bool optional,
+          const variable_map& hints)
+    {
+      tracer trace ("cli::init");
+      l5 ([&]{trace << "for " << bs.out_path ();});
+
+      // Make sure the cxx module has been loaded since we need its targets
+      // types (?xx{}). Note that we don't try to load it ourselves because of
+      // the non-trivial variable merging semantics. So it is better to let
+      // the user load cxx explicitly.
       //
-      // This one is optional. We also merge it into the corresponding
-      // cli.* variables. See the cxx module for more information on
-      // this merging semantics and some of its tricky aspects.
+      if (!cast_false<bool> (bs["cxx.loaded"]))
+        fail (loc) << "cxx module must be loaded before cli";
+
+      // Register target types.
       //
-      bs.assign ("cli.options") += cast_null<strings> (
-        config::optional (rs, "config.cli.options"));
+      // Note that we do it even if the module is unconfigured. Failed that,
+      // writing a buildfile will be pretty hard (actually, a buildfile still
+      // needs to be prepared that the module itself won't be found and loaded
+      // by defining fallback target types). This will be a BC change.
+      //
+      {
+        auto& t (bs.target_types);
+
+        t.insert<cli> ();
+        t.insert<cli_cxx> ();
+      }
+
+      // Load cli.config.
+      //
+      if (!cast_false<bool> (bs["cli.config.loaded"]))
+      {
+        if (!load_module ("cli.config", rs, bs, loc, optional, hints))
+          return false;
+      }
+      else if (!cast_false<bool> (bs["cli.config.configured"]))
+      {
+        if (!optional)
+          fail << "cli module could not be configured" <<
+            info << "re-run with -V option for more information";
+
+        return false;
+      }
 
       // Register our rules.
       //
