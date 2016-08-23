@@ -183,7 +183,13 @@ namespace build2
 
         // Note: not overridable.
         //
-        v.insert<dir_path> ("install");
+        // The install variable is a path, not dir_path, since it can be used
+        // to both specify the target directory (to install with the same file
+        // name) or target file (to install with a different name). And the
+        // way we distinguish between the two is via the presence/absence of
+        // the trailing directory separator.
+        //
+        v.insert<path> ("install");
         v.insert<string> ("install.mode");
       }
 

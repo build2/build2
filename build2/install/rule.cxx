@@ -21,8 +21,8 @@ namespace build2
     // if the value is the special 'false' name (which means do not install).
     // T is either scope or target.
     //
-    template <typename T>
-    static const dir_path*
+    template <typename P, typename T>
+    static const P*
     lookup (T& t, const string& var)
     {
       auto l (t[var]);
@@ -30,7 +30,7 @@ namespace build2
       if (!l)
         return nullptr;
 
-      const dir_path& r (cast<dir_path> (l));
+      const P& r (cast<P> (l));
       return r.simple () && r.string () == "false" ? nullptr : &r;
     }
 
@@ -61,9 +61,11 @@ namespace build2
         // the install module (and therefore has no file_rule registered).
         // The typical example would be the 'tests' subproject.
         //
+        // Note: not the same as lookup() above.
+        //
         auto l (pt["install"]);
 
-        if (l && cast<dir_path> (l).string () == "false")
+        if (l && cast<path> (l).string () == "false")
         {
           l5 ([&]{trace << "ignoring " << pt;});
           continue;
@@ -84,7 +86,7 @@ namespace build2
       // First determine if this target should be installed (called
       // "installable" for short).
       //
-      if (lookup (t, "install") == nullptr)
+      if (lookup<path> (t, "install") == nullptr)
         // If this is the update pre-operation, signal that we don't match so
         // that some other rule can take care of it.
         //
@@ -149,7 +151,7 @@ namespace build2
         // See if we were explicitly instructed not to touch this target.
         //
         auto l ((*pt)["install"]);
-        if (l && cast<dir_path> (l).string () == "false")
+        if (l && cast<path> (l).string () == "false")
           continue;
 
         build2::match (a, *pt);
@@ -266,14 +268,14 @@ namespace build2
         //
         const string& sn (*d.begin ());
         const string var ("install." + sn);
-        if (const dir_path* dn = lookup (t.base_scope (), var))
+        if (const dir_path* dn = lookup<dir_path> (t.base_scope (), var))
         {
           rs = resolve (t, *dn, &var);
           d = rs.back ().dir / dir_path (++d.begin (), d.end ());
           rs.emplace_back (move (d.normalize ()), rs.back ());
         }
         else
-          fail << "unknown installation directory name " << sn <<
+          fail << "unknown installation directory name '" << sn << "'" <<
             info << "did you forget to specify config." << var << "?";
       }
 
@@ -436,20 +438,27 @@ namespace build2
       }
     }
 
-    // install <file> <dir>
+    // install <file> <dir>/
+    // install <file> <file>
     //
     // If verbose is false, then only print the command at verbosity level 2
     // or higher.
     //
     static void
-    install (const install_dir& base, file& t, bool verbose = true)
+    install (const install_dir& base,
+             const path& name,
+             file& t,
+             bool verbose = true)
     {
       path relf (relative (t.path ()));
 
-      dir_path reld (
+      path reld (
         cast<string> ((*global_scope)["build.host.class"]) == "windows"
         ? msys_path (base.dir)
         : relative (base.dir));
+
+      if (!name.empty ())
+        reld /= name;
 
       cstrings args;
 
@@ -496,8 +505,11 @@ namespace build2
       file& t (static_cast<file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto install_target = [](file& t, const dir_path& d, bool verbose)
+      auto install_target = [](file& t, const path& p, bool verbose)
       {
+        bool n (!p.to_directory ());
+        dir_path d (n ? p.directory () : path_cast<dir_path> (p));
+
         // Resolve target directory.
         //
         install_dirs ids (resolve (t, d));
@@ -516,7 +528,7 @@ namespace build2
         if (auto l = t["install.mode"])
           id.mode = &cast<string> (l);
 
-        install (id, t, verbose);
+        install (id, n ? p.leaf () : path (), t, verbose);
       };
 
       // First handle installable prerequisites.
@@ -527,14 +539,14 @@ namespace build2
       //
       for (target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const dir_path* d = lookup (*m, "install"))
-          install_target (static_cast<file&> (*m), *d, false);
+        if (const path* p = lookup<path> (*m, "install"))
+          install_target (static_cast<file&> (*m), *p, false);
       }
 
       // Finally install the target itself (since we got here we know the
       // install variable is there).
       //
-      install_target (t, cast<dir_path> (t["install"]), true);
+      install_target (t, cast<path> (t["install"]), true);
 
       return (r |= target_state::changed);
     }
@@ -638,7 +650,8 @@ namespace build2
       return r;
     }
 
-    // uninstall <file> <dir>
+    // uninstall <file> <dir>/
+    // uninstall <file> <file>
     //
     // Return false if nothing has been removed (i.e., the file does not
     // exist).
@@ -647,9 +660,12 @@ namespace build2
     // or higher.
     //
     static bool
-    uninstall (const install_dir& base, file& t, bool verbose = true)
+    uninstall (const install_dir& base,
+               const path& name,
+               file& t,
+               bool verbose = true)
     {
-      path f (base.dir / t.path ().leaf ());
+      path f (base.dir / (name.empty () ? t.path ().leaf () : name));
 
       try
       {
@@ -721,18 +737,22 @@ namespace build2
       file& t (static_cast<file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto uninstall_target = [](file& t, const dir_path& d, bool verbose)
+      auto uninstall_target = [](file& t, const path& p, bool verbose)
         -> target_state
       {
+        bool n (!p.to_directory ());
+        dir_path d (n ? p.directory () : path_cast<dir_path> (p));
+
         // Resolve target directory.
         //
         install_dirs ids (resolve (t, d));
 
         // Remove the target itself.
         //
-        target_state r (uninstall (ids.back (), t, verbose)
-                        ? target_state::changed
-                        : target_state::unchanged);
+        target_state r (
+          uninstall (ids.back (), n ? p.leaf () : path (), t, verbose)
+          ? target_state::changed
+          : target_state::unchanged);
 
         // Clean up empty leading directories (in reverse).
         //
@@ -751,8 +771,7 @@ namespace build2
       // Reverse order of installation: first the target itself (since we got
       // here we know the install variable is there).
       //
-      target_state r (
-        uninstall_target (t, cast<dir_path> (t["install"]), true));
+      target_state r (uninstall_target (t, cast<path> (t["install"]), true));
 
       // Then installable ad hoc group members, if any. To be anally precise
       // we would have to do it in reverse, but that's not easy (it's a
@@ -760,9 +779,9 @@ namespace build2
       //
       for (target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const dir_path* d = lookup (*m, "install"))
+        if (const path* p = lookup<path> (*m, "install"))
           r |= uninstall_target (static_cast<file&> (*m),
-                                 *d,
+                                 *p,
                                  r != target_state::changed);
       }
 

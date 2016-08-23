@@ -21,14 +21,14 @@ namespace build2
     {
       auto r (s.target_vars[tt]["*"].insert ("install"));
       if (r.second) // Already set by the user?
-        r.first.get () = move (d);
+        r.first.get () = path_cast<path> (move (d));
     }
 
     template <typename T>
     inline void
     install_path (scope& s, dir_path d)
     {
-      return install_path (T::static_type, s, d);
+      return install_path (T::static_type, s, move (d));
     }
 
     inline void
@@ -43,7 +43,7 @@ namespace build2
     inline void
     install_mode (scope& s, string m)
     {
-      return install_mode (T::static_type, s, m);
+      return install_mode (T::static_type, s, move (m));
     }
   }
 }
