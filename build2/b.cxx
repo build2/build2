@@ -231,6 +231,7 @@ main (int argc, char* argv[])
       bm["cc.core.vars"] = mf {nullptr, &cc::core_vars_init};
       bm["cc.core.config"] = mf {nullptr, &cc::core_config_init};
       bm["cc.core"] = mf {nullptr, &cc::core_init};
+      bm["cc.config"] = mf {nullptr, &cc::config_init};
       bm["cc"] = mf {nullptr, &cc::init};
 
       bm["c.config"] = mf {nullptr, &c::config_init};

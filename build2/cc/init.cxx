@@ -282,6 +282,66 @@ namespace build2
       return true;
     }
 
+    // The cc module is an "alias" for c and cxx. Its intended use is to make
+    // sure that the C/C++ configuration is captured in an amalgamation rather
+    // than subprojects.
+    //
+    static inline bool
+    init_alias (tracer& trace,
+                const char* c,
+                const char* c_loaded,
+                const char* cxx,
+                const char* cxx_loaded,
+                scope& r,
+                scope& b,
+                const location& loc,
+                const variable_map& hints)
+    {
+      l5 ([&]{trace << "for " << b.out_path ();});
+
+      // We want to order the loading to match what user specified on the
+      // command line (config.c or config.cxx). This way the first loaded
+      // module (with user-specified config.*) will hint the compiler to the
+      // second.
+      //
+      bool lc (!cast_false<bool> (b[c_loaded]));
+      bool lp (!cast_false<bool> (b[cxx_loaded]));
+
+      // If none of them are already loaded, load c first only if config.c
+      // is specified.
+      //
+      if (lc && lp && r["config.c"])
+      {
+        load_module (c, r, b, loc, false, hints);
+        load_module (cxx, r, b, loc, false, hints);
+      }
+      else
+      {
+        if (lp) load_module (cxx, r, b, loc, false, hints);
+        if (lc) load_module (c, r, b, loc, false, hints);
+      }
+
+      return true;
+    }
+
+    bool
+    config_init (scope& r,
+                 scope& b,
+                 const location& loc,
+                 unique_ptr<module_base>&,
+                 bool,
+                 bool,
+                 const variable_map& hints)
+    {
+      tracer trace ("cc::config_init");
+      return init_alias (trace,
+                         "c.config",   "c.config.loaded",
+                         "cxx.config", "cxx.config.loaded",
+                         r, b,
+                         loc,
+                         hints);
+    }
+
     bool
     init (scope& r,
           scope& b,
@@ -289,38 +349,15 @@ namespace build2
           unique_ptr<module_base>&,
           bool,
           bool,
-          const variable_map&)
+          const variable_map& hints)
     {
       tracer trace ("cc::init");
-      l5 ([&]{trace << "for " << b.out_path ();});
-
-      // This module is an "alias" for c.config and cxx.config. Its intended
-      // use is to make sure that the C/C++ configuration is captured in an
-      // amalgamation rather than subprojects.
-      //
-      // We want to order the loading to match what user specified on the
-      // command line (config.c or config.cxx). This way the first loaded
-      // module (with user-specified config.*) will hint the compiler to the
-      // second.
-      //
-      bool lc (!cast_false<bool> (b["c.config.loaded"]));
-      bool lp (!cast_false<bool> (b["cxx.config.loaded"]));
-
-      // If none of them are already loaded, load c first only if config.c
-      // is specified.
-      //
-      if (lc && lp && r["config.c"])
-      {
-        load_module ("c.config", r, b, loc);
-        load_module ("cxx.config", r, b, loc);
-      }
-      else
-      {
-        if (lp) load_module ("cxx.config", r, b, loc);
-        if (lc) load_module ("c.config", r, b, loc);
-      }
-
-      return true;
+      return init_alias (trace,
+                         "c",   "c.loaded",
+                         "cxx", "cxx.loaded",
+                         r, b,
+                         loc,
+                         hints);
     }
   }
 }
