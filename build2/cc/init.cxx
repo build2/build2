@@ -60,6 +60,13 @@ namespace build2
       v.insert<string> ("config.cc.target");
       v.insert<string> ("config.cc.pattern");
 
+      // Target type, for example, "C library" or "C++ library". Should be set
+      // on the target by the matching rule to the name of the module (e.g.,
+      // "c", "cxx"). Currenly only set for libraries and is used to decide
+      // which *.libs to use during static linking.
+      //
+      v.insert<string> ("cc.type");
+
       return true;
     }
 

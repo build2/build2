@@ -148,6 +148,8 @@ namespace build2
           v["cc.export.loptions"],
           v["cc.export.libs"],
 
+          v["cc.type"],
+
           v.insert<string>   ("c.std", true),
 
           v.insert<string>   ("c.id"),

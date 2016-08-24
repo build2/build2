@@ -575,6 +575,9 @@ namespace build2
         }
       }
 
+      if (!(seen_x || seen_c || seen_obj || seen_lib))
+        return nullptr;
+
       // We will only chain a C source if there is also an X source or we were
       // explicitly told to.
       //
@@ -584,10 +587,14 @@ namespace build2
         return nullptr;
       }
 
-      // If we have any prerequisite libraries (which also means that
-      // we match), search/import and pre-match them to implement the
-      // "library meta-information protocol". Don't do this if we are
-      // called from the install rule just to check if we would match.
+      // Set the library type.
+      //
+      t.vars.assign (c_type) = string (x);
+
+      // If we have any prerequisite libraries, search/import and pre-match
+      // them to implement the "library meta-information protocol". Don't do
+      // this if we are called from the install rule just to check if we would
+      // match.
       //
       auto op (a.operation ());
       auto oop (a.outer_operation ());
@@ -629,7 +636,7 @@ namespace build2
         }
       }
 
-      return seen_x || seen_c || seen_obj || seen_lib ? &t : nullptr;
+      return &t;
     }
 
     recipe link::
@@ -1046,8 +1053,15 @@ namespace build2
 
       if (la)
       {
-        append_options (args, l, c_libs);
-        append_options (args, l, x_libs);
+        // See what type of library this is (C, C++, etc). Use it do decide
+        // which x.libs variable name. If it is not a C-common library, then
+        // it probably doesn't have cc.libs either.
+        //
+        if (const string* t = cast_null<string> (l.vars[c_type]))
+        {
+          append_options (args, l, c_libs);
+          append_options (args, l, *t == x ? x_libs : var_pool[*t + ".libs"]);
+        }
       }
       else
       {
@@ -1092,6 +1106,9 @@ namespace build2
           }
         };
 
+        // @@ Should we also pick one based on cc.type? And also *.poptions in
+        //    compile? Feels right.
+        //
         append (c_export_libs);
         append (x_export_libs);
       }
@@ -1117,8 +1134,15 @@ namespace build2
 
       if (la)
       {
-        hash_options (cs, l, c_libs);
-        hash_options (cs, l, x_libs);
+        // See what type of library this is (C, C++, etc). Use it do decide
+        // which x.libs variable name. If it is not a C-common library, then
+        // it probably doesn't have cc.libs either.
+        //
+        if (const string* t = cast_null<string> (l.vars[c_type]))
+        {
+          hash_options (cs, l, c_libs);
+          hash_options (cs, l, *t == x ? x_libs : var_pool[*t + ".libs"]);
+        }
       }
       else
       {
