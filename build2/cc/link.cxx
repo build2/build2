@@ -9,6 +9,7 @@
 
 #include <butl/path-map>
 
+#include <build2/file>   // import()
 #include <build2/depdb>
 #include <build2/scope>
 #include <build2/context>
@@ -201,24 +202,21 @@ namespace build2
     }
 
     target* link::
-    search_library (optional<dir_paths>& spc, prerequisite& p) const
+    search_library (optional<dir_paths>& spc, const prerequisite_key& p) const
     {
       tracer trace (x, "link::search_library");
+
+      assert (p.scope != nullptr);
 
       // @@ This is hairy enough to warrant a separate implementation for
       //    Windows.
       //
-
-      // First check the cache.
-      //
-      if (p.target != nullptr)
-        return p.target;
-
       bool l (p.is_a<lib> ());
-      const string* ext (l ? nullptr : p.ext); // Only for liba/libs.
+      const string* ext (l ? nullptr : p.tk.ext); // Only for liba/libs.
 
       // Then figure out what we need to search for.
       //
+      const string& name (*p.tk.name);
 
       // liba
       //
@@ -244,12 +242,12 @@ namespace build2
 
         if (cid == "msvc")
         {
-          an = path (p.name);
+          an = path (name);
           e = "lib";
         }
         else
         {
-          an = path ("lib" + p.name);
+          an = path ("lib" + name);
           e = "a";
         }
 
@@ -275,12 +273,12 @@ namespace build2
 
         if (cid == "msvc")
         {
-          sn = path (p.name);
+          sn = path (name);
           e = "dll.lib";
         }
         else
         {
-          sn = path ("lib" + p.name);
+          sn = path ("lib" + name);
 
           if      (tsys == "darwin")  e = "dylib";
           else if (tsys == "mingw32") e = "dll.a"; // See search code below.
@@ -301,7 +299,7 @@ namespace build2
       // Now search.
       //
       if (!spc)
-        spc = extract_library_paths (p.scope);
+        spc = extract_library_paths (*p.scope);
 
       liba* a (nullptr);
       libs* s (nullptr);
@@ -331,14 +329,12 @@ namespace build2
             //
             if (tclass == "windows")
             {
-              s = &targets.insert<libs> (
-                d, dir_path (), p.name, nullptr, trace);
+              s = &targets.insert<libs> (d, dir_path (), name, nullptr, trace);
 
               if (s->member == nullptr)
               {
                 libi& i (
-                  targets.insert<libi> (
-                    d, dir_path (), p.name, se, trace));
+                  targets.insert<libi> (d, dir_path (), name, se, trace));
 
                 if (i.path ().empty ())
                   i.path (move (f));
@@ -357,7 +353,7 @@ namespace build2
             }
             else
             {
-              s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
+              s = &targets.insert<libs> (d, dir_path (), name, se, trace);
 
               if (s->path ().empty ())
                 s->path (move (f));
@@ -379,7 +375,7 @@ namespace build2
 
             if (mt != timestamp_nonexistent)
             {
-              s = &targets.insert<libs> (d, dir_path (), p.name, se, trace);
+              s = &targets.insert<libs> (d, dir_path (), name, se, trace);
 
               if (s->path ().empty ())
                 s->path (move (f));
@@ -406,7 +402,7 @@ namespace build2
             // Note that this target is outside any project which we treat
             // as out trees.
             //
-            a = &targets.insert<liba> (d, dir_path (), p.name, ae, trace);
+            a = &targets.insert<liba> (d, dir_path (), name, ae, trace);
 
             if (a->path ().empty ())
               a->path (move (f));
@@ -419,7 +415,7 @@ namespace build2
         //
         if (cid == "msvc")
         {
-          scope& rs (*p.scope.root_scope ());
+          scope& rs (*p.scope->root_scope ());
           const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
 
           if (s == nullptr && !sn.empty ())
@@ -492,7 +488,7 @@ namespace build2
       {
         // Enter the target group.
         //
-        lib& l (targets.insert<lib> (*pd, dir_path (), p.name, p.ext, trace));
+        lib& l (targets.insert<lib> (*pd, dir_path (), name, p.tk.ext, trace));
 
         // It should automatically link-up to the members we have found.
         //
@@ -506,12 +502,10 @@ namespace build2
                         : "shared");
         l.assign ("bin.lib") = bl;
 
-        p.target = &l;
+        return &l;
       }
       else
-        p.target = p.is_a<liba> () ? static_cast<target*> (a) : s;
-
-      return p.target;
+        return p.is_a<liba> () ? static_cast<target*> (a) : s;
     }
 
     match_result link::
@@ -1022,36 +1016,216 @@ namespace build2
       }
     }
 
-    // Recursively append/hash prerequisite libraries of a static library.
+    // Recursively append/hash prerequisite libraries. Only interface
+    // (*.export.libs) for shared libraries, interface and implementation
+    // (both prerequisite and from *.libs) for static libraries.
     //
-    static void
-    append_libraries (strings& args, liba& a)
+    // Note that here we assume that an interface library is also an
+    // implementation (since we don't use *.export.libs in static link). We
+    // currently have this restriction to make sure the target in
+    // *.export.libs is up-to-date (which will happen automatically if it is
+    // listed as a prerequisite of this library).
+    //
+    void link::
+    append_libraries (strings& args, file& l, bool la) const
     {
-      for (target* pt: a.prerequisite_targets)
+      for (target* p: l.prerequisite_targets)
       {
-        if (liba* pa = pt->is_a<liba> ())
+        bool a;
+        file* f;
+
+        if ((a = (f = p->is_a<liba> ()) != nullptr)
+            ||   (f = p->is_a<libs> ()) != nullptr)
         {
-          args.push_back (relative (pa->path ()).string ()); // string()&&
-          append_libraries (args, *pa);
+          if (la)
+            args.push_back (relative (f->path ()).string ()); // string()&&
+
+          append_libraries (args, *f, a);
         }
-        else if (libs* ps = pt->is_a<libs> ())
-          args.push_back (relative (ps->path ()).string ()); // string()&&
+      }
+
+      if (la)
+      {
+        append_options (args, l, c_libs);
+        append_options (args, l, x_libs);
+      }
+      else
+      {
+        scope* bs (nullptr);     // Resolve lazily.
+        optional<lorder> lo;     // Calculate lazily.
+        optional<dir_paths> spc; // Extract lazily.
+
+        auto append = [&args, &l, &bs, &lo, &spc, this] (const variable& var)
+        {
+          const names* ns (cast_null<names> (l[var]));
+          if (ns == nullptr || ns->empty ())
+            return;
+
+          args.reserve (args.size () + ns->size ());
+
+          for (const name& n: *ns)
+          {
+            if (n.simple ())
+              args.push_back (n.value);
+            else
+            {
+              if (bs == nullptr)
+                bs = &l.base_scope ();
+
+              if (!lo)
+                lo = link_order (*bs, otype::s); // We know it's libs{}.
+
+              file& t (resolve_library (n, *bs, *lo, spc));
+
+              // This can happen if the target is mentioned in *.export.libs
+              // (i.e., it is an interface dependency) but not in the
+              // library's prerequisites (i.e., it is not an implementation
+              // dependency).
+              //
+              if (t.path ().empty ())
+                fail << "target " << t << " is out of date" <<
+                  info << "mentioned in " << var.name << " of target " << l <<
+                  info << "is it a prerequisite of " << l << "?";
+
+              args.push_back (relative (t.path ()).string ());
+            }
+          }
+        };
+
+        append (c_export_libs);
+        append (x_export_libs);
       }
     }
 
-    static void
-    hash_libraries (sha256& cs, liba& a)
+    void link::
+    hash_libraries (sha256& cs, file& l, bool la) const
     {
-      for (target* pt: a.prerequisite_targets)
+      for (target* p: l.prerequisite_targets)
       {
-        if (liba* pa = pt->is_a<liba> ())
+        bool a;
+        file* f;
+
+        if ((a = (f = p->is_a<liba> ()) != nullptr)
+            ||   (f = p->is_a<libs> ()) != nullptr)
         {
-          cs.append (pa->path ().string ());
-          hash_libraries (cs, *pa);
+          if (la)
+            cs.append (f->path ().string ());
+
+          hash_libraries (cs, *f, a);
         }
-        else if (libs* ps = pt->is_a<libs> ())
-          cs.append (ps->path ().string ());
       }
+
+      if (la)
+      {
+        hash_options (cs, l, c_libs);
+        hash_options (cs, l, x_libs);
+      }
+      else
+      {
+        scope* bs (nullptr);     // Resolve lazily.
+        optional<lorder> lo;     // Calculate lazily.
+        optional<dir_paths> spc; // Extract lazily.
+
+        auto hash = [&cs, &l, &bs, &lo, &spc, this] (const variable& var)
+        {
+          const names* ns (cast_null<names> (l[var]));
+          if (ns == nullptr || ns->empty ())
+            return;
+
+          for (const name& n: *ns)
+          {
+            if (n.simple ())
+              cs.append (n.value);
+            else
+            {
+              if (bs == nullptr)
+                bs = &l.base_scope ();
+
+              if (!lo)
+                lo = link_order (*bs, otype::s); // We know it's libs{}.
+
+              file& t (resolve_library (n, *bs, *lo, spc));
+
+              // This can happen if the target is mentioned in *.export.libs
+              // (i.e., it is an interface dependency) but not in the
+              // library's prerequisites (i.e., it is not an implementation
+              // dependency).
+              //
+              if (t.path ().empty ())
+                fail << "target " << t << " is out of date" <<
+                  info << "mentioned in " << var.name << " of target " << l <<
+                  info << "is it a prerequisite of " << l << "?";
+
+              cs.append (t.path ().string ());
+            }
+          }
+        };
+
+        hash (c_export_libs);
+        hash (x_export_libs);
+      }
+    }
+
+    // The name can be a simple value (e.g., -lpthread or shell32.lib), an
+    // absolute target name (e.g., /tmp/libfoo/lib{foo}) or a potentially
+    // project-qualified relative target name (e.g., libfoo%lib{foo}).
+    //
+    // Note that the scope, search paths, and the link order should all be
+    // derived from the library target that mentioned this name. This way we
+    // will select exactly the same target as the library's matched rule and
+    // that's the only way to guarantee it will be up-to-date.
+    //
+    file& link::
+    resolve_library (name n,
+                     scope& s,
+                     lorder lo,
+                     optional<dir_paths>& spc) const
+    {
+      if (n.type != "lib" && n.type != "liba" && n.type != "libs")
+        fail << "target name " << n << " is not a library";
+
+      target* xt (nullptr);
+
+      if (n.dir.absolute () && !n.qualified ())
+      {
+        // Search for an existing target with this name "as if" it was a
+        // prerequisite.
+        //
+        xt = &search (move (n), s);
+      }
+      else
+      {
+        // This is import.
+        //
+        const string* ext;
+        const target_type* tt (s.find_target_type (n, ext)); // Changes name.
+
+        if (tt == nullptr)
+          fail << "unknown target type " << n.type << " in library " << n;
+
+        // @@ OUT: for now we assume out is undetermined, just like in
+        // search (name, scope).
+        //
+        dir_path out;
+        prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
+
+        xt = search_library (spc, pk);
+
+        if (xt == nullptr)
+        {
+          if (n.qualified ())
+            xt = &import (pk);
+          else
+            fail << "unable to find library " << pk;
+        }
+      }
+
+      // If this is lib{}, pick appropriate member.
+      //
+      if (lib* l = xt->is_a<lib> ())
+        xt = &link_member (*l, lo);
+
+      return static_cast<file&> (*xt); // liba{} or libs{}.
     }
 
     static void
@@ -1433,11 +1607,11 @@ namespace build2
 
             cs.append (f->path ().string ());
 
-            // If this is a static library, link all the libraries it depends
-            // on, recursively.
+            // Link all the dependent interface libraries (shared) or
+            // interface and implementation (static), recursively.
             //
-            if (a != nullptr)
-              hash_libraries (cs, *a);
+            if (a != nullptr || s != nullptr)
+              hash_libraries (cs, *f, a != nullptr);
           }
         }
 
@@ -1669,11 +1843,11 @@ namespace build2
 
           sargs.push_back (relative (f->path ()).string ()); // string()&&
 
-          // If this is a static library, link all the libraries it depends
-          // on, recursively.
+          // Link all the dependent interface libraries (shared) or interface
+          // and implementation (static), recursively.
           //
-          if (a != nullptr)
-            append_libraries (sargs, *a);
+          if (a != nullptr || s != nullptr)
+            append_libraries (sargs, *f, a != nullptr);
         }
       }
 

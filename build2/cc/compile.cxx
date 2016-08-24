@@ -882,8 +882,8 @@ namespace build2
           else
           {
             // Note that we skip any target type-specific searches (like for
-            // an existing file) and go straight for the target make since we
-            // need to find the target explicitly spelled out.
+            // an existing file) and go straight for the target object since
+            // we need to find the target explicitly spelled out.
             //
             auto i (targets.find (*tt, d, out, n, e, trace));
             r = i != targets.end () ? i->get () : nullptr;

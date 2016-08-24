@@ -42,7 +42,21 @@ namespace build2
 
   template <typename T>
   inline void
+  append_options (strings& args, T& s, const variable& var)
+  {
+    append_options (args, s[var]);
+  }
+
+  template <typename T>
+  inline void
   append_options (cstrings& args, T& s, const char* var)
+  {
+    append_options (args, s[var]);
+  }
+
+  template <typename T>
+  inline void
+  append_options (strings& args, T& s, const char* var)
   {
     append_options (args, s[var]);
   }

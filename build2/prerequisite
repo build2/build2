@@ -30,6 +30,10 @@ namespace build2
     mutable const string* proj; // Can be NULL, from project_name_pool.
     target_key tk;              // .dir and .out can be relative.
     mutable scope_type* scope;  // Can be NULL if tk.dir is absolute.
+
+    template <typename T>
+    bool is_a () const {return tk.is_a<T> ();}
+    bool is_a (const target_type& tt) const {return tk.is_a (tt);}
   };
 
   inline bool

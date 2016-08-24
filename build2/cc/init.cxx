@@ -52,7 +52,7 @@ namespace build2
       v.insert<strings> ("cc.export.poptions");
       v.insert<strings> ("cc.export.coptions");
       v.insert<strings> ("cc.export.loptions");
-      v.insert<strings> ("cc.export.libs");
+      v.insert<names>   ("cc.export.libs");
 
       // Hint variables (not overridable).
       //

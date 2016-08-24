@@ -141,7 +141,7 @@ namespace build2
           v.insert<strings>  ("c.export.poptions"),
           v.insert<strings>  ("c.export.coptions"),
           v.insert<strings>  ("c.export.loptions"),
-          v.insert<strings>  ("c.export.libs"),
+          v.insert<names>    ("c.export.libs"),
 
           v["cc.export.poptions"],
           v["cc.export.coptions"],

@@ -219,7 +219,7 @@ namespace build2
     msvc_search_library (const char* mod,
                          const process_path& ld,
                          const dir_path& d,
-                         prerequisite& p,
+                         const prerequisite_key& p,
                          otype lt,
                          const char* pfx,
                          const char* sfx)
@@ -228,6 +228,9 @@ namespace build2
       //
       tracer trace (mod, "msvc_search_library");
 
+      const string* ext (p.tk.ext);
+      const string& name (*p.tk.name);
+
       // Assemble the file path.
       //
       path f (d);
@@ -235,18 +238,18 @@ namespace build2
       if (*pfx != '\0')
       {
         f /= pfx;
-        f += p.name;
+        f += name;
       }
       else
-        f /= p.name;
+        f /= name;
 
       if (*sfx != '\0')
         f += sfx;
 
       const string& e (
-        p.ext == nullptr || p.is_a<lib> () // Only for liba/libs.
+        ext == nullptr || p.is_a<lib> () // Only for liba/libs.
         ? extension_pool.find ("lib")
-        : *p.ext);
+        : *ext);
 
       if (!e.empty ())
       {
@@ -262,7 +265,7 @@ namespace build2
       {
         // Enter the target.
         //
-        T& t (targets.insert<T> (d, dir_path (), p.name, &e, trace));
+        T& t (targets.insert<T> (d, dir_path (), name, &e, trace));
 
         if (t.path ().empty ())
           t.path (move (f));
@@ -277,7 +280,7 @@ namespace build2
     liba* link::
     msvc_search_static (const process_path& ld,
                         const dir_path& d,
-                        prerequisite& p) const
+                        const prerequisite_key& p) const
     {
       liba* r (nullptr);
 
@@ -304,7 +307,7 @@ namespace build2
     libs* link::
     msvc_search_shared (const process_path& ld,
                         const dir_path& d,
-                        prerequisite& p) const
+                        const prerequisite_key& p) const
     {
       tracer trace (x, "link::msvc_search_shared");
 
@@ -316,7 +319,8 @@ namespace build2
         if (libi* i =
               msvc_search_library<libi> (x, ld, d, p, otype::s, pf, sf))
         {
-          r = &targets.insert<libs> (d, dir_path (), p.name, nullptr, trace);
+          r = &targets.insert<libs> (
+            d, dir_path (), *p.tk.name, nullptr, trace);
 
           if (r->member == nullptr)
           {

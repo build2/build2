@@ -211,6 +211,14 @@ namespace build2
 
   template <typename T>
   void
+  append_options (strings&, T&, const variable&);
+
+  template <typename T>
+  void
+  append_options (strings&, T&, const char*);
+
+  template <typename T>
+  void
   hash_options (sha256&, T&, const variable&);
 
   template <typename T>
@@ -226,10 +234,16 @@ namespace build2
   append_options (cstrings&, const lookup&);
 
   void
+  append_options (strings&, const lookup&);
+
+  void
   hash_options (sha256&, const lookup&);
 
   void
   append_options (cstrings&, const strings&);
+
+  void
+  append_options (strings&, const strings&);
 
   void
   hash_options (sha256&, const strings&);

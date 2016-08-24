@@ -173,6 +173,13 @@ namespace build2
   }
 
   void
+  append_options (strings& args, const lookup& l)
+  {
+    if (l)
+      append_options (args, cast<strings> (l));
+  }
+
+  void
   hash_options (sha256& csum, const lookup& l)
   {
     if (l)
@@ -188,6 +195,18 @@ namespace build2
 
       for (const string& s: sv)
         args.push_back (s.c_str ());
+    }
+  }
+
+  void
+  append_options (strings& args, const strings& sv)
+  {
+    if (!sv.empty ())
+    {
+      args.reserve (args.size () + sv.size ());
+
+      for (const string& s: sv)
+        args.push_back (s);
     }
   }
 

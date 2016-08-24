@@ -39,6 +39,15 @@ namespace build2
     private:
       friend class compile;
 
+      void
+      append_libraries (strings&, file&, bool) const;
+
+      void
+      hash_libraries (sha256&, file&, bool) const;
+
+      file&
+      resolve_library (name, scope&, lorder, optional<dir_paths>&) const;
+
       // Extract system library search paths from GCC or compatible (Clang,
       // Intel) using the -print-search-dirs option.
       //
@@ -58,15 +67,26 @@ namespace build2
       bin::liba*
       msvc_search_static (const process_path&,
                           const dir_path&,
-                          prerequisite&) const;
+                          const prerequisite_key&) const;
 
       bin::libs*
       msvc_search_shared (const process_path&,
                           const dir_path&,
-                          prerequisite&) const;
+                          const prerequisite_key&) const;
 
       target*
-      search_library (optional<dir_paths>&, prerequisite&) const;
+      search_library (optional<dir_paths>& spc, prerequisite& p) const
+      {
+        if (p.target == nullptr) // First check the cache.
+          p.target = search_library (spc, p.key ());
+
+        return p.target;
+      }
+
+      // Note that pk's scope should not be NULL (even if dir is absolute).
+      //
+      target*
+      search_library (optional<dir_paths>&, const prerequisite_key&) const;
 
       // Windows-specific (windows-manifest.cxx).
       //

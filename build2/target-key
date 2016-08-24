@@ -28,6 +28,10 @@ namespace build2
     const string* const name;
     const string* const& ext;
 
+    template <typename T>
+    bool is_a () const {return type->is_a<T> ();}
+    bool is_a (const target_type& tt) const {return type->is_a (tt);}
+
     // The above references have to track the original objects so we cannot
     // have assignment.
     //
