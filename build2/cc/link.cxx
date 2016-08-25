@@ -1059,8 +1059,17 @@ namespace build2
         //
         if (const string* t = cast_null<string> (l.vars[c_type]))
         {
+          // @@ Shouldn't, ideally, we filter loptions to only include -L?
+          //
+          append_options (args, l, c_loptions);
           append_options (args, l, c_libs);
-          append_options (args, l, *t == x ? x_libs : var_pool[*t + ".libs"]);
+
+          append_options (args,
+                          l,
+                          *t == x ? x_loptions : var_pool[*t + ".loptions"]);
+          append_options (args,
+                          l,
+                          *t == x ? x_libs : var_pool[*t + ".libs"]);
         }
       }
       else
@@ -1109,7 +1118,10 @@ namespace build2
         // @@ Should we also pick one based on cc.type? And also *.poptions in
         //    compile? Feels right.
         //
+        append_options (args, l, c_export_loptions);
         append (c_export_libs);
+
+        append_options (args, l, x_export_loptions);
         append (x_export_libs);
       }
     }
@@ -1140,8 +1152,17 @@ namespace build2
         //
         if (const string* t = cast_null<string> (l.vars[c_type]))
         {
+          // @@ Shouldn't, ideally, we filter loptions to only include -L?
+          //
+          hash_options (cs, l, c_loptions);
           hash_options (cs, l, c_libs);
-          hash_options (cs, l, *t == x ? x_libs : var_pool[*t + ".libs"]);
+
+          hash_options (cs,
+                        l,
+                        *t == x ? x_loptions : var_pool[*t + ".loptions"]);
+          hash_options (cs,
+                        l,
+                        *t == x ? x_libs : var_pool[*t + ".libs"]);
         }
       }
       else
@@ -1185,7 +1206,10 @@ namespace build2
           }
         };
 
+        hash_options (cs, l, c_export_loptions);
         hash (c_export_libs);
+
+        hash_options (cs, l, x_export_loptions);
         hash (x_export_libs);
       }
     }
