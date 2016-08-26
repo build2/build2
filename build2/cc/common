@@ -96,6 +96,8 @@ namespace build2
       const string& tsys;    // x.target.system
       const string& tclass;  // x.target.class
 
+      const process_path* pkgconfig; // pkgconfig.path (can be NULL).
+
       const target_type& x_src;  // Source target type (c{}, cxx{}).
 
       // Array of target types that are considered headers. Keep them in the
@@ -131,6 +133,7 @@ namespace build2
             const string& tg,
             const string& sys,
             const string& class_,
+            const process_path* pkgc,
             const target_type& src,
             const target_type* const* hdr,
             const target_type* const* inc)
@@ -140,6 +143,7 @@ namespace build2
             x_install (install),
             x_uninstall (uninstall),
             cid (id), ctg (tg), tsys (sys), tclass (class_),
+            pkgconfig (pkgc),
             x_src (src), x_hdr (hdr), x_inc (inc) {}
     };
 

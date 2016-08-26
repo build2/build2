@@ -62,6 +62,49 @@ namespace build2
       return nullptr;
     }
 
+    // Append or hash library options from a pair of *.export.* variables
+    // (first one is cc.export.*) recursively, prerequisite libraries first.
+    //
+    void compile::
+    append_lib_options (cstrings& args, target& xt) const
+    {
+      file& l (static_cast<file&> (xt));
+
+      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
+      {
+        assert (exp);
+
+        const variable& var (
+          com
+          ? c_export_poptions
+          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+
+        append_options (args, l, var);
+      };
+
+      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
+    }
+
+    void compile::
+    hash_lib_options (sha256& cs, target& xt) const
+    {
+      file& l (static_cast<file&> (xt));
+
+      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
+      {
+        assert (exp);
+
+        const variable& var (
+          com
+          ? c_export_poptions
+          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+
+        hash_options (cs, l, var);
+      };
+
+      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
+    }
+
     recipe compile::
     apply (action a, target& xt, const match_result& mr) const
     {
@@ -131,14 +174,18 @@ namespace build2
       //
       optional<dir_paths> lib_paths; // Extract lazily.
 
+      lorder lo;
+      if (a.operation () == update_id)
+        lo = link_order (bs, ct);
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // A dependency on a library is there so that we can get its
         // *.export.poptions. In particular, making sure it is executed before
         // us will only restrict parallelism. But we do need to pre-match it
-        // in order to get its prerequisite_targets populated. This is the
-        // "library meta-information protocol". See also append_lib_options()
-        // above.
+        // in order to get its imports resolved and prerequisite_targets
+        // populated. This is the "library meta-information protocol". See
+        // also append_lib_options().
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
@@ -149,7 +196,8 @@ namespace build2
             // any, they would be set by search_library()).
             //
             if (p.proj () == nullptr ||
-                link_.search_library (lib_paths, p.prerequisite) == nullptr)
+                link_.search_library (
+                  lib_paths, p.prerequisite, lo) == nullptr)
             {
               match_only (a, p.search ());
             }
@@ -216,18 +264,16 @@ namespace build2
 
         // Hash *.export.poptions from prerequisite libraries.
         //
-        lorder lo (link_order (bs, ct));
         for (prerequisite& p: group_prerequisites (t))
         {
           target* pt (p.target); // Already searched and matched.
 
           if (lib* l = pt->is_a<lib> ())
             pt = &link_member (*l, lo);
+          else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
+            continue;
 
-          if (pt->is_a<liba> () || pt->is_a<libs> ())
-            hash_lib_options (cs, *pt, lo,
-                              c_export_poptions,
-                              x_export_poptions);
+          hash_lib_options (cs, *pt);
         }
 
         hash_options (cs, t, c_poptions);
@@ -399,22 +445,23 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_prefixes (prefix_map& m, target& l, lorder lo) const
+    append_lib_prefixes (prefix_map& m, target& xt) const
     {
-      for (target* t: l.prerequisite_targets)
+      file& l (static_cast<file&> (xt));
+
+      auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
       {
-        if (t == nullptr)
-          continue;
+        assert (exp);
 
-        if (lib* l = t->is_a<lib> ())
-          t = &link_member (*l, lo); // Pick one of the members.
+        const variable& var (
+          com
+          ? c_export_poptions
+          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
 
-        if (t->is_a<liba> () || t->is_a<libs> ())
-          append_lib_prefixes (m, *t, lo);
-      }
+        append_prefixes (m, l, var);
+      };
 
-      append_prefixes (m, l, c_export_poptions);
-      append_prefixes (m, l, x_export_poptions);
+      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
     }
 
     auto compile::
@@ -430,10 +477,11 @@ namespace build2
         target* pt (p.target); // Already searched and matched.
 
         if (lib* l = pt->is_a<lib> ())
-          pt = &link_member (*l, lo); // Pick one of the members.
+          pt = &link_member (*l, lo);
+        else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
+          continue;
 
-        if (pt->is_a<liba> () || pt->is_a<libs> ())
-          append_lib_prefixes (m, *pt, lo);
+        append_lib_prefixes (m, *pt);
       }
 
       // Then process our own.
@@ -657,11 +705,10 @@ namespace build2
 
           if (lib* l = pt->is_a<lib> ())
             pt = &link_member (*l, lo);
+          else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
+            continue;
 
-          if (pt->is_a<liba> () || pt->is_a<libs> ())
-            append_lib_options (args, *pt, lo,
-                                c_export_poptions,
-                                x_export_poptions);
+          append_lib_options (args, *pt);
         }
 
         append_options (args, t, c_poptions);
@@ -1330,11 +1377,10 @@ namespace build2
 
         if (lib* l = pt->is_a<lib> ())
           pt = &link_member (*l, lo);
+        else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
+          continue;
 
-        if (pt->is_a<liba> () || pt->is_a<libs> ())
-          append_lib_options (args, *pt, lo,
-                              c_export_poptions,
-                              x_export_poptions);
+        append_lib_options (args, *pt);
       }
 
       append_options (args, t, c_poptions);

@@ -235,6 +235,8 @@ namespace build2
           cast<string> (r[cm.x_target_system]),
           cast<string> (r[cm.x_target_class]),
 
+          cast_null<process_path> (r["pkgconfig.path"]),
+
           cxx::static_type,
           hdr,
           inc

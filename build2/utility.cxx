@@ -31,10 +31,15 @@ namespace build2
   ostream&
   operator<< (ostream& os, const process_path& p)
   {
-    os << p.recall_string ();
+    if (p.empty ())
+      os << "<empty>";
+    else
+    {
+      os << p.recall_string ();
 
-    if (!p.effect.empty ())
-      os << '@' << p.effect.string (); // Suppress relative().
+      if (!p.effect.empty ())
+        os << '@' << p.effect.string (); // Suppress relative().
+    }
 
     return os;
   }

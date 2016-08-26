@@ -12,7 +12,7 @@ namespace build2
 
     const dir_path& b (*relative_base);
 
-    if (b.empty ())
+    if (p.simple () || b.empty ())
       return p;
 
     if (p.sub (b))

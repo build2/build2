@@ -30,8 +30,8 @@ namespace build2
     // Default config.bin.*.lib values.
     //
     static const strings exe_lib {"shared", "static"};
-    static const strings liba_lib {"static"};
-    static const strings libs_lib {"shared"};
+    static const strings liba_lib {"static", "shared"};
+    static const strings libs_lib {"shared", "static"};
 
     bool
     config_init (scope& r,

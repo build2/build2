@@ -1,6 +1,8 @@
 using cxx
 
-import libs += lib{z}
+import libs += zlib%lib{z}
+import libs += libsqlite3%lib{sqlite3}
+import libs += libpq%lib{pq}
 
 #lib{driver}: cxx{driver} $libs
 

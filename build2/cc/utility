@@ -43,19 +43,6 @@ namespace build2
     //
     target&
     link_member (bin::lib&, lorder);
-
-    // Append or hash library options from a pair of *.export.* variables
-    // (first one is cc.export.*) recursively, prerequisite libraries first.
-    //
-    void
-    append_lib_options (cstrings&, target&, lorder,
-                        const variable&,
-                        const variable&);
-
-    void
-    hash_lib_options (sha256&, target&, lorder,
-                      const variable&,
-                      const variable&);
   }
 }
 

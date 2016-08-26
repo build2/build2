@@ -202,7 +202,9 @@ namespace build2
     }
 
     target* link::
-    search_library (optional<dir_paths>& spc, const prerequisite_key& p) const
+    search_library (optional<dir_paths>& spc,
+                    const prerequisite_key& p,
+                    lorder lo) const
     {
       tracer trace (x, "link::search_library");
 
@@ -437,7 +439,8 @@ namespace build2
 
       // Add the "using static/shared library" macro (used, for example, to
       // handle DLL export). The absence of either of these macros would mean
-      // some other build system that cannot distinguish between the two.
+      // some other build system that cannot distinguish between the two (and
+      // no pkg-config information).
       //
       auto add_macro = [this] (target& t, const char* suffix)
       {
@@ -445,6 +448,11 @@ namespace build2
         // don't add anything: we don't want to be accumulating defines nor
         // messing with custom values. And if we are adding, then use the
         // generic cc.export.
+        //
+        // The only way we could already have this value is if this same
+        // library was also imported as a project (as opposed to installed).
+        // Unlikely but possible. In this case the values were set by the
+        // export stub and we shouldn't touch them.
         //
         if (!t.vars[x_export_poptions])
         {
@@ -478,11 +486,38 @@ namespace build2
         }
       };
 
-      if (a != nullptr)
-        add_macro (*a, "STATIC");
+      // Mark as a "cc" library unless already marked.
+      //
+      auto mark_cc = [this] (target& t) -> bool
+      {
+        auto p (t.vars.insert (c_type));
 
-      if (s != nullptr)
-        add_macro (*s, "SHARED");
+        if (p.second)
+          p.first.get () = string ("cc");
+
+        return p.second;
+      };
+
+      // If the library already has cc.type, then assume it was either already
+      // imported or was matched by a rule.
+      //
+      if (a != nullptr && mark_cc (*a))
+      {
+        // Only add the default macro if we could not extract more precise
+        // information. The idea is that when we auto-generate .pc files, we
+        // will copy those macros (or custom ones) from *.export.poptions.
+        //
+        if (pkgconfig == nullptr ||
+            !pkgconfig_extract (*p.scope, *a, p.proj, name, *pd, spc, lo))
+          add_macro (*a, "STATIC");
+      }
+
+      if (s != nullptr && mark_cc (*s))
+      {
+        if (pkgconfig == nullptr ||
+            !pkgconfig_extract (*p.scope, *s, p.proj, name, *pd, spc, lo))
+          add_macro (*s, "SHARED");
+      }
 
       if (l)
       {
@@ -606,6 +641,8 @@ namespace build2
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s
 
+        scope& bs (t.base_scope ());
+        lorder lo (link_order (bs, lt));
         optional<dir_paths> lib_paths; // Extract lazily.
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -617,7 +654,7 @@ namespace build2
             // Handle imported libraries.
             //
             if (p.proj () != nullptr)
-              pt = search_library (lib_paths, p.prerequisite);
+              pt = search_library (lib_paths, p.prerequisite, lo);
 
             if (pt == nullptr)
             {
@@ -810,7 +847,7 @@ namespace build2
           // Handle imported libraries.
           //
           if (p.proj () != nullptr)
-            pt = search_library (lib_paths, p.prerequisite);
+            pt = search_library (lib_paths, p.prerequisite, lo);
 
           // The rest is the same basic logic as in search_and_match().
           //
@@ -1023,9 +1060,12 @@ namespace build2
       }
     }
 
-    // Recursively append/hash prerequisite libraries. Only interface
+    // Recursively process prerequisite libraries. Only interface
     // (*.export.libs) for shared libraries, interface and implementation
-    // (both prerequisite and from *.libs) for static libraries.
+    // (both prerequisite and from *.libs, unless overriden) for static
+    // libraries (unless iface_only is true, in which case we use
+    // *.export.libs even for static libraries which means *.export.libs
+    // should be set on lib{}, not libs{}).
     //
     // Note that here we assume that an interface library is also an
     // implementation (since we don't use *.export.libs in static link). We
@@ -1034,72 +1074,111 @@ namespace build2
     // listed as a prerequisite of this library).
     //
     void link::
-    append_libraries (strings& args, file& l, bool la) const
+    process_libraries (
+      file& l,
+      bool la,
+      bool iface_only,
+      const function<void (const path&)>& proc_lib,
+      const function<void (file&,
+                           const string& type,
+                           bool com, /* cc.     */
+                           bool exp) /* export. */>& proc_opt) const
     {
-      for (target* p: l.prerequisite_targets)
+      // See what type of library this is (C, C++, etc). Use it do decide
+      // which x.libs variable name to use. If it's unknown, then we only
+      // look into prerequisites.
+      //
+      const string* t (cast_null<string> (l.vars[c_type]));
+
+      lookup c_e_libs;
+      lookup x_e_libs;
+
+      if (t != nullptr)
       {
-        bool a;
-        file* f;
-
-        if ((a = (f = p->is_a<liba> ()) != nullptr)
-            ||   (f = p->is_a<libs> ()) != nullptr)
-        {
-          if (la)
-            args.push_back (relative (f->path ()).string ()); // string()&&
-
-          append_libraries (args, *f, a);
-        }
-      }
-
-      if (la)
-      {
-        // See what type of library this is (C, C++, etc). Use it do decide
-        // which x.libs variable name. If it is not a C-common library, then
-        // it probably doesn't have cc.libs either.
+        // If static, then the explicit export override should be set on the
+        // liba{} target itself. Note also that we only check for *.libs. If
+        // one doesn't have any libraries but needs to set, say, *.loptions,
+        // then *.libs should be set to NULL or empty (this is why we check
+        // for result being defined).
         //
-        if (const string* t = cast_null<string> (l.vars[c_type]))
-        {
-          // @@ Shouldn't, ideally, we filter loptions to only include -L?
-          //
-          append_options (args, l, c_loptions);
-          append_options (args, l, c_libs);
+        // @@ Should we set it in import installed then?
+        //
+        c_e_libs = la && !iface_only
+          ? l.vars[c_export_libs]
+          : l[c_export_libs];
 
-          append_options (args,
-                          l,
-                          *t == x ? x_loptions : var_pool[*t + ".loptions"]);
-          append_options (args,
-                          l,
-                          *t == x ? x_libs : var_pool[*t + ".libs"]);
+        if (*t != "cc")
+        {
+          const variable& var (*t == x
+                               ? x_export_libs
+                               : var_pool[*t + ".export.libs"]);
+
+          x_e_libs = la && !iface_only ? l.vars[var] : l[var];
         }
       }
-      else
+
+      // Only go into prerequisites (implementation dependencies) if this is a
+      // static library and it's not using explicit export. For shared library
+      // or if iface_only, we are only interested in interface dependencies
+      // which come from the *.export.libs below.
+      //
+      if (la && !iface_only && !c_e_libs.defined () && !x_e_libs.defined ())
       {
-        scope* bs (nullptr);     // Resolve lazily.
-        optional<lorder> lo;     // Calculate lazily.
-        optional<dir_paths> spc; // Extract lazily.
-
-        auto append = [&args, &l, &bs, &lo, &spc, this] (const variable& var)
+        for (target* p: l.prerequisite_targets)
         {
-          const names* ns (cast_null<names> (l[var]));
-          if (ns == nullptr || ns->empty ())
-            return;
+          bool a;
+          file* f;
 
-          args.reserve (args.size () + ns->size ());
-
-          for (const name& n: *ns)
+          if ((a = (f = p->is_a<liba> ()) != nullptr)
+              ||   (f = p->is_a<libs> ()) != nullptr)
           {
-            if (n.simple ())
-              args.push_back (n.value);
-            else
+            if (proc_lib)
+              proc_lib (f->path ());
+
+            process_libraries (*f, a, iface_only, proc_lib, proc_opt);
+          }
+        }
+      }
+
+      // Process libraries (recursively) from *.export.libs (of type names)
+      // handling import, etc.
+      //
+      scope* bs (nullptr);     // Resolve lazily.
+      optional<lorder> lo;     // Calculate lazily.
+      optional<dir_paths> spc; // Extract lazily.
+
+      auto proc_int =
+        [&l, la, iface_only, &proc_lib, &proc_opt, &bs, &lo, &spc, this] (
+          const lookup& lu)
+      {
+        const names* ns (cast_null<names> (lu));
+        if (ns == nullptr || ns->empty ())
+          return;
+
+        for (const name& n: *ns)
+        {
+          if (n.simple ())
+          {
+            // This is something like -lpthread or shell32.lib so should be
+            // a valid path.
+            //
+            if (proc_lib)
+              proc_lib (path (n.value));
+          }
+          else
+          {
+            // This is a potentially project-qualified target.
+            //
+            if (bs == nullptr)
+              bs = &l.base_scope ();
+
+            if (!lo)
+              lo = link_order (*bs, la ? otype::a : otype::s);
+
+            file& t (resolve_library (n, *bs, *lo, spc));
+
+            if (proc_lib)
             {
-              if (bs == nullptr)
-                bs = &l.base_scope ();
-
-              if (!lo)
-                lo = link_order (*bs, otype::s); // We know it's libs{}.
-
-              file& t (resolve_library (n, *bs, *lo, spc));
-
               // This can happen if the target is mentioned in *.export.libs
               // (i.e., it is an interface dependency) but not in the
               // library's prerequisites (i.e., it is not an implementation
@@ -1107,116 +1186,148 @@ namespace build2
               //
               if (t.path ().empty ())
                 fail << "target " << t << " is out of date" <<
-                  info << "mentioned in " << var.name << " of target " << l <<
+                  info << "mentioned in *.export.libs of target " << l <<
                   info << "is it a prerequisite of " << l << "?";
 
-              args.push_back (relative (t.path ()).string ());
+              proc_lib (t.path ());
             }
+
+            // Process it recursively.
+            //
+            process_libraries (
+              t, t.is_a<liba> (), iface_only, proc_lib, proc_opt);
           }
-        };
+        }
+      };
 
-        // @@ Should we also pick one based on cc.type? And also *.poptions in
-        //    compile? Feels right.
-        //
-        append_options (args, l, c_export_loptions);
-        append (c_export_libs);
+      // Process libraries from *.libs (of type strings).
+      //
+      auto proc_imp = [&proc_lib] (const lookup& lu)
+      {
+        const strings* ns (cast_null<strings> (lu));
+        if (ns == nullptr || ns->empty ())
+          return;
 
-        append_options (args, l, x_export_loptions);
-        append (x_export_libs);
+        for (const string& n: *ns)
+        {
+          // This is something like -lpthread or shell32.lib so should be a
+          // valid path.
+          //
+          proc_lib (path (n));
+        }
+      };
+
+      // If it is not a C-common library, then it probably doesn't have any of
+      // the *.libs and we are done.
+      //
+      if (t == nullptr)
+        return;
+
+      // If all we know it's a C-common library, then in both cases we only
+      // look for cc.export.libs.
+      //
+      if (*t == "cc")
+      {
+        proc_opt (l, *t, true, true);
+        if (c_e_libs) proc_int (c_e_libs);
       }
+      else
+      {
+        bool same (*t == x); // Same as us.
+        auto& vp (var_pool);
+
+        if (la && !iface_only)
+        {
+          // Static: as discussed above, here we can have two situations:
+          // explicit export or default export.
+          //
+          if (c_e_libs.defined () || x_e_libs.defined ())
+          {
+            // NOTE: should this not be from l.vars rather than l? Or perhaps
+            // we can assume non-common values will be set on libs{}/liba{}.
+            //
+            proc_opt (l, *t, true, true);
+            if (c_e_libs) proc_int (c_e_libs);
+
+            proc_opt (l, *t, false, true);
+            if (x_e_libs) proc_int (x_e_libs);
+          }
+          else
+          {
+            // For default export we use the same options/libs as were used to
+            // build the library. Since libraries in (non-export) *.libs are
+            // not targets, we don't need to recurse.
+            //
+            proc_opt (l, *t, true, false);
+            if (proc_lib) proc_imp (l[c_libs]);
+
+            proc_opt (l, *t, false, false);
+            if (proc_lib) proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
+          }
+        }
+        else
+        {
+          // Shared or iface_only: only add *.export.* (interface
+          // dependencies).
+          //
+          proc_opt (l, *t, true, true);
+          if (c_e_libs) proc_int (c_e_libs);
+
+          proc_opt (l, *t, false, true);
+          if (x_e_libs) proc_int (x_e_libs);
+        }
+      }
+    }
+
+    void link::
+    append_libraries (strings& args, file& l, bool la) const
+    {
+      auto lib = [&args] (const path& l)
+      {
+        args.push_back (relative (l).string ());
+      };
+
+      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
+      {
+        const variable& var (
+          com
+          ? (exp ? c_export_loptions : c_loptions)
+          : (t == x
+             ? (exp ? x_export_loptions : x_loptions)
+             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+
+        append_options (args, l, var);
+      };
+
+      process_libraries (l, la, false, lib, opt);
     }
 
     void link::
     hash_libraries (sha256& cs, file& l, bool la) const
     {
-      for (target* p: l.prerequisite_targets)
+      auto lib = [&cs] (const path& l)
       {
-        bool a;
-        file* f;
+        cs.append (l.string ());
+      };
 
-        if ((a = (f = p->is_a<liba> ()) != nullptr)
-            ||   (f = p->is_a<libs> ()) != nullptr)
-        {
-          if (la)
-            cs.append (f->path ().string ());
-
-          hash_libraries (cs, *f, a);
-        }
-      }
-
-      if (la)
+      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
       {
-        // See what type of library this is (C, C++, etc). Use it do decide
-        // which x.libs variable name. If it is not a C-common library, then
-        // it probably doesn't have cc.libs either.
-        //
-        if (const string* t = cast_null<string> (l.vars[c_type]))
-        {
-          // @@ Shouldn't, ideally, we filter loptions to only include -L?
-          //
-          hash_options (cs, l, c_loptions);
-          hash_options (cs, l, c_libs);
+        const variable& var (
+          com
+          ? (exp ? c_export_loptions : c_loptions)
+          : (t == x
+             ? (exp ? x_export_loptions : x_loptions)
+             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-          hash_options (cs,
-                        l,
-                        *t == x ? x_loptions : var_pool[*t + ".loptions"]);
-          hash_options (cs,
-                        l,
-                        *t == x ? x_libs : var_pool[*t + ".libs"]);
-        }
-      }
-      else
-      {
-        scope* bs (nullptr);     // Resolve lazily.
-        optional<lorder> lo;     // Calculate lazily.
-        optional<dir_paths> spc; // Extract lazily.
+        hash_options (cs, l, var);
+      };
 
-        auto hash = [&cs, &l, &bs, &lo, &spc, this] (const variable& var)
-        {
-          const names* ns (cast_null<names> (l[var]));
-          if (ns == nullptr || ns->empty ())
-            return;
-
-          for (const name& n: *ns)
-          {
-            if (n.simple ())
-              cs.append (n.value);
-            else
-            {
-              if (bs == nullptr)
-                bs = &l.base_scope ();
-
-              if (!lo)
-                lo = link_order (*bs, otype::s); // We know it's libs{}.
-
-              file& t (resolve_library (n, *bs, *lo, spc));
-
-              // This can happen if the target is mentioned in *.export.libs
-              // (i.e., it is an interface dependency) but not in the
-              // library's prerequisites (i.e., it is not an implementation
-              // dependency).
-              //
-              if (t.path ().empty ())
-                fail << "target " << t << " is out of date" <<
-                  info << "mentioned in " << var.name << " of target " << l <<
-                  info << "is it a prerequisite of " << l << "?";
-
-              cs.append (t.path ().string ());
-            }
-          }
-        };
-
-        hash_options (cs, l, c_export_loptions);
-        hash (c_export_libs);
-
-        hash_options (cs, l, x_export_loptions);
-        hash (x_export_libs);
-      }
+      process_libraries (l, la, false, lib, opt);
     }
 
-    // The name can be a simple value (e.g., -lpthread or shell32.lib), an
-    // absolute target name (e.g., /tmp/libfoo/lib{foo}) or a potentially
-    // project-qualified relative target name (e.g., libfoo%lib{foo}).
+    // The name can be an absolute target name (e.g., /tmp/libfoo/lib{foo}) or
+    // a potentially project-qualified relative target name (e.g.,
+    // libfoo%lib{foo}).
     //
     // Note that the scope, search paths, and the link order should all be
     // derived from the library target that mentioned this name. This way we
@@ -1257,7 +1368,7 @@ namespace build2
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
 
-        xt = search_library (spc, pk);
+        xt = search_library (spc, pk, lo);
 
         if (xt == nullptr)
         {

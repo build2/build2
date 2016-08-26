@@ -41,6 +41,12 @@ namespace build2
       perform_clean (action, target&) const;
 
     private:
+      void
+      append_lib_options (cstrings&, target&) const;
+
+      void
+      hash_lib_options (sha256&, target&) const;
+
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
       //
@@ -57,7 +63,7 @@ namespace build2
       append_prefixes (prefix_map&, target&, const variable&) const;
 
       void
-      append_lib_prefixes (prefix_map&, target&, lorder) const;
+      append_lib_prefixes (prefix_map&, target&) const;
 
       prefix_map
       build_prefix_map (target&, lorder) const;

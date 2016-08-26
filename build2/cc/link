@@ -40,6 +40,15 @@ namespace build2
       friend class compile;
 
       void
+      process_libraries (file&,
+                         bool,
+                         bool,
+                         const function<void (const path&)>&,
+                         const function<void (file&,
+                                              const string&,
+                                              bool,
+                                              bool)>&) const;
+      void
       append_libraries (strings&, file&, bool) const;
 
       void
@@ -62,6 +71,15 @@ namespace build2
       dir_paths
       extract_library_paths (scope&) const;
 
+      bool
+      pkgconfig_extract (scope&,
+                         file&,
+                         const string*,
+                         const string&,
+                         const dir_path&,
+                         optional<dir_paths>&,
+                         lorder) const;
+
       // Alternative search logic for VC (msvc.cxx).
       //
       bin::liba*
@@ -75,10 +93,12 @@ namespace build2
                           const prerequisite_key&) const;
 
       target*
-      search_library (optional<dir_paths>& spc, prerequisite& p) const
+      search_library (optional<dir_paths>& spc,
+                      prerequisite& p,
+                      lorder lo) const
       {
         if (p.target == nullptr) // First check the cache.
-          p.target = search_library (spc, p.key ());
+          p.target = search_library (spc, p.key (), lo);
 
         return p.target;
       }
@@ -86,7 +106,9 @@ namespace build2
       // Note that pk's scope should not be NULL (even if dir is absolute).
       //
       target*
-      search_library (optional<dir_paths>&, const prerequisite_key&) const;
+      search_library (optional<dir_paths>&,
+                      const prerequisite_key&,
+                      lorder) const;
 
       // Windows-specific (windows-manifest.cxx).
       //

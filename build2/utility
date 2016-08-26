@@ -80,7 +80,7 @@ namespace build2
 
   // Start a process with the specified arguments printing the command at
   // verbosity level 3 and higher. Redirect STDOUT to a pipe. If error is
-  // false, then redirecting STDERR to STDOUT (this can used to suppress
+  // false, then redirecting STDERR to STDOUT (this can be used to suppress
   // diagnostics from the child process). Issue diagnostics and throw failed
   // in case of an error.
   //

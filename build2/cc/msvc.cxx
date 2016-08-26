@@ -14,7 +14,6 @@
 #include <build2/bin/target>
 
 #include <build2/cc/types>
-
 #include <build2/cc/link>
 
 using namespace std;

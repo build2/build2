@@ -65,6 +65,9 @@ namespace build2
       // "c", "cxx"). Currenly only set for libraries and is used to decide
       // which *.libs to use during static linking.
       //
+      // It can also be the special "cc" value which means a C-common library
+      // but specific language is not known. Used in import installed logic.
+      //
       v.insert<string> ("cc.type");
 
       return true;
@@ -226,6 +229,23 @@ namespace build2
       {
         if (!cast_false<bool> (b["bin.rc.config.loaded"]))
           load_module ("bin.rc.config", r, b, loc);
+      }
+
+      // Load (optionally) the pkgconfig.config module.
+      //
+      // @@ At some point we may also want to verify that targets matched
+      //    if it has already been loaded (by someone) else. Currently it
+      //    doesn't set pkgconfig.target. Perhaps only set if it was used
+      //    to derive the program name?
+      //
+      if (first && !cast_false<bool> (b["pkgconfig.config.loaded"]))
+      {
+        // Prepare configuration hints.
+        //
+        variable_map h;
+        h.assign ("config.pkgconfig.target") = cast<string> (r["cc.target"]);
+
+        load_module ("pkgconfig.config", r, r, loc, true, h);
       }
 
       return true;
