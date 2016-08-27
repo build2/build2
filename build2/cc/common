@@ -36,7 +36,9 @@ namespace build2
       const variable& config_x_loptions;
       const variable& config_x_libs;
 
-      const variable& x_path;
+      const variable& x_path;         // Compiler process path.
+      const variable& x_sys_lib_dirs; // System library search directories.
+
       const variable& x_poptions;
       const variable& x_coptions;
       const variable& x_loptions;
@@ -89,14 +91,17 @@ namespace build2
       const char* x_install;
       const char* x_uninstall;
 
-      // Cached values for some commonly-used variables.
+      // Cached values for some commonly-used variables/values.
       //
       const string& cid;     // x.id
       const string& ctg;     // x.target
       const string& tsys;    // x.target.system
       const string& tclass;  // x.target.class
 
+      const string& tstd;    // Translated x_std value (can be empty).
+
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
+      const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
 
       const target_type& x_src;  // Source target type (c{}, cxx{}).
 
@@ -131,9 +136,11 @@ namespace build2
             const char* uninstall,
             const string& id,
             const string& tg,
-            const string& sys,
-            const string& class_,
+            const string& ts,
+            const string& tc,
+            const string& std,
             const process_path* pkgc,
+            const dir_paths& sld,
             const target_type& src,
             const target_type* const* hdr,
             const target_type* const* inc)
@@ -142,8 +149,8 @@ namespace build2
             x_link (link),
             x_install (install),
             x_uninstall (uninstall),
-            cid (id), ctg (tg), tsys (sys), tclass (class_),
-            pkgconfig (pkgc),
+            cid (id), ctg (tg), tsys (ts), tclass (tc),
+            tstd (std), pkgconfig (pkgc), sys_lib_dirs (sld),
             x_src (src), x_hdr (hdr), x_inc (inc) {}
     };
 
@@ -152,31 +159,21 @@ namespace build2
     public:
       common (data&& d): data (move (d)) {}
 
-      // Language standard (x.std) mapping. T is either target or scope.
+      // Language standard (x.std) mapping.
       //
-      template <typename T>
       void
-      append_std (cstrings& args, scope& root, T& t, string& storage) const
+      append_std (cstrings& args) const
       {
-        if (auto l = t[x_std])
-          if (translate_std (storage, root, *l))
-            args.push_back (storage.c_str ());
+        if (!tstd.empty ())
+          args.push_back (tstd.c_str ());
       }
 
-      template <typename T>
       void
-      hash_std (sha256& csum, scope& root, T& t) const
+      hash_std (sha256& cs) const
       {
-        string s;
-        if (auto l = t[x_std])
-          if (translate_std (s, root, *l))
-            csum.append (s);
+        if (!tstd.empty ())
+          cs.append (tstd);
       }
-
-      // Return true if there is an option (stored in the first argument).
-      //
-      virtual bool
-      translate_std (string&, scope&, const value&) const = 0;
     };
   }
 }

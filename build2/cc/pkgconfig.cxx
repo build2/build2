@@ -41,12 +41,11 @@ namespace build2
                        const string* proj,
                        const string& stem,
                        const dir_path& libd,
-                       optional<dir_paths>& sys_sp,
+                       const dir_paths& sysd,
                        lorder lo) const
     {
       tracer trace (x, "link::pkgconfig_extract");
 
-      assert (sys_sp);
       assert (pkgconfig != nullptr);
 
       // Check if we have the pkgconfig/ subdirectory in this library's
@@ -291,15 +290,15 @@ namespace build2
         // The reason we do it is the link order. For general libraries it
         // shouldn't matter if we imported them via an export stub, direct
         // import installed, or via a .pc file (which we could have generated
-        // from the export stub). The exception is "system libraries" (which
+        // from the export stub). The exception is "runtime libraries" (which
         // are really the extension of libc) such as -lm, -ldl, -lpthread,
         // etc. Those we will detect and leave as -l*.
         //
-        // If we managed to resolve all the -l's (sans system), then we can
+        // If we managed to resolve all the -l's (sans runtime), then we can
         // omit -L's for nice and tidy command line.
         //
         bool all (true);
-        optional<dir_paths> sp; // Populate lazily.
+        optional<dir_paths> usrd; // Populate lazily.
 
         for (name& n: libs)
         {
@@ -333,15 +332,13 @@ namespace build2
               continue;
           }
 
-          // Prepare the search paths.
+          // Prepare user search paths by entering the -L paths from the .pc
+          // file.
           //
-          if (have_L && !sp)
+          if (have_L && !usrd)
           {
-            sp = dir_paths ();
+            usrd = dir_paths ();
 
-            // First enter the -L paths from the .pc file so that they take
-            // precedence.
-            //
             for (auto i (lops.begin ()); i != lops.end (); ++i)
             {
               const string& o (*i);
@@ -361,13 +358,9 @@ namespace build2
                   fail << "relative -L directory in '" << lstr << "'" <<
                     info << "while parsing pkg-config --libs output of " << f;
 
-                sp->push_back (move (d));
+                usrd->push_back (move (d));
               }
             }
-
-            // Then append system paths.
-            //
-            sp->insert (sp->end (), sys_sp->begin (), sys_sp->end ());
           }
 
           // @@ OUT: for now we assume out is undetermined, just like in
@@ -381,7 +374,7 @@ namespace build2
             nullptr, {&lib::static_type, &out, &out, &name, ext}, &s};
 
           if (lib* lt = static_cast<lib*> (
-                search_library (have_L ? sp : sys_sp, pk, lo)))
+                search_library (sysd, usrd, pk, lo)))
           {
             file& f (static_cast<file&> (link_member (*lt, lo)));
             l = f.path ().string ();

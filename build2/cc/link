@@ -40,7 +40,8 @@ namespace build2
       friend class compile;
 
       void
-      process_libraries (file&,
+      process_libraries (const dir_paths&,
+                         file&,
                          bool,
                          bool,
                          const function<void (const path&)>&,
@@ -55,21 +56,14 @@ namespace build2
       hash_libraries (sha256&, file&, bool) const;
 
       file&
-      resolve_library (name, scope&, lorder, optional<dir_paths>&) const;
-
-      // Extract system library search paths from GCC or compatible (Clang,
-      // Intel) using the -print-search-dirs option.
-      //
-      void
-      gcc_library_search_paths (scope&, dir_paths&) const;
-
-      // Extract system library search paths from VC (msvc.cxx).
-      //
-      void
-      msvc_library_search_paths (scope&, dir_paths&) const;
+      resolve_library (name,
+                       scope&,
+                       lorder,
+                       const dir_paths&,
+                       optional<dir_paths>&) const;
 
       dir_paths
-      extract_library_paths (scope&) const;
+      extract_library_dirs (scope&) const;
 
       bool
       pkgconfig_extract (scope&,
@@ -77,7 +71,7 @@ namespace build2
                          const string*,
                          const string&,
                          const dir_path&,
-                         optional<dir_paths>&,
+                         const dir_paths&,
                          lorder) const;
 
       // Alternative search logic for VC (msvc.cxx).
@@ -93,20 +87,20 @@ namespace build2
                           const prerequisite_key&) const;
 
       target*
-      search_library (optional<dir_paths>& spc,
+      search_library (const dir_paths& sysd,
+                      optional<dir_paths>& usrd,
                       prerequisite& p,
                       lorder lo) const
       {
         if (p.target == nullptr) // First check the cache.
-          p.target = search_library (spc, p.key (), lo);
+          p.target = search_library (sysd, usrd, p.key (), lo);
 
         return p.target;
       }
 
-      // Note that pk's scope should not be NULL (even if dir is absolute).
-      //
       target*
-      search_library (optional<dir_paths>&,
+      search_library (const dir_paths&,
+                      optional<dir_paths>&,
                       const prerequisite_key&,
                       lorder) const;
 

@@ -21,6 +21,8 @@ namespace build2
 {
   namespace cc
   {
+    struct compiler_info;
+
     class config_module: public module_base, public virtual config_data
     {
     public:
@@ -28,11 +30,22 @@ namespace build2
       config_module (config_data&& d) : config_data (move (d)) {}
 
       void
-      init (scope&,
-            scope&,
-            const location&,
-            bool first,
-            const variable_map&);
+      init (scope&, const location&, const variable_map&);
+
+      // Translate the x.std value to the standard-selecting option if there
+      // is any.
+      //
+      virtual string
+      translate_std (const compiler_info&, scope&, const string&) const = 0;
+
+      string tstd;
+
+    private:
+      dir_paths
+      gcc_library_search_paths (process_path&, scope&) const; // gcc.cxx
+
+      dir_paths
+      msvc_library_search_paths (process_path&, scope&) const; // msvc.cxx
     };
 
     class module: public module_base, protected virtual common,
@@ -47,11 +60,7 @@ namespace build2
             install (move (d), *this) {}
 
       void
-      init (scope&,
-            scope&,
-            const location&,
-            bool first,
-            const variable_map&);
+      init (scope&, const location&, const variable_map&);
     };
   }
 }

@@ -14,7 +14,9 @@
 #include <build2/bin/target>
 
 #include <build2/cc/types>
+
 #include <build2/cc/link>
+#include <build2/cc/module>
 
 using namespace std;
 using namespace butl;
@@ -85,8 +87,8 @@ namespace build2
 
     // Extract system library search paths from MSVC.
     //
-    void link::
-    msvc_library_search_paths (scope&, dir_paths&) const
+    dir_paths config_module::
+    msvc_library_search_paths (process_path&, scope&) const
     {
       // The linker doesn't seem to have any built-in paths and all of them
       // come from the LIB environment variable.
@@ -96,8 +98,9 @@ namespace build2
       //
       //    Should we actually bother? LIB is normally used for system
       //    libraries and its highly unlikely we will see an explicit import
-      //    for a library from one of those directories.
+      //    for a library from one of those directories. Let's wait and see.
       //
+      return dir_paths ();
     }
 
     // Inspect the file and determine if it is static or import library.

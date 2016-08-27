@@ -42,6 +42,7 @@ exe{b}:                                         \
         c/{hxx            }{ target           } \
        cc/{hxx            }{ common           } \
        cc/{hxx         cxx}{ compile          } \
+       cc/{            cxx}{ gcc              } \
        cc/{hxx         cxx}{ guess            } \
        cc/{hxx         cxx}{ init             } \
        cc/{hxx         cxx}{ install          } \

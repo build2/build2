@@ -30,8 +30,10 @@ namespace build2
       tracer trace ("pkgconfig::config_init");
       l5 ([&]{trace << "for " << bs.out_path ();});
 
+      // We only support root loading (which means there can only be one).
+      //
       if (&rs != &bs)
-        fail (l) << "pkgconfig.config loaded for non-root scope";
+        fail (l) << "pkgconfig.config module must be loaded in project root";
 
       // Enter variables.
       //

@@ -82,7 +82,8 @@ namespace build2
         append_options (args, l, var);
       };
 
-      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
+      link_.process_libraries (
+        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
     }
 
     void compile::
@@ -102,7 +103,8 @@ namespace build2
         hash_options (cs, l, var);
       };
 
-      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
+      link_.process_libraries (
+        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
     }
 
     recipe compile::
@@ -172,7 +174,7 @@ namespace build2
       // When cleaning, ignore prerequisites that are not in the same or a
       // subdirectory of our project root.
       //
-      optional<dir_paths> lib_paths; // Extract lazily.
+      optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
       lorder lo;
       if (a.operation () == update_id)
@@ -197,7 +199,7 @@ namespace build2
             //
             if (p.proj () == nullptr ||
                 link_.search_library (
-                  lib_paths, p.prerequisite, lo) == nullptr)
+                  sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo) == nullptr)
             {
               match_only (a, p.search ());
             }
@@ -280,7 +282,7 @@ namespace build2
         hash_options (cs, t, x_poptions);
         hash_options (cs, t, c_coptions);
         hash_options (cs, t, x_coptions);
-        hash_std (cs, rs, t);
+        hash_std (cs);
 
         if (ct == otype::s)
         {
@@ -461,7 +463,8 @@ namespace build2
         append_prefixes (m, l, var);
       };
 
-      link_.process_libraries (l, l.is_a<liba> (), true, nullptr, opt);
+      link_.process_libraries (
+        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
     }
 
     auto compile::
@@ -689,9 +692,8 @@ namespace build2
       //
       const process_path* xc (nullptr);
       cstrings args;
-      string std; // Storage.
 
-      auto init_args = [&t, lo, &src, &rs, &xc, &args, &std, this] ()
+      auto init_args = [&t, lo, &src, &rs, &xc, &args, this] ()
       {
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
@@ -719,7 +721,7 @@ namespace build2
         append_options (args, t, c_coptions);
         append_options (args, t, x_coptions);
 
-        append_std (args, rs, t, std);
+        append_std (args);
 
         if (t.is_a<objs> ())
         {
@@ -1388,9 +1390,9 @@ namespace build2
       append_options (args, t, c_coptions);
       append_options (args, t, x_coptions);
 
-      string std, out, out1; // Storage.
+      string out, out1; // Storage.
 
-      append_std (args, rs, t, std);
+      append_std (args);
 
       if (cid == "msvc")
       {

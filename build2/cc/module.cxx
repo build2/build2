@@ -27,159 +27,181 @@ namespace build2
   namespace cc
   {
     void config_module::
-    init (scope& r,
-          scope& b,
-          const location& loc,
-          bool first,
-          const variable_map&)
+    init (scope& rs, const location& loc, const variable_map&)
     {
       tracer trace (x, "config_init");
 
-      bool cc_loaded (cast_false<bool> (b["cc.core.config.loaded"]));
+      bool cc_loaded (cast_false<bool> (rs["cc.core.config.loaded"]));
 
       // Configure.
       //
       compiler_info ci; // For program patterns.
 
-      if (first)
+      // Adjust module priority (compiler). Also order cc module before us
+      // (we don't want to use priorities for that in case someone manages
+      // to slot in-between).
+      //
+      if (!cc_loaded)
+        config::save_module (rs, "cc", 250);
+
+      config::save_module (rs, x, 250);
+
+      const variable& config_c_coptions (var_pool["config.cc.coptions"]);
+
+      // config.x
+      //
+
+      // Normally we will have a persistent configuration and computing the
+      // default value every time will be a waste. So try without a default
+      // first.
+      //
+      auto p (config::omitted (rs, config_x));
+
+      if (p.first == nullptr)
       {
-        // Adjust module priority (compiler). Also order cc module before us
-        // (we don't want to use priorities for that in case someone manages
-        // to slot in-between).
+        // If someone already loaded cc.core.config then use its toolchain
+        // id and (optional) pattern to guess an appropriate default (e.g.,
+        // for {gcc, *-4.9} we will get g++-4.9).
         //
-        if (!cc_loaded)
-          config::save_module (r, "cc", 250);
+        path d (cc_loaded
+                ? guess_default (x_lang,
+                                 cast<string> (rs["cc.id"]),
+                                 cast_null<string> (rs["cc.pattern"]))
+                : path (x_default));
 
-        config::save_module (r, x, 250);
-
-        const variable& config_c_coptions (var_pool["config.cc.coptions"]);
-
-        // config.x
+        // If this value was hinted, save it as commented out so that if the
+        // user changes the source of the pattern, this one will get updated
+        // as well.
         //
+        auto p1 (config::required (rs,
+                                   config_x,
+                                   d,
+                                   false,
+                                   cc_loaded ? config::save_commented : 0));
+        p.first = &p1.first.get ();
+        p.second = p1.second;
+      }
 
-        // Normally we will have a persistent configuration and computing the
-        // default value every time will be a waste. So try without a default
-        // first.
-        //
-        auto p (config::omitted (r, config_x));
+      // Figure out which compiler we are dealing with, its target, etc.
+      //
+      const path& xc (cast<path> (*p.first));
+      ci = guess (x_lang,
+                  xc,
+                  cast_null<strings> (rs[config_c_coptions]),
+                  cast_null<strings> (rs[config_x_coptions]));
 
-        if (p.first == nullptr)
+      // Translate x_std value (if any) to the compiler option (if any).
+      //
+      if (auto l = rs[x_std])
+        tstd = translate_std (ci, rs, cast<string> (*l));
+
+      // Extract system library search paths from the compiler.
+      //
+      dir_paths lib_dirs (ci.id.type == "msvc"
+                          ? msvc_library_search_paths (ci.path, rs)
+                          : gcc_library_search_paths (ci.path, rs));
+
+      // If this is a new value (e.g., we are configuring), then print the
+      // report at verbosity level 2 and up (-v).
+      //
+      if (verb >= (p.second ? 2 : 3))
+      {
+        diag_record dr (text);
+
         {
-          // If someone already loaded cc.core.config then use its toolchain
-          // id and (optional) pattern to guess an appropriate default (e.g.,
-          // for {gcc, *-4.9} we will get g++-4.9).
-          //
-          path d (cc_loaded
-                  ? guess_default (x_lang,
-                                   cast<string> (r["cc.id"]),
-                                   cast_null<string> (r["cc.pattern"]))
-                  : path (x_default));
-
-          // If this value was hinted, save it as commented out so that if the
-          // user changes the source of the pattern, this one will get updated
-          // as well.
-          //
-          auto p1 (config::required (r,
-                                     config_x,
-                                     d,
-                                     false,
-                                     cc_loaded ? config::save_commented : 0));
-          p.first = &p1.first.get ();
-          p.second = p1.second;
+          dr << x << ' ' << project (rs) << '@' << rs.out_path () << '\n'
+             << "  " << left << setw (11) << x << ci.path << '\n'
+             << "  id         " << ci.id << '\n'
+             << "  version    " << ci.version.string << '\n'
+             << "  major      " << ci.version.major << '\n'
+             << "  minor      " << ci.version.minor << '\n'
+             << "  patch      " << ci.version.patch << '\n';
         }
 
-        // Figure out which compiler we are dealing with, its target, etc.
+        if (!ci.version.build.empty ())
+        {
+          dr << "  build      " << ci.version.build << '\n';
+        }
+
+        {
+          dr << "  signature  " << ci.signature << '\n'
+             << "  target     " << ci.target << '\n';
+        }
+
+        if (!tstd.empty ())
+        {
+          dr << "  std        " << tstd << '\n';
+        }
+
+        if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin
+        {
+          dr << "  pattern    " << ci.cc_pattern << '\n';
+        }
+
+        if (verb >= 3 && !lib_dirs.empty ())
+        {
+          dr << "  lib dirs\n";
+          for (const dir_path& d: lib_dirs)
+            dr << "    " << d << '\n';
+        }
+
+        {
+          dr << "  checksum   " << ci.checksum;
+        }
+      }
+
+      rs.assign (x_path) = move (ci.path);
+      rs.assign (x_sys_lib_dirs) = move (lib_dirs);
+
+      rs.assign (x_id) = ci.id.string ();
+      rs.assign (x_id_type) = move (ci.id.type);
+      rs.assign (x_id_variant) = move (ci.id.variant);
+
+      rs.assign (x_version) = move (ci.version.string);
+      rs.assign (x_version_major) = ci.version.major;
+      rs.assign (x_version_minor) = ci.version.minor;
+      rs.assign (x_version_patch) = ci.version.patch;
+      rs.assign (x_version_build) = move (ci.version.build);
+
+      rs.assign (x_signature) = move (ci.signature);
+      rs.assign (x_checksum) = move (ci.checksum);
+
+      // Split/canonicalize the target. First see if the user asked us to
+      // use config.sub.
+      //
+      if (ops.config_sub_specified ())
+      {
+        ci.target = run<string> (ops.config_sub (),
+                                 ci.target.c_str (),
+                                 [] (string& l) {return move (l);});
+        l5 ([&]{trace << "config.sub target: '" << ci.target << "'";});
+      }
+
+      try
+      {
+        string canon;
+        triplet t (ci.target, canon);
+
+        l5 ([&]{trace << "canonical target: '" << canon << "'; "
+                      << "class: " << t.class_;});
+
+        // Enter as x.target.{cpu,vendor,system,version,class}.
         //
-        const path& xc (cast<path> (*p.first));
-        ci = guess (x_lang,
-                    xc,
-                    cast_null<strings> (r[config_c_coptions]),
-                    cast_null<strings> (r[config_x_coptions]));
-
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        rs.assign (x_target) = move (canon);
+        rs.assign (x_target_cpu) = move (t.cpu);
+        rs.assign (x_target_vendor) = move (t.vendor);
+        rs.assign (x_target_system) = move (t.system);
+        rs.assign (x_target_version) = move (t.version);
+        rs.assign (x_target_class) = move (t.class_);
+      }
+      catch (const invalid_argument& e)
+      {
+        // This is where we suggest that the user specifies --config-sub to
+        // help us out.
         //
-        if (verb >= (p.second ? 2 : 3))
-        {
-          diag_record dr (text);
-
-          {
-            dr << x << ' ' << project (r) << '@' << r.out_path () << '\n'
-               << "  " << left << setw (11) << x << ci.path << '\n'
-               << "  id         " << ci.id << '\n'
-               << "  version    " << ci.version.string << '\n'
-               << "  major      " << ci.version.major << '\n'
-               << "  minor      " << ci.version.minor << '\n'
-               << "  patch      " << ci.version.patch << '\n';
-          }
-
-          if (!ci.version.build.empty ())
-            dr << "  build      " << ci.version.build << '\n';
-
-          {
-            dr << "  signature  " << ci.signature << '\n'
-               << "  target     " << ci.target << '\n';
-          }
-
-          if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin
-            dr << "  pattern    " << ci.cc_pattern << '\n';
-
-          {
-            dr << "  checksum   " << ci.checksum;
-          }
-        }
-
-        r.assign (x_path) = move (ci.path);
-        r.assign (x_id) = ci.id.string ();
-        r.assign (x_id_type) = move (ci.id.type);
-        r.assign (x_id_variant) = move (ci.id.variant);
-
-        r.assign (x_version) = move (ci.version.string);
-        r.assign (x_version_major) = ci.version.major;
-        r.assign (x_version_minor) = ci.version.minor;
-        r.assign (x_version_patch) = ci.version.patch;
-        r.assign (x_version_build) = move (ci.version.build);
-
-        r.assign (x_signature) = move (ci.signature);
-        r.assign (x_checksum) = move (ci.checksum);
-
-        // Split/canonicalize the target. First see if the user asked us to
-        // use config.sub.
-        //
-        if (ops.config_sub_specified ())
-        {
-          ci.target = run<string> (ops.config_sub (),
-                                   ci.target.c_str (),
-                                   [] (string& l) {return move (l);});
-          l5 ([&]{trace << "config.sub target: '" << ci.target << "'";});
-        }
-
-        try
-        {
-          string canon;
-          triplet t (ci.target, canon);
-
-          l5 ([&]{trace << "canonical target: '" << canon << "'; "
-                        << "class: " << t.class_;});
-
-          // Enter as x.target.{cpu,vendor,system,version,class}.
-          //
-          r.assign (x_target) = move (canon);
-          r.assign (x_target_cpu) = move (t.cpu);
-          r.assign (x_target_vendor) = move (t.vendor);
-          r.assign (x_target_system) = move (t.system);
-          r.assign (x_target_version) = move (t.version);
-          r.assign (x_target_class) = move (t.class_);
-        }
-        catch (const invalid_argument& e)
-        {
-          // This is where we suggest that the user specifies --config-sub to
-          // help us out.
-          //
-          fail << "unable to parse " << x_lang << "compiler target '"
-               << ci.target << "': " << e.what () <<
-            info << "consider using the --config-sub option";
-        }
+        fail << "unable to parse " << x_lang << "compiler target '"
+             << ci.target << "': " << e.what () <<
+          info << "consider using the --config-sub option";
       }
 
       // config.x.{p,c,l}options
@@ -198,52 +220,49 @@ namespace build2
       // using x
       // x.coptions += <overriding options> # Note: '+='.
       //
-      b.assign (x_poptions) += cast_null<strings> (
-        config::optional (r, config_x_poptions));
+      rs.assign (x_poptions) += cast_null<strings> (
+        config::optional (rs, config_x_poptions));
 
-      b.assign (x_coptions) += cast_null<strings> (
-        config::optional (r, config_x_coptions));
+      rs.assign (x_coptions) += cast_null<strings> (
+        config::optional (rs, config_x_coptions));
 
-      b.assign (x_loptions) += cast_null<strings> (
-        config::optional (r, config_x_loptions));
+      rs.assign (x_loptions) += cast_null<strings> (
+        config::optional (rs, config_x_loptions));
 
-      b.assign (x_libs) += cast_null<strings> (
-        config::optional (r, config_x_libs));
+      rs.assign (x_libs) += cast_null<strings> (
+        config::optional (rs, config_x_libs));
 
       // Load cc.core.config.
       //
       if (!cc_loaded)
       {
-        // Prepare configuration hints. They are only used on the first load
-        // of cc.core.config so we only populate them on our first load.
+        // Prepare configuration hints.
         //
         variable_map h;
-        if (first)
-        {
-          h.assign ("config.cc.id") = cast<string> (r[x_id]);
-          h.assign ("config.cc.target") = cast<string> (r[x_target]);
 
-          if (!ci.cc_pattern.empty ())
-            h.assign ("config.cc.pattern") = move (ci.cc_pattern);
+        h.assign ("config.cc.id") = cast<string> (rs[x_id]);
+        h.assign ("config.cc.target") = cast<string> (rs[x_target]);
 
-          if (!ci.bin_pattern.empty ())
-            h.assign ("config.bin.pattern") = move (ci.bin_pattern);
-        }
+        if (!ci.cc_pattern.empty ())
+          h.assign ("config.cc.pattern") = move (ci.cc_pattern);
 
-        load_module ("cc.core.config", r, b, loc, false, h);
+        if (!ci.bin_pattern.empty ())
+          h.assign ("config.bin.pattern") = move (ci.bin_pattern);
+
+        load_module ("cc.core.config", rs, rs, loc, false, h);
       }
-      else if (first)
+      else
       {
         // If cc.core.config is already loaded, verify its configuration
         // matched ours since it could have been loaded by another c-family
         // module.
         //
-        auto check = [&r, &loc, this](const char* cvar,
+        auto check = [&rs, &loc, this](const char* cvar,
                                       const variable& xvar,
                                       const char* w)
         {
-          const string& cv (cast<string> (r[cvar]));
-          const string& xv (cast<string> (r[xvar]));
+          const string& cv (cast<string> (rs[cvar]));
+          const string& xv (cast<string> (rs[xvar]));
 
           if (cv != xv)
             fail (loc) << "cc and " << x << " module " << w << " mismatch" <<
@@ -261,26 +280,22 @@ namespace build2
     }
 
     void module::
-    init (scope& r,
-          scope& b,
-          const location& loc,
-          bool,
-          const variable_map&)
+    init (scope& rs, const location& loc, const variable_map&)
     {
       tracer trace (x, "init");
 
       // Load cc.core. Besides other things, this will load bin (core) plus
       // extra bin.* modules we may need.
       //
-      if (!cast_false<bool> (b["cc.core.loaded"]))
-        load_module ("cc.core", r, b, loc);
+      if (!cast_false<bool> (rs["cc.core.loaded"]))
+        load_module ("cc.core", rs, rs, loc);
 
       // Register target types and configure their "installability".
       //
       {
         using namespace install;
 
-        auto& t (b.target_types);
+        auto& t (rs.target_types);
 
         t.insert (x_src);
 
@@ -289,7 +304,7 @@ namespace build2
         for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
         {
           t.insert (**ht);
-          install_path (**ht, b, dir_path ("include"));
+          install_path (**ht, rs, dir_path ("include"));
         }
       }
 
@@ -298,7 +313,7 @@ namespace build2
       {
         using namespace bin;
 
-        auto& r (b.rules);
+        auto& r (rs.rules);
 
         // We register for configure so that we detect unresolved imports
         // during configuration rather that later, e.g., during update.
@@ -323,7 +338,7 @@ namespace build2
         // Only register static object/library rules if the bin.ar module is
         // loaded (by us or by the user).
         //
-        if (cast_false<bool> (b["bin.ar.loaded"]))
+        if (cast_false<bool> (rs["bin.ar.loaded"]))
         {
           r.insert<obja> (perform_update_id,    x_compile, cr);
           r.insert<obja> (perform_clean_id,     x_compile, cr);

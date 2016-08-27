@@ -39,107 +39,8 @@ namespace build2
     {
     }
 
-    // Extract system library search paths from GCC or compatible (Clang,
-    // Intel) using the -print-search-dirs option.
-    //
-    void link::
-    gcc_library_search_paths (scope& bs, dir_paths& r) const
-    {
-      scope& rs (*bs.root_scope ());
-
-      cstrings args;
-      string std; // Storage.
-
-      args.push_back (cast<path> (rs[config_x]).string ().c_str ());
-      append_options (args, bs, c_coptions);
-      append_options (args, bs, x_coptions);
-      append_std (args, rs, bs, std);
-      append_options (args, bs, c_loptions);
-      append_options (args, bs, x_loptions);
-      args.push_back ("-print-search-dirs");
-      args.push_back (nullptr);
-
-      if (verb >= 3)
-        print_process (args);
-
-      string l;
-      try
-      {
-        process pr (args.data (), 0, -1); // Open pipe to stdout.
-
-        try
-        {
-          ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
-
-          string s;
-          while (getline (is, s))
-          {
-            if (s.compare (0, 12, "libraries: =") == 0)
-            {
-              l.assign (s, 12, string::npos);
-              break;
-            }
-          }
-
-          is.close (); // Don't block.
-
-          if (!pr.wait ())
-            throw failed ();
-        }
-        catch (const ifdstream::failure&)
-        {
-          pr.wait ();
-          fail << "error reading " << x_lang << " compiler -print-search-dirs "
-               << "output";
-        }
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e.what ();
-
-        if (e.child ())
-          exit (1);
-
-        throw failed ();
-      }
-
-      if (l.empty ())
-        fail << "unable to extract " << x_lang << " compiler system library "
-             << "search paths";
-
-      // Now the fun part: figuring out which delimiter is used. Normally it
-      // is ':' but on Windows it is ';' (or can be; who knows for sure). Also
-      // note that these paths are absolute (or should be). So here is what we
-      // are going to do: first look for ';'. If found, then that's the
-      // delimiter. If not found, then there are two cases: it is either a
-      // single Windows path or the delimiter is ':'. To distinguish these two
-      // cases we check if the path starts with a Windows drive.
-      //
-      char d (';');
-      string::size_type e (l.find (d));
-
-      if (e == string::npos &&
-          (l.size () < 2 || l[0] == '/' || l[1] != ':'))
-      {
-        d = ':';
-        e = l.find (d);
-      }
-
-      // Now chop it up. We already have the position of the first delimiter
-      // (if any).
-      //
-      for (string::size_type b (0);; e = l.find (d, (b = e + 1)))
-      {
-        r.emplace_back (l, b, (e != string::npos ? e - b : e));
-        r.back ().normalize ();
-
-        if (e == string::npos)
-          break;
-      }
-    }
-
     dir_paths link::
-    extract_library_paths (scope& bs) const
+    extract_library_dirs (scope& bs) const
     {
       dir_paths r;
 
@@ -193,16 +94,14 @@ namespace build2
       if (auto l = bs[c_loptions]) extract (*l);
       if (auto l = bs[x_loptions]) extract (*l);
 
-      if (cid == "msvc")
-        msvc_library_search_paths (bs, r);
-      else
-        gcc_library_search_paths (bs, r);
-
       return r;
     }
 
+    // Note that pk's scope should not be NULL (even if dir is absolute).
+    //
     target* link::
-    search_library (optional<dir_paths>& spc,
+    search_library (const dir_paths& sysd,
+                    optional<dir_paths>& usrd,
                     const prerequisite_key& p,
                     lorder lo) const
     {
@@ -300,15 +199,17 @@ namespace build2
 
       // Now search.
       //
-      if (!spc)
-        spc = extract_library_paths (*p.scope);
-
       liba* a (nullptr);
       libs* s (nullptr);
 
       path f; // Reuse the buffer.
-      const dir_path* pd;
-      for (const dir_path& d: *spc)
+      const dir_path* pd (nullptr);
+
+      auto search =[&a, &s,
+                    &an, &ae,
+                    &sn, &se,
+                    &name, ext,
+                    &p, &f, &trace, this] (const dir_path& d) -> bool
       {
         timestamp mt;
 
@@ -427,14 +328,38 @@ namespace build2
             a = msvc_search_static (ld, d, p);
         }
 
-        if (a != nullptr || s != nullptr)
+        return a != nullptr || s != nullptr;
+      };
+
+      // First try user directories (i.e., -L).
+      //
+      if (!usrd)
+        usrd = extract_library_dirs (*p.scope);
+
+      for (const dir_path& d: *usrd)
+      {
+        if (search (d))
         {
           pd = &d;
           break;
         }
       }
 
-      if (a == nullptr && s == nullptr)
+      // Next try system directories (i.e., those extracted from the compiler).
+      //
+      if (pd == nullptr)
+      {
+        for (const dir_path& d: sysd)
+        {
+          if (search (d))
+          {
+            pd = &d;
+            break;
+          }
+        }
+      }
+
+      if (pd == nullptr)
         return nullptr;
 
       // Add the "using static/shared library" macro (used, for example, to
@@ -508,14 +433,14 @@ namespace build2
         // will copy those macros (or custom ones) from *.export.poptions.
         //
         if (pkgconfig == nullptr ||
-            !pkgconfig_extract (*p.scope, *a, p.proj, name, *pd, spc, lo))
+            !pkgconfig_extract (*p.scope, *a, p.proj, name, *pd, sysd, lo))
           add_macro (*a, "STATIC");
       }
 
       if (s != nullptr && mark_cc (*s))
       {
         if (pkgconfig == nullptr ||
-            !pkgconfig_extract (*p.scope, *s, p.proj, name, *pd, spc, lo))
+            !pkgconfig_extract (*p.scope, *s, p.proj, name, *pd, sysd, lo))
           add_macro (*s, "SHARED");
       }
 
@@ -643,7 +568,7 @@ namespace build2
 
         scope& bs (t.base_scope ());
         lorder lo (link_order (bs, lt));
-        optional<dir_paths> lib_paths; // Extract lazily.
+        optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
@@ -654,7 +579,8 @@ namespace build2
             // Handle imported libraries.
             //
             if (p.proj () != nullptr)
-              pt = search_library (lib_paths, p.prerequisite, lo);
+              pt = search_library (
+                sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo);
 
             if (pt == nullptr)
             {
@@ -826,7 +752,7 @@ namespace build2
       //
       inject_fsdir (a, t);
 
-      optional<dir_paths> lib_paths; // Extract lazily.
+      optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
       // Process prerequisites: do rule chaining for C and X source files as
       // well as search and match.
@@ -847,7 +773,8 @@ namespace build2
           // Handle imported libraries.
           //
           if (p.proj () != nullptr)
-            pt = search_library (lib_paths, p.prerequisite, lo);
+            pt = search_library (
+              sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo);
 
           // The rest is the same basic logic as in search_and_match().
           //
@@ -1075,6 +1002,7 @@ namespace build2
     //
     void link::
     process_libraries (
+      const dir_paths& def_sysd,
       file& l,
       bool la,
       bool iface_only,
@@ -1135,7 +1063,11 @@ namespace build2
             if (proc_lib)
               proc_lib (f->path ());
 
-            process_libraries (*f, a, iface_only, proc_lib, proc_opt);
+            // Note that def_sysd (which is wrong) will never be used since
+            // this library was matched by a rule (see below).
+            //
+            process_libraries (
+              def_sysd, *f, a, iface_only, proc_lib, proc_opt);
           }
         }
       }
@@ -1143,14 +1075,18 @@ namespace build2
       // Process libraries (recursively) from *.export.libs (of type names)
       // handling import, etc.
       //
-      scope* bs (nullptr);     // Resolve lazily.
-      optional<lorder> lo;     // Calculate lazily.
-      optional<dir_paths> spc; // Extract lazily.
+      scope* bs (nullptr);             // Resolve lazily.
+      optional<lorder> lo;             // Calculate lazily.
+      const dir_paths* sysd (nullptr); // Resolve lazily.
+      optional<dir_paths> usrd;        // Extract lazily.
 
-      auto proc_int =
-        [&l, la, iface_only, &proc_lib, &proc_opt, &bs, &lo, &spc, this] (
-          const lookup& lu)
+      auto proc_int = [&l, la, t, iface_only,
+                       &proc_lib, &proc_opt,
+                       &sysd, &usrd, &def_sysd,
+                       &bs, &lo, this] (const lookup& lu)
       {
+        assert (t != nullptr);
+
         const names* ns (cast_null<names> (lu));
         if (ns == nullptr || ns->empty ())
           return;
@@ -1175,7 +1111,23 @@ namespace build2
             if (!lo)
               lo = link_order (*bs, la ? otype::a : otype::s);
 
-            file& t (resolve_library (n, *bs, *lo, spc));
+            if (sysd == nullptr)
+            {
+              if (*t == "cc")
+                sysd = &def_sysd; // Imported library, use importer's sysd.
+              else
+              {
+                // Use the search dirs corresponding to this library type.
+                //
+                scope& rs (*bs->root_scope ());
+                sysd = &cast<dir_paths> (
+                  rs.vars[*t == x
+                          ? x_sys_lib_dirs
+                          : var_pool[*t + ".sys_lib_dirs"]]);
+              }
+            }
+
+            file& t (resolve_library (n, *bs, *lo, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -1195,7 +1147,7 @@ namespace build2
             // Process it recursively.
             //
             process_libraries (
-              t, t.is_a<liba> (), iface_only, proc_lib, proc_opt);
+              *sysd, t, t.is_a<liba> (), iface_only, proc_lib, proc_opt);
           }
         }
       };
@@ -1299,7 +1251,7 @@ namespace build2
         append_options (args, l, var);
       };
 
-      process_libraries (l, la, false, lib, opt);
+      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
     }
 
     void link::
@@ -1322,7 +1274,7 @@ namespace build2
         hash_options (cs, l, var);
       };
 
-      process_libraries (l, la, false, lib, opt);
+      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
     }
 
     // The name can be an absolute target name (e.g., /tmp/libfoo/lib{foo}) or
@@ -1338,7 +1290,8 @@ namespace build2
     resolve_library (name n,
                      scope& s,
                      lorder lo,
-                     optional<dir_paths>& spc) const
+                     const dir_paths& sysd,
+                     optional<dir_paths>& usrd) const
     {
       if (n.type != "lib" && n.type != "liba" && n.type != "libs")
         fail << "target name " << n << " is not a library";
@@ -1368,7 +1321,7 @@ namespace build2
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
 
-        xt = search_library (spc, pk, lo);
+        xt = search_library (sysd, usrd, pk, lo);
 
         if (xt == nullptr)
         {
@@ -1605,7 +1558,6 @@ namespace build2
 
       // Storage.
       //
-      string std;
       string soname1, soname2;
       strings sargs;
 
@@ -1632,7 +1584,7 @@ namespace build2
         {
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-          append_std (args, rs, t, std);
+          append_std (args);
         }
 
         append_options (args, t, c_loptions);
@@ -1809,7 +1761,7 @@ namespace build2
 
       // Ok, so we are updating. Finish building the command line.
       //
-      string out, out1, out2; // Storage.
+      string out, out1, out2, out3; // Storage.
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -1901,10 +1853,10 @@ namespace build2
             //
             if (!manifest.empty ())
             {
-              std = "/MANIFESTINPUT:"; // Repurpose storage for std.
-              std += relative (manifest).string ();
+              out3 = "/MANIFESTINPUT:";
+              out3 += relative (manifest).string ();
               args.push_back ("/MANIFEST:EMBED");
-              args.push_back (std.c_str ());
+              args.push_back (out3.c_str ());
             }
 
             if (lt == otype::s)

@@ -8,6 +8,7 @@
 #include <build2/context>
 #include <build2/diagnostics>
 
+#include <build2/cc/guess>
 #include <build2/cc/module>
 
 #include <build2/cxx/target>
@@ -19,24 +20,29 @@ namespace build2
 {
   namespace cxx
   {
-    using cc::config_module;
+    using cc::compiler_info;
 
-    class module: public cc::module
+    class config_module: public cc::config_module
     {
     public:
       explicit
-      module (data&& d): common (move (d)), cc::module (move (d)) {}
+      config_module (config_data&& d)
+          : config_data (move (d)), cc::config_module (move (d)) {}
 
-      bool
-      translate_std (string&, scope&, const value&) const override;
+      string
+      translate_std (const compiler_info&,
+                     scope&,
+                     const string&) const override;
     };
 
-    bool module::
-    translate_std (string& s, scope& r, const value& val) const
-    {
-      const string& v (cast<string> (val));
+    using cc::module;
 
-      if (cid == "msvc")
+    string config_module::
+    translate_std (const compiler_info& ci, scope& rs, const string& v) const
+    {
+      string r;
+
+      if (ci.id.type == "msvc")
       {
         // C++ standard-wise, with VC you get what you get. The question is
         // whether we should verify that the requested standard is provided by
@@ -49,7 +55,7 @@ namespace build2
         //
         if (v != "98" && v != "03")
         {
-          uint64_t cver (cast<uint64_t> (r[x_version_major]));
+          uint64_t cver (ci.version.major);
 
           // @@ Is mapping for 14 and 17 correct? Maybe Update 2 for 14?
           //
@@ -57,127 +63,128 @@ namespace build2
               (v == "14" && cver < 19) || // C++14 since VS2015/14.0.
               (v == "17" && cver < 20))   // C++17 since VS20??/15.0.
           {
-            fail << "C++" << v << " is not supported by "
-                 << cast<string> (r[x_signature]) <<
-              info << "required by " << project (r) << '@' << r.out_path ();
+            fail << "C++" << v << " is not supported by " << ci.signature <<
+              info << "required by " << project (rs) << '@' << rs.out_path ();
           }
         }
-
-        return false;
       }
       else
       {
         // Translate 11 to 0x, 14 to 1y, and 17 to 1z for compatibility with
         // older versions of the compilers.
         //
-        s = "-std=";
+        r = "-std=";
 
         if (v == "98")
-          s += "c++98";
+          r += "c++98";
         else if (v == "03")
-          s += "c++03";
+          r += "c++03";
         else if (v == "11")
-          s += "c++0x";
+          r += "c++0x";
         else if (v == "14")
-          s += "c++1y";
+          r += "c++1y";
         else if (v == "17")
-          s += "c++1z";
+          r += "c++1z";
         else
-          s += v; // In case the user specifies something like 'gnu++17'.
-
-        return true;
+          r += v; // In case the user specifies something like 'gnu++17'.
       }
+
+      return r;
     }
 
     bool
-    config_init (scope& r,
-                 scope& b,
+    config_init (scope& rs,
+                 scope& bs,
                  const location& loc,
-                 unique_ptr<module_base>& m,
-                 bool first,
+                 unique_ptr<module_base>& mod,
+                 bool,
                  bool,
                  const variable_map& hints)
     {
       tracer trace ("cxx::config_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
-      if (first)
-      {
-        // Load cc.core.vars so that we can cache all the cc.* variables.
+      // We only support root loading (which means there can only be one).
+      //
+      if (&rs != &bs)
+        fail (loc) << "cxx.config module must be loaded in project root";
+
+      // Load cc.core.vars so that we can cache all the cc.* variables.
+      //
+      if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
+        load_module ("cc.core.vars", rs, rs, loc);
+
+      // Enter all the variables and initialize the module data.
+      //
+      auto& v (var_pool);
+
+      cc::config_data d {
+        cc::lang::cxx,
+
+        "cxx",
+        "c++",
+        "g++",
+
+        // Note: some overridable, some not.
         //
-        if (!cast_false<bool> (b["cc.core.vars.loaded"]))
-          load_module ("cc.core.vars", r, b, loc);
+        v.insert<path>    ("config.cxx",          true),
+        v.insert<strings> ("config.cxx.poptions", true),
+        v.insert<strings> ("config.cxx.coptions", true),
+        v.insert<strings> ("config.cxx.loptions", true),
+        v.insert<strings> ("config.cxx.libs",     true),
 
-        // Enter all the variables and initialize the module data.
-        //
-        auto& v (var_pool);
+        v.insert<process_path> ("cxx.path"),
+        v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
 
-        cc::config_data d {
-          cc::lang::cxx,
+        v.insert<strings> ("cxx.poptions"),
+        v.insert<strings> ("cxx.coptions"),
+        v.insert<strings> ("cxx.loptions"),
+        v.insert<strings> ("cxx.libs"),
 
-          "cxx",
-          "c++",
-          "g++",
+        v["cc.poptions"],
+        v["cc.coptions"],
+        v["cc.loptions"],
+        v["cc.libs"],
 
-          // Note: some overridable, some not.
-          //
-          v.insert<path>    ("config.cxx",          true),
-          v.insert<strings> ("config.cxx.poptions", true),
-          v.insert<strings> ("config.cxx.coptions", true),
-          v.insert<strings> ("config.cxx.loptions", true),
-          v.insert<strings> ("config.cxx.libs",     true),
+        v.insert<strings> ("cxx.export.poptions"),
+        v.insert<strings> ("cxx.export.coptions"),
+        v.insert<strings> ("cxx.export.loptions"),
+        v.insert<names>   ("cxx.export.libs"),
 
-          v.insert<process_path> ("cxx.path"),
-          v.insert<strings>      ("cxx.poptions"),
-          v.insert<strings>      ("cxx.coptions"),
-          v.insert<strings>      ("cxx.loptions"),
-          v.insert<strings>      ("cxx.libs"),
+        v["cc.export.poptions"],
+        v["cc.export.coptions"],
+        v["cc.export.loptions"],
+        v["cc.export.libs"],
 
-          v["cc.poptions"],
-          v["cc.coptions"],
-          v["cc.loptions"],
-          v["cc.libs"],
+        v["cc.type"],
 
-          v.insert<strings>  ("cxx.export.poptions"),
-          v.insert<strings>  ("cxx.export.coptions"),
-          v.insert<strings>  ("cxx.export.loptions"),
-          v.insert<names>    ("cxx.export.libs"),
+        v.insert<string>   ("cxx.std", true),
 
-          v["cc.export.poptions"],
-          v["cc.export.coptions"],
-          v["cc.export.loptions"],
-          v["cc.export.libs"],
+        v.insert<string>   ("cxx.id"),
+        v.insert<string>   ("cxx.id.type"),
+        v.insert<string>   ("cxx.id.variant"),
 
-          v["cc.type"],
+        v.insert<string>   ("cxx.version"),
+        v.insert<uint64_t> ("cxx.version.major"),
+        v.insert<uint64_t> ("cxx.version.minor"),
+        v.insert<uint64_t> ("cxx.version.patch"),
+        v.insert<string>   ("cxx.version.build"),
 
-          v.insert<string>   ("cxx.std", true),
+        v.insert<string>   ("cxx.signature"),
+        v.insert<string>   ("cxx.checksum"),
 
-          v.insert<string>   ("cxx.id"),
-          v.insert<string>   ("cxx.id.type"),
-          v.insert<string>   ("cxx.id.variant"),
+        v.insert<string>   ("cxx.target"),
+        v.insert<string>   ("cxx.target.cpu"),
+        v.insert<string>   ("cxx.target.vendor"),
+        v.insert<string>   ("cxx.target.system"),
+        v.insert<string>   ("cxx.target.version"),
+        v.insert<string>   ("cxx.target.class")
+      };
 
-          v.insert<string>   ("cxx.version"),
-          v.insert<uint64_t> ("cxx.version.major"),
-          v.insert<uint64_t> ("cxx.version.minor"),
-          v.insert<uint64_t> ("cxx.version.patch"),
-          v.insert<string>   ("cxx.version.build"),
-
-          v.insert<string>   ("cxx.signature"),
-          v.insert<string>   ("cxx.checksum"),
-
-          v.insert<string>   ("cxx.target"),
-          v.insert<string>   ("cxx.target.cpu"),
-          v.insert<string>   ("cxx.target.vendor"),
-          v.insert<string>   ("cxx.target.system"),
-          v.insert<string>   ("cxx.target.version"),
-          v.insert<string>   ("cxx.target.class")
-        };
-
-        assert (m == nullptr);
-        m.reset (new config_module (move (d)));
-      }
-
-      static_cast<config_module&> (*m).init (r, b, loc, first, hints);
+      assert (mod == nullptr);
+      config_module* m;
+      mod.reset (m = new config_module (move (d)));
+      m->init (rs, loc, hints);
       return true;
     }
 
@@ -202,51 +209,56 @@ namespace build2
     };
 
     bool
-    init (scope& r,
-          scope& b,
+    init (scope& rs,
+          scope& bs,
           const location& loc,
-          unique_ptr<module_base>& m,
-          bool first,
+          unique_ptr<module_base>& mod,
+          bool,
           bool,
           const variable_map& hints)
     {
       tracer trace ("cxx::init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (&rs != &bs)
+        fail (loc) << "cxx module must be loaded in project root";
 
       // Load cxx.config.
       //
-      if (!cast_false<bool> (b["cxx.config.loaded"]))
-        load_module ("cxx.config", r, b, loc, false, hints);
+      if (!cast_false<bool> (rs["cxx.config.loaded"]))
+        load_module ("cxx.config", rs, rs, loc, false, hints);
 
-      if (first)
-      {
-        config_module& cm (*r.modules.lookup<config_module> ("cxx.config"));
+      config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
 
-        cc::data d {
-          cm,
+      cc::data d {
+        cm,
 
-          "cxx.compile",
-          "cxx.link",
-          "cxx.install",
-          "cxx.uninstall",
+        "cxx.compile",
+        "cxx.link",
+        "cxx.install",
+        "cxx.uninstall",
 
-          cast<string> (r[cm.x_id]),
-          cast<string> (r[cm.x_target]),
-          cast<string> (r[cm.x_target_system]),
-          cast<string> (r[cm.x_target_class]),
+        cast<string> (rs[cm.x_id]),
+        cast<string> (rs[cm.x_target]),
+        cast<string> (rs[cm.x_target_system]),
+        cast<string> (rs[cm.x_target_class]),
 
-          cast_null<process_path> (r["pkgconfig.path"]),
+        cm.tstd,
 
-          cxx::static_type,
-          hdr,
-          inc
-        };
+        cast_null<process_path> (rs["pkgconfig.path"]),
+        cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
 
-        assert (m == nullptr);
-        m.reset (new module (move (d)));
-      }
+        cxx::static_type,
+        hdr,
+        inc
+      };
 
-      static_cast<module&> (*m).init (r, b, loc, first, hints);
+      assert (mod == nullptr);
+      module* m;
+      mod.reset (m = new module (move (d)));
+      m->init (rs, loc, hints);
       return true;
     }
   }
