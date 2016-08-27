@@ -374,7 +374,7 @@ namespace build2
             nullptr, {&lib::static_type, &out, &out, &name, ext}, &s};
 
           if (lib* lt = static_cast<lib*> (
-                search_library (sysd, usrd, pk, lo)))
+                search_library (sysd, usrd, pk, lo, nullptr)))
           {
             file& f (static_cast<file&> (link_member (*lt, lo)));
             l = f.path ().string ();

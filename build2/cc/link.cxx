@@ -97,13 +97,16 @@ namespace build2
       return r;
     }
 
-    // Note that pk's scope should not be NULL (even if dir is absolute).
+    // Note that pk's scope should not be NULL (even if dir is absolute). If
+    // sys is not NULL, then store there an inidication of whether this is a
+    // system library.
     //
     target* link::
     search_library (const dir_paths& sysd,
                     optional<dir_paths>& usrd,
                     const prerequisite_key& p,
-                    lorder lo) const
+                    lorder lo,
+                    bool* sys) const
     {
       tracer trace (x, "link::search_library");
 
@@ -357,7 +360,12 @@ namespace build2
             break;
           }
         }
+
+        if (sys != nullptr && pd == nullptr)
+          *sys = true;
       }
+      else if (sys != nullptr)
+        *sys = false;
 
       if (pd == nullptr)
         return nullptr;
@@ -1002,11 +1010,11 @@ namespace build2
     //
     void link::
     process_libraries (
-      const dir_paths& def_sysd,
+      const dir_paths& top_sysd,
       file& l,
       bool la,
       bool iface_only,
-      const function<void (const path&)>& proc_lib,
+      const function<void (const path&, bool sys)>& proc_lib,
       const function<void (file&,
                            const string& type,
                            bool com, /* cc.     */
@@ -1045,6 +1053,42 @@ namespace build2
         }
       }
 
+      // Find system search directories corresponding to this library, i.e.,
+      // from its project and for its type (C, C++, etc).
+      //
+      auto find_sysd = [&top_sysd, this] (file& l, const string* t, scope* bs)
+        -> const dir_paths&
+      {
+        if (t == nullptr)
+          t = cast_null<string> (l.vars[c_type]);
+
+        assert (t != nullptr);
+
+        if (*t == "cc")
+          return top_sysd; // Imported library, use importer's sysd.
+        else
+        {
+          // Use the search dirs corresponding to this library scope/type.
+          //
+          scope& rs (bs != nullptr ? *bs->root_scope () : l.root_scope ());
+          return cast<dir_paths> (
+            rs.vars[*t == x
+                    ? x_sys_lib_dirs
+                    : var_pool[*t + ".sys_lib_dirs"]]);
+        }
+      };
+
+      // Determine if an absolute path is to a system library.
+      //
+      auto sys = [] (const dir_paths& sysd, const path& p) -> bool
+      {
+        for (const dir_path& d: sysd)
+          if (p.sub (d))
+            return true;
+
+        return false;
+      };
+
       // Only go into prerequisites (implementation dependencies) if this is a
       // static library and it's not using explicit export. For shared library
       // or if iface_only, we are only interested in interface dependencies
@@ -1061,13 +1105,11 @@ namespace build2
               ||   (f = p->is_a<libs> ()) != nullptr)
           {
             if (proc_lib)
-              proc_lib (f->path ());
+              proc_lib (f->path (), sys (top_sysd, f->path ()));
 
-            // Note that def_sysd (which is wrong) will never be used since
-            // this library was matched by a rule (see below).
-            //
-            process_libraries (
-              def_sysd, *f, a, iface_only, proc_lib, proc_opt);
+            process_libraries (find_sysd (*f, nullptr, nullptr),
+                               *f, a, iface_only,
+                               proc_lib, proc_opt);
           }
         }
       }
@@ -1080,9 +1122,30 @@ namespace build2
       const dir_paths* sysd (nullptr); // Resolve lazily.
       optional<dir_paths> usrd;        // Extract lazily.
 
+      // Determine if a "simple path" is a system library.
+      //
+      auto sys_simple = [&l, t, &bs, &sysd, &sys, &find_sysd] (const path& p)
+        -> bool
+      {
+        bool s (p.relative ());
+
+        if (!s)
+        {
+          if (bs == nullptr)
+            bs = &l.base_scope ();
+
+          if (sysd == nullptr)
+            sysd = &find_sysd (l, t, bs);
+
+          s = sys (*sysd, p);
+        }
+
+        return s;
+      };
+
       auto proc_int = [&l, la, t, iface_only,
                        &proc_lib, &proc_opt,
-                       &sysd, &usrd, &def_sysd,
+                       &sysd, &usrd, &sys_simple, &sys, &find_sysd,
                        &bs, &lo, this] (const lookup& lu)
       {
         assert (t != nullptr);
@@ -1095,11 +1158,16 @@ namespace build2
         {
           if (n.simple ())
           {
-            // This is something like -lpthread or shell32.lib so should be
-            // a valid path.
+            // This is something like -lpthread or shell32.lib so should be a
+            // valid path. But it can also be an absolute library path (e.g.,
+            // something that in the future will come from our -static/-shared
+            // .pc files.
             //
             if (proc_lib)
-              proc_lib (path (n.value));
+            {
+              path f (n.value);
+              proc_lib (f, sys_simple (f));
+            }
           }
           else
           {
@@ -1108,26 +1176,14 @@ namespace build2
             if (bs == nullptr)
               bs = &l.base_scope ();
 
+            if (sysd == nullptr)
+              sysd = &find_sysd (l, t, bs);
+
             if (!lo)
               lo = link_order (*bs, la ? otype::a : otype::s);
 
-            if (sysd == nullptr)
-            {
-              if (*t == "cc")
-                sysd = &def_sysd; // Imported library, use importer's sysd.
-              else
-              {
-                // Use the search dirs corresponding to this library type.
-                //
-                scope& rs (*bs->root_scope ());
-                sysd = &cast<dir_paths> (
-                  rs.vars[*t == x
-                          ? x_sys_lib_dirs
-                          : var_pool[*t + ".sys_lib_dirs"]]);
-              }
-            }
-
-            file& t (resolve_library (n, *bs, *lo, *sysd, usrd));
+            auto p (resolve_library (n, *bs, *lo, *sysd, usrd));
+            file& t (p.first);
 
             if (proc_lib)
             {
@@ -1141,7 +1197,12 @@ namespace build2
                   info << "mentioned in *.export.libs of target " << l <<
                   info << "is it a prerequisite of " << l << "?";
 
-              proc_lib (t.path ());
+              optional<bool>& s (p.second);
+
+              if (!s)
+                s = sys (*sysd, t.path ());
+
+              proc_lib (t.path (), *s);
             }
 
             // Process it recursively.
@@ -1154,7 +1215,7 @@ namespace build2
 
       // Process libraries from *.libs (of type strings).
       //
-      auto proc_imp = [&proc_lib] (const lookup& lu)
+      auto proc_imp = [&proc_lib, &sys_simple] (const lookup& lu)
       {
         const strings* ns (cast_null<strings> (lu));
         if (ns == nullptr || ns->empty ())
@@ -1165,7 +1226,8 @@ namespace build2
           // This is something like -lpthread or shell32.lib so should be a
           // valid path.
           //
-          proc_lib (path (n));
+          path f (n);
+          proc_lib (f, sys_simple (f));
         }
       };
 
@@ -1234,7 +1296,7 @@ namespace build2
     void link::
     append_libraries (strings& args, file& l, bool la) const
     {
-      auto lib = [&args] (const path& l)
+      auto lib = [&args] (const path& l, bool)
       {
         args.push_back (relative (l).string ());
       };
@@ -1257,7 +1319,7 @@ namespace build2
     void link::
     hash_libraries (sha256& cs, file& l, bool la) const
     {
-      auto lib = [&cs] (const path& l)
+      auto lib = [&cs] (const path& l, bool)
       {
         cs.append (l.string ());
       };
@@ -1286,7 +1348,10 @@ namespace build2
     // will select exactly the same target as the library's matched rule and
     // that's the only way to guarantee it will be up-to-date.
     //
-    file& link::
+    // Return the resolved target as well as the indication of whether this
+    // is a system library, if determined.
+    //
+    pair<reference_wrapper<file>, optional<bool>> link::
     resolve_library (name n,
                      scope& s,
                      lorder lo,
@@ -1297,6 +1362,7 @@ namespace build2
         fail << "target name " << n << " is not a library";
 
       target* xt (nullptr);
+      optional<bool> sys;
 
       if (n.dir.absolute () && !n.qualified ())
       {
@@ -1321,7 +1387,8 @@ namespace build2
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
 
-        xt = search_library (sysd, usrd, pk, lo);
+        sys = bool ();
+        xt = search_library (sysd, usrd, pk, lo, &*sys);
 
         if (xt == nullptr)
         {
@@ -1335,9 +1402,9 @@ namespace build2
       // If this is lib{}, pick appropriate member.
       //
       if (lib* l = xt->is_a<lib> ())
-        xt = &link_member (*l, lo);
+        xt = &link_member (*l, lo); // Pick liba{} or libs{}.
 
-      return static_cast<file&> (*xt); // liba{} or libs{}.
+      return make_pair (std::ref (static_cast<file&> (*xt)), sys);
     }
 
     static void
