@@ -43,7 +43,7 @@ namespace build2
       process_libraries (const dir_paths&,
                          file&,
                          bool,
-                         bool,
+                         const function<bool (file&, bool)>&,
                          const function<void (file*, const string&, bool)>&,
                          const function<void (file&,
                                               const string&,

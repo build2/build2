@@ -72,6 +72,9 @@ namespace build2
 
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
       {
+        // Note that in our model *.export.poptions are always "interface",
+        // even if set on liba{}/libs{}, unlike loptions.
+        //
         assert (exp);
 
         const variable& var (
@@ -83,7 +86,7 @@ namespace build2
       };
 
       link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
+        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
     }
 
     void compile::
@@ -104,7 +107,7 @@ namespace build2
       };
 
       link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
+        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
     }
 
     recipe compile::
@@ -464,7 +467,7 @@ namespace build2
       };
 
       link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), true, nullptr, opt);
+        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
     }
 
     auto compile::

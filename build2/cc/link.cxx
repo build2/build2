@@ -999,12 +999,9 @@ namespace build2
       }
     }
 
-    // Recursively process prerequisite libraries. Only interface
-    // (*.export.libs) for shared libraries, interface and implementation
-    // (both prerequisite and from *.libs, unless overriden) for static
-    // libraries (unless iface_only is true, in which case we use
-    // *.export.libs even for static libraries which means *.export.libs
-    // should be set on lib{}, not libs{}).
+    // Recursively process prerequisite libraries. If proc_impl returns false,
+    // then only process interface (*.export.libs), otherwise -- interface and
+    // implementation (prerequisite and from *.libs, unless overriden).
     //
     // Note that here we assume that an interface library is also an
     // implementation (since we don't use *.export.libs in static link). We
@@ -1017,7 +1014,8 @@ namespace build2
       const dir_paths& top_sysd,
       file& l,
       bool la,
-      bool iface_only,
+      const function<bool (file&,
+                           bool la)>& proc_impl, // Implementation?
       const function<void (file*,                // Can be NULL.
                            const string& path,   // Library path.
                            bool sys)>& proc_lib, // True if system library.
@@ -1026,6 +1024,8 @@ namespace build2
                            bool com,                     // cc. or x.
                            bool exp)>& proc_opt) const   // *.export.
     {
+      bool impl (proc_impl && proc_impl (l, la));
+
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
       // look into prerequisites.
@@ -1037,17 +1037,16 @@ namespace build2
 
       if (t != nullptr)
       {
-        // If static, then the explicit export override should be set on the
-        // liba{} target itself. Note also that we only check for *.libs. If
-        // one doesn't have any libraries but needs to set, say, *.loptions,
-        // then *.libs should be set to NULL or empty (this is why we check
-        // for result being defined).
+        // The explicit export override should be set on the liba/libs{}
+        // target itself. Note also that we only check for *.libs. If one
+        // doesn't have any libraries but needs to set, say, *.loptions, then
+        // *.libs should be set to NULL or empty (this is why we check for
+        // the result being defined).
         //
-        // @@ Should we set it in import installed then?
-        //
-        c_e_libs = la && !iface_only
-          ? l.vars[c_export_libs]
-          : l[c_export_libs];
+        if (impl)
+          c_e_libs = l.vars[c_export_libs]; // Override.
+        else if (l.group != nullptr) // lib{} group.
+          c_e_libs = l.group->vars[c_export_libs];
 
         if (*t != "cc")
         {
@@ -1055,7 +1054,10 @@ namespace build2
                                ? x_export_libs
                                : var_pool[*t + ".export.libs"]);
 
-          x_e_libs = la && !iface_only ? l.vars[var] : l[var];
+          if (impl)
+            x_e_libs = l.vars[var]; // Override.
+          else if (l.group != nullptr) // lib{} group.
+            x_e_libs = l.group->vars[var];
         }
       }
 
@@ -1106,12 +1108,11 @@ namespace build2
         return false;
       };
 
-      // Only go into prerequisites (implementation dependencies) if this is a
-      // static library and it's not using explicit export. For shared library
-      // or if iface_only, we are only interested in interface dependencies
-      // which come from the *.export.libs below.
+      // Only go into prerequisites (implementation) if instructed and it's
+      // not using explicit export. Otherwise, interface dependencies come
+      // from the lib{}:*.export.libs below.
       //
-      if (la && !iface_only && !c_e_libs.defined () && !x_e_libs.defined ())
+      if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
         for (target* p: l.prerequisite_targets)
         {
@@ -1128,8 +1129,8 @@ namespace build2
             }
 
             process_libraries (find_sysd (*f, nullptr, nullptr),
-                               *f, a, iface_only,
-                               proc_lib, proc_opt);
+                               *f, a,
+                               proc_impl, proc_lib, proc_opt);
           }
         }
       }
@@ -1137,6 +1138,13 @@ namespace build2
       // Process libraries (recursively) from *.export.libs (of type names)
       // handling import, etc.
       //
+
+      // If it is not a C-common library, then it probably doesn't have any of
+      // the *.libs and we are done.
+      //
+      if (t == nullptr)
+        return;
+
       scope* bs (nullptr);             // Resolve lazily.
       optional<lorder> lo;             // Calculate lazily.
       const dir_paths* sysd (nullptr); // Resolve lazily.
@@ -1163,8 +1171,8 @@ namespace build2
         return s;
       };
 
-      auto proc_int = [&l, la, t, iface_only,
-                       &proc_lib, &proc_opt,
+      auto proc_int = [&l, la, t,
+                       &proc_impl, &proc_lib, &proc_opt,
                        &sysd, &usrd, &sys_simple, &sys, &find_sysd,
                        &bs, &lo, this] (const lookup& lu)
       {
@@ -1225,7 +1233,7 @@ namespace build2
             // Process it recursively.
             //
             process_libraries (
-              *sysd, t, t.is_a<liba> (), iface_only, proc_lib, proc_opt);
+              *sysd, t, t.is_a<liba> (), proc_impl, proc_lib, proc_opt);
           }
         }
       };
@@ -1247,13 +1255,7 @@ namespace build2
         }
       };
 
-      // If it is not a C-common library, then it probably doesn't have any of
-      // the *.libs and we are done.
-      //
-      if (t == nullptr)
-        return;
-
-      // If all we know it's a C-common library, then in both cases we only
+      // If all we know is it's a C-common library, then in both cases we only
       // look for cc.export.libs.
       //
       if (*t == "cc")
@@ -1266,10 +1268,10 @@ namespace build2
         bool same (*t == x); // Same as us.
         auto& vp (var_pool);
 
-        if (la && !iface_only)
+        if (impl)
         {
-          // Static: as discussed above, here we can have two situations:
-          // explicit export or default export.
+          // Interface and implementation: as discussed above, we can have two
+          // situations: overriden export or default export.
           //
           if (c_e_libs.defined () || x_e_libs.defined ())
           {
@@ -1297,8 +1299,7 @@ namespace build2
         }
         else
         {
-          // Shared or iface_only: only add *.export.* (interface
-          // dependencies).
+          // Interface: only add *.export.* (interface dependencies).
           //
           if (proc_opt) proc_opt (l, *t, true, true);
           if (c_e_libs) proc_int (c_e_libs);
@@ -1374,6 +1375,8 @@ namespace build2
     void link::
     append_libraries (strings& args, file& l, bool la) const
     {
+      auto imp = [] (file&, bool la) {return la;};
+
       auto lib = [&args] (file* f, const string& p, bool)
       {
         args.push_back (f != nullptr ? relative (f->path ()).string () : p);
@@ -1381,22 +1384,29 @@ namespace build2
 
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
       {
-        const variable& var (
-          com
-          ? (exp ? c_export_loptions : c_loptions)
-          : (t == x
-             ? (exp ? x_export_loptions : x_loptions)
-             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+        // If we need an interface value, then use the group (lib{}).
+        //
+        if (target* g = exp && l.is_a<libs> () ? l.group : &l)
+        {
+          const variable& var (
+            com
+            ? (exp ? c_export_loptions : c_loptions)
+            : (t == x
+               ? (exp ? x_export_loptions : x_loptions)
+               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-        append_options (args, l, var);
+          append_options (args, *g, var);
+        }
       };
 
-      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
+      process_libraries (sys_lib_dirs, l, la, imp, lib, opt);
     }
 
     void link::
     hash_libraries (sha256& cs, file& l, bool la) const
     {
+      auto imp = [] (file&, bool la) {return la;};
+
       auto lib = [&cs] (file*, const string& p, bool)
       {
         cs.append (p);
@@ -1404,17 +1414,20 @@ namespace build2
 
       auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
       {
-        const variable& var (
-          com
-          ? (exp ? c_export_loptions : c_loptions)
-          : (t == x
-             ? (exp ? x_export_loptions : x_loptions)
-             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+        if (target* g = exp && l.is_a<libs> () ? l.group : &l)
+        {
+          const variable& var (
+            com
+            ? (exp ? c_export_loptions : c_loptions)
+            : (t == x
+               ? (exp ? x_export_loptions : x_loptions)
+               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-        hash_options (cs, l, var);
+          hash_options (cs, *g, var);
+        }
       };
 
-      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
+      process_libraries (sys_lib_dirs, l, la, imp, lib, opt);
     }
 
     void link::
@@ -1436,6 +1449,23 @@ namespace build2
         if (!cast_false<bool> (l.vars[c_system]))
           args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
       }
+
+      auto imp = [for_install] (file&, bool la)
+      {
+        // If we are not installing, then we only need to rpath interface
+        // libraries (they will include rpath's for their implementations).
+        // Otherwise, we have to do this recursively.
+        //
+        // The rpath-link part is tricky: ideally we would like to get only
+        // implementations and only of shared libraries. We are not interested
+        // in interfaces because we are linking their libraries explicitly.
+        // However, in our model there is no such thing as "implementation
+        // only"; it is either interface or interface and implementation. So
+        // we are going to rpath-link all of them which should be harmless
+        // except for some noise on the command line.
+        //
+        return for_install ? !la : false;
+      };
 
       // Package the data to keep within the 2-pointer small std::function
       // optimization limit.
@@ -1498,11 +1528,7 @@ namespace build2
         d.args.push_back (move (o));
       };
 
-      // If we are not installing, then we only need to rpath interface
-      // libraries (they will include rpath's for their implementations).
-      // Otherwise, we have to do this recursively.
-      //
-      process_libraries (sys_lib_dirs, l, la, !for_install, lib, nullptr);
+      process_libraries (sys_lib_dirs, l, la, imp, lib, nullptr);
     }
 
     // See windows-rpath.cxx.
