@@ -70,6 +70,11 @@ namespace build2
       //
       v.insert<string> ("cc.type");
 
+      // If set and is true, then this (imported) library has been found in a
+      // system library search directory.
+      //
+      v.insert<bool> ("cc.system");
+
       return true;
     }
 

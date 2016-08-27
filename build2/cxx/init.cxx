@@ -157,6 +157,7 @@ namespace build2
         v["cc.export.libs"],
 
         v["cc.type"],
+        v["cc.system"],
 
         v.insert<string>   ("cxx.std", true),
 

@@ -44,7 +44,7 @@ namespace build2
                          file&,
                          bool,
                          bool,
-                         const function<void (const path&, bool)>&,
+                         const function<void (file*, const string&, bool)>&,
                          const function<void (file&,
                                               const string&,
                                               bool,
@@ -55,7 +55,10 @@ namespace build2
       void
       hash_libraries (sha256&, file&, bool) const;
 
-      pair<reference_wrapper<file>, optional<bool>>
+      void
+      rpath_libraries (strings&, file&, bool, bool) const;
+
+      file&
       resolve_library (name,
                        scope&,
                        lorder,
@@ -93,7 +96,7 @@ namespace build2
                       lorder lo) const
       {
         if (p.target == nullptr) // First check the cache.
-          p.target = search_library (sysd, usrd, p.key (), lo, nullptr);
+          p.target = search_library (sysd, usrd, p.key (), lo);
 
         return p.target;
       }
@@ -102,8 +105,7 @@ namespace build2
       search_library (const dir_paths&,
                       optional<dir_paths>&,
                       const prerequisite_key&,
-                      lorder,
-                      bool* sys) const;
+                      lorder) const;
 
       // Windows-specific (windows-manifest.cxx).
       //

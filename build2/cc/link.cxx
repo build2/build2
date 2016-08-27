@@ -105,8 +105,7 @@ namespace build2
     search_library (const dir_paths& sysd,
                     optional<dir_paths>& usrd,
                     const prerequisite_key& p,
-                    lorder lo,
-                    bool* sys) const
+                    lorder lo) const
     {
       tracer trace (x, "link::search_library");
 
@@ -336,6 +335,8 @@ namespace build2
 
       // First try user directories (i.e., -L).
       //
+      bool sys (false);
+
       if (!usrd)
         usrd = extract_library_dirs (*p.scope);
 
@@ -361,11 +362,8 @@ namespace build2
           }
         }
 
-        if (sys != nullptr && pd == nullptr)
-          *sys = true;
+        sys = true;
       }
-      else if (sys != nullptr)
-        *sys = false;
 
       if (pd == nullptr)
         return nullptr;
@@ -419,14 +417,20 @@ namespace build2
         }
       };
 
-      // Mark as a "cc" library unless already marked.
+      // Mark as a "cc" library (unless already marked) and set the system
+      // flag.
       //
-      auto mark_cc = [this] (target& t) -> bool
+      auto mark_cc = [sys, this] (target& t) -> bool
       {
         auto p (t.vars.insert (c_type));
 
         if (p.second)
+        {
           p.first.get () = string ("cc");
+
+          if (sys)
+            t.vars.assign (c_system) = true;
+        }
 
         return p.second;
       };
@@ -1014,11 +1018,13 @@ namespace build2
       file& l,
       bool la,
       bool iface_only,
-      const function<void (const path&, bool sys)>& proc_lib,
+      const function<void (file*,                // Can be NULL.
+                           const string& path,   // Library path.
+                           bool sys)>& proc_lib, // True if system library.
       const function<void (file&,
-                           const string& type,
-                           bool com, /* cc.     */
-                           bool exp) /* export. */>& proc_opt) const
+                           const string& type,           // cc.type
+                           bool com,                     // cc. or x.
+                           bool exp)>& proc_opt) const   // *.export.
     {
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
@@ -1078,13 +1084,24 @@ namespace build2
         }
       };
 
-      // Determine if an absolute path is to a system library.
+      // Determine if an absolute path is to a system library. Note that
+      // we assume both paths are normalized.
       //
-      auto sys = [] (const dir_paths& sysd, const path& p) -> bool
+      auto sys = [] (const dir_paths& sysd, const string& p) -> bool
       {
+        size_t pn (p.size ());
+
         for (const dir_path& d: sysd)
-          if (p.sub (d))
+        {
+          const string& ds (d.string ()); // Can be "/", otherwise no slash.
+          size_t dn (ds.size ());
+
+          if (pn > dn &&
+              p.compare (0, dn, ds) == 0 &&
+              (path::traits::is_separator (ds[dn - 1]) ||
+               path::traits::is_separator (p[dn])))
             return true;
+        }
 
         return false;
       };
@@ -1105,7 +1122,10 @@ namespace build2
               ||   (f = p->is_a<libs> ()) != nullptr)
           {
             if (proc_lib)
-              proc_lib (f->path (), sys (top_sysd, f->path ()));
+            {
+              const string& p (f->path ().string ());
+              proc_lib (f, p, sys (top_sysd, p));
+            }
 
             process_libraries (find_sysd (*f, nullptr, nullptr),
                                *f, a, iface_only,
@@ -1124,10 +1144,10 @@ namespace build2
 
       // Determine if a "simple path" is a system library.
       //
-      auto sys_simple = [&l, t, &bs, &sysd, &sys, &find_sysd] (const path& p)
+      auto sys_simple = [&l, t, &bs, &sysd, &sys, &find_sysd] (const string& p)
         -> bool
       {
-        bool s (p.relative ());
+        bool s (!path::traits::absolute (p));
 
         if (!s)
         {
@@ -1164,10 +1184,7 @@ namespace build2
             // .pc files.
             //
             if (proc_lib)
-            {
-              path f (n.value);
-              proc_lib (f, sys_simple (f));
-            }
+              proc_lib (nullptr, n.value, sys_simple (n.value));
           }
           else
           {
@@ -1182,8 +1199,7 @@ namespace build2
             if (!lo)
               lo = link_order (*bs, la ? otype::a : otype::s);
 
-            auto p (resolve_library (n, *bs, *lo, *sysd, usrd));
-            file& t (p.first);
+            file& t (resolve_library (n, *bs, *lo, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -1197,12 +1213,13 @@ namespace build2
                   info << "mentioned in *.export.libs of target " << l <<
                   info << "is it a prerequisite of " << l << "?";
 
-              optional<bool>& s (p.second);
+              const string& p (t.path ().string ());
 
-              if (!s)
-                s = sys (*sysd, t.path ());
+              bool s (t.vars[c_type] // If cc library (matched or imported).
+                      ? cast_false<bool> (t.vars[c_system])
+                      : sys (*sysd, p));
 
-              proc_lib (t.path (), *s);
+              proc_lib (&t, p, s);
             }
 
             // Process it recursively.
@@ -1226,8 +1243,7 @@ namespace build2
           // This is something like -lpthread or shell32.lib so should be a
           // valid path.
           //
-          path f (n);
-          proc_lib (f, sys_simple (f));
+          proc_lib (nullptr, n, sys_simple (n));
         }
       };
 
@@ -1242,7 +1258,7 @@ namespace build2
       //
       if (*t == "cc")
       {
-        proc_opt (l, *t, true, true);
+        if (proc_opt) proc_opt (l, *t, true, true);
         if (c_e_libs) proc_int (c_e_libs);
       }
       else
@@ -1260,10 +1276,10 @@ namespace build2
             // NOTE: should this not be from l.vars rather than l? Or perhaps
             // we can assume non-common values will be set on libs{}/liba{}.
             //
-            proc_opt (l, *t, true, true);
+            if (proc_opt) proc_opt (l, *t, true, true);
             if (c_e_libs) proc_int (c_e_libs);
 
-            proc_opt (l, *t, false, true);
+            if (proc_opt) proc_opt (l, *t, false, true);
             if (x_e_libs) proc_int (x_e_libs);
           }
           else
@@ -1272,10 +1288,10 @@ namespace build2
             // build the library. Since libraries in (non-export) *.libs are
             // not targets, we don't need to recurse.
             //
-            proc_opt (l, *t, true, false);
+            if (proc_opt) proc_opt (l, *t, true, false);
             if (proc_lib) proc_imp (l[c_libs]);
 
-            proc_opt (l, *t, false, false);
+            if (proc_opt) proc_opt (l, *t, false, false);
             if (proc_lib) proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
           }
         }
@@ -1284,59 +1300,13 @@ namespace build2
           // Shared or iface_only: only add *.export.* (interface
           // dependencies).
           //
-          proc_opt (l, *t, true, true);
+          if (proc_opt) proc_opt (l, *t, true, true);
           if (c_e_libs) proc_int (c_e_libs);
 
-          proc_opt (l, *t, false, true);
+          if (proc_opt) proc_opt (l, *t, false, true);
           if (x_e_libs) proc_int (x_e_libs);
         }
       }
-    }
-
-    void link::
-    append_libraries (strings& args, file& l, bool la) const
-    {
-      auto lib = [&args] (const path& l, bool)
-      {
-        args.push_back (relative (l).string ());
-      };
-
-      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
-      {
-        const variable& var (
-          com
-          ? (exp ? c_export_loptions : c_loptions)
-          : (t == x
-             ? (exp ? x_export_loptions : x_loptions)
-             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
-
-        append_options (args, l, var);
-      };
-
-      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
-    }
-
-    void link::
-    hash_libraries (sha256& cs, file& l, bool la) const
-    {
-      auto lib = [&cs] (const path& l, bool)
-      {
-        cs.append (l.string ());
-      };
-
-      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
-      {
-        const variable& var (
-          com
-          ? (exp ? c_export_loptions : c_loptions)
-          : (t == x
-             ? (exp ? x_export_loptions : x_loptions)
-             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
-
-        hash_options (cs, l, var);
-      };
-
-      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
     }
 
     // The name can be an absolute target name (e.g., /tmp/libfoo/lib{foo}) or
@@ -1348,10 +1318,7 @@ namespace build2
     // will select exactly the same target as the library's matched rule and
     // that's the only way to guarantee it will be up-to-date.
     //
-    // Return the resolved target as well as the indication of whether this
-    // is a system library, if determined.
-    //
-    pair<reference_wrapper<file>, optional<bool>> link::
+    file& link::
     resolve_library (name n,
                      scope& s,
                      lorder lo,
@@ -1362,7 +1329,6 @@ namespace build2
         fail << "target name " << n << " is not a library";
 
       target* xt (nullptr);
-      optional<bool> sys;
 
       if (n.dir.absolute () && !n.qualified ())
       {
@@ -1386,9 +1352,7 @@ namespace build2
         //
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
-
-        sys = bool ();
-        xt = search_library (sysd, usrd, pk, lo, &*sys);
+        xt = search_library (sysd, usrd, pk, lo);
 
         if (xt == nullptr)
         {
@@ -1404,21 +1368,141 @@ namespace build2
       if (lib* l = xt->is_a<lib> ())
         xt = &link_member (*l, lo); // Pick liba{} or libs{}.
 
-      return make_pair (std::ref (static_cast<file&> (*xt)), sys);
+      return static_cast<file&> (*xt);
     }
 
-    static void
-    append_rpath_link (strings& args, libs& t)
+    void link::
+    append_libraries (strings& args, file& l, bool la) const
     {
-      for (target* pt: t.prerequisite_targets)
+      auto lib = [&args] (file* f, const string& p, bool)
       {
-        if (libs* ls = pt->is_a<libs> ())
-        {
-          args.push_back ("-Wl,-rpath-link," +
-                          ls->path ().directory ().string ());
-          append_rpath_link (args, *ls);
-        }
+        args.push_back (f != nullptr ? relative (f->path ()).string () : p);
+      };
+
+      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
+      {
+        const variable& var (
+          com
+          ? (exp ? c_export_loptions : c_loptions)
+          : (t == x
+             ? (exp ? x_export_loptions : x_loptions)
+             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+
+        append_options (args, l, var);
+      };
+
+      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
+    }
+
+    void link::
+    hash_libraries (sha256& cs, file& l, bool la) const
+    {
+      auto lib = [&cs] (file*, const string& p, bool)
+      {
+        cs.append (p);
+      };
+
+      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
+      {
+        const variable& var (
+          com
+          ? (exp ? c_export_loptions : c_loptions)
+          : (t == x
+             ? (exp ? x_export_loptions : x_loptions)
+             : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+
+        hash_options (cs, l, var);
+      };
+
+      process_libraries (sys_lib_dirs, l, la, false, lib, opt);
+    }
+
+    void link::
+    rpath_libraries (strings& args, file& l, bool la, bool for_install) const
+    {
+      // Use -rpath-link on targets that support it (Linux, FreeBSD). Note
+      // that we don't really need it for top-level libraries.
+      //
+      if (for_install)
+      {
+        if (tclass != "linux" && tclass != "freebsd")
+          return;
       }
+      else if (!la)
+      {
+        // Top-level sharen library dependency. It is either matched or
+        // imported so should be a cc library.
+        //
+        if (!cast_false<bool> (l.vars[c_system]))
+          args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
+      }
+
+      // Package the data to keep within the 2-pointer small std::function
+      // optimization limit.
+      //
+      struct
+      {
+        strings& args;
+        bool for_install;
+      } d {args, for_install};
+
+      auto lib = [&d, this] (file* l, const string& f, bool sys)
+      {
+        // We don't rpath system libraries. Why, you may ask? There are many
+        // good reasons and I have them written on an napkin somewhere...
+        //
+        if (sys)
+          return;
+
+        if (l != nullptr)
+        {
+          if (!l->is_a<libs> ())
+            return;
+        }
+        else
+        {
+          // This is an absolute path and we need to decide whether it is
+          // a shared or static library. Doesn't seem there is anything
+          // better than checking for a platform-specific extension (maybe
+          // we should cache it somewhere).
+          //
+          size_t p (path::traits::find_extension (f));
+
+          if (p == string::npos)
+            return;
+
+          ++p; // Skip dot.
+
+          bool c (true);
+          const char* e;
+
+          if      (tclass == "windows") {e = "dll"; c = false;}
+          else if (tsys == "darwin")     e = "dylib";
+          else                           e = "so";
+
+          if ((c
+               ? f.compare (p, string::npos, e)
+               : casecmp (f.c_str () + p, e)) != 0)
+            return;
+        }
+
+        // Ok, if we are here then it means we have a non-system, shared
+        // library and its absolute path is in f.
+        //
+        string o (d.for_install ? "-Wl,-rpath-link," : "-Wl,-rpath,");
+
+        size_t p (path::traits::rfind_separator (f));
+        assert (p != string::npos);
+
+        o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
+        d.args.push_back (move (o));
+      };
+
+      // If we are not installing, then we only need to rpath interface
+      // libraries (they will include rpath's for their implementations).
+      // Otherwise, we have to do this recursively.
+      //
+      process_libraries (sys_lib_dirs, l, la, !for_install, lib, nullptr);
     }
 
     // See windows-rpath.cxx.
@@ -1445,6 +1529,7 @@ namespace build2
       tracer trace (x, "link::perform_update");
 
       auto oop (a.outer_operation ());
+      bool for_install (oop == install_id || oop == uninstall_id);
 
       file& t (static_cast<file&> (xt));
 
@@ -1466,7 +1551,7 @@ namespace build2
         // assembly itself is generated later, after updating the target. Omit
         // it if we are updating for install.
         //
-        if (oop != install_id && oop != uninstall_id)
+        if (!for_install)
           rpath_timestamp = windows_rpath_timestamp (t);
 
         path mf (
@@ -1708,25 +1793,16 @@ namespace build2
           //
           // Note also that if this is update for install, then we don't add
           // rpath of the imported libraries (i.e., we assume they are also
-          // installed).
+          // installed). But we add -rpath-link for some platforms.
           //
           for (target* pt: t.prerequisite_targets)
           {
-            if (libs* ls = pt->is_a<libs> ())
-            {
-              if (oop != install_id && oop != uninstall_id)
-              {
-                sargs.push_back ("-Wl,-rpath," +
-                                 ls->path ().directory ().string ());
-              }
-              // Use -rpath-link on targets that support it (Linux, FreeBSD).
-              // Since with this option the paths are not stored in the
-              // library, we have to do this recursively (in fact, we don't
-              // really need it for top-level libraries).
-              //
-              else if (tclass == "linux" || tclass == "freebsd")
-                append_rpath_link (sargs, *ls);
-            }
+            file* f;
+            liba* a;
+
+            if ((f = a = pt->is_a<liba> ()) ||
+                (f =     pt->is_a<libs> ()))
+              rpath_libraries (sargs, *f, a != nullptr, for_install);
           }
 
           if (auto l = t["bin.rpath"])
@@ -2146,7 +2222,7 @@ namespace build2
       //
       if (lt == otype::e && tclass == "windows")
       {
-        if (oop != install_id && oop != uninstall_id)
+        if (!for_install)
           windows_rpath_assembly (t,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
