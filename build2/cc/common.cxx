@@ -800,8 +800,7 @@ namespace build2
             // /LIBPATH:<dir> (case-insensitive).
             //
             if ((o[0] == '/' || o[0] == '-') &&
-                (i->compare (1, 8, "LIBPATH:") == 0 ||
-                 i->compare (1, 8, "libpath:") == 0))
+                casecmp (i->c_str () + 1, "LIBPATH:", 8) == 0)
               d = dir_path (*i, 9, string::npos);
             else
               continue;
