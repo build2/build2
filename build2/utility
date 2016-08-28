@@ -37,6 +37,8 @@ namespace build2
   using butl::combine_hash;
   using butl::reverse_iterate;
   using butl::casecmp;
+  using butl::case_compare_string;
+  using butl::case_compare_c_string;
   using butl::lcase;
   using butl::alpha;
   using butl::alnum;

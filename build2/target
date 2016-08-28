@@ -985,13 +985,13 @@ namespace build2
     // should be mtime_target and the members get the mtime from it.
     //
     timestamp
-    mtime () const
+    mtime (bool load = true) const
     {
       const mtime_target* t (raw_state == target_state::group
                              ? static_cast<const mtime_target*> (group)
                              : this);
 
-      if (t->mtime_ == timestamp_unknown)
+      if (load && t->mtime_ == timestamp_unknown)
         t->mtime_ = t->load_mtime ();
 
       return t->mtime_;

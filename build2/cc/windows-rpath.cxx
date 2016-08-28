@@ -4,8 +4,6 @@
 
 #include <errno.h> // E*
 
-#include <set>
-
 #include <build2/scope>
 #include <build2/context>
 #include <build2/variable>
@@ -13,6 +11,8 @@
 #include <build2/diagnostics>
 
 #include <build2/bin/target>
+
+#include <build2/cc/link>
 
 using namespace std;
 using namespace butl;
@@ -36,60 +36,159 @@ namespace build2
     // the loader looks for them in the same directory as the DLL). It's not
     // clear how well such nested assemblies are supported (e.g., in Wine).
     //
+    // What if the DLL is in the same directory as the executable, will it
+    // still be found even if there is an assembly? On the other hand,
+    // handling it as any other won't hurt us much.
+    //
     using namespace bin;
 
     // Return the greatest (newest) timestamp of all the DLLs that we will be
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
-    timestamp
-    windows_rpath_timestamp (file& t)
+    timestamp link::
+    windows_rpath_timestamp (file& t, scope& bs, lorder lo) const
     {
       timestamp r (timestamp_nonexistent);
 
+      // We need to collect all the DLLs, so go into implementation of both
+      // shared and static (in case they depend on shared).
+      //
+      auto imp = [] (file&, bool) {return true;};
+
+      auto lib = [&r] (file* l, const string& f, bool sys)
+      {
+        // We don't rpath system libraries.
+        //
+        if (sys)
+          return;
+
+        // Skip static libraries.
+        //
+        if (l != nullptr)
+        {
+          // This can be an "undiscovered" DLL (see search_library()).
+          //
+          if (!l->is_a<libs> () || l->path ().empty ())
+            return;
+        }
+        else
+        {
+          // This is an absolute path and we need to decide whether it is
+          // a shared or static library.
+          //
+          // @@ This is so broken: we don't link to DLLs, we link to .lib or
+          //    .dll.a! Should we even bother? Maybe only for "our" DLLs
+          //    (.dll.lib/.dll.a)? But the DLL can also be in a different
+          //    directory (lib/../bin).
+          //
+          //    Though this can happen on MinGW with direct DLL link...
+          //
+          size_t p (path::traits::find_extension (f));
+
+          if (p == string::npos || casecmp (f.c_str () + p + 1, "dll") != 0)
+            return;
+        }
+
+        // Ok, this is a DLL.
+        //
+        timestamp t (l != nullptr ? l->mtime () : file_mtime (f.c_str ()));
+
+        if (t > r)
+          r = t;
+      };
+
       for (target* pt: t.prerequisite_targets)
       {
-        if (libs* ls = pt->is_a<libs> ())
-        {
-          // Skip installed DLLs.
-          //
-          if (ls->path ().empty ())
-            continue;
+        file* f;
+        liba* a;
 
-          // What if the DLL is in the same directory as the executable, will
-          // it still be found even if there is an assembly? On the other
-          // hand, handling it as any other won't hurt us much.
-          //
-          timestamp t;
-
-          if ((t = ls->mtime ()) > r)
-            r = t;
-
-          if ((t = windows_rpath_timestamp (*ls)) > r)
-            r = t;
-        }
+        if ((f = a = pt->is_a<liba> ()) ||
+            (f =     pt->is_a<libs> ()))
+          process_libraries (bs, lo, sys_lib_dirs,
+                             *f, a != nullptr,
+                             imp, lib, nullptr, true);
       }
 
       return r;
     }
 
-    // Like *_timestamp() but actually collect the DLLs.
+    // Like *_timestamp() but actually collect the DLLs (and weed out the
+    // duplicates).
     //
-    static void
-    rpath_dlls (set<libs*>& s, file& t)
+    auto link::
+    windows_rpath_dlls (file& t, scope& bs, lorder lo) const -> windows_dlls
     {
+      windows_dlls r;
+
+      auto imp = [] (file&, bool) {return true;};
+
+      auto lib = [&r] (file* l, const string& f, bool sys)
+      {
+        if (sys)
+          return;
+
+        if (l != nullptr)
+        {
+          if (l->is_a<libs> () && !l->path ().empty ())
+          {
+            // Get .pdb if there is one (second member of the ad hoc group).
+            //
+            const string* pdb (
+              l->member != nullptr && l->member->member != nullptr
+              ? &static_cast<file&> (*l->member->member).path ().string ()
+              : nullptr);
+
+            r.insert (windows_dll {f, pdb, string ()});
+          }
+        }
+        else
+        {
+          size_t p (path::traits::find_extension (f));
+
+          if (p != string::npos && casecmp (f.c_str () + p + 1, "dll") == 0)
+          {
+            // See if we can find a corresponding .pdb.
+            //
+            windows_dll wd {f, nullptr, string ()};
+            string& pdb (wd.pdb_storage);
+
+            // First try "our" naming: foo.dll.pdb.
+            //
+            pdb = f;
+            pdb += ".pdb";
+
+            if (!file_exists (pdb.c_str ()))
+            {
+              // Then try the usual naming: foo.pdb.
+              //
+              pdb.assign (f, 0, p);
+              pdb += ".pdb";
+
+              if (!file_exists (pdb.c_str ()))
+                pdb.clear ();
+            }
+
+            if (!pdb.empty ())
+              wd.pdb = &pdb;
+
+            r.insert (move (wd));
+          }
+        }
+      };
+
       for (target* pt: t.prerequisite_targets)
       {
-        if (libs* ls = pt->is_a<libs> ())
-        {
-          // Skip installed DLLs.
-          //
-          if (ls->path ().empty ())
-            continue;
+        file* f;
+        liba* a;
 
-          s.insert (ls);
-          rpath_dlls (s, *ls);
-        }
+        if ((f = a = pt->is_a<liba> ()) ||
+            (f =     pt->is_a<libs> ()))
+          process_libraries (bs, lo, sys_lib_dirs,
+                             *f, a != nullptr,
+                             imp, lib, nullptr, true);
       }
+
+      return r;
     }
 
     const char*
@@ -103,11 +202,13 @@ namespace build2
     // unnecessary work by comparing the DLLs timestamp against the assembly
     // manifest file.
     //
-    void
+    void link::
     windows_rpath_assembly (file& t,
+                            scope& bs,
+                            lorder lo,
                             const string& tcpu,
                             timestamp ts,
-                            bool scratch)
+                            bool scratch) const
     {
       // Assembly paths and name.
       //
@@ -139,9 +240,9 @@ namespace build2
       //
       bool empty (ts == timestamp_nonexistent);
 
-      set<libs*> dlls;
+      windows_dlls dlls;
       if (!empty)
-        rpath_dlls (dlls, t);
+        dlls = windows_rpath_dlls (t, bs, lo);
 
       // Clean the assembly directory and make sure it exists. Maybe it would
       // have been faster to overwrite the existing manifest rather than
@@ -243,18 +344,22 @@ namespace build2
 
         };
 
-        for (libs* dll: dlls)
+        for (const windows_dll& wd: dlls)
         {
-          const path& dp (dll->path ()); // DLL path.
-          const path dn (dp.leaf ());    // DLL name.
+          //@@ Would be nice to avoid copying. Perhaps reuse buffers
+          //   by adding path::assign() and traits::leaf().
+          //
+          path dp (wd.dll);     // DLL path.
+          path dn (dp.leaf ()); // DLL name.
+
           link (dp, ad / dn);
 
-          // Link .pdb if there is one (second member of the ad hoc group).
+          // Link .pdb if there is one.
           //
-          if (dll->member != nullptr && dll->member->member != nullptr)
+          if (wd.pdb != nullptr)
           {
-            file& pdb (static_cast<file&> (*dll->member->member));
-            link (pdb.path (), ad / pdb.path ().leaf ());
+            path pp (*wd.pdb);
+            link (pp, ad / pp.leaf ());
           }
 
           ofs << "  <file name='" << dn.string () << "'/>\n";

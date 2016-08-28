@@ -1007,6 +1007,10 @@ namespace build2
     // *.export.libs is up-to-date (which will happen automatically if it is
     // listed as a prerequisite of this library).
     //
+    // Storing a reference to library path in proc_lib is legal (it comes
+    // either from the target's path or from one of the *.libs variables
+    // neither of which should change on this run).
+    //
     void link::
     process_libraries (
       scope& top_bs,
@@ -1020,17 +1024,51 @@ namespace build2
                            const string& path,   // Library path.
                            bool sys)>& proc_lib, // True if system library.
       const function<void (file&,
-                           const string& type,           // cc.type
-                           bool com,                     // cc. or x.
-                           bool exp)>& proc_opt) const   // *.export.
+                           const string& type,   // cc.type
+                           bool com,             // cc. or x.
+                           bool exp)>& proc_opt, // *.export.
+      bool self /*= false*/) const               // Call proc_lib on l?
     {
-      bool impl (proc_impl && proc_impl (l, la));
+      // Determine if an absolute path is to a system library. Note that
+      // we assume both paths to be normalized.
+      //
+      auto sys = [] (const dir_paths& sysd, const string& p) -> bool
+      {
+        size_t pn (p.size ());
+
+        for (const dir_path& d: sysd)
+        {
+          const string& ds (d.string ()); // Can be "/", otherwise no slash.
+          size_t dn (ds.size ());
+
+          if (pn > dn &&
+              p.compare (0, dn, ds) == 0 &&
+              (path::traits::is_separator (ds[dn - 1]) ||
+               path::traits::is_separator (p[dn])))
+            return true;
+        }
+
+        return false;
+      };
 
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
       // look into prerequisites.
       //
       const string* t (cast_null<string> (l.vars[c_type]));
+
+      if (self && proc_lib)
+      {
+        const string& p (l.path ().string ());
+
+        bool s (t != nullptr // If cc library (matched or imported).
+                ? cast_false<bool> (l.vars[c_system])
+                : sys (top_sysd, p));
+
+        proc_lib (&l, p, s);
+      }
+
+      bool impl (proc_impl && proc_impl (l, la));
       bool cc, same;
 
       auto& vp (var_pool);
@@ -1066,47 +1104,28 @@ namespace build2
         }
       }
 
+      scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
+      optional<lorder> lo;                       // Calculate lazily.
+      const dir_paths* sysd (nullptr);           // Resolve lazily.
+
       // Find system search directories corresponding to this library, i.e.,
       // from its project and for its type (C, C++, etc).
       //
-      auto find_sysd = [&top_sysd, this] (
-        bool cc, bool same, const string& t, scope& bs) -> const dir_paths&
+      auto find_sysd = [&top_sysd, t, cc, same, &bs, &sysd, this] ()
       {
         // Use the search dirs corresponding to this library scope/type.
         //
-        return cc
-        ? top_sysd // Imported library, use importer's sysd.
-        : cast<dir_paths> (
+        sysd = (t == nullptr || cc)
+        ? &top_sysd // Imported library, use importer's sysd.
+        : &cast<dir_paths> (
           bs.root_scope ()->vars[same
                                  ? x_sys_lib_dirs
-                                 : var_pool[t + ".sys_lib_dirs"]]);
+                                 : var_pool[*t + ".sys_lib_dirs"]]);
       };
 
-      auto find_lo = [top_lo, this] (file& l, bool cc, scope& bs) -> lorder
+      auto find_lo = [top_lo, t, cc, &bs, &l, &lo, this] ()
       {
-        return cc ? top_lo : link_order (bs, link_type (l));
-      };
-
-      // Determine if an absolute path is to a system library. Note that
-      // we assume both paths to be normalized.
-      //
-      auto sys = [] (const dir_paths& sysd, const string& p) -> bool
-      {
-        size_t pn (p.size ());
-
-        for (const dir_path& d: sysd)
-        {
-          const string& ds (d.string ()); // Can be "/", otherwise no slash.
-          size_t dn (ds.size ());
-
-          if (pn > dn &&
-              p.compare (0, dn, ds) == 0 &&
-              (path::traits::is_separator (ds[dn - 1]) ||
-               path::traits::is_separator (p[dn])))
-            return true;
-        }
-
-        return false;
+        lo = (t == nullptr || cc) ? top_lo : link_order (bs, link_type (l));
       };
 
       // Only go into prerequisites (implementation) if instructed and we are
@@ -1123,23 +1142,12 @@ namespace build2
           if ((a = (f = p->is_a<liba> ()) != nullptr)
               ||   (f = p->is_a<libs> ()) != nullptr)
           {
-            if (proc_lib)
-            {
-              const string& p (f->path ().string ());
-              proc_lib (f, p, sys (top_sysd, p));
-            }
+            if (sysd == nullptr) find_sysd ();
+            if (!lo) find_lo ();
 
-            const string& t (cast<string> (f->vars[c_type])); // Must be there.
-            bool cc (t == "cc");
-            bool same (!cc && t == x);
-
-            scope& bs (cc ? top_bs : f->base_scope ());
-
-            process_libraries (bs,
-                               find_lo (*f, cc, bs),
-                               find_sysd (cc, same, t, bs),
+            process_libraries (bs, *lo, *sysd,
                                *f, a,
-                               proc_impl, proc_lib, proc_opt);
+                               proc_impl, proc_lib, proc_opt, true);
           }
         }
       }
@@ -1153,22 +1161,17 @@ namespace build2
       if (t == nullptr)
         return;
 
-      scope& bs (cc ? top_bs : l.base_scope ());
-      optional<lorder> lo;                       // Calculate lazily.
-      const dir_paths* sysd (nullptr);           // Resolve lazily.
       optional<dir_paths> usrd;                  // Extract lazily.
 
       // Determine if a "simple path" is a system library.
       //
-      auto sys_simple = [cc, same, t, &bs, &sysd, &sys, &find_sysd] (
-        const string& p) -> bool
+      auto sys_simple = [&sysd, &sys, &find_sysd] (const string& p) -> bool
       {
         bool s (!path::traits::absolute (p));
 
         if (!s)
         {
-          if (sysd == nullptr)
-            sysd = &find_sysd (cc, same, *t, bs);
+          if (sysd == nullptr) find_sysd ();
 
           s = sys (*sysd, p);
         }
@@ -1176,7 +1179,7 @@ namespace build2
         return s;
       };
 
-      auto proc_int = [&l, cc, same, t,
+      auto proc_int = [&l,
                        &proc_impl, &proc_lib, &proc_opt,
                        &sysd, &usrd,
                        &find_sysd, &find_lo, &sys, &sys_simple,
@@ -1202,11 +1205,8 @@ namespace build2
           {
             // This is a potentially project-qualified target.
             //
-            if (sysd == nullptr)
-              sysd = &find_sysd (cc, same, *t, bs);
-
-            if (!lo)
-              lo = find_lo (l, cc, bs);
+            if (sysd == nullptr) find_sysd ();
+            if (!lo) find_lo ();
 
             file& t (resolve_library (n, bs, *lo, *sysd, usrd));
 
@@ -1217,25 +1217,21 @@ namespace build2
               // library's prerequisites (i.e., it is not an implementation
               // dependency).
               //
-              if (t.path ().empty ())
-                fail << "target " << t << " is out of date" <<
+              // Note that we used to just check for path being assigned but
+              // on Windows import-installed DLLs may legally have empty
+              // paths.
+              //
+              if (t.mtime (false) == timestamp_unknown)
+                fail << "interface dependency " << t << " is out of date" <<
                   info << "mentioned in *.export.libs of target " << l <<
                   info << "is it a prerequisite of " << l << "?";
-
-              const string& p (t.path ().string ());
-
-              bool s (t.vars[c_type] // If cc library (matched or imported).
-                      ? cast_false<bool> (t.vars[c_system])
-                      : sys (*sysd, p));
-
-              proc_lib (&t, p, s);
             }
 
             // Process it recursively.
             //
             process_libraries (bs, *lo, *sysd,
                                t, t.is_a<liba> (),
-                               proc_impl, proc_lib, proc_opt);
+                               proc_impl, proc_lib, proc_opt, true);
           }
         }
       };
@@ -1376,11 +1372,25 @@ namespace build2
                       file& l, bool la,
                       scope& bs, lorder lo) const
     {
+      bool win (tclass == "windows");
+
       auto imp = [] (file&, bool la) {return la;};
 
-      auto lib = [&args] (file* f, const string& p, bool)
+      auto lib = [&args, win] (file* f, const string& p, bool)
       {
-        args.push_back (f != nullptr ? relative (f->path ()).string () : p);
+        if (f != nullptr)
+        {
+          // On Windows a shared library is a DLL with the import library as a
+          // first ad hoc group member. MinGW though can link directly to DLLs
+          // (see search_library() for details).
+          //
+          if (win && f->member != nullptr && f->is_a<libs> ())
+            f = static_cast<file*> (f->member);
+
+          args.push_back (relative (f->path ()).string ());
+        }
+        else
+          args.push_back (p);
       };
 
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
@@ -1400,17 +1410,31 @@ namespace build2
         }
       };
 
-      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt);
+      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
     hash_libraries (sha256& cs, file& l, bool la, scope& bs, lorder lo) const
     {
+      bool win (tclass == "windows");
+
       auto imp = [] (file&, bool la) {return la;};
 
-      auto lib = [&cs] (file*, const string& p, bool)
+      auto lib = [&cs, win] (file* f, const string& p, bool)
       {
-        cs.append (p);
+        if (f != nullptr)
+        {
+          // On Windows a shared library is a DLL with the import library as a
+          // first ad hoc group member. MinGW though can link directly to DLLs
+          // (see search_library() for details).
+          //
+          if (win && f->member != nullptr && f->is_a<libs> ())
+            f = static_cast<file*> (f->member);
+
+          cs.append (f->path ().string ());
+        }
+        else
+          cs.append (p);
       };
 
       auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
@@ -1428,13 +1452,12 @@ namespace build2
         }
       };
 
-      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt);
+      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
     rpath_libraries (strings& args,
-                     file& l, bool la,
-                     scope& bs, lorder lo,
+                     target& t, scope& bs, lorder lo,
                      bool for_install) const
     {
       // Use -rpath-link on targets that support it (Linux, FreeBSD). Note
@@ -1444,14 +1467,6 @@ namespace build2
       {
         if (tclass != "linux" && tclass != "freebsd")
           return;
-      }
-      else if (!la)
-      {
-        // Top-level sharen library dependency. It is either matched or
-        // imported so should be a cc library.
-        //
-        if (!cast_false<bool> (l.vars[c_system]))
-          args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
       }
 
       auto imp = [for_install] (file&, bool la)
@@ -1532,16 +1547,30 @@ namespace build2
         d.args.push_back (move (o));
       };
 
-      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, nullptr);
+      for (target* pt: t.prerequisite_targets)
+      {
+        file* f;
+        liba* a;
+
+        if ((f = a = pt->is_a<liba> ()) ||
+            (f =     pt->is_a<libs> ()))
+        {
+          if (!for_install && a == nullptr)
+          {
+            // Top-level sharen library dependency. It is either matched or
+            // imported so should be a cc library.
+            //
+            if (!cast_false<bool> (f->vars[c_system]))
+              args.push_back (
+                "-Wl,-rpath," + f->path ().directory ().string ());
+          }
+
+          process_libraries (bs, lo, sys_lib_dirs,
+                             *f, a != nullptr,
+                             imp, lib, nullptr);
+        }
+      }
     }
-
-    // See windows-rpath.cxx.
-    //
-    timestamp
-    windows_rpath_timestamp (file&);
-
-    void
-    windows_rpath_assembly (file&, const string& cpu, timestamp, bool scratch);
 
     // Filter link.exe noise (msvc.cxx).
     //
@@ -1585,7 +1614,7 @@ namespace build2
         // it if we are updating for install.
         //
         if (!for_install)
-          rpath_timestamp = windows_rpath_timestamp (t);
+          rpath_timestamp = windows_rpath_timestamp (t, bs, lo);
 
         path mf (
           windows_manifest (
@@ -1828,15 +1857,7 @@ namespace build2
           // rpath of the imported libraries (i.e., we assume they are also
           // installed). But we add -rpath-link for some platforms.
           //
-          for (target* pt: t.prerequisite_targets)
-          {
-            file* f;
-            liba* a;
-
-            if ((f = a = pt->is_a<liba> ()) ||
-                (f =     pt->is_a<libs> ()))
-              rpath_libraries (sargs, *f, a != nullptr, bs, lo, for_install);
-          }
+          rpath_libraries (sargs, t, bs, lo, for_install);
 
           if (auto l = t["bin.rpath"])
             for (const dir_path& p: cast<dir_paths> (l))
@@ -1882,23 +1903,13 @@ namespace build2
                ((f = a = pt->is_a<liba> ()) ||
                 (f = s = pt->is_a<libs> ()))))
           {
-            // On Windows a shared library is a DLL with the import library as
-            // a first ad hoc group member. MinGW though can link directly to
-            // DLLs (see search_library() for details).
-            //
-            if (s != nullptr && tclass == "windows")
-            {
-              if (s->member != nullptr)
-                f = static_cast<file*> (s->member);
-            }
-
-            cs.append (f->path ().string ());
-
-            // Link all the dependent interface libraries (shared) or
-            // interface and implementation (static), recursively.
+            // Link all the dependent interface libraries (shared) or interface
+            // and implementation (static), recursively.
             //
             if (a != nullptr || s != nullptr)
               hash_libraries (cs, *f, a != nullptr, bs, lo);
+            else
+              cs.append (f->path ().string ());
           }
         }
 
@@ -2118,23 +2129,13 @@ namespace build2
              ((f = a = pt->is_a<liba> ()) ||
               (f = s = pt->is_a<libs> ()))))
         {
-          // On Windows a shared library is a DLL with the import library as a
-          // first ad hoc group member. MinGW though can link directly to DLLs
-          // (see search_library() for details).
-          //
-          if (s != nullptr && tclass == "windows")
-          {
-            if (s->member != nullptr)
-              f = static_cast<file*> (s->member);
-          }
-
-          sargs.push_back (relative (f->path ()).string ()); // string()&&
-
           // Link all the dependent interface libraries (shared) or interface
           // and implementation (static), recursively.
           //
           if (a != nullptr || s != nullptr)
             append_libraries (sargs, *f, a != nullptr, bs, lo);
+          else
+            sargs.push_back (relative (f->path ()).string ()); // string()&&
         }
       }
 
@@ -2256,7 +2257,7 @@ namespace build2
       if (lt == otype::e && tclass == "windows")
       {
         if (!for_install)
-          windows_rpath_assembly (t,
+          windows_rpath_assembly (t, bs, lo,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);

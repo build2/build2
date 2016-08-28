@@ -5,6 +5,8 @@
 #ifndef BUILD2_CC_LINK
 #define BUILD2_CC_LINK
 
+#include <set>
+
 #include <build2/types>
 #include <build2/utility>
 
@@ -50,7 +52,8 @@ namespace build2
                          const function<void (file&,
                                               const string&,
                                               bool,
-                                              bool)>&) const;
+                                              bool)>&,
+                         bool = false) const;
       void
       append_libraries (strings&, file&, bool, scope&, lorder) const;
 
@@ -58,8 +61,32 @@ namespace build2
       hash_libraries (sha256&, file&, bool, scope&, lorder) const;
 
       void
-      rpath_libraries (strings&, file&, bool, scope&, lorder, bool) const;
+      rpath_libraries (strings&, target&, scope&, lorder, bool) const;
 
+      // Windows rpath emulation (windows-rpath.cxx).
+      //
+      struct windows_dll
+      {
+        const string& dll;
+        const string* pdb; // NULL if none.
+        string pdb_storage;
+
+        bool operator< (const windows_dll& y) const {return dll < y.dll;}
+      };
+
+      using windows_dlls = std::set<windows_dll>;
+
+      timestamp
+      windows_rpath_timestamp (file&, scope&, lorder) const;
+
+      windows_dlls
+      windows_rpath_dlls (file&, scope&, lorder) const;
+
+      void
+      windows_rpath_assembly (file&, scope&, lorder,
+                              const string&,
+                              timestamp,
+                              bool) const;
       file&
       resolve_library (name,
                        scope&,
