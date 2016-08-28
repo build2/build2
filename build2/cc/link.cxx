@@ -104,8 +104,7 @@ namespace build2
     target* link::
     search_library (const dir_paths& sysd,
                     optional<dir_paths>& usrd,
-                    const prerequisite_key& p,
-                    lorder lo) const
+                    const prerequisite_key& p) const
     {
       tracer trace (x, "link::search_library");
 
@@ -417,6 +416,27 @@ namespace build2
         }
       };
 
+      // Enter (or find) the lib{} target group. Note that we must be careful
+      // here since its possible we have already imported some of its members.
+      //
+      lib& lt (
+        targets.insert<lib> (
+          *pd, dir_path (), name, l ? p.tk.ext : nullptr, trace));
+
+      // It should automatically link-up to the members we have found.
+      //
+      assert (a == nullptr || lt.a == a);
+      assert (s == nullptr || lt.s == s);
+
+      // Update the bin.lib variable to indicate what's available.
+      //
+      const char* bl (lt.a != nullptr
+                      ? (lt.s != nullptr ? "both" : "static")
+                      : "shared");
+      lt.assign ("bin.lib") = bl;
+
+      target* r (l ? &lt : (p.is_a<liba> () ? static_cast<target*> (a) : s));
+
       // Mark as a "cc" library (unless already marked) and set the system
       // flag.
       //
@@ -438,46 +458,28 @@ namespace build2
       // If the library already has cc.type, then assume it was either already
       // imported or was matched by a rule.
       //
-      if (a != nullptr && mark_cc (*a))
+      if (a != nullptr && !mark_cc (*a))
+        a = nullptr;
+
+      if (s != nullptr && !mark_cc (*s))
+        s = nullptr;
+
+      if (a != nullptr || s != nullptr)
       {
-        // Only add the default macro if we could not extract more precise
-        // information. The idea is that when we auto-generate .pc files, we
-        // will copy those macros (or custom ones) from *.export.poptions.
+        // Try to extract library information from pkg-config. We only add the
+        // default macro if we could not extract more precise information. The
+        // idea is that when we auto-generate .pc files, we will copy those
+        // macros (or custom ones) from *.export.poptions.
         //
         if (pkgconfig == nullptr ||
-            !pkgconfig_extract (*p.scope, *a, p.proj, name, *pd, sysd, lo))
-          add_macro (*a, "STATIC");
+            !pkgconfig_extract (*p.scope, lt, a, s, p.proj, name, *pd, sysd))
+        {
+          if (a != nullptr) add_macro (*a, "STATIC");
+          if (s != nullptr) add_macro (*s, "SHARED");
+        }
       }
 
-      if (s != nullptr && mark_cc (*s))
-      {
-        if (pkgconfig == nullptr ||
-            !pkgconfig_extract (*p.scope, *s, p.proj, name, *pd, sysd, lo))
-          add_macro (*s, "SHARED");
-      }
-
-      if (l)
-      {
-        // Enter the target group.
-        //
-        lib& l (targets.insert<lib> (*pd, dir_path (), name, p.tk.ext, trace));
-
-        // It should automatically link-up to the members we have found.
-        //
-        assert (l.a == a);
-        assert (l.s == s);
-
-        // Set the bin.lib variable to indicate what's available.
-        //
-        const char* bl (a != nullptr
-                        ? (s != nullptr ? "both" : "static")
-                        : "shared");
-        l.assign ("bin.lib") = bl;
-
-        return &l;
-      }
-      else
-        return p.is_a<liba> () ? static_cast<target*> (a) : s;
+      return r;
     }
 
     match_result link::
@@ -578,8 +580,6 @@ namespace build2
         if (t.group != nullptr)
           t.group->prerequisite_targets.clear (); // lib{}'s
 
-        scope& bs (t.base_scope ());
-        lorder lo (link_order (bs, lt));
         optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -591,8 +591,7 @@ namespace build2
             // Handle imported libraries.
             //
             if (p.proj () != nullptr)
-              pt = search_library (
-                sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo);
+              pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
             if (pt == nullptr)
             {
@@ -785,8 +784,7 @@ namespace build2
           // Handle imported libraries.
           //
           if (p.proj () != nullptr)
-            pt = search_library (
-              sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo);
+            pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
           // The rest is the same basic logic as in search_and_match().
           //
@@ -1011,6 +1009,8 @@ namespace build2
     //
     void link::
     process_libraries (
+      scope& top_bs,
+      lorder top_lo,
       const dir_paths& top_sysd,
       file& l,
       bool la,
@@ -1031,12 +1031,17 @@ namespace build2
       // look into prerequisites.
       //
       const string* t (cast_null<string> (l.vars[c_type]));
+      bool cc, same;
 
+      auto& vp (var_pool);
       lookup c_e_libs;
       lookup x_e_libs;
 
       if (t != nullptr)
       {
+        cc = *t == "cc";
+        same = !cc && *t == x;
+
         // The explicit export override should be set on the liba/libs{}
         // target itself. Note also that we only check for *.libs. If one
         // doesn't have any libraries but needs to set, say, *.loptions, then
@@ -1048,11 +1053,11 @@ namespace build2
         else if (l.group != nullptr) // lib{} group.
           c_e_libs = l.group->vars[c_export_libs];
 
-        if (*t != "cc")
+        if (!cc)
         {
-          const variable& var (*t == x
+          const variable& var (same
                                ? x_export_libs
-                               : var_pool[*t + ".export.libs"]);
+                               : vp[*t + ".export.libs"]);
 
           if (impl)
             x_e_libs = l.vars[var]; // Override.
@@ -1064,30 +1069,26 @@ namespace build2
       // Find system search directories corresponding to this library, i.e.,
       // from its project and for its type (C, C++, etc).
       //
-      auto find_sysd = [&top_sysd, this] (file& l, const string* t, scope* bs)
-        -> const dir_paths&
+      auto find_sysd = [&top_sysd, this] (
+        bool cc, bool same, const string& t, scope& bs) -> const dir_paths&
       {
-        if (t == nullptr)
-          t = cast_null<string> (l.vars[c_type]);
+        // Use the search dirs corresponding to this library scope/type.
+        //
+        return cc
+        ? top_sysd // Imported library, use importer's sysd.
+        : cast<dir_paths> (
+          bs.root_scope ()->vars[same
+                                 ? x_sys_lib_dirs
+                                 : var_pool[t + ".sys_lib_dirs"]]);
+      };
 
-        assert (t != nullptr);
-
-        if (*t == "cc")
-          return top_sysd; // Imported library, use importer's sysd.
-        else
-        {
-          // Use the search dirs corresponding to this library scope/type.
-          //
-          scope& rs (bs != nullptr ? *bs->root_scope () : l.root_scope ());
-          return cast<dir_paths> (
-            rs.vars[*t == x
-                    ? x_sys_lib_dirs
-                    : var_pool[*t + ".sys_lib_dirs"]]);
-        }
+      auto find_lo = [top_lo, this] (file& l, bool cc, scope& bs) -> lorder
+      {
+        return cc ? top_lo : link_order (bs, link_type (l));
       };
 
       // Determine if an absolute path is to a system library. Note that
-      // we assume both paths are normalized.
+      // we assume both paths to be normalized.
       //
       auto sys = [] (const dir_paths& sysd, const string& p) -> bool
       {
@@ -1108,7 +1109,7 @@ namespace build2
         return false;
       };
 
-      // Only go into prerequisites (implementation) if instructed and it's
+      // Only go into prerequisites (implementation) if instructed and we are
       // not using explicit export. Otherwise, interface dependencies come
       // from the lib{}:*.export.libs below.
       //
@@ -1128,7 +1129,15 @@ namespace build2
               proc_lib (f, p, sys (top_sysd, p));
             }
 
-            process_libraries (find_sysd (*f, nullptr, nullptr),
+            const string& t (cast<string> (f->vars[c_type])); // Must be there.
+            bool cc (t == "cc");
+            bool same (!cc && t == x);
+
+            scope& bs (cc ? top_bs : f->base_scope ());
+
+            process_libraries (bs,
+                               find_lo (*f, cc, bs),
+                               find_sysd (cc, same, t, bs),
                                *f, a,
                                proc_impl, proc_lib, proc_opt);
           }
@@ -1138,32 +1147,28 @@ namespace build2
       // Process libraries (recursively) from *.export.libs (of type names)
       // handling import, etc.
       //
-
       // If it is not a C-common library, then it probably doesn't have any of
       // the *.libs and we are done.
       //
       if (t == nullptr)
         return;
 
-      scope* bs (nullptr);             // Resolve lazily.
-      optional<lorder> lo;             // Calculate lazily.
-      const dir_paths* sysd (nullptr); // Resolve lazily.
-      optional<dir_paths> usrd;        // Extract lazily.
+      scope& bs (cc ? top_bs : l.base_scope ());
+      optional<lorder> lo;                       // Calculate lazily.
+      const dir_paths* sysd (nullptr);           // Resolve lazily.
+      optional<dir_paths> usrd;                  // Extract lazily.
 
       // Determine if a "simple path" is a system library.
       //
-      auto sys_simple = [&l, t, &bs, &sysd, &sys, &find_sysd] (const string& p)
-        -> bool
+      auto sys_simple = [cc, same, t, &bs, &sysd, &sys, &find_sysd] (
+        const string& p) -> bool
       {
         bool s (!path::traits::absolute (p));
 
         if (!s)
         {
-          if (bs == nullptr)
-            bs = &l.base_scope ();
-
           if (sysd == nullptr)
-            sysd = &find_sysd (l, t, bs);
+            sysd = &find_sysd (cc, same, *t, bs);
 
           s = sys (*sysd, p);
         }
@@ -1171,13 +1176,12 @@ namespace build2
         return s;
       };
 
-      auto proc_int = [&l, la, t,
+      auto proc_int = [&l, cc, same, t,
                        &proc_impl, &proc_lib, &proc_opt,
-                       &sysd, &usrd, &sys_simple, &sys, &find_sysd,
+                       &sysd, &usrd,
+                       &find_sysd, &find_lo, &sys, &sys_simple,
                        &bs, &lo, this] (const lookup& lu)
       {
-        assert (t != nullptr);
-
         const names* ns (cast_null<names> (lu));
         if (ns == nullptr || ns->empty ())
           return;
@@ -1198,16 +1202,13 @@ namespace build2
           {
             // This is a potentially project-qualified target.
             //
-            if (bs == nullptr)
-              bs = &l.base_scope ();
-
             if (sysd == nullptr)
-              sysd = &find_sysd (l, t, bs);
+              sysd = &find_sysd (cc, same, *t, bs);
 
             if (!lo)
-              lo = link_order (*bs, la ? otype::a : otype::s);
+              lo = find_lo (l, cc, bs);
 
-            file& t (resolve_library (n, *bs, *lo, *sysd, usrd));
+            file& t (resolve_library (n, bs, *lo, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -1232,8 +1233,9 @@ namespace build2
 
             // Process it recursively.
             //
-            process_libraries (
-              *sysd, t, t.is_a<liba> (), proc_impl, proc_lib, proc_opt);
+            process_libraries (bs, *lo, *sysd,
+                               t, t.is_a<liba> (),
+                               proc_impl, proc_lib, proc_opt);
           }
         }
       };
@@ -1258,16 +1260,13 @@ namespace build2
       // If all we know is it's a C-common library, then in both cases we only
       // look for cc.export.libs.
       //
-      if (*t == "cc")
+      if (cc)
       {
         if (proc_opt) proc_opt (l, *t, true, true);
         if (c_e_libs) proc_int (c_e_libs);
       }
       else
       {
-        bool same (*t == x); // Same as us.
-        auto& vp (var_pool);
-
         if (impl)
         {
           // Interface and implementation: as discussed above, we can have two
@@ -1346,14 +1345,14 @@ namespace build2
         const target_type* tt (s.find_target_type (n, ext)); // Changes name.
 
         if (tt == nullptr)
-          fail << "unknown target type " << n.type << " in library " << n;
+          fail << "unknown target type '" << n.type << "' in library " << n;
 
         // @@ OUT: for now we assume out is undetermined, just like in
         // search (name, scope).
         //
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
-        xt = search_library (sysd, usrd, pk, lo);
+        xt = search_library (sysd, usrd, pk);
 
         if (xt == nullptr)
         {
@@ -1373,7 +1372,9 @@ namespace build2
     }
 
     void link::
-    append_libraries (strings& args, file& l, bool la) const
+    append_libraries (strings& args,
+                      file& l, bool la,
+                      scope& bs, lorder lo) const
     {
       auto imp = [] (file&, bool la) {return la;};
 
@@ -1399,11 +1400,11 @@ namespace build2
         }
       };
 
-      process_libraries (sys_lib_dirs, l, la, imp, lib, opt);
+      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt);
     }
 
     void link::
-    hash_libraries (sha256& cs, file& l, bool la) const
+    hash_libraries (sha256& cs, file& l, bool la, scope& bs, lorder lo) const
     {
       auto imp = [] (file&, bool la) {return la;};
 
@@ -1427,11 +1428,14 @@ namespace build2
         }
       };
 
-      process_libraries (sys_lib_dirs, l, la, imp, lib, opt);
+      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt);
     }
 
     void link::
-    rpath_libraries (strings& args, file& l, bool la, bool for_install) const
+    rpath_libraries (strings& args,
+                     file& l, bool la,
+                     scope& bs, lorder lo,
+                     bool for_install) const
     {
       // Use -rpath-link on targets that support it (Linux, FreeBSD). Note
       // that we don't really need it for top-level libraries.
@@ -1528,7 +1532,7 @@ namespace build2
         d.args.push_back (move (o));
       };
 
-      process_libraries (sys_lib_dirs, l, la, imp, lib, nullptr);
+      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, nullptr);
     }
 
     // See windows-rpath.cxx.
@@ -1559,8 +1563,11 @@ namespace build2
 
       file& t (static_cast<file&> (xt));
 
-      scope& rs (t.root_scope ());
+      scope& bs (t.base_scope ());
+      scope& rs (*bs.root_scope ());
+
       otype lt (link_type (t));
+      lorder lo (link_order (bs, lt));
 
       // Update prerequisites.
       //
@@ -1828,7 +1835,7 @@ namespace build2
 
             if ((f = a = pt->is_a<liba> ()) ||
                 (f =     pt->is_a<libs> ()))
-              rpath_libraries (sargs, *f, a != nullptr, for_install);
+              rpath_libraries (sargs, *f, a != nullptr, bs, lo, for_install);
           }
 
           if (auto l = t["bin.rpath"])
@@ -1891,7 +1898,7 @@ namespace build2
             // interface and implementation (static), recursively.
             //
             if (a != nullptr || s != nullptr)
-              hash_libraries (cs, *f, a != nullptr);
+              hash_libraries (cs, *f, a != nullptr, bs, lo);
           }
         }
 
@@ -2127,7 +2134,7 @@ namespace build2
           // and implementation (static), recursively.
           //
           if (a != nullptr || s != nullptr)
-            append_libraries (sargs, *f, a != nullptr);
+            append_libraries (sargs, *f, a != nullptr, bs, lo);
         }
       }
 

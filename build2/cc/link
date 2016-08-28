@@ -40,7 +40,9 @@ namespace build2
       friend class compile;
 
       void
-      process_libraries (const dir_paths&,
+      process_libraries (scope&,
+                         lorder,
+                         const dir_paths&,
                          file&,
                          bool,
                          const function<bool (file&, bool)>&,
@@ -50,13 +52,13 @@ namespace build2
                                               bool,
                                               bool)>&) const;
       void
-      append_libraries (strings&, file&, bool) const;
+      append_libraries (strings&, file&, bool, scope&, lorder) const;
 
       void
-      hash_libraries (sha256&, file&, bool) const;
+      hash_libraries (sha256&, file&, bool, scope&, lorder) const;
 
       void
-      rpath_libraries (strings&, file&, bool, bool) const;
+      rpath_libraries (strings&, file&, bool, scope&, lorder, bool) const;
 
       file&
       resolve_library (name,
@@ -70,12 +72,13 @@ namespace build2
 
       bool
       pkgconfig_extract (scope&,
-                         file&,
+                         bin::lib&,
+                         bin::liba*,
+                         bin::libs*,
                          const string*,
                          const string&,
                          const dir_path&,
-                         const dir_paths&,
-                         lorder) const;
+                         const dir_paths&) const;
 
       // Alternative search logic for VC (msvc.cxx).
       //
@@ -92,11 +95,10 @@ namespace build2
       target*
       search_library (const dir_paths& sysd,
                       optional<dir_paths>& usrd,
-                      prerequisite& p,
-                      lorder lo) const
+                      prerequisite& p) const
       {
         if (p.target == nullptr) // First check the cache.
-          p.target = search_library (sysd, usrd, p.key (), lo);
+          p.target = search_library (sysd, usrd, p.key ());
 
         return p.target;
       }
@@ -104,8 +106,7 @@ namespace build2
       target*
       search_library (const dir_paths&,
                       optional<dir_paths>&,
-                      const prerequisite_key&,
-                      lorder) const;
+                      const prerequisite_key&) const;
 
       // Windows-specific (windows-manifest.cxx).
       //

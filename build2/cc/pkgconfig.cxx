@@ -27,7 +27,7 @@ namespace build2
     // Try to find a .pc file in the pkgconfig/ subdirectory of libd, trying
     // several names derived from stem. If not found, return false. If found,
     // extract poptions, loptions, and libs, set the corresponding *.export.*
-    // variables on lib, and return true.
+    // variables on targets, and return true.
     //
     // System library search paths (those extracted from the compiler) are
     // passed in sys_sp and should already be extracted.
@@ -37,16 +37,18 @@ namespace build2
     //
     bool link::
     pkgconfig_extract (scope& s,
-                       file& lt,
+                       lib& lt,
+                       liba* at,
+                       libs* st,
                        const string* proj,
                        const string& stem,
                        const dir_path& libd,
-                       const dir_paths& sysd,
-                       lorder lo) const
+                       const dir_paths& sysd) const
     {
       tracer trace (x, "link::pkgconfig_extract");
 
       assert (pkgconfig != nullptr);
+      assert (at != nullptr || st != nullptr);
 
       // Check if we have the pkgconfig/ subdirectory in this library's
       // directory.
@@ -97,25 +99,21 @@ namespace build2
       }
 
       // Ok, we are in business. Time to run pkg-config. To keep things
-      // simple, we run it twice, first time for --cflag, then for --libs.
+      // simple, we run it multiple times, for --cflag/--libs and --static.
       //
-      bool la (lt.is_a<liba> ());
+      auto extract = [&f, this] (const char* op, bool impl) -> string
+      {
+        const char* args[] = {
+          pkgconfig->initial,
+          op, // --cflags/--libs
+          (impl ? "--static" : f.string ().c_str ()),
+          (impl ? f.string ().c_str () : nullptr),
+          nullptr
+        };
 
-      const char* args[] = {
-        pkgconfig->initial,
-        nullptr, // --cflags/--libs
-        (la ? "--static" : f.string ().c_str ()),
-        (la ? f.string ().c_str () : nullptr),
-        nullptr
+        return run<string> (
+          *pkgconfig, args, [] (string& s) -> string {return move (s);});
       };
-
-      auto retline = [] (string& s) -> string {return move (s);};
-
-      args[1] = "--cflags";
-      string cstr (run<string> (*pkgconfig, args, retline));
-
-      args[1] = "--libs";
-      string lstr (run<string> (*pkgconfig, args, retline));
 
       // On Windows pkg-config (at least the MSYS2 one which we are using)
       // will escape backslahses in paths. In fact, it may escape things
@@ -157,9 +155,12 @@ namespace build2
         return r;
       };
 
-      // Parse --cflags into poptions.
+      // First extract --cflags and set them as lib{}:export.poptions (i.e.,
+      // they will be common for both liba{} and libs{}; later when we do
+      // split .pc files, we will have to run this twice).
       //
       {
+        string cstr (extract ("--cflags", false));
         strings pops;
 
         bool arg (false);
@@ -207,8 +208,10 @@ namespace build2
         }
       }
 
-      // Parse --libs into loptions/libs.
+      // Now parse --libs into loptions/libs (interface and implementation).
       //
+      auto parse_libs = [&s, &f, sysd, &next, this] (
+        const string& lstr, target& t)
       {
         strings lops;
         names libs;
@@ -373,11 +376,14 @@ namespace build2
           prerequisite_key pk {
             nullptr, {&lib::static_type, &out, &out, &name, ext}, &s};
 
-          if (lib* lt = static_cast<lib*> (
-                search_library (sysd, usrd, pk, lo)))
+          if (lib* lt = static_cast<lib*> (search_library (sysd, usrd, pk)))
           {
-            file& f (static_cast<file&> (link_member (*lt, lo)));
-            l = f.path ().string ();
+            // We used to pick a member but that doesn't seem right since the
+            // same target could be used with different link orders.
+            //
+            n.dir = lt->dir;
+            n.type = lib::static_type.name;
+            n.value = lt->name;
           }
           else
             // If we couldn't find the library, then leave it as -l.
@@ -391,7 +397,7 @@ namespace build2
         if (all && known)
           lops.clear ();
 
-        if (!lops.empty ())
+        if (lops.empty ())
         {
           if (cid == "msvc")
           {
@@ -418,19 +424,33 @@ namespace build2
             }
           }
 
-          auto p (lt.vars.insert (c_export_loptions));
+          auto p (t.vars.insert (c_export_loptions));
 
           if (p.second)
             p.first.get () = move (lops);
         }
 
-        if (!libs.empty ())
+        // Set even if empty (export override).
+        //
         {
-          auto p (lt.vars.insert (c_export_libs));
+          auto p (t.vars.insert (c_export_libs));
 
           if (p.second)
             p.first.get () = move (libs);
         }
+      };
+
+      {
+        string lstr_int (extract ("--libs", false));
+        string lstr_imp (extract ("--libs", true));
+
+        parse_libs (lstr_int, lt);
+
+        // Currently, these will result in the same values but it will be
+        // different once we support split .pc files.
+        //
+        if (at != nullptr) parse_libs (lstr_imp, *at);
+        if (st != nullptr) parse_libs (lstr_imp, *st);
       }
 
       return true;

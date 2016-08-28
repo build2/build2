@@ -66,7 +66,7 @@ namespace build2
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_options (cstrings& args, target& xt) const
+    append_lib_options (cstrings& args, target& xt, scope& bs, lorder lo) const
     {
       file& l (static_cast<file&> (xt));
 
@@ -85,12 +85,13 @@ namespace build2
         append_options (args, l, var);
       };
 
-      link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
+      link_.process_libraries (bs, lo, sys_lib_dirs,
+                               l, l.is_a<liba> (),
+                               nullptr, nullptr, opt);
     }
 
     void compile::
-    hash_lib_options (sha256& cs, target& xt) const
+    hash_lib_options (sha256& cs, target& xt, scope& bs, lorder lo) const
     {
       file& l (static_cast<file&> (xt));
 
@@ -107,7 +108,7 @@ namespace build2
       };
 
       link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
+        bs, lo, sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
     }
 
     recipe compile::
@@ -179,10 +180,6 @@ namespace build2
       //
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
-      lorder lo;
-      if (a.operation () == update_id)
-        lo = link_order (bs, ct);
-
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // A dependency on a library is there so that we can get its
@@ -202,7 +199,7 @@ namespace build2
             //
             if (p.proj () == nullptr ||
                 link_.search_library (
-                  sys_lib_dirs, usr_lib_dirs, p.prerequisite, lo) == nullptr)
+                  sys_lib_dirs, usr_lib_dirs, p.prerequisite) == nullptr)
             {
               match_only (a, p.search ());
             }
@@ -226,6 +223,8 @@ namespace build2
       //
       if (a == perform_update_id)
       {
+        lorder lo (link_order (bs, ct));
+
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
         // above.
@@ -278,7 +277,7 @@ namespace build2
           else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
             continue;
 
-          hash_lib_options (cs, *pt);
+          hash_lib_options (cs, *pt, bs, lo);
         }
 
         hash_options (cs, t, c_poptions);
@@ -450,7 +449,8 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_prefixes (prefix_map& m, target& xt) const
+    append_lib_prefixes (
+      prefix_map& m, target& xt, scope& bs, lorder lo) const
     {
       file& l (static_cast<file&> (xt));
 
@@ -467,11 +467,11 @@ namespace build2
       };
 
       link_.process_libraries (
-        sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
+        bs, lo, sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
     }
 
     auto compile::
-    build_prefix_map (target& t, lorder lo) const -> prefix_map
+    build_prefix_map (target& t, scope& bs, lorder lo) const -> prefix_map
     {
       prefix_map m;
 
@@ -487,7 +487,7 @@ namespace build2
         else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
           continue;
 
-        append_lib_prefixes (m, *pt);
+        append_lib_prefixes (m, *pt, bs, lo);
       }
 
       // Then process our own.
@@ -689,14 +689,15 @@ namespace build2
             info << "while extracting header dependencies from " << src;
           }));
 
-      scope& rs (t.root_scope ());
+      scope& bs (t.base_scope ());
+      scope& rs (*bs.root_scope ());
 
       // Initialize lazily, only if required.
       //
       const process_path* xc (nullptr);
       cstrings args;
 
-      auto init_args = [&t, lo, &src, &rs, &xc, &args, this] ()
+      auto init_args = [&t, lo, &src, &rs, &bs, &xc, &args, this] ()
       {
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
@@ -713,7 +714,7 @@ namespace build2
           else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
             continue;
 
-          append_lib_options (args, *pt);
+          append_lib_options (args, *pt, bs, lo);
         }
 
         append_options (args, t, c_poptions);
@@ -864,7 +865,7 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, a, &t, lo, &dd, this]
+      auto add = [&trace, &update, &pm, a, &t, lo, &dd, &bs, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
@@ -961,7 +962,7 @@ namespace build2
           // then we would have failed below.
           //
           if (pm.empty ())
-            pm = build_prefix_map (t, lo);
+            pm = build_prefix_map (t, bs, lo);
 
           // First try the whole file. Then just the directory.
           //
@@ -1385,7 +1386,7 @@ namespace build2
         else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
           continue;
 
-        append_lib_options (args, *pt);
+        append_lib_options (args, *pt, bs, lo);
       }
 
       append_options (args, t, c_poptions);
