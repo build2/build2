@@ -159,7 +159,7 @@ namespace build2
         v["cc.type"],
         v["cc.system"],
 
-        v.insert<string>   ("cxx.std", true),
+        v.insert<string>   ("cxx.std", false, variable_visibility::project),
 
         v.insert<string>   ("cxx.id"),
         v.insert<string>   ("cxx.id.type"),

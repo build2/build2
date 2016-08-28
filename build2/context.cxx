@@ -230,7 +230,7 @@ namespace build2
       //
       v.insert ("subprojects");
 
-      v.insert<string> ("extension");
+      v.insert<string> ("extension", false, variable_visibility::project);
     }
 
     gs.assign<dir_path> ("build.work") = work;
