@@ -15,7 +15,7 @@
 
 #include <build2/cc/types>
 
-#include <build2/cc/link>
+#include <build2/cc/common>
 #include <build2/cc/module>
 
 using namespace std;
@@ -226,7 +226,7 @@ namespace build2
                          const char* pfx,
                          const char* sfx)
     {
-      // Pretty similar logic to link::search_library().
+      // Pretty similar logic to search_library().
       //
       tracer trace (mod, "msvc_search_library");
 
@@ -279,7 +279,7 @@ namespace build2
       return nullptr;
     }
 
-    liba* link::
+    liba* common::
     msvc_search_static (const process_path& ld,
                         const dir_path& d,
                         const prerequisite_key& p) const
@@ -306,12 +306,12 @@ namespace build2
         search ("",    "_static") ? r : nullptr;
     }
 
-    libs* link::
+    libs* common::
     msvc_search_shared (const process_path& ld,
                         const dir_path& d,
                         const prerequisite_key& p) const
     {
-      tracer trace (x, "link::msvc_search_shared");
+      tracer trace (x, "msvc_search_shared");
 
       libs* r (nullptr);
 

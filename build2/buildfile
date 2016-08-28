@@ -40,7 +40,7 @@ exe{b}:                                         \
       bin/{hxx         cxx}{ target           } \
         c/{hxx         cxx}{ init             } \
         c/{hxx            }{ target           } \
-       cc/{hxx            }{ common           } \
+       cc/{hxx         cxx}{ common           } \
        cc/{hxx         cxx}{ compile          } \
        cc/{            cxx}{ gcc              } \
        cc/{hxx         cxx}{ guess            } \

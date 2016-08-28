@@ -56,7 +56,7 @@ namespace build2
       module (data&& d)
           : common (move (d)),
             link (move (d)),
-            compile (move (d), *this),
+            compile (move (d)),
             install (move (d), *this) {}
 
       void

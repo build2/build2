@@ -16,7 +16,6 @@
 
 #include <build2/bin/target>
 
-#include <build2/cc/link>    // search_library()
 #include <build2/cc/target>  // h
 #include <build2/cc/utility>
 
@@ -30,9 +29,8 @@ namespace build2
     using namespace bin;
 
     compile::
-    compile (data&& d, const link& l)
+    compile (data&& d)
         : common (move (d)),
-          link_ (l),
           rule_id (string (x) += ".compile 1")
     {
     }
@@ -85,9 +83,9 @@ namespace build2
         append_options (args, l, var);
       };
 
-      link_.process_libraries (bs, lo, sys_lib_dirs,
-                               l, l.is_a<liba> (),
-                               nullptr, nullptr, opt);
+      process_libraries (bs, lo, sys_lib_dirs,
+                         l, l.is_a<liba> (),
+                         nullptr, nullptr, opt);
     }
 
     void compile::
@@ -107,8 +105,9 @@ namespace build2
         hash_options (cs, l, var);
       };
 
-      link_.process_libraries (
-        bs, lo, sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
+      process_libraries (bs, lo, sys_lib_dirs,
+                         l, l.is_a<liba> (),
+                         nullptr, nullptr, opt);
     }
 
     recipe compile::
@@ -198,7 +197,7 @@ namespace build2
             // any, they would be set by search_library()).
             //
             if (p.proj () == nullptr ||
-                link_.search_library (
+                search_library (
                   sys_lib_dirs, usr_lib_dirs, p.prerequisite) == nullptr)
             {
               match_only (a, p.search ());
@@ -449,8 +448,7 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_prefixes (
-      prefix_map& m, target& xt, scope& bs, lorder lo) const
+    append_lib_prefixes (prefix_map& m, target& xt, scope& bs, lorder lo) const
     {
       file& l (static_cast<file&> (xt));
 
@@ -466,8 +464,9 @@ namespace build2
         append_prefixes (m, l, var);
       };
 
-      link_.process_libraries (
-        bs, lo, sys_lib_dirs, l, l.is_a<liba> (), nullptr, nullptr, opt);
+      process_libraries (bs, lo, sys_lib_dirs,
+                         l, l.is_a<liba> (),
+                         nullptr, nullptr, opt);
     }
 
     auto compile::

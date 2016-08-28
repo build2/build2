@@ -21,12 +21,10 @@ namespace build2
 
   namespace cc
   {
-    class link;
-
     class compile: public rule, virtual common
     {
     public:
-      compile (data&&, const link&);
+      compile (data&&);
 
       virtual match_result
       match (action, target&, const string& hint) const;
@@ -79,7 +77,6 @@ namespace build2
       inject (action, target&, lorder, file&, depdb&) const;
 
     private:
-      const link& link_;
       const string rule_id;
     };
   }

@@ -10,6 +10,8 @@
 
 #include <build2/variable>
 
+#include <build2/bin/target>
+
 #include <build2/cc/types>
 
 namespace build2
@@ -175,6 +177,73 @@ namespace build2
         if (!tstd.empty ())
           cs.append (tstd);
       }
+
+      // Library handling.
+      //
+    public:
+      void
+      process_libraries (scope&,
+                         lorder,
+                         const dir_paths&,
+                         file&,
+                         bool,
+                         const function<bool (file&, bool)>&,
+                         const function<void (file*, const string&, bool)>&,
+                         const function<void (file&,
+                                              const string&,
+                                              bool,
+                                              bool)>&,
+                         bool = false) const;
+
+      target*
+      search_library (const dir_paths& sysd,
+                      optional<dir_paths>& usrd,
+                      prerequisite& p) const
+      {
+        if (p.target == nullptr) // First check the cache.
+          p.target = search_library (sysd, usrd, p.key ());
+
+        return p.target;
+      }
+
+    private:
+      file&
+      resolve_library (name,
+                       scope&,
+                       lorder,
+                       const dir_paths&,
+                       optional<dir_paths>&) const;
+
+      target*
+      search_library (const dir_paths&,
+                      optional<dir_paths>&,
+                      const prerequisite_key&) const;
+
+      dir_paths
+      extract_library_dirs (scope&) const;
+
+      bool
+      pkgconfig_extract (scope&,
+                         bin::lib&,
+                         bin::liba*,
+                         bin::libs*,
+                         const string*,
+                         const string&,
+                         const dir_path&,
+                         const dir_paths&) const; // pkgconfig.cxx
+
+      // Alternative search logic for VC (msvc.cxx).
+      //
+      bin::liba*
+      msvc_search_static (const process_path&,
+                          const dir_path&,
+                          const prerequisite_key&) const;
+
+      bin::libs*
+      msvc_search_shared (const process_path&,
+                          const dir_path&,
+                          const prerequisite_key&) const;
+
     };
   }
 }

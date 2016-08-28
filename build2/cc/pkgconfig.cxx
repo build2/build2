@@ -11,9 +11,10 @@
 
 #include <build2/bin/target>
 
-#include <build2/cc/link>
 #include <build2/cc/types>
 #include <build2/cc/utility>
+
+#include <build2/cc/common>
 
 using namespace std;
 using namespace butl;
@@ -35,7 +36,7 @@ namespace build2
     // Note that scope and link order should be "top-level" from the
     // search_library() POV.
     //
-    bool link::
+    bool common::
     pkgconfig_extract (scope& s,
                        lib& lt,
                        liba* at,
@@ -45,7 +46,7 @@ namespace build2
                        const dir_path& libd,
                        const dir_paths& sysd) const
     {
-      tracer trace (x, "link::pkgconfig_extract");
+      tracer trace (x, "pkgconfig_extract");
 
       assert (pkgconfig != nullptr);
       assert (at != nullptr || st != nullptr);
@@ -367,7 +368,7 @@ namespace build2
           }
 
           // @@ OUT: for now we assume out is undetermined, just like in
-          // link::resolve_library().
+          // resolve_library().
           //
           dir_path out;
           string name (l, 2); // Sans -l.
