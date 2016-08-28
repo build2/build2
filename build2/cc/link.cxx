@@ -38,7 +38,6 @@ namespace build2
     {
     }
 
-
     match_result link::
     match (action a, target& t, const string& hint) const
     {
@@ -559,6 +558,9 @@ namespace build2
                       file& l, bool la,
                       scope& bs, lorder lo) const
     {
+      // Note: lack of the "small function object" optimization will really
+      // kill us here since we are called in a loop.
+      //
       bool win (tclass == "windows");
 
       auto imp = [] (file&, bool la) {return la;};
@@ -734,6 +736,11 @@ namespace build2
         d.args.push_back (move (o));
       };
 
+      // In case we don't have the "small function object" optimization.
+      //
+      const function<bool (file&, bool)> impf (imp);
+      const function<void (file*, const string&, bool)> libf (lib);
+
       for (target* pt: t.prerequisite_targets)
       {
         file* f;
@@ -754,7 +761,7 @@ namespace build2
 
           process_libraries (bs, lo, sys_lib_dirs,
                              *f, a != nullptr,
-                             imp, lib, nullptr);
+                             impf, libf, nullptr);
         }
       }
     }

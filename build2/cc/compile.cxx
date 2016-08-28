@@ -64,10 +64,8 @@ namespace build2
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_options (cstrings& args, target& xt, scope& bs, lorder lo) const
+    append_lib_options (cstrings& args, target& t, scope& bs, lorder lo) const
     {
-      file& l (static_cast<file&> (xt));
-
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
       {
         // Note that in our model *.export.poptions are always "interface",
@@ -83,16 +81,32 @@ namespace build2
         append_options (args, l, var);
       };
 
-      process_libraries (bs, lo, sys_lib_dirs,
-                         l, l.is_a<liba> (),
-                         nullptr, nullptr, opt);
+      // In case we don't have the "small function object" optimization.
+      //
+      const function<void (file&, const string&, bool, bool)> optf (opt);
+
+      // Note that here we don't need to see group members (see apply()).
+      //
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target* pt (p.target); // Already searched and matched.
+
+        bool a;
+
+        if (lib* l = pt->is_a<lib> ())
+          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          continue;
+
+        process_libraries (bs, lo, sys_lib_dirs,
+                           static_cast<file&> (*pt), a,
+                           nullptr, nullptr, optf);
+      }
     }
 
     void compile::
-    hash_lib_options (sha256& cs, target& xt, scope& bs, lorder lo) const
+    hash_lib_options (sha256& cs, target& t, scope& bs, lorder lo) const
     {
-      file& l (static_cast<file&> (xt));
-
       auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
       {
         assert (exp);
@@ -105,9 +119,64 @@ namespace build2
         hash_options (cs, l, var);
       };
 
-      process_libraries (bs, lo, sys_lib_dirs,
-                         l, l.is_a<liba> (),
-                         nullptr, nullptr, opt);
+      // In case we don't have the "small function object" optimization.
+      //
+      const function<void (file&, const string&, bool, bool)> optf (opt);
+
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target* pt (p.target); // Already searched and matched.
+
+        bool a;
+
+        if (lib* l = pt->is_a<lib> ())
+          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          continue;
+
+        process_libraries (bs, lo, sys_lib_dirs,
+                           static_cast<file&> (*pt), a,
+                           nullptr, nullptr, optf);
+      }
+    }
+
+    // Append library prefixes based on the *.export.poptions variables
+    // recursively, prerequisite libraries first.
+    //
+    void compile::
+    append_lib_prefixes (prefix_map& m, target& t, scope& bs, lorder lo) const
+    {
+      auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
+      {
+        assert (exp);
+
+        const variable& var (
+          com
+          ? c_export_poptions
+          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+
+        append_prefixes (m, l, var);
+      };
+
+      // In case we don't have the "small function object" optimization.
+      //
+      const function<void (file&, const string&, bool, bool)> optf (opt);
+
+      for (prerequisite& p: group_prerequisites (t))
+      {
+        target* pt (p.target); // Already searched and matched.
+
+        bool a;
+
+        if (lib* l = pt->is_a<lib> ())
+          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          continue;
+
+        process_libraries (bs, lo, sys_lib_dirs,
+                           static_cast<file&> (*pt), a,
+                           nullptr, nullptr, optf);
+      }
     }
 
     recipe compile::
@@ -267,17 +336,7 @@ namespace build2
 
         // Hash *.export.poptions from prerequisite libraries.
         //
-        for (prerequisite& p: group_prerequisites (t))
-        {
-          target* pt (p.target); // Already searched and matched.
-
-          if (lib* l = pt->is_a<lib> ())
-            pt = &link_member (*l, lo);
-          else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
-            continue;
-
-          hash_lib_options (cs, *pt, bs, lo);
-        }
+        hash_lib_options (cs, t, bs, lo);
 
         hash_options (cs, t, c_poptions);
         hash_options (cs, t, x_poptions);
@@ -444,50 +503,14 @@ namespace build2
       }
     }
 
-    // Append library prefixes based on the *.export.poptions variables
-    // recursively, prerequisite libraries first.
-    //
-    void compile::
-    append_lib_prefixes (prefix_map& m, target& xt, scope& bs, lorder lo) const
-    {
-      file& l (static_cast<file&> (xt));
-
-      auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
-      {
-        assert (exp);
-
-        const variable& var (
-          com
-          ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
-
-        append_prefixes (m, l, var);
-      };
-
-      process_libraries (bs, lo, sys_lib_dirs,
-                         l, l.is_a<liba> (),
-                         nullptr, nullptr, opt);
-    }
-
     auto compile::
     build_prefix_map (target& t, scope& bs, lorder lo) const -> prefix_map
     {
       prefix_map m;
 
       // First process the include directories from prerequisite libraries.
-      // Note that here we don't need to see group members (see apply()).
       //
-      for (prerequisite& p: group_prerequisites (t))
-      {
-        target* pt (p.target); // Already searched and matched.
-
-        if (lib* l = pt->is_a<lib> ())
-          pt = &link_member (*l, lo);
-        else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
-          continue;
-
-        append_lib_prefixes (m, *pt, bs, lo);
-      }
+      append_lib_prefixes (m, t, bs, lo);
 
       // Then process our own.
       //
@@ -701,20 +724,9 @@ namespace build2
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
 
-        // Add *.export.poptions from prerequisite libraries. Note that here
-        // we don't need to see group members (see apply()).
+        // Add *.export.poptions from prerequisite libraries.
         //
-        for (prerequisite& p: group_prerequisites (t))
-        {
-          target* pt (p.target); // Already searched and matched.
-
-          if (lib* l = pt->is_a<lib> ())
-            pt = &link_member (*l, lo);
-          else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
-            continue;
-
-          append_lib_options (args, *pt, bs, lo);
-        }
+        append_lib_options (args, t, bs, lo);
 
         append_options (args, t, c_poptions);
         append_options (args, t, x_poptions);
@@ -1361,7 +1373,9 @@ namespace build2
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
+
       otype ct (compile_type (t));
+      lorder lo (link_order (bs, ct));
 
       const process_path& xc (cast<process_path> (rs[x_path]));
       cstrings args {xc.recall_string ()};
@@ -1372,21 +1386,9 @@ namespace build2
       path relo (relative (t.path ()));
       path rels (relative (s->path ()));
 
-      // Add *.export.poptions from prerequisite libraries. Note that here we
-      // don't need to see group members (see apply()).
+      // Add *.export.poptions from prerequisite libraries.
       //
-      lorder lo (link_order (bs, ct));
-      for (prerequisite& p: group_prerequisites (t))
-      {
-        target* pt (p.target); // Already searched and matched.
-
-        if (lib* l = pt->is_a<lib> ())
-          pt = &link_member (*l, lo);
-        else if (!pt->is_a<liba> () && !pt->is_a<libs> ())
-          continue;
-
-        append_lib_options (args, *pt, bs, lo);
-      }
+      append_lib_options (args, t, bs, lo);
 
       append_options (args, t, c_poptions);
       append_options (args, t, x_poptions);
