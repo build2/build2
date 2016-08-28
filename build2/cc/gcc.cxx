@@ -56,14 +56,23 @@ namespace build2
         {
           ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
 
+          // The output of -print-search-dirs are a bunch of lines that start
+          // with "<name>: =" where name can be "install", "programs", or
+          // "libraries". If you have English locale, that is. If you set your
+          // LC_ALL="tr_TR", then it becomes "kurulum", "programlar", and
+          // "kitapl?klar". Also, Clang omits "install" while GCC and Intel
+          // icc print all three. The "libraries" seem to be alwasy last,
+          // however.
+          //
           string s;
-          while (getline (is, s))
+          for (bool found (false); !found && getline (is, s); )
           {
-            if (s.compare (0, 12, "libraries: =") == 0)
-            {
-              l.assign (s, 12, string::npos);
-              break;
-            }
+            found = (s.compare (0, 12, "libraries: =") == 0);
+
+            size_t p (found ? 9 : s.find (": ="));
+
+            if (p != string::npos)
+              l.assign (s, p + 3, string::npos);
           }
 
           is.close (); // Don't block.
