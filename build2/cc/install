@@ -25,10 +25,16 @@ namespace build2
       install (data&&, const link&);
 
       virtual target*
-      filter (action, target&, prerequisite_member) const;
+      filter (action, target&, prerequisite_member) const override;
 
       virtual match_result
-      match (action, target&, const string&) const;
+      match (action, target&, const string&) const override;
+
+      virtual void
+      install_extra (file&, const install_dir&) const override;
+
+      virtual bool
+      uninstall_extra (file&, const install_dir&) const override;
 
     private:
       const link& link_;

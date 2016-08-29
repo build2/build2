@@ -26,6 +26,8 @@ namespace build2
       apply (action, target&, const match_result&) const;
     };
 
+    struct install_dir;
+
     class file_rule: public rule
     {
     public:
@@ -42,11 +44,52 @@ namespace build2
       virtual recipe
       apply (action, target&, const match_result&) const;
 
-      static target_state
-      perform_install (action, target&);
+      // Extra installation hooks.
+      //
+      using install_dir = install::install_dir;
 
-      static target_state
-      perform_uninstall (action, target&);
+      virtual void
+      install_extra (file&, const install_dir&) const;
+
+      // Return true if anything was uninstalled.
+      //
+      virtual bool
+      uninstall_extra (file&, const install_dir&) const;
+
+      // Installation "commands".
+      //
+      // If verbose is false, then only print the command at verbosity level 2
+      // or higher.
+      //
+    public:
+      // Install a symlink: base/link -> target.
+      //
+      static void
+      install_l (const install_dir& base,
+                 const path& target,
+                 const path& link,
+                 bool verbose);
+
+      // Uninstall a file or symlink:
+      //
+      // uninstall <target> <base>/  rm <base>/<target>.leaf (); name empty
+      // uninstall <target> <name>   rm <base>/<name>; target can be NULL
+      //
+      // Return false if nothing has been removed (i.e., the file does not
+      // exist).
+      //
+      static bool
+      uninstall (const install_dir& base,
+                 file* t,
+                 const path& name,
+                 bool verbose);
+
+    private:
+      target_state
+      perform_install (action, target&) const;
+
+      target_state
+      perform_uninstall (action, target&) const;
     };
   }
 }

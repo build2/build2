@@ -351,17 +351,20 @@ namespace build2
   const path& path_target::
   derive_path (const char* de, const char* np, const char* ns)
   {
-    string n;
+    path_type p (dir);
 
-    if (np != nullptr)
-      n += np;
-
-    n += name;
+    if (np == nullptr)
+      p /= name;
+    else
+    {
+      p /= np;
+      p += name;
+    }
 
     if (ns != nullptr)
-      n += ns;
+      p += ns;
 
-    return derive_path (dir / path_type (move (n)), de);
+    return derive_path (move (p), de);
   }
 
   const path& path_target::

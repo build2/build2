@@ -532,7 +532,9 @@ namespace build2
   }
 
   target_state
-  clean_extra (action a, file& ft, initializer_list<const char*> es)
+  clean_extra (action a,
+               file& ft,
+               initializer_list<initializer_list<const char*>> extra)
   {
     // Clean the extras first and don't print the commands at verbosity level
     // below 3. Note the first extra file/directory that actually got removed
@@ -542,58 +544,77 @@ namespace build2
     bool ed (false);
     path ep;
 
-    for (const char* e: es)
+    auto clean = [&er, &ed, &ep] (file& f, initializer_list<const char*> es)
     {
-      if (e == nullptr)
-        continue;
-
-      bool d (*e == '/');
-      if (d)
-        ++e;
-
-      path p (ft.path ());
-      for (; *e == '-'; ++e)
-        p = p.base ();
-
-      p += e;
-
-      target_state r (target_state::unchanged);
-
-      if (d)
+      for (const char* e: es)
       {
-        dir_path dp (path_cast<dir_path> (p));
+        size_t n;
+        if (e == nullptr || (n = strlen (e)) == 0)
+          continue;
 
-        switch (build2::rmdir_r (dp, true, 3))
+        path p;
+        bool d;
+
+        if (path::traits::absolute (e))
         {
-        case rmdir_status::success:
-          {
-            r = target_state::changed;
-            break;
-          }
-        case rmdir_status::not_empty:
-          {
-            if (verb >= 3)
-              text << dp << " is current working directory, not removing";
-            break;
-          }
-        case rmdir_status::not_exist:
-          break;
+          p = path (e);
+          d = p.to_directory ();
         }
-      }
-      else
-      {
-        if (rmfile (p, 3))
-          r = target_state::changed;
-      }
+        else
+        {
+          if ((d = (e[n - 1] == '/')))
+            --n;
 
-      if (r == target_state::changed && ep.empty ())
-      {
-        ed = d;
-        ep = move (p);
-      }
+          p = f.path ();
+          for (; *e == '-'; ++e)
+            p = p.base ();
 
-      er |= r;
-    }
+          p.append (e, n);
+        }
+
+        target_state r (target_state::unchanged);
+
+        if (d)
+        {
+          dir_path dp (path_cast<dir_path> (p));
+
+          switch (build2::rmdir_r (dp, true, 3))
+          {
+          case rmdir_status::success:
+            {
+              r = target_state::changed;
+              break;
+            }
+          case rmdir_status::not_empty:
+            {
+              if (verb >= 3)
+                text << dp << " is current working directory, not removing";
+              break;
+            }
+          case rmdir_status::not_exist:
+            break;
+          }
+        }
+        else
+        {
+          if (rmfile (p, 3))
+            r = target_state::changed;
+        }
+
+        if (r == target_state::changed && ep.empty ())
+        {
+          ed = d;
+          ep = move (p);
+        }
+
+        er |= r;
+      }
+    };
+
+    auto ei (extra.begin ()), ee (extra.end ());
+
+    if (ei != ee)
+      clean (ft, *ei++);
 
     // Now clean the ad hoc group file members, if any.
     //
@@ -603,6 +624,9 @@ namespace build2
 
       if (fm == nullptr || fm->path ().empty ())
         continue;
+
+      if (ei != ee)
+        clean (*fm, *ei++);
 
       const path& f (fm->path ());
 
@@ -659,7 +683,7 @@ namespace build2
   target_state
   perform_clean (action a, target& t)
   {
-    return clean_extra (a, dynamic_cast<file&> (t), {});
+    return clean_extra (a, dynamic_cast<file&> (t), {nullptr});
   }
 
   target_state

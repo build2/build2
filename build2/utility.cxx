@@ -105,7 +105,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    error << "unable execute " << f << ": " << e.what ();
+    error << "unable to execute " << f << ": " << e.what ();
     throw failed ();
   }
 

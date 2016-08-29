@@ -218,11 +218,17 @@ namespace build2
           return r;
         };
       }
+      else if (a.operation () == install_id)
+        return [this] (action a, target& t) {return perform_install (a, t);};
       else
-        return a.operation () == uninstall_id
-          ? &perform_uninstall
-          : &perform_install;
+        return [this] (action a, target& t) {return perform_uninstall (a, t);};
     }
+
+    void file_rule::
+    install_extra (file&, const install_dir&) const {}
+
+    bool file_rule::
+    uninstall_extra (file&, const install_dir&) const {return false;}
 
     struct install_dir
     {
@@ -499,13 +505,60 @@ namespace build2
       }
     }
 
+    void file_rule::
+    install_l (const install_dir& base,
+               const path& target,
+               const path& link,
+               bool verbose)
+    {
+      path rell (relative (base.dir));
+      rell /= link;
+
+      // We can create a symlink directly without calling ln. This, however,
+      // won't work if we have sudo. Also, we would have to deal with existing
+      // destinations (ln's -f takes care of that). So we are just going to
+      // always use ln.
+      //
+      const char* args_a[] = {
+        base.sudo != nullptr ? base.sudo->c_str () : nullptr,
+        "ln",
+        "-sf",
+        target.string ().c_str (),
+        rell.string ().c_str (),
+        nullptr};
+
+      const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
+
+      if (verb >= 2)
+        print_process (args);
+      else if (verb && verbose)
+        text << "install " << rell << " -> " << target;
+
+      try
+      {
+        process pr (args);
+
+        if (!pr.wait ())
+          throw failed ();
+      }
+      catch (const process_error& e)
+      {
+        error << "unable to execute " << args[0] << ": " << e.what ();
+
+        if (e.child ())
+          exit (1);
+
+        throw failed ();
+      }
+    }
+
     target_state file_rule::
-    perform_install (action a, target& xt)
+    perform_install (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto install_target = [](file& t, const path& p, bool verbose)
+      auto install_target = [this] (file& t, const path& p, bool verbose)
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
@@ -528,7 +581,10 @@ namespace build2
         if (auto l = t["install.mode"])
           id.mode = &cast<string> (l);
 
+        // Install the target and extras.
+        //
         install (id, n ? p.leaf () : path (), t, verbose);
+        install_extra (t, id);
       };
 
       // First handle installable prerequisites.
@@ -607,10 +663,10 @@ namespace build2
         }
         else
         {
-          cstrings args {base.sudo->c_str (),
-                         "rmdir",
-                         reld.string ().c_str (),
-                         nullptr};
+          const char* args[] = {base.sudo->c_str (),
+                                "rmdir",
+                                reld.string ().c_str (),
+                                nullptr};
 
           if (verb >= 2)
             print_process (args);
@@ -619,7 +675,7 @@ namespace build2
 
           try
           {
-            process pr (args.data ());
+            process pr (args);
 
             if (!pr.wait ())
               throw failed ();
@@ -650,26 +706,21 @@ namespace build2
       return r;
     }
 
-    // uninstall <file> <dir>/
-    // uninstall <file> <file>
-    //
-    // Return false if nothing has been removed (i.e., the file does not
-    // exist).
-    //
-    // If verbose is false, then only print the command at verbosity level 2
-    // or higher.
-    //
-    static bool
+    bool file_rule::
     uninstall (const install_dir& base,
+               file* t,
                const path& name,
-               file& t,
-               bool verbose = true)
+               bool verbose)
     {
-      path f (base.dir / (name.empty () ? t.path ().leaf () : name));
+      assert (t != nullptr || !name.empty ());
+      path f (base.dir / (name.empty () ? t->path ().leaf () : name));
 
       try
       {
-        if (!file_exists (f)) // May throw (e.g., EACCES).
+        // Note: don't follow symlinks so if the target is a dangling symlinks
+        // we will proceed to removing it.
+        //
+        if (!file_exists (f, false)) // May throw (e.g., EACCES).
           return false;
       }
       catch (const system_error& e)
@@ -679,14 +730,20 @@ namespace build2
 
       path relf (relative (f));
 
+      if (verb == 1 && verbose)
+      {
+        if (t != nullptr)
+          text << "uninstall " << t;
+        else
+          text << "uninstall " << relf;
+      }
+
       // The same story as with uninstall -d.
       //
       if (base.sudo == nullptr)
       {
         if (verb >= 2)
           text << "rm " << relf;
-        else if (verb && verbose)
-          text << "uninstall " << t;
 
         try
         {
@@ -699,20 +756,18 @@ namespace build2
       }
       else
       {
-        cstrings args {base.sudo->c_str (),
-                       "rm",
-                       "-f",
-                       relf.string ().c_str (),
-                       nullptr};
+        const char* args[] = {base.sudo->c_str (),
+                              "rm",
+                              "-f",
+                              relf.string ().c_str (),
+                              nullptr};
 
         if (verb >= 2)
           print_process (args);
-        else if (verb && verbose)
-          text << "uninstall " << t;
 
         try
         {
-          process pr (args.data ());
+          process pr (args);
 
           if (!pr.wait ())
             throw failed ();
@@ -732,12 +787,12 @@ namespace build2
     }
 
     target_state file_rule::
-    perform_uninstall (action a, target& xt)
+    perform_uninstall (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto uninstall_target = [](file& t, const path& p, bool verbose)
+      auto uninstall_target = [this] (file& t, const path& p, bool verbose)
         -> target_state
       {
         bool n (!p.to_directory ());
@@ -747,12 +802,16 @@ namespace build2
         //
         install_dirs ids (resolve (t, d));
 
-        // Remove the target itself.
+        // Remove extras and the target itself.
         //
-        target_state r (
-          uninstall (ids.back (), n ? p.leaf () : path (), t, verbose)
-          ? target_state::changed
-          : target_state::unchanged);
+        const install_dir& id (ids.back ());
+
+        target_state r (uninstall_extra (t, id)
+                        ? target_state::changed
+                        : target_state::unchanged);
+
+        if (uninstall (id, &t, n ? p.leaf () : path (), verbose))
+          r |= target_state::changed;
 
         // Clean up empty leading directories (in reverse).
         //
@@ -761,7 +820,7 @@ namespace build2
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
-          if (uninstall (++j != e ? *j : *i, i->dir, verbose))
+          if (install::uninstall (++j != e ? *j : *i, i->dir, verbose))
             r |= target_state::changed;
         }
 

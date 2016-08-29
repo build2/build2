@@ -4,6 +4,8 @@
 
 #include <build2/bin/init>
 
+#include <map>
+
 #include <butl/triplet>
 
 #include <build2/scope>
@@ -79,6 +81,10 @@ namespace build2
         v.insert<string>    ("bin.lib.suffix");
         v.insert<string>    ("bin.exe.prefix");
         v.insert<string>    ("bin.exe.suffix");
+
+        v.insert<map<string, string>> ("bin.lib.version",
+                                       false,
+                                       variable_visibility::project);
       }
 
       // Configure.

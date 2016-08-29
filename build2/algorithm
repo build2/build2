@@ -233,22 +233,32 @@ namespace build2
   perform_clean_depdb (action, target&);
 
   // Helper for custom perform(clean) implementations that cleans extra files
-  // and directories (recursively) specified as a list of extensions. The
-  // extension string can be NULL, in which case it is ignored. If the first
-  // character is '/', then the resulting path is treated as a directory
-  // rather than a file. Next can come zero or more '-' characters which
-  // indicate the number of extensions that should stripped before the new
-  // extension (if any) is added (so if you want to strip the extension,
-  // specify "-"). For example:
+  // and directories (recursively) specified as a list of either absolute
+  // paths or "path derivation directives". The directive string can be NULL,
+  // or empty in which case it is ignored. If the last character in a
+  // directive is '/', then the resulting path is treated as a directory
+  // rather than a file.  The directive can start with zero or more '-'
+  // characters which indicate the number of extensions that should be
+  // stripped before the new extension (if any) is added (so if you want to
+  // strip the extension, specify just "-"). For example:
   //
-  // clean_extra (a, t, {".d", "/.dlls", "-.dll"});
+  // clean_extra (a, t, {".d", ".dlls/", "-.dll"});
   //
   // The extra files/directories are removed first in the specified order
   // followed by the ad hoc group member, then target itself, and, finally,
   // the prerequisites in the reverse order.
   //
+  // You can also clean extra files derived from adhoc group members.
+  //
   target_state
-  clean_extra (action, file&, initializer_list<const char*> extra_ext);
+  clean_extra (action, file&,
+               initializer_list<initializer_list<const char*>> extra);
+
+  inline target_state
+  clean_extra (action a, file& f, initializer_list<const char*> extra)
+  {
+    return clean_extra (a, f, {extra});
+  }
 }
 
 #include <build2/algorithm.ixx>

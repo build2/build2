@@ -37,6 +37,39 @@ namespace build2
       perform_clean (action, target&) const;
 
     private:
+      friend class install;
+
+      // Shared library paths.
+      //
+      struct libs_paths
+      {
+        // If any (except real) is empty, then it is the same as the next
+        // one. Except for intermediate, for which empty indicates that it is
+        // not used.
+        //
+        // The libs{} path is always the real path. On Windows the link path
+        // is the import library.
+        //
+        // @@ TODO: change real to reference, make other const once cache the
+        // object.
+        //
+              path  link;   // What we link: libfoo.so
+              path  soname; // SONAME:       libfoo-1.so, libfoo.so.1
+              path  interm; // Intermediate: libfoo.so.1.2
+        const path* real;   // Real:         libfoo.so.1.2.3
+
+        inline const path&
+        effect_link () const {return link.empty () ? effect_soname () : link;}
+
+        inline const path&
+        effect_soname () const {return soname.empty () ? *real : soname;}
+      };
+
+      libs_paths
+      derive_libs_paths (file&) const;
+
+      // Library handling.
+      //
       void
       append_libraries (strings&, file&, bool, scope&, lorder) const;
 

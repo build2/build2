@@ -397,7 +397,7 @@ namespace build2
       // Delete old archive for good measure.
       //
       path ap (root / path (a));
-      if (file_exists (ap))
+      if (file_exists (ap, false))
         rmfile (ap);
 
       // Use zip for .zip archives. Everything else goes to tar in the

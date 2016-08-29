@@ -4,6 +4,7 @@
 
 #include <build2/cc/link>
 
+#include <map>
 #include <cstdlib>  // exit()
 #include <iostream> // cerr
 
@@ -169,6 +170,145 @@ namespace build2
       return &t;
     }
 
+    auto link::
+    derive_libs_paths (file& ls) const -> libs_paths
+    {
+      const char* ext (nullptr);
+      const char* pfx (nullptr);
+      const char* sfx (nullptr);
+
+      bool win (tclass == "windows");
+
+      if (win)
+      {
+        if (tsys == "mingw32")
+          pfx = "lib";
+
+        ext = "dll";
+      }
+      else if (tclass == "macosx")
+      {
+        pfx = "lib";
+        ext = "dylib";
+      }
+      else
+      {
+        pfx = "lib";
+        ext = "so";
+      }
+
+      if (auto l = ls["bin.lib.prefix"]) pfx = cast<string> (l).c_str ();
+      if (auto l = ls["bin.lib.suffix"]) sfx = cast<string> (l).c_str ();
+
+      // First sort out which extension we are using.
+      //
+      const string& e (ls.derive_extension (ext));
+
+      auto append_ext = [&e] (path& p)
+      {
+        if (!e.empty ())
+        {
+          p += '.';
+          p += e;
+        }
+      };
+
+      // Figure out the version.
+      //
+      string v;
+      using verion_map = map<string, string>;
+      if (const verion_map* m = cast_null<verion_map> (ls["bin.lib.version"]))
+      {
+        // First look for the target system.
+        //
+        auto i (m->find (tsys));
+
+        // Then look for the target class.
+        //
+        if (i == m->end ())
+          i = m->find (tclass);
+
+        // Then look for the wildcard. Since it is higly unlikely one can have
+        // a version that will work across platforms, this is only useful to
+        // say "all others -- no version".
+        //
+        if (i == m->end ())
+          i = m->find ("*");
+
+        // At this stage the only platform-specific version we support is the
+        // "no version" override.
+        //
+        if (i != m->end () && !i->second.empty ())
+          fail << i->first << "-specific bin.lib.version not yet supported";
+
+        // Finally look for the platform-independent version.
+        //
+        if (i == m->end ())
+          i = m->find ("");
+
+        // If we didn't find anything, fail. If the bin.lib.version was
+        // specified, then it should explicitly handle all the targets.
+        //
+        if (i == m->end ())
+          fail << "no version for " << ctg << " in bin.lib.version" <<
+            info << "considere adding " << tsys << "@<ver> or " << tclass
+               << "@<ver>";
+
+        v = i->second;
+      }
+
+      // Now determine the paths.
+      //
+      path lk, so, in;
+      const path* re (nullptr);
+
+      // We start with the basic path.
+      //
+      path b (ls.dir);
+      {
+        if (pfx == nullptr)
+          b /= ls.name;
+        else
+        {
+          b /= pfx;
+          b += ls.name;
+        }
+
+        if (sfx != nullptr)
+          b += sfx;
+      }
+
+      // On Windows the real path is to libs{} and the link path is to the
+      // import library.
+      //
+      if (win)
+      {
+        // Usually on Windows the import library is called the same as the DLL
+        // but with the .lib extension. Which means it clashes with the static
+        // library. Instead of decorating the static library name with ugly
+        // suffixes (as is customary), let's use the MinGW approach (one must
+        // admit it's quite elegant) and call it .dll.lib.
+        //
+        lk = b;
+        append_ext (lk);
+
+        libi& li (static_cast<libi&> (*ls.member));
+        lk = li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib");
+      }
+      else if (!v.empty ())
+      {
+        lk = b;
+        append_ext (lk);
+      }
+
+      if (!v.empty ())
+        b += v;
+
+      re = &ls.derive_path (move (b));
+
+      return libs_paths {move (lk), move (so), move (in), re};
+    }
+
     recipe link::
     apply (action a, target& xt, const match_result&) const
     {
@@ -182,84 +322,7 @@ namespace build2
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));
 
-      // Derive file name from target name.
-      //
-      if (t.path ().empty ())
-      {
-        const char* p (nullptr); // Prefix.
-        const char* s (nullptr); // Suffix.
-        const char* e (nullptr); // Extension.
-
-        switch (lt)
-        {
-        case otype::e:
-          {
-            if (tclass == "windows")
-              e = "exe";
-            else
-              e = "";
-
-            if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
-            if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
-
-            break;
-          }
-        case otype::a:
-          {
-            // To be anally precise, let's use the ar id to decide how to name
-            // the library in case, for example, someone wants to archive
-            // VC-compiled object files with MinGW ar or vice versa.
-            //
-            if (cast<string> (rs["bin.ar.id"]) == "msvc")
-            {
-              e = "lib";
-            }
-            else
-            {
-              p = "lib";
-              e = "a";
-            }
-
-            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
-            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
-
-            break;
-          }
-        case otype::s:
-          {
-            if (tclass == "macosx")
-            {
-              p = "lib";
-              e = "dylib";
-            }
-            else if (tclass == "windows")
-            {
-              // On Windows libs{} is an ad hoc group. The libs{} itself is
-              // the DLL and we add libi{} import library as its member (see
-              // below).
-              //
-              if (tsys == "mingw32")
-                p = "lib";
-
-              e = "dll";
-            }
-            else
-            {
-              p = "lib";
-              e = "so";
-            }
-
-            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
-            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
-
-            break;
-          }
-        }
-
-        t.derive_path (e, p, s);
-      }
-
-      // Add ad hoc group members.
+      // Derive file name(s) and add ad hoc group members.
       //
       auto add_adhoc = [a, &bs] (target& t, const char* type) -> file&
       {
@@ -275,42 +338,71 @@ namespace build2
         return r;
       };
 
-      if (tclass == "windows")
       {
-        // Import library.
-        //
-        if (lt == otype::s)
+        const char* e (nullptr); // Extension.
+        const char* p (nullptr); // Prefix.
+        const char* s (nullptr); // Suffix.
+
+        switch (lt)
         {
-          file& imp (add_adhoc (t, "libi"));
+        case otype::e:
+          {
+            if (tclass == "windows")
+              e = "exe";
+            else
+              e = "";
 
-          // Usually on Windows the import library is called the same as the
-          // DLL but with the .lib extension. Which means it clashes with the
-          // static library. Instead of decorating the static library name
-          // with ugly suffixes (as is customary), let's use the MinGW
-          // approach (one must admit it's quite elegant) and call it
-          // .dll.lib.
-          //
-          if (imp.path ().empty ())
-            imp.derive_path (t.path (), tsys == "mingw32" ? "a" : "lib");
+            if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
+            if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
+
+            t.derive_path (e, p, s);
+            break;
+          }
+        case otype::a:
+          {
+            if (cid == "msvc")
+              e = "lib";
+            else
+            {
+              p = "lib";
+              e = "a";
+            }
+
+            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
+            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
+
+            t.derive_path (e, p, s);
+            break;
+          }
+        case otype::s:
+          {
+            // On Windows libs{} is an ad hoc group. The libs{} itself is the
+            // DLL and we add libi{} import library as its member.
+            //
+            if (tclass == "windows")
+              add_adhoc (t, "libi");
+
+            derive_libs_paths (t);
+            break;
+          }
         }
+      }
 
-        // PDB
+      // PDB
+      //
+      if (lt != otype::a &&
+          cid == "msvc" &&
+          (find_option ("/DEBUG", t, c_loptions, true) ||
+           find_option ("/DEBUG", t, x_loptions, true)))
+      {
+        // Add after the import library if any.
         //
-        if (lt != otype::a &&
-            cid == "msvc" &&
-            (find_option ("/DEBUG", t, c_loptions, true) ||
-             find_option ("/DEBUG", t, x_loptions, true)))
-        {
-          // Add after the import library if any.
-          //
-          file& pdb (add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
+        file& pdb (add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
 
-          // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
-          // can have both foo.exe and foo.dll in the same directory.
-          //
-          if (pdb.path ().empty ())
-            pdb.derive_path (t.path (), "pdb");
-        }
+        // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
+        // can have both foo.exe and foo.dll in the same directory.
+        //
+        pdb.derive_path (t.path (), "pdb");
       }
 
       t.prerequisite_targets.clear (); // See lib pre-match in match() above.
@@ -964,6 +1056,10 @@ namespace build2
       //
       cstrings args {nullptr}; // Reserve one for config.bin.ar/config.x.
 
+      libs_paths paths;
+      if (lt == otype::s)
+        paths = derive_libs_paths (t);
+
       // Storage.
       //
       string soname1, soname2;
@@ -1016,7 +1112,7 @@ namespace build2
           //
           if (lt == otype::s)
           {
-            const string& leaf (t.path ().leaf ().string ());
+            const string& leaf (paths.effect_soname ().leaf ().string ());
 
             if (tclass == "macosx")
             {
@@ -1413,7 +1509,7 @@ namespace build2
       // Remove the target file if any of the subsequent actions fail. If we
       // don't do that, we will end up with a broken build that is up-to-date.
       //
-      auto_rmfile rm (t.path ());
+      auto_rmfile rm (relt);
 
       if (ranlib)
       {
@@ -1445,16 +1541,51 @@ namespace build2
         }
       }
 
-      // For Windows generate rpath-emulating assembly (unless updaing for
-      // install).
-      //
-      if (lt == otype::e && tclass == "windows")
+      if (tclass == "windows")
       {
-        if (!for_install)
+        // For Windows generate rpath-emulating assembly (unless updaing for
+        // install).
+        //
+        if (lt == otype::e && !for_install)
           windows_rpath_assembly (t, bs, lo,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);
+      }
+      else if (lt == otype::s)
+      {
+        // For shared libraries we may need to create a bunch of symlinks.
+        //
+        auto ln = [] (const path& f, const path& l)
+        {
+          // Note that we don't bother making the paths relative since they
+          // will only be seen at verbosity level 3.
+          //
+          if (verb >= 3)
+            text << "ln -sf " << f << ' ' << l;
+
+          try
+          {
+            if (file_exists (l, false)) // The -f part.
+              try_rmfile (l);
+
+            mksymlink (f, l);
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to create symlink " << l << ": " << e.what ();
+          }
+        };
+
+        const path& lk (paths.link);
+        const path& so (paths.soname);
+        const path& in (paths.interm);
+
+        const path* f (paths.real);
+
+        if (!in.empty ()) {ln (f->leaf (), in); f = &in;}
+        if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
+        if (!lk.empty ()) {ln (f->leaf (), lk);}
       }
 
       rm.cancel ();
@@ -1472,13 +1603,14 @@ namespace build2
     {
       file& t (static_cast<file&> (xt));
 
-      initializer_list<const char*> e;
+      libs_paths paths;
+      initializer_list<initializer_list<const char*>> e;
 
       switch (link_type (t))
       {
       case otype::a:
         {
-          e = {".d"};
+          e = {{".d"}};
           break;
         }
       case otype::e:
@@ -1487,31 +1619,45 @@ namespace build2
           {
             if (tsys == "mingw32")
             {
-              e = {".d", "/.dlls", ".manifest.o", ".manifest"};
+              e = {{".d", ".dlls/", ".manifest.o", ".manifest"}};
             }
             else
             {
               // Assuming it's VC or alike. Clean up .ilk in case the user
               // enabled incremental linking (note that .ilk replaces .exe).
               //
-              e = {".d", "/.dlls", ".manifest", "-.ilk"};
+              e = {{".d", ".dlls/", ".manifest", "-.ilk"}};
             }
           }
           else
-            e = {".d"};
+            e = {{".d"}};
 
           break;
         }
       case otype::s:
         {
-          if (tclass == "windows" && tsys != "mingw32")
+          if (tclass == "windows")
           {
             // Assuming it's VC or alike. Clean up .exp and .ilk.
             //
-            e = {".d", ".exp", "-.ilk"};
+            // Note that .exp is based on the .lib, not .dll name. And with
+            // versioning their bases may not be the same.
+            //
+            if (tsys != "mingw32")
+              e = {{".d", "-.ilk"}, {"-.exp"}};
           }
           else
-            e = {".d"};
+          {
+            // Here we can have a bunch of symlinks that we need to remove. If
+            // the paths are empty, then they will be ignored.
+            //
+            paths = derive_libs_paths (t);
+
+            e = {{".d",
+                  paths.link.string ().c_str (),
+                  paths.soname.string ().c_str (),
+                  paths.interm.string ().c_str ()}};
+          }
 
           break;
         }

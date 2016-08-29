@@ -68,5 +68,59 @@ namespace build2
       match_result r (link_.match (a, t, hint));
       return r ? install::file_rule::match (a, t, "") : r;
     }
+
+    void install::
+    install_extra (file& t, const install_dir& id) const
+    {
+      if (t.is_a<libs> () && tclass != "windows")
+      {
+        // Here we may have a bunch of symlinks that we need to install.
+        //
+        link::libs_paths lp (link_.derive_libs_paths (t));
+
+        auto ln = [&id, this] (const path& f, const path& l)
+        {
+          install_l (id, f.leaf (), l.leaf (), false);
+        };
+
+        const path& lk (lp.link);
+        const path& so (lp.soname);
+        const path& in (lp.interm);
+
+        const path* f (lp.real);
+
+        if (!in.empty ()) {ln (*f, in); f = &in;}
+        if (!so.empty ()) {ln (*f, so); f = &so;}
+        if (!lk.empty ()) {ln (*f, lk);}
+      }
+    }
+
+    bool install::
+    uninstall_extra (file& t, const install_dir& id) const
+    {
+      bool r (false);
+
+      if (t.is_a<libs> () && tclass != "windows")
+      {
+        // Here we may have a bunch of symlinks that we need to uninstall.
+        //
+        link::libs_paths lp (link_.derive_libs_paths (t));
+
+        auto rm = [&id, this] (const path& l)
+        {
+          return uninstall (id, nullptr, l.leaf (), false);
+        };
+
+        const path& lk (lp.link);
+        const path& so (lp.soname);
+        const path& in (lp.interm);
+
+        if (!lk.empty ()) r = rm (lk) || r;
+        if (!so.empty ()) r = rm (so) || r;
+        if (!in.empty ()) r = rm (in) || r;
+      }
+
+      return r;
+    }
   }
 }
