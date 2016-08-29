@@ -105,7 +105,7 @@ namespace build2
       auto extract = [&f, this] (const char* op, bool impl) -> string
       {
         const char* args[] = {
-          pkgconfig->initial,
+          pkgconfig->recall_string (),
           op, // --cflags/--libs
           (impl ? "--static" : f.string ().c_str ()),
           (impl ? f.string ().c_str () : nullptr),
