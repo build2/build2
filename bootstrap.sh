@@ -124,6 +124,7 @@ src="$src build2/cxx/*.cxx"
 src="$src build2/cli/*.cxx"
 src="$src build2/test/*.cxx"
 src="$src build2/install/*.cxx"
+src="$src build2/pkgconfig/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
 set -x
