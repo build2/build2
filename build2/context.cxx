@@ -235,7 +235,7 @@ namespace build2
       //
       v.insert ("subprojects");
 
-      v.insert<string> ("extension", false, variable_visibility::project);
+      v.insert<string> ("extension", variable_visibility::target);
     }
 
     gs.assign<dir_path> ("build.work") = work;

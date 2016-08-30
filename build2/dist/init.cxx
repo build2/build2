@@ -49,8 +49,11 @@ namespace build2
         v.insert<path>         ("dist.cmd");
         v.insert<strings>      ("dist.archives");
 
-        v.insert<bool>         ("dist");         // Flag.
-        v.insert<string>       ("dist.package"); // Project's package name.
+        v.insert<bool> ("dist", variable_visibility::target); // Flag.
+
+        // Project's package name.
+        //
+        v.insert<string> ("dist.package", variable_visibility::project);
       }
     }
 

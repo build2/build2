@@ -488,6 +488,11 @@ namespace build2
               {
                 // Scope variable.
                 //
+                if (var.visibility == variable_visibility::target)
+                  fail (ploc) << "variable " << var << " has target "
+                              << "visibility but assigned in a scope" <<
+                    info << "consider changing to '.../*: " << var << "'";
+
                 enter_scope sg (*this, move (n.dir));
                 variable (t, tt, var, att);
               }
@@ -604,13 +609,11 @@ namespace build2
                       //
                       if (att == type::prepend && lhs.extra == 2)
                         fail (at) << "prepend to a previously appended target "
-                                  << "type/pattern-specific variable "
-                                  << var.name;
+                                  << "type/pattern-specific variable " << var;
 
                       if (att == type::append && lhs.extra == 1)
                         fail (at) << "append to a previously prepended target "
-                                  << "type/pattern-specific variable "
-                                  << var.name;
+                                  << "type/pattern-specific variable " << var;
 
                       // Do untyped prepend/append.
                       //
@@ -620,7 +623,7 @@ namespace build2
 
                   if (lhs.extra != 0 && lhs.type != nullptr)
                     fail (at) << "typed prepend/append to target type/pattern-"
-                              << "specific variable " << var.name;
+                              << "specific variable " << var;
                 }
               }
 
@@ -722,6 +725,11 @@ namespace build2
         // Handle variable attributes.
         //
         variable_attributes (var);
+
+        if (var.visibility == variable_visibility::target)
+          fail (nloc) << "variable " << var << " has target visibility but "
+                      << "assigned in a scope" <<
+            info << "consider changing to '*: " << var << "'";
 
         variable (t, tt, var, tt);
 
@@ -1532,7 +1540,7 @@ namespace build2
       if (var.type == nullptr)
         var.type = type;
       else if (var.type != type)
-        fail (l) << "changing variable " << var.name << " type from "
+        fail (l) << "changing variable " << var << " type from "
                  << var.type->name << " to " << type->name;
     }
   }
@@ -2371,7 +2379,7 @@ namespace build2
               // @@ TMP this isn't proving to be particularly useful.
               //
               //if (var.name.find ('.') != string::npos)
-              //fail (loc) << "undefined/null namespace variable " << var.name;
+              //fail (loc) << "undefined/null namespace variable " << var;
 
               // See if we should set the NULL indicator.
               //

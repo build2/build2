@@ -18,6 +18,8 @@ namespace build2
                  const target_type* gt, const string* gn,
                  size_t start_d) const
   {
+    assert (tt != nullptr || var.visibility != variable_visibility::target);
+
     size_t d (0);
 
     // Process target type/pattern-specific prepend/append values.
@@ -131,7 +133,10 @@ namespace build2
         }
       }
 
-      if (++d >= start_d)
+      // Note that we still increment the lookup depth so that we can compare
+      // depths of variables with different visibilities.
+      //
+      if (++d >= start_d && var.visibility != variable_visibility::target)
       {
         if (const value* v = s->vars.find (var))
           return make_pair (lookup (v, &s->vars), d);
@@ -142,6 +147,7 @@ namespace build2
       case variable_visibility::scope:
         s = nullptr;
         break;
+      case variable_visibility::target:
       case variable_visibility::project:
         s = s->root () ? nullptr : s->parent_scope ();
         break;
@@ -230,6 +236,8 @@ namespace build2
       }
       case variable_visibility::normal:
         break;
+      case variable_visibility::target:
+        assert (false);
       }
 
       return true;

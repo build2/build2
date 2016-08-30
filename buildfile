@@ -11,4 +11,7 @@ file{INSTALL.cli config.guess config.sub manifest}
 
 include $d
 
-doc{INSTALL*}: install = false
+# Don't install tests or the INSTALL file.
+#
+dir{tests/}: install = false
+doc{INSTALL}@./: install = false

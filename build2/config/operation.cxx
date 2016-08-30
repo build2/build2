@@ -187,7 +187,7 @@ namespace build2
               // something is broken.
               //
               if (r == nullptr)
-                fail (loc) << "inherited variable " << var.name << " value "
+                fail (loc) << "inherited variable " << var << " value "
                            << "is not from a root scope";
 
               // If none of the outer project's configurations use this value,
@@ -198,7 +198,7 @@ namespace build2
               {
                 diag_record dr;
                 dr << warn (loc) << "saving previously inherited variable "
-                   << var.name;
+                   << var;
 
                 dr << info (loc) << "because project " << r->out_path ()
                    << " no longer uses it in its configuration";

@@ -40,12 +40,12 @@ namespace build2
 
         // Note: none are overridable.
         //
-        v.insert<bool>    ("test");
-        v.insert<name>    ("test.input");
-        v.insert<name>    ("test.output");
-        v.insert<name>    ("test.roundtrip");
-        v.insert<strings> ("test.options");
-        v.insert<strings> ("test.arguments");
+        v.insert<bool>    ("test",           variable_visibility::target);
+        v.insert<name>    ("test.input",     variable_visibility::project);
+        v.insert<name>    ("test.output",    variable_visibility::project);
+        v.insert<name>    ("test.roundtrip", variable_visibility::project);
+        v.insert<strings> ("test.options",   variable_visibility::project);
+        v.insert<strings> ("test.arguments", variable_visibility::project);
       }
     }
 

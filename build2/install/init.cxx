@@ -189,10 +189,9 @@ namespace build2
         // way we distinguish between the two is via the presence/absence of
         // the trailing directory separator.
         //
-        v.insert<path>   ("install", false, variable_visibility::project);
-        v.insert<string> ("install.mode", false, variable_visibility::project);
-        v.insert<bool>   ("install.subdirs", false,
-                          variable_visibility::project);
+        v.insert<path>   ("install",         variable_visibility::target);
+        v.insert<string> ("install.mode",    variable_visibility::project);
+        v.insert<bool>   ("install.subdirs", variable_visibility::project);
       }
 
       // Register our alias and file rules.

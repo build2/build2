@@ -74,7 +74,7 @@ namespace build2
       const value& v (p.second);
       assert (v.type == nullptr);
 
-      os << var.name << (v.extra == 1 ? " =+ " : " += ");
+      os << var << (v.extra == 1 ? " =+ " : " += ");
       dump_value (os, v, false);
     }
     else
@@ -86,7 +86,7 @@ namespace build2
       if (var.type != nullptr)
         os << '[' << var.type->name << "] ";
 
-      os << var.name << " = ";
+      os << var << " = ";
 
       // If this variable is overriden, print both the override and the
       // original values.

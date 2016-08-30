@@ -80,9 +80,13 @@ namespace build2
 
   enum class variable_visibility
   {
+    target,   // Target and target type/pattern-specific.
     scope,    // This scope (no outer scopes).
     project,  // This project (no outer projects).
     normal    // All outer scopes.
+
+    // Note that the search for target type/pattern-specific terminates at
+    // the project boundary.
   };
 
   // variable
@@ -118,6 +122,9 @@ namespace build2
 
   inline bool
   operator== (const variable& x, const variable& y) {return x.name == y.name;}
+
+  inline ostream&
+  operator<< (ostream& os, const variable& v) {return os << v.name;}
 
   //
   //
@@ -697,8 +704,14 @@ namespace build2
   struct variable_pool: private variable_pool_base
   {
     const variable&
+    insert (string name, variable_visibility v = variable_visibility::normal)
+    {
+      return insert (move (name), nullptr, v, false);
+    }
+
+    const variable&
     insert (string name,
-            bool overridable = false,
+            bool overridable,
             variable_visibility v = variable_visibility::normal)
     {
       return insert (move (name), nullptr, v, overridable);
@@ -706,8 +719,15 @@ namespace build2
 
     template <typename T>
     const variable&
+    insert (string name, variable_visibility v = variable_visibility::normal)
+    {
+      return insert (move (name), &value_traits<T>::value_type, v, false);
+    }
+
+    template <typename T>
+    const variable&
     insert (string name,
-            bool overridable = false,
+            bool overridable,
             variable_visibility v = variable_visibility::normal)
     {
       return insert (

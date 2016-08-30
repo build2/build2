@@ -83,7 +83,6 @@ namespace build2
         v.insert<string>    ("bin.exe.suffix");
 
         v.insert<map<string, string>> ("bin.lib.version",
-                                       false,
                                        variable_visibility::project);
       }
 
@@ -202,7 +201,7 @@ namespace build2
 
           if (v == nullptr)
             fail (loc) << "unable to determine binutils target" <<
-              info << "consider specifying it with " << var.name <<
+              info << "consider specifying it with " << var <<
               info << "or first load a module that can provide it as a hint, "
                        << "such as c or cxx";
 

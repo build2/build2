@@ -101,10 +101,8 @@ namespace build2
             i->second.init (rs, bs, loc, i->second.module, f, opt, hints));
 
     const variable& lv (var_pool.insert<bool> (name + ".loaded",
-                                               false,
                                                variable_visibility::project));
     const variable& cv (var_pool.insert<bool> (name + ".configured",
-                                               false,
                                                variable_visibility::project));
     bs.assign (lv) = l;
     bs.assign (cv) = c;
