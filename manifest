@@ -8,8 +8,8 @@ description-file: README
 changes-file: NEWS
 url: https://build2.org
 email: users@build2.org
-requires: c++11
-requires: build2 >= 0.3.0
+requires: c++14
+requires: build2 >= 0.4.0
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
 depends: libbutl == 0.4.0-a1

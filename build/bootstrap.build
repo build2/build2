@@ -3,13 +3,19 @@
 # license   : MIT; see accompanying LICENSE file
 
 project = build2
-version = 0.4.0-a1
 subprojects = # No subprojects.
 
-using build@0.3.0
+using build@0.4.0-a1
+
+version = 0.4.0-a1
+revision = 0
+
+dist.package = $project-$version
+
+if ($revision != 0)
+  dist.package += +$revision
+
 using config
 using dist
 using test
 using install
-
-dist.package = $project-$version
