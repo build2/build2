@@ -51,52 +51,79 @@ namespace build2
       assert (pkgconfig != nullptr);
       assert (at != nullptr || st != nullptr);
 
-      // Check if we have the pkgconfig/ subdirectory in this library's
-      // directory.
-      //
-      dir_path pkgd (dir_path (libd) /= "pkgconfig");
-
-      if (!dir_exists (pkgd))
-        return false;
-
-      // Now see if there is a corresponding .pc file. About half of them
-      // called foo.pc and half libfoo.pc (and one of the pkg-config's authors
-      // suggests that some of you should call yours foolib.pc, just to keep
-      // things interesting, you know).
-      //
-      // Given the (general) import in the form <proj>%lib{<stem>}, we will
-      // first try <stem>.pc, then lib<stem>.pc. Maybe it also makes sense to
-      // try <proj>.pc, just in case. Though, according to pkg-config docs,
-      // the .pc file should correspond to a library, not project. But then
-      // you get something like zlib which calls it zlib.pc. So let's just do
-      // it.
+      // When it comes to looking for .pc files we have to decide where to
+      // search (which directory(ies)) as well as what to search for (which
+      // names).
       //
       path f;
-      f = pkgd;
-      f /= stem;
-      f += ".pc";
-
-      if (!file_exists (f))
+      auto search = [&f, proj, &stem, &libd] (const dir_path& dir) -> bool
       {
+        // Check if we have this directory inrelative to this library's
+        // directory.
+        //
+        dir_path pkgd (dir_path (libd) /= dir);
+
+        if (!dir_exists (pkgd))
+          return false;
+
+        // See if there is a corresponding .pc file. About half of them called
+        // foo.pc and half libfoo.pc (and one of the pkg-config's authors
+        // suggests that some of you should call yours foolib.pc, just to keep
+        // things interesting, you know).
+        //
+        // Given the (general) import in the form <proj>%lib{<stem>}, we will
+        // first try <stem>.pc, then lib<stem>.pc. Maybe it also makes sense
+        // to try <proj>.pc, just in case. Though, according to pkg-config
+        // docs, the .pc file should correspond to a library, not project. But
+        // then you get something like zlib which calls it zlib.pc. So let's
+        // just do it.
+        //
+        f = pkgd;
+        f /= stem;
+        f += ".pc";
+
+        if (file_exists (f))
+          return true;
+
         f = pkgd;
         f /= "lib";
         f += stem;
         f += ".pc";
 
-        if (!file_exists (f))
-        {
-          if (proj != nullptr)
-          {
-            f = pkgd;
-            f /= *proj;
-            f += ".pc";
+        if (file_exists (f))
+          return true;
 
-            if (!file_exists (f))
-              return false;
-          }
-          else
+        if (proj != nullptr)
+        {
+          f = pkgd;
+          f /= *proj;
+          f += ".pc";
+
+          if (file_exists (f))
+            return true;
+        }
+
+        return false;
+      };
+
+      // First always check the pkgconfig/ subdirectory in this library's
+      // directory. Even on platforms where this is not the canonical place,
+      // .pc files of autotools-based packages installed by the user often
+      // still end up there.
+      //
+      if (!search (dir_path ("pkgconfig")))
+      {
+        // Platform-specific locations.
+        //
+        if (tclass == "freebsd")
+        {
+          // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
+          //
+          if (!search ((dir_path ("..") /= "libdata") /= "pkgconfig"))
             return false;
         }
+        else
+         return false;
       }
 
       // Ok, we are in business. Time to run pkg-config. To keep things
