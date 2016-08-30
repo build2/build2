@@ -297,6 +297,7 @@ main (int argc, char* argv[])
     {
       vector_view<opspec> opspecs;
       const string& mname (lifted == nullptr ? mit->name : lifted->name);
+      current_mname = &mname;
 
       if (lifted == nullptr)
       {
@@ -345,6 +346,7 @@ main (int argc, char* argv[])
         // A lifted meta-operation will always have default operation.
         //
         const string& oname (lifted == nullptr ? os.name : string ());
+        current_oname = &oname;
 
         if (lifted != nullptr)
           lifted = nullptr; // Clear for the next iteration.
@@ -719,7 +721,7 @@ main (int argc, char* argv[])
               if (mif->meta_operation_pre != nullptr)
                 mif->meta_operation_pre ();
 
-              current_mif = mif;
+              set_current_mif (*mif);
               dirty = true;
             }
             //
@@ -973,9 +975,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (pre_oid); // Cannot be translated.
 
-          current_inner_oif = pre_oif;
-          current_outer_oif = oif;
-          current_mode = pre_oif->mode;
+          set_current_oif (*pre_oif, oif);
           dependency_count = 0;
 
           action a (mid, pre_oid, oid);
@@ -990,9 +990,7 @@ main (int argc, char* argv[])
                         << ", id " << static_cast<uint16_t> (pre_oid);});
         }
 
-        current_inner_oif = oif;
-        current_outer_oif = nullptr;
-        current_mode = oif->mode;
+        set_current_oif (*oif);
         dependency_count = 0;
 
         action a (mid, oid, 0);
@@ -1008,9 +1006,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (post_oid); // Cannot be translated.
 
-          current_inner_oif = post_oif;
-          current_outer_oif = oif;
-          current_mode = post_oif->mode;
+          set_current_oif (*post_oif, oif);
           dependency_count = 0;
 
           action a (mid, post_oid, oid);

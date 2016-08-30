@@ -129,6 +129,14 @@ namespace build2
   void
   load_root_pre (scope& root);
 
+  // Extract the specified variable value from a buildfile. It is expected to
+  // be the first non-comment line and not to rely on any variable expansion
+  // other than those from the global scope or any variable overrides. Return
+  // an indication of whether the variable was found.
+  //
+  pair<value, bool>
+  extract_variable (const path&, const char* var);
+
   // Import has two phases: the first is triggered by the import
   // directive in the buildfile. It will try to find and load the
   // project. Failed that, it will return the project-qualified

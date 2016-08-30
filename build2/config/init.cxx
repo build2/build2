@@ -23,9 +23,10 @@ namespace build2
   namespace config
   {
     const string module::name ("config");
+    const uint64_t module::version;
 
     void
-    boot (scope& rs, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location& loc, unique_ptr<module_base>&)
     {
       tracer trace ("config::boot");
 
@@ -44,10 +45,44 @@ namespace build2
       // possible that some module which needs the configuration will get
       // called first.
       //
-      path f (out_root / config_file);
+      const variable& c_v (var_pool.insert<uint64_t> ("config.version"));
 
-      if (file_exists (f))
-        source (f, rs, rs);
+      // Don't load it if we are disfiguring. This is a bit tricky since the
+      // build2 core may not yet know it is disfiguring. But we know.
+      //
+      if (*current_mname != disfigure.name &&
+          (!current_mname->empty () || *current_oname != disfigure.name))
+      {
+        path f (out_root / config_file);
+
+        if (file_exists (f))
+        {
+          // Check the config version. We assume that old versions cannot
+          // understand new configs and new versions are incompatible with old
+          // configs.
+          //
+          // We extract the value manually instead of loading and then
+          // checking in order to be able to fixup/migrate the file which we
+          // may want to do in the future.
+          //
+          {
+            // Assume missing version is 0.
+            //
+            auto p (extract_variable (f, c_v.name.c_str ()));
+            uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
+
+            if (v != module::version)
+              fail (loc) << "incompatible config file " << f <<
+                info << "config file version   " << v
+                         << (p.second ? "" : " (missing)") <<
+                info << "config module version " << module::version <<
+                info << "consider reconfiguring " << project (rs) << '@'
+                         << out_root;
+          }
+
+          source (f, rs, rs);
+        }
+      }
     }
 
     bool

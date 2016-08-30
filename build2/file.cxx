@@ -272,7 +272,7 @@ namespace build2
   // be the first non-comment line and not to rely on any variable expansion
   // other than those from the global scope or any variable overrides.
   //
-  static value
+  pair<value, bool>
   extract_variable (const path& bf, const char* name)
   {
     try
@@ -288,8 +288,7 @@ namespace build2
            tt != token_type::prepend &&
            tt != token_type::append))
       {
-        error << "variable '" << name << "' expected as first line in " << bf;
-        throw failed (); // Suppress "used uninitialized" warning.
+        return make_pair (value (), false);
       }
 
       const variable& var (var_pool.find (move (t.value)));
@@ -300,14 +299,18 @@ namespace build2
 
       value* v (tmp.vars.find (var));
       assert (v != nullptr);
-      return move (*v); // Steal the value, the scope is going away.
+
+      // Steal the value, the scope is going away.
+      //
+      return make_pair (move (*v), true);
     }
     catch (const ifdstream::failure& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e.what ();
+      error << "unable to read buildfile " << bf << ": " << e.what ();
+      throw failed ();
     }
 
-    return value (); // Never reaches.
+    // Never reached.
   }
 
   // Extract the project name from bootstrap.build.
@@ -336,7 +339,12 @@ namespace build2
         src_root = &fallback_src_root;
       else
       {
-        src_root_v = extract_variable (f, "src_root");
+        auto p (extract_variable (f, "src_root"));
+
+        if (!p.second)
+          error << "variable 'src_root' expected as first line in " << f;
+
+        src_root_v = move (p.first);
         src_root = &cast<dir_path> (src_root_v);
         l5 ([&]{trace << "extracted src_root " << *src_root << " for "
                       << out_root;});
@@ -345,8 +353,13 @@ namespace build2
 
     string name;
     {
-      value v (extract_variable (*src_root / bootstrap_file, "project"));
-      name = cast<string> (move (v));
+      path f (*src_root / bootstrap_file);
+      auto p (extract_variable (f, "project"));
+
+      if (!p.second)
+        error << "variable 'project' expected as first line in " << f;
+
+      name = cast<string> (move (p.first));
     }
 
     l5 ([&]{trace << "extracted project name '" << name << "' for "

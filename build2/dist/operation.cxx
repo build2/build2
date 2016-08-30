@@ -101,17 +101,15 @@ namespace build2
            id < rs->operations.size ();
            ++id)
       {
-        const operation_info* oi (rs->operations[id]);
-        if (oi == nullptr)
+        const operation_info* oif (rs->operations[id]);
+        if (oif == nullptr)
           continue;
 
         // Note that we are not calling operation_pre/post() callbacks
         // here since the meta operation is dist and we know what we
         // are doing.
         //
-        current_inner_oif = oi;
-        current_outer_oif = nullptr;
-        current_mode = oi->mode;
+        set_current_oif (*oif);
         dependency_count = 0;
 
         action a (dist_id, id);
@@ -237,14 +235,12 @@ namespace build2
         if (perform.meta_operation_pre != nullptr)
           perform.meta_operation_pre ();
 
-        current_mif = &perform;
+        set_current_mif (perform);
 
         if (perform.operation_pre != nullptr)
           perform.operation_pre (update_id);
 
-        current_inner_oif = &update;
-        current_outer_oif = nullptr;
-        current_mode = update.mode;
+        set_current_oif (update);
         dependency_count = 0;
 
         action a (perform_id, update_id);

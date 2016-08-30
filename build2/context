@@ -26,11 +26,34 @@ namespace build2
 
   // Current action (meta/operation).
   //
+  // The names unlike info are available during boot but may not yet be
+  // lifted. The name is always for an outer operation (or meta operation
+  // that hasn't been recognized as such yet).
+  //
+  extern const string* current_mname;
+  extern const string* current_oname;
+
   extern const meta_operation_info* current_mif;
   extern const operation_info* current_inner_oif;
   extern const operation_info* current_outer_oif;
-
   extern execution_mode current_mode;
+
+  inline void
+  set_current_mif (const meta_operation_info& mif)
+  {
+    current_mif = &mif;
+    current_mname = &mif.name;
+  }
+
+  inline void
+  set_current_oif (const operation_info& inner_oif,
+                   const operation_info* outer_oif = nullptr)
+  {
+    current_inner_oif = &inner_oif;
+    current_outer_oif = outer_oif;
+    current_oname = &(outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    current_mode = inner_oif.mode;
+  }
 
   // Total number of dependency relationships in the current action.
   // Together with the target::dependents count it is incremented

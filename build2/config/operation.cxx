@@ -80,6 +80,8 @@ namespace build2
           "free to edit." << endl
             << "#" << endl;
 
+        ofs << "config.version = " << module::version << endl;
+
         if (auto l = root.vars["amalgamation"])
         {
           const dir_path& d (cast<dir_path> (l));
@@ -371,13 +373,11 @@ namespace build2
              id < rs->operations.size ();
              ++id)
         {
-          const operation_info* oi (rs->operations[id]);
-          if (oi == nullptr)
+          const operation_info* oif (rs->operations[id]);
+          if (oif == nullptr)
             continue;
 
-          current_inner_oif = oi;
-          current_outer_oif = nullptr;
-          current_mode = oi->mode;
+          set_current_oif (*oif);
           dependency_count = 0;
 
           match (action (configure_id, id), t);

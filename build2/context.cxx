@@ -32,10 +32,15 @@ namespace build2
   string_pool extension_pool;
   string_pool project_name_pool;
 
+  const string* current_mname;
+  const string* current_oname;
+
   const meta_operation_info* current_mif;
   const operation_info* current_inner_oif;
   const operation_info* current_outer_oif;
+
   execution_mode current_mode;
+
   uint64_t dependency_count;
 
   variable_overrides

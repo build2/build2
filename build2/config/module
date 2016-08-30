@@ -78,7 +78,9 @@ namespace build2
     struct module: module_base
     {
       config::saved_modules saved_modules;
+
       static const string name; // init.cxx
+      static constexpr const uint64_t version = 1;
     };
   }
 }
