@@ -79,10 +79,10 @@ namespace build2
       // exist).
       //
       static bool
-      uninstall (const install_dir& base,
-                 file* t,
-                 const path& name,
-                 bool verbose);
+      uninstall_f (const install_dir& base,
+                   file* t,
+                   const path& name,
+                   bool verbose);
 
     private:
       target_state

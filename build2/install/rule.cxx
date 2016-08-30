@@ -376,7 +376,7 @@ namespace build2
     // or higher.
     //
     static void
-    install (const install_dir& base, const dir_path& d, bool verbose = true)
+    install_d (const install_dir& base, const dir_path& d, bool verbose = true)
     {
       try
       {
@@ -397,7 +397,7 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          install (base, pd, verbose);
+          install_d (base, pd, verbose);
       }
 
       cstrings args;
@@ -451,10 +451,10 @@ namespace build2
     // or higher.
     //
     static void
-    install (const install_dir& base,
-             const path& name,
-             file& t,
-             bool verbose = true)
+    install_f (const install_dir& base,
+               const path& name,
+               file& t,
+               bool verbose)
     {
       path relf (relative (t.path ()));
 
@@ -572,7 +572,7 @@ namespace build2
         // sudo, etc).
         //
         for (auto i (ids.begin ()), j (i); i != ids.end (); j = i++)
-          install (*j, i->dir, verbose); // install -d
+          install_d (*j, i->dir, verbose); // install -d
 
         install_dir& id (ids.back ());
 
@@ -583,7 +583,7 @@ namespace build2
 
         // Install the target and extras.
         //
-        install (id, n ? p.leaf () : path (), t, verbose);
+        install_f (id, n ? p.leaf () : path (), t, verbose);
         install_extra (t, id);
       };
 
@@ -617,7 +617,7 @@ namespace build2
     // or higher.
     //
     static bool
-    uninstall (const install_dir& base, const dir_path& d, bool verbose = true)
+    uninstall_d (const install_dir& base, const dir_path& d, bool verbose)
     {
       // Figure out if we should try to remove this directory. Note that if
       // it doesn't exist, then we may still need to remove outer ones.
@@ -700,17 +700,17 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          r = uninstall (base, pd, verbose) || r;
+          r = uninstall_d (base, pd, verbose) || r;
       }
 
       return r;
     }
 
     bool file_rule::
-    uninstall (const install_dir& base,
-               file* t,
-               const path& name,
-               bool verbose)
+    uninstall_f (const install_dir& base,
+                 file* t,
+                 const path& name,
+                 bool verbose)
     {
       assert (t != nullptr || !name.empty ());
       path f (base.dir / (name.empty () ? t->path ().leaf () : name));
@@ -810,7 +810,7 @@ namespace build2
                         ? target_state::changed
                         : target_state::unchanged);
 
-        if (uninstall (id, &t, n ? p.leaf () : path (), verbose))
+        if (uninstall_f (id, &t, n ? p.leaf () : path (), verbose))
           r |= target_state::changed;
 
         // Clean up empty leading directories (in reverse).
@@ -820,7 +820,7 @@ namespace build2
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
-          if (install::uninstall (++j != e ? *j : *i, i->dir, verbose))
+          if (install::uninstall_d (++j != e ? *j : *i, i->dir, verbose))
             r |= target_state::changed;
         }
 

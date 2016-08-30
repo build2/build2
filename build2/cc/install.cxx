@@ -108,7 +108,7 @@ namespace build2
 
         auto rm = [&id, this] (const path& l)
         {
-          return uninstall (id, nullptr, l.leaf (), false);
+          return uninstall_f (id, nullptr, l.leaf (), false);
         };
 
         const path& lk (lp.link);
