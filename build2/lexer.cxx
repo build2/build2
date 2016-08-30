@@ -280,6 +280,17 @@ namespace build2
             done = true;
             break;
           }
+        case '.':
+          {
+            // Normally '.' is part of the variable (namespace separator)
+            // unless it is trailing (think $major.$minor).
+            //
+            get ();
+            xchar p (peek ());
+            done = eos (p) || !(alnum (p) ||  p == '_');
+            unget (c);
+            break;
+          }
         }
 
         if (done)
