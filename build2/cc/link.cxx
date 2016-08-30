@@ -1601,15 +1601,12 @@ namespace build2
       file& t (static_cast<file&> (xt));
 
       libs_paths paths;
-      initializer_list<initializer_list<const char*>> e;
+      initializer_list<initializer_list<const char*>> e {{".d"}}; // Default.
 
       switch (link_type (t))
       {
       case otype::a:
-        {
-          e = {{".d"}};
-          break;
-        }
+        break; // Default.
       case otype::e:
         {
           if (tclass == "windows")
@@ -1626,8 +1623,6 @@ namespace build2
               e = {{".d", ".dlls/", ".manifest", "-.ilk"}};
             }
           }
-          else
-            e = {{".d"}};
 
           break;
         }
