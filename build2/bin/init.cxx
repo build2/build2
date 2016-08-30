@@ -497,9 +497,6 @@ namespace build2
         const path& ar (cast<path> (ap.first));
         const path* ranlib (cast_null<path> (rp.first));
 
-        if (ranlib != nullptr && ranlib->empty ()) // @@ BC LT [null].
-          ranlib = nullptr;
-
         ar_info ari (
           guess_ar (ar, ranlib, fb ? dir_path (*pat) : dir_path ()));
 

@@ -251,20 +251,6 @@ namespace build2
       if (!cast_false<bool> (bs["cxx.loaded"]))
         fail (loc) << "cxx module must be loaded before cli";
 
-      // Register target types.
-      //
-      // Note that we do it even if the module is unconfigured. Failed that,
-      // writing a buildfile will be pretty hard (actually, a buildfile still
-      // needs to be prepared that the module itself won't be found and loaded
-      // by defining fallback target types). This will be a BC change.
-      //
-      {
-        auto& t (bs.target_types);
-
-        t.insert<cli> ();
-        t.insert<cli_cxx> ();
-      }
-
       // Load cli.config.
       //
       if (!cast_false<bool> (bs["cli.config.loaded"]))
@@ -279,6 +265,15 @@ namespace build2
             info << "re-run with -V option for more information";
 
         return false;
+      }
+
+      // Register target types.
+      //
+      {
+        auto& t (bs.target_types);
+
+        t.insert<cli> ();
+        t.insert<cli_cxx> ();
       }
 
       // Register our rules.

@@ -80,7 +80,7 @@ namespace build2
 
       if (spec)
       {
-        if (cv != nullptr && *cv && !cv->empty ()) // @@ BC LT [null]
+        if (cv != nullptr && *cv)
           v = cast<T> (*cv); // Strip CT to T.
       }
       else

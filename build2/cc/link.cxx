@@ -1014,9 +1014,6 @@ namespace build2
       {
         ranlib = rs["bin.ranlib.path"];
 
-        if (ranlib && ranlib->empty ()) // @@ BC LT [null].
-          ranlib = lookup ();
-
         const char* rl (
           ranlib
           ? cast<string> (rs["bin.ranlib.checksum"]).c_str ()

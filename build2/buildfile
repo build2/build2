@@ -79,27 +79,17 @@ pkgconfig/{hxx         cxx}{ init             } \
 
 # Pass our compiler target to be used as build2 host.
 #
-# obj{context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
-if ($__build2_greater_than_0_2_0_hack__ == "true")
-{
-  var=cxx.target
-}
-else
-{
-  var=cxx.host
-}
-
-obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET='"'$($var)'"'
+obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.
 # This is also the reason why above we explicitly spelled out individual
 # source files instead of using the cli.cxx{} group (it won't be there
-# unless the module is loaded).
+# unless the module is configured).
 #
 using? cli
 
-if! $cli.loaded
+if! $cli.configured
 {
   define cli: file
   cli{*}: extension = cli
