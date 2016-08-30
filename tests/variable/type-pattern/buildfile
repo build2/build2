@@ -30,4 +30,10 @@ file{fox-x-fox}: x = $x # still '2'!
 *-foz: x = z        # any target
 file{x-foz}: x = $x # 'z'
 
+# These should all be the same.
+#
+*: x1 = X1
+{*}: x2 = X2
+*{*}: x3 = X3
+
 ./:

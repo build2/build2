@@ -522,11 +522,16 @@ namespace build2
                   if (!n.dir.empty ())
                     sg = enter_scope (*this, move (n.dir));
 
-                  // Resolve target type. If none is specified, use the root
-                  // of the hierarchy.
+                  // Resolve target type. If none is specified or if it is
+                  // '*', use the root of the hierarchy. So these are all
+                  // equivalent:
+                  //
+                  // *: foo = bar
+                  // {*}: foo = bar
+                  // *{*}: foo = bar
                   //
                   const target_type* ti (
-                    n.untyped ()
+                    n.untyped () || n.type == "*"
                     ? &target::static_type
                     : scope_->find_target_type (n.type));
 
