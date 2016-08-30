@@ -199,7 +199,7 @@ namespace build2
         // This is where we suggest that the user specifies --config-sub to
         // help us out.
         //
-        fail << "unable to parse " << x_lang << "compiler target '"
+        fail << "unable to parse " << x_lang << " compiler target '"
              << ci.target << "': " << e.what () <<
           info << "consider using the --config-sub option";
       }
