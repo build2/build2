@@ -23,7 +23,7 @@ namespace build2
     //
     template <typename P, typename T>
     static const P*
-    lookup (T& t, const string& var)
+    lookup_install (T& t, const string& var)
     {
       auto l (t[var]);
 
@@ -86,7 +86,7 @@ namespace build2
       // First determine if this target should be installed (called
       // "installable" for short).
       //
-      if (lookup<path> (t, "install") == nullptr)
+      if (lookup_install<path> (t, "install") == nullptr)
         // If this is the update pre-operation, signal that we don't match so
         // that some other rule can take care of it.
         //
@@ -236,8 +236,8 @@ namespace build2
 
       // If not NULL, then point to the corresponding install.* value.
       //
-      const string* sudo      = nullptr;
-      const path*   cmd       = nullptr;
+      const string*  sudo     = nullptr;
+      const path*    cmd      = nullptr;
       const strings* options  = nullptr;
       const string*  mode     = nullptr;
       const string*  dir_mode = nullptr;
@@ -255,6 +255,36 @@ namespace build2
     };
 
     using install_dirs = vector<install_dir>;
+
+    // Calculate a subdirectory based on l's location (*.subdirs) and if not
+    // empty add it to install_dirs. Return the new last element.
+    //
+    static install_dir&
+    resolve_subdir (install_dirs& rs, target& t, scope& s, const lookup& l)
+    {
+      // Find the scope from which this value came and use as a base
+      // to calculate the subdirectory.
+      //
+      for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
+      {
+        if (l.belongs (*p)) // Ok since no target/type in lookup.
+        {
+          // The target can be in out or src.
+          //
+          const dir_path& d (
+            (t.out.empty () ? t.dir : t.out).leaf (p->out_path ()));
+
+          // Add it as another leading directory rather than modifying
+          // the last one directly; somehow, it feels right.
+          //
+          if (!d.empty ())
+            rs.emplace_back (rs.back ().dir / d, rs.back ());
+          break;
+        }
+      }
+
+      return rs.back ();
+    }
 
     // Resolve installation directory name to absolute directory path. Return
     // all the super-directories leading up to the destination (last).
@@ -274,7 +304,8 @@ namespace build2
         //
         const string& sn (*d.begin ());
         const string var ("install." + sn);
-        if (const dir_path* dn = lookup<dir_path> (t.base_scope (), var))
+        if (const dir_path* dn =
+            lookup_install<dir_path> (t.base_scope (), var))
         {
           rs = resolve (t, *dn, &var);
           d = rs.back ().dir / dir_path (++d.begin (), d.end ());
@@ -301,28 +332,7 @@ namespace build2
         if (auto l = s[*var + ".subdirs"])
         {
           if (cast<bool> (l))
-          {
-            // Find the scope from which this value came and use as a base
-            // to calculate the subdirectory.
-            //
-            for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
-            {
-              if (l.belongs (*p)) // Ok since no target/type in lookup.
-              {
-                // The target can be in out or src.
-                //
-                const dir_path& d (
-                  (t.out.empty () ? t.dir : t.out).leaf (p->out_path ()));
-
-                // Add it as another leading directory rather than modifying
-                // the last one directly; somehow, it feels right.
-                //
-                rs.emplace_back (r->dir / d, rs.back ());
-                r = &rs.back ();
-                break;
-              }
-            }
-          }
+            r = &resolve_subdir (rs, t, s, l);
         }
       }
 
@@ -567,6 +577,14 @@ namespace build2
         //
         install_dirs ids (resolve (t, d));
 
+        // Handle install.subdirs if one was specified.
+        //
+        if (auto l = t["install.subdirs"])
+        {
+          if (cast<bool> (l))
+            resolve_subdir (ids, t, t.base_scope (), l);
+        }
+
         // Create leading directories. Note that we are using the leading
         // directory (if there is one) for the creation information (mode,
         // sudo, etc).
@@ -595,7 +613,7 @@ namespace build2
       //
       for (target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const path* p = lookup<path> (*m, "install"))
+        if (const path* p = lookup_install<path> (*m, "install"))
           install_target (static_cast<file&> (*m), *p, false);
       }
 
@@ -733,7 +751,7 @@ namespace build2
       if (verb == 1 && verbose)
       {
         if (t != nullptr)
-          text << "uninstall " << t;
+          text << "uninstall " << *t;
         else
           text << "uninstall " << relf;
       }
@@ -802,6 +820,14 @@ namespace build2
         //
         install_dirs ids (resolve (t, d));
 
+        // Handle install.subdirs if one was specified.
+        //
+        if (auto l = t["install.subdirs"])
+        {
+          if (cast<bool> (l))
+            resolve_subdir (ids, t, t.base_scope (), l);
+        }
+
         // Remove extras and the target itself.
         //
         const install_dir& id (ids.back ());
@@ -838,7 +864,7 @@ namespace build2
       //
       for (target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const path* p = lookup<path> (*m, "install"))
+        if (const path* p = lookup_install<path> (*m, "install"))
           r |= uninstall_target (static_cast<file&> (*m),
                                  *p,
                                  r != target_state::changed);
