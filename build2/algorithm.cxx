@@ -494,7 +494,7 @@ namespace build2
         }
       }
 
-      if (pt->is_a (tt))
+      if (r == nullptr && pt->is_a (tt))
         r = pt;
     }
 

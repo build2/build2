@@ -190,12 +190,12 @@ namespace build2
   bool
   execute_prerequisites (action, target&, const timestamp&);
 
-  // Another version of the above that does two extra things for the
-  // caller: it determines whether the action needs to be executed on
-  // the target based on the passed timestamp and, if so, finds a
-  // prerequisite of the specified type (e.g., a source file). If
-  // there are multiple prerequisites of this type, then the last
-  // is returned.
+  // Another version of the above that does two extra things for the caller:
+  // it determines whether the action needs to be executed on the target based
+  // on the passed timestamp and, if so, finds a prerequisite of the specified
+  // type (e.g., a source file). If there are multiple prerequisites of this
+  // type, then the first is returned (this can become important if additional
+  // prerequisites of the same type may get injected).
   //
   template <typename T>
   T*
