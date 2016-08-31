@@ -48,10 +48,10 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class cxx: public file
+    class cxx: public cc::cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;

@@ -10,6 +10,17 @@ namespace build2
 {
   namespace cc
   {
+    const target_type cc::static_type
+    {
+      "cc",
+      &file::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      &search_target,
+      false
+    };
+
     extern const char ext_var[] = "extension";  // VC 19 rejects constexpr.
 
     extern const char h_ext_def[] = "h";
@@ -28,7 +39,7 @@ namespace build2
     const target_type c::static_type
     {
       "c",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<c>,
       &target_extension_var<ext_var, c_ext_def>,
       nullptr,

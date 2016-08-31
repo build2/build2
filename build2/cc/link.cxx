@@ -104,6 +104,11 @@ namespace build2
         {
           seen_lib = seen_lib || true;
         }
+        // If this is some other c-common source (say C++ in a C rule), then
+        // it will most definitely need to be compiled but we can't do that.
+        //
+        else if (p.is_a<cc> ())
+          return nullptr;
       }
 
       if (!(seen_x || seen_c || seen_obj || seen_lib))
@@ -563,7 +568,7 @@ namespace build2
           // Most of the time we will have just a single source so fast-path
           // that case.
           //
-          if (p1.is_a (x_src))
+          if (p1.is_a (x_src) || p1.is_a<c> ())
           {
             if (!found)
             {

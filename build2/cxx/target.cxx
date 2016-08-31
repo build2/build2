@@ -52,7 +52,7 @@ namespace build2
     const target_type cxx::static_type
     {
       "cxx",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<cxx>,
       &target_extension_var<ext_var, cxx_ext_def>,
       nullptr,
