@@ -41,13 +41,18 @@ namespace build2
 
         // Note: some overridable, some not.
         //
+        // config.dist.archives is a list of archive extensions that can be
+        // optionally prefixed with a directory. If it is relative, then it is
+        // prefixed with config.dist.root. Otherwise, the archive is written
+        // to the absolute location.
+        //
         v.insert<abs_dir_path> ("config.dist.root",     true);
-        v.insert<strings>      ("config.dist.archives", true);
+        v.insert<paths>        ("config.dist.archives", true);
         v.insert<path>         ("config.dist.cmd",      true);
 
         v.insert<dir_path>     ("dist.root");
         v.insert<path>         ("dist.cmd");
-        v.insert<strings>      ("dist.archives");
+        v.insert<paths>        ("dist.archives");
 
         v.insert<bool> ("dist", variable_visibility::target); // Flag.
 

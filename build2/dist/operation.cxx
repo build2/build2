@@ -45,10 +45,13 @@ namespace build2
     static void
     install (const path& cmd, file&, const dir_path&);
 
-    // cd <root> && tar|zip ... <pkg>.<ext> <pkg>
+    // cd <root> && tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
     static void
-    archive (const dir_path& root, const string& pkg, const string& ext);
+    archive (const dir_path& root,
+             const string& pkg,
+             const dir_path& dir,
+             const string& ext);
 
     static void
     dist_execute (action, const action_targets& ts, bool)
@@ -289,8 +292,22 @@ namespace build2
       //
       if (auto l = rs->vars["dist.archives"])
       {
-        for (const string& e: cast<strings> (l))
-          archive (dist_root, dist_package, e);
+        for (const path& p: cast<paths> (l))
+        {
+          dir_path d (p.relative () ? dist_root : dir_path ());
+          d /= p.directory ();
+
+          const string& s (p.string ());
+          size_t i (path::traits::find_leaf (s));
+
+          if (i == string::npos)
+            fail << "invalid archive '" << s << "' in dist.archives";
+
+          if (s[i] == '.') // Skip dot if specified.
+            ++i;
+
+          archive (dist_root, dist_package, d, string (s, i));
+        }
       }
     }
 
@@ -386,13 +403,16 @@ namespace build2
     }
 
     static void
-    archive (const dir_path& root, const string& pkg, const string& e)
+    archive (const dir_path& root,
+             const string& pkg,
+             const dir_path& dir,
+             const string& e)
     {
       string a (pkg + '.' + e);
 
       // Delete old archive for good measure.
       //
-      path ap (root / path (a));
+      path ap (dir / path (a));
       if (file_exists (ap, false))
         rmfile (ap);
 
@@ -401,9 +421,11 @@ namespace build2
       //
       cstrings args;
       if (e == "zip")
-        args = {"zip", "-rq", a.c_str (), pkg.c_str (), nullptr};
+        args = {"zip", "-rq",
+                ap.string ().c_str (), pkg.c_str (), nullptr};
       else
-        args = {"tar", "-a", "-cf", a.c_str (), pkg.c_str (), nullptr};
+        args = {"tar", "-a", "-cf",
+                ap.string ().c_str (), pkg.c_str (), nullptr};
 
       if (verb >= 2)
         print_process (args);
