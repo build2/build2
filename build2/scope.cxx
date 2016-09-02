@@ -588,7 +588,7 @@ namespace build2
         v.clear ();
       }
     }
-    else
+    else if (!v.empty ())
     {
       // Split the path into its directory part (if any) the name part,
       // and the extension (if any). We cannot assume the name part is
@@ -603,9 +603,12 @@ namespace build2
         v = string (v, i + 1, string::npos);
       }
 
-      // Extract the extension.
+      // Extract the extension. Treat trailing dot as specified but empty
+      // extension.
       //
-      string::size_type j (path::traits::find_extension (v));
+      string::size_type j (v.back () != '.'
+                           ? path::traits::find_extension (v)
+                           : v.size () - 1);
 
       if (j != string::npos)
       {
