@@ -115,8 +115,10 @@ namespace build2
       empty () const {return id.empty ();}
     };
 
+    // Allowed to change pre if succeeds.
+    //
     static guess_result
-    guess (lang, const path& xc, const string& pre)
+    guess (lang, const path& xc, string& pre)
     {
       tracer trace ("cc::guess");
 
@@ -139,7 +141,7 @@ namespace build2
       // In fact, if someone renames icpc to g++, there will be no way for
       // us to detect this. Oh, well, their problem.
       //
-      if (r.id.empty () && (pre.empty () || pre == "gcc" || pre == "clang"))
+      if (r.empty () && (pre.empty () || pre == "gcc" || pre == "clang"))
       {
         auto f = [] (string& l) -> guess_result
         {
@@ -226,7 +228,15 @@ namespace build2
         r = run<guess_result> (pp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
+        {
+          // If this is clang-apple and pre-guess was gcc then change it so
+          // that we don't issue any warnings.
+          //
+          if (r.id.type == "clang" && r.id.variant == "apple" && pre == "gcc")
+            pre = "clang";
+
           r.checksum = cs.string ();
+        }
       }
 
       // Next try --version to detect icc.
@@ -1053,10 +1063,12 @@ namespace build2
 
         if (gr.empty ())
           warn << xc << " name looks like " << pre << " but it is not";
+
+        pre.clear ();
       }
 
       if (gr.empty ())
-        gr = guess (xl, xc, "");
+        gr = guess (xl, xc, pre);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc;
