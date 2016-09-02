@@ -86,7 +86,7 @@ namespace build2
         //
         auto test = [optional, &pp] (const path& cli) -> string
         {
-          const char* args[] = {nullptr, "--version", nullptr};
+          const char* args[] = {cli.string ().c_str (), "--version", nullptr};
 
           try
           {
