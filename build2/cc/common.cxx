@@ -95,7 +95,7 @@ namespace build2
       }
 
       bool impl (proc_impl && proc_impl (l, la));
-      bool cc, same;
+      bool cc (false), same (false);
 
       auto& vp (var_pool);
       lookup c_e_libs;
