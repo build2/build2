@@ -40,8 +40,8 @@ namespace build2
     {
       path f (out_root / src_root_file);
 
-      if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
+      if (verb >= 2)
+        text << "cat >" << f;
 
       try
       {
@@ -299,9 +299,8 @@ namespace build2
       //
       if (out_root != src_root)
       {
-        mkdir_p (out_root);
-        mkdir (out_root / build_dir);
-        mkdir (out_root / bootstrap_dir);
+        mkdir_p (out_root / build_dir);
+        mkdir (out_root / bootstrap_dir, 2);
       }
 
       // We distinguish between a complete configure and operation-
@@ -497,7 +496,7 @@ namespace build2
                  !d.empty ();
                  d = d.directory ())
             {
-              rmdir_status s (rmdir (out_root / d));
+              rmdir_status s (rmdir (out_root / d, 2));
 
               if (s == rmdir_status::not_empty)
                 break; // No use trying do remove parent ones.
@@ -519,12 +518,12 @@ namespace build2
 
         if (out_root != src_root)
         {
-          m = rmfile (out_root / src_root_file) || m;
+          m = rmfile (out_root / src_root_file, 2) || m;
 
           // Clean up the directories.
           //
-          m = rmdir (out_root / bootstrap_dir) || m;
-          m = rmdir (out_root / build_dir) || m;
+          m = rmdir (out_root / bootstrap_dir, 2) || m;
+          m = rmdir (out_root / build_dir, 2) || m;
 
           switch (rmdir (out_root))
           {
