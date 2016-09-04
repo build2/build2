@@ -90,6 +90,36 @@ namespace build2
                   cast_null<strings> (rs[config_c_coptions]),
                   cast_null<strings> (rs[config_x_coptions]));
 
+      // Split/canonicalize the target. First see if the user asked us to
+      // use config.sub.
+      //
+      string ct, st;
+      triplet tt;
+
+      if (ops.config_sub_specified ())
+      {
+        st = run<string> (ops.config_sub (),
+                          ci.target.c_str (),
+                          [] (string& l) {return move (l);});
+        l5 ([&]{trace << "config.sub target: '" << st << "'";});
+      }
+
+      try
+      {
+        tt = triplet (st.empty () ? ci.target : st, ct);
+        l5 ([&]{trace << "canonical target: '" << ct << "'; "
+                      << "class: " << tt.class_;});
+      }
+      catch (const invalid_argument& e)
+      {
+        // This is where we suggest that the user specifies --config-sub to
+        // help us out.
+        //
+        fail << "unable to parse " << x_lang << " compiler target '"
+             << ci.target << "': " << e.what () <<
+          info << "consider using the --config-sub option";
+      }
+
       // Translate x_std value (if any) to the compiler option (if any).
       //
       if (auto l = rs[x_std])
@@ -100,6 +130,13 @@ namespace build2
       dir_paths lib_dirs (ci.id.type == "msvc"
                           ? msvc_library_search_paths (ci.path, rs)
                           : gcc_library_search_paths (ci.path, rs));
+
+      // On FreeBSD /usr/local/lib is not one of the default search paths.
+      // Quoting its wiki: "FreeBSD can't even find libraries that it
+      // installed." So let's help it a bit.
+      //
+      if (tt.system == "freebsd")
+        lib_dirs.push_back (dir_path ("/usr/local/lib"));
 
       // If this is a new value (e.g., we are configuring), then print the
       // report at verbosity level 2 and up (-v).
@@ -125,7 +162,12 @@ namespace build2
 
         {
           dr << "  signature  " << ci.signature << '\n'
-             << "  target     " << ci.target << '\n';
+             << "  target     " << ct;
+
+          if (ct != ci.target)
+            dr << " (" << ci.target << ")";
+
+          dr << '\n';
         }
 
         if (!tstd.empty ())
@@ -166,43 +208,14 @@ namespace build2
       rs.assign (x_signature) = move (ci.signature);
       rs.assign (x_checksum) = move (ci.checksum);
 
-      // Split/canonicalize the target. First see if the user asked us to
-      // use config.sub.
+      // Enter as x.target.{cpu,vendor,system,version,class}.
       //
-      if (ops.config_sub_specified ())
-      {
-        ci.target = run<string> (ops.config_sub (),
-                                 ci.target.c_str (),
-                                 [] (string& l) {return move (l);});
-        l5 ([&]{trace << "config.sub target: '" << ci.target << "'";});
-      }
-
-      try
-      {
-        string canon;
-        triplet t (ci.target, canon);
-
-        l5 ([&]{trace << "canonical target: '" << canon << "'; "
-                      << "class: " << t.class_;});
-
-        // Enter as x.target.{cpu,vendor,system,version,class}.
-        //
-        rs.assign (x_target) = move (canon);
-        rs.assign (x_target_cpu) = move (t.cpu);
-        rs.assign (x_target_vendor) = move (t.vendor);
-        rs.assign (x_target_system) = move (t.system);
-        rs.assign (x_target_version) = move (t.version);
-        rs.assign (x_target_class) = move (t.class_);
-      }
-      catch (const invalid_argument& e)
-      {
-        // This is where we suggest that the user specifies --config-sub to
-        // help us out.
-        //
-        fail << "unable to parse " << x_lang << " compiler target '"
-             << ci.target << "': " << e.what () <<
-          info << "consider using the --config-sub option";
-      }
+      rs.assign (x_target) = move (ct);
+      rs.assign (x_target_cpu) = move (tt.cpu);
+      rs.assign (x_target_vendor) = move (tt.vendor);
+      rs.assign (x_target_system) = move (tt.system);
+      rs.assign (x_target_version) = move (tt.version);
+      rs.assign (x_target_class) = move (tt.class_);
 
       // config.x.{p,c,l}options
       // config.x.libs
