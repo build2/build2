@@ -746,12 +746,12 @@ namespace build2
                      target& t, scope& bs, lorder lo,
                      bool for_install) const
     {
-      // Use -rpath-link on targets that support it (Linux, FreeBSD). Note
+      // Use -rpath-link on targets that support it (Linux, *BSD). Note
       // that we don't really need it for top-level libraries.
       //
       if (for_install)
       {
-        if (tclass != "linux" && tclass != "freebsd")
+        if (tclass != "linux" && tclass != "bsd")
           return;
       }
 

@@ -348,7 +348,7 @@ namespace build2
         {
           // On Darwin, Win32 -fPIC is the default.
           //
-          if (tclass == "linux" || tclass == "freebsd")
+          if (tclass == "linux" || tclass == "bsd")
             cs.append ("-fPIC");
         }
 
@@ -742,7 +742,7 @@ namespace build2
         {
           // On Darwin, Win32 -fPIC is the default.
           //
-          if (tclass == "linux" || tclass == "freebsd")
+          if (tclass == "linux" || tclass == "bsd")
             args.push_back ("-fPIC");
         }
 
@@ -1492,7 +1492,7 @@ namespace build2
         {
           // On Darwin, Win32 -fPIC is the default.
           //
-          if (tclass == "linux" || tclass == "freebsd")
+          if (tclass == "linux" || tclass == "bsd")
             args.push_back ("-fPIC");
         }
 

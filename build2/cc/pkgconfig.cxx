@@ -115,7 +115,7 @@ namespace build2
       {
         // Platform-specific locations.
         //
-        if (tclass == "freebsd")
+        if (tsys == "freebsd")
         {
           // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
           //
