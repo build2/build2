@@ -328,11 +328,14 @@ namespace build2
     // respectively. Note that a path that is equal to stem is not considered
     // a pattern.
     //
+    // Note that the default right separator includes digits to handle cases
+    // like clang++37 (FreeBSD).
+    //
     static string
     pattern (const path& xc,
              const char* s,
              const char* ls = "-_.",
-             const char* rs = "-_.")
+             const char* rs = "-_.0123456789")
     {
       string r;
       size_t sn (strlen (s));
