@@ -1606,7 +1606,6 @@ namespace build2
       file& t (static_cast<file&> (xt));
 
       libs_paths paths;
-      initializer_list<initializer_list<const char*>> e {{".d"}}; // Default.
 
       switch (link_type (t))
       {
@@ -1617,16 +1616,14 @@ namespace build2
           if (tclass == "windows")
           {
             if (tsys == "mingw32")
-            {
-              e = {{".d", ".dlls/", ".manifest.o", ".manifest"}};
-            }
+              return clean_extra (
+                a, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
             else
-            {
               // Assuming it's VC or alike. Clean up .ilk in case the user
               // enabled incremental linking (note that .ilk replaces .exe).
               //
-              e = {{".d", ".dlls/", ".manifest", "-.ilk"}};
-            }
+              return clean_extra (
+                a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
           }
 
           break;
@@ -1641,7 +1638,7 @@ namespace build2
             // versioning their bases may not be the same.
             //
             if (tsys != "mingw32")
-              e = {{".d", "-.ilk"}, {"-.exp"}};
+              return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
           }
           else
           {
@@ -1649,18 +1646,17 @@ namespace build2
             // the paths are empty, then they will be ignored.
             //
             paths = derive_libs_paths (t);
-
-            e = {{".d",
-                  paths.link.string ().c_str (),
-                  paths.soname.string ().c_str (),
-                  paths.interm.string ().c_str ()}};
+            return clean_extra (a, t, {".d",
+                                       paths.link.string ().c_str (),
+                                       paths.soname.string ().c_str (),
+                                       paths.interm.string ().c_str ()});
           }
 
           break;
         }
       }
 
-      return clean_extra (a, t, e);
+      return clean_extra (a, t, {".d"});
     }
   }
 }

@@ -1576,14 +1576,10 @@ namespace build2
     {
       file& t (static_cast<file&> (xt));
 
-      initializer_list<const char*> e;
-
       if (cid == "msvc")
-        e = {".d", ".idb", ".pdb"};
+        return clean_extra (a, t, {".d", ".idb", ".pdb"});
       else
-        e = {".d"};
-
-      return clean_extra (a, t, e);
+        return clean_extra (a, t, {".d"});
     }
   }
 }
