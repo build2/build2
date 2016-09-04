@@ -660,9 +660,12 @@ namespace build2
 
         // Normally when we need to remove a file or directory we do it
         // directly without calling rm/rmdir. This however, won't work if we
-        // have sudo. So we are going to do it both ways. Thankfully, no sudo
-        // on Windows.
+        // have sudo. So we are going to do it both ways.
         //
+        // While there is no sudo on Windows, deleting things that are being
+        // used can get complicated. So we will always use rm/rmdir there.
+        //
+#ifndef _WIN32
         if (base.sudo == nullptr)
         {
           if (verb >= 2)
@@ -680,6 +683,7 @@ namespace build2
           }
         }
         else
+#endif
         {
           const char* args[] = {base.sudo->c_str (),
                                 "rmdir",
@@ -758,6 +762,7 @@ namespace build2
 
       // The same story as with uninstall -d.
       //
+#ifndef _WIN32
       if (base.sudo == nullptr)
       {
         if (verb >= 2)
@@ -773,6 +778,7 @@ namespace build2
         }
       }
       else
+#endif
       {
         const char* args[] = {base.sudo->c_str (),
                               "rm",
