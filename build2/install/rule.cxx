@@ -685,10 +685,13 @@ namespace build2
         else
 #endif
         {
-          const char* args[] = {base.sudo->c_str (),
-                                "rmdir",
-                                reld.string ().c_str (),
-                                nullptr};
+          const char* args_a[] = {
+            base.sudo != nullptr ? base.sudo->c_str () : nullptr,
+            "rmdir",
+            reld.string ().c_str (),
+            nullptr};
+
+          const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
           if (verb >= 2)
             print_process (args);
@@ -780,11 +783,14 @@ namespace build2
       else
 #endif
       {
-        const char* args[] = {base.sudo->c_str (),
-                              "rm",
-                              "-f",
-                              relf.string ().c_str (),
-                              nullptr};
+        const char* args_a[] = {
+          base.sudo != nullptr ? base.sudo->c_str () : nullptr,
+          "rm",
+          "-f",
+          relf.string ().c_str (),
+          nullptr};
+
+        const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
         if (verb >= 2)
           print_process (args);
