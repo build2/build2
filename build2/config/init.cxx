@@ -23,7 +23,7 @@ namespace build2
   namespace config
   {
     const string module::name ("config");
-    const uint64_t module::version;
+    const uint64_t module::version (1);
 
     void
     boot (scope& rs, const location& loc, unique_ptr<module_base>&)

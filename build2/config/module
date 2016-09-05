@@ -80,7 +80,7 @@ namespace build2
       config::saved_modules saved_modules;
 
       static const string name; // init.cxx
-      static constexpr const uint64_t version = 1;
+      static const uint64_t version; // init.cxx
     };
   }
 }
