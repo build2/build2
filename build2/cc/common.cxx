@@ -37,6 +37,13 @@ namespace build2
     // either from the target's path or from one of the *.libs variables
     // neither of which should change on this run).
     //
+    // Note that the order of processing is:
+    //
+    // 1. options
+    // 2. lib itself (if self is true)
+    // 3. dependency libs (prerequisite_targets)
+    // 4. dependency libs (*.libs variables).
+    //
     void common::
     process_libraries (
       scope& top_bs,
@@ -55,44 +62,11 @@ namespace build2
                            bool exp)>& proc_opt, // *.export.
       bool self /*= false*/) const               // Call proc_lib on l?
     {
-      // Determine if an absolute path is to a system library. Note that
-      // we assume both paths to be normalized.
-      //
-      auto sys = [] (const dir_paths& sysd, const string& p) -> bool
-      {
-        size_t pn (p.size ());
-
-        for (const dir_path& d: sysd)
-        {
-          const string& ds (d.string ()); // Can be "/", otherwise no slash.
-          size_t dn (ds.size ());
-
-          if (pn > dn &&
-              p.compare (0, dn, ds) == 0 &&
-              (path::traits::is_separator (ds[dn - 1]) ||
-               path::traits::is_separator (p[dn])))
-            return true;
-        }
-
-        return false;
-      };
-
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
       // look into prerequisites.
       //
       const string* t (cast_null<string> (l.vars[c_type]));
-
-      if (self && proc_lib)
-      {
-        const string& p (l.path ().string ());
-
-        bool s (t != nullptr // If cc library (matched or imported).
-                ? cast_false<bool> (l.vars[c_system])
-                : sys (top_sysd, p));
-
-        proc_lib (&l, p, s);
-      }
 
       bool impl (proc_impl && proc_impl (l, la));
       bool cc (false), same (false);
@@ -128,6 +102,85 @@ namespace build2
           else if (l.group != nullptr) // lib{} group.
             x_e_libs = l.group->vars[var];
         }
+
+        // Process options first.
+        //
+        if (proc_opt)
+        {
+          // If all we know is it's a C-common library, then in both cases we
+          // only look for cc.export.*.
+          //
+          if (cc)
+            proc_opt (l, *t, true, true);
+          else
+          {
+            if (impl)
+            {
+              // Interface and implementation: as discussed above, we can have
+              // two situations: overriden export or default export.
+              //
+              if (c_e_libs.defined () || x_e_libs.defined ())
+              {
+                // NOTE: should this not be from l.vars rather than l? Or
+                // perhaps we can assume non-common values will be set on
+                // libs{}/liba{}.
+                //
+                proc_opt (l, *t, true, true);
+                proc_opt (l, *t, false, true);
+              }
+              else
+              {
+                // For default export we use the same options as were used to
+                // build the library.
+                //
+                proc_opt (l, *t, true, false);
+                proc_opt (l, *t, false, false);
+              }
+            }
+            else
+            {
+              // Interface: only add *.export.* (interface dependencies).
+              //
+              proc_opt (l, *t, true, true);
+              proc_opt (l, *t, false, true);
+            }
+          }
+        }
+      }
+
+      // Determine if an absolute path is to a system library. Note that
+      // we assume both paths to be normalized.
+      //
+      auto sys = [] (const dir_paths& sysd, const string& p) -> bool
+      {
+        size_t pn (p.size ());
+
+        for (const dir_path& d: sysd)
+        {
+          const string& ds (d.string ()); // Can be "/", otherwise no slash.
+          size_t dn (ds.size ());
+
+          if (pn > dn &&
+              p.compare (0, dn, ds) == 0 &&
+              (path::traits::is_separator (ds[dn - 1]) ||
+               path::traits::is_separator (p[dn])))
+            return true;
+        }
+
+        return false;
+      };
+
+      // Next process the library itself if requested.
+      //
+      if (self && proc_lib)
+      {
+        const string& p (l.path ().string ());
+
+        bool s (t != nullptr // If cc library (matched or imported).
+                ? cast_false<bool> (l.vars[c_system])
+                : sys (top_sysd, p));
+
+        proc_lib (&l, p, s);
       }
 
       scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
@@ -279,12 +332,13 @@ namespace build2
         }
       };
 
+      // Note: the same structure as when processing options above.
+      //
       // If all we know is it's a C-common library, then in both cases we only
       // look for cc.export.libs.
       //
       if (cc)
       {
-        if (proc_opt) proc_opt (l, *t, true, true);
         if (c_e_libs) proc_int (c_e_libs);
       }
       else
@@ -296,13 +350,7 @@ namespace build2
           //
           if (c_e_libs.defined () || x_e_libs.defined ())
           {
-            // NOTE: should this not be from l.vars rather than l? Or perhaps
-            // we can assume non-common values will be set on libs{}/liba{}.
-            //
-            if (proc_opt) proc_opt (l, *t, true, true);
             if (c_e_libs) proc_int (c_e_libs);
-
-            if (proc_opt) proc_opt (l, *t, false, true);
             if (x_e_libs) proc_int (x_e_libs);
           }
           else
@@ -311,21 +359,18 @@ namespace build2
             // build the library. Since libraries in (non-export) *.libs are
             // not targets, we don't need to recurse.
             //
-            if (proc_opt) proc_opt (l, *t, true, false);
-            if (proc_lib) proc_imp (l[c_libs]);
-
-            if (proc_opt) proc_opt (l, *t, false, false);
-            if (proc_lib) proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
+            if (proc_lib)
+            {
+              proc_imp (l[c_libs]);
+              proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
+            }
           }
         }
         else
         {
           // Interface: only add *.export.* (interface dependencies).
           //
-          if (proc_opt) proc_opt (l, *t, true, true);
           if (c_e_libs) proc_int (c_e_libs);
-
-          if (proc_opt) proc_opt (l, *t, false, true);
           if (x_e_libs) proc_int (x_e_libs);
         }
       }

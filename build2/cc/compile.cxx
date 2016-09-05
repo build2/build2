@@ -334,12 +334,12 @@ namespace build2
         //
         sha256 cs;
 
+        hash_options (cs, t, c_poptions);
+        hash_options (cs, t, x_poptions);
+
         // Hash *.export.poptions from prerequisite libraries.
         //
         hash_lib_options (cs, t, bs, lo);
-
-        hash_options (cs, t, c_poptions);
-        hash_options (cs, t, x_poptions);
 
         // Extra system header dirs (last).
         //
@@ -514,14 +514,14 @@ namespace build2
     {
       prefix_map m;
 
-      // First process the include directories from prerequisite libraries.
-      //
-      append_lib_prefixes (m, t, bs, lo);
-
-      // Then process our own.
+      // First process our own.
       //
       append_prefixes (m, t, c_poptions);
       append_prefixes (m, t, x_poptions);
+
+      // Then process the include directories from prerequisite libraries.
+      //
+      append_lib_prefixes (m, t, bs, lo);
 
       return m;
     }
@@ -1400,12 +1400,12 @@ namespace build2
       path relo (relative (t.path ()));
       path rels (relative (s->path ()));
 
+      append_options (args, t, c_poptions);
+      append_options (args, t, x_poptions);
+
       // Add *.export.poptions from prerequisite libraries.
       //
       append_lib_options (args, t, bs, lo);
-
-      append_options (args, t, c_poptions);
-      append_options (args, t, x_poptions);
 
       // Extra system header dirs (last).
       //
