@@ -340,6 +340,12 @@ namespace build2
 
         hash_options (cs, t, c_poptions);
         hash_options (cs, t, x_poptions);
+
+        // Extra system header dirs (last).
+        //
+        for (const dir_path& d: sys_inc_dirs)
+          cs.append (d.string ());
+
         hash_options (cs, t, c_coptions);
         hash_options (cs, t, x_coptions);
         hash_std (cs);
@@ -730,6 +736,14 @@ namespace build2
 
         append_options (args, t, c_poptions);
         append_options (args, t, x_poptions);
+
+        // Extra system header dirs (last).
+        //
+        for (const dir_path& d: sys_inc_dirs)
+        {
+          args.push_back ("-I");
+          args.push_back (d.string ().c_str ());
+        }
 
         // Some compile options (e.g., -std, -m) affect the preprocessor.
         //
@@ -1392,6 +1406,15 @@ namespace build2
 
       append_options (args, t, c_poptions);
       append_options (args, t, x_poptions);
+
+      // Extra system header dirs (last).
+      //
+      for (const dir_path& d: sys_inc_dirs)
+      {
+        args.push_back ("-I");
+        args.push_back (d.string ().c_str ());
+      }
+
       append_options (args, t, c_coptions);
       append_options (args, t, x_coptions);
 

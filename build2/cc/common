@@ -40,6 +40,7 @@ namespace build2
 
       const variable& x_path;         // Compiler process path.
       const variable& x_sys_lib_dirs; // System library search directories.
+      const variable& x_sys_inc_dirs; // Extra header search directories.
 
       const variable& x_poptions;
       const variable& x_coptions;
@@ -105,6 +106,7 @@ namespace build2
 
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
+      const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
 
       const target_type& x_src;  // Source target type (c{}, cxx{}).
 
@@ -144,6 +146,7 @@ namespace build2
             const string& std,
             const process_path* pkgc,
             const dir_paths& sld,
+            const dir_paths& sid,
             const target_type& src,
             const target_type* const* hdr,
             const target_type* const* inc)
@@ -153,7 +156,8 @@ namespace build2
             x_install (install),
             x_uninstall (uninstall),
             cid (id), ctg (tg), tsys (ts), tclass (tc),
-            tstd (std), pkgconfig (pkgc), sys_lib_dirs (sld),
+            tstd (std),
+            pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),
             x_src (src), x_hdr (hdr), x_inc (inc) {}
     };
 

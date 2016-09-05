@@ -191,14 +191,27 @@ namespace build2
         string cstr (extract ("--cflags", false));
         strings pops;
 
-        bool arg (false);
         string o;
+        char arg ('\0');
         for (size_t b (0), e (0); !(o = next (cstr, b, e)).empty (); )
         {
-          if (arg)
+          // Filter out /usr/local/include since most platforms/compilers
+          // search in there (at the end, as in other system header
+          // directories) by default. And for those that don't (like FreeBSD)
+          // we should just fix it ourselves (see config_module::init ()).
+          //
+          // Failed that /usr/local/include may appear before "more specific"
+          // directories which can lead to the installed headers being picked
+          // up instead.
+          //
+          if (arg != '\0')
           {
-            pops.push_back (move (o));
-            arg = false;
+            if (arg == 'I' && o == "/usr/local/include")
+              pops.pop_back ();
+            else
+              pops.push_back (move (o));
+
+            arg = '\0';
             continue;
           }
 
@@ -210,15 +223,20 @@ namespace build2
               o[0] == '-' &&
               (o[1] == 'I' || o[1] == 'D' || o[1] == 'U'))
           {
-            pops.push_back (move (o));
-            arg = (n == 2);
+            if (!(n > 2 &&
+                  o[1] == 'I' &&
+                  o.compare (2, string::npos, "/usr/local/include") == 0))
+              pops.push_back (move (o));
+
+            if (n == 2)
+              arg = o[1];
             continue;
           }
 
           l4 ([&]{trace << "ignoring " << f << " --cflags option " << o;});
         }
 
-        if (arg)
+        if (arg != '\0')
           fail << "argument expected after " << pops.back () <<
             info << "while parsing pkg-config --cflags output of " << f;
 
@@ -425,7 +443,7 @@ namespace build2
         if (all && known)
           lops.clear ();
 
-        if (lops.empty ())
+        if (!lops.empty ())
         {
           if (cid == "msvc")
           {

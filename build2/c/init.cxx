@@ -135,6 +135,7 @@ namespace build2
 
         v.insert<process_path> ("c.path"),
         v.insert<dir_paths>    ("c.sys_lib_dirs"),
+        v.insert<dir_paths>    ("c.sys_inc_dirs"),
 
         v.insert<strings>      ("c.poptions"),
         v.insert<strings>      ("c.coptions"),
@@ -243,6 +244,7 @@ namespace build2
 
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths>         (rs[cm.x_sys_lib_dirs]),
+        cast<dir_paths>         (rs[cm.x_sys_inc_dirs]),
 
         c::static_type,
         hdr,

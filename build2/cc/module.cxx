@@ -125,18 +125,32 @@ namespace build2
       if (auto l = rs[x_std])
         tstd = translate_std (ci, rs, cast<string> (*l));
 
-      // Extract system library search paths from the compiler.
+      // Extract system library search paths from the compiler and determine
+      // additional system include search paths.
       //
-      dir_paths lib_dirs (ci.id.type == "msvc"
-                          ? msvc_library_search_paths (ci.path, rs)
-                          : gcc_library_search_paths (ci.path, rs));
+      dir_paths lib_dirs;
+      dir_paths inc_dirs;
 
-      // On FreeBSD /usr/local/lib is not one of the default search paths.
-      // Quoting its wiki: "FreeBSD can't even find libraries that it
-      // installed." So let's help it a bit.
-      //
-      if (tt.system == "freebsd")
+      if (ci.id.type == "msvc")
+        lib_dirs = msvc_library_search_paths (ci.path, rs);
+      else
+      {
+        lib_dirs = gcc_library_search_paths (ci.path, rs);
+
+        // Many platforms don't search in /usr/local/lib by default (but do
+        // for headers in /usr/local/include). So add it as the last option.
+        //
         lib_dirs.push_back (dir_path ("/usr/local/lib"));
+
+        // FreeBSD is at least consistent: it searches in neither. Quoting its
+        // wiki: "FreeBSD can't even find libraries that it installed." So
+        // let's help it a bit. Note that we don't add it for all the
+        // platforms for good measure because this will actually appear as
+        // usually unnecessary noise on the command line.
+        //
+        if (tt.system == "freebsd")
+          inc_dirs.push_back (dir_path ("/usr/local/include"));
+      }
 
       // If this is a new value (e.g., we are configuring), then print the
       // report at verbosity level 2 and up (-v).
@@ -180,6 +194,13 @@ namespace build2
           dr << "  pattern    " << ci.cc_pattern << '\n';
         }
 
+        if (verb >= 3 && !inc_dirs.empty ())
+        {
+          dr << "  inc dirs\n";
+          for (const dir_path& d: inc_dirs)
+            dr << "    " << d << '\n';
+        }
+
         if (verb >= 3 && !lib_dirs.empty ())
         {
           dr << "  lib dirs\n";
@@ -194,6 +215,7 @@ namespace build2
 
       rs.assign (x_path) = move (ci.path);
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
+      rs.assign (x_sys_inc_dirs) = move (inc_dirs);
 
       rs.assign (x_id) = ci.id.string ();
       rs.assign (x_id_type) = move (ci.id.type);
