@@ -9,7 +9,8 @@ changes-file: NEWS
 url: https://build2.org
 email: users@build2.org
 requires: c++14
-requires: build2 >= 0.4.0
+depends: * build2 >= 0.4.0-a1
+depends: * bpkg >= 0.4.0-a1
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
 depends: libbutl == 0.4.0-a1
