@@ -5,9 +5,9 @@
 project = build2
 subprojects = # No subprojects.
 
-using build@0.4.0-a1
+using build@0.4.0
 
-version = 0.4.0-a1
+version = 0.4.0
 revision = 0
 
 dist.package = $project-$version
