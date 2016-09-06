@@ -488,16 +488,18 @@ namespace build2
           {
             if (j->second != d)
             {
-              // We used to reject duplicates but it seems this can
-              // be reasonably expected to work according to the order
-              // of the -I options.
+              // We used to reject duplicates but it seems this can be
+              // reasonably expected to work according to the order of the -I
+              // options.
+              //
+              // Seeing that we normally have more "specific" -I paths first,
+              // (so that we don't pick up installed headers, etc), we ignore
+              // it.
               //
               if (verb >= 4)
-                trace << "overriding dependency prefix '" << p << "'\n"
-                      << "  old mapping to " << j->second << "\n"
-                      << "  new mapping to " << d;
-
-              j->second = d;
+                trace << "ignoring dependency prefix '" << p << "'\n"
+                      << "  existing mapping to " << j->second << "\n"
+                      << "  another mapping to  " << d;
             }
           }
           else
