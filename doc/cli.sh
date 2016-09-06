@@ -72,3 +72,7 @@ ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true build2-build-system
 
 html2ps -f doc.html2ps:letter.html2ps -o build2-build-system-manual-letter.ps build2-build-system-manual.xhtml
 ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true build2-build-system-manual-letter.ps build2-build-system-manual-letter.pdf
+
+# Generate INSTALL in ../
+#
+cli --generate-txt -o .. --txt-suffix "" ../INSTALL.cli
