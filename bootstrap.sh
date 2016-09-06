@@ -44,7 +44,7 @@ while test $# -ne 0; do
 	diag "error: libbutl directory '$1' does not exist"
 	exit 1
       fi
-      libbutl="$1"
+      libbutl="${1%/}"
       shift
       ;;
     --host)
@@ -92,6 +92,7 @@ if test -z "$libbutl"; then
     libbutl="libbutl"
   else
     libbutl="$(echo libbutl-*/)"
+    libbutl="${libbutl%/}"
     if test ! -d "$libbutl"; then
       libbutl=
     fi
@@ -103,6 +104,7 @@ if test -z "$libbutl"; then
     libbutl="../libbutl"
   else
     libbutl="$(echo ../libbutl-*/)"
+    libbutl="${libbutl%/}"
     if test ! -d "$libbutl"; then
       libbutl=
     fi
@@ -128,4 +130,4 @@ src="$src build2/pkgconfig/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
 set -x
-"$cxx" -I"$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src
+"$cxx" "-I$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src
