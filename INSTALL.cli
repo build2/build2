@@ -3,118 +3,101 @@
 // license   : MIT; see accompanying LICENSE file
 
 "
-Note: unless you specifically only need the \c{build2} build system and not the
+Unless you specifically only need the \c{build2} build system and not the
 complete \c{build2} toolchain, you should use the \c{build2-toolchain}
 distribution instead.
 
-\c{build2} requires a C++11 compiler with limited C++14 support. GCC 4.8 or
-later and Clang 3.4 or later are known to work.
+The instructions outlined below are essentially a summary of the first three
+steps of the manual bootstrap process described in \c{build2-toolchain}. Also,
+below we only show commands for UNIX-like operating systems. For other
+operating systems and for more details on each step, refer to the
+\c{build2-toolchain} documentation.
 
-\c{build2} is self-hosted, which means that unless you have obtained a
-pre-built binary from somewhere else, you will need to bootstrap it. To
-accomplish this, use the '\c{bootstrap.sh}' shell script found in the root
-directory of the \c{build2} distribution. The following is the recommended
-sequence of steps:
+\c{build2} requires a C++14 compiler. GCC 4.8 or later and Clang 3.4 or later
+are known to work. The build system is self-hosted, which means that unless
+you have obtained a pre-built binary from somewhere else, you will need to
+bootstrap it. To accomplish this, we use the \c{bootstrap.sh} shell script (or
+equivalent batch files for Windows) found in the root directory of the
+\c{build2} distribution. The following is the recommended sequence of steps:
+
 
 \dl|
 
-\li|1. Prerequisites\n
+\li|0. Prerequisites\n
 
-Get \c{libbutl} and place it next to \c{build2}, so that you have:
+Get \c{libbutl} (normally from the same place where you got \c{build2}) and
+place it \i{inside} \c{build2}, so that you have:
 
 \
-libbutl/ (or libbutl-X.Y.Z/)
-build2/  (or build2-X.Y.Z/)
+build2-X.Y.Z
+|
+`-- libbutl-X.Y.Z
 \
 
 |
 
-\li|\n2. Bootstrapping\n
+\li|\n1. Bootstrap, Phase 1\n
 
-Change to the \c{build2/} directory and execute \c{bootstrap.sh} specifying
-the C++ compiler to be used, if necessary (default is \c{g++}; run
-\c{./bootstrap.sh --help} for other options). For example:
-
-\
-$ cd build2/
-$ ./bootstrap.sh --cxx clang++-3.5
-\
-
-Once the script completes successfully (which may take some time), the
-\c{build2} binary is saved as \c{build2/b-boot}:
+First, we build a minimal build system using \c{bootstrap.sh} (run
+\c{bootstrap.sh -h} for options):
 
 \
+$ cd build2-X.Y.Z
+$ ./bootstrap.sh g++
+
 $ build2/b-boot --version
 \
 
 |
 
-\li|\n3. Rebuilding\n
+\li|\n2. Bootstrap, Phase 2\n
 
-Next, build \c{libbutl} and the \c{build2} binary using the bootstrapped
-binary from step 2:
-
-\
-$ build2/b-boot 'configure(../libbutl/)'
-$ build2/b-boot config.import.libbutl=../libbutl configure update
-\
-
-Again, if necessary, you can also specify the C++ compiler:
+Then, we rebuild the build system with the result of Phase 1 linking
+libraries statically.
 
 \
-$ build2/b-boot config.cxx=clang++-3.5 ...
-\
+$ build2/b-boot config.cxx=g++ config.bin.lib=static
+$ mv build2/b build2/b-boot
 
-The resulting \c{build2} binary is saved as \c{build2/b}:
-
-$ build2/b --version
-
-|
-
-\li|\n4. Verification\n
-
-This step is optional and involves re-building \c{libbutl} and \c{build2}
-yet again using the binary built on step 3 and verifying that the two builds
-are identical.
-
-@@ This is currently broken since the resulting binary contains full object
-file paths. So we would need to build in exactly the same place as the
-original, but that would make the binary from step 2 unusable. It seems the
-only way to make it work is via installation/staging.
-
-To perform this step, first unpack new copies of \c{libbutl} and \c{build2}
-into a different directory, for example, a \c{verify/} sub-directory. Then
-complete step 2 for these new copies but using \c{build2/b} binary from step
-3 rather than \c{build2/b-boot} from step 2. Also, use the \c{libbutl} from
-step 2 in the \c{config.import.libbutl} value (otherwise rpath differences
-will result in different \c{build2} binaries). For example:
-
-\
-$ cd verify/build2
-$ ../../build2/build2/b '{configure update}(../libbutl-X.Y.Z/)'
-$ ../../build2/build2/b config.import.libbutl=../../libbutl-X.Y.Z \
-configure update
-\
-
-Once this is done, compare the \c{libbutl} libraries and \c{build2} binaries,
-for example:
-
-\
-$ cd ../..
-$ diff libbutl/butl/libbutl.so verify/libbutl/butl/libbutl.so
-$ diff build2/build2/b verify/build2/build2/b
+$ build2/b-boot --version
 \
 
 |
 
-\li|\n5. Installation\n
+\li|\n3. Build and Install\n
+
+Finally, we configure, build, and optionally install the \"final\" version
+using shared libraries:
 
 \
-$ build2/b config.install.root=/usr/local config.install.root.sudo=sudo \
-'install(../libbutl-X.Y.Z/ ./)'
+$ build2/b-boot configure         \
+  config.cxx=g++                  \
+  config.cc.coptions=-O3          \
+  config.bin.rpath=/usr/local/lib \
+  config.install.root=/usr/local  \
+  config.install.sudo=sudo
+
+$ build2/b-boot
 \
 
-Note: you may want to add the \c{config.bin.rpath} configuration variable
-if your installation location is not searched automatically for shared
-libraries. See the \c{INSTALL} file in \c{build2-toolchain} for details.||
+I you are not planning to install the result you can omit the
+\c{config.install.*} values as well as \c{.rpath}.
+
+
+To install:
+
+\
+$ build2/b-boot install
+$ which b
+$ b --version
+\
+
+To uninstall:
+
+\
+$ b uninstall
+$ which b
+\
+
+||
 "
