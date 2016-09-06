@@ -400,7 +400,13 @@ namespace build2
       bool src (false);
       if (!((out && is_out_root (sd)) || (src = is_src_root (sd))))
       {
-        find_subprojects (sps, sd, root, out);
+        // We used to scan for subproject recursively but this is probably too
+        // loose (think of some tests laying around). In the future we should
+        // probably allow specifying something like extra/* or extra/** in
+        // subprojects.
+        //
+        //find_subprojects (sps, sd, root, out);
+        //
         continue;
       }
 

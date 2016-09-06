@@ -3,7 +3,6 @@
 # license   : MIT; see accompanying LICENSE file
 
 project = build2
-subprojects = # No subprojects.
 
 using build@0.4.0
 
