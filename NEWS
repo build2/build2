@@ -1,3 +1,220 @@
+Version 0.4.0
+
+  * Support for Windows.
+
+    The toolchain can now be built and used on Windows with either MSVC or
+    MinGW GCC.
+
+    With VC, the toolchain can be built with version 14 Update 2 or later and
+    used with any version from 13. /MD and, for C++, /EHsc are default but are
+    overridden if an explicit value is specified in the coptions variable.
+
+  * Support for C compilation.
+
+    There is now the 'c' module in addition to 'cxx' as well as 'cc', which
+    stands for C-common. Mixed source (C and C++) building is also supported.
+
+  * Integration with pkg-config.
+
+    Note that build2 doesn't use pkg-config to actually locate the libraries
+    (because this functionality of pkg-config is broken when it comes to
+    cross-compilation). Rather, it searches for the library (in the
+    directories extracted from the compiler) itself and then looks for the
+    corresponding .pc file (normally in the pkgconfig/ subdirectory of where
+    it found the library). It then calls pkg-config to extract any additional
+    options that might be needed to use the library from this specific .pc
+    file.
+
+  * Initial support for library versioning.
+
+    Currently, only platform-independent versions are supported. They get
+    appended to the library name/soname. For example:
+
+    lib{foo}: bin.lib.version = @-1.2
+
+    This will produce libfoo-1.2.so, libfoo-1.2.dll, etc.
+
+    In the future the plan is to support platform-specific versions, for
+    example:
+
+    lib{foo}: bin.lib.version = linux@1.2.3 freebsd@1.2 windows@1.2
+
+  * Library dependency export support.
+
+    In build2 a library dependency on another library is either an "interface"
+    or "implementation". If it is an interface, then everyone who links this
+    library should also link the interface dependency, explicitly. A good
+    example of an interface dependency is a library API that is called in an
+    inline function.
+
+    Interface dependencies of a library should be explicitly listed in the
+    *.export.libs variable (where we can now list target names). The typical
+    usage will be along these lines:
+
+    import int_libs  = libformat%lib{format}
+    import int_libs += ...
+
+    import imp_libs  = libprint%lib{print}
+    import imp_libs += ...
+
+    lib{hello}: ... $imp_libs $int_libs
+
+    lib{hello}: cxx.export.libs = $int_libs
+
+    There is support for symbol exporting on Windows and build2 now also does
+    all the right things when linking static vs shared libraries with regards
+    to which library dependencies to link, which -rpath/-rpath-link options to
+    pass, etc.
+
+  * Support for the uninstall operation in addition to install.
+
+  * Support for preserving subdirectories when installing.
+
+    This is useful, for example, when installing headers:
+
+    install.include = $install.include/foo/
+    install.include.subdirs = true
+
+    The base for calculating the subdirectories is the scope where the subdirs
+    value is set.
+
+  * Support for installing as a different file name.
+
+    Now the install variable is a path, not dir_path. If it is a directory
+    (ends with a trailing slash), then the target is installed into this
+    directory with the same name. Otherwise, the entire path is used as the
+    installation destination.
+
+  * Support for config.bin.{,lib,exe}.{prefix,suffix}.
+
+    This replaces the bin.libprefix functionality.
+
+  * Support for global config.install.{cmd,options,sudo,mode,dir_mode}.
+
+    This way we can do:
+
+    b install \
+      config.install.data_root=/opt/data \
+      config.install.exec_root=/opt/exec \
+      config.install.sudo=sudo
+
+  * The new -V option is an alias for --verbose 3 (show all commands).
+
+  * Support for specifying directories in config.dist.archives.
+
+    For example, this command will create /tmp/foo-X.Y.Z.tar.xz:
+
+    b foo/ config.dist.archives=/tmp/tar.xz
+
+  * The cxx (and c) module is now project root-only.
+
+    This means these modules can only be loaded in the project root scope
+    (normally root.build). Also, the c.std and cxx.std values must now be set
+    before loading the module to take effect.
+
+  * The test, dist, install, and extension variables now have target
+    visibility to prevent accidental "reuse" for other purposes.
+
+  * An empty config.import.* value is now treated as an instruction to skip
+    subproject search. Also, explicit config.import.* values now take
+    precedence over the subproject search.
+
+  * Search for subprojects is no longer recursive. In the future the plan is
+    to allow specifying wildcard paths (* and **) in the subprojects variable.
+
+  * Support out-qualified target syntax for setting target-specific variables
+    on targets from src_base. For example:
+
+    doc{INSTALL}@./: install = false
+
+  * Only "effective escaping" (['"\$(]) is now performed for values on the
+    command line. This makes for a more usable interface on Windows provided
+    we use "sane" paths (no spaces, no (), etc).
+
+  * The default variable override scope has been changed from "projects and
+    subprojects" to "amalgamation".
+
+    The "projects and subprojects" semantics resulted in counter-intuitive
+    behavior. For example, in a project with tests/ as a subproject if one
+    builds one of the tests directly with a non-global override (say C++
+    compiler), then the main project would be built without the overrides. In
+    this light, overriding in the whole amalgamation seems like the right
+    thing to do. The old behavior can still be obtained with explicit scope
+    qualification, for example:
+
+    b ./:foo=bar
+
+  * The config.build format has been made more readable. Specifically, the
+    order is now from the higher-level modules (e.g., c, cxx) to the
+    lower-level (e.g., binutils) with imports coming first. The file now also
+    includes an explicit version for incompatibility detected/migration in
+    the future.
+
+  * Support for <, >, <=, >= in the eval context.
+
+    Now we can write:
+
+    if ($build.version >= 40000)
+
+  * Support for single line if-blocks.
+
+    Now we can write:
+
+    if true
+      print true
+    else
+      print false
+
+    Instead of having to do:
+
+    if true
+    {
+      print true
+    }
+    else
+    {
+      print false
+    }
+
+  * Support for prepend/append in target type/pattern-specific variables.
+
+    Semantically, these are similar to variable overrides and are essentially
+    treated as "templates" that are applied on lookup to the "stem" value that
+    is specific to the target type/name. For example:
+
+    x = [string] a
+    file{f*}: x =+ b
+
+    sub/:
+    {
+      file{*}: x += c
+
+      print $(file{foo}:x)  # abc
+      print $(file{bar}:x)  # ac
+    }
+
+  * The obj*{} target type to exe/lib mapping has been redesigned.
+
+    Specifically:
+
+    - objso{} and libso{} target types have been renamed to objs{} and libs{}
+
+    - obje{} has been added (so now we have obje{}, obja{}, and objs{})
+
+    - obje{} is now used for building exe{}
+
+    - object file extensions now use "hierarchical extensions" that reflect
+      the extension of the corresponding exe/lib target (instead of the -so
+      suffix we used), specifically:
+
+      obje{}: foo.o, (UNIX), foo.exe.o (MinGW), foo.exe.obj (MSVC)
+      obja{}: foo.a.o (UNIX, MinGW), foo.lib.obj (MSVC)
+      objs{}: foo.so.o (UNIX), foo.dylib.o (Darwin), foo.dll.o (MinGW),
+              foo.dll.obj (MSVC)
+
+    We now also have libi{} which is the Windows DLL import library. When
+    used, it is the first ad hoc group member of libs{}.
+
 Version 0.3.0
 
   * Support for High Fidelity Builds (HFB).
