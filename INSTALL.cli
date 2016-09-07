@@ -23,7 +23,7 @@ equivalent batch files for Windows) found in the root directory of the
 
 \dl|
 
-\li|0. Prerequisites\n
+\li|\b{0. Prerequisites}\n
 
 Get \c{libbutl} (normally from the same place where you got \c{build2}) and
 place it \i{inside} \c{build2}, so that you have:
@@ -36,7 +36,7 @@ build2-X.Y.Z
 
 |
 
-\li|\n1. Bootstrap, Phase 1\n
+\li|\n\b{1. Bootstrap, Phase 1}\n
 
 First, we build a minimal build system using \c{bootstrap.sh} (run
 \c{bootstrap.sh -h} for options):
@@ -50,7 +50,7 @@ $ build2/b-boot --version
 
 |
 
-\li|\n2. Bootstrap, Phase 2\n
+\li|\n\b{2. Bootstrap, Phase 2}\n
 
 Then, we rebuild the build system with the result of Phase 1 linking
 libraries statically.
@@ -64,7 +64,7 @@ $ build2/b-boot --version
 
 |
 
-\li|\n3. Build and Install\n
+\li|\n\b{3. Build and Install}\n
 
 Finally, we configure, build, and optionally install the \"final\" version
 using shared libraries:
