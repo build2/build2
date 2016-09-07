@@ -6,8 +6,8 @@ Version 0.4.0
     MinGW GCC.
 
     With VC, the toolchain can be built with version 14 Update 2 or later and
-    used with any version from 13. /MD and, for C++, /EHsc are default but are
-    overridden if an explicit value is specified in the coptions variable.
+    used with any version from 7.1. /MD and, for C++, /EHsc are default but
+    are overridden if an explicit value is specified in the coptions variable.
 
   * Support for C compilation.
 
@@ -43,9 +43,9 @@ Version 0.4.0
 
     In build2 a library dependency on another library is either an "interface"
     or "implementation". If it is an interface, then everyone who links this
-    library should also link the interface dependency, explicitly. A good
-    example of an interface dependency is a library API that is called in an
-    inline function.
+    library should also be linking the interface dependency. A good example of
+    an interface dependency is a library API that is called in an inline
+    function.
 
     Interface dependencies of a library should be explicitly listed in the
     *.export.libs variable (where we can now list target names). The typical
