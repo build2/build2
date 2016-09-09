@@ -307,6 +307,10 @@ namespace build2
         if (const dir_path* dn =
             lookup_install<dir_path> (t.base_scope (), var))
         {
+          if (dn->empty ())
+            fail << "empty installation directory for name " << sn <<
+              info << "did you specified empty config." << var << "?";
+
           rs = resolve (t, *dn, &var);
           d = rs.back ().dir / dir_path (++d.begin (), d.end ());
           rs.emplace_back (move (d.normalize ()), rs.back ());
