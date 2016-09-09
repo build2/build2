@@ -341,7 +341,7 @@ namespace build2
         auto p (extract_variable (f, "src_root"));
 
         if (!p.second)
-          error << "variable 'src_root' expected as first line in " << f;
+          fail << "variable 'src_root' expected as first line in " << f;
 
         src_root_v = move (p.first);
         src_root = &cast<dir_path> (src_root_v);
@@ -356,7 +356,7 @@ namespace build2
       auto p (extract_variable (f, "project"));
 
       if (!p.second)
-        error << "variable 'project' expected as first line in " << f;
+        fail << "variable 'project' expected as first line in " << f;
 
       name = cast<string> (move (p.first));
     }
