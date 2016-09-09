@@ -8,7 +8,7 @@
 #include <build2/rule>
 #include <build2/scope>
 #include <build2/context>
-#include <build2/filesystem> // file_exists()
+#include <build2/filesystem>  // exists()
 #include <build2/diagnostics>
 
 #include <build2/config/module>
@@ -55,7 +55,7 @@ namespace build2
       {
         path f (out_root / config_file);
 
-        if (file_exists (f))
+        if (exists (f))
         {
           // Check the config version. We assume that old versions cannot
           // understand new configs and new versions are incompatible with old

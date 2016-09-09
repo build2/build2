@@ -84,7 +84,7 @@ namespace build2
 
       const dir_path& dist_root (cast<dir_path> (l));
 
-      if (!dir_exists (dist_root))
+      if (!exists (dist_root))
         fail << "root distribution directory " << dist_root
              << " does not exist";
 
@@ -146,7 +146,7 @@ namespace build2
       auto add_adhoc = [&trace] (scope& rs, const path& f)
       {
         path p (rs.src_path () / f);
-        if (file_exists (p))
+        if (exists (p))
         {
           dir_path d (p.directory ());
 
@@ -282,7 +282,7 @@ namespace build2
           ? t.dir.leaf (src_root)
           : t.dir.leaf (out_root);
 
-        if (!dir_exists (d))
+        if (!exists (d))
           install (dist_cmd, d);
 
         install (dist_cmd, t, d);
@@ -413,7 +413,7 @@ namespace build2
       // Delete old archive for good measure.
       //
       path ap (dir / path (a));
-      if (file_exists (ap, false))
+      if (exists (ap, false))
         rmfile (ap);
 
       // Use zip for .zip archives. Everything else goes to tar in the

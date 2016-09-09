@@ -4,6 +4,8 @@
 
 #include <build2/install/rule>
 
+#include <butl/filesystem> // dir_exists(), file_exists()
+
 #include <build2/scope>
 #include <build2/target>
 #include <build2/algorithm>

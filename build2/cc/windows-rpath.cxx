@@ -157,14 +157,14 @@ namespace build2
             pdb = f;
             pdb += ".pdb";
 
-            if (!file_exists (pdb.c_str ()))
+            if (!exists (path (pdb)))
             {
               // Then try the usual naming: foo.pdb.
               //
               pdb.assign (f, 0, p);
               pdb += ".pdb";
 
-              if (!file_exists (pdb.c_str ()))
+              if (!exists (path (pdb)))
                 pdb.clear ();
             }
 

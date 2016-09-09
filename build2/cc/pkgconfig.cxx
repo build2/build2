@@ -63,7 +63,7 @@ namespace build2
         //
         dir_path pkgd (dir_path (libd) /= dir);
 
-        if (!dir_exists (pkgd))
+        if (!exists (pkgd))
           return false;
 
         // See if there is a corresponding .pc file. About half of them called
@@ -82,7 +82,7 @@ namespace build2
         f /= stem;
         f += ".pc";
 
-        if (file_exists (f))
+        if (exists (f))
           return true;
 
         f = pkgd;
@@ -90,7 +90,7 @@ namespace build2
         f += stem;
         f += ".pc";
 
-        if (file_exists (f))
+        if (exists (f))
           return true;
 
         if (proj != nullptr)
@@ -99,7 +99,7 @@ namespace build2
           f /= *proj;
           f += ".pc";
 
-          if (file_exists (f))
+          if (exists (f))
             return true;
         }
 

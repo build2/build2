@@ -6,10 +6,9 @@
 
 #include <iostream> // cin
 
-#include <butl/filesystem> // file_exists()
-
 #include <build2/scope>
 #include <build2/context>
+#include <build2/filesystem>   // exists()
 #include <build2/prerequisite>
 #include <build2/diagnostics>
 
@@ -43,13 +42,13 @@ namespace build2
   {
     // @@ Can we have root without bootstrap? I don't think so.
     //
-    return file_exists (d / bootstrap_file) || file_exists (d / root_file);
+    return exists (d / bootstrap_file) || exists (d / root_file);
   }
 
   bool
   is_out_root (const dir_path& d)
   {
-    return file_exists (d / src_root_file);
+    return exists (d / src_root_file);
   }
 
   dir_path
@@ -257,7 +256,7 @@ namespace build2
   {
     path bf (root.out_path () / src_root_file);
 
-    if (!file_exists (bf))
+    if (!exists (bf))
       return;
 
     //@@ TODO: if bootstrap files can source other bootstrap files
@@ -335,7 +334,7 @@ namespace build2
     {
       path f (out_root / src_root_file);
 
-      if (!fallback_src_root.empty () && !file_exists (f))
+      if (!fallback_src_root.empty () && !exists (f))
         src_root = &fallback_src_root;
       else
       {
@@ -462,7 +461,7 @@ namespace build2
 
     path bf (src_root / bootstrap_file);
 
-    if (file_exists (bf))
+    if (exists (bf))
     {
       // We assume that bootstrap out cannot load this file explicitly. It
       // feels wrong to allow this since that makes the whole bootstrap
@@ -575,7 +574,7 @@ namespace build2
         //
         subprojects sps;
 
-        if (dir_exists (out_root))
+        if (exists (out_root))
         {
           l5 ([&]{trace << "looking for subprojects in " << out_root;});
           find_subprojects (sps, out_root, out_root, true);
@@ -814,7 +813,7 @@ namespace build2
     //
     path bf (root.src_path () / root_file);
 
-    if (file_exists (bf))
+    if (exists (bf))
       source_once (bf, root, root);
   }
 

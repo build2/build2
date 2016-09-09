@@ -208,7 +208,7 @@ namespace build2
     // going to get better performance by first checking if it indeed
     // exists. See try_mkdir() for details.
     //
-    if (!dir_exists (d))
+    if (!exists (d))
     {
       if (verb >= 2)
         text << "mkdir " << d;

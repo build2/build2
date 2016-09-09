@@ -99,7 +99,7 @@ namespace build2
       //
       path mf (t.path () + ".manifest");
 
-      if (file_exists (mf))
+      if (exists (mf))
       {
         try
         {

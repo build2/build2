@@ -437,7 +437,7 @@ main (int argc, char* argv[])
             // if it doesn't, the diagnostics could be confusing (e.g.,
             // unknown operation because we don't load bootstrap.build).
             //
-            if (!dir_exists (src_base))
+            if (!exists (src_base))
               fail << "src_base directory " << src_base << " does not exist";
 
             if (src_base.relative ())
@@ -841,7 +841,7 @@ main (int argc, char* argv[])
           // If we were guessing src_base, check that the buildfile
           // exists and if not, issue more detailed diagnostics.
           //
-          if (guessing && bf.string () != "-" && !file_exists (bf))
+          if (guessing && bf.string () != "-" && !exists (bf))
             fail << bf << " does not exist"
                  << info << "consider explicitly specifying src_base "
                  << "for " << tn;

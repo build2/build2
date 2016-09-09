@@ -82,6 +82,15 @@ namespace build2
   //
   fs_status<rmdir_status>
   rmdir_r (const dir_path&, bool dir = true, uint16_t verbosity = 1);
+
+  // Check for a file or directory existence. Print the diagnostics and fail on
+  // system error.
+  //
+  bool
+  exists (const path&, bool follow_symlinks = true);
+
+  bool
+  exists (const dir_path&);
 }
 
 #include <build2/filesystem.txx>

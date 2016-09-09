@@ -9,6 +9,7 @@
 #include <iostream> // cerr
 
 #include <butl/path-map>
+#include <butl/filesystem> // file_exists()
 
 #include <build2/depdb>
 #include <build2/scope>

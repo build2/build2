@@ -79,7 +79,7 @@ namespace build2
     if (work.sub (d)) // Don't try to remove working directory.
       return rmdir_status::not_empty;
 
-    if (!dir_exists (d))
+    if (!exists (d))
       return rmdir_status::not_exist;
 
     if (verb >= v)
@@ -95,5 +95,33 @@ namespace build2
     }
 
     return rmdir_status::success;
+  }
+
+  bool
+  exists (const path& f, bool fs)
+  {
+    try
+    {
+      return file_exists (f, fs);
+    }
+    catch (const system_error& e)
+    {
+      error << "unable to stat path " << f << ": " << e.what ();
+      throw failed ();
+    }
+  }
+
+  bool
+  exists (const dir_path& d)
+  {
+    try
+    {
+      return dir_exists (d);
+    }
+    catch (const system_error& e)
+    {
+      error << "unable to stat path " << d << ": " << e.what ();
+      throw failed ();
+    }
   }
 }
