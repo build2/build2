@@ -80,7 +80,7 @@ namespace build2
           if (!pr.wait ())
             throw failed ();
         }
-        catch (const ifdstream::failure&)
+        catch (const io_error&)
         {
           pr.wait ();
           fail << "error reading " << x_lang << " compiler -print-search-dirs "

@@ -369,7 +369,7 @@ namespace build2
 
         ofs.close ();
       }
-      catch (const ofdstream::failure& e)
+      catch (const io_error& e)
       {
         fail << "unable to write to " << am << ": " << e.what ();
       }

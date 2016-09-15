@@ -1201,7 +1201,7 @@ namespace build2
                   if (is.eof ()) // Trailing newline.
                     break;
 
-                  throw ifdstream::failure ("");
+                  throw io_error ("");
                 }
 
                 l6 ([&]{trace << "header dependency line '" << l << "'";});
@@ -1349,7 +1349,7 @@ namespace build2
                 fail << "expected error exist status from " << x_lang
                      << " compiler";
             }
-            catch (const ifdstream::failure&)
+            catch (const io_error&)
             {
               pr.wait ();
               fail << "unable to read " << x_lang << " compiler header "
@@ -1567,7 +1567,7 @@ namespace build2
 
             is.close ();
           }
-          catch (const ifdstream::failure&) {} // Assume exits with error.
+          catch (const io_error&) {} // Assume exits with error.
         }
 
         if (!pr.wait ())

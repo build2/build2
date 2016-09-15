@@ -17,7 +17,7 @@
 #include <functional>       // function, reference_wrapper
 #include <initializer_list>
 
-
+#include <ios>           // ios_base::failure
 #include <exception>     // exception
 #include <stdexcept>     // logic_error, invalid_argument, runtime_error
 #include <system_error>
@@ -70,6 +70,7 @@ namespace build2
   using std::invalid_argument;
   using std::runtime_error;
   using std::system_error;
+  using io_error = std::ios_base::failure;
 
   // <butl/optional>
   //

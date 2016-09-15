@@ -122,7 +122,7 @@ namespace build2
 
               // Presumably issued diagnostics. Fall through.
             }
-            catch (const ifdstream::failure&)
+            catch (const io_error&)
             {
               pr.wait ();
 

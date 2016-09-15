@@ -192,7 +192,7 @@ namespace build2
           }
         }
       }
-      catch (const ifdstream::failure&)
+      catch (const io_error&)
       {
         // Presumably the child process failed. Let run_finish() deal with
         // that.

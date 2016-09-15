@@ -104,7 +104,7 @@ namespace build2
       parser p (boot);
       p.parse_buildfile (is, bf, root, base);
     }
-    catch (const ifdstream::failure& e)
+    catch (const io_error& e)
     {
       fail << "unable to read buildfile " << bf << ": " << e.what ();
     }
@@ -303,7 +303,7 @@ namespace build2
       //
       return make_pair (move (*v), true);
     }
-    catch (const ifdstream::failure& e)
+    catch (const io_error& e)
     {
       error << "unable to read buildfile " << bf << ": " << e.what ();
       throw failed ();
@@ -1027,7 +1027,7 @@ namespace build2
       parser p;
       return p.parse_export_stub (ifs, es, iroot, ts);
     }
-    catch (const ifdstream::failure& e)
+    catch (const io_error& e)
     {
       fail (loc) << "unable to read buildfile " << es << ": " << e.what ();
     }

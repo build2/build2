@@ -110,7 +110,7 @@ namespace build2
           if (s == m)
             return mf;
         }
-        catch (const ifdstream::failure&)
+        catch (const io_error&)
         {
           // Whatever the reason we failed for , let's rewrite the file.
         }
@@ -125,7 +125,7 @@ namespace build2
         ofs << m;
         ofs.close ();
       }
-      catch (const ofdstream::failure& e)
+      catch (const io_error& e)
       {
         fail << "unable to write to " << m << ": " << e.what ();
       }

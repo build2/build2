@@ -161,7 +161,7 @@ lex (const char* s)
   {
     r.push_back ("<lexer error>");
   }
-  catch (const std::ios_base::failure&)
+  catch (const io_error&)
   {
     r.push_back ("<io error>");
   }

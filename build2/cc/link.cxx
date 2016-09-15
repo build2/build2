@@ -974,7 +974,7 @@ namespace build2
                 if (!pr.wait ())
                   throw failed (); // Assume diagnostics issued.
               }
-              catch (const ofdstream::failure& e)
+              catch (const io_error& e)
               {
                 if (pr.wait ()) // Ignore if child failed.
                   fail << "unable to pipe resource file to " << args[0]
@@ -1489,7 +1489,7 @@ namespace build2
 
             is.close ();
           }
-          catch (const ifdstream::failure&) {} // Assume exits with error.
+          catch (const io_error&) {} // Assume exits with error.
         }
 
         if (!pr.wait ())

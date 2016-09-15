@@ -13,7 +13,7 @@
 
 namespace build2
 {
-  // Auxiliary dependency database (those .d files). Uses iostream failure and
+  // Auxiliary dependency database (those .d files). Uses io_error and
   // system_error exceptions to signal errors.
   //
   // This is a strange beast: a line-oriented, streaming database that can, at

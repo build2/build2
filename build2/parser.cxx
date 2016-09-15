@@ -4,7 +4,7 @@
 
 #include <build2/parser>
 
-#include <iostream>
+#include <iostream> // cout
 
 #include <build2/version>
 
@@ -821,7 +821,7 @@ namespace build2
         lexer_ = ol;
         path_ = op;
       }
-      catch (const ifdstream::failure& e)
+      catch (const io_error& e)
       {
         fail (l) << "unable to read buildfile " << p << ": " << e.what ();
       }
@@ -957,7 +957,7 @@ namespace build2
         lexer_ = ol;
         path_ = op;
       }
-      catch (const ifdstream::failure& e)
+      catch (const io_error& e)
       {
         fail (l) << "unable to read buildfile " << p << ": " << e.what ();
       }

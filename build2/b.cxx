@@ -9,7 +9,7 @@
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
 #include <typeinfo>
-#include <iostream>
+#include <iostream>    // cout
 
 #include <butl/pager>
 
@@ -195,8 +195,8 @@ main (int argc, char* argv[])
         //
         return p.wait () ? 0 : 1;
       }
-      // Catch ios_base::failure as std::system_error together with the
-      // pager-specific exceptions.
+      // Catch io_error as std::system_error together with the pager-specific
+      // exceptions.
       //
       catch (const system_error& e)
       {
@@ -273,7 +273,7 @@ main (int argc, char* argv[])
       parser p;
       bspec = p.parse_buildspec (is, path ("<buildspec>"));
     }
-    catch (const istringstream::failure&)
+    catch (const io_error&)
     {
       fail << "unable to parse buildspec '" << args << "'";
     }
