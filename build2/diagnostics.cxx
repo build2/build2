@@ -22,41 +22,23 @@ namespace build2
     print_process (r, args, n);
   }
 
+  struct process_args
+  {
+    const char* const* a;
+    size_t n;
+  };
+
+  inline static ostream&
+  operator<< (ostream& o, const process_args& p)
+  {
+    process::print (o, p.a, p.n);
+    return o;
+  }
+
   void
   print_process (diag_record& r, const char* const* args, size_t n)
   {
-    size_t m (0);
-    const char* const* p (args);
-    do
-    {
-      if (m != 0)
-        r << " |"; // Trailing space will be added inside the loop.
-
-      for (m++; *p != nullptr; p++, m++)
-      {
-        if (p != args)
-          r << ' ';
-
-        // Quote if empty or contains spaces.
-        //
-        bool q (**p == '\0' || strchr (*p, ' ') != nullptr);
-
-        if (q)
-          r << '"';
-
-        r << *p;
-
-        if (q)
-          r << '"';
-      }
-
-      if (m < n) // Can we examine the next element?
-      {
-        p++;
-        m++;
-      }
-
-    } while (*p != nullptr);
+    r << process_args {args, n};
   }
 
   // Diagnostics verbosity level.
