@@ -135,7 +135,7 @@ namespace build2
 
       throw failed ();
     }
-  };
+  }
 
   bool
   run_finish (const char* args[], bool err, process& pr, const string& l)

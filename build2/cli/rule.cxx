@@ -245,9 +245,10 @@ namespace build2
       path rels (relative (s->path ()));
 
       scope& rs (t.root_scope ());
-      const path& cli (cast<path> (rs["config.cli"]));
 
-      cstrings args {cli.string ().c_str ()};
+      const process_path& cli (cast<process_path> (rs["cli.path"]));
+
+      cstrings args {cli.recall_string ()};
 
       // See if we need to pass --output-{prefix,suffix}
       //
@@ -291,7 +292,7 @@ namespace build2
 
       try
       {
-        process pr (args.data ());
+        process pr (cli, args.data ());
 
         if (!pr.wait ())
           throw failed ();

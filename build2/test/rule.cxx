@@ -304,7 +304,8 @@ namespace build2
       file& ft (static_cast<file&> (t));
       assert (!ft.path ().empty ()); // Should have been assigned by update.
 
-      cstrings args {ft.path ().string ().c_str ()};
+      process_path fpp (run_search (ft.path (), true));
+      cstrings args {fpp.recall_string ()};
 
       // Do we have options?
       //
@@ -332,12 +333,16 @@ namespace build2
 
       // Do we have output?
       //
+      path dp ("diff");
+      process_path dpp;
       if (pts.size () != 0 && pts[1] != nullptr)
       {
         file& ot (static_cast<file&> (*pts[1]));
         assert (!ot.path ().empty ()); // Should have been assigned by update.
 
-        args.push_back ("diff");
+        dpp = run_search (dp, true);
+
+        args.push_back (dpp.recall_string ());
         args.push_back ("--strip-trailing-cr"); //@@ TMP: see module.cxx
         args.push_back ("-u");
         args.push_back (ot.path ().string ().c_str ());

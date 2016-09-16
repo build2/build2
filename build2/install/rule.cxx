@@ -437,14 +437,16 @@ namespace build2
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << d;
-
       try
       {
-        process pr (args.data ());
+        process_path pp (process::path_search (args[0]));
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb && verbose)
+          text << "install " << d;
+
+        process pr (pp, args.data ());
 
         if (!pr.wait ())
           throw failed ();
@@ -498,14 +500,16 @@ namespace build2
       args.push_back (reld.string ().c_str ());
       args.push_back (nullptr);
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << t;
-
       try
       {
-        process pr (args.data ());
+        process_path pp (process::path_search (args[0]));
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb && verbose)
+          text << "install " << t;
+
+        process pr (pp, args.data ());
 
         if (!pr.wait ())
           throw failed ();
@@ -545,14 +549,16 @@ namespace build2
 
       const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << rell << " -> " << target;
-
       try
       {
-        process pr (args);
+        process_path pp (process::path_search (args[0]));
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb && verbose)
+          text << "install " << rell << " -> " << target;
+
+        process pr (pp, args);
 
         if (!pr.wait ())
           throw failed ();
@@ -699,14 +705,16 @@ namespace build2
 
           const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-          if (verb >= 2)
-            print_process (args);
-          else if (verb && verbose)
-            text << "uninstall " << reld;
-
           try
           {
-            process pr (args);
+            process_path pp (process::path_search (args[0]));
+
+            if (verb >= 2)
+              print_process (args);
+            else if (verb && verbose)
+              text << "uninstall " << reld;
+
+            process pr (pp, args);
 
             if (!pr.wait ())
               throw failed ();
@@ -798,12 +806,14 @@ namespace build2
 
         const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-        if (verb >= 2)
-          print_process (args);
-
         try
         {
-          process pr (args);
+          process_path pp (process::path_search (args[0]));
+
+          if (verb >= 2)
+            print_process (args);
+
+          process pr (pp, args);
 
           if (!pr.wait ())
             throw failed ();

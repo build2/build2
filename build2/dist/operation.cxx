@@ -38,12 +38,12 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const path& cmd, const dir_path&);
+    install (const process_path& cmd, const dir_path&);
 
     // install <file> <dir>
     //
     static void
-    install (const path& cmd, file&, const dir_path&);
+    install (const process_path& cmd, file&, const dir_path&);
 
     // cd <root> && tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
@@ -95,7 +95,7 @@ namespace build2
           info << "did you forget to set dist.package?";
 
       const string& dist_package (cast<string> (l));
-      const path& dist_cmd (cast<path> (rs->vars["dist.cmd"]));
+      const process_path& dist_cmd (cast<process_path> (rs->vars["dist.cmd"]));
 
       // Get the list of operations supported by this project. Skip
       // default_id.
@@ -314,11 +314,11 @@ namespace build2
     // install -d <dir>
     //
     static void
-    install (const path& cmd, const dir_path& d)
+    install (const process_path& cmd, const dir_path& d)
     {
       path reld (relative (d));
 
-      cstrings args {cmd.string ().c_str (), "-d"};
+      cstrings args {cmd.recall_string (), "-d"};
 
       args.push_back ("-m");
       args.push_back ("755");
@@ -332,7 +332,7 @@ namespace build2
 
       try
       {
-        process pr (args.data ());
+        process pr (cmd, args.data ());
 
         if (!pr.wait ())
           throw failed ();
@@ -351,12 +351,12 @@ namespace build2
     // install <file> <dir>
     //
     static void
-    install (const path& cmd, file& t, const dir_path& d)
+    install (const process_path& cmd, file& t, const dir_path& d)
     {
       dir_path reld (relative (d));
       path relf (relative (t.path ()));
 
-      cstrings args {cmd.string ().c_str ()};
+      cstrings args {cmd.recall_string ()};
 
       // Preserve timestamps. This could becomes important if, for
       // example, we have pre-generated sources. Note that the
@@ -386,7 +386,7 @@ namespace build2
 
       try
       {
-        process pr (args.data ());
+        process pr (cmd, args.data ());
 
         if (!pr.wait ())
           throw failed ();
@@ -427,16 +427,18 @@ namespace build2
         args = {"tar", "-a", "-cf",
                 ap.string ().c_str (), pkg.c_str (), nullptr};
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb)
-        text << args[0] << " " << ap;
-
       try
       {
+        process_path pp (process::path_search (args[0]));
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb)
+          text << args[0] << " " << ap;
+
         // Change child's working directory to dist_root.
         //
-        process pr (root.string ().c_str (), args.data ());
+        process pr (root.string ().c_str (), pp, args.data ());
 
         if (!pr.wait ())
           throw failed ();

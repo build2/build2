@@ -51,7 +51,7 @@ namespace build2
         v.insert<path>         ("config.dist.cmd",      true);
 
         v.insert<dir_path>     ("dist.root");
-        v.insert<path>         ("dist.cmd");
+        v.insert<process_path> ("dist.cmd");
         v.insert<paths>        ("dist.archives");
 
         v.insert<bool> ("dist", variable_visibility::target); // Flag.
@@ -120,14 +120,14 @@ namespace build2
       // dist.cmd
       //
       {
-        value& v (r.assign ("dist.cmd"));
+        value& v (r.assign<process_path> ("dist.cmd"));
 
         if (s)
         {
           if (const value& cv = config::required (r,
                                                   "config.dist.cmd",
                                                   path ("install")).first)
-            v = cv;
+            v = run_search (cast<path> (cv), true);
         }
       }
 
