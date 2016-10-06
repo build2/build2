@@ -73,6 +73,14 @@ ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true build2-build-system
 html2ps -f doc.html2ps:letter.html2ps -o build2-build-system-manual-letter.ps build2-build-system-manual.xhtml
 ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true build2-build-system-manual-letter.ps build2-build-system-manual-letter.pdf
 
+# Testscript spec.
+#
+cli -I .. -v version="$version" -v date="$date" \
+--generate-html --html-suffix .xhtml \
+--html-prologue-file doc-prologue.xhtml \
+--html-epilogue-file doc-epilogue.xhtml \
+--output-prefix build2- testscript.cli
+
 # Generate INSTALL in ../
 #
 cli --generate-txt -o .. --txt-suffix "" ../INSTALL.cli
