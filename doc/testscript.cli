@@ -17,6 +17,320 @@
 "
 \h1#intro|Introduction|
 
+As an illustration, let's test a \"Hello, World\" program. For a simple
+implementation the corresponding \c{buildfile} might look like this:
+
+\
+exe{hello}: cxx{hello}
+\
+
+We also assume that the project's \c{bootstrap.build} loads the \c{test}
+module which implements the execution of the testscripts.
+
+To start, we create an empty file called \c{testscript}. To indicate that a
+testscript file tests a specific target we simply list it as a target's
+prerequisite, for example:
+
+\
+exe{hello}: cxx{hello} test{testscript}
+\
+
+Let's assume our \c{hello} program expects us to pass the name to greet as
+a command line argument. And if we don't pass anything, it prints usage and
+terminates with a non-zero exit status. Let's test this by adding the
+following line to the \c{testscript} file:
+
+\
+$* != 0
+\
+
+While it sure is concise, it may look cryptic without some explanation. When
+the \c{test} module runs tests, it passes to each testscript the target path
+of which this testscript is a prerequisite. So in our case the testscript will
+receive the path to our \c{hello} executable. Also, the buildfile can pass
+along additional options and arguments. And inside the testscript, all of this
+(target path, options, and arguments) are bound to the \c{$*} variable. So in
+our case, if we expand the above line, it will be something like this:
+
+\
+/tmp/hello/hello != 0
+\
+
+Or, if we are on Windows, something like this:
+
+\
+C:\projects\hello\hello.exe != 0
+\
+
+The remainder of the command (\c{!= 0}) is the exit status check. If we don't
+specify it, then the test is expected to exit with zero status (which is
+equivalent to specifying \c{== 0}).
+
+If we run our test, it will pass provided our program behaves as expected.
+One thing our test doesn't verify, however, is the usage that gets
+printed. Let's fix that assuming this is the code that prints it:
+
+\
+cerr << \"usage: \" << argv[0] << \" <name>\" << endl;
+\
+
+In testscripts you can compare output to the expected result for both
+\c{stdout} and \c{stderr}. We can supply the expected result as either
+\i{here-string} or \i{here-document}. The here-string approach works
+best for short, single-line output and we will use it for another test
+in a minute. For this test let's use here-document since the usage
+line is somewhat long (not really, but play along):
+
+\
+$* 2>>EOE != 0
+usage: $0 <name>
+EOE
+\
+
+Let's decrypt this: the \c{2>>EOE} is a here-document redirect with \c{2}
+being the \c{stderr} file descriptor and \c{EOE} is the string we chose to
+mark the end of here-document (stands for End-Of-Error). Next comes the
+here-document fragment. In our case it has only one line but it could have
+several. Note also that we can expand variables in here-document fragments.
+You probably have guessed that \c{$0} expands to the target path. Finally,
+we have the here-document end marker.
+
+Now when executing this test the \c{test} module will check two things: it
+will compare the \c{stderr} output to the expected result using the \c{diff}
+tool and it will make sure the test exits with a non-zero status.
+
+Now that we have tested the failure case, let's test the normal functionality.
+While we could have used here-document, in this case here-string will be more
+concise:
+
+\
+$* World >\"Hello, World!\"
+\
+
+It's also a good idea to document our tests. Testscript has a formalized test
+description that can capture the test id, summary, and details. All three
+components are optional and how thoroughly you document your tests is up to
+you.
+
+Description lines precede the test command, start with a colon (\c{:}), and
+have the following layout:
+
+\
+: <id>
+: <summary>
+:
+: <details>
+\
+
+The recommended format for \c{<id>} is \c{<keyword>-<keyword>...} with at
+least two keywords. The id is used in diagnostics as well as to run individual
+tests. The recommended style for \c{<summary>} is that of the \c{git(1)}
+commit summary. The detailed description is free-form. Here are some examples:
+
+\
+# Only id.
+#
+: missing-name
+
+# Only summary.
+#
+: Test handling of missing name
+
+# Both id and summary.
+#
+: missing-name
+: Test handling of missing name
+
+# All three: id, summary, and a detailed description.
+#
+: missing-name
+: Test handling of missing name
+:
+: This test makes sure the program detects that the name to greet
+: was not specified on the command line and both prints usage and
+: exits with non-zero status.
+\
+
+The recommended way to come up with an id is to distill the summary to its
+essential keywords by removing generic words like \"test\", \"handle\", and so
+on. If you do this, then both the id and summary will convey essentially the
+same information. As a result, to keep things concise, you may choose to drop
+the summary and only have the id.
+
+Either the id or summary (but not both) can alternatively be specified inline
+in the test command after a colon (\c{:}), for example:
+
+\
+$* != 0 : missing-name
+\
+
+Similar to handling output, Testscript provides a convenient way to supply
+input to test's \c{stdin}. Let's say our \c{hello} program recognizes the
+special \c{-} name as an instruction to read the names from \c{stdin}. This
+is how we could test this functionality:
+
+\
+$* - <<EOI >>EOO : stdin-names
+Jane
+John
+EOI
+Hello, Jane!
+Hello, John!
+EOO
+\
+
+As you might have suspected, we can also use here-string to supply \c{stdin},
+for example:
+
+\
+$* - <World >\"Hello, World!\" : stdin-name
+\
+
+Let's say our \c{hello} program has a configuration file that captures custom
+name to greeting mappings. A path to this file can be passed as a second
+command line argument. To test this functionality we first need to create a
+sample configuration file. We do these kind of not-test actions with \i{setup}
+and \i{teardown} commands, for example:
+
+\
++ cat <<EOI >>>hello.conf ;
+John = Howdy
+Jane = Good day
+EOI
+$* Jane hello.conf >\"Good day, Jane!\" : config-greet
+\
+
+The setup commands start with the plus sign (\c{+}) while teardown \- with
+minus (\c{-}). Notice also the semicolon (\c{;}) at the end of the setup
+command: it indicates that the following command is part of the same test \-
+what we call a multi-command or \i{compound} test.
+
+Other than that it should all look familiar. You may be wondering why we don't
+have a teardown command that removes \c{hello.conf}? It is not necessary
+because this file will be automatically registered for automatic cleanup that
+will happen at the end of the test. We can also register our own files and
+directories for automatic cleanup. For example, if the \c{hello} program
+created the \c{hello.log} file on unsuccessful runs, then here is how we could
+have cleaned it up:
+
+\
+$* &hello.log != 0
+\
+
+What if we wanted to run two tests for this configuration file functionality?
+For example, we may want to test the custom greeting as above but also make
+sure the default greeting is not affected. One way to do this would be to
+repeat the setup command in each test. But, as you can probably guess, there
+is a better way to do it: testscripts can define test groups. For example:
+
+\
+: config
+{
+  conf = hello.conf
+
+  + cat <<EOI >>>$conf
+  John = Howdy
+  Jane = Good day
+  EOI
+
+  $* John $conf >\"Howdy, John!\" : custom-greet
+  $* Jack $conf >\"Hello, Jack!\" : default-greet
+}
+\
+
+A test group is a scope that contains several test/setup/teardown commands.
+Variables set inside a scope (like our \c{conf}) are only in effect until the
+end of the scope. Plus, setup and teardown commands that are not part of any
+test (notice the lack of \c{;} after \c{+ cat}) are associated with the scope;
+their automatic cleanup only happens at the end of the scope (so our
+\c{hello.conf} will only be removed after all the tests in the group have
+completed).
+
+Note also that a scope can have a description. In particular, assigning a
+test group an id allows us to run tests only from this specific group.
+
+We can also use scopes for individual tests. For example, if we need to
+set a test-local variable:
+
+\
+: config-greet
+{
+  conf = hello.conf
+  + cat <\"Jane = Good day\" >>>$conf ;
+  $* Jane $conf >\"Good day, Jane!\"
+}
+\
+
+We can exclude sections of a testscript from execution using the \c{.if},
+\c{.elif}, and \c{.else} directives. For example, we may need to omit a
+test if we are running on Windows (notice the last line with just the
+dot \- it marks the end of the \c{.if} body):
+
+\
+.if ($cxx.target.class != windows)
+  $* Jane /dev/null >\"Hello, Jane!\" : config-empty
+.end
+\
+
+You may have noticed that in the above example we referenced the
+\c{cxx.target.class} variable as if we were in a buildfile. We could do that
+because the testscript variable lookup continues in the buildfile starting
+from the testscript target and continuing with the standard buildfile variable
+lookup. In particular, this means we can pass arbitrary information to
+testscripts using target-specific variables. For example, this how we can
+move the above platform test to \c{buildfile}:
+
+\
+# buildfile
+
+exe{hello}: cxx{hello} test{testscript}
+
+test{*}: windows = ($cxx.target.class == windows)
+\
+
+\
+# testscript
+
+.if! $windows
+  $* Jane /dev/null >\"Hello, Jane!\" : config-empty
+.end
+\
+
+To conclude, let's put all our tests together so that we can have a complete
+picure:
+
+\
+$* != 0                     : missing-name
+$* World >\"Hello, World!\"   : command-name
+$* - <<EOI >>EOO            : stdin-names
+Jane
+John
+EOI
+Hello, Jane!
+Hello, John!
+EOO
+
+: config
+{
+  conf = hello.conf
+
+  + cat <<EOI >>>$conf
+  John = Howdy
+  Jane = Good day
+  EOI
+
+  $* John $conf >\"Howdy, John!\"     : custom-greet
+  $* Jack $conf >\"Hello, Jack!\"     : default-greet
+.if! $windows
+  $* Jane /dev/null >\"Hello, Jane!\" : config-empty
+.end
+}
+\
+
+@@ temp directory structure?
+
+@@ how to run individual tests/groups?
+
 \h1#integration|Build System Integration|
 
 The \c{build2} \c{test} module provides the ability to run an executable
@@ -499,50 +813,9 @@ components being optional.
 \
 
 If the first line in the description does not contain any whitespaces, then it
-is assumed to be the test or test group id. The recommended format for an id
-is \c{<keyword>-<keyword>...} with at least two keywords. The id is used in
-diagnostics as well as to run individual tests or test groups.
-
-If the next line is followed by a blank line, then it is assume to be the test
-or test group summary. The recommended style for a summary is that of the
-\c{git(1)} commit summary.
-
-After the blank line come optional details which are free-form. For example:
-
-\
-# Only id.
-#
-: empty-repository
-
-# Only summary.
-#
-: Test handling of empty repository
-
-# Both id and summary.
-#
-: empty-repository
-: Test handling of empty repository
-
-# All three: id, summary, and detailed description.
-#
-: empty-repository
-: Test handling of empty repository
-:
-: This test makes sure we handle repositories without any packages.
-\
-
-The recommended way to come up with an id is to distill the summary to its
-essential keywords (i.e., by removing generic words like \"test\", \"handle\",
-and so on). If you do this, then both the id and summary convey essentially
-the same information. As a result, you may choose to drop the summary and only
-keep the id.
-
-For single-line tests the description (either the id or summary) can also be
-specified inline after a semicolon (\c{;}), for example:
-
-\
-$* empty ; Test handling of empty repository
-\
+is assumed to be the test or test group id. If the next line is followed by a
+blank line, then it is assume to be the test or test group summary. After the
+blank line come optional details which are free-form.
 
 If an id is not specified then it is automatically derived from the test or
 test group location. If the test or test group is contained directly in the
