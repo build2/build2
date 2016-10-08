@@ -15,7 +15,64 @@
 //
 
 "
+\h0#preface|Preface|
+
+This document describes the \c{build2} Testscript language. It begins with an
+introduction that first discusses the motivation behind having a separate
+domain-specific language and then continues to introduce a number of
+Testscript concept with examples. The remainder of the document provides a
+more formal description of the language, including its integration into the
+build system, lexical structure, compilation and execution model, as well as
+grammar and semantics.
+
+In this document we use the term \"Testscript\" (capitalized) to refer to the
+Testscript language. Just \"testscript\" means some code written in this
+language. For example: \"We can pass addition information to testscripts using
+target-specific variables.\" Finally, \c{testscript} refers to the specific
+file name.
+
+We also use the equivalent distinction between \"Buildfile\" (language),
+\"buildfile\" (code), and \c{buildfile} (file).
+
 \h1#intro|Introduction|
+
+Testscript is a domain-specific language for running tests. Traditionally, if
+your testing requires varying input or analyzing output, you would use a
+scripting language, for instance Bash. This has a number of drawbacks.
+Firstly, this approach is usually not portable (there is no Bash on
+Windows \i{out of the box}). It is also hard to write concise tests in a
+general-purpose scripting language. The result is often a test suite that has
+grown incomprehensible which is a major problem since now everyone dreads
+adding new tests. Finally, it is hard to run such tests in parallel without a
+major effort (for example, having a separate script for each test).
+
+Testscript vaguely resembles Bash and is optimized for concise test
+description by focusing on the following functionality:
+
+\ul|
+
+\li|Supplying input via command line and \c{stdin}.|
+
+\li|Comparing to expected exit status.|
+
+\li|Comparing to expected output for both \c{stdout} and \c{stderr}.|
+
+\li|Setup/teardown commands and automatic file/directory cleanup.|
+
+\li|Simple (single-command) and compound (multi-command) tests.|
+
+\li|Test groups with common setup/teardown.|
+
+\li|Test isolation for parallel execution.|
+
+\li|Test documentation.||
+
+Note that Testscript is a \i{test runner}, not a testing framework for a
+particular programming language. It does not concern itself with how the test
+executables themselves are implemented. As a result, it is mostly geared
+towards functional testing but can also be used for unit testing if external
+input/output is required. Testscript is an extension of the \c{build2} build
+system and is implemented by its \c{test} module.
 
 As an illustration, let's test a \"Hello, World\" program. For a simple
 implementation the corresponding \c{buildfile} might look like this:
@@ -330,6 +387,8 @@ EOO
 @@ temp directory structure?
 
 @@ how to run individual tests/groups?
+
+@@ how to preserve test output
 
 \h1#integration|Build System Integration|
 
