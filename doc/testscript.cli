@@ -527,10 +527,11 @@ $ b test \"config.test=basics/foo basics/fox/bar\" # Run fox and bar.
 
 Testscript is a line-oriented language with a context-dependent lexical
 structure. It \"borrows\" several building blocks (for example, variable
-expansion) from the Buildfile language. In a sense, Testscript is a
-specialized (for testing) continuation of Buildfile.
+expansion) from the Buildfile language. In a sense, testscripts are
+specialized (for testing) continuations of buildfiles.
 
-Blank lines are ignored except for the line count.
+Except in here-document fragments, leading whitespaces and blank lines are
+ignored except for the line/column counts.
 
 The backslash (\c{\\}) character followed by a newline signals the line
 continuation. Both this character and the newline are removed (note: not
@@ -595,7 +596,7 @@ result, for example:
 foo = '$foo\bar'
 \
 
-Inside double-quoted strings only the \c{[\"\\$(]} character set needs to be
+Inside double-quoted strings only the \c{\"\\$(} character set needs to be
 escaped.
 
 A character is said to be \i{unquoted} and \i{unescaped} if it is not escaped
@@ -643,6 +644,7 @@ foo | bar  - alternation   (foo or bar)
 {foo bar}  - concatenation in any order (foo then bar or bar then foo)
 foo \
 bar        - line continuation
+# foo      - comment
 \
 
 Rule right-hand-sides that start on a new line describe the line-level syntax
@@ -658,16 +660,19 @@ text-lines:
   'foo'+
 \
 
-Lines are separated with the standard sequence of newline separators (CR/LF
-combinations) and components within lines \- with the standard sequence of
-non-newline whitespaces (spaces and tabs). Note that in some cases components
-within lines are not whitespace-separated in which case they will be written
-without a space between them, for example:
+A newline in the grammar matches any standard newline separator sequence
+(CR/LF combinations). An unquoted space in the grammar matches zero or more
+non-newline whitespaces (spaces and tabs). A quoted space matches exactly one
+non-newline whitespace. Note also that in some cases components within lines
+may not be whitespace-separated in which case they will be written without any
+spaces between them, for example:
 
 \
-foo: 'foo'bar
+foo: 'foo' ';'    # \"foo;\" or \"foo ;\" or \"foo      ;\"
+bar: 'bar'';'     # \"bar;\"
+baz: 'baz'' '+';' # \"baz ;\" or \"baz      ;\"
 
-bar: fox''baz
+fox: bar''bar     # \"bar;bar;\"
 \
 
 You may also notice that several production rules below end with \c{-line}
@@ -675,33 +680,109 @@ while potentially spanning several physical lines. In such cases they
 represent \i{logical lines}, for example, a test, its description, and its
 here-document fragments.
 
+\h#grammar-all|Grammar|
+
+@@ Move directives last?
+
+\
+script:
+  (script-scope|script-line)*
+
+script-scope:
+  description-line?
+  '{'
+  script
+  '}'
+
+script-line:
+  directive-line|variable-line|test-line|setup-line|teardown-line
+
+description-line: ':' <text>
+  (':' <text>)*
+
+directive-line:
+  include|if-else
+
+include: '.include'( <path>)+
+
+if-else: ('.if'|'.if!') <condition>
+  script
+  elif*
+  else?
+  '.end'
+
+elif: ('.elif'|'.elif!') <condition>
+  script
+
+else: '.else'
+  script
+
+variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
+value-attributes: '[' <key-value-pairs> ']'
+
+test-line:
+  description-line?
+  command-expr command-exit? (';'|(':' <text>))?
+  here-document*
+
+command-exit: ('=='|'!=') <exit-status>
+
+setup-line: '+' command-expr ';'?
+  here-document*
+
+teardown-line: '-' command-expr ';'?
+  here-document*
+
+command-expr: command-pipe (('||'|'&&') command-pipe)*
+command-pipe: command ('|' command)*
+
+command: <path> (' '+ <arg>)* {stdin? stdout? stderr? cleanup*}
+
+stdin:  '0'? ('<!'|\
+              '<?'|\
+              '<' <text>|\
+              '<<' <here-end>|\
+              '<<<' <file>)
+
+stdout: '1'? ('>!'|\
+              '>?'|\
+              '>&' '2'|\
+              '>' <text>|\
+              '>>' <here-end>|\
+              ('>>>'|'>>>&') <file>)
+
+stderr: '2'  ('>!'|\
+              '>?'|\
+              '>&' '1' |\
+              '>' <text>|\
+              '>>' <here-end>|\
+              ('>>>'|'>>>&') <file>)
+
+cleanup: '&' (<file>|<dir>)
+
+here-document:
+  <text>*
+  <here-end>
+\
+
+
 \h#grammar-script|Script|
 
 \
 script:
-  (script-block | script-line)*
+  (script-scope | script-line)*
 \
 
-A testscript file is a sequence of blocks and (logical) lines that are
-processed in order.
+A testscript file is a sequence of scopes and (logical) lines.
 
-\h#grammar-blocks|Blocks|
+\h#grammar-scope|Scope|
 
 \
-script-block:
-  test-block | test-group-block
-
-test-block:
+script-scope:
   description-line?
   '{'
-  script*
+  script
   '}'
-
-group-block:
-  description-line?
-  '{{'
-  script*
-  '}}'
 \
 
 A block establishes a nested variable scope and a cleanup context. Any
@@ -822,7 +903,7 @@ command. For example:
 \
 
 
-\h#grammar-lines|Lines|
+\h#grammar-line|Line|
 
 \
 script-line:
@@ -923,23 +1004,16 @@ Buildfile variable value.
 
 \
 if-else: ('.if' | '.if!') <condition>
-  if-else-body
+  script
   elif*
   else?
+  '.end'
 
 elif: ('.elif' | '.elif!') <condition>
-  if-else-body
+  script
 
 else: '.else'
-  if-else-body
-
-if-else-body:
-  script-line | script-block | directive-block
-
-directive-block:
-  '.{'
-  script*
-  '.}'
+  script
 \
 
 The \c{if-else} directives allow for conditional exclusion of testscript
@@ -1017,7 +1091,7 @@ attributes are supported.
 \
 test-line:
   description-line?
-  command-expr command-exit? (';' <text>)?
+  command-expr command-exit? (';' | ':' <text>)?
   here-document*
 
 command-exit: ('==' | '!=') <exit-status>
@@ -1033,10 +1107,10 @@ description.
 \h#grammar-setup-teardown|Setup/Teardown|
 
 \
-setup-line: '+' command-expr
+setup-line: '+' command-expr ';'?
   here-document*
 
-teardown-line: '-' command-expr
+teardown-line: '-' command-expr ';'?
   here-document*
 \
 
@@ -1169,8 +1243,34 @@ error: no such table 'no_such_table'
 EOE
 \
 
-The lines in here-document are expanded as if they were double-quoted. This
-means we can use variables and evaluation contexts but have to escape the
-\c{[\"\\$(]} character set.
+The lines in here-document are expanded as if they were double-quoted except
+that the double quote itself is not treated as special. This means we can use
+variables and evaluation contexts in here-documents but have to escape the
+\c{\\$(} character set.
+
+If the preceding command line starts with leading whitespaces, then the
+equivalent number is stripped (if present) from each here-document line
+(including the end marker). For example, the following two testscript
+fragments are equivalent:
+
+\
+{
+  $* <<EOI
+  foo
+  bar
+  EOI
+}
+\
+
+\
+{
+  $* <<EOI
+foo
+bar
+EOI
+}
+\
+
+The leading whitespace stripping does not apply to line continuations.
 
 "
