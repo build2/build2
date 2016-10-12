@@ -34,8 +34,11 @@ namespace build2
 
   // <butl/utility>
   //
-  using butl::combine_hash;
   using butl::reverse_iterate;
+  using butl::compare_c_string;
+  using butl::compare_pointer_target;
+  //using butl::hash_pointer_target;
+  using butl::combine_hash;
   using butl::casecmp;
   using butl::case_compare_string;
   using butl::case_compare_c_string;

@@ -179,7 +179,7 @@ namespace build2
         // config.bin.target
         //
         {
-          const variable& var (var_pool.find ("config.bin.target"));
+          const variable& var (var_pool["config.bin.target"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.
@@ -255,7 +255,7 @@ namespace build2
         // config.bin.pattern
         //
         {
-          const variable& var (var_pool.find ("config.bin.pattern"));
+          const variable& var (var_pool["config.bin.pattern"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.

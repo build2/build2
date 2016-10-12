@@ -158,7 +158,7 @@ namespace build2
                              c == '%' ? variable_visibility::project :
                              variable_visibility::normal);
 
-      const variable& var (var_pool.find (n));
+      const variable& var (var_pool[n]);
       const char* k (tt == token_type::assign ? ".__override" :
                      tt == token_type::append ? ".__suffix" : ".__prefix");
 

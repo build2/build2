@@ -8,9 +8,10 @@
 #include <map>
 #include <functional>    // hash
 #include <type_traits>   // aligned_storage
-#include <unordered_set>
+#include <unordered_map>
 
 #include <butl/prefix-map>
+#include <butl/multi-index> // map_key
 
 #include <build2/types>
 #include <build2/utility>
@@ -654,23 +655,117 @@ namespace build2
     static const string type_name;
     static const build2::value_type value_type;
   };
-}
 
-// Variable map.
-//
-namespace std
-{
-  template <>
-  struct hash<build2::variable>: hash<string>
+  // variable_pool
+  //
+  class variable_pool
   {
-    size_t
-    operator() (const build2::variable& v) const noexcept
+  public:
+    // Find existing or insert new. Find bias.
+    //
+    const variable&
+    operator[] (const string& name);
+
+    // Find existing or insert new. Insert bias.
+    //
+    const variable&
+    insert (string name);
+
+    // Return NULL if there is no variable with this name.
+    //
+    const variable*
+    find (const string& name);
+
+    // Insert or override.
+    //
+    template <typename T>
+    const variable&
+    insert (string name)
     {
-      return hash<string>::operator() (v.name);
+      return insert (
+        move (name), &value_traits<T>::value_type, nullptr, nullptr);
     }
+
+    const variable&
+    insert (string name, variable_visibility v)
+    {
+      return insert (move (name), nullptr, &v, nullptr);
+    }
+
+    const variable&
+    insert (string name, bool overridable)
+    {
+      return insert (move (name), nullptr, nullptr, &overridable);
+    }
+
+    const variable&
+    insert (string name, bool overridable, variable_visibility v)
+    {
+      return insert (move (name), nullptr, &v, &overridable);
+    }
+
+    template <typename T>
+    const variable&
+    insert (string name, variable_visibility v)
+    {
+      return insert (move (name), &value_traits<T>::value_type, &v, nullptr);
+    }
+
+    template <typename T>
+    const variable&
+    insert (string name, bool overridable)
+    {
+      return insert (
+        move (name), &value_traits<T>::value_type, nullptr, &overridable);
+    }
+
+    template <typename T>
+    const variable&
+    insert (string name, bool overridable, variable_visibility v)
+    {
+      return insert (
+        move (name), &value_traits<T>::value_type, &v, &overridable);
+    }
+
+    void
+    clear () {map_.clear ();}
+
+  private:
+    const variable&
+    insert (string name,
+            const build2::value_type*,
+            const variable_visibility*,
+            const bool* overridable);
+
+  private:
+    using key = butl::map_key<string>;
+    using map = std::unordered_map<key, variable>;
+
+    pair<map::iterator, bool>
+    insert (variable&& var)
+    {
+      // Keeping a pointer to the key while moving things during insertion is
+      // tricky. We could use a C-string instead of C++ for a key but that
+      // gets hairy very quickly (there is no std::hash for C-strings). So
+      // let's rely on small object-optimized std::string for now.
+      //
+      string n (var.name);
+      auto r (map_.insert (map::value_type (&n, move (var))));
+
+      if (r.second)
+        r.first->first.p = &r.first->second.name;
+
+      return r;
+    }
+
+    map map_;
   };
+
+  extern variable_pool var_pool;
 }
 
+// variable_map
+//
 namespace butl
 {
   template <>
@@ -698,63 +793,6 @@ namespace butl
 
 namespace build2
 {
-  // variable_pool
-  //
-  using variable_pool_base = std::unordered_set<variable>;
-  struct variable_pool: private variable_pool_base
-  {
-    const variable&
-    insert (string name, variable_visibility v = variable_visibility::normal)
-    {
-      return insert (move (name), nullptr, v, false);
-    }
-
-    const variable&
-    insert (string name,
-            bool overridable,
-            variable_visibility v = variable_visibility::normal)
-    {
-      return insert (move (name), nullptr, v, overridable);
-    }
-
-    template <typename T>
-    const variable&
-    insert (string name, variable_visibility v = variable_visibility::normal)
-    {
-      return insert (move (name), &value_traits<T>::value_type, v, false);
-    }
-
-    template <typename T>
-    const variable&
-    insert (string name,
-            bool overridable,
-            variable_visibility v = variable_visibility::normal)
-    {
-      return insert (
-        move (name), &value_traits<T>::value_type, v, overridable);
-    }
-
-    const variable&
-    find (const string& name); //@@ TODO: Move to operator[], remove.
-                               //@@ ranmae var_pool to varpool or vpool?
-
-    const variable&
-    operator[] (const string& name) {return find (name);}
-
-    using variable_pool_base::clear;
-
-  private:
-    const variable&
-    insert (string name,
-            const build2::value_type*,
-            variable_visibility,
-            bool overridable);
-  };
-
-  extern variable_pool var_pool;
-
-  // variable_map
-  //
   class variable_map
   {
   public:
@@ -794,7 +832,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool.find (name));
+      return operator[] (var_pool[name]);
     }
 
     // If typed is false, leave the value untyped even if the variable is.
@@ -833,13 +871,13 @@ namespace build2
     pair<reference_wrapper<value>, bool>
     insert (const string& name, bool typed = true)
     {
-      return insert (var_pool.find (name), typed);
+      return insert (var_pool[name], typed);
     }
 
     pair<const_iterator, const_iterator>
     find_namespace (const string& ns) const
     {
-      auto r (m_.find_prefix (var_pool.find (ns)));
+      auto r (m_.find_prefix (var_pool[ns]));
       return make_pair (const_iterator (r.first), const_iterator (r.second));
     }
 

@@ -99,7 +99,7 @@ namespace build2
     // Note: calls attributes_push() that the caller must pop.
     //
     value
-    variable_value (token&, token_type&);
+    variable_value (token&, token_type&, lexer_mode = lexer_mode::value);
 
     void
     variable_attributes (const variable_type&);
@@ -178,7 +178,7 @@ namespace build2
         : value (nullptr);
     }
 
-    // Return true if the parsed value is NOT NULL.
+    // Append names and return true if the parsed value is NOT NULL.
     //
     bool
     names (token& t, token_type& tt, names_type& ns, bool chunk = false)
@@ -247,6 +247,12 @@ namespace build2
     // Lexer.
     //
   protected:
+    location
+    get_location (const token& t) const
+    {
+      return build2::get_location (t, *path_);
+    }
+
     token_type
     next (token&, token_type&);
 

@@ -8,31 +8,46 @@
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/diagnostics>
+
 namespace build2
 {
-  enum class token_type
+  // Extendable/inheritable enum-like class.
+  //
+  struct token_type
   {
-    eos,
-    name,
-    newline,
-    pair_separator,
-    colon,
-    lcbrace,       // {
-    rcbrace,       // }
-    lsbrace,       // [
-    rsbrace,       // ]
-    assign,        // =
-    prepend,       // =+
-    append,        // +=
-    equal,         // ==
-    not_equal,     // !=
-    less,          // <
-    greater,       // >
-    less_equal,    // <=
-    greater_equal, // >=
-    dollar,
-    lparen,
-    rparen
+    enum
+    {
+      eos,
+      name,
+      newline,
+      pair_separator,
+      colon,
+      lcbrace,       // {
+      rcbrace,       // }
+      lsbrace,       // [
+      rsbrace,       // ]
+      assign,        // =
+      prepend,       // =+
+      append,        // +=
+      equal,         // ==
+      not_equal,     // !=
+      less,          // <
+      greater,       // >
+      less_equal,    // <=
+      greater_equal, // >=
+      dollar,        // $
+      lparen,        // (
+      rparen,        // )
+
+      value_next
+    };
+
+    using value_type = uint16_t;
+
+    token_type (value_type v = eos): v_ (v) {}
+    operator value_type () const {return v_;}
+    value_type v_;
   };
 
   class token
@@ -64,6 +79,23 @@ namespace build2
   //
   ostream&
   operator<< (ostream&, const token&);
+
+  // Diagnostics plumbing. We assume that any diag stream for which we can use
+  // token as location has its aux data pointing to pointer to path.
+  //
+  inline location
+  get_location (const token& t, const path& p)
+  {
+    return location (&p, t.line, t.column);
+  }
+
+  inline location
+  get_location (const token& t, const void* data)
+  {
+    assert (data != nullptr); // E.g., must be &parser::path_.
+    const path* p (*static_cast<const path* const*> (data));
+    return get_location (t, *p);
+  }
 }
 
 #endif // BUILD2_TOKEN

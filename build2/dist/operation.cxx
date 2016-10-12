@@ -193,7 +193,7 @@ namespace build2
       // entered.
       //
       action_targets files;
-      const variable& dist_var (var_pool.find ("dist"));
+      const variable& dist_var (var_pool["dist"]);
 
       for (const auto& pt: targets)
       {

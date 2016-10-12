@@ -290,7 +290,7 @@ namespace build2
         return make_pair (value (), false);
       }
 
-      const variable& var (var_pool.find (move (t.value)));
+      const variable& var (var_pool[t.value]);
 
       parser p;
       temp_scope tmp (*global_scope);
@@ -559,7 +559,7 @@ namespace build2
     // NULL value indicates that we found no subprojects.
     //
     {
-      const variable& var (var_pool.find ("subprojects"));
+      const variable& var (var_pool["subprojects"]);
       auto rp (root.vars.insert (var)); // Set NULL by default.
       value& v (rp.first);
 

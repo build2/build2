@@ -10,7 +10,7 @@ using namespace std;
 
 namespace build2
 {
-  typedef token_type type;
+  using type = token_type;
 
   token lexer::
   next ()
@@ -24,11 +24,55 @@ namespace build2
   pair<char, bool> lexer::
   peek_char ()
   {
-    // In the quoted mode we don't skip spaces.
-    //
-    sep_ = state_.top ().mode != lexer_mode::quoted && skip_spaces ();
+    sep_ = skip_spaces ();
     xchar c (peek ());
     return make_pair (eos (c) ? '\0' : char (c), sep_);
+  }
+
+  void lexer::
+  mode (lexer_mode m, char ps)
+  {
+    const char* s1 (nullptr);
+    const char* s2 (nullptr);
+    char p ('\0');
+    bool s (true);
+
+    switch (m)
+    {
+    case lexer_mode::normal:
+      {
+        s1 = ":=+ $(){}[]#\t\n";
+        s2 = "  =           ";
+        p = ps;
+        break;
+      }
+    case lexer_mode::value:
+      {
+        s1 = " $(){}[]#\t\n";
+        s2 = "           ";
+        p = ps;
+        break;
+      }
+    case lexer_mode::eval:
+      {
+        s1 = ":<>=! $(){}[]#\t\n";
+        s2 = "   ==           ";
+        p = ps;
+        break;
+      }
+    case lexer_mode::single_quoted:
+    case lexer_mode::double_quoted:
+      s = false;
+      // Fall through.
+    case lexer_mode::variable:
+      {
+        // These are handled in an ad hoc way in name().
+        break;
+      }
+    default: assert (false); // Unhandled custom mode.
+    }
+
+    state_.push (state {m, p, s, s1, s2});
   }
 
   token lexer::
@@ -40,9 +84,12 @@ namespace build2
     //
     switch (m)
     {
+    case lexer_mode::normal:
+    case lexer_mode::variable:
+    case lexer_mode::value: break;
     case lexer_mode::eval: return next_eval ();
-    case lexer_mode::quoted: return next_quoted ();
-    default: break;
+    case lexer_mode::double_quoted: return next_quoted ();
+    default: assert (false); // Unhandled custom mode.
     }
 
     bool sep (skip_spaces ());
@@ -56,13 +103,13 @@ namespace build2
     // Handle pair separator.
     //
     if ((m == lexer_mode::normal || m == lexer_mode::value) &&
-        c == state_.top ().pair_separator)
+        c == state_.top ().sep_pair)
       return token (type::pair_separator, sep, ln, cn);
 
     switch (c)
     {
-      // NOTE: remember to update name(), next_eval() if adding new
-      // special characters.
+      // NOTE: remember to update mode(), next_eval() if adding new special
+      // characters.
       //
     case '\n':
       {
@@ -88,8 +135,8 @@ namespace build2
     {
       switch (c)
       {
-        // NOTE: remember to update name(), next_eval() if adding new
-        // special characters.
+        // NOTE: remember to update mode(), next_eval() if adding new special
+        // characters.
         //
       case ':': return token (type::colon, sep, ln, cn);
       case '=':
@@ -136,7 +183,7 @@ namespace build2
 
     // Handle pair separator.
     //
-    if (c == state_.top ().pair_separator)
+    if (c == state_.top ().sep_pair)
       return token (type::pair_separator, sep, ln, cn);
 
     // Note: we don't treat [ and ] as special here. Maybe can use them for
@@ -144,7 +191,7 @@ namespace build2
     //
     switch (c)
     {
-      // NOTE: remember to update name() if adding new special characters.
+      // NOTE: remember to update mode() if adding new special characters.
       //
     case '\n': fail (c) << "newline in evaluation context";
     case ':': return token (type::colon, sep, ln, cn);
@@ -214,73 +261,87 @@ namespace build2
   token lexer::
   name (bool sep)
   {
+    lexer_mode m (state_.top ().mode);
+
     xchar c (peek ());
     assert (!eos (c));
 
     uint64_t ln (c.line), cn (c.column);
-    string lexeme;
 
-    lexer_mode m (state_.top ().mode);
-    char ps (state_.top ().pair_separator);
-    bool quoted (m == lexer_mode::quoted);
+    string lexeme;
+    bool quoted (m == lexer_mode::double_quoted);
 
     for (; !eos (c); c = peek ())
     {
-      bool done (false);
-
-      // Handle the pair separator.
+      // First handle escape sequences.
       //
-      if ((m == lexer_mode::normal ||
-           m == lexer_mode::value  ||
-           m == lexer_mode::eval)  && c == ps)
-        break;
-
-      // The following characters are only special in the normal and
-      // variable name modes.
-      //
-      if (m == lexer_mode::normal || m == lexer_mode::variable)
+      if (c == '\\')
       {
-        switch (c)
-        {
-        case ':':
-        case '=':
-          {
-            done = true;
-            break;
-          }
-        case '+':
-          {
-            get ();
-            done = (peek () == '=');
-            unget (c);
-            break;
-          }
-        }
-
-        if (done)
+        // In the variable mode we treat the beginning of the escape sequence
+        // as a separator (think \"$foo\").
+        //
+        if (m == lexer_mode::variable)
           break;
+
+        get ();
+        xchar p (peek ());
+
+        if (escapes_ == nullptr ||
+            (!eos (p) && strchr (escapes_, p) != nullptr))
+        {
+          get ();
+
+          if (eos (p))
+            fail (p) << "unterminated escape sequence";
+
+          if (p != '\n') // Ignore if line continuation.
+            lexeme += p;
+
+          continue;
+        }
+        else
+          unget (c); // Treat as a normal character.
       }
 
-      // These extra characters are treated as the name end in the variable
-      // mode.
+      bool done (false);
+
+      // Next take care of the double-quoted mode. This one is tricky since
+      // we push/pop modes while accumulating the same lexeme for example:
       //
-      if (m == lexer_mode::variable)
+      // foo" bar "baz
+      //
+      if (m == lexer_mode::double_quoted)
       {
-        //@@ Maybe we should rather test for allowed characeters (e.g.,
-        // alnum plus '_' and '.')?
-        //
         switch (c)
         {
-        case '/':
-        case '-':
-        case '"':
-        case '\'':
-        case '\\':
+          // Only these two characters are special in the double-quoted mode.
+          //
+        case '$':
+        case '(':
           {
             done = true;
             break;
           }
-        case '.':
+          // End quote.
+          //
+        case '\"':
+          {
+            get ();
+            state_.pop ();
+            m = state_.top ().mode;
+            continue;
+          }
+        }
+      }
+      // We also handle the variable mode in an ad hoc way.
+      //
+      else if (m == lexer_mode::variable)
+      {
+        if (!alnum (c) &&  c != '_')
+        {
+          if (c != '.')
+            done = true;
+          else
           {
             // Normally '.' is part of the variable (namespace separator)
             // unless it is trailing (think $major.$minor).
@@ -289,161 +350,84 @@ namespace build2
             xchar p (peek ());
             done = eos (p) || !(alnum (p) ||  p == '_');
             unget (c);
-            break;
           }
         }
-
-        if (done)
-          break;
       }
-
-      // These extra characters are treated as the name end in the eval mode.
-      //
-      if (m == lexer_mode::eval)
+      else
       {
-        switch (c)
-        {
-        case ':':
-        case '<':
-        case '>':
-          {
-            done = true;
-            break;
-          }
-        case '=':
-        case '!':
-          {
-            get ();
-            done = (peek () == '=');
-            unget (c);
-            break;
-          }
-        }
-
-        if (done)
-          break;
-      }
-
-      // Handle escape sequences.
-      //
-      if (c == '\\')
-      {
-        get ();
-        xchar e (peek ());
-
-        if (escapes_ == nullptr ||
-            (!eos (e) && strchr (escapes_, e) != nullptr))
-        {
-          get ();
-
-          if (eos (e))
-            fail (e) << "unterminated escape sequence";
-
-          if (e != '\n') // Ignore.
-            lexeme += e;
-
-          continue;
-        }
+        // First check if it's a pair separator.
+        //
+        const state& st (state_.top ());
+        if (c == st.sep_pair)
+          done = true;
         else
-          unget (c); // Treat as a normal character.
-      }
-
-      // If we are quoted, these are ordinary characters.
-      //
-      if (m != lexer_mode::quoted)
-      {
-        switch (c)
         {
-        case ' ':
-        case '\t':
-        case '\n':
-        case '#':
-        case '{':
-        case '}':
-        case '[':
-        case ']':
-        case ')':
+          // Then see if this character or character sequence is a separator.
+          //
+          for (const char* p (strchr (st.sep_first, c));
+               p != nullptr;
+               p = done ? nullptr : strchr (p + 1, c))
           {
-            done = true;
-            break;
-          }
-        case '\'':
-          {
-            // If we are in the variable mode, then treat quote as just
-            // another separator.
+            char s (st.sep_second[p - st.sep_first]);
+
+            // See if it has a second.
             //
-            if (m == lexer_mode::variable)
-            {
-              done = true;
-              break;
-            }
-            else
+            if (s != ' ')
             {
               get ();
+              done = (peek () == s);
+              unget (c);
+            }
+            else
+              done = true;
+          }
+        }
 
+        // Handle single and double quotes unless they were considered
+        // separators.
+        //
+        if (!done)
+        {
+          switch (c)
+          {
+          case '\'':
+            {
+              // Enter the single-quoted mode in case the derived lexer needs
+              // to notice this.
+              //
+              mode (lexer_mode::single_quoted);
+
+              get ();
               for (c = get (); !eos (c) && c != '\''; c = get ())
                 lexeme += c;
 
               if (eos (c))
                 fail (c) << "unterminated single-quoted sequence";
 
+              state_.pop ();
+
+              quoted = true;
+              continue;
+            }
+          case '\"':
+            {
+              get ();
+              mode ((m = lexer_mode::double_quoted));
               quoted = true;
               continue;
             }
           }
         }
-
-        if (done)
-          break;
       }
 
-      switch (c)
-      {
-      case '$':
-      case '(':
-        {
-          done = true;
-          break;
-        }
-      case '\"':
-        {
-          // If we are in the variable mode, then treat quote as just
-          // another separator.
-          //
-          if (m == lexer_mode::variable)
-          {
-            done = true;
-            break;
-          }
-          else
-          {
-            get ();
+      if (done)
+        break;
 
-            if (m == lexer_mode::quoted)
-              state_.pop ();
-            else
-            {
-              mode (lexer_mode::quoted);
-              quoted = true;
-            }
-
-            m = state_.top ().mode;
-            continue;
-          }
-        }
-      default:
-        {
-          get ();
-          lexeme += c;
-          continue;
-        }
-      }
-
-      assert (done);
-      break;
+      get ();
+      lexeme += c;
     }
 
-    if (m == lexer_mode::quoted && eos (c))
+    if (eos (c) && m == lexer_mode::double_quoted)
       fail (c) << "unterminated double-quoted sequence";
 
     // Expire variable mode at the end of the name.
@@ -452,6 +436,7 @@ namespace build2
       state_.pop ();
 
     return token (lexeme, sep, quoted, ln, cn);
+
   }
 
   bool lexer::
@@ -459,6 +444,11 @@ namespace build2
   {
     bool r (sep_);
     sep_ = false;
+
+    // In some modes we don't skip spaces.
+    //
+    if (!state_.top ().sep_space)
+      return r;
 
     xchar c (peek ());
     bool start (c.column == 1);

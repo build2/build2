@@ -359,7 +359,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool.find (name));
+      return operator[] (var_pool[name]);
     }
 
     // As above but also return the depth at which the value is found. The
@@ -369,6 +369,7 @@ namespace build2
     // 3. From the innermost scope's variables -- 4. And so on.  The idea is
     // that given two lookups from the same target, we can say which one came
     // earlier. If no value is found, then the depth is set to ~0.
+    //
     //
     pair<lookup, size_t>
     find (const variable& var) const
@@ -380,10 +381,13 @@ namespace build2
     }
 
     pair<lookup, size_t>
-    find (const string& name) const {return find (var_pool.find (name));}
+    find (const string& name) const {return find (var_pool[name]);}
 
+    // If target_only is true, then only look in target and its target group
+    // without continuing in scopes.
+    //
     pair<lookup, size_t>
-    find_original (const variable&) const;
+    find_original (const variable&, bool target_only = false) const;
 
     // Return a value suitable for assignment. See scope for details.
     //
@@ -409,7 +413,7 @@ namespace build2
     value&
     append (const string& name)
     {
-      return append (var_pool.find (name));
+      return append (var_pool[name]);
     }
 
   public:

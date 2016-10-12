@@ -96,7 +96,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool.find (name));
+      return operator[] (var_pool[name]);
     }
 
     // As above, but include target type/pattern-specific variables.
@@ -110,7 +110,7 @@ namespace build2
     lookup
     find (const string& var, const target_key& tk) const
     {
-      return find (var_pool.find (var), tk);
+      return find (var_pool[var], tk);
     }
 
     lookup
@@ -122,7 +122,7 @@ namespace build2
     lookup
     find (const string& var, const target_type& tt, const string& tn) const
     {
-      return find (var_pool.find (var), tt, tn);
+      return find (var_pool[var], tt, tn);
     }
 
     pair<lookup, size_t>
@@ -178,7 +178,7 @@ namespace build2
     append (const variable&);
 
     value&
-    append (const string& name) {return append (var_pool.find (name));}
+    append (const string& name) {return append (var_pool[name]);}
 
     // Target type/pattern-specific variables.
     //

@@ -117,7 +117,7 @@ namespace build2
   }
 
   pair<lookup, size_t> target::
-  find_original (const variable& var) const
+  find_original (const variable& var, bool target_only) const
   {
     pair<lookup, size_t> r (lookup (), 0);
 
@@ -147,15 +147,20 @@ namespace build2
     //
     if (!r.first)
     {
-      auto p (base_scope ().find_original (
-                var,
-                &type (),
-                &name,
-                g != nullptr ? &g->type () : nullptr,
-                g != nullptr ? &g->name : nullptr));
+      if (!target_only)
+      {
+        auto p (base_scope ().find_original (
+                  var,
+                  &type (),
+                  &name,
+                  g != nullptr ? &g->type () : nullptr,
+                  g != nullptr ? &g->name : nullptr));
 
-      r.first = move (p.first);
-      r.second = r.first ? r.second + p.second : p.second;
+        r.first = move (p.first);
+        r.second = r.first ? r.second + p.second : p.second;
+      }
+      else
+        r.second = size_t (~0);
     }
 
     return r;

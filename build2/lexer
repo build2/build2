@@ -21,7 +21,7 @@ namespace build2
   // characters (e.g., '+', '=') as special so that we can use them in the
   // variable values, e.g., 'foo = g++'. In contrast, in the variable mode, we
   // restrict certain character (e.g., '/') from appearing in the name. The
-  // eval mode is used in the evaluation context. Quoted is an internal mode
+  // eval mode is used in the evaluation context. Quoted are internal modes
   // and should not be set explicitly.
   //
   // Note that the normal, value, and eval modes split names separated by the
@@ -31,7 +31,29 @@ namespace build2
   // automatically reset after the end of the line. The variable mode is reset
   // after the name token. And the eval mode is reset after the closing ')'.
   //
-  enum class lexer_mode {normal, variable, value, eval, quoted};
+
+  // Extendable/inheritable enum-like class.
+  //
+  struct lexer_mode
+  {
+    enum
+    {
+      normal,
+      variable,
+      value,
+      eval,
+      single_quoted,
+      double_quoted,
+
+      value_next
+    };
+
+    using value_type = uint16_t;
+
+    lexer_mode (value_type v = normal): v_ (v) {}
+    operator value_type () const {return v_;}
+    value_type v_;
+  };
 
   class lexer: protected butl::char_scanner
   {
@@ -44,26 +66,17 @@ namespace build2
            const path& name,
            const char* escapes = nullptr,
            void (*processor) (token&, const lexer&) = nullptr)
-        : char_scanner (is),
-          fail (name),
-          escapes_ (escapes),
-          processor_ (processor),
-          sep_ (false)
-    {
-      mode (lexer_mode::normal);
-    }
+        : lexer (is, name, escapes, processor, true) {}
 
     const path&
     name () const {return fail.name_;}
 
-    // Note: sets mode for the next token. For the value mode the second
-    // argument can be used to specify an alternative separator character.
+    // Note: sets mode for the next token. The second argument can be used
+    // to specify an alternative separator character (if the mode supports
+    // pair separators).
     //
-    void
-    mode (lexer_mode m, char pair_separator = '@')
-    {
-      state_.push (state{m, pair_separator});
-    }
+    virtual void
+    mode (lexer_mode, char pair_separator = '@');
 
     // Expire the current mode early.
     //
@@ -74,7 +87,7 @@ namespace build2
     mode () const {return state_.top ().mode;}
 
     char
-    pair_separator () const {return state_.top ().pair_separator;}
+    pair_separator () const {return state_.top ().sep_pair;}
 
     // Scanner. Note that it is ok to call next() again after getting eos.
     //
@@ -88,8 +101,11 @@ namespace build2
     pair<char, bool>
     peek_char ();
 
-  private:
-    token
+  protected:
+    // If you extend the lexer and add a custom lexer mode, then you must
+    // override next_impl() and handle the custom mode there.
+    //
+    virtual token
     next_impl ();
 
     token
@@ -110,7 +126,7 @@ namespace build2
 
     // Diagnostics.
     //
-  private:
+  protected:
     struct fail_mark_base: build2::fail_mark_base<failed>
     {
       fail_mark_base (const path& n): name_ (n) {}
@@ -122,17 +138,44 @@ namespace build2
     };
     typedef diag_mark<fail_mark_base> fail_mark;
 
-  private:
     fail_mark fail;
+
+    // Lexer state.
+    //
+  protected:
+    lexer (istream& is,
+           const path& n,
+           const char* e,
+           void (*p) (token&, const lexer&),
+           bool sm)
+        : char_scanner (is),
+          fail (n),
+          escapes_ (e),
+          processor_ (p),
+          sep_ (false)
+    {
+      if (sm)
+        mode (lexer_mode::normal);
+    }
 
     const char* escapes_;
     void (*processor_) (token&, const lexer&);
 
-
     struct state
     {
       lexer_mode mode;
-      char pair_separator;
+
+      char sep_pair;
+      bool sep_space; // Are whitespaces separators (see skip_spaces())?
+
+      // Name separator characters. For two-character sequence put the first
+      // one in sep_first and the second one in the corresponding position of
+      // sep_second. If it's a single-character sequence, then put space in
+      // sep_second. If there are multiple sequences that start with the same
+      // character, then repeat the first character in sep_first.
+      //
+      const char* sep_first;
+      const char* sep_second;
     };
     std::stack<state> state_;
 

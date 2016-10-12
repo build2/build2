@@ -21,10 +21,7 @@ using namespace std;
 
 namespace build2
 {
-  static location
-  get_location (const token&, const void*);
-
-  typedef token_type type;
+  using type = token_type;
 
   static const dir_path root_dir ("/");
 
@@ -337,7 +334,7 @@ namespace build2
       //
       // @@ I think we should make ': foo' invalid.
       //
-      const location nloc (get_location (t, &path_));
+      const location nloc (get_location (t));
       names_type ns (tt != type::colon
                      ? names (t, tt)
                      : names_type ({name ("dir", string ())}));
@@ -446,7 +443,7 @@ namespace build2
             tt == type::newline ||
             tt == type::eos)
         {
-          const location ploc (get_location (t, &path_));
+          const location ploc (get_location (t));
           names_type pns (tt != type::newline && tt != type::eos
                           ? names (t, tt)
                           : names_type ());
@@ -459,7 +456,7 @@ namespace build2
             type att (tt);
 
             const variable_type& var (
-              var_pool.find (
+              var_pool.insert (
                 variable_name (move (pns), ploc)));
 
             // Handle variable attributes.
@@ -720,7 +717,7 @@ namespace build2
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
         const variable_type& var (
-          var_pool.find (variable_name (move (ns), nloc)));
+          var_pool.insert (variable_name (move (ns), nloc)));
 
         // Handle variable attributes.
         //
@@ -770,7 +767,7 @@ namespace build2
     //
     mode (lexer_mode::value);
     next (t, tt);
-    const location l (get_location (t, &path_));
+    const location l (get_location (t));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -846,7 +843,7 @@ namespace build2
     //
     mode (lexer_mode::value);
     next (t, tt);
-    const location l (get_location (t, &path_));
+    const location l (get_location (t));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -1046,7 +1043,7 @@ namespace build2
       size_t p (t.value.find ('='));
 
       if (p != string::npos)
-        var = &var_pool.find (split (p));
+        var = &var_pool.insert (split (p));
       //
       // This could still be the 'foo =...' case.
       //
@@ -1061,7 +1058,7 @@ namespace build2
             (v[p = 0] == '=' ||
              (n > 1 && v[0] == '+' && v[p = 1] == '=')))
         {
-          var = &var_pool.find (t.value);
+          var = &var_pool[t.value];
           next (t, tt); // Get the peeked token.
           split (p);    // Returned name should be empty.
         }
@@ -1089,7 +1086,7 @@ namespace build2
     // The rest should be a list of projects and/or targets. Parse
     // them as names to get variable expansion and directory prefixes.
     //
-    const location l (get_location (t, &path_));
+    const location l (get_location (t));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -1177,7 +1174,7 @@ namespace build2
     //
     mode (lexer_mode::value);
     next (t, tt);
-    const location l (get_location (t, &path_));
+    const location l (get_location (t));
     names_type ns (tt != type::newline && tt != type::eos
                    ? names (t, tt)
                    : names_type ());
@@ -1251,7 +1248,7 @@ namespace build2
                << "definition";
 
     string dn (move (t.value));
-    const location dnl (get_location (t, &path_));
+    const location dnl (get_location (t));
 
     if (next (t, tt) != type::colon)
       fail (t) << "expected ':' instead of " << t << " in target type "
@@ -1317,7 +1314,7 @@ namespace build2
 
           // Parse as names to get variable expansion, evaluation, etc.
           //
-          const location nsl (get_location (t, &path_));
+          const location nsl (get_location (t));
           names_type ns (names (t, tt));
 
           // Should evaluate to 'true' or 'false'.
@@ -1471,9 +1468,9 @@ namespace build2
   }
 
   value parser::
-  variable_value (token& t, type& tt)
+  variable_value (token& t, type& tt, lexer_mode m)
   {
-    mode (lexer_mode::value);
+    mode (m);
     next (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
@@ -1600,7 +1597,7 @@ namespace build2
     if (type != nullptr)
     {
       if (var != nullptr && var->type != nullptr && var->type != type)
-        fail (l) << "confliction variable " << var->name << " type "
+        fail (l) << "conflicting variable " << var->name << " type "
                  << var->type->name << " and value type " << type->name;
 
       if (kind == token_type::assign)
@@ -1618,7 +1615,7 @@ namespace build2
         else if (v.type == nullptr)
           typify (v, *type, var);
         else if (v.type != type)
-          fail (l) << "confliction original value type " << v.type->name
+          fail (l) << "conflicting original value type " << v.type->name
                    << " and append/prepend value type " << type->name;
       }
     }
@@ -1700,7 +1697,7 @@ namespace build2
     //
     while (tt != type::rparen)
     {
-      const location l (get_location (t, &path_));
+      const location l (get_location (t));
 
       // Remember to update parse_value above if adding any new name
       // separators here.
@@ -1815,7 +1812,7 @@ namespace build2
   attributes_push (token& t, token_type& tt, bool standalone)
   {
     attributes_.push (
-      attributes {tt == type::lsbrace, get_location (t, &path_), {}});
+      attributes {tt == type::lsbrace, get_location (t), {}});
 
     attributes& a (attributes_.top ());
     const location& l (a.loc);
@@ -1913,7 +1910,7 @@ namespace build2
     if (peek () == type::lcbrace && !peeked ().separated)
     {
       next (t, tt); // Get '{'.
-      const location loc (get_location (t, &path_));
+      const location loc (get_location (t));
 
       names_type x; // Parse into a separate list of names.
       names_trailer (t, tt, x, 0, nullptr, nullptr, nullptr);
@@ -2103,7 +2100,6 @@ namespace build2
             p = last ? string::npos : p - (p1 + 1);
 
             // Now process the project name.
-            // @@ Validate it.
             //
             proj.resize (p1);
 
@@ -2243,7 +2239,7 @@ namespace build2
           //
           mode (lexer_mode::variable);
           next (t, tt);
-          loc = get_location (t, &path_);
+          loc = get_location (t);
 
           name qual;
           string name;
@@ -2369,7 +2365,7 @@ namespace build2
 
             // Lookup.
             //
-            const auto& var (var_pool.find (move (name)));
+            const auto& var (var_pool.insert (move (name)));
             auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
 
             if (!l)
@@ -2398,7 +2394,7 @@ namespace build2
         }
         else
         {
-          loc = get_location (t, &path_);
+          loc = get_location (t);
           result = eval (t, tt);
 
           tt = peek ();
@@ -2788,11 +2784,11 @@ namespace build2
       if (tt != type::name    &&
           tt != type::lcbrace &&      // Untyped name group: '{foo ...'
           tt != type::dollar  &&      // Variable expansion: '$foo ...'
-          !(tt == type::lparen && mode () == lexer_mode::quoted) &&
+          !(tt == type::lparen && mode () == lexer_mode::double_quoted) &&
           tt != type::pair_separator) // Empty pair LHS: '@foo ...'
         fail (t) << "operation or target expected instead of " << t;
 
-      const location l (get_location (t, &path_)); // Start of names.
+      const location l (get_location (t)); // Start of names.
 
       // This call will parse the next chunk of output and produce
       // zero or more names.
@@ -2815,7 +2811,7 @@ namespace build2
         // Inside '(' and ')' we have another, nested, buildspec.
         //
         next (t, tt);
-        const location l (get_location (t, &path_)); // Start of nested names.
+        const location l (get_location (t)); // Start of nested names.
         buildspec nbs (buildspec_clause (t, tt, type::rparen));
 
         // Merge the nested buildspec into ours. But first determine
@@ -3079,13 +3075,5 @@ namespace build2
     }
 
     return peek_.type;
-  }
-
-  static location
-  get_location (const token& t, const void* data)
-  {
-    assert (data != nullptr); // &parser::path_
-    const path* p (*static_cast<const path* const*> (data));
-    return location (p, t.line, t.column);
   }
 }

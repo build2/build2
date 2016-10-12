@@ -51,7 +51,7 @@ namespace build2
               uint64_t save_flags = 0)
     {
       return required (
-        root, var_pool.find (name), default_value, override, save_flags);
+        root, var_pool[name], default_value, override, save_flags);
     }
 
     inline pair<reference_wrapper<const value>, bool>
@@ -77,7 +77,7 @@ namespace build2
     inline pair<const value*, bool>
     omitted (scope& root, const string& name)
     {
-      return omitted (root, var_pool.find (name));
+      return omitted (root, var_pool[name]);
     }
 
     // Set, if necessary, an optional config.* variable. In particular,
@@ -93,7 +93,7 @@ namespace build2
     inline const value&
     optional (scope& root, const string& var)
     {
-      return optional (root, var_pool.find (var));
+      return optional (root, var_pool[var]);
     }
 
     // Check whether there are any variables specified from the config

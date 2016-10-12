@@ -437,7 +437,7 @@ namespace build2
 
     if (n.directory (true))
       // Use either the precise or traditional representation depending on
-      // whethe this is the original name (if it is, then this might not be
+      // whether this is the original name (if it is, then this might not be
       // a path after all; think s/foo/bar/).
       //
       s = n.original
@@ -773,11 +773,18 @@ namespace build2
   const variable& variable_pool::
   insert (string n,
           const build2::value_type* t,
-          variable_visibility v,
-          bool o)
+          const variable_visibility* v,
+          const bool* o)
   {
-    auto p (variable_pool_base::insert (variable {move (n), t, nullptr, v}));
-    const variable& r (*p.first);
+    auto p (
+      insert (
+        variable {
+          move (n),
+          t,
+          nullptr,
+          v != nullptr ? *v : variable_visibility::normal}));
+
+    const variable& r (p.first->second);
 
     if (!p.second)
     {
@@ -794,16 +801,16 @@ namespace build2
       // were set, in which case the variable will be entered with the
       // default visibility.
       //
-      if (r.visibility != v)
+      if (v != nullptr && r.visibility != *v)
       {
         assert (r.visibility == variable_visibility::normal); // Default.
-        const_cast<variable&> (r).visibility = v; // Not changing the key.
+        const_cast<variable&> (r).visibility = *v; // Not changing the key.
       }
 
       // Check overridability (all overrides, if any, should already have
       // been enetered (see context.cxx:reset()).
       //
-      if (r.override != nullptr && !o)
+      if (o != nullptr && r.override != nullptr && !*o)
         fail << "variable " << r.name << " cannot be overridden";
     }
 
