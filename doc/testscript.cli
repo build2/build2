@@ -250,7 +250,7 @@ sample configuration file. We do these kind of not-test actions with \i{setup}
 and \i{teardown} commands, for example:
 
 \
-+ cat <<EOI >>>hello.conf ;
++cat <<EOI >>>hello.conf;
 John = Howdy
 Jane = Good day
 EOI
@@ -285,15 +285,17 @@ is a better way to do it: testscripts can define test groups. For example:
 {
   conf = hello.conf
 
-  + cat <<EOI >>>$conf
+  +cat <<EOI >>>$conf
   John = Howdy
   Jane = Good day
   EOI
 
-  $* John $conf >\"Howdy, John!\" : custom-greet
-  $* Jack $conf >\"Hello, Jack!\" : default-greet
+  $* John ../$conf >\"Howdy, John!\" : custom-greet
+  $* Jack ../$conf >\"Hello, Jack!\" : default-greet
 }
 \
+
+@@ Need to explain why ../
 
 A test group is a scope that contains several test/setup/teardown commands.
 Variables set inside a scope (like our \c{conf}) are only in effect until the
@@ -313,7 +315,7 @@ set a test-local variable:
 : config-greet
 {
   conf = hello.conf
-  + cat <\"Jane = Good day\" >>>$conf ;
+  +cat <\"Jane = Good day\" >>>$conf;
   $* Jane $conf >\"Good day, Jane!\"
 }
 \
@@ -371,20 +373,27 @@ EOO
 {
   conf = hello.conf
 
-  + cat <<EOI >>>$conf
+  +cat <<EOI >>>$conf
   John = Howdy
   Jane = Good day
   EOI
 
-  $* John $conf >\"Howdy, John!\"     : custom-greet
-  $* Jack $conf >\"Hello, Jack!\"     : default-greet
+  $* John ../$conf >\"Howdy, John!\"  : custom-greet
+  $* Jack ../$conf >\"Hello, Jack!\"  : default-greet
 .if! $windows
   $* Jane /dev/null >\"Hello, Jane!\" : config-empty
 .end
 }
 \
 
-@@ temp directory structure?
+@@ Add test.redirects?
+
+@@ Maybe allow variables in-between test lines (;)? Will have to recognize
+   semicolon in variable value.
+
+@@ Maybe $~ for test temp directory.
+
+@@ temp directory structure (why ../)?
 
 @@ how to run individual tests/groups?
 
@@ -531,7 +540,8 @@ expansion) from the Buildfile language. In a sense, testscripts are
 specialized (for testing) continuations of buildfiles.
 
 Except in here-document fragments, leading whitespaces and blank lines are
-ignored except for the line/column counts.
+ignored except for the line/column counts. A non-empty testscript must
+end with a newline.
 
 The backslash (\c{\\}) character followed by a newline signals the line
 continuation. Both this character and the newline are removed (note: not
@@ -683,6 +693,40 @@ here-document fragments.
 \h#grammar-all|Grammar|
 
 @@ Move directives last?
+
+\
+script: script-line*
+
+script-line:
+  variable-line|test-line
+
+variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
+value-attributes: '[' <key-value-pairs> ']'
+
+test-line:
+  command command-exit?
+  here-document*
+
+command-exit: ('=='|'!=') <exit-status>
+
+command: <path> (' '+ <arg>)* {stdin? stdout? stderr?}
+
+stdin:  '0'? ('<!'|\
+              '<' <text>|\
+              '<<' <here-end>)
+
+stdout: '1'? ('>!'|\
+              '>' <text>|\
+              '>>' <here-end>)
+
+stderr: '2'  ('>!'|\
+              '>' <text>|\
+              '>>' <here-end>)
+
+here-document:
+  <text>*
+  <here-end>
+\
 
 \
 script:
@@ -1122,6 +1166,9 @@ commands in order to preserve the setup of test. For example, of a failed test
 that you are debugging. Also, the setup/teardown and test commands are shown
 at different verbosity levels (\c{3/-V} and \c{2/-v} respectively).
 
+Setup and teardown commands associeted with the test group are executed
+sequenctially in the order specified.
+
 \h#grammar-command-expr|Command Expression|
 
 \
@@ -1133,6 +1180,9 @@ evaluation order is always from left to right (left-associative) and both
 operators have the same precedence and are short-circuiting. Note, however,
 that short-circuiting does not apply to variable expansion.
 
+The result of the expression is the exit status of the last \c{command-pipe}
+executed.
+
 
 \h#grammar-command-pipe|Command Pipe|
 
@@ -1140,7 +1190,9 @@ that short-circuiting does not apply to variable expansion.
 command-pipe: command ('|' command)*
 \
 
-Commands can also be combined with a pipe.
+Commands can also be combined with a pipe. All the piped commands except that
+last are expected to succeed with the last command's exit status being the
+result of \c{command-pipe}.
 
 \h#grammar-command|Command|
 
