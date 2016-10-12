@@ -1,0 +1,67 @@
+// file      : build2/test/script/parser -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_PARSER
+#define BUILD2_TEST_SCRIPT_PARSER
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/parser>
+#include <build2/diagnostics>
+
+#include <build2/test/script/token>
+#include <build2/test/script/script>
+
+namespace build2
+{
+  namespace test
+  {
+    namespace script
+    {
+      class lexer;
+
+      class parser: protected build2::parser
+      {
+      public:
+        using script_type = test::script::script;
+
+        // Issue diagnostics and throw failed in case of an error.
+        //
+        script_type
+        parse (istream&, const path& name, target& test, target& script);
+
+        // Recursive descent parser.
+        //
+        // Each parse function receives the token/type from which it should
+        // start consuming. On return the token/type should contain the first
+        // token that has not been consumed.
+        //
+      protected:
+        void
+        script (token&, token_type&);
+
+        void
+        script_line (token&, token_type&);
+
+        void
+        variable_line (token&, token_type&, string);
+
+        void
+        test_line (token&, token_type&, names_type, location);
+
+        void
+        command_exit (token&, token_type&);
+
+      protected:
+        using base_parser = build2::parser;
+
+        lexer* lexer_;
+        script_type* script_;
+      };
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_PARSER

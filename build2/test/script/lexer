@@ -1,0 +1,74 @@
+// file      : build2/test/script/lexer -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_LEXER
+#define BUILD2_TEST_SCRIPT_LEXER
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/lexer>
+
+#include <build2/test/script/token>
+
+namespace build2
+{
+  namespace test
+  {
+    namespace script
+    {
+      struct lexer_mode: build2::lexer_mode
+      {
+        using base_type = build2::lexer_mode;
+
+        enum
+        {
+          script_line = base_type::value_next,
+          variable_line,
+          test_line,
+          command_line
+        };
+
+        using base_type::base_type;
+      };
+
+      class lexer: public build2::lexer
+      {
+      public:
+        using base_lexer = build2::lexer;
+        using base_mode = build2::lexer_mode;
+
+        lexer (istream& is, const path& name, lexer_mode m)
+            : base_lexer (is, name, nullptr, nullptr, false) {mode (m);}
+
+        virtual void
+        mode (base_mode, char = '\0') override;
+
+        // Return true if we entered the quoted (double or single) mode since
+        // last reset.
+        //
+        bool
+        quoted () const {return quoted_;}
+
+        void
+        reset_quoted (bool q) {quoted_ = q;}
+
+      protected:
+        virtual token
+        next_impl () override;
+
+        token
+        next_line ();
+
+        token
+        name_line (bool separated);
+
+      protected:
+        bool quoted_ = false;
+      };
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_LEXER

@@ -1,0 +1,66 @@
+// file      : build2/test/script/script -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_SCRIPT
+#define BUILD2_TEST_SCRIPT_SCRIPT
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/variable>
+
+namespace build2
+{
+  class target;
+
+  namespace test
+  {
+    namespace script
+    {
+      class script
+      {
+      public:
+        script (target& tt, target& st)
+            : test_target (tt), script_target (st) {}
+
+      public:
+        target& test_target;   // Target we are testing.
+        target& script_target; // Target of the testscript file.
+
+      public:
+        // Note that if we pass the variable name as a string, then it will
+        // be looked up in the wrong pool.
+        //
+        variable_pool var_pool;
+        variable_map vars;
+
+        // Lookup the variable starting from this scope, continuing with outer
+        // scopes, then the target being tested, then the testscript target,
+        // and then outer buildfile scopes (including testscript-type/pattern
+        // specific).
+        //
+        lookup
+        find (const variable&) const;
+
+        // Return a value suitable for assignment. If the variable does not
+        // exist in this scope's map, then a new one with the NULL value is
+        // added and returned. Otherwise the existing value is returned.
+        //
+        value&
+        assign (const variable& var) {return vars.assign (var);}
+
+        // Return a value suitable for append/prepend. If the variable does
+        // not exist in this scope's map, then outer scopes are searched for
+        // the same variable. If found then a new variable with the found
+        // value is added to this scope and returned. Otherwise this function
+        // proceeds as assign() above.
+        //
+        value&
+        append (const variable&);
+      };
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_SCRIPT

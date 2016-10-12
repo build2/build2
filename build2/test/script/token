@@ -1,0 +1,45 @@
+// file      : build2/test/script/token -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_TOKEN
+#define BUILD2_TEST_SCRIPT_TOKEN
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/token>
+
+namespace build2
+{
+  namespace test
+  {
+    namespace script
+    {
+      struct token_type: build2::token_type
+      {
+        using base_type = build2::token_type;
+
+        enum
+        {
+          pipe = base_type::value_next, // |
+          clean,                        // &
+          log_and,                      // &&
+          log_or,                       // ||
+
+          in_null,                      // <!
+          in_string,                    // <
+          in_document,                  // <<
+
+          out_null,                     // <!
+          out_string,                   // <
+          out_document,                 // <<
+        };
+
+        using base_type::base_type;
+      };
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_TOKEN
