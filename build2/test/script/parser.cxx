@@ -5,6 +5,7 @@
 #include <build2/test/script/parser>
 
 #include <build2/test/script/lexer>
+#include <build2/test/script/runner>
 
 using namespace std;
 
@@ -16,8 +17,12 @@ namespace build2
     {
       using type = token_type;
 
-      script parser::
-      parse (istream& is, const path& p, target& test_t, target& script_t)
+      void parser::
+      parse (istream& is,
+             const path& p,
+             target& test_t,
+             target& script_t,
+             runner& r)
       {
         path_ = &p;
 
@@ -25,8 +30,10 @@ namespace build2
         lexer_ = &l;
         base_parser::lexer_ = &l;
 
-        script r (test_t, script_t);
-        script_ = &r;
+        script s (test_t, script_t);
+        script_ = &s;
+
+        runner_ = &r;
 
         token t (type::eos, false, 0, 0);
         type tt;
@@ -36,8 +43,6 @@ namespace build2
 
         if (tt != type::eos)
           fail (t) << "unexpected " << t;
-
-        return r;
       }
 
       void parser::
@@ -498,8 +503,7 @@ namespace build2
         expire_mode (); // Done parsing test-line.
 
         // Parse here-document fragments in the order they were mentioned on
-        // the command line. The end marker is temporarily stored as the
-        // redirect's value.
+        // the command line.
         //
         if (!hd.empty ())
         {
@@ -509,11 +513,17 @@ namespace build2
           mode (lexer_mode::here_line);
           next (t, tt);
 
+          // The end marker is temporarily stored as the redirect's value.
+          //
           for (redirect& r: hd)
             r.value = parse_here_document (t, tt, r.value);
 
           expire_mode ();
         }
+
+        // Now that we have all the pieces, run the test.
+        //
+        runner_->run (ts);
       }
 
       command_exit parser::

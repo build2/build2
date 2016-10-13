@@ -77,6 +77,7 @@ exe{b}:                                           \
        test/{hxx         cxx}{ rule             } \
 test/script/{hxx         cxx}{ lexer            } \
 test/script/{hxx         cxx}{ parser           } \
+test/script/{hxx         cxx}{ runner           } \
 test/script/{hxx         cxx}{ script           } \
                                $libs
 

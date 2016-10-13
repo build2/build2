@@ -21,14 +21,19 @@ namespace build2
     namespace script
     {
       class lexer;
+      class runner;
 
       class parser: protected build2::parser
       {
       public:
         // Issue diagnostics and throw failed in case of an error.
         //
-        script
-        parse (istream&, const path& name, target& test, target& script);
+        void
+        parse (istream&,
+               const path& name,
+               target& test,
+               target& script,
+               runner&);
 
         // Recursive descent parser.
         //
@@ -60,6 +65,7 @@ namespace build2
 
         lexer* lexer_;
         script* script_;
+        runner* runner_;
       };
     }
   }
