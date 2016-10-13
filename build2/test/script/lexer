@@ -27,7 +27,8 @@ namespace build2
           script_line = base_type::value_next,
           variable_line,
           test_line,
-          command_line
+          command_line,
+          here_line
         };
 
         using base_type::base_type;

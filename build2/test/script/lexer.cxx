@@ -25,24 +25,24 @@ namespace build2
         {
         case lexer_mode::script_line:
           {
-            s1 = "=+!|&<> $()#\t\n";
-            s2 = " ==           ";
+            s1 = "=+!|&<> $(#\t\n";
+            s2 = " ==          ";
             break;
           }
         case lexer_mode::variable_line:
           {
             // Like value except we don't recognize {.
             //
-            s1 = " $()[]#\t\n";
-            s2 = "         ";
+            s1 = " $([]#\t\n";
+            s2 = "        ";
             break;
           }
         case lexer_mode::test_line:
           {
             // As script_line but without variable assignments.
             //
-            s1 = "=!|&<> $()#\t\n";
-            s2 = "==           ";
+            s1 = "=!|&<> $(#\t\n";
+            s2 = "==          ";
             break;
           }
         case lexer_mode::command_line:
@@ -51,6 +51,16 @@ namespace build2
             //
             s1 = "|&<>";
             s2 = "    ";
+            s = false;
+            break;
+          }
+        case lexer_mode::here_line:
+          {
+            // This one is like a double-quoted string except it treats
+            // newlines as a separator.
+            //
+            s1 = "$(\n";
+            s2 = "   ";
             s = false;
             break;
           }
@@ -77,8 +87,9 @@ namespace build2
         case lexer_mode::script_line:
         case lexer_mode::variable_line:
         case lexer_mode::test_line:
-        case lexer_mode::command_line: return next_line ();
-        default:                       return base_lexer::next_impl ();
+        case lexer_mode::command_line:
+        case lexer_mode::here_line:      return next_line ();
+        default:                         return base_lexer::next_impl ();
         }
       }
 
@@ -110,7 +121,6 @@ namespace build2
             //
           case '$': return token (type::dollar, sep, ln, cn);
           case '(': return token (type::lparen, sep, ln, cn);
-          case ')': return token (type::rparen, sep, ln, cn);
           }
         }
 

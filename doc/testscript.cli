@@ -711,21 +711,31 @@ command-exit: ('=='|'!=') <exit-status>
 
 command: <path> (' '+ <arg>)* {stdin? stdout? stderr?}
 
-stdin:  '0'? ('<!'|\
-              '<' <text>|\
-              '<<' <here-end>)
+stdin:  '0'?('<!'|\
+             '<' <text>|\
+             '<<' <here-end>)
 
-stdout: '1'? ('>!'|\
-              '>' <text>|\
-              '>>' <here-end>)
+stdout: '1'?('>!'|\
+             '>' <text>|\
+             '>>' <here-end>)
 
-stderr: '2'  ('>!'|\
-              '>' <text>|\
-              '>>' <here-end>)
+stderr:  '2'('>!'|\
+             '>' <text>|\
+             '>>' <here-end>)
 
 here-document:
   <text>*
   <here-end>
+\
+
+Note that if specified, file descriptors must not be separated from the
+redirect operator with whitespaces. In other words, the following command
+has \c{2} as an argument and redirects \c{stdout}, not \c{stderr}.
+
+Here-line is like double-quoted string by recognizes newlines.
+
+\
+$* 2 >!
 \
 
 \
@@ -782,25 +792,25 @@ command-pipe: command ('|' command)*
 
 command: <path> (' '+ <arg>)* {stdin? stdout? stderr? cleanup*}
 
-stdin:  '0'? ('<!'|\
-              '<?'|\
-              '<' <text>|\
-              '<<' <here-end>|\
-              '<<<' <file>)
+stdin:      ('<!'|\
+             '<?'|\
+             '<' <text>|\
+             '<<' <here-end>|\
+             '<<<' <file>)
 
-stdout: '1'? ('>!'|\
-              '>?'|\
-              '>&' '2'|\
-              '>' <text>|\
-              '>>' <here-end>|\
-              ('>>>'|'>>>&') <file>)
+stdout:     ('>!'|\
+             '>?'|\
+             '>&' '2'|\
+             '>' <text>|\
+             '>>' <here-end>|\
+             ('>>>'|'>>>&') <file>)
 
-stderr: '2'  ('>!'|\
-              '>?'|\
-              '>&' '1' |\
-              '>' <text>|\
-              '>>' <here-end>|\
-              ('>>>'|'>>>&') <file>)
+stderr: '2' ('>!'|\
+             '>?'|\
+             '>&' '1' |\
+             '>' <text>|\
+             '>>' <here-end>|\
+             ('>>>'|'>>>&') <file>)
 
 cleanup: '&' (<file>|<dir>)
 

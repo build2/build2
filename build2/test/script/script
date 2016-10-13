@@ -18,6 +18,45 @@ namespace build2
   {
     namespace script
     {
+      enum class redirect_type
+      {
+        none,
+        null,
+        here_string,  // Value is the string.
+        here_document // Value is the document.
+      };
+
+      struct redirect
+      {
+        redirect_type type = redirect_type::none;
+        string value;
+      };
+
+      struct command
+      {
+        path program;
+        strings arguments;
+
+        redirect in;
+        redirect out;
+        redirect err;
+      };
+
+      enum class exit_comparison {eq, ne};
+
+      struct command_exit
+      {
+        // @@ Need to understand what type we should use for status.
+
+        exit_comparison comparison = exit_comparison::eq;
+        uint16_t status = 0;
+      };
+
+      struct test: command
+      {
+        command_exit exit;
+      };
+
       class script
       {
       public:

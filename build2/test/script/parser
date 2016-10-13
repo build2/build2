@@ -25,11 +25,9 @@ namespace build2
       class parser: protected build2::parser
       {
       public:
-        using script_type = test::script::script;
-
         // Issue diagnostics and throw failed in case of an error.
         //
-        script_type
+        script
         parse (istream&, const path& name, target& test, target& script);
 
         // Recursive descent parser.
@@ -40,25 +38,28 @@ namespace build2
         //
       protected:
         void
-        script (token&, token_type&);
+        parse_script (token&, token_type&);
 
         void
-        script_line (token&, token_type&);
+        parse_script_line (token&, token_type&);
 
         void
-        variable_line (token&, token_type&, string);
+        parse_variable_line (token&, token_type&, string);
 
         void
-        test_line (token&, token_type&, names_type, location);
+        parse_test_line (token&, token_type&, names_type, location);
 
-        void
-        command_exit (token&, token_type&);
+        command_exit
+        parse_command_exit (token&, token_type&);
+
+        string
+        parse_here_document (token&, token_type&, const string&);
 
       protected:
         using base_parser = build2::parser;
 
         lexer* lexer_;
-        script_type* script_;
+        script* script_;
       };
     }
   }
