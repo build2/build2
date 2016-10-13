@@ -8,7 +8,6 @@
 #include <cstdlib>  // strtol()
 #include <iostream> // cerr
 
-#include <build2/context>
 #include <build2/variable>
 #include <build2/diagnostics>
 
@@ -83,6 +82,60 @@ namespace build2
       l.resize (n);
 
     return l;
+  }
+
+  dir_path work;
+  dir_path home;
+  const dir_path* relative_base = &work;
+
+  string
+  diag_relative (const path& p, bool cur)
+  {
+    if (p.string () == "-")
+      return "<stdin>";
+
+    const path& b (*relative_base);
+
+    if (p.absolute ())
+    {
+      if (p == b)
+        return cur ? "." + p.separator_string () : string ();
+
+#ifndef _WIN32
+      if (!home.empty ())
+      {
+        if (p == home)
+          return "~" + p.separator_string ();
+      }
+#endif
+
+      path rb (relative (p));
+
+#ifndef _WIN32
+      if (!home.empty ())
+      {
+        if (rb.relative ())
+        {
+          // See if the original path with the ~/ shortcut is better that the
+          // relative to base.
+          //
+          if (p.sub (home))
+          {
+            path rh (p.leaf (home));
+            if (rb.size () > rh.size () + 2) // 2 for '~/'
+              return "~/" + move (rh).representation ();
+          }
+        }
+        else if (rb.sub (home))
+          return "~/" + rb.leaf (home).representation ();
+      }
+
+#endif
+
+      return move (rb).representation ();
+    }
+
+    return p.representation ();
   }
 
   process_path

@@ -5,6 +5,7 @@
 #include <build2/scope>
 
 #include <build2/target>
+#include <build2/context>
 
 using namespace std;
 
@@ -331,7 +332,7 @@ namespace build2
     // @@ MT
     //
     variable_override_value& cache (
-      variable_override_cache[make_pair (inner_vars, &var)]);
+      var_override_cache[make_pair (inner_vars, &var)]);
 
     // Now find our "stem", that is the value to which we will be appending
     // suffixes and prepending prefixes. This is either the original or the

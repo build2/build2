@@ -8,7 +8,7 @@ exe{b}:                                         \
           {hxx ixx     cxx}{ algorithm        } \
           {            cxx}{ b                } \
           {hxx ixx     cxx}{ b-options        } \
-          {hxx     txx cxx}{ context          } \
+          {hxx         cxx}{ context          } \
           {hxx         cxx}{ depdb            } \
           {hxx         cxx}{ diagnostics      } \
           {hxx         cxx}{ dump             } \

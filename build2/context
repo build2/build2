@@ -17,8 +17,6 @@ namespace build2
 {
   class file;
 
-  extern dir_path work;
-  extern dir_path home;
   extern options ops;
 
   extern string_pool extension_pool;
@@ -75,6 +73,10 @@ namespace build2
 
   using variable_overrides = vector<variable_override>;
 
+  // Variable override value cache.
+  //
+  extern variable_override_cache var_override_cache;
+
   // Reset the build state. In particular, this removes all the targets,
   // scopes, and variables.
   //
@@ -106,30 +108,6 @@ namespace build2
   dir_path
   out_src (const dir_path& src,
            const dir_path& out_root, const dir_path& src_root);
-
-  // If possible and beneficial, translate an absolute, normalized path
-  // into relative to the relative_base directory, which is normally
-  // work. Note that if the passed path is the same as relative_base,
-  // then this function returns empty path.
-  //
-  template <typename K>
-  basic_path<char, K>
-  relative (const basic_path<char, K>&);
-
-  // By default this points to work. Setting this to something else
-  // should only be done in tightly controlled, non-parallel
-  // situations (see dump). If base is empty, then relative()
-  // returns the original path.
-  //
-  extern const dir_path* relative_base;
-
-  // In addition to calling relative(), this function also uses shorter
-  // notations such as '~/'. For directories the result includes the trailing
-  // slash. If the path is the same as base, returns "./" if current is true
-  // and empty string otherwise.
-  //
-  string
-  diag_relative (const path&, bool current = true);
 
   // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
   // and "updating exe{foo} is configured". Use like this:
@@ -179,7 +157,5 @@ namespace build2
     return diag_phrase {a, t, &diag_done};
   }
 }
-
-#include <build2/context.txx>
 
 #endif // BUILD2_CONTEXT

@@ -930,8 +930,9 @@ namespace build2
     const variable_map* stem_vars = nullptr; // NULL means there is no stem.
   };
 
-  extern std::map<pair<const variable_map*, const variable*>,
-                  variable_override_value> variable_override_cache;
+  using variable_override_cache = std::map<pair<const variable_map*,
+                                                const variable*>,
+                                           variable_override_value>;
 }
 
 #include <build2/variable.ixx>

@@ -80,6 +80,36 @@ namespace build2
   next_word (const string&, size_t n, size_t& b, size_t& e,
              char d1 = ' ', char d2 = '\0');
 
+  // Work/home directories (must be initialized in main()) and relative path
+  // calculation.
+  //
+  extern dir_path work;
+  extern dir_path home;
+
+  // By default this points to work. Setting this to something else should
+  // only be done in tightly controlled, non-concurrent situations (e.g.,
+  // state dump). If it is empty, then relative() below returns the original
+  // path.
+  //
+  extern const dir_path* relative_base;
+
+  // If possible and beneficial, translate an absolute, normalized path into
+  // relative to the relative_base directory, which is normally work. Note
+  // that if the passed path is the same as relative_base, then this function
+  // returns empty path.
+  //
+  template <typename K>
+  basic_path<char, K>
+  relative (const basic_path<char, K>&);
+
+  // In addition to calling relative(), this function also uses shorter
+  // notations such as '~/'. For directories the result includes the trailing
+  // slash. If the path is the same as base, returns "./" if current is true
+  // and empty string otherwise.
+  //
+  string
+  diag_relative (const path&, bool current = true);
+
   // Basic process utilities.
   //
 

@@ -4,6 +4,31 @@
 
 namespace build2
 {
+  template <typename K>
+  basic_path<char, K>
+  relative (const basic_path<char, K>& p)
+  {
+    typedef basic_path<char, K> path;
+
+    const dir_path& b (*relative_base);
+
+    if (p.simple () || b.empty ())
+      return p;
+
+    if (p.sub (b))
+      return p.leaf (b);
+
+    if (p.root_directory () == b.root_directory ())
+    {
+      path r (p.relative (b));
+
+      if (r.string ().size () < p.string ().size ())
+        return r;
+    }
+
+    return p;
+  }
+
   template <typename T>
   T
   run (const process_path& pp,

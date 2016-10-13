@@ -25,8 +25,6 @@ using namespace butl;
 
 namespace build2
 {
-  dir_path work;
-  dir_path home;
   options ops;
 
   string_pool extension_pool;
@@ -43,6 +41,8 @@ namespace build2
 
   uint64_t dependency_count;
 
+  variable_override_cache var_override_cache;
+
   variable_overrides
   reset (const strings& cmd_vars)
   {
@@ -55,7 +55,7 @@ namespace build2
 
     variable_overrides vos;
 
-    variable_override_cache.clear ();
+    var_override_cache.clear ();
 
     targets.clear ();
     scopes.clear ();
@@ -360,53 +360,6 @@ namespace build2
   {
     assert (s.sub (src_root));
     return out_root / s.leaf (src_root);
-  }
-
-  // relative()
-  //
-  const dir_path* relative_base = &work;
-
-  string
-  diag_relative (const path& p, bool cur)
-  {
-    if (p.string () == "-")
-      return "<stdin>";
-
-    const path& b (*relative_base);
-
-    if (p.absolute ())
-    {
-      if (p == b)
-        return cur ? "." + p.separator_string () : string ();
-
-#ifndef _WIN32
-      if (p == home)
-        return "~" + p.separator_string ();
-#endif
-
-      path rb (relative (p));
-
-#ifndef _WIN32
-      if (rb.relative ())
-      {
-        // See if the original path with the ~/ shortcut is better
-        // that the relative to base.
-        //
-        if (p.sub (home))
-        {
-          path rh (p.leaf (home));
-          if (rb.size () > rh.size () + 2) // 2 for '~/'
-            return "~/" + move (rh).representation ();
-        }
-      }
-      else if (rb.sub (home))
-        return "~/" + rb.leaf (home).representation ();
-#endif
-
-      return move (rb).representation ();
-    }
-
-    return p.representation ();
   }
 
   // diag_do(), etc.
