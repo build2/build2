@@ -48,6 +48,12 @@ namespace build2
   // target
   //
 
+  target::
+  ~target ()
+  {
+    clear_data ();
+  }
+
   void target::
   recipe (action_type a, recipe_type r)
   {
@@ -87,6 +93,7 @@ namespace build2
   void target::
   reset (action_type)
   {
+    clear_data ();
     prerequisite_targets.clear ();
   }
 

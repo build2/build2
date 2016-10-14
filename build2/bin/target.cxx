@@ -226,6 +226,8 @@ namespace build2
     void lib::
     reset (action_type)
     {
+      clear_data ();
+
       // Don't clear prerequisite_targets since it is "given" to our
       // members to implement "library meta-information protocol".
     }

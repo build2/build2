@@ -101,7 +101,7 @@ namespace build2
       libs* s {nullptr};
 
       virtual void
-      reset (action_type);
+      reset (action_type) override;
 
     public:
       static const target_type static_type;

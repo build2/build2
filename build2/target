@@ -6,7 +6,7 @@
 #define BUILD2_TARGET
 
 #include <iterator>     // tags, etc.
-#include <type_traits>
+#include <type_traits>  // aligned_storage
 #include <unordered_map>
 
 #include <butl/multi-index> // map_iterator_adapter
@@ -251,7 +251,7 @@ namespace build2
 
   public:
     virtual
-    ~target () = default;
+    ~target ();
 
     target (const target&) = delete;
     target& operator= (const target&) = delete;
@@ -260,7 +260,7 @@ namespace build2
         : dir (move (d)), out (move (o)), name (move (n)), ext (e) {}
 
     // Reset the target before matching it to a rule. The default
-    // implementation clears prerequisite_targets.
+    // implementation clears the auxilary data and prerequisite_targets.
     //
     virtual void
     reset (action_type);
@@ -456,6 +456,73 @@ namespace build2
     // action execution.
     //
     size_t dependents;
+
+    // Auxilary data storage.
+    //
+  public:
+    // A rule that matches (i.e., returns true from its match() function) may
+    // use this pad to pass data between its match and apply functions as well
+    // as the recipe. After the recipe is executed, the data is destroyed by
+    // calling data_dtor (if not NULL). The rule should static assert that the
+    // size of the pad is sufficient for its needs.
+    //
+    // Note also that normally at least 2 extra pointers may be stored without
+    // a dynamic allocation in the returned recipe (small object optimization
+    // in std::function). So if you need to pass data only between apply() and
+    // the recipe, then this might be a more convenient way.
+    //
+    // Note also that a rule that delegates to another rule may not be able to
+    // use this mechanism fully since the delegated-to rule may also need the
+    // data pad.
+    //
+    // Currenly the data is not destroyed until the next match.
+    //
+    std::aligned_storage<sizeof (void*) * 4>::type data_pad;
+    void (*data_dtor) (void*) = nullptr;
+
+    // VC 14 needs decltype.
+    //
+    static const size_t data_size = sizeof (decltype (data_pad));
+
+    template <typename R,
+              typename T = typename std::remove_cv<
+                typename std::remove_reference<R>::type>::type>
+    typename std::enable_if<std::is_trivially_destructible<T>::value,T&>::type
+    data (R&& d)
+    {
+      assert (sizeof (T) <= data_size && data_dtor == nullptr);
+      return *new (&data_pad) T (forward<R> (d));
+    }
+
+    template <typename R,
+              typename T = typename std::remove_cv<
+                typename std::remove_reference<R>::type>::type>
+    typename std::enable_if<!std::is_trivially_destructible<T>::value,T&>::type
+    data (R&& d)
+    {
+      assert (sizeof (T) <= data_size && data_dtor == nullptr);
+      T& r (*new (&data_pad) T (forward<R> (d)));
+      data_dtor = [] (void* p) {static_cast<T*> (p)->~T ();};
+      return r;
+    }
+
+    template <typename T>
+    T&
+    data () {return *reinterpret_cast<T*> (&data_pad);}
+
+    template <typename T>
+    const T&
+    data () const {return *reinterpret_cast<const T*> (&data_pad);}
+
+    void
+    clear_data ()
+    {
+      if (data_dtor != nullptr)
+      {
+        data_dtor (&data_pad);
+        data_dtor = nullptr;
+      }
+    }
 
   public:
     action_type action; // Action this recipe is for.
