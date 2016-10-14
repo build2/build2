@@ -25,6 +25,9 @@ namespace build2
       apply (action, target&, const match_result&) const;
 
       static target_state
+      perform_script (action, target&);
+
+      static target_state
       perform_test (action, target&);
     };
   }

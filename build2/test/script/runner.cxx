@@ -13,9 +13,10 @@ namespace build2
     namespace script
     {
       void concurrent_runner::
-      run (const test&)
+      run (const test& t)
       {
-        assert (false); // @@ TODO
+        // @@ TODO
+        text << "run " << t.program;
       }
     }
   }

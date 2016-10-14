@@ -197,7 +197,7 @@ namespace build2
 
         // Make sure we don't have any pending positions to fill.
         //
-        auto check_pending = [p, this] (const location& l)
+        auto check_pending = [&p, this] (const location& l)
         {
           const char* what (nullptr);
 
@@ -448,7 +448,7 @@ namespace build2
           case type::newline:
             {
               done = true;
-              break;
+              continue;
             }
           default:
             {
@@ -520,6 +520,8 @@ namespace build2
 
           expire_mode ();
         }
+        else
+          next (t, tt);
 
         // Now that we have all the pieces, run the test.
         //
