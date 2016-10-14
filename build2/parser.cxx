@@ -1750,11 +1750,11 @@ namespace build2
           // untyped one to the other's type instead of complaining. This
           // seems like a reasonable thing to do and will allow us to write:
           //
-          // if (build.version > 30000)
+          // if ($build.version > 30000)
           //
           // Rather than having to write:
           //
-          // if (build.version > [uint64] 30000)
+          // if ($build.version > [uint64] 30000)
           //
           if (lhs.type != rhs.type)
           {

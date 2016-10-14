@@ -444,7 +444,7 @@ namespace build2
     if (m == lexer_mode::variable)
       state_.pop ();
 
-    return token (lexeme, sep, quoted, ln, cn, token_printer);
+    return token (move (lexeme), sep, quoted, ln, cn, token_printer);
 
   }
 
