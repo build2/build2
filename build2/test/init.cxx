@@ -9,8 +9,9 @@
 #include <build2/rule>
 #include <build2/diagnostics>
 
-#include <build2/test/operation>
 #include <build2/test/rule>
+#include <build2/test/target>
+#include <build2/test/operation>
 
 using namespace std;
 using namespace butl;
@@ -22,15 +23,15 @@ namespace build2
     static rule rule_;
 
     void
-    boot (scope& root, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("test::boot");
 
-      l5 ([&]{trace << "for " << root.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       // Register the test operation.
       //
-      root.operations.insert (test_id, test);
+      rs.operations.insert (test_id, test);
 
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
@@ -50,7 +51,7 @@ namespace build2
     }
 
     bool
-    init (scope& root,
+    init (scope& rs,
           scope&,
           const location& l,
           unique_ptr<module_base>&,
@@ -66,7 +67,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (root.out_path ());
+      const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
       assert (config_hints.empty ()); // We don't known any hints.
@@ -80,10 +81,18 @@ namespace build2
       // if (s)
       //   config::save_module (r, "test", INT32_MAX);
 
+      // Register target types.
+      //
+      {
+        auto& t (rs.target_types);
+
+        t.insert<testscript> ();
+      }
+
       // Register rules.
       //
       {
-        auto& r (root.rules);
+        auto& r (rs.rules);
 
         // Register our test running rule.
         //

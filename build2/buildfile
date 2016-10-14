@@ -75,6 +75,7 @@ exe{b}:                                           \
        test/{hxx         cxx}{ init             } \
        test/{hxx         cxx}{ operation        } \
        test/{hxx         cxx}{ rule             } \
+       test/{hxx         cxx}{ target           } \
 test/script/{hxx         cxx}{ lexer            } \
 test/script/{hxx         cxx}{ parser           } \
 test/script/{hxx         cxx}{ runner           } \
