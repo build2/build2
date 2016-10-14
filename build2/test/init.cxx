@@ -98,10 +98,9 @@ namespace build2
         //
         r.insert<target> (perform_test_id, "test", rule_);
 
-        // Register our rule for the dist meta-operation. We need
-        // to do this because we have "ad-hoc prerequisites" (test
-        // input/output files) that need to be entered into the
-        // target list.
+        // Register our rule for the dist meta-operation. We need to do this
+        // because we have "ad-hoc prerequisites" (test input/output files)
+        // that need to be entered into the target list.
         //
         r.insert<target> (dist_id, test_id, "test", rule_);
       }
