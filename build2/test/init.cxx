@@ -39,9 +39,10 @@ namespace build2
       {
         auto& v (var_pool);
 
-        // Note: none are overridable.
+        // Note: none are overridable. The test variable is a path with the
+        // true/false special values.
         //
-        v.insert<bool>    ("test",           variable_visibility::target);
+        v.insert<path>    ("test",           variable_visibility::target);
         v.insert<name>    ("test.input",     variable_visibility::project);
         v.insert<name>    ("test.output",    variable_visibility::project);
         v.insert<name>    ("test.roundtrip", variable_visibility::project);

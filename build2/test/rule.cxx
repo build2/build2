@@ -55,7 +55,7 @@ namespace build2
         // explicitly set to false.
         //
         lookup l (t["test"]);
-        md.test = !l || cast<bool> (l);
+        md.test = !l || cast<path> (l).string () != "false";
       }
       else
       {
@@ -69,7 +69,7 @@ namespace build2
         //
         auto p (t.find ("test"));
 
-        if (p.first && cast<bool> (p.first))
+        if (p.first && cast<path> (p.first).string () != "false")
           md.test = true;
         else
         {
