@@ -29,11 +29,7 @@ namespace build2
         // Issue diagnostics and throw failed in case of an error.
         //
         void
-        parse (istream&,
-               const path& name,
-               target& test,
-               target& script,
-               runner&);
+        parse (istream&, const path& name, script&, runner&);
 
         // Recursive descent parser.
         //

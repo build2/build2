@@ -18,11 +18,7 @@ namespace build2
       using type = token_type;
 
       void parser::
-      parse (istream& is,
-             const path& p,
-             target& test_t,
-             target& script_t,
-             runner& r)
+      parse (istream& is, const path& p, script& s, runner& r)
       {
         path_ = &p;
 
@@ -30,9 +26,7 @@ namespace build2
         lexer_ = &l;
         base_parser::lexer_ = &l;
 
-        script s (test_t, script_t);
         script_ = &s;
-
         runner_ = &r;
 
         token t;

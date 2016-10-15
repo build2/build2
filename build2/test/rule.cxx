@@ -13,6 +13,7 @@
 
 #include <build2/test/script/parser>
 #include <build2/test/script/runner>
+#include <build2/test/script/script>
 
 using namespace std;
 using namespace butl;
@@ -308,6 +309,7 @@ namespace build2
     perform_script (action, target& t)
     {
       using namespace script;
+      using script::script;
 
       for (target* pt: t.prerequisite_targets)
       {
@@ -319,11 +321,12 @@ namespace build2
 
         try
         {
+          script s (t, st);
+          concurrent_runner r;
+
           ifdstream ifs (sp);
           parser p;
-          concurrent_runner run;
-
-          p.parse (ifs, sp, t, st, run);
+          p.parse (ifs, sp, s, r);
         }
         catch (const io_error& e)
         {
