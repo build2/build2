@@ -98,9 +98,10 @@ namespace build2
         // Register our test running rule.
         //
         r.insert<target> (perform_test_id, "test", rule_);
+        r.insert<alias> (perform_test_id, "test", rule_); // Override generic.
 
         // Register our rule for the dist meta-operation. We need to do this
-        // because we have "ad-hoc prerequisites" (test input/output files)
+        // because we may have ad hoc prerequisites (test input/output files)
         // that need to be entered into the target list.
         //
         r.insert<target> (dist_id, test_id, "test", rule_);

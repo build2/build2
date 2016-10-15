@@ -14,6 +14,35 @@ namespace build2
   {
     namespace script
     {
+      script::
+      script (target& tt, target& st)
+          : test_target (tt), script_target (st)
+      {
+        // Unless we have the test variable set on the test or script target,
+        // set it at the script level to the test target's path.
+        //
+        {
+          // Note: use the same variable type as in buildfile.
+          //
+          const variable& var (var_pool.insert<path> ("test"));
+
+          if (!find (var))
+          {
+            value& v (assign (var));
+
+            // If this is a path-based target, then we use the path. If this
+            // is a directory (alias) target, then we use the directory path.
+            // Otherwise, we leave it NULL expecting the testscript to set it
+            // to something appropriate, if used.
+            //
+            if (auto* p = tt.is_a<path_target> ())
+              v = p->path ();
+            else if (tt.is_a<dir> ())
+              v = path (tt.dir.string ()); // Strip trailing slash.
+          }
+        }
+      }
+
       lookup script::
       find (const variable& var) const
       {

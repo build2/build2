@@ -5,3 +5,4 @@ foo = baz
 $foo
 fox = $foo-$cxx.target.class
 $fox
+$test

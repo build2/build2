@@ -60,8 +60,7 @@ namespace build2
       class script
       {
       public:
-        script (target& tt, target& st)
-            : test_target (tt), script_target (st) {}
+        script (target& test_target, target& script_target);
 
       public:
         target& test_target;   // Target we are testing.

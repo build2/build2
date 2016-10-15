@@ -34,31 +34,45 @@ namespace build2
     match_result rule::
     match (action a, target& t, const string&) const
     {
+      // The (admittedly twisted) logic of this rule tries to achieve the
+      // following: If the target is testable, then we want both first update
+      // it and then test it. Otherwise, we want to ignore it for both
+      // operations. To achieve this the rule will be called to match during
+      // both operations. For update, if the target is not testable, then the
+      // rule matches with a noop recipe. If the target is testable, then the
+      // rule also matches but delegates to the real update rule. In this case
+      // (and this is tricky) the rule also changes the operation to
+      // unconditional update to make sure it doesn't match any prerequisites
+      // (which, if not testable, it will noop).
+
       match_data md;
 
       // We have two very different cases: testscript and simple test (plus it
       // may not be a testable target at all). So as the first step determine
-      // which case this is. If we have any prerequisites of the test{} type,
-      // then this is the testscript case.
+      // which case this is.
+      //
+      // If we have any prerequisites of the test{} type, then this is the
+      // testscript case.
       //
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (p.is_a<testscript> ())
         {
           md.script = true;
+
+          // We treat this target as testable unless the test variable is
+          // explicitly set to false.
+          //
+          lookup l (t["test"]);
+          md.test = !l || cast<path> (l).string () != "false";
           break;
         }
       }
 
-      if (md.script)
-      {
-        // We treat this target as testable unless the test variable is
-        // explicitly set to false.
-        //
-        lookup l (t["test"]);
-        md.test = !l || cast<path> (l).string () != "false";
-      }
-      else
+      // If this is not a script, then determine if it is a simple test.
+      // Ignore aliases and testscripts files themselves at the outset.
+      //
+      if (!md.script && !t.is_a<alias> () && !t.is_a<testscript> ())
       {
         // For the simple case whether this is a test is controlled by the
         // test variable. Also, it feels redundant to specify, say, "test =
@@ -90,43 +104,38 @@ namespace build2
 
       match_result mr (t);
 
-      // If this target is testable and this is the update pre-operation, then
-      // all we really need to do is say we are not a match and the standard
-      // matching machinery will (hopefully) find the rule to update this
-      // target.
+      // Theoretically if this target is testable and this is the update
+      // pre-operation, then all we need to do is say we are not a match and
+      // the standard matching machinery will find the rule to update this
+      // target. The problem with this approach is that the matching will
+      // still happen for "update for test" which means this rule may still
+      // match prerequisites (e.g., non-existent files) which we don't want.
+      //
+      // Also, for the simple case there is one more complication: test
+      // input/output. While normally they will be existing (in src_base)
+      // files, they could also be auto-generated. In fact, they could only be
+      // needed for testing, which means the normall update won't even know
+      // about them (nor clean, for that matter; this is why we need
+      // cleantest).
+      //
+      // @@ Maybe we should just say if input/output are generated, then they
+      //    must be explicitly listed as prerequisites? Then no need for
+      //    cleantest but they will be updated even when not needed.
+      //
+      // To make generated input/output work we will have to cause their
+      // update ourselves. In other words, we may have to do some actual work
+      // for (update, test), and not simply "guide" (update, 0) as to which
+      // targets need updating. For how exactly we are going to do it, see
+      // apply() below.
+      //
+      // Change the recipe action to (update, 0) (i.e., "unconditional
+      // update") to make sure we won't match any prerequisites.
       //
       if (md.test && a.operation () == update_id)
-      {
-        // And this is exactly what we do for the testscript case.
-        //
-        if (md.script)
-          return nullptr;
-        else
-          // For the simple case there is one thing that compilates this
-          // simple approach: test input/output. While normally they will be
-          // existing (in src_base) files, they could also be auto-generated.
-          // In fact, they could only be needed for testing, which means the
-          // normall update won't even know about them (nor clean, for that
-          // matter; this is why we need cleantest).
-          //
-          // @@ Maybe we should just say if input/output are generated, then
-          //    they must be explicitly listed as prerequisites? Then no need
-          //    for cleantest but they will be updated even when not needed.
-          //
-          // To make generated input/output work we will have to cause their
-          // update ourselves. In other words, we may have to do some actual
-          // work for (update, test), and not simply "guide" (update, 0) as to
-          // which targets need updating. For how exactly we are going to do
-          // it, see apply() below.
-          //
-          // At this stage we need to change the recipe action to (update, 0)
-          // (i.e., "unconditional update").
-          //
-          mr.recipe_action = action (a.meta_operation (), update_id);
-      }
+        mr.recipe_action = action (a.meta_operation (), update_id);
 
-      // Note that we match even if this target is not testable so that we
-      // can ignore it (see apply()).
+      // Note that we match even if this target is not testable so that we can
+      // ignore it (see apply()).
       //
       t.data (md); // Save the data in the target's auxilary storage.
       return mr;
@@ -140,15 +149,52 @@ namespace build2
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule also uses aux storage.
 
+      // The alias case is special so handle it first.
+      //
+      if (t.is_a<alias> ())
+      {
+        // We can only test an alias via a testscript, not a simple test.
+        //
+        assert (!md.test || md.script);
+
+        // Find the actual alias rule.
+        //
+        recipe d (match_delegate (a, t, *this).first);
+
+        // If not a test or this is the update pre-operation then simply
+        // redirect to the alias rule.
+        //
+        if (!md.test || a.operation () == update_id)
+          return d;
+
+        // Otherwise, we have to combine the two recipes. Note that we will
+        // reuse the prerequisite_targets prepared by the alias rule.
+        //
+        // Note: this most likely won't fit the small object optimization. We
+        // could check if the target is a function pointer (which it will most
+        // likely be) and return an optimized lambda in this case.
+        //
+        return [dr = move (d)] (action a, target& t) -> target_state
+        {
+          // Run the alias recipe first then the test.
+          //
+          target_state r (execute_delegate (dr, a, t));
+          return r |= perform_script (a, t);
+        };
+      }
+
       if (!md.test)
         return noop_recipe;
 
-      // If we are here, then the target is testable.
+      // If we are here, then the target is testable and the action is either
+      //   a. (perform, test, 0) or
+      //   b. (*, update, 0)
       //
       if (md.script)
       {
-        // If we are here, then the action is (perform, test, 0).
-        //
+        if (a.operation () == update_id)
+          return match_delegate (a, t, *this).first;
+
         // Collect all the testscript targets in prerequisite_targets.
         //
         for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -161,10 +207,6 @@ namespace build2
       }
       else
       {
-        // If we are here, then the action is either
-        //   a. (perform, test, 0) or
-        //   b. (*, update, 0)
-        //
         // In both cases, the next step is to see if we have test.{input,
         // output,roundtrip}.
         //
@@ -313,24 +355,28 @@ namespace build2
 
       for (target* pt: t.prerequisite_targets)
       {
-        testscript& st (*pt->is_a<testscript> ());
-        const path& sp (st.path ());
-        assert (!sp.empty ()); // Should have been assigned by update.
-
-        text << "test " << t << " with " << st;
-
-        try
+        // In case we are using the alias rule's list (see above).
+        //
+        if (testscript* st = pt->is_a<testscript> ())
         {
-          script s (t, st);
-          concurrent_runner r;
+          const path& sp (st->path ());
+          assert (!sp.empty ()); // Should have been assigned by update.
 
-          ifdstream ifs (sp);
-          parser p;
-          p.parse (ifs, sp, s, r);
-        }
-        catch (const io_error& e)
-        {
-          fail << "unable to read testscript " << sp << ": " << e.what ();
+          text << "test " << t << " with " << *st;
+
+          try
+          {
+            script s (t, *st);
+            concurrent_runner r;
+
+            ifdstream ifs (sp);
+            parser p;
+            p.parse (ifs, sp, s, r);
+          }
+          catch (const io_error& e)
+          {
+            fail << "unable to read testscript " << sp << ": " << e.what ();
+          }
         }
       }
 
