@@ -258,7 +258,7 @@ namespace build2
           // been found if we signalled that we do not match from match()
           // above.
           //
-          recipe d (match_delegate (a, t).first);
+          recipe d (match_delegate (a, t, *this).first);
 
           // If we have no input/output that needs updating, then simply
           // redirect to it.

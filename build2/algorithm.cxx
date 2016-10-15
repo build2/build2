@@ -53,7 +53,7 @@ namespace build2
   }
 
   pair<const rule*, match_result>
-  match_impl (action a, target& t, bool apply)
+  match_impl (action a, target& t, bool apply, const rule* skip)
   {
     pair<const rule*, match_result> r;
 
@@ -97,8 +97,8 @@ namespace build2
           if (om == nullptr)
             continue; // No entry for this meta-operation id.
 
-          // First try the map for the actual operation. If that
-          // doesn't yeld anything, try the wildcard map.
+          // First try the map for the actual operation. If that doesn't yeld
+          // anything, try the wildcard map.
           //
           for (size_t oi (o), oip (o); oip != 0; oip = oi, oi = 0)
           {
@@ -139,6 +139,9 @@ namespace build2
             {
               const string& n (i->first);
               const rule& ru (i->second);
+
+              if (&ru == skip)
+                continue;
 
               match_result m;
               {

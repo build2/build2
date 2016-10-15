@@ -87,13 +87,14 @@ namespace build2
   void
   match_only (action, target&);
 
-  // Match a "delegate rule" from withing another rules' apply()
-  // function. Return recipe and recipe action (if any). Note
-  // that unlike match(), this call doesn't increment the
-  // dependents count. See also the companion execute_delegate().
+  // Match a "delegate rule" from withing another rules' apply() function
+  // skipping recursive matches (thus the third argument). Return recipe and
+  // recipe action (if any). Note that unlike match(), this call doesn't
+  // increment the dependents count. See also the companion
+  // execute_delegate().
   //
   pair<recipe, action>
-  match_delegate (action, target&);
+  match_delegate (action, target&, const rule&);
 
   // The standard prerequisite search and match implementations. They call
   // search_and_match_*() versions below passing non-empty directory for

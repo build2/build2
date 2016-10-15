@@ -193,7 +193,7 @@ namespace build2
         // have been found if we signalled that we do not match from
         // match() above.
         //
-        recipe d (match_delegate (a, t).first);
+        recipe d (match_delegate (a, t, *this).first);
 
         // If we have no installable prerequisites, then simply redirect
         // to it.

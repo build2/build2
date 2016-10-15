@@ -50,7 +50,7 @@ namespace build2
   }
 
   pair<const rule*, match_result>
-  match_impl (action, target&, bool apply);
+  match_impl (action, target&, bool apply, const rule* skip = nullptr);
 
   inline void
   match (action a, target& t)
@@ -82,9 +82,9 @@ namespace build2
   }
 
   inline pair<recipe, action>
-  match_delegate (action a, target& t)
+  match_delegate (action a, target& t, const rule& r)
   {
-    auto rp (match_impl (a, t, false));
+    auto rp (match_impl (a, t, false, &r));
     const match_result& mr (rp.second);
     return make_pair (rp.first->apply (mr.recipe_action, t, mr),
                       mr.recipe_action);
