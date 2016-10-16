@@ -110,7 +110,7 @@ namespace build2
     // If this target is from the src tree, use its out directory to find
     // the scope.
     //
-    return scopes.find (out.empty () ? dir : out);
+    return scopes.find (out_dir ());
   }
 
   scope& target::

@@ -149,6 +149,9 @@ namespace build2
     const string name;
     const string* ext;  // Extension. NULL - unspecified, empty - no extension.
 
+    const dir_path&
+    out_dir () const {return out.empty () ? dir : out;}
+
     // Target group to which this target belongs, if any. Note that we assume
     // that the group and all its members are in the same scope (for example,
     // in variable lookup). We also don't support nested groups (with a small
@@ -308,7 +311,7 @@ namespace build2
     bool
     in (const scope& s) const
     {
-      return (out.empty () ? dir : out).sub (s.out_path ());
+      return out_dir ().sub (s.out_path ());
     }
 
     // Prerequisites.

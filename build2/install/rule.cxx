@@ -273,8 +273,7 @@ namespace build2
         {
           // The target can be in out or src.
           //
-          const dir_path& d (
-            (t.out.empty () ? t.dir : t.out).leaf (p->out_path ()));
+          const dir_path& d (t.out_dir ().leaf (p->out_path ()));
 
           // Add it as another leading directory rather than modifying
           // the last one directly; somehow, it feels right.
