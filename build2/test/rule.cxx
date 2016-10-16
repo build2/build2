@@ -44,6 +44,10 @@ namespace build2
       // (and this is tricky) the rule also changes the operation to
       // unconditional update to make sure it doesn't match any prerequisites
       // (which, if not testable, it will noop).
+      //
+      // And to add a bit more complexity, we want to handle aliases slightly
+      // differently: we don't want to ignore their prerequisites if the alias
+      // is not testable since their prerequisites could be.
 
       match_data md;
 
