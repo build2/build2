@@ -114,7 +114,7 @@ namespace build2
     token
     next_quoted ();
 
-    token
+    virtual token
     name (bool separated);
 
     // Return true if we have seen any spaces. Skipped empty lines

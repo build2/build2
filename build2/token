@@ -82,10 +82,10 @@ namespace build2
           line (l), column (c),
           printer (p) {}
 
-    token (string n, bool s, bool q, uint64_t l, uint64_t c, printer_type* p)
+    token (string n, bool s, bool q, uint64_t l, uint64_t c)
         : type (token_type::name), separated (s), quoted (q), value (move (n)),
           line (l), column (c),
-          printer (p) {}
+          printer (&token_printer) {}
   };
 
   // Output the token value in a format suitable for diagnostics.

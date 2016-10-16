@@ -2043,8 +2043,7 @@ namespace build2
             tt != type::lparen) || peeked ().separated))
       {
         tt = type::name;
-        t = token (
-          move (concat), true, false, t.line, t.column, token_printer);
+        t = token (move (concat), true, false, t.line, t.column);
         concat.clear ();
       }
       else if (!first)

@@ -45,6 +45,7 @@ namespace build2
   using butl::lcase;
   using butl::alpha;
   using butl::alnum;
+  using butl::digit;
 
   // Basic string utilities.
   //

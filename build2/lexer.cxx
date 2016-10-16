@@ -346,7 +346,7 @@ namespace build2
       //
       else if (m == lexer_mode::variable)
       {
-        if (!alnum (c) &&  c != '_')
+        if (c != '_' && !(lexeme.empty () ? alpha (c) : alnum (c)))
         {
           if (c != '.')
             done = true;
@@ -357,7 +357,7 @@ namespace build2
             //
             get ();
             xchar p (peek ());
-            done = eos (p) || !(alnum (p) ||  p == '_');
+            done = eos (p) || !(alpha (p) ||  p == '_');
             unget (c);
           }
         }
@@ -444,7 +444,7 @@ namespace build2
     if (m == lexer_mode::variable)
       state_.pop ();
 
-    return token (move (lexeme), sep, quoted, ln, cn, token_printer);
+    return token (move (lexeme), sep, quoted, ln, cn);
 
   }
 
