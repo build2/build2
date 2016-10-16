@@ -28,6 +28,7 @@ namespace build2
 
         script_ = &s;
         runner_ = &r;
+        scope_ = script_;
 
         token t;
         type tt;
@@ -118,8 +119,8 @@ namespace build2
           fail (t) << "unexpected " << t;
 
         value& lhs (kind == type::assign
-                    ? script_->assign (var)
-                    : script_->append (var));
+                    ? scope_->assign (var)
+                    : scope_->append (var));
 
         // @@ Need to adjust to make strings the default type.
         //
@@ -604,7 +605,7 @@ namespace build2
           fail (l) << "qualified variable name";
 
         const variable& var (script_->var_pool.insert (move (name)));
-        return script_->find (var);
+        return scope_->find (var);
       }
     }
   }

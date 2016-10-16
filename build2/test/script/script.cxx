@@ -43,11 +43,19 @@ namespace build2
         }
       }
 
-      lookup script::
+      lookup scope::
       find (const variable& var) const
       {
-        if (const value* v = vars.find (var))
-          return lookup (v, &vars);
+        // Search script scopes until we hit the root.
+        //
+        const scope* p (this);
+
+        do
+        {
+          if (const value* v = p->vars.find (var))
+            return lookup (v, &p->vars);
+        }
+        while (p->parent != nullptr ? (p = p->parent) : nullptr);
 
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
@@ -59,6 +67,7 @@ namespace build2
         if (pvar == nullptr)
           return lookup ();
 
+        const script& s (static_cast<const script&> (*p));
         {
           const variable& var (*pvar);
 
@@ -69,12 +78,12 @@ namespace build2
             // value. In this case, presumably the override also affects the
             // script target and we will pick it up there. A bit fuzzy.
             //
-            auto p (test_target.find_original (var, true));
+            auto p (s.test_target.find_original (var, true));
 
             if (p.first)
             {
               if (var.override != nullptr)
-                p = test_target.base_scope ().find_override (
+                p = s.test_target.base_scope ().find_override (
                   var, move (p), true);
 
               return p.first;
@@ -86,11 +95,11 @@ namespace build2
           // in different scopes which brings the question of which scopes we
           // should search.
           //
-          return script_target[var];
+          return s.script_target[var];
         }
       }
 
-      value& script::
+      value& scope::
       append (const variable& var)
       {
         lookup l (find (var));

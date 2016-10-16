@@ -57,20 +57,22 @@ namespace build2
         command_exit exit;
       };
 
-      class script
+      class scope
       {
       public:
-        script (target& test_target, target& script_target);
+        scope* parent; // NULL for the root (script) scope.
 
-      public:
-        target& test_target;   // Target we are testing.
-        target& script_target; // Target of the testscript file.
+        scope (scope& p): parent (&p) {}
 
+      protected:
+        scope (): parent (nullptr) {} // For the root (script) scope.
+
+        // Variables.
+        //
       public:
         // Note that if we pass the variable name as a string, then it will
         // be looked up in the wrong pool.
         //
-        variable_pool var_pool;
         variable_map vars;
 
         // Lookup the variable starting from this scope, continuing with outer
@@ -96,6 +98,19 @@ namespace build2
         //
         value&
         append (const variable&);
+      };
+
+      class script: public scope
+      {
+      public:
+        script (target& test_target, target& script_target);
+
+      public:
+        target& test_target;   // Target we are testing.
+        target& script_target; // Target of the testscript file.
+
+      public:
+        variable_pool var_pool;
       };
     }
   }

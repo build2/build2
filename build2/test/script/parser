@@ -69,6 +69,7 @@ namespace build2
         lexer* lexer_;
         script* script_;
         runner* runner_;
+        scope* scope_;
       };
     }
   }
