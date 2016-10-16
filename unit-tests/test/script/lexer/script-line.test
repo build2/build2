@@ -6,3 +6,13 @@ $foo
 fox = $foo-$cxx.target.class
 $fox
 $test
+$~
+$*
+$0
+test = xxx
+$0
+$*
+test.options += --foo
+$1
+test.arguments += bar
+$2

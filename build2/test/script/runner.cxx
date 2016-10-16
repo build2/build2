@@ -16,7 +16,7 @@ namespace build2
       run (const test& t)
       {
         // @@ TODO
-        text << "run " << t.program;
+        text << "run " << t.program.string ();
       }
     }
   }

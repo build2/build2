@@ -10,6 +10,8 @@
 
 #include <build2/variable>
 
+#include <build2/test/target>
+
 namespace build2
 {
   class target;
@@ -103,14 +105,21 @@ namespace build2
       class script: public scope
       {
       public:
-        script (target& test_target, target& script_target);
+        script (target& test_target, testscript& script_target);
 
       public:
-        target& test_target;   // Target we are testing.
-        target& script_target; // Target of the testscript file.
+        target& test_target;       // Target we are testing.
+        testscript& script_target; // Target of the testscript file.
 
       public:
         variable_pool var_pool;
+
+        const variable& test_var; // test
+        const variable& opts_var; // test.options
+        const variable& args_var; // test.arguments
+
+        const variable& cmd_var; // $*
+        const variable& cwd_var; // $~
       };
     }
   }

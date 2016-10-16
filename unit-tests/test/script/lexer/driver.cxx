@@ -29,18 +29,25 @@ namespace build2
           assert (argc == 2);
           string s (argv[1]);
 
-          if      (s == "script")   m = lexer_mode::script_line;
-          else if (s == "variable") m = lexer_mode::variable_line;
-          else if (s == "test")     m = lexer_mode::test_line;
-          else if (s == "command")  m = lexer_mode::command_line;
-          else if (s == "here")     m = lexer_mode::here_line;
-          else                      assert (false);
+          if      (s == "script-line")   m = lexer_mode::script_line;
+          else if (s == "variable-line") m = lexer_mode::variable_line;
+          else if (s == "test-line")     m = lexer_mode::test_line;
+          else if (s == "command-line")  m = lexer_mode::command_line;
+          else if (s == "here-line")     m = lexer_mode::here_line;
+          else if (s == "variable")      m = lexer_mode::variable;
+          else                           assert (false);
         }
 
         try
         {
           cin.exceptions (istream::failbit | istream::badbit);
-          lexer l (cin, path ("stdin"), m);
+
+          // The variable mode auto-expires so we need something underneath.
+          //
+          bool u (m == lexer_mode::variable);
+          lexer l (cin, path ("stdin"), u ? lexer_mode::script_line : m);
+          if (u)
+            l.mode (m);
 
           // No use printing eos since we will either get it or loop forever.
           //

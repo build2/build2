@@ -15,32 +15,45 @@ namespace build2
     namespace script
     {
       script::
-      script (target& tt, target& st)
-          : test_target (tt), script_target (st)
+      script (target& tt, testscript& st)
+          : test_target (tt), script_target (st),
+
+            // Enter the test* variables with the same variable types as in
+            // buildfiles.
+            //
+            test_var (var_pool.insert<path> ("test")),
+            opts_var (var_pool.insert<strings> ("test.options")),
+            args_var (var_pool.insert<strings> ("test.arguments")),
+
+            cmd_var (var_pool.insert<strings> ("*")),
+            cwd_var (var_pool.insert<dir_path> ("~"))
       {
         // Unless we have the test variable set on the test or script target,
         // set it at the script level to the test target's path.
         //
+        if (!find (test_var))
         {
-          // Note: use the same variable type as in buildfile.
+          value& v (assign (test_var));
+
+          // If this is a path-based target, then we use the path. If this
+          // is a directory (alias) target, then we use the directory path.
+          // Otherwise, we leave it NULL expecting the testscript to set it
+          // to something appropriate, if used.
           //
-          const variable& var (var_pool.insert<path> ("test"));
-
-          if (!find (var))
-          {
-            value& v (assign (var));
-
-            // If this is a path-based target, then we use the path. If this
-            // is a directory (alias) target, then we use the directory path.
-            // Otherwise, we leave it NULL expecting the testscript to set it
-            // to something appropriate, if used.
-            //
-            if (auto* p = tt.is_a<path_target> ())
-              v = p->path ();
-            else if (tt.is_a<dir> ())
-              v = path (tt.dir.string ()); // Strip trailing slash.
-          }
+          if (auto* p = tt.is_a<path_target> ())
+            v = p->path ();
+          else if (tt.is_a<dir> ())
+            v = path (tt.dir.string ()); // Strip trailing slash.
         }
+
+        // Also add the NULL $* value that signals it needs to be recalculated
+        // on first access.
+        //
+        assign (cmd_var) = nullptr;
+
+        // Set the script CWD ($~) which is the $out_base/<script-name>.
+        //
+        assign (cwd_var) = dir_path (tt.out_dir ()) /= st.name;
       }
 
       lookup scope::

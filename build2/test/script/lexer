@@ -62,8 +62,8 @@ namespace build2
         token
         next_line ();
 
-        token
-        name_line (bool separated);
+        virtual token
+        name (bool) override;
 
       protected:
         bool quoted_ = false;

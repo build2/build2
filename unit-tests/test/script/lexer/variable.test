@@ -1,0 +1,46 @@
+# Test handling custom variable names ($*, $~, $NN).
+#
+test.arguments += variable
+
+$* <"*" >>EOO
+'*'
+<newline>
+EOO
+
+$* <"*abc" >>EOO
+'*'
+'abc'
+<newline>
+EOO
+
+$* <"~" >>EOO
+'~'
+<newline>
+EOO
+
+$* <"~123" >>EOO
+'~'
+'123'
+<newline>
+EOO
+
+$* <"0" >>EOO
+'0'
+<newline>
+EOO
+
+$* <"10" >>EOO
+'10'
+<newline>
+EOO
+
+$* <"101" >>EOO
+'101'
+<newline>
+EOO
+
+$* <"1abc" >>EOO
+'1'
+'abc'
+<newline>
+EOO

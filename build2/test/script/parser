@@ -46,7 +46,7 @@ namespace build2
         parse_script_line (token&, token_type&);
 
         void
-        parse_variable_line (token&, token_type&, string);
+        parse_variable_line (token&, token_type&, string, location);
 
         void
         parse_test_line (token&, token_type&, names, location);

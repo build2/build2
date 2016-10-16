@@ -98,15 +98,34 @@ namespace build2
           if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
             fail (nl) << "variable name expected instead of '" << ns << "'";
 
-          parse_variable_line (t, tt, move (ns[0].value));
+          parse_variable_line (t, tt, move (ns[0].value), move (nl));
         }
         else
           parse_test_line (t, tt, move (ns), move (nl));
       }
 
-      void parser::
-      parse_variable_line (token& t, token_type& tt, string name)
+      // Return true if the string contains only digit characters (used to
+      // detect the special $NN variables).
+      //
+      static inline bool
+      digits (const string& s)
       {
+        for (char c: s)
+          if (!digit (c))
+            return false;
+
+        return !s.empty ();
+      }
+
+      void parser::
+      parse_variable_line (token& t, token_type& tt, string name, location nl)
+      {
+        // Check if we are trying to modify any of the special aliases ($*,
+        // $~, $N).
+        //
+        if (name == "*" || name == "~" || digits (name))
+          fail (nl) << "attempt to set '" << name << "' variable directly";
+
         type kind (tt); // Assignment kind.
         const variable& var (script_->var_pool.insert (move (name)));
 
@@ -125,6 +144,23 @@ namespace build2
         // @@ Need to adjust to make strings the default type.
         //
         apply_value_attributes (&var, lhs, move (rhs), kind);
+
+        // Handle the $*, $NN special aliases.
+        //
+        // The plan is as follows: in this function we detect modification of
+        // the source variables (test*), and (re)set $* to NULL on this scope
+        // (this is important to both invalidate any old values but also to
+        // "stake" the lookup position). This signals to the variable lookup
+        // function below that the $* and $NN values need to be recalculated
+        // from their sources. Note that we don't need to invalidate $NN since
+        // their lookup always checks $* first.
+        //
+        if (var.name == script_->test_var.name ||
+            var.name == script_->opts_var.name ||
+            var.name == script_->args_var.name)
+        {
+          scope_->assign (script_->cmd_var) = nullptr;
+        }
       }
 
       void parser::
@@ -599,13 +635,90 @@ namespace build2
       }
 
       lookup parser::
-      lookup_variable (name&& qual, string&& name, const location& l)
+      lookup_variable (name&& qual, string&& name, const location& loc)
       {
         if (!qual.empty ())
-          fail (l) << "qualified variable name";
+          fail (loc) << "qualified variable name";
 
-        const variable& var (script_->var_pool.insert (move (name)));
-        return scope_->find (var);
+        if (name != "*" && !digits (name))
+          return scope_->find (script_->var_pool.insert (move (name)));
+
+        // Handle the $*, $NN special aliases.
+        //
+        // See the parse_variable_line() for the overall plan.
+        //
+
+        // In both cases first thing we do is lookup $*. It should always be
+        // defined since we set it on the script's root scope.
+        //
+        lookup l (scope_->find (script_->cmd_var));
+        assert (l.defined ());
+
+        // $* NULL value means it needs to be (re)calculated.
+        //
+        value& v (const_cast<value&> (*l));
+        bool recalc (v.null);
+
+        if (recalc)
+        {
+          strings s;
+
+          auto append = [&s] (const strings& v)
+          {
+            s.insert (s.end (), v.begin (), v.end ());
+          };
+
+          if (lookup l = scope_->find (script_->test_var))
+            s.push_back (cast<path> (l).string ());
+
+          if (lookup l = scope_->find (script_->opts_var))
+            append (cast<strings> (l));
+
+          if (lookup l = scope_->find (script_->args_var))
+            append (cast<strings> (l));
+
+          v = move (s);
+        }
+
+        if (name == "*")
+          return l;
+
+        // Use the string type for the $NN variables.
+        //
+        const variable& var (script_->var_pool.insert<string> (move (name)));
+
+        // We need to look for $NN in the same scope as where we found $*.
+        //
+        variable_map& vars (const_cast<variable_map&> (*l.vars));
+
+        // If there is already a value and no need to recalculate it, then we
+        // are done.
+        //
+        if (!recalc && (l = vars[var]).defined ())
+          return l;
+
+        // Convert the variable name to index we can use on $*.
+        //
+        unsigned long i;
+
+        try
+        {
+          i = stoul (var.name);
+        }
+        catch (const exception&)
+        {
+          fail (loc) << "invalid $* index " << var.name;
+        }
+
+        const strings& s (cast<strings> (v));
+        value& nv (vars.assign (var));
+
+        if (i < s.size ())
+          nv = s[i];
+        else
+          nv = nullptr;
+
+        return lookup (nv, vars);
       }
     }
   }

@@ -263,6 +263,36 @@ namespace build2
         unget (c);
         return name (sep);
       }
+
+      token lexer::
+      name (bool sep)
+      {
+        // Customized implementation that handles special variable names ($*,
+        // $~, $NNN).
+        //
+        if (state_.top ().mode != lexer_mode::variable)
+          return base_lexer::name (sep);
+
+        xchar c (peek ());
+
+        if (c != '*' && c != '~' && !digit (c))
+          return base_lexer::name (sep);
+
+        uint64_t ln (c.line), cn (c.column);
+        string lexeme;
+
+        get ();
+        lexeme += c;
+
+        if (digit (c))
+        {
+          for (; digit (c = peek ()); get ())
+            lexeme += c;
+        }
+
+        state_.pop (); // Expire the variable mode.
+        return token (move (lexeme), sep, false, ln, cn);
+      }
     }
   }
 }
