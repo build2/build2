@@ -73,6 +73,7 @@ namespace build2
             // Disable pair separator.
             //
             base_lexer::mode (m, '\0');
+            return;
           }
         }
 
