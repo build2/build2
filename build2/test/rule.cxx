@@ -106,7 +106,7 @@ namespace build2
         }
       }
 
-      match_result mr (t);
+      match_result mr (true);
 
       // Theoretically if this target is testable and this is the update
       // pre-operation, then all we need to do is say we are not a match and
@@ -146,7 +146,7 @@ namespace build2
     }
 
     recipe rule::
-    apply (action a, target& t, const match_result&) const
+    apply (action a, target& t) const
     {
       tracer trace ("test::rule::apply");
 

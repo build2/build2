@@ -18,20 +18,20 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const string& hint) const;
+      match (action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&, const match_result&) const;
+      apply (action, target&) const override;
     };
 
     class lib_rule: public rule
     {
     public:
       virtual match_result
-      match (action, target&, const string& hint) const;
+      match (action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&, const match_result&) const;
+      apply (action, target&) const override;
 
       static target_state
       perform (action, target&);

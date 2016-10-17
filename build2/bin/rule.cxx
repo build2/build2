@@ -25,17 +25,26 @@ namespace build2
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select obje{}, obja{}, or objs{} member";
 
-      return nullptr;
+      return false;
     }
 
     recipe obj_rule::
-    apply (action, target&, const match_result&) const {return empty_recipe;}
+    apply (action, target&) const {return empty_recipe;}
 
     // lib
     //
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
     //
+
+    struct match_data
+    {
+      const string& type;
+    };
+
+    static_assert (sizeof (match_data) <= target::data_size,
+                   "insufficient space");
+
     match_result lib_rule::
     match (action act, target& xt, const string&) const
     {
@@ -79,7 +88,9 @@ namespace build2
         match_only (act, *t.s);
       }
 
-      match_result mr (t, &type);
+      t.data (match_data {type}); // Save in the target's auxilary storage.
+
+      match_result mr (true);
 
       // If there is an outer operation, indicate that we match
       // unconditionally so that we don't override ourselves.
@@ -91,11 +102,12 @@ namespace build2
     }
 
     recipe lib_rule::
-    apply (action act, target& xt, const match_result& mr) const
+    apply (action act, target& xt) const
     {
       lib& t (static_cast<lib&> (xt));
 
-      const string& type (*static_cast<const string*> (mr.cpvalue));
+      const match_data& md (t.data<match_data> ());
+      const string& type (md.type);
 
       bool a (type == "static" || type == "both");
       bool s (type == "shared" || type == "both");
@@ -116,12 +128,8 @@ namespace build2
     {
       lib& t (static_cast<lib&> (xt));
 
-      //@@ Not cool we have to do this again. Looks like we need
-      //   some kind of a cache vs resolved pointer, like in
-      //   prerequisite vs prerequisite_target.
-      //
-      //
-      const string& type (cast<string> (t["bin.lib"]));
+      const match_data& md (t.data<match_data> ());
+      const string& type (md.type);
 
       bool a (type == "static" || type == "both");
       bool s (type == "shared" || type == "both");

@@ -19,10 +19,10 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const string&) const;
+      match (action, target&, const string&) const override;
 
       virtual recipe
-      apply (action, target&, const match_result&) const;
+      apply (action, target&) const override;
 
       static target_state
       perform_script (action, target&);

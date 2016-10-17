@@ -86,8 +86,7 @@ namespace build2
   {
     auto rp (match_impl (a, t, false, &r));
     const match_result& mr (rp.second);
-    return make_pair (rp.first->apply (mr.recipe_action, t, mr),
-                      mr.recipe_action);
+    return make_pair (rp.first->apply (mr.recipe_action, t), mr.recipe_action);
   }
 
   group_view

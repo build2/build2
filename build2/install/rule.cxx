@@ -39,13 +39,13 @@ namespace build2
     // alias_rule
     //
     match_result alias_rule::
-    match (action, target& t, const string&) const
+    match (action, target&, const string&) const
     {
-      return t;
+      return true;
     }
 
     recipe alias_rule::
-    apply (action a, target& t, const match_result&) const
+    apply (action a, target& t) const
     {
       tracer trace ("install::alias_rule::apply");
 
@@ -82,26 +82,39 @@ namespace build2
 
     // file_rule
     //
+    struct match_data
+    {
+      bool install;
+    };
+
+    static_assert (sizeof (match_data) <= target::data_size,
+                   "insufficient space");
+
     match_result file_rule::
     match (action a, target& t, const string&) const
     {
       // First determine if this target should be installed (called
       // "installable" for short).
       //
-      if (lookup_install<path> (t, "install") == nullptr)
-        // If this is the update pre-operation, signal that we don't match so
-        // that some other rule can take care of it.
-        //
-        return a.operation () == update_id ? nullptr : match_result (t, false);
+      match_data md {lookup_install<path> (t, "install") != nullptr};
+      match_result mr (true);
 
-      match_result mr (t, true);
-
-      // If this is the update pre-operation, change the recipe action
-      // to (update, 0) (i.e., "unconditional update").
-      //
       if (a.operation () == update_id)
-        mr.recipe_action = action (a.meta_operation (), update_id);
+      {
+        // If this is the update pre-operation and the target is installable,
+        // change the recipe action to (update, 0) (i.e., "unconditional
+        // update") so that we don't get matched for its prerequisites.
+        //
+        if (md.install)
+          mr.recipe_action = action (a.meta_operation (), update_id);
+        else
+          // Otherwise, signal that we don't match so that some other rule can
+          // take care of it.
+          //
+          return false;
+      }
 
+      t.data (md); // Save the data in the target's auxilary storage.
       return mr;
     }
 
@@ -113,9 +126,12 @@ namespace build2
     }
 
     recipe file_rule::
-    apply (action a, target& t, const match_result& mr) const
+    apply (action a, target& t) const
     {
-      if (!mr.bvalue) // Not installable.
+      match_data md (move (t.data<match_data> ()));
+      t.clear_data (); // In case delegated-to rule also uses aux storage.
+
+      if (!md.install) // Not installable.
         return noop_recipe;
 
       // Ok, if we are here, then this means:

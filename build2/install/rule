@@ -20,10 +20,10 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const string&) const;
+      match (action, target&, const string&) const override;
 
       virtual recipe
-      apply (action, target&, const match_result&) const;
+      apply (action, target&) const override;
     };
 
     struct install_dir;
@@ -32,7 +32,10 @@ namespace build2
     {
     public:
       virtual match_result
-      match (action, target&, const string&) const;
+      match (action, target&, const string&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation ignores prerequsites that
@@ -40,9 +43,6 @@ namespace build2
       //
       virtual target*
       filter (action, target&, prerequisite_member) const;
-
-      virtual recipe
-      apply (action, target&, const match_result&) const;
 
       // Extra installation hooks.
       //

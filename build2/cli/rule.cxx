@@ -56,7 +56,7 @@ namespace build2
 
         // See if we have a .cli source file.
         //
-        match_result r;
+        bool r (false);
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (p.is_a<cli> ())
@@ -67,10 +67,10 @@ namespace build2
             {
               l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
                             << "doesn't match target " << t;});
-              return r;
+              return false;
             }
 
-            r = p;
+            r = true;
             break;
           }
         }
@@ -113,7 +113,7 @@ namespace build2
         // it is some other group, then we are definitely not a match.
         //
         if (t.group != nullptr)
-          return t.group->is_a<cli_cxx> ();
+          return t.group->is_a<cli_cxx> () != nullptr;
 
         // Check if there is a corresponding cli.cxx{} group.
         //
@@ -164,12 +164,12 @@ namespace build2
         }
 
         assert (t.group == g);
-        return g;
+        return g != nullptr;
       }
     }
 
     recipe compile::
-    apply (action a, target& xt, const match_result& mr) const
+    apply (action a, target& xt) const
     {
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
@@ -199,7 +199,7 @@ namespace build2
       }
       else
       {
-        cli_cxx& g (*static_cast<cli_cxx*> (mr.target));
+        cli_cxx& g (*static_cast<cli_cxx*> (xt.group));
         build2::match (a, g);
         return group_recipe; // Execute the group's recipe.
       }

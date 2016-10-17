@@ -16,13 +16,13 @@ namespace build2
   namespace dist
   {
     match_result rule::
-    match (action, target& t, const string&) const
+    match (action, target&, const string&) const
     {
-      return t; // We always match.
+      return true; // We always match.
     }
 
     recipe rule::
-    apply (action a, target& t, const match_result&) const
+    apply (action a, target& t) const
     {
       const dir_path& out_root (t.root_scope ().out_path ());
 

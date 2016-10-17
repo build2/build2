@@ -55,7 +55,7 @@ namespace build2
   pair<const rule*, match_result>
   match_impl (action a, target& t, bool apply, const rule* skip)
   {
-    pair<const rule*, match_result> r;
+    pair<const rule*, match_result> r (nullptr, false);
 
     // By default, clear the resolved targets list before calling
     // match(). The rule is free to modify this list in match()
@@ -143,7 +143,7 @@ namespace build2
               if (&ru == skip)
                 continue;
 
-              match_result m;
+              match_result m (false);
               {
                 auto g (
                   make_exception_guard (
@@ -212,7 +212,7 @@ namespace build2
                   // @@ We could also allow the rule to change the recipe
                   // action in apply(). Could be useful with delegates.
                   //
-                  t.recipe (ra, ru.apply (ra, t, m));
+                  t.recipe (ra, ru.apply (ra, t));
                 }
                 else
                 {
@@ -259,7 +259,7 @@ namespace build2
       // phase.
       //
       const match_result& mr (rp.second);
-      g.recipe (mr.recipe_action, rp.first->apply (mr.recipe_action, g, mr));
+      g.recipe (mr.recipe_action, rp.first->apply (mr.recipe_action, g));
     }
 
     // Note that we use execute_direct() rather than execute() here to

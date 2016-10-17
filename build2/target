@@ -766,6 +766,12 @@ namespace build2
     as_prerequisite (tracer&) const;
   };
 
+  // It is often stored as the target's auxiliary data so make sure there is
+  // no destructor overhead.
+  //
+  static_assert (std::is_trivially_destructible<prerequisite_member>::value,
+                 "prerequisite_member is not trivially destructible");
+
   inline ostream&
   operator<< (ostream& os, const prerequisite_member& pm)
   {

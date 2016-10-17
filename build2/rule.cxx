@@ -63,18 +63,18 @@ namespace build2
         }
 
         if (ts != timestamp_unknown && ts != timestamp_nonexistent)
-          return t;
+          return true;
 
         l4 ([&]{trace << "no existing file for target " << t;});
-        return nullptr;
+        return false;
       }
     default:
-      return t;
+      return true;
     }
   }
 
   recipe file_rule::
-  apply (action a, target& t, const match_result&) const
+  apply (action a, target& t) const
   {
     // Update triggers the update of this target's prerequisites
     // so it would seem natural that we should also trigger their
@@ -143,13 +143,13 @@ namespace build2
   // alias_rule
   //
   match_result alias_rule::
-  match (action, target& t, const string&) const
+  match (action, target&, const string&) const
   {
-    return t;
+    return true;
   }
 
   recipe alias_rule::
-  apply (action a, target& t, const match_result&) const
+  apply (action a, target& t) const
   {
     // Inject dependency on our directory (note: not parent) so that it is
     // automatically created on update and removed on clean.
@@ -165,13 +165,13 @@ namespace build2
   // fsdir_rule
   //
   match_result fsdir_rule::
-  match (action, target& t, const string&) const
+  match (action, target&, const string&) const
   {
-    return t;
+    return true;
   }
 
   recipe fsdir_rule::
-  apply (action a, target& t, const match_result&) const
+  apply (action a, target& t) const
   {
     // Inject dependency on the parent directory. Note that we don't do it for
     // clean since we shouldn't (and can't possibly, since it's our parent) be

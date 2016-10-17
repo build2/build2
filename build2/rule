@@ -13,60 +13,20 @@
 
 namespace build2
 {
-  // @@ This is an ugly mess that is overdue for redesign. Perhaps
-  //    something similar to variable value storage?
-  //
   class match_result
   {
   public:
-    typedef build2::target target_type;
-    typedef build2::prerequisite prerequisite_type;
-
-    // Can contain neither (both are NULL), one of, or both. If both
-    // are NULL, then it is a "no match" indicator.
-    //
-    // Note that if the "payload" is stored in *value instead of
-    // prerequisite, then target must not be NULL.
-    //
-    union
-    {
-      prerequisite_type* prerequisite;
-
-      bool bvalue;
-      void* pvalue;
-      const void* cpvalue;
-    };
-
-    target_type* target;
-
+    bool result;
     action recipe_action = action (); // Used as recipe's action if set.
 
-    match_result (nullptr_t v = nullptr): prerequisite (v), target (v) {}
-    match_result (prerequisite_type& p): prerequisite (&p), target (nullptr) {}
-    match_result (prerequisite_type* p): prerequisite (p), target (nullptr) {}
-    match_result (target_type& t): prerequisite (nullptr), target (&t) {}
-    match_result (target_type* t): prerequisite (nullptr), target (t) {}
-    match_result (const prerequisite_member& pm)
-        : prerequisite (&pm.prerequisite.get ()), target (pm.target) {}
-
-    match_result (target_type& t, bool v): bvalue (v), target (&t) {}
-    match_result (target_type& t, void* v): pvalue (v), target (&t) {}
-    match_result (target_type& t, const void* v): cpvalue (v), target (&t) {}
-    match_result (target_type& t, nullptr_t v): pvalue (v), target (&t) {}
-
     explicit
-    operator bool () const
-    {
-      return target != nullptr || prerequisite != nullptr;
-    }
+    operator bool () const {return result;}
 
-    template <typename T>
-    T&
-    as_target () const
-    {
-      return static_cast<T&> (
-        target != nullptr ? *target : *prerequisite->target);
-    }
+    // Note that the from-bool constructor is intentionally implicit so that
+    // we can return true/false from match().
+    //
+    match_result (bool r): result (r) {}
+    match_result (bool r, action a): result (r), recipe_action (a) {}
   };
 
   class rule
@@ -76,7 +36,7 @@ namespace build2
     match (action, target&, const string& hint) const = 0;
 
     virtual recipe
-    apply (action, target&, const match_result&) const = 0;
+    apply (action, target&) const = 0;
   };
 
   // Fallback rule that on update verifies that the file exists and is
@@ -86,10 +46,10 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const string& hint) const;
+    match (action, target&, const string& hint) const override;
 
     virtual recipe
-    apply (action, target&, const match_result&) const;
+    apply (action, target&) const override;
 
     static target_state
     perform_update (action, target&);
@@ -101,10 +61,10 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const string& hint) const;
+    match (action, target&, const string& hint) const override;
 
     virtual recipe
-    apply (action, target&, const match_result&) const;
+    apply (action, target&) const override;
 
     static alias_rule instance;
   };
@@ -113,10 +73,10 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const string& hint) const;
+    match (action, target&, const string& hint) const override;
 
     virtual recipe
-    apply (action, target&, const match_result&) const;
+    apply (action, target&) const override;
 
     static target_state
     perform_update (action, target&);
@@ -133,10 +93,10 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target& t, const string&) const {return t;}
+    match (action, target&, const string&) const override {return true;}
 
     virtual recipe
-    apply (action, target&, const match_result&) const {return noop_recipe;}
+    apply (action, target&) const override {return noop_recipe;}
 
     static fallback_rule instance;
   };

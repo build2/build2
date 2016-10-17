@@ -27,10 +27,10 @@ namespace build2
       compile (data&&);
 
       virtual match_result
-      match (action, target&, const string& hint) const;
+      match (action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&, const match_result&) const;
+      apply (action, target&) const override;
 
       target_state
       perform_update (action, target&) const;

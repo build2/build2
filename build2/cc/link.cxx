@@ -109,11 +109,11 @@ namespace build2
         // it will most definitely need to be compiled but we can't do that.
         //
         else if (p.is_a<cc> ())
-          return nullptr;
+          return false;
       }
 
       if (!(seen_x || seen_c || seen_obj || seen_lib))
-        return nullptr;
+        return false;
 
       // We will only chain a C source if there is also an X source or we were
       // explicitly told to.
@@ -121,7 +121,7 @@ namespace build2
       if (seen_c && !seen_x && hint < x)
       {
         l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint";});
-        return nullptr;
+        return false;
       }
 
       // Set the library type.
@@ -173,7 +173,7 @@ namespace build2
         }
       }
 
-      return &t;
+      return true;
     }
 
     auto link::
@@ -316,7 +316,7 @@ namespace build2
     }
 
     recipe link::
-    apply (action a, target& xt, const match_result&) const
+    apply (action a, target& xt) const
     {
       tracer trace (x, "link::apply");
 

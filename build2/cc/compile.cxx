@@ -35,6 +35,14 @@ namespace build2
     {
     }
 
+    struct match_data
+    {
+      prerequisite_member src;
+    };
+
+    static_assert (sizeof (match_data) <= target::data_size,
+                   "insufficient space");
+
     match_result compile::
     match (action a, target& t, const string&) const
     {
@@ -53,11 +61,14 @@ namespace build2
       for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
       {
         if (p.is_a (x_src))
-          return p;
+        {
+          t.data (match_data {p}); // Save in the target's auxilary storage.
+          return true;
+        }
       }
 
       l4 ([&]{trace << "no " << x_lang << " source file for target " << t;});
-      return nullptr;
+      return false;
     }
 
     // Append or hash library options from a pair of *.export.* variables
@@ -180,11 +191,12 @@ namespace build2
     }
 
     recipe compile::
-    apply (action a, target& xt, const match_result& mr) const
+    apply (action a, target& xt) const
     {
       tracer trace (x, "compile::apply");
 
       file& t (static_cast<file&> (xt));
+      const match_data& md (t.data<match_data> ());
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());
@@ -297,7 +309,7 @@ namespace build2
         // t.prerequisite_targets since we used standard search() and match()
         // above.
         //
-        file& src (mr.as_target<file> ());
+        file& src (*md.src.search ().is_a<file> ());
 
         // Make sure the output directory exists.
         //
