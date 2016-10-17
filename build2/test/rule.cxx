@@ -366,7 +366,8 @@ namespace build2
           const path& sp (st->path ());
           assert (!sp.empty ()); // Should have been assigned by update.
 
-          text << "test " << t << " with " << *st;
+          if (verb)
+            text << "test " << t << " with " << *st;
 
           try
           {
@@ -504,7 +505,7 @@ namespace build2
         dpp = run_search (dp, true);
 
         args.push_back (dpp.recall_string ());
-        args.push_back ("--strip-trailing-cr"); //@@ TMP: see module.cxx
+        args.push_back ("--strip-trailing-cr"); //@@ TMP: see init.cxx
         args.push_back ("-u");
         args.push_back (ot.path ().string ().c_str ());
         args.push_back ("-");

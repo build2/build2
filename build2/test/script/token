@@ -33,9 +33,9 @@ namespace build2
           in_string,                    // <
           in_document,                  // <<
 
-          out_null,                     // <!
-          out_string,                   // <
-          out_document                  // <<
+          out_null,                     // >!
+          out_string,                   // >
+          out_document                  // >>
         };
 
         token_type () = default;

@@ -1,3 +1,7 @@
+a=aaa
+foo bar <"bbb $a ccc" >ddd 2>>EOE
+eee
+EOE
 foo
 bar
 $cxx.target.class

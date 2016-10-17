@@ -234,7 +234,7 @@ namespace build2
           unsigned long fd (3);
           if (!t.separated)
           {
-            if (!ts.arguments.empty ())
+            if (ts.arguments.empty ())
               fail (l) << "missing redirect file descriptor";
 
             const string& s (ts.arguments.back ());

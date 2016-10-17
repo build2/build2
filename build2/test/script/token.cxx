@@ -30,9 +30,9 @@ namespace build2
         case token_type::in_string:    os << q << '<' << q; break;
         case token_type::in_document:  os << q << "<<" << q; break;
 
-        case token_type::out_null:     os << q << "<!" << q; break;
-        case token_type::out_string:   os << q << '<' << q; break;
-        case token_type::out_document: os << q << "<<" << q; break;
+        case token_type::out_null:     os << q << ">!" << q; break;
+        case token_type::out_string:   os << q << '>' << q; break;
+        case token_type::out_document: os << q << ">>" << q; break;
 
         default: build2::token_printer (os, t, d);
         }
