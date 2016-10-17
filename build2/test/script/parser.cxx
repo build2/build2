@@ -403,9 +403,6 @@ namespace build2
               istringstream is (s);
               lexer lex (is, name, lexer_mode::command_line);
 
-              string w;
-              bool f (true); // In case the whole thing is empty.
-
               // Treat the first "sub-token" as always separated from what we
               // saw earlier.
               //
@@ -415,6 +412,9 @@ namespace build2
               token t (lex.next ());
               location l (build2::get_location (t, name));
               t.separated = true;
+
+              string w;
+              bool f (t.type == type::eos); // If the whole thing is empty.
 
               for (; t.type != type::eos; t = lex.next ())
               {
@@ -475,6 +475,8 @@ namespace build2
             }
           }
 
+          // See what is the next token.
+          //
           switch (tt)
           {
           case type::equal:
@@ -482,7 +484,36 @@ namespace build2
           case type::newline:
             {
               done = true;
-              continue;
+              break;
+            }
+          case type::in_null:
+          case type::in_string:
+          case type::in_document:
+          case type::out_null:
+          case type::out_string:
+          case type::out_document:
+            {
+              // If this is one of the operators/separators, check that we
+              // don't have any pending locations to be filled.
+              //
+              check_pending (nl);
+
+              // Note: there is another one in the inner loop above.
+              //
+              switch (tt)
+              {
+              case type::in_null:
+              case type::in_string:
+              case type::in_document:
+              case type::out_null:
+              case type::out_string:
+              case type::out_document:
+                parse_redirect (t, get_location (t));
+                next (t, tt);
+                break;
+              }
+
+              break;
             }
           default:
             {
@@ -492,28 +523,8 @@ namespace build2
               lexer_->reset_quoted (t.quoted);
               nl = get_location (t);
               parse_names (t, tt, ns, true, "command");
-              continue;
+              break;
             }
-          }
-
-          // If this is one of the operators/separators, check that we don't
-          // have any pending locations to be filled.
-          //
-          check_pending (nl);
-
-          // Note: there is another one in the inner loop above.
-          //
-          switch (tt)
-          {
-          case type::in_null:
-          case type::in_string:
-          case type::in_document:
-          case type::out_null:
-          case type::out_string:
-          case type::out_document:
-            parse_redirect (t, get_location (t));
-            next (t, tt);
-            break;
           }
         }
 
