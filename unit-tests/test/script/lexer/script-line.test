@@ -1,6 +1,6 @@
 foo != 0
 a=aaa
-foo bar <"bbb $a ccc" >ddd 2>>EOE
+foo bar <"bbb $a ccc" >ddd 2>>EOE == 2
 eee
 EOE
 foo

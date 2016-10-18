@@ -172,8 +172,7 @@ namespace build2
         pending p (pending::program);
 
         // Ordered sequence of here-document redirects that we can expect to
-        // see after the command line. We temporarily store the end marker
-        // as the redirect's value.
+        // see after the command line.
         //
         vector<reference_wrapper<redirect>> hd;
 
@@ -182,6 +181,12 @@ namespace build2
         //
         auto add_word = [&ts, &p, &hd, this] (string&& w, const location& l)
         {
+          auto add_heredoc = [&w, &hd] (redirect& r)
+          {
+            hd.push_back (r);
+            r.end_marker = move (w);
+          };
+
           switch (p)
           {
           case pending::none: ts.arguments.push_back (move (w)); break;
@@ -200,13 +205,11 @@ namespace build2
             }
             break;
           }
-          case pending::in_document: hd.push_back (ts.in); // Fall through.
-          case pending::in_string: ts.in.value = move (w); break;
-
-          case pending::out_document: hd.push_back (ts.out); // Fall through.
+          case pending::in_document: add_heredoc (ts.in);    break;
+          case pending::in_string: ts.in.value = move (w);   break;
+          case pending::out_document: add_heredoc (ts.out);  break;
           case pending::out_string: ts.out.value = move (w); break;
-
-          case pending::err_document: hd.push_back (ts.err); // Fall through.
+          case pending::err_document: add_heredoc (ts.err);  break;
           case pending::err_string: ts.err.value = move (w); break;
           }
 
@@ -541,9 +544,7 @@ namespace build2
           mode (lexer_mode::here_line);
           next (t, tt);
 
-          // The end marker is temporarily stored as the redirect's value.
-          //
-          r.value = parse_here_document (t, tt, r.value);
+          r.value = parse_here_document (t, tt, r.end_marker);
 
           expire_mode ();
         }
