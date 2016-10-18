@@ -48,10 +48,26 @@ namespace build2
 
       struct command_exit
       {
-        // @@ Need to understand what type we should use for status.
-
+        // C/C++ don't apply constraints to program exit code values other than
+        // being of int type.
+        //
+        // POSIX specifies that only the least significant 8 bits shall be
+        // available from wait() and waitpid(); the full value shall be
+        // available from waitid() (read more at
+        // http://pubs.opengroup.org/onlinepubs/9699919799/functions/_Exit.html).
+        // While Linux man page for waitid() doesn't mention any deviations
+        // from the standard the FreeBSD implementation (as of version 11.0)
+        // only returns 8 bits like the other wait*() calls.
+        //
+        // Windows supports 32-bit exit codes.
+        //
+        // Note that in shells some exit values can have a special meaning so
+        // using them can be a source of confusion, For bash values in the
+        // [126, 255] range are such a special ones (read more at
+        // http://tldp.org/LDP/abs/html/exitcodes.html).
+        //
         exit_comparison comparison = exit_comparison::eq;
-        uint16_t status = 0;
+        uint8_t status = 0;
       };
 
       struct test: command
