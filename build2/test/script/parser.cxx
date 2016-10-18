@@ -525,10 +525,7 @@ namespace build2
         // going to continue lexing in the script_line mode.
         //
         if (tt == type::equal || tt == type::not_equal)
-        {
-          next (t, tt);
           ts.exit = parse_command_exit (t, tt);
-        }
 
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
@@ -559,14 +556,30 @@ namespace build2
       command_exit parser::
       parse_command_exit (token& t, token_type& tt)
       {
+        exit_comparison comp (tt == type::equal
+                              ? exit_comparison::eq
+                              : exit_comparison::ne);
+
         // The next chunk should be the exit status.
         //
+        next (t, tt);
         names ns (parse_names (t, tt, true, "exit status"));
+        unsigned long es (256);
 
-        //@@ TODO: validate to be single, simple, non-empty name that
-        //         converts to integer (is exit status always non-negative).
+        try
+        {
+          if (ns.size () == 1 && ns[0].simple () && !ns[0].empty ())
+            es = stoul (ns[0].value);
+        }
+        catch (const exception&)
+        {
+        }
 
-        return command_exit {exit_comparison::eq, 0};
+        if (es > 255)
+          fail (t) << "command exit status expected instead of " << ns <<
+            info << "must be an unsigned integer less than 256";
+
+        return command_exit {comp, static_cast<uint8_t> (es)};
       }
 
       string parser::

@@ -1,3 +1,4 @@
+foo != 0
 a=aaa
 foo bar <"bbb $a ccc" >ddd 2>>EOE
 eee
