@@ -52,56 +52,20 @@ namespace build2
       void parser::
       parse_script_line (token& t, token_type& tt)
       {
-        // Parse first chunk. Keep track of whether anything in it was quoted.
+        // Decide whether this is a variable assignment or a command. It is a
+        // variable assignment if the first token is a word and the next is an
+        // assign/append/prepend operator. Assignment to a computed variable
+        // name must use the set builtin.
         //
-        names ns;
-        location nl (get_location (t));
-        lexer_->reset_quoted (t.quoted);
-        parse_names (t, tt, ns, true, "variable or program name");
-
-        // See if this is a variable assignment or a test command.
-        //
-        if (tt == type::assign  ||
-            tt == type::prepend ||
-            tt == type::append)
+        auto assign = [] (type t)
         {
-          // We need to strike a balance between recognizing command lines
-          // that contain the assignment operator and variable assignments.
-          //
-          // If we choose to treat these tokens literally (for example, if we
-          // have several names on the LHS), then we have the reversibility
-          // problem: we need to restore original whitespaces before and after
-          // the assignment operator (e.g., foo=bar vs foo = bar).
-          //
-          // To keep things simple we will start with the following rule: if
-          // the token after the first chunk of input is assignment, then it
-          // must be a variable assignment. After all, command lines like this
-          // are not expected to be common:
-          //
-          // $* =x
-          //
-          // It will also be easy to get the desired behavior with quoting:
-          //
-          // $* "=x"
-          //
-          // The only issue here is if $* above expands to a single, simple
-          // name (e.g., an executable name) in which case it will be treated
-          // as a variable name. One way to resolve it would be to detect
-          // "funny" variable names and require that they be quoted (this
-          // won't help with built-in commands; maybe we could warn if it's
-          // the same as built-in). Note that currently we have no way of
-          // knowing it's quoted.
-          //
-          // Or perhaps we should just let people learn that first assignment
-          // needs to be quoted?
-          //
-          if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
-            fail (nl) << "variable name expected instead of '" << ns << "'";
+          return t == type::assign || t == type::prepend || t == type::append;
+        };
 
-          parse_variable_line (t, tt, move (ns[0].value), move (nl));
-        }
+        if (tt == type::word && assign (peek ()))
+          parse_variable_line (t, tt);
         else
-          parse_test_line (t, tt, move (ns), move (nl));
+          parse_test_line (t, tt);
       }
 
       // Return true if the string contains only digit characters (used to
@@ -118,16 +82,21 @@ namespace build2
       }
 
       void parser::
-      parse_variable_line (token& t, token_type& tt, string name, location nl)
+      parse_variable_line (token& t, token_type& tt)
       {
+        location nl (get_location (t));
+        string name (move (t.value));
+
         // Check if we are trying to modify any of the special aliases ($*,
         // $~, $N).
         //
         if (name == "*" || name == "~" || digits (name))
           fail (nl) << "attempt to set '" << name << "' variable directly";
 
-        type kind (tt); // Assignment kind.
         const variable& var (script_->var_pool.insert (move (name)));
+
+        next (t, tt);
+        type kind (tt); // Assignment kind.
 
         // We cannot reuse the value mode since it will recognize { which
         // we want to treat as a literal.
@@ -164,7 +133,7 @@ namespace build2
       }
 
       void parser::
-      parse_test_line (token& t, token_type& tt, names ns, location nl)
+      parse_test_line (token& t, token_type& tt)
       {
         // Stop recognizing variable assignments.
         //
@@ -353,130 +322,11 @@ namespace build2
         // Keep parsing chunks of the command line until we see the newline or
         // the exit status comparison.
         //
-        for (bool done (false); !done; )
+        location l (get_location (t));
+        names ns; // Reuse to reduce allocations.
+
+        for (bool done (false); !done; l = get_location (t))
         {
-          // Process words that we already have.
-          //
-          bool q (lexer_->quoted ());
-
-          for (name& n: ns)
-          {
-            string s;
-
-            try
-            {
-              s = value_traits<string>::convert (move (n), nullptr);
-            }
-            catch (const invalid_argument&)
-            {
-              fail (nl) << "invalid string value '" << n << "'";
-            }
-
-            // If it is a quoted chunk, then we add the word as is. Otherwise
-            // we re-lex it. But if the word doesn't contain any interesting
-            // characters (operators plus quotes/escapes), then no need to
-            // re-lex.
-            //
-            if (q || s.find_first_of ("|&<>\'\"\\") == string::npos)
-              add_word (move (s), nl);
-            else
-            {
-              // Come up with a "path" that contains both the original
-              // location as well as the expanded string. The resulting
-              // diagnostics will look like this:
-              //
-              // testscript:10:1 ('abc): unterminated single quote
-              //
-              path name;
-              {
-                string n (nl.file->string ());
-                n += ':';
-                n += to_string (nl.line);
-                n += ':';
-                n += to_string (nl.column);
-                n += ": (";
-                n += s;
-                n += ')';
-                name = path (move (n));
-              }
-
-              istringstream is (s);
-              lexer lex (is, name, lexer_mode::command_line);
-
-              // Treat the first "sub-token" as always separated from what we
-              // saw earlier.
-              //
-              // Note that this is not "our" token so we cannot do fail(t).
-              // Rather we should do fail(l).
-              //
-              token t (lex.next ());
-              location l (build2::get_location (t, name));
-              t.separated = true;
-
-              string w;
-              bool f (t.type == type::eos); // If the whole thing is empty.
-
-              for (; t.type != type::eos; t = lex.next ())
-              {
-                type tt (t.type);
-                l = build2::get_location (t, name);
-
-                // Re-lexing double-quotes will recognize $, ( inside as
-                // tokens so we have to reverse them back. Since we don't
-                // treat spaces as separators we can be sure we will get it
-                // right.
-                //
-                switch (tt)
-                {
-                case type::dollar: w += '$'; continue;
-                case type::lparen: w += '('; continue;
-                }
-
-                // Retire the current word. We need to distinguish between
-                // empty and non-existent (e.g., > vs >"").
-                //
-                if (!w.empty () || f)
-                {
-                  add_word (move (w), l);
-                  f = false;
-                }
-
-                if (tt == type::word)
-                {
-                  w = move (t.value);
-                  f = true;
-                  continue;
-                }
-
-                // If this is one of the operators/separators, check that we
-                // don't have any pending locations to be filled.
-                //
-                check_pending (l);
-
-                // Note: there is another one in the outer loop below.
-                //
-                switch (tt)
-                {
-                case type::in_null:
-                case type::in_string:
-                case type::in_document:
-                case type::out_null:
-                case type::out_string:
-                case type::out_document:
-                  parse_redirect (t, l);
-                  break;
-                }
-              }
-
-              // Don't forget the last word.
-              //
-              if (!w.empty () || f)
-                add_word (move (w), l);
-            }
-          }
-
-          // See what is the next token.
-          //
           switch (tt)
           {
           case type::equal:
@@ -496,9 +346,9 @@ namespace build2
               // If this is one of the operators/separators, check that we
               // don't have any pending locations to be filled.
               //
-              check_pending (nl);
+              check_pending (l);
 
-              // Note: there is another one in the inner loop above.
+              // Note: there is another one in the inner loop below.
               //
               switch (tt)
               {
@@ -508,7 +358,7 @@ namespace build2
               case type::out_null:
               case type::out_string:
               case type::out_document:
-                parse_redirect (t, get_location (t));
+                parse_redirect (t, l);
                 next (t, tt);
                 break;
               }
@@ -517,12 +367,133 @@ namespace build2
             }
           default:
             {
-              // Parse the next chunk.
+              // Parse the next chunk as names to get variable expansion, etc.
+              // Note that we do it in the chunking mode to detect whether
+              // anything in each chunk is quoted.
               //
-              ns.clear ();
               lexer_->reset_quoted (t.quoted);
-              nl = get_location (t);
               parse_names (t, tt, ns, true, "command");
+
+              // Process what we got.
+              //
+              bool q (lexer_->quoted ());
+              for (name& n: ns)
+              {
+                string s;
+
+                try
+                {
+                  s = value_traits<string>::convert (move (n), nullptr);
+                }
+                catch (const invalid_argument&)
+                {
+                  fail (l) << "invalid string value '" << n << "'";
+                }
+
+                // If it is a quoted chunk, then we add the word as is.
+                // Otherwise we re-lex it. But if the word doesn't contain any
+                // interesting characters (operators plus quotes/escapes),
+                // then no need to re-lex.
+                //
+                if (q || s.find_first_of ("|&<>\'\"\\") == string::npos)
+                  add_word (move (s), l);
+                else
+                {
+                  // Come up with a "path" that contains both the original
+                  // location as well as the expanded string. The resulting
+                  // diagnostics will look like this:
+                  //
+                  // testscript:10:1 ('abc): unterminated single quote
+                  //
+                  path name;
+                  {
+                    string n (l.file->string ());
+                    n += ':';
+                    n += to_string (l.line);
+                    n += ':';
+                    n += to_string (l.column);
+                    n += ": (";
+                    n += s;
+                    n += ')';
+                    name = path (move (n));
+                  }
+
+                  istringstream is (s);
+                  lexer lex (is, name, lexer_mode::command_line);
+
+                  // Treat the first "sub-token" as always separated from what
+                  // we saw earlier.
+                  //
+                  // Note that this is not "our" token so we cannot do
+                  // fail(t). Rather we should do fail(l).
+                  //
+                  token t (lex.next ());
+                  location l (build2::get_location (t, name));
+                  t.separated = true;
+
+                  string w;
+                  bool f (t.type == type::eos); // If the whole thing is empty.
+
+                  for (; t.type != type::eos; t = lex.next ())
+                  {
+                    type tt (t.type);
+                    l = build2::get_location (t, name);
+
+                    // Re-lexing double-quotes will recognize $, ( inside as
+                    // tokens so we have to reverse them back. Since we don't
+                    // treat spaces as separators we can be sure we will get
+                    // it right.
+                    //
+                    switch (tt)
+                    {
+                    case type::dollar: w += '$'; continue;
+                    case type::lparen: w += '('; continue;
+                    }
+
+                    // Retire the current word. We need to distinguish between
+                    // empty and non-existent (e.g., > vs >"").
+                    //
+                    if (!w.empty () || f)
+                    {
+                      add_word (move (w), l);
+                      f = false;
+                    }
+
+                    if (tt == type::word)
+                    {
+                      w = move (t.value);
+                      f = true;
+                      continue;
+                    }
+
+                    // If this is one of the operators/separators, check that
+                    // we don't have any pending locations to be filled.
+                    //
+                    check_pending (l);
+
+                    // Note: there is another one in the outer loop above.
+                    //
+                    switch (tt)
+                    {
+                    case type::in_null:
+                    case type::in_string:
+                    case type::in_document:
+                    case type::out_null:
+                    case type::out_string:
+                    case type::out_document:
+                      parse_redirect (t, l);
+                      break;
+                    }
+                  }
+
+                  // Don't forget the last word.
+                  //
+                  if (!w.empty () || f)
+                    add_word (move (w), l);
+                }
+              }
+
+              ns.clear ();
               break;
             }
           }
@@ -530,7 +501,7 @@ namespace build2
 
         // Verify we don't have anything pending to be filled.
         //
-        check_pending (nl);
+        check_pending (l);
 
         // While we no longer need to recognize command line operators, we
         // also don't expect a valid test trailer to contain them. So we are

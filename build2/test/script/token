@@ -38,7 +38,9 @@ namespace build2
           out_document                  // <<
         };
 
-        using base_type::base_type;
+        token_type () = default;
+        token_type (value_type v): base_type (v) {}
+        token_type (base_type v): base_type (v) {}
       };
 
       void
