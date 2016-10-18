@@ -92,6 +92,8 @@ namespace build2
           printer (&token_printer) {}
   };
 
+  using tokens = vector<token>;
+
   // Output the token value in a format suitable for diagnostics.
   //
   inline ostream&

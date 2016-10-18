@@ -1865,8 +1865,8 @@ namespace build2
     // Manually expire the value mode if we haven't reached newline/eos (where
     // it expires automatically).
     //
-    if (lexer_->mode () == lexer_mode::value)
-      lexer_->expire_mode ();
+    if (mode () == lexer_mode::value)
+      expire_mode ();
 
     if (tt != type::rsbrace)
       fail (t) << "expected ']' instead of " << t;
@@ -2540,7 +2540,7 @@ namespace build2
           fail (t) << "multiple " << what << "s on the left hand side "
                    << "of a pair";
 
-        ns.back ().pair = lexer_->pair_separator ();
+        ns.back ().pair = pair_separator ();
         tt = peek ();
 
         // If the next token is separated, then we have an empty RHS. Note
@@ -3063,17 +3063,20 @@ namespace build2
   type parser::
   next (token& t, type& tt)
   {
+    replay_token r;
+
     if (peeked_)
     {
-      t = move (peek_);
+      r = move (peek_);
       peeked_ = false;
     }
     else
-      t = (replay_ == replay::play ? replay_next () : lexer_->next ());
+      r = replay_ != replay::play ? lexer_next () : replay_next ();
 
     if (replay_ == replay::save)
-      replay_data_.push_back (t);
+      replay_data_.push_back (r);
 
+    t = move (r.token);
     tt = t.type;
     return tt;
   }
@@ -3083,10 +3086,10 @@ namespace build2
   {
     if (!peeked_)
     {
-      peek_ = (replay_ == replay::play ? replay_next () : lexer_->next ());
+      peek_ = (replay_ != replay::play ? lexer_next () : replay_next ());
       peeked_ = true;
     }
 
-    return peek_.type;
+    return peek_.token.type;
   }
 }

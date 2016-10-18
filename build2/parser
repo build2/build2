@@ -281,7 +281,7 @@ namespace build2
     peeked () const
     {
       assert (peeked_);
-      return peek_;
+      return peek_.token;
     }
 
     void
@@ -289,13 +289,37 @@ namespace build2
     {
       if (replay_ != replay::play)
         lexer_->mode (m, ps);
+      else
+        // As a sanity check, make sure the mode matches the next token. Note
+        // that we don't check the pair separator since it can be overriden by
+        // the lexer's mode() implementation.
+        //
+        assert (replay_i_ != replay_data_.size () &&
+                replay_data_[replay_i_].mode == m);
     }
 
     lexer_mode
     mode () const
     {
-      assert (replay_ != replay::play);
-      return lexer_->mode ();
+      if (replay_ != replay::play)
+        return lexer_->mode ();
+      else
+      {
+        assert (replay_i_ != replay_data_.size ());
+        return replay_data_[replay_i_].mode;
+      }
+    }
+
+    char
+    pair_separator () const
+    {
+      if (replay_ != replay::play)
+        return lexer_->pair_separator ();
+      else
+      {
+        assert (replay_i_ != replay_data_.size ());
+        return replay_data_[replay_i_].pair_separator;
+      }
     }
 
     void
@@ -306,9 +330,9 @@ namespace build2
     }
 
     // Token saving and replaying. Note that it can only be used in certain
-    // contexts. Specifically, the lexer mode should be the same and the code
-    // that parses a replay must not interact with the lexer directly (e.g.,
-    // the keyword() test). For now we don't enforce any of this.
+    // contexts. Specifically, the code that parses a replay must not interact
+    // with the lexer directly (e.g., the keyword() test). For now we don't
+    // enforce any of this.
     //
     // Note also that the peeked token is not part of the replay, until it
     // is "got".
@@ -338,13 +362,6 @@ namespace build2
       replay_ = replay::stop;
     }
 
-    const token&
-    replay_next ()
-    {
-      assert (replay_i_ != replay_data_.size ());
-      return replay_data_[replay_i_++];
-    }
-
     struct replay_guard
     {
       replay_guard (parser& p, bool start = true)
@@ -371,6 +388,57 @@ namespace build2
       parser* p_;
     };
 
+    struct replay_token
+    {
+      build2::token token;
+      lexer_mode mode;
+      char pair_separator;
+    };
+
+    using replay_tokens = vector<replay_token>;
+
+    // Stop saving and get the data.
+    //
+    replay_tokens
+    replay_data ()
+    {
+      assert (replay_ == replay::save);
+
+      replay_tokens r (move (replay_data_));
+      replay_ = replay::stop;
+      replay_data_.clear ();
+
+      return r;
+    }
+
+    // Set the data and start playing.
+    //
+    void
+    replay_data (replay_tokens&& d)
+    {
+      assert (replay_ == replay::stop);
+
+      replay_data_ = move (d);
+      replay_ = replay::play;
+    }
+
+    // Implementation details, don't call directly.
+    //
+    replay_token
+    lexer_next ()
+    {
+      lexer_mode m (lexer_->mode ()); // Get it first since it may expire.
+      char ps (lexer_->pair_separator ());
+      return replay_token {lexer_->next (), m, ps};
+    }
+
+    const replay_token&
+    replay_next ()
+    {
+      assert (replay_i_ != replay_data_.size ());
+      return replay_data_[replay_i_++];
+    }
+
     // Diagnostics.
     //
   protected:
@@ -390,12 +458,12 @@ namespace build2
     target* default_target_;
     names export_value_;
 
-    token peek_ = token (token_type::eos, false, 0, 0, token_printer);
+    replay_token peek_;
     bool peeked_ = false;
 
     enum class replay {stop, save, play} replay_ = replay::stop;
-    vector<token> replay_data_;
-    size_t replay_i_; // Position of the next token during replay.
+    replay_tokens replay_data_;
+    size_t replay_i_;         // Position of the next token during replay.
   };
 }
 
