@@ -40,11 +40,13 @@ namespace build2
 
   // Extendable/inheritable enum-like class.
   //
-  struct lexer_mode
+  struct lexer_mode: lexer_mode_base
   {
+    using base_type = lexer_mode_base;
+
     enum
     {
-      normal,
+      normal = base_type::value_next,
       variable,
       value,
       eval,
@@ -54,11 +56,9 @@ namespace build2
       value_next
     };
 
-    using value_type = uint16_t;
-
-    lexer_mode (value_type v = normal): v_ (v) {}
-    operator value_type () const {return v_;}
-    value_type v_;
+    lexer_mode () = default;
+    lexer_mode (value_type v): base_type (v) {}
+    lexer_mode (base_type v): base_type (v) {}
   };
 
   class lexer: protected butl::char_scanner

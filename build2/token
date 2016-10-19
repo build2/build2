@@ -92,12 +92,32 @@ namespace build2
           printer (&token_printer) {}
   };
 
-  using tokens = vector<token>;
-
   // Output the token value in a format suitable for diagnostics.
   //
   inline ostream&
   operator<< (ostream& o, const token& t) {t.printer (o, t, true); return o;}
+
+  // Extendable/inheritable enum-like class.
+  //
+  struct lexer_mode_base
+  {
+    enum { value_next };
+
+    using value_type = uint16_t;
+
+    lexer_mode_base (value_type v = value_next): v_ (v) {}
+    operator value_type () const {return v_;}
+    value_type v_;
+  };
+
+  struct replay_token
+  {
+    build2::token token;
+    lexer_mode_base mode;
+    char pair_separator;
+  };
+
+  using replay_tokens = vector<replay_token>;
 
   // Diagnostics plumbing. We assume that any diag stream for which we can use
   // token as location has its aux data pointing to pointer to path.

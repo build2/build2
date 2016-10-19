@@ -184,24 +184,14 @@ namespace build2
     // Append names and return true if the parsed value is NOT NULL.
     //
     bool
-    parse_names (token& t, token_type& tt,
-                 names& ns,
-                 bool chunk = false,
-                 const char* what = "name")
-    {
-      return parse_names (
-        t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
-    }
-
-    bool
     parse_names (token&, token_type&,
                  names&,
-                 bool chunk,
-                 const char* what,
-                 size_t pair,
-                 const string* prj,
-                 const dir_path* dir,
-                 const string* type);
+                 bool chunk = false,
+                 const char* what = "name",
+                 size_t pair = 0,
+                 const string* prj = nullptr,
+                 const dir_path* dir = nullptr,
+                 const string* type = nullptr);
 
     size_t
     parse_names_trailer (token&, token_type&,
@@ -387,15 +377,6 @@ namespace build2
     private:
       parser* p_;
     };
-
-    struct replay_token
-    {
-      build2::token token;
-      lexer_mode mode;
-      char pair_separator;
-    };
-
-    using replay_tokens = vector<replay_token>;
 
     // Stop saving and get the data.
     //

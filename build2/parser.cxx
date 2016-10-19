@@ -2017,13 +2017,13 @@ namespace build2
     // a@{b c d{e f} {}}.
     //
 
-    // Buffer that is used to collect the complete name in case of
-    // an unseparated variable expansion or eval context, e.g.,
-    // 'foo$bar($baz)fox'. The idea is to concatenate all the
-    // individual parts in this buffer and then re-inject it into
-    // the loop as a single token.
+    // Buffer that is used to collect the complete name in case of an
+    // unseparated variable expansion or eval context, e.g., foo$bar($baz)fox.
+    // The idea is to concatenate all the individual parts in this buffer and
+    // then re-inject it into the loop as a single token.
     //
-    string concat;
+    bool concat (false);
+    string concat_str;
 
     // Number of names in the last group. This is used to detect when
     // we need to add an empty first pair element (e.g., @y) or when
@@ -2037,14 +2037,14 @@ namespace build2
       // continue accumulating or inject. We inject if the next token is
       // not a word, var expansion, or eval context or if it is separated.
       //
-      if (!concat.empty () &&
+      if (concat &&
           ((tt != type::word   &&
             tt != type::dollar &&
             tt != type::lparen) || peeked ().separated))
       {
         tt = type::word;
-        t = token (move (concat), true, false, t.line, t.column);
-        concat.clear ();
+        t = token (move (concat_str), true, false, t.line, t.column);
+        concat = false;
       }
       else if (!first)
       {
@@ -2060,7 +2060,7 @@ namespace build2
       //
       if (tt == type::word)
       {
-        string name (t.value); //@@ move?
+        string name (move (t.value));
         tt = peek ();
 
         // Should we accumulate? If the buffer is not empty, then
@@ -2069,11 +2069,16 @@ namespace build2
         // the next token is a var expansion or eval context and it
         // is not separated, then we need to start accumulating.
         //
-        if (!concat.empty () ||                                // Continue.
+        if (concat ||                                       // Continue.
             ((tt == type::dollar ||
-              tt == type::lparen) && !peeked ().separated))    // Start.
+              tt == type::lparen) && !peeked ().separated)) // Start.
         {
-          concat += name;
+          if (concat_str.empty ())
+            concat_str = move (name);
+          else
+            concat_str += name;
+
+          concat = true;
           continue;
         }
 
@@ -2395,13 +2400,13 @@ namespace build2
         // the next token is a word or var expansion and it is not
         // separated, then we need to start accumulating.
         //
-        if (!concat.empty () ||                       // Continue.
+        if (concat ||                                 // Continue.
             ((tt == type::word   ||                   // Start.
               tt == type::dollar ||
               tt == type::lparen) && !peeked ().separated))
         {
-          // This should be a simple value or a simple directory. The
-          // token still points to the name (or closing paren).
+          // This should be a simple value or a simple directory. The token
+          // still points to the name (or closing paren).
           //
           if (lv.size () > 1)
             fail (loc) << "concatenating " << what << " contains multiple "
@@ -2424,10 +2429,14 @@ namespace build2
             // actually a directory path (think s/foo/bar/) so we have to
             // reverse it exactly.
             //
-            concat += n.original ? n.dir.representation () : n.dir.string ();
+            concat_str += n.original
+              ? n.dir.representation ()
+              : n.dir.string ();
           }
           else
-            concat += n.value;
+            concat_str += n.value;
+
+          concat = true;
         }
         else
         {
