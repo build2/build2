@@ -240,7 +240,7 @@ namespace build2
       // Extract attributes if any.
       //
       assert (attributes_.empty ());
-      attributes& a (attributes_push (t, tt));
+      auto at (attributes_push (t, tt));
 
       // We always start with one or more names.
       //
@@ -252,8 +252,8 @@ namespace build2
       {
         // Something else. Let our caller handle that.
         //
-        if (a)
-          fail (a.loc) << "attributes before " << t;
+        if (at.first)
+          fail (at.second) << "attributes before " << t;
         else
           attributes_pop ();
 
@@ -320,8 +320,8 @@ namespace build2
 
         if (f != nullptr)
         {
-          if (a)
-            fail (a.loc) << "attributes before " << n;
+          if (at.first)
+            fail (at.second) << "attributes before " << n;
           else
             attributes_pop ();
 
@@ -387,8 +387,8 @@ namespace build2
             {
               // Directory scope.
               //
-              if (a)
-                fail (a.loc) << "attributes before directory scope";
+              if (at.first)
+                fail (at.second) << "attributes before directory scope";
               else
                 attributes_pop ();
 
@@ -399,8 +399,8 @@ namespace build2
             }
             else
             {
-              if (a)
-                fail (a.loc) << "attributes before target scope";
+              if (at.first)
+                fail (at.second) << "attributes before target scope";
               else
                 attributes_pop ();
 
@@ -429,12 +429,12 @@ namespace build2
         // assignment.
         //
 
-        if (a)
-          fail (a.loc) << "attributes before target/scope";
+        if (at.first)
+          fail (at.second) << "attributes before target/scope";
         else
           attributes_pop ();
 
-        attributes& a (attributes_push (t, tt));
+        auto at (attributes_push (t, tt));
 
         if (tt == type::word    ||
             tt == type::lcbrace ||
@@ -632,8 +632,8 @@ namespace build2
           //
           else
           {
-            if (a)
-              fail (a.loc) << "attributes before prerequisites";
+            if (at.first)
+              fail (at.second) << "attributes before prerequisites";
             else
               attributes_pop ();
 
@@ -742,8 +742,8 @@ namespace build2
       //
       if (tt == type::newline && ns.empty ())
       {
-        if (a)
-          fail (a.loc) << "standalone attributes";
+        if (at.first)
+          fail (at.second) << "standalone attributes";
         else
           attributes_pop ();
 
@@ -981,7 +981,7 @@ namespace build2
     //
     // import [<var>=](<project>|<project>/<target>])+
     //
-    type at; // Assignment type.
+    type atype; // Assignment type.
     value* val (nullptr);
     const build2::variable* var (nullptr);
 
@@ -998,7 +998,7 @@ namespace build2
     // Get variable attributes, if any (note that here we will go into a
     // nested value mode with a different pair character).
     //
-    attributes& a (attributes_push (t, tt));
+    auto at (attributes_push (t, tt));
 
     if (tt == type::word)
     {
@@ -1007,7 +1007,7 @@ namespace build2
       // returned while the token is set to value. If the resulting token
       // value is empty, get the next token. Also set assignment type (at).
       //
-      auto split = [&at, &t, &tt, this] (size_t p) -> string
+      auto split = [&atype, &t, &tt, this] (size_t p) -> string
       {
         string& v (t.value);
         size_t e;
@@ -1015,17 +1015,17 @@ namespace build2
         if (p != 0 && v[p - 1] == '+') // +=
         {
           e = p--;
-          at = type::append;
+          atype = type::append;
         }
         else if (p + 1 != v.size () && v[p + 1] == '+') // =+
         {
           e = p + 1;
-          at = type::prepend;
+          atype = type::prepend;
         }
         else // =
         {
           e = p;
-          at = type::assign;
+          atype = type::assign;
         }
 
         string nv (v, e + 1); // value
@@ -1071,14 +1071,14 @@ namespace build2
       //
       apply_variable_attributes (*var);
 
-      val = at == type::assign
+      val = atype == type::assign
         ? &scope_->assign (*var)
         : &scope_->append (*var);
     }
     else
     {
-      if (a)
-        fail (a.loc) << "attributes without variable";
+      if (at.first)
+        fail (at.second) << "attributes without variable";
       else
         attributes_pop ();
     }
@@ -1102,9 +1102,9 @@ namespace build2
 
       if (val != nullptr)
       {
-        if (at == type::assign)
+        if (atype == type::assign)
           val->assign (move (r), var);
-        else if (at == type::prepend)
+        else if (atype == type::prepend)
           val->prepend (move (r), var);
         else
           val->append (move (r), var);
@@ -1662,7 +1662,7 @@ namespace build2
       // Parse value attributes if any. Note that it's ok not to have anything
       // after the attributes, as in, ($foo == [null]), or even ([null])
       //
-      attributes& a (attributes_push (t, tt, true));
+      auto at (attributes_push (t, tt, true));
 
       // Note that if names() gets called, it expects to see a name.
       //
@@ -1677,9 +1677,12 @@ namespace build2
                ? parse_names_value (t, tt)
                : value (names ()));
 
+      if (pre_parse_)
+        return r; // Empty.
+
       // Process attributes if any.
       //
-      if (!a)
+      if (!at.first)
       {
         attributes_pop ();
         return r;
@@ -1710,22 +1713,27 @@ namespace build2
           // this is. But for now ':' is always a scope/target qualified name
           // which we represent as a special ':'-style pair.
           //
+          next (t, tt);
+          value rhs (parse_eval_trailer (t, tt));
+
+          if (tt != type::rparen)
+            fail (l) << "variable name expected after ':'";
+
+          if (pre_parse_)
+            break;
+
           if (lhs.type != nullptr || !lhs || lhs.empty ())
             fail (l) << "scope/target expected before ':'";
+
+          if (rhs.type != nullptr || !rhs || rhs.empty ())
+            fail (l) << "variable name expected after ':'";
 
           names& ns (lhs.as<names> ());
           ns.back ().pair = ':';
 
-          next (t, tt);
-          value rhs (parse_eval_trailer (t, tt));
-
-          if (tt != type::rparen ||
-              rhs.type != nullptr || !rhs || rhs.empty ())
-            fail (l) << "variable name expected after ':'";
-
           ns.insert (ns.end (),
                      make_move_iterator (rhs.as<names> ().begin ()),
-                     make_move_iterator (rhs.as<names> ().end ()));
+                       make_move_iterator (rhs.as<names> ().end ()));
 
           break;
         }
@@ -1744,6 +1752,9 @@ namespace build2
           //
           next (t, tt);
           value rhs (parse_value ());
+
+          if (pre_parse_)
+            break;
 
           // Use (potentially typed) comparison via value. If one of the
           // values is typed while the other is not, then try to convert the
@@ -1808,17 +1819,17 @@ namespace build2
     return lhs;
   }
 
-  parser::attributes& parser::
+  pair<bool, location> parser::
   attributes_push (token& t, token_type& tt, bool standalone)
   {
-    attributes_.push (
-      attributes {tt == type::lsbrace, get_location (t), {}});
+    location l (get_location (t));
+    bool has (tt == type::lsbrace);
 
-    attributes& a (attributes_.top ());
-    const location& l (a.loc);
+    if (!pre_parse_)
+      attributes_.push (attributes {has, l, {}});
 
-    if (!a.has)
-      return a;
+    if (!has)
+      return make_pair (false, l);
 
     // Using '@' for attribute key-value pairs would be just too ugly. Seeing
     // that we control what goes into keys/values, let's use a much nicer '='.
@@ -1830,35 +1841,40 @@ namespace build2
     {
       names ns (parse_names (t, tt));
 
-      for (auto i (ns.begin ()); i != ns.end (); ++i)
+      if (!pre_parse_)
       {
-        string k, v;
+        attributes& a (attributes_.top ());
 
-        try
+        for (auto i (ns.begin ()); i != ns.end (); ++i)
         {
-          k = convert<string> (move (*i));
-        }
-        catch (const invalid_argument&)
-        {
-          fail (l) << "invalid attribute key '" << *i << "'";
-        }
-
-        if (i->pair)
-        {
-          if (i->pair != '=')
-            fail (l) << "unexpected pair style in attributes";
+          string k, v;
 
           try
           {
-            v = convert<string> (move (*++i));
+            k = convert<string> (move (*i));
           }
           catch (const invalid_argument&)
           {
-            fail (l) << "invalid attribute value '" << *i << "'";
+            fail (l) << "invalid attribute key '" << *i << "'";
           }
-        }
 
-        a.ats.emplace_back (move (k), move (v));
+          if (i->pair)
+          {
+            if (i->pair != '=')
+              fail (l) << "unexpected pair style in attributes";
+
+            try
+            {
+              v = convert<string> (move (*++i));
+            }
+            catch (const invalid_argument&)
+            {
+              fail (l) << "invalid attribute value '" << *i << "'";
+            }
+          }
+
+          a.ats.emplace_back (move (k), move (v));
+        }
       }
     }
 
@@ -1876,7 +1892,7 @@ namespace build2
     if (!standalone && (tt == type::newline || tt == type::eos))
       fail (t) << "standalone attributes";
 
-    return a;
+    return make_pair (true, l);
   }
 
   // Parse names inside {} and handle the following "crosses" (i.e.,
@@ -1891,6 +1907,8 @@ namespace build2
                        const dir_path* dp,
                        const string* tp)
   {
+    assert (!pre_parse_);
+
     next (t, tt); // Get what's after '{'.
 
     size_t count (ns.size ());
@@ -2008,6 +2026,12 @@ namespace build2
                const dir_path* dp,
                const string* tp)
   {
+    // Note that support for pre-parsing is partial, it makes the following
+    // assumptions:
+    //
+    // - no pairs
+    // - no groups ({})
+
     tracer trace ("parser::names", &path_);
 
     bool null (false);
@@ -2033,6 +2057,9 @@ namespace build2
 
     for (bool first (true);; first = false)
     {
+      // Note that here we assume that, except for the first iterartion,
+      // tt contains the type of the peeked token.
+
       // If the accumulating buffer is not empty, then we have two options:
       // continue accumulating or inject. We inject if the next token is
       // not a word, var expansion, or eval context or if it is separated.
@@ -2073,140 +2100,147 @@ namespace build2
             ((tt == type::dollar ||
               tt == type::lparen) && !peeked ().separated)) // Start.
         {
-          if (concat_str.empty ())
-            concat_str = move (name);
-          else
-            concat_str += name;
+          if (!pre_parse_)
+          {
+            if (concat_str.empty ())
+              concat_str = move (name);
+            else
+              concat_str += name;
+          }
 
           concat = true;
           continue;
         }
 
-        // Find slash or %.
-        //
-        string::size_type p (name.find_last_of (name_separators));
-
-        // First take care of project. A project-qualified name is
-        // not very common, so we can afford some copying for the
-        // sake of simplicity.
-        //
-        const string* pp1 (pp);
-
-        if (p != string::npos)
+        if (!pre_parse_)
         {
-          bool last (name[p] == '%');
-          string::size_type p1 (last ? p : name.rfind ('%', p - 1));
-
-          if (p1 != string::npos)
-          {
-            string proj;
-            proj.swap (name);
-
-            // First fix the rest of the name.
-            //
-            name.assign (proj, p1 + 1, string::npos);
-            p = last ? string::npos : p - (p1 + 1);
-
-            // Now process the project name.
-            //
-            proj.resize (p1);
-
-            if (pp != nullptr)
-              fail (t) << "nested project name " << proj;
-
-            pp1 = &project_name_pool.find (proj);
-          }
-        }
-
-        string::size_type n (p != string::npos ? name.size () - 1 : 0);
-
-        // See if this is a type name, directory prefix, or both. That
-        // is, it is followed by an un-separated '{'.
-        //
-        if (tt == type::lcbrace && !peeked ().separated)
-        {
-          next (t, tt);
-
-          if (p != n && tp != nullptr)
-            fail (t) << "nested type name " << name;
-
-          dir_path d1;
-          const dir_path* dp1 (dp);
-
-          string t1;
-          const string* tp1 (tp);
-
-          if (p == string::npos) // type
-            tp1 = &name;
-          else if (p == n) // directory
-          {
-            if (dp == nullptr)
-              d1 = dir_path (name);
-            else
-              d1 = *dp / dir_path (name);
-
-            dp1 = &d1;
-          }
-          else // both
-          {
-            t1.assign (name, p + 1, n - p);
-
-            if (dp == nullptr)
-              d1 = dir_path (name, 0, p + 1);
-            else
-              d1 = *dp / dir_path (name, 0, p + 1);
-
-            dp1 = &d1;
-            tp1 = &t1;
-          }
-
-          count = parse_names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
-          tt = peek ();
-          continue;
-        }
-
-        // If we are a second half of a pair, add another first half
-        // unless this is the first instance.
-        //
-        if (pair != 0 && pair != ns.size ())
-          ns.push_back (ns[pair - 1]);
-
-        count = 1;
-
-        // If it ends with a directory separator, then it is a directory. Note
-        // that at this stage we don't treat '.' and '..' as special (unless
-        // they are specified with a directory separator) because then we
-        // would have ended up treating '.: ...' as a directory scope.
-        // Instead, this is handled higher up the processing chain, in
-        // scope::find_target_type(). This would also mess up reversibility to
-        // simple name.
-        //
-        // @@ TODO: and not quoted
-        //
-        if (p == n)
-        {
-          // For reversibility to simple name, only treat it as a directory
-          // if the string is an exact representation.
+          // Find slash or %.
           //
-          dir_path dir (move (name), dir_path::exact);
+          string::size_type p (name.find_last_of (name_separators));
 
-          if (!dir.empty ())
+          // First take care of project. A project-qualified name is
+          // not very common, so we can afford some copying for the
+          // sake of simplicity.
+          //
+          const string* pp1 (pp);
+
+          if (p != string::npos)
           {
-            if (dp != nullptr)
-              dir = *dp / dir;
+            bool last (name[p] == '%');
+            string::size_type p1 (last ? p : name.rfind ('%', p - 1));
 
-            ns.emplace_back (pp1,
-                             move (dir),
-                             (tp != nullptr ? *tp : string ()),
-                             string ());
+            if (p1 != string::npos)
+            {
+              string proj;
+              proj.swap (name);
+
+              // First fix the rest of the name.
+              //
+              name.assign (proj, p1 + 1, string::npos);
+              p = last ? string::npos : p - (p1 + 1);
+
+              // Now process the project name.
+              //
+              proj.resize (p1);
+
+              if (pp != nullptr)
+                fail (t) << "nested project name " << proj;
+
+              pp1 = &project_name_pool.find (proj);
+            }
+          }
+
+          string::size_type n (p != string::npos ? name.size () - 1 : 0);
+
+          // See if this is a type name, directory prefix, or both. That
+          // is, it is followed by an un-separated '{'.
+          //
+          if (tt == type::lcbrace && !peeked ().separated)
+          {
+            next (t, tt);
+
+            if (p != n && tp != nullptr)
+              fail (t) << "nested type name " << name;
+
+            dir_path d1;
+            const dir_path* dp1 (dp);
+
+            string t1;
+            const string* tp1 (tp);
+
+            if (p == string::npos) // type
+              tp1 = &name;
+            else if (p == n) // directory
+            {
+              if (dp == nullptr)
+                d1 = dir_path (name);
+              else
+                d1 = *dp / dir_path (name);
+
+              dp1 = &d1;
+            }
+            else // both
+            {
+              t1.assign (name, p + 1, n - p);
+
+              if (dp == nullptr)
+                d1 = dir_path (name, 0, p + 1);
+              else
+                d1 = *dp / dir_path (name, 0, p + 1);
+
+              dp1 = &d1;
+              tp1 = &t1;
+            }
+
+            count = parse_names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
+            tt = peek ();
             continue;
           }
+
+          // If we are a second half of a pair, add another first half
+          // unless this is the first instance.
+          //
+          if (pair != 0 && pair != ns.size ())
+            ns.push_back (ns[pair - 1]);
+
+          count = 1;
+
+          // If it ends with a directory separator, then it is a directory.
+          // Note that at this stage we don't treat '.' and '..' as special
+          // (unless they are specified with a directory separator) because
+          // then we would have ended up treating '.: ...' as a directory
+          // scope.  Instead, this is handled higher up the processing chain,
+          // in scope::find_target_type(). This would also mess up
+          // reversibility to simple name.
+          //
+          // @@ TODO: and not quoted
+          //
+          if (p == n)
+          {
+            // For reversibility to simple name, only treat it as a directory
+            // if the string is an exact representation.
+            //
+            dir_path dir (move (name), dir_path::exact);
+
+            if (!dir.empty ())
+            {
+              if (dp != nullptr)
+                dir = *dp / dir;
+
+              ns.emplace_back (pp1,
+                               move (dir),
+                               (tp != nullptr ? *tp : string ()),
+                               string ());
+              continue;
+            }
+          }
+
+          ns.emplace_back (pp1,
+                           (dp != nullptr ? *dp : dir_path ()),
+                           (tp != nullptr ? *tp : string ()),
+                           move (name));
         }
 
-        ns.emplace_back (pp1,
-                         (dp != nullptr ? *dp : dir_path ()),
-                         (tp != nullptr ? *tp : string ()),
-                         move (name));
         continue;
       }
 
@@ -2253,44 +2287,50 @@ namespace build2
           string name;
 
           if (tt == type::word)
-            name = t.value;
+          {
+            if (!pre_parse_)
+              name = move (t.value);
+          }
           else if (tt == type::lparen)
           {
             expire_mode ();
             value v (parse_eval (t, tt)); //@@ OUT will parse @-pair and do well?
 
-            if (!v)
-              fail (loc) << "null variable/function name";
-
-            names storage;
-            vector_view<build2::name> ns (reverse (v, storage)); // Movable.
-            size_t n (ns.size ());
-
-            // Make sure the result of evaluation is a potentially-qualified
-            // simple name.
-            //
-            if (n > 2 ||
-                (n == 2 && ns[0].pair != ':') ||
-                !ns[n - 1].simple ())
-              fail (loc) << "variable/function name expected instead of '"
-                         << ns << "'";
-
-            if (n == 2)
+            if (!pre_parse_)
             {
-              qual = move (ns[0]);
+              if (!v)
+                fail (loc) << "null variable/function name";
 
-              if (qual.empty ())
-                fail (loc) << "empty variable/function qualification";
+              names storage;
+              vector_view<build2::name> ns (reverse (v, storage)); // Movable.
+              size_t n (ns.size ());
 
-              qual.pair = '\0'; // We broke up the pair.
+              // Make sure the result of evaluation is a potentially-qualified
+              // simple name.
+              //
+              if (n > 2 ||
+                  (n == 2 && ns[0].pair != ':') ||
+                  !ns[n - 1].simple ())
+                fail (loc) << "variable/function name expected instead of '"
+                           << ns << "'";
+
+              if (n == 2)
+              {
+                qual = move (ns[0]);
+
+                if (qual.empty ())
+                  fail (loc) << "empty variable/function qualification";
+
+                qual.pair = '\0'; // We broke up the pair.
+              }
+
+              name = move (ns[n - 1].value);
             }
-
-            name = move (ns[n - 1].value);
           }
           else
             fail (t) << "variable/function name expected instead of " << t;
 
-          if (name.empty ())
+          if (!pre_parse_ && name.empty ())
             fail (loc) << "empty variable/function name";
 
           // Figure out whether this is a variable expansion or a function
@@ -2311,6 +2351,11 @@ namespace build2
             // context in which to call the function?
             //
             value a (parse_eval (t, tt));
+            tt = peek ();
+
+            if (pre_parse_)
+              continue; // As if empty result.
+
             cout << name << "(";
 
             if (a)
@@ -2325,8 +2370,6 @@ namespace build2
             cout << ")" << endl;
 
             result = value (); // NULL for now.
-
-            tt = peek ();
 
             // See if we should propagate the NULL indicator.
             //
@@ -2346,6 +2389,9 @@ namespace build2
           }
           else
           {
+            if (pre_parse_)
+              continue; // As if empty value.
+
             // Variable expansion.
             //
             lookup l (lookup_variable (move (qual), move (name), loc));
@@ -2374,6 +2420,9 @@ namespace build2
 
           tt = peek ();
 
+          if (pre_parse_)
+            continue; // As if empty result.
+
           // See if we should propagate the NULL indicator.
           //
           if (!result)
@@ -2390,6 +2439,10 @@ namespace build2
           lv = reverse (result, lv_storage);
           what = "context evaluation";
         }
+
+        // Note that we never end up here during pre-parsing.
+        //
+        assert (!pre_parse_);
 
         // @@ Could move if lv is lv_storage (or even result).
         //

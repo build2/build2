@@ -134,14 +134,19 @@ namespace build2
     // parse the attribute sequence until ']' setting the 'has' flag and
     // storing the result on the stack. Then get the next token and, if
     // standalone is false, verify it is not newline/eos (i.e., there is
-    // something after it). Return the top of the stack.
+    // something after it). Return the indication of whether there are
+    // any attributes and their location.
     //
-    attributes&
+    // Note that during pre-parsing nothing is pushed into the stack and
+    // the returned attributes object indicates there are no attributes.
+    //
+    pair<bool, location>
     attributes_push (token&, token_type&, bool standalone = false);
 
     attributes
     attributes_pop ()
     {
+      assert (!pre_parse_);
       attributes r (move (attributes_.top ()));
       attributes_.pop ();
       return r;
@@ -156,6 +161,8 @@ namespace build2
     //
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
+    //
+    // In pre-parse mode always return empty list of names.
     //
     names
     parse_names (token& t, token_type& tt,
@@ -400,6 +407,7 @@ namespace build2
       assert (replay_ == replay::stop);
 
       replay_data_ = move (d);
+      replay_i_ = 0;
       replay_ = replay::play;
     }
 

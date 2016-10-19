@@ -137,8 +137,11 @@ namespace build2
     token
     next_quoted ();
 
+    // Lex a word assuming current is the top state (which may already have
+    // been "expired" from the top).
+    //
     virtual token
-    word (state, bool separated);
+    word (state current, bool separated);
 
     // Return true if we have seen any spaces. Skipped empty lines
     // don't count. In other words, we are only interested in spaces
