@@ -514,6 +514,9 @@ namespace build2
                 // interesting characters (operators plus quotes/escapes),
                 // then no need to re-lex.
                 //
+                // NOTE: updated quoting (script.cxx:to_stream_q()) if adding
+                // any new characters.
+                //
                 if (q || s.find_first_of ("|&<>\'\"\\") == string::npos)
                   add_word (move (s), l);
                 else

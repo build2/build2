@@ -14,6 +14,103 @@ namespace build2
   {
     namespace script
     {
+      // Quote if empty or contains spaces or any of the special characters.
+      //
+      // @@ What if it contains quotes, escapes?
+      //
+      static void
+      to_stream_q (ostream& o, const string& s)
+      {
+        if (s.empty () || s.find_first_of (" |&<>=") != string::npos)
+          o << '"' << s << '"';
+        else
+          o << s;
+      };
+
+      void
+      to_stream (ostream& o, const command& c, command_to_stream m)
+      {
+        auto print_redirect = [&o] (const redirect& r, const char* prefix)
+        {
+          o << ' ' << prefix;
+
+          size_t n (string::traits_type::length (prefix));
+          assert (n > 0);
+
+          switch (r.type)
+          {
+          case redirect_type::none:        assert (false);           break;
+          case redirect_type::null:        o << '!';                 break;
+          case redirect_type::here_string: to_stream_q (o, r.value); break;
+          case redirect_type::here_document:
+            {
+              // Add another '>' or '<'. Note that here end marker never
+              // needs to be quoted.
+              //
+              o << prefix[n - 1] << r.here_end;
+              break;
+            }
+          }
+        };
+
+        auto print_doc = [&o] (const redirect& r)
+        {
+          // Here-document value always ends with a newline.
+          //
+          o << endl << r.value << r.here_end;
+        };
+
+        if ((m & command_to_stream::header) == command_to_stream::header)
+        {
+          // Program.
+          //
+          to_stream_q (o, c.program.string ());
+
+          // Arguments.
+          //
+          for (const string& a: c.arguments)
+          {
+            o << ' ';
+            to_stream_q (o, a);
+          }
+
+          // Redirects.
+          //
+          if (c.in.type  != redirect_type::none) print_redirect (c.in,   "<");
+          if (c.out.type != redirect_type::none) print_redirect (c.out,  ">");
+          if (c.err.type != redirect_type::none) print_redirect (c.err, "2>");
+        }
+
+        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
+        {
+          // Here-documents.
+          //
+          if (c.in.type  == redirect_type::here_document) print_doc (c.in);
+          if (c.out.type == redirect_type::here_document) print_doc (c.out);
+          if (c.err.type == redirect_type::here_document) print_doc (c.err);
+        }
+      }
+
+      ostream&
+      operator<< (ostream& o, const test& t)
+      {
+        to_stream (o, t, command_to_stream::header);
+
+        if (t.exit.comparison != exit_comparison::eq || t.exit.status != 0)
+        {
+          switch (t.exit.comparison)
+          {
+          case exit_comparison::eq: o << " == "; break;
+          case exit_comparison::ne: o << " != "; break;
+          }
+
+          o << static_cast<uint16_t> (t.exit.status);
+        }
+
+        to_stream (o, t, command_to_stream::here_doc);
+        return o;
+      }
+
       script::
       script (target& tt, testscript& st)
           : test_target (tt), script_target (st),

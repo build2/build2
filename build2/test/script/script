@@ -59,6 +59,19 @@ namespace build2
         redirect err;
       };
 
+      enum class command_to_stream: uint16_t
+      {
+        header   = 0x01,
+        here_doc = 0x02,              // Note: printed on a new line.
+        all      = header | here_doc
+      };
+
+      void
+      to_stream (ostream&, const command&, command_to_stream);
+
+      ostream&
+      operator<< (ostream&, const command&);
+
       enum class exit_comparison {eq, ne};
 
       struct command_exit
@@ -90,6 +103,9 @@ namespace build2
       {
         command_exit exit;
       };
+
+      ostream&
+      operator<< (ostream&, const test&);
 
       class scope
       {
@@ -161,5 +177,7 @@ namespace build2
     }
   }
 }
+
+#include <build2/test/script/script.ixx>
 
 #endif // BUILD2_TEST_SCRIPT_SCRIPT
