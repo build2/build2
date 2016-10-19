@@ -2,7 +2,6 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <time.h>      // tzset()
 #include <string.h>    // strerror()
 #include <stdlib.h>    // getenv() _putenv()(_WIN32)
 
@@ -160,11 +159,11 @@ main (int argc, char* argv[])
       fail << e;
     }
 
-    // Diagnostics verbosity.
+    // Global initializations.
     //
-    verb = ops.verbose_specified ()
-      ? ops.verbose ()
-      : ops.V () ? 3 : ops.v () ? 2 : ops.q () ? 0 : 1;
+    init (ops.verbose_specified ()
+          ? ops.verbose ()
+          : ops.V () ? 3 : ops.v () ? 2 : ops.q () ? 0 : 1);
 
     // Version.
     //
@@ -205,10 +204,6 @@ main (int argc, char* argv[])
       }
     }
 
-    // Initialize time conversion data that is used by localtime_r().
-    //
-    tzset ();
-
     // Register builtin modules.
     //
     {
@@ -247,11 +242,6 @@ main (int argc, char* argv[])
       bm["cli.config"] = mf {nullptr, &cli::config_init};
       bm["cli"] = mf {nullptr, &cli::init};
     }
-
-    // Figure out work and home directories.
-    //
-    work = dir_path::current ();
-    home = dir_path::home ();
 
     if (verb >= 5)
     {

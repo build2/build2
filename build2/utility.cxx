@@ -4,6 +4,8 @@
 
 #include <build2/utility>
 
+#include <time.h>   // tzset()
+
 #include <cstring>  // strlen(), str[n]cmp()
 #include <cstdlib>  // strtol()
 #include <iostream> // cerr
@@ -498,4 +500,21 @@ namespace build2
   }
 
   bool exception_unwinding_dtor = false;
+
+  void
+  init (uint16_t v)
+  {
+    // Diagnostics verbosity.
+    //
+    verb = v;
+
+    // Initialize time conversion data that is used by localtime_r().
+    //
+    tzset ();
+
+    // Figure out work and home directories.
+    //
+    work = dir_path::current ();
+    home = dir_path::home ();
+  }
 }

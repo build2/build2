@@ -469,6 +469,12 @@ namespace build2
     const std::string&
     find (const std::string& s) {return *emplace (s).first;}
   };
+
+  // Initialize build2 global state (verbosity, home/work dirrectories, etc).
+  // Should be called early in main() once.
+  //
+  void
+  init (uint16_t verbosity);
 }
 
 #include <build2/utility.ixx>
