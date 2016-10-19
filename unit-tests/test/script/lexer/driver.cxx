@@ -1,4 +1,4 @@
-// file      : unit-tests/test/script/driver.cxx -*- C++ -*-
+// file      : unit-tests/test/script/lexer/driver.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 

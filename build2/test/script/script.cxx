@@ -150,6 +150,8 @@ namespace build2
 
         // Set the script CWD ($~) which is the $out_base/<script-name>.
         //
+        // @@ This will conflict for 'testscript'!
+        //
         assign (cwd_var) = dir_path (tt.out_dir ()) /= st.name;
       }
 

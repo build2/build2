@@ -1,0 +1,40 @@
+foo != 0
+a=aaa
+foo bar <"bbb $a ccc" >ddd 2>>EOE == 2
+eee
+EOE
+foo
+bar
+cmd $build.version.string
+foo = baz
+$foo
+fox = $foo-$build.version.string
+$fox
+$test
+$~
+$*
+$0
+test = xxx
+$0
+$*
+test.options += --foo
+$1
+$*
+test.arguments += bar
+$2
+$*
+($3 == [null])
+
+x = [uint64] 001
+foo $x
+cmd abc$(x)23
+cmd >>EOO << EOI
+foo
+$x
+bar
+EOO
+$x$x$x
+EOI
+
+y = >>
+cmd "2"$y

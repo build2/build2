@@ -1,4 +1,4 @@
-# file      : unit-tests/test/script/buildfile
+# file      : unit-tests/test/script/lexer/buildfile
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
