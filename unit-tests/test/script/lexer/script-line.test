@@ -19,6 +19,8 @@ $0
 $*
 test.options += --foo
 $1
+$*
 test.arguments += bar
 $2
+$*
 ($3 == [null])

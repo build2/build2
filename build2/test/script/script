@@ -32,10 +32,7 @@ namespace build2
       {
         redirect_type type = redirect_type::none;
         string value;
-
-        // Meaningul for here-documents only. Used for diagnostics.
-        //
-        string end_marker;
+        string here_end; // Only for here-documents.
       };
 
       struct command

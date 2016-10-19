@@ -354,9 +354,6 @@ namespace build2
     target_state rule::
     perform_script (action, target& t)
     {
-      using namespace script;
-      using script::script;
-
       for (target* pt: t.prerequisite_targets)
       {
         // In case we are using the alias rule's list (see above).
@@ -371,11 +368,11 @@ namespace build2
 
           try
           {
-            script s (t, *st);
-            concurrent_runner r;
+            script::script s (t, *st);
+            script::concurrent_runner r;
 
             ifdstream ifs (sp);
-            parser p;
+            script::parser p;
             p.parse (ifs, sp, s, r);
           }
           catch (const io_error& e)

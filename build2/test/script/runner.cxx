@@ -40,7 +40,7 @@ namespace build2
           case redirect_type::here_document:
             {
               o << prefix[n - 1]; // Add another '>' or '<'.
-              print_string (r.end_marker);
+              print_string (r.here_end);
               break;
             }
           default: assert (false);
@@ -51,7 +51,7 @@ namespace build2
         {
           // Here-document value always ends with a newline.
           //
-          o << endl << r.value << r.end_marker;
+          o << endl << r.value << r.here_end;
         };
 
         print_string (t.program.string ());

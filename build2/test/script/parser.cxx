@@ -181,10 +181,13 @@ namespace build2
         //
         auto add_word = [&ts, &p, &hd, this] (string&& w, const location& l)
         {
-          auto add_heredoc = [&w, &hd] (redirect& r)
+          auto add_here_end = [&w, &hd, &l, this] (redirect& r)
           {
+            if (w.empty ())
+              fail (l) << "empty here-document end marker";
+
             hd.push_back (r);
-            r.end_marker = move (w);
+            r.here_end = move (w);
           };
 
           switch (p)
@@ -205,11 +208,11 @@ namespace build2
             }
             break;
           }
-          case pending::in_document: add_heredoc (ts.in);    break;
+          case pending::in_document: add_here_end (ts.in);   break;
           case pending::in_string: ts.in.value = move (w);   break;
-          case pending::out_document: add_heredoc (ts.out);  break;
+          case pending::out_document: add_here_end (ts.out); break;
           case pending::out_string: ts.out.value = move (w); break;
-          case pending::err_document: add_heredoc (ts.err);  break;
+          case pending::err_document: add_here_end (ts.err); break;
           case pending::err_string: ts.err.value = move (w); break;
           }
 
@@ -544,7 +547,7 @@ namespace build2
           mode (lexer_mode::here_line);
           next (t, tt);
 
-          r.value = parse_here_document (t, tt, r.end_marker);
+          r.value = parse_here_document (t, tt, r.here_end);
 
           expire_mode ();
         }
