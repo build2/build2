@@ -29,7 +29,10 @@ namespace build2
         // Issue diagnostics and throw failed in case of an error.
         //
         void
-        parse (istream&, const path& name, script&, runner&);
+        pre_parse (istream&, const path& name, script&);
+
+        void
+        parse (const path& name, script&, runner&);
 
         // Recursive descent parser.
         //
@@ -40,10 +43,16 @@ namespace build2
         //
       protected:
         void
-        parse_script ();
+        pre_parse_script ();
 
         void
-        parse_script_line (token&, token_type&);
+        parse_script ();
+
+        line_type
+        pre_parse_script_line (token&, token_type&);
+
+        void
+        parse_script_line (token&, token_type&, line_type);
 
         void
         parse_variable_line (token&, token_type&);

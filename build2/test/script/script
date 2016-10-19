@@ -12,6 +12,8 @@
 
 #include <build2/test/target>
 
+#include <build2/test/script/token> // replay_tokens
+
 namespace build2
 {
   class target;
@@ -20,6 +22,18 @@ namespace build2
   {
     namespace script
     {
+      // Pre-parse representation.
+      //
+      enum class line_type {variable, test};
+
+      struct line
+      {
+        line_type type;
+        replay_tokens tokens;
+      };
+
+      // Parse object model.
+      //
       enum class redirect_type
       {
         none,
@@ -118,6 +132,11 @@ namespace build2
         //
         value&
         append (const variable&);
+
+        // Pre-parse.
+        //
+      public:
+        vector<line> lines;
       };
 
       class script: public scope

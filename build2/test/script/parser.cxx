@@ -18,7 +18,7 @@ namespace build2
       using type = token_type;
 
       void parser::
-      parse (istream& is, const path& p, script& s, runner& r)
+      pre_parse (istream& is, const path& p, script& s)
       {
         path_ = &p;
 
@@ -27,20 +27,43 @@ namespace build2
         base_parser::lexer_ = &l;
 
         script_ = &s;
+        runner_ = nullptr;
+        scope_ = script_;
+
+        pre_parse_ = true;
+
+        pre_parse_script ();
+      }
+
+      void parser::
+      parse (const path& p, script& s, runner& r)
+      {
+        path_ = &p;
+
+        lexer_ = nullptr;
+        base_parser::lexer_ = nullptr;
+
+        script_ = &s;
         runner_ = &r;
         scope_ = script_;
+
+        pre_parse_ = false;
 
         parse_script ();
       }
 
       void parser::
-      parse_script ()
+      pre_parse_script ()
       {
         token t;
         type tt;
 
         for (;;)
         {
+          // Start saving tokens for the next (logical) line.
+          //
+          replay_save ();
+
           // We need to start lexing each line in the assign mode in order to
           // recognize assignment operators as separators.
           //
@@ -50,18 +73,46 @@ namespace build2
           if (tt == type::eos)
             break;
 
-          parse_script_line (t, tt);
+          line_type lt (pre_parse_script_line (t, tt));
           assert (tt == type::newline);
+
+          // Stop saving and get the tokens.
+          //
+          scope_->lines.push_back (line {lt, replay_data ()});
         }
+
+        replay_stop (); // Discard replay of eos.
       }
 
       void parser::
-      parse_script_line (token& t, token_type& tt)
+      parse_script ()
+      {
+        token t;
+        type tt;
+
+        for (line& l: scope_->lines)
+        {
+          replay_data (move (l.tokens)); // Set the tokens and start playing.
+
+          // We don't really need the assign mode since we already know the
+          // line type.
+          //
+          next (t, tt);
+
+          parse_script_line (t, tt, l.type);
+          assert (tt == type::newline);
+
+          replay_stop (); // Stop playing.
+        }
+      }
+
+      line_type parser::
+      pre_parse_script_line (token& t, token_type& tt)
       {
         // Decide whether this is a variable assignment or a command. It is a
-        // variable assignment if the first token is an unquoted word and the
-        // next is an assign/append/prepend operator. Assignment to a computed
-        // variable name must use the set builtin.
+        // variable assignment if the first token is an unquoted word (name)
+        // and the next is an assign/append/prepend operator. Assignment to a
+        // computed variable name must use the set builtin.
         //
         if (tt == type::word && !t.quoted)
         {
@@ -75,11 +126,22 @@ namespace build2
           if (p == type::assign || p == type::prepend || p == type::append)
           {
             parse_variable_line (t, tt);
-            return;
+            return line_type::variable;
           }
         }
 
         parse_test_line (t, tt);
+        return line_type::test;
+      }
+
+      void parser::
+      parse_script_line (token& t, token_type& tt, line_type lt)
+      {
+        switch (lt)
+        {
+        case line_type::variable: parse_variable_line (t, tt); break;
+        case line_type::test:     parse_test_line     (t, tt); break;
+        }
       }
 
       // Return true if the string contains only digit characters (used to
@@ -174,20 +236,21 @@ namespace build2
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
         //
-        vector<reference_wrapper<redirect>> hd;
+        struct here_doc
+        {
+          redirect* redir;
+          string end;
+        };
+        vector<here_doc> hd;
 
         // Add the next word to either one of the pending positions or
         // to program arguments by default.
         //
         auto add_word = [&ts, &p, &hd, this] (string&& w, const location& l)
         {
-          auto add_here_end = [&w, &hd, &l, this] (redirect& r)
+          auto add_here_end = [&hd] (redirect& r, string&& w)
           {
-            if (w.empty ())
-              fail (l) << "empty here-document end marker";
-
-            hd.push_back (r);
-            r.here_end = move (w);
+            hd.push_back (here_doc {&r, move (w)});
           };
 
           switch (p)
@@ -208,11 +271,13 @@ namespace build2
             }
             break;
           }
-          case pending::in_document: add_here_end (ts.in);   break;
-          case pending::in_string: ts.in.value = move (w);   break;
-          case pending::out_document: add_here_end (ts.out); break;
+
+          case pending::in_document:  add_here_end (ts.in,  move (w)); break;
+          case pending::out_document: add_here_end (ts.out, move (w)); break;
+          case pending::err_document: add_here_end (ts.err, move (w)); break;
+
+          case pending::in_string:  ts.in.value = move (w);  break;
           case pending::out_string: ts.out.value = move (w); break;
-          case pending::err_document: add_here_end (ts.err); break;
           case pending::err_string: ts.err.value = move (w); break;
           }
 
@@ -364,6 +429,33 @@ namespace build2
           case type::out_string:
           case type::out_document:
             {
+              if (pre_parse_)
+              {
+                // The only thing we need to handle here are the here-document
+                // end markers since we need to know how many of the to pre-
+                // parse after the command.
+                //
+                switch (tt)
+                {
+                case type::in_document:
+                case type::out_document:
+                  // We require the end marker to be a literal, unquoted word.
+                  // In particularm, we don't allow quoted because of cases
+                  // like foo"$bar" (where we will see word 'foo').
+                  //
+                  next (t, tt);
+
+                  if (tt != type::word || t.quoted)
+                    fail (l) << "here-document end marker expected";
+
+                  hd.push_back (here_doc {nullptr, move (t.value)});
+                  break;
+                }
+
+                next (t, tt);
+                break;
+              }
+
               // If this is one of the operators/separators, check that we
               // don't have any pending locations to be filled.
               //
@@ -395,8 +487,12 @@ namespace build2
               reset_quoted (t);
               parse_names (t, tt, ns, true, "command");
 
+              if (pre_parse_) // Nothing else to do if we are pre-parsing.
+                break;
+
               // Process what we got. Determine whether anything inside was
-              // quoted (note that the current token is not part of it).
+              // quoted (note that the current token is "next" and is not part
+              // of this).
               //
               bool q ((quoted () - (t.quoted ? 1 : 0)) != 0);
 
@@ -500,11 +596,13 @@ namespace build2
                     {
                     case type::in_null:
                     case type::in_string:
-                    case type::in_document:
                     case type::out_null:
                     case type::out_string:
-                    case type::out_document:
                       parse_redirect (t, l);
+                      break;
+                    case type::in_document:
+                    case type::out_document:
+                      fail (l) << "here-document redirect in expansion";
                       break;
                     }
                   }
@@ -524,7 +622,8 @@ namespace build2
 
         // Verify we don't have anything pending to be filled.
         //
-        check_pending (l);
+        if (!pre_parse_)
+          check_pending (l);
 
         // While we no longer need to recognize command line operators, we
         // also don't expect a valid test trailer to contain them. So we are
@@ -539,7 +638,7 @@ namespace build2
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
         //
-        for (redirect& r: hd)
+        for (here_doc& h: hd)
         {
           // Switch to the here-line mode which is like double-quoted but
           // recognized the newline as a separator.
@@ -547,14 +646,22 @@ namespace build2
           mode (lexer_mode::here_line);
           next (t, tt);
 
-          r.value = parse_here_document (t, tt, r.here_end);
+          string v (parse_here_document (t, tt, h.end));
+
+          if (!pre_parse_)
+          {
+            redirect& r (*h.redir);
+            r.value = move (v);
+            r.here_end = move (h.end);
+          }
 
           expire_mode ();
         }
 
         // Now that we have all the pieces, run the test.
         //
-        runner_->run (ts);
+        if (!pre_parse_)
+          runner_->run (ts);
       }
 
       command_exit parser::
@@ -570,18 +677,19 @@ namespace build2
         names ns (parse_names (t, tt, true, "exit status"));
         unsigned long es (256);
 
-        try
+        if (!pre_parse_)
         {
-          if (ns.size () == 1 && ns[0].simple () && !ns[0].empty ())
-            es = stoul (ns[0].value);
-        }
-        catch (const exception&)
-        {
-        }
+          try
+          {
+            if (ns.size () == 1 && ns[0].simple () && !ns[0].empty ())
+              es = stoul (ns[0].value);
+          }
+          catch (const exception&) {} // Fall through.
 
-        if (es > 255)
-          fail (t) << "command exit status expected instead of " << ns <<
-            info << "must be an unsigned integer less than 256";
+          if (es > 255)
+            fail (t) << "exit status expected instead of '" << ns << "'" <<
+              info << "exit status is an unsigned integer less than 256";
+        }
 
         return command_exit {comp, static_cast<uint8_t> (es)};
       }
@@ -608,29 +716,32 @@ namespace build2
           //
           names ns (parse_names (t, tt, false, "here-document line"));
 
-          // What shall we do if the expansion results in multiple names? For,
-          // example if the line contains just the variable expansion and it
-          // is of type strings. Adding all the elements space-separated seems
-          // like the natural thing to do.
-          //
-          for (auto b (ns.begin ()), i (b); i != ns.end (); ++i)
+          if (!pre_parse_)
           {
-            string s;
-
-            try
+            // What shall we do if the expansion results in multiple names?
+            // For, example if the line contains just the variable expansion
+            // and it is of type strings. Adding all the elements space-
+            // separated seems like the natural thing to do.
+            //
+            for (auto b (ns.begin ()), i (b); i != ns.end (); ++i)
             {
-              s = value_traits<string>::convert (move (*i), nullptr);
-            }
-            catch (const invalid_argument&)
-            {
-              fail (t) << "invalid string value '" << *i << "'";
-            }
+              string s;
 
-            if (i != b)
-              r += ' ';
+              try
+              {
+                s = value_traits<string>::convert (move (*i), nullptr);
+              }
+              catch (const invalid_argument&)
+              {
+                fail (t) << "invalid string value '" << *i << "'";
+              }
 
-            r += s;
-            r += '\n'; // Here-document line always includes a newline.
+              if (i != b)
+                r += ' ';
+
+              r += s;
+              r += '\n'; // Here-document line always includes a newline.
+            }
           }
 
           // We should expand the whole line at once so this would normally be
@@ -651,6 +762,8 @@ namespace build2
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)
       {
+        assert (!pre_parse_);
+
         if (!qual.empty ())
           fail (loc) << "qualified variable name";
 

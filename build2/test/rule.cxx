@@ -373,7 +373,8 @@ namespace build2
 
             ifdstream ifs (sp);
             script::parser p;
-            p.parse (ifs, sp, s, r);
+            p.pre_parse (ifs, sp, s);
+            p.parse (sp, s, r);
           }
           catch (const io_error& e)
           {

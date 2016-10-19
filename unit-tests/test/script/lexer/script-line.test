@@ -24,3 +24,17 @@ test.arguments += bar
 $2
 $*
 ($3 == [null])
+
+x = [uint64] 001
+foo $x
+cmd abc$(x)23
+cmd >>EOO << EOI
+foo
+$x
+bar
+EOO
+$x$x$x
+EOI
+
+y = >>
+cmd "2"$y

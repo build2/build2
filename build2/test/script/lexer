@@ -31,7 +31,9 @@ namespace build2
           here_line
         };
 
-        using base_type::base_type;
+        lexer_mode () = default;
+        lexer_mode (value_type v): base_type (v) {}
+        lexer_mode (base_type v): base_type (v) {}
       };
 
       class lexer: public build2::lexer
