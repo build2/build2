@@ -54,6 +54,13 @@ namespace build2
         p = ps;
         break;
       }
+    case lexer_mode::attribute:
+      {
+        s1 = " $(]#\t\n";
+        s2 = "       ";
+        p = ps;
+        break;
+      }
     case lexer_mode::eval:
       {
         s1 = ":<>=! $(){}[]#\t\n";
@@ -87,11 +94,12 @@ namespace build2
     switch (m)
     {
     case lexer_mode::normal:
-    case lexer_mode::variable:
-    case lexer_mode::value: break;
-    case lexer_mode::eval: return next_eval ();
+    case lexer_mode::value:
+    case lexer_mode::attribute:
+    case lexer_mode::variable:      break;
+    case lexer_mode::eval:          return next_eval ();
     case lexer_mode::double_quoted: return next_quoted ();
-    default: assert (false); // Unhandled custom mode.
+    default:                        assert (false); // Unhandled custom mode.
     }
 
     bool sep (skip_spaces ());
@@ -109,8 +117,7 @@ namespace build2
 
     // Handle pair separator.
     //
-    if ((m == lexer_mode::normal || m == lexer_mode::value) &&
-        c == st.sep_pair)
+    if (c == st.sep_pair)
       return make_token (type::pair_separator);
 
     switch (c)
@@ -130,15 +137,24 @@ namespace build2
     case '{': return make_token (type::lcbrace);
     case '}': return make_token (type::rcbrace);
     case '[': return make_token (type::lsbrace);
-    case ']': return make_token (type::rsbrace);
+    case ']':
+      {
+        // Expire attribute mode after closing ']'.
+        //
+        if (m == lexer_mode::attribute)
+          state_.pop ();
+
+        return make_token (type::rsbrace);
+      }
     case '$': return make_token (type::dollar);
     case '(': return make_token (type::lparen);
     case ')': return make_token (type::rparen);
     }
 
-    // The following characters are not treated as special in the value mode.
+    // The following characters are not treated as special in the value and
+    // attribute modes.
     //
-    if (m != lexer_mode::value)
+    if (m != lexer_mode::value && m != lexer_mode::attribute)
     {
       switch (c)
       {

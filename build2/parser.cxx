@@ -1836,12 +1836,12 @@ namespace build2
     // Using '@' for attribute key-value pairs would be just too ugly. Seeing
     // that we control what goes into keys/values, let's use a much nicer '='.
     //
-    mode (lexer_mode::value, '=');
+    mode (lexer_mode::attribute, '=');
     next (t, tt);
 
-    if (tt != type::rsbrace && tt != type::newline && tt != type::eos)
+    if (tt != type::rsbrace)
     {
-      names ns (parse_names (t, tt, false, "key-value", nullptr));
+      names ns (parse_names (t, tt, false, "attribute", nullptr));
 
       if (!pre_parse_)
       {
@@ -1879,12 +1879,6 @@ namespace build2
         }
       }
     }
-
-    // Manually expire the value mode if we haven't reached newline/eos (where
-    // it expires automatically).
-    //
-    if (mode () == lexer_mode::value)
-      expire_mode ();
 
     if (tt != type::rsbrace)
       fail (t) << "expected ']' instead of " << t;

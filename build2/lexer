@@ -21,15 +21,18 @@ namespace build2
   // characters (e.g., '+', '=') as special so that we can use them in the
   // variable values, e.g., 'foo = g++'. In contrast, in the variable mode, we
   // restrict certain character (e.g., '/') from appearing in the name. The
-  // eval mode is used in the evaluation context. Quoted are internal modes
-  // and should not be set explicitly.
+  // attribute mode is like value except it doesn't treat '{' and '}' as
+  // special (so we cannot have name groups in attributes). The eval mode is
+  // used in the evaluation context. Quoted are internal modes and should not
+  // be set explicitly.
   //
   // Note that the normal, value, and eval modes split words separated by the
   // pair character (to disable pairs one can pass '\0' as a pair character).
   //
-  // The alternnative modes must be set manually. The value mode is
-  // automatically reset after the end of the line. The variable mode is reset
-  // after the word token. And the eval mode is reset after the closing ')'.
+  // The alternnative modes must be set manually. The value mode automatically
+  // expires after the end of the line. The attribute mode expires after the
+  // closing ']'. The variable mode expires after the word token. And the eval
+  // mode expires after the closing ')'.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
@@ -49,6 +52,7 @@ namespace build2
       normal = base_type::value_next,
       variable,
       value,
+      attribute,
       eval,
       single_quoted,
       double_quoted,
