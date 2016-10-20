@@ -1526,7 +1526,13 @@ namespace build2
         // Fall through.
       }
       else
-        fail (l) << "unknown variable attribute " << k;
+      {
+        diag_record dr (fail (l));
+        dr << "unknown variable attribute " << k;
+
+        if (!v.empty ())
+          dr << '=' << v;
+      }
 
       if (!v.empty ())
         fail (l) << "unexpected value for attribute " << k << ": " << v;
@@ -1578,7 +1584,13 @@ namespace build2
         // Fall through.
       }
       else
-        fail (l) << "unknown value attribute " << k;
+      {
+        diag_record dr (fail (l));
+        dr << "unknown value attribute " << k;
+
+        if (!v.empty ())
+          dr << '=' << v;
+      }
 
       if (!v.empty ())
         fail (l) << "unexpected value for attribute " << k << ": " << v;
@@ -2026,11 +2038,8 @@ namespace build2
                const dir_path* dp,
                const string* tp)
   {
-    // Note that support for pre-parsing is partial, it makes the following
-    // assumptions:
-    //
-    // - no pairs
-    // - no groups ({})
+    // Note that support for pre-parsing is partial, it does not handle
+    // groups ({}).
 
     tracer trace ("parser::names", &path_);
 
@@ -2578,48 +2587,52 @@ namespace build2
         continue;
       }
 
-      // A pair separator (only in the value mode).
+      // A pair separator.
       //
       if (tt == type::pair_separator)
       {
         if (pair != 0)
           fail (t) << "nested pair on the right hand side of a pair";
 
-        // Catch double pair separator ('@@'). Maybe we can use for something
-        // later (e.g., escaping).
-        //
-        if (!ns.empty () && ns.back ().pair)
-          fail (t) << "double pair separator";
-
-        if (t.separated || count == 0)
-        {
-          // Empty LHS, (e.g., @y), create an empty name. The second test
-          // will be in effect if we have something like v=@y.
-          //
-          ns.emplace_back (pp,
-                           (dp != nullptr ? *dp : dir_path ()),
-                           (tp != nullptr ? *tp : string ()),
-                           string ());
-          count = 1;
-        }
-        else if (count > 1)
-          fail (t) << "multiple " << what << "s on the left hand side "
-                   << "of a pair";
-
-        ns.back ().pair = pair_separator ();
         tt = peek ();
 
-        // If the next token is separated, then we have an empty RHS. Note
-        // that the case where it is not a name/group (e.g., a newline/eos)
-        // is handled below, once we are out of the loop.
-        //
-        if (peeked ().separated)
+        if (!pre_parse_)
         {
-          ns.emplace_back (pp,
-                           (dp != nullptr ? *dp : dir_path ()),
-                           (tp != nullptr ? *tp : string ()),
-                           string ());
-          count = 0;
+          // Catch double pair separator ('@@'). Maybe we can use for
+          // something later (e.g., escaping).
+          //
+          if (!ns.empty () && ns.back ().pair)
+            fail (t) << "double pair separator";
+
+          if (t.separated || count == 0)
+          {
+            // Empty LHS, (e.g., @y), create an empty name. The second test
+            // will be in effect if we have something like v=@y.
+            //
+            ns.emplace_back (pp,
+                             (dp != nullptr ? *dp : dir_path ()),
+                             (tp != nullptr ? *tp : string ()),
+                             string ());
+            count = 1;
+          }
+          else if (count > 1)
+            fail (t) << "multiple " << what << "s on the left hand side "
+                     << "of a pair";
+
+          ns.back ().pair = pair_separator ();
+
+          // If the next token is separated, then we have an empty RHS. Note
+          // that the case where it is not a name/group (e.g., a newline/eos)
+          // is handled below, once we are out of the loop.
+          //
+          if (peeked ().separated)
+          {
+            ns.emplace_back (pp,
+                             (dp != nullptr ? *dp : dir_path ()),
+                             (tp != nullptr ? *tp : string ()),
+                             string ());
+            count = 0;
+          }
         }
 
         continue;
