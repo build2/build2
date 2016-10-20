@@ -114,6 +114,7 @@ namespace build2
 
       char sep_pair;
       bool sep_space; // Are whitespaces separators (see skip_spaces())?
+      bool quotes;    // Recognize quoted fragments.
 
       // Word separator characters. For two-character sequence put the first
       // one in sep_first and the second one in the corresponding position of

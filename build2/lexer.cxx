@@ -36,6 +36,7 @@ namespace build2
     const char* s2 (nullptr);
     char p ('\0');
     bool s (true);
+    bool q (true);
 
     switch (m)
     {
@@ -72,7 +73,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, p, s, s1, s2});
+    state_.push (state {m, p, s, q, s1, s2});
   }
 
   token lexer::
@@ -396,10 +397,10 @@ namespace build2
           }
         }
 
-        // Handle single and double quotes unless they were considered
-        // separators.
+        // Handle single and double quotes if enabled for this mode and unless
+        // they were considered separators.
         //
-        if (!done)
+        if (st.quotes && !done)
         {
           switch (c)
           {
