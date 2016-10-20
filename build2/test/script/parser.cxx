@@ -174,10 +174,20 @@ namespace build2
         next (t, tt);
         type kind (tt); // Assignment kind.
 
-        // We cannot reuse the value mode since it will recognize { which
-        // we want to treat as a literal.
+        // We cannot reuse the value mode since it will recognize { which we
+        // want to treat as a literal.
         //
-        value rhs (parse_variable_value (t, tt, lexer_mode::variable_line));
+        mode (lexer_mode::variable_line);
+        next (t, tt);
+
+        // Parse value attributes if any. Note that it's ok not to have
+        // anything after the attributes (e.g., foo=[null]).
+        //
+        attributes_push (t, tt, true);
+
+        value rhs (tt != type::newline && tt != type::eos
+                   ? parse_names_value (t, tt, "variable value", nullptr)
+                   : value (names ()));
 
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
@@ -480,12 +490,12 @@ namespace build2
             }
           default:
             {
-              // Parse the next chunk as names to get variable expansion, etc.
+              // Parse the next chunk as simple names to get expansion, etc.
               // Note that we do it in the chunking mode to detect whether
               // anything in each chunk is quoted.
               //
               reset_quoted (t);
-              parse_names (t, tt, ns, true, "command");
+              parse_names (t, tt, ns, true, "command line", nullptr);
 
               if (pre_parse_) // Nothing else to do if we are pre-parsing.
                 break;
@@ -677,7 +687,7 @@ namespace build2
         // The next chunk should be the exit status.
         //
         next (t, tt);
-        names ns (parse_names (t, tt, true, "exit status"));
+        names ns (parse_names (t, tt, true, "exit status", nullptr));
         unsigned long es (256);
 
         if (!pre_parse_)
@@ -717,7 +727,7 @@ namespace build2
 
           // Expand the line.
           //
-          names ns (parse_names (t, tt, false, "here-document line"));
+          names ns (parse_names (t, tt, false, "here-document line", nullptr));
 
           if (!pre_parse_)
           {

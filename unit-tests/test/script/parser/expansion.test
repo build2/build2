@@ -1,0 +1,13 @@
+# Make sure everything expanded as strings.
+#
+
+# quote
+#
+$* <<EOI >>EOO
+x = dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
+cmd dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
+cmd \$x
+EOI
+cmd dir/ proj% proj%name proj%proj%dir/type{name name {name}}
+cmd dir/ proj% proj%name proj%proj%dir/type{name name {name}}
+EOO
