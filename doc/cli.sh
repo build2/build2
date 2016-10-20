@@ -61,7 +61,10 @@ done
 
 # Manual.
 #
-cli -I .. -v version="$version" -v date="$date" \
+
+cli -I .. \
+-v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
+-v date="$date" \
 --generate-html --html-suffix .xhtml \
 --html-prologue-file doc-prologue.xhtml \
 --html-epilogue-file doc-epilogue.xhtml \
@@ -75,7 +78,9 @@ ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true build2-build-sy
 
 # Testscript spec.
 #
-cli -I .. -v version="$version" -v date="$date" \
+cli -I .. \
+-v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
+-v date="$date" \
 --generate-html --html-suffix .xhtml \
 --html-prologue-file doc-prologue.xhtml \
 --html-epilogue-file doc-epilogue.xhtml \
