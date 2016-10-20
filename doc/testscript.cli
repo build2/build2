@@ -645,9 +645,9 @@ foo: ...   - production rule
 foo        - non-terminal
 <foo>      - terminal
 'foo'      - literal
-foo*       - zero or more
-foo+       - one or more
-foo?       - zero or one
+foo*       - zero or more multiplier
+foo+       - one or more multiplier
+foo?       - zero or one multiplier
 foo bar    - concatenation (foo then bar)
 foo | bar  - alternation   (foo or bar)
 (foo bar)  - grouping
@@ -658,16 +658,22 @@ bar        - line continuation
 \
 
 Rule right-hand-sides that start on a new line describe the line-level syntax
-and ones that start on the same line describes the syntax inside the line. For
-example, from the following two rules, the first describes a single line of
-text (e.g., \c{'foofoofoo'}) while the second \- multiple lines (e.g.,
-\c{'foo\\nfoo\\nfoo'}):
+and ones that start on the same line describes the syntax inside the line. If
+a multiplier appears in from on the line then it specifies the number of
+repetitions for the whole line. For example, from the following three rules,
+the first describes a single line of multiple literals (such as
+\c{'foofoofoo'}), the second \- multiple lines of a single literal (such as
+\c{'foo\\nfoo\\nfoo'}), and the third \- multiple lines of multiple literals
+(such as \c{'foo\\nfoofoo\\nfoofoofoo'}).
 
 \
 text-line: 'foo'+
 
 text-lines:
-  'foo'+
+  +'foo'
+
+text-lines:
+  +('foo'+)
 \
 
 A newline in the grammar matches any standard newline separator sequence
@@ -695,7 +701,8 @@ here-document fragments.
 @@ Move directives last?
 
 \
-script: script-line*
+script:
+  *script-line
 
 script-line:
   variable-line|test-line
@@ -705,11 +712,11 @@ value-attributes: '[' <key-value-pairs> ']'
 
 test-line:
   command command-exit?
-  here-document*
+  *here-document
 
 command-exit: ('=='|'!=') <exit-status>
 
-command: <path> (' '+ <arg>)* {stdin? stdout? stderr?}
+command: <path>(' '+(<arg>|stdin|stdout|stderr))*
 
 stdin:  '0'?('<!'|\
              '<' <text>|\
@@ -724,19 +731,23 @@ stderr:  '2'('>!'|\
              '>>' <here-end>)
 
 here-document:
-  <text>*
+  *<text>
   <here-end>
 \
 
-Note that if specified, file descriptors must not be separated from the
-redirect operator with whitespaces. In other words, the following command
-has \c{2} as an argument and redirects \c{stdout}, not \c{stderr}.
-
-Here-line is like double-quoted string by recognizes newlines.
+Note that file descriptors must not be separated from the redirect operators
+with whitespaces. And if leading text is not separated from the redirect
+operators, then it is expected to be a file descriptor. As an example, the
+first command below has \c{2} as an argument and redirects \c{stdout}, not
+\c{stderr}. While the second is invalid since \c{a1} is not a valid file
+descriptor.
 
 \
 $* 2 >!
+$* a1>!
 \
+
+Here-line is like double-quoted string but recognizes newlines.
 
 \
 script:
