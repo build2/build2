@@ -77,4 +77,8 @@ print $v7 # 0
 
 print [uint64] 00 # 0
 
+v8 = [uint64] 01
+v8 = abc
+print $v8 # abc
+
 ./:

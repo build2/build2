@@ -1594,30 +1594,32 @@ namespace build2
     // be the same. Also check that the requested value type doesn't conflict
     // with the variable type.
     //
-    if (type != nullptr)
+    if (type != nullptr      &&
+        var != nullptr       &&
+        var->type != nullptr &&
+        var->type != type)
     {
-      if (var != nullptr && var->type != nullptr && var->type != type)
-        fail (l) << "conflicting variable " << var->name << " type "
-                 << var->type->name << " and value type " << type->name;
+      fail (l) << "conflicting variable " << var->name << " type "
+               << var->type->name << " and value type " << type->name;
+    }
 
-      if (kind == type::assign)
+    if (kind == type::assign)
+    {
+      if (type != v.type)
       {
-        if (type != v.type)
-        {
-          v = nullptr; // Clear old value.
-          v.type = type;
-        }
+        v = nullptr; // Clear old value.
+        v.type = type;
       }
-      else
-      {
-        if (!v)
-          v.type = type;
-        else if (v.type == nullptr)
-          typify (v, *type, var);
-        else if (v.type != type)
-          fail (l) << "conflicting original value type " << v.type->name
-                   << " and append/prepend value type " << type->name;
-      }
+    }
+    else if (type != nullptr)
+    {
+      if (!v)
+        v.type = type;
+      else if (v.type == nullptr)
+        typify (v, *type, var);
+      else if (v.type != type)
+        fail (l) << "conflicting original value type " << v.type->name
+                 << " and append/prepend value type " << type->name;
     }
 
     if (null)
