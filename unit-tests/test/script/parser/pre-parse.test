@@ -1,0 +1,15 @@
+# attribute-pair
+#
+$* <<EOI 2>>EOE != 0
+x = [foo=bar]
+EOI
+testscript:1:5: error: unknown value attribute foo=bar
+EOE
+
+# attribute-pair-empty
+#
+$* <<EOI 2>>EOE != 0
+x = [foo=]
+EOI
+testscript:1:5: error: unknown value attribute foo
+EOE

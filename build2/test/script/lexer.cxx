@@ -15,7 +15,7 @@ namespace build2
       using type = token_type;
 
       void lexer::
-      mode (base_mode m, char)
+      mode (base_mode m, char ps)
       {
         const char* s1 (nullptr);
         const char* s2 (nullptr);
@@ -69,9 +69,9 @@ namespace build2
           }
         default:
           {
-            // Disable pair separator.
+            // Disable pair separator except for attributes.
             //
-            base_lexer::mode (m, '\0');
+            base_lexer::mode (m, m != lexer_mode::attribute ? '\0' : ps);
             return;
           }
         }
