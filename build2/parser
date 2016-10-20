@@ -157,20 +157,28 @@ namespace build2
 
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with
-    // multiple names, for example, {foo bar} or $foo.
+    // multiple names, for example, {foo bar} or $foo. In the pre-parse mode
+    // always return empty list of names.
     //
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
     //
-    // In pre-parse mode always return empty list of names.
+    // The separators argument specifies the special characters to recognize
+    // inside the name. These can be the directory separators and the '%'
+    // project separator. Note that even if it is NULL, the result may still
+    // contain non-simple names due to variable expansions.
     //
+    static const string name_separators;
+
     names
     parse_names (token& t, token_type& tt,
                  bool chunk = false,
-                 const char* what = "name")
+                 const char* what = "name",
+                 const string* separators = &name_separators)
     {
       names ns;
-      parse_names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
+      parse_names (
+        t, tt, ns, chunk, what, separators, 0, nullptr, nullptr, nullptr);
       return ns;
     }
 
@@ -180,10 +188,13 @@ namespace build2
     // context evaluation.
     //
     value
-    parse_names_value (token& t, token_type& tt, const char* what = "name")
+    parse_names_value (token& t, token_type& tt,
+                       const char* what = "name",
+                       const string* separators = &name_separators)
     {
       names ns;
-      return parse_names (t, tt, ns, false, what, 0, nullptr, nullptr, nullptr)
+      return parse_names (
+        t, tt, ns, false, what, separators, 0, nullptr, nullptr, nullptr)
         ? value (move (ns))
         : value (nullptr);
     }
@@ -195,6 +206,7 @@ namespace build2
                  names&,
                  bool chunk = false,
                  const char* what = "name",
+                 const string* separators = &name_separators,
                  size_t pair = 0,
                  const string* prj = nullptr,
                  const dir_path* dir = nullptr,
@@ -204,6 +216,7 @@ namespace build2
     parse_names_trailer (token&, token_type&,
                          names&,
                          const char* what,
+                         const string* separators,
                          size_t pair,
                          const string* prj,
                          const dir_path* dir,

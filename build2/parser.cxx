@@ -769,7 +769,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt)
+              ? parse_names (t, tt, false, "path", nullptr)
               : names ());
 
     for (name& n: ns)
@@ -845,7 +845,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt)
+              ? parse_names (t, tt, false, "path", nullptr)
               : names ());
 
     for (name& n: ns)
@@ -1176,7 +1176,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt)
+              ? parse_names (t, tt, false, "module", nullptr)
               : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
@@ -1315,7 +1315,7 @@ namespace build2
           // Parse as names to get variable expansion, evaluation, etc.
           //
           const location nsl (get_location (t));
-          names ns (parse_names (t, tt));
+          names ns (parse_names (t, tt, false, "expression", nullptr));
 
           // Should evaluate to 'true' or 'false'.
           //
@@ -1841,7 +1841,7 @@ namespace build2
 
     if (tt != type::rsbrace && tt != type::newline && tt != type::eos)
     {
-      names ns (parse_names (t, tt));
+      names ns (parse_names (t, tt, false, "key-value", nullptr));
 
       if (!pre_parse_)
       {
@@ -1904,6 +1904,7 @@ namespace build2
   parse_names_trailer (token& t, type& tt,
                        names& ns,
                        const char* what,
+                       const string* separators,
                        size_t pair,
                        const string* pp,
                        const dir_path* dp,
@@ -1918,6 +1919,7 @@ namespace build2
                  ns,
                  false,
                  what,
+                 separators,
                  (pair != 0
                   ? pair
                   : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
@@ -1935,7 +1937,8 @@ namespace build2
       const location loc (get_location (t));
 
       names x; // Parse into a separate list of names.
-      parse_names_trailer (t, tt, x, what, 0, nullptr, nullptr, nullptr);
+      parse_names_trailer (
+        t, tt, x, what, separators, 0, nullptr, nullptr, nullptr);
 
       if (size_t n = x.size ())
       {
@@ -2015,7 +2018,7 @@ namespace build2
   // Slashe(s) plus '%'. Note that here we assume '/' is there since that's
   // in our buildfile "syntax".
   //
-  static const string name_separators (
+  const string parser::name_separators (
     string (path::traits::directory_separators) + '%');
 
   bool parser::
@@ -2023,6 +2026,7 @@ namespace build2
                names& ns,
                bool chunk,
                const char* what,
+               const string* separators,
                size_t pair,
                const string* pp,
                const dir_path* dp,
@@ -2116,9 +2120,11 @@ namespace build2
 
         if (!pre_parse_)
         {
-          // Find slash or %.
+          // Find a separator (slash or %).
           //
-          string::size_type p (name.find_last_of (name_separators));
+          string::size_type p (separators != nullptr
+                               ? name.find_last_of (*separators)
+                               : string::npos);
 
           // First take care of project. A project-qualified name is
           // not very common, so we can afford some copying for the
@@ -2194,7 +2200,8 @@ namespace build2
               tp1 = &t1;
             }
 
-            count = parse_names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
+            count = parse_names_trailer (
+              t, tt, ns, what, separators, pair, pp1, dp1, tp1);
             tt = peek ();
             continue;
           }
@@ -2571,7 +2578,8 @@ namespace build2
       //
       if (tt == type::lcbrace)
       {
-        count = parse_names_trailer (t, tt, ns, what, pair, pp, dp, tp);
+        count = parse_names_trailer (
+          t, tt, ns, what, separators, pair, pp, dp, tp);
         tt = peek ();
         continue;
       }
