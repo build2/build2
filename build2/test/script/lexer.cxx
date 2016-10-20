@@ -20,6 +20,7 @@ namespace build2
         const char* s1 (nullptr);
         const char* s2 (nullptr);
         bool s (true);
+        bool q (true);
 
         switch (m)
         {
@@ -58,11 +59,12 @@ namespace build2
         case lexer_mode::here_line:
           {
             // This one is like a double-quoted string except it treats
-            // newlines as a separator.
+            // newlines as a separator. We also treat quotes as literals.
             //
             s1 = "$(\n";
             s2 = "   ";
             s = false;
+            q = false;
             break;
           }
         default:
@@ -74,7 +76,7 @@ namespace build2
           }
         }
 
-        state_.push (state {m, '\0', s, s1, s2});
+        state_.push (state {m, '\0', s, q, s1, s2});
       }
 
       token lexer::

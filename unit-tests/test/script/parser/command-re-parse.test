@@ -1,0 +1,9 @@
+
+# double-quote
+#
+$* <<EOI >>EOO
+x = cmd \\">!\\" "'<!'"
+$x
+EOI
+cmd ">!" "<!"
+EOO

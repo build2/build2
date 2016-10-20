@@ -1,0 +1,20 @@
+
+# quote
+#
+# Note: they are still recognized in eval contexts.
+#
+$* <<EOI >>EOO
+cmd <<EOF
+'single'
+"double"
+b'o't"h"
+('single' "double")
+EOF
+EOI
+cmd <<EOF
+'single'
+"double"
+b'o't"h"
+'single' "double"
+EOF
+EOO

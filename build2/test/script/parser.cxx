@@ -743,8 +743,9 @@ namespace build2
                 r += ' ';
 
               r += s;
-              r += '\n'; // Here-document line always includes a newline.
             }
+
+            r += '\n'; // Here-document line always includes a newline.
           }
 
           // We should expand the whole line at once so this would normally be
