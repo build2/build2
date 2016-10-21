@@ -28,7 +28,10 @@ namespace build2
 
         script_ = &s;
         runner_ = nullptr;
-        scope_ = script_;
+
+        group_ = script_;
+        test_ = nullptr;
+        scope_ = nullptr;
 
         pre_parse_ = true;
 
@@ -36,7 +39,7 @@ namespace build2
       }
 
       void parser::
-      parse (const path& p, script& s, runner& r)
+      parse (scope& sc, const path& p, script& s, runner& r)
       {
         path_ = &p;
 
@@ -45,7 +48,10 @@ namespace build2
 
         script_ = &s;
         runner_ = &r;
-        scope_ = script_;
+
+        group_ = nullptr;
+        test_ = nullptr;
+        scope_ = &sc;
 
         pre_parse_ = false;
 
@@ -78,7 +84,33 @@ namespace build2
 
           // Stop saving and get the tokens.
           //
-          scope_->lines.push_back (line {lt, replay_data ()});
+          line l {lt, replay_data ()};
+
+          // Decide where it goes.
+          //
+          lines* ls (nullptr);
+          switch (lt)
+          {
+          case line_type::variable:
+            {
+              ls = &group_->setup;
+              break;
+            }
+          case line_type::test:
+            {
+              // Create implicit test scope.
+              //
+              group_->scopes.push_back (
+                unique_ptr<test> (
+                  (test_ = new test (*group_))));
+
+              ls = &test_->tests;
+
+              test_ = nullptr;
+            }
+          }
+
+          ls->push_back (move (l));
         }
 
         replay_stop (); // Discard replay of eos.
@@ -87,23 +119,53 @@ namespace build2
       void parser::
       parse_script ()
       {
-        token t;
-        type tt;
-
-        for (line& l: scope_->lines)
+        auto play = [this] (lines& ls) // Note: destructive to lines.
         {
-          replay_data (move (l.tokens)); // Set the tokens and start playing.
+          token t;
+          type tt;
 
-          // We don't really need the assign mode since we already know the
-          // line type.
-          //
-          next (t, tt);
+          for (line& l: ls)
+          {
+            replay_data (move (l.tokens)); // Set the tokens and start playing.
 
-          parse_script_line (t, tt, l.type);
-          assert (tt == type::newline);
+            // We don't really need the assign mode since we already know the
+            // line type.
+            //
+            next (t, tt);
 
-          replay_stop (); // Stop playing.
+            parse_script_line (t, tt, l.type);
+            assert (tt == type::newline);
+
+            replay_stop (); // Stop playing.
+          }
+        };
+
+        play (scope_->setup);
+
+        if (test* t = dynamic_cast<test*> (scope_))
+        {
+          play (t->tests);
         }
+        else if (group* g = dynamic_cast<group*> (scope_))
+        {
+          for (const unique_ptr<scope>& s: g->scopes)
+          {
+            // Hand it off to a sub-parser potentially in another thread. But
+            // we could also have handled it serially in this parser:
+            //
+            // scope* os (scope_);
+            // scope_ = s.get ();
+            // parse_script ();
+            // scope_ = os;
+            //
+            parser p;
+            p.parse (*s, *path_, *script_, *runner_);
+          }
+        }
+        else
+          assert (false);
+
+        play (scope_->tdown);
       }
 
       line_type parser::
@@ -226,7 +288,7 @@ namespace build2
       void parser::
       parse_test_line (token& t, type& tt)
       {
-        test ts;
+        command c;
 
         // Pending positions where the next word should go.
         //
@@ -256,7 +318,7 @@ namespace build2
         // Add the next word to either one of the pending positions or
         // to program arguments by default.
         //
-        auto add_word = [&ts, &p, &hd, this] (string&& w, const location& l)
+        auto add_word = [&c, &p, &hd, this] (string&& w, const location& l)
         {
           auto add_here_end = [&hd] (redirect& r, string&& w)
           {
@@ -265,14 +327,14 @@ namespace build2
 
           switch (p)
           {
-          case pending::none: ts.arguments.push_back (move (w)); break;
+          case pending::none:    c.arguments.push_back (move (w)); break;
           case pending::program:
           {
             try
             {
-              ts.program = path (move (w));
+              c.program = path (move (w));
 
-              if (ts.program.empty ())
+              if (c.program.empty ())
                 fail (l) << "empty program path";
             }
             catch (const invalid_path& e)
@@ -282,13 +344,13 @@ namespace build2
             break;
           }
 
-          case pending::in_document:  add_here_end (ts.in,  move (w)); break;
-          case pending::out_document: add_here_end (ts.out, move (w)); break;
-          case pending::err_document: add_here_end (ts.err, move (w)); break;
+          case pending::in_document:  add_here_end (c.in,  move (w)); break;
+          case pending::out_document: add_here_end (c.out, move (w)); break;
+          case pending::err_document: add_here_end (c.err, move (w)); break;
 
-          case pending::in_string:  ts.in.value = move (w);  break;
-          case pending::out_string: ts.out.value = move (w); break;
-          case pending::err_string: ts.err.value = move (w); break;
+          case pending::in_string:  c.in.value = move (w);  break;
+          case pending::out_string: c.out.value = move (w); break;
+          case pending::err_string: c.err.value = move (w); break;
           }
 
           p = pending::none;
@@ -319,7 +381,7 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&ts, &p, this] (const token& t, const location& l)
+          [&c, &p, this] (const token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
@@ -330,10 +392,10 @@ namespace build2
           unsigned long fd (3);
           if (!t.separated)
           {
-            if (ts.arguments.empty ())
+            if (c.arguments.empty ())
               fail (l) << "missing redirect file descriptor";
 
-            const string& s (ts.arguments.back ());
+            const string& s (c.arguments.back ());
 
             try
             {
@@ -348,7 +410,7 @@ namespace build2
               fail (l) << "invalid redirect file descriptor '" << s << "'";
             }
 
-            ts.arguments.pop_back ();
+            c.arguments.pop_back ();
           }
 
           type tt (t.type);
@@ -388,7 +450,7 @@ namespace build2
           case type::out_document: rt = redirect_type::here_document; break;
           }
 
-          redirect& r (fd == 0 ? ts.in : fd == 1 ? ts.out : ts.err);
+          redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
           r.type = rt;
 
           switch (rt)
@@ -643,7 +705,7 @@ namespace build2
         // going to continue lexing in the script_line mode.
         //
         if (tt == type::equal || tt == type::not_equal)
-          ts.exit = parse_command_exit (t, tt);
+          c.exit = parse_command_exit (t, tt);
 
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
@@ -671,10 +733,10 @@ namespace build2
           expire_mode ();
         }
 
-        // Now that we have all the pieces, run the test.
+        // Now that we have all the pieces, run the command.
         //
         if (!pre_parse_)
-          runner_->run (ts);
+          runner_->run (c);
       }
 
       command_exit parser::
@@ -781,6 +843,8 @@ namespace build2
         if (!qual.empty ())
           fail (loc) << "qualified variable name";
 
+        // @@ MT: will need RW mutex on var_pool.
+        //
         if (name != "*" && !digits (name))
           return scope_->find (script_->var_pool.insert (move (name)));
 
@@ -788,6 +852,11 @@ namespace build2
         //
         // See the parse_variable_line() for the overall plan.
         //
+        // @@ MT: we are potentially changing outer scopes. Could force
+        //    lookup before executing tests in each group scope. Poblem is
+        //    we don't know which $NN vars will be looked up from inside.
+        //    Could we collect all the variable names during the pre-parse
+        //    stage? They could be computed.
 
         // In both cases first thing we do is lookup $*. It should always be
         // defined since we set it on the script's root scope.

@@ -32,7 +32,10 @@ namespace build2
         pre_parse (istream&, const path& name, script&);
 
         void
-        parse (const path& name, script&, runner&);
+        parse (const path& name, script& s, runner& r)
+        {
+          parse (s, name, s, r);
+        }
 
         // Recursive descent parser.
         //
@@ -42,6 +45,9 @@ namespace build2
         // the newline.
         //
       protected:
+        void
+        parse (scope&, const path& name, script&, runner&);
+
         void
         pre_parse_script ();
 
@@ -90,6 +96,14 @@ namespace build2
         lexer* lexer_;
         script* script_;
         runner* runner_;
+
+        // Pre-parse state.
+        //
+        group* group_;
+        test* test_;
+
+        // Parse state.
+        //
         scope* scope_;
       };
     }

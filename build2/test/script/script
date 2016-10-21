@@ -32,6 +32,8 @@ namespace build2
         replay_tokens tokens;
       };
 
+      using lines = vector<line>;
+
       // Parse object model.
       //
       enum class redirect_type
@@ -101,17 +103,13 @@ namespace build2
       ostream&
       operator<< (ostream&, const command&);
 
-      struct test: command {};
-
       class scope
       {
       public:
         scope* parent; // NULL for the root (script) scope.
 
-        scope (scope& p): parent (&p) {}
-
-      protected:
-        scope (): parent (nullptr) {} // For the root (script) scope.
+        lines setup;
+        lines tdown;
 
         // Variables.
         //
@@ -145,13 +143,37 @@ namespace build2
         value&
         append (const variable&);
 
-        // Pre-parse.
-        //
       public:
-        vector<line> lines;
+        virtual
+        ~scope () = default;
+
+      protected:
+        scope (scope* p): parent (p) {}
+        scope (): parent (nullptr) {} // For the root (script) scope.
       };
 
-      class script: public scope
+      class group: public scope
+      {
+      public:
+        vector<unique_ptr<scope>> scopes;
+
+      public:
+        group (group& p): scope (&p) {}
+
+      protected:
+        group (): scope (nullptr) {} // For the root (script) scope.
+      };
+
+      class test: public scope
+      {
+      public:
+        lines tests;
+
+      public:
+        test (group& p): scope (&p) {}
+      };
+
+      class script: public group
       {
       public:
         script (target& test_target, testscript& script_target);
