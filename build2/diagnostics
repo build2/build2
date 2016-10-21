@@ -286,6 +286,9 @@ namespace build2
     location (const path* f, uint64_t l = 0, uint64_t c = 0)
         : file (f), line (l), column (c) {}
 
+    bool
+    empty () const {return file == nullptr;}
+
     const path* file;
     uint64_t line;
     uint64_t column;
