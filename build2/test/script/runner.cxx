@@ -35,7 +35,7 @@ namespace build2
       //    a pattern, cancel the file removal if the match fails (so the
       //    output is available for troubleshooting).
       //
-      class stream_cache: public ifdstream
+      class stream_cache: public ifdstream // @@ Open for output?
       {
       public:
         using path_type = butl::path;
@@ -121,6 +121,8 @@ namespace build2
 
       // Check if the test command output matches the pattern (redirect value).
       //
+      // @@ Expected result | expected output
+      //
       static void
       check_output (const process_path& program,
                     stream_cache& sc,
@@ -145,6 +147,8 @@ namespace build2
           //
           path dp ("diff");
           process_path pp (run_search (dp, true));
+
+          //@@ Need to compare both as files.
 
           cstrings args {
             pp.recall_string (),
@@ -175,6 +179,8 @@ namespace build2
 
                 // Here-document is always endline-terminated.
                 //
+                // @@ newline
+                //
                 if (rd.type == redirect_type::here_string)
                   os << endl;
 
@@ -189,7 +195,7 @@ namespace build2
               // Output doesn't match the pattern string. Keep non-empty output
               // and save the pattern for troubleshooting.
               //
-              path p (sc.path + ".pattern");
+              path p (sc.path + ".pattern"); // @@ .orig
 
               try
               {
@@ -247,18 +253,7 @@ namespace build2
       run (const command& c, size_t ci, const location& cl)
       {
         if (verb >= 3)
-        {
-          // @@ When running multiple threads will need to synchronize
-          // printing the diagnostics so it don't overlap for concurrent
-          // tests. Alternatively we can not bother with that and expect a
-          // user to re-run test operation in the single-thread mode.
-          //
-          // @@ No indentation performed for here-documents. If to fix then
-          // probably need to do on diag_record level in a way similar to
-          // butl::pager approach.
-          //
           text << c;
-        }
 
         // Pre-search the program path so it is reflected in the failure
         // diagnostics. The user can see the original path running the test
@@ -358,6 +353,8 @@ namespace build2
             // @@ Shouldn't we incorporate means for checking for abnormal
             //    termination and getting the real exit status into
             //    libbutl::process?
+            //
+            //    Yes, sounds good.
             //
 #ifndef _WIN32
             abnorm = !WIFEXITED (pr.status);
