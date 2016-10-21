@@ -79,6 +79,17 @@ namespace build2
           if (c.in.type  != redirect_type::none) print_redirect (c.in,   "<");
           if (c.out.type != redirect_type::none) print_redirect (c.out,  ">");
           if (c.err.type != redirect_type::none) print_redirect (c.err, "2>");
+
+          if (c.exit.comparison != exit_comparison::eq || c.exit.status != 0)
+          {
+            switch (c.exit.comparison)
+            {
+            case exit_comparison::eq: o << " == "; break;
+            case exit_comparison::ne: o << " != "; break;
+            }
+
+            o << static_cast<uint16_t> (c.exit.status);
+          }
         }
 
         if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
@@ -89,26 +100,6 @@ namespace build2
           if (c.out.type == redirect_type::here_document) print_doc (c.out);
           if (c.err.type == redirect_type::here_document) print_doc (c.err);
         }
-      }
-
-      ostream&
-      operator<< (ostream& o, const test& t)
-      {
-        to_stream (o, t, command_to_stream::header);
-
-        if (t.exit.comparison != exit_comparison::eq || t.exit.status != 0)
-        {
-          switch (t.exit.comparison)
-          {
-          case exit_comparison::eq: o << " == "; break;
-          case exit_comparison::ne: o << " != "; break;
-          }
-
-          o << static_cast<uint16_t> (t.exit.status);
-        }
-
-        to_stream (o, t, command_to_stream::here_doc);
-        return o;
       }
 
       script::

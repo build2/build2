@@ -21,23 +21,6 @@ namespace build2
   {
     namespace script
     {
-      static void
-      print_test (diag_record& r, const test& t)
-      {
-        // @@ No indentation performed for here-documents. If to fix then
-        // probably need to do on diag_record level in a way similar to
-        // butl::pager approach.
-        //
-        r << t;
-      }
-
-      static void
-      print_test (const test& t)
-      {
-        diag_record r (text);
-        print_test (r, t);
-      }
-
       // Test command output cache. The usage is as follows:
       //
       // 1. Call wopen() to open the stream in write mode and register the file
@@ -261,25 +244,30 @@ namespace build2
       }
 
       void concurrent_runner::
-      run (const test& t)
+      run (const command& c)
       {
-        // @@ When running multiple threads will need to synchronize printing
-        // the diagnostics so it don't overlap for concurrent tests.
-        // Alternatively we can not bother with that and expect a user to
-        // re-run test operation in the single-thread mode.
-        //
-
         if (verb >= 3)
-          print_test (t);
+        {
+          // @@ When running multiple threads will need to synchronize
+          // printing the diagnostics so it don't overlap for concurrent
+          // tests. Alternatively we can not bother with that and expect a
+          // user to re-run test operation in the single-thread mode.
+          //
+          // @@ No indentation performed for here-documents. If to fix then
+          // probably need to do on diag_record level in a way similar to
+          // butl::pager approach.
+          //
+          text << c;
+        }
 
         // Pre-search the program path so it is reflected in the failure
         // diagnostics. The user can see the original path running the test
         // operation with the verbosity level > 2.
         //
-        process_path pp (run_search (t.program, true));
+        process_path pp (run_search (c.program, true));
         cstrings args {pp.recall_string ()};
 
-        for (const auto& a: t.arguments)
+        for (const auto& a: c.arguments)
           args.push_back (a.c_str ());
 
         args.push_back (nullptr);
@@ -308,8 +296,8 @@ namespace build2
           //    process to hang which can be interpreted as a test failure.
           // @@ Both ways are quite ugly. Is there some better way to do this?
           //
-          int in (t.in.type == redirect_type::null ||
-                  t.in.type == redirect_type::none
+          int in (c.in.type == redirect_type::null ||
+                  c.in.type == redirect_type::none
                   ? -2
                   : -1);
 
@@ -328,10 +316,10 @@ namespace build2
           // troubleshooting.
           //
           stream_cache osc ("stdout");
-          int out (t.out.type == redirect_type::null ? -2 : osc.wopen ());
+          int out (c.out.type == redirect_type::null ? -2 : osc.wopen ());
 
           stream_cache esc ("stderr");
-          int err (t.err.type == redirect_type::null ? -2 : esc.wopen ());
+          int err (c.err.type == redirect_type::null ? -2 : esc.wopen ());
 
           if (verb >= 2)
             print_process (args);
@@ -343,15 +331,15 @@ namespace build2
             osc.close ();
             esc.close ();
 
-            if (t.in.type == redirect_type::here_string ||
-                t.in.type == redirect_type::here_document)
+            if (c.in.type == redirect_type::here_string ||
+                c.in.type == redirect_type::here_document)
             {
               ofdstream os (pr.out_fd);
-              os << t.in.value;
+              os << c.in.value;
 
               // Here-document is always endline-terminated.
               //
-              if (t.in.type == redirect_type::here_string)
+              if (c.in.type == redirect_type::here_string)
                 os << endl;
 
               os.close ();
@@ -383,10 +371,10 @@ namespace build2
 #endif
             bool valid_status (!abnorm && status >= 0 && status < 256);
 
-            bool eq (t.exit.comparison == exit_comparison::eq);
+            bool eq (c.exit.comparison == exit_comparison::eq);
 
             bool correct_status (valid_status &&
-                                 (status == t.exit.status) == eq);
+                                 (status == c.exit.status) == eq);
 
             // If there is no correct exit status by whatever reason then dump
             // stderr (if cached), keep both stdout and stderr (those which
@@ -408,7 +396,7 @@ namespace build2
                   info << "must be an unsigned integer < 256";
               else if (!correct_status)
                 d << pp << " exit status " << status
-                  << (eq ? " != " : " == ") << (int)t.exit.status;
+                  << (eq ? " != " : " == ") << (int)c.exit.status; //@@
               else
                 assert (false);
 
@@ -425,8 +413,8 @@ namespace build2
               keep_stream (esc);
             }
 
-            check_output (pp, osc, t.out);
-            check_output (pp, esc, t.err);
+            check_output (pp, osc, c.out);
+            check_output (pp, esc, c.err);
           }
           catch (const io_error& e)
           {

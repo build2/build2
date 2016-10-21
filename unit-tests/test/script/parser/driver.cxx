@@ -29,7 +29,7 @@ namespace build2
       {
       public:
         virtual void
-        run (const test& t) override
+        run (const command& t) override
         {
           // Here we assume we are running serially.
           //

@@ -20,14 +20,14 @@ namespace build2
       {
       public:
         virtual void
-        run (const test&) = 0;
+        run (const command&) = 0;
       };
 
       class concurrent_runner: public runner
       {
       public:
         virtual void
-        run (const test&) override;
+        run (const command&) override;
       };
     }
   }

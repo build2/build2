@@ -49,29 +49,6 @@ namespace build2
         string here_end; // Only for here-documents.
       };
 
-      struct command
-      {
-        path program;
-        strings arguments;
-
-        redirect in;
-        redirect out;
-        redirect err;
-      };
-
-      enum class command_to_stream: uint16_t
-      {
-        header   = 0x01,
-        here_doc = 0x02,              // Note: printed on a new line.
-        all      = header | here_doc
-      };
-
-      void
-      to_stream (ostream&, const command&, command_to_stream);
-
-      ostream&
-      operator<< (ostream&, const command&);
-
       enum class exit_comparison {eq, ne};
 
       struct command_exit
@@ -99,13 +76,32 @@ namespace build2
         uint8_t status;
       };
 
-      struct test: command
+      struct command
       {
+        path program;
+        strings arguments;
+
+        redirect in;
+        redirect out;
+        redirect err;
+
         command_exit exit {exit_comparison::eq, 0};
       };
 
+      enum class command_to_stream: uint16_t
+      {
+        header   = 0x01,
+        here_doc = 0x02,              // Note: printed on a new line.
+        all      = header | here_doc
+      };
+
+      void
+      to_stream (ostream&, const command&, command_to_stream);
+
       ostream&
-      operator<< (ostream&, const test&);
+      operator<< (ostream&, const command&);
+
+      struct test: command {};
 
       class scope
       {
