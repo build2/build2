@@ -399,6 +399,8 @@ EOO
 
 @@ how to preserve test output
 
+@@ term: 'test working directory'
+
 \h1#integration|Build System Integration|
 
 The \c{build2} \c{test} module provides the ability to run an executable

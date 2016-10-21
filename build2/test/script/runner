@@ -31,14 +31,14 @@ namespace build2
         // It can be used in diagnostics.
         //
         virtual void
-        run (const command&, size_t index, const location&) = 0;
+        run (const scope&, const command&, size_t index, const location&) = 0;
       };
 
       class concurrent_runner: public runner
       {
       public:
         virtual void
-        run (const command&, size_t, const location&) override;
+        run (const scope&, const command&, size_t, const location&) override;
       };
     }
   }

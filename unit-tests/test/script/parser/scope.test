@@ -1,0 +1,15 @@
+$* testscript <'cmd $@' >"cmd 1"     # id-testscript
+$* foo.test   <'cmd $@' >"cmd foo/1" # id
+
+wd = [dir_path] $build.work
+wd += test
+wd += 1
+$* testscript <'cmd $~' >"cmd $wd"   # wd-testscript
+
+# @@ TMP wd1
+#
+wd1 = [dir_path] $build.work
+wd1 += test
+wd1 += foo
+wd1 += 1
+$* foo.test   <'cmd $~' >"cmd $wd1"   # wd

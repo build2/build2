@@ -29,7 +29,7 @@ namespace build2
       {
       public:
         virtual void
-        run (const command& t, size_t, const location&) override
+        run (const scope&, const command& t, size_t, const location&) override
         {
           // Here we assume we are running serially.
           //
@@ -37,8 +37,10 @@ namespace build2
         }
       };
 
+      // Usage: argv[0] [<testscript-name>]
+      //
       int
-      main ()
+      main (int argc, char* argv[])
       {
         tracer trace ("main");
 
@@ -47,7 +49,7 @@ namespace build2
 
         try
         {
-          path name ("testscript");
+          path name (argc > 1 ? argv[1] : "testscript");
           cin.exceptions (istream::failbit | istream::badbit);
 
           // Enter mock targets. Use fixed names and paths so that we can use
@@ -70,7 +72,7 @@ namespace build2
                                         trace));
 
           tt.path (path ("driver"));
-          st.path (path ("testscript"));
+          st.path (name);
 
           // Parse and run.
           //
@@ -93,7 +95,7 @@ namespace build2
 }
 
 int
-main ()
+main (int argc, char* argv[])
 {
-  return build2::test::script::main ();
+  return build2::test::script::main (argc, argv);
 }

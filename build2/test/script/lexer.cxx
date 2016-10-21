@@ -284,14 +284,14 @@ namespace build2
         lexer_mode m (st.mode);
 
         // Customized implementation that handles special variable names ($*,
-        // $~, $NNN).
+        // $NN, $~, $@).
         //
         if (m != lexer_mode::variable)
           return base_lexer::word (st, sep);
 
         xchar c (peek ());
 
-        if (c != '*' && c != '~' && !digit (c))
+        if (c != '*' && c != '~' && c != '@' && !digit (c))
           return base_lexer::word (st, sep);
 
         uint64_t ln (c.line), cn (c.column);

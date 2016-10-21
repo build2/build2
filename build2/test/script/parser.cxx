@@ -79,6 +79,7 @@ namespace build2
           if (tt == type::eos)
             break;
 
+          const location ll (get_location (t));
           line_type lt (pre_parse_script_line (t, tt));
           assert (tt == type::newline);
 
@@ -98,11 +99,11 @@ namespace build2
             }
           case line_type::test:
             {
-              // Create implicit test scope.
+              // Create implicit test scope. Use line number as the scope id.
               //
               group_->scopes.push_back (
                 unique_ptr<test> (
-                  (test_ = new test (*group_))));
+                  (test_ = new test (to_string (ll.line), *group_))));
 
               ls = &test_->tests;
 
@@ -740,7 +741,7 @@ namespace build2
         // Now that we have all the pieces, run the command.
         //
         if (!pre_parse_)
-          runner_->run (c, li, ll);
+          runner_->run (*scope_, c, li, ll);
       }
 
       command_exit parser::
@@ -847,7 +848,8 @@ namespace build2
         if (!qual.empty ())
           fail (loc) << "qualified variable name";
 
-        // @@ MT: will need RW mutex on var_pool.
+        // @@ MT: will need RW mutex on var_pool. Or maybe if it's not there
+        // then it can't possibly be found? Still will be setting variables.
         //
         if (name != "*" && !digits (name))
           return scope_->find (script_->var_pool.insert (move (name)));
@@ -861,6 +863,10 @@ namespace build2
         //    we don't know which $NN vars will be looked up from inside.
         //    Could we collect all the variable names during the pre-parse
         //    stage? They could be computed.
+        //
+        //    Or we could set all the non-NULL $NN (i.e., based on the number
+        //    of elements in $*).
+        //
 
         // In both cases first thing we do is lookup $*. It should always be
         // defined since we set it on the script's root scope.

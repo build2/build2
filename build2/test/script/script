@@ -103,10 +103,21 @@ namespace build2
       ostream&
       operator<< (ostream&, const command&);
 
+      class script;
+
       class scope
       {
       public:
-        scope* parent; // NULL for the root (script) scope.
+        scope* const parent; // NULL for the root (script) scope.
+        script* const root;  // Self for the root (script) scope.
+
+        // Note that if we pass the variable name as a string, then it will
+        // be looked up in the wrong pool.
+        //
+        variable_map vars;
+
+        const path& id_path;     // Id path ($@, relative in POSIX form).
+        const dir_path& wd_path; // Working dir ($~, absolute and normalized).
 
         lines setup;
         lines tdown;
@@ -114,11 +125,6 @@ namespace build2
         // Variables.
         //
       public:
-        // Note that if we pass the variable name as a string, then it will
-        // be looked up in the wrong pool.
-        //
-        variable_map vars;
-
         // Lookup the variable starting from this scope, continuing with outer
         // scopes, then the target being tested, then the testscript target,
         // and then outer buildfile scopes (including testscript-type/pattern
@@ -148,8 +154,7 @@ namespace build2
         ~scope () = default;
 
       protected:
-        scope (scope* p): parent (p) {}
-        scope (): parent (nullptr) {} // For the root (script) scope.
+        scope (const string& id, scope* parent);
       };
 
       class group: public scope
@@ -158,10 +163,10 @@ namespace build2
         vector<unique_ptr<scope>> scopes;
 
       public:
-        group (group& p): scope (&p) {}
+        group (const string& id, group& p): scope (id, &p) {}
 
       protected:
-        group (): scope (nullptr) {} // For the root (script) scope.
+        group (const string& id): scope (id, nullptr) {} // For root.
       };
 
       class test: public scope
@@ -170,17 +175,13 @@ namespace build2
         lines tests;
 
       public:
-        test (group& p): scope (&p) {}
+        test (const string& id, group& p): scope (id, &p) {}
       };
 
-      class script: public group
+      class script_base // Make sure certain things are initialized early.
       {
-      public:
-        script (target& test_target, testscript& script_target);
-
-      public:
-        target& test_target;       // Target we are testing.
-        testscript& script_target; // Target of the testscript file.
+      protected:
+        script_base ();
 
       public:
         variable_pool var_pool;
@@ -190,7 +191,18 @@ namespace build2
         const variable& args_var; // test.arguments
 
         const variable& cmd_var; // $*
-        const variable& cwd_var; // $~
+        const variable& wd_var;  // $~
+        const variable& id_var;  // $@
+      };
+
+      class script: public script_base, public group
+      {
+      public:
+        script (target& test_target, testscript& script_target);
+
+      public:
+        target& test_target;       // Target we are testing.
+        testscript& script_target; // Target of the testscript file.
       };
     }
   }

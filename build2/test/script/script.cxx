@@ -102,11 +102,38 @@ namespace build2
         }
       }
 
-      script::
-      script (target& tt, testscript& st)
-          : test_target (tt), script_target (st),
+      scope::
+      scope (const string& id, scope* p)
+          : parent (p),
+            root (p != nullptr ? p->root : static_cast<script*> (this)),
+            id_path (cast<path> (assign (root->id_var) = path ())),
+            wd_path (cast<dir_path> (assign (root->wd_var) = dir_path ()))
 
-            // Enter the test* variables with the same variable types as in
+      {
+        // Construct the id_path as a string to ensure POSIX form. In fact,
+        // the only reason we keep it as a path is to be able to easily get id
+        // by calling leaf().
+        //
+        {
+          string s (p != nullptr ? p->id_path.string () : string ());
+
+          if (!s.empty () && !id.empty ())
+            s += '/';
+
+          s += id;
+          const_cast<path&> (id_path) = path (move (s));
+        }
+
+        // Calculate the working directory path unless this is the root scope
+        // (handled in an ad hoc way).
+        //
+        if (p != nullptr)
+          const_cast<dir_path&> (wd_path) = dir_path (p->wd_path) /= id;
+      }
+
+      script_base::
+      script_base ()
+          : // Enter the test* variables with the same variable types as in
             // buildfiles.
             //
             test_var (var_pool.insert<path> ("test")),
@@ -114,8 +141,38 @@ namespace build2
             args_var (var_pool.insert<strings> ("test.arguments")),
 
             cmd_var (var_pool.insert<strings> ("*")),
-            cwd_var (var_pool.insert<dir_path> ("~"))
+            wd_var (var_pool.insert<dir_path> ("~")),
+            id_var (var_pool.insert<path> ("@")) {}
+
+      static inline string
+      script_id (const path& p)
       {
+        string r (p.leaf ().string ());
+
+        if (r == "testscript")
+          return string ();
+
+        size_t n (path::traits::find_extension (r));
+        assert (n != string::npos);
+        r.resize (n);
+        return r;
+      }
+
+      script::
+      script (target& tt, testscript& st)
+          : group (script_id (st.path ())),
+            test_target (tt), script_target (st)
+      {
+        // Set the script working dir ($~) to $out_base/test/<id> (id_path
+        // for root is just the id).
+        //
+        {
+          auto& wd (const_cast<dir_path&> (wd_path));
+          wd = tt.out_dir ();
+          wd /= "test";
+          wd /= id_path.string ();
+        }
+
         // Unless we have the test variable set on the test or script target,
         // set it at the script level to the test target's path.
         //
@@ -138,12 +195,6 @@ namespace build2
         // on first access.
         //
         assign (cmd_var) = nullptr;
-
-        // Set the script CWD ($~) which is the $out_base/<script-name>.
-        //
-        // @@ This will conflict for 'testscript'!
-        //
-        assign (cwd_var) = dir_path (tt.out_dir ()) /= st.name;
       }
 
       lookup scope::

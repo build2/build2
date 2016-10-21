@@ -19,11 +19,11 @@ namespace build2
   {
     namespace script
     {
+      // Usage: argv[0] <lexer-mode>
+      //
       int
       main (int argc, char* argv[])
       {
-        // Usage: argv[0] <lexer-mode>
-        //
         lexer_mode m;
         {
           assert (argc == 2);
