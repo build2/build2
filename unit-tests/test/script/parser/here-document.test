@@ -15,6 +15,6 @@ cmd <<EOF
 'single'
 "double"
 b'o't"h"
-'single' "double"
+single double
 EOF
 EOO

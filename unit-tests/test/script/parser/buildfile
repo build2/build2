@@ -10,6 +10,7 @@ scope prerequisite file module operation rule b-options algorithm search \
 filesystem config/{utility init operation} dump types-parsers \
 test/{target script/{token lexer parser script}}
 
-exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs #test{testscript}
+exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
+test{pre-parse expansion here-document command-re-parse}
 
 include ../../../../build2/

@@ -3,7 +3,7 @@
 #
 $* <<EOI >>EOO
 x = cmd \\">!\\" "'<!'"
-$x
+\$x
 EOI
 cmd ">!" "<!"
 EOO

@@ -95,20 +95,13 @@ namespace build2
         // [126, 255] range are such a special ones (see Appendix E, "Exit
         // Codes With Special Meanings" in the Advanced Bash-Scripting Guide).
         //
-        exit_comparison comparison = exit_comparison::eq;
-        uint8_t status = 0;
-
-        // Required by VC which fails to initialize as aggregate a class with
-        // default member initializers.
-        //
-        command_exit () = default;
-        command_exit (exit_comparison c, uint8_t s)
-            : comparison (c), status (s) {}
+        exit_comparison comparison;
+        uint8_t status;
       };
 
       struct test: command
       {
-        command_exit exit;
+        command_exit exit {exit_comparison::eq, 0};
       };
 
       ostream&
