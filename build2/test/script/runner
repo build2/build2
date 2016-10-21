@@ -21,6 +21,10 @@ namespace build2
       class runner
       {
       public:
+        // Location is the scope start location (for diagnostics, etc).
+        //
+        virtual void
+        enter (scope&, const location&) = 0;
 
         // Index is the 1-base index of this command in the command list
         // (e.g., in a compound test). If it is 0 then it means there is only
@@ -31,14 +35,25 @@ namespace build2
         // It can be used in diagnostics.
         //
         virtual void
-        run (const scope&, const command&, size_t index, const location&) = 0;
+        run (scope&, const command&, size_t index, const location&) = 0;
+
+        // Location is the scope end location (for diagnostics, etc).
+        //
+        virtual void
+        leave (scope&, const location&) = 0;
       };
 
       class concurrent_runner: public runner
       {
       public:
         virtual void
-        run (const scope&, const command&, size_t, const location&) override;
+        enter (scope&, const location&) override {}
+
+        virtual void
+        run (scope&, const command&, size_t, const location&) override;
+
+        virtual void
+        leave (scope&, const location&) override {}
       };
     }
   }

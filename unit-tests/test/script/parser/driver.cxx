@@ -29,12 +29,18 @@ namespace build2
       {
       public:
         virtual void
-        run (const scope&, const command& t, size_t, const location&) override
+        enter (scope&, const location&) override {}
+
+        virtual void
+        run (scope&, const command& t, size_t, const location&) override
         {
           // Here we assume we are running serially.
           //
           cout << t << endl;
         }
+
+        virtual void
+        leave (scope&, const location&) override {}
       };
 
       // Usage: argv[0] [<testscript-name>]

@@ -76,8 +76,15 @@ namespace build2
           mode (lexer_mode::assign_line);
           next (t, tt);
 
+          if (group_->start_loc_.empty ())
+            group_->start_loc_ = get_location (t);
+
           if (tt == type::eos)
+          {
+            group_->end_loc_ = get_location (t);
+            replay_stop (); // Discard replay of eos.
             break;
+          }
 
           const location ll (get_location (t));
           line_type lt (pre_parse_script_line (t, tt));
@@ -94,7 +101,7 @@ namespace build2
           {
           case line_type::variable:
             {
-              ls = &group_->setup;
+              ls = &group_->setup_;
               break;
             }
           case line_type::test:
@@ -105,7 +112,10 @@ namespace build2
                 unique_ptr<test> (
                   (test_ = new test (to_string (ll.line), *group_))));
 
-              ls = &test_->tests;
+              test_->start_loc_ = ll;
+              test_->end_loc_ = get_location (t);
+
+              ls = &test_->tests_;
 
               test_ = nullptr;
             }
@@ -113,8 +123,6 @@ namespace build2
 
           ls->push_back (move (l));
         }
-
-        replay_stop (); // Discard replay of eos.
       }
 
       void parser::
@@ -143,11 +151,13 @@ namespace build2
           }
         };
 
-        play (scope_->setup);
+        runner_->enter (*scope_, scope_->start_loc_);
+
+        play (scope_->setup_);
 
         if (test* t = dynamic_cast<test*> (scope_))
         {
-          play (t->tests);
+          play (t->tests_);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
@@ -168,7 +178,9 @@ namespace build2
         else
           assert (false);
 
-        play (scope_->tdown);
+        play (scope_->tdown_);
+
+        runner_->leave (*scope_, scope_->end_loc_);
       }
 
       line_type parser::

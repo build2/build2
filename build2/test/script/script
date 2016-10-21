@@ -119,9 +119,6 @@ namespace build2
         const path& id_path;     // Id path ($@, relative in POSIX form).
         const dir_path& wd_path; // Working dir ($~, absolute and normalized).
 
-        lines setup;
-        lines tdown;
-
         // Variables.
         //
       public:
@@ -155,6 +152,16 @@ namespace build2
 
       protected:
         scope (const string& id, scope* parent);
+
+        // Pre-parse data.
+        //
+      private:
+        friend class parser;
+
+        location start_loc_;
+        lines setup_;
+        lines tdown_;
+        location end_loc_;
       };
 
       class group: public scope
@@ -172,10 +179,14 @@ namespace build2
       class test: public scope
       {
       public:
-        lines tests;
-
-      public:
         test (const string& id, group& p): scope (id, &p) {}
+
+        // Pre-parse data.
+        //
+      private:
+        friend class parser;
+
+        lines tests_;
       };
 
       class script_base // Make sure certain things are initialized early.
