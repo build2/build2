@@ -244,7 +244,7 @@ namespace build2
       }
 
       void concurrent_runner::
-      run (const command& c)
+      run (const command& c, size_t ci, const location& cl)
       {
         if (verb >= 3)
         {

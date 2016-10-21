@@ -8,6 +8,8 @@
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/diagnostics> // location
+
 #include <build2/test/script/script>
 
 namespace build2
@@ -19,15 +21,24 @@ namespace build2
       class runner
       {
       public:
+
+        // Index is the 1-base index of this command in the command list
+        // (e.g., in a compound test). If it is 0 then it means there is only
+        // one command (e.g., a simple test). This information can be used,
+        // for example, to derive file names.
+        //
+        // Location is the start position of this command in the testscript.
+        // It can be used in diagnostics.
+        //
         virtual void
-        run (const command&) = 0;
+        run (const command&, size_t index, const location&) = 0;
       };
 
       class concurrent_runner: public runner
       {
       public:
         virtual void
-        run (const command&) override;
+        run (const command&, size_t, const location&) override;
       };
     }
   }

@@ -124,8 +124,10 @@ namespace build2
           token t;
           type tt;
 
-          for (line& l: ls)
+          for (size_t i (0), n (ls.size ()); i != n; ++i)
           {
+            line& l (ls[i]);
+
             replay_data (move (l.tokens)); // Set the tokens and start playing.
 
             // We don't really need the assign mode since we already know the
@@ -133,7 +135,7 @@ namespace build2
             //
             next (t, tt);
 
-            parse_script_line (t, tt, l.type);
+            parse_script_line (t, tt, l.type, n == 1 ? 0 : i + 1);
             assert (tt == type::newline);
 
             replay_stop (); // Stop playing.
@@ -192,17 +194,17 @@ namespace build2
           }
         }
 
-        parse_test_line (t, tt);
+        parse_test_line (t, tt, 0);
         return line_type::test;
       }
 
       void parser::
-      parse_script_line (token& t, type& tt, line_type lt)
+      parse_script_line (token& t, type& tt, line_type lt, size_t li)
       {
         switch (lt)
         {
-        case line_type::variable: parse_variable_line (t, tt); break;
-        case line_type::test:     parse_test_line     (t, tt); break;
+        case line_type::variable: parse_variable_line (t, tt);     break;
+        case line_type::test:     parse_test_line     (t, tt, li); break;
         }
       }
 
@@ -286,7 +288,7 @@ namespace build2
       }
 
       void parser::
-      parse_test_line (token& t, type& tt)
+      parse_test_line (token& t, type& tt, size_t li)
       {
         command c;
 
@@ -477,10 +479,12 @@ namespace build2
           }
         };
 
+        const location ll (get_location (t)); // Line location.
+
         // Keep parsing chunks of the command line until we see the newline or
         // the exit status comparison.
         //
-        location l (get_location (t));
+        location l (ll);
         names ns; // Reuse to reduce allocations.
 
         for (bool done (false); !done; l = get_location (t))
@@ -736,7 +740,7 @@ namespace build2
         // Now that we have all the pieces, run the command.
         //
         if (!pre_parse_)
-          runner_->run (c);
+          runner_->run (c, li, ll);
       }
 
       command_exit parser::

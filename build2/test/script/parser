@@ -58,13 +58,13 @@ namespace build2
         pre_parse_script_line (token&, token_type&);
 
         void
-        parse_script_line (token&, token_type&, line_type);
+        parse_script_line (token&, token_type&, line_type, size_t);
 
         void
         parse_variable_line (token&, token_type&);
 
         void
-        parse_test_line (token&, token_type&);
+        parse_test_line (token&, token_type&, size_t);
 
         command_exit
         parse_command_exit (token&, token_type&);
