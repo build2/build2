@@ -1,15 +1,104 @@
 $* testscript <'cmd $@' >"cmd 1"     # id-testscript
 $* foo.test   <'cmd $@' >"cmd foo/1" # id
 
-wd = [dir_path] $build.work
-wd += test
-wd += 1
+wd = [dir_path] $~;
+wd += test;
+wd += 1;
 $* testscript <'cmd $~' >"cmd $wd"   # wd-testscript
 
-# @@ TMP wd1
+wd = [dir_path] $~;
+wd += test;
+wd += foo;
+wd += 1;
+$* foo.test   <'cmd $~' >"cmd $wd"   # wd
+
+$* -s <<EOI >>EOO                    # compound-2
+cmd1;
+cmd2
+EOI
+{
+  {
+    cmd1
+    cmd2
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # compound-3
+cmd1;
+cmd2;
+cmd3
+EOI
+{
+  {
+    cmd1
+    cmd2
+    cmd3
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # compound-var
+cmd1;
+x = abc;
+cmd2 \$x
+EOI
+{
+  {
+    cmd1
+    cmd2 abc
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # compound-var-first
+x = abc;
+cmd \$x
+EOI
+{
+  {
+    cmd abc
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # var-setup-tdown
+x = abc
+cmd \$x
+y = 123
+EOI
+{
+  {
+    cmd abc
+  }
+}
+EOO
+
+$* <<EOI 2>>EOE != 0                 # test-after-tdown
+cmd1
+x = abc
+cmd2
+EOI
+testscript:3:1: error: test after teardown
+  testscript:2:1: info: last teardown line appears here
+EOE
+
+$* <<EOI 2>>EOE != 0                 # expected-line
+cmd;
+EOI
+testscript:2:1: error: expected another line after semicolon
+EOE
+
+# @@ Need newline-less support.
 #
-wd1 = [dir_path] $build.work
-wd1 += test
-wd1 += foo
-wd1 += 1
-$* foo.test   <'cmd $~' >"cmd $wd1"   # wd
+#$* <<EOI 2>>EOE != 0                 # expected-newline-cmd
+#cmd ;\
+#EOI
+#testscript:2:1: error: expected newline instead of <end of file>
+#EOE
+
+#$* <<EOI 2>>EOE != 0                 # expected-newline-var
+#x =abc;\
+#EOI
+#testscript:2:1: error: expected newline instead of <end of file>
+#EOE

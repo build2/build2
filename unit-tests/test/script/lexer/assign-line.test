@@ -1,0 +1,8 @@
+# Note: this mode auto-expires after each token.
+#
+test.arguments += assign-line
+
+$* <";" >>EOO # semi-only
+;
+<newline>
+EOO

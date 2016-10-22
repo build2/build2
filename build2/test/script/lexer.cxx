@@ -26,24 +26,24 @@ namespace build2
         {
         case lexer_mode::script_line:
           {
-            s1 = "=!|&<> $(#\t\n";
-            s2 = "==          ";
+            s1 = ";=!|&<> $(#\t\n";
+            s2 = " ==          ";
             break;
           }
         case lexer_mode::assign_line:
           {
             // As script_line but with variable assignments.
             //
-            s1 = "=+!|&<> $(#\t\n";
-            s2 = " ==          ";
+            s1 = ";=+!|&<> $(#\t\n";
+            s2 = "  ==          ";
             break;
           }
         case lexer_mode::variable_line:
           {
-            // Like value except we don't recognize {.
+            // Like value except we recognize ';' and don't recognize '{'.
             //
-            s1 = " $([]#\t\n";
-            s2 = "        ";
+            s1 = "; $([]#\t\n";
+            s2 = "         ";
             break;
           }
 
@@ -156,6 +156,18 @@ namespace build2
             //
           case '[': return make_token (type::lsbrace);
           case ']': return make_token (type::rsbrace);
+          }
+        }
+
+        // Line separators.
+        //
+        if (m == lexer_mode::script_line ||
+            m == lexer_mode::assign_line ||
+            m == lexer_mode::variable_line)
+        {
+          switch (c)
+          {
+          case ';': return make_token (type::semi);
           }
         }
 

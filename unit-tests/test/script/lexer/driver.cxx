@@ -42,9 +42,12 @@ namespace build2
         {
           cin.exceptions (istream::failbit | istream::badbit);
 
-          // The variable mode auto-expires so we need something underneath.
+          // Some modes auto-expire so we need something underneath.
           //
-          bool u (m == lexer_mode::variable);
+          bool u (m == lexer_mode::assign_line   ||
+                  m == lexer_mode::variable_line ||
+                  m == lexer_mode::variable);
+
           lexer l (cin, path ("stdin"), u ? lexer_mode::script_line : m);
           if (u)
             l.mode (m);

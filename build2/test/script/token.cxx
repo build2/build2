@@ -21,6 +21,8 @@ namespace build2
 
         switch (t.type)
         {
+        case token_type::semi:         os << q << ';' << q; break;
+
         case token_type::pipe:         os << q << '|' << q; break;
         case token_type::clean:        os << q << '&' << q; break;
         case token_type::log_and:      os << q << "&&" << q; break;

@@ -24,7 +24,9 @@ namespace build2
         {
           // NOTE: remember to update token_printer()!
 
-          pipe = base_type::value_next, // |
+          semi = base_type::value_next, // ;
+
+          pipe,                         // |
           clean,                        // &
           log_and,                      // &&
           log_or,                       // ||

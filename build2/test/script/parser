@@ -54,16 +54,16 @@ namespace build2
         void
         parse_script ();
 
-        line_type
+        pair<line_type, bool>
         pre_parse_script_line (token&, token_type&);
 
         void
         parse_script_line (token&, token_type&, line_type, size_t);
 
-        void
+        bool
         parse_variable_line (token&, token_type&);
 
-        void
+        bool
         parse_test_line (token&, token_type&, size_t);
 
         command_exit
@@ -100,7 +100,7 @@ namespace build2
         // Pre-parse state.
         //
         group* group_;
-        test* test_;
+        lines* lines_;
 
         // Parse state.
         //

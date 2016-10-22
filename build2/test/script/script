@@ -161,8 +161,6 @@ namespace build2
         friend class parser;
 
         location start_loc_;
-        lines setup_;
-        lines tdown_;
         location end_loc_;
       };
 
@@ -176,6 +174,14 @@ namespace build2
 
       protected:
         group (const string& id): scope (id, nullptr) {} // For root.
+
+        // Pre-parse data.
+        //
+      private:
+        friend class parser;
+
+        lines setup_;
+        lines tdown_;
       };
 
       class test: public scope

@@ -713,12 +713,14 @@ variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
 test-line:
-  command command-exit?
+  *((variable-line|command-line) ';')
+  command-line
+
+command-line:
+  command
+
+command: <path>(' '+(<arg>|stdin|stdout|stderr))* command-exit?
   *here-document
-
-command-exit: ('=='|'!=') <exit-status>
-
-command: <path>(' '+(<arg>|stdin|stdout|stderr))*
 
 stdin:  '0'?('<!'|\
              '<' <text>|\
@@ -731,6 +733,8 @@ stdout: '1'?('>!'|\
 stderr:  '2'('>!'|\
              '>' <text>|\
              '>>' <here-end>)
+
+command-exit: ('=='|'!=') <exit-status>
 
 here-document:
   *<text>

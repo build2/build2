@@ -25,25 +25,45 @@ namespace build2
   {
     namespace script
     {
+      // Here we assume we are running serially.
+      //
       class print_runner: public runner
       {
       public:
+        print_runner (bool scope): scope_ (scope) {}
+
         virtual void
-        enter (scope&, const location&) override {}
+        enter (scope&, const location&) override
+        {
+          if (scope_)
+          {
+            cout << ind_ << "{" << endl;
+            ind_ += "  ";
+          }
+        }
 
         virtual void
         run (scope&, const command& t, size_t, const location&) override
         {
-          // Here we assume we are running serially.
-          //
-          cout << t << endl;
+          cout << ind_ << t << endl;
         }
 
         virtual void
-        leave (scope&, const location&) override {}
+        leave (scope&, const location&) override
+        {
+          if (scope_)
+          {
+            ind_.resize (ind_.size () - 2);
+            cout << ind_ << "}" << endl;
+          }
+        }
+
+      private:
+        bool scope_;
+        string ind_;
       };
 
-      // Usage: argv[0] [<testscript-name>]
+      // Usage: argv[0] [-s] [<testscript-name>]
       //
       int
       main (int argc, char* argv[])
@@ -53,9 +73,27 @@ namespace build2
         init (1);           // Default verbosity.
         reset (strings ()); // No command line variables.
 
+        bool scope (false);
+        path name;
+
+        for (int i (1); i != argc; ++i)
+        {
+          string a (argv[i]);
+
+          if (a == "-s")
+            scope = true;
+          else
+          {
+            name = path (move (a));
+            break;
+          }
+        }
+
+        if (name.empty ())
+          name = path ("testscript");
+
         try
         {
-          path name (argc > 1 ? argv[1] : "testscript");
           cin.exceptions (istream::failbit | istream::badbit);
 
           // Enter mock targets. Use fixed names and paths so that we can use
@@ -83,7 +121,7 @@ namespace build2
           // Parse and run.
           //
           script s (tt, st);
-          print_runner r;
+          print_runner r (scope);
 
           parser p;
           p.pre_parse (cin, name, s);

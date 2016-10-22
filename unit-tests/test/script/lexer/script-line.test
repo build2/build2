@@ -1,0 +1,18 @@
+test.arguments += script-line
+
+$* <"cmd;" >>EOO # semi
+'cmd'
+;
+<newline>
+EOO
+
+$* <"cmd ;" >>EOO # semi-separated
+'cmd'
+;
+<newline>
+EOO
+
+$* <";" >>EOO # semi-only
+;
+<newline>
+EOO

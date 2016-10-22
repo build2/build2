@@ -22,6 +22,8 @@ namespace build2
       {
         path_ = &p;
 
+        pre_parse_ = true;
+
         lexer l (is, *path_, lexer_mode::script_line);
         lexer_ = &l;
         base_parser::lexer_ = &l;
@@ -30,10 +32,9 @@ namespace build2
         runner_ = nullptr;
 
         group_ = script_;
-        test_ = nullptr;
-        scope_ = nullptr;
+        lines_ = nullptr;
 
-        pre_parse_ = true;
+        scope_ = nullptr;
 
         pre_parse_script ();
       }
@@ -43,6 +44,8 @@ namespace build2
       {
         path_ = &p;
 
+        pre_parse_ = false;
+
         lexer_ = nullptr;
         base_parser::lexer_ = nullptr;
 
@@ -50,10 +53,9 @@ namespace build2
         runner_ = &r;
 
         group_ = nullptr;
-        test_ = nullptr;
-        scope_ = &sc;
+        lines_ = nullptr;
 
-        pre_parse_ = false;
+        scope_ = &sc;
 
         parse_script ();
       }
@@ -81,47 +83,98 @@ namespace build2
 
           if (tt == type::eos)
           {
+            // Check that we don't expect more lines.
+            //
+            // @@ Also for explicit scope close.
+            //
+            if (lines_ != nullptr)
+              fail (t) << "expected another line after semicolon";
+
             group_->end_loc_ = get_location (t);
             replay_stop (); // Discard replay of eos.
             break;
           }
 
           const location ll (get_location (t));
-          line_type lt (pre_parse_script_line (t, tt));
+          pair<line_type, bool> lt (pre_parse_script_line (t, tt));
           assert (tt == type::newline);
 
           // Stop saving and get the tokens.
           //
-          line l {lt, replay_data ()};
+          line l {lt.first, replay_data ()};
 
           // Decide where it goes.
           //
           lines* ls (nullptr);
-          switch (lt)
+
+          // If lines_ is not NULL then the previous command ended with a
+          // semicolon and we should add this one to the same place.
+          //
+          if (lines_ != nullptr)
+            ls = lines_;
+          else
           {
-          case line_type::variable:
+            switch (lt.first)
             {
-              ls = &group_->setup_;
-              break;
-            }
-          case line_type::test:
-            {
-              // Create implicit test scope. Use line number as the scope id.
-              //
-              group_->scopes.push_back (
-                unique_ptr<test> (
-                  (test_ = new test (to_string (ll.line), *group_))));
+            case line_type::variable:
+              {
+                // If there is a semicolon after the variable then we assume
+                // it is part of a test (there is no reason to use semicolons
+                // after variables in the group scope).
+                //
+                if (!lt.second)
+                {
+                  // If we don't have any nested scopes or teardown commands,
+                  // then we assume this is a setup, otherwise -- teardown.
+                  //
+                  ls = group_->scopes.empty () && group_->tdown_.empty ()
+                    ? &group_->setup_
+                    : &group_->tdown_;
 
-              test_->start_loc_ = ll;
-              test_->end_loc_ = get_location (t);
+                  break;
+                }
 
-              ls = &test_->tests_;
+                // Fall through.
+              }
+            case line_type::test:
+              {
+                // First check that we don't have any teardown commands yet.
+                // This will detect things like variable assignments between
+                // tests.
+                //
+                // @@ Can the teardown line be from a different file?
+                //
+                if (!group_->tdown_.empty ())
+                {
+                  location tl (
+                    get_location (
+                      group_->tdown_.back ().tokens.front ().token));
 
-              test_ = nullptr;
+                  fail (ll) << "test after teardown" <<
+                    info (tl) << "last teardown line appears here";
+                }
+
+                // Create implicit test scope. Use line number as the scope id.
+                //
+                unique_ptr<test> p (new test (to_string (ll.line), *group_));
+
+                p->start_loc_ = ll;
+                p->end_loc_ = get_location (t);
+
+                ls = &p->tests_;
+
+                group_->scopes.push_back (move (p));
+                break;
+              }
             }
           }
 
           ls->push_back (move (l));
+
+          // If this command ended with a semicolon, then the next one should
+          // go to the same place.
+          //
+          lines_ = lt.second ? ls : nullptr;
         }
       }
 
@@ -144,6 +197,9 @@ namespace build2
             //
             next (t, tt);
 
+            // @@ The index counts variable assignment lines. This is probably
+            //    not what we want.
+            //
             parse_script_line (t, tt, l.type, n == 1 ? 0 : i + 1);
             assert (tt == type::newline);
 
@@ -153,14 +209,14 @@ namespace build2
 
         runner_->enter (*scope_, scope_->start_loc_);
 
-        play (scope_->setup_);
-
         if (test* t = dynamic_cast<test*> (scope_))
         {
           play (t->tests_);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
+          play (g->setup_);
+
           for (const unique_ptr<scope>& s: g->scopes)
           {
             // Hand it off to a sub-parser potentially in another thread. But
@@ -174,16 +230,16 @@ namespace build2
             parser p;
             p.parse (*s, *path_, *script_, *runner_);
           }
+
+          play (g->tdown_);
         }
         else
           assert (false);
 
-        play (scope_->tdown_);
-
         runner_->leave (*scope_, scope_->end_loc_);
       }
 
-      line_type parser::
+      pair<line_type, bool> parser::
       pre_parse_script_line (token& t, type& tt)
       {
         // Decide whether this is a variable assignment or a command. It is a
@@ -202,13 +258,12 @@ namespace build2
 
           if (p == type::assign || p == type::prepend || p == type::append)
           {
-            parse_variable_line (t, tt);
-            return line_type::variable;
+            return make_pair (line_type::variable,
+                              parse_variable_line (t, tt));
           }
         }
 
-        parse_test_line (t, tt, 0);
-        return line_type::test;
+        return make_pair (line_type::test, parse_test_line (t, tt, 0));
       }
 
       void parser::
@@ -234,7 +289,7 @@ namespace build2
         return !s.empty ();
       }
 
-      void parser::
+      bool parser::
       parse_variable_line (token& t, type& tt)
       {
         string name (move (t.value));
@@ -262,12 +317,17 @@ namespace build2
         //
         attributes_push (t, tt, true);
 
-        value rhs (tt != type::newline && tt != type::eos
+        value rhs (tt != type::newline && tt != type::semi
                    ? parse_names_value (t, tt, "variable value", nullptr)
                    : value (names ()));
 
+        bool semi (tt == type::semi);
+
+        if (semi)
+          next (t, tt); // Get newline.
+
         if (tt != type::newline)
-          fail (t) << "unexpected " << t;
+          fail (t) << "expected newline instead of " << t;
 
         if (!pre_parse_)
         {
@@ -298,9 +358,11 @@ namespace build2
             scope_->assign (script_->cmd_var) = nullptr;
           }
         }
+
+        return semi;
       }
 
-      void parser::
+      bool parser::
       parse_test_line (token& t, type& tt, size_t li)
       {
         command c;
@@ -506,6 +568,7 @@ namespace build2
           {
           case type::equal:
           case type::not_equal:
+          case type::semi:
           case type::newline:
             {
               done = true;
@@ -724,8 +787,13 @@ namespace build2
         if (tt == type::equal || tt == type::not_equal)
           c.exit = parse_command_exit (t, tt);
 
+        bool semi (tt == type::semi);
+
+        if (semi)
+          next (t, tt); // Get newline.
+
         if (tt != type::newline)
-          fail (t) << "unexpected " << t;
+          fail (t) << "expected newline instead of " << t;
 
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
@@ -754,6 +822,8 @@ namespace build2
         //
         if (!pre_parse_)
           runner_->run (*scope_, c, li, ll);
+
+        return semi;
       }
 
       command_exit parser::
