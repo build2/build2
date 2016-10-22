@@ -1,0 +1,113 @@
+# @@ This one should be moved to build2/lexer since we use base lexer
+#    functionality as is.
+#
+test.arguments += script-line
+
+# Single-line comments.
+
+$* <<EOI >>:EOO # single-only
+# comment
+EOI
+EOO
+
+$* <<EOI >>EOO # single-first
+# comment
+foo
+EOI
+'foo'
+<newline>
+EOO
+
+$* <<EOI >>EOO # single-last
+foo
+# comment
+EOI
+'foo'
+<newline>
+EOO
+
+$* <<EOI >>EOO # single-few
+foo
+# comment
+# comment
+EOI
+'foo'
+<newline>
+EOO
+
+$* <<EOI >>EOO # single-cont
+foo
+# comment\\
+bar
+EOI
+'foo'
+<newline>
+'bar'
+<newline>
+EOO
+
+$* <<EOI >>EOO # single-same
+foo # comment
+bar # comment
+EOI
+'foo'
+<newline>
+'bar'
+<newline>
+EOO
+
+# Multi-line comments.
+#
+
+$* <<EOI >>:EOO # multi-only
+#\\
+comment
+comment
+#\\
+EOI
+EOO
+
+$* <<EOI >>:EOO # multi-empty
+#\\
+#\\
+EOI
+EOO
+
+$* <<EOI >>EOO # multi-start-same
+foo #\\
+comment
+comment
+#\\
+EOI
+'foo'
+<newline>
+EOO
+
+$* <<EOI >>EOO # multi-end-same
+#\\
+comment
+comment
+foo #\\
+bar
+EOI
+'bar'
+<newline>
+EOO
+
+$* <<EOI >>EOO # multi-end-not
+#\\
+comment
+#\\ not an end
+foo #\\
+bar
+EOI
+'bar'
+<newline>
+EOO
+
+$* <<EOI 2>>EOE != 0 # multi-unterm
+#\\
+comment
+EOI
+stdin:3:1: error: unterminated multi-line comment
+EOE

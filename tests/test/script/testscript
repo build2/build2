@@ -46,8 +46,10 @@ EOE
 # @@ TMP Need does not compare test.
 #
 $* -i 1 <:"foo" >:"foo"            # no-newline-str
-#$* -i 1 <:"foo" >!"foo"            # no-newline-str-fail1
-#$* -i 1 <"foo"  >:!"foo"           # no-newline-str-fail2
+#\
+$* -i 1 <:"foo" >!"foo"            # no-newline-str-fail1
+$* -i 1 <"foo"  >:!"foo"           # no-newline-str-fail2
+#\
 
 $* -i 1 <<:EOI >>:EOO              # no-newline-doc
 foo
@@ -55,14 +57,16 @@ EOI
 foo
 EOO
 
-#$* -i 1 <<:EOI >>!EOO              # no-newline-doc-fail1
-#foo
-#EOI
-#foo
-#EOO
+#\
+$* -i 1 <<:EOI >>!EOO              # no-newline-doc-fail1
+foo
+EOI
+foo
+EOO
 
-#$* -i 1 <<EOI >>:!EOO              # no-newline-doc-fail2
-#foo
-#EOI
-#foo
-#EOO
+$* -i 1 <<EOI >>:!EOO              # no-newline-doc-fail2
+foo
+EOI
+foo
+EOO
+#\
