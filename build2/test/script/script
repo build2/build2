@@ -49,7 +49,7 @@ namespace build2
       struct redirect
       {
         redirect_type type = redirect_type::none;
-        string value;
+        string value;    // Note: includes trailing newline, if required.
         string here_end; // Only for here-documents.
       };
 

@@ -32,12 +32,16 @@ namespace build2
           log_or,                       // ||
 
           in_null,                      // <!
-          in_string,                    // <
-          in_document,                  // <<
+          in_str,                       // <
+          in_str_nn,                    // <:
+          in_doc,                       // <<
+          in_doc_nn,                    // <<:
 
           out_null,                     // >!
-          out_string,                   // >
-          out_document                  // >>
+          out_str,                      // >
+          out_str_nn,                   // >:
+          out_doc,                      // >>
+          out_doc_nn                    // >>:
         };
 
         token_type () = default;

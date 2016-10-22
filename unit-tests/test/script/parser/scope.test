@@ -89,16 +89,12 @@ EOI
 testscript:2:1: error: expected another line after semicolon
 EOE
 
-# @@ Need newline-less support.
-#
-#$* <<EOI 2>>EOE != 0                 # expected-newline-cmd
-#cmd ;\
-#EOI
-#testscript:2:1: error: expected newline instead of <end of file>
-#EOE
+$* <<:EOI 2>>EOE != 0                # expected-newline-cmd
+cmd;
+EOI
+testscript:1:5: error: expected newline instead of <end of file>
+EOE
 
-#$* <<EOI 2>>EOE != 0                 # expected-newline-var
-#x =abc;\
-#EOI
-#testscript:2:1: error: expected newline instead of <end of file>
-#EOE
+$* <:"x = abc;" 2>>EOE != 0          # expected-newline-var
+testscript:1:9: error: expected newline instead of <end of file>
+EOE

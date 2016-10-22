@@ -70,7 +70,7 @@ namespace build2
         parse_command_exit (token&, token_type&);
 
         string
-        parse_here_document (token&, token_type&, const string&);
+        parse_here_document (token&, token_type&, const string&, bool);
 
         // Customization hooks.
         //

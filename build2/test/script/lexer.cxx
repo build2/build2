@@ -229,14 +229,30 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '!' || p == '<')
+              if (p == '!' || p == ':' || p == '<')
               {
                 get ();
-                return make_token (
-                  p == '!' ? type::in_null : type::in_document);
+
+                switch (p)
+                {
+                case '!': return make_token (type::in_null);
+                case ':': return make_token (type::in_str_nn);
+                case '<':
+                  {
+                    p = peek ();
+
+                    if (p == ':')
+                    {
+                      get ();
+                      return make_token (type::in_doc_nn);
+                    }
+                    else
+                      return make_token (type::in_doc);
+                  }
+                }
               }
               else
-                return make_token (type::in_string);
+                return make_token (type::in_str);
 
             }
             // >
@@ -245,14 +261,30 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '!' || p == '>')
+              if (p == '!' || p == ':' || p == '>')
               {
                 get ();
-                return make_token (
-                  p == '!' ? type::out_null : type::out_document);
+
+                switch (p)
+                {
+                case '!': return make_token (type::out_null);
+                case ':': return make_token (type::out_str_nn);
+                case '>':
+                  {
+                    p = peek ();
+
+                    if (p == ':')
+                    {
+                      get ();
+                      return make_token (type::out_doc_nn);
+                    }
+                    else
+                      return make_token (type::out_doc);
+                  }
+                }
               }
               else
-                return make_token (type::out_string);
+                return make_token (type::out_str);
             }
           }
         }

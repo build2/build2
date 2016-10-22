@@ -381,6 +381,7 @@ namespace build2
           err_document
         };
         pending p (pending::program);
+        bool nn (false); // True if pending here-{str,doc} is "no-newline".
 
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
@@ -389,17 +390,25 @@ namespace build2
         {
           redirect* redir;
           string end;
+          bool no_newline;
         };
         vector<here_doc> hd;
 
         // Add the next word to either one of the pending positions or
         // to program arguments by default.
         //
-        auto add_word = [&c, &p, &hd, this] (string&& w, const location& l)
+        auto add_word =
+          [&c, &p, &nn, &hd, this] (string&& w, const location& l)
         {
-          auto add_here_end = [&hd] (redirect& r, string&& w)
+          auto add_here_str = [&hd, &nn] (redirect& r, string&& w)
           {
-            hd.push_back (here_doc {&r, move (w)});
+            if (!nn) w += '\n';
+            r.value = move (w);
+          };
+
+          auto add_here_end = [&hd, &nn] (redirect& r, string&& w)
+          {
+            hd.push_back (here_doc {&r, move (w), nn});
           };
 
           switch (p)
@@ -425,12 +434,13 @@ namespace build2
           case pending::out_document: add_here_end (c.out, move (w)); break;
           case pending::err_document: add_here_end (c.err, move (w)); break;
 
-          case pending::in_string:  c.in.value = move (w);  break;
-          case pending::out_string: c.out.value = move (w); break;
-          case pending::err_string: c.err.value = move (w); break;
+          case pending::in_string:  add_here_str (c.in,  move (w)); break;
+          case pending::out_string: add_here_str (c.out, move (w)); break;
+          case pending::err_string: add_here_str (c.err, move (w)); break;
           }
 
           p = pending::none;
+          nn = false;
         };
 
         // Make sure we don't have any pending positions to fill.
@@ -458,11 +468,11 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&c, &p, this] (const token& t, const location& l)
+          [&c, &p, &nn, this] (const token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
-          assert (p == pending::none);
+          assert (p == pending::none && !nn);
 
           // See if we have the file descriptor.
           //
@@ -497,8 +507,10 @@ namespace build2
           switch (tt)
           {
           case type::in_null:
-          case type::in_string:
-          case type::in_document:
+          case type::in_str:
+          case type::in_str_nn:
+          case type::in_doc:
+          case type::in_doc_nn:
             {
               if ((fd = fd == 3 ? 0 : fd) != 0)
                 fail (l) << "invalid in redirect file descriptor " << fd;
@@ -506,8 +518,10 @@ namespace build2
               break;
             }
           case type::out_null:
-          case type::out_string:
-          case type::out_document:
+          case type::out_str:
+          case type::out_str_nn:
+          case type::out_doc:
+          case type::out_doc_nn:
             {
               if ((fd = fd == 3 ? 1 : fd) == 0)
                 fail (l) << "invalid out redirect file descriptor " << fd;
@@ -520,11 +534,17 @@ namespace build2
           switch (tt)
           {
           case type::in_null:
-          case type::out_null:     rt = redirect_type::null;          break;
-          case type::in_string:
-          case type::out_string:   rt = redirect_type::here_string;   break;
-          case type::in_document:
-          case type::out_document: rt = redirect_type::here_document; break;
+          case type::out_null:   rt = redirect_type::null;          break;
+
+          case type::in_str_nn:
+          case type::out_str_nn: nn = true; // Fall through.
+          case type::in_str:
+          case type::out_str:    rt = redirect_type::here_string;   break;
+
+          case type::in_doc_nn:
+          case type::out_doc_nn: nn = true; // Fall through.
+          case type::in_doc:
+          case type::out_doc:    rt = redirect_type::here_document; break;
           }
 
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
@@ -574,12 +594,19 @@ namespace build2
               done = true;
               break;
             }
+
           case type::in_null:
-          case type::in_string:
-          case type::in_document:
           case type::out_null:
-          case type::out_string:
-          case type::out_document:
+
+          case type::in_str:
+          case type::in_doc:
+          case type::out_str:
+          case type::out_doc:
+
+          case type::in_str_nn:
+          case type::in_doc_nn:
+          case type::out_str_nn:
+          case type::out_doc_nn:
             {
               if (pre_parse_)
               {
@@ -587,10 +614,16 @@ namespace build2
                 // end markers since we need to know how many of the to pre-
                 // parse after the command.
                 //
+                nn = false;
+
                 switch (tt)
                 {
-                case type::in_document:
-                case type::out_document:
+                case type::in_doc_nn:
+                case type::out_doc_nn:
+                  nn = true;
+                  // Fall through.
+                case type::in_doc:
+                case type::out_doc:
                   // We require the end marker to be a literal, unquoted word.
                   // In particularm, we don't allow quoted because of cases
                   // like foo"$bar" (where we will see word 'foo').
@@ -600,7 +633,7 @@ namespace build2
                   if (tt != type::word || t.quoted)
                     fail (l) << "here-document end marker expected";
 
-                  hd.push_back (here_doc {nullptr, move (t.value)});
+                  hd.push_back (here_doc {nullptr, move (t.value), nn});
                   break;
                 }
 
@@ -618,11 +651,18 @@ namespace build2
               switch (tt)
               {
               case type::in_null:
-              case type::in_string:
-              case type::in_document:
               case type::out_null:
-              case type::out_string:
-              case type::out_document:
+
+              case type::in_str:
+              case type::in_doc:
+              case type::out_str:
+              case type::out_doc:
+
+              case type::in_str_nn:
+              case type::in_doc_nn:
+              case type::out_str_nn:
+              case type::out_doc_nn:
+
                 parse_redirect (t, l);
                 next (t, tt);
                 break;
@@ -750,15 +790,27 @@ namespace build2
                     switch (tt)
                     {
                     case type::in_null:
-                    case type::in_string:
                     case type::out_null:
-                    case type::out_string:
-                      parse_redirect (t, l);
-                      break;
-                    case type::in_document:
-                    case type::out_document:
-                      fail (l) << "here-document redirect in expansion";
-                      break;
+
+                    case type::in_str:
+                    case type::out_str:
+
+                    case type::in_str_nn:
+                    case type::out_str_nn:
+                      {
+                        parse_redirect (t, l);
+                        break;
+                      }
+
+                    case type::in_doc:
+                    case type::out_doc:
+
+                    case type::in_doc_nn:
+                    case type::out_doc_nn:
+                      {
+                        fail (l) << "here-document redirect in expansion";
+                        break;
+                      }
                     }
                   }
 
@@ -806,7 +858,7 @@ namespace build2
           mode (lexer_mode::here_line);
           next (t, tt);
 
-          string v (parse_here_document (t, tt, h.end));
+          string v (parse_here_document (t, tt, h.end, h.no_newline));
 
           if (!pre_parse_)
           {
@@ -857,7 +909,7 @@ namespace build2
       }
 
       string parser::
-      parse_here_document (token& t, type& tt, const string& em)
+      parse_here_document (token& t, type& tt, const string& em, bool nn)
       {
         string r;
 
@@ -880,6 +932,9 @@ namespace build2
 
           if (!pre_parse_)
           {
+            if (!r.empty ()) // Add newline after previous line.
+              r += '\n';
+
             // What shall we do if the expansion results in multiple names?
             // For, example if the line contains just the variable expansion
             // and it is of type strings. Adding all the elements space-
@@ -903,8 +958,6 @@ namespace build2
 
               r += s;
             }
-
-            r += '\n'; // Here-document line always includes a newline.
           }
 
           // We should expand the whole line at once so this would normally be
@@ -918,6 +971,11 @@ namespace build2
 
         if (tt == type::eos)
           fail (t) << "missing here-document end marker '" << em << "'";
+
+        // Add final newline if requested.
+        //
+        if (!pre_parse_ && !nn)
+          r += '\n';
 
         return r;
       }

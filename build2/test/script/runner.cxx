@@ -90,14 +90,7 @@ namespace build2
           {
             ofdstream os (orp);
             cln.add (orp);
-
             os << rd.value;
-
-            // Here-document is always newline-terminated.
-            //
-            if (rd.type == redirect_type::here_string)
-              os << endl;
-
             os.close ();
           }
           catch (const io_error& e)
@@ -313,12 +306,6 @@ namespace build2
             {
               ofdstream os (pr.out_fd);
               os << c.in.value;
-
-              // Here-document is always newline-terminated.
-              //
-              if (c.in.type == redirect_type::here_string)
-                os << endl;
-
               os.close ();
             }
 
