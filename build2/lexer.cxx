@@ -479,7 +479,7 @@ namespace build2
     bool r (sep_);
     sep_ = false;
 
-    // In some modes we don't skip spaces.
+    // In some special modes we don't skip spaces.
     //
     if (!state_.top ().sep_space)
       return r;
@@ -511,14 +511,50 @@ namespace build2
         }
       case '#':
         {
+          r = true;
           get ();
 
-          // Read until newline or eos.
+          // See if this is a multi-line comment in the form:
           //
-          for (c = peek (); !eos (c) && c != '\n'; c = peek ())
-            get ();
+          /*
+             #\
+             ...
+             #\
+          */
+          auto ml = [&c, this] () -> bool
+          {
+            if ((c = peek ()) == '\\')
+            {
+              get ();
+              if ((c = peek ()) == '\n')
+                return true;
+            }
 
-          r = true;
+            return false;
+          };
+
+          if (ml ())
+          {
+            // Scan until we see the closing one.
+            //
+            for (; !eos (c); c = peek ())
+            {
+              get ();
+              if (c == '#' && ml ())
+                break;
+            }
+
+            if (eos (c))
+              fail (c) << "unterminated multi-line comment";
+          }
+          else
+          {
+            // Read until newline or eos.
+            //
+            for (; !eos (c) && c != '\n'; c = peek ())
+              get ();
+          }
+
           continue;
         }
       case '\\':
