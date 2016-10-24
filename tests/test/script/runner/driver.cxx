@@ -6,6 +6,7 @@
 #include <string>
 #include <cassert>
 #include <ostream>   // endl, *bit
+#include <istream>   // istream::traits_type::eof()
 #include <iostream>
 #include <exception>
 
@@ -50,7 +51,7 @@ main (int argc, char* argv[])
 
       if (ifd == 0)
         cin.ignore (numeric_limits<streamsize>::max ());
-      else
+      else if (cin.peek () != istream::traits_type::eof ())
         (ifd == 1 ? cout : cerr) << cin.rdbuf ();
     }
     else if (o == "-o")

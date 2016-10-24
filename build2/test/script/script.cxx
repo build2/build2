@@ -37,23 +37,29 @@ namespace build2
           size_t n (string::traits_type::length (prefix));
           assert (n > 0);
 
-          //@@ TODO: we don't handle 'exact' (<: <<: etc). Could check for
-          //   lack of newline at the end of value. In fact, won't we write
-          //   here-end on the same line if <<:. Also will write newline at
-          //   the end of here-string in case of <.
-          //
+          const string& v (r.value);
+          bool nl (!v.empty () && v.back () == '\n');
+
           switch (r.type)
           {
-          case redirect_type::none:        assert (false);           break;
-          case redirect_type::pass:        o << '+';                 break;
-          case redirect_type::null:        o << '-';                 break;
-          case redirect_type::here_string: to_stream_q (o, r.value); break;
+          case redirect_type::none: assert (false); break;
+          case redirect_type::pass: o << '+';       break;
+          case redirect_type::null: o << '-';       break;
+
+          case redirect_type::here_string:
+            {
+              if (!nl)
+                o << ':';
+
+              to_stream_q (o, nl ? string (v, 0, v.size () - 1) : v);
+              break;
+            }
           case redirect_type::here_document:
             {
               // Add another '>' or '<'. Note that here end marker never
               // needs to be quoted.
               //
-              o << prefix[n - 1] << r.here_end;
+              o << prefix[n - 1] << (nl ? "" : ":") << r.here_end;
               break;
             }
           }
@@ -61,9 +67,9 @@ namespace build2
 
         auto print_doc = [&o] (const redirect& r)
         {
-          // Here-document value always ends with a newline.
-          //
-          o << endl << r.value << r.here_end;
+          const string& v (r.value);
+          bool nl (!v.empty () && v.back () == '\n');
+          o << endl << v << (nl ? "" : "\n") << r.here_end;
         };
 
         if ((m & command_to_stream::header) == command_to_stream::header)

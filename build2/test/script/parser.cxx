@@ -654,7 +654,7 @@ namespace build2
               if (pre_parse_)
               {
                 // The only thing we need to handle here are the here-document
-                // end markers since we need to know how many of the to pre-
+                // end markers since we need to know how many of them to pre-
                 // parse after the command.
                 //
                 nn = false;
