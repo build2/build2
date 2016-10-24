@@ -728,11 +728,13 @@ stdin:  '0'?(in-redirect)
 stdout: '1'?(out-redirect)
 stderr: '2'(out-redirect)
 
-in-redirect:  '<!'|\
+in-redirect:  '<-'|\
+              '<+'|\
               ('<'|'<:') <text>|\
               ('<<'|'<<:') <here-end>
 
-out-redirect: '>!'|\
+out-redirect: '>-'|\
+              '>+'|\
               ('>'|'>:') <text>|\
               ('>>'|'>>:') <here-end>
 

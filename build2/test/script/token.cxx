@@ -28,14 +28,14 @@ namespace build2
         case token_type::log_and:      os << q << "&&"  << q; break;
         case token_type::log_or:       os << q << "||"  << q; break;
 
-        case token_type::in_std:       os << q << "<+"  << q; break;
+        case token_type::in_pass:      os << q << "<+"  << q; break;
         case token_type::in_null:      os << q << "<-"  << q; break;
         case token_type::in_str:       os << q << '<'   << q; break;
         case token_type::in_str_nn:    os << q << "<:"  << q; break;
         case token_type::in_doc:       os << q << "<<"  << q; break;
         case token_type::in_doc_nn:    os << q << "<<:" << q; break;
 
-        case token_type::out_std:      os << q << ">+"  << q; break;
+        case token_type::out_pass:     os << q << ">+"  << q; break;
         case token_type::out_null:     os << q << ">-"  << q; break;
         case token_type::out_str:      os << q << '>'   << q; break;
         case token_type::out_str_nn:   os << q << ">:"  << q; break;

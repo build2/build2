@@ -37,10 +37,15 @@ namespace build2
           size_t n (string::traits_type::length (prefix));
           assert (n > 0);
 
+          //@@ TODO: we don't handle 'exact' (<: <<: etc). Could check for
+          //   lack of newline at the end of value. In fact, won't we write
+          //   here-end on the same line if <<:. Also will write newline at
+          //   the end of here-string in case of <.
+          //
           switch (r.type)
           {
           case redirect_type::none:        assert (false);           break;
-          case redirect_type::std:         o << '+';                 break;
+          case redirect_type::pass:        o << '+';                 break;
           case redirect_type::null:        o << '-';                 break;
           case redirect_type::here_string: to_stream_q (o, r.value); break;
           case redirect_type::here_document:

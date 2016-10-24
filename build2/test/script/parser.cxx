@@ -506,7 +506,7 @@ namespace build2
           //
           switch (tt)
           {
-          case type::in_std:
+          case type::in_pass:
           case type::in_null:
           case type::in_str:
           case type::in_str_nn:
@@ -518,7 +518,7 @@ namespace build2
 
               break;
             }
-          case type::out_std:
+          case type::out_pass:
           case type::out_null:
           case type::out_str:
           case type::out_str_nn:
@@ -535,8 +535,8 @@ namespace build2
           redirect_type rt;
           switch (tt)
           {
-          case type::in_std:
-          case type::out_std:    rt = redirect_type::std;           break;
+          case type::in_pass:
+          case type::out_pass:   rt = redirect_type::pass;          break;
 
           case type::in_null:
           case type::out_null:   rt = redirect_type::null;          break;
@@ -558,7 +558,7 @@ namespace build2
           switch (rt)
           {
           case redirect_type::none:
-          case redirect_type::std:
+          case redirect_type::pass:
           case redirect_type::null:
             break;
           case redirect_type::here_string:
@@ -601,8 +601,8 @@ namespace build2
               break;
             }
 
-          case type::in_std:
-          case type::out_std:
+          case type::in_pass:
+          case type::out_pass:
 
           case type::in_null:
           case type::out_null:
@@ -659,8 +659,8 @@ namespace build2
               //
               switch (tt)
               {
-              case type::in_std:
-              case type::out_std:
+              case type::in_pass:
+              case type::out_pass:
 
               case type::in_null:
               case type::out_null:
@@ -801,8 +801,8 @@ namespace build2
                     //
                     switch (tt)
                     {
-                    case type::in_std:
-                    case type::out_std:
+                    case type::in_pass:
+                    case type::out_pass:
 
                     case type::in_null:
                     case type::out_null:
