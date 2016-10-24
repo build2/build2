@@ -26,6 +26,9 @@ namespace build2
 
           semi = base_type::value_next, // ;
 
+          plus,                         // +
+          minus,                        // -
+
           pipe,                         // |
           clean,                        // &
           log_and,                      // &&

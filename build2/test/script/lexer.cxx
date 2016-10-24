@@ -30,12 +30,29 @@ namespace build2
             s2 = " ==          ";
             break;
           }
-        case lexer_mode::assign_line:
+        case lexer_mode::first_token:
           {
-            // As script_line but with variable assignments.
+            // First token on the script line. Like script_line but recognizes
+            // leading plus/minus and variable assignments as separators.
+            //
+            // Note that to recognize only leading plus/minus we shouldn't add
+            // them to the separator strings.
             //
             s1 = ";=+!|&<> $(#\t\n";
             s2 = "  ==          ";
+            break;
+          }
+        case lexer_mode::second_token:
+          {
+            // Second token on the script line. Like script_line but
+            // recognizes leading variable assignments.
+            //
+            // Note that to recognize only leading assignments we shouldn't
+            // add them to the separator strings (so this is identical to
+            // script_line).
+            //
+            s1 = ";=!|&<> $(#\t\n";
+            s2 = " ==          ";
             break;
           }
         case lexer_mode::variable_line:
@@ -87,7 +104,8 @@ namespace build2
         switch (state_.top ().mode)
         {
         case lexer_mode::script_line:
-        case lexer_mode::assign_line:
+        case lexer_mode::first_token:
+        case lexer_mode::second_token:
         case lexer_mode::variable_line:
         case lexer_mode::command_line:
         case lexer_mode::here_line:     r = next_line ();             break;
@@ -116,13 +134,13 @@ namespace build2
         if (eos (c))
           return make_token (type::eos);
 
-        state st (state_.top ()); // Make copy (see assign_line).
+        state st (state_.top ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
-        // Expire the assign mode at the end of the token. Do it early in case
+        // Expire certain modes at the end of the token. Do it early in case
         // we push any new mode (e.g., double quote).
         //
-        if (m == lexer_mode::assign_line)
+        if (m == lexer_mode::first_token || m == lexer_mode::second_token)
           state_.pop ();
 
         // NOTE: remember to update mode() if adding new special characters.
@@ -161,8 +179,9 @@ namespace build2
 
         // Line separators.
         //
-        if (m == lexer_mode::script_line ||
-            m == lexer_mode::assign_line ||
+        if (m == lexer_mode::script_line  ||
+            m == lexer_mode::first_token  ||
+            m == lexer_mode::second_token ||
             m == lexer_mode::variable_line)
         {
           switch (c)
@@ -173,7 +192,9 @@ namespace build2
 
         // Command line operator/separators.
         //
-        if (m == lexer_mode::script_line || m == lexer_mode::assign_line)
+        if (m == lexer_mode::script_line ||
+            m == lexer_mode::first_token ||
+            m == lexer_mode::second_token)
         {
           switch (c)
           {
@@ -193,8 +214,9 @@ namespace build2
 
         // Command operators/separators.
         //
-        if (m == lexer_mode::script_line ||
-            m == lexer_mode::assign_line ||
+        if (m == lexer_mode::script_line  ||
+            m == lexer_mode::first_token  ||
+            m == lexer_mode::second_token ||
             m == lexer_mode::command_line)
         {
           switch (c)
@@ -291,9 +313,20 @@ namespace build2
           }
         }
 
+        // Plus/minus.
+        //
+        if (m == lexer_mode::first_token)
+        {
+          switch (c)
+          {
+          case '+': return make_token (type::plus);
+          case '-': return make_token (type::minus);
+          }
+        }
+
         // Variable assignment (=, +=, =+).
         //
-        if (m == lexer_mode::assign_line)
+        if (m == lexer_mode::second_token)
         {
           switch (c)
           {

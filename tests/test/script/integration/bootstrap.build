@@ -1,0 +1,4 @@
+project = test
+amalgamation =
+
+using test

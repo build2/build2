@@ -704,20 +704,34 @@ here-document fragments.
 
 \
 script:
-  *script-line
+  scope-body
 
-script-line:
-  variable-line|test-line
+scope-body:
+  *setup
+  *(scope|test)
+  *teardown
+
+setup:
+  variable-line|setup-line
+
+teardown:
+  variable-line|teardown-line
+
+scope:
+  '{'
+  scope-body
+  '}'
+
+test:
+  *((variable-line|test-line) ';')
+  test-line
 
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
-test-line:
-  *((variable-line|command-line) ';')
-  command-line
-
-command-line:
-  command
+setup-line:    '+' command
+teardown-line: '-' command
+test-line:         command
 
 command: <path>(' '+(<arg>|redirect))* command-exit?
   *here-document

@@ -1,4 +1,20 @@
 
+$* <<EOI >>EOO  # blank-lines
+cmd <<EOF
+foo
+
+bar
+
+EOF
+EOI
+cmd <<EOF
+foo
+
+bar
+
+EOF
+EOO
+
 # quote
 #
 # Note: they are still recognized in eval contexts.

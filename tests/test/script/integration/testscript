@@ -1,0 +1,27 @@
+# file      : tests/test/script/integration/testscript
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.options += --buildfile -
+test.arguments = test
+
++mkdir build
+#+cat <<EOI >>>build/boostrap.build
+#project = test
+#amalgamation =
+#
+#using test
+#EOI
++cp $src_base/bootstrap.build build/
+
+touch testscript foo.test;
+$* <<EOI 2>>EOE != 0;
+./: test{testscript foo}
+EOI
+error: both 'testscript' and other names specified for dir{./}
+info: while testing dir{./}
+EOE
+rm -f testscript foo.test
+
+-rm -f build/bootstrap.build
+-rmdir build/

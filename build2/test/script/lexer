@@ -25,7 +25,8 @@ namespace build2
         enum
         {
           script_line = base_type::value_next,
-          assign_line,   // Auto-expires at the end of the token.
+          first_token,   // Auto-expires at the end of the token.
+          second_token,  // Auto-expires at the end of the token.
           variable_line, // Auto-expires at the end of the line.
           command_line,
           here_line

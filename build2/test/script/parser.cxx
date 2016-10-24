@@ -72,10 +72,9 @@ namespace build2
           //
           replay_save ();
 
-          // We need to start lexing each line in the assign mode in order to
-          // recognize assignment operators as separators.
+          // Start lexing each line recognizing leading plus/minus.
           //
-          mode (lexer_mode::assign_line);
+          mode (lexer_mode::first_token);
           next (t, tt);
 
           if (group_->start_loc_.empty ())
@@ -111,11 +110,36 @@ namespace build2
           // semicolon and we should add this one to the same place.
           //
           if (lines_ != nullptr)
+          {
+            switch (lt.first)
+            {
+            case line_type::setup: fail (ll) << "setup command in test";
+            case line_type::tdown: fail (ll) << "teardown command in test";
+            default: break;
+            }
+
             ls = lines_;
+          }
           else
           {
             switch (lt.first)
             {
+            case line_type::setup:
+              {
+                if (!group_->scopes.empty ())
+                  fail (ll) << "setup command after tests";
+
+                if (!group_->tdown_.empty ())
+                  fail (ll) << "setup command after teardown";
+
+                ls = &group_->setup_;
+                break;
+              }
+            case line_type::tdown:
+              {
+                ls = &group_->tdown_;
+                break;
+              }
             case line_type::variable:
               {
                 // If there is a semicolon after the variable then we assume
@@ -142,10 +166,10 @@ namespace build2
                 // This will detect things like variable assignments between
                 // tests.
                 //
-                // @@ Can the teardown line be from a different file?
-                //
                 if (!group_->tdown_.empty ())
                 {
+                  // @@ Can the teardown line be from a different file?
+                  //
                   location tl (
                     get_location (
                       group_->tdown_.back ().tokens.front ().token));
@@ -249,11 +273,11 @@ namespace build2
         //
         if (tt == type::word && !t.quoted)
         {
-          // Switch recognition of variable assignments for one more token.
-          // This is safe to do because we know we cannot be in the quoted
-          // mode (since the current token is not quoted).
+          // Switch recognition of leading variable assignments for the next
+          // token. This is safe to do because we know we cannot be in the
+          // quoted mode (since the current token is not quoted).
           //
-          mode (lexer_mode::assign_line);
+          mode (lexer_mode::second_token);
           type p (peek ());
 
           if (p == type::assign || p == type::prepend || p == type::append)
@@ -263,7 +287,14 @@ namespace build2
           }
         }
 
-        return make_pair (line_type::test, parse_test_line (t, tt, 0));
+        line_type lt (tt == type::plus  ? line_type::setup :
+                      tt == type::minus ? line_type::tdown :
+                      line_type::test);
+
+        if (lt != line_type::test)
+          next (t, tt);
+
+        return make_pair (lt, parse_command_line (t, tt, 0));
       }
 
       void parser::
@@ -272,7 +303,10 @@ namespace build2
         switch (lt)
         {
         case line_type::variable: parse_variable_line (t, tt);     break;
-        case line_type::test:     parse_test_line     (t, tt, li); break;
+
+        case line_type::setup:
+        case line_type::tdown:    next (t, tt); // Skip plus/minus fallthrough.
+        case line_type::test:     parse_command_line  (t, tt, li); break;
         }
       }
 
@@ -363,7 +397,7 @@ namespace build2
       }
 
       bool parser::
-      parse_test_line (token& t, type& tt, size_t li)
+      parse_command_line (token& t, type& tt, size_t li)
       {
         command c;
 
@@ -941,9 +975,11 @@ namespace build2
             break;
           }
 
-          // Expand the line.
+          // Expand the line (can be blank).
           //
-          names ns (parse_names (t, tt, false, "here-document line", nullptr));
+          names ns (tt != type::newline
+                    ? parse_names (t, tt, false, "here-document line", nullptr)
+                    : names ());
 
           if (!pre_parse_)
           {

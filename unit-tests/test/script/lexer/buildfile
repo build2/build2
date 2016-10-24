@@ -8,6 +8,6 @@ import libs = libbutl%lib{butl}
 src = token lexer diagnostics utility variable name test/script/{token lexer}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
-test{script-line assign-line variable-line variable comment}
+test{script-line first-token second-token variable-line variable comment}
 
 include ../../../../build2/

@@ -70,7 +70,7 @@ namespace build2
       {
         tracer trace ("main");
 
-        init (1);           // Default verbosity.
+        init ("false", 1);  // No build system driver, default verbosity.
         reset (strings ()); // No command line variables.
 
         bool scope (false);
