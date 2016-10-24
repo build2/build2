@@ -1,4 +1,4 @@
-// file      : tests/test/script/driver.cxx -*- C++ -*-
+// file      : tests/test/script/runner/driver.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
