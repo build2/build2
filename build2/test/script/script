@@ -217,7 +217,9 @@ namespace build2
       class script: public script_base, public group
       {
       public:
-        script (target& test_target, testscript& script_target);
+        script (target& test_target,
+                testscript& script_target,
+                const dir_path& root_wd);
 
       public:
         target& test_target;       // Target we are testing.

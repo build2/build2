@@ -7,6 +7,7 @@
 #include <build2/scope>
 #include <build2/target>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 
 #include <build2/test/target>
@@ -354,33 +355,93 @@ namespace build2
     target_state rule::
     perform_script (action, target& t)
     {
+      // Figure out whether the testscript file is called 'testscript', in
+      // which case it should be the only one.
+      //
+      optional<bool> one;
       for (target* pt: t.prerequisite_targets)
       {
         // In case we are using the alias rule's list (see above).
         //
-        if (testscript* st = pt->is_a<testscript> ())
+        if (testscript* ts = pt->is_a<testscript> ())
         {
-          const path& sp (st->path ());
-          assert (!sp.empty ()); // Should have been assigned by update.
+          bool r (ts->name == "testscript");
 
-          if (verb)
-            text << "test " << t << " with " << *st;
+          if ((r && one) || (!r && one && *one))
+            fail << "both 'testscript' and other names specified for " << t;
 
-          try
-          {
-            script::script s (t, *st);
-            script::concurrent_runner r;
-
-            ifdstream ifs (sp);
-            script::parser p;
-            p.pre_parse (ifs, sp, s);
-            p.parse (sp, s, r);
-          }
-          catch (const io_error& e)
-          {
-            fail << "unable to read testscript " << sp << ": " << e.what ();
-          }
+          one = r;
         }
+      }
+
+      assert (one); // We should have a testscript or we wouldn't be here.
+
+      // Calculate root working directory. It is in the out_base of the target
+      // and is called just test for dir{} targets and test-<target-name> for
+      // other targets.
+      //
+      dir_path wd (t.out_dir ());
+
+      if (t.is_a<dir> ())
+        wd /= "test";
+      else
+        wd /= "test-" + t.name;
+
+      // If this is a (potentially) multi-testscript test, then create (and
+      // cleanup) the root directory. If this is just 'testscript', then the
+      // root directory is used directly as test's working directory and it's
+      // the runner's responsibility to create and clean it up.
+      //
+      if (!*one)
+      {
+        if (!exists (wd))
+          mkdir (wd, 2);
+        else if (!empty (wd))
+          fail << "working directory " << wd << " is not empty at the "
+               << "beginning of the test";
+      }
+
+      // Run all the testscripts.
+      //
+      auto run = [&t, &wd] (testscript& ts)
+      {
+        if (verb)
+          text << "test " << t << " with " << ts;
+
+        const path& sp (ts.path ());
+        assert (!sp.empty ()); // Should have been assigned by update.
+
+        try
+        {
+          script::script s (t, ts, wd);
+          script::concurrent_runner r;
+
+          ifdstream ifs (sp);
+          script::parser p;
+          p.pre_parse (ifs, sp, s);
+          p.parse (sp, s, r);
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to read testscript " << sp << ": " << e.what ();
+        }
+      };
+
+      for (target* pt: t.prerequisite_targets)
+      {
+        if (testscript* ts = pt->is_a<testscript> ())
+          run (*ts);
+      }
+
+      // Cleanup.
+      //
+      if (!*one)
+      {
+        if (!empty (wd))
+          fail << "working directory " << wd << " is not empty at the "
+               << "end of the test";
+
+        rmdir (wd, 2);
       }
 
       return target_state::changed;

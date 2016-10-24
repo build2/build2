@@ -254,7 +254,7 @@ namespace build2
             path r (sp.wd_path / path (nm));
 
             if (ci > 0)
-              r += "-" + to_string (ci);
+              r += "-" + to_string (ci + 1); // Start from first line.
 
             return r;
           };

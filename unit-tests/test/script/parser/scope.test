@@ -2,12 +2,12 @@ $* testscript <'cmd $@' >"cmd 1"     # id-testscript
 $* foo.test   <'cmd $@' >"cmd foo/1" # id
 
 wd = [dir_path] $~;
-wd += test;
+wd += test-driver;
 wd += 1;
 $* testscript <'cmd $~' >"cmd $wd"   # wd-testscript
 
 wd = [dir_path] $~;
-wd += test;
+wd += test-driver;
 wd += foo;
 wd += 1;
 $* foo.test   <'cmd $~' >"cmd $wd"   # wd

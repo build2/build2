@@ -120,7 +120,7 @@ namespace build2
 
           // Parse and run.
           //
-          script s (tt, st);
+          script s (tt, st, dir_path (work) /= "test-driver");
           print_runner r (scope);
 
           parser p;

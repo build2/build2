@@ -159,19 +159,14 @@ namespace build2
       }
 
       script::
-      script (target& tt, testscript& st)
+      script (target& tt, testscript& st, const dir_path& rwd)
           : group (script_id (st.path ())),
             test_target (tt), script_target (st)
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
-        // for root is just the id).
+        // for root is just the id which is empty if st is 'testscript').
         //
-        {
-          auto& wd (const_cast<dir_path&> (wd_path));
-          wd = tt.out_dir ();
-          wd /= "test";
-          wd /= id_path.string ();
-        }
+        const_cast<dir_path&> (wd_path) = dir_path (rwd) /= id_path.string ();
 
         // Unless we have the test variable set on the test or script target,
         // set it at the script level to the test target's path.
@@ -180,14 +175,14 @@ namespace build2
         {
           value& v (assign (test_var));
 
-          // If this is a path-based target, then we use the path. If this
-          // is a directory (alias) target, then we use the directory path.
-          // Otherwise, we leave it NULL expecting the testscript to set it
-          // to something appropriate, if used.
+          // If this is a path-based target, then we use the path. If this is
+          // an alias target (e.g., dir{}), then we use the directory path.
+          // Otherwise, we leave it NULL expecting the testscript to set it to
+          // something appropriate, if used.
           //
           if (auto* p = tt.is_a<path_target> ())
             v = p->path ();
-          else if (tt.is_a<dir> ())
+          else if (tt.is_a<alias> ())
             v = path (tt.dir.string ()); // Strip trailing slash.
         }
 
