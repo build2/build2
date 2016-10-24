@@ -41,6 +41,7 @@ namespace build2
       enum class redirect_type
       {
         none,
+        std,
         null,
         here_string,  // Value is the string.
         here_document // Value is the document.

@@ -229,12 +229,13 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '-' || p == ':' || p == '<')
+              if (p == '+' || p == '-' || p == ':' || p == '<')
               {
                 get ();
 
                 switch (p)
                 {
+                case '+': return make_token (type::in_std);
                 case '-': return make_token (type::in_null);
                 case ':': return make_token (type::in_str_nn);
                 case '<':
@@ -261,12 +262,13 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '-' || p == ':' || p == '>')
+              if (p == '+' || p == '-' || p == ':' || p == '>')
               {
                 get ();
 
                 switch (p)
                 {
+                case '+': return make_token (type::out_std);
                 case '-': return make_token (type::out_null);
                 case ':': return make_token (type::out_str_nn);
                 case '>':

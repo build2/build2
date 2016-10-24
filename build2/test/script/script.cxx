@@ -40,6 +40,7 @@ namespace build2
           switch (r.type)
           {
           case redirect_type::none:        assert (false);           break;
+          case redirect_type::std:         o << '+';                 break;
           case redirect_type::null:        o << '-';                 break;
           case redirect_type::here_string: to_stream_q (o, r.value); break;
           case redirect_type::here_document:
