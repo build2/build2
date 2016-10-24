@@ -228,10 +228,18 @@ namespace build2
           //    process to hang which can be interpreted as a test failure.
           // @@ Both ways are quite ugly. Is there some better way to do this?
           //
-          int in (c.in.type == redirect_type::null ||
-                  c.in.type == redirect_type::none
-                  ? -2
-                  : -1);
+          int in;
+
+          switch (c.in.type)
+          {
+          case redirect_type::pass:          in =  0; break;
+
+          case redirect_type::here_string:
+          case redirect_type::here_document: in = -1; break;
+
+          case redirect_type::null:
+          case redirect_type::none:          in = -2; break;
+          }
 
           // Dealing with stdout and stderr redirect types other than 'null'
           // using pipes is tricky in the general case. Going this path we
@@ -277,16 +285,20 @@ namespace build2
           ofdstream so;
           path stdout (opath ("stdout"));
 
-          int out (c.out.type == redirect_type::null
-                   ? -2
-                   : open (so, stdout));
+          int out (c.out.type == redirect_type::pass
+                   ? 1
+                   : c.out.type == redirect_type::null
+                     ? -2
+                     : open (so, stdout));
 
           ofdstream se;
           path stderr (opath ("stderr"));
 
-          int err (c.err.type == redirect_type::null
-                   ? -2
-                   : open (se, stderr));
+          int err (c.err.type == redirect_type::pass
+                   ? 2
+                   : c.err.type == redirect_type::null
+                     ? -2
+                     : open (se, stderr));
 
           if (verb >= 2)
             print_process (args);
