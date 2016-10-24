@@ -31,13 +31,13 @@ namespace build2
           log_and,                      // &&
           log_or,                       // ||
 
-          in_null,                      // <!
+          in_null,                      // <-
           in_str,                       // <
           in_str_nn,                    // <:
           in_doc,                       // <<
           in_doc_nn,                    // <<:
 
-          out_null,                     // >!
+          out_null,                     // >-
           out_str,                      // >
           out_str_nn,                   // >:
           out_doc,                      // >>
