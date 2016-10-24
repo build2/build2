@@ -89,6 +89,7 @@ namespace build2
     return l;
   }
 
+  path argv0;
   dir_path work;
   dir_path home;
   const dir_path* relative_base = &work;
@@ -505,8 +506,10 @@ namespace build2
   bool exception_unwinding_dtor = false;
 
   void
-  init (uint16_t v)
+  init (const char* a0, uint16_t v)
   {
+    argv0 = path (a0);
+
     // Diagnostics verbosity.
     //
     verb = v;

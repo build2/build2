@@ -161,7 +161,8 @@ main (int argc, char* argv[])
 
     // Global initializations.
     //
-    init (ops.verbose_specified ()
+    init (argv[0],
+          ops.verbose_specified ()
           ? ops.verbose ()
           : ops.V () ? 3 : ops.v () ? 2 : ops.q () ? 0 : 1);
 

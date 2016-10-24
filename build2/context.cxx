@@ -238,6 +238,8 @@ namespace build2
       v.insert<string> ("extension", variable_visibility::target);
     }
 
+    gs.assign<path> ("build.driver") = argv0;
+
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
 
