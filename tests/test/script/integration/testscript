@@ -14,14 +14,46 @@ test.arguments = test
 #EOI
 +cp $src_base/bootstrap.build build/
 
-touch testscript foo.test;
+# @@ TODO: redo as scope.
+#
+touch testscript foo.test bar.test;
 $* <<EOI 2>>EOE != 0;
 ./: test{testscript foo}
 EOI
 error: both 'testscript' and other names specified for dir{./}
 info: while testing dir{./}
 EOE
-rm -f testscript foo.test
+$* <<EOI 2>>EOE != 0;
+./: test{foo testscript}
+EOI
+error: both 'testscript' and other names specified for dir{./}
+info: while testing dir{./}
+EOE
+$* <<EOI 2>>EOE;
+./: test{foo bar}
+EOI
+test dir{./} with test{foo}
+test dir{./} with test{bar}
+EOE
+rm -f testscript foo.test bar.test
+
+# work-dir-not-empty-begin
+#
+touch foo.test;
+mkdir test;
+touch test/dummy;
+$* <<EOI 2>>EOE != 0;
+./: test{foo}
+EOI
+error: working directory test/ is not empty at the beginning of the test
+info: while testing dir{./}
+EOE
+rm -f test/dummy foo.test;
+rmdir test
+
+# work-dir-not-empty-end
+#
+# @@ No (easy) way to test this.
 
 -rm -f build/bootstrap.build
 -rmdir build/
