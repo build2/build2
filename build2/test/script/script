@@ -122,6 +122,11 @@ namespace build2
         const path& id_path;     // Id path ($@, relative in POSIX form).
         const dir_path& wd_path; // Working dir ($~, absolute and normalized).
 
+        // Files and directories that must be automatically removed when the
+        // scope is left.
+        //
+        paths rm_paths;
+
         // Variables.
         //
       public:

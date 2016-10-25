@@ -2,14 +2,13 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <set>
+#include <build2/test/script/runner>
+
 #include <iostream> // cerr
 
 #include <build2/filesystem>
-#include <build2/test/script/runner>
 
 using namespace std;
-using namespace butl;
 
 namespace build2
 {
@@ -17,27 +16,6 @@ namespace build2
   {
     namespace script
     {
-      // @@ Eventually the cleanup facility should move into the scope object.
-      //
-      class cleanup
-      {
-      public:
-        void
-        add (path p) {files_.emplace (move (p));}
-
-        void
-        cancel (const path& p) {files_.erase (p);}
-
-        ~cleanup ()
-        {
-          for (const auto& p: files_)
-            try_rmfile (p, true);
-        }
-
-      private:
-        set<path> files_;
-      };
-
       // Check if the file exists and is not empty.
       //
       static bool
@@ -67,19 +45,15 @@ namespace build2
                     const path& op,
                     const redirect& rd,
                     const location& cl,
-                    cleanup& cln)
+                    scope& sp)
       {
         if (rd.type == redirect_type::none)
         {
           // Check that there is no output produced.
           //
           if (non_empty (op))
-          {
-            cln.cancel (op);
-
             fail (cl) << pr << " unexpectedly writes to " << nm <<
               info << nm << " is saved to " << op;
-          }
         }
         else if (rd.type == redirect_type::here_string ||
                  rd.type == redirect_type::here_document)
@@ -89,7 +63,7 @@ namespace build2
           try
           {
             ofdstream os (orp);
-            cln.add (orp);
+            sp.rm_paths.emplace_back (orp);
             os << rd.value;
             os.close ();
           }
@@ -127,25 +101,21 @@ namespace build2
               if (p.wait ())
                 return;
 
-              // Output doesn't match the expected result. Keep non-empty
-              // output and the expected result for troubleshooting.
+              // Output doesn't match the expected result.
               //
-              cln.cancel (orp);
-
               diag_record d (error (cl));
               d << pr << " " << nm << " doesn't match the expected output";
 
-              if (non_empty (op))
+              auto output_info = [&d, &nm] (const path& p, const char* prefix)
               {
-                cln.cancel (op);
-                d << info << nm << " is saved to " << op;
-              }
-              else
-                d << info << nm << " is empty";
+                if (non_empty (p))
+                  d << info << prefix << nm << " is saved to " << p;
+                else
+                  d << info << prefix << nm << " is empty";
+              };
 
-              // Expected output is never empty (contains at least newline).
-              //
-              d << info << "expected " << nm << " is saved to " << orp;
+              output_info (op, "");
+              output_info (orp, "expected ");
 
               // Fall through.
               //
@@ -186,13 +156,30 @@ namespace build2
           //
           fail << "directory " << sp.wd_path << " is not empty" <<
             info << "clean it up and rerun";
+
+        sp.rm_paths.emplace_back (sp.wd_path);
       }
 
       void concurrent_runner::
-      leave (scope& sp, const location&)
+      leave (scope& sp, const location& cl)
       {
-        if (exists (sp.wd_path) && empty (sp.wd_path))
-          rmdir (sp.wd_path, 2);
+        for (const auto& p: reverse_iterate (sp.rm_paths))
+        {
+          if (p.to_directory ())
+          {
+            dir_path d (path_cast<dir_path> (p));
+            rmdir_status r (rmdir (d, 2));
+
+            if (r != rmdir_status::success)
+              fail (cl) << "registered for cleanup directory " << d
+                        << (r == rmdir_status::not_empty
+                            ? " not empty"
+                            : " does not exist");
+          }
+          else if (rmfile (p, 2) == rmfile_status::not_exist)
+            fail (cl) << "registered for cleanup file " << p
+                      << " does not exist";
+        }
       }
 
       void concurrent_runner::
@@ -219,8 +206,8 @@ namespace build2
           // the child process doesn't read from stdin. That is tricky to do in
           // a portable way. Here we suppose that the program which
           // (erroneously) tries to read some data from stdin being redirected
-          // to /dev/null fails not being able to do read expected data, and so
-          // the test doesn't pass through.
+          // to /dev/null fails not being able to read the expected data, and
+          // so the test doesn't pass through.
           //
           // @@ Obviously doesn't cover the case when the process reads
           //    whatever available.
@@ -243,20 +230,18 @@ namespace build2
 
           // Dealing with stdout and stderr redirect types other than 'null'
           // using pipes is tricky in the general case. Going this path we
-          // would need to read both streams in a non-blocking manner which we
+          // would need to read both streams in non-blocking manner which we
           // can't (easily) do in a portable way. Using diff utility to get a
-          // nice-looking actual/expected output difference would complicate
+          // nice-looking actual/expected outputs difference would complicate
           // things further.
           //
-          // So the approach is the following. Child standard stream are
+          // So the approach is the following. Child standard streams are
           // redirected to files. When the child exits and the exit status is
           // validated we just sequentially compare each file content with the
           // expected output. The positive side-effect of this approach is that
           // the output of a faulty test command can be provided for
           // troubleshooting.
           //
-          cleanup cln;
-
           auto opath = [sp, ci] (const char* nm) -> path
           {
             path r (sp.wd_path / path (nm));
@@ -267,12 +252,12 @@ namespace build2
             return r;
           };
 
-          auto open = [&cln] (ofdstream& os, const path& p) -> int
+          auto open = [&sp] (ofdstream& os, const path& p) -> int
           {
             try
             {
               os.open (p);
-              cln.add (p);
+              sp.rm_paths.emplace_back (p);
             }
             catch (const io_error& e)
             {
@@ -326,9 +311,7 @@ namespace build2
             pr.wait ();
 
             // If there is no correct exit status by whatever reason then dump
-            // stderr (if cached), keep both stdout and stderr (those which
-            // are cached) for troubleshooting, print the proper diagnostics
-            // and finally fail.
+            // stderr (if cached), print the proper diagnostics and fail.
             //
             optional<process::status_type> status (move (pr.status));
             bool valid_status (status && *status >= 0 && *status < 256);
@@ -355,7 +338,7 @@ namespace build2
                 }
               }
 
-              // Keep non-empty cache files and fail with a proper diagnostics.
+              // Fail with a proper diagnostics.
               //
               diag_record d (fail (cl));
 
@@ -371,23 +354,17 @@ namespace build2
               else
                 assert (false);
 
-              auto keep_output = [&d, &cln] (const char* name, const path& p)
-              {
-                if (non_empty (p))
-                {
-                  cln.cancel (p);
-                  d << info << name << " is saved to " << p;
-                }
-              };
+              if (non_empty (stdout))
+                d << info << "stdout is saved to " << stdout;
 
-              keep_output ("stdout", stdout);
-              keep_output ("stderr", stderr);
+              if (non_empty (stderr))
+                d << info << "stderr is saved to " << stderr;
             }
 
             // Check if the standard outputs match expectations.
             //
-            check_output (pp, "stdout", stdout, c.out, cl, cln);
-            check_output (pp, "stderr", stderr, c.err, cl, cln);
+            check_output (pp, "stdout", stdout, c.out, cl, sp);
+            check_output (pp, "stderr", stderr, c.err, cl, sp);
           }
           catch (const io_error& e)
           {
