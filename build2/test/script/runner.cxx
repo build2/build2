@@ -63,7 +63,7 @@ namespace build2
           try
           {
             ofdstream os (orp);
-            sp.rm_paths.emplace_back (orp);
+            sp.cleanups.emplace_back (orp);
             os << rd.value;
             os.close ();
           }
@@ -157,13 +157,13 @@ namespace build2
           fail << "directory " << sp.wd_path << " is not empty" <<
             info << "clean it up and rerun";
 
-        sp.rm_paths.emplace_back (sp.wd_path);
+        sp.cleanups.emplace_back (sp.wd_path);
       }
 
       void concurrent_runner::
       leave (scope& sp, const location& cl)
       {
-        for (const auto& p: reverse_iterate (sp.rm_paths))
+        for (const auto& p: reverse_iterate (sp.cleanups))
         {
           if (p.to_directory ())
           {
@@ -173,7 +173,7 @@ namespace build2
             if (r != rmdir_status::success)
               fail (cl) << "registered for cleanup directory " << d
                         << (r == rmdir_status::not_empty
-                            ? " not empty"
+                            ? " is not empty"
                             : " does not exist");
           }
           else if (rmfile (p, 2) == rmfile_status::not_exist)
@@ -257,7 +257,7 @@ namespace build2
             try
             {
               os.open (p);
-              sp.rm_paths.emplace_back (p);
+              sp.cleanups.emplace_back (p);
             }
             catch (const io_error& e)
             {
