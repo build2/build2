@@ -14,6 +14,8 @@ namespace build2
   {
     namespace script
     {
+      // Utility functions
+      //
       // Quote if empty or contains spaces or any of the special characters.
       //
       // @@ What if it contains quotes, escapes?
@@ -37,8 +39,7 @@ namespace build2
           size_t n (string::traits_type::length (prefix));
           assert (n > 0);
 
-          const string& v (r.value);
-          bool nl (!v.empty () && v.back () == '\n');
+          char d (prefix[n - 1]); // Redirect direction.
 
           switch (r.type)
           {
@@ -48,6 +49,9 @@ namespace build2
 
           case redirect_type::here_string:
             {
+              const string& v (r.str);
+              bool nl (!v.empty () && v.back () == '\n');
+
               if (!nl)
                 o << ':';
 
@@ -56,10 +60,22 @@ namespace build2
             }
           case redirect_type::here_document:
             {
+              const string& v (r.doc.doc);
+              bool nl (!v.empty () && v.back () == '\n');
+
               // Add another '>' or '<'. Note that here end marker never
               // needs to be quoted.
               //
-              o << prefix[n - 1] << (nl ? "" : ":") << r.here_end;
+              o << d << (nl ? "" : ":") << r.doc.end;
+              break;
+            }
+          case redirect_type::file:
+            {
+              using build2::operator<<;
+
+              // Add '>>' or '<<' (and so make it '<<<' or '>>>').
+              //
+              o << d << d << (r.file.append ? "&" : "") << r.file.path;
               break;
             }
           }
@@ -67,9 +83,9 @@ namespace build2
 
         auto print_doc = [&o] (const redirect& r)
         {
-          const string& v (r.value);
+          const string& v (r.doc.doc);
           bool nl (!v.empty () && v.back () == '\n');
-          o << endl << v << (nl ? "" : "\n") << r.here_end;
+          o << endl << v << (nl ? "" : "\n") << r.doc.end;
         };
 
         if ((m & command_to_stream::header) == command_to_stream::header)
@@ -114,6 +130,108 @@ namespace build2
         }
       }
 
+      // redirect
+      //
+      redirect::
+      redirect (redirect_type t)
+          : type (t)
+      {
+        switch (type)
+        {
+        case redirect_type::none:
+        case redirect_type::pass:
+        case redirect_type::null: break;
+
+        case redirect_type::here_string:   new (&str)  string ();    break;
+        case redirect_type::here_document: new (&doc)  doc_type ();  break;
+        case redirect_type::file:          new (&file) file_type (); break;
+        }
+      }
+
+      redirect::
+      redirect (redirect&& r)
+          : type (r.type)
+      {
+        switch (type)
+        {
+        case redirect_type::none:
+        case redirect_type::pass:
+        case redirect_type::null: break;
+
+        case redirect_type::here_string:
+          {
+            new (&str) string (move (r.str));
+            break;
+          }
+        case redirect_type::here_document:
+          {
+            new (&doc) doc_type (move (r.doc));
+            break;
+          }
+        case redirect_type::file:
+          {
+            new (&file) file_type (move (r.file));
+            break;
+          }
+        }
+      }
+
+      redirect::
+      redirect (const redirect& r)
+          : type (r.type)
+      {
+        switch (type)
+        {
+        case redirect_type::none:
+        case redirect_type::pass:
+        case redirect_type::null: break;
+
+        case redirect_type::here_string:   new (&str) string (r.str);   break;
+        case redirect_type::here_document: new (&doc) doc_type (r.doc); break;
+        case redirect_type::file:
+          {
+            new (&file) file_type (r.file);
+            break;
+          }
+        }
+      }
+
+      redirect::
+      ~redirect ()
+      {
+        switch (type)
+        {
+        case redirect_type::none:
+        case redirect_type::pass:
+        case redirect_type::null: break;
+
+        case redirect_type::here_string:   str.~string ();     break;
+        case redirect_type::here_document: doc.~doc_type ();   break;
+        case redirect_type::file:          file.~file_type (); break;
+        }
+      }
+
+      redirect& redirect::
+      operator= (redirect&& r)
+      {
+        if (this != &r)
+        {
+          this->~redirect ();
+          new (this) redirect (move (r)); // Assume noexcept move-constructor.
+        }
+        return *this;
+      }
+
+      redirect& redirect::
+      operator= (const redirect& r)
+      {
+        if (this != &r)
+          *this = redirect (r); // Reduce to move-assignment.
+        return *this;
+      }
+
+      // scope
+      //
       scope::
       scope (const string& id, scope* p)
           : parent (p),
@@ -143,6 +261,8 @@ namespace build2
           const_cast<dir_path&> (wd_path) = dir_path (p->wd_path) /= id;
       }
 
+      // script_base
+      //
       script_base::
       script_base ()
           : // Enter the test* variables with the same variable types as in
@@ -156,6 +276,8 @@ namespace build2
             wd_var (var_pool.insert<dir_path> ("~")),
             id_var (var_pool.insert<path> ("@")) {}
 
+      // script
+      //
       static inline string
       script_id (const path& p)
       {

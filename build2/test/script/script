@@ -43,15 +43,44 @@ namespace build2
         none,
         pass,
         null,
-        here_string,  // Value is the string.
-        here_document // Value is the document.
+        here_string,
+        here_document,
+        file
       };
 
       struct redirect
       {
-        redirect_type type = redirect_type::none;
-        string value;    // Note: includes trailing newline, if required.
-        string here_end; // Only for here-documents.
+        redirect_type type;
+
+        struct doc_type
+        {
+          string doc; // Note: includes trailing newline, if required.
+          string end;
+        };
+
+        struct file_type
+        {
+          using path_type = build2::path;
+          path_type path;
+          bool append = false;
+        };
+
+        union
+        {
+          string    str; // Note: includes trailing newline, if required.
+          doc_type  doc;
+          file_type file;
+        };
+
+        explicit
+        redirect (redirect_type = redirect_type::none);
+
+        redirect (redirect&&);
+        redirect (const redirect&);
+        redirect& operator= (redirect&&);
+        redirect& operator= (const redirect&);
+
+        ~redirect ();
       };
 
       enum class exit_comparison {eq, ne};

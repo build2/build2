@@ -264,10 +264,13 @@ namespace build2
                   {
                     p = peek ();
 
-                    if (p == ':')
+                    if (p == ':' || p == '<')
                     {
                       get ();
-                      return make_token (type::in_doc_nn);
+
+                      return make_token (p == ':'
+                                         ? type::in_doc_nn
+                                         : type::in_file);
                     }
                     else
                       return make_token (type::in_doc);
@@ -297,10 +300,24 @@ namespace build2
                   {
                     p = peek ();
 
-                    if (p == ':')
+                    if (p == ':' || p == '>')
                     {
                       get ();
-                      return make_token (type::out_doc_nn);
+
+                      if (p == ':')
+                        return make_token (type::out_doc_nn);
+
+                      // File redirect.
+                      //
+                      p = peek ();
+
+                      if (p == '&')
+                      {
+                        get ();
+                        return make_token (type::out_file_app);
+                      }
+                      else
+                        return make_token (type::out_file);
                     }
                     else
                       return make_token (type::out_doc);

@@ -409,13 +409,17 @@ namespace build2
           program,
           in_string,
           in_document,
+          in_file,
           out_string,
           out_document,
+          out_file,
           err_string,
-          err_document
+          err_document,
+          err_file
         };
         pending p (pending::program);
-        bool nn (false); // True if pending here-{str,doc} is "no-newline".
+        bool nn (false);  // True if pending here-{str,doc} is "no-newline".
+        bool app (false); // True if to append to pending file.
 
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
@@ -432,17 +436,37 @@ namespace build2
         // to program arguments by default.
         //
         auto add_word =
-          [&c, &p, &nn, &hd, this] (string&& w, const location& l)
+          [&c, &p, &nn, &app, &hd, this] (string&& w, const location& l)
         {
-          auto add_here_str = [&hd, &nn] (redirect& r, string&& w)
+          auto add_here_str = [&nn] (redirect& r, string&& w)
           {
             if (!nn) w += '\n';
-            r.value = move (w);
+            r.str = move (w);
           };
 
           auto add_here_end = [&hd, &nn] (redirect& r, string&& w)
           {
             hd.push_back (here_doc {&r, move (w), nn});
+          };
+
+          auto add_file =
+            [&app, &l, this] (redirect& r, const char* n, string&& w)
+          {
+            try
+            {
+              r.file.path = path (move (w));
+
+              if (r.file.path.empty ())
+                fail (l) << "empty " << n << " redirect file path";
+
+            }
+            catch (const invalid_path& e)
+            {
+              fail (l) << "invalid " << n << "redirect file path '" << e.path
+                       << "'";
+            }
+
+            r.file.append = app;
           };
 
           switch (p)
@@ -471,10 +495,15 @@ namespace build2
           case pending::in_string:  add_here_str (c.in,  move (w)); break;
           case pending::out_string: add_here_str (c.out, move (w)); break;
           case pending::err_string: add_here_str (c.err, move (w)); break;
+
+          case pending::in_file:  add_file (c.in,  "stdin",  move (w)); break;
+          case pending::out_file: add_file (c.out, "stdout", move (w)); break;
+          case pending::err_file: add_file (c.err, "stderr", move (w)); break;
           }
 
           p = pending::none;
           nn = false;
+          app = false;
         };
 
         // Make sure we don't have any pending positions to fill.
@@ -489,10 +518,13 @@ namespace build2
           case pending::program:      what = "program";                  break;
           case pending::in_string:    what = "stdin here-string";        break;
           case pending::in_document:  what = "stdin here-document end";  break;
+          case pending::in_file:      what = "stdin file";               break;
           case pending::out_string:   what = "stdout here-string";       break;
           case pending::out_document: what = "stdout here-document end"; break;
+          case pending::out_file:     what = "stdout file";              break;
           case pending::err_string:   what = "stderr here-string";       break;
           case pending::err_document: what = "stderr here-document end"; break;
+          case pending::err_file:     what = "stderr file";              break;
           }
 
           if (what != nullptr)
@@ -502,11 +534,11 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&c, &p, &nn, this] (const token& t, const location& l)
+          [&c, &p, &nn, &app, this] (const token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
-          assert (p == pending::none && !nn);
+          assert (p == pending::none && !nn && !app);
 
           // See if we have the file descriptor.
           //
@@ -546,6 +578,7 @@ namespace build2
           case type::in_str_nn:
           case type::in_doc:
           case type::in_doc_nn:
+          case type::in_file:
             {
               if ((fd = fd == 3 ? 0 : fd) != 0)
                 fail (l) << "invalid in redirect file descriptor " << fd;
@@ -558,6 +591,8 @@ namespace build2
           case type::out_str_nn:
           case type::out_doc:
           case type::out_doc_nn:
+          case type::out_file:
+          case type::out_file_app:
             {
               if ((fd = fd == 3 ? 1 : fd) == 0)
                 fail (l) << "invalid out redirect file descriptor " << fd;
@@ -570,24 +605,28 @@ namespace build2
           switch (tt)
           {
           case type::in_pass:
-          case type::out_pass:   rt = redirect_type::pass;          break;
+          case type::out_pass:     rt = redirect_type::pass;          break;
 
           case type::in_null:
-          case type::out_null:   rt = redirect_type::null;          break;
+          case type::out_null:     rt = redirect_type::null;          break;
 
           case type::in_str_nn:
-          case type::out_str_nn: nn = true; // Fall through.
+          case type::out_str_nn:   nn = true; // Fall through.
           case type::in_str:
-          case type::out_str:    rt = redirect_type::here_string;   break;
+          case type::out_str:      rt = redirect_type::here_string;   break;
 
           case type::in_doc_nn:
-          case type::out_doc_nn: nn = true; // Fall through.
+          case type::out_doc_nn:   nn = true; // Fall through.
           case type::in_doc:
-          case type::out_doc:    rt = redirect_type::here_document; break;
+          case type::out_doc:      rt = redirect_type::here_document; break;
+
+          case type::out_file_app: app = true; // Fall through.
+          case type::in_file:
+          case type::out_file:     rt = redirect_type::file; break;
           }
 
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
-          r.type = rt;
+          r = redirect (rt);
 
           switch (rt)
           {
@@ -609,6 +648,14 @@ namespace build2
             case 0: p = pending::in_document;  break;
             case 1: p = pending::out_document; break;
             case 2: p = pending::err_document; break;
+            }
+            break;
+          case redirect_type::file:
+            switch (fd)
+            {
+            case 0: p = pending::in_file;  break;
+            case 1: p = pending::out_file; break;
+            case 2: p = pending::err_file; break;
             }
             break;
           }
@@ -650,6 +697,10 @@ namespace build2
           case type::in_doc_nn:
           case type::out_str_nn:
           case type::out_doc_nn:
+
+          case type::in_file:
+          case type::out_file:
+          case type::out_file_app:
             {
               if (pre_parse_)
               {
@@ -708,6 +759,10 @@ namespace build2
               case type::in_doc_nn:
               case type::out_str_nn:
               case type::out_doc_nn:
+
+              case type::in_file:
+              case type::out_file:
+              case type::out_file_app:
 
                 parse_redirect (t, l);
                 next (t, tt);
@@ -846,6 +901,10 @@ namespace build2
 
                     case type::in_str_nn:
                     case type::out_str_nn:
+
+                    case type::in_file:
+                    case type::out_file:
+                    case type::out_file_app:
                       {
                         parse_redirect (t, l);
                         break;
@@ -916,8 +975,8 @@ namespace build2
           if (!pre_parse_)
           {
             redirect& r (*h.redir);
-            r.value = move (v);
-            r.here_end = move (h.end);
+            r.doc.doc = move (v);
+            r.doc.end = move (h.end);
           }
 
           expire_mode ();

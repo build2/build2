@@ -40,13 +40,16 @@ namespace build2
           in_str_nn,                    // <:
           in_doc,                       // <<
           in_doc_nn,                    // <<:
+          in_file,                      // <<<
 
           out_pass,                     // >+
           out_null,                     // >-
           out_str,                      // >
           out_str_nn,                   // >:
           out_doc,                      // >>
-          out_doc_nn                    // >>:
+          out_doc_nn,                   // >>:
+          out_file,                     // >>>
+          out_file_app                  // >>>&
         };
 
         token_type () = default;

@@ -64,7 +64,11 @@ namespace build2
           {
             ofdstream os (orp);
             sp.cleanups.emplace_back (orp);
-            os << rd.value;
+
+            os << (rd.type == redirect_type::here_string
+                   ? rd.str
+                   : rd.doc.doc);
+
             os.close ();
           }
           catch (const io_error& e)
@@ -298,11 +302,12 @@ namespace build2
             so.close ();
             se.close ();
 
-            if (c.in.type == redirect_type::here_string ||
-                c.in.type == redirect_type::here_document)
+            const redirect& r (c.in);
+            if (r.type == redirect_type::here_string ||
+                r.type == redirect_type::here_document)
             {
               ofdstream os (pr.out_fd);
-              os << c.in.value;
+              os << (r.type == redirect_type::here_string ? r.str : r.doc.doc);
               os.close ();
             }
 
