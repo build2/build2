@@ -1,8 +1,43 @@
 # Note: this mode auto-expires after each token.
 #
-test.arguments += first-token
+test.arguments += second-token
 
 $* <";" >>EOO # semi-only
 ;
+<newline>
+EOO
+
+$* <"=foo" >>EOO # assign
+=
+'foo'
+<newline>
+EOO
+
+$* <"+= foo" >>EOO # append
++=
+'foo'
+<newline>
+EOO
+
+$* <" =+ foo" >>EOO # prepend
+=+
+'foo'
+<newline>
+EOO
+
+$* <"foo=bar" >>EOO # assign-leading
+'foo=bar'
+<newline>
+EOO
+
+$* <"foo+= bar" >>EOO # append-leading
+'foo+='
+'bar'
+<newline>
+EOO
+
+$* <"foo =+bar" >>EOO # prepend-leading
+'foo'
+'=+bar'
 <newline>
 EOO

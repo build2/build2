@@ -6,3 +6,44 @@ $* <";" >>EOO # semi-only
 ;
 <newline>
 EOO
+
+$* <"+foo" >>EOO # setup
++
+'foo'
+<newline>
+EOO
+
+$* <"- foo" >>EOO # tdown
+-
+'foo'
+<newline>
+EOO
+
+$* <"foo+bar" >>EOO # plus-leading
+'foo+bar'
+<newline>
+EOO
+
+$* <"foo- x" >>EOO # minus-leading
+'foo-'
+'x'
+<newline>
+EOO
+
+$* <"foo=" >>EOO # assign
+'foo'
+'='
+<newline>
+EOO
+
+$* <"foo+=" >>EOO # append
+'foo'
+'+='
+<newline>
+EOO
+
+$* <"foo=+" >>EOO # prepend
+'foo'
+'=+'
+<newline>
+EOO
