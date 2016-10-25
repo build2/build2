@@ -5,3 +5,31 @@ EOE
 $* <"-cmd;" 2>>EOE != 0                 # semi-after-tdown
 testscript:1:5: error: expected newline instead of ';'
 EOE
+
+$* <<EOI 2>>EOE != 0                 # setup-in-test
+cmd;
++cmd
+EOI
+testscript:2:1: error: setup command in test
+EOE
+
+$* <<EOI 2>>EOE != 0                 # tdown-in-test
+cmd;
+-cmd
+EOI
+testscript:2:1: error: teardown command in test
+EOE
+
+$* <<EOI 2>>EOE != 0                 # setup-after-test
+cmd
++cmd
+EOI
+testscript:2:1: error: setup command after tests
+EOE
+
+$* <<EOI 2>>EOE != 0                 # setup-after-tdownt
+-cmd
++cmd
+EOI
+testscript:2:1: error: setup command after teardown
+EOE
