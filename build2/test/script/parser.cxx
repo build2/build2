@@ -294,7 +294,7 @@ namespace build2
         if (lt != line_type::test)
           next (t, tt);
 
-        return make_pair (lt, parse_command_line (t, tt, 0));
+        return make_pair (lt, parse_command_line (t, tt, lt, 0));
       }
 
       void parser::
@@ -306,7 +306,7 @@ namespace build2
 
         case line_type::setup:
         case line_type::tdown:    next (t, tt); // Skip plus/minus fallthrough.
-        case line_type::test:     parse_command_line  (t, tt, li); break;
+        case line_type::test:     parse_command_line  (t, tt, lt, li); break;
         }
       }
 
@@ -397,7 +397,7 @@ namespace build2
       }
 
       bool parser::
-      parse_command_line (token& t, type& tt, size_t li)
+      parse_command_line (token& t, type& tt, line_type lt, size_t li)
       {
         command c;
 
@@ -616,8 +616,8 @@ namespace build2
 
         const location ll (get_location (t)); // Line location.
 
-        // Keep parsing chunks of the command line until we see the newline or
-        // the exit status comparison.
+        // Keep parsing chunks of the command line until we see one of the
+        // "terminators" (newline, semicolon, exit status comparison, etc).
         //
         location l (ll);
         names ns; // Reuse to reduce allocations.
@@ -888,7 +888,11 @@ namespace build2
         if (tt == type::equal || tt == type::not_equal)
           c.exit = parse_command_exit (t, tt);
 
-        bool semi (tt == type::semi);
+        // Semicolon is only valid in test command lines. Note that we still
+        // recognize it lexically, it's just not a valid token per the
+        // grammar.
+        //
+        bool semi (tt == type::semi && lt == line_type::test);
 
         if (semi)
           next (t, tt); // Get newline.

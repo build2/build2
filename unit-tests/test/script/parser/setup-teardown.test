@@ -1,0 +1,7 @@
+$* <"+cmd;" 2>>EOE != 0                 # semi-after-setup
+testscript:1:5: error: expected newline instead of ';'
+EOE
+
+$* <"-cmd;" 2>>EOE != 0                 # semi-after-tdown
+testscript:1:5: error: expected newline instead of ';'
+EOE
