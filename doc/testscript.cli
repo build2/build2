@@ -733,7 +733,7 @@ setup-line:    '+' command
 teardown-line: '-' command
 test-line:         command
 
-command: <path>(' '+(<arg>|redirect))* command-exit?
+command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
   *here-document
 
 redirect: stdin|stdout|stderr
@@ -745,12 +745,17 @@ stderr: '2'(out-redirect)
 in-redirect:  '<-'|\
               '<+'|\
               ('<'|'<:') <text>|\
-              ('<<'|'<<:') <here-end>
+              ('<<'|'<<:') <here-end>|\
+              '<<<' <file>
 
 out-redirect: '>-'|\
               '>+'|\
+              '>&' ('1'|'2')|\
               ('>'|'>:') <text>|\
-              ('>>'|'>>:') <here-end>
+              ('>>'|'>>:') <here-end>|\
+              ('>>>'|'>>>&') <file>
+
+cleanup: '&' (<file>|<dir>)
 
 command-exit: ('=='|'!=') <exit-status>
 
@@ -770,6 +775,10 @@ descriptor.
 $* 2 >!
 $* a1>!
 \
+
+In merge redirects the left-hand-side descriptor (implied or explicit) must
+not be the same as the right-hand-side. Having both merge redirects at the
+same time is illegal.
 
 Here-line is like double-quoted string but recognizes newlines.
 
