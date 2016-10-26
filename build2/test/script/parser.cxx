@@ -105,27 +105,45 @@ namespace build2
             }
           case type::lcbrace:
             {
-              // @@ Nested scope. Get newlines after open/close.
+              // Nested scope.
+              //
+              next (t, tt); // Get '{'.
 
-              assert (false);
+              if (next (t, tt) != type::newline)
+                fail (t) << "expected newline after '{'";
 
-              /*
-              group_->start_loc_ = get_location (t);
+              // Push group. Use line number as the scope id.
+              //
+              group* og (group_);
+              unique_ptr<group> p (
+                group_ = new group (to_string (ll.line), *og));
+              og->scopes.push_back (move (p));
+
+              group_->start_loc_ = ll;
+              token e (pre_parse_scope_body ());
+              group_->end_loc_ = get_location (e);
+
+              // Pop group.
+              //
+              group_ = og;
+
+              if (e.type != type::rcbrace)
+                fail (e) << "expected '}' at the end of the scope";
 
               // Check that we don't expect more lines.
               //
               if (lines_ != nullptr)
-                fail (t) << "expected another line after semicolon";
+                fail (e) << "expected another line after semicolon";
 
-              group_->end_loc_ = get_location (t);
-              */
+              if (next (t, tt) != type::newline)
+                fail (t) << "expected newline after '}'";
 
               continue;
             }
           case type::plus:
           case type::minus:
             {
-              // This is a setup/teardown command.
+              // Setup/teardown command.
               //
               lt = (tt == type::plus ? line_type::setup : line_type::tdown);
 
@@ -136,7 +154,7 @@ namespace build2
             }
           default:
             {
-              // This is either a test command or a variable assignment.
+              // Either a test command or a variable assignment.
               //
               replay_save (); // Start saving tokens from the current one.
               next (t, tt);
@@ -297,12 +315,14 @@ namespace build2
       void parser::
       parse_scope_body ()
       {
-        auto play = [this] (lines& ls) // Note: destructive to lines.
+        size_t li (0);
+
+        auto play = [&li, this] (lines& ls) // Note: destructive to lines.
         {
           token t;
           type tt;
 
-          for (size_t i (0), li (0), n (ls.size ()); i != n; ++i)
+          for (size_t i (0), n (ls.size ()); i != n; ++i)
           {
             line& l (ls[i]);
 
@@ -322,9 +342,14 @@ namespace build2
               }
             case line_type::setup:
             case line_type::tdown:
+              {
+                parse_command_line (t, tt, l.type, ++li);
+                break;
+              }
             case line_type::test:
               {
                 // We use the 0 index to signal that this is the only command.
+                // Note that we only do this for test commands.
                 //
                 if (li == 0)
                 {
@@ -794,7 +819,7 @@ namespace build2
                   next (t, tt);
 
                   if (tt != type::word || t.quoted)
-                    fail (l) << "here-document end marker expected";
+                    fail (l) << "expected here-document end marker";
 
                   hd.push_back (here_doc {nullptr, move (t.value), nn});
                   break;
@@ -1082,7 +1107,7 @@ namespace build2
           catch (const exception&) {} // Fall through.
 
           if (es > 255)
-            fail (t) << "exit status expected instead of '" << ns << "'" <<
+            fail (t) << "expected exit status instead of '" << ns << "'" <<
               info << "exit status is an unsigned integer less than 256";
         }
 

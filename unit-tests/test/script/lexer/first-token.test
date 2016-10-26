@@ -2,8 +2,18 @@
 #
 test.arguments += first-token
 
-$* <";" >>EOO # semi-only
+$* <";" >>EOO # semi
 ;
+<newline>
+EOO
+
+$* <"{" >>EOO # lcbrace
+{
+<newline>
+EOO
+
+$* <"}" >>EOO # rcbrace
+}
 <newline>
 EOO
 

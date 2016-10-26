@@ -12,7 +12,68 @@ wd += foo;
 wd += 1;
 $* foo.test   <'cmd $~' >"cmd $wd"   # wd
 
-$* -s <<EOI >>EOO                    # compound-2
+$* -s <<EOI >>EOO                    # group-empty
+{
+}
+EOI
+{
+  {
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # group
+{
+  cmd1
+  cmd2
+}
+EOI
+{
+  {
+    {
+      cmd1
+    }
+    {
+      cmd2
+    }
+  }
+}
+EOO
+
+$* <:"{x" 2>>EOE != 0                # expected-newline-lcbrace
+testscript:1:2: error: expected newline after '{'
+EOE
+
+$* <"{" 2>>EOE != 0                  # expected-rcbrace
+testscript:2:1: error: expected '}' at the end of the scope
+EOE
+
+$* <<EOI 2>>EOE != 0                 # expected-line-rcbrace
+{
+  cmd;
+}
+EOI
+testscript:3:1: error: expected another line after semicolon
+EOE
+
+$* <<:EOI 2>>EOE != 0                 # expected-newline-rcbrace
+{
+}
+EOI
+testscript:2:2: error: expected newline after '}'
+EOE
+
+$* -s <<EOI >>EOO                    # test-1
+cmd1
+EOI
+{
+  {
+    cmd1
+  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # test-2
 cmd1;
 cmd2
 EOI
@@ -24,7 +85,7 @@ EOI
 }
 EOO
 
-$* -s <<EOI >>EOO                    # compound-3
+$* -s <<EOI >>EOO                    # test-3
 cmd1;
 cmd2;
 cmd3
@@ -38,7 +99,7 @@ EOI
 }
 EOO
 
-$* -s <<EOI >>EOO                    # compound-var
+$* -s <<EOI >>EOO                    # test-var
 cmd1;
 x = abc;
 cmd2 \$x
@@ -51,7 +112,7 @@ EOI
 }
 EOO
 
-$* -s <<EOI >>EOO                    # compound-var-first
+$* -s <<EOI >>EOO                    # test-var-first
 x = abc;
 cmd \$x
 EOI
@@ -83,7 +144,7 @@ testscript:3:1: error: test after teardown
   testscript:2:1: info: last teardown line appears here
 EOE
 
-$* <<EOI 2>>EOE != 0                 # expected-line
+$* <<EOI 2>>EOE != 0                 # expected-line-eof
 cmd;
 EOI
 testscript:2:1: error: expected another line after semicolon

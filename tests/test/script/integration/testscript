@@ -14,28 +14,32 @@ test.arguments = test
 #EOI
 +cp $src_base/bootstrap.build build/
 
-# @@ TODO: redo as scope.
-#
-touch testscript foo.test bar.test;
-$* <<EOI 2>>EOE != 0;
-./: test{testscript foo}
+{
+  +touch testscript foo.test bar.test
+
+  $* <<EOI 2>>EOE != 0
+./: test{../testscript ../foo}
 EOI
 error: both 'testscript' and other names specified for dir{./}
 info: while testing dir{./}
 EOE
-$* <<EOI 2>>EOE != 0;
-./: test{foo testscript}
+
+  $* <<EOI 2>>EOE != 0
+./: test{../foo ../testscript}
 EOI
 error: both 'testscript' and other names specified for dir{./}
 info: while testing dir{./}
 EOE
-$* <<EOI 2>>EOE;
-./: test{foo bar}
+
+  $* <<EOI 2>>EOE
+./: test{../foo ../bar}
 EOI
-test dir{./} with test{foo}
-test dir{./} with test{bar}
+test dir{./} with ../test{foo}
+test dir{./} with ../test{bar}
 EOE
-rm -f testscript foo.test bar.test
+
+  -rm -f testscript foo.test bar.test
+}
 
 # work-dir-not-empty-begin
 #

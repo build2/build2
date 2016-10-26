@@ -331,7 +331,7 @@ namespace build2
           }
         }
 
-        // Plus/minus and left/right curly braces
+        // Plus/minus and left/right curly braces.
         //
         if (m == lexer_mode::first_token)
         {

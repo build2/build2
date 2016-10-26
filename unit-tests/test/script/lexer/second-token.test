@@ -2,7 +2,7 @@
 #
 test.arguments += second-token
 
-$* <";" >>EOO # semi-only
+$* <";" >>EOO # semi
 ;
 <newline>
 EOO
