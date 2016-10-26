@@ -33,9 +33,10 @@ namespace build2
         case lexer_mode::first_token:
           {
             // First token on the script line. Like script_line but recognizes
-            // leading plus/minus and variable assignments as separators.
+            // leading '+-{}' as tokens as well as variable assignments as
+            // separators.
             //
-            // Note that to recognize only leading plus/minus we shouldn't add
+            // Note that to recognize only leading '+-{}' we shouldn't add
             // them to the separator strings.
             //
             s1 = ";=+!|&<> $(#\t\n";
@@ -330,7 +331,7 @@ namespace build2
           }
         }
 
-        // Plus/minus.
+        // Plus/minus and left/right curly braces
         //
         if (m == lexer_mode::first_token)
         {
@@ -338,6 +339,8 @@ namespace build2
           {
           case '+': return make_token (type::plus);
           case '-': return make_token (type::minus);
+          case '{': return make_token (type::lcbrace);
+          case '}': return make_token (type::rcbrace);
           }
         }
 

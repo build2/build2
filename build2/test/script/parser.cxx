@@ -36,7 +36,22 @@ namespace build2
 
         scope_ = nullptr;
 
-        pre_parse_script ();
+        // Start location of the implied script group is the beginning of the
+        // file. End location -- end of the file.
+        //
+        group_->start_loc_ = location (path_, 1, 1);
+
+        token t (pre_parse_scope_body ());
+
+        if (t.type != type::eos)
+          fail (t) << "stray " << t;
+
+        // Check that we don't expect more lines.
+        //
+        if (lines_ != nullptr)
+          fail (t) << "expected another line after semicolon";
+
+        group_->end_loc_ = get_location (t);
       }
 
       void parser::
@@ -57,50 +72,127 @@ namespace build2
 
         scope_ = &sc;
 
-        parse_script ();
+        parse_scope_body ();
       }
 
-      void parser::
-      pre_parse_script ()
+      token parser::
+      pre_parse_scope_body ()
       {
         token t;
         type tt;
 
+        // Parse lines (including nested scopes) until we see '}' or eos.
+        //
         for (;;)
         {
-          // Start saving tokens for the next (logical) line.
-          //
-          replay_save ();
-
-          // Start lexing each line recognizing leading plus/minus.
+          // Start lexing each line recognizing leading '+-{}'.
           //
           mode (lexer_mode::first_token);
-          next (t, tt);
 
-          if (group_->start_loc_.empty ())
-            group_->start_loc_ = get_location (t);
+          // Determine the line type by peeking at the first token.
+          //
+          tt = peek ();
+          const location ll (get_location (peeked ()));
 
-          if (tt == type::eos)
+          line_type lt;
+          switch (tt)
           {
-            // Check that we don't expect more lines.
-            //
-            // @@ Also for explicit scope close.
-            //
-            if (lines_ != nullptr)
-              fail (t) << "expected another line after semicolon";
+          case type::eos:
+          case type::rcbrace:
+            {
+              next (t, tt);
+              return t;
+            }
+          case type::lcbrace:
+            {
+              // @@ Nested scope. Get newlines after open/close.
 
-            group_->end_loc_ = get_location (t);
-            replay_stop (); // Discard replay of eos.
+              assert (false);
+
+              /*
+              group_->start_loc_ = get_location (t);
+
+              // Check that we don't expect more lines.
+              //
+              if (lines_ != nullptr)
+                fail (t) << "expected another line after semicolon";
+
+              group_->end_loc_ = get_location (t);
+              */
+
+              continue;
+            }
+          case type::plus:
+          case type::minus:
+            {
+              // This is a setup/teardown command.
+              //
+              lt = (tt == type::plus ? line_type::setup : line_type::tdown);
+
+              next (t, tt);   // Start saving tokens from the next one.
+              replay_save ();
+              next (t, tt);
+              break;
+            }
+          default:
+            {
+              // This is either a test command or a variable assignment.
+              //
+              replay_save (); // Start saving tokens from the current one.
+              next (t, tt);
+
+              // Decide whether this is a variable assignment or a command. It
+              // is an assignment if the first token is an unquoted word and
+              // the next is an assign/append/prepend operator. Assignment to
+              // a computed variable name must use the set builtin.
+              //
+              if (tt == type::word && !t.quoted)
+              {
+                // Switch the recognition of leading variable assignments for
+                // the next token. This is safe to do because we know we
+                // cannot be in the quoted mode (since the current token is
+                // not quoted).
+                //
+                mode (lexer_mode::second_token);
+                type p (peek ());
+
+                if (p == type::assign  ||
+                    p == type::prepend ||
+                    p == type::append)
+                {
+                  lt = line_type::variable;
+                  break;
+                }
+              }
+
+              lt = line_type::test;
+              break;
+            }
+          }
+
+          // Being here means we know the line type and token saving is on.
+          // First we pre-parse the line keeping track of whether it ends with
+          // a semicolon.
+          //
+          bool semi;
+
+          switch (lt)
+          {
+          case line_type::variable:
+            semi = parse_variable_line (t, tt);
+            break;
+          case line_type::setup:
+          case line_type::tdown:
+          case line_type::test:
+            semi = parse_command_line (t, tt, lt, 0);
             break;
           }
 
-          const location ll (get_location (t));
-          pair<line_type, bool> lt (pre_parse_script_line (t, tt));
           assert (tt == type::newline);
 
           // Stop saving and get the tokens.
           //
-          line l {lt.first, replay_data ()};
+          line l {lt, replay_data ()};
 
           // Decide where it goes.
           //
@@ -111,7 +203,7 @@ namespace build2
           //
           if (lines_ != nullptr)
           {
-            switch (lt.first)
+            switch (lt)
             {
             case line_type::setup: fail (ll) << "setup command in test";
             case line_type::tdown: fail (ll) << "teardown command in test";
@@ -122,7 +214,7 @@ namespace build2
           }
           else
           {
-            switch (lt.first)
+            switch (lt)
             {
             case line_type::setup:
               {
@@ -146,7 +238,7 @@ namespace build2
                 // it is part of a test (there is no reason to use semicolons
                 // after variables in the group scope).
                 //
-                if (!lt.second)
+                if (!semi)
                 {
                   // If we don't have any nested scopes or teardown commands,
                   // then we assume this is a setup, otherwise -- teardown.
@@ -198,35 +290,59 @@ namespace build2
           // If this command ended with a semicolon, then the next one should
           // go to the same place.
           //
-          lines_ = lt.second ? ls : nullptr;
+          lines_ = semi ? ls : nullptr;
         }
       }
 
       void parser::
-      parse_script ()
+      parse_scope_body ()
       {
         auto play = [this] (lines& ls) // Note: destructive to lines.
         {
           token t;
           type tt;
 
-          for (size_t i (0), n (ls.size ()); i != n; ++i)
+          for (size_t i (0), li (0), n (ls.size ()); i != n; ++i)
           {
             line& l (ls[i]);
 
             replay_data (move (l.tokens)); // Set the tokens and start playing.
 
-            // We don't really need the assign mode since we already know the
-            // line type.
+            // We don't really need to change the mode since we already know
+            // the line type.
             //
             next (t, tt);
 
-            // @@ The index counts variable assignment lines. This is probably
-            //    not what we want.
-            //
-            parse_script_line (t, tt, l.type, n == 1 ? 0 : i + 1);
-            assert (tt == type::newline);
+            switch (l.type)
+            {
+            case line_type::variable:
+              {
+                parse_variable_line (t, tt);
+                break;
+              }
+            case line_type::setup:
+            case line_type::tdown:
+            case line_type::test:
+              {
+                // We use the 0 index to signal that this is the only command.
+                //
+                if (li == 0)
+                {
+                  size_t j (i + 1);
+                  for (; j != n && ls[j].type == line_type::variable; ++j) ;
 
+                  if (j != n) // We have another command.
+                    ++li;
+                }
+                else
+                  ++li;
+
+                parse_command_line (t, tt, l.type, li);
+                break;
+              }
+            }
+
+            assert (tt == type::newline);
             replay_stop (); // Stop playing.
           }
         };
@@ -248,7 +364,7 @@ namespace build2
             //
             // scope* os (scope_);
             // scope_ = s.get ();
-            // parse_script ();
+            // parse_scope_body ();
             // scope_ = os;
             //
             parser p;
@@ -261,53 +377,6 @@ namespace build2
           assert (false);
 
         runner_->leave (*scope_, scope_->end_loc_);
-      }
-
-      pair<line_type, bool> parser::
-      pre_parse_script_line (token& t, type& tt)
-      {
-        // Decide whether this is a variable assignment or a command. It is a
-        // variable assignment if the first token is an unquoted word (name)
-        // and the next is an assign/append/prepend operator. Assignment to a
-        // computed variable name must use the set builtin.
-        //
-        if (tt == type::word && !t.quoted)
-        {
-          // Switch recognition of leading variable assignments for the next
-          // token. This is safe to do because we know we cannot be in the
-          // quoted mode (since the current token is not quoted).
-          //
-          mode (lexer_mode::second_token);
-          type p (peek ());
-
-          if (p == type::assign || p == type::prepend || p == type::append)
-          {
-            return make_pair (line_type::variable,
-                              parse_variable_line (t, tt));
-          }
-        }
-
-        line_type lt (tt == type::plus  ? line_type::setup :
-                      tt == type::minus ? line_type::tdown :
-                      line_type::test);
-
-        if (lt != line_type::test)
-          next (t, tt);
-
-        return make_pair (lt, parse_command_line (t, tt, lt, 0));
-      }
-
-      void parser::
-      parse_script_line (token& t, type& tt, line_type lt, size_t li)
-      {
-        switch (lt)
-        {
-        case line_type::variable: parse_variable_line (t, tt);     break;
-
-        case line_type::setup:
-        case line_type::tdown:    next (t, tt); // Skip plus/minus fallthrough.
-        case line_type::test:     parse_command_line  (t, tt, lt, li); break;
-        }
       }
 
       // Return true if the string contains only digit characters (used to

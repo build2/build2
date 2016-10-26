@@ -48,17 +48,11 @@ namespace build2
         void
         parse (scope&, const path& name, script&, runner&);
 
-        void
-        pre_parse_script ();
+        token
+        pre_parse_scope_body ();
 
         void
-        parse_script ();
-
-        pair<line_type, bool>
-        pre_parse_script_line (token&, token_type&);
-
-        void
-        parse_script_line (token&, token_type&, line_type, size_t);
+        parse_scope_body ();
 
         bool
         parse_variable_line (token&, token_type&);
