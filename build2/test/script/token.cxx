@@ -41,6 +41,7 @@ namespace build2
 
         case token_type::out_pass:     os << q << ">+"   << q; break;
         case token_type::out_null:     os << q << ">-"   << q; break;
+        case token_type::out_merge:    os << q << ">&"   << q; break;
         case token_type::out_str:      os << q << '>'    << q; break;
         case token_type::out_str_nn:   os << q << ">:"   << q; break;
         case token_type::out_doc:      os << q << ">>"   << q; break;

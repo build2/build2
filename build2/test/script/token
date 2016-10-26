@@ -44,6 +44,7 @@ namespace build2
 
           out_pass,                     // >+
           out_null,                     // >-
+          out_merge,                    // >&
           out_str,                      // >
           out_str_nn,                   // >:
           out_doc,                      // >>

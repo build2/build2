@@ -43,6 +43,7 @@ namespace build2
         none,
         pass,
         null,
+        merge,
         here_string,
         here_document,
         file
@@ -67,6 +68,7 @@ namespace build2
 
         union
         {
+          int       fd;  // Used with 'merge' type.
           string    str; // Note: includes trailing newline, if required.
           doc_type  doc;
           file_type file;

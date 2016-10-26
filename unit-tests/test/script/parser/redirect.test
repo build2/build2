@@ -3,3 +3,74 @@ cmd 0<<<a 1>>>b 2>>>&c
 EOI
 cmd <<<a >>>b 2>>>&c
 EOO
+
+$* <<EOI >>EOO          # out-merge1
+cmd 1>&2
+EOI
+cmd >&2
+EOO
+
+$* <<EOI >>EOO          # out-merge2
+cmd 1>&2 2>&1 2>a
+EOI
+cmd >&2 2>a
+EOO
+
+$* <<EOI 2>>EOE != 0    # out-merge-fail1
+cmd 1>&a
+EOI
+testscript:1:8: error: invalid stdout merge redirect file descriptor 'a'
+  info: must be 2
+EOE
+
+$* <<EOI 2>>EOE != 0    # out-merge-fail2
+cmd 1>&1
+EOI
+testscript:1:8: error: invalid stdout merge redirect file descriptor '1'
+  info: must be 2
+EOE
+
+$* <<EOI 2>>EOE != 0    # out-merge-fail3
+cmd 1>&
+EOI
+testscript:1:8: error: missing stdout file descriptor
+EOE
+
+$* <<EOI >>EOO          # err-merge1
+cmd 2>&1
+EOI
+cmd 2>&1
+EOO
+
+$* <<EOI >>EOO          # err-merge2
+cmd 1>&2 2>&1 >a
+EOI
+cmd >a 2>&1
+EOO
+
+$* <<EOI 2>>EOE != 0    # err-merge-fail1
+cmd 2>&2
+EOI
+testscript:1:8: error: invalid stderr merge redirect file descriptor '2'
+  info: must be 1
+EOE
+
+$* <<EOI 2>>EOE != 0    # err-merge-fail2
+cmd 2>&2
+EOI
+testscript:1:8: error: invalid stderr merge redirect file descriptor '2'
+  info: must be 1
+EOE
+
+$* <<EOI 2>>EOE != 0    # err-merge-fail3
+cmd 2>&
+EOI
+testscript:1:8: error: missing stderr file descriptor
+EOE
+
+$* <<EOI 2>>EOE != 0    # merge-fail1
+cmd 1>&2 2>&1
+EOI
+testscript:1:14: error: stdout and stderr merge redirects
+  info: should not be specified both
+EOE

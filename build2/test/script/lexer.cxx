@@ -288,7 +288,7 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '+' || p == '-' || p == ':' || p == '>')
+              if (p == '+' || p == '-' || p == '&' || p == ':' || p == '>')
               {
                 get ();
 
@@ -296,6 +296,7 @@ namespace build2
                 {
                 case '+': return make_token (type::out_pass);
                 case '-': return make_token (type::out_null);
+                case '&': return make_token (type::out_merge);
                 case ':': return make_token (type::out_str_nn);
                 case '>':
                   {

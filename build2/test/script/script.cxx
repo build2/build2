@@ -43,9 +43,10 @@ namespace build2
 
           switch (r.type)
           {
-          case redirect_type::none: assert (false); break;
-          case redirect_type::pass: o << '+';       break;
-          case redirect_type::null: o << '-';       break;
+          case redirect_type::none:  assert (false);   break;
+          case redirect_type::pass:  o << '+';         break;
+          case redirect_type::null:  o << '-';         break;
+          case redirect_type::merge: o << '&' << r.fd; break;
 
           case redirect_type::here_string:
             {
@@ -140,7 +141,8 @@ namespace build2
         {
         case redirect_type::none:
         case redirect_type::pass:
-        case redirect_type::null: break;
+        case redirect_type::null:
+        case redirect_type::merge: break;
 
         case redirect_type::here_string:   new (&str)  string ();    break;
         case redirect_type::here_document: new (&doc)  doc_type ();  break;
@@ -157,6 +159,8 @@ namespace build2
         case redirect_type::none:
         case redirect_type::pass:
         case redirect_type::null: break;
+
+        case redirect_type::merge: fd = r.fd; break;
 
         case redirect_type::here_string:
           {
@@ -186,6 +190,8 @@ namespace build2
         case redirect_type::pass:
         case redirect_type::null: break;
 
+        case redirect_type::merge: fd = r.fd; break;
+
         case redirect_type::here_string:   new (&str) string (r.str);   break;
         case redirect_type::here_document: new (&doc) doc_type (r.doc); break;
         case redirect_type::file:
@@ -203,7 +209,8 @@ namespace build2
         {
         case redirect_type::none:
         case redirect_type::pass:
-        case redirect_type::null: break;
+        case redirect_type::null:
+        case redirect_type::merge: break;
 
         case redirect_type::here_string:   str.~string ();     break;
         case redirect_type::here_document: doc.~doc_type ();   break;

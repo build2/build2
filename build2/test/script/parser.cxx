@@ -564,9 +564,11 @@ namespace build2
           in_string,
           in_document,
           in_file,
+          out_merge,
           out_string,
           out_document,
           out_file,
+          err_merge,
           err_string,
           err_document,
           err_file
@@ -592,6 +594,24 @@ namespace build2
         auto add_word =
           [&c, &p, &nn, &app, &hd, this] (string&& w, const location& l)
         {
+          auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
+          {
+            try
+            {
+              size_t n;
+              if (stoi (w, &n) != fd || n != w.size ())
+                throw invalid_argument (string ());
+            }
+            catch (const exception&)
+            {
+              fail (l) << "invalid " << (fd == 1 ? "stderr" : "stdout")
+                       << " merge redirect file descriptor '" << w << "'" <<
+                info << "must be " << fd;
+            }
+
+            r.fd = fd;
+          };
+
           auto add_here_str = [&nn] (redirect& r, string&& w)
           {
             if (!nn) w += '\n';
@@ -642,13 +662,16 @@ namespace build2
             break;
           }
 
-          case pending::in_document:  add_here_end (c.in,  move (w)); break;
-          case pending::out_document: add_here_end (c.out, move (w)); break;
-          case pending::err_document: add_here_end (c.err, move (w)); break;
+          case pending::out_merge: add_merge (c.out, w, 2); break;
+          case pending::err_merge: add_merge (c.err, w, 1); break;
 
           case pending::in_string:  add_here_str (c.in,  move (w)); break;
           case pending::out_string: add_here_str (c.out, move (w)); break;
           case pending::err_string: add_here_str (c.err, move (w)); break;
+
+          case pending::in_document:  add_here_end (c.in,  move (w)); break;
+          case pending::out_document: add_here_end (c.out, move (w)); break;
+          case pending::err_document: add_here_end (c.err, move (w)); break;
 
           case pending::in_file:  add_file (c.in,  "stdin",  move (w)); break;
           case pending::out_file: add_file (c.out, "stdout", move (w)); break;
@@ -673,9 +696,11 @@ namespace build2
           case pending::in_string:    what = "stdin here-string";        break;
           case pending::in_document:  what = "stdin here-document end";  break;
           case pending::in_file:      what = "stdin file";               break;
+          case pending::out_merge:    what = "stdout file descriptor";   break;
           case pending::out_string:   what = "stdout here-string";       break;
           case pending::out_document: what = "stdout here-document end"; break;
           case pending::out_file:     what = "stdout file";              break;
+          case pending::err_merge:    what = "stderr file descriptor";   break;
           case pending::err_string:   what = "stderr here-string";       break;
           case pending::err_document: what = "stderr here-document end"; break;
           case pending::err_file:     what = "stderr file";              break;
@@ -741,6 +766,7 @@ namespace build2
             }
           case type::out_pass:
           case type::out_null:
+          case type::out_merge:
           case type::out_str:
           case type::out_str_nn:
           case type::out_doc:
@@ -763,6 +789,8 @@ namespace build2
 
           case type::in_null:
           case type::out_null:     rt = redirect_type::null;          break;
+
+          case type::out_merge:    rt = redirect_type::merge;         break;
 
           case type::in_str_nn:
           case type::out_str_nn:   nn = true; // Fall through.
@@ -787,6 +815,14 @@ namespace build2
           case redirect_type::none:
           case redirect_type::pass:
           case redirect_type::null:
+            break;
+          case redirect_type::merge:
+            switch (fd)
+            {
+            case 0: assert (false);         break;
+            case 1: p = pending::out_merge; break;
+            case 2: p = pending::err_merge; break;
+            }
             break;
           case redirect_type::here_string:
             switch (fd)
@@ -841,6 +877,8 @@ namespace build2
 
           case type::in_null:
           case type::out_null:
+
+          case type::out_merge:
 
           case type::in_str:
           case type::in_doc:
@@ -903,6 +941,8 @@ namespace build2
 
               case type::in_null:
               case type::out_null:
+
+              case type::out_merge:
 
               case type::in_str:
               case type::in_doc:
@@ -1050,6 +1090,8 @@ namespace build2
                     case type::in_null:
                     case type::out_null:
 
+                    case type::out_merge:
+
                     case type::in_str:
                     case type::out_str:
 
@@ -1089,10 +1131,17 @@ namespace build2
           }
         }
 
-        // Verify we don't have anything pending to be filled.
-        //
         if (!pre_parse_)
+        {
+          // Verify we don't have anything pending to be filled.
+          //
           check_pending (l);
+
+          if (c.out.type == redirect_type::merge &&
+              c.err.type == redirect_type::merge)
+            fail (l) << "stdout and stderr merge redirects" <<
+              info << "should not be specified at the same time";
+        }
 
         // While we no longer need to recognize command line operators, we
         // also don't expect a valid test trailer to contain them. So we are

@@ -40,6 +40,18 @@ $* <:"1 >-" >>EOO # arg-out-null-redirect
 >-
 EOO
 
+$* <:"1>&2" >>EOO # merge-redirect
+'1'
+>&
+'2'
+EOO
+
+$* <:"1 >&2" >>EOO # arg-merge-redirect
+'1 '
+>&
+'2'
+EOO
+
 $* <:"0<a b" >>EOO # in-str-redirect
 '0'
 <

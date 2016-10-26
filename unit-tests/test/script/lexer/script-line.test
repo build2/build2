@@ -33,6 +33,14 @@ $* <"cmd <- 1>-" >>EOO # null-redirect
 <newline>
 EOO
 
+$* <"cmd 1>&2" >>EOO # merge-redirect
+'cmd'
+'1'
+>&
+'2'
+<newline>
+EOO
+
 $* <"cmd <a 1>b" >>EOO # str-redirect
 'cmd'
 <
