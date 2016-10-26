@@ -16,3 +16,71 @@ $* <";" >>EOO # semi-only
 ;
 <newline>
 EOO
+
+$* <"cmd <+ 1>+" >>EOO # pass-redirect
+'cmd'
+<+
+'1'
+>+
+<newline>
+EOO
+
+$* <"cmd <- 1>-" >>EOO # null-redirect
+'cmd'
+<-
+'1'
+>-
+<newline>
+EOO
+
+$* <"cmd <a 1>b" >>EOO # str-redirect
+'cmd'
+<
+'a'
+'1'
+>
+'b'
+<newline>
+EOO
+
+$* <"cmd <:a 1>:b" >>EOO # str-nn-redirect
+'cmd'
+<:
+'a'
+'1'
+>:
+'b'
+<newline>
+EOO
+
+$* <"cmd <<EOI 1>>EOO" >>EOO # doc-redirect
+'cmd'
+<<
+'EOI'
+'1'
+>>
+'EOO'
+<newline>
+EOO
+
+$* <"cmd <<:EOI 1>>:EOO" >>EOO # doc-nn-redirect
+'cmd'
+<<:
+'EOI'
+'1'
+>>:
+'EOO'
+<newline>
+EOO
+
+$* <"cmd <<<in >>>out 2>>>&err" >>EOO # file-redirect
+'cmd'
+<<<
+'in'
+>>>
+'out'
+'2'
+>>>&
+'err'
+<newline>
+EOO

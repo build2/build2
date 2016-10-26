@@ -4,6 +4,7 @@
 
 #include <build2/test/script/runner>
 
+#include <set>
 #include <iostream> // cerr
 
 #include <build2/filesystem>
@@ -16,12 +17,13 @@ namespace build2
   {
     namespace script
     {
-      // Check if the file exists and is not empty.
+      // Check if a path is not empty, the referenced file exists and is not
+      // empty.
       //
       static bool
-      non_empty (const path& p)
+      non_empty (const path& p, const location& cl)
       {
-        if (!exists (p))
+        if (p.empty () || !exists (p))
           return false;
 
         try
@@ -31,7 +33,11 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          error << "unable to read " << p << ": " << e.what ();
+          // While there can be no fault of the test command being currently
+          // executed let's add the location anyway to ease the
+          // troubleshooting. And let's stick to that principle down the road.
+          //
+          error (cl) << "unable to read " << p << ": " << e.what ();
           throw failed ();
         }
       }
@@ -51,7 +57,7 @@ namespace build2
         {
           // Check that there is no output produced.
           //
-          if (non_empty (op))
+          if (non_empty (op, cl))
             fail (cl) << pr << " unexpectedly writes to " << nm <<
               info << nm << " is saved to " << op;
         }
@@ -73,7 +79,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail << "unable to write " << orp << ": " << e.what ();
+            fail (cl) << "unable to write " << orp << ": " << e.what ();
           }
 
           // Use diff utility to compare the output with the expected result.
@@ -110,9 +116,10 @@ namespace build2
               diag_record d (error (cl));
               d << pr << " " << nm << " doesn't match the expected output";
 
-              auto output_info = [&d, &nm] (const path& p, const char* prefix)
+              auto output_info =
+                [&d, &nm, &cl] (const path& p, const char* prefix)
               {
-                if (non_empty (p))
+                if (non_empty (p, cl))
                   d << info << prefix << nm << " is saved to " << p;
                 else
                   d << info << prefix << nm << " is empty";
@@ -151,14 +158,18 @@ namespace build2
       }
 
       void concurrent_runner::
-      enter (scope& sp, const location&)
+      enter (scope& sp, const location& cl)
       {
         if (!exists (sp.wd_path))
+          // @@ Shouldn't we add an optional location parameter to mkdir() and
+          // alike utility functions so the failure message can contain
+          // location info?
+          //
           mkdir (sp.wd_path, 2);
         else if (!empty (sp.wd_path))
           // @@ Shouldn't we have --wipe or smth?
           //
-          fail << "directory " << sp.wd_path << " is not empty" <<
+          fail (cl) << "directory " << sp.wd_path << " is not empty" <<
             info << "clean it up and rerun";
 
         sp.cleanups.emplace_back (sp.wd_path);
@@ -167,22 +178,34 @@ namespace build2
       void concurrent_runner::
       leave (scope& sp, const location& cl)
       {
-        for (const auto& p: reverse_iterate (sp.cleanups))
+        // Remove files and directories in the order opposite to the order of
+        // cleanup registration. Handle paths multiple registration (which is a
+        // valid case).
+        //
+        // Note that we operate with normalized paths here.
+        //
+        set<path> rp;
+        for (auto& p: reverse_iterate (sp.cleanups))
         {
-          if (p.to_directory ())
+          auto i (rp.emplace (move (p)));
+          if (i.second) // Remove the path if seen for the first time.
           {
-            dir_path d (path_cast<dir_path> (p));
-            rmdir_status r (rmdir (d, 2));
+            const path& p (*i.first);
+            if (p.to_directory ())
+            {
+              dir_path d (path_cast<dir_path> (p));
+              rmdir_status r (rmdir (d, 2));
 
-            if (r != rmdir_status::success)
-              fail (cl) << "registered for cleanup directory " << d
-                        << (r == rmdir_status::not_empty
-                            ? " is not empty"
-                            : " does not exist");
+              if (r != rmdir_status::success)
+                fail (cl) << "registered for cleanup directory " << d
+                          << (r == rmdir_status::not_empty
+                              ? " is not empty"
+                              : " does not exist");
+            }
+            else if (rmfile (p, 2) == rmfile_status::not_exist)
+              fail (cl) << "registered for cleanup file " << p
+                        << " does not exist";
           }
-          else if (rmfile (p, 2) == rmfile_status::not_exist)
-            fail (cl) << "registered for cleanup file " << p
-                      << " does not exist";
         }
       }
 
@@ -219,7 +242,28 @@ namespace build2
           //    process to hang which can be interpreted as a test failure.
           // @@ Both ways are quite ugly. Is there some better way to do this?
           //
+
+          // Normalize a path. Also make relative path absolute using the
+          // scope's working directory unless it is already absolute.
+          //
+          auto normalize = [&sp, &cl] (path p) -> path
+          {
+            path r (p.absolute () ? move (p) : sp.wd_path / move (p));
+
+            try
+            {
+              r.normalize ();
+            }
+            catch (const invalid_path& e)
+            {
+              fail (cl) << "invalid file path " << e.path;
+            }
+
+            return r;
+          };
+
           int in;
+          ifdstream si;
 
           switch (c.in.type)
           {
@@ -230,6 +274,23 @@ namespace build2
 
           case redirect_type::null:
           case redirect_type::none:          in = -2; break;
+
+          case redirect_type::file:
+            {
+              path p (normalize (c.in.file.path));
+
+              try
+              {
+                si.open (p);
+              }
+              catch (const io_error& e)
+              {
+                fail (cl) << "unable to read " << p << ": " << e.what ();
+              }
+
+              in = si.fd ();
+              break;
+            }
           }
 
           // Dealing with stdout and stderr redirect types other than 'null'
@@ -246,48 +307,66 @@ namespace build2
           // the output of a faulty test command can be provided for
           // troubleshooting.
           //
-          auto opath = [sp, ci] (const char* nm) -> path
+
+          // Open a file for command output redirect if requested explicitly
+          // (file redirect) or for the purpose of the output validation (none,
+          // here_string, here_document), register the file for cleanup, return
+          // the file descriptor. Return the default and -2 file descriptors
+          // for pass and null redirects respectively not opening a file.
+          //
+          auto open = [&sp, &ci, &cl, &normalize] (const redirect& r,
+                                                   int fd,
+                                                   path& p,
+                                                   ofdstream& os) -> int
           {
-            path r (sp.wd_path / path (nm));
+            assert (fd == 1 || fd == 2);
 
-            if (ci > 0)
-              r += "-" + to_string (ci + 1); // Start from first line.
+            if (r.type == redirect_type::pass || r.type == redirect_type::null)
+              return r.type == redirect_type::pass ? fd : -2;
 
-            return r;
-          };
+            ofdstream::openmode m (ofdstream::out);
+            if (r.type == redirect_type::file)
+            {
+              p = normalize (r.file.path);
+              if (r.file.append)
+                m |= ofdstream::app;
+            }
+            else
+            {
+              path op (fd == 1 ? "stdout" : "stderr");
 
-          auto open = [&sp] (ofdstream& os, const path& p) -> int
-          {
+              // 0 if a single-command test, otherwise is the command number
+              // (start from one) in the test.
+              //
+              if (ci > 0)
+                op += "-" + to_string (ci);
+
+              p = normalize (move (op));
+            }
+
             try
             {
-              os.open (p);
-              sp.cleanups.emplace_back (p);
+              os.open (p, m);
             }
             catch (const io_error& e)
             {
-              fail << "unable to write " << p << ": " << e.what ();
+              fail (cl) << "unable to write " << p << ": " << e.what ();
             }
 
+            // It is a valid case if the file path is repeatedly registered for
+            // cleanup. It is handled during cleanup procedure.
+            //
+            sp.cleanups.emplace_back (p);
             return os.fd ();
           };
 
+          path stdout;
           ofdstream so;
-          path stdout (opath ("stdout"));
+          int out (open (c.out, 1, stdout, so));
 
-          int out (c.out.type == redirect_type::pass
-                   ? 1
-                   : c.out.type == redirect_type::null
-                     ? -2
-                     : open (so, stdout));
-
+          path stderr;
           ofdstream se;
-          path stderr (opath ("stderr"));
-
-          int err (c.err.type == redirect_type::pass
-                   ? 2
-                   : c.err.type == redirect_type::null
-                     ? -2
-                     : open (se, stderr));
+          int err (open (c.err, 2, stderr, se));
 
           if (verb >= 2)
             print_process (args);
@@ -299,14 +378,14 @@ namespace build2
 
           try
           {
+            si.close ();
             so.close ();
             se.close ();
 
-            const redirect& r (c.in);
-            if (r.type == redirect_type::here_string ||
-                r.type == redirect_type::here_document)
+            if (in == -1) // here_string, here_document redirects.
             {
               ofdstream os (pr.out_fd);
+              const redirect& r (c.in);
               os << (r.type == redirect_type::here_string ? r.str : r.doc.doc);
               os.close ();
             }
@@ -339,7 +418,8 @@ namespace build2
                 }
                 catch (const io_error& e)
                 {
-                  fail << "unable to read " << stderr << ": " << e.what ();
+                  fail (cl) << "unable to read " << stderr << ": "
+                            << e.what ();
                 }
               }
 
@@ -359,10 +439,10 @@ namespace build2
               else
                 assert (false);
 
-              if (non_empty (stdout))
+              if (non_empty (stdout, cl))
                 d << info << "stdout is saved to " << stdout;
 
-              if (non_empty (stderr))
+              if (non_empty (stderr, cl))
                 d << info << "stderr is saved to " << stderr;
             }
 

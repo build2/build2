@@ -1,0 +1,5 @@
+$* <<EOI >>EOO          # file
+cmd 0<<<a 1>>>b 2>>>&c
+EOI
+cmd <<<a >>>b 2>>>&c
+EOO

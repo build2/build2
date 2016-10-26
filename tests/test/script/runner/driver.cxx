@@ -34,7 +34,10 @@ main (int argc, char* argv[])
     {
       try
       {
-        return stoi (s);
+        size_t n;
+        int r (stoi (s, &n));
+        assert (n == s.size ());
+        return r;
       }
       catch (const exception&)
       {

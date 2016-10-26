@@ -616,7 +616,7 @@ namespace build2
             }
             catch (const invalid_path& e)
             {
-              fail (l) << "invalid " << n << "redirect file path '" << e.path
+              fail (l) << "invalid " << n << " redirect file path '" << e.path
                        << "'";
             }
 
@@ -625,7 +625,7 @@ namespace build2
 
           switch (p)
           {
-          case pending::none:    c.arguments.push_back (move (w)); break;
+          case pending::none: c.arguments.push_back (move (w)); break;
           case pending::program:
           {
             try

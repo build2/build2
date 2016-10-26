@@ -1,0 +1,107 @@
+test.arguments += command-line
+
+$* <:"0<+" >>EOO # in-pass-redirect
+'0'
+<+
+EOO
+
+$* <:"0 <+" >>EOO # arg-in-pass-redirect
+'0 '
+<+
+EOO
+
+$* <:"1>+" >>EOO # out-pass-redirect
+'1'
+>+
+EOO
+
+$* <:"1 >+" >>EOO # arg-out-pass-redirect
+'1 '
+>+
+EOO
+
+$* <:"0<-" >>EOO # in-null-redirect
+'0'
+<-
+EOO
+
+$* <:"0 <-" >>EOO # arg-in-null-redirect
+'0 '
+<-
+EOO
+
+$* <:"1>-" >>EOO # out-null-redirect
+'1'
+>-
+EOO
+
+$* <:"1 >-" >>EOO # arg-out-null-redirect
+'1 '
+>-
+EOO
+
+$* <:"0<a b" >>EOO # in-str-redirect
+'0'
+<
+'a b'
+EOO
+
+$* <:"1>a b" >>EOO # out-str-redirect
+'1'
+>
+'a b'
+EOO
+
+$* <:"0<:a b" >>EOO # in-str-nn-redirect
+'0'
+<:
+'a b'
+EOO
+
+$* <:"1>:a b" >>EOO # out-str-nn-redirect
+'1'
+>:
+'a b'
+EOO
+
+$* <:"0<<E O I" >>EOO # in-doc-redirect
+'0'
+<<
+'E O I'
+EOO
+
+$* <:"1>>E O O" >>EOO # out-doc-redirect
+'1'
+>>
+'E O O'
+EOO
+
+$* <:"0<<:E O I" >>EOO # in-doc-nn-redirect
+'0'
+<<:
+'E O I'
+EOO
+
+$* <:"1>>:E O O" >>EOO # out-doc-nn-redirect
+'1'
+>>:
+'E O O'
+EOO
+
+$* <:"0<<<a b" >>EOO # in-file-redirect
+'0'
+<<<
+'a b'
+EOO
+
+$* <:"1>>>a b" >>EOO # out-file-redirect
+'1'
+>>>
+'a b'
+EOO
+
+$* <:"1>>>&a b" >>EOO # out-file-app-redirect
+'1'
+>>>&
+'a b'
+EOO
