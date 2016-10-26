@@ -30,13 +30,16 @@ namespace build2
       class print_runner: public runner
       {
       public:
-        print_runner (bool scope): scope_ (scope) {}
+        print_runner (bool scope, bool id): scope_ (scope), id_ (id) {}
 
         virtual void
-        enter (scope&, const location&) override
+        enter (scope& s, const location&) override
         {
           if (scope_)
           {
+            if (id_ && !s.id_path.empty ()) // Skip empty root scope id.
+              cout << ind_ << ": " << s.id_path.string () << endl;
+
             cout << ind_ << "{" << endl;
             ind_ += "  ";
           }
@@ -60,10 +63,11 @@ namespace build2
 
       private:
         bool scope_;
+        bool id_;
         string ind_;
       };
 
-      // Usage: argv[0] [-s] [<testscript-name>]
+      // Usage: argv[0] [-s] [-i] [<testscript-name>]
       //
       int
       main (int argc, char* argv[])
@@ -74,6 +78,7 @@ namespace build2
         reset (strings ()); // No command line variables.
 
         bool scope (false);
+        bool id (false);
         path name;
 
         for (int i (1); i != argc; ++i)
@@ -82,6 +87,8 @@ namespace build2
 
           if (a == "-s")
             scope = true;
+          else if (a == "-i")
+            id = true;
           else
           {
             name = path (move (a));
@@ -91,6 +98,8 @@ namespace build2
 
         if (name.empty ())
           name = path ("testscript");
+
+        assert (!id || scope); // Id can only be printed with scope.
 
         try
         {
@@ -121,7 +130,7 @@ namespace build2
           // Parse and run.
           //
           script s (tt, st, dir_path (work) /= "test-driver");
-          print_runner r (scope);
+          print_runner r (scope, id);
 
           parser p;
           p.pre_parse (cin, name, s);

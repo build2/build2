@@ -1747,7 +1747,7 @@ namespace build2
 
           ns.insert (ns.end (),
                      make_move_iterator (rhs.as<names> ().begin ()),
-                       make_move_iterator (rhs.as<names> ().end ()));
+                     make_move_iterator (rhs.as<names> ().end ()));
 
           break;
         }

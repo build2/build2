@@ -216,6 +216,12 @@ namespace build2
       private:
         friend class parser;
 
+        bool
+        empty () const
+        {
+          return scopes.empty () && setup_.empty () && tdown_.empty ();
+        }
+
         lines setup_;
         lines tdown_;
       };

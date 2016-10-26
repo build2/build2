@@ -17,8 +17,16 @@ $* -s <<EOI >>EOO                    # group-empty
 }
 EOI
 {
-  {
-  }
+}
+EOO
+
+$* -s <<EOI >>EOO                    # group-empty-empty
+{
+ {
+ }
+}
+EOI
+{
 }
 EOO
 
@@ -40,6 +48,73 @@ EOI
 }
 EOO
 
+# Test scope.
+#
+
+$* -s -i <<EOI >>EOO                 # test-scope
+{
+  cmd
+}
+EOI
+{
+  : 1
+  {
+    cmd
+  }
+}
+EOO
+
+$* -s -i <<EOI >>EOO                    # test-scope-nested
+{
+  {
+    cmd
+  }
+}
+EOI
+{
+  : 1
+  {
+    cmd
+  }
+}
+EOO
+
+$* -s -i <<EOI >>EOO                    # test-scope-var
+{
+  x = abc
+  cmd \$x
+}
+EOI
+{
+  : 1
+  {
+    cmd abc
+  }
+}
+EOO
+
+$* -s -i <<EOI >>EOO                    # test-scope-setup
+{
+  x = abc
+  +setup
+  cmd \$x
+}
+EOI
+{
+  : 1
+  {
+    setup
+    : 1/4
+    {
+      cmd abc
+    }
+  }
+}
+EOO
+
+
+#
+#
 $* <:"{x" 2>>EOE != 0                # expected-newline-lcbrace
 testscript:1:2: error: expected newline after '{'
 EOE

@@ -114,10 +114,10 @@ namespace build2
 
               // Push group. Use line number as the scope id.
               //
+              unique_ptr<group> g (new group (to_string (ll.line), *group_));
+
               group* og (group_);
-              unique_ptr<group> p (
-                group_ = new group (to_string (ll.line), *og));
-              og->scopes.push_back (move (p));
+              group_ = g.get ();
 
               group_->start_loc_ = ll;
               token e (pre_parse_scope_body ());
@@ -126,6 +126,66 @@ namespace build2
               // Pop group.
               //
               group_ = og;
+
+              // Drop empty scopes.
+              //
+              if (!g->empty ())
+              {
+                // See if this turned out to be an explicit test scope. An
+                // explicit test scope contains a single test, only variable
+                // assignments in setup and nothing in teardown. Plus only the
+                // test or the scope (but not both) can have an explicit id.
+                //
+                // @@ TODO: explicit id.
+                //
+                auto& sc (g->scopes);
+                auto& su (g->setup_);
+                auto& td (g->tdown_);
+
+                test* t;
+                if (sc.size () == 1 &&
+                    (t = dynamic_cast<test*> (sc.back ().get ())) != nullptr &&
+                    td.empty () &&
+                    find_if (
+                      su.begin (), su.end (),
+                      [] (const line& l)
+                      {
+                        return l.type != line_type::variable;
+                      }) == su.end ())
+                {
+                  // It would have been nice to reuse the test object and only
+                  // throw aways the group. However, the merged scope should
+                  // have id_path/wd_path of the group. So to keep things
+                  // simple we are going to throw away both and create a new
+                  // test object.
+                  //
+                  // @@ TODO: decide whose id to use.
+                  //
+                  unique_ptr<test> m (new test (g->id_path.leaf ().string (),
+                                                *group_));
+
+                  // Merge the lines of the group and the test.
+                  //
+                  if (su.empty ())
+                    m->tests_ = move (t->tests_);
+                  else
+                  {
+                    m->tests_ = move (su); // Should come first.
+                    m->tests_.insert (m->tests_.end (),
+                                      make_move_iterator (t->tests_.begin ()),
+                                      make_move_iterator (t->tests_.end ()));
+                  }
+
+                  // Use start/end locations of the outer scope.
+                  //
+                  m->start_loc_ = g->start_loc_;
+                  m->end_loc_ = g->end_loc_;
+
+                  group_->scopes.push_back (move (m));
+                }
+                else
+                  group_->scopes.push_back (move (g));
+              }
 
               if (e.type != type::rcbrace)
                 fail (e) << "expected '}' at the end of the scope";
