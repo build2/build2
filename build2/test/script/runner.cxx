@@ -189,6 +189,10 @@ namespace build2
         //
         // Note that we operate with normalized paths here.
         //
+        // @@ What if to make cleanup insensitive to the registration order,
+        //    and sorting paths properly prior removal? Would it produce any
+        //    testing flaws?
+        //
         set<path> rp;
         for (auto& p: reverse_iterate (sp.cleanups))
         {
@@ -413,6 +417,11 @@ namespace build2
             // Just wait. The program failure can mean the test success.
             //
             pr.wait ();
+
+            // Register command-created paths for cleanup.
+            //
+            for (const auto& p: c.cleanups)
+              sp.cleanups.emplace_back (normalize (p));
 
             // If there is no correct exit status by whatever reason then dump
             // stderr (if cached), print the proper diagnostics and fail.

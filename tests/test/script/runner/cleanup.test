@@ -1,0 +1,10 @@
+# file      : tests/test/script/runner/cleanup.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+$* -f a &a                                       # file
+$* -d a &a/                                      # dir1
+$* -d a/b &a/ &a/b/                              # dir2
+$* -d a/b -f a/b/c &a/ &a/b/ &a/b/c              # file-dir
+$* -f a &a &a                                    # file-dup
+$* -d a/b &a/ &a/b/ &a/b/../b/                   # dir-dup

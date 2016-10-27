@@ -10,12 +10,18 @@
 #include <iostream>
 #include <exception>
 
+#include <butl/path>
+#include <butl/fdstream>
+#include <butl/filesystem>
+
 using namespace std;
+using namespace butl;
 
 int
 main (int argc, char* argv[])
 {
   // Usage: driver [-i <int>] [-s <int>] (-o <string>)* (-e <string>)*
+  //        (-f <file>)* (-d <dir>)*
   //
   int status (256);
   int ifd (3);
@@ -71,6 +77,15 @@ main (int argc, char* argv[])
 
       status = toi (v);
       assert (status >= 0 && status < 256);
+    }
+    else if (o == "-f")
+    {
+      ofdstream os (v);
+      os.close ();
+    }
+    else if (o == "-d")
+    {
+      try_mkdir_p (dir_path (v));
     }
     else
       assert (false);
