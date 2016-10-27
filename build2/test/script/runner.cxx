@@ -50,10 +50,17 @@ namespace build2
       check_output (const process_path& pr,
                     const char* nm,
                     const path& op,
+                    const path& ip,
                     const redirect& rd,
                     const location& cl,
                     scope& sp)
       {
+        auto input_info = [&ip, &cl] (diag_record& d)
+        {
+          if (non_empty (ip, cl))
+            d << info << "stdin: " << ip;
+        };
+
         if (rd.type == redirect_type::none)
         {
           assert (!op.empty ());
@@ -61,8 +68,13 @@ namespace build2
           // Check that there is no output produced.
           //
           if (non_empty (op, cl))
-            fail (cl) << pr << " unexpectedly writes to " << nm <<
-              info << nm << " is saved to " << op;
+          {
+            diag_record d (fail (cl));
+            d << pr << " unexpectedly writes to " << nm <<
+              info << nm << ": " << op;
+
+            input_info (d);
+          }
         }
         else if (rd.type == redirect_type::here_string ||
                  rd.type == redirect_type::here_document)
@@ -125,13 +137,14 @@ namespace build2
                 [&d, &nm, &cl] (const path& p, const char* prefix)
               {
                 if (non_empty (p, cl))
-                  d << info << prefix << nm << " is saved to " << p;
+                  d << info << prefix << nm << ": " << p;
                 else
                   d << info << prefix << nm << " is empty";
               };
 
               output_info (op, "");
               output_info (orp, "expected ");
+              input_info  (d);
 
               // Fall through.
               //
@@ -271,33 +284,79 @@ namespace build2
             return r;
           };
 
-          int in;
+          // Create unique path for a test command standard stream cache file.
+          //
+          auto std_path = [&ci, &normalize] (const char* n) -> path
+          {
+            path p (n);
+
+            // 0 if belongs to a single-command test scope, otherwise is the
+            // command number (start from one) in the test scope.
+            //
+            if (ci > 0)
+              p += "-" + to_string (ci);
+
+            return normalize (move (p));
+          };
+
+          path stdin;
           ifdstream si;
+          int in;
+
+          // Open a file for passing to the test command stdin.
+          //
+          auto open_stdin = [&stdin, &si, &in, &cl] ()
+          {
+            assert (!stdin.empty ());
+
+            try
+            {
+              si.open (stdin);
+            }
+            catch (const io_error& e)
+            {
+              fail (cl) << "unable to read " << stdin << ": " << e.what ();
+            }
+
+            in = si.fd ();
+          };
 
           switch (c.in.type)
           {
-          case redirect_type::pass:          in =  0; break;
-
-          case redirect_type::here_string:
-          case redirect_type::here_document: in = -1; break;
-
+          case redirect_type::pass: in =  0; break;
           case redirect_type::null:
-          case redirect_type::none:          in = -2; break;
+          case redirect_type::none: in = -2; break;
 
           case redirect_type::file:
             {
-              path p (normalize (c.in.file.path));
+              stdin = normalize (c.in.file.path);
+              open_stdin ();
+              break;
+            }
+
+          case redirect_type::here_string:
+          case redirect_type::here_document:
+            {
+              // We could write to process stdin directly but instead will
+              // cache the data for potential troubleshooting.
+              //
+              stdin = std_path ("stdin");
 
               try
               {
-                si.open (p);
+                ofdstream os (stdin);
+                os << (c.in.type == redirect_type::here_string
+                       ? c.in.str
+                       : c.in.doc.doc);
+                os.close ();
               }
               catch (const io_error& e)
               {
-                fail (cl) << "unable to read " << p << ": " << e.what ();
+                fail (cl) << "unable to write " << stdin << ": " << e.what ();
               }
 
-              in = si.fd ();
+              open_stdin ();
+              sp.cleanups.emplace_back (stdin);
               break;
             }
 
@@ -322,14 +381,14 @@ namespace build2
           // Open a file for command output redirect if requested explicitly
           // (file redirect) or for the purpose of the output validation (none,
           // here_string, here_document), register the file for cleanup, return
-          // the file descriptor. Return the specified, default and -2 file
-          // descriptors for merge, pass and null redirects respectively not
+          // the file descriptor. Return the specified, default or -2 file
+          // descriptors for merge, pass or null redirects respectively not
           // opening a file.
           //
-          auto open = [&sp, &ci, &cl, &normalize] (const redirect& r,
-                                                   int dfd,
-                                                   path& p,
-                                                   ofdstream& os) -> int
+          auto open = [&sp, &cl, &std_path, &normalize] (const redirect& r,
+                                                         int dfd,
+                                                         path& p,
+                                                         ofdstream& os) -> int
           {
             assert (dfd == 1 || dfd == 2);
 
@@ -355,15 +414,7 @@ namespace build2
             case redirect_type::here_string:
             case redirect_type::here_document:
               {
-                path op (dfd == 1 ? "stdout" : "stderr");
-
-                // 0 if belongs to a single-command test scope, otherwise is
-                // the command number (start from one) in the test scope.
-                //
-                if (ci > 0)
-                  op += "-" + to_string (ci);
-
-                p = normalize (move (op));
+                p = std_path (dfd == 1 ? "stdout" : "stderr");
                 break;
               }
             }
@@ -405,14 +456,6 @@ namespace build2
             si.close ();
             so.close ();
             se.close ();
-
-            if (in == -1) // here_string, here_document redirects.
-            {
-              ofdstream os (pr.out_fd);
-              const redirect& r (c.in);
-              os << (r.type == redirect_type::here_string ? r.str : r.doc.doc);
-              os.close ();
-            }
 
             // Just wait. The program failure can mean the test success.
             //
@@ -468,17 +511,20 @@ namespace build2
               else
                 assert (false);
 
-              if (non_empty (stdout, cl))
-                d << info << "stdout is saved to " << stdout;
-
               if (non_empty (stderr, cl))
-                d << info << "stderr is saved to " << stderr;
+                d << info << "stderr: " << stderr;
+
+              if (non_empty (stdout, cl))
+                d << info << "stdout: " << stdout;
+
+              if (non_empty (stdin, cl))
+                d << info << "stdin: " << stdin;
             }
 
             // Check if the standard outputs match expectations.
             //
-            check_output (pp, "stdout", stdout, c.out, cl, sp);
-            check_output (pp, "stderr", stderr, c.err, cl, sp);
+            check_output (pp, "stdout", stdout, stdin, c.out, cl, sp);
+            check_output (pp, "stderr", stderr, stdin, c.err, cl, sp);
           }
           catch (const io_error& e)
           {
