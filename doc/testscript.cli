@@ -718,13 +718,18 @@ teardown:
   variable-line|teardown-line
 
 scope:
+  description?
   '{'
   scope-body
   '}'
 
 test:
+  description?
   *((variable-line|test-line) ';')
-  test-line
+  test-line (':' <text>)?
+
+description:
+  +(':' <text>)
 
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
@@ -781,6 +786,9 @@ not be the same as the right-hand-side. Having both merge redirects at the
 same time is illegal.
 
 Here-line is like double-quoted string but recognizes newlines.
+
+It is an error to specify both normal (better term?) and inline descriptions
+for a test.
 
 \
 script:
