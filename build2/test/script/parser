@@ -54,6 +54,9 @@ namespace build2
         void
         parse_scope_body ();
 
+        void
+        pre_parse_line (token&, token_type&, lines* = nullptr);
+
         bool
         parse_variable_line (token&, token_type&);
 
@@ -94,7 +97,6 @@ namespace build2
         // Pre-parse state.
         //
         group* group_;
-        lines* lines_;
 
         // Parse state.
         //

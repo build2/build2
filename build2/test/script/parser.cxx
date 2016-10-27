@@ -30,10 +30,7 @@ namespace build2
 
         script_ = &s;
         runner_ = nullptr;
-
         group_ = script_;
-        lines_ = nullptr;
-
         scope_ = nullptr;
 
         // Start location of the implied script group is the beginning of the
@@ -45,11 +42,6 @@ namespace build2
 
         if (t.type != type::eos)
           fail (t) << "stray " << t;
-
-        // Check that we don't expect more lines.
-        //
-        if (lines_ != nullptr)
-          fail (t) << "expected another line after semicolon";
 
         group_->end_loc_ = get_location (t);
       }
@@ -66,10 +58,7 @@ namespace build2
 
         script_ = &s;
         runner_ = &r;
-
         group_ = nullptr;
-        lines_ = nullptr;
-
         scope_ = &sc;
 
         parse_scope_body ();
@@ -91,11 +80,7 @@ namespace build2
 
           // Determine the line type by peeking at the first token.
           //
-          tt = peek ();
-          const location ll (get_location (peeked ()));
-
-          line_type lt;
-          switch (tt)
+          switch (tt = peek ())
           {
           case type::eos:
           case type::rcbrace:
@@ -108,18 +93,19 @@ namespace build2
               // Nested scope.
               //
               next (t, tt); // Get '{'.
+              const location sl (get_location (t));
 
               if (next (t, tt) != type::newline)
                 fail (t) << "expected newline after '{'";
 
               // Push group. Use line number as the scope id.
               //
-              unique_ptr<group> g (new group (to_string (ll.line), *group_));
+              unique_ptr<group> g (new group (to_string (sl.line), *group_));
 
               group* og (group_);
               group_ = g.get ();
 
-              group_->start_loc_ = ll;
+              group_->start_loc_ = sl;
               token e (pre_parse_scope_body ());
               group_->end_loc_ = get_location (e);
 
@@ -190,185 +176,18 @@ namespace build2
               if (e.type != type::rcbrace)
                 fail (e) << "expected '}' at the end of the scope";
 
-              // Check that we don't expect more lines.
-              //
-              if (lines_ != nullptr)
-                fail (e) << "expected another line after semicolon";
-
               if (next (t, tt) != type::newline)
                 fail (t) << "expected newline after '}'";
 
               continue;
             }
-          case type::plus:
-          case type::minus:
-            {
-              // Setup/teardown command.
-              //
-              lt = (tt == type::plus ? line_type::setup : line_type::tdown);
-
-              next (t, tt);   // Start saving tokens from the next one.
-              replay_save ();
-              next (t, tt);
-              break;
-            }
           default:
             {
-              // Either a test command or a variable assignment.
-              //
-              replay_save (); // Start saving tokens from the current one.
-              next (t, tt);
-
-              // Decide whether this is a variable assignment or a command. It
-              // is an assignment if the first token is an unquoted word and
-              // the next is an assign/append/prepend operator. Assignment to
-              // a computed variable name must use the set builtin.
-              //
-              if (tt == type::word && !t.quoted)
-              {
-                // Switch the recognition of leading variable assignments for
-                // the next token. This is safe to do because we know we
-                // cannot be in the quoted mode (since the current token is
-                // not quoted).
-                //
-                mode (lexer_mode::second_token);
-                type p (peek ());
-
-                if (p == type::assign  ||
-                    p == type::prepend ||
-                    p == type::append)
-                {
-                  lt = line_type::variable;
-                  break;
-                }
-              }
-
-              lt = line_type::test;
+              pre_parse_line (t, tt);
+              assert (tt == type::newline);
               break;
             }
           }
-
-          // Being here means we know the line type and token saving is on.
-          // First we pre-parse the line keeping track of whether it ends with
-          // a semicolon.
-          //
-          bool semi;
-
-          switch (lt)
-          {
-          case line_type::variable:
-            semi = parse_variable_line (t, tt);
-            break;
-          case line_type::setup:
-          case line_type::tdown:
-          case line_type::test:
-            semi = parse_command_line (t, tt, lt, 0);
-            break;
-          }
-
-          assert (tt == type::newline);
-
-          // Stop saving and get the tokens.
-          //
-          line l {lt, replay_data ()};
-
-          // Decide where it goes.
-          //
-          lines* ls (nullptr);
-
-          // If lines_ is not NULL then the previous command ended with a
-          // semicolon and we should add this one to the same place.
-          //
-          if (lines_ != nullptr)
-          {
-            switch (lt)
-            {
-            case line_type::setup: fail (ll) << "setup command in test";
-            case line_type::tdown: fail (ll) << "teardown command in test";
-            default: break;
-            }
-
-            ls = lines_;
-          }
-          else
-          {
-            switch (lt)
-            {
-            case line_type::setup:
-              {
-                if (!group_->scopes.empty ())
-                  fail (ll) << "setup command after tests";
-
-                if (!group_->tdown_.empty ())
-                  fail (ll) << "setup command after teardown";
-
-                ls = &group_->setup_;
-                break;
-              }
-            case line_type::tdown:
-              {
-                ls = &group_->tdown_;
-                break;
-              }
-            case line_type::variable:
-              {
-                // If there is a semicolon after the variable then we assume
-                // it is part of a test (there is no reason to use semicolons
-                // after variables in the group scope).
-                //
-                if (!semi)
-                {
-                  // If we don't have any nested scopes or teardown commands,
-                  // then we assume this is a setup, otherwise -- teardown.
-                  //
-                  ls = group_->scopes.empty () && group_->tdown_.empty ()
-                    ? &group_->setup_
-                    : &group_->tdown_;
-
-                  break;
-                }
-
-                // Fall through.
-              }
-            case line_type::test:
-              {
-                // First check that we don't have any teardown commands yet.
-                // This will detect things like variable assignments between
-                // tests.
-                //
-                if (!group_->tdown_.empty ())
-                {
-                  // @@ Can the teardown line be from a different file?
-                  //
-                  location tl (
-                    get_location (
-                      group_->tdown_.back ().tokens.front ().token));
-
-                  fail (ll) << "test after teardown" <<
-                    info (tl) << "last teardown line appears here";
-                }
-
-                // Create implicit test scope. Use line number as the scope id.
-                //
-                unique_ptr<test> p (new test (to_string (ll.line), *group_));
-
-                p->start_loc_ = ll;
-                p->end_loc_ = get_location (t);
-
-                ls = &p->tests_;
-
-                group_->scopes.push_back (move (p));
-                break;
-              }
-            }
-          }
-
-          ls->push_back (move (l));
-
-          // If this command ended with a semicolon, then the next one should
-          // go to the same place.
-          //
-          lines_ = semi ? ls : nullptr;
         }
       }
 
@@ -462,6 +281,197 @@ namespace build2
           assert (false);
 
         runner_->leave (*scope_, scope_->end_loc_);
+      }
+
+      void parser::
+      pre_parse_line (token& t, type& tt, lines* ls)
+      {
+        // Note: token is only peeked at.
+        //
+        const location ll (get_location (peeked ()));
+
+        // Determine the line type.
+        //
+        line_type lt;
+        switch (tt)
+        {
+        case type::plus:
+        case type::minus:
+          {
+            // Setup/teardown command.
+            //
+            lt = (tt == type::plus ? line_type::setup : line_type::tdown);
+
+            next (t, tt);   // Start saving tokens from the next one.
+            replay_save ();
+            next (t, tt);
+            break;
+          }
+        default:
+          {
+            // Either test command or variable assignment.
+            //
+            replay_save (); // Start saving tokens from the current one.
+            next (t, tt);
+
+            // Decide whether this is a variable assignment or a command. It
+            // is an assignment if the first token is an unquoted word and
+            // the next is an assign/append/prepend operator. Assignment to
+            // a computed variable name must use the set builtin.
+            //
+            if (tt == type::word && !t.quoted)
+            {
+              // Switch the recognition of leading variable assignments for
+              // the next token. This is safe to do because we know we
+              // cannot be in the quoted mode (since the current token is
+              // not quoted).
+              //
+              mode (lexer_mode::second_token);
+              type p (peek ());
+
+              if (p == type::assign  ||
+                  p == type::prepend ||
+                  p == type::append)
+              {
+                lt = line_type::variable;
+                break;
+              }
+            }
+
+            lt = line_type::test;
+            break;
+          }
+        }
+
+        // Pre-parse the line keeping track of whether it ends with a
+        // semicolon.
+        //
+        bool semi;
+
+        switch (lt)
+        {
+        case line_type::variable:
+          semi = parse_variable_line (t, tt);
+          break;
+        case line_type::setup:
+        case line_type::tdown:
+        case line_type::test:
+          semi = parse_command_line (t, tt, lt, 0);
+          break;
+        }
+
+        assert (tt == type::newline);
+
+        // Stop saving and get the tokens.
+        //
+        line l {lt, replay_data ()};
+
+        // Decide where it goes.
+        //
+        lines tests;
+        if (ls == nullptr)
+        {
+          switch (lt)
+          {
+          case line_type::setup:
+            {
+              if (!group_->scopes.empty ())
+                fail (ll) << "setup command after tests";
+
+              if (!group_->tdown_.empty ())
+                fail (ll) << "setup command after teardown";
+
+              ls = &group_->setup_;
+              break;
+            }
+          case line_type::tdown:
+            {
+              ls = &group_->tdown_;
+              break;
+            }
+          case line_type::variable:
+            {
+              // If there is a semicolon after the variable then we assume
+              // it is part of a test (there is no reason to use semicolons
+              // after variables in the group scope).
+              //
+              if (!semi)
+              {
+                // If we don't have any nested scopes or teardown commands,
+                // then we assume this is a setup, otherwise -- teardown.
+                //
+                ls = group_->scopes.empty () && group_->tdown_.empty ()
+                  ? &group_->setup_
+                  : &group_->tdown_;
+
+                break;
+              }
+
+              // Fall through.
+            }
+          case line_type::test:
+            {
+              // First check that we don't have any teardown commands yet.
+              // This will detect things like variable assignments between
+              // tests.
+              //
+              if (!group_->tdown_.empty ())
+              {
+                // @@ Can the teardown line be from a different file?
+                //
+                location tl (
+                  get_location (
+                    group_->tdown_.back ().tokens.front ().token));
+
+                fail (ll) << "test after teardown" <<
+                  info (tl) << "last teardown line appears here";
+              }
+
+              ls = &tests;
+            }
+          }
+        }
+
+        ls->push_back (move (l));
+
+        // If this command ended with a semicolon, then the next one should
+        // go to the same place.
+        //
+        if (semi)
+        {
+          mode (lexer_mode::first_token);
+          tt = peek ();
+          const location ll (get_location (peeked ()));
+
+          switch (tt)
+          {
+          case type::eos:
+          case type::rcbrace:
+          case type::lcbrace:
+            fail (ll) << "expected another line after semicolon";
+          case type::plus:
+            fail (ll) << "setup command in test";
+          case type::minus:
+            fail (ll) << "teardown command in test";
+          default:
+            pre_parse_line (t, tt, ls);
+            assert (tt == type::newline); // End of last test line.
+          }
+        }
+
+        // Create implicit test scope. Use line number as the scope id.
+        //
+        if (ls == &tests)
+        {
+          unique_ptr<test> p (new test (to_string (ll.line), *group_));
+
+          p->start_loc_ = ll;
+          p->end_loc_ = get_location (t);
+
+          p->tests_ = move (tests);
+
+          group_->scopes.push_back (move (p));
+        }
       }
 
       // Return true if the string contains only digit characters (used to
