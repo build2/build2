@@ -1,12 +1,6 @@
-# file      : tests/test/script/runner/testscript
+# file      : tests/test/script/runner/redirect.test
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
-
-$*                                                   # status-def
-$*      == 0                                         # status-eq-0
-$* -s 1 != 0                                         # status-ne-0
-$* -s 1 == 1                                         # status-eq-1
-$*      != 1                                         # status-ne-1
 
 $* -o foo >-                                         # out-null
 $* -e foo 2>-                                        # err-null
@@ -109,9 +103,32 @@ EOI
 
 EOO
 
-$* -o foo >>>out;                                    # file-redirect
+$* -o foo >>>out;                                    # file
 $* -e bar 2>>>&out;
 $* -i 1 <<<out >>EOO
 foo
 bar
+EOO
+
+$* -o foo -e bar 2>>EOE 1>&2                         # merge-str
+foo
+bar
+EOE
+
+$* -i 1 <<EOI -e baz >>EOO 2>&1                      # merge-doc
+foo
+bar
+EOI
+foo
+bar
+baz
+EOO
+
+$* -o foo -e bar 2>&1 >>>out;                        # merge-file
+$* -e baz -o biz 1>&2 2>>>&out;
+$* -i 1 <<<out >>EOO
+foo
+bar
+baz
+biz
 EOO

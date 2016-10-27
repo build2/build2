@@ -43,7 +43,8 @@ namespace build2
       }
 
       // Check if the test command output matches the expected result (redirect
-      // value).
+      // value). Noop for redirect types other than none, here_string,
+      // here_document.
       //
       static void
       check_output (const process_path& pr,
@@ -55,6 +56,8 @@ namespace build2
       {
         if (rd.type == redirect_type::none)
         {
+          assert (!op.empty ());
+
           // Check that there is no output produced.
           //
           if (non_empty (op, cl))
@@ -64,6 +67,8 @@ namespace build2
         else if (rd.type == redirect_type::here_string ||
                  rd.type == redirect_type::here_document)
         {
+          assert (!op.empty ());
+
           path orp (op + ".orig");
 
           try
@@ -291,6 +296,8 @@ namespace build2
               in = si.fd ();
               break;
             }
+
+          case redirect_type::merge: assert (false); break;
           }
 
           // Dealing with stdout and stderr redirect types other than 'null'
@@ -311,37 +318,50 @@ namespace build2
           // Open a file for command output redirect if requested explicitly
           // (file redirect) or for the purpose of the output validation (none,
           // here_string, here_document), register the file for cleanup, return
-          // the file descriptor. Return the default and -2 file descriptors
-          // for pass and null redirects respectively not opening a file.
+          // the file descriptor. Return the specified, default and -2 file
+          // descriptors for merge, pass and null redirects respectively not
+          // opening a file.
           //
           auto open = [&sp, &ci, &cl, &normalize] (const redirect& r,
-                                                   int fd,
+                                                   int dfd,
                                                    path& p,
                                                    ofdstream& os) -> int
           {
-            assert (fd == 1 || fd == 2);
-
-            if (r.type == redirect_type::pass || r.type == redirect_type::null)
-              return r.type == redirect_type::pass ? fd : -2;
+            assert (dfd == 1 || dfd == 2);
 
             ofdstream::openmode m (ofdstream::out);
-            if (r.type == redirect_type::file)
-            {
-              p = normalize (r.file.path);
-              if (r.file.append)
-                m |= ofdstream::app;
-            }
-            else
-            {
-              path op (fd == 1 ? "stdout" : "stderr");
 
-              // 0 if a single-command test, otherwise is the command number
-              // (start from one) in the test.
-              //
-              if (ci > 0)
-                op += "-" + to_string (ci);
+            switch (r.type)
+            {
+            case redirect_type::pass:  return dfd;
+            case redirect_type::null:  return -2;
+            case redirect_type::merge: return r.fd;
 
-              p = normalize (move (op));
+            case redirect_type::file:
+              {
+                p = normalize (r.file.path);
+
+                if (r.file.append)
+                  m |= ofdstream::app;
+
+                break;
+              }
+
+            case redirect_type::none:
+            case redirect_type::here_string:
+            case redirect_type::here_document:
+              {
+                path op (dfd == 1 ? "stdout" : "stderr");
+
+                // 0 if belongs to a single-command test scope, otherwise is
+                // the command number (start from one) in the test scope.
+                //
+                if (ci > 0)
+                  op += "-" + to_string (ci);
+
+                p = normalize (move (op));
+                break;
+              }
             }
 
             try
