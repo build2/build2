@@ -4,6 +4,8 @@
 
 #include <build2/test/script/script>
 
+#include <sstream>
+
 #include <build2/target>
 
 using namespace std;
@@ -32,7 +34,19 @@ namespace build2
       void
       to_stream (ostream& o, const command& c, command_to_stream m)
       {
-        auto print_redirect = [&o] (const redirect& r, const char* prefix)
+        auto print_path = [&o] (const path& p)
+        {
+          using build2::operator<<;
+
+          ostringstream s;
+          stream_verb (s, stream_verb (o));
+          s << p;
+
+          to_stream_q (o, s.str ());
+        };
+
+        auto print_redirect =
+          [&o, print_path] (const redirect& r, const char* prefix)
         {
           o << ' ' << prefix;
 
@@ -72,11 +86,10 @@ namespace build2
             }
           case redirect_type::file:
             {
-              using build2::operator<<;
-
               // Add '>>' or '<<' (and so make it '<<<' or '>>>').
               //
-              o << d << d << (r.file.append ? "&" : "") << r.file.path;
+              o << d << d << (r.file.append ? "&" : "");
+              print_path (r.file.path);
               break;
             }
           }
@@ -108,6 +121,12 @@ namespace build2
           if (c.in.type  != redirect_type::none) print_redirect (c.in,   "<");
           if (c.out.type != redirect_type::none) print_redirect (c.out,  ">");
           if (c.err.type != redirect_type::none) print_redirect (c.err, "2>");
+
+          for (const auto& p: c.cleanups)
+          {
+            o << " &";
+            print_path (p);
+          }
 
           if (c.exit.comparison != exit_comparison::eq || c.exit.status != 0)
           {

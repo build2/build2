@@ -1,0 +1,35 @@
+$* <<EOI >>EOO          # file-dir
+cmd &file &dir/
+EOI
+cmd &file &dir/
+EOO
+
+$* <<EOI >>EOO          # quote-file-dir
+cmd &"f ile" &"d ir/"
+EOI
+cmd &"f ile" &"d ir/"
+EOO
+
+$* <<EOI >>EOO          # dup-file
+cmd &file &file
+EOI
+cmd &file &file
+EOO
+
+$* <<EOI 2>>EOE != 0    # file-fail1
+cmd & >file
+EOI
+testscript:1:7: error: missing cleanup path
+EOE
+
+$* <<EOI 2>>EOE != 0    # file-fail2
+cmd &
+EOI
+testscript:1:6: error: missing cleanup path
+EOE
+
+$* <<EOI 2>>EOE != 0    # file-fail3
+cmd &""
+EOI
+testscript:1:6: error: empty cleanup path
+EOE

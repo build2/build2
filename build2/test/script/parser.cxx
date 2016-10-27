@@ -581,7 +581,8 @@ namespace build2
           err_merge,
           err_string,
           err_document,
-          err_file
+          err_file,
+          clean
         };
         pending p (pending::program);
         bool nn (false);  // True if pending here-{str,doc} is "no-newline".
@@ -632,23 +633,30 @@ namespace build2
             hd.push_back (here_doc {&r, move (w), nn});
           };
 
-          auto add_file =
-            [&app, &l, this] (redirect& r, const char* n, string&& w)
+          auto parse_path = [&l, this] (const char* n, string&& w)
           {
             try
             {
-              r.file.path = path (move (w));
+              path p (move (w));
 
-              if (r.file.path.empty ())
-                fail (l) << "empty " << n << " redirect file path";
+              if (!p.empty ())
+                return p;
 
+              error (l) << "empty " << n;
             }
             catch (const invalid_path& e)
             {
-              fail (l) << "invalid " << n << " redirect file path '" << e.path
-                       << "'";
+              error (l) << "invalid " << n << " '" << e.path << "'";
             }
 
+            throw failed ();
+          };
+
+          auto add_file =
+            [&app, &parse_path] (redirect& r, string n, string&& w)
+          {
+            n += " redirect file path";
+            r.file.path = parse_path (n.c_str (), move (w));
             r.file.append = app;
           };
 
@@ -657,17 +665,7 @@ namespace build2
           case pending::none: c.arguments.push_back (move (w)); break;
           case pending::program:
           {
-            try
-            {
-              c.program = path (move (w));
-
-              if (c.program.empty ())
-                fail (l) << "empty program path";
-            }
-            catch (const invalid_path& e)
-            {
-              fail (l) << "invalid program path '" << e.path << "'";
-            }
+            c.program = parse_path ("program path", move (w));
             break;
           }
 
@@ -685,6 +683,12 @@ namespace build2
           case pending::in_file:  add_file (c.in,  "stdin",  move (w)); break;
           case pending::out_file: add_file (c.out, "stdout", move (w)); break;
           case pending::err_file: add_file (c.err, "stderr", move (w)); break;
+
+          case pending::clean:
+            {
+              c.cleanups.push_back (parse_path ("cleanup path", move (w)));
+              break;
+            }
           }
 
           p = pending::none;
@@ -713,6 +717,7 @@ namespace build2
           case pending::err_string:   what = "stderr here-string";       break;
           case pending::err_document: what = "stderr here-document end"; break;
           case pending::err_file:     what = "stderr file";              break;
+          case pending::clean:        what = "cleanup path";             break;
           }
 
           if (what != nullptr)
@@ -902,6 +907,8 @@ namespace build2
           case type::in_file:
           case type::out_file:
           case type::out_file_app:
+
+          case type::clean:
             {
               if (pre_parse_)
               {
@@ -966,12 +973,21 @@ namespace build2
               case type::in_file:
               case type::out_file:
               case type::out_file_app:
+                {
+                  parse_redirect (t, l);
+                  break;
+                }
 
-                parse_redirect (t, l);
-                next (t, tt);
-                break;
+              case type::clean:
+                {
+                  p = pending::clean;
+                  break;
+                }
+
+              default: assert (false); break;
               }
 
+              next (t, tt);
               break;
             }
           default:
@@ -1112,6 +1128,12 @@ namespace build2
                     case type::out_file_app:
                       {
                         parse_redirect (t, l);
+                        break;
+                      }
+
+                    case type::clean:
+                      {
+                        p = pending::clean;
                         break;
                       }
 

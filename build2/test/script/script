@@ -121,6 +121,8 @@ namespace build2
         redirect out;
         redirect err;
 
+        paths cleanups;
+
         command_exit exit {exit_comparison::eq, 0};
       };
 

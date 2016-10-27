@@ -92,3 +92,12 @@ $* <"cmd <<<in >>>out 2>>>&err" >>EOO # file-redirect
 'err'
 <newline>
 EOO
+
+$* <"cmd &file &dir/" >>EOO # cleanup
+'cmd'
+&
+'file'
+&
+'dir/'
+<newline>
+EOO

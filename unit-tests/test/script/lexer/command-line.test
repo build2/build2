@@ -117,3 +117,13 @@ $* <:"1>>>&a b" >>EOO # out-file-app-redirect
 >>>&
 'a b'
 EOO
+
+$* <:"&file" >>EOO # file-cleanup
+&
+'file'
+EOO
+
+$* <:"&dir/" >>EOO # dir-cleanup
+&
+'dir/'
+EOO
