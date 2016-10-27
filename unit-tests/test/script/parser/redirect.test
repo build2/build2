@@ -1,8 +1,54 @@
+# @@ Add tests for redirects other than file and merge.
+# @@ Does it make sense to split into separate files - one per redirect type?
+#
+
 $* <<EOI >>EOO          # file
 cmd 0<<<a 1>>>b 2>>>&c
 EOI
 cmd <<<a >>>b 2>>>&c
 EOO
+
+$* <<EOI >>EOO          # quote-file
+cmd 0<<<"a f" 1>>>"b f" 2>>>&"c f"
+EOI
+cmd <<<"a f" >>>"b f" 2>>>&"c f"
+EOO
+
+$* <<EOI 2>>EOE !=0     # in-file-fail1
+cmd <<<
+EOI
+testscript:1:8: error: missing stdin file
+EOE
+
+$* <<EOI 2>>EOE !=0     # in-file-fail2
+cmd <<<""
+EOI
+testscript:1:8: error: empty stdin redirect file path
+EOE
+
+$* <<EOI 2>>EOE !=0     # out-file-fail1
+cmd >>>
+EOI
+testscript:1:8: error: missing stdout file
+EOE
+
+$* <<EOI 2>>EOE !=0     # out-file-fail2
+cmd >>>""
+EOI
+testscript:1:8: error: empty stdout redirect file path
+EOE
+
+$* <<EOI 2>>EOE !=0     # err-file-fail1
+cmd 2>>>
+EOI
+testscript:1:9: error: missing stderr file
+EOE
+
+$* <<EOI 2>>EOE !=0     # err-file-fail2
+cmd 2>>>""
+EOI
+testscript:1:9: error: empty stderr redirect file path
+EOE
 
 $* <<EOI >>EOO          # out-merge1
 cmd 1>&2
