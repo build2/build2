@@ -609,7 +609,7 @@ namespace build2
             try
             {
               size_t n;
-              if (stoi (w, &n) == fd || n == w.size ())
+              if (stoi (w, &n) == fd && n == w.size ())
               {
                 r.fd = fd;
                 return;

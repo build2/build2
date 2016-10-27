@@ -19,15 +19,13 @@ EOO
 $* <<EOI 2>>EOE != 0    # out-merge-fail1
 cmd 1>&a
 EOI
-testscript:1:8: error: invalid stdout merge redirect file descriptor 'a'
-  info: must be 2
+testscript:1:8: error: stdout merge redirect file descriptor must be 2
 EOE
 
 $* <<EOI 2>>EOE != 0    # out-merge-fail2
 cmd 1>&1
 EOI
-testscript:1:8: error: invalid stdout merge redirect file descriptor '1'
-  info: must be 2
+testscript:1:8: error: stdout merge redirect file descriptor must be 2
 EOE
 
 $* <<EOI 2>>EOE != 0    # out-merge-fail3
@@ -51,15 +49,13 @@ EOO
 $* <<EOI 2>>EOE != 0    # err-merge-fail1
 cmd 2>&2
 EOI
-testscript:1:8: error: invalid stderr merge redirect file descriptor '2'
-  info: must be 1
+testscript:1:8: error: stderr merge redirect file descriptor must be 1
 EOE
 
 $* <<EOI 2>>EOE != 0    # err-merge-fail2
 cmd 2>&2
 EOI
-testscript:1:8: error: invalid stderr merge redirect file descriptor '2'
-  info: must be 1
+testscript:1:8: error: stderr merge redirect file descriptor must be 1
 EOE
 
 $* <<EOI 2>>EOE != 0    # err-merge-fail3
@@ -71,6 +67,5 @@ EOE
 $* <<EOI 2>>EOE != 0    # merge-fail1
 cmd 1>&2 2>&1
 EOI
-testscript:1:14: error: stdout and stderr merge redirects
-  info: should not be specified both
+testscript:1:14: error: stdout and stderr redirected to each other
 EOE
