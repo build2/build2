@@ -68,7 +68,7 @@ namespace build2
 
         union
         {
-          int       fd;  // Used with 'merge' type.
+          int       fd;  // Merge-to descriptor.
           string    str; // Note: includes trailing newline, if required.
           doc_type  doc;
           file_type file;

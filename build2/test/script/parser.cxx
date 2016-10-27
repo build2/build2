@@ -599,17 +599,16 @@ namespace build2
             try
             {
               size_t n;
-              if (stoi (w, &n) != fd || n != w.size ())
-                throw invalid_argument (string ());
+              if (stoi (w, &n) == fd || n == w.size ())
+              {
+                r.fd = fd;
+                return;
+              }
             }
-            catch (const exception&)
-            {
-              fail (l) << "invalid " << (fd == 1 ? "stderr" : "stdout")
-                       << " merge redirect file descriptor '" << w << "'" <<
-                info << "must be " << fd;
-            }
+            catch (const exception&) {} // Fall through.
 
-            r.fd = fd;
+            fail (l) << (fd == 1 ? "stderr" : "stdout") << " merge redirect "
+                     << "file descriptor must be " << fd;
           };
 
           auto add_here_str = [&nn] (redirect& r, string&& w)
@@ -1139,8 +1138,7 @@ namespace build2
 
           if (c.out.type == redirect_type::merge &&
               c.err.type == redirect_type::merge)
-            fail (l) << "stdout and stderr merge redirects" <<
-              info << "should not be specified at the same time";
+            fail (l) << "stdout and stderr redirected to each other";
         }
 
         // While we no longer need to recognize command line operators, we
