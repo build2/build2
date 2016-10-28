@@ -26,8 +26,8 @@ namespace build2
         {
         case lexer_mode::script_line:
           {
-            s1 = ";=!|&<> $(#\t\n";
-            s2 = " ==          ";
+            s1 = ":;=!|&<> $(#\t\n";
+            s2 = "  ==          ";
             break;
           }
         case lexer_mode::first_token:
@@ -39,8 +39,8 @@ namespace build2
             // Note that to recognize only leading '+-{}' we shouldn't add
             // them to the separator strings.
             //
-            s1 = ";=+!|&<> $(#\t\n";
-            s2 = "  ==          ";
+            s1 = ":;=+!|&<> $(#\t\n";
+            s2 = "   ==          ";
             break;
           }
         case lexer_mode::second_token:
@@ -52,8 +52,8 @@ namespace build2
             // add them to the separator strings (so this is identical to
             // script_line).
             //
-            s1 = ";=!|&<> $(#\t\n";
-            s2 = " ==          ";
+            s1 = ":;=!|&<> $(#\t\n";
+            s2 = "  ==          ";
             break;
           }
         case lexer_mode::variable_line:
@@ -85,6 +85,13 @@ namespace build2
             q = false;
             break;
           }
+        case lexer_mode::description_line:
+          {
+            // This one is like a single-quoted string and has an ad hoc
+            // implementation.
+            //
+            break;
+          }
         default:
           {
             // Disable pair separator except for attributes.
@@ -109,8 +116,15 @@ namespace build2
         case lexer_mode::second_token:
         case lexer_mode::variable_line:
         case lexer_mode::command_line:
-        case lexer_mode::here_line:     r = next_line ();             break;
-        default:                        r = base_lexer::next_impl (); break;
+        case lexer_mode::here_line:
+          r = next_line ();
+          break;
+        case lexer_mode::description_line:
+          r = next_description ();
+          break;
+        default:
+          r = base_lexer::next_impl ();
+          break;
         }
 
         if (r.quoted)
@@ -188,6 +202,16 @@ namespace build2
           switch (c)
           {
           case ';': return make_token (type::semi);
+          }
+        }
+
+        if (m == lexer_mode::script_line  ||
+            m == lexer_mode::first_token  ||
+            m == lexer_mode::second_token)
+        {
+          switch (c)
+          {
+          case ':': return make_token (type::colon);
           }
         }
 
@@ -376,6 +400,26 @@ namespace build2
         //
         unget (c);
         return word (st, sep);
+      }
+
+      token lexer::
+      next_description ()
+      {
+        xchar c (get ());
+
+        uint64_t ln (c.line), cn (c.column);
+        string lexeme;
+
+        // For now no line continutions though we could support them.
+        //
+        for (; !eos (c) && c != '\n'; c = get ())
+          lexeme += c;
+
+        if (eos (c))
+          fail (c) << "expected newline at the end of description line";
+
+        state_.pop (); // Expire the description mode.
+        return token (move (lexeme), false, false, ln, cn);
       }
 
       token lexer::

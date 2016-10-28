@@ -1,0 +1,11 @@
+$* <<EOI >>EOO # empty
+cmd <""
+EOI
+cmd <""
+EOO
+
+$* <<EOI >>EOO # empty-nn
+cmd <:""
+EOI
+cmd <:""
+EOO

@@ -7,6 +7,11 @@ $* <";" >>EOO # semi
 <newline>
 EOO
 
+$* <":" >>EOO # colon
+:
+<newline>
+EOO
+
 $* <"{" >>EOO # lcbrace
 {
 <newline>

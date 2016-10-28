@@ -17,6 +17,25 @@ $* <";" >>EOO # semi-only
 <newline>
 EOO
 
+$* <"cmd: dsc" >>EOO # colon
+'cmd'
+:
+'dsc'
+<newline>
+EOO
+
+$* <"cmd :dsc" >>EOO # colon-separated
+'cmd'
+:
+'dsc'
+<newline>
+EOO
+
+$* <":" >>EOO # colon-only
+:
+<newline>
+EOO
+
 $* <"cmd <+ 1>+" >>EOO # pass-redirect
 'cmd'
 <+

@@ -139,6 +139,13 @@ namespace build2
       ostream&
       operator<< (ostream&, const command&);
 
+      struct description
+      {
+        string id;
+        string summary;
+        string details;
+      };
+
       class script;
 
       class scope
@@ -154,6 +161,8 @@ namespace build2
 
         const path& id_path;     // Id path ($@, relative in POSIX form).
         const dir_path& wd_path; // Working dir ($~, absolute and normalized).
+
+        optional<description> desc;
 
         // Files and directories that must be automatically cleaned up when
         // the scope is left. If the path ends with a trailing slash, then it

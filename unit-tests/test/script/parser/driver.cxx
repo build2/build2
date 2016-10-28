@@ -35,12 +35,47 @@ namespace build2
         virtual void
         enter (scope& s, const location&) override
         {
+          if (s.desc)
+          {
+            const auto& d (*s.desc);
+
+            if (!d.id.empty ())
+              cout << ind_ << ": id:" << d.id << endl;
+
+            if (!d.summary.empty ())
+              cout << ind_ << ": sm:" << d.summary << endl;
+
+            if (!d.details.empty ())
+            {
+              if (!d.id.empty () || !d.summary.empty ())
+                cout << ind_ << ":" << endl; // Blank.
+
+              const auto& s (d.details);
+              for (size_t b (0), e (0), n; e != string::npos; b = e + 1)
+              {
+                e = s.find ('\n', b);
+                n = ((e != string::npos ? e : s.size ()) - b);
+
+                cout << ind_ << ':';
+                if (n != 0)
+                {
+                  cout << ' ';
+                  cout.write (s.c_str () + b, static_cast<streamsize> (n));
+                }
+                cout << endl;
+              }
+            }
+          }
+
           if (scope_)
           {
-            if (id_ && !s.id_path.empty ()) // Skip empty root scope id.
-              cout << ind_ << ": " << s.id_path.string () << endl;
+            cout << ind_ << "{";
 
-            cout << ind_ << "{" << endl;
+            if (id_ && !s.id_path.empty ()) // Skip empty root scope id.
+              cout << " # " << s.id_path.string ();
+
+            cout << endl;
+
             ind_ += "  ";
           }
         }

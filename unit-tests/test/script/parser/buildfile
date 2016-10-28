@@ -11,7 +11,7 @@ filesystem config/{utility init operation} dump types-parsers \
 test/{target script/{token lexer parser script}}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
-test{cleanup command-re-parse expansion here-document pre-parse redirect \
-     scope setup-teardown}
+test{cleanup command-re-parse description expansion here-document here-string \
+     pre-parse redirect scope setup-teardown}
 
 include ../../../../build2/

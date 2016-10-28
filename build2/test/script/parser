@@ -54,8 +54,13 @@ namespace build2
         void
         parse_scope_body ();
 
+        description
+        pre_parse_description (token&, token_type&);
+
         void
-        pre_parse_line (token&, token_type&, lines* = nullptr);
+        pre_parse_line (token&, token_type&,
+                        optional<description>&&,
+                        lines* = nullptr);
 
         bool
         parse_variable_line (token&, token_type&);
@@ -87,6 +92,12 @@ namespace build2
 
         size_t replay_quoted_;
 
+        // Insert id into the id map checking for duplicates.
+        //
+      protected:
+        const string&
+        insert_id (string, location);
+
       protected:
         using base_parser = build2::parser;
 
@@ -96,7 +107,10 @@ namespace build2
 
         // Pre-parse state.
         //
+        using id_map = std::unordered_map<string, location>;
+
         group* group_;
+        id_map* id_map_;
 
         // Parse state.
         //

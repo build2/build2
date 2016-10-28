@@ -57,8 +57,7 @@ $* -s -i <<EOI >>EOO                 # test-scope
 }
 EOI
 {
-  : 1
-  {
+  { # 1
     cmd
   }
 }
@@ -72,8 +71,7 @@ $* -s -i <<EOI >>EOO                    # test-scope-nested
 }
 EOI
 {
-  : 1
-  {
+  { # 1
     cmd
   }
 }
@@ -86,8 +84,7 @@ $* -s -i <<EOI >>EOO                    # test-scope-var
 }
 EOI
 {
-  : 1
-  {
+  { # 1
     cmd abc
   }
 }
@@ -101,11 +98,9 @@ $* -s -i <<EOI >>EOO                    # test-scope-setup
 }
 EOI
 {
-  : 1
-  {
+  { # 1
     setup
-    : 1/4
-    {
+    { # 1/4
       cmd abc
     }
   }

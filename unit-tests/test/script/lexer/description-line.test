@@ -1,0 +1,17 @@
+test.arguments += description-line
+
+$* <" foo  bar " >>EOO # full
+' foo  bar '
+EOO
+
+$* <"  " >>EOO # space
+'  '
+EOO
+
+$* <"" >>EOO # empty
+''
+EOO
+
+$* <:"foo" 2>>EOE != 0 # eof
+stdin:1:4: error: expected newline at the end of description line
+EOE

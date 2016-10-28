@@ -28,9 +28,12 @@ namespace build2
         lexer_ = &l;
         base_parser::lexer_ = &l;
 
+        id_map idm;
+
         script_ = &s;
         runner_ = nullptr;
         group_ = script_;
+        id_map_ = &idm;
         scope_ = nullptr;
 
         // Start location of the implied script group is the beginning of the
@@ -59,6 +62,7 @@ namespace build2
         script_ = &s;
         runner_ = &r;
         group_ = nullptr;
+        id_map_ = nullptr;
         scope_ = &sc;
 
         parse_scope_body ();
@@ -74,18 +78,29 @@ namespace build2
         //
         for (;;)
         {
-          // Start lexing each line recognizing leading '+-{}'.
+          // Start lexing each line recognizing leading ':+-{}'.
           //
           mode (lexer_mode::first_token);
+          tt = peek ();
+
+          // Handle description.
+          //
+          optional<description> d;
+          if (tt == type::colon)
+            d = pre_parse_description (t, tt);
 
           // Determine the line type by peeking at the first token.
           //
-          switch (tt = peek ())
+          switch (tt)
           {
           case type::eos:
           case type::rcbrace:
             {
               next (t, tt);
+
+              if (d)
+                fail (t) << "description before " << t;
+
               return t;
             }
           case type::lcbrace:
@@ -98,12 +113,22 @@ namespace build2
               if (next (t, tt) != type::newline)
                 fail (t) << "expected newline after '{'";
 
-              // Push group. Use line number as the scope id.
+              // Push group. If there is no user-supplied id, use the line
+              // number as the scope id.
               //
-              unique_ptr<group> g (new group (to_string (sl.line), *group_));
+              const string& id (d && !d->id.empty ()
+                                ? d->id
+                                : insert_id (to_string (sl.line), sl));
+              id_map idm;
+              unique_ptr<group> g (new group (id, *group_));
+
+              id_map* om (id_map_);
+              id_map_ = &idm;
 
               group* og (group_);
               group_ = g.get ();
+
+              group_->desc = move (d);
 
               group_->start_loc_ = sl;
               token e (pre_parse_scope_body ());
@@ -112,6 +137,7 @@ namespace build2
               // Pop group.
               //
               group_ = og;
+              id_map_ = om;
 
               // Drop empty scopes.
               //
@@ -119,10 +145,8 @@ namespace build2
               {
                 // See if this turned out to be an explicit test scope. An
                 // explicit test scope contains a single test, only variable
-                // assignments in setup and nothing in teardown. Plus only the
-                // test or the scope (but not both) can have an explicit id.
-                //
-                // @@ TODO: explicit id.
+                // assignments in setup and nothing in teardown. Plus only
+                // test or scope (but not both) can have a description.
                 //
                 auto& sc (g->scopes);
                 auto& su (g->setup_);
@@ -131,24 +155,47 @@ namespace build2
                 test* t;
                 if (sc.size () == 1 &&
                     (t = dynamic_cast<test*> (sc.back ().get ())) != nullptr &&
-                    td.empty () &&
                     find_if (
                       su.begin (), su.end (),
                       [] (const line& l)
                       {
                         return l.type != line_type::variable;
-                      }) == su.end ())
+                      }) == su.end () &&
+                    td.empty () &&
+                    (!g->desc || !t->desc))
                 {
                   // It would have been nice to reuse the test object and only
-                  // throw aways the group. However, the merged scope should
-                  // have id_path/wd_path of the group. So to keep things
+                  // throw aways the group. However, the merged scope may have
+                  // to use id_path/wd_path of the group. So to keep things
                   // simple we are going to throw away both and create a new
                   // test object.
                   //
-                  // @@ TODO: decide whose id to use.
+                  // Decide whose id to use. We use the group's unless there
+                  // is a user-provided one for the test (note that they
+                  // cannot be both user-provided since only one can have a
+                  // description). If we are using the test's then we also
+                  // have to insert it into the outer scope. Good luck getting
+                  // its location.
                   //
-                  unique_ptr<test> m (new test (g->id_path.leaf ().string (),
-                                                *group_));
+                  string id;
+                  if (t->desc && !t->desc->id.empty ())
+                  {
+                    // In the id map of the group we should have exactly one
+                    // entry -- the one for the test id. That's where we will
+                    // get the location.
+                    //
+                    assert (idm.size () == 1);
+                    id = insert_id (t->desc->id, idm.begin ()->second);
+                  }
+                  else
+                    id = g->id_path.leaf ().string ();
+
+                  unique_ptr<test> m (new test (id, *group_));
+
+                  // Move the description (again cannot be both).
+                  //
+                  if      (g->desc) m->desc = move (g->desc);
+                  else if (t->desc) m->desc = move (t->desc);
 
                   // Merge the lines of the group and the test.
                   //
@@ -183,7 +230,7 @@ namespace build2
             }
           default:
             {
-              pre_parse_line (t, tt);
+              pre_parse_line (t, tt, move (d));
               assert (tt == type::newline);
               break;
             }
@@ -283,8 +330,139 @@ namespace build2
         runner_->leave (*scope_, scope_->end_loc_);
       }
 
+      description parser::
+      pre_parse_description (token& t, token_type& tt)
+      {
+        // Note: token is only peeked at. On return tt is also only peeked at
+        // and in the first_token mode.
+        //
+        assert (tt == type::colon);
+
+        description r;
+        location loc (get_location (peeked ()));
+
+        string sp;     // Strip prefix.
+        size_t sn (0); // Strip prefix length.
+
+        for (size_t ln (1); tt == type::colon; ++ln)
+        {
+          next (t, tt); // Get ':'.
+
+          mode (lexer_mode::description_line);
+          next (t, tt);
+          assert (tt == type::word);
+
+          const string& l (t.value);
+
+          // If this is the first line, then get the "strip prefix", i.e., the
+          // beginning of the line that contains only whitespaces. If the
+          // subsequent lines start with the same prefix, then we strip it.
+          //
+          if (ln == 1)
+          {
+            sn = l.find_first_not_of (" \t");
+            sp.assign (l, 0, sn == string::npos ? (sn = 0) : sn);
+          }
+
+          // Apply strip prefix.
+          //
+          size_t i (l.compare (0, sn, sp) == 0 ? sn : 0);
+
+          // Strip trailing whitespaces, as a courtesy to the user.
+          //
+          size_t j (l.find_last_not_of (" \t"));
+          j = j != string::npos ? j + 1 : i;
+
+          size_t n (j - i); // [i, j) is our data.
+
+          if (ln == 1)
+          {
+            // First line. Ignore if it's blank.
+            //
+            if (n == 0)
+              --ln; // Stay as if on the first line.
+            else
+            {
+              // Otherwise, see if it is the id. Failed that we assume it is
+              // the summary until we see the next line.
+              //
+              (l.find_first_of (" \t", i) >= j ? r.id : r.summary).
+                assign (l, i, n);
+            }
+          }
+          else if (ln == 2)
+          {
+            // If this is a blank then whatever we have in id/summary is good.
+            // Otherwise, if we have id, then assume this is summary until we
+            // see the next line. And if not, then move what we (wrongly)
+            // assumed to be the summary to details.
+            //
+            if (n != 0)
+            {
+              if (!r.id.empty ())
+                r.summary.assign (l, i, n);
+              else
+              {
+                r.details = move (r.summary);
+                r.details += '\n';
+                r.details.append (l, i, n);
+
+                r.summary.clear ();
+              }
+            }
+          }
+          // Don't treat line 3 as special if we have given up on id/summary.
+          //
+          else if (ln == 3 && r.details.empty ())
+          {
+            // If this is a blank and we have id and/or summary, then we are
+            // good. Otherwise, if we have both, then move what we (wrongly)
+            // assumed to be id and summary to details.
+            //
+            if (n != 0)
+            {
+              if (!r.id.empty () && !r.summary.empty ())
+              {
+                r.details = move (r.id);
+                r.details += '\n';
+                r.details += r.summary;
+                r.details += '\n';
+
+                r.id.clear ();
+                r.summary.clear ();
+              }
+
+              r.details.append (l, i, n);
+            }
+          }
+          else
+          {
+            if (!r.details.empty ())
+              r.details += '\n';
+
+            r.details.append (l, i, n);
+          }
+
+          mode (lexer_mode::first_token);
+          tt = peek ();
+        }
+
+        // Zap trailing newlines in the details.
+        //
+        size_t p (r.details.find_last_not_of ('\n'));
+        if (p != string::npos && ++p != r.details.size ())
+          r.details.resize (p);
+
+        // Insert id into the id map if we have one.
+        //
+        if (!r.id.empty ())
+          insert_id (r.id, loc);
+
+        return r;
+      }
+
       void parser::
-      pre_parse_line (token& t, type& tt, lines* ls)
+      pre_parse_line (token& t, type& tt, optional<description>&& d, lines* ls)
       {
         // Note: token is only peeked at.
         //
@@ -375,6 +553,9 @@ namespace build2
           {
           case line_type::setup:
             {
+              if (d)
+                fail (ll) << "description before setup command";
+
               if (!group_->scopes.empty ())
                 fail (ll) << "setup command after tests";
 
@@ -386,6 +567,9 @@ namespace build2
             }
           case line_type::tdown:
             {
+              if (d)
+                fail (ll) << "description before teardown command";
+
               ls = &group_->tdown_;
               break;
             }
@@ -393,10 +577,14 @@ namespace build2
             {
               // If there is a semicolon after the variable then we assume
               // it is part of a test (there is no reason to use semicolons
-              // after variables in the group scope).
+              // after variables in the group scope). Otherwise -- setup or
+              // teardown.
               //
               if (!semi)
               {
+                if (d)
+                  fail (ll) << "description before setup/teardown variable";
+
                 // If we don't have any nested scopes or teardown commands,
                 // then we assume this is a setup, otherwise -- teardown.
                 //
@@ -445,6 +633,8 @@ namespace build2
 
           switch (tt)
           {
+          case type::colon:
+            fail (ll) << "description inside test";
           case type::eos:
           case type::rcbrace:
           case type::lcbrace:
@@ -454,21 +644,29 @@ namespace build2
           case type::minus:
             fail (ll) << "teardown command in test";
           default:
-            pre_parse_line (t, tt, ls);
+            pre_parse_line (t, tt, nullopt, ls);
             assert (tt == type::newline); // End of last test line.
           }
         }
 
-        // Create implicit test scope. Use line number as the scope id.
+        // Create implicit test scope.
         //
         if (ls == &tests)
         {
-          unique_ptr<test> p (new test (to_string (ll.line), *group_));
+          // If there is no user-supplied id, use the line number as the scope
+          // id.
+          //
+          const string& id (d && !d->id.empty ()
+                            ? d->id
+                            : insert_id (to_string (ll.line), ll));
+
+          unique_ptr<test> p (new test (id, *group_));
+
+          p->desc = move (d);
 
           p->start_loc_ = ll;
-          p->end_loc_ = get_location (t);
-
           p->tests_ = move (tests);
+          p->end_loc_ = get_location (t);
 
           group_->scopes.push_back (move (p));
         }
@@ -1460,6 +1658,18 @@ namespace build2
           //
           assert (replay_data_[replay_quoted_].token.quoted == cur.quoted);
         }
+      }
+
+      const string& parser::
+      insert_id (string id, location l)
+      {
+        auto p (id_map_->emplace (move (id), move (l)));
+
+        if (!p.second)
+          fail (l) << "duplicate id " << p.first->first <<
+            info (p.first->second) << "previously used here";
+
+        return p.first->first;
       }
     }
   }
