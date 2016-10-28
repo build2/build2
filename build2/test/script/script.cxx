@@ -291,16 +291,7 @@ namespace build2
       // command
       //
       void scope::
-      clean (const path& p)
-      {
-        using std::find; // Hidden by scope::find().
-
-        if (find (cleanups.begin (), cleanups.end (), p) == cleanups.end ())
-          cleanups.emplace_back (p);
-      }
-
-      void scope::
-      clean (path&& p)
+      clean (path p)
       {
         using std::find; // Hidden by scope::find().
 

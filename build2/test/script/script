@@ -171,8 +171,23 @@ namespace build2
         optional<description> desc;
 
         // Files and directories that must be automatically cleaned up when
-        // the scope is left. If the path ends with a trailing slash, then it
-        // is assumed to be to a directory, otherwise -- to a file.
+        // the scope is left. If the path contains '*' it is a wildcard. If the
+        // path is not a wildcard and ends with a trailing slash, then it is
+        // assumed to be to a directory, otherwise -- to a file. A directory
+        // must be empty by the time of removal,
+        //
+        // The supported wildcards:
+        //
+        // dir/*** - remove directory 'dir' with all files and sub-directories
+        //           recursively. Removing non-existing 'dir' is not an error.
+        //
+        // The not yet supported wildcards:
+        //
+        // &dir/*   - remove all immediate files of directory 'dir';
+        // &dir/*/  - remove all immediate sub-directories (must be empty);
+        // &dir/**  - remove all files recursively;
+        // &dir/**/ - remove all sub-directories recursively (must be empty by
+        //            the time of removal).
         //
         paths cleanups;
 
@@ -206,10 +221,7 @@ namespace build2
         // Register path for cleanup. Suppress duplicates.
         //
         void
-        clean (const path& p);
-
-        void
-        clean (path&& p);
+        clean (path p);
 
       public:
         virtual

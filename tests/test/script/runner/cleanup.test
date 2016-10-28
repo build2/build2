@@ -11,20 +11,102 @@ using test
 EOI
 
 b = $build.driver -q --no-column --buildfile - <"./: test{testscript}" \
-  &test/ test
+  &test/*** test
 c = cat >>>testscript
 
-$* -f a &a                                       # file
-$* -d a &a/                                      # dir1
-$* -d a/b &a/ &a/b/                              # dir2
-$* -d a/b -f a/b/c &a/ &a/b/ &a/b/c              # file-dir
-$* -f a &a &a                                    # file-dup
-$* -d a/b &a/ &a/b/ &a/b/../b/                   # dir-dup
-
-# <test-id>
+# Valid cleanups.
 #
-# @@ TODO: $c <"$* &a/" && $b 2>>EOE
+# @@ TODO: $c <"$* -f a &a" && $b
+#
+: files
+:
+$c <"$* -f a &a";
+$b
+
+: dir1
+:
+$c <"$* -d a &a/";
+$b
+
+: dir2
+$c <"$* -d a/b &a/ &a/b/";
+$b
+
+: file-dir
+$c <"$* -d a/b -f a/b/c &a/ &a/b/ &a/b/c";
+$b
+
+: wildcard1
+$c <"$* -d a/b -f a/b/c &a/***";
+$b
+
+: wildcard2
+:
+$c <"$* &a/***";
+$b
+
+: file-dup
+$c <"$* -f a &a &a";
+$b
+
+: dir-dup
+$c <"$* -d a/b &a/ &a/b/ &a/b/../b/";
+$b
+
+# Invalid cleanups.
+#
+: file-not-exists
+:
+$c <"$* &a";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup file test/1/a does not exist
+EOE
+
+: dir-not-exists
+:
 $c <"$* &a/";
 $b 2>>EOE != 0
 testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+EOE
+
+: dir-not-empty1
+:
+$c <"$* -d a/b -f a/b/c";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup directory test/1/ is not empty
+EOE
+
+: dir-not-empty2
+:
+$c <"$* -d a/b &a/b/";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup directory test/1/ is not empty
+EOE
+
+: dir-not-empty3
+:
+$c <"$* -d a/b &a/b/ &a/";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup directory test/1/a/ is not empty
+EOE
+
+: dir-not-empty4
+:
+$c <"$* -f a &a/***";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup directory test/1/ is not empty
+EOE
+
+: not-file
+:
+$c <"$* -d a &a";
+$b 2>>EOE != 0
+error: unable to remove file test/1/a: Is a directory
+EOE
+
+: not-dir1
+:
+$c <"$* -f a &a/";
+$b 2>>EOE != 0
+error: unable to remove directory test/1/a/: Not a directory
 EOE

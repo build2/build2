@@ -203,9 +203,22 @@ namespace build2
         //
         for (const auto& p: reverse_iterate (sp.cleanups))
         {
+          // @@ Should we forbid removal of files and directories not inside
+          //    the scope working directory? Inventing recursive removal makes
+          //    cleanup a bit unsafe.
+          //
+
+          // Remove directory if exists and empty. Fail otherwise.
+          //
           if (p.to_directory ())
           {
             dir_path d (path_cast<dir_path> (p));
+
+            // @@ If 'd' is a file then will fail with a diagnostics having no
+            //    location info. Probably need to add an optional location
+            //    parameter to rmdir() function. The same problem exists for a
+            //    file cleanup when try to rmfile() directory instead of file.
+            //
             rmdir_status r (rmdir (d, 2));
 
             if (r != rmdir_status::success)
@@ -213,8 +226,40 @@ namespace build2
                         << (r == rmdir_status::not_empty
                             ? " is not empty"
                             : " does not exist");
+
+            continue;
           }
-          else if (rmfile (p, 2) == rmfile_status::not_exist)
+
+          // Remove directory recursively if not current. Fail otherwise.
+          // Recursive removal of non-existing directory is not an error.
+          //
+          // Note that if some file system entry of non-directory type exists
+          // with such a name it is not removed but the operation still
+          // succeeds. The removal of this entry can be handled at the time of
+          // the containing directory removed.
+          //
+          const string& s (p.string ());
+          size_t n (s.size ());
+
+          if (n >= 4 &&
+              string::traits_type::compare (
+                s.c_str () + n - 4, "/***", 4) == 0)
+          {
+            // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
+            //
+            rmdir_status r (
+              rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
+
+            if (r == rmdir_status::not_empty) // Directory is current.
+              fail (cl) << "registered for cleanup wildcard " << p
+                        << " matches the current directory";
+
+            continue;
+          }
+
+          // Remove file if exists. Fail otherwise.
+          //
+          if (rmfile (p, 2) == rmfile_status::not_exist)
             fail (cl) << "registered for cleanup file " << p
                       << " does not exist";
         }
