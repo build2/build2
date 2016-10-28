@@ -1270,10 +1270,20 @@ namespace build2
                   {
                     string n (l.file->string ());
                     n += ':';
-                    n += to_string (l.line);
-                    n += ':';
-                    n += to_string (l.column);
-                    n += ": (";
+
+                    if (!ops.no_line ())
+                    {
+                      n += to_string (l.line);
+                      n += ':';
+
+                      if (!ops.no_column ())
+                      {
+                        n += to_string (l.column);
+                        n += ':';
+                      }
+                    }
+
+                    n += " (";
                     n += s;
                     n += ')';
                     name = path (move (n));

@@ -25,8 +25,6 @@ using namespace butl;
 
 namespace build2
 {
-  options ops;
-
   string_pool extension_pool;
   string_pool project_name_pool;
 

@@ -241,6 +241,16 @@ namespace build2
        \li|Even more detailed information, including state dumps.||"
     }
 
+    bool --no-column
+    {
+      "Don't print column numbers in diagnostics."
+    }
+
+    bool --no-line
+    {
+      "Don't print line and column numbers in diagnostics."
+    }
+
     path --buildfile = "buildfile"
     {
       "<path>",

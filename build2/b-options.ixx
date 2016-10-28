@@ -246,6 +246,18 @@ namespace build2
     return this->verbose_specified_;
   }
 
+  inline const bool& options::
+  no_column () const
+  {
+    return this->no_column_;
+  }
+
+  inline const bool& options::
+  no_line () const
+  {
+    return this->no_line_;
+  }
+
   inline const path& options::
   buildfile () const
   {

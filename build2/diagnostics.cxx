@@ -93,11 +93,17 @@ namespace build2
 
     r << *loc_.file << ':';
 
-    if (loc_.line != 0)
-      r << loc_.line << ':';
+    if (!ops.no_line ())
+    {
+      if (loc_.line != 0)
+        r << loc_.line << ':';
 
-    if (loc_.column != 0)
-      r << loc_.column << ':';
+      if (!ops.no_column ())
+      {
+        if (loc_.column != 0)
+          r << loc_.column << ':';
+      }
+    }
 
     r << ' ';
 

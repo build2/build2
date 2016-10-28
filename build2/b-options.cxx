@@ -574,6 +574,8 @@ namespace build2
     q_ (),
     verbose_ (1),
     verbose_specified_ (false),
+    no_column_ (),
+    no_line_ (),
     buildfile_ ("buildfile"),
     buildfile_specified_ (false),
     config_guess_ (),
@@ -684,6 +686,12 @@ namespace build2
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-line\033[0m            Don't print line and column numbers in diagnostics." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--buildfile\033[0m \033[4mpath\033[0m     The alternative file to read build information from. The" << ::std::endl
        << "                     default is \033[1mbuildfile\033[0m. If \033[4mpath\033[0m is '\033[1m-\033[0m', then read from" << ::std::endl
        << "                     \033[1mSTDIN\033[0m. Note that this option only affects the files read" << ::std::endl
@@ -751,6 +759,10 @@ namespace build2
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
+      _cli_options_map_["--no-column"] = 
+      &::build2::cl::thunk< options, bool, &options::no_column_ >;
+      _cli_options_map_["--no-line"] = 
+      &::build2::cl::thunk< options, bool, &options::no_line_ >;
       _cli_options_map_["--buildfile"] = 
       &::build2::cl::thunk< options, path, &options::buildfile_,
         &options::buildfile_specified_ >;

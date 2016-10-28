@@ -410,6 +410,12 @@ namespace build2
     bool
     verbose_specified () const;
 
+    const bool&
+    no_column () const;
+
+    const bool&
+    no_line () const;
+
     const path&
     buildfile () const;
 
@@ -470,6 +476,8 @@ namespace build2
     bool q_;
     uint16_t verbose_;
     bool verbose_specified_;
+    bool no_column_;
+    bool no_line_;
     path buildfile_;
     bool buildfile_specified_;
     path config_guess_;

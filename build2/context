@@ -11,13 +11,10 @@
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/operation>
-#include <build2/b-options>
 
 namespace build2
 {
   class file;
-
-  extern options ops;
 
   extern string_pool extension_pool;
   extern string_pool project_name_pool;

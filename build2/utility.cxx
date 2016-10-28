@@ -89,6 +89,7 @@ namespace build2
     return l;
   }
 
+  options ops;
   path argv0;
   dir_path work;
   dir_path home;
