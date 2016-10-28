@@ -23,7 +23,7 @@ EOE
 $* <<EOI 2>>EOE !=0     # in-file-fail2
 cmd <<<""
 EOI
-testscript:1:8: error: empty stdin redirect file path
+testscript:1:8: error: empty stdin redirect path
 EOE
 
 $* <<EOI 2>>EOE !=0     # out-file-fail1
@@ -35,7 +35,7 @@ EOE
 $* <<EOI 2>>EOE !=0     # out-file-fail2
 cmd >>>""
 EOI
-testscript:1:8: error: empty stdout redirect file path
+testscript:1:8: error: empty stdout redirect path
 EOE
 
 $* <<EOI 2>>EOE !=0     # err-file-fail1
@@ -47,7 +47,7 @@ EOE
 $* <<EOI 2>>EOE !=0     # err-file-fail2
 cmd 2>>>""
 EOI
-testscript:1:9: error: empty stderr redirect file path
+testscript:1:9: error: empty stderr redirect path
 EOE
 
 $* <<EOI >>EOO          # out-merge1

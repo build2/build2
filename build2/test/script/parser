@@ -57,7 +57,7 @@ namespace build2
         description
         pre_parse_description (token&, token_type&);
 
-        void
+        optional<description>
         pre_parse_line (token&, token_type&,
                         optional<description>&&,
                         lines* = nullptr);
@@ -65,7 +65,7 @@ namespace build2
         bool
         parse_variable_line (token&, token_type&);
 
-        bool
+        pair<bool, optional<description>>
         parse_command_line (token&, token_type&, line_type, size_t);
 
         command_exit

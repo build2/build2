@@ -144,6 +144,12 @@ namespace build2
         string id;
         string summary;
         string details;
+
+        bool
+        empty () const
+        {
+          return id.empty () && summary.empty () && details.empty ();
+        }
       };
 
       class script;

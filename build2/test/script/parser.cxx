@@ -458,10 +458,13 @@ namespace build2
         if (!r.id.empty ())
           insert_id (r.id, loc);
 
+        if (r.empty ())
+          fail (loc) << "empty description";
+
         return r;
       }
 
-      void parser::
+      optional<description> parser::
       pre_parse_line (token& t, type& tt, optional<description>&& d, lines* ls)
       {
         // Note: token is only peeked at.
@@ -522,19 +525,19 @@ namespace build2
         }
 
         // Pre-parse the line keeping track of whether it ends with a
-        // semicolon.
+        // semicolon or contains description.
         //
-        bool semi;
+        pair<bool, optional<description>> lr;
 
         switch (lt)
         {
         case line_type::variable:
-          semi = parse_variable_line (t, tt);
+          lr.first = parse_variable_line (t, tt);
           break;
         case line_type::setup:
         case line_type::tdown:
         case line_type::test:
-          semi = parse_command_line (t, tt, lt, 0);
+          lr = parse_command_line (t, tt, lt, 0);
           break;
         }
 
@@ -580,7 +583,7 @@ namespace build2
               // after variables in the group scope). Otherwise -- setup or
               // teardown.
               //
-              if (!semi)
+              if (!lr.first)
               {
                 if (d)
                   fail (ll) << "description before setup/teardown variable";
@@ -625,7 +628,7 @@ namespace build2
         // If this command ended with a semicolon, then the next one should
         // go to the same place.
         //
-        if (semi)
+        if (lr.first)
         {
           mode (lexer_mode::first_token);
           tt = peek ();
@@ -644,10 +647,19 @@ namespace build2
           case type::minus:
             fail (ll) << "teardown command in test";
           default:
-            pre_parse_line (t, tt, nullopt, ls);
+            lr.second = pre_parse_line (t, tt, nullopt, ls);
             assert (tt == type::newline); // End of last test line.
           }
         }
+
+        if (lr.second)
+        {
+          if (d)
+            fail (ll) << "both leading and trailing description";
+
+          d = lr.second;
+        }
+
 
         // Create implicit test scope.
         //
@@ -669,7 +681,10 @@ namespace build2
           p->end_loc_ = get_location (t);
 
           group_->scopes.push_back (move (p));
+          return nullopt;
         }
+        else
+          return d;
       }
 
       // Return true if the string contains only digit characters (used to
@@ -758,7 +773,7 @@ namespace build2
         return semi;
       }
 
-      bool parser::
+      pair<bool, optional<description>> parser::
       parse_command_line (token& t, type& tt, line_type lt, size_t li)
       {
         command c;
@@ -1384,17 +1399,60 @@ namespace build2
         if (tt == type::equal || tt == type::not_equal)
           c.exit = parse_command_exit (t, tt);
 
-        // Semicolon is only valid in test command lines. Note that we still
-        // recognize it lexically, it's just not a valid token per the
-        // grammar.
+        // Colon and semicolon are only valid in test command lines. Note that
+        // we still recognize them lexically, they are just not a valid tokens
+        // per the grammar.
         //
-        bool semi (tt == type::semi && lt == line_type::test);
+        if (tt == type::colon || tt == type::semi)
+        {
+          switch (lt)
+          {
+          case line_type::setup: fail (t) << t << " after setup command";
+          case line_type::tdown: fail (t) << t << " after teardown command";
+          default: break;
+          }
+        }
 
-        if (semi)
-          next (t, tt); // Get newline.
+        pair<bool, optional<description>> r (false, nullopt);
+        if (tt == type::colon)
+        {
+          // Parse one-line trailing description.
+          //
+          //@@ Would be nice to omit trailing description from replay.
+          //
+          const location loc (get_location (t));
 
-        if (tt != type::newline)
-          fail (t) << "expected newline instead of " << t;
+          mode (lexer_mode::description_line);
+          next (t, tt);
+          assert (tt == type::word);
+
+          string l (move (t.value));
+          trim (l); // Strip leading/trailing whitespaces.
+
+          // Decide whether this is id or summary.
+          //
+          auto& d (*(r.second = description ()));
+          (l.find_first_of (" \t") == string::npos ? d.id : d.summary) =
+            move (l);
+
+          if (d.empty ())
+            fail (loc) << "empty description";
+
+          //@@ No newline token!
+          //
+          tt = type::newline;
+        }
+        else
+        {
+          if (tt == type::semi)
+          {
+            r.first = true;
+            next (t, tt); // Get newline.
+          }
+
+          if (tt != type::newline)
+            fail (t) << "expected newline instead of " << t;
+        }
 
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
@@ -1424,7 +1482,7 @@ namespace build2
         if (!pre_parse_)
           runner_->run (*scope_, c, li, ll);
 
-        return semi;
+        return r;
       }
 
       command_exit parser::

@@ -59,6 +59,8 @@ namespace build2
         case lexer_mode::variable_line:
           {
             // Like value except we recognize ';' and don't recognize '{'.
+            // Note that we don't recognize ':' since having a trailing
+            // variable assignment is illegal.
             //
             s1 = "; $([]#\t\n";
             s2 = "         ";
