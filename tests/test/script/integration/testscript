@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-test.options += --buildfile -
+test.options += -q --buildfile -
 test.arguments = test
 
 +mkdir build
@@ -21,22 +21,17 @@ test.arguments = test
 ./: test{../testscript ../foo}
 EOI
 error: both 'testscript' and other names specified for dir{./}
-info: while testing dir{./}
 EOE
 
   $* <<EOI 2>>EOE != 0
 ./: test{../foo ../testscript}
 EOI
 error: both 'testscript' and other names specified for dir{./}
-info: while testing dir{./}
 EOE
 
-  $* <<EOI 2>>EOE
+  $* <<EOI
 ./: test{../foo ../bar}
 EOI
-test dir{./} with ../test{foo}
-test dir{./} with ../test{bar}
-EOE
 
   -rm -f testscript foo.test bar.test
 }
@@ -50,7 +45,6 @@ $* <<EOI 2>>EOE != 0;
 ./: test{foo}
 EOI
 error: working directory test/ is not empty at the beginning of the test
-info: while testing dir{./}
 EOE
 rm -f test/dummy foo.test;
 rmdir test

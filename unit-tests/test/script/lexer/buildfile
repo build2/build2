@@ -5,7 +5,8 @@
 #@@ Temporary until we get utility library support.
 #
 import libs = libbutl%lib{butl}
-src = token lexer diagnostics utility variable name test/script/{token lexer}
+src = token lexer diagnostics utility variable name b-options types-parsers \
+test/script/{token lexer}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
 test{script-line command-line first-token second-token variable-line \
