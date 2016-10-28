@@ -359,7 +359,9 @@ namespace build2
             [a, &t]()
             {
               t.raw_state = target_state::failed;
-              info << "while " << diag_doing (a, t);
+
+              if (verb != 0)
+                info << "while " << diag_doing (a, t);
             }));
 
         target_state ts (t.recipe (a) (a, t));
