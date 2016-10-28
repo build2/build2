@@ -2,8 +2,16 @@ $* <"+cmd;" 2>>EOE != 0                 # semi-after-setup
 testscript:1:5: error: ';' after setup command
 EOE
 
+$* <"+cmd:" 2>>EOE != 0                 # colon-after-setup
+testscript:1:5: error: ':' after setup command
+EOE
+
 $* <"-cmd;" 2>>EOE != 0                 # semi-after-tdown
 testscript:1:5: error: ';' after teardown command
+EOE
+
+$* <"-cmd:" 2>>EOE != 0                 # colon-after-tdown
+testscript:1:5: error: ':' after teardown command
 EOE
 
 $* <<EOI 2>>EOE != 0                 # setup-in-test

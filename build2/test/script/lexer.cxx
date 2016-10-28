@@ -407,20 +407,30 @@ namespace build2
       token lexer::
       next_description ()
       {
-        xchar c (get ());
-
-        uint64_t ln (c.line), cn (c.column);
-        string lexeme;
-
-        // For now no line continutions though we could support them.
-        //
-        for (; !eos (c) && c != '\n'; c = get ())
-          lexeme += c;
+        xchar c (peek ());
 
         if (eos (c))
           fail (c) << "expected newline at the end of description line";
 
-        state_.pop (); // Expire the description mode.
+        uint64_t ln (c.line), cn (c.column);
+
+        if (c == '\n')
+        {
+          get ();
+          state_.pop (); // Expire the description mode.
+          return token (type::newline, false, ln, cn, token_printer);
+        }
+
+        string lexeme;
+
+        // For now no line continutions though we could support them.
+        //
+        for (; !eos (c) && c != '\n'; c = peek ())
+        {
+          get ();
+          lexeme += c;
+        }
+
         return token (move (lexeme), false, false, ln, cn);
       }
 

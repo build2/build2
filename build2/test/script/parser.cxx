@@ -350,13 +350,20 @@ namespace build2
 
           mode (lexer_mode::description_line);
           next (t, tt);
-          assert (tt == type::word);
 
-          const string& l (t.value);
+          // If it is empty, then we get newline right away.
+          //
+          const string& l (tt == type::word ? t.value : string ());
 
-          // If this is the first line, then get the "strip prefix", i.e., the
-          // beginning of the line that contains only whitespaces. If the
-          // subsequent lines start with the same prefix, then we strip it.
+          if (tt == type::word)
+            next (t, tt); // Get newline.
+
+          assert (tt == type::newline);
+
+          // If this is the first line, then get the "strip prefix", i.e.,
+          // the beginning of the line that contains only whitespaces. If
+          // the subsequent lines start with the same prefix, then we strip
+          // it.
           //
           if (ln == 1)
           {
@@ -1099,6 +1106,7 @@ namespace build2
           case type::equal:
           case type::not_equal:
           case type::semi:
+          case type::colon:
           case type::newline:
             {
               done = true;
@@ -1424,23 +1432,27 @@ namespace build2
 
           mode (lexer_mode::description_line);
           next (t, tt);
-          assert (tt == type::word);
 
-          string l (move (t.value));
-          trim (l); // Strip leading/trailing whitespaces.
-
-          // Decide whether this is id or summary.
+          // If it is empty, then we get newline right away.
           //
-          auto& d (*(r.second = description ()));
-          (l.find_first_of (" \t") == string::npos ? d.id : d.summary) =
-            move (l);
+          if (tt == type::word)
+          {
+            string l (move (t.value));
+            trim (l); // Strip leading/trailing whitespaces.
 
-          if (d.empty ())
+            // Decide whether this is id or summary.
+            //
+            auto& d (*(r.second = description ()));
+            (l.find_first_of (" \t") == string::npos ? d.id : d.summary) =
+              move (l);
+
+            next (t, tt); // Get newline.
+          }
+
+          assert (tt == type::newline);
+
+          if (r.second->empty ())
             fail (loc) << "empty description";
-
-          //@@ No newline token!
-          //
-          tt = type::newline;
         }
         else
         {

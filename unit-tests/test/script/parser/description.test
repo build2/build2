@@ -6,9 +6,23 @@ EOI
 cmd
 EOO
 
+$* <<EOI >>EOO                                         # trail-id
+cmd : foo
+EOI
+: id:foo
+cmd
+EOO
+
 $* <<EOI >>EOO                                         # summary
 : foo bar
 cmd
+EOI
+: sm:foo bar
+cmd
+EOO
+
+$* <<EOI >>EOO                                         # trail-summary
+cmd: foo bar
 EOI
 : sm:foo bar
 cmd
@@ -130,6 +144,36 @@ EOI
 : biz buz
 cmd
 EOO
+
+$* <<EOI >>EOO                                         # trail-compound
+cmd1;
+cmd2: foo
+EOI
+: id:foo
+cmd1
+cmd2
+EOO
+
+$* <<EOI 2>>EOE != 0                                    # empty
+:
+:
+cmd
+EOI
+testscript:1:1: error: empty description
+EOE
+
+$* <<EOI 2>>EOE != 0                                    # trail-empty
+cmd:
+EOI
+testscript:1:4: error: empty description
+EOE
+
+$* <<EOI 2>>EOE != 0                                    # both
+: foo
+cmd : bar
+EOI
+testscript:2:1: error: both leading and trailing description
+EOE
 
 # Legal places for a description.
 #
