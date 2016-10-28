@@ -202,9 +202,9 @@ namespace build2
         //
         // Note that we operate with normalized paths here.
         //
-        // @@ What if to make cleanup insensitive to the registration order,
-        //    and sorting paths properly prior removal? Would it produce any
-        //    testing flaws?
+        //
+        // @@ I think we should weed duplicates on registration. And just do
+        //    linear search in vector since we don't expect many cleanups.
         //
         set<path> rp;
         for (auto& p: reverse_iterate (sp.cleanups))

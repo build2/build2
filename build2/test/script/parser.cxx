@@ -831,7 +831,7 @@ namespace build2
             hd.push_back (here_doc {&r, move (w), nn});
           };
 
-          auto parse_path = [&l, this] (const char* n, string&& w)
+          auto parse_path = [&l, this] (string&& w, const char* what) -> path
           {
             try
             {
@@ -840,21 +840,27 @@ namespace build2
               if (!p.empty ())
                 return p;
 
-              error (l) << "empty " << n;
+              error (l) << "empty " << what;
             }
             catch (const invalid_path& e)
             {
-              error (l) << "invalid " << n << " '" << e.path << "'";
+              error (l) << "invalid " << what << " '" << e.path << "'";
             }
 
             throw failed ();
           };
 
-          auto add_file =
-            [&app, &parse_path] (redirect& r, string n, string&& w)
+          auto add_file = [&app, &parse_path] (redirect& r, int fd, string&& w)
           {
-            n += " redirect file path";
-            r.file.path = parse_path (n.c_str (), move (w));
+            const char* what (nullptr);
+            switch (fd)
+            {
+            case 0: what = "stdin redirect path";  break;
+            case 1: what = "stdout redirect path"; break;
+            case 2: what = "stderr redirect path"; break;
+            }
+
+            r.file.path = parse_path (move (w), what);
             r.file.append = app;
           };
 
@@ -863,7 +869,7 @@ namespace build2
           case pending::none: c.arguments.push_back (move (w)); break;
           case pending::program:
           {
-            c.program = parse_path ("program path", move (w));
+            c.program = parse_path (move (w), "program path");
             break;
           }
 
@@ -878,13 +884,13 @@ namespace build2
           case pending::out_document: add_here_end (c.out, move (w)); break;
           case pending::err_document: add_here_end (c.err, move (w)); break;
 
-          case pending::in_file:  add_file (c.in,  "stdin",  move (w)); break;
-          case pending::out_file: add_file (c.out, "stdout", move (w)); break;
-          case pending::err_file: add_file (c.err, "stderr", move (w)); break;
+          case pending::in_file:  add_file (c.in,  0, move (w)); break;
+          case pending::out_file: add_file (c.out, 1, move (w)); break;
+          case pending::err_file: add_file (c.err, 2, move (w)); break;
 
           case pending::clean:
             {
-              c.cleanups.push_back (parse_path ("cleanup path", move (w)));
+              c.cleanups.push_back (parse_path (move (w), "cleanup path"));
               break;
             }
           }
