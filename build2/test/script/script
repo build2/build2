@@ -203,6 +203,14 @@ namespace build2
         value&
         append (const variable&);
 
+        // Register path for cleanup. Suppress duplicates.
+        //
+        void
+        clean (const path& p);
+
+        void
+        clean (path&& p);
+
       public:
         virtual
         ~scope () = default;

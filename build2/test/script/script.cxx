@@ -5,6 +5,7 @@
 #include <build2/test/script/script>
 
 #include <sstream>
+#include <algorithm> // find()
 
 #include <build2/target>
 
@@ -285,6 +286,26 @@ namespace build2
         //
         if (p != nullptr)
           const_cast<dir_path&> (wd_path) = dir_path (p->wd_path) /= id;
+      }
+
+      // command
+      //
+      void scope::
+      clean (const path& p)
+      {
+        using std::find; // Hidden by scope::find().
+
+        if (find (cleanups.begin (), cleanups.end (), p) == cleanups.end ())
+          cleanups.emplace_back (p);
+      }
+
+      void scope::
+      clean (path&& p)
+      {
+        using std::find; // Hidden by scope::find().
+
+        if (find (cleanups.begin (), cleanups.end (), p) == cleanups.end ())
+          cleanups.emplace_back (move (p));
       }
 
       // script_base

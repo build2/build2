@@ -48,12 +48,12 @@ namespace build2
       //
       static void
       check_output (const process_path& pr,
-                    const char* nm,
                     const path& op,
                     const path& ip,
                     const redirect& rd,
                     const location& cl,
-                    scope& sp)
+                    scope& sp,
+                    const char* what)
       {
         auto input_info = [&ip, &cl] (diag_record& d)
         {
@@ -70,8 +70,8 @@ namespace build2
           if (non_empty (op, cl))
           {
             diag_record d (fail (cl));
-            d << pr << " unexpectedly writes to " << nm <<
-              info << nm << ": " << op;
+            d << pr << " unexpectedly writes to " << what <<
+              info << what << ": " << op;
 
             input_info (d);
           }
@@ -86,7 +86,7 @@ namespace build2
           try
           {
             ofdstream os (orp);
-            sp.cleanups.emplace_back (orp);
+            sp.clean (orp);
 
             os << (rd.type == redirect_type::here_string
                    ? rd.str
@@ -131,15 +131,15 @@ namespace build2
               // Output doesn't match the expected result.
               //
               diag_record d (error (cl));
-              d << pr << " " << nm << " doesn't match the expected output";
+              d << pr << " " << what << " doesn't match the expected output";
 
               auto output_info =
-                [&d, &nm, &cl] (const path& p, const char* prefix)
+                [&d, &what, &cl] (const path& p, const char* prefix)
               {
                 if (non_empty (p, cl))
-                  d << info << prefix << nm << ": " << p;
+                  d << info << prefix << what << ": " << p;
                 else
-                  d << info << prefix << nm << " is empty";
+                  d << info << prefix << what << " is empty";
               };
 
               output_info (op, "");
@@ -156,7 +156,7 @@ namespace build2
               //
               p.wait (); // Check throw.
 
-              error (cl) << "failed to compare " << nm
+              error (cl) << "failed to compare " << what
                          << " with the expected output";
             }
 
@@ -190,44 +190,33 @@ namespace build2
           fail (cl) << "directory " << sp.wd_path << " is not empty" <<
             info << "clean it up and rerun";
 
-        sp.cleanups.emplace_back (sp.wd_path);
+        sp.clean (sp.wd_path);
       }
 
       void concurrent_runner::
       leave (scope& sp, const location& cl)
       {
         // Remove files and directories in the order opposite to the order of
-        // cleanup registration. Handle paths multiple registration (which is a
-        // valid case).
+        // cleanup registration.
         //
         // Note that we operate with normalized paths here.
         //
-        //
-        // @@ I think we should weed duplicates on registration. And just do
-        //    linear search in vector since we don't expect many cleanups.
-        //
-        set<path> rp;
-        for (auto& p: reverse_iterate (sp.cleanups))
+        for (const auto& p: reverse_iterate (sp.cleanups))
         {
-          auto i (rp.emplace (move (p)));
-          if (i.second) // Remove the path if seen for the first time.
+          if (p.to_directory ())
           {
-            const path& p (*i.first);
-            if (p.to_directory ())
-            {
-              dir_path d (path_cast<dir_path> (p));
-              rmdir_status r (rmdir (d, 2));
+            dir_path d (path_cast<dir_path> (p));
+            rmdir_status r (rmdir (d, 2));
 
-              if (r != rmdir_status::success)
-                fail (cl) << "registered for cleanup directory " << d
-                          << (r == rmdir_status::not_empty
-                              ? " is not empty"
-                              : " does not exist");
-            }
-            else if (rmfile (p, 2) == rmfile_status::not_exist)
-              fail (cl) << "registered for cleanup file " << p
-                        << " does not exist";
+            if (r != rmdir_status::success)
+              fail (cl) << "registered for cleanup directory " << d
+                        << (r == rmdir_status::not_empty
+                            ? " is not empty"
+                            : " does not exist");
           }
+          else if (rmfile (p, 2) == rmfile_status::not_exist)
+            fail (cl) << "registered for cleanup file " << p
+                      << " does not exist";
         }
       }
 
@@ -356,7 +345,7 @@ namespace build2
               }
 
               open_stdin ();
-              sp.cleanups.emplace_back (stdin);
+              sp.clean (stdin);
               break;
             }
 
@@ -428,10 +417,7 @@ namespace build2
               fail (cl) << "unable to write " << p << ": " << e.what ();
             }
 
-            // It is a valid case if the file path is repeatedly registered for
-            // cleanup. It is handled during cleanup procedure.
-            //
-            sp.cleanups.emplace_back (p);
+            sp.clean (p);
             return os.fd ();
           };
 
@@ -464,7 +450,7 @@ namespace build2
             // Register command-created paths for cleanup.
             //
             for (const auto& p: c.cleanups)
-              sp.cleanups.emplace_back (normalize (p));
+              sp.clean (normalize (p));
 
             // If there is no correct exit status by whatever reason then dump
             // stderr (if cached), print the proper diagnostics and fail.
@@ -523,8 +509,8 @@ namespace build2
 
             // Check if the standard outputs match expectations.
             //
-            check_output (pp, "stdout", stdout, stdin, c.out, cl, sp);
-            check_output (pp, "stderr", stderr, stdin, c.err, cl, sp);
+            check_output (pp, stdout, stdin, c.out, cl, sp, "stdout");
+            check_output (pp, stderr, stdin, c.err, cl, sp, "stderr");
           }
           catch (const io_error& e)
           {
