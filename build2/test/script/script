@@ -85,6 +85,36 @@ namespace build2
         ~redirect ();
       };
 
+      enum class cleanup_type
+      {
+        always, // &foo  - cleanup, fail if does not exist.
+        maybe,  // &?foo - cleanup, ignore if does not exist.
+        never   // &!foo - cleanup, ignore if exists.
+      };
+
+      // File or directory to be automatically cleaned up at the end of the
+      // scope. If the path ends with a trailing slash, then it is assumed to
+      // be a directory, otherwise -- a file. A directory that is about to be
+      // cleaned up must be empty.
+      //
+      // The last component in the path may contain a wildcard that have the
+      // following semantics:
+      //
+      // dir/*   - remove all immediate files
+      // dir/*/  - remove all immediate sub-directories (must be empty)
+      // dir/**  - remove all files recursively
+      // dir/**/ - remove all sub-directories recursively (must be empty)
+      // dir/*** - remove directory dir with all files and sub-directories
+      //           recursively (removing non-existent directory is not an
+      //           error)
+      //
+      struct cleanup
+      {
+        cleanup_type type;
+        build2::path path;
+      };
+      using cleanups = vector<cleanup>;
+
       enum class exit_comparison {eq, ne};
 
       struct command_exit
@@ -121,7 +151,7 @@ namespace build2
         redirect out;
         redirect err;
 
-        paths cleanups;
+        build2::cleanups cleanups;
 
         command_exit exit {exit_comparison::eq, 0};
       };
@@ -170,23 +200,7 @@ namespace build2
 
         optional<description> desc;
 
-        // Files and directories to be automatically cleaned up at the end of
-        // the scope. If the path ends with a trailing slash, then it is
-        // assumed to be a directory, otherwise -- a file. A directory that
-        // is about to be cleaned up must be empty.
-        //
-        // The last component in the path may contain a wildcard that have the
-        // following semantics:
-        //
-        // dir/*   - remove all immediate files
-        // dir/*/  - remove all immediate sub-directories (must be empty)
-        // dir/**  - remove all files recursively
-        // dir/**/ - remove all sub-directories recursively (must be empty)
-        // dir/*** - remove directory dir with all files and sub-directories
-        //           recursively (removing non-existent directory is not an
-        //           error)
-        //
-        paths cleanups;
+        build2::cleanups cleanups;
 
         // Variables.
         //
@@ -215,10 +229,14 @@ namespace build2
         value&
         append (const variable&);
 
-        // Register path for cleanup. Suppress duplicates.
+        // Cleanup.
+        //
+      public:
+        // Register a cleanup. If the cleanup is explicit, then override the
+        // cleanup type if this path is already registered.
         //
         void
-        clean (path p);
+        clean (cleanup p, bool implicit);
 
       public:
         virtual
