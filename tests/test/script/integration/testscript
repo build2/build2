@@ -36,22 +36,42 @@ EOI
   -rm -f testscript foo.test bar.test
 }
 
-# work-dir-not-empty-begin
+# work-dir-file
 #
-touch foo.test;
-mkdir test;
-touch test/dummy;
-$* <<EOI 2>>EOE != 0;
+touch foo.test &foo.test; #@@ TMP
+touch test &test; #@@ TMP
+$* <<EOI 2>>EOE != 0
 ./: test{foo}
 EOI
-error: working directory test/ is not empty at the beginning of the test
+error: working directory test/ is a file/symlink
 EOE
-rm -f test/dummy foo.test;
-rmdir test
+
+# work-dir-exists
+#
+touch foo.test &foo.test; #@@ TMP
+mkdir test; #@@ Need a way to ignore/deregister cleanup.
+$* <<EOI 2>>EOE
+./: test{foo}
+EOI
+warning: working directory test/ exists at the beginning of the test
+EOE
+
+# work-dir-not-empty
+#
+touch foo.test &foo.test; #@@ TMP
+mkdir test;               #@@ Need a way to ignore/deregister cleanup.
+touch test/dummy;         #@@ Need a way to ignore/deregister cleanup.
+$* <<EOI 2>>EOE
+./: test{foo}
+EOI
+warning: working directory test/ exists and is not empty at the beginning \
+of the test
+EOE
 
 # work-dir-not-empty-end
 #
-# @@ No (easy) way to test this.
+# @@ No (easy) way to test this. Maybe if the inner test creates something
+#    without cleanup?
 
 -rm -f build/bootstrap.build
 -rmdir build/

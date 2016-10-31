@@ -388,18 +388,33 @@ namespace build2
         wd /= "test-" + t.name;
 
       // If this is a (potentially) multi-testscript test, then create (and
-      // cleanup) the root directory. If this is just 'testscript', then the
-      // root directory is used directly as test's working directory and it's
-      // the runner's responsibility to create and clean it up.
+      // later cleanup) the root directory. If this is just 'testscript', then
+      // the root directory is used directly as test's working directory and
+      // it's the runner's responsibility to create and clean it up.
       //
-      if (!*one)
+      // What should we do if the directory already exists? We used to fail
+      // which meant the user had to go and clean things up manually every
+      // time a test failed. This turned out to be really annoying. So now we
+      // issue a warning and clean it up automatically. The drawbacks of this
+      // approach are the potential loss of data from the previous failed test
+      // run and the possibility of deleting user-created files.
+      //
+      if (exists (static_cast<const path&> (wd), false))
+        fail << "working directory " << wd << " is a file/symlink";
+
+      if (exists (wd))
       {
-        if (!exists (wd))
-          mkdir (wd, 2);
-        else if (!empty (wd))
-          fail << "working directory " << wd << " is not empty at the "
-               << "beginning of the test";
+        bool e (empty (wd));
+
+        warn << "working directory " << wd << " exists "
+             << (e ? "" : "and is not empty ") << "at the beginning "
+             << "of the test";
+
+        if (!e)
+          build2::rmdir_r (wd, false, 2);
       }
+      else if (!*one)
+        mkdir (wd, 2);
 
       // Run all the testscripts.
       //
