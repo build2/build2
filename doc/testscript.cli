@@ -1402,6 +1402,14 @@ that real-world usage will uncover much more interesting interactions that you
 would never have thought of yourself.To quote a famous physicist, \"\i{... the
 imagination of nature is far, far greater than the imagination of man.}\"
 
+To expand on combination tests, don't confuse them with corner case tests. As
+an example, say you have tests for feature A and B. Now you wonder what if for
+some reason they don't work together. Note that you don't have a clear
+understanding of why they might not work together; you just want to add one
+more test, \i{for good measure}. We don't do that. To put it another way, for
+each test you should have a clear understanding of what logic in the code you
+are testing.
+
 One approach that we found works well is to look at the changes you would like
 to commit and make sure you have a test that exercises each \i{logic
 branch}. It is also a good idea to keep testing in mind as you implement
