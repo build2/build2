@@ -912,7 +912,8 @@ namespace build2
 
           case pending::clean:
             {
-              c.cleanups.push_back (parse_path (move (w), "cleanup path"));
+              c.cleanups.push_back (
+                {cleanup_type::always, parse_path (move (w), "cleanup path")});
               break;
             }
           }

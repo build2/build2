@@ -86,7 +86,7 @@ namespace build2
           try
           {
             ofdstream os (orp);
-            sp.clean (orp);
+            sp.clean ({cleanup_type::always, orp}, true);
 
             os << (rd.type == redirect_type::here_string
                    ? rd.str
@@ -190,7 +190,7 @@ namespace build2
           //
           assert (empty (sp.wd_path));
 
-        sp.clean (sp.wd_path);
+        sp.clean ({cleanup_type::always, sp.wd_path}, true);
       }
 
       void concurrent_runner::
@@ -213,8 +213,10 @@ namespace build2
                         << " is out of working directory " << sp.wd_path;
           };
 
-        for (const auto& p: reverse_iterate (sp.cleanups))
+        for (const auto& c: reverse_iterate (sp.cleanups))
         {
+          const path& p (c.path);
+
           // Remove directory if exists and empty. Fail otherwise.
           //
           if (p.to_directory ())
@@ -401,7 +403,7 @@ namespace build2
               }
 
               open_stdin ();
-              sp.clean (stdin);
+              sp.clean ({cleanup_type::always, stdin}, true);
               break;
             }
 
@@ -473,7 +475,7 @@ namespace build2
               fail (cl) << "unable to write " << p << ": " << e.what ();
             }
 
-            sp.clean (p);
+            sp.clean ({cleanup_type::always, p}, true);
             return os.fd ();
           };
 
@@ -506,7 +508,7 @@ namespace build2
             // Register command-created paths for cleanup.
             //
             for (const auto& p: c.cleanups)
-              sp.clean (normalize (p));
+              sp.clean ({p.type, normalize (p.path)}, false);
 
             // If there is no correct exit status by whatever reason then dump
             // stderr (if cached), print the proper diagnostics and fail.

@@ -151,7 +151,7 @@ namespace build2
         redirect out;
         redirect err;
 
-        build2::cleanups cleanups;
+        script::cleanups cleanups;
 
         command_exit exit {exit_comparison::eq, 0};
       };
@@ -200,7 +200,7 @@ namespace build2
 
         optional<description> desc;
 
-        build2::cleanups cleanups;
+        test::script::cleanups cleanups;
 
         // Variables.
         //
@@ -236,7 +236,7 @@ namespace build2
         // cleanup type if this path is already registered.
         //
         void
-        clean (cleanup p, bool implicit);
+        clean (cleanup, bool implicit);
 
       public:
         virtual

@@ -126,7 +126,11 @@ namespace build2
           for (const auto& p: c.cleanups)
           {
             o << " &";
-            print_path (p);
+
+            if (p.type != cleanup_type::always)
+              o << (p.type == cleanup_type::maybe ? '?' : '!');
+
+            print_path (p.path);
           }
 
           if (c.exit.comparison != exit_comparison::eq || c.exit.status != 0)
@@ -288,15 +292,20 @@ namespace build2
           const_cast<dir_path&> (wd_path) = dir_path (p->wd_path) /= id;
       }
 
-      // command
-      //
       void scope::
-      clean (path p)
+      clean (cleanup c, bool implicit)
       {
         using std::find; // Hidden by scope::find().
 
-        if (find (cleanups.begin (), cleanups.end (), p) == cleanups.end ())
-          cleanups.emplace_back (move (p));
+        assert (!implicit || c.type == cleanup_type::always);
+
+        auto pr = [&c] (const cleanup& v) -> bool {return v.path == c.path;};
+        auto i (find_if (cleanups.begin (), cleanups.end (), pr));
+
+        if (i == cleanups.end ())
+          cleanups.emplace_back (move (c));
+        else if (!implicit)
+          i->type = c.type;
       }
 
       // script_base
