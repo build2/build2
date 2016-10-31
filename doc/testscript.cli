@@ -760,7 +760,7 @@ out-redirect: '>-'|\
               ('>>'|'>>:') <here-end>|\
               ('>>>'|'>>>&') <file>
 
-cleanup: '&' (<file>|<dir>)
+cleanup: ('&'|'&!'|'&?') (<file>|<dir>)
 
 command-exit: ('=='|'!=') <exit-status>
 
