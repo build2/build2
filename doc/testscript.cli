@@ -1387,4 +1387,108 @@ EOI
 
 The leading whitespace stripping does not apply to line continuations.
 
+\h1#style|Style Guide|
+
+This section describes the Testscript style that is used in the \c{build2}
+projects. The primary goal of testing in \c{build2} is not to exhaustively
+test every possible situation. Rather, it is to keep tests comprehensible
+and maintainable in the long run.
+
+To this effect, don't try to test every possible combination; this striving
+will quickly lead to everyone drowning in hundreds of tests that are only
+slight variations of each other. Sometimes combination tests are useful but
+generally keep things simple and test one thing at a time. The believe here is
+that real-world usage will uncover much more interesting interactions that you
+would never have thought of yourself.To quote a famous physicist, \"\i{... the
+imagination of nature is far, far greater than the imagination of man.}\"
+
+One approach that we found works well is to look at the changes you would like
+to commit and make sure you have a test that exercises each \i{logic
+branch}. It is also a good idea to keep testing in mind as you implement
+things. When tempted to add a small special case just to make the result
+\i{nicer}, remember that you will also have to test this special case. Given a
+choice, always prefer functional to unit tests since the former test the end
+result rather than something intermediate and possibly mocked.
+
+Documentation-wise, each test should at least include explicit id that
+adequately summarizes what it tests. Add summary or even details for more
+complex tests. Failure tests almost always fall into this category.
+
+Use the leading description for multi-line tests, for example:
+
+\
+: multi-name
+:
+$* John Jane >>EOO
+Hello, John!
+Hello, Jane!
+EOO
+\
+
+Here is an example of a description that includes all three components:
+
+\
+: multi-name
+: Test multiple name arguments
+:
+: This test makes sure we properly handle multiple names passed as
+: separate command line arguments.
+:
+$* John Jane >>EOO
+Hello, John!
+Hello, Jane!
+EOO
+\
+
+Separate multi-line tests with blank lines. You may want to place larger tests
+into explicit test scopes for better visual separation. In this case the
+description should come before the scope. Note that here-documents are
+indented as well. For example:
+
+\
+: multi-name
+:
+{
+  $* John Jane >>EOO
+  Hello, John!
+  Hello, Jane!
+  EOO
+}
+\
+
+One-line tests may use the trailing description (which must always be
+the test id). Within a test block (one-liners without a blank between
+them), the ids should be aligned, for example:
+
+\
+$* John >\"Hi, John!\"       : custom-john
+$* World >\"Hello, World!\"  : custom-world
+\
+
+Note that you are free to put multiple spaces between the end of the command
+line and the trailing description. But don't try to align ids between blocks
+\- this is a maintenance pain.
+
+If multiple tests belong to the same group, consider placing them into an
+explicit group scope. A good indication that tests form a group is if their
+ids start with the same prefix, as in the above example. If placing tests into
+a group scope, use the prefix as the group's id and don't repeat it in the
+tests. It is also a good idea to give the summary of the group, for example:
+
+\
+: custom
+: Test custom greetings
+:
+{
+  $* John >\"Hi, John!\"       : john
+  $* World >\"Hello, World!\"  : world
+}
+\
+
+In the same vein, don't repeat the testscript id in group or test ids. For
+example, if the above tests were in the \c{greeting.test} testscript, then
+using \c{custom-greeting} as the group id would be unnecessarily repetitive
+since the id path would become, for example,
+\c{greeting/custom-greeting/john}.
+
 "
