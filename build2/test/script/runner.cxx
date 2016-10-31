@@ -176,7 +176,7 @@ namespace build2
       }
 
       void concurrent_runner::
-      enter (scope& sp, const location& cl)
+      enter (scope& sp, const location&)
       {
         if (!exists (sp.wd_path))
           // @@ Shouldn't we add an optional location parameter to mkdir() and
@@ -184,11 +184,11 @@ namespace build2
           // location info?
           //
           mkdir (sp.wd_path, 2);
-        else if (!empty (sp.wd_path))
-          // @@ Shouldn't we have --wipe or smth?
+        else
+          // The working directory is cleaned up by the test rule prior the
+          // script execution.
           //
-          fail (cl) << "directory " << sp.wd_path << " is not empty" <<
-            info << "clean it up and rerun";
+          assert (empty (sp.wd_path));
 
         sp.clean (sp.wd_path);
       }
@@ -201,17 +201,26 @@ namespace build2
         //
         // Note that we operate with normalized paths here.
         //
+
+        // Verify that the path being cleaned up is a sub-path of the scope
+        // working directory.
+        //
+        auto verify =
+          [&sp, &cl] (const path& p, const path& orig, const char* what)
+          {
+            if (!p.sub (sp.wd_path))
+              fail (cl) << "registered for cleanup " << what << " " << orig
+                        << " is out of working directory " << sp.wd_path;
+          };
+
         for (const auto& p: reverse_iterate (sp.cleanups))
         {
-          // @@ Should we forbid removal of files and directories not inside
-          //    the scope working directory? Inventing recursive removal makes
-          //    cleanup a bit unsafe.
-          //
-
           // Remove directory if exists and empty. Fail otherwise.
           //
           if (p.to_directory ())
           {
+            verify (p, p, "directory");
+
             dir_path d (path_cast<dir_path> (p));
 
             // @@ If 'd' is a file then will fail with a diagnostics having no
@@ -238,19 +247,19 @@ namespace build2
           // succeeds. The removal of this entry can be handled at the time of
           // the containing directory removed.
           //
-          const string& s (p.string ());
-          size_t n (s.size ());
-
-          if (n >= 4 &&
-              string::traits_type::compare (
-                s.c_str () + n - 4, "/***", 4) == 0)
+          if (p.leaf ().string () == "***")
           {
+            verify (p.directory (), p, "wildcard");
+
             // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
             //
             rmdir_status r (
               rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
 
-            if (r == rmdir_status::not_empty) // Directory is current.
+            // Directory is current. That's unlikely to happen but let's keep
+            // for completeness.
+            //
+            if (r == rmdir_status::not_empty)
               fail (cl) << "registered for cleanup wildcard " << p
                         << " matches the current directory";
 
@@ -259,6 +268,8 @@ namespace build2
 
           // Remove file if exists. Fail otherwise.
           //
+          verify (p, p, "file");
+
           if (rmfile (p, 2) == rmfile_status::not_exist)
             fail (cl) << "registered for cleanup file " << p
                       << " does not exist";

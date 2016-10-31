@@ -18,7 +18,7 @@ c = cat >>>testscript
 #
 # @@ TODO: $c <"$* -f a &a" && $b
 #
-: files
+: file
 :
 $c <"$* -f a &a";
 $b
@@ -29,14 +29,17 @@ $c <"$* -d a &a/";
 $b
 
 : dir2
+:
 $c <"$* -d a/b &a/ &a/b/";
 $b
 
 : file-dir
+:
 $c <"$* -d a/b -f a/b/c &a/ &a/b/ &a/b/c";
 $b
 
 : wildcard1
+:
 $c <"$* -d a/b -f a/b/c &a/***";
 $b
 
@@ -46,10 +49,12 @@ $c <"$* &a/***";
 $b
 
 : file-dup
+:
 $c <"$* -f a &a &a";
 $b
 
 : dir-dup
+:
 $c <"$* -d a/b &a/ &a/b/ &a/b/../b/";
 $b
 
@@ -62,11 +67,25 @@ $b 2>>EOE != 0
 testscript:1: error: registered for cleanup file test/1/a does not exist
 EOE
 
+: file-out-wd
+:
+$c <"$* &../a";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup file test/a is out of working directory test/1/
+EOE
+
 : dir-not-exists
 :
 $c <"$* &a/";
 $b 2>>EOE != 0
 testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+EOE
+
+: dir-out-wd
+:
+$c <"$* &../a/";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup directory test/a/ is out of working directory test/1/
 EOE
 
 : dir-not-empty1
@@ -109,4 +128,11 @@ EOE
 $c <"$* -f a &a/";
 $b 2>>EOE != 0
 error: unable to remove directory test/1/a/: Not a directory
+EOE
+
+: wildcard-out-wd
+:
+$c <"$* &../a/***";
+$b 2>>EOE != 0
+testscript:1: error: registered for cleanup wildcard test/a/*** is out of working directory test/1/
 EOE
