@@ -79,7 +79,7 @@ namespace build2
     if (work.sub (d)) // Don't try to remove working directory.
       return rmdir_status::not_empty;
 
-    if (!exists (d))
+    if (!build2::entry_exists (d))
       return rmdir_status::not_exist;
 
     if (verb >= v)
@@ -121,6 +121,20 @@ namespace build2
     catch (const system_error& e)
     {
       error << "unable to stat path " << d << ": " << e.what ();
+      throw failed ();
+    }
+  }
+
+  bool
+  entry_exists (const path& p, bool fs)
+  {
+    try
+    {
+      return butl::entry_exists (p, fs);
+    }
+    catch (const system_error& e)
+    {
+      error << "unable to stat path " << p << ": " << e.what ();
       throw failed ();
     }
   }

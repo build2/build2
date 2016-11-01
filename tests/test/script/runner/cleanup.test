@@ -133,6 +133,14 @@ $b 2>>EOE != 0
 testscript:1: error: registered for cleanup wildcard test/a/*** is out of working directory test/1/
 EOE
 
+: wildcard-not-dir
+: Test cleanup of file as a wildcard
+:
+$c <"$* -f a &a/***";
+$b 2>>EOE != 0
+error: unable to remove directory test/1/a/: Not a directory
+EOE
+
 : implicit-overwrite
 : Test implicit cleanup being overwritten with an explicit one
 :

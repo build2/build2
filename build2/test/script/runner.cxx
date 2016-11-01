@@ -254,17 +254,6 @@ namespace build2
           // Recursive removal of non-existing directory is not an error for
           // 'maybe' cleanup type.
           //
-          // Note that if some file system entry of non-directory type exists
-          // with such a name it is not removed but the operation still
-          // succeeds for 'maybe' cleanup type. The removal of this entry can
-          // be handled at the time of the containing directory cleanup.
-          //
-          // @@ The behavior in the situation described differes for &?a/***
-          //    and &?a/ due to build2::rmdir_r() implementation details which
-          //    checks for directory existence before trying to remove it.
-          //    Shouldn't rmdir_r() behave the same way as rmdir() in regards
-          //    to non-directory removal?
-          //
           if (p.leaf ().string () == "***")
           {
             verify (p.directory (), p, "wildcard");
