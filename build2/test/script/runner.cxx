@@ -215,9 +215,17 @@ namespace build2
 
         for (const auto& c: reverse_iterate (sp.cleanups))
         {
+          cleanup_type t (c.type);
+
+          // Skip whenever the path exists or not.
+          //
+          if (t == cleanup_type::never)
+            continue;
+
           const path& p (c.path);
 
-          // Remove directory if exists and empty. Fail otherwise.
+          // Remove directory if exists and empty. Fail otherwise. Removal of
+          // non-existing directory is not an error for 'maybe' cleanup type.
           //
           if (p.to_directory ())
           {
@@ -232,22 +240,30 @@ namespace build2
             //
             rmdir_status r (rmdir (d, 2));
 
-            if (r != rmdir_status::success)
-              fail (ll) << "registered for cleanup directory " << d
-                        << (r == rmdir_status::not_empty
-                            ? " is not empty"
-                            : " does not exist");
+            if (r == rmdir_status::success ||
+                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+              continue;
 
-            continue;
+            fail (ll) << "registered for cleanup directory " << d
+                      << (r == rmdir_status::not_empty
+                          ? " is not empty"
+                          : " does not exist");
           }
 
           // Remove directory recursively if not current. Fail otherwise.
-          // Recursive removal of non-existing directory is not an error.
+          // Recursive removal of non-existing directory is not an error for
+          // 'maybe' cleanup type.
           //
           // Note that if some file system entry of non-directory type exists
           // with such a name it is not removed but the operation still
-          // succeeds. The removal of this entry can be handled at the time of
-          // the containing directory removed.
+          // succeeds for 'maybe' cleanup type. The removal of this entry can
+          // be handled at the time of the containing directory cleanup.
+          //
+          // @@ The behavior in the situation described differes for &?a/***
+          //    and &?a/ due to build2::rmdir_r() implementation details which
+          //    checks for directory existence before trying to remove it.
+          //    Shouldn't rmdir_r() behave the same way as rmdir() in regards
+          //    to non-directory removal?
           //
           if (p.leaf ().string () == "***")
           {
@@ -258,21 +274,26 @@ namespace build2
             rmdir_status r (
               rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
 
-            // Directory is current. That's unlikely to happen but let's keep
-            // for completeness.
-            //
-            if (r == rmdir_status::not_empty)
-              fail (ll) << "registered for cleanup wildcard " << p
-                        << " matches the current directory";
+            if (r == rmdir_status::success ||
+                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+              continue;
 
-            continue;
+            // The directory is unlikely to be current but let's keep for
+            // completeness.
+            //
+            fail (ll) << "registered for cleanup wildcard " << p
+                      << (r == rmdir_status::not_empty
+                          ? " matches the current directory"
+                          : " doesn't match a directory");
           }
 
-          // Remove file if exists. Fail otherwise.
+          // Remove file if exists. Fail otherwise. Removal of non-existing
+          // file is not an error for 'maybe' cleanup type.
           //
           verify (p, p, "file");
 
-          if (rmfile (p, 2) == rmfile_status::not_exist)
+          if (rmfile (p, 2) == rmfile_status::not_exist &&
+              t == cleanup_type::always)
             fail (ll) << "registered for cleanup file " << p
                       << " does not exist";
         }

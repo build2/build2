@@ -95,7 +95,7 @@ namespace build2
       {
         always, // &foo  - cleanup, fail if does not exist.
         maybe,  // &?foo - cleanup, ignore if does not exist.
-        never   // &!foo - cleanup, ignore if exists.
+        never   // &!foo - don’t cleanup, ignore if doesn’t exist.
       };
 
       // File or directory to be automatically cleaned up at the end of the
@@ -111,8 +111,7 @@ namespace build2
       // dir/**  - remove all files recursively
       // dir/**/ - remove all sub-directories recursively (must be empty)
       // dir/*** - remove directory dir with all files and sub-directories
-      //           recursively (removing non-existent directory is not an
-      //           error)
+      //           recursively
       //
       struct cleanup
       {
