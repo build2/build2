@@ -1449,9 +1449,10 @@ EOO
 \
 
 Separate multi-line tests with blank lines. You may want to place larger tests
-into explicit test scopes for better visual separation. In this case the
-description should come before the scope. Note that here-documents are
-indented as well. For example:
+into explicit test scopes for better visual separation (this is especially
+helpful if the test contains blank lines, for example, in here-document
+fragments). In this case the description should come before the scope. Note
+that here-documents are indented as well. For example:
 
 \
 : multi-name
@@ -1459,7 +1460,9 @@ indented as well. For example:
 {
   $* John Jane >>EOO
   Hello, John!
+
   Hello, Jane!
+
   EOO
 }
 \
