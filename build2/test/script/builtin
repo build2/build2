@@ -1,0 +1,45 @@
+// file      : build2/test/script/builtin -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_BUILTIN
+#define BUILD2_TEST_SCRIPT_BUILTIN
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <map>
+
+namespace build2
+{
+  namespace test
+  {
+    namespace script
+    {
+      // Note that unlike argc/argv, our args don't include the program name.
+      //
+      using builtin = int (*) (const strings& args,
+                               int in_fd, int out_fd, int err_fd);
+
+      class builtin_map: public std::map<string, builtin>
+      {
+      public:
+        using base = std::map<string, builtin>;
+        using base::base;
+
+        // Return NULL if not a builtin.
+        //
+        builtin
+        find (const string& n) const
+        {
+          auto i (base::find (n));
+          return i != end () ? i->second : nullptr;
+        }
+      };
+
+      extern const builtin_map builtins;
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_BUILTIN
