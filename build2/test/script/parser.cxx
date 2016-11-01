@@ -1543,17 +1543,55 @@ namespace build2
       {
         string r;
 
+        // Here-documents can be indented. The leading whitespaces of the end
+        // marker line (called strip prefix) determine the indentation. Every
+        // other line in the here-document should start with this prefix which
+        // is automatically stripped. The only exception is a blank line.
+        //
+        // The fact that the strip prefix is only known at the end, after
+        // seeing all the lines, is rather inconvenient. As a result, the way
+        // we implement this is a bit hackish (though there is also something
+        // elegant about it): at the end of the pre-parse stage we are going
+        // re-examine the sequence of tokens that comprise this here-document
+        // and "fix up" the first token of each line by stripping the prefix.
+        //
+        string sp;
+
+        // Remember the position of the first token in this here-document.
+        //
+        size_t ri (pre_parse_ ? replay_data_.size () - 1 : 0);
+
         while (tt != type::eos)
         {
-          // Check if this is the end marker.
+          // Check if this is the end marker. For starters, it should be a
+          // single, unquoted word followed by a newline.
           //
-          if (tt == type::word &&
-              !t.quoted        &&
-              t.value == em    &&
-              peek () == type::newline)
+          if (tt == type::word && !t.quoted && peek () == type::newline)
           {
-            next (t, tt); // Get the newline.
-            break;
+            const string& v (t.value);
+
+            size_t vn (v.size ());
+            size_t en (em.size ());
+
+            // Then check that it ends with the end marker.
+            //
+            if (vn >= en && v.compare (vn - en, en, em) == 0)
+            {
+              // Now check that the prefix only contains whitespaces.
+              //
+              size_t n (vn - en);
+
+              if (v.find_first_not_of (" \t") >= n)
+              {
+                assert (pre_parse_ || n == 0); // Should have been stripped.
+
+                if (n != 0)
+                  sp.assign (v, 0, n); // Save the strip prefix.
+
+                next (t, tt); // Get the newline.
+                break;
+              }
+            }
           }
 
           // Expand the line (can be blank).
@@ -1604,10 +1642,53 @@ namespace build2
         if (tt == type::eos)
           fail (t) << "missing here-document end marker '" << em << "'";
 
-        // Add final newline if requested.
-        //
-        if (!pre_parse_ && !nn)
-          r += '\n';
+        if (pre_parse_)
+        {
+          // Strip the indentation prefix if there is one.
+          //
+          assert (replay_ == replay::save);
+
+          if (!sp.empty ())
+          {
+            size_t sn (sp.size ());
+
+            for (; ri != replay_data_.size (); ++ri)
+            {
+              token& rt (replay_data_[ri].token);
+
+              if (rt.type == type::newline) // Blank
+                continue;
+
+              if (rt.type != type::word || rt.value.compare (0, sn, sp) != 0)
+                fail (rt) << "unindented here-document line";
+
+              // If the word is equal to the strip prefix then we have to drop
+              // the token. Note that simply making it an empty word won't
+              // have the same semantics. For instance, it would trigger
+              // concatenated expansion.
+              //
+              if (rt.value.size () == sn)
+                replay_data_.erase (replay_data_.begin () + ri);
+              else
+              {
+                rt.value.erase (0, sn);
+                rt.column += sn;
+                ++ri;
+              }
+
+              // Skip until next newline.
+              //
+              for (; replay_data_[ri].token.type != type::newline; ++ri) ;
+            }
+          }
+        }
+        else
+        {
+          // Add final newline if requested.
+          //
+          if (!nn)
+            r += '\n';
+        }
 
         return r;
       }
