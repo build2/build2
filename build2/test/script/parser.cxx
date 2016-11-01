@@ -783,7 +783,17 @@ namespace build2
       pair<bool, optional<description>> parser::
       parse_command_line (token& t, type& tt, line_type lt, size_t li)
       {
-        command c;
+        command_expr expr {{expr_operator::log_and, {}}};
+        command c; // Command being assembled.
+
+        // Make sure the command makes sense.
+        //
+        auto check_command = [&c, this] (const location& l)
+        {
+          if (c.out.type == redirect_type::merge &&
+              c.err.type == redirect_type::merge)
+            fail (l) << "stdout and stderr redirected to each other";
+        };
 
         // Pending positions where the next word should go.
         //
@@ -814,7 +824,10 @@ namespace build2
         //
         struct here_doc
         {
-          redirect* redir;
+          size_t expr;  // Index in command_expr.
+          size_t pipe;  // Index in command_pipe.
+          size_t redir; // Redirect (0 - in, 1 - out, 2 - err).
+
           string end;
           bool no_newline;
         };
@@ -823,8 +836,8 @@ namespace build2
         // Add the next word to either one of the pending positions or
         // to program arguments by default.
         //
-        auto add_word =
-          [&c, &p, &nn, &app, &ct, &hd, this] (string&& w, const location& l)
+        auto add_word = [&expr, &c, &p, &nn, &app, &ct, &hd, this]
+          (string&& w, const location& l)
         {
           auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
           {
@@ -849,9 +862,11 @@ namespace build2
             r.str = move (w);
           };
 
-          auto add_here_end = [&hd, &nn] (redirect& r, string&& w)
+          auto add_here_end = [&expr, &hd, &nn] (size_t r, string&& w)
           {
-            hd.push_back (here_doc {&r, move (w), nn});
+            hd.push_back (
+              here_doc {
+                expr.size () - 1, expr.back ().pipe.size (), r, move (w), nn});
           };
 
           auto parse_path = [&l, this] (string&& w, const char* what) -> path
@@ -903,9 +918,9 @@ namespace build2
           case pending::out_string: add_here_str (c.out, move (w)); break;
           case pending::err_string: add_here_str (c.err, move (w)); break;
 
-          case pending::in_document:  add_here_end (c.in,  move (w)); break;
-          case pending::out_document: add_here_end (c.out, move (w)); break;
-          case pending::err_document: add_here_end (c.err, move (w)); break;
+          case pending::in_document:  add_here_end (0, move (w)); break;
+          case pending::out_document: add_here_end (1, move (w)); break;
+          case pending::err_document: add_here_end (2, move (w)); break;
 
           case pending::in_file:  add_file (c.in,  0, move (w)); break;
           case pending::out_file: add_file (c.out, 1, move (w)); break;
@@ -1120,8 +1135,6 @@ namespace build2
         {
           switch (tt)
           {
-          case type::equal:
-          case type::not_equal:
           case type::semi:
           case type::colon:
           case type::newline:
@@ -1129,6 +1142,38 @@ namespace build2
               done = true;
               break;
             }
+
+          case type::equal:
+          case type::not_equal:
+            {
+              if (!pre_parse_)
+                check_pending (l);
+
+              c.exit = parse_command_exit (t, tt);
+
+              // Only a limited set of things can appear after the exit status
+              // so we check this here.
+              //
+              switch (tt)
+              {
+              case type::semi:
+              case type::colon:
+              case type::newline:
+
+              case type::pipe:
+              case type::log_or:
+              case type::log_and:
+                break;
+              default:
+                fail (t) << "unexpected " << t << " after command exit status";
+              }
+
+              break;
+            }
+
+          case type::pipe:
+          case type::log_or:
+          case type::log_and:
 
           case type::in_pass:
           case type::out_pass:
@@ -1181,7 +1226,7 @@ namespace build2
                   if (tt != type::word || t.quoted)
                     fail (l) << "expected here-document end marker";
 
-                  hd.push_back (here_doc {nullptr, move (t.value), nn});
+                  hd.push_back (here_doc {0, 0, 0, move (t.value), nn});
                   break;
                 }
 
@@ -1198,6 +1243,29 @@ namespace build2
               //
               switch (tt)
               {
+              case type::pipe:
+              case type::log_or:
+              case type::log_and:
+                {
+                  // Check that the previous command makes sense.
+                  //
+                  check_command (l);
+                  expr.back ().pipe.push_back (move (c));
+
+                  c = command ();
+                  p = pending::program;
+
+                  if (tt != type::pipe)
+                  {
+                    expr_operator o (tt == type::log_or
+                                     ? expr_operator::log_or
+                                     : expr_operator::log_and);
+                    expr.push_back ({o, command_pipe ()});
+                  }
+
+                  break;
+                }
+
               case type::in_pass:
               case type::out_pass:
 
@@ -1367,6 +1435,29 @@ namespace build2
                     //
                     switch (tt)
                     {
+                    case type::pipe:
+                    case type::log_or:
+                    case type::log_and:
+                      {
+                        // Check that the previous command makes sense.
+                        //
+                        check_command (l);
+                        expr.back ().pipe.push_back (move (c));
+
+                        c = command ();
+                        p = pending::program;
+
+                        if (tt != type::pipe)
+                        {
+                          expr_operator o (tt == type::log_or
+                                           ? expr_operator::log_or
+                                           : expr_operator::log_and);
+                          expr.push_back ({o, command_pipe ()});
+                        }
+
+                        break;
+                      }
+
                     case type::in_pass:
                     case type::out_pass:
 
@@ -1424,24 +1515,17 @@ namespace build2
 
         if (!pre_parse_)
         {
-          // Verify we don't have anything pending to be filled.
+          // Verify we don't have anything pending to be filled and the
+          // command makes sense.
           //
           check_pending (l);
+          check_command (l);
 
-          if (c.out.type == redirect_type::merge &&
-              c.err.type == redirect_type::merge)
-            fail (l) << "stdout and stderr redirected to each other";
+          expr.back ().pipe.push_back (move (c));
         }
 
-        // While we no longer need to recognize command line operators, we
-        // also don't expect a valid test trailer to contain them. So we are
-        // going to continue lexing in the script_line mode.
-        //
-        if (tt == type::equal || tt == type::not_equal)
-          c.exit = parse_command_exit (t, tt);
-
         // Colon and semicolon are only valid in test command lines. Note that
-        // we still recognize them lexically, they are just not a valid tokens
+        // we still recognize them lexically, they are just not valid tokens
         // per the grammar.
         //
         if (tt == type::colon || tt == type::semi)
@@ -1514,7 +1598,9 @@ namespace build2
 
           if (!pre_parse_)
           {
-            redirect& r (*h.redir);
+            command& c (expr[h.expr].pipe[h.pipe]);
+            redirect& r (h.redir == 0 ? c.in : h.redir == 1 ? c.out : c.err);
+
             r.doc.doc = move (v);
             r.doc.end = move (h.end);
           }
@@ -1525,7 +1611,7 @@ namespace build2
         // Now that we have all the pieces, run the command.
         //
         if (!pre_parse_)
-          runner_->run (*scope_, c, li, ll);
+          runner_->run (*scope_, expr, li, ll);
 
         return r;
       }

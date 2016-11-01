@@ -155,6 +155,54 @@ namespace build2
         }
       }
 
+      void
+      to_stream (ostream& o, const command_pipe& p, command_to_stream m)
+      {
+        if ((m & command_to_stream::header) == command_to_stream::header)
+        {
+          for (auto b (p.begin ()), i (b); i != p.end (); ++i)
+          {
+            if (i != b)
+              o << " | ";
+
+            to_stream (o, *i, command_to_stream::header);
+          }
+        }
+
+        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
+        {
+          for (const command& c: p)
+            to_stream (o, c, command_to_stream::here_doc);
+        }
+      }
+
+      void
+      to_stream (ostream& o, const command_expr& e, command_to_stream m)
+      {
+        if ((m & command_to_stream::header) == command_to_stream::header)
+        {
+          for (auto b (e.begin ()), i (b); i != e.end (); ++i)
+          {
+            if (i != b)
+            {
+              switch (i->op)
+              {
+              case expr_operator::log_or:  o << " || "; break;
+              case expr_operator::log_and: o << " && "; break;
+              }
+            }
+
+            to_stream (o, i->pipe, command_to_stream::header);
+          }
+        }
+
+        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
+        {
+          for (const expr_term& t: e)
+            to_stream (o, t.pipe, command_to_stream::here_doc);
+        }
+      }
+
       // redirect
       //
       redirect::

@@ -26,6 +26,7 @@ namespace build2
 
       // Pre-parse representation.
       //
+
       enum class line_type {variable, setup, tdown, test};
 
       struct line
@@ -37,6 +38,9 @@ namespace build2
       using lines = vector<line>;
 
       // Parse object model.
+      //
+
+      // redirect
       //
       enum class redirect_type
       {
@@ -85,6 +89,8 @@ namespace build2
         ~redirect ();
       };
 
+      // cleanup
+      //
       enum class cleanup_type
       {
         always, // &foo  - cleanup, fail if does not exist.
@@ -115,6 +121,8 @@ namespace build2
       };
       using cleanups = vector<cleanup>;
 
+      // command_exit
+      //
       enum class exit_comparison {eq, ne};
 
       struct command_exit
@@ -142,6 +150,8 @@ namespace build2
         uint8_t status;
       };
 
+      // command
+      //
       struct command
       {
         path program;
@@ -169,6 +179,36 @@ namespace build2
       ostream&
       operator<< (ostream&, const command&);
 
+      // command_pipe
+      //
+      using command_pipe = vector<command>;
+
+      void
+      to_stream (ostream&, const command_pipe&, command_to_stream);
+
+      ostream&
+      operator<< (ostream&, const command_pipe&);
+
+      // command_expr
+      //
+      enum class expr_operator {log_or, log_and};
+
+      struct expr_term
+      {
+        expr_operator op; // Ignored for the first term.
+        command_pipe pipe;
+      };
+
+      using command_expr = vector<expr_term>;
+
+      void
+      to_stream (ostream&, const command_expr&, command_to_stream);
+
+      ostream&
+      operator<< (ostream&, const command_expr&);
+
+      // description
+      //
       struct description
       {
         string id;
@@ -182,6 +222,8 @@ namespace build2
         }
       };
 
+      // scope
+      //
       class script;
 
       class scope
@@ -254,6 +296,8 @@ namespace build2
         location end_loc_;
       };
 
+      // group
+      //
       class group: public scope
       {
       public:
@@ -280,6 +324,8 @@ namespace build2
         lines tdown_;
       };
 
+      // test
+      //
       class test: public scope
       {
       public:
@@ -293,6 +339,8 @@ namespace build2
         lines tests_;
       };
 
+      // script
+      //
       class script_base // Make sure certain things are initialized early.
       {
       protected:

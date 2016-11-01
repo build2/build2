@@ -21,7 +21,7 @@ namespace build2
       // empty.
       //
       static bool
-      non_empty (const path& p, const location& cl)
+      non_empty (const path& p, const location& ll)
       {
         if (p.empty () || !exists (p))
           return false;
@@ -37,7 +37,7 @@ namespace build2
           // executed let's add the location anyway to ease the
           // troubleshooting. And let's stick to that principle down the road.
           //
-          error (cl) << "unable to read " << p << ": " << e.what ();
+          error (ll) << "unable to read " << p << ": " << e.what ();
           throw failed ();
         }
       }
@@ -51,13 +51,13 @@ namespace build2
                     const path& op,
                     const path& ip,
                     const redirect& rd,
-                    const location& cl,
+                    const location& ll,
                     scope& sp,
                     const char* what)
       {
-        auto input_info = [&ip, &cl] (diag_record& d)
+        auto input_info = [&ip, &ll] (diag_record& d)
         {
-          if (non_empty (ip, cl))
+          if (non_empty (ip, ll))
             d << info << "stdin: " << ip;
         };
 
@@ -67,9 +67,9 @@ namespace build2
 
           // Check that there is no output produced.
           //
-          if (non_empty (op, cl))
+          if (non_empty (op, ll))
           {
-            diag_record d (fail (cl));
+            diag_record d (fail (ll));
             d << pr << " unexpectedly writes to " << what <<
               info << what << ": " << op;
 
@@ -96,7 +96,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (cl) << "unable to write " << orp << ": " << e.what ();
+            fail (ll) << "unable to write " << orp << ": " << e.what ();
           }
 
           // Use diff utility to compare the output with the expected result.
@@ -130,13 +130,13 @@ namespace build2
 
               // Output doesn't match the expected result.
               //
-              diag_record d (error (cl));
+              diag_record d (error (ll));
               d << pr << " " << what << " doesn't match the expected output";
 
               auto output_info =
-                [&d, &what, &cl] (const path& p, const char* prefix)
+                [&d, &what, &ll] (const path& p, const char* prefix)
               {
-                if (non_empty (p, cl))
+                if (non_empty (p, ll))
                   d << info << prefix << what << ": " << p;
                 else
                   d << info << prefix << what << " is empty";
@@ -156,7 +156,7 @@ namespace build2
               //
               p.wait (); // Check throw.
 
-              error (cl) << "failed to compare " << what
+              error (ll) << "failed to compare " << what
                          << " with the expected output";
             }
 
@@ -165,7 +165,7 @@ namespace build2
           }
           catch (const process_error& e)
           {
-            error (cl) << "unable to execute " << pp << ": " << e.what ();
+            error (ll) << "unable to execute " << pp << ": " << e.what ();
 
             if (e.child ())
               exit (1);
@@ -194,7 +194,7 @@ namespace build2
       }
 
       void concurrent_runner::
-      leave (scope& sp, const location& cl)
+      leave (scope& sp, const location& ll)
       {
         // Remove files and directories in the order opposite to the order of
         // cleanup registration.
@@ -206,10 +206,10 @@ namespace build2
         // working directory.
         //
         auto verify =
-          [&sp, &cl] (const path& p, const path& orig, const char* what)
+          [&sp, &ll] (const path& p, const path& orig, const char* what)
           {
             if (!p.sub (sp.wd_path))
-              fail (cl) << "registered for cleanup " << what << " " << orig
+              fail (ll) << "registered for cleanup " << what << " " << orig
                         << " is out of working directory " << sp.wd_path;
           };
 
@@ -233,7 +233,7 @@ namespace build2
             rmdir_status r (rmdir (d, 2));
 
             if (r != rmdir_status::success)
-              fail (cl) << "registered for cleanup directory " << d
+              fail (ll) << "registered for cleanup directory " << d
                         << (r == rmdir_status::not_empty
                             ? " is not empty"
                             : " does not exist");
@@ -262,7 +262,7 @@ namespace build2
             // for completeness.
             //
             if (r == rmdir_status::not_empty)
-              fail (cl) << "registered for cleanup wildcard " << p
+              fail (ll) << "registered for cleanup wildcard " << p
                         << " matches the current directory";
 
             continue;
@@ -273,14 +273,16 @@ namespace build2
           verify (p, p, "file");
 
           if (rmfile (p, 2) == rmfile_status::not_exist)
-            fail (cl) << "registered for cleanup file " << p
+            fail (ll) << "registered for cleanup file " << p
                       << " does not exist";
         }
       }
 
       void concurrent_runner::
-      run (scope& sp, const command& c, size_t ci, const location& cl)
+      run (scope& sp, const command_expr& expr, size_t li, const location& ll)
       {
+        const command& c (expr.back ().pipe.back ()); // @@ TMP
+
         if (verb >= 3)
           text << c;
 
@@ -315,7 +317,7 @@ namespace build2
           // Normalize a path. Also make relative path absolute using the
           // scope's working directory unless it is already absolute.
           //
-          auto normalize = [&sp, &cl] (path p) -> path
+          auto normalize = [&sp, &ll] (path p) -> path
           {
             path r (p.absolute () ? move (p) : sp.wd_path / move (p));
 
@@ -325,7 +327,7 @@ namespace build2
             }
             catch (const invalid_path& e)
             {
-              fail (cl) << "invalid file path " << e.path;
+              fail (ll) << "invalid file path " << e.path;
             }
 
             return r;
@@ -333,15 +335,15 @@ namespace build2
 
           // Create unique path for a test command standard stream cache file.
           //
-          auto std_path = [&ci, &normalize] (const char* n) -> path
+          auto std_path = [&li, &normalize] (const char* n) -> path
           {
             path p (n);
 
-            // 0 if belongs to a single-command test scope, otherwise is the
-            // command number (start from one) in the test scope.
+            // 0 if belongs to a single-line test scope, otherwise is the
+            // command line number (start from one) in the test scope.
             //
-            if (ci > 0)
-              p += "-" + to_string (ci);
+            if (li > 0)
+              p += "-" + to_string (li);
 
             return normalize (move (p));
           };
@@ -352,7 +354,7 @@ namespace build2
 
           // Open a file for passing to the test command stdin.
           //
-          auto open_stdin = [&stdin, &si, &in, &cl] ()
+          auto open_stdin = [&stdin, &si, &in, &ll] ()
           {
             assert (!stdin.empty ());
 
@@ -362,7 +364,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (cl) << "unable to read " << stdin << ": " << e.what ();
+              fail (ll) << "unable to read " << stdin << ": " << e.what ();
             }
 
             in = si.fd ();
@@ -399,7 +401,7 @@ namespace build2
               }
               catch (const io_error& e)
               {
-                fail (cl) << "unable to write " << stdin << ": " << e.what ();
+                fail (ll) << "unable to write " << stdin << ": " << e.what ();
               }
 
               open_stdin ();
@@ -432,7 +434,7 @@ namespace build2
           // descriptors for merge, pass or null redirects respectively not
           // opening a file.
           //
-          auto open = [&sp, &cl, &std_path, &normalize] (const redirect& r,
+          auto open = [&sp, &ll, &std_path, &normalize] (const redirect& r,
                                                          int dfd,
                                                          path& p,
                                                          ofdstream& os) -> int
@@ -472,7 +474,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (cl) << "unable to write " << p << ": " << e.what ();
+              fail (ll) << "unable to write " << p << ": " << e.what ();
             }
 
             sp.clean ({cleanup_type::always, p}, true);
@@ -534,14 +536,14 @@ namespace build2
                 }
                 catch (const io_error& e)
                 {
-                  fail (cl) << "unable to read " << stderr << ": "
+                  fail (ll) << "unable to read " << stderr << ": "
                             << e.what ();
                 }
               }
 
               // Fail with a proper diagnostics.
               //
-              diag_record d (fail (cl));
+              diag_record d (fail (ll));
 
               if (!status)
                 d << pp << " terminated abnormally";
@@ -555,20 +557,20 @@ namespace build2
               else
                 assert (false);
 
-              if (non_empty (stderr, cl))
+              if (non_empty (stderr, ll))
                 d << info << "stderr: " << stderr;
 
-              if (non_empty (stdout, cl))
+              if (non_empty (stdout, ll))
                 d << info << "stdout: " << stdout;
 
-              if (non_empty (stdin, cl))
+              if (non_empty (stdin, ll))
                 d << info << "stdin: " << stdin;
             }
 
             // Check if the standard outputs match expectations.
             //
-            check_output (pp, stdout, stdin, c.out, cl, sp, "stdout");
-            check_output (pp, stderr, stdin, c.err, cl, sp, "stderr");
+            check_output (pp, stdout, stdin, c.out, ll, sp, "stdout");
+            check_output (pp, stderr, stdin, c.err, ll, sp, "stderr");
           }
           catch (const io_error& e)
           {
@@ -577,12 +579,12 @@ namespace build2
             //
             pr.wait (); // Check throw.
 
-            fail (cl) << "IO operation failed for " << pp << ": " << e.what ();
+            fail (ll) << "IO operation failed for " << pp << ": " << e.what ();
           }
         }
         catch (const process_error& e)
         {
-          error (cl) << "unable to execute " << pp << ": " << e.what ();
+          error (ll) << "unable to execute " << pp << ": " << e.what ();
 
           if (e.child ())
             exit (1);

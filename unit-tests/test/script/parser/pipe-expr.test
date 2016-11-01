@@ -1,0 +1,47 @@
+: pipe
+:
+$* <<EOI >>EOO
+cmd1 | cmd2|cmd3
+EOI
+cmd1 | cmd2 | cmd3
+EOO
+
+: log
+:
+$* <<EOI >>EOO
+cmd1 || cmd2&&cmd3
+EOI
+cmd1 || cmd2 && cmd3
+EOO
+
+: pipe-log
+:
+$* <<EOI >>EOO
+cmd1 | cmd2 && cmd3 | cmd4
+EOI
+cmd1 | cmd2 && cmd3 | cmd4
+EOO
+
+: exit
+:
+$* <<EOI >>EOO
+cmd1|cmd2==1&&cmd3!=0|cmd4
+EOI
+cmd1 | cmd2 == 1 && cmd3 != 0 | cmd4
+EOO
+
+: leading
+:
+$* <<EOI 2>>EOE != 0
+| cmd
+EOI
+testscript:1:1: error: missing program
+EOE
+
+: trailing
+:
+$* <<EOI 2>>EOE != 0
+cmd &&
+EOI
+testscript:1:7: error: missing program
+EOE

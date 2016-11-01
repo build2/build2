@@ -734,9 +734,12 @@ description:
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
-setup-line:    '+' command
-teardown-line: '-' command
-test-line:         command
+setup-line:    '+' command-expr
+teardown-line: '-' command-expr
+test-line:         command-expr
+
+command-expr: command-pipe (('||'|'&&') command-pipe)*
+command-pipe: command ('|' command)*
 
 command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
   *here-document

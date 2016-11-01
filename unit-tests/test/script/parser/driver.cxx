@@ -81,9 +81,9 @@ namespace build2
         }
 
         virtual void
-        run (scope&, const command& t, size_t, const location&) override
+        run (scope&, const command_expr& e, size_t, const location&) override
         {
-          cout << ind_ << t << endl;
+          cout << ind_ << e << endl;
         }
 
         virtual void
