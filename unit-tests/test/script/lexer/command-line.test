@@ -118,12 +118,17 @@ $* <:"1>>>&a b" >>EOO # out-file-app-redirect
 'a b'
 EOO
 
-$* <:"&file" >>EOO # file-cleanup
+$* <:"&file" >>EOO # cleanup-always
 &
 'file'
 EOO
 
-$* <:"&dir/" >>EOO # dir-cleanup
-&
-'dir/'
+$* <:"&?file" >>EOO # cleanup-maybe
+&?
+'file'
+EOO
+
+$* <:"&!file" >>EOO # cleanup-never
+&!
+'file'
 EOO

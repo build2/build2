@@ -807,6 +807,7 @@ namespace build2
         pending p (pending::program);
         bool nn (false);  // True if pending here-{str,doc} is "no-newline".
         bool app (false); // True if to append to pending file.
+        cleanup_type ct;  // Pending cleanup type.
 
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
@@ -823,7 +824,7 @@ namespace build2
         // to program arguments by default.
         //
         auto add_word =
-          [&c, &p, &nn, &app, &hd, this] (string&& w, const location& l)
+          [&c, &p, &nn, &app, &ct, &hd, this] (string&& w, const location& l)
         {
           auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
           {
@@ -913,7 +914,8 @@ namespace build2
           case pending::clean:
             {
               c.cleanups.push_back (
-                {cleanup_type::always, parse_path (move (w), "cleanup path")});
+                {ct, parse_path (move (w), "cleanup path")});
+
               break;
             }
           }
@@ -1092,6 +1094,20 @@ namespace build2
           }
         };
 
+        // Set pending cleanup type.
+        //
+        auto parse_clean = [&p, &ct] (type tt)
+        {
+          switch (tt)
+          {
+          case type::clean_always: ct = cleanup_type::always; break;
+          case type::clean_maybe:  ct = cleanup_type::maybe;  break;
+          case type::clean_never:  ct = cleanup_type::never;  break;
+          }
+
+          p = pending::clean;
+        };
+
         const location ll (get_location (t)); // Line location.
 
         // Keep parsing chunks of the command line until we see one of the
@@ -1136,7 +1152,9 @@ namespace build2
           case type::out_file:
           case type::out_file_app:
 
-          case type::clean:
+          case type::clean_always:
+          case type::clean_maybe:
+          case type::clean_never:
             {
               if (pre_parse_)
               {
@@ -1206,9 +1224,11 @@ namespace build2
                   break;
                 }
 
-              case type::clean:
+              case type::clean_always:
+              case type::clean_maybe:
+              case type::clean_never:
                 {
-                  p = pending::clean;
+                  parse_clean (tt);
                   break;
                 }
 
@@ -1369,9 +1389,11 @@ namespace build2
                         break;
                       }
 
-                    case type::clean:
+                    case type::clean_always:
+                    case type::clean_maybe:
+                    case type::clean_never:
                       {
-                        p = pending::clean;
+                        parse_clean (tt);
                         break;
                       }
 

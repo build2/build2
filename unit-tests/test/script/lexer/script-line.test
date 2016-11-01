@@ -112,11 +112,23 @@ $* <"cmd <<<in >>>out 2>>>&err" >>EOO # file-redirect
 <newline>
 EOO
 
-$* <"cmd &file &dir/" >>EOO # cleanup
+$* <"cmd &file" >>EOO # cleanup-always
 'cmd'
 &
 'file'
-&
-'dir/'
+<newline>
+EOO
+
+$* <"cmd &?file" >>EOO # cleanup-maybe
+'cmd'
+&?
+'file'
+<newline>
+EOO
+
+$* <"cmd &!file" >>EOO # cleanup-never
+'cmd'
+&!
+'file'
 <newline>
 EOO

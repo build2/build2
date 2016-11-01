@@ -1,35 +1,49 @@
-$* <<EOI >>EOO          # file-dir
-cmd &file &dir/
+: always
+:
+$* <<EOI >>EOO
+cmd &file
 EOI
-cmd &file &dir/
+cmd &file
 EOO
 
-$* <<EOI >>EOO          # quote-file-dir
-cmd &"f ile" &"d ir/"
+: maybe
+:
+$* <<EOI >>EOO
+cmd &?file
 EOI
-cmd &"f ile" &"d ir/"
+cmd &?file
 EOO
 
-$* <<EOI >>EOO          # dup-file
-cmd &file &file
+: never
+:
+$* <<EOI >>EOO
+cmd &!file
 EOI
-cmd &file &file
+cmd &!file
 EOO
 
-$* <<EOI 2>>EOE != 0    # file-fail1
+: empty
+:
+$* <<EOI 2>>EOE != 0
+cmd &""
+EOI
+testscript:1:6: error: empty cleanup path
+EOE
+
+: missed-before-token
+: Path missed before command next token
+:
+$* <<EOI 2>>EOE != 0
 cmd & >file
 EOI
 testscript:1:7: error: missing cleanup path
 EOE
 
-$* <<EOI 2>>EOE != 0    # file-fail2
+: missed-before-end
+: Test path missed before end of command
+:
+$* <<EOI 2>>EOE != 0
 cmd &
 EOI
 testscript:1:6: error: missing cleanup path
-EOE
-
-$* <<EOI 2>>EOE != 0    # file-fail3
-cmd &""
-EOI
-testscript:1:6: error: empty cleanup path
 EOE

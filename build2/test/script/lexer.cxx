@@ -264,13 +264,21 @@ namespace build2
             //
           case '&':
             {
-              if (peek () == '&')
+              xchar p (peek ());
+
+              if (p == '?' || p == '!' || p == '&')
               {
                 get ();
-                return make_token (type::log_and);
+
+                switch (p)
+                {
+                case '?': return make_token (type::clean_maybe);
+                case '!': return make_token (type::clean_never);
+                case '&': return make_token (type::log_and);
+                }
               }
               else
-                return make_token (type::clean);
+                return make_token (type::clean_always);
             }
             // <
             //
