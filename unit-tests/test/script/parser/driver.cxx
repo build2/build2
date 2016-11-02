@@ -164,12 +164,12 @@ namespace build2
 
           // Parse and run.
           //
-          script s (tt, st, dir_path (work) /= "test-driver");
-          print_runner r (scope, id);
-
           parser p;
-          p.pre_parse (cin, name, s);
-          p.parse (name, s, r);
+          script s (
+            p.pre_parse (cin, st, tt, dir_path (work) /= "test-driver"));
+
+          print_runner r (scope, id);
+          p.parse (s, r);
         }
         catch (const failed&)
         {

@@ -17,10 +17,29 @@ namespace build2
     {
       using type = token_type;
 
-      void parser::
-      pre_parse (istream& is, const path& p, script& s)
+      script parser::
+      pre_parse (testscript& ts, target& tg, const dir_path& wd)
       {
-        path_ = &p;
+        const path& p (ts.path ());
+        assert (!p.empty ()); // Should have been assigned.
+
+        try
+        {
+          ifdstream ifs (p);
+          return pre_parse (ifs, ts, tg, wd);
+        }
+        catch (const io_error& e)
+        {
+          error << "unable to read testscript " << p << ": " << e.what ();
+          throw failed ();
+        }
+      }
+
+      script parser::
+      pre_parse (istream& is, testscript& ts, target& tg, const dir_path& wd)
+      {
+        script s (tg, ts, wd);
+        path_ = &*s.testscripts_.insert (ts.path ()).first;
 
         pre_parse_ = true;
 
@@ -36,8 +55,8 @@ namespace build2
         id_map_ = &idm;
         scope_ = nullptr;
 
-        // Start location of the implied script group is the beginning of the
-        // file. End location -- end of the file.
+        // Start location of the implied script group is the beginning of
+        // the file. End location -- end of the file.
         //
         group_->start_loc_ = location (path_, 1, 1);
 
@@ -47,6 +66,8 @@ namespace build2
           fail (t) << "stray " << t;
 
         group_->end_loc_ = get_location (t);
+
+        return s;
       }
 
       void parser::

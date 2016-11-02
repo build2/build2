@@ -5,6 +5,8 @@
 #ifndef BUILD2_TEST_SCRIPT_SCRIPT
 #define BUILD2_TEST_SCRIPT_SCRIPT
 
+#include <set>
+
 #include <build2/types>
 #include <build2/utility>
 
@@ -293,6 +295,11 @@ namespace build2
 
         location start_loc_;
         location end_loc_;
+
+        // Set of testscript files already included in this scope. Paths must
+        // be absolute and normalized.
+        //
+        std::set<path> testscripts_;
       };
 
       // group
@@ -363,6 +370,11 @@ namespace build2
         script (target& test_target,
                 testscript& script_target,
                 const dir_path& root_wd);
+
+        script (script&&) = default;
+        script (const script&) = delete;
+        script& operator= (script&&) = delete;
+        script& operator= (const script&) = delete;
 
       public:
         target& test_target;       // Target we are testing.

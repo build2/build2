@@ -28,13 +28,16 @@ namespace build2
       public:
         // Issue diagnostics and throw failed in case of an error.
         //
-        void
-        pre_parse (istream&, const path& name, script&);
+        script
+        pre_parse (testscript&, target&, const dir_path& root_wd);
+
+        script
+        pre_parse (istream&, testscript&, target&, const dir_path& root_wd);
 
         void
-        parse (const path& name, script& s, runner& r)
+        parse (script& s, runner& r)
         {
-          parse (s, name, s, r);
+          parse (s, s.script_target.path (), s, r);
         }
 
         // Recursive descent parser.

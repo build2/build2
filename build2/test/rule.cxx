@@ -423,23 +423,11 @@ namespace build2
         if (verb)
           text << "test " << t << " with " << ts;
 
-        const path& sp (ts.path ());
-        assert (!sp.empty ()); // Should have been assigned by update.
+        script::parser p;
+        script::script s (p.pre_parse (ts, t, wd));
 
-        try
-        {
-          script::script s (t, ts, wd);
-          script::concurrent_runner r;
-
-          ifdstream ifs (sp);
-          script::parser p;
-          p.pre_parse (ifs, sp, s);
-          p.parse (sp, s, r);
-        }
-        catch (const io_error& e)
-        {
-          fail << "unable to read testscript " << sp << ": " << e.what ();
-        }
+        script::concurrent_runner r;
+        p.parse (s, r);
       };
 
       for (target* pt: t.prerequisite_targets)
