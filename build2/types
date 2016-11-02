@@ -135,6 +135,7 @@ namespace build2
   ostream&
   operator<< (ostream&, const process_path&); // Print as recall[@effect].
 
+  using butl::auto_fd;
   using butl::ifdstream;
   using butl::ofdstream;
 }

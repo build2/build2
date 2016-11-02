@@ -100,7 +100,7 @@ namespace build2
 
             try
             {
-              ifdstream is (pr.in_ofd, fdstream_mode::skip);
+              ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
 
               // The version should be the last word on the first line.
               //

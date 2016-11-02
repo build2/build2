@@ -11,27 +11,16 @@ using namespace butl;
 
 namespace build2
 {
-  //@@ auto_fd handover
-  //
-  // 1. We need auto_fd in libbutl
-  // 2. Overload fdstream ctors for auto_fd&& (or replace? also process data
-  //    members?)
-  // 3. The builtin signature then will become:
-  //
-  // static int
-  // echo (const strings& args, auto_fd in, auto_fd out, auto_fd err)
-
   static int
-  echo (const strings& args, int in_fd, int out_fd, int err_fd)
+  echo (const strings& args, auto_fd, auto_fd out, auto_fd err)
   try
   {
     int r (0);
-    ofdstream cerr (err_fd);
+    ofdstream cerr (move (err));
 
     try
     {
-      fdclose (in_fd); //@@ TMP
-      ofdstream cout (out_fd);
+      ofdstream cout (move (out));
 
       for (auto b (args.begin ()), i (b), e (args.end ()); i != e; ++i)
         cout << (i != b ? " " : "") << *i;

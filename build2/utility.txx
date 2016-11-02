@@ -45,7 +45,7 @@ namespace build2
 
     try
     {
-      ifdstream is (pr.in_ofd);
+      ifdstream is (move (pr.in_ofd));
 
       while (is.peek () != ifdstream::traits_type::eof () && // Keep last line.
              getline (is, l))

@@ -144,7 +144,8 @@ namespace build2
 
       try
       {
-        ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
+        ifdstream is (
+          move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
 
         while (getline (is, s))
         {

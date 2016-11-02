@@ -19,7 +19,7 @@ namespace build2
       // Note that unlike argc/argv, our args don't include the program name.
       //
       using builtin = int (*) (const strings& args,
-                               int in_fd, int out_fd, int err_fd);
+                               auto_fd in, auto_fd out, auto_fd err);
 
       class builtin_map: public std::map<string, builtin>
       {

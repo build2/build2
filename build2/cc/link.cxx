@@ -947,7 +947,7 @@ namespace build2
 
               try
               {
-                ofdstream os (pr.out_fd);
+                ofdstream os (move (pr.out_fd));
 
                 // 1 is resource ID, 24 is RT_MANIFEST. We also need to escape
                 // Windows path backslashes.
@@ -1475,7 +1475,8 @@ namespace build2
         {
           try
           {
-            ifdstream is (pr.in_ofd, fdstream_mode::text, ifdstream::badbit);
+            ifdstream is (
+              move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
             msvc_filter_link (is, t, lt);
 

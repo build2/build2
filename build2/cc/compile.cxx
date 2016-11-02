@@ -1190,7 +1190,7 @@ namespace build2
               // complains, loudly (broken pipe). So now we are going to skip
               // until the end.
               //
-              ifdstream is (cid == "msvc" ? pr.in_efd : pr.in_ofd,
+              ifdstream is (move (cid == "msvc" ? pr.in_efd : pr.in_ofd),
                             fdstream_mode::text | fdstream_mode::skip,
                             ifdstream::badbit);
 
@@ -1565,7 +1565,8 @@ namespace build2
         {
           try
           {
-            ifdstream is (pr.in_ofd, fdstream_mode::text, ifdstream::badbit);
+            ifdstream is (
+              move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
             msvc_filter_cl (is, rels);
 

@@ -54,7 +54,8 @@ namespace build2
 
         try
         {
-          ifdstream is (pr.in_ofd, fdstream_mode::skip, ifdstream::badbit);
+          ifdstream is (
+            move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
 
           // The output of -print-search-dirs are a bunch of lines that start
           // with "<name>: =" where name can be "install", "programs", or
