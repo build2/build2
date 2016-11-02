@@ -2,42 +2,49 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
++mkdir build &build/ # @@ TMP
++cat <<EOI >>>build/boostrap.build
+project = test
+amalgamation =
+
+using test
+EOI
+
 test.options += -q --buildfile -
 test.arguments = test
 
-+mkdir build
-#+cat <<EOI >>>build/boostrap.build
-#project = test
-#amalgamation =
-#
-#using test
-#EOI
-+cp $src_base/bootstrap.build build/
-
+: scrip-files
+:
 {
   +touch testscript foo.test bar.test
 
+  : testscript-and-other
+  :
   $* <<EOI 2>>EOE != 0
-./: test{../testscript ../foo}
-EOI
-error: both 'testscript' and other names specified for dir{./}
-EOE
+  ./: test{../testscript ../foo}
+  EOI
+  error: both 'testscript' and other names specified for dir{./}
+  EOE
 
+  : other-and-testscript
+  :
   $* <<EOI 2>>EOE != 0
-./: test{../foo ../testscript}
-EOI
-error: both 'testscript' and other names specified for dir{./}
-EOE
+  ./: test{../foo ../testscript}
+  EOI
+  error: both 'testscript' and other names specified for dir{./}
+  EOE
 
+  : others
+  :
   $* <<EOI
-./: test{../foo ../bar}
-EOI
+  ./: test{../foo ../bar}
+  EOI
 
   -rm -f testscript foo.test bar.test
 }
 
-# work-dir-file
-#
+: wd-is-file
+:
 touch foo.test &foo.test; #@@ TMP
 touch test &test; #@@ TMP
 $* <<EOI 2>>EOE != 0
@@ -46,21 +53,21 @@ EOI
 error: working directory test/ is a file/symlink
 EOE
 
-# work-dir-exists
-#
+: wd-exists-before
+:
 touch foo.test &foo.test; #@@ TMP
-mkdir test; #@@ Need a way to ignore/deregister cleanup.
+mkdir test &!test/;
 $* <<EOI 2>>EOE
 ./: test{foo}
 EOI
 warning: working directory test/ exists at the beginning of the test
 EOE
 
-# work-dir-not-empty
-#
+: wd-not-empty-before
+:
 touch foo.test &foo.test; #@@ TMP
-mkdir test;               #@@ Need a way to ignore/deregister cleanup.
-touch test/dummy;         #@@ Need a way to ignore/deregister cleanup.
+mkdir test &!test/;
+touch test/dummy &!test/dummy;
 $* <<EOI 2>>EOE
 ./: test{foo}
 EOI
@@ -68,10 +75,17 @@ warning: working directory test/ exists and is not empty at the beginning \
 of the test
 EOE
 
-# work-dir-not-empty-end
-#
-# @@ No (easy) way to test this. Maybe if the inner test creates something
-#    without cleanup?
-
--rm -f build/bootstrap.build
--rmdir build/
+: wd-not-empty-after
+:
+: The idea here is to run a nested testscript that creates (but does not
+: clean up) a file in our working directory. Note that we still have to
+: remove everything after detecting the failure.
+:
+cat <<EOI >>>foo.test;
+touch ../../dummy &!../../dummy
+EOI
+$* <<EOI 2>>EOE &test/*** != 0
+./: test{foo}
+EOI
+error: working directory test/ is not empty at the end of the test
+EOE
