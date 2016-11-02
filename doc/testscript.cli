@@ -708,7 +708,7 @@ script:
 
 scope-body:
   *setup
-  *(scope|test)
+  *(scope|test|include)
   *teardown
 
 setup:
@@ -727,6 +727,8 @@ test:
   description?
   *((variable-line|test-line) ';')
   test-line (':' <text>)?
+
+include: 'include' '--once'? <path>+
 
 description:
   +(':' <text>)
@@ -790,8 +792,25 @@ same time is illegal.
 
 Here-line is like double-quoted string but recognizes newlines.
 
-It is an error to specify both normal (better term?) and inline descriptions
-for a test.
+It is an error to specify both leading and trailing descriptions.
+
+\h#include|Inclusion|
+
+While in the grammar the \c{include} directive is shown to only appear
+interleaving with scopes and tests, it can be used anywhere in the scope
+body. It can also contain several parts of a scope, for example, setup and
+test lines.
+
+The \c{--once} option signals that files that have already been included
+in this scope should not be included again.
+
+Note that \c{include} is a directive, not a command. It is performed during
+parsing before any command is executed or testscript variable assigned. You
+can, however, use variables assigned in the buildfile. For example:
+
+\
+include --once common-$(cxx.target.class).test
+\
 
 \
 script:
