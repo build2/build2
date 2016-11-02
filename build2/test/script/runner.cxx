@@ -358,23 +358,23 @@ namespace build2
             return normalize (move (p));
           };
 
-          path stdin;
+          path sin;
           ifdstream si;
           int in;
 
           // Open a file for passing to the test command stdin.
           //
-          auto open_stdin = [&stdin, &si, &in, &ll] ()
+          auto open_stdin = [&sin, &si, &in, &ll] ()
           {
-            assert (!stdin.empty ());
+            assert (!sin.empty ());
 
             try
             {
-              si.open (stdin);
+              si.open (sin);
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to read " << stdin << ": " << e.what ();
+              fail (ll) << "unable to read " << sin << ": " << e.what ();
             }
 
             in = si.fd ();
@@ -388,7 +388,7 @@ namespace build2
 
           case redirect_type::file:
             {
-              stdin = normalize (c.in.file.path);
+              sin = normalize (c.in.file.path);
               open_stdin ();
               break;
             }
@@ -399,11 +399,11 @@ namespace build2
               // We could write to process stdin directly but instead will
               // cache the data for potential troubleshooting.
               //
-              stdin = std_path ("stdin");
+              sin = std_path ("stdin");
 
               try
               {
-                ofdstream os (stdin);
+                ofdstream os (sin);
                 os << (c.in.type == redirect_type::here_string
                        ? c.in.str
                        : c.in.doc.doc);
@@ -411,11 +411,11 @@ namespace build2
               }
               catch (const io_error& e)
               {
-                fail (ll) << "unable to write " << stdin << ": " << e.what ();
+                fail (ll) << "unable to write " << sin << ": " << e.what ();
               }
 
               open_stdin ();
-              sp.clean ({cleanup_type::always, stdin}, true);
+              sp.clean ({cleanup_type::always, sin}, true);
               break;
             }
 
@@ -491,13 +491,13 @@ namespace build2
             return os.fd ();
           };
 
-          path stdout;
+          path sout;
           ofdstream so;
-          int out (open (c.out, 1, stdout, so));
+          int out (open (c.out, 1, sout, so));
 
-          path stderr;
+          path serr;
           ofdstream se;
-          int err (open (c.err, 2, stderr, se));
+          int err (open (c.err, 2, serr, se));
 
           if (verb >= 2)
             print_process (args);
@@ -536,17 +536,17 @@ namespace build2
             {
               // Dump cached stderr.
               //
-              if (exists (stderr))
+              if (exists (serr))
               {
                 try
                 {
-                  ifdstream is (stderr);
+                  ifdstream is (serr);
                   if (is.peek () != ifdstream::traits_type::eof ())
                     cerr << is.rdbuf ();
                 }
                 catch (const io_error& e)
                 {
-                  fail (ll) << "unable to read " << stderr << ": "
+                  fail (ll) << "unable to read " << serr << ": "
                             << e.what ();
                 }
               }
@@ -567,20 +567,20 @@ namespace build2
               else
                 assert (false);
 
-              if (non_empty (stderr, ll))
-                d << info << "stderr: " << stderr;
+              if (non_empty (serr, ll))
+                d << info << "stderr: " << serr;
 
-              if (non_empty (stdout, ll))
-                d << info << "stdout: " << stdout;
+              if (non_empty (sout, ll))
+                d << info << "stdout: " << sout;
 
-              if (non_empty (stdin, ll))
-                d << info << "stdin: " << stdin;
+              if (non_empty (sin, ll))
+                d << info << "stdin: " << sin;
             }
 
             // Check if the standard outputs match expectations.
             //
-            check_output (pp, stdout, stdin, c.out, ll, sp, "stdout");
-            check_output (pp, stderr, stdin, c.err, ll, sp, "stderr");
+            check_output (pp, sout, sin, c.out, ll, sp, "stdout");
+            check_output (pp, serr, sin, c.err, ll, sp, "stderr");
           }
           catch (const io_error& e)
           {
