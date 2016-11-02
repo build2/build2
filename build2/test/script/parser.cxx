@@ -71,9 +71,9 @@ namespace build2
       }
 
       void parser::
-      parse (scope& sc, const path& p, script& s, runner& r)
+      parse (scope& sc, script& s, runner& r)
       {
-        path_ = &p;
+        path_ = nullptr; // Set by replays.
 
         pre_parse_ = false;
 
@@ -273,6 +273,7 @@ namespace build2
           {
             line& l (ls[i]);
 
+            assert (path_ == nullptr);
             replay_data (move (l.tokens)); // Set the tokens and start playing.
 
             // We don't really need to change the mode since we already know
@@ -315,7 +316,9 @@ namespace build2
             }
 
             assert (tt == type::newline);
+
             replay_stop (); // Stop playing.
+            assert (path_ == nullptr);
           }
         };
 
@@ -340,7 +343,7 @@ namespace build2
             // scope_ = os;
             //
             parser p;
-            p.parse (*s, *path_, *script_, *runner_);
+            p.parse (*s, *script_, *runner_);
           }
 
           play (g->tdown_);

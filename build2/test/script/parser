@@ -37,7 +37,7 @@ namespace build2
         void
         parse (script& s, runner& r)
         {
-          parse (s, s.script_target.path (), s, r);
+          parse (s, s, r);
         }
 
         // Recursive descent parser.
@@ -49,7 +49,7 @@ namespace build2
         //
       protected:
         void
-        parse (scope&, const path& name, script&, runner&);
+        parse (scope&, script&, runner&);
 
         token
         pre_parse_scope_body ();
