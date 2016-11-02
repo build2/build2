@@ -113,6 +113,7 @@ namespace build2
   struct replay_token
   {
     build2::token token;
+    const path* file;
     lexer_mode_base mode;
     char pair_separator;
   };

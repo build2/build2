@@ -347,7 +347,6 @@ namespace build2
     // Note also that the peeked token is not part of the replay, until it
     // is "got".
     //
-    //
     void
     replay_save ()
     {
@@ -361,6 +360,9 @@ namespace build2
       assert ((replay_ == replay::save && !replay_data_.empty ()) ||
               (replay_ == replay::play && replay_i_ == replay_data_.size ()));
 
+      if (replay_ == replay::save)
+        replay_path_ = path_; // Save old path.
+
       replay_i_ = 0;
       replay_ = replay::play;
     }
@@ -368,6 +370,9 @@ namespace build2
     void
     replay_stop ()
     {
+      if (replay_ == replay::play)
+        path_ = replay_path_; // Restore old path.
+
       replay_data_.clear ();
       replay_ = replay::stop;
     }
@@ -406,9 +411,8 @@ namespace build2
       assert (replay_ == replay::save);
 
       replay_tokens r (move (replay_data_));
-      replay_ = replay::stop;
       replay_data_.clear ();
-
+      replay_ = replay::stop;
       return r;
     }
 
@@ -418,6 +422,8 @@ namespace build2
     replay_data (replay_tokens&& d)
     {
       assert (replay_ == replay::stop);
+
+      replay_path_ = path_; // Save old path.
 
       replay_data_ = move (d);
       replay_i_ = 0;
@@ -431,14 +437,22 @@ namespace build2
     {
       lexer_mode m (lexer_->mode ()); // Get it first since it may expire.
       char ps (lexer_->pair_separator ());
-      return replay_token {lexer_->next (), m, ps};
+      return replay_token {lexer_->next (), path_, m, ps};
     }
 
     const replay_token&
     replay_next ()
     {
       assert (replay_i_ != replay_data_.size ());
-      return replay_data_[replay_i_++];
+      const replay_token& rt (replay_data_[replay_i_++]);
+
+      // Update the path. Note that theoretically it is possible that peeking
+      // at the next token will "change" the path of the current token. The
+      // workaround would be to call get_location() before peeking.
+      //
+      path_ = rt.file;
+
+      return rt;
     }
 
     // Diagnostics.
@@ -468,6 +482,7 @@ namespace build2
     enum class replay {stop, save, play} replay_ = replay::stop;
     replay_tokens replay_data_;
     size_t replay_i_;         // Position of the next token during replay.
+    const path* replay_path_; // Path before replay began (to be restored).
   };
 }
 
