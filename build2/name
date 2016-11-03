@@ -113,12 +113,14 @@ namespace build2
   //
   // \$("
   //
+  // Note that in the quoted mode empty unqualified name is printed as '',
+  // not {}.
+  //
   ostream&
-  to_stream (ostream&, const name&, bool quote, char pair);
+  to_stream (ostream&, const name&, bool quote, char pair = '\0');
 
   inline ostream&
-  operator<< (ostream& os, const name& n) {
-    return to_stream (os, n, false, '\0');}
+  operator<< (ostream& os, const name& n) {return to_stream (os, n, false);}
 
 
   // Vector of names.
@@ -129,11 +131,11 @@ namespace build2
   // The same semantics as to_stream(name).
   //
   ostream&
-  to_stream (ostream&, const names_view&, bool quote, char pair);
+  to_stream (ostream&, const names_view&, bool quote, char pair = '\0');
 
   inline ostream&
   operator<< (ostream& os, const names_view& ns) {
-    return to_stream (os, ns, false, '\0');}
+    return to_stream (os, ns, false);}
 
   inline ostream&
   operator<< (ostream& os, const names& ns) {return os << names_view (ns);}

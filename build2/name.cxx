@@ -62,6 +62,11 @@ namespace build2
         os << d;
     };
 
+    // If quoted then print empty name as '' rather than {}.
+    //
+    if (quote && n.empty () && n.proj == nullptr)
+      return os << "''";
+
     if (n.proj != nullptr)
     {
       write_string (*n.proj);
@@ -70,7 +75,7 @@ namespace build2
 
     // If the value is empty, then we want to print the directory
     // inside {}, e.g., dir{bar/}, not bar/dir{}. We also want to
-    // print {} for an empty name.
+    // print {} for an empty name (unless quoted).
     //
     bool d (!n.dir.empty ());
     bool v (!n.value.empty ());
