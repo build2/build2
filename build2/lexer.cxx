@@ -107,7 +107,7 @@ namespace build2
     xchar c (get ());
     uint64_t ln (c.line), cn (c.column);
 
-    auto make_token = [sep, ln, cn] (type t)
+    auto make_token = [&sep, ln, cn] (type t)
     {
       return token (t, sep, ln, cn, token_printer);
     };
@@ -132,6 +132,7 @@ namespace build2
         if (m == lexer_mode::value)
           state_.pop ();
 
+        sep = true; // Treat newline as always separated.
         return make_token (type::newline);
       }
     case '{': return make_token (type::lcbrace);
