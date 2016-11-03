@@ -124,7 +124,7 @@ namespace build2
     friend const diag_record&
     operator<< (const diag_record& r, const T& x)
     {
-      r.os_ << x;
+      r.os << x;
       return r;
     }
 
@@ -154,7 +154,7 @@ namespace build2
       if (empty_)
         empty_ = false;
       else
-        os_ << "\n  ";
+        os << "\n  ";
     }
 
     // Move constructible-only type.
@@ -166,7 +166,7 @@ namespace build2
     //
     diag_record (diag_record&& r)
 #ifndef __GLIBCXX__
-        : os_ (move (r.os_))
+        : os (move (r.os))
 #endif
     {
       empty_ = r.empty_;
@@ -175,8 +175,8 @@ namespace build2
       if (!empty_)
       {
 #ifdef __GLIBCXX__
-        stream_verb (os_, stream_verb (r.os_));
-        os_ << r.os_.str ();
+        stream_verb (os, stream_verb (r.os));
+        os << r.os.str ();
 #endif
         r.empty_ = true;
         r.epilogue_ = nullptr;
@@ -189,7 +189,7 @@ namespace build2
     diag_record& operator= (const diag_record&) = delete;
 
   public:
-    mutable std::ostringstream os_;
+    mutable std::ostringstream os;
 
   private:
     mutable bool empty_;

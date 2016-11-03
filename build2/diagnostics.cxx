@@ -61,7 +61,7 @@ namespace build2
     //
     if (!empty_ && (!std::uncaught_exception () || exception_unwinding_dtor))
     {
-      *diag_stream << os_.str () << endl;
+      *diag_stream << os.str () << endl;
 
       if (epilogue_ != nullptr)
         epilogue_ (*this); // Can throw.
@@ -74,7 +74,7 @@ namespace build2
   void simple_prologue_base::
   operator() (const diag_record& r) const
   {
-    stream_verb (r.os_, sverb_);
+    stream_verb (r.os, sverb_);
 
     if (type_ != nullptr)
       r << type_ << ": ";
@@ -89,7 +89,7 @@ namespace build2
   void location_prologue_base::
   operator() (const diag_record& r) const
   {
-    stream_verb (r.os_, sverb_);
+    stream_verb (r.os, sverb_);
 
     r << *loc_.file << ':';
 
