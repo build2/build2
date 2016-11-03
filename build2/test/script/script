@@ -256,6 +256,11 @@ namespace build2
         lookup
         find (const variable&) const;
 
+        // As above but only look for buildfile variables.
+        //
+        lookup
+        find_in_buildfile (const string&) const;
+
         // Return a value suitable for assignment. If the variable does not
         // exist in this scope's map, then a new one with the NULL value is
         // added and returned. Otherwise the existing value is returned.
@@ -295,11 +300,6 @@ namespace build2
 
         location start_loc_;
         location end_loc_;
-
-        // Set of testscript files already included in this scope. Paths must
-        // be absolute and normalized.
-        //
-        std::set<path> testscripts_;
       };
 
       // group
@@ -379,6 +379,16 @@ namespace build2
       public:
         target& test_target;       // Target we are testing.
         testscript& script_target; // Target of the testscript file.
+
+        // Pre-parse data.
+        //
+      private:
+        friend class parser;
+
+        // Testscript file paths. Specifically, replay_token::file points to
+        // these paths.
+        //
+        std::set<path> paths_;
       };
     }
   }

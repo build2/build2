@@ -39,7 +39,7 @@ namespace build2
       pre_parse (istream& is, testscript& ts, target& tg, const dir_path& wd)
       {
         script s (tg, ts, wd);
-        path_ = &*s.testscripts_.insert (ts.path ()).first;
+        path_ = &*s.paths_.insert (ts.path ()).first;
 
         pre_parse_ = true;
 
@@ -47,12 +47,16 @@ namespace build2
         lexer_ = &l;
         base_parser::lexer_ = &l;
 
+        id_prefix_.clear ();
+
         id_map idm;
+        include_set ins;
 
         script_ = &s;
         runner_ = nullptr;
         group_ = script_;
         id_map_ = &idm;
+        include_set_ = &ins;
         scope_ = nullptr;
 
         // Start location of the implied script group is the beginning of
@@ -84,6 +88,7 @@ namespace build2
         runner_ = &r;
         group_ = nullptr;
         id_map_ = nullptr;
+        include_set_ = nullptr;
         scope_ = &sc;
 
         parse_scope_body ();
@@ -135,16 +140,23 @@ namespace build2
                 fail (t) << "expected newline after '{'";
 
               // Push group. If there is no user-supplied id, use the line
-              // number as the scope id.
+              // number (prefixed with include id) as the scope id.
               //
-              const string& id (d && !d->id.empty ()
-                                ? d->id
-                                : insert_id (to_string (sl.line), sl));
+              const string& id (
+                d && !d->id.empty ()
+                ? d->id
+                : insert_id (id_prefix_ + to_string (sl.line), sl));
+
               id_map idm;
+              include_set ins;
+
               unique_ptr<group> g (new group (id, *group_));
 
               id_map* om (id_map_);
               id_map_ = &idm;
+
+              include_set* os (include_set_);
+              include_set_ = &ins;
 
               group* og (group_);
               group_ = g.get ();
@@ -158,6 +170,7 @@ namespace build2
               // Pop group.
               //
               group_ = og;
+              include_set_ = os;
               id_map_ = om;
 
               // Drop empty scopes.
@@ -521,15 +534,20 @@ namespace build2
           }
         default:
           {
-            // Either test command or variable assignment.
+            // Either directive, variable assignment, or test command.
             //
             replay_save (); // Start saving tokens from the current one.
             next (t, tt);
 
-            // Decide whether this is a variable assignment or a command. It
-            // is an assignment if the first token is an unquoted word and
-            // the next is an assign/append/prepend operator. Assignment to
-            // a computed variable name must use the set builtin.
+            // Decide whether this is a variable assignment/directive or a
+            // command.
+            //
+            // It is a directive if the first token is an unquoted directive
+            // name that is separated from the next token (think .include$x).
+            //
+            // It is an assignment if the first token is an unquoted name and
+            // the next is an assign/append/prepend operator. Assignment to a
+            // computed variable name must use the set builtin.
             //
             if (tt == type::word && !t.quoted)
             {
@@ -541,9 +559,23 @@ namespace build2
               mode (lexer_mode::second_token);
               type p (peek ());
 
-              if (p == type::assign  ||
-                  p == type::prepend ||
-                  p == type::append)
+              if (peeked ().separated && t.value == ".include")
+              {
+                replay_stop (); // Stop replay and discard the data.
+
+                // Make sure we are not inside a test (i.e., after semi).
+                //
+                if (ls != nullptr)
+                  fail (ll) << "directive after ';'";
+
+                parse_directive_line (t, tt);
+                assert (tt == type::newline);
+
+                return nullopt;
+              }
+              else if (p == type::assign  ||
+                       p == type::prepend ||
+                       p == type::append)
               {
                 lt = line_type::variable;
                 break;
@@ -696,12 +728,13 @@ namespace build2
         //
         if (ls == &tests)
         {
-          // If there is no user-supplied id, use the line number as the scope
-          // id.
+          // If there is no user-supplied id, use the line number (prefixed
+          // with include id) as the scope id.
           //
-          const string& id (d && !d->id.empty ()
-                            ? d->id
-                            : insert_id (to_string (ll.line), ll));
+          const string& id (
+            d && !d->id.empty ()
+            ? d->id
+            : insert_id (id_prefix_ + to_string (ll.line), ll));
 
           unique_ptr<test> p (new test (id, *group_));
 
@@ -716,6 +749,131 @@ namespace build2
         }
         else
           return d;
+      }
+
+      void parser::
+      parse_directive_line (token& t, type& tt)
+      {
+        string d (t.value);
+        location l (get_location (t));
+        next (t, tt);
+
+        // Suspend pre-parsing since we want to really parse the line, with
+        // expansion, etc. Also parse the whole line in one go.
+        //
+        names args;
+
+        if (tt != type::newline)
+        {
+          pre_parse_ = false;
+          args = parse_names (t, tt, false, "directive argument", nullptr);
+          pre_parse_ = true;
+        }
+
+        if (tt != type::newline)
+          fail (t) << t << " after directive";
+
+        if (d == ".include")
+          perform_include (move (args), move (l));
+        else
+          assert (false); // Unhandled directive.
+      }
+
+      void parser::
+      perform_include (names args, location dl)
+      {
+        auto i (args.begin ());
+
+        // Process options.
+        //
+        bool once (false);
+        for (; i != args.end () && i->simple (); ++i)
+        {
+          if (i->value == "--once")
+            once = true;
+          else
+            break;
+        }
+
+        // Process arguments.
+        //
+        auto include = [&dl, once, this] (string n) // throw invalid_path
+        {
+          // It may be tempting to use relative paths in diagnostics but it
+          // most likely will be misguided.
+          //
+          auto enter_path = [this] (string n) -> const path&
+          {
+            path p (move (n));
+
+            if (p.relative ())
+              p = path_->directory () / p;
+
+            p.normalize ();
+
+            return *script_->paths_.insert (move (p)).first;
+          };
+
+          const path& p (enter_path (move (n)));
+
+          if (include_set_->insert (p).second || !once)
+          {
+            try
+            {
+              ifdstream ifs (p);
+              lexer l (ifs, p, lexer_mode::script_line);
+
+              const path* op (path_);
+              path_ = &p;
+
+              lexer* ol (lexer_);
+              lexer_ = &l;
+              base_parser::lexer_ = &l;
+
+              string oip (id_prefix_);
+              id_prefix_ += to_string (dl.line);
+              id_prefix_ += '-';
+              id_prefix_ += p.leaf ().base ().string ();
+              id_prefix_ += '-';
+
+              token t (pre_parse_scope_body ());
+
+              if (t.type != type::eos)
+                fail (t) << "stray " << t;
+
+              id_prefix_ = oip;
+              base_parser::lexer_ = ol;
+              lexer_ = ol;
+              path_ = op;
+            }
+            catch (const io_error& e)
+            {
+              fail (dl) << "unable to read testscript " << p << ": "
+                        << e.what ();
+            }
+          }
+        };
+
+        for (; i != args.end (); ++i)
+        {
+          name& n (*i);
+
+          try
+          {
+            if (n.simple () && !n.empty ())
+            {
+              include (move (n.value));
+              continue;
+            }
+          }
+          catch (const invalid_path&) {} // Fall through.
+
+          {
+            diag_record dr (fail (dl));
+            dr << "invalid testscript include path ";
+            to_stream (dr.os, n, true); // Quote.
+          }
+        }
       }
 
       // Return true if the string contains only digit characters (used to
@@ -1358,7 +1516,9 @@ namespace build2
                 }
                 catch (const invalid_argument&)
                 {
-                  fail (l) << "invalid string value '" << n << "'";
+                  diag_record dr (fail (l));
+                  dr << "invalid string value ";
+                  to_stream (dr.os, n, true); // Quote.
                 }
 
                 // If it is a quoted chunk, then we add the word as is.
@@ -1650,6 +1810,7 @@ namespace build2
         // The next chunk should be the exit status.
         //
         next (t, tt);
+        location l (get_location (t));
         names ns (parse_names (t, tt, true, "exit status", nullptr));
         unsigned long es (256);
 
@@ -1663,8 +1824,14 @@ namespace build2
           catch (const exception&) {} // Fall through.
 
           if (es > 255)
-            fail (t) << "expected exit status instead of '" << ns << "'" <<
-              info << "exit status is an unsigned integer less than 256";
+          {
+            diag_record dr;
+
+            dr << fail (l) << "expected exit status instead of ";
+            to_stream (dr.os, ns, true); // Quote.
+
+            dr << info << "exit status is an unsigned integer less than 256";
+          }
         }
 
         return command_exit {comp, static_cast<uint8_t> (es)};
@@ -1832,6 +1999,12 @@ namespace build2
 
         if (!qual.empty ())
           fail (loc) << "qualified variable name";
+
+        // If we have no scope (happens when pre-parsing directives), then we
+        // only look for buildfile variables.
+        //
+        if (scope_ == nullptr)
+          return script_->find_in_buildfile (name);
 
         // @@ MT: will need RW mutex on var_pool. Or maybe if it's not there
         // then it can't possibly be found? Still will be setting variables.

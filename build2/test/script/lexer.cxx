@@ -143,7 +143,7 @@ namespace build2
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);
 
-        auto make_token = [sep, ln, cn] (type t)
+        auto make_token = [&sep, ln, cn] (type t)
         {
           return token (t, sep, ln, cn, token_printer);
         };
@@ -173,6 +173,7 @@ namespace build2
               if (m == lexer_mode::variable_line)
                 state_.pop ();
 
+              sep = true; // Treat newline as always separated.
               return make_token (type::newline);
             }
 
@@ -426,7 +427,7 @@ namespace build2
         {
           get ();
           state_.pop (); // Expire the description mode.
-          return token (type::newline, false, ln, cn, token_printer);
+          return token (type::newline, true, ln, cn, token_printer);
         }
 
         string lexeme;

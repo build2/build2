@@ -435,46 +435,51 @@ namespace build2
         }
         while ((p->parent != nullptr ? (p = p->parent) : nullptr) != nullptr);
 
+        return find_in_buildfile (var.name);
+      }
+
+
+      lookup scope::
+      find_in_buildfile (const string& n) const
+      {
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
         // concurrently). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
-        const variable* pvar (build2::var_pool.find (var.name));
+        const variable* pvar (build2::var_pool.find (n));
 
         if (pvar == nullptr)
           return lookup ();
 
-        const script& s (static_cast<const script&> (*p));
+        const script& s (static_cast<const script&> (*root));
+        const variable& var (*pvar);
+
+        // First check the target we are testing.
+        //
         {
-          const variable& var (*pvar);
-
-          // First check the target we are testing.
+          // Note that we skip applying the override if we did not find any
+          // value. In this case, presumably the override also affects the
+          // script target and we will pick it up there. A bit fuzzy.
           //
+          auto p (s.test_target.find_original (var, true));
+
+          if (p.first)
           {
-            // Note that we skip applying the override if we did not find any
-            // value. In this case, presumably the override also affects the
-            // script target and we will pick it up there. A bit fuzzy.
-            //
-            auto p (s.test_target.find_original (var, true));
+            if (var.override != nullptr)
+              p = s.test_target.base_scope ().find_override (
+                var, move (p), true);
 
-            if (p.first)
-            {
-              if (var.override != nullptr)
-                p = s.test_target.base_scope ().find_override (
-                  var, move (p), true);
-
-              return p.first;
-            }
+            return p.first;
           }
-
-          // Then the script target followed by the scopes it is in. Note that
-          // while unlikely it is possible the test and script targets will be
-          // in different scopes which brings the question of which scopes we
-          // should search.
-          //
-          return s.script_target[var];
         }
+
+        // Then the script target followed by the scopes it is in. Note that
+        // while unlikely it is possible the test and script targets will be
+        // in different scopes which brings the question of which scopes we
+        // should search.
+        //
+        return s.script_target[var];
       }
 
       value& scope::

@@ -65,6 +65,12 @@ namespace build2
                         optional<description>&&,
                         lines* = nullptr);
 
+        void
+        parse_directive_line (token&, token_type&);
+
+        void
+        perform_include (names, location);
+
         bool
         parse_variable_line (token&, token_type&);
 
@@ -104,19 +110,23 @@ namespace build2
       protected:
         using base_parser = build2::parser;
 
-        lexer* lexer_;
         script* script_;
-        runner* runner_;
 
         // Pre-parse state.
         //
         using id_map = std::unordered_map<string, location>;
+        using include_set = std::set<path>;
 
         group* group_;
         id_map* id_map_;
+        include_set* include_set_; // Testscripts already included in this
+                                   // scope. Must be absolute and normalized.
+        lexer* lexer_;
+        string id_prefix_; // Auto-derived id prefix.
 
         // Parse state.
         //
+        runner* runner_;
         scope* scope_;
       };
     }

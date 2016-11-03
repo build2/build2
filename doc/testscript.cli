@@ -728,7 +728,7 @@ test:
   *((variable-line|test-line) ';')
   test-line (':' <text>)?
 
-include: 'include' '--once'? <path>+
+include: '.include'(' '+'--once')*(' '+<path>)*
 
 description:
   +(':' <text>)
@@ -801,8 +801,10 @@ interleaving with scopes and tests, it can be used anywhere in the scope
 body. It can also contain several parts of a scope, for example, setup and
 test lines.
 
-The \c{--once} option signals that files that have already been included
-in this scope should not be included again.
+The \c{--once} option signals that files that have already been included in
+this scope should not be included again. The implementation is not required to
+handle links when determining if two paths are to the same file. Relative
+paths are assumed to be relative to the including testscript.
 
 Note that \c{include} is a directive, not a command. It is performed during
 parsing before any command is executed or testscript variable assigned. You
@@ -1089,11 +1091,13 @@ If an id is not specified then it is automatically derived from the test or
 test group location. If the test or test group is contained directly in the
 top-level testscript file, then just its start line number is used as an id.
 Otherwise, if the test or test group reside in an included file, then the
-start line number is prefixed with that file name (without the extension) in
-the form \c{<file>-<line>}. The start line for a block (either test or group)
-is the line containing opening curly brace (\c{{}) and for a simple test \-
-the test line itself.
+start line number (inside the included file) is prefixed with the line number
+of the \c{.include} directive followed by the included file name (without the
+extension) in the form \c{<line>-<file>-}. This process is repeated
+recursively for nested inclusion.
 
+The start line for a block (either test or group) is the line containing
+opening brace (\c{{}) and for a simple test \- the test line itself.
 
 \h#grammar-directives|Directives|
 

@@ -1,0 +1,140 @@
+: not-directive
+:
+$* <<EOI >>EOO
+x =
+".include" foo.test
+.include\$x foo.test
+EOI
+.include foo.test
+.include foo.test
+EOO
+
+: none
+:
+$* <<EOI
+.include
+.include --once
+EOI
+
+: empty
+:
+touch foo.test &foo.test; #@@ TMP
+$* <<EOI
+.include foo.test
+.include --once foo.test
+EOI
+
+: one
+:
+cat <"cmd" >>>foo.test;
+$* <<EOI >>EOO
+.include foo.test
+EOI
+cmd
+EOO
+
+: multiple
+:
+cat <"cmd foo" >>>foo.test;
+cat <"cmd bar" >>>bar.test;
+$* <<EOI >>EOO
+.include foo.test bar.test
+EOI
+cmd foo
+cmd bar
+EOO
+
+: once
+:
+cat <"cmd" >>>foo.test;
+$* <<EOI >>EOO
+.include foo.test
+x
+.include --once foo.test
+.include --once bar/../foo.test
+y
+.include ../once/foo.test
+EOI
+cmd
+x
+y
+cmd
+EOO
+
+: group-id
+:
+cat <<EOI >>>foo.test;
+{
+  x = b
+}
+EOI
+$* -s -i <<EOI >>EOO
+x = a
+.include foo.test
+EOI
+{
+  { # 2-foo-1
+  }
+}
+EOO
+
+: test-id
+:
+cat <<EOI >>>foo.test;
+cmd
+EOI
+$* -s -i <<EOI >>EOO
+x = a
+.include foo.test
+EOI
+{
+  { # 2-foo-1
+    cmd
+  }
+}
+EOO
+
+: var-expansion
+:
+cat <<EOI >>>foo-$(build.version).test;
+cmd
+EOI
+$* <<EOI >>EOO
+.include foo-\$\(build.version\).test
+EOI
+cmd
+EOO
+
+: after-semi
+:
+$* <<EOI 2>>EOE != 0
+cmd;
+.include foo.test
+EOI
+testscript:2:1: error: directive after ';'
+EOE
+
+: semi-after
+:
+$* <<EOI 2>>EOE != 0
+.include foo.test;
+cmd
+EOI
+testscript:1:18: error: ';' after directive
+EOE
+
+: invalid-path
+:
+$* <<EOI 2>>EOE != 0
+.include ""
+EOI
+testscript:1:1: error: invalid testscript include path ''
+EOE
+
+: unable-open
+:
+: Note that the error message is platform specific.
+:
+$* <<EOI 2>- != 0
+.include foo.test
+EOI
