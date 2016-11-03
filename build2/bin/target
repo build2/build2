@@ -105,7 +105,11 @@ namespace build2
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
+
+      virtual const target_type& dynamic_type () const override
+      {
+        return static_type;
+      }
     };
 
     // Windows import library.

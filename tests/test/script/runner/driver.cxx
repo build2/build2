@@ -38,17 +38,20 @@ main (int argc, char* argv[])
 
     auto toi = [] (const string& s) -> int
     {
+      int r (-1);
+
       try
       {
         size_t n;
-        int r (stoi (s, &n));
+        r = stoi (s, &n);
         assert (n == s.size ());
-        return r;
       }
       catch (const exception&)
       {
         assert (false);
       }
+
+      return r;
     };
 
     if (o == "-i")

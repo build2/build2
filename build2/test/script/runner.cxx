@@ -526,7 +526,11 @@ namespace build2
             // stderr (if cached), print the proper diagnostics and fail.
             //
             optional<process::status_type> status (move (pr.status));
-            bool valid_status (status && *status >= 0 && *status < 256);
+
+            // Comparison *status >= 0 causes "always true" warning on Windows
+            // where process::status_type is defined as uint32_t.
+            //
+            bool valid_status (status && *status + 1 > 0 && *status < 256);
             bool eq (c.exit.comparison == exit_comparison::eq);
 
             bool correct_status (valid_status &&

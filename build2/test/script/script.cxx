@@ -433,7 +433,7 @@ namespace build2
           if (const value* v = p->vars.find (var))
             return lookup (v, &p->vars);
         }
-        while (p->parent != nullptr ? (p = p->parent) : nullptr);
+        while ((p->parent != nullptr ? (p = p->parent) : nullptr) != nullptr);
 
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
