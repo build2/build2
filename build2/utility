@@ -31,6 +31,8 @@ namespace build2
   using std::make_shared;
   using std::make_move_iterator;
   using std::to_string;
+  using std::stoul;
+  using std::stoull;
 
   // <butl/utility>
   //
