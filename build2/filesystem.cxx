@@ -124,4 +124,18 @@ namespace build2
       throw failed ();
     }
   }
+
+  bool
+  empty (const dir_path& d)
+  {
+    try
+    {
+      return dir_empty (d);
+    }
+    catch (const system_error& e)
+    {
+      error << "unable to scan directory " << d << ": " << e.what ();
+      throw failed ();
+    }
+  }
 }

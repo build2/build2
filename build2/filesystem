@@ -91,6 +91,9 @@ namespace build2
 
   bool
   exists (const dir_path&);
+
+  bool
+  empty (const dir_path&);
 }
 
 #include <build2/filesystem.txx>
