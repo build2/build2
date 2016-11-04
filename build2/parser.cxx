@@ -1885,6 +1885,7 @@ namespace build2
   size_t parser::
   names_trailer (token& t, type& tt,
                  names_type& ns,
+                 const char* what,
                  size_t pair,
                  const string* pp,
                  const dir_path* dp,
@@ -1896,6 +1897,7 @@ namespace build2
     names (t, tt,
            ns,
            false,
+           what,
            (pair != 0
             ? pair
             : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
@@ -1913,7 +1915,7 @@ namespace build2
       const location loc (get_location (t));
 
       names_type x; // Parse into a separate list of names.
-      names_trailer (t, tt, x, 0, nullptr, nullptr, nullptr);
+      names_trailer (t, tt, x, what, 0, nullptr, nullptr, nullptr);
 
       if (size_t n = x.size ())
       {
@@ -2000,6 +2002,7 @@ namespace build2
   names (token& t, type& tt,
          names_type& ns,
          bool chunk,
+         const char* what,
          size_t pair,
          const string* pp,
          const dir_path* dp,
@@ -2153,7 +2156,7 @@ namespace build2
             tp1 = &t1;
           }
 
-          count = names_trailer (t, tt, ns, pair, pp1, dp1, tp1);
+          count = names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
           tt = peek ();
           continue;
         }
@@ -2228,7 +2231,7 @@ namespace build2
         };
 
         location loc;
-        const char* what; // Variable or evaluation context.
+        const char* what; // Variable, function, or evaluation context.
         value result;     // Holds function call/eval context result.
 
         if (tt == type::dollar)
@@ -2538,7 +2541,7 @@ namespace build2
       //
       if (tt == type::lcbrace)
       {
-        count = names_trailer (t, tt, ns, pair, pp, dp, tp);
+        count = names_trailer (t, tt, ns, what, pair, pp, dp, tp);
         tt = peek ();
         continue;
       }
@@ -2568,7 +2571,8 @@ namespace build2
           count = 1;
         }
         else if (count > 1)
-          fail (t) << "multiple names on the left hand side of a pair";
+          fail (t) << "multiple " << what << "s on the left hand side "
+                   << "of a pair";
 
         ns.back ().pair = lexer_->pair_separator ();
         tt = peek ();
@@ -2610,9 +2614,9 @@ namespace build2
         break;
       }
       else
-        // Our caller expected this to be a name.
+        // Our caller expected this to be something.
         //
-        fail (t) << "expected name instead of " << t;
+        fail (t) << "expected " << what << " instead of " << t;
     }
 
     // Handle the empty RHS in a pair, (e.g., y@).

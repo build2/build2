@@ -154,13 +154,18 @@ namespace build2
 
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with
-    // multiple names, for example, {foo bar}.
+    // multiple names, for example, {foo bar} or $foo.
+    //
+    // The what argument is used in diagnostics (e.g., "expected <what>
+    // instead of ...".
     //
     names_type
-    names (token& t, token_type& tt, bool chunk = false)
+    names (token& t, token_type& tt,
+           bool chunk = false,
+           const char* what = "name")
     {
       names_type ns;
-      names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
+      names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
       return ns;
     }
 
@@ -170,10 +175,10 @@ namespace build2
     // context evaluation.
     //
     value
-    names_value (token& t, token_type& tt)
+    names_value (token& t, token_type& tt, const char* what = "name")
     {
       names_type ns;
-      return names (t, tt, ns, false, 0, nullptr, nullptr, nullptr)
+      return names (t, tt, ns, false, what, 0, nullptr, nullptr, nullptr)
         ? value (move (ns))
         : value (nullptr);
     }
@@ -181,15 +186,19 @@ namespace build2
     // Append names and return true if the parsed value is NOT NULL.
     //
     bool
-    names (token& t, token_type& tt, names_type& ns, bool chunk = false)
+    names (token& t, token_type& tt,
+           names_type& ns,
+           bool chunk = false,
+           const char* what = "name")
     {
-      return names (t, tt, ns, chunk, 0, nullptr, nullptr, nullptr);
+      return names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
     }
 
     bool
     names (token&, token_type&,
            names_type&,
            bool chunk,
+           const char* what,
            size_t pair,
            const string* prj,
            const dir_path* dir,
@@ -198,6 +207,7 @@ namespace build2
     size_t
     names_trailer (token&, token_type&,
                    names_type&,
+                   const char* what,
                    size_t pair,
                    const string* prj,
                    const dir_path* dir,
