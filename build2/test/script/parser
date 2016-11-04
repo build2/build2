@@ -39,7 +39,8 @@ namespace build2
         //
         // Each parse function receives the token/type from which it should
         // start consuming. On return the token/type should contain the first
-        // token that has not been consumed.
+        // token that has not been consumed. For *_line() functions this is
+        // the newline.
         //
       protected:
         void
@@ -59,6 +60,12 @@ namespace build2
 
         string
         parse_here_document (token&, token_type&, const string&);
+
+        // Customization hooks.
+        //
+      protected:
+        virtual lookup
+        lookup_variable (name&&, string&&, const location&) override;
 
       protected:
         using base_parser = build2::parser;

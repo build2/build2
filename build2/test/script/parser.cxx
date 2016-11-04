@@ -48,7 +48,7 @@ namespace build2
       void parser::
       parse_script (token& t, token_type& tt)
       {
-        while (tt != type::eos)
+        for (; tt != type::eos; next (t, tt))
         {
           parse_script_line (t, tt);
         }
@@ -119,6 +119,9 @@ namespace build2
         // we want to treat as a literal.
         //
         value rhs (variable_value (t, tt, lexer_mode::variable_line));
+
+        if (tt != type::newline)
+          fail (t) << "unexpected " << t;
 
         value& lhs (kind == type::assign
                     ? script_->assign (var)
@@ -505,7 +508,7 @@ namespace build2
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
         //
-        if (!hd.empty ())
+        for (redirect& r: hd)
         {
           // Switch to the here-line mode which is like double-quoted but
           // recognized the newline as a separator.
@@ -515,13 +518,10 @@ namespace build2
 
           // The end marker is temporarily stored as the redirect's value.
           //
-          for (redirect& r: hd)
-            r.value = parse_here_document (t, tt, r.value);
+          r.value = parse_here_document (t, tt, r.value);
 
           expire_mode ();
         }
-        else
-          next (t, tt);
 
         // Now that we have all the pieces, run the test.
         //
@@ -600,8 +600,17 @@ namespace build2
         if (tt == type::eos)
           fail (t) << "missing here-document end marker '" << em << "'";
 
-        next (t, tt);
         return r;
+      }
+
+      lookup parser::
+      lookup_variable (name&& qual, string&& name, const location& l)
+      {
+        if (!qual.empty ())
+          fail (l) << "qualified variable name";
+
+        const variable& var (script_->var_pool.insert (move (name)));
+        return script_->find (var);
       }
     }
   }

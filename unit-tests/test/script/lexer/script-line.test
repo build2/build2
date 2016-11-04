@@ -1,2 +1,7 @@
 foo
 bar
+$cxx.target.class
+foo = baz
+$foo
+fox = $foo-$cxx.target.class
+$fox

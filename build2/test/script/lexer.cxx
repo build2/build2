@@ -119,6 +119,11 @@ namespace build2
           {
           case '\n':
             {
+              // Expire variable value mode at the end of the line.
+              //
+              if (m == lexer_mode::variable_line)
+                state_.pop ();
+
               return make_token (type::newline);
             }
 
