@@ -59,10 +59,10 @@ namespace build2
       {
         // Parse first chunk. Keep track of whether anything in it was quoted.
         //
-        names_type ns;
+        names ns;
         location nl (get_location (t));
         lexer_->reset_quoted (t.quoted);
-        names (t, tt, ns, true, "variable or program name");
+        parse_names (t, tt, ns, true, "variable or program name");
 
         // See if this is a variable assignment or a test command.
         //
@@ -113,12 +113,12 @@ namespace build2
       parse_variable_line (token& t, token_type& tt, string name)
       {
         type kind (tt); // Assignment kind.
-        const variable_type& var (script_->var_pool.insert (move (name)));
+        const variable& var (script_->var_pool.insert (move (name)));
 
         // We cannot reuse the value mode since it will recognize { which
         // we want to treat as a literal.
         //
-        value rhs (variable_value (t, tt, lexer_mode::variable_line));
+        value rhs (parse_variable_value (t, tt, lexer_mode::variable_line));
 
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
@@ -129,11 +129,11 @@ namespace build2
 
         // @@ Need to adjust to make strings the default type.
         //
-        value_attributes (&var, lhs, move (rhs), kind);
+        apply_value_attributes (&var, lhs, move (rhs), kind);
       }
 
       void parser::
-      parse_test_line (token& t, token_type& tt, names_type ns, location nl)
+      parse_test_line (token& t, token_type& tt, names ns, location nl)
       {
         // Stop recognizing variable assignments.
         //
@@ -460,7 +460,7 @@ namespace build2
               ns.clear ();
               lexer_->reset_quoted (t.quoted);
               nl = get_location (t);
-              names (t, tt, ns, true, "command");
+              parse_names (t, tt, ns, true, "command");
               continue;
             }
           }
@@ -533,7 +533,7 @@ namespace build2
       {
         // The next chunk should be the exit status.
         //
-        names_type ns (names (t, tt, true, "exit status"));
+        names ns (parse_names (t, tt, true, "exit status"));
 
         //@@ TODO: validate to be single, simple, non-empty name that
         //         converts to integer (is exit status always non-negative).
@@ -561,7 +561,7 @@ namespace build2
 
           // Expand the line.
           //
-          names_type ns (names (t, tt, false, "here-document line"));
+          names ns (parse_names (t, tt, false, "here-document line"));
 
           // What shall we do if the expansion results in multiple names? For,
           // example if the line contains just the variable expansion and it

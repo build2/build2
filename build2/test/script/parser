@@ -53,7 +53,7 @@ namespace build2
         parse_variable_line (token&, token_type&, string);
 
         void
-        parse_test_line (token&, token_type&, names_type, location);
+        parse_test_line (token&, token_type&, names, location);
 
         command_exit
         parse_command_exit (token&, token_type&);
