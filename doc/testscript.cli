@@ -736,9 +736,27 @@ description:
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
-setup-line:    '+' command-expr
-teardown-line: '-' command-expr
-test-line:         command-expr
+setup-line:    '+' command-line
+teardown-line: '-' command-line
+test-line:         command-line
+
+command-line:
+  command-if|command-expr
+
+command-if: ('if'|'if!')' '+command-expr
+  command-if-body
+  *command-elif
+  ?command-else
+  'end'
+
+command-elif: ('elif'|'elif!')' '+command-expr
+  command-if-body
+
+command-else: 'else'
+  command-if-body
+
+command-if-body:
+  *(variable-line|command-line)
 
 command-expr: command-pipe (('||'|'&&') command-pipe)*
 command-pipe: command ('|' command)*
