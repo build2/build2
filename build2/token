@@ -116,6 +116,11 @@ namespace build2
     const path* file;
     lexer_mode_base mode;
     char pair_separator;
+
+    using location_type = build2::location;
+
+    location_type
+    location () const {return location_type (file, token.line, token.column);}
   };
 
   using replay_tokens = vector<replay_token>;

@@ -834,11 +834,8 @@ namespace build2
               //
               if (!group_->tdown_.empty ())
               {
-                // @@ Can the teardown line be from a different file?
-                //
                 location tl (
-                  get_location (
-                    group_->tdown_.back ().tokens.front ().token));
+                  group_->tdown_.back ().tokens.front ().location ());
 
                 fail (ll) << "test after teardown" <<
                   info (tl) << "last teardown line appears here";
