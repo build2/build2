@@ -16,9 +16,12 @@ namespace build2
   {
     namespace script
     {
+      class scope;
+
       // Note that unlike argc/argv, our args don't include the program name.
       //
-      using builtin = int (*) (const strings& args,
+      using builtin = int (*) (scope&,
+                               const strings& args,
                                auto_fd in, auto_fd out, auto_fd err);
 
       class builtin_map: public std::map<string, builtin>

@@ -1,0 +1,50 @@
+# file      : tests/test/script/runner/mkdir.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: dirs
+:
+mkdir a b;
+touch a/a b/b
+
+: parent
+:
+mkdir -p a/b;
+touch a/a a/b/b
+
+: exists
+:
+mkdir -p a a a/b a/b
+
+: double-dash
+:
+: Make sure '-p' directory is created.
+:
+mkdir -p -- -p;
+touch -p/a
+
+: no-args
+:
+: Test passing no arguments.
+:
+mkdir 2>"mkdir: missing directory" == 1
+
+: empty-path
+:
+: Test creation of empty directory path.
+:
+mkdir '' 2>"mkdir: invalid path ''" == 1
+
+: already-exists
+:
+: Test creation of an existing directory. Note that error message is
+: platform-dependent so is not checked.
+:
+mkdir a 2>- a == 1 # @@ REGEX
+
+: not-exists
+:
+: Test creation of a directory with non-existent parent. Note that error
+: message is platform-dependent so is not checked.
+:
+mkdir a/b 2>- == 1 # @@ REGEX

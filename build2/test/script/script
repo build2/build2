@@ -281,7 +281,8 @@ namespace build2
         //
       public:
         // Register a cleanup. If the cleanup is explicit, then override the
-        // cleanup type if this path is already registered.
+        // cleanup type if this path is already registered. Ignore implicit
+        // registration of a path outside script working directory.
         //
         void
         clean (cleanup, bool implicit);

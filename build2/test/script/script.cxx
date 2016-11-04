@@ -347,7 +347,16 @@ namespace build2
 
         assert (!implicit || c.type == cleanup_type::always);
 
-        auto pr = [&c] (const cleanup& v) -> bool {return v.path == c.path;};
+        const path& p (c.path);
+        if (!p.sub (root->wd_path))
+        {
+          if (implicit)
+            return;
+          else
+            assert (false); // Error so should have been checked.
+        }
+
+        auto pr = [&p] (const cleanup& v) -> bool {return v.path == p;};
         auto i (find_if (cleanups.begin (), cleanups.end (), pr));
 
         if (i == cleanups.end ())

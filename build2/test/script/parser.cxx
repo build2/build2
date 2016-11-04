@@ -1139,7 +1139,10 @@ namespace build2
               path p (move (w));
 
               if (!p.empty ())
+              {
+                p.normalize ();
                 return p;
+              }
 
               error (l) << "empty " << what;
             }
@@ -1302,7 +1305,7 @@ namespace build2
             }
           }
 
-          redirect_type rt;
+          redirect_type rt (redirect_type::none);
           switch (tt)
           {
           case type::in_pass:
@@ -2119,7 +2122,8 @@ namespace build2
         }
         catch (const exception&)
         {
-          fail (loc) << "invalid $* index " << var.name;
+          error (loc) << "invalid $* index " << var.name;
+          throw failed ();
         }
 
         const strings& s (cast<strings> (v));

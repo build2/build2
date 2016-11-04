@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-+mkdir build &build/ # @@ Should not be necessary once builtin.
++mkdir build
 +cat <<EOI >>>build/boostrap.build
 project = test
 amalgamation =
@@ -13,6 +13,7 @@ EOI
 b = $build.driver -q --no-column --buildfile - <"./: test{testscript}" \
   &?test/*** test
 c = cat >>>testscript
+test = \'$test\'
 
 # Valid cleanups.
 #
@@ -33,6 +34,28 @@ $b
 $c <"$* &!a";
 $b
 
+: file-implicit
+:
+: Test that a file created out of the script working directory is not
+: implicitly registered for cleanup. If it were, the test would fail due to
+: 'rm' failure.
+:
+$c <"touch ../../a";
+$b;
+rm a
+
+: file-append
+:
+: Test that file append redirect doesn't not register cleanup. If it did, that
+: cleanup would fail as the file would be already deleted by 'rm'.
+:
+$c <<EOI;
+touch a &!a;
+$* -o foo >>>&a;
+rm a
+EOI
+$b
+
 : dir-always
 :
 $c <"$* -d a &a/";
@@ -42,6 +65,16 @@ $b
 :
 $c <"$* &?a/";
 $b
+
+: dir-implicit
+:
+: Test that a directory created out of the script working directory is not
+: implicitly registered for cleanup. If it were, the test would fail due to
+: 'rm' failure.
+:
+$c <"mkdir ../../a";
+$b;
+rm -r a
 
 : wildcard-always
 :
@@ -54,7 +87,8 @@ $c <"$* &?a/***";
 $b
 
 : order
-: Test that cleanup is performed in registration reversed order
+:
+: Test that cleanup is performed in registration reversed order.
 :
 $c <"$* -d a/b &a/ &a/b/";
 $b
@@ -62,7 +96,8 @@ $b
 # Invalid cleanups.
 #
 : file-not-exists
-: Test cleanup of non-existing file
+:
+: Test cleanup of non-existing file.
 :
 $c <"$* &a";
 $b 2>>EOE != 0
@@ -70,23 +105,34 @@ testscript:1: error: registered for cleanup file test/1/a does not exist
 EOE
 
 : file-out-wd
-: Test cleanup of file out of working directory
+:
+: Test explicit cleanup of a file out of the script working directory.
+:
+$c <"$* &../../a";
+$b 2>>EOE != 0
+testscript:1: error: file cleanup ../../a is out of working directory test/
+EOE
+
+: file-in-wd
+:
+: Test cleanup explicit registration of a file being outside the scope working
+: directory but inside the script working directory.
 :
 $c <"$* &../a";
 $b 2>>EOE != 0
-testscript:1: error: registered for cleanup file test/a is out of working directory test/1/
+testscript:1: error: registered for cleanup file test/a does not exist
 EOE
 
 : not-file
-: Test cleanup of directory as a file
+:
+: Test cleanup of a directory as a file.
 :
 $c <"$* -d a &a";
-$b 2>>EOE != 0
-error: unable to remove file test/1/a: Is a directory
-EOE
+$b 2>- != 0 # @@ REGEX
 
 : dir-not-exists
-: Test cleanup of non-existing directory
+:
+: Test cleanup of non-existing directory.
 :
 $c <"$* &a/";
 $b 2>>EOE != 0
@@ -94,15 +140,27 @@ testscript:1: error: registered for cleanup directory test/1/a/ does not exist
 EOE
 
 : dir-out-wd
-: Test cleanup of directory out of working directory
+:
+: Test cleanup of a directory out of the script working directory.
+:
+$c <"$* &../../a/";
+$b 2>>EOE != 0
+testscript:1: error: directory cleanup ../../a/ is out of working directory test/
+EOE
+
+: dir-in-wd
+:
+: Test cleanup explicit registration of a directory being outside the scope
+: working directory but inside the script working directory.
 :
 $c <"$* &../a/";
 $b 2>>EOE != 0
-testscript:1: error: registered for cleanup directory test/a/ is out of working directory test/1/
+testscript:1: error: registered for cleanup directory test/a/ does not exist
 EOE
 
 : dir-not-empty
-: Test cleanup of non-empty directory
+:
+: Test cleanup of a non-empty directory.
 :
 $c <"$* -d a -f a/b &a/";
 $b 2>>EOE != 0
@@ -110,15 +168,15 @@ testscript:1: error: registered for cleanup directory test/1/a/ is not empty
 EOE
 
 : not-dir
-: Test cleanup of file as a directory
+:
+: Test cleanup of a file as a directory.
 :
 $c <"$* -f a &a/";
-$b 2>>EOE != 0
-error: unable to remove directory test/1/a/: Not a directory
-EOE
+$b 2>- != 0 # @@ REGEX
 
 : wildcard-not-exists
-: Test cleanup of wildcard not matching any directory
+:
+: Test cleanup of a wildcard not matching any directory.
 :
 $c <"$* &a/***";
 $b 2>>EOE != 0
@@ -126,23 +184,34 @@ testscript:1: error: registered for cleanup wildcard test/1/a/*** doesn't match 
 EOE
 
 : wildcard-out-wd
-: Test cleanup of wildcard out of working directory
+:
+: Test cleanup of a wildcard out of the script working directory.
+:
+$c <"$* &../../a/***";
+$b 2>>EOE != 0
+testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+EOE
+
+: wildcard-in-wd
+:
+: Test cleanup registration of a wildcard matching the directory that being
+: outside the scope working directory is inside the script working directory.
 :
 $c <"$* &../a/***";
 $b 2>>EOE != 0
-testscript:1: error: registered for cleanup wildcard test/a/*** is out of working directory test/1/
+testscript:1: error: registered for cleanup wildcard test/a/*** doesn't match a directory
 EOE
 
 : wildcard-not-dir
-: Test cleanup of file as a wildcard
+:
+: Test cleanup of a file as a wildcard.
 :
 $c <"$* -f a &a/***";
-$b 2>>EOE != 0
-error: unable to remove directory test/1/a/: Not a directory
-EOE
+$b 2>- != 0 # @@ REGEX
 
 : implicit-overwrite
-: Test implicit cleanup being overwritten with an explicit one
+:
+: Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <"$* -o foo >>>a &!a";
 $b 2>>EOE != 0
@@ -150,7 +219,8 @@ testscript:1: error: registered for cleanup directory test/1/ is not empty
 EOE
 
 : explicit-overwrite
-: Test explicit cleanup not being overwritten with an implicit one
+:
+: Test an explicit cleanup not being overwritten with the implicit one.
 :
 $c <<EOO;
 $* &!a;

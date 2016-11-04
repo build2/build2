@@ -2,31 +2,39 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-$* -o foo >-                                         # out-null
-$* -e foo 2>-                                        # err-null
-$* -i 0 <foo                                         # in-str
-$* -o foo >foo                                       # out-str
-$* -e foo 2>foo                                      # err-str
-$* -i 1 <foo >foo                                    # inout-str
-$* -i 2 <foo 2>foo                                   # inerr-str
-$* -i 1 -e bar <foo 1>foo 2>bar                      # inout-err-str
+$* -o foo >-                        : out-null
+$* -e foo 2>-                       : err-null
+$* -i 0 <foo                        : in-str
+$* -o foo >foo                      : out-str
+$* -e foo 2>foo                     : err-str
+$* -i 1 <foo >foo                   : inout-str
+$* -i 2 <foo 2>foo                  : inerr-str
+$* -i 1 -e bar <foo 1>foo 2>bar     : inout-err-str
 
-$* -i 0 <<EOO                                        # in-doc
+: in-doc
+:
+$* -i 0 <<EOO
 foo
 bar
 EOO
 
-$* -o foo -o bar >>EOO                               # out-doc
+: out-doc
+:
+$* -o foo -o bar >>EOO
 foo
 bar
 EOO
 
-$* -e foo -e bar 2>>EOO                              # err-doc
+: err-doc
+:
+$* -e foo -e bar 2>>EOO
 foo
 bar
 EOO
 
-$* -i 1 <<EOI >>EOO                                  # inout-doc
+: inout-doc
+:
+$* -i 1 <<EOI >>EOO
 foo
 bar
 EOI
@@ -34,7 +42,9 @@ foo
 bar
 EOO
 
-$* -i 2 <<EOI 2>>EOE                                 # inerr-doc
+: inerr-doc
+:
+$* -i 2 <<EOI 2>>EOE
 foo
 bar
 EOI
@@ -42,22 +52,15 @@ foo
 bar
 EOE
 
-$* -i 1 -e bar -e baz -s 2 <<EOI 1>>EOO 2>>EOE == 2  # inout-err-doc-status
-foo
-bar
-EOI
-foo
-bar
-EOO
-bar
-baz
-EOE
-
-$* -i 1 -e "" <<EOI >>EOO 2>""                       # empty-str-doc
+: empty-str-doc
+:
+$* -i 1 -e "" <<EOI >>EOO 2>""
 EOI
 EOO
 
-$* -i 1 <<EOI >>EOO                                  # nl-containing-doc
+: nl-containing-doc
+:
+$* -i 1 <<EOI >>EOO
 
 EOI
 
@@ -67,13 +70,18 @@ EOO
 #
 # @@ TMP Need does not compare test.
 #
-$* -i 1 <:"foo" >:"foo"                              # no-newline-str
+: no-newline-str
+:
+$* -i 1 <:"foo" >:"foo"
+
 #\
 $* -i 1 <:"foo" >!"foo"                              # no-newline-str-fail1
 $* -i 1 <"foo"  >:!"foo"                             # no-newline-str-fail2
 #\
 
-$* -i 1 <<:EOI >>:EOO                                # no-newline-doc
+: no-newline-doc
+:
+$* -i 1 <<:EOI >>:EOO
 foo
 EOI
 foo
@@ -93,29 +101,39 @@ foo
 EOO
 #\
 
-$* -i 1 <<:EOI >>:EOO 2>:""                          # no-newline-empty-str-doc
+: no-newline-empty-str-doc
+:
+$* -i 1 <<:EOI >>:EOO 2>:""
 EOI
 EOO
 
-$* -i 1 <<:EOI >>:EOO                                # no-newline-nl-cont-doc
+: no-newline-nl-cont-doc
+:
+$* -i 1 <<:EOI >>:EOO
 
 EOI
 
 EOO
 
-$* -o foo >>>out;                                    # file
+: file
+:
+$* -o foo >>>out;
 $* -e bar 2>>>&out;
 $* -i 1 <<<out >>EOO
 foo
 bar
 EOO
 
-$* -o foo -e bar 2>>EOE 1>&2                         # merge-str
+: merge-str
+:
+$* -o foo -e bar 2>>EOE 1>&2
 foo
 bar
 EOE
 
-$* -i 1 <<EOI -e baz >>EOO 2>&1                      # merge-doc
+: merge-doc
+:
+$* -i 1 <<EOI -e baz >>EOO 2>&1
 foo
 bar
 EOI
@@ -124,7 +142,9 @@ bar
 baz
 EOO
 
-$* -o foo -e bar 2>&1 >>>out;                        # merge-file
+: merge-file
+:
+$* -o foo -e bar 2>&1 >>>out;
 $* -e baz -o biz 1>&2 2>>>&out;
 $* -i 1 <<<out >>EOO
 foo
@@ -132,3 +152,20 @@ bar
 baz
 biz
 EOO
+
+# Builtins redirects.
+#
+# @@ That will probably become redundant when builtins and process obtain file
+#    descriptors uniformly.
+#
+: builtins
+:
+{
+  echo "abc" >-                     : out-null
+  echo "abc" 1>&2 2>-               : err-null
+  echo <foo 1>-                     : in-str
+  echo "foo" >foo                   : out-str
+  echo "foo" 2>foo 1>&2             : err-str
+  cat <foo >foo                     : inout-str # @@ cat is not a builtin yet.
+  cat <foo 2>foo 1>&2               : inerr-str
+}

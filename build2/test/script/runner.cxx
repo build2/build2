@@ -7,9 +7,13 @@
 #include <set>
 #include <iostream> // cerr
 
+#include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
+
 #include <build2/filesystem>
+#include <build2/test/script/builtin>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -47,7 +51,7 @@ namespace build2
       // here_document.
       //
       static void
-      check_output (const process_path& pr,
+      check_output (const path& pr,
                     const path& op,
                     const path& ip,
                     const redirect& rd,
@@ -201,18 +205,6 @@ namespace build2
         //
         // Note that we operate with normalized paths here.
         //
-
-        // Verify that the path being cleaned up is a sub-path of the scope
-        // working directory.
-        //
-        auto verify =
-          [&sp, &ll] (const path& p, const path& orig, const char* what)
-          {
-            if (!p.sub (sp.wd_path))
-              fail (ll) << "registered for cleanup " << what << " " << orig
-                        << " is out of working directory " << sp.wd_path;
-          };
-
         for (const auto& c: reverse_iterate (sp.cleanups))
         {
           cleanup_type t (c.type);
@@ -224,13 +216,36 @@ namespace build2
 
           const path& p (c.path);
 
-          // Remove directory if exists and empty. Fail otherwise. Removal of
-          // non-existing directory is not an error for 'maybe' cleanup type.
+          // Remove the directory recursively if not current. Fail otherwise.
+          // Recursive removal of non-existing directory is not an error for
+          // 'maybe' cleanup type.
+          //
+          if (p.leaf ().string () == "***")
+          {
+            // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
+            //
+            rmdir_status r (
+              rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
+
+            if (r == rmdir_status::success ||
+                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+              continue;
+
+            // The directory is unlikely to be current but let's keep for
+            // completeness.
+            //
+            fail (ll) << "registered for cleanup wildcard " << p
+                      << (r == rmdir_status::not_empty
+                          ? " matches the current directory"
+                          : " doesn't match a directory");
+          }
+
+          // Remove the directory if exists and empty. Fail otherwise. Removal
+          // of non-existing directory is not an error for 'maybe' cleanup
+          // type.
           //
           if (p.to_directory ())
           {
-            verify (p, p, "directory");
-
             dir_path d (path_cast<dir_path> (p));
 
             // @@ If 'd' is a file then will fail with a diagnostics having no
@@ -250,37 +265,9 @@ namespace build2
                           : " does not exist");
           }
 
-          // Remove directory recursively if not current. Fail otherwise.
-          // Recursive removal of non-existing directory is not an error for
-          // 'maybe' cleanup type.
-          //
-          if (p.leaf ().string () == "***")
-          {
-            verify (p.directory (), p, "wildcard");
-
-            // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
-            //
-            rmdir_status r (
-              rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
-
-            if (r == rmdir_status::success ||
-                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
-              continue;
-
-            // The directory is unlikely to be current but let's keep for
-            // completeness.
-            //
-            fail (ll) << "registered for cleanup wildcard " << p
-                      << (r == rmdir_status::not_empty
-                          ? " matches the current directory"
-                          : " doesn't match a directory");
-          }
-
-          // Remove file if exists. Fail otherwise. Removal of non-existing
+          // Remove the file if exists. Fail otherwise. Removal of non-existing
           // file is not an error for 'maybe' cleanup type.
           //
-          verify (p, p, "file");
-
           if (rmfile (p, 2) == rmfile_status::not_exist &&
               t == cleanup_type::always)
             fail (ll) << "registered for cleanup file " << p
@@ -296,26 +283,113 @@ namespace build2
         if (verb >= 3)
           text << c;
 
-        // Pre-search the program path so it is reflected in the failure
-        // diagnostics. The user can see the original path running the test
-        // operation with the verbosity level > 2.
+        // Normalize a path. Also make the relative path absolute using the
+        // scope's working directory unless it is already absolute.
         //
-        process_path pp (run_search (c.program, true));
-        cstrings args {pp.recall_string ()};
-
-        for (const auto& a: c.arguments)
-          args.push_back (a.c_str ());
-
-        args.push_back (nullptr);
-
-        try
+        auto normalize = [&sp, &ll] (path p) -> path
         {
-          // For stdin 'none' redirect type we somehow need to make sure that
-          // the child process doesn't read from stdin. That is tricky to do in
-          // a portable way. Here we suppose that the program which
-          // (erroneously) tries to read some data from stdin being redirected
-          // to /dev/null fails not being able to read the expected data, and
-          // so the test doesn't pass through.
+          path r (p.absolute () ? move (p) : sp.wd_path / move (p));
+
+          try
+          {
+            r.normalize ();
+          }
+          catch (const invalid_path& e)
+          {
+            fail (ll) << "invalid file path " << e.path;
+          }
+
+          return r;
+        };
+
+        // Register the command explicit cleanups. Verify that the path being
+        // cleaned up is a sub-path of the root test scope working directory.
+        // Fail if this is not the case.
+        //
+        for (const auto& cl: c.cleanups)
+        {
+          const path& p (cl.path);
+          path np (normalize (p));
+
+          bool wc (np.leaf ().string () == "***");
+          const path& cp (wc ? np.directory () : np);
+          const path& wd (sp.root->wd_path);
+
+          if (!cp.sub (wd))
+            fail (ll) << (wc
+                          ? "wildcard"
+                          : p.to_directory ()
+                            ? "directory"
+                            : "file")
+                      << " cleanup " << p << " is out of working directory "
+                      << wd;
+
+          sp.clean ({cl.type, move (np)}, false);
+        }
+
+        // Create a unique path for a command standard stream cache file.
+        //
+        auto std_path = [&li, &normalize] (const char* n) -> path
+        {
+          path p (n);
+
+          // 0 if belongs to a single-line test scope, otherwise is the
+          // command line number (start from one) in the test scope.
+          //
+          if (li > 0)
+            p += "-" + to_string (li);
+
+          return normalize (move (p));
+        };
+
+        // Assign file descriptors to pass as a builtin or a process standard
+        // streams. Eventually the raw descriptors should gone when the process
+        // is fully moved to auto_fd usage.
+        //
+        path isp;
+        auto_fd ifd;
+        int in (0); // @@ TMP
+
+        // Open a file for passing to the command stdin.
+        //
+        auto open_stdin = [&isp, &ifd, &in, &ll] ()
+        {
+          assert (!isp.empty ());
+
+          try
+          {
+            ifd = fdopen (isp, fdopen_mode::in);
+            in  = ifd.get ();
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "unable to read " << isp << ": " << e.what ();
+          }
+        };
+
+        switch (c.in.type)
+        {
+        case redirect_type::pass:
+          {
+            try
+            {
+              ifd = fddup (in);
+              in  = 0;
+            }
+            catch (const io_error& e)
+            {
+              fail (ll) << "unable to duplicate stdin: " << e.what ();
+            }
+
+            break;
+          }
+
+        case redirect_type::none:
+          // Somehow need to make sure that the child process doesn't read from
+          // stdin. That is tricky to do in a portable way. Here we suppose
+          // that the program which (erroneously) tries to read some data from
+          // stdin being redirected to /dev/null fails not being able to read
+          // the expected data, and so the test doesn't pass through.
           //
           // @@ Obviously doesn't cover the case when the process reads
           //    whatever available.
@@ -323,288 +397,310 @@ namespace build2
           //    process to hang which can be interpreted as a test failure.
           // @@ Both ways are quite ugly. Is there some better way to do this?
           //
-
-          // Normalize a path. Also make relative path absolute using the
-          // scope's working directory unless it is already absolute.
+          // Fall through.
           //
-          auto normalize = [&sp, &ll] (path p) -> path
+        case redirect_type::null:
           {
-            path r (p.absolute () ? move (p) : sp.wd_path / move (p));
-
             try
             {
-              r.normalize ();
-            }
-            catch (const invalid_path& e)
-            {
-              fail (ll) << "invalid file path " << e.path;
-            }
+              ifd.reset (fdnull ()); // @@ Eventually will be throwing.
 
-            return r;
-          };
+              if (ifd.get () == -1) // @@ TMP
+                throw io_error ("", error_code (errno, system_category ()));
 
-          // Create unique path for a test command standard stream cache file.
-          //
-          auto std_path = [&li, &normalize] (const char* n) -> path
-          {
-            path p (n);
-
-            // 0 if belongs to a single-line test scope, otherwise is the
-            // command line number (start from one) in the test scope.
-            //
-            if (li > 0)
-              p += "-" + to_string (li);
-
-            return normalize (move (p));
-          };
-
-          path sin;
-          ifdstream si;
-          int in;
-
-          // Open a file for passing to the test command stdin.
-          //
-          auto open_stdin = [&sin, &si, &in, &ll] ()
-          {
-            assert (!sin.empty ());
-
-            try
-            {
-              si.open (sin);
+              in = -2;
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to read " << sin << ": " << e.what ();
+              fail (ll) << "unable to write to null device: " << e.what ();
             }
 
-            in = si.fd ();
-          };
+            break;
+          }
 
-          switch (c.in.type)
+        case redirect_type::file:
           {
-          case redirect_type::pass: in =  0; break;
-          case redirect_type::null:
-          case redirect_type::none: in = -2; break;
+            isp = normalize (c.in.file.path);
 
-          case redirect_type::file:
+            open_stdin ();
+            break;
+          }
+
+        case redirect_type::here_string:
+        case redirect_type::here_document:
+          {
+            // We could write to the command stdin directly but instead will
+            // cache the data for potential troubleshooting.
+            //
+            isp = std_path ("stdin");
+
+            try
             {
-              sin = normalize (c.in.file.path);
-              open_stdin ();
-              break;
+              ofdstream os (isp);
+              sp.clean ({cleanup_type::always, isp}, true);
+
+              os << (c.in.type == redirect_type::here_string
+                     ? c.in.str
+                     : c.in.doc.doc);
+
+              os.close ();
+            }
+            catch (const io_error& e)
+            {
+              fail (ll) << "unable to write " << isp << ": " << e.what ();
             }
 
-          case redirect_type::here_string:
-          case redirect_type::here_document:
-            {
-              // We could write to process stdin directly but instead will
-              // cache the data for potential troubleshooting.
-              //
-              sin = std_path ("stdin");
+            open_stdin ();
+            break;
+          }
 
+        case redirect_type::merge: assert (false); break;
+        }
+
+        // Dealing with stdout and stderr redirect types other than 'null'
+        // using pipes is tricky in the general case. Going this path we would
+        // need to read both streams in non-blocking manner which we can't
+        // (easily) do in a portable way. Using diff utility to get a
+        // nice-looking actual/expected outputs difference would complicate
+        // things further.
+        //
+        // So the approach is the following. Child standard streams are
+        // redirected to files. When the child exits and the exit status is
+        // validated we just sequentially compare each file content with the
+        // expected output. The positive side-effect of this approach is that
+        // the output of a faulty command can be provided for troubleshooting.
+        //
+
+        // Open a file for command output redirect if requested explicitly
+        // (file redirect) or for the purpose of the output validation (none,
+        // here_string, here_document), register the file for cleanup, return
+        // the file descriptor. Return the specified, default or -2 file
+        // descriptors for merge, pass or null redirects respectively not
+        // opening a file.
+        //
+        auto open = [&sp, &ll, &std_path, &normalize] (const redirect& r,
+                                                       int dfd,
+                                                       path& p,
+                                                       auto_fd& fd) -> int
+        {
+          assert (dfd == 1 || dfd == 2);
+          const char* what (dfd == 1 ? "stdout" : "stderr");
+
+          fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
+
+          switch (r.type)
+          {
+          case redirect_type::pass:
+            {
               try
               {
-                ofdstream os (sin);
-                os << (c.in.type == redirect_type::here_string
-                       ? c.in.str
-                       : c.in.doc.doc);
-                os.close ();
+                fd = fddup (dfd);
               }
               catch (const io_error& e)
               {
-                fail (ll) << "unable to write " << sin << ": " << e.what ();
+                fail (ll) << "unable to duplicate " << what << ": "
+                          << e.what ();
               }
 
-              open_stdin ();
-              sp.clean ({cleanup_type::always, sin}, true);
+              return dfd;
+            }
+
+          case redirect_type::null:
+            {
+              try
+              {
+                fd.reset (fdnull ()); // @@ Eventully will be throwing.
+
+                if (fd.get () == -1) // @@ TMP
+                  throw io_error ("", error_code (errno, system_category ()));
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to write to null device: " << e.what ();
+              }
+
+              return -2;
+            }
+
+          case redirect_type::merge:
+            {
+              // Duplicate the paired file descriptor later.
+              //
+              return r.fd;
+            }
+
+          case redirect_type::file:
+            {
+              p = normalize (r.file.path);
+              m |= r.file.append ? fdopen_mode::at_end : fdopen_mode::truncate;
               break;
             }
 
-          case redirect_type::merge: assert (false); break;
+          case redirect_type::none:
+          case redirect_type::here_string:
+          case redirect_type::here_document:
+            {
+              p = std_path (what);
+              m |= fdopen_mode::truncate;
+              break;
+            }
           }
-
-          // Dealing with stdout and stderr redirect types other than 'null'
-          // using pipes is tricky in the general case. Going this path we
-          // would need to read both streams in non-blocking manner which we
-          // can't (easily) do in a portable way. Using diff utility to get a
-          // nice-looking actual/expected outputs difference would complicate
-          // things further.
-          //
-          // So the approach is the following. Child standard streams are
-          // redirected to files. When the child exits and the exit status is
-          // validated we just sequentially compare each file content with the
-          // expected output. The positive side-effect of this approach is that
-          // the output of a faulty test command can be provided for
-          // troubleshooting.
-          //
-
-          // Open a file for command output redirect if requested explicitly
-          // (file redirect) or for the purpose of the output validation (none,
-          // here_string, here_document), register the file for cleanup, return
-          // the file descriptor. Return the specified, default or -2 file
-          // descriptors for merge, pass or null redirects respectively not
-          // opening a file.
-          //
-          auto open = [&sp, &ll, &std_path, &normalize] (const redirect& r,
-                                                         int dfd,
-                                                         path& p,
-                                                         ofdstream& os) -> int
-          {
-            assert (dfd == 1 || dfd == 2);
-
-            ofdstream::openmode m (ofdstream::out);
-
-            switch (r.type)
-            {
-            case redirect_type::pass:  return dfd;
-            case redirect_type::null:  return -2;
-            case redirect_type::merge: return r.fd;
-
-            case redirect_type::file:
-              {
-                p = normalize (r.file.path);
-
-                if (r.file.append)
-                  m |= ofdstream::app;
-
-                break;
-              }
-
-            case redirect_type::none:
-            case redirect_type::here_string:
-            case redirect_type::here_document:
-              {
-                p = std_path (dfd == 1 ? "stdout" : "stderr");
-                break;
-              }
-            }
-
-            try
-            {
-              os.open (p, m);
-            }
-            catch (const io_error& e)
-            {
-              fail (ll) << "unable to write " << p << ": " << e.what ();
-            }
-
-            sp.clean ({cleanup_type::always, p}, true);
-            return os.fd ();
-          };
-
-          path sout;
-          ofdstream so;
-          int out (open (c.out, 1, sout, so));
-
-          path serr;
-          ofdstream se;
-          int err (open (c.err, 2, serr, se));
-
-          if (verb >= 2)
-            print_process (args);
-
-          process pr (sp.wd_path.string ().c_str (),
-                      pp,
-                      args.data (),
-                      in, out, err);
 
           try
           {
-            si.close ();
-            so.close ();
-            se.close ();
+            fd = fdopen (p, m);
 
-            // Just wait. The program failure can mean the test success.
-            //
-            pr.wait ();
-
-            // Register command-created paths for cleanup.
-            //
-            for (const auto& p: c.cleanups)
-              sp.clean ({p.type, normalize (p.path)}, false);
-
-            // If there is no correct exit status by whatever reason then dump
-            // stderr (if cached), print the proper diagnostics and fail.
-            //
-            optional<process::status_type> status (move (pr.status));
-
-            // Comparison *status >= 0 causes "always true" warning on Windows
-            // where process::status_type is defined as uint32_t.
-            //
-            bool valid_status (status && *status + 1 > 0 && *status < 256);
-            bool eq (c.exit.comparison == exit_comparison::eq);
-
-            bool correct_status (valid_status &&
-                                 (*status == c.exit.status) == eq);
-
-            if (!correct_status)
-            {
-              // Dump cached stderr.
-              //
-              if (exists (serr))
-              {
-                try
-                {
-                  ifdstream is (serr);
-                  if (is.peek () != ifdstream::traits_type::eof ())
-                    cerr << is.rdbuf ();
-                }
-                catch (const io_error& e)
-                {
-                  fail (ll) << "unable to read " << serr << ": "
-                            << e.what ();
-                }
-              }
-
-              // Fail with a proper diagnostics.
-              //
-              diag_record d (fail (ll));
-
-              if (!status)
-                d << pp << " terminated abnormally";
-              else if (!valid_status)
-                d << pp << " exit status " << *status << " is invalid" <<
-                  info << "must be an unsigned integer < 256";
-              else if (!correct_status)
-                d << pp << " exit status " << *status
-                  << (eq ? " != " : " == ")
-                  << static_cast<uint16_t> (c.exit.status);
-              else
-                assert (false);
-
-              if (non_empty (serr, ll))
-                d << info << "stderr: " << serr;
-
-              if (non_empty (sout, ll))
-                d << info << "stdout: " << sout;
-
-              if (non_empty (sin, ll))
-                d << info << "stdin: " << sin;
-            }
-
-            // Check if the standard outputs match expectations.
-            //
-            check_output (pp, sout, sin, c.out, ll, sp, "stdout");
-            check_output (pp, serr, sin, c.err, ll, sp, "stderr");
+            if ((m & fdopen_mode::at_end) != fdopen_mode::at_end)
+              sp.clean ({cleanup_type::always, p}, true);
           }
           catch (const io_error& e)
           {
-            // Child exit status doesn't matter. Just wait for the process
-            // completion.
-            //
-            pr.wait (); // Check throw.
+            fail (ll) << "unable to write " << p << ": " << e.what ();
+          }
 
-            fail (ll) << "IO operation failed for " << pp << ": " << e.what ();
+          return fd.get ();
+        };
+
+        path osp;
+        auto_fd ofd;
+        int out (open (c.out, 1, osp, ofd));
+
+        path esp;
+        auto_fd efd;
+        int err (open (c.err, 2, esp, efd));
+
+        // Merge standard streams.
+        //
+        bool mo (c.out.type == redirect_type::merge);
+        if (mo || c.err.type == redirect_type::merge)
+        {
+          auto_fd& self  (mo ? ofd : efd);
+          auto_fd& other (mo ? efd : ofd);
+
+          try
+          {
+            assert (self.get () == -1 && other.get () != -1);
+            self = fddup (other.get ());
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "unable to duplicate " << (mo ? "stderr" : "stdout")
+                      << ": " << e.what ();
           }
         }
-        catch (const process_error& e)
+
+        optional<process::status_type> status;
+        builtin b (builtins.find (c.program.string ()));
+
+        if (b != nullptr)
         {
-          error (ll) << "unable to execute " << pp << ": " << e.what ();
-
-          if (e.child ())
-            exit (1);
-
-          throw failed ();
+          // Execute the builtin.
+          //
+          status = (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd));
         }
+        else
+        {
+          // Execute the process.
+          //
+          // Pre-search the program path so it is reflected in the failure
+          // diagnostics. The user can see the original path running the test
+          // operation with the verbosity level > 2.
+          //
+          process_path pp (run_search (c.program, true));
+          cstrings args {pp.recall_string ()};
+
+          for (const auto& a: c.arguments)
+            args.push_back (a.c_str ());
+
+          args.push_back (nullptr);
+
+          try
+          {
+            if (verb >= 2)
+              print_process (args);
+
+            process pr (sp.wd_path.string ().c_str (),
+                        pp,
+                        args.data (),
+                        in, out, err);
+
+            ifd.reset ();
+            ofd.reset ();
+            efd.reset ();
+
+            pr.wait ();
+            status = move (pr.status);
+          }
+          catch (const process_error& e)
+          {
+            error (ll) << "unable to execute " << pp << ": " << e.what ();
+
+            if (e.child ())
+              exit (1);
+
+            throw failed ();
+          }
+        }
+
+        const path& p (c.program);
+
+        // If there is no correct exit status by whatever reason then dump
+        // stderr (if cached), print the proper diagnostics and fail.
+        //
+        // Comparison *status >= 0 causes "always true" warning on Windows
+        // where process::status_type is defined as uint32_t.
+        //
+        bool valid_status (status && *status < 256 && *status + 1 > 0);
+        bool eq (c.exit.comparison == exit_comparison::eq);
+        bool correct_status (valid_status && eq == (*status == c.exit.status));
+
+        if (!correct_status)
+        {
+          // Dump cached stderr.
+          //
+          if (exists (esp))
+          {
+            try
+            {
+              ifdstream is (esp);
+              if (is.peek () != ifdstream::traits_type::eof ())
+                cerr << is.rdbuf ();
+            }
+            catch (const io_error& e)
+            {
+              fail (ll) << "unable to read " << esp << ": " << e.what ();
+            }
+          }
+
+          // Fail with a proper diagnostics.
+          //
+          diag_record d (fail (ll));
+
+          if (!status)
+            d << p << " terminated abnormally";
+          else if (!valid_status)
+            d << p << " exit status " << *status << " is invalid" <<
+              info << "must be an unsigned integer < 256";
+          else if (!correct_status)
+            d << p << " exit status " << *status << (eq ? " != " : " == ")
+              << static_cast<uint16_t> (c.exit.status);
+          else
+            assert (false);
+
+          if (non_empty (esp, ll))
+            d << info << "stderr: " << esp;
+
+          if (non_empty (osp, ll))
+            d << info << "stdout: " << osp;
+
+          if (non_empty (isp, ll))
+            d << info << "stdin: " << isp;
+        }
+
+        // Check if the standard outputs match expectations.
+        //
+        check_output (p, osp, isp, c.out, ll, sp, "stdout");
+        check_output (p, esp, isp, c.err, ll, sp, "stderr");
       }
     }
   }

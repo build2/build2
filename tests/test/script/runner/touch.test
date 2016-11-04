@@ -1,0 +1,44 @@
+# file      : tests/test/script/runner/touch.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: file
+:
+touch a
+
+: file-create
+:
+: Test that file is created. If it didn't then 'rm' would fail.
+:
+touch a &!a;
+rm a
+
+: file-update
+:
+: Test that existing file touch doesn't register cleanup. If it did then it
+: would be left dangling after 'rm' call and so test would fail.
+:
+$* -f a;
+touch a;
+rm a
+
+: no-args
+:
+: Test passing no arguments.
+:
+touch 2>"touch: missing file" == 1
+
+: empty-path
+:
+: Test touching an empty path.
+:
+touch '' 2>"touch: invalid path ''" == 1
+
+: dir-update
+:
+: Test touching an existing directory.
+:
+a = [path] $~;
+a += "a";
+mkdir a;
+touch 2>"touch: '$a' exists and is not a file" a == 1

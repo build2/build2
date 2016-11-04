@@ -2,8 +2,43 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-$*                                                   # status-def @@ status- is already in file name
-$*      == 0                                         # status-eq-0
-$* -s 1 != 0                                         # status-ne-0
-$* -s 1 == 1                                         # status-eq-1
-$*      != 1                                         # status-ne-1
++mkdir build
++cat <<EOI >>>build/boostrap.build
+project = test
+amalgamation =
+
+using test
+EOI
+
+b = $build.driver -q --no-column --buildfile - <"./: test{testscript}" \
+  &?test/*** test
+c = cat >>>testscript
+test = \'$test\'
+
+# Successfull tests.
+#
+: eq-true
+:
+$c <"$* == 0";
+$b
+
+: ne-true
+:
+$c <"$* -s 1 != 0";
+$b
+
+# Faulty tests.
+#
+: eq-false
+:
+$c <"$* -s 1 == 0";
+$b 2>>EOE != 0
+testscript:1: error: ../../../driver$ext exit status 1 != 0
+EOE
+
+: ne-false
+:
+$c <"$* -s 1 != 1";
+$b 2>>EOE != 0
+testscript:1: error: ../../../driver$ext exit status 1 == 1
+EOE

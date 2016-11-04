@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-+mkdir build &build/ # @@ TMP
++mkdir build
 +cat <<EOI >>>build/boostrap.build
 project = test
 amalgamation =
@@ -39,14 +39,12 @@ test.arguments = test
   $* <<EOI
   ./: test{../foo ../bar}
   EOI
-
-  -rm -f testscript foo.test bar.test
 }
 
 : wd-is-file
 :
-touch foo.test &foo.test; #@@ TMP
-touch test &test; #@@ TMP
+touch foo.test;
+touch test;
 $* <<EOI 2>>EOE != 0
 ./: test{foo}
 EOI
@@ -55,7 +53,7 @@ EOE
 
 : wd-exists-before
 :
-touch foo.test &foo.test; #@@ TMP
+touch foo.test;
 mkdir test &!test/;
 $* <<EOI 2>>EOE
 ./: test{foo}
@@ -65,7 +63,7 @@ EOE
 
 : wd-not-empty-before
 :
-touch foo.test &foo.test; #@@ TMP
+touch foo.test;
 mkdir test &!test/;
 touch test/dummy &!test/dummy;
 $* <<EOI 2>>EOE
@@ -78,11 +76,13 @@ EOE
 : wd-not-empty-after
 :
 : The idea here is to run a nested testscript that creates (but does not
-: clean up) a file in our working directory. Note that we still have to
-: remove everything after detecting the failure.
+: clean up) a file in our working directory. Note that an implicit cleanup
+: cancelation is not required as the file is out of the test root directory
+: scope. Also note that we still have to remove everything after detecting the
+: failure.
 :
 cat <<EOI >>>foo.test;
-touch ../../dummy &!../../dummy
+touch ../../dummy
 EOI
 $* <<EOI 2>>EOE &test/*** != 0
 ./: test{foo}
