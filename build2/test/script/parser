@@ -58,11 +58,14 @@ namespace build2
         parse_scope_body ();
 
         description
-        pre_parse_description (token&, token_type&);
+        pre_parse_leading_description (token&, token_type&);
 
-        optional<description>
+        description
+        parse_trailing_description (token&, token_type&);
+
+        void
         pre_parse_line (token&, token_type&,
-                        optional<description>&&,
+                        optional<description>&,
                         lines* = nullptr);
 
         void
@@ -71,14 +74,32 @@ namespace build2
         void
         perform_include (names, location);
 
-        bool
+        value
         parse_variable_line (token&, token_type&);
 
-        pair<bool, optional<description>>
-        parse_command_line (token&, token_type&, line_type, size_t);
+        // Ordered sequence of here-document redirects that we can expect to
+        // see after the command line.
+        //
+        struct here_doc
+        {
+          size_t expr;  // Index in command_expr.
+          size_t pipe;  // Index in command_pipe.
+          size_t redir; // Redirect (0 - in, 1 - out, 2 - err).
+
+          string end;
+          bool no_newline;
+        };
+        using here_docs = vector<here_doc>;
+
+        pair<command_expr, here_docs>
+        parse_command_line (token&, token_type&);
 
         command_exit
         parse_command_exit (token&, token_type&);
+
+        void
+        parse_here_documents (token&, token_type&,
+                              pair<command_expr, here_docs>&);
 
         string
         parse_here_document (token&, token_type&, const string&, bool);

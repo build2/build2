@@ -17,6 +17,19 @@ namespace build2
     {
       using type = token_type;
 
+      // Return true if the string contains only digit characters (used to
+      // detect the special $NN variables).
+      //
+      static inline bool
+      digits (const string& s)
+      {
+        for (char c: s)
+          if (!digit (c))
+            return false;
+
+        return !s.empty ();
+      }
+
       script parser::
       pre_parse (testscript& ts, target& tg, const dir_path& wd)
       {
@@ -113,7 +126,7 @@ namespace build2
           //
           optional<description> d;
           if (tt == type::colon)
-            d = pre_parse_description (t, tt);
+            d = pre_parse_leading_description (t, tt);
 
           // Determine the line type by peeking at the first token.
           //
@@ -264,7 +277,7 @@ namespace build2
             }
           default:
             {
-              pre_parse_line (t, tt, move (d));
+              pre_parse_line (t, tt, d);
               assert (tt == type::newline);
               break;
             }
@@ -298,21 +311,60 @@ namespace build2
             {
             case line_type::variable:
               {
-                parse_variable_line (t, tt);
+                // Parse.
+                //
+                string name (move (t.value));
+
+                next (t, tt);
+                type kind (tt); // Assignment kind.
+
+                value rhs (parse_variable_line (t, tt));
+
+                if (tt == type::semi)
+                  next (t, tt);
+
+                assert (tt == type::newline);
+
+                // Assign.
+                //
+                const variable& var (script_->var_pool.insert (move (name)));
+
+                value& lhs (kind == type::assign
+                            ? scope_->assign (var)
+                            : scope_->append (var));
+
+                // @@ Need to adjust to make strings the default type.
+                //
+                apply_value_attributes (&var, lhs, move (rhs), kind);
+
+                // Handle the $*, $NN special aliases.
+                //
+                // The plan is as follows: here we detect modification of the
+                // source variables (test*), and (re)set $* to NULL on this
+                // scope (this is important to both invalidate any old values
+                // but also to "stake" the lookup position). This signals to
+                // the variable lookup function below that the $* and $NN
+                // values need to be recalculated from their sources. Note
+                // that we don't need to invalidate $NN since their lookup
+                // always checks $* first.
+                //
+                if (var.name == script_->test_var.name ||
+                    var.name == script_->opts_var.name ||
+                    var.name == script_->args_var.name)
+                {
+                  scope_->assign (script_->cmd_var) = nullptr;
+                }
+
                 break;
               }
             case line_type::setup:
             case line_type::tdown:
-              {
-                parse_command_line (t, tt, l.type, ++li);
-                break;
-              }
             case line_type::test:
               {
                 // We use the 0 index to signal that this is the only command.
                 // Note that we only do this for test commands.
                 //
-                if (li == 0)
+                if (l.type == line_type::test && li == 0)
                 {
                   size_t j (i + 1);
                   for (; j != n && ls[j].type == line_type::variable; ++j) ;
@@ -323,7 +375,24 @@ namespace build2
                 else
                   ++li;
 
-                parse_command_line (t, tt, l.type, li);
+                // Parse.
+                //
+                const location& ll (get_location (t));
+                pair<command_expr, here_docs> p (parse_command_line (t, tt));
+
+                switch (tt)
+                {
+                case type::colon: parse_trailing_description (t, tt); break;
+                case type::semi: next (t, tt); break; // Get newline.
+                }
+
+                assert (tt == type::newline);
+
+                parse_here_documents (t, tt, p);
+
+                // Now that we have all the pieces, run the command.
+                //
+                runner_->run (*scope_, p.first, li, ll);
                 break;
               }
             }
@@ -368,7 +437,7 @@ namespace build2
       }
 
       description parser::
-      pre_parse_description (token& t, token_type& tt)
+      pre_parse_leading_description (token& t, token_type& tt)
       {
         // Note: token is only peeked at. On return tt is also only peeked at
         // and in the first_token mode.
@@ -508,8 +577,45 @@ namespace build2
         return r;
       }
 
-      optional<description> parser::
-      pre_parse_line (token& t, type& tt, optional<description>&& d, lines* ls)
+      description parser::
+      parse_trailing_description (token& t, token_type& tt)
+      {
+        // Parse one-line trailing description.
+        //
+        description r;
+
+        // @@ Would be nice to omit trailing description from replay.
+        //
+        const location loc (get_location (t));
+
+        mode (lexer_mode::description_line);
+        next (t, tt);
+
+        // If it is empty, then we will get newline right away.
+        //
+        if (tt == type::word)
+        {
+          string l (move (t.value));
+          trim (l); // Strip leading/trailing whitespaces.
+
+          // Decide whether this is id or summary.
+          //
+          (l.find_first_of (" \t") == string::npos ? r.id : r.summary) =
+            move (l);
+
+          next (t, tt); // Get newline.
+        }
+
+        assert (tt == type::newline); // Lexer mode invariant.
+
+        if (r.empty ())
+          fail (loc) << "empty description";
+
+        return r;
+      }
+
+      void parser::
+      pre_parse_line (token& t, type& tt, optional<description>& d, lines* ls)
       {
         // Note: token is only peeked at.
         //
@@ -570,8 +676,7 @@ namespace build2
 
                 parse_directive_line (t, tt);
                 assert (tt == type::newline);
-
-                return nullopt;
+                return;
               }
               else if (p == type::assign  ||
                        p == type::prepend ||
@@ -587,21 +692,79 @@ namespace build2
           }
         }
 
-        // Pre-parse the line keeping track of whether it ends with a
-        // semicolon or contains description.
+        // Pre-parse the line keeping track of whether it ends with a semi.
         //
-        pair<bool, optional<description>> lr;
+        bool semi (false);
 
         switch (lt)
         {
         case line_type::variable:
-          lr.first = parse_variable_line (t, tt);
-          break;
+          {
+            // Check if we are trying to modify any of the special aliases
+            // ($*, $~, $N).
+            //
+            const string& n (t.value);
+
+            if (n == "*" || n == "~" || digits (n))
+              fail (t) << "attempt to set '" << n << "' variable directly";
+
+            next (t, tt); // Assignment kind.
+            parse_variable_line (t, tt);
+
+            semi = (tt == type::semi);
+
+            if (tt == type::semi)
+              next (t, tt);
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t;
+
+            break;
+          }
         case line_type::setup:
         case line_type::tdown:
         case line_type::test:
-          lr = parse_command_line (t, tt, lt, 0);
-          break;
+          {
+            pair<command_expr, here_docs> p (parse_command_line (t, tt));
+
+            // Colon and semicolon are only valid in test command lines. Note
+            // that we still recognize them lexically, they are just not valid
+            // tokens per the grammar.
+            //
+            if (tt != type::newline)
+            {
+              switch (lt)
+              {
+              case line_type::setup: fail (t) << t << " after setup command";
+              case line_type::tdown: fail (t) << t << " after teardown command";
+              default: break;
+              }
+            }
+
+            switch (tt)
+            {
+            case type::colon:
+              {
+                if (d)
+                  fail (ll) << "both leading and trailing description";
+
+                d = parse_trailing_description (t, tt);
+                break;
+              }
+            case type::semi:
+              {
+                semi = true;
+                next (t, tt); // Get newline.
+                break;
+              }
+            }
+
+            if (tt != type::newline)
+              fail (t) << "expected newline instead of " << t;
+
+            parse_here_documents (t, tt, p);
+            break;
+          }
         }
 
         assert (tt == type::newline);
@@ -646,7 +809,7 @@ namespace build2
               // after variables in the group scope). Otherwise -- setup or
               // teardown.
               //
-              if (!lr.first)
+              if (!semi)
               {
                 if (d)
                   fail (ll) << "description before setup/teardown variable";
@@ -691,7 +854,7 @@ namespace build2
         // If this command ended with a semicolon, then the next one should
         // go to the same place.
         //
-        if (lr.first)
+        if (semi)
         {
           mode (lexer_mode::first_token);
           tt = peek ();
@@ -710,19 +873,10 @@ namespace build2
           case type::minus:
             fail (ll) << "teardown command in test";
           default:
-            lr.second = pre_parse_line (t, tt, nullopt, ls);
+            pre_parse_line (t, tt, d, ls);
             assert (tt == type::newline); // End of last test line.
           }
         }
-
-        if (lr.second)
-        {
-          if (d)
-            fail (ll) << "both leading and trailing description";
-
-          d = lr.second;
-        }
-
 
         // Create implicit test scope.
         //
@@ -745,10 +899,8 @@ namespace build2
           p->end_loc_ = get_location (t);
 
           group_->scopes.push_back (move (p));
-          return nullopt;
+
         }
-        else
-          return d;
       }
 
       void parser::
@@ -876,36 +1028,9 @@ namespace build2
         }
       }
 
-      // Return true if the string contains only digit characters (used to
-      // detect the special $NN variables).
-      //
-      static inline bool
-      digits (const string& s)
-      {
-        for (char c: s)
-          if (!digit (c))
-            return false;
-
-        return !s.empty ();
-      }
-
-      bool parser::
+      value parser::
       parse_variable_line (token& t, type& tt)
       {
-        string name (move (t.value));
-
-        // Check if we are trying to modify any of the special aliases ($*,
-        // $~, $N).
-        //
-        if (pre_parse_)
-        {
-          if (name == "*" || name == "~" || digits (name))
-            fail (t) << "attempt to set '" << name << "' variable directly";
-        }
-
-        next (t, tt);
-        type kind (tt); // Assignment kind.
-
         // We cannot reuse the value mode since it will recognize { which we
         // want to treat as a literal.
         //
@@ -917,53 +1042,13 @@ namespace build2
         //
         attributes_push (t, tt, true);
 
-        value rhs (tt != type::newline && tt != type::semi
-                   ? parse_names_value (t, tt, "variable value", nullptr)
-                   : value (names ()));
-
-        bool semi (tt == type::semi);
-
-        if (semi)
-          next (t, tt); // Get newline.
-
-        if (tt != type::newline)
-          fail (t) << "expected newline instead of " << t;
-
-        if (!pre_parse_)
-        {
-          const variable& var (script_->var_pool.insert (move (name)));
-
-          value& lhs (kind == type::assign
-                      ? scope_->assign (var)
-                      : scope_->append (var));
-
-          // @@ Need to adjust to make strings the default type.
-          //
-          apply_value_attributes (&var, lhs, move (rhs), kind);
-
-          // Handle the $*, $NN special aliases.
-          //
-          // The plan is as follows: in this function we detect modification
-          // of the source variables (test*), and (re)set $* to NULL on this
-          // scope (this is important to both invalidate any old values but
-          // also to "stake" the lookup position). This signals to the
-          // variable lookup function below that the $* and $NN values need to
-          // be recalculated from their sources. Note that we don't need to
-          // invalidate $NN since their lookup always checks $* first.
-          //
-          if (var.name == script_->test_var.name ||
-              var.name == script_->opts_var.name ||
-              var.name == script_->args_var.name)
-          {
-            scope_->assign (script_->cmd_var) = nullptr;
-          }
-        }
-
-        return semi;
+        return tt != type::newline && tt != type::semi
+          ? parse_names_value (t, tt, "variable value", nullptr)
+          : value (names ());
       }
 
-      pair<bool, optional<description>> parser::
-      parse_command_line (token& t, type& tt, line_type lt, size_t li)
+      pair<command_expr, parser::here_docs> parser::
+      parse_command_line (token& t, type& tt)
       {
         command_expr expr {{expr_operator::log_and, {}}};
         command c; // Command being assembled.
@@ -1000,20 +1085,7 @@ namespace build2
         bool nn (false);  // True if pending here-{str,doc} is "no-newline".
         bool app (false); // True if to append to pending file.
         cleanup_type ct;  // Pending cleanup type.
-
-        // Ordered sequence of here-document redirects that we can expect to
-        // see after the command line.
-        //
-        struct here_doc
-        {
-          size_t expr;  // Index in command_expr.
-          size_t pipe;  // Index in command_pipe.
-          size_t redir; // Redirect (0 - in, 1 - out, 2 - err).
-
-          string end;
-          bool no_newline;
-        };
-        vector<here_doc> hd;
+        here_docs hd;     // Expected here-documents.
 
         // Add the next word to either one of the pending positions or
         // to program arguments by default.
@@ -1708,96 +1780,7 @@ namespace build2
           expr.back ().pipe.push_back (move (c));
         }
 
-        // Colon and semicolon are only valid in test command lines. Note that
-        // we still recognize them lexically, they are just not valid tokens
-        // per the grammar.
-        //
-        if (tt == type::colon || tt == type::semi)
-        {
-          switch (lt)
-          {
-          case line_type::setup: fail (t) << t << " after setup command";
-          case line_type::tdown: fail (t) << t << " after teardown command";
-          default: break;
-          }
-        }
-
-        pair<bool, optional<description>> r (false, nullopt);
-        if (tt == type::colon)
-        {
-          // Parse one-line trailing description.
-          //
-          //@@ Would be nice to omit trailing description from replay.
-          //
-          const location loc (get_location (t));
-
-          mode (lexer_mode::description_line);
-          next (t, tt);
-
-          // If it is empty, then we get newline right away.
-          //
-          if (tt == type::word)
-          {
-            string l (move (t.value));
-            trim (l); // Strip leading/trailing whitespaces.
-
-            // Decide whether this is id or summary.
-            //
-            auto& d (*(r.second = description ()));
-            (l.find_first_of (" \t") == string::npos ? d.id : d.summary) =
-              move (l);
-
-            next (t, tt); // Get newline.
-          }
-
-          assert (tt == type::newline);
-
-          if (r.second->empty ())
-            fail (loc) << "empty description";
-        }
-        else
-        {
-          if (tt == type::semi)
-          {
-            r.first = true;
-            next (t, tt); // Get newline.
-          }
-
-          if (tt != type::newline)
-            fail (t) << "expected newline instead of " << t;
-        }
-
-        // Parse here-document fragments in the order they were mentioned on
-        // the command line.
-        //
-        for (here_doc& h: hd)
-        {
-          // Switch to the here-line mode which is like double-quoted but
-          // recognized the newline as a separator.
-          //
-          mode (lexer_mode::here_line);
-          next (t, tt);
-
-          string v (parse_here_document (t, tt, h.end, h.no_newline));
-
-          if (!pre_parse_)
-          {
-            command& c (expr[h.expr].pipe[h.pipe]);
-            redirect& r (h.redir == 0 ? c.in : h.redir == 1 ? c.out : c.err);
-
-            r.doc.doc = move (v);
-            r.doc.end = move (h.end);
-          }
-
-          expire_mode ();
-        }
-
-        // Now that we have all the pieces, run the command.
-        //
-        if (!pre_parse_)
-          runner_->run (*scope_, expr, li, ll);
-
-        return r;
+        return make_pair (move (expr), move (hd));
       }
 
       command_exit parser::
@@ -1835,6 +1818,36 @@ namespace build2
         }
 
         return command_exit {comp, static_cast<uint8_t> (es)};
+      }
+
+      void parser::
+      parse_here_documents (token& t, type& tt,
+                            pair<command_expr, here_docs>& p)
+      {
+        // Parse here-document fragments in the order they were mentioned on
+        // the command line.
+        //
+        for (here_doc& h: p.second)
+        {
+          // Switch to the here-line mode which is like double-quoted but
+          // recognized the newline as a separator.
+          //
+          mode (lexer_mode::here_line);
+          next (t, tt);
+
+          string v (parse_here_document (t, tt, h.end, h.no_newline));
+
+          if (!pre_parse_)
+          {
+            command& c (p.first[h.expr].pipe[h.pipe]);
+            redirect& r (h.redir == 0 ? c.in : h.redir == 1 ? c.out : c.err);
+
+            r.doc.doc = move (v);
+            r.doc.end = move (h.end);
+          }
+
+          expire_mode ();
+        }
       }
 
       string parser::
@@ -2014,7 +2027,7 @@ namespace build2
 
         // Handle the $*, $NN special aliases.
         //
-        // See the parse_variable_line() for the overall plan.
+        // See the parse_scope_body() for the overall plan.
         //
         // @@ MT: we are potentially changing outer scopes. Could force
         //    lookup before executing tests in each group scope. Poblem is
