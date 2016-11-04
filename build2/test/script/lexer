@@ -25,8 +25,8 @@ namespace build2
         enum
         {
           script_line = base_type::value_next,
+          assign_line,   // Auto-expires at the end of the token.
           variable_line, // Auto-expires at the end of the line.
-          test_line,
           command_line,
           here_line
         };
@@ -46,14 +46,13 @@ namespace build2
         virtual void
         mode (base_mode, char = '\0') override;
 
-        // Return true if we entered the quoted (double or single) mode since
-        // last reset.
+        // Number of quoted (double or single) tokens since last reset.
         //
-        bool
+        size_t
         quoted () const {return quoted_;}
 
         void
-        reset_quoted (bool q) {quoted_ = q;}
+        reset_quoted (size_t q) {quoted_ = q;}
 
       protected:
         virtual token
@@ -63,10 +62,10 @@ namespace build2
         next_line ();
 
         virtual token
-        word (bool) override;
+        word (state, bool) override;
 
       protected:
-        bool quoted_ = false;
+        size_t quoted_;
       };
     }
   }

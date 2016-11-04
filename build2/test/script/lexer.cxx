@@ -25,6 +25,14 @@ namespace build2
         {
         case lexer_mode::script_line:
           {
+            s1 = "=!|&<> $(#\t\n";
+            s2 = "==          ";
+            break;
+          }
+        case lexer_mode::assign_line:
+          {
+            // As script_line but with variable assignments.
+            //
             s1 = "=+!|&<> $(#\t\n";
             s2 = " ==          ";
             break;
@@ -37,14 +45,7 @@ namespace build2
             s2 = "        ";
             break;
           }
-        case lexer_mode::test_line:
-          {
-            // As script_line but without variable assignments.
-            //
-            s1 = "=!|&<> $(#\t\n";
-            s2 = "==          ";
-            break;
-          }
+
         case lexer_mode::command_line:
           {
             // Note that whitespaces are not word separators in this mode.
@@ -64,10 +65,6 @@ namespace build2
             s = false;
             break;
           }
-        case lexer_mode::single_quoted:
-        case lexer_mode::double_quoted:
-          quoted_ = true;
-          // Fall through.
         default:
           {
             // Disable pair separator.
@@ -83,15 +80,22 @@ namespace build2
       token lexer::
       next_impl ()
       {
+        token r;
+
         switch (state_.top ().mode)
         {
         case lexer_mode::script_line:
+        case lexer_mode::assign_line:
         case lexer_mode::variable_line:
-        case lexer_mode::test_line:
         case lexer_mode::command_line:
-        case lexer_mode::here_line:      return next_line ();
-        default:                         return base_lexer::next_impl ();
+        case lexer_mode::here_line:     r = next_line ();             break;
+        default:                        r = base_lexer::next_impl (); break;
         }
+
+        if (r.quoted)
+          ++quoted_;
+
+        return r;
       }
 
       token lexer::
@@ -110,7 +114,14 @@ namespace build2
         if (eos (c))
           return make_token (type::eos);
 
-        lexer_mode m (state_.top ().mode);
+        state st (state_.top ()); // Make copy (see assign_line).
+        lexer_mode m (st.mode);
+
+        // Expire the assign mode at the end of the token. Do it early in case
+        // we push any new mode (e.g., double quote).
+        //
+        if (m == lexer_mode::assign_line)
+          state_.pop ();
 
         // NOTE: remember to update mode() if adding new special characters.
 
@@ -148,7 +159,7 @@ namespace build2
 
         // Command line operator/separators.
         //
-        if (m == lexer_mode::script_line || m == lexer_mode::test_line)
+        if (m == lexer_mode::script_line || m == lexer_mode::assign_line)
         {
           switch (c)
           {
@@ -169,7 +180,7 @@ namespace build2
         // Command operators/separators.
         //
         if (m == lexer_mode::script_line ||
-            m == lexer_mode::test_line   ||
+            m == lexer_mode::assign_line ||
             m == lexer_mode::command_line)
         {
           switch (c)
@@ -234,7 +245,7 @@ namespace build2
 
         // Variable assignment (=, +=, =+).
         //
-        if (m == lexer_mode::script_line)
+        if (m == lexer_mode::assign_line)
         {
           switch (c)
           {
@@ -262,22 +273,24 @@ namespace build2
         // Otherwise it is a word.
         //
         unget (c);
-        return word (sep);
+        return word (st, sep);
       }
 
       token lexer::
-      word (bool sep)
+      word (state st, bool sep)
       {
+        lexer_mode m (st.mode);
+
         // Customized implementation that handles special variable names ($*,
         // $~, $NNN).
         //
-        if (state_.top ().mode != lexer_mode::variable)
-          return base_lexer::word (sep);
+        if (m != lexer_mode::variable)
+          return base_lexer::word (st, sep);
 
         xchar c (peek ());
 
         if (c != '*' && c != '~' && !digit (c))
-          return base_lexer::word (sep);
+          return base_lexer::word (st, sep);
 
         uint64_t ln (c.line), cn (c.column);
         string lexeme;

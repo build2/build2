@@ -40,7 +40,7 @@ namespace build2
         //
       protected:
         void
-        parse_script (token&, token_type&);
+        parse_script ();
 
         void
         parse_script_line (token&, token_type&);
@@ -62,6 +62,18 @@ namespace build2
       protected:
         virtual lookup
         lookup_variable (name&&, string&&, const location&) override;
+
+        // Number of quoted tokens since last reset. Note that this includes
+        // the peeked token, if any.
+        //
+      protected:
+        size_t
+        quoted () const;
+
+        void
+        reset_quoted (token& current);
+
+        size_t replay_quoted_;
 
       protected:
         using base_parser = build2::parser;

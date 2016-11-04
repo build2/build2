@@ -30,22 +30,28 @@ namespace build2
         runner_ = &r;
         scope_ = script_;
 
-        token t;
-        type tt;
-        next (t, tt);
-
-        parse_script (t, tt);
-
-        if (tt != type::eos)
-          fail (t) << "unexpected " << t;
+        parse_script ();
       }
 
       void parser::
-      parse_script (token& t, token_type& tt)
+      parse_script ()
       {
-        for (; tt != type::eos; next (t, tt))
+        token t;
+        type tt;
+
+        for (;;)
         {
+          // We need to start lexing each line in the assign mode in order to
+          // recognize assignment operators as separators.
+          //
+          mode (lexer_mode::assign_line);
+          next (t, tt);
+
+          if (tt == type::eos)
+            break;
+
           parse_script_line (t, tt);
+          assert (tt == type::newline);
         }
       }
 
@@ -53,19 +59,27 @@ namespace build2
       parse_script_line (token& t, token_type& tt)
       {
         // Decide whether this is a variable assignment or a command. It is a
-        // variable assignment if the first token is a word and the next is an
-        // assign/append/prepend operator. Assignment to a computed variable
-        // name must use the set builtin.
+        // variable assignment if the first token is an unquoted word and the
+        // next is an assign/append/prepend operator. Assignment to a computed
+        // variable name must use the set builtin.
         //
-        auto assign = [] (type t)
+        if (tt == type::word && !t.quoted)
         {
-          return t == type::assign || t == type::prepend || t == type::append;
-        };
+          // Switch recognition of variable assignments for one more token.
+          // This is safe to do because we know we cannot be in the quoted
+          // mode (since the current token is not quoted).
+          //
+          mode (lexer_mode::assign_line);
+          type p (peek ());
 
-        if (tt == type::word && assign (peek ()))
-          parse_variable_line (t, tt);
-        else
-          parse_test_line (t, tt);
+          if (p == type::assign || p == type::prepend || p == type::append)
+          {
+            parse_variable_line (t, tt);
+            return;
+          }
+        }
+
+        parse_test_line (t, tt);
       }
 
       // Return true if the string contains only digit characters (used to
@@ -84,16 +98,16 @@ namespace build2
       void parser::
       parse_variable_line (token& t, token_type& tt)
       {
-        location nl (get_location (t));
         string name (move (t.value));
 
         // Check if we are trying to modify any of the special aliases ($*,
         // $~, $N).
         //
-        if (name == "*" || name == "~" || digits (name))
-          fail (nl) << "attempt to set '" << name << "' variable directly";
-
-        const variable& var (script_->var_pool.insert (move (name)));
+        if (pre_parse_)
+        {
+          if (name == "*" || name == "~" || digits (name))
+            fail (t) << "attempt to set '" << name << "' variable directly";
+        }
 
         next (t, tt);
         type kind (tt); // Assignment kind.
@@ -106,39 +120,40 @@ namespace build2
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
 
-        value& lhs (kind == type::assign
-                    ? scope_->assign (var)
-                    : scope_->append (var));
-
-        // @@ Need to adjust to make strings the default type.
-        //
-        apply_value_attributes (&var, lhs, move (rhs), kind);
-
-        // Handle the $*, $NN special aliases.
-        //
-        // The plan is as follows: in this function we detect modification of
-        // the source variables (test*), and (re)set $* to NULL on this scope
-        // (this is important to both invalidate any old values but also to
-        // "stake" the lookup position). This signals to the variable lookup
-        // function below that the $* and $NN values need to be recalculated
-        // from their sources. Note that we don't need to invalidate $NN since
-        // their lookup always checks $* first.
-        //
-        if (var.name == script_->test_var.name ||
-            var.name == script_->opts_var.name ||
-            var.name == script_->args_var.name)
+        if (!pre_parse_)
         {
-          scope_->assign (script_->cmd_var) = nullptr;
+          const variable& var (script_->var_pool.insert (move (name)));
+
+          value& lhs (kind == type::assign
+                      ? scope_->assign (var)
+                      : scope_->append (var));
+
+          // @@ Need to adjust to make strings the default type.
+          //
+          apply_value_attributes (&var, lhs, move (rhs), kind);
+
+          // Handle the $*, $NN special aliases.
+          //
+          // The plan is as follows: in this function we detect modification
+          // of the source variables (test*), and (re)set $* to NULL on this
+          // scope (this is important to both invalidate any old values but
+          // also to "stake" the lookup position). This signals to the
+          // variable lookup function below that the $* and $NN values need to
+          // be recalculated from their sources. Note that we don't need to
+          // invalidate $NN since their lookup always checks $* first.
+          //
+          if (var.name == script_->test_var.name ||
+              var.name == script_->opts_var.name ||
+              var.name == script_->args_var.name)
+          {
+            scope_->assign (script_->cmd_var) = nullptr;
+          }
         }
       }
 
       void parser::
       parse_test_line (token& t, token_type& tt)
       {
-        // Stop recognizing variable assignments.
-        //
-        mode (lexer_mode::test_line);
-
         test ts;
 
         // Pending positions where the next word should go.
@@ -371,12 +386,14 @@ namespace build2
               // Note that we do it in the chunking mode to detect whether
               // anything in each chunk is quoted.
               //
-              lexer_->reset_quoted (t.quoted);
+              reset_quoted (t);
               parse_names (t, tt, ns, true, "command");
 
-              // Process what we got.
+              // Process what we got. Determine whether anything inside was
+              // quoted (note that the current token is not part of it).
               //
-              bool q (lexer_->quoted ());
+              bool q ((quoted () - (t.quoted ? 1 : 0)) != 0);
+
               for (name& n: ns)
               {
                 string s;
@@ -505,7 +522,7 @@ namespace build2
 
         // While we no longer need to recognize command line operators, we
         // also don't expect a valid test trailer to contain them. So we are
-        // going to continue lexing in the test_line mode.
+        // going to continue lexing in the script_line mode.
         //
         if (tt == type::equal || tt == type::not_equal)
         {
@@ -515,8 +532,6 @@ namespace build2
 
         if (tt != type::newline)
           fail (t) << "unexpected " << t;
-
-        expire_mode (); // Done parsing test-line.
 
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
@@ -701,6 +716,40 @@ namespace build2
           nv = nullptr;
 
         return lookup (nv, vars);
+      }
+
+      size_t parser::
+      quoted () const
+      {
+        size_t r (0);
+
+        if (replay_ != replay::play)
+          r = lexer_->quoted ();
+        else
+        {
+          // Examine tokens we have replayed since last reset.
+          //
+          for (size_t i (replay_quoted_); i != replay_i_; ++i)
+            if (replay_data_[i].token.quoted)
+              ++r;
+        }
+
+        return r;
+      }
+
+      void parser::
+      reset_quoted (token& cur)
+      {
+        if (replay_ != replay::play)
+          lexer_->reset_quoted (cur.quoted ? 1 : 0);
+        else
+        {
+          replay_quoted_ = replay_i_ - 1;
+
+          // Must be the same token.
+          //
+          assert (replay_data_[replay_quoted_].token.quoted == cur.quoted);
+        }
       }
     }
   }
