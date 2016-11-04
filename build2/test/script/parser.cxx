@@ -107,7 +107,7 @@ namespace build2
       }
 
       line_type parser::
-      pre_parse_script_line (token& t, token_type& tt)
+      pre_parse_script_line (token& t, type& tt)
       {
         // Decide whether this is a variable assignment or a command. It is a
         // variable assignment if the first token is an unquoted word (name)
@@ -135,7 +135,7 @@ namespace build2
       }
 
       void parser::
-      parse_script_line (token& t, token_type& tt, line_type lt)
+      parse_script_line (token& t, type& tt, line_type lt)
       {
         switch (lt)
         {
@@ -158,7 +158,7 @@ namespace build2
       }
 
       void parser::
-      parse_variable_line (token& t, token_type& tt)
+      parse_variable_line (token& t, type& tt)
       {
         string name (move (t.value));
 
@@ -214,7 +214,7 @@ namespace build2
       }
 
       void parser::
-      parse_test_line (token& t, token_type& tt)
+      parse_test_line (token& t, type& tt)
       {
         test ts;
 
@@ -665,7 +665,7 @@ namespace build2
       }
 
       command_exit parser::
-      parse_command_exit (token& t, token_type& tt)
+      parse_command_exit (token& t, type& tt)
       {
         exit_comparison comp (tt == type::equal
                               ? exit_comparison::eq
@@ -695,7 +695,7 @@ namespace build2
       }
 
       string parser::
-      parse_here_document (token& t, token_type& tt, const string& em)
+      parse_here_document (token& t, type& tt, const string& em)
       {
         string r;
 
