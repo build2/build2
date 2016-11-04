@@ -97,6 +97,13 @@ namespace build2
         //
         exit_comparison comparison = exit_comparison::eq;
         uint8_t status = 0;
+
+        // Required by VC which fails to initialize as aggregate a class with
+        // default member initializers.
+        //
+        command_exit () = default;
+        command_exit (exit_comparison c, uint8_t s)
+            : comparison (c), status (s) {}
       };
 
       struct test: command

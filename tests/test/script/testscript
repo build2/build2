@@ -1,0 +1,42 @@
+$*
+$* -i 0 <foo
+$* -o foo >foo
+$* -o foo >!
+$* -e foo 2>!
+
+$* -o foo -o bar >>EOO
+foo
+bar
+EOO
+
+$* -i 1 <<EOI >>EOO
+foo
+bar
+EOI
+foo
+bar
+EOO
+
+$* -i 2 <<EOI 2>>EOE
+foo
+bar
+EOI
+foo
+bar
+EOE
+
+$* -i 2 -s 1 <<EOI 2>>EOE != 0
+foo
+bar
+EOI
+foo
+bar
+EOE
+
+$* -i 2 -o baz -s 10 <<EOI 1>baz 2>>EOE == 10
+foo
+bar
+EOI
+foo
+bar
+EOE
