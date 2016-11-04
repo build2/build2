@@ -24,9 +24,6 @@ namespace build2
   class parser
   {
   public:
-    using names_type = build2::names;
-    using variable_type = build2::variable;
-
     // If boot is true, then we are parsing bootstrap.build and modules
     // should only be bootstrapped.
     //
@@ -41,12 +38,12 @@ namespace build2
     parse_buildspec (istream&, const path& name);
 
     token
-    parse_variable (lexer&, scope&, const variable_type&, token_type kind);
+    parse_variable (lexer&, scope&, const variable&, token_type kind);
 
     pair<value, token>
-    parse_variable_value (lexer&, scope&, const variable_type&);
+    parse_variable_value (lexer&, scope&, const variable&);
 
-    names_type
+    names
     parse_export_stub (istream& is, const path& p, scope& r, scope& b)
     {
       parse_buildfile (is, p, r, b);
@@ -64,58 +61,58 @@ namespace build2
     // the next line (or eos).
     //
     bool
-    clause (token&, token_type&, bool one = false);
+    parse_clause (token&, token_type&, bool one = false);
 
     void
-    print (token&, token_type&);
+    parse_print (token&, token_type&);
 
     void
-    source (token&, token_type&);
+    parse_source (token&, token_type&);
 
     void
-    include (token&, token_type&);
+    parse_include (token&, token_type&);
 
     void
-    import (token&, token_type&);
+    parse_import (token&, token_type&);
 
     void
-    export_ (token&, token_type&);
+    parse_export (token&, token_type&);
 
     void
-    using_ (token&, token_type&);
+    parse_using (token&, token_type&);
 
     void
-    define (token&, token_type&);
+    parse_define (token&, token_type&);
 
     void
-    if_else (token&, token_type&);
+    parse_if_else (token&, token_type&);
 
     void
-    parse_variable (token&, token_type&, const variable_type&, token_type);
+    parse_variable (token&, token_type&, const variable&, token_type);
 
     string
-    variable_name (names_type&&, const location&);
+    parse_variable_name (names&&, const location&);
 
     // Note: calls attributes_push() that the caller must pop. Also expects
     // the mode to auto-expire.
     //
     value
-    variable_value (token&, token_type&, lexer_mode = lexer_mode::value);
+    parse_variable_value (token&, token_type&, lexer_mode = lexer_mode::value);
 
     void
-    variable_attributes (const variable_type&);
+    apply_variable_attributes (const variable&);
 
     void
-    value_attributes (const variable_type*, // Optional.
-                      value& lhs,
-                      value&& rhs,
-                      token_type kind);
+    apply_value_attributes (const variable*, // Optional.
+                            value& lhs,
+                            value&& rhs,
+                            token_type kind);
 
     value
-    eval (token&, token_type&);
+    parse_eval (token&, token_type&);
 
     value
-    eval_trailer (token&, token_type&);
+    parse_eval_trailer (token&, token_type&);
 
     // Attributes stack. We can have nested attributes, for example:
     //
@@ -160,13 +157,13 @@ namespace build2
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
     //
-    names_type
-    names (token& t, token_type& tt,
-           bool chunk = false,
-           const char* what = "name")
+    names
+    parse_names (token& t, token_type& tt,
+                 bool chunk = false,
+                 const char* what = "name")
     {
-      names_type ns;
-      names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
+      names ns;
+      parse_names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
       return ns;
     }
 
@@ -176,10 +173,10 @@ namespace build2
     // context evaluation.
     //
     value
-    names_value (token& t, token_type& tt, const char* what = "name")
+    parse_names_value (token& t, token_type& tt, const char* what = "name")
     {
-      names_type ns;
-      return names (t, tt, ns, false, what, 0, nullptr, nullptr, nullptr)
+      names ns;
+      return parse_names (t, tt, ns, false, what, 0, nullptr, nullptr, nullptr)
         ? value (move (ns))
         : value (nullptr);
     }
@@ -187,32 +184,33 @@ namespace build2
     // Append names and return true if the parsed value is NOT NULL.
     //
     bool
-    names (token& t, token_type& tt,
-           names_type& ns,
-           bool chunk = false,
-           const char* what = "name")
+    parse_names (token& t, token_type& tt,
+                 names& ns,
+                 bool chunk = false,
+                 const char* what = "name")
     {
-      return names (t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
+      return parse_names (
+        t, tt, ns, chunk, what, 0, nullptr, nullptr, nullptr);
     }
 
     bool
-    names (token&, token_type&,
-           names_type&,
-           bool chunk,
-           const char* what,
-           size_t pair,
-           const string* prj,
-           const dir_path* dir,
-           const string* type);
+    parse_names (token&, token_type&,
+                 names&,
+                 bool chunk,
+                 const char* what,
+                 size_t pair,
+                 const string* prj,
+                 const dir_path* dir,
+                 const string* type);
 
     size_t
-    names_trailer (token&, token_type&,
-                   names_type&,
-                   const char* what,
-                   size_t pair,
-                   const string* prj,
-                   const dir_path* dir,
-                   const string* type);
+    parse_names_trailer (token&, token_type&,
+                         names&,
+                         const char* what,
+                         size_t pair,
+                         const string* prj,
+                         const dir_path* dir,
+                         const string* type);
 
     // Skip until newline or eos.
     //
@@ -232,7 +230,7 @@ namespace build2
     // Buildspec.
     //
     buildspec
-    buildspec_clause (token&, token_type&, token_type end);
+    parse_buildspec_clause (token&, token_type&, token_type end);
 
     // Customization hooks.
     //
@@ -390,7 +388,7 @@ namespace build2
     std::stack<attributes> attributes_;
 
     target* default_target_;
-    names_type export_value_;
+    names export_value_;
 
     token peek_ = token (token_type::eos, false, 0, 0, token_printer);
     bool peeked_ = false;

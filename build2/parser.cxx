@@ -182,7 +182,7 @@ namespace build2
     type tt;
     next (t, tt);
 
-    clause (t, tt);
+    parse_clause (t, tt);
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
@@ -191,7 +191,7 @@ namespace build2
   }
 
   token parser::
-  parse_variable (lexer& l, scope& s, const variable_type& var, type kind)
+  parse_variable (lexer& l, scope& s, const variable& var, type kind)
   {
     path_ = &l.name ();
     lexer_ = &l;
@@ -205,7 +205,7 @@ namespace build2
   }
 
   pair<value, token> parser::
-  parse_variable_value (lexer& l, scope& s, const variable_type& var)
+  parse_variable_value (lexer& l, scope& s, const variable& var)
   {
     path_ = &l.name ();
     lexer_ = &l;
@@ -214,16 +214,16 @@ namespace build2
 
     token t;
     type tt;
-    value rhs (variable_value (t, tt));
+    value rhs (parse_variable_value (t, tt));
 
     value lhs;
-    value_attributes (&var, lhs, move (rhs), type::assign);
+    apply_value_attributes (&var, lhs, move (rhs), type::assign);
 
     return make_pair (move (lhs), move (t));
   }
 
   bool parser::
-  clause (token& t, type& tt, bool one)
+  parse_clause (token& t, type& tt, bool one)
   {
     tracer trace ("parser::clause", &path_);
 
@@ -277,37 +277,37 @@ namespace build2
           // @@ Is this the only place where it is valid? Probably also
           // in var namespace.
           //
-          f = &parser::print;
+          f = &parser::parse_print;
         }
         else if (n == "source")
         {
-          f = &parser::source;
+          f = &parser::parse_source;
         }
         else if (n == "include")
         {
-          f = &parser::include;
+          f = &parser::parse_include;
         }
         else if (n == "import")
         {
-          f = &parser::import;
+          f = &parser::parse_import;
         }
         else if (n == "export")
         {
-          f = &parser::export_;
+          f = &parser::parse_export;
         }
         else if (n == "using" ||
                  n == "using?")
         {
-          f = &parser::using_;
+          f = &parser::parse_using;
         }
         else if (n == "define")
         {
-          f = &parser::define;
+          f = &parser::parse_define;
         }
         else if (n == "if" ||
                  n == "if!")
         {
-          f = &parser::if_else;
+          f = &parser::parse_if_else;
         }
         else if (n == "else" ||
                  n == "elif" ||
@@ -335,9 +335,9 @@ namespace build2
       // @@ I think we should make ': foo' invalid.
       //
       const location nloc (get_location (t));
-      names_type ns (tt != type::colon
-                     ? names (t, tt)
-                     : names_type ({name ("dir", string ())}));
+      names ns (tt != type::colon
+                ? parse_names (t, tt)
+                : names ({name ("dir", string ())}));
 
       if (tt == type::colon)
       {
@@ -395,7 +395,7 @@ namespace build2
               // Can contain anything that a top level can.
               //
               enter_scope sg (*this, move (ns[0].dir));
-              clause (t, tt);
+              parse_clause (t, tt);
             }
             else
             {
@@ -444,9 +444,9 @@ namespace build2
             tt == type::eos)
         {
           const location ploc (get_location (t));
-          names_type pns (tt != type::newline && tt != type::eos
-                          ? names (t, tt)
-                          : names_type ());
+          names pns (tt != type::newline && tt != type::eos
+                     ? parse_names (t, tt)
+                     : names ());
 
           // Scope/target-specific variable assignment.
           //
@@ -455,13 +455,12 @@ namespace build2
             token at (t);
             type att (tt);
 
-            const variable_type& var (
-              var_pool.insert (
-                variable_name (move (pns), ploc)));
+            const variable& var (
+              var_pool.insert (parse_variable_name (move (pns), ploc)));
 
-            // Handle variable attributes.
+            // Apply variable attributes.
             //
-            variable_attributes (var);
+            apply_variable_attributes (var);
 
             // If we have multiple targets/scopes, then we save the value
             // tokens when parsing the first one and then replay them for
@@ -542,7 +541,7 @@ namespace build2
 
                   // Note: expanding the value in the context of the scope.
                   //
-                  value rhs (variable_value (t, tt));
+                  value rhs (parse_variable_value (t, tt));
 
                   // Leave the value untyped unless we are assigning.
                   //
@@ -561,10 +560,11 @@ namespace build2
                     // variable in case of prepend/append in order to keep the
                     // value untyped.
                     //
-                    value_attributes (att == type::assign ? &var : nullptr,
-                                      lhs,
-                                      move (rhs),
-                                      type::assign);
+                    apply_value_attributes (
+                      att == type::assign ? &var : nullptr,
+                      lhs,
+                      move (rhs),
+                      type::assign);
 
                     // Map assignment type to value::extra constant.
                     //
@@ -596,7 +596,7 @@ namespace build2
                       else
                         lhs.extra = 0; // Change to assignment.
 
-                      value_attributes (&var, lhs, move (rhs), att);
+                      apply_value_attributes (&var, lhs, move (rhs), att);
                     }
                     else
                     {
@@ -614,7 +614,7 @@ namespace build2
 
                       // Do untyped prepend/append.
                       //
-                      value_attributes (nullptr, lhs, move (rhs), att);
+                      apply_value_attributes (nullptr, lhs, move (rhs), att);
                     }
                   }
 
@@ -716,12 +716,12 @@ namespace build2
       //
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
-        const variable_type& var (
-          var_pool.insert (variable_name (move (ns), nloc)));
+        const variable& var (
+          var_pool.insert (parse_variable_name (move (ns), nloc)));
 
-        // Handle variable attributes.
+        // Apply variable attributes.
         //
-        variable_attributes (var);
+        apply_variable_attributes (var);
 
         if (var.visibility == variable_visibility::target)
           fail (nloc) << "variable " << var << " has target visibility but "
@@ -758,7 +758,7 @@ namespace build2
   }
 
   void parser::
-  source (token& t, type& tt)
+  parse_source (token& t, type& tt)
   {
     tracer trace ("parser::source", &path_);
 
@@ -768,9 +768,9 @@ namespace build2
     mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t));
-    names_type ns (tt != type::newline && tt != type::eos
-                   ? names (t, tt)
-                   : names_type ());
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt)
+              : names ());
 
     for (name& n: ns)
     {
@@ -808,7 +808,7 @@ namespace build2
         token t;
         type tt;
         next (t, tt);
-        clause (t, tt);
+        parse_clause (t, tt);
 
         if (tt != type::eos)
           fail (t) << "unexpected " << t;
@@ -831,7 +831,7 @@ namespace build2
   }
 
   void parser::
-  include (token& t, type& tt)
+  parse_include (token& t, type& tt)
   {
     tracer trace ("parser::include", &path_);
 
@@ -844,9 +844,9 @@ namespace build2
     mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t));
-    names_type ns (tt != type::newline && tt != type::eos
-                   ? names (t, tt)
-                   : names_type ());
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt)
+              : names ());
 
     for (name& n: ns)
     {
@@ -941,7 +941,7 @@ namespace build2
         token t;
         type tt;
         next (t, tt);
-        clause (t, tt);
+        parse_clause (t, tt);
 
         if (tt != type::eos)
           fail (t) << "unexpected " << t;
@@ -970,7 +970,7 @@ namespace build2
   }
 
   void parser::
-  import (token& t, type& tt)
+  parse_import (token& t, type& tt)
   {
     tracer trace ("parser::import", &path_);
 
@@ -1067,9 +1067,9 @@ namespace build2
 
     if (var != nullptr)
     {
-      // Handle variable attributes.
+      // Apply variable attributes.
       //
-      variable_attributes (*var);
+      apply_variable_attributes (*var);
 
       val = at == type::assign
         ? &scope_->assign (*var)
@@ -1087,9 +1087,9 @@ namespace build2
     // them as names to get variable expansion and directory prefixes.
     //
     const location l (get_location (t));
-    names_type ns (tt != type::newline && tt != type::eos
-                   ? names (t, tt)
-                   : names_type ());
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt)
+              : names ());
 
     for (name& n: ns)
     {
@@ -1098,7 +1098,7 @@ namespace build2
 
       // build2::import() will check the name, if required.
       //
-      names_type r (build2::import (*scope_, move (n), l));
+      names r (build2::import (*scope_, move (n), l));
 
       if (val != nullptr)
       {
@@ -1118,7 +1118,7 @@ namespace build2
   }
 
   void parser::
-  export_ (token& t, type& tt)
+  parse_export (token& t, type& tt)
   {
     tracer trace ("parser::export", &path_);
 
@@ -1132,7 +1132,7 @@ namespace build2
     // The rest is a value. Parse it as a variable value to get expansion,
     // attributes, etc. build2::import() will check the names, if required.
     //
-    value rhs (variable_value (t, tt));
+    value rhs (parse_variable_value (t, tt));
 
     // While it may seem like supporting attributes is a good idea here,
     // there is actually little benefit in being able to type them or to
@@ -1151,7 +1151,7 @@ namespace build2
     if (!rhs)
       fail (t) << "null value in export";
 
-    export_value_ = move (rhs).as<names_type> ();
+    export_value_ = move (rhs).as<names> ();
 
     if (tt == type::newline)
       next (t, tt);
@@ -1160,7 +1160,7 @@ namespace build2
   }
 
   void parser::
-  using_ (token& t, type& tt)
+  parse_using (token& t, type& tt)
   {
     tracer trace ("parser::using", &path_);
 
@@ -1175,9 +1175,9 @@ namespace build2
     mode (lexer_mode::value);
     next (t, tt);
     const location l (get_location (t));
-    names_type ns (tt != type::newline && tt != type::eos
-                   ? names (t, tt)
-                   : names_type ());
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt)
+              : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
@@ -1237,7 +1237,7 @@ namespace build2
   }
 
   void parser::
-  define (token& t, type& tt)
+  parse_define (token& t, type& tt)
   {
     // define <derived>: <base>
     //
@@ -1282,7 +1282,7 @@ namespace build2
   }
 
   void parser::
-  if_else (token& t, type& tt)
+  parse_if_else (token& t, type& tt)
   {
     // Handle the whole if-else chain. See tests/if-else.
     //
@@ -1315,7 +1315,7 @@ namespace build2
           // Parse as names to get variable expansion, evaluation, etc.
           //
           const location nsl (get_location (t));
-          names_type ns (names (t, tt));
+          names ns (parse_names (t, tt));
 
           // Should evaluate to 'true' or 'false'.
           //
@@ -1352,7 +1352,7 @@ namespace build2
 
         if (take)
         {
-          clause (t, tt);
+          parse_clause (t, tt);
           taken = true;
         }
         else
@@ -1373,7 +1373,7 @@ namespace build2
       {
         if (take)
         {
-          if (!clause (t, tt, true))
+          if (!parse_clause (t, tt, true))
             fail (t) << "expected " << k << "-line instead of " << t;
 
           taken = true;
@@ -1402,22 +1402,22 @@ namespace build2
   }
 
   void parser::
-  print (token& t, type& tt)
+  parse_print (token& t, type& tt)
   {
     // Parse the rest as a variable value to get expansion, attributes, etc.
     //
-    value v (variable_value (t, tt));
+    value v (parse_variable_value (t, tt));
 
     if (attributes_top ())
     {
       // Round-trip it through (a potentially typed) value.
       //
       value tv;
-      value_attributes (nullptr, tv, move (v), type::assign);
+      apply_value_attributes (nullptr, tv, move (v), type::assign);
 
       if (tv)
       {
-        names_type storage;
+        names storage;
         cout << reverse (tv, storage) << endl;
       }
       else
@@ -1428,7 +1428,7 @@ namespace build2
       attributes_pop ();
 
       if (v)
-        cout << v.as<names_type> () << endl;
+        cout << v.as<names> () << endl;
       else
         cout << "[null]" << endl;
     }
@@ -1438,7 +1438,7 @@ namespace build2
   }
 
   string parser::
-  variable_name (names_type&& ns, const location& l)
+  parse_variable_name (names&& ns, const location& l)
   {
     // The list should contain a single, simple name.
     //
@@ -1455,20 +1455,20 @@ namespace build2
   }
 
   void parser::
-  parse_variable (token& t, type& tt, const variable_type& var, type kind)
+  parse_variable (token& t, type& tt, const variable& var, type kind)
   {
-    value rhs (variable_value (t, tt));
+    value rhs (parse_variable_value (t, tt));
 
     value& lhs (
       kind == type::assign
       ? target_ != nullptr ? target_->assign (var) : scope_->assign (var)
       : target_ != nullptr ? target_->append (var) : scope_->append (var));
 
-    value_attributes (&var, lhs, move (rhs), kind);
+    apply_value_attributes (&var, lhs, move (rhs), kind);
   }
 
   value parser::
-  variable_value (token& t, type& tt, lexer_mode m)
+  parse_variable_value (token& t, type& tt, lexer_mode m)
   {
     mode (m);
     next (t, tt);
@@ -1479,8 +1479,8 @@ namespace build2
     attributes_push (t, tt, true);
 
     return tt != type::newline && tt != type::eos
-      ? names_value (t, tt)
-      : value (names_type ());
+      ? parse_names_value (t, tt)
+      : value (names ());
   }
 
   static const value_type*
@@ -1502,7 +1502,7 @@ namespace build2
   }
 
   void parser::
-  variable_attributes (const variable_type& var)
+  apply_variable_attributes (const variable& var)
   {
     attributes a (attributes_pop ());
 
@@ -1543,10 +1543,10 @@ namespace build2
   }
 
   void parser::
-  value_attributes (const variable_type* var,
-                    value& v,
-                    value&& rhs,
-                    token_type kind)
+  apply_value_attributes (const variable* var,
+                          value& v,
+                          value&& rhs,
+                          token_type kind)
   {
     attributes a (attributes_pop ());
     const location& l (a.loc);
@@ -1630,30 +1630,30 @@ namespace build2
       if (kind == token_type::assign)
       {
         if (rhs)
-          v.assign (move (rhs).as<names_type> (), var);
+          v.assign (move (rhs).as<names> (), var);
         else
           v = nullptr;
       }
       else if (rhs) // Don't append/prepent NULL.
       {
         if (kind == token_type::prepend)
-          v.prepend (move (rhs).as<names_type> (), var);
+          v.prepend (move (rhs).as<names> (), var);
         else
-          v.append (move (rhs).as<names_type> (), var);
+          v.append (move (rhs).as<names> (), var);
       }
     }
   }
 
   value parser::
-  eval (token& t, type& tt)
+  parse_eval (token& t, type& tt)
   {
     mode (lexer_mode::eval);
     next (t, tt);
-    return eval_trailer (t, tt);
+    return parse_eval_trailer (t, tt);
   }
 
   value parser::
-  eval_trailer (token& t, type& tt)
+  parse_eval_trailer (token& t, type& tt)
   {
     // Parse the next value (if any) handling its attributes.
     //
@@ -1674,8 +1674,8 @@ namespace build2
                tt != type::less_equal &&
                tt != type::greater    &&
                tt != type::greater_equal
-               ? names_value (t, tt)
-               : value (names_type ()));
+               ? parse_names_value (t, tt)
+               : value (names ()));
 
       // Process attributes if any.
       //
@@ -1686,7 +1686,7 @@ namespace build2
       }
 
       value v;
-      value_attributes (nullptr, v, move (r), type::assign);
+      apply_value_attributes (nullptr, v, move (r), type::assign);
       return v;
     };
 
@@ -1713,19 +1713,19 @@ namespace build2
           if (lhs.type != nullptr || !lhs || lhs.empty ())
             fail (l) << "scope/target expected before ':'";
 
-          names_type& ns (lhs.as<names_type> ());
+          names& ns (lhs.as<names> ());
           ns.back ().pair = ':';
 
           next (t, tt);
-          value rhs (eval_trailer (t, tt));
+          value rhs (parse_eval_trailer (t, tt));
 
           if (tt != type::rparen ||
               rhs.type != nullptr || !rhs || rhs.empty ())
             fail (l) << "variable name expected after ':'";
 
           ns.insert (ns.end (),
-                     make_move_iterator (rhs.as<names_type> ().begin ()),
-                     make_move_iterator (rhs.as<names_type> ().end ()));
+                     make_move_iterator (rhs.as<names> ().begin ()),
+                     make_move_iterator (rhs.as<names> ().end ()));
 
           break;
         }
@@ -1828,7 +1828,7 @@ namespace build2
 
     if (tt != type::rsbrace && tt != type::newline && tt != type::eos)
     {
-      names_type ns (names (t, tt));
+      names ns (parse_names (t, tt));
 
       for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
@@ -1883,25 +1883,25 @@ namespace build2
   // {a b}{x y}) if any. Return the number of names added to the list.
   //
   size_t parser::
-  names_trailer (token& t, type& tt,
-                 names_type& ns,
-                 const char* what,
-                 size_t pair,
-                 const string* pp,
-                 const dir_path* dp,
-                 const string* tp)
+  parse_names_trailer (token& t, type& tt,
+                       names& ns,
+                       const char* what,
+                       size_t pair,
+                       const string* pp,
+                       const dir_path* dp,
+                       const string* tp)
   {
     next (t, tt); // Get what's after '{'.
 
     size_t count (ns.size ());
-    names (t, tt,
-           ns,
-           false,
-           what,
-           (pair != 0
-            ? pair
-            : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
-           pp, dp, tp);
+    parse_names (t, tt,
+                 ns,
+                 false,
+                 what,
+                 (pair != 0
+                  ? pair
+                  : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
+                 pp, dp, tp);
     count = ns.size () - count;
 
     if (tt != type::rcbrace)
@@ -1914,8 +1914,8 @@ namespace build2
       next (t, tt); // Get '{'.
       const location loc (get_location (t));
 
-      names_type x; // Parse into a separate list of names.
-      names_trailer (t, tt, x, what, 0, nullptr, nullptr, nullptr);
+      names x; // Parse into a separate list of names.
+      parse_names_trailer (t, tt, x, what, 0, nullptr, nullptr, nullptr);
 
       if (size_t n = x.size ())
       {
@@ -1999,14 +1999,14 @@ namespace build2
     string (path::traits::directory_separators) + '%');
 
   bool parser::
-  names (token& t, type& tt,
-         names_type& ns,
-         bool chunk,
-         const char* what,
-         size_t pair,
-         const string* pp,
-         const dir_path* dp,
-         const string* tp)
+  parse_names (token& t, type& tt,
+               names& ns,
+               bool chunk,
+               const char* what,
+               size_t pair,
+               const string* pp,
+               const dir_path* dp,
+               const string* tp)
   {
     tracer trace ("parser::names", &path_);
 
@@ -2156,7 +2156,7 @@ namespace build2
             tp1 = &t1;
           }
 
-          count = names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
+          count = parse_names_trailer (t, tt, ns, what, pair, pp1, dp1, tp1);
           tt = peek ();
           continue;
         }
@@ -2213,7 +2213,7 @@ namespace build2
         // These two cases are pretty similar in that in both we quickly end
         // up with a list of names that we need to splice into the result.
         //
-        names_type lv_storage;
+        names lv_storage;
         names_view lv;
 
         // Check if we should set/propagate NULL. We only do this if this is
@@ -2253,12 +2253,12 @@ namespace build2
           else if (tt == type::lparen)
           {
             expire_mode ();
-            value v (eval (t, tt)); //@@ OUT will parse @-pair and do well?
+            value v (parse_eval (t, tt)); //@@ OUT will parse @-pair and do well?
 
             if (!v)
               fail (loc) << "null variable/function name";
 
-            names_type storage;
+            names storage;
             vector_view<build2::name> ns (reverse (v, storage)); // Movable.
             size_t n (ns.size ());
 
@@ -2306,7 +2306,7 @@ namespace build2
             // Should we use (target/scope) qualification (of name) as the
             // context in which to call the function?
             //
-            value a (eval (t, tt));
+            value a (parse_eval (t, tt));
             cout << name << "(";
 
             if (a)
@@ -2366,7 +2366,7 @@ namespace build2
         else
         {
           loc = get_location (t);
-          result = eval (t, tt);
+          result = parse_eval (t, tt);
 
           tt = peek ();
 
@@ -2508,7 +2508,7 @@ namespace build2
       //
       if (tt == type::lcbrace)
       {
-        count = names_trailer (t, tt, ns, what, pair, pp, dp, tp);
+        count = parse_names_trailer (t, tt, ns, what, pair, pp, dp, tp);
         tt = peek ();
         continue;
       }
@@ -2720,7 +2720,7 @@ namespace build2
     type tt;
     next (t, tt);
 
-    return buildspec_clause (t, tt, type::eos);
+    return parse_buildspec_clause (t, tt, type::eos);
   }
 
   static bool
@@ -2744,7 +2744,7 @@ namespace build2
   }
 
   buildspec parser::
-  buildspec_clause (token& t, type& tt, type tt_end)
+  parse_buildspec_clause (token& t, type& tt, type tt_end)
   {
     buildspec bs;
 
@@ -2765,7 +2765,7 @@ namespace build2
       // This call will parse the next chunk of output and produce
       // zero or more names.
       //
-      names_type ns (names (t, tt, true));
+      names ns (parse_names (t, tt, true));
 
       // What these names mean depends on what's next. If it is an
       // opening paren, then they are operation/meta-operation names.
@@ -2784,7 +2784,7 @@ namespace build2
         //
         next (t, tt);
         const location l (get_location (t)); // Start of nested names.
-        buildspec nbs (buildspec_clause (t, tt, type::rparen));
+        buildspec nbs (parse_buildspec_clause (t, tt, type::rparen));
 
         // Merge the nested buildspec into ours. But first determine
         // if we are an operation or meta-operation and do some sanity
