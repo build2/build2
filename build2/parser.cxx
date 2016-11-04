@@ -178,7 +178,7 @@ namespace build2
 
     enter_buildfile (p); // Needs scope_.
 
-    token t (type::eos, false, 0, 0);
+    token t;
     type tt;
     next (t, tt);
 
@@ -198,8 +198,8 @@ namespace build2
     target_ = nullptr;
     scope_ = &s;
 
+    token t;
     type tt;
-    token t (type::eos, false, 0, 0);
     variable (t, tt, var, kind);
     return t;
   }
@@ -212,8 +212,8 @@ namespace build2
     target_ = nullptr;
     scope_ = &s;
 
+    token t;
     type tt;
-    token t (type::eos, false, 0, 0);
     value rhs (variable_value (t, tt));
 
     value lhs;
@@ -805,7 +805,7 @@ namespace build2
         lexer* ol (lexer_);
         lexer_ = &l;
 
-        token t (type::eos, false, 0, 0);
+        token t;
         type tt;
         next (t, tt);
         clause (t, tt);
@@ -938,7 +938,7 @@ namespace build2
         target* odt (default_target_);
         default_target_ = nullptr;
 
-        token t (type::eos, false, 0, 0);
+        token t;
         type tt;
         next (t, tt);
         clause (t, tt);
@@ -2040,7 +2040,8 @@ namespace build2
             tt != type::lparen) || peeked ().separated))
       {
         tt = type::name;
-        t = token (move (concat), true, false, t.line, t.column);
+        t = token (
+          move (concat), true, false, t.line, t.column, token_printer);
         concat.clear ();
       }
       else if (!first)
@@ -2744,7 +2745,7 @@ namespace build2
     //
     mode (lexer_mode::value);
 
-    token t (type::eos, false, 0, 0);
+    token t;
     type tt;
     next (t, tt);
 

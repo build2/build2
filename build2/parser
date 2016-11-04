@@ -375,7 +375,7 @@ namespace build2
     target* default_target_;
     names_type export_value_;
 
-    token peek_ = token (token_type::eos, false, 0, 0);
+    token peek_ = token (token_type::eos, false, 0, 0, token_printer);
     bool peeked_ = false;
 
     enum class replay {stop, save, play} replay_ = replay::stop;

@@ -18,6 +18,8 @@ namespace build2
   {
     enum
     {
+      // NOTE: remember to update token_printer()!
+
       eos,
       name,
       newline,
@@ -50,9 +52,16 @@ namespace build2
     value_type v_;
   };
 
+  class token;
+
+  void
+  token_printer (ostream&, const token&, bool);
+
   class token
   {
   public:
+    using printer_type = void (ostream&, const token&, bool diag);
+
     token_type type;
     bool separated; // Whitespace-separated from the previous token.
     bool quoted;    // Name (or some part of it) was quoted.
@@ -62,23 +71,27 @@ namespace build2
     uint64_t line;
     uint64_t column;
 
-  public:
-    token (token_type t, bool s, uint64_t l, uint64_t c)
-        : type (t), separated (s), quoted (false), line (l), column (c) {}
+    printer_type* printer;
 
-    token (string n, bool s, bool q, uint64_t l, uint64_t c)
-        : type (token_type::name),
-          separated (s),
-          quoted (q),
-          value (move (n)),
-          line (l),
-          column (c) {}
+  public:
+    token ()
+        : token (token_type::eos, false, 0, 0, token_printer) {}
+
+    token (token_type t, bool s, uint64_t l, uint64_t c, printer_type* p)
+        : type (t), separated (s), quoted (false),
+          line (l), column (c),
+          printer (p) {}
+
+    token (string n, bool s, bool q, uint64_t l, uint64_t c, printer_type* p)
+        : type (token_type::name), separated (s), quoted (q), value (move (n)),
+          line (l), column (c),
+          printer (p) {}
   };
 
   // Output the token value in a format suitable for diagnostics.
   //
-  ostream&
-  operator<< (ostream&, const token&);
+  inline ostream&
+  operator<< (ostream& o, const token& t) {t.printer (o, t, true); return o;}
 
   // Diagnostics plumbing. We assume that any diag stream for which we can use
   // token as location has its aux data pointing to pointer to path.

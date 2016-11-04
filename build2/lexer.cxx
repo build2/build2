@@ -97,14 +97,19 @@ namespace build2
     xchar c (get ());
     uint64_t ln (c.line), cn (c.column);
 
+    auto make_token = [sep, ln, cn] (type t)
+    {
+      return token (t, sep, ln, cn, token_printer);
+    };
+
     if (eos (c))
-      return token (type::eos, sep, ln, cn);
+      return make_token (type::eos);
 
     // Handle pair separator.
     //
     if ((m == lexer_mode::normal || m == lexer_mode::value) &&
         c == state_.top ().sep_pair)
-      return token (type::pair_separator, sep, ln, cn);
+      return make_token (type::pair_separator);
 
     switch (c)
     {
@@ -118,15 +123,15 @@ namespace build2
         if (m == lexer_mode::value)
           state_.pop ();
 
-        return token (type::newline, sep, ln, cn);
+        return make_token (type::newline);
       }
-    case '{': return token (type::lcbrace, sep, ln, cn);
-    case '}': return token (type::rcbrace, sep, ln, cn);
-    case '[': return token (type::lsbrace, sep, ln, cn);
-    case ']': return token (type::rsbrace, sep, ln, cn);
-    case '$': return token (type::dollar, sep, ln, cn);
-    case '(': return token (type::lparen, sep, ln, cn);
-    case ')': return token (type::rparen, sep, ln, cn);
+    case '{': return make_token (type::lcbrace);
+    case '}': return make_token (type::rcbrace);
+    case '[': return make_token (type::lsbrace);
+    case ']': return make_token (type::rsbrace);
+    case '$': return make_token (type::dollar);
+    case '(': return make_token (type::lparen);
+    case ')': return make_token (type::rparen);
     }
 
     // The following characters are not treated as special in the value mode.
@@ -138,23 +143,23 @@ namespace build2
         // NOTE: remember to update mode(), next_eval() if adding new special
         // characters.
         //
-      case ':': return token (type::colon, sep, ln, cn);
+      case ':': return make_token (type::colon);
       case '=':
         {
           if (peek () == '+')
           {
             get ();
-            return token (type::prepend, sep, ln, cn);
+            return make_token (type::prepend);
           }
           else
-            return token (type::assign, sep, ln, cn);
+            return make_token (type::assign);
         }
       case '+':
         {
           if (peek () == '=')
           {
             get ();
-            return token (type::append, sep, ln, cn);
+            return make_token (type::append);
           }
         }
       }
@@ -177,6 +182,11 @@ namespace build2
 
     uint64_t ln (c.line), cn (c.column);
 
+    auto make_token = [sep, ln, cn] (type t)
+    {
+      return token (t, sep, ln, cn, token_printer);
+    };
+
     // This mode is quite a bit like the value mode when it comes to special
     // characters, except that we have some of our own.
     //
@@ -184,7 +194,7 @@ namespace build2
     // Handle pair separator.
     //
     if (c == state_.top ().sep_pair)
-      return token (type::pair_separator, sep, ln, cn);
+      return make_token (type::pair_separator);
 
     // Note: we don't treat [ and ] as special here. Maybe can use them for
     // something later.
@@ -194,17 +204,17 @@ namespace build2
       // NOTE: remember to update mode() if adding new special characters.
       //
     case '\n': fail (c) << "newline in evaluation context";
-    case ':': return token (type::colon, sep, ln, cn);
-    case '{': return token (type::lcbrace, sep, ln, cn);
-    case '}': return token (type::rcbrace, sep, ln, cn);
-    case '[': return token (type::lsbrace, sep, ln, cn);
-    case ']': return token (type::rsbrace, sep, ln, cn);
-    case '$': return token (type::dollar, sep, ln, cn);
-    case '(': return token (type::lparen, sep, ln, cn);
+    case ':': return make_token (type::colon);
+    case '{': return make_token (type::lcbrace);
+    case '}': return make_token (type::rcbrace);
+    case '[': return make_token (type::lsbrace);
+    case ']': return make_token (type::rsbrace);
+    case '$': return make_token (type::dollar);
+    case '(': return make_token (type::lparen);
     case ')':
       {
         state_.pop (); // Expire eval mode.
-        return token (type::rparen, sep, ln, cn);
+        return make_token (type::rparen);
       }
     case '=':
     case '!':
@@ -212,7 +222,7 @@ namespace build2
         if (peek () == '=')
         {
           get ();
-          return token (c == '=' ? type::equal : type::not_equal, sep, ln, cn);
+          return make_token (c == '=' ? type::equal : type::not_equal);
         }
         break;
       }
@@ -223,10 +233,9 @@ namespace build2
         if (e)
           get ();
 
-        return token (c == '<'
-                      ? e ? type::less_equal : type::less
-                      : e ? type::greater_equal : type::greater,
-                      sep, ln, cn);
+        return make_token (c == '<'
+                           ? e ? type::less_equal : type::less
+                           : e ? type::greater_equal : type::greater);
       }
     }
 
@@ -248,8 +257,8 @@ namespace build2
 
     switch (c)
     {
-    case '$': return token (type::dollar, false, ln, cn);
-    case '(': return token (type::lparen, false, ln, cn);
+    case '$': return token (type::dollar, false, ln, cn, token_printer);
+    case '(': return token (type::lparen, false, ln, cn, token_printer);
     }
 
     // Otherwise it is a name.
@@ -435,7 +444,7 @@ namespace build2
     if (m == lexer_mode::variable)
       state_.pop ();
 
-    return token (lexeme, sep, quoted, ln, cn);
+    return token (lexeme, sep, quoted, ln, cn, token_printer);
 
   }
 
