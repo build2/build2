@@ -31,6 +31,12 @@ namespace build2
   // automatically reset after the end of the line. The variable mode is reset
   // after the word token. And the eval mode is reset after the closing ')'.
   //
+  // Note that normally it is only safe to switch mode when the current token
+  // is not quoted (or, more generally, when you are not in the double-quoted
+  // mode) unless the mode treats the double-quote as a separator (e.g.,
+  // variable name mode). Failed that your mode (which now will be the top of
+  // the mode stack) will prevent proper recognition of the closing quote.
+  //
 
   // Extendable/inheritable enum-like class.
   //
@@ -102,6 +108,23 @@ namespace build2
     peek_char ();
 
   protected:
+    struct state
+    {
+      lexer_mode mode;
+
+      char sep_pair;
+      bool sep_space; // Are whitespaces separators (see skip_spaces())?
+
+      // Word separator characters. For two-character sequence put the first
+      // one in sep_first and the second one in the corresponding position of
+      // sep_second. If it's a single-character sequence, then put space in
+      // sep_second. If there are multiple sequences that start with the same
+      // character, then repeat the first character in sep_first.
+      //
+      const char* sep_first;
+      const char* sep_second;
+    };
+
     // If you extend the lexer and add a custom lexer mode, then you must
     // override next_impl() and handle the custom mode there.
     //
@@ -115,7 +138,7 @@ namespace build2
     next_quoted ();
 
     virtual token
-    word (bool separated);
+    word (state, bool separated);
 
     // Return true if we have seen any spaces. Skipped empty lines
     // don't count. In other words, we are only interested in spaces
@@ -161,22 +184,6 @@ namespace build2
     const char* escapes_;
     void (*processor_) (token&, const lexer&);
 
-    struct state
-    {
-      lexer_mode mode;
-
-      char sep_pair;
-      bool sep_space; // Are whitespaces separators (see skip_spaces())?
-
-      // Word separator characters. For two-character sequence put the first
-      // one in sep_first and the second one in the corresponding position of
-      // sep_second. If it's a single-character sequence, then put space in
-      // sep_second. If there are multiple sequences that start with the same
-      // character, then repeat the first character in sep_first.
-      //
-      const char* sep_first;
-      const char* sep_second;
-    };
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().

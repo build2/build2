@@ -78,7 +78,8 @@ namespace build2
   token lexer::
   next_impl ()
   {
-    lexer_mode m (state_.top ().mode);
+    const state& st (state_.top ());
+    lexer_mode m (st.mode);
 
     // For some modes we have dedicated imlementations of next().
     //
@@ -108,7 +109,7 @@ namespace build2
     // Handle pair separator.
     //
     if ((m == lexer_mode::normal || m == lexer_mode::value) &&
-        c == state_.top ().sep_pair)
+        c == st.sep_pair)
       return make_token (type::pair_separator);
 
     switch (c)
@@ -168,7 +169,7 @@ namespace build2
     // Otherwise it is a word.
     //
     unget (c);
-    return word (sep);
+    return word (st, sep);
   }
 
   token lexer::
@@ -179,6 +180,8 @@ namespace build2
 
     if (eos (c))
       fail (c) << "unterminated evaluation context";
+
+    const state& st (state_.top ());
 
     uint64_t ln (c.line), cn (c.column);
 
@@ -193,7 +196,7 @@ namespace build2
 
     // Handle pair separator.
     //
-    if (c == state_.top ().sep_pair)
+    if (c == st.sep_pair)
       return make_token (type::pair_separator);
 
     // Note: we don't treat [ and ] as special here. Maybe can use them for
@@ -242,7 +245,7 @@ namespace build2
     // Otherwise it is a word.
     //
     unget (c);
-    return word (sep);
+    return word (st, sep);
   }
 
   token lexer::
@@ -264,13 +267,13 @@ namespace build2
     // Otherwise it is a word.
     //
     unget (c);
-    return word (false);
+    return word (state_.top (), false);
   }
 
   token lexer::
-  word (bool sep)
+  word (state st, bool sep)
   {
-    lexer_mode m (state_.top ().mode);
+    lexer_mode m (st.mode);
 
     xchar c (peek ());
     assert (!eos (c));
@@ -337,7 +340,9 @@ namespace build2
           {
             get ();
             state_.pop ();
-            m = state_.top ().mode;
+
+            st = state_.top ();
+            m = st.mode;
             continue;
           }
         }
@@ -366,7 +371,6 @@ namespace build2
       {
         // First check if it's a pair separator.
         //
-        const state& st (state_.top ());
         if (c == st.sep_pair)
           done = true;
         else
@@ -421,7 +425,11 @@ namespace build2
           case '\"':
             {
               get ();
-              mode ((m = lexer_mode::double_quoted));
+
+              mode (lexer_mode::double_quoted);
+              st = state_.top ();
+              m = st.mode;
+
               quoted = true;
               continue;
             }
