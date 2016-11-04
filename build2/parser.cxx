@@ -270,7 +270,7 @@ namespace build2
       if (tt == type::word && keyword (t))
       {
         const string& n (t.value);
-        void (parser::*f) (token&, token_type&) = nullptr;
+        void (parser::*f) (token&, type&) = nullptr;
 
         if (n == "print")
         {
@@ -1546,7 +1546,7 @@ namespace build2
   apply_value_attributes (const variable* var,
                           value& v,
                           value&& rhs,
-                          token_type kind)
+                          type kind)
   {
     attributes a (attributes_pop ());
     const location& l (a.loc);
@@ -1600,7 +1600,7 @@ namespace build2
         fail (l) << "conflicting variable " << var->name << " type "
                  << var->type->name << " and value type " << type->name;
 
-      if (kind == token_type::assign)
+      if (kind == type::assign)
       {
         if (type != v.type)
         {
@@ -1622,12 +1622,12 @@ namespace build2
 
     if (null)
     {
-      if (kind == token_type::assign) // Ignore for prepend/append.
+      if (kind == type::assign) // Ignore for prepend/append.
         v = nullptr;
     }
     else
     {
-      if (kind == token_type::assign)
+      if (kind == type::assign)
       {
         if (rhs)
           v.assign (move (rhs).as<names> (), var);
@@ -1636,7 +1636,7 @@ namespace build2
       }
       else if (rhs) // Don't append/prepent NULL.
       {
-        if (kind == token_type::prepend)
+        if (kind == type::prepend)
           v.prepend (move (rhs).as<names> (), var);
         else
           v.append (move (rhs).as<names> (), var);
@@ -1820,7 +1820,7 @@ namespace build2
   }
 
   pair<bool, location> parser::
-  attributes_push (token& t, token_type& tt, bool standalone)
+  attributes_push (token& t, type& tt, bool standalone)
   {
     location l (get_location (t));
     bool has (tt == type::lsbrace);
