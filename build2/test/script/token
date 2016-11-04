@@ -22,6 +22,8 @@ namespace build2
 
         enum
         {
+          // NOTE: remember to update token_printer()!
+
           pipe = base_type::value_next, // |
           clean,                        // &
           log_and,                      // &&
@@ -33,11 +35,14 @@ namespace build2
 
           out_null,                     // <!
           out_string,                   // <
-          out_document,                 // <<
+          out_document                  // <<
         };
 
         using base_type::base_type;
       };
+
+      void
+      token_printer (ostream&, const token&, bool);
     }
   }
 }

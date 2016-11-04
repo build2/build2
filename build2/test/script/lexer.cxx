@@ -101,8 +101,13 @@ namespace build2
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);
 
+        auto make_token = [sep, ln, cn] (type t)
+        {
+          return token (t, sep, ln, cn, token_printer);
+        };
+
         if (eos (c))
-          return token (type::eos, sep, ln, cn);
+          return make_token (type::eos);
 
         lexer_mode m (state_.top ().mode);
 
@@ -114,13 +119,13 @@ namespace build2
           {
           case '\n':
             {
-              return token (type::newline, sep, ln, cn);
+              return make_token (type::newline);
             }
 
             // Variable expansion, function call, and evaluation context.
             //
-          case '$': return token (type::dollar, sep, ln, cn);
-          case '(': return token (type::lparen, sep, ln, cn);
+          case '$': return make_token (type::dollar);
+          case '(': return make_token (type::lparen);
           }
         }
 
@@ -130,8 +135,8 @@ namespace build2
           {
             // Attributes.
             //
-          case '[': return token (type::lsbrace, sep, ln, cn);
-          case ']': return token (type::rsbrace, sep, ln, cn);
+          case '[': return make_token (type::lsbrace);
+          case ']': return make_token (type::rsbrace);
           }
         }
 
@@ -149,8 +154,7 @@ namespace build2
               if (peek () == '=')
               {
                 get ();
-                return token (
-                  c == '=' ? type::equal : type::not_equal, sep, ln, cn);
+                return make_token (c == '=' ? type::equal : type::not_equal);
               }
             }
           }
@@ -171,10 +175,10 @@ namespace build2
               if (peek () == '|')
               {
                 get ();
-                return token (type::log_or, sep, ln, cn);
+                return make_token (type::log_or);
               }
               else
-                return token (type::pipe, sep, ln, cn);
+                return make_token (type::pipe);
             }
             // &, &&
             //
@@ -183,10 +187,10 @@ namespace build2
               if (peek () == '&')
               {
                 get ();
-                return token (type::log_and, sep, ln, cn);
+                return make_token (type::log_and);
               }
               else
-                return token (type::clean, sep, ln, cn);
+                return make_token (type::clean);
             }
             // <
             //
@@ -197,11 +201,11 @@ namespace build2
               if (p == '!' || p == '<')
               {
                 get ();
-                return token (
-                  p == '!' ? type::in_null : type::in_document, sep, ln, cn);
+                return make_token (
+                  p == '!' ? type::in_null : type::in_document);
               }
               else
-                return token (type::in_string, sep, ln, cn);
+                return make_token (type::in_string);
 
             }
             // >
@@ -213,11 +217,11 @@ namespace build2
               if (p == '!' || p == '>')
               {
                 get ();
-                return token (
-                  p == '!' ? type::out_null : type::out_document, sep, ln, cn);
+                return make_token (
+                  p == '!' ? type::out_null : type::out_document);
               }
               else
-                return token (type::out_string, sep, ln, cn);
+                return make_token (type::out_string);
             }
           }
         }
@@ -233,17 +237,17 @@ namespace build2
               if (peek () == '+')
               {
                 get ();
-                return token (type::prepend, sep, ln, cn);
+                return make_token (type::prepend);
               }
               else
-                return token (type::assign, sep, ln, cn);
+                return make_token (type::assign);
             }
           case '+':
             {
               if (peek () == '=')
               {
                 get ();
-                return token (type::append, sep, ln, cn);
+                return make_token (type::append);
               }
             }
           }

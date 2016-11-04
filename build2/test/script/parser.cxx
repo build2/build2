@@ -35,7 +35,7 @@ namespace build2
 
         runner_ = &r;
 
-        token t (type::eos, false, 0, 0);
+        token t;
         type tt;
         next (t, tt);
 
