@@ -14,6 +14,10 @@ namespace build2
 {
   // Extendable/inheritable enum-like class.
   //
+  // A line consists of a sequence of words separated by separators and
+  // terminated with the newline. If whitespace is a separator, then it is
+  // ignored.
+  //
   struct token_type
   {
     enum
@@ -21,8 +25,8 @@ namespace build2
       // NOTE: remember to update token_printer()!
 
       eos,
-      name,
       newline,
+      word,
       pair_separator,
       colon,
       lcbrace,       // {
@@ -64,9 +68,9 @@ namespace build2
 
     token_type type;
     bool separated; // Whitespace-separated from the previous token.
-    bool quoted;    // Name (or some part of it) was quoted.
+    bool quoted;    // Word (or some part of it) was quoted.
 
-    string value;   // Only valid for name.
+    string value;   // Only valid for word.
 
     uint64_t line;
     uint64_t column;
@@ -82,8 +86,8 @@ namespace build2
           line (l), column (c),
           printer (p) {}
 
-    token (string n, bool s, bool q, uint64_t l, uint64_t c)
-        : type (token_type::name), separated (s), quoted (q), value (move (n)),
+    token (string v, bool s, bool q, uint64_t l, uint64_t c)
+        : type (token_type::word), separated (s), quoted (q), value (move (v)),
           line (l), column (c),
           printer (&token_printer) {}
   };

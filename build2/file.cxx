@@ -282,7 +282,7 @@ namespace build2
       token t (lex.next ());
       token_type tt;
 
-      if (t.type != token_type::name || t.value != name ||
+      if (t.type != token_type::word || t.value != name ||
           ((tt = lex.next ().type) != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))

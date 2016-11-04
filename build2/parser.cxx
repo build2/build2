@@ -244,7 +244,7 @@ namespace build2
 
       // We always start with one or more names.
       //
-      if (tt != type::name    &&
+      if (tt != type::word    &&
           tt != type::lcbrace && // Untyped name group: '{foo ...'
           tt != type::dollar  && // Variable expansion: '$foo ...'
           tt != type::lparen  && // Eval context: '(foo) ...'
@@ -267,7 +267,7 @@ namespace build2
 
       // See if this is one of the directives.
       //
-      if (tt == type::name && keyword (t))
+      if (tt == type::word && keyword (t))
       {
         const string& n (t.value);
         void (parser::*f) (token&, token_type&) = nullptr;
@@ -436,7 +436,7 @@ namespace build2
 
         attributes& a (attributes_push (t, tt));
 
-        if (tt == type::name    ||
+        if (tt == type::word    ||
             tt == type::lcbrace ||
             tt == type::dollar  ||
             tt == type::lparen  ||
@@ -1000,7 +1000,7 @@ namespace build2
     //
     attributes& a (attributes_push (t, tt));
 
-    if (tt == type::name)
+    if (tt == type::word)
     {
       // Split the token into the variable name and value at position (p) of
       // '=', taking into account leading/trailing '+'. The variable name is
@@ -1047,7 +1047,7 @@ namespace build2
       //
       // This could still be the 'foo =...' case.
       //
-      else if (peek () == type::name)
+      else if (peek () == type::word)
       {
         const string& v (peeked ().value);
         size_t n (v.size ());
@@ -1243,7 +1243,7 @@ namespace build2
     //
     // See tests/define.
     //
-    if (next (t, tt) != type::name)
+    if (next (t, tt) != type::word)
       fail (t) << "expected name instead of " << t << " in target type "
                << "definition";
 
@@ -1256,7 +1256,7 @@ namespace build2
 
     next (t, tt);
 
-    if (tt == type::name)
+    if (tt == type::word)
     {
       // Target.
       //
@@ -1389,7 +1389,7 @@ namespace build2
 
       // See if we have another el* keyword.
       //
-      if (k != "else" && tt == type::name && keyword (t))
+      if (k != "else" && tt == type::word && keyword (t))
       {
         const string& n (t.value);
 
@@ -2035,14 +2035,14 @@ namespace build2
     {
       // If the accumulating buffer is not empty, then we have two options:
       // continue accumulating or inject. We inject if the next token is
-      // not a name, var expansion, or eval context or if it is separated.
+      // not a word, var expansion, or eval context or if it is separated.
       //
       if (!concat.empty () &&
-          ((tt != type::name   &&
+          ((tt != type::word   &&
             tt != type::dollar &&
             tt != type::lparen) || peeked ().separated))
       {
-        tt = type::name;
+        tt = type::word;
         t = token (move (concat), true, false, t.line, t.column);
         concat.clear ();
       }
@@ -2058,7 +2058,7 @@ namespace build2
 
       // Name.
       //
-      if (tt == type::name)
+      if (tt == type::word)
       {
         string name (t.value); //@@ move?
         tt = peek ();
@@ -2222,7 +2222,7 @@ namespace build2
         auto set_null = [first, &tt] ()
         {
           return first &&
-            tt != type::name &&
+            tt != type::word &&
             tt != type::dollar &&
             tt != type::lparen &&
             tt != type::lcbrace &&
@@ -2237,7 +2237,7 @@ namespace build2
         {
           // Switch to the variable name mode. We want to use this mode for
           // $foo but not for $(foo). Since we don't know whether the next
-          // token is a paren or a name, we turn it on and switch to the eval
+          // token is a paren or a word, we turn it on and switch to the eval
           // mode if what we get next is a paren.
           //
           mode (lexer_mode::variable);
@@ -2247,7 +2247,7 @@ namespace build2
           name qual;
           string name;
 
-          if (tt == type::name)
+          if (tt == type::word)
             name = t.value;
           else if (tt == type::lparen)
           {
@@ -2392,11 +2392,11 @@ namespace build2
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
         // should have been handled by the injection code above). If
-        // the next token is a name or var expansion and it is not
+        // the next token is a word or var expansion and it is not
         // separated, then we need to start accumulating.
         //
         if (!concat.empty () ||                       // Continue.
-            ((tt == type::name   ||                   // Start.
+            ((tt == type::word   ||                   // Start.
               tt == type::dollar ||
               tt == type::lparen) && !peeked ().separated))
         {
@@ -2639,7 +2639,7 @@ namespace build2
   keyword (token& t)
   {
     assert (replay_ == replay::stop); // Can't be used in a replay.
-    assert (t.type == type::name);
+    assert (t.type == type::word);
 
     // The goal here is to allow using keywords as variable names and
     // target types without imposing ugly restrictions/decorators on
@@ -2749,10 +2749,10 @@ namespace build2
 
     while (tt != tt_end)
     {
-      // We always start with one or more names. Eval context
-      // (lparen) only allowed if quoted.
+      // We always start with one or more names. Eval context (lparen) only
+      // allowed if quoted.
       //
-      if (tt != type::name    &&
+      if (tt != type::word    &&
           tt != type::lcbrace &&      // Untyped name group: '{foo ...'
           tt != type::dollar  &&      // Variable expansion: '$foo ...'
           !(tt == type::lparen && mode () == lexer_mode::double_quoted) &&

@@ -110,14 +110,14 @@ namespace build2
       //
       lexer l (is, path ("<cmdline>"), "\'\"\\$(");
 
-      // The first token should be a name, either the variable name or the
+      // The first token should be a word, either the variable name or the
       // scope qualification.
       //
       token t (l.next ());
       token_type tt (l.next ().type);
 
       dir_path dir;
-      if (t.type == token_type::name && tt == token_type::colon)
+      if (t.type == token_type::word && tt == token_type::colon)
       {
         if (!path::traits::is_separator (t.value.back ()))
           fail << "expected directory (with trailing slash) instead of "
@@ -136,7 +136,7 @@ namespace build2
 
       // This should be the variable name followed by =, +=, or =+.
       //
-      if (t.type != token_type::name || t.value.empty () ||
+      if (t.type != token_type::word || t.value.empty () ||
           (tt != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))

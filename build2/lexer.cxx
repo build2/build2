@@ -66,7 +66,7 @@ namespace build2
       // Fall through.
     case lexer_mode::variable:
       {
-        // These are handled in an ad hoc way in name().
+        // These are handled in an ad hoc way in word().
         break;
       }
     default: assert (false); // Unhandled custom mode.
@@ -165,10 +165,10 @@ namespace build2
       }
     }
 
-    // Otherwise it is a name.
+    // Otherwise it is a word.
     //
     unget (c);
-    return name (sep);
+    return word (sep);
   }
 
   token lexer::
@@ -239,10 +239,10 @@ namespace build2
       }
     }
 
-    // Otherwise it is a name.
+    // Otherwise it is a word.
     //
     unget (c);
-    return name (sep);
+    return word (sep);
   }
 
   token lexer::
@@ -261,14 +261,14 @@ namespace build2
     case '(': return token (type::lparen, false, ln, cn, token_printer);
     }
 
-    // Otherwise it is a name.
+    // Otherwise it is a word.
     //
     unget (c);
-    return name (false);
+    return word (false);
   }
 
   token lexer::
-  name (bool sep)
+  word (bool sep)
   {
     lexer_mode m (state_.top ().mode);
 
@@ -439,7 +439,7 @@ namespace build2
     if (eos (c) && m == lexer_mode::double_quoted)
       fail (c) << "unterminated double-quoted sequence";
 
-    // Expire variable mode at the end of the name.
+    // Expire variable mode at the end of the word.
     //
     if (m == lexer_mode::variable)
       state_.pop ();
