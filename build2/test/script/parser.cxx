@@ -62,7 +62,7 @@ namespace build2
         names_type ns;
         location nl (get_location (t));
         lexer_->reset_quoted (t.quoted);
-        names (t, tt, ns, true);
+        names (t, tt, ns, true, "variable or program name");
 
         // See if this is a variable assignment or a test command.
         //
@@ -457,7 +457,7 @@ namespace build2
               ns.clear ();
               lexer_->reset_quoted (t.quoted);
               nl = get_location (t);
-              names (t, tt, ns, true);
+              names (t, tt, ns, true, "command");
               continue;
             }
           }
@@ -533,7 +533,7 @@ namespace build2
       {
         // The next chunk should be the exit status.
         //
-        names_type ns (names (t, tt, true));
+        names_type ns (names (t, tt, true, "exit status"));
 
         //@@ TODO: validate to be single, simple, non-empty name that
         //         converts to integer (is exit status always non-negative).
@@ -561,7 +561,7 @@ namespace build2
 
           // Expand the line.
           //
-          names_type ns (names (t, tt));
+          names_type ns (names (t, tt, false, "here-document line"));
 
           // What shall we do if the expansion results in multiple names? For,
           // example if the line contains just the variable expansion and it

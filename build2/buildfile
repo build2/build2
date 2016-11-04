@@ -80,6 +80,7 @@ test/script/{hxx         cxx}{ lexer            } \
 test/script/{hxx         cxx}{ parser           } \
 test/script/{hxx         cxx}{ runner           } \
 test/script/{hxx         cxx}{ script           } \
+test/script/{hxx         cxx}{ token            } \
                                $libs
 
 # Pass our compiler target to be used as build2 host.
