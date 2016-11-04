@@ -200,7 +200,7 @@ namespace build2
 
     token t;
     type tt;
-    variable (t, tt, var, kind);
+    parse_variable (t, tt, var, kind);
     return t;
   }
 
@@ -491,7 +491,7 @@ namespace build2
                     info << "consider changing to '.../*: " << var << "'";
 
                 enter_scope sg (*this, move (n.dir));
-                variable (t, tt, var, att);
+                parse_variable (t, tt, var, att);
               }
               else
               {
@@ -504,7 +504,7 @@ namespace build2
                 {
                   name o (n.pair ? move (*++i) : name ());
                   enter_target tg (*this, move (n), move (o), nloc, trace);
-                  variable (t, tt, var, att);
+                  parse_variable (t, tt, var, att);
                 }
                 else
                 {
@@ -728,7 +728,7 @@ namespace build2
                       << "assigned in a scope" <<
             info << "consider changing to '*: " << var << "'";
 
-        variable (t, tt, var, tt);
+        parse_variable (t, tt, var, tt);
 
         if (tt == type::newline)
           next (t, tt);
@@ -1455,7 +1455,7 @@ namespace build2
   }
 
   void parser::
-  variable (token& t, type& tt, const variable_type& var, type kind)
+  parse_variable (token& t, type& tt, const variable_type& var, type kind)
   {
     value rhs (variable_value (t, tt));
 
@@ -2344,43 +2344,10 @@ namespace build2
           {
             // Variable expansion.
             //
-
-            // Process variable name.
-            //
-            if (name.front () == '.') // Fully qualified name.
-              name.erase (0, 1);
-            else
-            {
-              //@@ TODO: append namespace if any.
-            }
-
-            // If we are qualified, it can be a scope or a target.
-            //
-            enter_scope sg;
-            enter_target tg;
-
-            if (qual.directory ()) //@@ OUT
-              sg = enter_scope (*this, move (qual.dir));
-            else if (!qual.empty ())
-              // @@ OUT TODO
-              //
-              tg = enter_target (
-                *this, move (qual), build2::name (), loc, trace);
-
-            // Lookup.
-            //
-            const auto& var (var_pool.insert (move (name)));
-            auto l (target_ != nullptr ? (*target_)[var] : (*scope_)[var]);
+            lookup l (lookup_variable (move (qual), move (name), loc));
 
             if (!l)
             {
-              // Undefined/NULL namespace variables are not allowed.
-              //
-              // @@ TMP this isn't proving to be particularly useful.
-              //
-              //if (var.name.find ('.') != string::npos)
-              //fail (loc) << "undefined/null namespace variable " << var;
-
               // See if we should set the NULL indicator.
               //
               if (set_null ())
@@ -2933,6 +2900,48 @@ namespace build2
     }
 
     return bs;
+  }
+
+  lookup parser::
+  lookup_variable (name&& qual, string&& name, const location& loc)
+  {
+    tracer trace ("parser::lookup_variable", &path_);
+
+    // Process variable name.
+    //
+    if (name.front () == '.') // Fully namespace-qualified name.
+      name.erase (0, 1);
+    else
+    {
+      //@@ TODO: append namespace if any.
+    }
+
+    // If we are qualified, it can be a scope or a target.
+    //
+    enter_scope sg;
+    enter_target tg;
+
+    if (qual.directory ()) //@@ OUT
+      sg = enter_scope (*this, move (qual.dir));
+    else if (!qual.empty ())
+      // @@ OUT TODO
+      //
+      tg = enter_target (*this, move (qual), build2::name (), loc, trace);
+
+    // Lookup.
+    //
+    const auto& var (var_pool.insert (move (name)));
+    return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
+
+    // Undefined/NULL namespace variables are not allowed.
+    //
+    // @@ TMP this isn't proving to be particularly useful.
+    //
+    // if (!l)
+    // {
+    //   if (var.name.find ('.') != string::npos)
+    //     fail (loc) << "undefined/null namespace variable " << var;
+    // }
   }
 
   void parser::

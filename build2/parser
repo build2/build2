@@ -91,12 +91,13 @@ namespace build2
     if_else (token&, token_type&);
 
     void
-    variable (token&, token_type&, const variable_type&, token_type kind);
+    parse_variable (token&, token_type&, const variable_type&, token_type);
 
     string
     variable_name (names_type&&, const location&);
 
-    // Note: calls attributes_push() that the caller must pop.
+    // Note: calls attributes_push() that the caller must pop. Also expects
+    // the mode to auto-expire.
     //
     value
     variable_value (token&, token_type&, lexer_mode = lexer_mode::value);
@@ -232,6 +233,12 @@ namespace build2
     //
     buildspec
     buildspec_clause (token&, token_type&, token_type end);
+
+    // Customization hooks.
+    //
+  protected:
+    virtual lookup
+    lookup_variable (name&& qual, string&& name, const location&);
 
     // Utilities.
     //
