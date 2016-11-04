@@ -2,14 +2,10 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef _WIN32
-#  include <sys/wait.h>  // WIFEXITED(), WEXITSTATUS()
-#endif
-
+#include <set>
 #include <iostream> // cerr
 
-#include <butl/filesystem> // auto_rm
-
+#include <build2/filesystem>
 #include <build2/test/script/runner>
 
 using namespace std;
@@ -21,141 +17,105 @@ namespace build2
   {
     namespace script
     {
-      // Test command output cache. The usage is as follows:
+      // @@ Eventually the cleanup facility should move into the scope object.
       //
-      // 1. Call wopen() to open the stream in write mode and register the file
-      //    for auto-removal by dtor.
-      //
-      // 2. Pass the file descriptor to the test command process ctor to
-      //    redirect it's output to the cache file.
-      //
-      // 3. Close the stream.
-      //
-      // 4. Call ropen() to open the file in read mode to match the content to
-      //    a pattern, cancel the file removal if the match fails (so the
-      //    output is available for troubleshooting).
-      //
-      class stream_cache: public ifdstream // @@ Open for output?
+      class cleanup
       {
       public:
-        using path_type = butl::path;
+        void
+        add (path p) {files_.emplace (move (p));}
 
-        stream_cache (const char* n): name (n) {}
+        void
+        cancel (const path& p) {files_.erase (p);}
 
-        // Open stream for writing. Return the file descriptor. Must not be
-        // called multiple times.
-        //
-        int
-        wopen ()
+        ~cleanup ()
         {
-          // Otherwise compiler gets confused with basic_ios::fail().
-          //
-          using build2::fail;
-
-          assert (!exists ());
-
-          try
-          {
-            // @@ Later it will make sense to create the file in the
-            //    test-specific temporary directory.
-            //
-            path = path_type::temp_path ("build2");
-          }
-          catch (const system_error& e)
-          {
-            fail << "unable to create temporary file: " << e.what ();
-          }
-
-          try
-          {
-            open (path, out | trunc);
-            cleanup = auto_rm<path_type> (path);
-          }
-          catch (const io_error& e)
-          {
-            fail << "unable to write " << path << ": " << e.what ();
-          }
-
-          return fd ();
+          for (const auto& p: files_)
+            try_rmfile (p, true);
         }
 
-        // Open stream for reading. Return true if the file is not empty,
-        // false otherwise. Must not be called before wopen().
-        //
-        bool
-        ropen ()
-        {
-          // Otherwise compiler gets confused with basic_ios::fail().
-          //
-          using build2::fail;
-
-          assert (exists ());
-
-          try
-          {
-            open (path, in);
-            return peek () != ifdstream::traits_type::eof ();
-          }
-          catch (const io_error& e)
-          {
-            error << "unable to read " << path << ": " << e.what ();
-            throw failed ();
-          }
-        }
-
-        // Return true if wopen() was called, false otherwise.
-        //
-        bool
-        exists () const {return !path.empty ();}
-
-        ~stream_cache () override
-        {
-          close (); // Close the stream prior to the file deletion.
-        }
-
-      public:
-        string name;
-        path_type path;
-        auto_rm<path_type> cleanup;
+      private:
+        set<path> files_;
       };
 
-      // Check if the test command output matches the pattern (redirect value).
+      // Check if the file exists and is not empty.
       //
-      // @@ Expected result | expected output
+      static bool
+      non_empty (const path& p)
+      {
+        if (!exists (p))
+          return false;
+
+        try
+        {
+          ifdstream is (p);
+          return is.peek () != ifdstream::traits_type::eof ();
+        }
+        catch (const io_error& e)
+        {
+          error << "unable to read " << p << ": " << e.what ();
+          throw failed ();
+        }
+      }
+
+      // Check if the test command output matches the expected result (redirect
+      // value).
       //
       static void
-      check_output (const process_path& program,
-                    stream_cache& sc,
-                    const redirect& rd)
+      check_output (const process_path& pr,
+                    const char* nm,
+                    const path& op,
+                    const redirect& rd,
+                    const location& cl,
+                    cleanup& cln)
       {
         if (rd.type == redirect_type::none)
         {
-          // Check that the cache file is empty.
+          // Check that there is no output produced.
           //
-          if (sc.ropen ())
+          if (non_empty (op))
           {
-            sc.cleanup.cancel ();
+            cln.cancel (op);
 
-            fail << program << " unexpectedly writes to " << sc.name <<
-                info << sc.name << " is saved to " << sc.path;
+            fail (cl) << pr << " unexpectedly writes to " << nm <<
+              info << nm << " is saved to " << op;
           }
         }
         else if (rd.type == redirect_type::here_string ||
                  rd.type == redirect_type::here_document)
         {
-          // Use diff utility to compare the output with the pattern.
+          path orp (op + ".orig");
+
+          try
+          {
+            ofdstream os (orp);
+            cln.add (orp);
+
+            os << rd.value;
+
+            // Here-document is always newline-terminated.
+            //
+            if (rd.type == redirect_type::here_string)
+              os << endl;
+
+            os.close ();
+          }
+          catch (const io_error& e)
+          {
+            fail << "unable to write " << orp << ": " << e.what ();
+          }
+
+          // Use diff utility to compare the output with the expected result.
           //
           path dp ("diff");
           process_path pp (run_search (dp, true));
-
-          //@@ Need to compare both as files.
 
           cstrings args {
             pp.recall_string (),
             "--strip-trailing-cr",
             "-u",
-            "-",
-            sc.path.string ().c_str (),
+            orp.string ().c_str (),
+            op.string ().c_str (),
             nullptr};
 
           if (verb >= 2)
@@ -167,71 +127,45 @@ namespace build2
             // it is a part of the test failure diagnostics so let's redirect
             // stdout to stderr.
             //
-            process pr (pp, args.data (), -1, 2);
+            process p (pp, args.data (), 0, 2);
 
             try
             {
-              ofdstream os (pr.out_fd);
-
-              auto write_value = [&os, &rd] ()
-              {
-                os << rd.value;
-
-                // Here-document is always endline-terminated.
-                //
-                // @@ newline
-                //
-                if (rd.type == redirect_type::here_string)
-                  os << endl;
-
-                os.close ();
-              };
-
-              write_value ();
-
-              if (pr.wait ())
+              if (p.wait ())
                 return;
 
-              // Output doesn't match the pattern string. Keep non-empty output
-              // and save the pattern for troubleshooting.
+              // Output doesn't match the expected result. Keep non-empty
+              // output and the expected result for troubleshooting.
               //
-              path p (sc.path + ".pattern"); // @@ .orig
+              cln.cancel (orp);
 
-              try
-              {
-                os.open (p);
-                write_value ();
-              }
-              catch (const io_error& e)
-              {
-                fail << "unable to write " << p << ": " << e.what ();
-              }
+              diag_record d (error (cl));
+              d << pr << " " << nm << " doesn't match the expected output";
 
-              diag_record d (error);
-              d << program << " " << sc.name
-                << " doesn't match the pattern";
-
-              if (sc.ropen ())
+              if (non_empty (op))
               {
-                sc.cleanup.cancel ();
-                d << info << sc.name << " is saved to " << sc.path;
+                cln.cancel (op);
+                d << info << nm << " is saved to " << op;
               }
               else
-                d << info << sc.name << " is empty";
+                d << info << nm << " is empty";
 
-              // Pattern is never empty (contains at least newline).
+              // Expected output is never empty (contains at least newline).
               //
-              d << info << sc.name << " pattern is saved to " << p;
+              d << info << "expected " << nm << " is saved to " << orp;
 
               // Fall through.
               //
             }
-            catch (const io_error& e)
+            catch (const io_error&)
             {
               // Child exit status doesn't matter. Assume the child process
               // issued diagnostics. Just wait for the process completion.
               //
-              pr.wait (); // Check throw.
+              p.wait (); // Check throw.
+
+              error (cl) << "failed to compare " << nm
+                         << " with the expected output";
             }
 
             // Fall through.
@@ -239,7 +173,7 @@ namespace build2
           }
           catch (const process_error& e)
           {
-            error << "unable to execute " << args[0] << ": " << e.what ();
+            error (cl) << "unable to execute " << pp << ": " << e.what ();
 
             if (e.child ())
               exit (1);
@@ -250,7 +184,26 @@ namespace build2
       }
 
       void concurrent_runner::
-      run (scope&, const command& c, size_t ci, const location& cl)
+      enter (scope& sp, const location&)
+      {
+        if (!exists (sp.wd_path))
+          mkdir (sp.wd_path, 2);
+        else if (!empty (sp.wd_path))
+          // @@ Shouldn't we have --wipe or smth?
+          //
+          fail << "directory " << sp.wd_path << " is not empty" <<
+            info << "clean it up and rerun";
+      }
+
+      void concurrent_runner::
+      leave (scope& sp, const location&)
+      {
+        if (exists (sp.wd_path) && empty (sp.wd_path))
+          rmdir (sp.wd_path, 2);
+      }
+
+      void concurrent_runner::
+      run (scope& sp, const command& c, size_t ci, const location& cl)
       {
         if (verb >= 3)
           text << c;
@@ -267,15 +220,6 @@ namespace build2
 
         args.push_back (nullptr);
 
-        // Normally while handling child process failures (IO errors, non-zero
-        // exit status) we suppress the diagnostics supposing that the child
-        // issues it's own one. While this is reasonable to expect from known
-        // production-quality programs here it can result in the absense of any
-        // diagnostics at all. Also the child stderr (and so diagnostics) can
-        // be redirected to /dev/null and not be available for the user. This
-        // why we will always issue the diagnostics despite the fact sometimes
-        // it can look redundant.
-        //
         try
         {
           // For stdin 'none' redirect type we somehow need to make sure that
@@ -300,31 +244,69 @@ namespace build2
           // using pipes is tricky in the general case. Going this path we
           // would need to read both streams in a non-blocking manner which we
           // can't (easily) do in a portable way. Using diff utility to get a
-          // nice-looking stream/pattern difference would complicate things
-          // further.
+          // nice-looking actual/expected output difference would complicate
+          // things further.
           //
           // So the approach is the following. Child standard stream are
           // redirected to files. When the child exits and the exit status is
           // validated we just sequentially compare each file content with the
-          // corresponding pattern. The positive side-effect of this approach
-          // is that the output of a faulty test command can be provided for
+          // expected output. The positive side-effect of this approach is that
+          // the output of a faulty test command can be provided for
           // troubleshooting.
           //
-          stream_cache osc ("stdout");
-          int out (c.out.type == redirect_type::null ? -2 : osc.wopen ());
+          cleanup cln;
 
-          stream_cache esc ("stderr");
-          int err (c.err.type == redirect_type::null ? -2 : esc.wopen ());
+          auto opath = [sp, ci] (const char* nm) -> path
+          {
+            path r (sp.wd_path / path (nm));
+
+            if (ci > 0)
+              r += "-" + to_string (ci);
+
+            return r;
+          };
+
+          auto open = [&cln] (ofdstream& os, const path& p) -> int
+          {
+            try
+            {
+              os.open (p);
+              cln.add (p);
+            }
+            catch (const io_error& e)
+            {
+              fail << "unable to write " << p << ": " << e.what ();
+            }
+
+            return os.fd ();
+          };
+
+          ofdstream so;
+          path stdout (opath ("stdout"));
+
+          int out (c.out.type == redirect_type::null
+                   ? -2
+                   : open (so, stdout));
+
+          ofdstream se;
+          path stderr (opath ("stderr"));
+
+          int err (c.err.type == redirect_type::null
+                   ? -2
+                   : open (se, stderr));
 
           if (verb >= 2)
             print_process (args);
 
-          process pr (pp, args.data (), in, out, err);
+          process pr (sp.wd_path.string ().c_str (),
+                      pp,
+                      args.data (),
+                      in, out, err);
 
           try
           {
-            osc.close ();
-            esc.close ();
+            so.close ();
+            se.close ();
 
             if (c.in.type == redirect_type::here_string ||
                 c.in.type == redirect_type::here_document)
@@ -332,7 +314,7 @@ namespace build2
               ofdstream os (pr.out_fd);
               os << c.in.value;
 
-              // Here-document is always endline-terminated.
+              // Here-document is always newline-terminated.
               //
               if (c.in.type == redirect_type::here_string)
                 os << endl;
@@ -344,74 +326,69 @@ namespace build2
             //
             pr.wait ();
 
-            // Check if the process terminated normally and obtain the status
-            // if that's the case.
+            // If there is no correct exit status by whatever reason then dump
+            // stderr (if cached), keep both stdout and stderr (those which
+            // are cached) for troubleshooting, print the proper diagnostics
+            // and finally fail.
             //
-            bool abnorm;
-            process::status_type status;
-
-            // @@ Shouldn't we incorporate means for checking for abnormal
-            //    termination and getting the real exit status into
-            //    libbutl::process?
-            //
-            //    Yes, sounds good.
-            //
-#ifndef _WIN32
-            abnorm = !WIFEXITED (pr.status);
-            status = abnorm ? 1 : WEXITSTATUS (pr.status);
-#else
-            // @@ Is there a reliable way to detect if the process terminated
-            //    abnormally on Windows?
-            //
-            abnorm = false;
-            status = pr.status;
-#endif
-            bool valid_status (!abnorm && status >= 0 && status < 256);
-
+            optional<process::status_type> status (move (pr.status));
+            bool valid_status (status && *status >= 0 && *status < 256);
             bool eq (c.exit.comparison == exit_comparison::eq);
 
             bool correct_status (valid_status &&
-                                 (status == c.exit.status) == eq);
+                                 (*status == c.exit.status) == eq);
 
-            // If there is no correct exit status by whatever reason then dump
-            // stderr (if cached), keep both stdout and stderr (those which
-            // are cached) for troubleshooting, and finally fail.
-            //
             if (!correct_status)
             {
-              if (esc.exists () && esc.ropen ())
-                cerr << esc.rdbuf ();
+              // Dump cached stderr.
+              //
+              if (exists (stderr))
+              {
+                try
+                {
+                  ifdstream is (stderr);
+                  if (is.peek () != ifdstream::traits_type::eof ())
+                    cerr << is.rdbuf ();
+                }
+                catch (const io_error& e)
+                {
+                  fail << "unable to read " << stderr << ": " << e.what ();
+                }
+              }
 
               // Keep non-empty cache files and fail with a proper diagnostics.
               //
-              diag_record d (fail);
+              diag_record d (fail (cl));
 
-              if (abnorm)
+              if (!status)
                 d << pp << " terminated abnormally";
               else if (!valid_status)
-                d << pp << " exit status " << status << " is invalid" <<
+                d << pp << " exit status " << *status << " is invalid" <<
                   info << "must be an unsigned integer < 256";
               else if (!correct_status)
-                d << pp << " exit status " << status
-                  << (eq ? " != " : " == ") << (int)c.exit.status; //@@
+                d << pp << " exit status " << *status
+                  << (eq ? " != " : " == ")
+                  << static_cast<uint16_t> (c.exit.status);
               else
                 assert (false);
 
-              auto keep_stream = [&d] (stream_cache& sc)
+              auto keep_output = [&d, &cln] (const char* name, const path& p)
               {
-                if (sc.exists () && sc.ropen ())
+                if (non_empty (p))
                 {
-                  sc.cleanup.cancel ();
-                  d << info << sc.name << " is saved to " << sc.path;
+                  cln.cancel (p);
+                  d << info << name << " is saved to " << p;
                 }
               };
 
-              keep_stream (osc);
-              keep_stream (esc);
+              keep_output ("stdout", stdout);
+              keep_output ("stderr", stderr);
             }
 
-            check_output (pp, osc, c.out);
-            check_output (pp, esc, c.err);
+            // Check if the standard outputs match expectations.
+            //
+            check_output (pp, "stdout", stdout, c.out, cl, cln);
+            check_output (pp, "stderr", stderr, c.err, cl, cln);
           }
           catch (const io_error& e)
           {
@@ -420,12 +397,12 @@ namespace build2
             //
             pr.wait (); // Check throw.
 
-            fail << "IO operation failed for " << pp << ": " << e.what ();
+            fail (cl) << "IO operation failed for " << pp << ": " << e.what ();
           }
         }
         catch (const process_error& e)
         {
-          error << "unable to execute " << pp << ": " << e.what ();
+          error (cl) << "unable to execute " << pp << ": " << e.what ();
 
           if (e.child ())
             exit (1);

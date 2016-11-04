@@ -22,6 +22,8 @@ namespace build2
   {
     namespace script
     {
+      class parser; // Required by VC for 'friend class parser' declaration.
+
       // Pre-parse representation.
       //
       enum class line_type {variable, test};

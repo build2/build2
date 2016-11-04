@@ -36,6 +36,9 @@ namespace build2
       os << "<empty>";
     else
     {
+      // @@ Is there a reason not to print as a relative path as it is done
+      //    for path (see above)?
+      //
       os << p.recall_string ();
 
       if (!p.effect.empty ())

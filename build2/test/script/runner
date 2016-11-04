@@ -47,13 +47,13 @@ namespace build2
       {
       public:
         virtual void
-        enter (scope&, const location&) override {}
+        enter (scope&, const location&) override;
 
         virtual void
         run (scope&, const command&, size_t, const location&) override;
 
         virtual void
-        leave (scope&, const location&) override {}
+        leave (scope&, const location&) override;
       };
     }
   }
