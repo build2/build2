@@ -441,7 +441,7 @@ namespace build2
                   f = false;
                 }
 
-                if (tt == type::name)
+                if (tt == type::word)
                 {
                   w = move (t.value);
                   f = true;
@@ -581,7 +581,7 @@ namespace build2
         {
           // Check if this is the end marker.
           //
-          if (tt == type::name &&
+          if (tt == type::word &&
               !t.quoted        &&
               t.value == em    &&
               peek () == type::newline)

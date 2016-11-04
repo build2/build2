@@ -259,25 +259,25 @@ namespace build2
           }
         }
 
-        // Otherwise it is a name.
+        // Otherwise it is a word.
         //
         unget (c);
-        return name (sep);
+        return word (sep);
       }
 
       token lexer::
-      name (bool sep)
+      word (bool sep)
       {
         // Customized implementation that handles special variable names ($*,
         // $~, $NNN).
         //
         if (state_.top ().mode != lexer_mode::variable)
-          return base_lexer::name (sep);
+          return base_lexer::word (sep);
 
         xchar c (peek ());
 
         if (c != '*' && c != '~' && !digit (c))
-          return base_lexer::name (sep);
+          return base_lexer::word (sep);
 
         uint64_t ln (c.line), cn (c.column);
         string lexeme;

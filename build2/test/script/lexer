@@ -63,7 +63,7 @@ namespace build2
         next_line ();
 
         virtual token
-        name (bool) override;
+        word (bool) override;
 
       protected:
         bool quoted_ = false;
