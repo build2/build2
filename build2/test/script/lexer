@@ -44,8 +44,11 @@ namespace build2
         using base_lexer = build2::lexer;
         using base_mode = build2::lexer_mode;
 
-        lexer (istream& is, const path& name, lexer_mode m)
-            : base_lexer (is, name, nullptr, nullptr, false) {mode (m);}
+        lexer (istream& is,
+               const path& name,
+               lexer_mode m,
+               const char* escapes = nullptr)
+            : base_lexer (is, name, escapes, nullptr, false) {mode (m);}
 
         virtual void
         mode (base_mode, char = '\0') override;

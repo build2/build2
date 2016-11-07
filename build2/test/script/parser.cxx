@@ -1595,7 +1595,7 @@ namespace build2
                 // interesting characters (operators plus quotes/escapes),
                 // then no need to re-lex.
                 //
-                // NOTE: updated quoting (script.cxx:to_stream_q()) if adding
+                // NOTE: update quoting (script.cxx:to_stream_q()) if adding
                 // any new characters.
                 //
                 if (q || s.find_first_of ("|&<>\'\"\\") == string::npos)
@@ -1631,8 +1631,20 @@ namespace build2
                     name = path (move (n));
                   }
 
+                  // When re-parsing we do "effective escaping" and only for
+                  // ['"\] (quotes plus the backslash itself). In particular,
+                  // there is no way to escape redirects, operators, etc. The
+                  // idea is to prefer quoting except for passing literal
+                  // quotes, for example:
+                  //
+                  // args = \"&foo\"
+                  // cmd $args               # cmd &foo
+                  //
+                  // args = 'x=\"foo bar\"'
+                  // cmd $args               # cmd x="foo bar"
+                  //
                   istringstream is (s);
-                  lexer lex (is, name, lexer_mode::command_line);
+                  lexer lex (is, name, lexer_mode::command_line, "\'\"\\");
 
                   // Treat the first "sub-token" as always separated from what
                   // we saw earlier.
