@@ -236,7 +236,19 @@ namespace build2
       v.insert<string> ("extension", variable_visibility::target);
     }
 
-    gs.assign<path> ("build.driver") = argv0;
+    // Absolute path to the build system driver.
+    //
+    {
+      path p (argv0.effect_string ());
+
+      if (p.relative ())
+      {
+        p = work / p;
+        p.normalize ();
+      }
+
+      gs.assign<path> ("build.driver") = move (p);
+    }
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;

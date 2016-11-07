@@ -90,7 +90,7 @@ namespace build2
   }
 
   options ops;
-  path argv0;
+  process_path argv0;
   dir_path work;
   dir_path home;
   const dir_path* relative_base = &work;
@@ -509,7 +509,9 @@ namespace build2
   void
   init (const char* a0, uint16_t v)
   {
-    argv0 = path (a0);
+    // Build system driver process path.
+    //
+    argv0 = process::path_search (a0, true);
 
     // Diagnostics verbosity.
     //

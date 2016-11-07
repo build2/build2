@@ -88,9 +88,9 @@ namespace build2
   //
   extern options ops;
 
-  // Build system driver recall path (argv[0]).
+  // Build system driver process path (argv0.initial is argv[0]).
   //
-  extern path argv0;
+  extern process_path argv0;
 
   // Work/home directories (must be initialized in main()) and relative path
   // calculation.
