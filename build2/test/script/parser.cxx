@@ -290,7 +290,9 @@ namespace build2
       {
         size_t li (0);
 
-        auto play = [&li, this] (lines& ls) // Note: destructive to lines.
+        // Note: destructive to lines.
+        //
+        auto play = [&li, this] (lines& ls, bool test)
         {
           token t;
           type tt;
@@ -357,14 +359,12 @@ namespace build2
 
                 break;
               }
-            case line_type::setup:
-            case line_type::tdown:
-            case line_type::test:
+            case line_type::command:
               {
                 // We use the 0 index to signal that this is the only command.
                 // Note that we only do this for test commands.
                 //
-                if (l.type == line_type::test && li == 0)
+                if (test && li == 0)
                 {
                   size_t j (i + 1);
                   for (; j != n && ls[j].type == line_type::variable; ++j) ;
@@ -408,11 +408,11 @@ namespace build2
 
         if (test* t = dynamic_cast<test*> (scope_))
         {
-          play (t->tests_);
+          play (t->tests_, true);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
-          play (g->setup_);
+          play (g->setup_, false);
 
           for (const unique_ptr<scope>& s: g->scopes)
           {
@@ -428,7 +428,7 @@ namespace build2
             p.parse (*s, *script_, *runner_);
           }
 
-          play (g->tdown_);
+          play (g->tdown_, false);
         }
         else
           assert (false);
@@ -621,9 +621,11 @@ namespace build2
         //
         const location ll (get_location (peeked ()));
 
-        // Determine the line type.
+        // Determine the line type/subtype.
         //
         line_type lt;
+        type st (type::eos);
+
         switch (tt)
         {
         case type::plus:
@@ -631,7 +633,8 @@ namespace build2
           {
             // Setup/teardown command.
             //
-            lt = (tt == type::plus ? line_type::setup : line_type::tdown);
+            lt = line_type::command;
+            st = tt;
 
             next (t, tt);   // Start saving tokens from the next one.
             replay_save ();
@@ -683,11 +686,12 @@ namespace build2
                        p == type::append)
               {
                 lt = line_type::variable;
+                st = p;
                 break;
               }
             }
 
-            lt = line_type::test;
+            lt = line_type::command;
             break;
           }
         }
@@ -721,9 +725,7 @@ namespace build2
 
             break;
           }
-        case line_type::setup:
-        case line_type::tdown:
-        case line_type::test:
+        case line_type::command:
           {
             pair<command_expr, here_docs> p (parse_command_line (t, tt));
 
@@ -733,11 +735,10 @@ namespace build2
             //
             if (tt != type::newline)
             {
-              switch (lt)
+              switch (st)
               {
-              case line_type::setup: fail (t) << t << " after setup command";
-              case line_type::tdown: fail (t) << t << " after teardown command";
-              default: break;
+              case type::plus:  fail (t) << t << " after setup command";
+              case type::minus: fail (t) << t << " after teardown command";
               }
             }
 
@@ -780,28 +781,6 @@ namespace build2
         {
           switch (lt)
           {
-          case line_type::setup:
-            {
-              if (d)
-                fail (ll) << "description before setup command";
-
-              if (!group_->scopes.empty ())
-                fail (ll) << "setup command after tests";
-
-              if (!group_->tdown_.empty ())
-                fail (ll) << "setup command after teardown";
-
-              ls = &group_->setup_;
-              break;
-            }
-          case line_type::tdown:
-            {
-              if (d)
-                fail (ll) << "description before teardown command";
-
-              ls = &group_->tdown_;
-              break;
-            }
           case line_type::variable:
             {
               // If there is a semicolon after the variable then we assume
@@ -826,22 +805,58 @@ namespace build2
 
               // Fall through.
             }
-          case line_type::test:
+          case line_type::command:
             {
-              // First check that we don't have any teardown commands yet.
-              // This will detect things like variable assignments between
-              // tests.
-              //
-              if (!group_->tdown_.empty ())
+              switch (st)
               {
-                location tl (
-                  group_->tdown_.back ().tokens.front ().location ());
+                // Setup.
+                //
+              case type::plus:
+                {
+                  if (d)
+                    fail (ll) << "description before setup command";
 
-                fail (ll) << "test after teardown" <<
-                  info (tl) << "last teardown line appears here";
+                  if (!group_->scopes.empty ())
+                    fail (ll) << "setup command after tests";
+
+                  if (!group_->tdown_.empty ())
+                    fail (ll) << "setup command after teardown";
+
+                  ls = &group_->setup_;
+                  break;
+                }
+                // Teardown.
+                //
+              case type::minus:
+                {
+                  if (d)
+                    fail (ll) << "description before teardown command";
+
+                  ls = &group_->tdown_;
+                  break;
+                }
+                // Test command or variable.
+                //
+              default:
+                {
+                  // First check that we don't have any teardown commands yet.
+                  // This will detect things like variable assignments between
+                  // tests.
+                  //
+                  if (!group_->tdown_.empty ())
+                  {
+                    location tl (
+                      group_->tdown_.back ().tokens.front ().location ());
+
+                    fail (ll) << "test after teardown" <<
+                      info (tl) << "last teardown line appears here";
+                  }
+
+                  ls = &tests;
+                  break;
+                }
               }
-
-              ls = &tests;
+              break;
             }
           }
         }

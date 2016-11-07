@@ -29,7 +29,7 @@ namespace build2
       // Pre-parse representation.
       //
 
-      enum class line_type {variable, setup, tdown, test};
+      enum class line_type {variable, command};
 
       struct line
       {
