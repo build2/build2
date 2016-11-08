@@ -165,8 +165,8 @@ namespace build2
           // Parse and run.
           //
           parser p;
-          script s (
-            p.pre_parse (cin, st, tt, dir_path (work) /= "test-driver"));
+          script s (tt, st, dir_path (work) /= "test-driver");
+          p.pre_parse (cin, s);
 
           print_runner r (scope, id);
           p.parse (s, r);

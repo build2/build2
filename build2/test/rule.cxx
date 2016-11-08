@@ -424,7 +424,8 @@ namespace build2
           text << "test " << t << " with " << ts;
 
         script::parser p;
-        script::script s (p.pre_parse (ts, t, wd));
+        script::script s (t, ts, wd);
+        p.pre_parse (s);
 
         script::concurrent_runner r;
         p.parse (s, r);

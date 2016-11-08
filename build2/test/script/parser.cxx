@@ -30,16 +30,16 @@ namespace build2
         return !s.empty ();
       }
 
-      script parser::
-      pre_parse (testscript& ts, target& tg, const dir_path& wd)
+      void parser::
+      pre_parse (script& s)
       {
-        const path& p (ts.path ());
+        const path& p (s.script_target.path ());
         assert (!p.empty ()); // Should have been assigned.
 
         try
         {
           ifdstream ifs (p);
-          return pre_parse (ifs, ts, tg, wd);
+          pre_parse (ifs, s);
         }
         catch (const io_error& e)
         {
@@ -48,11 +48,10 @@ namespace build2
         }
       }
 
-      script parser::
-      pre_parse (istream& is, testscript& ts, target& tg, const dir_path& wd)
+      void parser::
+      pre_parse (istream& is, script& s)
       {
-        script s (tg, ts, wd);
-        path_ = &*s.paths_.insert (ts.path ()).first;
+        path_ = &*s.paths_.insert (s.script_target.path ()).first;
 
         pre_parse_ = true;
 
@@ -83,8 +82,6 @@ namespace build2
           fail (t) << "stray " << t;
 
         group_->end_loc_ = get_location (t);
-
-        return s;
       }
 
       void parser::

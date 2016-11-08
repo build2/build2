@@ -371,7 +371,7 @@ namespace build2
                 testscript& script_target,
                 const dir_path& root_wd);
 
-        script (script&&) = default;
+        script (script&&) = delete;
         script (const script&) = delete;
         script& operator= (script&&) = delete;
         script& operator= (const script&) = delete;

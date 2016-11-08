@@ -28,11 +28,11 @@ namespace build2
       public:
         // Issue diagnostics and throw failed in case of an error.
         //
-        script
-        pre_parse (testscript&, target&, const dir_path& root_wd);
+        void
+        pre_parse (script&);
 
-        script
-        pre_parse (istream&, testscript&, target&, const dir_path& root_wd);
+        void
+        pre_parse (istream&, script&);
 
         void
         parse (script& s, runner& r)
