@@ -172,7 +172,7 @@ $* <<EOI 2>>EOE != 0                                    # both
 : foo
 cmd : bar
 EOI
-testscript:2:1: error: both leading and trailing description
+testscript:2:1: error: both leading and trailing descriptions
 EOE
 
 # Legal places for a description.

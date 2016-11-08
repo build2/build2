@@ -17,8 +17,26 @@ namespace build2
   {
     namespace script
     {
-      // Utility functions
-      //
+      ostream&
+      operator<< (ostream& o, line_type lt)
+      {
+        const char* s (nullptr);
+
+        switch (lt)
+        {
+        case line_type::var:       s = "variable"; break;
+        case line_type::cmd:       s = "command";  break;
+        case line_type::cmd_if:    s = "'if'";     break;
+        case line_type::cmd_ifn:   s = "'if!'";    break;
+        case line_type::cmd_elif:  s = "'elif'";   break;
+        case line_type::cmd_elifn: s = "'elif!'";  break;
+        case line_type::cmd_else:  s = "'else'";   break;
+        case line_type::cmd_end:   s = "'end'";    break;
+        }
+
+        return o << s;
+      }
+
       // Quote if empty or contains spaces or any of the special characters.
       //
       // @@ What if it contains quotes, escapes?

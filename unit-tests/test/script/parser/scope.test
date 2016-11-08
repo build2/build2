@@ -123,7 +123,7 @@ $* <<EOI 2>>EOE != 0                 # expected-line-rcbrace
   cmd;
 }
 EOI
-testscript:3:1: error: expected another line after semicolon
+testscript:3:1: error: expected another line after ';'
 EOE
 
 $* <<:EOI 2>>EOE != 0                 # expected-newline-rcbrace
@@ -217,7 +217,7 @@ EOE
 $* <<EOI 2>>EOE != 0                 # expected-line-eof
 cmd;
 EOI
-testscript:2:1: error: expected another line after semicolon
+testscript:2:1: error: expected another line after ';'
 EOE
 
 $* <<:EOI 2>>EOE != 0                # expected-newline-cmd

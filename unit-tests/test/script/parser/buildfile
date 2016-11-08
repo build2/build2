@@ -12,6 +12,7 @@ test/{target script/{token lexer parser script}}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
 test{cleanup command-re-parse description exit expansion here-document \
-     here-string include pipe-expr pre-parse redirect scope setup-teardown}
+     here-string if-else include pipe-expr pre-parse redirect scope \
+     setup-teardown}
 
 include ../../../../build2/

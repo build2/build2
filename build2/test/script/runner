@@ -37,6 +37,9 @@ namespace build2
         virtual void
         run (scope&, const command_expr&, size_t index, const location&) = 0;
 
+        virtual bool
+        run_if (scope&, const command_expr&, size_t, const location&) = 0;
+
         // Location is the scope end location (for diagnostics, etc).
         //
         virtual void
@@ -51,6 +54,9 @@ namespace build2
 
         virtual void
         run (scope&, const command_expr&, size_t, const location&) override;
+
+        virtual bool
+        run_if (scope&, const command_expr&, size_t, const location&) override;
 
         virtual void
         leave (scope&, const location&) override;

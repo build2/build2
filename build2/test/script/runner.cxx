@@ -702,6 +702,13 @@ namespace build2
         check_output (p, osp, isp, c.out, ll, sp, "stdout");
         check_output (p, esp, isp, c.err, ll, sp, "stderr");
       }
+
+      bool concurrent_runner::
+      run_if (scope&, const command_expr& expr, size_t, const location&)
+      {
+        const command& c (expr.back ().pipe.back ()); // @@ TMP
+        return c.program.string () == "true"; // @@ TMP
+      }
     }
   }
 }

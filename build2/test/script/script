@@ -29,7 +29,20 @@ namespace build2
       // Pre-parse representation.
       //
 
-      enum class line_type {variable, command};
+      enum class line_type
+      {
+        var,
+        cmd,
+        cmd_if,
+        cmd_ifn,
+        cmd_elif,
+        cmd_elifn,
+        cmd_else,
+        cmd_end
+      };
+
+      ostream&
+      operator<< (ostream&, line_type);
 
       struct line
       {

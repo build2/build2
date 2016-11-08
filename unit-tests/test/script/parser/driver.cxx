@@ -30,7 +30,8 @@ namespace build2
       class print_runner: public runner
       {
       public:
-        print_runner (bool scope, bool id): scope_ (scope), id_ (id) {}
+        print_runner (bool scope, bool id, bool line)
+            : scope_ (scope), id_ (id), line_ (line) {}
 
         virtual void
         enter (scope& s, const location&) override
@@ -81,9 +82,33 @@ namespace build2
         }
 
         virtual void
-        run (scope&, const command_expr& e, size_t, const location&) override
+        run (scope&,
+             const command_expr& e,
+             size_t i,
+             const location&) override
         {
-          cout << ind_ << e << endl;
+          cout << ind_ << e;
+
+          if (line_)
+            cout << " # " << i;
+
+          cout << endl;
+        }
+
+        virtual bool
+        run_if (scope&,
+                const command_expr& e,
+                size_t i,
+                const location&) override
+        {
+          cout << ind_ << "? " << e;
+
+          if (line_)
+            cout << " # " << i;
+
+          cout << endl;
+
+          return e.back ().pipe.back ().program.string () == "true";
         }
 
         virtual void
@@ -99,10 +124,11 @@ namespace build2
       private:
         bool scope_;
         bool id_;
+        bool line_;
         string ind_;
       };
 
-      // Usage: argv[0] [-s] [-i] [<testscript-name>]
+      // Usage: argv[0] [-s] [-i] [-l] [<testscript-name>]
       //
       int
       main (int argc, char* argv[])
@@ -114,6 +140,7 @@ namespace build2
 
         bool scope (false);
         bool id (false);
+        bool line (false);
         path name;
 
         for (int i (1); i != argc; ++i)
@@ -124,6 +151,8 @@ namespace build2
             scope = true;
           else if (a == "-i")
             id = true;
+          else if (a == "-l")
+            line = true;
           else
           {
             name = path (move (a));
@@ -168,7 +197,7 @@ namespace build2
           script s (tt, st, dir_path (work) /= "test-driver");
           p.pre_parse (cin, s);
 
-          print_runner r (scope, id);
+          print_runner r (scope, id, line);
           p.parse (s, r);
         }
         catch (const failed&)

@@ -63,10 +63,19 @@ namespace build2
         description
         parse_trailing_description (token&, token_type&);
 
-        void
+        bool
         pre_parse_line (token&, token_type&,
                         optional<description>&,
-                        lines* = nullptr);
+                        lines* = nullptr,
+                        bool one = false);
+
+        void
+        parse_lines (lines::iterator, lines::iterator, size_t&, bool);
+
+        bool
+        pre_parse_if_else (token&, token_type&,
+                           optional<description>&,
+                           lines&);
 
         void
         parse_directive_line (token&, token_type&);

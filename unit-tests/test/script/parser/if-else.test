@@ -1,0 +1,518 @@
+: if-true
+:
+$* <<EOI >>EOO
+if true foo
+  cmd1
+  cmd2
+end
+EOI
+? true foo
+cmd1
+cmd2
+EOO
+
+: if-false
+:
+$* <<EOI >>EOO
+if false foo
+  cmd1
+  cmd2
+end
+EOI
+? false foo
+EOO
+
+: ifn-true
+:
+$* <<EOI >>EOO
+if! true foo
+  cmd1
+  cmd2
+end
+EOI
+? true foo
+EOO
+
+: ifn-false
+:
+$* <<EOI >>EOO
+if! false foo
+  cmd1
+  cmd2
+end
+EOI
+? false foo
+cmd1
+cmd2
+EOO
+
+: elif-true
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  cmd2
+elif true
+  cmd3
+  cmd4
+end
+EOI
+? false
+? true
+cmd3
+cmd4
+EOO
+
+: elif-false
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  cmd2
+elif false
+  cmd3
+  cmd4
+end
+EOI
+? false
+? false
+EOO
+
+: elifn-true
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  cmd2
+elif! true
+  cmd3
+  cmd4
+end
+EOI
+? false
+? true
+EOO
+
+: elifn-false
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  cmd2
+elif! false
+  cmd3
+  cmd4
+end
+EOI
+? false
+? false
+cmd3
+cmd4
+EOO
+
+: else-true
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  cmd2
+else
+  cmd3
+  cmd4
+end
+EOI
+? false
+cmd3
+cmd4
+EOO
+
+: else-false
+:
+$* <<EOI >>EOO
+if true
+  cmd1
+  cmd2
+else
+  cmd3
+  cmd4
+end
+EOI
+? true
+cmd1
+cmd2
+EOO
+
+: if-chain
+:
+$* <<EOI >>EOO
+if false
+  cmd
+  cmd
+elif false
+  cmd
+  cmd
+elif false
+  cmd
+  cmd
+elif true
+  cmd1
+  cmd2
+elif false
+  cmd
+  cmd
+else
+  cmd
+  cmd
+end
+EOI
+? false
+? false
+? false
+? true
+cmd1
+cmd2
+EOO
+
+: nested-take
+:
+$* <<EOI >>EOO
+if true
+  cmd1
+  if false
+    cmd
+  elif false
+    if true
+      cmd
+    end
+  else
+    cmd2
+  end
+  cmd3
+end
+EOI
+? true
+cmd1
+? false
+? false
+cmd2
+cmd3
+EOO
+
+: nested-skip
+:
+$* <<EOI >>EOO
+if false
+  cmd1
+  if false
+    cmd
+  elif false
+    if true
+      cmd
+    end
+  else
+    cmd2
+  end
+  cmd3
+else
+  cmd
+end
+EOI
+? false
+cmd
+EOO
+
+: line-index
+:
+$* -l <<EOI >>EOO
+if false
+  cmd
+  if true
+    cmd
+  end
+  cmd
+elif false
+  cmd
+else
+  cmd
+end
+EOI
+? false # 1
+? false # 6
+cmd # 8
+EOO
+
+: var
+:
+$* <<EOI >>EOO
+if true
+  x = foo
+else
+  x = bar
+end;
+cmd \$x
+EOI
+? true
+cmd foo
+EOO
+
+: semi-inside
+:
+$* <<EOI 2>>EOE != 0
+if
+  cmd;
+  cmd
+end
+EOI
+testscript:2:3: error: ';' inside 'if'
+EOE
+
+: colon-inside-leading
+:
+$* <<EOI 2>>EOE != 0
+if
+  : foo
+  cmd
+end
+EOI
+testscript:2:3: error: description inside 'if'
+EOE
+
+: colon-inside-trailing
+:
+$* <<EOI 2>>EOE != 0
+if
+  cmd : foo
+end
+EOI
+testscript:2:3: error: description inside 'if'
+EOE
+
+: eos-inside
+:
+$* <<EOI 2>>EOE != 0
+if
+EOI
+testscript:2:1: error: expected closing 'end'
+EOE
+
+: scope-inside
+:
+$* <<EOI 2>>EOE != 0
+if
+  {
+  }
+end
+EOI
+testscript:2:3: error: expected closing 'end'
+EOE
+
+: setup-inside
+:
+$* <<EOI 2>>EOE != 0
+if
+  +cmd
+end
+EOI
+testscript:2:3: error: setup command inside 'if'
+EOE
+
+: tdown-inside
+:
+$* <<EOI 2>>EOE != 0
+if
+  -cmd
+end
+EOI
+testscript:2:3: error: teardown command inside 'if'
+EOE
+
+: if-without-command
+:
+$* <<EOI 2>>EOE != 0
+if
+  cmd
+end
+EOI
+testscript:1:3: error: missing program
+EOE
+
+: command-after-else
+:
+$* <<EOI 2>>EOE != 0
+if true
+  cmd
+else cmd
+  cmd
+end
+EOI
+testscript:3:6: error: expected newline instead of 'cmd'
+EOE
+
+: command-after-end
+:
+$* <<EOI 2>>EOE != 0
+if true
+  cmd
+end cmd
+EOI
+testscript:3:5: error: expected newline instead of 'cmd'
+EOE
+
+: elif-without-if
+:
+$* <<EOI 2>>EOE != 0
+cmd
+elif true
+  cmd
+end
+EOI
+testscript:2:1: error: 'elif' without preceding 'if'
+EOE
+
+: elifn-without-if
+:
+$* <<EOI 2>>EOE != 0
+cmd
+elif! true
+  cmd
+end
+EOI
+testscript:2:1: error: 'elif!' without preceding 'if'
+EOE
+
+: else-without-if
+:
+$* <<EOI 2>>EOE != 0
+cmd
+else
+  cmd
+end
+EOI
+testscript:2:1: error: 'else' without preceding 'if'
+EOE
+
+: end-without-if
+:
+$* <<EOI 2>>EOE != 0
+cmd
+end
+EOI
+testscript:2:1: error: 'end' without preceding 'if'
+EOE
+
+: else-after-else
+:
+$* <<EOI 2>>EOE != 0
+if false
+  cmd
+else
+  cmd
+else
+  cmd
+end
+EOI
+testscript:5:1: error: 'else' after 'else'
+EOE
+
+: elif-after-else
+:
+$* <<EOI 2>>EOE != 0
+if false
+  cmd
+else
+  cmd
+elif true
+  cmd
+end
+EOI
+testscript:5:1: error: 'elif' after 'else'
+EOE
+
+: if-after-semi
+:
+$* -s <<EOI >>EOO
+cmd1;
+if true
+  cmd2
+end
+EOI
+{
+  {
+    cmd1
+    ? true
+    cmd2
+  }
+}
+EOO
+
+: setup-if
+:
+$* -s <<EOI >>EOO
++if true
+  cmd
+end
+EOI
+{
+  ? true
+  cmd
+}
+EOO
+
+: tdown-if
+:
+$* -s <<EOI >>EOO
+-if true
+  cmd
+end
+EOI
+{
+  ? true
+  cmd
+}
+EOO
+
+: semi-after-end
+:
+$* -s <<EOI >>EOO
+if true
+  cmd1
+end;
+cmd2
+EOI
+{
+  {
+    ? true
+    cmd1
+    cmd2
+  }
+}
+EOO
+
+: colon-after-end
+:
+$* -s <<EOI >>EOO
+if true
+  cmd1
+  cmd2
+end : test
+EOI
+{
+  : id:test
+  {
+    ? true
+    cmd1
+    cmd2
+  }
+}
+EOO
+
+: leading-and-trailing-description
+:
+$* <<EOI 2>>EOE != 0
+: foo
+if true
+  cmd
+end : bar
+EOI
+testscript:4:1: error: both leading and trailing descriptions
+EOE
