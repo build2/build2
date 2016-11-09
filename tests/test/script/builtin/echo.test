@@ -1,0 +1,11 @@
+# file      : tests/test/script/runner/echo.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: string
+:
+echo foo >foo
+
+: strings
+:
+echo foo bar >"foo bar"

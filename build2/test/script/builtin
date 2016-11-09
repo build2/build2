@@ -5,10 +5,10 @@
 #ifndef BUILD2_TEST_SCRIPT_BUILTIN
 #define BUILD2_TEST_SCRIPT_BUILTIN
 
+#include <map>
+
 #include <build2/types>
 #include <build2/utility>
-
-#include <map>
 
 namespace build2
 {
@@ -18,21 +18,26 @@ namespace build2
     {
       class scope;
 
+      // Start builtin command. Throw system_error on failure.
+      //
       // Note that unlike argc/argv, our args don't include the program name.
       //
-      using builtin = int (*) (scope&,
-                               const strings& args,
-                               auto_fd in, auto_fd out, auto_fd err);
+      // Also note that the future object being returned doesn't block in dtor
+      // until the builtin command terminates.
+      //
+      using builtin = future<uint8_t> (scope&,
+                                       const strings& args,
+                                       auto_fd in, auto_fd out, auto_fd err);
 
-      class builtin_map: public std::map<string, builtin>
+      class builtin_map: public std::map<string, builtin*>
       {
       public:
-        using base = std::map<string, builtin>;
+        using base = std::map<string, builtin*>;
         using base::base;
 
         // Return NULL if not a builtin.
         //
-        builtin
+        builtin*
         find (const string& n) const
         {
           auto i (base::find (n));

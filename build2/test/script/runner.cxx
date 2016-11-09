@@ -406,7 +406,8 @@ namespace build2
               ifd.reset (fdnull ()); // @@ Eventually will be throwing.
 
               if (ifd.get () == -1) // @@ TMP
-                throw io_error ("", error_code (errno, system_category ()));
+                throw io_error (
+                  error_code (errno, system_category ()).message ());
 
               in = -2;
             }
@@ -512,7 +513,8 @@ namespace build2
                 fd.reset (fdnull ()); // @@ Eventully will be throwing.
 
                 if (fd.get () == -1) // @@ TMP
-                  throw io_error ("", error_code (errno, system_category ()));
+                  throw io_error (
+                    error_code (errno, system_category ()).message ());
               }
               catch (const io_error& e)
               {
@@ -590,13 +592,24 @@ namespace build2
         }
 
         optional<process::status_type> status;
-        builtin b (builtins.find (c.program.string ()));
+        builtin* b (builtins.find (c.program.string ()));
 
         if (b != nullptr)
         {
           // Execute the builtin.
           //
-          status = (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd));
+          try
+          {
+            future<uint8_t> f (
+              (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd)));
+
+            status = f.get ();
+          }
+          catch (const system_error& e)
+          {
+            fail (ll) << "unable to execute " << c.program << " builtin: "
+                      << e.what ();
+          }
         }
         else
         {

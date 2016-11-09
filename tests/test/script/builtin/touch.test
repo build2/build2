@@ -15,12 +15,13 @@ rm a
 
 : file-update
 :
-: Test that existing file touch doesn't register cleanup. If it did then it
-: would be left dangling after 'rm' call and so test would fail.
+: Test that existing file touch doesn't fail.
 :
-$* -f a;
-touch a;
-rm a
+cat <"" >>>a;
+touch a
+
+# @@ How we can test that touch of an existing file doesn't register a cleanup?
+#
 
 : no-args
 :

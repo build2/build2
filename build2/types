@@ -8,6 +8,7 @@
 #include <tuple>
 #include <vector>
 #include <string>
+#include <future>
 #include <memory>           // unique_ptr, shared_ptr
 #include <utility>          // pair, move()
 #include <cstddef>          // size_t, nullptr_t
@@ -62,6 +63,8 @@ namespace build2
 
   using std::istream;
   using std::ostream;
+
+  using std::future;
 
   // Exceptions. While <exception> is included, there is no using for
   // std::exception -- use qualified.

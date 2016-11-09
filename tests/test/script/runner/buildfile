@@ -4,9 +4,6 @@
 
 import libs = libbutl%lib{butl}
 
-exe{driver}: cxx{driver} $libs test{cleanup mkdir redirect status touch}
-
-if ($cxx.target.class == "windows") # @@ TMP
-  test{*}: ext = ".exe"
+exe{driver}: cxx{driver} $libs test{cleanup redirect status}
 
 include ../../../../../build2/

@@ -88,6 +88,9 @@ test/script/{hxx         cxx}{ token            } \
 #
 obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
+if ($cxx.target.class != "windows")
+  cxx.libs += -lpthread
+
 # Generated options parser.
 #
 {hxx ixx cxx}{b-options}: cli{b}

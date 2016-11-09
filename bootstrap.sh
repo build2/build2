@@ -131,4 +131,4 @@ src="$src build2/pkgconfig/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
 set -x
-"$cxx" "-I$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src
+"$cxx" "-I$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src -lpthread

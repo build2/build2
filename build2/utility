@@ -5,12 +5,13 @@
 #ifndef BUILD2_UTILITY
 #define BUILD2_UTILITY
 
-#include <tuple>    // make_tuple()
-#include <memory>   // make_shared()
-#include <string>   // to_string()
-#include <utility>  // move(), forward(), declval(), make_pair()
-#include <cassert>  // assert()
-#include <iterator> // make_move_iterator()
+#include <tuple>      // make_tuple()
+#include <memory>     // make_shared()
+#include <string>     // to_string()
+#include <utility>    // move(), forward(), declval(), make_pair()
+#include <cassert>    // assert()
+#include <iterator>   // make_move_iterator()
+#include <functional> // ref(), cref()
 
 #include <butl/utility> // combine_hash(), reverse_iterate(), casecmp(),
                         // lcase()
@@ -26,6 +27,9 @@ namespace build2
   using std::move;
   using std::forward;
   using std::declval;
+
+  using std::ref;
+  using std::cref;
 
   using std::make_pair;
   using std::make_tuple;

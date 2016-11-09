@@ -166,6 +166,6 @@ EOO
   echo <foo 1>-                     : in-str
   echo "foo" >foo                   : out-str
   echo "foo" 2>foo 1>&2             : err-str
-  cat <foo >foo                     : inout-str # @@ cat is not a builtin yet.
+  cat <foo >foo                     : inout-str
   cat <foo 2>foo 1>&2               : inerr-str
 }

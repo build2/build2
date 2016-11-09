@@ -158,6 +158,12 @@ namespace build2
         const string&
         insert_id (string, location);
 
+        // Set lexer pointers for both the current and the base classes.
+        //
+      protected:
+        void
+        set_lexer (lexer* l);
+
       protected:
         using base_parser = build2::parser;
 

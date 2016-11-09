@@ -60,8 +60,7 @@ namespace build2
         pre_parse_ = true;
 
         lexer l (is, *path_, lexer_mode::script_line);
-        lexer_ = &l;
-        base_parser::lexer_ = &l;
+        set_lexer (&l);
 
         id_prefix_.clear ();
 
@@ -948,8 +947,7 @@ namespace build2
               path_ = &p;
 
               lexer* ol (lexer_);
-              lexer_ = &l;
-              base_parser::lexer_ = &l;
+              set_lexer (&l);
 
               string oip (id_prefix_);
               id_prefix_ += to_string (dl.line);
@@ -963,8 +961,7 @@ namespace build2
                 fail (t) << "stray " << t;
 
               id_prefix_ = oip;
-              base_parser::lexer_ = ol;
-              lexer_ = ol;
+              set_lexer (ol);
               path_ = op;
             }
             catch (const io_error& e)
@@ -2219,8 +2216,7 @@ namespace build2
 
         pre_parse_ = false;
 
-        lexer_ = nullptr;
-        base_parser::lexer_ = nullptr;
+        set_lexer (nullptr);
 
         script_ = &s;
         runner_ = &r;
@@ -2693,6 +2689,13 @@ namespace build2
             info (p.first->second) << "previously used here";
 
         return p.first->first;
+      }
+
+      void parser::
+      set_lexer (lexer* l)
+      {
+        lexer_ = l;
+        base_parser::lexer_ = l;
       }
     }
   }

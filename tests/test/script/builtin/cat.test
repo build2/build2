@@ -1,0 +1,57 @@
+# file      : tests/test/script/runner/cat.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: in
+:
+cat <<EOI >>EOO
+foo
+bar
+EOI
+foo
+bar
+EOO
+
+: dash
+:
+cat - <<EOI >>EOO
+foo
+bar
+EOI
+foo
+bar
+EOO
+
+: file
+:
+cat <<EOI >>>out;
+foo
+bar
+EOI
+cat out >>EOO
+foo
+bar
+EOO
+
+: in-repeat
+:
+cat - <<EOI >>EOO
+foo
+bar
+EOI
+foo
+bar
+EOO
+
+: non-existent
+:
+cat in 2>- != 0 # @@ REGEX
+
+: empty-path
+:
+: Cat an empty path.
+:
+cat '' 2>"cat: invalid path ''" == 1
+
+# @@ When piping is ready test cat on a big file to test it is asynchronous.
+#
