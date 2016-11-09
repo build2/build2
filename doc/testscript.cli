@@ -759,10 +759,11 @@ command-if-body:
   *(variable-line|command-line)
 
 command-expr: command-pipe (('||'|'&&') command-pipe)*
+  *here-document
+
 command-pipe: command ('|' command)*
 
 command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
-  *here-document
 
 redirect: stdin|stdout|stderr
 
