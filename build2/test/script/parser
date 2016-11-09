@@ -57,6 +57,9 @@ namespace build2
         void
         parse_scope_body ();
 
+        unique_ptr<group>
+        pre_parse_scope (token&, token_type&, const string&);
+
         description
         pre_parse_leading_description (token&, token_type&);
 

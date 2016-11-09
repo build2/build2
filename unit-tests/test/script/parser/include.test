@@ -1,13 +1,21 @@
 : not-directive
 :
 $* <<EOI >>EOO
-x =
+x = x
 ".include" foo.test
-.include\$x foo.test
+.include'' foo.test
 EOI
 .include foo.test
 .include foo.test
 EOO
+
+: not-separated
+:
+touch foo.test;
+$* <<EOI
+x = foo.test
+.include\$x
+EOI
 
 : none
 :

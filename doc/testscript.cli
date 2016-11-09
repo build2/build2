@@ -718,17 +718,31 @@ teardown:
   variable-line|teardown-line
 
 scope:
-  description?
+  ?description
+  scope-block|scope-if
+
+scope-block:
   '{'
   scope-body
   '}'
 
+scope-if: ('if'|'if!') command-expr
+  scope-block
+  *scope-elif
+  ?scope-else
+
+scope-elif: ('elif'|'elif!') command-expr
+  scope-block
+
+scope-else: 'else'
+  scope-block
+
 test:
-  description?
+  ?description
   *((variable-line|test-line) ';')
   test-line (':' <text>)?
 
-include: '.include'(' '+'--once')*(' '+<path>)*
+include: '.include' (' '+'--once')*(' '+<path>)*
 
 description:
   +(':' <text>)
@@ -741,15 +755,15 @@ teardown-line: '-' command-line
 test-line:         command-line
 
 command-line:
-  command-if|command-expr
+  command-expr|command-if
 
-command-if: ('if'|'if!')' '+command-expr
+command-if: ('if'|'if!') command-expr
   command-if-body
   *command-elif
   ?command-else
   'end'
 
-command-elif: ('elif'|'elif!')' '+command-expr
+command-elif: ('elif'|'elif!') command-expr
   command-if-body
 
 command-else: 'else'

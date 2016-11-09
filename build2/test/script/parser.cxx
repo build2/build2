@@ -146,51 +146,26 @@ namespace build2
               next (t, tt); // Get '{'.
               const location sl (get_location (t));
 
-              if (next (t, tt) != type::newline)
-                fail (t) << "expected newline after '{'";
-
-              // Push group. If there is no user-supplied id, use the line
-              // number (prefixed with include id) as the scope id.
+              // If there is no user-supplied id, use the line number
+              // (prefixed with include id) as the scope id.
               //
               const string& id (
                 d && !d->id.empty ()
                 ? d->id
                 : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-              id_map idm;
-              include_set ins;
-
-              unique_ptr<group> g (new group (id, *group_));
-
-              id_map* om (id_map_);
-              id_map_ = &idm;
-
-              include_set* os (include_set_);
-              include_set_ = &ins;
-
-              group* og (group_);
-              group_ = g.get ();
-
-              group_->desc = move (d);
-
-              group_->start_loc_ = sl;
-              token e (pre_parse_scope_body ());
-              group_->end_loc_ = get_location (e);
-
-              // Pop group.
-              //
-              group_ = og;
-              include_set_ = os;
-              id_map_ = om;
+              unique_ptr<group> g (pre_parse_scope (t, tt, id));
 
               // Drop empty scopes.
               //
               if (!g->empty ())
               {
+                g->desc = move (d);
+
                 // See if this turned out to be an explicit test scope. An
                 // explicit test scope contains a single test, only variable
                 // assignments in setup and nothing in teardown. Plus only
-                // test or scope (but not both) can have a description.
+                // the scope can have the description.
                 //
                 auto& sc (g->scopes);
                 auto& su (g->setup_);
@@ -206,40 +181,23 @@ namespace build2
                         return l.type != line_type::var;
                       }) == su.end () &&
                     td.empty () &&
-                    (!g->desc || !t->desc))
+                    !t->desc)
                 {
                   // It would have been nice to reuse the test object and only
-                  // throw aways the group. However, the merged scope may have
-                  // to use id_path/wd_path of the group. So to keep things
+                  // throw aways the group. However, the merged scope has to
+                  // use id_path/wd_path of the group. So to keep things
                   // simple we are going to throw away both and create a new
                   // test object.
                   //
-                  // Decide whose id to use. We use the group's unless there
-                  // is a user-provided one for the test (note that they
-                  // cannot be both user-provided since only one can have a
-                  // description). If we are using the test's then we also
-                  // have to insert it into the outer scope. Good luck getting
-                  // its location.
+                  // We always use the group's id since the test cannot have
+                  // a user-provided one.
                   //
-                  string id;
-                  if (t->desc && !t->desc->id.empty ())
-                  {
-                    // In the id map of the group we should have exactly one
-                    // entry -- the one for the test id. That's where we will
-                    // get the location.
-                    //
-                    assert (idm.size () == 1);
-                    id = insert_id (t->desc->id, idm.begin ()->second);
-                  }
-                  else
-                    id = g->id_path.leaf ().string ();
+                  unique_ptr<test> m (
+                    new test (g->id_path.leaf ().string (), *group_));
 
-                  unique_ptr<test> m (new test (id, *group_));
-
-                  // Move the description (again cannot be both).
+                  // Move the description.
                   //
-                  if      (g->desc) m->desc = move (g->desc);
-                  else if (t->desc) m->desc = move (t->desc);
+                  m->desc = move (g->desc);
 
                   // Merge the lines of the group and the test.
                   //
@@ -263,12 +221,6 @@ namespace build2
                 else
                   group_->scopes.push_back (move (g));
               }
-
-              if (e.type != type::rcbrace)
-                fail (e) << "expected '}' at the end of the scope";
-
-              if (next (t, tt) != type::newline)
-                fail (t) << "expected newline after '}'";
 
               continue;
             }
@@ -319,8 +271,56 @@ namespace build2
         runner_->leave (*scope_, scope_->end_loc_);
       }
 
+      unique_ptr<group> parser::
+      pre_parse_scope (token& t, type& tt, const string& id)
+      {
+        // enter: lcbrace
+        // leave: newline
+
+        const location sl (get_location (t));
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after '{'";
+
+        // Push group.
+        //
+        id_map idm;
+        include_set ins;
+
+        unique_ptr<group> g (new group (id, *group_));
+
+        id_map* om (id_map_);
+        id_map_ = &idm;
+
+        include_set* os (include_set_);
+        include_set_ = &ins;
+
+        group* og (group_);
+        group_ = g.get ();
+
+        // Parse body.
+        //
+        group_->start_loc_ = sl;
+        token e (pre_parse_scope_body ());
+        group_->end_loc_ = get_location (e);
+
+        // Pop group.
+        //
+        group_ = og;
+        include_set_ = os;
+        id_map_ = om;
+
+        if (e.type != type::rcbrace)
+          fail (e) << "expected '}' at the end of the scope";
+
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after '}'";
+
+        return g;
+      }
+
       description parser::
-      pre_parse_leading_description (token& t, token_type& tt)
+      pre_parse_leading_description (token& t, type& tt)
       {
         // Note: token is only peeked at. On return tt is also only peeked at
         // and in the first_token mode.
@@ -461,7 +461,7 @@ namespace build2
       }
 
       description parser::
-      parse_trailing_description (token& t, token_type& tt)
+      parse_trailing_description (token& t, type& tt)
       {
         // Parse one-line trailing description.
         //
@@ -541,7 +541,7 @@ namespace build2
             // command.
             //
             // It is a directive if the first token is an unquoted directive
-            // name that is separated from the next token (think .include$x).
+            // name.
             //
             // It is an assignment if the first token is an unquoted name and
             // the next is an assign/append/prepend operator. Assignment to a
@@ -557,7 +557,7 @@ namespace build2
               mode (lexer_mode::second_token);
               type p (peek ());
 
-              if (peeked ().separated && t.value == ".include")
+              if (t.value == ".include")
               {
                 replay_stop (); // Stop replay and discard the data.
 
@@ -589,22 +589,15 @@ namespace build2
         //
         if (lt == line_type::cmd && tt == type::word && !t.quoted)
         {
-          // The next token should be separated. We make an exception for
-          // colon and semicolon (think end;).
-          //
-          type p (peek ());
-          if (peeked ().separated || p == type::semi || p == type::colon)
-          {
-            if      (t.value == "if")    lt = line_type::cmd_if;
-            else if (t.value == "if!")   lt = line_type::cmd_ifn;
-            else if (t.value == "elif")  lt = line_type::cmd_elif;
-            else if (t.value == "elif!") lt = line_type::cmd_elifn;
-            else if (t.value == "else")  lt = line_type::cmd_else;
-            else if (t.value == "end")   lt = line_type::cmd_end;
+          if      (t.value == "if")    lt = line_type::cmd_if;
+          else if (t.value == "if!")   lt = line_type::cmd_ifn;
+          else if (t.value == "elif")  lt = line_type::cmd_elif;
+          else if (t.value == "elif!") lt = line_type::cmd_elifn;
+          else if (t.value == "else")  lt = line_type::cmd_else;
+          else if (t.value == "end")   lt = line_type::cmd_end;
 
-            if (lt != line_type::cmd)
-              next (t, tt); // Skip to start of command.
-          }
+          if (lt != line_type::cmd)
+            next (t, tt); // Skip to start of command.
         }
 
         // Pre-parse the line keeping track of whether it ends with a semi.
@@ -825,9 +818,10 @@ namespace build2
           }
         }
 
-        // Create implicit test scope.
+        // Create implicit test scope unless someone (e.g., scope if-else)
+        // used them for something else.
         //
-        if (ls == &tests)
+        if (ls == &tests && !tests.empty ())
         {
           // If there is no user-supplied id, use the line number (prefixed
           // with include id) as the scope id.
