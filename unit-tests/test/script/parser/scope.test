@@ -12,23 +12,17 @@ wd += foo;
 wd += 1;
 $* foo.test   <'cmd $~' >"cmd $wd"   # wd
 
-$* -s <<EOI >>EOO                    # group-empty
+$* -s <<EOI                          # group-empty
 {
 }
 EOI
-{
-}
-EOO
 
-$* -s <<EOI >>EOO                    # group-empty-empty
+$* -s <<EOI                          # group-empty-empty
 {
  {
  }
 }
 EOI
-{
-}
-EOO
 
 $* -s <<EOI >>EOO                    # group
 {

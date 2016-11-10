@@ -246,6 +246,10 @@ namespace build2
         scope* const parent; // NULL for the root (script) scope.
         script* const root;  // Self for the root (script) scope.
 
+        // The chain of if-else scope alternatives. See also if_cond_ below.
+        //
+        unique_ptr<scope> if_chain;
+
         // Note that if we pass the variable name as a string, then it will
         // be looked up in the wrong pool.
         //
@@ -309,11 +313,17 @@ namespace build2
 
         // Pre-parse data.
         //
-      private:
+      public:
+        virtual bool
+        empty () const = 0;
+
+      protected:
         friend class parser;
 
         location start_loc_;
         location end_loc_;
+
+        optional<line> if_cond_;
       };
 
       // group
@@ -331,14 +341,22 @@ namespace build2
 
         // Pre-parse data.
         //
+      public:
+        virtual bool
+        empty () const override
+        {
+          return
+            setup_.empty () &&
+            tdown_.empty () &&
+            find_if (scopes.begin (), scopes.end (),
+                     [] (const unique_ptr<scope>& s)
+                     {
+                       return !s->empty ();
+                     }) == scopes.end ();
+        }
+
       private:
         friend class parser;
-
-        bool
-        empty () const
-        {
-          return scopes.empty () && setup_.empty () && tdown_.empty ();
-        }
 
         lines setup_;
         lines tdown_;
@@ -353,6 +371,13 @@ namespace build2
 
         // Pre-parse data.
         //
+      public:
+        virtual bool
+        empty () const override
+        {
+          return tests_.empty ();
+        }
+
       private:
         friend class parser;
 

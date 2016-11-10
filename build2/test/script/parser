@@ -37,7 +37,8 @@ namespace build2
         void
         parse (script& s, runner& r)
         {
-          parse (s, s, r);
+          if (!s.empty ())
+            parse (s, s, r);
         }
 
         // Recursive descent parser.
@@ -50,6 +51,9 @@ namespace build2
       protected:
         void
         parse (scope&, script&, runner&);
+
+        bool
+        demote_group_scope (unique_ptr<scope>&);
 
         token
         pre_parse_scope_body ();
@@ -75,10 +79,23 @@ namespace build2
         void
         parse_lines (lines::iterator, lines::iterator, size_t&, bool);
 
+        command_expr
+        parse_command_expr (token&, token_type&);
+
         bool
         pre_parse_if_else (token&, token_type&,
                            optional<description>&,
                            lines&);
+
+        bool
+        pre_parse_if_else_scope (token&, token_type&,
+                                 optional<description>&,
+                                 lines&);
+
+        bool
+        pre_parse_if_else_command (token&, token_type&,
+                                   optional<description>&,
+                                   lines&);
 
         void
         parse_directive_line (token&, token_type&);

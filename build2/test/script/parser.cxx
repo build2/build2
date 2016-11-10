@@ -104,6 +104,81 @@ namespace build2
         parse_scope_body ();
       }
 
+      bool parser::
+      demote_group_scope (unique_ptr<scope>& s)
+      {
+        // See if this turned out to be an explicit test scope. An explicit
+        // test scope contains a single test, only variable assignments in
+        // setup and nothing in teardown. Plus only the group can have the
+        // description. Because we apply this recursively, also disqualify
+        // a test scope that has an if-condition.
+        //
+        // If we have a chain, then all the scopes must be demotable. So we
+        // first check if this scope is demotable and if so then recurse for
+        // the next in chain.
+        //
+        group& g (static_cast<group&> (*s));
+
+        auto& sc (g.scopes);
+        auto& su (g.setup_);
+        auto& td (g.tdown_);
+
+        test* t;
+        if (sc.size () == 1                                          &&
+            (t = dynamic_cast<test*> (sc.back ().get ())) != nullptr &&
+            find_if (
+              su.begin (), su.end (),
+              [] (const line& l)
+              {
+                return l.type != line_type::var;
+              }) == su.end ()                                        &&
+            td.empty ()                                              &&
+            !t->desc                                                 &&
+            !t->if_cond_)
+        {
+          if (g.if_chain != nullptr && !demote_group_scope (g.if_chain))
+            return false;
+
+          // It would have been nice to reuse the test object and only throw
+          // away the group. However, the merged scope has to use id_path and
+          // wd_path of the group. So to keep things simple we are going to
+          // throw away both and create a new test object.
+          //
+          // We always use the group's id since the test cannot have a
+          // user-provided one.
+          //
+          unique_ptr<test> m (new test (g.id_path.leaf ().string (), *group_));
+
+          // Move the description, if-condition, and if-chain.
+          //
+          m->desc = move (g.desc);
+          m->if_cond_ = move (g.if_cond_);
+          m->if_chain = move (g.if_chain);
+
+          // Merge the lines of the group and the test.
+          //
+          if (su.empty ())
+            m->tests_ = move (t->tests_);
+          else
+          {
+            m->tests_ = move (su); // Should come first.
+            m->tests_.insert (m->tests_.end (),
+                              make_move_iterator (t->tests_.begin ()),
+                              make_move_iterator (t->tests_.end ()));
+          }
+
+          // Use start/end locations of the outer scope.
+          //
+          m->start_loc_ = g.start_loc_;
+          m->end_loc_ = g.end_loc_;
+
+          s = move (m);
+          return true;
+        }
+
+        return false;
+      }
+
       token parser::
       pre_parse_scope_body ()
       {
@@ -116,8 +191,7 @@ namespace build2
         {
           // Start lexing each line recognizing leading ':+-{}'.
           //
-          mode (lexer_mode::first_token);
-          tt = peek ();
+          tt = peek (lexer_mode::first_token);
 
           // Handle description.
           //
@@ -154,74 +228,11 @@ namespace build2
                 ? d->id
                 : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-              unique_ptr<group> g (pre_parse_scope (t, tt, id));
+              unique_ptr<scope> g (pre_parse_scope (t, tt, id));
+              g->desc = move (d);
 
-              // Drop empty scopes.
-              //
-              if (!g->empty ())
-              {
-                g->desc = move (d);
-
-                // See if this turned out to be an explicit test scope. An
-                // explicit test scope contains a single test, only variable
-                // assignments in setup and nothing in teardown. Plus only
-                // the scope can have the description.
-                //
-                auto& sc (g->scopes);
-                auto& su (g->setup_);
-                auto& td (g->tdown_);
-
-                test* t;
-                if (sc.size () == 1 &&
-                    (t = dynamic_cast<test*> (sc.back ().get ())) != nullptr &&
-                    find_if (
-                      su.begin (), su.end (),
-                      [] (const line& l)
-                      {
-                        return l.type != line_type::var;
-                      }) == su.end () &&
-                    td.empty () &&
-                    !t->desc)
-                {
-                  // It would have been nice to reuse the test object and only
-                  // throw aways the group. However, the merged scope has to
-                  // use id_path/wd_path of the group. So to keep things
-                  // simple we are going to throw away both and create a new
-                  // test object.
-                  //
-                  // We always use the group's id since the test cannot have
-                  // a user-provided one.
-                  //
-                  unique_ptr<test> m (
-                    new test (g->id_path.leaf ().string (), *group_));
-
-                  // Move the description.
-                  //
-                  m->desc = move (g->desc);
-
-                  // Merge the lines of the group and the test.
-                  //
-                  if (su.empty ())
-                    m->tests_ = move (t->tests_);
-                  else
-                  {
-                    m->tests_ = move (su); // Should come first.
-                    m->tests_.insert (m->tests_.end (),
-                                      make_move_iterator (t->tests_.begin ()),
-                                      make_move_iterator (t->tests_.end ()));
-                  }
-
-                  // Use start/end locations of the outer scope.
-                  //
-                  m->start_loc_ = g->start_loc_;
-                  m->end_loc_ = g->end_loc_;
-
-                  group_->scopes.push_back (move (m));
-                }
-                else
-                  group_->scopes.push_back (move (g));
-              }
-
+              demote_group_scope (g);
+              group_->scopes.push_back (move (g));
               continue;
             }
           default:
@@ -249,18 +260,79 @@ namespace build2
         {
           parse_lines (g->setup_.begin (), g->setup_.end (), li, false);
 
-          for (const unique_ptr<scope>& s: g->scopes)
+          for (const unique_ptr<scope>& chain: g->scopes)
           {
-            // Hand it off to a sub-parser potentially in another thread. But
-            // we could also have handled it serially in this parser:
+            // Pick a scope from the if-else chain.
             //
-            // scope* os (scope_);
-            // scope_ = s.get ();
-            // parse_scope_body ();
-            // scope_ = os;
+            // @@ Should we free the memory by dropping all but the choosen
+            //    scope?
             //
-            parser p;
-            p.parse (*s, *script_, *runner_);
+            scope* s (chain.get ());
+            for (; s != nullptr; s = s->if_chain.get ())
+            {
+              if (!s->if_cond_)
+              {
+                assert (s->if_chain == nullptr);
+                break;
+              }
+
+              line l (move (*s->if_cond_));
+              line_type lt (l.type);
+
+              replay_data (move (l.tokens));
+
+              token t;
+              type tt;
+
+              next (t, tt);
+              const location ll (get_location (t));
+              next (t, tt); // Skip to start of command.
+
+              bool take;
+              if (lt != line_type::cmd_else)
+              {
+                // Note: the line index count continues from setup.
+                //
+                command_expr ce (parse_command_expr (t, tt));
+                take = runner_->run_if (*scope_, ce, ++li, ll);
+
+                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
+                  take = !take;
+              }
+              else
+              {
+                assert (tt == type::newline);
+                take = true;
+              }
+
+              replay_stop ();
+
+              if (take)
+              {
+                // Count the remaining conditions for the line index.
+                //
+                for (scope* r (s->if_chain.get ());
+                     r != nullptr && r->if_cond_->type != line_type::cmd_else;
+                     r = r->if_chain.get ())
+                  ++li;
+
+                break;
+              }
+            }
+
+            if (s != nullptr && !s->empty ())
+            {
+              // Hand it off to a sub-parser potentially in another thread.
+              // But we could also have handled it serially in this parser:
+              //
+              // scope* os (scope_);
+              // scope_ = s;
+              // parse_scope_body ();
+              // scope_ = os;
+              //
+              parser p;
+              p.parse (*s, *script_, *runner_);
+            }
           }
 
           parse_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
@@ -439,8 +511,7 @@ namespace build2
             r.details.append (l, i, n);
           }
 
-          mode (lexer_mode::first_token);
-          tt = peek ();
+          tt = peek (lexer_mode::first_token);
         }
 
         // Zap trailing newlines in the details.
@@ -522,12 +593,24 @@ namespace build2
           {
             // Setup/teardown command.
             //
-            lt = line_type::cmd;
             st = tt;
 
             next (t, tt);   // Start saving tokens from the next one.
             replay_save ();
             next (t, tt);
+
+            // See if this is a special command.
+            //
+            lt = line_type::cmd; // Default.
+
+            if (tt == type::word && !t.quoted)
+            {
+              const string& n (t.value);
+
+              if      (n == "if")  lt = line_type::cmd_if;
+              else if (n == "if!") lt = line_type::cmd_ifn;
+            }
+
             break;
           }
         default:
@@ -537,27 +620,26 @@ namespace build2
             replay_save (); // Start saving tokens from the current one.
             next (t, tt);
 
-            // Decide whether this is a variable assignment/directive or a
+            // Decide whether this is a variable assignment, directive or a
             // command.
             //
             // It is a directive if the first token is an unquoted directive
             // name.
             //
             // It is an assignment if the first token is an unquoted name and
-            // the next is an assign/append/prepend operator. Assignment to a
-            // computed variable name must use the set builtin.
+            // the next token is an assign/append/prepend operator. Assignment
+            // to a computed variable name must use the set builtin.
             //
+            // Note also that directives/special commands take precedence over
+            // variable assignments.
+            //
+            lt = line_type::cmd; // Default.
+
             if (tt == type::word && !t.quoted)
             {
-              // Switch the recognition of leading variable assignments for
-              // the next token. This is safe to do because we know we
-              // cannot be in the quoted mode (since the current token is
-              // not quoted).
-              //
-              mode (lexer_mode::second_token);
-              type p (peek ());
+              const string& n (t.value);
 
-              if (t.value == ".include")
+              if (n == ".include")
               {
                 replay_stop (); // Stop replay and discard the data.
 
@@ -570,34 +652,33 @@ namespace build2
                 assert (tt == type::newline);
                 return false;
               }
-              else if (p == type::assign  ||
-                       p == type::prepend ||
-                       p == type::append)
+              else if (n == "if")    lt = line_type::cmd_if;
+              else if (n == "if!")   lt = line_type::cmd_ifn;
+              else if (n == "elif")  lt = line_type::cmd_elif;
+              else if (n == "elif!") lt = line_type::cmd_elifn;
+              else if (n == "else")  lt = line_type::cmd_else;
+              else if (n == "end")   lt = line_type::cmd_end;
+              else
               {
-                lt = line_type::var;
-                st = p;
-                break;
+                // Switch the recognition of leading variable assignments for
+                // the next token. This is safe to do because we know we
+                // cannot be in the quoted mode (since the current token is
+                // not quoted).
+                //
+                type p (peek (lexer_mode::second_token));
+
+                if (p == type::assign  ||
+                    p == type::prepend ||
+                    p == type::append)
+                {
+                  lt = line_type::var;
+                  st = p;
+                }
               }
             }
 
-            lt = line_type::cmd;
             break;
           }
-        }
-
-        // Detect if-else commands.
-        //
-        if (lt == line_type::cmd && tt == type::word && !t.quoted)
-        {
-          if      (t.value == "if")    lt = line_type::cmd_if;
-          else if (t.value == "if!")   lt = line_type::cmd_ifn;
-          else if (t.value == "elif")  lt = line_type::cmd_elif;
-          else if (t.value == "elif!") lt = line_type::cmd_elifn;
-          else if (t.value == "else")  lt = line_type::cmd_else;
-          else if (t.value == "end")   lt = line_type::cmd_end;
-
-          if (lt != line_type::cmd)
-            next (t, tt); // Skip to start of command.
         }
 
         // Pre-parse the line keeping track of whether it ends with a semi.
@@ -629,13 +710,17 @@ namespace build2
 
             break;
           }
-        case line_type::cmd:
         case line_type::cmd_if:
         case line_type::cmd_ifn:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
         case line_type::cmd_else:
         case line_type::cmd_end:
+          {
+            next (t, tt); // Skip to start of command.
+            // Fall through.
+          }
+        case line_type::cmd:
           {
             pair<command_expr, here_docs> p;
 
@@ -796,8 +881,7 @@ namespace build2
         //
         if (semi && !one)
         {
-          mode (lexer_mode::first_token);
-          tt = peek ();
+          tt = peek (lexer_mode::first_token);
           const location ll (get_location (peeked ()));
 
           switch (tt)
@@ -850,24 +934,6 @@ namespace build2
       {
         token t;
         type tt;
-
-        auto parse_cmd = [&t, &tt, this] () -> command_expr
-        {
-          pair<command_expr, here_docs> p (parse_command_line (t, tt));
-
-          switch (tt)
-          {
-          case type::colon: parse_trailing_description (t, tt); break;
-          case type::semi: next (t, tt); break; // Get newline.
-          }
-
-          assert (tt == type::newline);
-
-          parse_here_documents (t, tt, p);
-          assert (tt == type::newline);
-
-          return move (p.first);
-        };
 
         for (; i != e; ++i)
         {
@@ -950,7 +1016,7 @@ namespace build2
               else
                 ++li;
 
-              command_expr ce (parse_cmd ());
+              command_expr ce (parse_command_expr (t, tt));
               runner_->run (*scope_, ce, li, ll);
 
               replay_stop ();
@@ -969,7 +1035,7 @@ namespace build2
               {
                 // Assume if-else always involves multiple commands.
                 //
-                command_expr ce (parse_cmd ());
+                command_expr ce (parse_command_expr (t, tt));
                 take = runner_->run_if (*scope_, ce, ++li, ll);
 
                 if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
@@ -1070,18 +1136,177 @@ namespace build2
         }
       }
 
+      command_expr parser::
+      parse_command_expr (token& t, type& tt)
+      {
+        // enter: first token of the command line
+        // leave: <newline>
+
+        pair<command_expr, here_docs> p (parse_command_line (t, tt));
+
+        switch (tt)
+        {
+        case type::colon: parse_trailing_description (t, tt); break;
+        case type::semi: next (t, tt); break; // Get newline.
+        }
+
+        assert (tt == type::newline);
+
+        parse_here_documents (t, tt, p);
+        assert (tt == type::newline);
+
+        return move (p.first);
+      };
+
       bool parser::
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
                          lines& ls)
       {
+        // enter: <newline> (previous line)
+        // leave: <newline>
+
+        tt = peek (lexer_mode::first_token);
+
+        return tt == type::lcbrace
+          ? pre_parse_if_else_scope (t, tt, d, ls)
+          : pre_parse_if_else_command (t, tt, d, ls);
+      }
+
+      bool parser::
+      pre_parse_if_else_scope (token& t, type& tt,
+                               optional<description>& d,
+                               lines& ls)
+      {
+        // enter: peeked token of next line (lcbrace)
+        // leave: newline
+
+        assert (ls.size () == 1); // The if/if! line.
+
+        // Use if/if! as the entire scope chain location.
+        //
+        const location sl (ls.back ().tokens.front ().location ());
+
+        // If there is no user-supplied id, use the line number (prefixed with
+        // include id) as the scope id. Note that we use the same id for all
+        // scopes in the chain.
+        //
+        const string& id (
+          d && !d->id.empty ()
+          ? d->id
+          : insert_id (id_prefix_ + to_string (sl.line), sl));
+
+        unique_ptr<scope> root;
+
+        // Parse the if-else scope chain.
+        //
+        line_type bt (line_type::cmd_if); // Current block.
+
+        for (unique_ptr<scope>* ps (&root);; ps = &(*ps)->if_chain)
+        {
+          next (t, tt); // Get '{'.
+
+          {
+            unique_ptr<group> g (pre_parse_scope (t, tt, id));
+
+            // If-condition.
+            //
+            g->if_cond_ = move (ls.back ());
+            ls.clear ();
+
+            // Description. For now we just duplicate it through the entire
+            // chain.
+            //
+            g->desc = (ps == &root ? move (d) : root->desc);
+
+            *ps = move (g);
+          }
+
+          // See if what comes next is another chain element.
+          //
+          line_type lt (line_type::cmd_end);
+
+          type pt (peek (lexer_mode::first_token));
+          const token& p (peeked ());
+          const location ll (get_location (p));
+
+          if (pt == type::word && !p.quoted)
+          {
+            if      (p.value == "elif")  lt = line_type::cmd_elif;
+            else if (p.value == "elif!") lt = line_type::cmd_elifn;
+            else if (p.value == "else")  lt = line_type::cmd_else;
+          }
+
+          if (lt == line_type::cmd_end)
+            break;
+
+          // Check if-else block sequencing.
+          //
+          if (bt == line_type::cmd_else)
+          {
+            if (lt == line_type::cmd_else ||
+                lt == line_type::cmd_elif ||
+                lt == line_type::cmd_elifn)
+              fail (ll) << lt << " after " << bt;
+          }
+
+          // Parse just the condition line using pre_parse_line() in the "one"
+          // mode and into ls so that it is naturally picked up as if_cond_ on
+          // the next iteration.
+          //
+          optional<description> td;
+          bool semi (pre_parse_line (t, (tt = pt), td, &ls, true));
+          assert (ls.size () == 1 && ls.back ().type == lt);
+          assert (tt == type::newline);
+
+          // For any of these lines trailing semi or description is illegal.
+          //
+          // @@ Not the exact location of semi/colon.
+          //
+          if (semi)
+            fail (ll) << "';' after " << lt;
+
+          if (td)
+            fail (ll) << "description after " << lt;
+
+          // Make sure what comes next is another scope.
+          //
+          tt = peek (lexer_mode::first_token);
+
+          if (tt != type::lcbrace)
+            fail (ll) << "expected scope after " << lt;
+
+          // Update current if-else block.
+          //
+          switch (lt)
+          {
+          case line_type::cmd_elif:
+          case line_type::cmd_elifn: bt = line_type::cmd_elif; break;
+          case line_type::cmd_else:  bt = line_type::cmd_else; break;
+          default: break;
+          }
+        }
+
+        demote_group_scope (root);
+        group_->scopes.push_back (move (root));
+        return false; // We never end with a semi.
+      }
+
+      bool parser::
+      pre_parse_if_else_command (token& t, type& tt,
+                                 optional<description>& d,
+                                 lines& ls)
+      {
+        // enter: peeked first token of next line
+        // leave: newline
+
         // Parse lines until we see closing 'end'. Nested if-else blocks are
         // handled recursively.
         //
-        for (line_type bt (line_type::cmd_if);;) // Current block.
+        for (line_type bt (line_type::cmd_if); // Current block.
+             ;
+             tt = peek (lexer_mode::first_token))
         {
-          mode (lexer_mode::first_token);
-          tt = peek ();
           const location ll (get_location (peeked ()));
 
           switch (tt)

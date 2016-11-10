@@ -287,6 +287,23 @@ namespace build2
     token_type
     peek ();
 
+    token_type
+    peek (lexer_mode m, char ps = '@')
+    {
+      // The idea is that if we already have something peeked, then it should
+      // be in the same mode. We also don't re-set the mode since it may have
+      // expired after the first token.
+      //
+      if (peeked_)
+      {
+        assert (peek_.mode == m);
+        return peek_.token.type;
+      }
+
+      mode (m, ps);
+      return peek ();
+    }
+
     const token&
     peeked () const
     {

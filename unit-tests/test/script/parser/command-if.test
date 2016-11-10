@@ -299,11 +299,12 @@ EOE
 :
 $* <<EOI 2>>EOE != 0
 if
+  cmd
   {
   }
 end
 EOI
-testscript:2:3: error: expected closing 'end'
+testscript:3:3: error: expected closing 'end'
 EOE
 
 : setup-inside
