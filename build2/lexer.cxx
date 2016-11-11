@@ -34,7 +34,6 @@ namespace build2
   {
     const char* s1 (nullptr);
     const char* s2 (nullptr);
-    char p ('\0');
     bool s (true);
     bool q (true);
 
@@ -44,28 +43,24 @@ namespace build2
       {
         s1 = ":=+ $(){}[]#\t\n";
         s2 = "  =           ";
-        p = ps;
         break;
       }
     case lexer_mode::value:
       {
         s1 = " $(){}[]#\t\n";
         s2 = "           ";
-        p = ps;
         break;
       }
     case lexer_mode::attribute:
       {
         s1 = " $(]#\t\n";
         s2 = "       ";
-        p = ps;
         break;
       }
     case lexer_mode::eval:
       {
         s1 = ":<>=! $(){}[]#\t\n";
         s2 = "   ==           ";
-        p = ps;
         break;
       }
     case lexer_mode::single_quoted:
@@ -75,12 +70,13 @@ namespace build2
     case lexer_mode::variable:
       {
         // These are handled in an ad hoc way in word().
+        assert (ps == '\0');
         break;
       }
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, p, s, q, s1, s2});
+    state_.push (state {m, ps, s, q, s1, s2});
   }
 
   token lexer::

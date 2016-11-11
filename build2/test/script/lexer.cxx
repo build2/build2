@@ -96,14 +96,22 @@ namespace build2
           }
         default:
           {
-            // Disable pair separator except for attributes.
+            // Make sure pair separators are only enabled where we expect
+            // them.
             //
-            base_lexer::mode (m, m != lexer_mode::attribute ? '\0' : ps);
+            // @@ Should we disable pair separators in the eval mode?
+            //
+            assert (ps == '\0' ||
+                    m == lexer_mode::eval ||
+                    m == lexer_mode::attribute);
+
+            base_lexer::mode (m, ps);
             return;
           }
         }
 
-        state_.push (state {m, '\0', s, q, s1, s2});
+        assert (ps == '\0');
+        state_.push (state {m, ps, s, q, s1, s2});
       }
 
       token lexer::

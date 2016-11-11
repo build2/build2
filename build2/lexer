@@ -81,12 +81,11 @@ namespace build2
     const path&
     name () const {return fail.name_;}
 
-    // Note: sets mode for the next token. The second argument can be used
-    // to specify an alternative separator character (if the mode supports
-    // pair separators).
+    // Note: sets mode for the next token. The second argument can be used to
+    // specifythe pair separator character (if the mode supports pairs).
     //
     virtual void
-    mode (lexer_mode, char pair_separator = '@');
+    mode (lexer_mode, char pair_separator = '\0');
 
     // Expire the current mode early.
     //
@@ -186,7 +185,7 @@ namespace build2
           sep_ (false)
     {
       if (sm)
-        mode (lexer_mode::normal);
+        mode (lexer_mode::normal, '@');
     }
 
     const char* escapes_;

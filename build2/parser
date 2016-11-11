@@ -93,11 +93,10 @@ namespace build2
     string
     parse_variable_name (names&&, const location&);
 
-    // Note: calls attributes_push() that the caller must pop. Also expects
-    // the mode to auto-expire.
+    // Note: calls attributes_push() that the caller must pop.
     //
     value
-    parse_variable_value (token&, token_type&, lexer_mode = lexer_mode::value);
+    parse_variable_value (token&, token_type&);
 
     void
     apply_variable_attributes (const variable&);
@@ -288,7 +287,7 @@ namespace build2
     peek ();
 
     token_type
-    peek (lexer_mode m, char ps = '@')
+    peek (lexer_mode m, char ps = '\0')
     {
       // The idea is that if we already have something peeked, then it should
       // be in the same mode. We also don't re-set the mode since it may have
@@ -296,7 +295,7 @@ namespace build2
       //
       if (peeked_)
       {
-        assert (peek_.mode == m);
+        assert (peek_.mode == m && peek_.pair_separator == ps);
         return peek_.token.type;
       }
 
@@ -312,7 +311,7 @@ namespace build2
     }
 
     void
-    mode (lexer_mode m, char ps = '@')
+    mode (lexer_mode m, char ps = '\0')
     {
       if (replay_ != replay::play)
         lexer_->mode (m, ps);

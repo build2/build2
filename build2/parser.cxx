@@ -765,7 +765,7 @@ namespace build2
     // The rest should be a list of buildfiles. Parse them as names in the
     // value mode to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::value, '@');
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
@@ -841,7 +841,7 @@ namespace build2
     // The rest should be a list of buildfiles. Parse them as names in the
     // value mode to get variable expansion and directory prefixes.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::value, '@');
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
@@ -992,7 +992,7 @@ namespace build2
     // switch to the value mode, get the first token, and then re-parse it
     // manually looking for =/=+/+=.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::value, '@');
     next (t, tt);
 
     // Get variable attributes, if any (note that here we will go into a
@@ -1172,7 +1172,7 @@ namespace build2
     // The rest should be a list of module names. Parse them as names in the
     // value mode to get variable expansion, etc.
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::value, '@');
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
@@ -1468,9 +1468,9 @@ namespace build2
   }
 
   value parser::
-  parse_variable_value (token& t, type& tt, lexer_mode m)
+  parse_variable_value (token& t, type& tt)
   {
-    mode (m);
+    mode (lexer_mode::value, '@');
     next (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
@@ -1661,7 +1661,7 @@ namespace build2
   value parser::
   parse_eval (token& t, type& tt)
   {
-    mode (lexer_mode::eval);
+    mode (lexer_mode::eval, '@');
     next (t, tt);
     return parse_eval_trailer (t, tt);
   }
@@ -2792,7 +2792,7 @@ namespace build2
     // Turn on the value mode/pairs recognition with '@' as the pair separator
     // (e.g., src_root/@out_root/exe{foo bar}).
     //
-    mode (lexer_mode::value);
+    mode (lexer_mode::value, '@');
 
     token t;
     type tt;
