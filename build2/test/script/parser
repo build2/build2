@@ -25,62 +25,39 @@ namespace build2
 
       class parser: protected build2::parser
       {
-      public:
-        // Issue diagnostics and throw failed in case of an error.
+        // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
+      public:
         void
         pre_parse (script&);
 
         void
         pre_parse (istream&, script&);
 
-        void
-        parse (script& s, runner& r)
-        {
-          if (!s.empty ())
-            parse (s, s, r);
-        }
-
         // Recursive descent parser.
         //
-        // Each parse function receives the token/type from which it should
-        // start consuming. On return the token/type should contain the first
-        // token that has not been consumed. For *_line() functions this is
-        // the newline.
+        // Usually (but not always) parse functions receive the token/type
+        // from which it should start consuming and in return the token/type
+        // should contain the first token that has not been consumed.
+        //
+        // Functions that are called parse_*() rather than pre_parse_*() are
+        // used for both stages.
         //
       protected:
-        void
-        parse (scope&, script&, runner&);
-
         bool
-        demote_group_scope (unique_ptr<scope>&);
+        pre_parse_demote_group_scope (unique_ptr<scope>&);
 
         token
         pre_parse_scope_body ();
 
-        void
-        parse_scope_body ();
-
         unique_ptr<group>
-        pre_parse_scope (token&, token_type&, const string&);
-
-        description
-        pre_parse_leading_description (token&, token_type&);
-
-        description
-        parse_trailing_description (token&, token_type&);
+        pre_parse_scope_block (token&, token_type&, const string&);
 
         bool
         pre_parse_line (token&, token_type&,
                         optional<description>&,
                         lines* = nullptr,
                         bool one = false);
-
-        void
-        parse_lines (lines::iterator, lines::iterator, size_t&, bool);
-
-        command_expr
-        parse_command_expr (token&, token_type&);
 
         bool
         pre_parse_if_else (token&, token_type&,
@@ -98,13 +75,22 @@ namespace build2
                                    lines&);
 
         void
-        parse_directive_line (token&, token_type&);
+        pre_parse_directive (token&, token_type&);
 
         void
-        perform_include (names, location);
+        pre_parse_include_line (names, location);
+
+        description
+        pre_parse_leading_description (token&, token_type&);
+
+        description
+        parse_trailing_description (token&, token_type&);
 
         value
         parse_variable_line (token&, token_type&);
+
+        command_expr
+        parse_command_line (token&, token_type&);
 
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
@@ -121,7 +107,7 @@ namespace build2
         using here_docs = vector<here_doc>;
 
         pair<command_expr, here_docs>
-        parse_command_line (token&, token_type&);
+        parse_command_expr (token&, token_type&);
 
         command_exit
         parse_command_exit (token&, token_type&);
@@ -129,9 +115,24 @@ namespace build2
         void
         parse_here_documents (token&, token_type&,
                               pair<command_expr, here_docs>&);
-
         string
         parse_here_document (token&, token_type&, const string&, bool);
+
+        // Execute. Issue diagnostics and throw failed in case of an error.
+        //
+      public:
+        void
+        execute (script& s, runner& r) {if (!s.empty ()) execute (s, s, r);}
+
+        void
+        execute (scope&, script&, runner&);
+
+      protected:
+        void
+        exec_scope_body ();
+
+        void
+        exec_lines (lines::iterator, lines::iterator, size_t&, bool);
 
         // Customization hooks.
         //

@@ -30,6 +30,10 @@ namespace build2
         return !s.empty ();
       }
 
+      //
+      // Pre-parse.
+      //
+
       void parser::
       pre_parse (script& s)
       {
@@ -84,28 +88,8 @@ namespace build2
         group_->end_loc_ = get_location (t);
       }
 
-      void parser::
-      parse (scope& sc, script& s, runner& r)
-      {
-        path_ = nullptr; // Set by replays.
-
-        pre_parse_ = false;
-
-        lexer_ = nullptr;
-        base_parser::lexer_ = nullptr;
-
-        script_ = &s;
-        runner_ = &r;
-        group_ = nullptr;
-        id_map_ = nullptr;
-        include_set_ = nullptr;
-        scope_ = &sc;
-
-        parse_scope_body ();
-      }
-
       bool parser::
-      demote_group_scope (unique_ptr<scope>& s)
+      pre_parse_demote_group_scope (unique_ptr<scope>& s)
       {
         // See if this turned out to be an explicit test scope. An explicit
         // test scope contains a single test, only variable assignments in
@@ -136,7 +120,8 @@ namespace build2
             !t->desc                                                 &&
             !t->if_cond_)
         {
-          if (g.if_chain != nullptr && !demote_group_scope (g.if_chain))
+          if (g.if_chain != nullptr &&
+              !pre_parse_demote_group_scope (g.if_chain))
             return false;
 
           // It would have been nice to reuse the test object and only throw
@@ -182,6 +167,9 @@ namespace build2
       token parser::
       pre_parse_scope_body ()
       {
+        // enter: next token is first token of scope body
+        // leave: rcbrace or eos (returned)
+
         token t;
         type tt;
 
@@ -228,10 +216,10 @@ namespace build2
                 ? d->id
                 : insert_id (id_prefix_ + to_string (sl.line), sl));
 
-              unique_ptr<scope> g (pre_parse_scope (t, tt, id));
+              unique_ptr<scope> g (pre_parse_scope_block (t, tt, id));
               g->desc = move (d);
 
-              demote_group_scope (g);
+              pre_parse_demote_group_scope (g);
               group_->scopes.push_back (move (g));
               continue;
             }
@@ -245,109 +233,11 @@ namespace build2
         }
       }
 
-      void parser::
-      parse_scope_body ()
-      {
-        size_t li (0);
-
-        runner_->enter (*scope_, scope_->start_loc_);
-
-        if (test* t = dynamic_cast<test*> (scope_))
-        {
-          parse_lines (t->tests_.begin (), t->tests_.end (), li, true);
-        }
-        else if (group* g = dynamic_cast<group*> (scope_))
-        {
-          parse_lines (g->setup_.begin (), g->setup_.end (), li, false);
-
-          for (const unique_ptr<scope>& chain: g->scopes)
-          {
-            // Pick a scope from the if-else chain.
-            //
-            // @@ Should we free the memory by dropping all but the choosen
-            //    scope?
-            //
-            scope* s (chain.get ());
-            for (; s != nullptr; s = s->if_chain.get ())
-            {
-              if (!s->if_cond_)
-              {
-                assert (s->if_chain == nullptr);
-                break;
-              }
-
-              line l (move (*s->if_cond_));
-              line_type lt (l.type);
-
-              replay_data (move (l.tokens));
-
-              token t;
-              type tt;
-
-              next (t, tt);
-              const location ll (get_location (t));
-              next (t, tt); // Skip to start of command.
-
-              bool take;
-              if (lt != line_type::cmd_else)
-              {
-                // Note: the line index count continues from setup.
-                //
-                command_expr ce (parse_command_expr (t, tt));
-                take = runner_->run_if (*scope_, ce, ++li, ll);
-
-                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                  take = !take;
-              }
-              else
-              {
-                assert (tt == type::newline);
-                take = true;
-              }
-
-              replay_stop ();
-
-              if (take)
-              {
-                // Count the remaining conditions for the line index.
-                //
-                for (scope* r (s->if_chain.get ());
-                     r != nullptr && r->if_cond_->type != line_type::cmd_else;
-                     r = r->if_chain.get ())
-                  ++li;
-
-                break;
-              }
-            }
-
-            if (s != nullptr && !s->empty ())
-            {
-              // Hand it off to a sub-parser potentially in another thread.
-              // But we could also have handled it serially in this parser:
-              //
-              // scope* os (scope_);
-              // scope_ = s;
-              // parse_scope_body ();
-              // scope_ = os;
-              //
-              parser p;
-              p.parse (*s, *script_, *runner_);
-            }
-          }
-
-          parse_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
-        }
-        else
-          assert (false);
-
-        runner_->leave (*scope_, scope_->end_loc_);
-      }
-
       unique_ptr<group> parser::
-      pre_parse_scope (token& t, type& tt, const string& id)
+      pre_parse_scope_block (token& t, type& tt, const string& id)
       {
         // enter: lcbrace
-        // leave: newline
+        // leave: newline after rcbrace
 
         const location sl (get_location (t));
 
@@ -391,183 +281,9 @@ namespace build2
         return g;
       }
 
-      description parser::
-      pre_parse_leading_description (token& t, type& tt)
-      {
-        // Note: token is only peeked at. On return tt is also only peeked at
-        // and in the first_token mode.
-        //
-        assert (tt == type::colon);
-
-        description r;
-        location loc (get_location (peeked ()));
-
-        string sp;     // Strip prefix.
-        size_t sn (0); // Strip prefix length.
-
-        for (size_t ln (1); tt == type::colon; ++ln)
-        {
-          next (t, tt); // Get ':'.
-
-          mode (lexer_mode::description_line);
-          next (t, tt);
-
-          // If it is empty, then we get newline right away.
-          //
-          const string& l (tt == type::word ? t.value : string ());
-
-          if (tt == type::word)
-            next (t, tt); // Get newline.
-
-          assert (tt == type::newline);
-
-          // If this is the first line, then get the "strip prefix", i.e.,
-          // the beginning of the line that contains only whitespaces. If
-          // the subsequent lines start with the same prefix, then we strip
-          // it.
-          //
-          if (ln == 1)
-          {
-            sn = l.find_first_not_of (" \t");
-            sp.assign (l, 0, sn == string::npos ? (sn = 0) : sn);
-          }
-
-          // Apply strip prefix.
-          //
-          size_t i (l.compare (0, sn, sp) == 0 ? sn : 0);
-
-          // Strip trailing whitespaces, as a courtesy to the user.
-          //
-          size_t j (l.find_last_not_of (" \t"));
-          j = j != string::npos ? j + 1 : i;
-
-          size_t n (j - i); // [i, j) is our data.
-
-          if (ln == 1)
-          {
-            // First line. Ignore if it's blank.
-            //
-            if (n == 0)
-              --ln; // Stay as if on the first line.
-            else
-            {
-              // Otherwise, see if it is the id. Failed that we assume it is
-              // the summary until we see the next line.
-              //
-              (l.find_first_of (" \t", i) >= j ? r.id : r.summary).
-                assign (l, i, n);
-            }
-          }
-          else if (ln == 2)
-          {
-            // If this is a blank then whatever we have in id/summary is good.
-            // Otherwise, if we have id, then assume this is summary until we
-            // see the next line. And if not, then move what we (wrongly)
-            // assumed to be the summary to details.
-            //
-            if (n != 0)
-            {
-              if (!r.id.empty ())
-                r.summary.assign (l, i, n);
-              else
-              {
-                r.details = move (r.summary);
-                r.details += '\n';
-                r.details.append (l, i, n);
-
-                r.summary.clear ();
-              }
-            }
-          }
-          // Don't treat line 3 as special if we have given up on id/summary.
-          //
-          else if (ln == 3 && r.details.empty ())
-          {
-            // If this is a blank and we have id and/or summary, then we are
-            // good. Otherwise, if we have both, then move what we (wrongly)
-            // assumed to be id and summary to details.
-            //
-            if (n != 0)
-            {
-              if (!r.id.empty () && !r.summary.empty ())
-              {
-                r.details = move (r.id);
-                r.details += '\n';
-                r.details += r.summary;
-                r.details += '\n';
-
-                r.id.clear ();
-                r.summary.clear ();
-              }
-
-              r.details.append (l, i, n);
-            }
-          }
-          else
-          {
-            if (!r.details.empty ())
-              r.details += '\n';
-
-            r.details.append (l, i, n);
-          }
-
-          tt = peek (lexer_mode::first_token);
-        }
-
-        // Zap trailing newlines in the details.
-        //
-        size_t p (r.details.find_last_not_of ('\n'));
-        if (p != string::npos && ++p != r.details.size ())
-          r.details.resize (p);
-
-        // Insert id into the id map if we have one.
-        //
-        if (!r.id.empty ())
-          insert_id (r.id, loc);
-
-        if (r.empty ())
-          fail (loc) << "empty description";
-
-        return r;
-      }
-
-      description parser::
-      parse_trailing_description (token& t, type& tt)
-      {
-        // Parse one-line trailing description.
-        //
-        description r;
-
-        // @@ Would be nice to omit trailing description from replay.
-        //
-        const location loc (get_location (t));
-
-        mode (lexer_mode::description_line);
-        next (t, tt);
-
-        // If it is empty, then we will get newline right away.
-        //
-        if (tt == type::word)
-        {
-          string l (move (t.value));
-          trim (l); // Strip leading/trailing whitespaces.
-
-          // Decide whether this is id or summary.
-          //
-          (l.find_first_of (" \t") == string::npos ? r.id : r.summary) =
-            move (l);
-
-          next (t, tt); // Get newline.
-        }
-
-        assert (tt == type::newline); // Lexer mode invariant.
-
-        if (r.empty ())
-          fail (loc) << "empty description";
-
-        return r;
-      }
-
+      // Parse a logical line (as well as scope-if since the only way to
+      // recognize it is to parse the if line).
+      //
       // If one is true then only parse one line returning an indication of
       // whether the line ended with a semicolon.
       //
@@ -577,6 +293,9 @@ namespace build2
                       lines* ls,
                       bool one)
       {
+        // enter: next token is peeked at (type in tt)
+        // leave: newline
+
         // Note: token is only peeked at.
         //
         const location ll (get_location (peeked ()));
@@ -648,7 +367,7 @@ namespace build2
                 if (ls != nullptr)
                   fail (ll) << "directive after ';'";
 
-                parse_directive_line (t, tt);
+                pre_parse_directive (t, tt);
                 assert (tt == type::newline);
                 return false;
               }
@@ -725,7 +444,7 @@ namespace build2
             pair<command_expr, here_docs> p;
 
             if (lt != line_type::cmd_else && lt != line_type::cmd_end)
-              p = parse_command_line (t, tt);
+              p = parse_command_expr (t, tt);
 
             // Colon and semicolon are only valid in test command lines and
             // after 'end' in if-else. Note that we still recognize them
@@ -929,235 +648,6 @@ namespace build2
         return semi;
       }
 
-      void parser::
-      parse_lines (lines::iterator i, lines::iterator e, size_t& li, bool test)
-      {
-        token t;
-        type tt;
-
-        for (; i != e; ++i)
-        {
-          line& l (*i);
-          line_type lt (l.type);
-
-          assert (path_ == nullptr);
-          replay_data (move (l.tokens)); // Set the tokens and start playing.
-
-          // We don't really need to change the mode since we already know
-          // the line type.
-          //
-          next (t, tt);
-          const location ll (get_location (t));
-
-          switch (lt)
-          {
-          case line_type::var:
-            {
-              // Parse.
-              //
-              string name (move (t.value));
-
-              next (t, tt);
-              type kind (tt); // Assignment kind.
-
-              value rhs (parse_variable_line (t, tt));
-
-              if (tt == type::semi)
-                next (t, tt);
-
-              assert (tt == type::newline);
-
-              // Assign.
-              //
-              const variable& var (script_->var_pool.insert (move (name)));
-
-              value& lhs (kind == type::assign
-                          ? scope_->assign (var)
-                          : scope_->append (var));
-
-              // @@ Need to adjust to make strings the default type.
-              //
-              apply_value_attributes (&var, lhs, move (rhs), kind);
-
-              // Handle the $*, $NN special aliases.
-              //
-              // The plan is as follows: here we detect modification of the
-              // source variables (test*), and (re)set $* to NULL on this
-              // scope (this is important to both invalidate any old values
-              // but also to "stake" the lookup position). This signals to
-              // the variable lookup function below that the $* and $NN
-              // values need to be recalculated from their sources. Note
-              // that we don't need to invalidate $NN since their lookup
-              // always checks $* first.
-              //
-              if (var.name == script_->test_var.name ||
-                  var.name == script_->opts_var.name ||
-                  var.name == script_->args_var.name)
-              {
-                scope_->assign (script_->cmd_var) = nullptr;
-              }
-
-              replay_stop ();
-              break;
-            }
-          case line_type::cmd:
-            {
-              // We use the 0 index to signal that this is the only command.
-              // Note that we only do this for test commands.
-              //
-              if (test && li == 0)
-              {
-                lines::iterator j (i);
-                for (++j; j != e && j->type == line_type::var; ++j) ;
-
-                if (j != e) // We have another command.
-                  ++li;
-              }
-              else
-                ++li;
-
-              command_expr ce (parse_command_expr (t, tt));
-              runner_->run (*scope_, ce, li, ll);
-
-              replay_stop ();
-              break;
-            }
-          case line_type::cmd_if:
-          case line_type::cmd_ifn:
-          case line_type::cmd_elif:
-          case line_type::cmd_elifn:
-          case line_type::cmd_else:
-            {
-              next (t, tt); // Skip to start of command.
-
-              bool take;
-              if (lt != line_type::cmd_else)
-              {
-                // Assume if-else always involves multiple commands.
-                //
-                command_expr ce (parse_command_expr (t, tt));
-                take = runner_->run_if (*scope_, ce, ++li, ll);
-
-                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                  take = !take;
-              }
-              else
-              {
-                assert (tt == type::newline);
-                take = true;
-              }
-
-              replay_stop ();
-
-              // If end is true, then find the 'end' line. Otherwise, find the
-              // next if-else line. If skip is true then increment the command
-              // line index.
-              //
-              auto next = [e, &li]
-                (lines::iterator j, bool end, bool skip) -> lines::iterator
-              {
-                // We need to be aware of nested if-else chains.
-                //
-                size_t n (0);
-
-                for (++j; j != e; ++j)
-                {
-                  line_type lt (j->type);
-
-                  if (lt == line_type::cmd_if ||
-                      lt == line_type::cmd_ifn)
-                    ++n;
-
-                  // If we are nested then we just wait until we get back to
-                  // the surface.
-                  //
-                  if (n == 0)
-                  {
-                    switch (lt)
-                    {
-                    case line_type::cmd_elif:
-                    case line_type::cmd_elifn:
-                    case line_type::cmd_else: if (end) break; // Fall through.
-                    case line_type::cmd_end:  return j;
-                    default: break;
-                    }
-                  }
-
-                  if (lt == line_type::cmd_end)
-                    --n;
-
-                  if (skip)
-                  {
-                    // Note that we don't count else and end as commands.
-                    //
-                    switch (lt)
-                    {
-                    case line_type::cmd:
-                    case line_type::cmd_if:
-                    case line_type::cmd_ifn:
-                    case line_type::cmd_elif:
-                    case line_type::cmd_elifn: ++li; break;
-                    default:                         break;
-                    }
-                  }
-                }
-
-                assert (false); // Missing end.
-                return e;
-              };
-
-              // If we are taking this branch then we need to parse all the
-              // lines until the next if-else line and then skip all the lines
-              // until the end (unless next is already end).
-              //
-              // Otherwise, we need to skip all the lines until the next
-              // if-else line and then continue parsing.
-              //
-              if (take)
-              {
-                lines::iterator j (next (i, false, false)); // Next if-else.
-                parse_lines (i + 1, j, li, test);
-                i = j->type == line_type::cmd_end ? j : next (j, true, true);
-              }
-              else
-              {
-                i = next (i, false, true);
-                if (i->type != line_type::cmd_end)
-                  --i; // Continue with this line (e.g., elif or else).
-              }
-
-              break;
-            }
-          case line_type::cmd_end:
-            {
-              assert (false);
-            }
-          }
-        }
-      }
-
-      command_expr parser::
-      parse_command_expr (token& t, type& tt)
-      {
-        // enter: first token of the command line
-        // leave: <newline>
-
-        pair<command_expr, here_docs> p (parse_command_line (t, tt));
-
-        switch (tt)
-        {
-        case type::colon: parse_trailing_description (t, tt); break;
-        case type::semi: next (t, tt); break; // Get newline.
-        }
-
-        assert (tt == type::newline);
-
-        parse_here_documents (t, tt, p);
-        assert (tt == type::newline);
-
-        return move (p.first);
-      };
-
       bool parser::
       pre_parse_if_else (token& t, type& tt,
                          optional<description>& d,
@@ -1207,7 +697,7 @@ namespace build2
           next (t, tt); // Get '{'.
 
           {
-            unique_ptr<group> g (pre_parse_scope (t, tt, id));
+            unique_ptr<group> g (pre_parse_scope_block (t, tt, id));
 
             // If-condition.
             //
@@ -1287,7 +777,7 @@ namespace build2
           }
         }
 
-        demote_group_scope (root);
+        pre_parse_demote_group_scope (root);
         group_->scopes.push_back (move (root));
         return false; // We never end with a semi.
       }
@@ -1297,7 +787,7 @@ namespace build2
                                  optional<description>& d,
                                  lines& ls)
       {
-        // enter: peeked first token of next line
+        // enter: peeked first token of next line (type in tt)
         // leave: newline
 
         // Parse lines until we see closing 'end'. Nested if-else blocks are
@@ -1380,8 +870,11 @@ namespace build2
       }
 
       void parser::
-      parse_directive_line (token& t, type& tt)
+      pre_parse_directive (token& t, type& tt)
       {
+        // enter: directive name
+        // leave: newline
+
         string d (t.value);
         location l (get_location (t));
         next (t, tt);
@@ -1402,13 +895,13 @@ namespace build2
           fail (t) << t << " after directive";
 
         if (d == ".include")
-          perform_include (move (args), move (l));
+          pre_parse_include_line (move (args), move (l));
         else
           assert (false); // Unhandled directive.
       }
 
       void parser::
-      perform_include (names args, location dl)
+      pre_parse_include_line (names args, location dl)
       {
         auto i (args.begin ());
 
@@ -1504,9 +997,192 @@ namespace build2
         }
       }
 
+      description parser::
+      pre_parse_leading_description (token& t, type& tt)
+      {
+        // enter: peeked at colon (type in tt)
+        // leave: peeked at in the first_token mode (type in tt)
+
+        assert (tt == type::colon);
+
+        description r;
+        location loc (get_location (peeked ()));
+
+        string sp;     // Strip prefix.
+        size_t sn (0); // Strip prefix length.
+
+        for (size_t ln (1); tt == type::colon; ++ln)
+        {
+          next (t, tt); // Get ':'.
+
+          mode (lexer_mode::description_line);
+          next (t, tt);
+
+          // If it is empty, then we get newline right away.
+          //
+          const string& l (tt == type::word ? t.value : string ());
+
+          if (tt == type::word)
+            next (t, tt); // Get newline.
+
+          assert (tt == type::newline);
+
+          // If this is the first line, then get the "strip prefix", i.e.,
+          // the beginning of the line that contains only whitespaces. If
+          // the subsequent lines start with the same prefix, then we strip
+          // it.
+          //
+          if (ln == 1)
+          {
+            sn = l.find_first_not_of (" \t");
+            sp.assign (l, 0, sn == string::npos ? (sn = 0) : sn);
+          }
+
+          // Apply strip prefix.
+          //
+          size_t i (l.compare (0, sn, sp) == 0 ? sn : 0);
+
+          // Strip trailing whitespaces, as a courtesy to the user.
+          //
+          size_t j (l.find_last_not_of (" \t"));
+          j = j != string::npos ? j + 1 : i;
+
+          size_t n (j - i); // [i, j) is our data.
+
+          if (ln == 1)
+          {
+            // First line. Ignore if it's blank.
+            //
+            if (n == 0)
+              --ln; // Stay as if on the first line.
+            else
+            {
+              // Otherwise, see if it is the id. Failed that we assume it is
+              // the summary until we see the next line.
+              //
+              (l.find_first_of (" \t", i) >= j ? r.id : r.summary).
+                assign (l, i, n);
+            }
+          }
+          else if (ln == 2)
+          {
+            // If this is a blank then whatever we have in id/summary is good.
+            // Otherwise, if we have id, then assume this is summary until we
+            // see the next line. And if not, then move what we (wrongly)
+            // assumed to be the summary to details.
+            //
+            if (n != 0)
+            {
+              if (!r.id.empty ())
+                r.summary.assign (l, i, n);
+              else
+              {
+                r.details = move (r.summary);
+                r.details += '\n';
+                r.details.append (l, i, n);
+
+                r.summary.clear ();
+              }
+            }
+          }
+          // Don't treat line 3 as special if we have given up on id/summary.
+          //
+          else if (ln == 3 && r.details.empty ())
+          {
+            // If this is a blank and we have id and/or summary, then we are
+            // good. Otherwise, if we have both, then move what we (wrongly)
+            // assumed to be id and summary to details.
+            //
+            if (n != 0)
+            {
+              if (!r.id.empty () && !r.summary.empty ())
+              {
+                r.details = move (r.id);
+                r.details += '\n';
+                r.details += r.summary;
+                r.details += '\n';
+
+                r.id.clear ();
+                r.summary.clear ();
+              }
+
+              r.details.append (l, i, n);
+            }
+          }
+          else
+          {
+            if (!r.details.empty ())
+              r.details += '\n';
+
+            r.details.append (l, i, n);
+          }
+
+          tt = peek (lexer_mode::first_token);
+        }
+
+        // Zap trailing newlines in the details.
+        //
+        size_t p (r.details.find_last_not_of ('\n'));
+        if (p != string::npos && ++p != r.details.size ())
+          r.details.resize (p);
+
+        // Insert id into the id map if we have one.
+        //
+        if (!r.id.empty ())
+          insert_id (r.id, loc);
+
+        if (r.empty ())
+          fail (loc) << "empty description";
+
+        return r;
+      }
+
+      description parser::
+      parse_trailing_description (token& t, type& tt)
+      {
+        // enter: colon
+        // leave: newline
+
+        // Parse one-line trailing description.
+        //
+        description r;
+
+        // @@ Would be nice to omit trailing description from replay.
+        //
+        const location loc (get_location (t));
+
+        mode (lexer_mode::description_line);
+        next (t, tt);
+
+        // If it is empty, then we will get newline right away.
+        //
+        if (tt == type::word)
+        {
+          string l (move (t.value));
+          trim (l); // Strip leading/trailing whitespaces.
+
+          // Decide whether this is id or summary.
+          //
+          (l.find_first_of (" \t") == string::npos ? r.id : r.summary) =
+            move (l);
+
+          next (t, tt); // Get newline.
+        }
+
+        assert (tt == type::newline); // Lexer mode invariant.
+
+        if (r.empty ())
+          fail (loc) << "empty description";
+
+        return r;
+      }
+
       value parser::
       parse_variable_line (token& t, type& tt)
       {
+        // enter: assignment
+        // leave: newline or semi
+
         // We cannot reuse the value mode since it will recognize { which we
         // want to treat as a literal.
         //
@@ -1523,9 +1199,36 @@ namespace build2
           : value (names ());
       }
 
-      pair<command_expr, parser::here_docs> parser::
+      command_expr parser::
       parse_command_line (token& t, type& tt)
       {
+        // enter: first token of the command line
+        // leave: <newline>
+
+        // Note: this one is only used during execution.
+
+        pair<command_expr, here_docs> p (parse_command_expr (t, tt));
+
+        switch (tt)
+        {
+        case type::colon: parse_trailing_description (t, tt); break;
+        case type::semi: next (t, tt); break; // Get newline.
+        }
+
+        assert (tt == type::newline);
+
+        parse_here_documents (t, tt, p);
+        assert (tt == type::newline);
+
+        return move (p.first);
+      };
+
+      pair<command_expr, parser::here_docs> parser::
+      parse_command_expr (token& t, type& tt)
+      {
+        // enter: first token of the command line
+        // leave: <newline>
+
         command_expr expr {{expr_operator::log_and, {}}};
         command c; // Command being assembled.
 
@@ -2277,6 +1980,9 @@ namespace build2
       command_exit parser::
       parse_command_exit (token& t, type& tt)
       {
+        // enter: equal/not_equal
+        // leave: token after exit status (one parse_names() chunk)
+
         exit_comparison comp (tt == type::equal
                               ? exit_comparison::eq
                               : exit_comparison::ne);
@@ -2315,6 +2021,9 @@ namespace build2
       parse_here_documents (token& t, type& tt,
                             pair<command_expr, here_docs>& p)
       {
+        // enter: newline
+        // leave: newline
+
         // Parse here-document fragments in the order they were mentioned on
         // the command line.
         //
@@ -2344,6 +2053,9 @@ namespace build2
       string parser::
       parse_here_document (token& t, type& tt, const string& em, bool nn)
       {
+        // enter: first token on first line
+        // leave: newline (after end marker)
+
         string r;
 
         // Here-documents can be indented. The leading whitespaces of the end
@@ -2496,6 +2208,339 @@ namespace build2
         return r;
       }
 
+      //
+      // Execute.
+      //
+
+      void parser::
+      execute (scope& sc, script& s, runner& r)
+      {
+        path_ = nullptr; // Set by replays.
+
+        pre_parse_ = false;
+
+        lexer_ = nullptr;
+        base_parser::lexer_ = nullptr;
+
+        script_ = &s;
+        runner_ = &r;
+        group_ = nullptr;
+        id_map_ = nullptr;
+        include_set_ = nullptr;
+        scope_ = &sc;
+
+        exec_scope_body ();
+      }
+
+      void parser::
+      exec_scope_body ()
+      {
+        size_t li (0);
+
+        runner_->enter (*scope_, scope_->start_loc_);
+
+        if (test* t = dynamic_cast<test*> (scope_))
+        {
+          exec_lines (t->tests_.begin (), t->tests_.end (), li, true);
+        }
+        else if (group* g = dynamic_cast<group*> (scope_))
+        {
+          exec_lines (g->setup_.begin (), g->setup_.end (), li, false);
+
+          for (const unique_ptr<scope>& chain: g->scopes)
+          {
+            // Pick a scope from the if-else chain.
+            //
+            // @@ Should we free the memory by dropping all but the choosen
+            //    scope?
+            //
+            scope* s (chain.get ());
+            for (; s != nullptr; s = s->if_chain.get ())
+            {
+              if (!s->if_cond_)
+              {
+                assert (s->if_chain == nullptr);
+                break;
+              }
+
+              line l (move (*s->if_cond_));
+              line_type lt (l.type);
+
+              replay_data (move (l.tokens));
+
+              token t;
+              type tt;
+
+              next (t, tt);
+              const location ll (get_location (t));
+              next (t, tt); // Skip to start of command.
+
+              bool take;
+              if (lt != line_type::cmd_else)
+              {
+                // Note: the line index count continues from setup.
+                //
+                command_expr ce (parse_command_line (t, tt));
+                take = runner_->run_if (*scope_, ce, ++li, ll);
+
+                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
+                  take = !take;
+              }
+              else
+              {
+                assert (tt == type::newline);
+                take = true;
+              }
+
+              replay_stop ();
+
+              if (take)
+              {
+                // Count the remaining conditions for the line index.
+                //
+                for (scope* r (s->if_chain.get ());
+                     r != nullptr && r->if_cond_->type != line_type::cmd_else;
+                     r = r->if_chain.get ())
+                  ++li;
+
+                break;
+              }
+            }
+
+            if (s != nullptr && !s->empty ())
+            {
+              // Hand it off to a sub-parser potentially in another thread.
+              // But we could also have handled it serially in this parser:
+              //
+              // scope* os (scope_);
+              // scope_ = s;
+              // exec_scope_body ();
+              // scope_ = os;
+              //
+              parser p;
+              p.execute (*s, *script_, *runner_);
+            }
+          }
+
+          exec_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
+        }
+        else
+          assert (false);
+
+        runner_->leave (*scope_, scope_->end_loc_);
+      }
+
+      void parser::
+      exec_lines (lines::iterator i, lines::iterator e, size_t& li, bool test)
+      {
+        token t;
+        type tt;
+
+        for (; i != e; ++i)
+        {
+          line& l (*i);
+          line_type lt (l.type);
+
+          assert (path_ == nullptr);
+          replay_data (move (l.tokens)); // Set the tokens and start playing.
+
+          // We don't really need to change the mode since we already know
+          // the line type.
+          //
+          next (t, tt);
+          const location ll (get_location (t));
+
+          switch (lt)
+          {
+          case line_type::var:
+            {
+              // Parse.
+              //
+              string name (move (t.value));
+
+              next (t, tt);
+              type kind (tt); // Assignment kind.
+
+              value rhs (parse_variable_line (t, tt));
+
+              if (tt == type::semi)
+                next (t, tt);
+
+              assert (tt == type::newline);
+
+              // Assign.
+              //
+              const variable& var (script_->var_pool.insert (move (name)));
+
+              value& lhs (kind == type::assign
+                          ? scope_->assign (var)
+                          : scope_->append (var));
+
+              // @@ Need to adjust to make strings the default type.
+              //
+              apply_value_attributes (&var, lhs, move (rhs), kind);
+
+              // Handle the $*, $NN special aliases.
+              //
+              // The plan is as follows: here we detect modification of the
+              // source variables (test*), and (re)set $* to NULL on this
+              // scope (this is important to both invalidate any old values
+              // but also to "stake" the lookup position). This signals to
+              // the variable lookup function below that the $* and $NN
+              // values need to be recalculated from their sources. Note
+              // that we don't need to invalidate $NN since their lookup
+              // always checks $* first.
+              //
+              if (var.name == script_->test_var.name ||
+                  var.name == script_->opts_var.name ||
+                  var.name == script_->args_var.name)
+              {
+                scope_->assign (script_->cmd_var) = nullptr;
+              }
+
+              replay_stop ();
+              break;
+            }
+          case line_type::cmd:
+            {
+              // We use the 0 index to signal that this is the only command.
+              // Note that we only do this for test commands.
+              //
+              if (test && li == 0)
+              {
+                lines::iterator j (i);
+                for (++j; j != e && j->type == line_type::var; ++j) ;
+
+                if (j != e) // We have another command.
+                  ++li;
+              }
+              else
+                ++li;
+
+              command_expr ce (parse_command_line (t, tt));
+              runner_->run (*scope_, ce, li, ll);
+
+              replay_stop ();
+              break;
+            }
+          case line_type::cmd_if:
+          case line_type::cmd_ifn:
+          case line_type::cmd_elif:
+          case line_type::cmd_elifn:
+          case line_type::cmd_else:
+            {
+              next (t, tt); // Skip to start of command.
+
+              bool take;
+              if (lt != line_type::cmd_else)
+              {
+                // Assume if-else always involves multiple commands.
+                //
+                command_expr ce (parse_command_line (t, tt));
+                take = runner_->run_if (*scope_, ce, ++li, ll);
+
+                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
+                  take = !take;
+              }
+              else
+              {
+                assert (tt == type::newline);
+                take = true;
+              }
+
+              replay_stop ();
+
+              // If end is true, then find the 'end' line. Otherwise, find the
+              // next if-else line. If skip is true then increment the command
+              // line index.
+              //
+              auto next = [e, &li]
+                (lines::iterator j, bool end, bool skip) -> lines::iterator
+              {
+                // We need to be aware of nested if-else chains.
+                //
+                size_t n (0);
+
+                for (++j; j != e; ++j)
+                {
+                  line_type lt (j->type);
+
+                  if (lt == line_type::cmd_if ||
+                      lt == line_type::cmd_ifn)
+                    ++n;
+
+                  // If we are nested then we just wait until we get back to
+                  // the surface.
+                  //
+                  if (n == 0)
+                  {
+                    switch (lt)
+                    {
+                    case line_type::cmd_elif:
+                    case line_type::cmd_elifn:
+                    case line_type::cmd_else: if (end) break; // Fall through.
+                    case line_type::cmd_end:  return j;
+                    default: break;
+                    }
+                  }
+
+                  if (lt == line_type::cmd_end)
+                    --n;
+
+                  if (skip)
+                  {
+                    // Note that we don't count else and end as commands.
+                    //
+                    switch (lt)
+                    {
+                    case line_type::cmd:
+                    case line_type::cmd_if:
+                    case line_type::cmd_ifn:
+                    case line_type::cmd_elif:
+                    case line_type::cmd_elifn: ++li; break;
+                    default:                         break;
+                    }
+                  }
+                }
+
+                assert (false); // Missing end.
+                return e;
+              };
+
+              // If we are taking this branch then we need to parse all the
+              // lines until the next if-else line and then skip all the lines
+              // until the end (unless next is already end).
+              //
+              // Otherwise, we need to skip all the lines until the next
+              // if-else line and then continue parsing.
+              //
+              if (take)
+              {
+                lines::iterator j (next (i, false, false)); // Next if-else.
+                exec_lines (i + 1, j, li, test);
+                i = j->type == line_type::cmd_end ? j : next (j, true, true);
+              }
+              else
+              {
+                i = next (i, false, true);
+                if (i->type != line_type::cmd_end)
+                  --i; // Continue with this line (e.g., elif or else).
+              }
+
+              break;
+            }
+          case line_type::cmd_end:
+            {
+              assert (false);
+            }
+          }
+        }
+      }
+
+      //
+      // The rest.
+      //
+
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)
       {
@@ -2518,7 +2563,7 @@ namespace build2
 
         // Handle the $*, $NN special aliases.
         //
-        // See the parse_lines() for the overall plan.
+        // See the exec_lines() for the overall plan.
         //
         // @@ MT: we are potentially changing outer scopes. Could force
         //    lookup before executing tests in each group scope. Poblem is

@@ -198,7 +198,7 @@ namespace build2
           p.pre_parse (cin, s);
 
           print_runner r (scope, id, line);
-          p.parse (s, r);
+          p.execute (s, r);
         }
         catch (const failed&)
         {

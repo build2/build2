@@ -428,7 +428,7 @@ namespace build2
         p.pre_parse (s);
 
         script::concurrent_runner r;
-        p.parse (s, r);
+        p.execute (s, r);
       };
 
       for (target* pt: t.prerequisite_targets)

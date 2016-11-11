@@ -708,14 +708,13 @@ script:
 
 scope-body:
   *setup
-  *(scope|test|include)
-  *teardown
+  *(directive|scope|test)
+  *tdown
 
-setup:
-  variable-line|setup-line
+directive:
+  include
 
-teardown:
-  variable-line|teardown-line
+include: '.include' (' '+'--once')*(' '+<path>)*
 
 scope:
   ?description
@@ -726,54 +725,60 @@ scope-block:
   scope-body
   '}'
 
-scope-if: ('if'|'if!') command-expr
+scope-if: ('if'|'if!') command-line
   scope-block
   *scope-elif
   ?scope-else
 
-scope-elif: ('elif'|'elif!') command-expr
+scope-elif: ('elif'|'elif!') command-line
   scope-block
 
 scope-else: 'else'
   scope-block
 
-test:
-  ?description
-  *((variable-line|test-line) ';')
-  test-line (':' <text>)?
-
-include: '.include' (' '+'--once')*(' '+<path>)*
-
 description:
   +(':' <text>)
+
+setup:
+  variable-line|setup-line
+
+tdown:
+  variable-line|tdown-line
+
+setup-line: '+' command-like
+tdown-line: '-' command-like
+
+test:
+  ?description
+  +(variable-line|command-like)
 
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'
 
-setup-line:    '+' command-line
-teardown-line: '-' command-line
-test-line:         command-line
+command-like:
+  command-line|command-if
 
-command-line:
-  command-expr|command-if
+# Note: ':' and ';' only valid directly in test.
+#
+command-line: command-expr (';'|(':' <text>))?
+  *here-document
 
-command-if: ('if'|'if!') command-expr
+command-if: ('if'|'if!') command-line
   command-if-body
   *command-elif
   ?command-else
-  'end'
+  'end' (';'|(':' <text>))?
 
-command-elif: ('elif'|'elif!') command-expr
+command-elif: ('elif'|'elif!') command-line
   command-if-body
 
 command-else: 'else'
   command-if-body
 
 command-if-body:
-  *(variable-line|command-line)
+  *(variable-line|command-like)
 
 command-expr: command-pipe (('||'|'&&') command-pipe)*
-  *here-document
 
 command-pipe: command ('|' command)*
 
