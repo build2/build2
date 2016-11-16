@@ -260,7 +260,7 @@ namespace build2
         const string& lstr, target& t)
       {
         strings lops;
-        names libs;
+        vector<name> libs;
 
         // Normally we will have zero or more -L's followed by one or more
         // -l's, with the first one being the library itself. But sometimes

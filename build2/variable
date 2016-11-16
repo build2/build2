@@ -165,10 +165,17 @@ namespace build2
     ~value () {*this = nullptr;}
 
     explicit
-    value (const value_type* t = nullptr): type (t), null (true), extra (0) {}
+    value (nullptr_t = nullptr): type (nullptr), null (true), extra (0) {}
+
+    explicit
+    value (const value_type* t): type (t), null (true), extra (0) {}
 
     explicit
     value (names&&); // Create untyped value.
+
+    template <typename T>
+    explicit
+    value (T); // Create value of value_traits<T>::value_type type.
 
     // Note: preserves type.
     //
@@ -257,9 +264,11 @@ namespace build2
   // Value cast. The first three expect the value to be not NULL. The cast
   // from lookup expects the value to aslo be defined.
   //
+  // Note that a cast to names expects the value to be untyped while a cast
+  // to vector<names> -- typed.
+  //
   // Why are these non-members? The cast is easier on the eyes and is also
   // consistent with the cast operators. The other two are for symmetry.
-  //
   //
   template <typename T> T& cast (value&);
   template <typename T> T&& cast (value&&);

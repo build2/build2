@@ -264,7 +264,7 @@ namespace build2
                        &find_sysd, &find_lo, &sys, &sys_simple,
                        &bs, &lo, this] (const lookup& lu)
       {
-        const names* ns (cast_null<names> (lu));
+        const vector<name>* ns (cast_null<vector<name>> (lu));
         if (ns == nullptr || ns->empty ())
           return;
 

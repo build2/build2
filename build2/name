@@ -125,7 +125,15 @@ namespace build2
 
   // Vector of names.
   //
-  using names = vector<name>;
+  // We make it a separate type rather than an alias for vector<name> in order
+  // to distinguish between untyped variable values (names) and typed ones
+  // (vector<name>).
+  //
+  struct names: vector<name>
+  {
+    using vector::vector;
+  };
+
   using names_view = vector_view<const name>;
 
   // The same semantics as to_stream(name).

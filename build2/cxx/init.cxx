@@ -147,10 +147,10 @@ namespace build2
         v["cc.loptions"],
         v["cc.libs"],
 
-        v.insert<strings> ("cxx.export.poptions"),
-        v.insert<strings> ("cxx.export.coptions"),
-        v.insert<strings> ("cxx.export.loptions"),
-        v.insert<names>   ("cxx.export.libs"),
+        v.insert<strings>      ("cxx.export.poptions"),
+        v.insert<strings>      ("cxx.export.coptions"),
+        v.insert<strings>      ("cxx.export.loptions"),
+        v.insert<vector<name>> ("cxx.export.libs"),
 
         v["cc.export.poptions"],
         v["cc.export.coptions"],

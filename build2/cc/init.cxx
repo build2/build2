@@ -49,10 +49,10 @@ namespace build2
       v.insert<strings> ("cc.loptions");
       v.insert<strings> ("cc.libs");
 
-      v.insert<strings> ("cc.export.poptions");
-      v.insert<strings> ("cc.export.coptions");
-      v.insert<strings> ("cc.export.loptions");
-      v.insert<names>   ("cc.export.libs");
+      v.insert<strings>      ("cc.export.poptions");
+      v.insert<strings>      ("cc.export.coptions");
+      v.insert<strings>      ("cc.export.loptions");
+      v.insert<vector<name>> ("cc.export.libs");
 
       // Hint variables (not overridable).
       //

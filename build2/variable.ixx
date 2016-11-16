@@ -12,8 +12,9 @@ namespace build2
   empty () const
   {
     assert (!null);
-    return type == nullptr ? as<names> ().empty () :
-      type->empty == nullptr ? false : type->empty (*this);
+    return type == nullptr
+      ? as<names> ().empty ()
+      : type->empty == nullptr ? false : type->empty (*this);
   }
 
   inline value::
@@ -21,6 +22,15 @@ namespace build2
       : type (nullptr), null (false), extra (0)
   {
     new (&data_) names (move (ns));
+  }
+
+  template <typename T>
+  inline value::
+  value (T v)
+      : type (&value_traits<T>::value_type), null (true), extra (0)
+  {
+    value_traits<T>::assign (*this, move (v));
+    null = false;
   }
 
   inline value& value::
@@ -93,10 +103,7 @@ namespace build2
   inline const names&
   cast (const value& v)
   {
-    // Note that it can still be a typed vector<names>.
-    //
-    assert (v &&
-            (v.type == nullptr || v.type == &value_traits<names>::value_type));
+    assert (v && v.type == nullptr);
     return v.as<names> ();
   }
 
@@ -104,8 +111,7 @@ namespace build2
   inline names&
   cast (value& v)
   {
-    assert (v &&
-            (v.type == nullptr || v.type == &value_traits<names>::value_type));
+    assert (v && v.type == nullptr);
     return v.as<names> ();
   }
 
@@ -230,7 +236,6 @@ namespace build2
       v.as<bool> () = x;
     else
       new (&v.data_) bool (x);
-
   }
 
   inline void value_traits<bool>::
