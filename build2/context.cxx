@@ -66,6 +66,7 @@ namespace build2
     // constants in <build2/operation>.
     //
     meta_operation_table.clear ();
+    meta_operation_table.insert ("noop");
     meta_operation_table.insert ("perform");
     meta_operation_table.insert ("configure");
     meta_operation_table.insert ("disfigure");

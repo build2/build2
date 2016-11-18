@@ -170,6 +170,22 @@ namespace build2
     }
   }
 
+  meta_operation_info noop {
+    noop_id,
+    "noop",
+    "",      // Presumably we will never need these since we are not going
+    "",      // to do anything.
+    "",
+    nullptr, // meta-operation pre
+    nullptr, // operation pre
+    &load,
+    nullptr, // search
+    nullptr, // match
+    nullptr, // execute
+    nullptr, // operation post
+    nullptr  // meta-operation post
+  };
+
   meta_operation_info perform {
     perform_id,
     "perform",

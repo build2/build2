@@ -927,15 +927,16 @@ main (int argc, char* argv[])
           // building before we know how to for all the targets in this
           // operation batch.
           //
+          scope& bs (scopes.find (ts.out_base));
+
+          const string* e;
+          const target_type* ti (bs.find_target_type (tn, e));
+
+          if (ti == nullptr)
+            fail (l) << "unknown target type " << tn.type;
+
+          if (mif->search != nullptr)
           {
-            scope& bs (scopes.find (ts.out_base));
-
-            const string* e;
-            const target_type* ti (bs.find_target_type (tn, e));
-
-            if (ti == nullptr)
-              fail (l) << "unknown target type " << tn.type;
-
             // If the directory is relative, assume it is relative to work
             // (must be consistent with how we derived out_base above).
             //
@@ -986,8 +987,8 @@ main (int argc, char* argv[])
 
         action a (mid, oid, 0);
 
-        mif->match (a, tgs);
-        mif->execute (a, tgs, verb == 0);
+        if (mif->match != nullptr)   mif->match (a, tgs);
+        if (mif->execute != nullptr) mif->execute (a, tgs, verb == 0);
 
         if (post_oid != 0)
         {

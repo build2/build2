@@ -99,10 +99,11 @@ namespace build2
 
   // Id constants for build-in and pre-defined meta/operations.
   //
-  const meta_operation_id perform_id   = 1;
-  const meta_operation_id configure_id = 2;
-  const meta_operation_id disfigure_id = 3;
-  const meta_operation_id dist_id = 4;
+  const meta_operation_id noop_id      = 1; // nomop?
+  const meta_operation_id perform_id   = 2;
+  const meta_operation_id configure_id = 3;
+  const meta_operation_id disfigure_id = 4;
+  const meta_operation_id dist_id      = 5;
 
   // The default operation is a special marker that can be used to indicate
   // that no operation was explicitly specified by the user. If adding
@@ -250,6 +251,7 @@ namespace build2
   void
   execute (action, const action_targets&, bool quiet);
 
+  extern meta_operation_info noop;
   extern meta_operation_info perform;
 
   // Operation info.

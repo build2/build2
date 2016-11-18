@@ -154,6 +154,7 @@ namespace build2
     //
     if (first)
     {
+      rs.meta_operations.insert (noop_id, noop);
       rs.meta_operations.insert (perform_id, perform);
 
       rs.operations.insert (default_id, default_);
