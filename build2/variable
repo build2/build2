@@ -171,7 +171,7 @@ namespace build2
     value (const value_type* t): type (t), null (true), extra (0) {}
 
     explicit
-    value (names&&); // Create untyped value.
+    value (names); // Create untyped value.
 
     template <typename T>
     explicit
@@ -372,15 +372,17 @@ namespace build2
   //
   // - Specialization for vector<names> (if used and becomes critical).
   //
-  //
+  template <typename T, typename E>
+  struct value_traits_specialization; // enable_if'able specialization support.
+
   template <typename T>
-  struct value_traits;
+  struct value_traits: value_traits_specialization <T, void> {};
   // {
   //   static_assert (sizeof (T) <= value::size_, "insufficient space");
   //
   //   // Convert name to T. If rhs is not NULL, then it is the second half
   //   // of a pair. Only needs to be provided by simple types. Throw
-  //   // invalid_argument (without a message) if the name is not a valid
+  //   // invalid_argument (with a message) if the name is not a valid
   //   // representation of value (in which case the name should remain
   //   // unchanged for diagnostics).
   //   //
@@ -416,13 +418,18 @@ namespace build2
   //   static const build2::value_type value_type;
   // };
 
-  // Convert name to a simple value. Throw invalid_argument (without any
-  // message) if the name is not a valid representation of value (in which
-  // case the name remains unchanged for diagnostics). The second version is
-  // called for a pair.
+  // Convert name to a simple value. Throw invalid_argument (with a message)
+  // if the name is not a valid representation of value (in which case the
+  // name remains unchanged for diagnostics). The second version is called for
+  // a pair.
   //
   template <typename T> T convert (name&&);
   template <typename T> T convert (name&&, name&&);
+
+  // As above but for container types. Note that in case of invalid_argument
+  // the names are not guaranteed to be unchanged.
+  //
+  template <typename T> T convert (names&&);
 
   // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
   // types that are stored directly in value::data_ and the provide all the
@@ -515,6 +522,16 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  // Treat unsigned integral types as uint64. Note that bool is handled
+  // differently at an earlier stage.
+  //
+  template <typename T>
+  struct value_traits_specialization<T,
+                                     typename std::enable_if<
+                                       std::is_integral<T>::value &&
+                                       std::is_unsigned<T>::value>::type>:
+    value_traits<uint64_t> {};
+
   // string
   //
   template <>
@@ -533,6 +550,11 @@ namespace build2
     static const char* const type_name;
     static const build2::value_type value_type;
   };
+
+  // Treat const char* as string.
+  //
+  template <>
+  struct value_traits<const char*>: value_traits<string> {};
 
   // path
   //
@@ -637,6 +659,7 @@ namespace build2
   {
     static_assert (sizeof (vector<T>) <= value::size_, "insufficient space");
 
+    static vector<T> convert (names&&);
     static void assign (value&, vector<T>&&);
     static void append (value&, vector<T>&&);
     static void prepend (value&, vector<T>&&);

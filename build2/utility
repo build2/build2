@@ -485,7 +485,7 @@ namespace build2
     find (const std::string& s) {return *emplace (s).first;}
   };
 
-  // Initialize build2 global state (verbosity, home/work dirrectories, etc).
+  // Initialize build2 global state (verbosity, home/work directories, etc).
   // Should be called early in main() once.
   //
   void

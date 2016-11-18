@@ -177,6 +177,35 @@ namespace build2
   //
 
   template <typename T>
+  vector<T> value_traits<vector<T>>::
+  convert (names&& ns)
+  {
+    vector<T> v;
+
+    // Similar to vector_append() below except we throw instead of issuing
+    // diagnostics.
+    //
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& n (*i);
+      name* r (nullptr);
+
+      if (n.pair)
+      {
+        r = &*++i;
+
+        if (n.pair != '@')
+          throw invalid_argument (
+            string ("invalid pair character: '") + n.pair + "'");
+      }
+
+      v.push_back (value_traits<T>::convert (move (n), r));
+    }
+
+    return v;
+  }
+
+  template <typename T>
   void
   vector_append (value& v, names&& ns, const variable* var)
   {

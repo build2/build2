@@ -15,7 +15,6 @@ function test ()
 test "amalgam/unnamed"
 test "escaping"
 test "eval"
-test "function/call"
 test "if-else"
 test "keyword"
 test "names"

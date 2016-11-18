@@ -1,0 +1,131 @@
+# file      : unit-tests/function/call.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: qual-implicit
+:
+$* <'print $dummy.dummy0()' >'abc'
+
+: qual-explicit
+:
+$* <'print $dummy.qual()' >'abc'
+
+: qual-fail
+:
+$* <'print $qual()' 2>>EOE != 0
+buildfile:1:8: error: unmatched call to qual\()
+EOE
+
+: variadic
+:
+# @@ TMP: add some args
+$* <'print $variadic([bool] true)' >'1'
+
+: fail
+:
+$* <'$fail()' 2>>EOE != 0
+error: failed
+buildfile:1:2: info: while calling fail\()
+EOE
+
+: fail-invalid-arg
+:
+$* <'$fail_arg(abc)' 2>>EOE != 0
+error: invalid argument: invalid uint64 value: 'abc'
+buildfile:1:2: info: while calling fail_arg\(<untyped>)
+EOE
+
+: no-match-name
+:
+$* <'$bogus()' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to bogus\()
+EOE
+
+: no-match-count
+:
+$* <'$dummy0(abc)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to dummy0\(<untyped>)
+  info:  candidate: dummy0\(), qualified name dummy.dummy0
+EOE
+
+: no-match-type
+:
+$* <'$dummy1([uint64] 123)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to dummy1\(uint64)
+  info:  candidate: dummy1\(string), qualified name dummy.dummy1
+EOE
+
+: ambig
+:
+$* <'$ambig(abc)' 2>>EOE != 0
+buildfile:1:2: error: ambiguous call to ambig\(<untyped>)
+  info:  candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+  info:  candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+EOE
+
+: optional-absent
+:
+$* <'print $optional()' >'true'
+
+: optional-present
+:
+$* <'print $optional(abc)' >'false'
+
+: null-true
+:
+$* <'print $null([null])' >'true'
+
+: null-false
+:
+$* <'print $null(nonull)' >'false'
+
+: null-fail
+:
+$* <'$dummy1([string null])' 2>>EOE != 0
+error: invalid argument: null value
+buildfile:1:2: info: while calling dummy1\(string)
+EOE
+
+: print-call-1-untyped
+:
+$* <'$bogus(abc)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to bogus\(<untyped>)
+EOE
+
+: print-call-1-typed
+:
+$* <'$bogus([uint64] 123)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to bogus\(uint64)
+EOE
+
+#\
+@@ TMP
+: print-call-2
+:
+$* <'$bogus(abc, [uint64] 123)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to bogus\(<untyped>, uint64)
+EOE
+#\
+
+: print-fovl
+:
+$* <'$ambig([bool] true)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to ambig\(bool)
+  info:  candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+  info:  candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+EOE
+
+: print-fovl-variadic
+:
+$* <'$variadic(abc)' 2>>EOE != 0
+buildfile:1:2: error: unmatched call to variadic\(<untyped>)
+  info:  candidate: variadic\(bool [, ...])
+EOE
+
+: member-function
+:
+$* <'print $dummy.length([string] abc)' >'3'
+
+: data-member
+:
+$* <'print $dummy.type([name] cxx{foo})' >'cxx'

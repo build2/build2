@@ -18,7 +18,7 @@ namespace build2
   }
 
   inline value::
-  value (names&& ns)
+  value (names ns)
       : type (nullptr), null (false), extra (0)
   {
     new (&data_) names (move (ns));
@@ -225,6 +225,13 @@ namespace build2
   convert (name&& l, name&& r)
   {
     return value_traits<T>::convert (move (l), &r);
+  }
+
+  template <typename T>
+  inline T
+  convert (names&& ns)
+  {
+    return value_traits<T>::convert (move (ns));
   }
 
   // bool value

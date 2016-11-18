@@ -1,0 +1,29 @@
+# file      : unit-tests/function/syntax.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+$* <'$dump()'           >:''                    : none
+$* <'$dump(  )'         >:''                    : none-in-spaces
+$* <'$dump  ()'         >:''                    : none-out-spaces
+$* <'$dump("")'         >'{}'                   : one-empty
+$* <'$dump(a)'          >'a'                    : one-single
+$* <'$dump(a b c)'      >'a b c'                : one-list
+$* <'$dump(d/t{x y z})' >'d/t{x} d/t{y} d/t{z}' : one-names
+
+$* <'print a$dummy1    ([string] b)c' >'abc' : concat
+
+: quoting
+: Verify we can inhibit function call with quoting
+:
+$* <<EOI >>EOO
+foo = FOO
+bar = BAR
+
+print \$foo"\(\$bar)"
+print "\$foo"\(\$bar)
+print "\$foo""\(\$bar)"
+EOI
+FOOBAR
+FOOBAR
+FOOBAR
+EOO

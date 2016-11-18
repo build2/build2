@@ -336,6 +336,32 @@ namespace build2
     }
   }
 
+  // Throw invalid_argument for an invalid simple value.
+  //
+  [[noreturn]] static void
+  throw_invalid_argument (const name& n, const name* r, const char* type)
+  {
+    string m;
+    string t (type);
+
+    if (r != nullptr)
+      m = "pair in " + t + " value";
+    else
+    {
+      m = "invalid " + t + " value: ";
+
+      if (n.simple ())
+        m += "'" + n.value + "'";
+      else if (n.directory ())
+        m += "'" +
+          (n.original ? n.dir.representation () : n.dir.string ()) + "'";
+      else
+        m += "complex name";
+    }
+
+    throw invalid_argument (m);
+  }
+
   // bool value
   //
   bool value_traits<bool>::
@@ -354,7 +380,7 @@ namespace build2
       // Fall through.
     }
 
-    throw invalid_argument (string ());
+    throw_invalid_argument (n, r, "bool");
   }
 
   const char* const value_traits<bool>::type_name = "bool";
@@ -389,13 +415,13 @@ namespace build2
         //
         return stoull (n.value);
       }
-      catch (const out_of_range&)
+      catch (const std::exception&)
       {
         // Fall through.
       }
     }
 
-    throw invalid_argument (string ());
+    throw_invalid_argument (n, r, "uint64");
   }
 
   const char* const value_traits<uint64_t>::type_name = "uint64";
@@ -431,7 +457,7 @@ namespace build2
     //
     if (!(n.simple (true) || n.directory (true)) ||
         !(r == nullptr || r->simple (true) || r->directory (true)))
-      throw invalid_argument (string ());
+      throw_invalid_argument (n, r, "string");
 
     string s;
 
@@ -525,7 +551,7 @@ namespace build2
       // Fall through.
     }
 
-    throw invalid_argument (string ());
+    throw_invalid_argument (n, r, "path");
   }
 
   const char* const value_traits<path>::type_name = "path";
@@ -569,7 +595,7 @@ namespace build2
       // Fall through.
     }
 
-    throw invalid_argument (string ());
+    throw_invalid_argument (n, r, "dir_path");
   }
 
   const char* const value_traits<dir_path>::type_name = "dir_path";
@@ -596,17 +622,26 @@ namespace build2
   abs_dir_path value_traits<abs_dir_path>::
   convert (name&& n, name* r)
   {
-    dir_path d (value_traits<dir_path>::convert (move (n), r));
-
-    if (!d.empty ())
+    if (r == nullptr && (n.simple () || n.directory ()))
     {
-      if (d.relative ())
-        d.complete ();
+      try
+      {
+        dir_path d (n.simple () ? dir_path (move (n.value)) : move (n.dir));
 
-      d.normalize (true); // Actualize.
+        if (!d.empty ())
+        {
+          if (d.relative ())
+            d.complete ();
+
+          d.normalize (true); // Actualize.
+        }
+
+        return abs_dir_path (move (d));
+      }
+      catch (const invalid_path&) {} // Fall through.
     }
 
-    return abs_dir_path (move (d));
+    throw_invalid_argument (n, r, "abs_dir_path");
   }
 
   const char* const value_traits<abs_dir_path>::type_name = "abs_dir_path";
@@ -633,11 +668,13 @@ namespace build2
   name value_traits<name>::
   convert (name&& n, name* r)
   {
-    if (r != nullptr)
-      throw invalid_argument (string ());
+    if (r == nullptr)
+    {
+      n.original = false;
+      return move (n);
+    }
 
-    n.original = false;
-    return move (n);
+    throw_invalid_argument (n, r, "name");
   }
 
   static names_view
@@ -671,25 +708,31 @@ namespace build2
   process_path value_traits<process_path>::
   convert (name&& n, name* r)
   {
-    path rp (move (n.dir));
-    if (rp.empty ())
-      rp = path (move (n.value));
-    else
-      rp /= n.value;
-
-    path ep;
-    if (r != nullptr)
+    if (                   n.untyped () &&  n.unqualified () &&  !n.empty () &&
+        (r == nullptr || (r->untyped () && r->unqualified () && !r->empty ())))
     {
-      ep = move (r->dir);
-      if (ep.empty ())
-        ep = path (move (r->value));
+      path rp (move (n.dir));
+      if (rp.empty ())
+        rp = path (move (n.value));
       else
-        ep /= r->value;
+        rp /= n.value;
+
+      path ep;
+      if (r != nullptr)
+      {
+        ep = move (r->dir);
+        if (ep.empty ())
+          ep = path (move (r->value));
+        else
+          ep /= r->value;
+      }
+
+      process_path pp (nullptr, move (rp), move (ep));
+      pp.initial = pp.recall.string ().c_str ();
+      return pp;
     }
 
-    process_path pp (nullptr, move (rp), move (ep));
-    pp.initial = pp.recall.string ().c_str ();
-    return pp;
+    throw_invalid_argument (n, r, "process_path");
   }
 
   void

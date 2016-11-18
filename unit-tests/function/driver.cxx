@@ -1,0 +1,110 @@
+// file      : unit-tests/function/driver.cxx -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#include <iostream>
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/parser>
+#include <build2/context>
+#include <build2/function>
+#include <build2/variable>
+#include <build2/diagnostics>
+
+using namespace std;
+
+namespace build2
+{
+  static const optional<const value_type*> arg_bool[1] =
+  {
+    &value_traits<bool>::value_type
+  };
+
+  int
+  main ()
+  {
+    init ("false", 1);  // No build system driver, default verbosity.
+    reset (strings ()); // No command line variables.
+
+    function_family f ("dummy");
+
+    f["fail"]     = []()        {error << "failed"; throw failed ();};
+    f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};
+
+    f["null"]     = [](names* a)          {return a == nullptr;};
+    f["optional"] = [](optional<names> a) {return !a;};
+
+    f["dummy0"] = []()         {return "abc";};
+    f["dummy1"] = [](string s) {return s;};
+
+    f["ambig"] = [](names a, optional<string>)   {return a;};
+    f["ambig"] = [](names a, optional<uint64_t>) {return a;};
+
+    f[".qual"] = []() {return "abc";};
+
+    f[".length"] = &string::size; // Member function.
+    f[".type"]   = &name::type;   // Data member.
+
+    // Variadic function with first required argument of type bool. Returns
+    // number of arguments passed.
+    //
+    functions.insert (
+      "variadic",
+      function_overload (
+        nullptr,
+        1,
+        function_overload::arg_variadic,
+        function_overload::types (arg_bool, 1),
+        [] (vector_view<value> args, const function_overload&)
+        {
+          return value (static_cast<uint64_t> (args.size ()));
+        }));
+
+    // Dump arguments.
+    //
+    functions.insert (
+      "dump",
+      function_overload (
+        nullptr,
+        0,
+        function_overload::arg_variadic,
+        function_overload::types (),
+        [] (vector_view<value> args, const function_overload&)
+        {
+          for (value& a: args)
+          {
+            if (a.null)
+              cout << "[null]";
+            else if (!a.empty ())
+            {
+              names storage;
+              cout << reverse (a, storage);
+            }
+            cout << endl;
+          }
+          return value (nullptr);
+        }));
+
+    try
+    {
+      scope& s (*global_scope);
+
+      parser p;
+      p.parse_buildfile (cin, path ("buildfile"), s, s);
+    }
+    catch (const failed&)
+    {
+      return 1;
+    }
+
+    return 0;
+  }
+}
+
+int
+main ()
+{
+  return build2::main ();
+}

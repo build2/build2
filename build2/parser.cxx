@@ -8,14 +8,15 @@
 
 #include <build2/version>
 
-#include <build2/scope>
-#include <build2/target>
-#include <build2/prerequisite>
-#include <build2/variable>
-#include <build2/module>
 #include <build2/file>
-#include <build2/diagnostics>
+#include <build2/scope>
+#include <build2/module>
+#include <build2/target>
 #include <build2/context>
+#include <build2/function>
+#include <build2/variable>
+#include <build2/diagnostics>
+#include <build2/prerequisite>
 
 using namespace std;
 
@@ -1658,12 +1659,14 @@ namespace build2
     }
   }
 
-  value parser::
+  pair<value, bool> parser::
   parse_eval (token& t, type& tt)
   {
     mode (lexer_mode::eval, '@');
     next (t, tt);
-    return parse_eval_trailer (t, tt);
+    return tt != type::rparen
+      ? make_pair (parse_eval_trailer (t, tt), true)
+      : make_pair (value (names ()), false);
   }
 
   value parser::
@@ -2306,7 +2309,7 @@ namespace build2
           else if (tt == type::lparen)
           {
             expire_mode ();
-            value v (parse_eval (t, tt)); //@@ OUT will parse @-pair and do well?
+            value v (parse_eval (t, tt).first); //@@ OUT will parse @-pair and do well?
 
             if (!pre_parse_)
             {
@@ -2357,31 +2360,22 @@ namespace build2
 
             next (t, tt); // Get '('.
 
-            // Just a stub for now.
-            //
-            // Should we use (target/scope) qualification (of name) as the
+            // @@ Should we use (target/scope) qualification (of name) as the
             // context in which to call the function?
             //
-            value a (parse_eval (t, tt));
+            auto args (parse_eval (t, tt));
             tt = peek ();
 
             if (pre_parse_)
               continue; // As if empty result.
 
-            cout << name << "(";
-
-            if (a)
-            {
-              if (!a.empty ())
-                cout << reverse (a, lv_storage);
-            }
-            else
-              cout << "[null]";
-
-
-            cout << ")" << endl;
-
-            result = value (); // NULL for now.
+            // Note that we move args to call().
+            //
+            result = functions.call (name,
+                                     vector_view<value> (
+                                       args.second ? &args.first : nullptr,
+                                       args.second ? 1 : 0),
+                                     loc);
 
             // See if we should propagate the NULL indicator.
             //
@@ -2428,7 +2422,7 @@ namespace build2
         else
         {
           loc = get_location (t);
-          result = parse_eval (t, tt);
+          result = parse_eval (t, tt).first;
 
           tt = peek ();
 

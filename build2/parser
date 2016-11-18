@@ -107,7 +107,10 @@ namespace build2
                             value&& rhs,
                             token_type kind);
 
-    value
+    // Return the value as well as the indication of whether this is a non-
+    // empty eval context (i.e., '()' potentially with whitespace in between).
+    //
+    pair<value, bool>
     parse_eval (token&, token_type&);
 
     value
