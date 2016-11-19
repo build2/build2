@@ -381,6 +381,73 @@ namespace build2
     }
   };
 
+  // Customization for coerced lambdas (see below).
+  //
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 6
+  template <typename L, typename R, typename... A>
+  struct function_cast_lamb
+  {
+    struct data
+    {
+      value (*const thunk) (vector_view<value>, const void*);
+      R (L::*const impl) (A...) const;
+    };
+
+    static value
+    thunk (vector_view<value> args, const void* d)
+    {
+      return thunk (move (args),
+                    static_cast<const data*> (d)->impl,
+                    std::index_sequence_for<A...> ());
+    }
+
+    template <size_t... i>
+    static value
+    thunk (vector_view<value> args,
+           R (L::*impl) (A...) const,
+           std::index_sequence<i...>)
+    {
+      const L* l (nullptr); // Undefined behavior.
+
+      return value (
+        (l->*impl) (
+          function_arg<A>::cast (
+            i < args.size () ? &args[i] : nullptr)...));
+    }
+  };
+
+  template <typename L, typename... A>
+  struct function_cast_lamb<L, void, A...>
+  {
+    struct data
+    {
+      value (*const thunk) (vector_view<value>, const void*);
+      void (L::*const impl) (A...) const;
+    };
+
+    static value
+    thunk (vector_view<value> args, const void* d)
+    {
+      thunk (move (args),
+             static_cast<const data*> (d)->impl,
+             std::index_sequence_for<A...> ());
+      return value (nullptr);
+    }
+
+    template <size_t... i>
+    static void
+    thunk (vector_view<value> args,
+           void (L::*impl) (A...) const,
+           std::index_sequence<i...>)
+    {
+      const L* l (nullptr);
+      (l->*impl) (
+        function_arg<A>::cast (
+          i < args.size () ? &args[i] : nullptr)...);
+    }
+  };
+#endif
+
   // Customization for member functions.
   //
   template <typename R, typename T>
@@ -462,6 +529,37 @@ namespace build2
 
     // Support for assigning a (capture-less) lambda.
     //
+    // GCC up until version 6 has a bug (#62052) that is triggered by calling
+    // a lambda that takes a by-value argument via its "decayed" function
+    // pointer. To work around this we are not going to decay it and instead
+    // will call its operator() on NULL pointer; yes, undefined behavior, but
+    // better than a guaranteed crash.
+    //
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 6
+    template <typename L>
+    void
+    operator= (const L&) &&
+    {
+      move (*this).coerce_lambda (&L::operator());
+    }
+
+    template <typename L, typename R, typename... A>
+    void
+    coerce_lambda (R (L::*op) (A...) const) &&
+    {
+      using args = function_args<A...>;
+      using cast = function_cast_lamb<L, R, A...>;
+
+      insert (move (name),
+              function_overload (
+                nullptr,
+                args::min,
+                args::max,
+                function_overload::types (args::types, args::max),
+                thunk,
+                typename cast::data {&cast::thunk, op}));
+    }
+#else
     template <typename L>
     void
     operator= (const L& l) &&
@@ -475,6 +573,7 @@ namespace build2
     {
       return static_cast<R (*) (A...)> (l);
     }
+#endif
 
     // Support for assigning a pointer to member function (e.g. an accessor).
     //
