@@ -47,6 +47,8 @@ namespace build2
     f[".length"] = &string::size; // Member function.
     f[".type"]   = &name::type;   // Data member.
 
+    f[".abs"] = [](dir_path d) {return d.absolute ();};
+
     // Variadic function with first required argument of type bool. Returns
     // number of arguments passed.
     //

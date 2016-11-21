@@ -14,7 +14,14 @@ $* <'print $dummy.qual()' >'abc'
 :
 $* <'print $qual()' 2>>EOE != 0
 buildfile:1:8: error: unmatched call to qual\()
+  info: candidate: dummy.qual\()
 EOE
+
+: derived-base
+: Test derived-to-base overload resolution
+:
+$* <'print $dummy.abs([dir_path] .)'     >'false';
+$* <'print $dummy.abs([abs_dir_path] .)' >'true'
 
 : variadic
 :
@@ -45,22 +52,22 @@ EOE
 :
 $* <'$dummy0(abc)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to dummy0\(<untyped>)
-  info:  candidate: dummy0\(), qualified name dummy.dummy0
+  info: candidate: dummy0\(), qualified name dummy.dummy0
 EOE
 
 : no-match-type
 :
 $* <'$dummy1([uint64] 123)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to dummy1\(uint64)
-  info:  candidate: dummy1\(string), qualified name dummy.dummy1
+  info: candidate: dummy1\(string), qualified name dummy.dummy1
 EOE
 
 : ambig
 :
 $* <'$ambig(abc)' 2>>EOE != 0
 buildfile:1:2: error: ambiguous call to ambig\(<untyped>)
-  info:  candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
-  info:  candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
 EOE
 
 : optional-absent
@@ -111,15 +118,15 @@ EOE
 :
 $* <'$ambig([bool] true)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to ambig\(bool)
-  info:  candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
-  info:  candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
 EOE
 
 : print-fovl-variadic
 :
 $* <'$variadic(abc)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to variadic\(<untyped>)
-  info:  candidate: variadic\(bool [, ...])
+  info: candidate: variadic\(bool [, ...])
 EOE
 
 : member-function

@@ -30,6 +30,7 @@
 #include <butl/optional>
 #include <butl/timestamp>
 #include <butl/vector-view>
+#include <butl/small-vector>
 
 namespace build2
 {
@@ -56,7 +57,8 @@ namespace build2
   using std::weak_ptr;
 
   using std::vector;
-  using butl::vector_view; // <butl/vector-view>
+  using butl::vector_view;  // <butl/vector-view>
+  using butl::small_vector; // <butl/small-vector>
 
   using strings = vector<string>;
   using cstrings = vector<const char*>;

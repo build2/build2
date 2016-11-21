@@ -30,10 +30,10 @@ namespace build2
     const size_t size; // Type size in value::data_ (only used for PODs).
 
     // Base type, if any. We have very limited support for inheritance: a
-    // const value (but not non-const) can be cast to the base type. In
-    // particular, a derived/base value cannot be assigned to base/derived.
-    // If not NULL, then the cast function below is expected to return the
-    // base pointer if its second argument points to the base's value_type.
+    // value can be cast to the base type. In particular, a derived/base value
+    // cannot be assigned to base/derived. If not NULL, then the cast function
+    // below is expected to return the base pointer if its second argument
+    // points to the base's value_type.
     //
     const value_type* base;
 

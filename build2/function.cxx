@@ -4,10 +4,60 @@
 
 #include <build2/function>
 
+#include <cstring> // strchr()
+
 using namespace std;
 
 namespace build2
 {
+  ostream&
+  operator<< (ostream& os, const function_overload& f)
+  {
+    os << f.name << '(';
+
+    bool v (f.arg_max == function_overload::arg_variadic);
+    size_t n (v ? max (f.arg_min, f.arg_types.size ()): f.arg_max);
+
+    // Handle variadic tail as the last pseudo-argument.
+    //
+    for (size_t i (0); i != n + (v ? 1 : 0); ++i)
+    {
+      if (i == f.arg_min)
+        os << (i != 0 ? " [" : "[");
+
+      os << (i != 0 ? ", " : "");
+
+      if (i == n) // Variadic tail (last).
+        os << "...";
+      else
+      {
+        // If count is greater than f.arg_typed, then we assume the rest are
+        // valid but untyped.
+        //
+        const optional<const value_type*> t (
+          i < f.arg_types.size () ? f.arg_types[i] : nullopt);
+
+        os << (t ? (*t != nullptr ? (*t)->name : "<untyped>") : "<anytype>");
+      }
+    }
+
+    if (n + (v ? 1 : 0) > f.arg_min)
+      os << ']';
+
+    os << ')';
+
+    if (f.alt_name != nullptr)
+    {
+      auto k (strchr (f.alt_name, '.') == nullptr
+              ? "unqualified"
+              : "qualified");
+
+      os << ", " << k << " name " << f.alt_name;
+    }
+
+    return os;
+  }
+
   auto function_map::
   insert (string name, function_overload f) -> iterator
   {
@@ -24,7 +74,7 @@ namespace build2
   }
 
   value function_map::
-  call (const string& name, vector_view<value> args, const location& loc)
+  call (const string& name, vector_view<value> args, const location& loc) const
   {
     auto print_call = [&name, &args] (ostream& os)
     {
@@ -39,113 +89,144 @@ namespace build2
       os << ')';
     };
 
-    auto print_fovl = [&name] (ostream& os, const function_overload& f)
-    {
-      os << name << '(';
-
-      bool v (f.arg_max == function_overload::arg_variadic);
-      size_t n (v ? max (f.arg_min, f.arg_types.size ()): f.arg_max);
-
-      // Handle variadic tail as the last pseudo-argument.
-      //
-      for (size_t i (0); i != n + (v ? 1 : 0); ++i)
-      {
-        if (i == f.arg_min)
-          os << (i != 0 ? " [" : "[");
-
-        os << (i != 0 ? ", " : "");
-
-        if (i == n) // Variadic tail (last).
-          os << "...";
-        else
-        {
-          // If count is greater than f.arg_typed, then we assume the rest are
-          // valid but untyped.
-          //
-          const optional<const value_type*> t (
-            i < f.arg_types.size () ? f.arg_types[i] : nullopt);
-
-          os << (t ? (*t != nullptr ? (*t)->name : "<untyped>") : "<anytype>");
-        }
-      }
-
-      if (n + (v ? 1 : 0) > f.arg_min)
-        os << ']';
-
-      os << ')';
-
-      if (f.qual_name)
-        os << ", qualified name " << f.qual_name;
-    };
-
     // Overload resolution.
     //
-    const function_overload* r (nullptr);
-
+    // Ours is pretty simple: if all the arguments match exactly, then we have
+    // a perfect match. Otherwise, if any argument matches via the derived-to-
+    // base conversion, then we have an imperfect match. More than one perfect
+    // or imperfect match is ambiguous (i.e., we don't try to rank imperfect
+    // matches).
+    //
     size_t count (args.size ());
     auto ip (map_.equal_range (name));
 
-    for (auto it (ip.first); it != ip.second; ++it)
+    // First look for a perfect match, then for imperfect. We do it this way
+    // to make sure we always stay small in the successful case.
+    //
+    small_vector<const function_overload*, 1> r;
+
+    for (bool perf (true);; perf = false)
     {
-      const function_overload& f (it->second);
-
-      // Argument count match.
-      //
-      if (count < f.arg_min || count > f.arg_max)
-        continue;
-
-      // Argument types match.
-      //
-      {
-        size_t i (0), n (min (count, f.arg_types.size ()));
-        for (; i != n; ++i)
-          if (f.arg_types[i] && *f.arg_types[i] != args[i].type)
-            break;
-
-        if (i != n)
-          continue;
-      }
-
-      if (r != nullptr)
-      {
-        diag_record dr (fail (loc));
-
-        dr << "ambiguous call to "; print_call (dr.os);
-        dr << info << " candidate: "; print_fovl (dr.os, *r);
-        dr << info << " candidate: "; print_fovl (dr.os, f);
-      }
-
-      r = &f; // Continue looking to detect ambiguities.
-    }
-
-    if (r == nullptr)
-    {
-      diag_record dr (fail (loc));
-
-      dr << "unmatched call to "; print_call (dr.os);
-
       for (auto it (ip.first); it != ip.second; ++it)
       {
         const function_overload& f (it->second);
 
-        dr << info << " candidate: "; print_fovl (dr.os, f);
+        // Argument count match.
+        //
+        if (count < f.arg_min || count > f.arg_max)
+          continue;
+
+        // Argument types match.
+        //
+        {
+          size_t i (0), n (min (count, f.arg_types.size ()));
+          for (; i != n; ++i)
+          {
+            if (!f.arg_types[i]) // Anytyped.
+              continue;
+
+            const value_type* at (args[i].type);
+            const value_type* ft (*f.arg_types[i]);
+
+            if (at == ft) // Types match perfectly.
+              continue;
+
+            if (!perf && at != nullptr && ft != nullptr)
+            {
+              while ((at = at->base) != nullptr && at != ft) ;
+
+              if (at != nullptr) // Types match via derived-to-base.
+                continue;
+            }
+
+            break;
+          }
+
+          if (i != n)
+            continue;
+        }
+
+        r.push_back (&f); // Continue looking to detect ambiguities.
       }
+
+      if (!r.empty () || !perf)
+        break;
     }
 
-    // Print the call location if the function fails.
-    //
-    auto g (
-      make_exception_guard (
-        [&loc, &print_call] ()
-        {
-          if (verb != 0)
-          {
-            diag_record dr (info (loc));
-            dr << "while calling "; print_call (dr.os);
-          }
-        }));
+    switch (r.size ())
+    {
+    case 1:
+      {
+        // Print the call location if the function fails.
+        //
+        auto g (
+          make_exception_guard (
+            [&loc, &print_call] ()
+            {
+              if (verb != 0)
+              {
+                diag_record dr (info (loc));
+                dr << "while calling "; print_call (dr.os);
+              }
+            }));
 
-    return r->impl (move (args), *r);
+        auto f (r.back ());
+        return f->impl (move (args), *f);
+      }
+    case 0:
+      {
+        // No match.
+        //
+        {
+          diag_record dr (error (loc));
+
+          dr << "unmatched call to "; print_call (dr.os);
+
+          for (auto i (ip.first); i != ip.second; ++i)
+            dr << info << "candidate: " << i->second;
+
+          // If this is an unqualified name, then also print qualified
+          // functions that end with this name. But skip functions that we
+          // have already printed in the previous loop.
+          //
+          if (name.find ('.') == string::npos)
+          {
+            size_t n (name.size ());
+
+            for (auto i (functions.begin ()); i != functions.end (); ++i)
+            {
+              const string& q (i->first);
+              const function_overload& f (i->second);
+
+              if ((f.alt_name == nullptr || f.alt_name != name) &&
+                  q.size () > n)
+              {
+                size_t p (q.size () - n);
+                if (q[p - 1] == '.' && q.compare (p, n, name) == 0)
+                  dr << info << "candidate: " << i->second;
+              }
+            }
+          }
+        }
+
+        throw failed ();
+      }
+    default:
+      {
+        // Ambigous match.
+        //
+        {
+          diag_record dr (error (loc));
+
+          dr << "ambiguous call to "; print_call (dr.os);
+
+          for (auto f: r)
+            dr << info << "candidate: " << *f;
+        }
+
+        throw failed ();
+      }
+    }
   }
 
   value function_family::
@@ -201,15 +282,16 @@ namespace build2
       n.insert (0, qual);
     }
 
-    // First insert the qualified name and use its key for f.qual_name.
-    //
-    if (!qn.empty ())
-    {
-      auto i (functions.insert (move (qn), f));
-      f.qual_name = i->first.c_str ();
-    }
+    auto i (qn.empty () ? functions.end () : functions.insert (move (qn), f));
+    auto j (functions.insert (move (n), move (f)));
 
-    functions.insert (move (n), move (f));
+    // If we have both, then set alternative names.
+    //
+    if (i != functions.end ())
+    {
+      i->second.alt_name = j->first.c_str ();
+      j->second.alt_name = i->first.c_str ();
+    }
   }
 
   // Static-initialize the function map and populate with builtin functions.

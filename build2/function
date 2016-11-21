@@ -67,8 +67,9 @@ namespace build2
 
   struct function_overload
   {
-    const char* name;      // Set to point to key by insert() below.
-    const char* qual_name; // Qualified name, NULL if none.
+    const char* name;     // Set to point to key by insert() below.
+    const char* alt_name; // Alternative name, NULL if none. This is the
+                          // qualified name for unqualified or vice verse.
 
     // Arguments.
     //
@@ -100,19 +101,19 @@ namespace build2
 
     function_overload () = default;
 
-    function_overload (const char* qn,
+    function_overload (const char* an,
                        size_t mi, size_t ma, types ts,
                        function_impl* im)
-        : qual_name (qn),
+        : alt_name (an),
           arg_min (mi), arg_max (ma), arg_types (move (ts)),
           impl (im) {}
 
     template <typename D>
-    function_overload (const char* qn,
+    function_overload (const char* an,
                        size_t mi, size_t ma, types ts,
                        function_impl* im,
                        D d)
-        : function_overload (qn, mi, ma, move (ts), im)
+        : function_overload (an, mi, ma, move (ts), im)
     {
       // std::is_pod appears to be broken in VC15.
       //
@@ -124,11 +125,15 @@ namespace build2
     }
   };
 
+  ostream&
+  operator<< (ostream&, const function_overload&); // Print signature.
+
   class function_map
   {
   public:
     using map_type = std::unordered_multimap<string, function_overload>;
     using iterator = map_type::iterator;
+    using const_iterator = map_type::const_iterator;
 
     iterator
     insert (string name, function_overload);
@@ -137,7 +142,19 @@ namespace build2
     erase (iterator i) {map_.erase (i);}
 
     value
-    call (const string& name, vector_view<value> args, const location&);
+    call (const string& name, vector_view<value> args, const location&) const;
+
+    iterator
+    begin () {return map_.begin ();}
+
+    iterator
+    end () {return map_.end ();}
+
+    const_iterator
+    begin () const {return map_.begin ();}
+
+    const_iterator
+    end () const {return map_.end ();}
 
   private:
     map_type map_;
