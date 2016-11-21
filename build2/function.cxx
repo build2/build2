@@ -257,7 +257,11 @@ namespace build2
     throw failed ();
   }
 
+#if !defined(_MSC_VER) || _MSC_VER > 1900
+  constexpr const optional<const value_type*>* function_args<>::types;
+#else
   const optional<const value_type*>* const function_args<>::types = nullptr;
+#endif
 
   void function_family::entry::
   insert (string n, function_overload f) const

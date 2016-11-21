@@ -205,7 +205,7 @@ namespace build2
     static const bool null = false;
     static const bool opt = false;
 
-    static optional<const value_type*>
+    static constexpr optional<const value_type*>
     type () {return &value_traits<T>::value_type;}
 
     static T&&
@@ -226,7 +226,7 @@ namespace build2
     static const bool null = false;
     static const bool opt = false;
 
-    static optional<const value_type*>
+    static constexpr optional<const value_type*>
     type () {return nullptr;}
 
     static names&&
@@ -245,7 +245,7 @@ namespace build2
     static const bool null = false;
     static const bool opt = false;
 
-    static optional<const value_type*>
+    static constexpr optional<const value_type*>
     type () {return nullopt;}
 
     static value&&
@@ -315,13 +315,26 @@ namespace build2
     static const size_t max = sizeof...(A);
     static const size_t min = max - function_args_opt<A...>::count;
 
+    // VC14 doesn't realize that a pointer to static object (in our case it is
+    // &value_trair<T>::value_type) is constexpr.
+    //
+#if !defined(_MSC_VER) || _MSC_VER > 1900
+    static constexpr const optional<const value_type*> types[max] = {
+      function_arg<A>::type ()...};
+#else
     static const optional<const value_type*> types[max];
+#endif
   };
 
   template <typename... A>
+#if !defined(_MSC_VER) || _MSC_VER > 1900
+  constexpr const optional<const value_type*>
+  function_args<A...>::types[function_args<A...>::max];
+#else
   const optional<const value_type*>
   function_args<A...>::types[function_args<A...>::max] = {
     function_arg<A>::type ()...};
+#endif
 
   // Specialization for no arguments.
   //
@@ -330,7 +343,12 @@ namespace build2
   {
     static const size_t max = 0;
     static const size_t min = 0;
-    static const optional<const value_type*>* const types; // NULL
+
+#if !defined(_MSC_VER) || _MSC_VER > 1900
+    static constexpr const optional<const value_type*>* types = nullptr;
+#else
+    static const optional<const value_type*>* const types;
+#endif
   };
 
   // Cast data/thunk.
