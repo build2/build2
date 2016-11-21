@@ -10,7 +10,7 @@ amalgamation =
 using test
 EOI
 
-b = $build.driver -q --no-column --buildfile - <"./: test{testscript}" \
+b = $effect($build.path) -q --no-column --buildfile - <"./: test{testscript}" \
   &?test/*** test
 c = cat >>>testscript
 test = \'$test\'

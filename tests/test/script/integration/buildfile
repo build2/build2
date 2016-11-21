@@ -4,4 +4,4 @@
 
 ./: test{testscript}
 
-test{*}: test = $build.driver
+test{*}: test = $effect($build.path)

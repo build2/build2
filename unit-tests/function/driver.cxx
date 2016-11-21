@@ -23,9 +23,9 @@ namespace build2
   };
 
   int
-  main ()
+  main (int, char* argv[])
   {
-    init ("false", 1);  // No build system driver, default verbosity.
+    init (argv[0], 1);  // Fake build system driver, default verbosity.
     reset (strings ()); // No command line variables.
 
     function_family f ("dummy");
@@ -106,7 +106,7 @@ namespace build2
 }
 
 int
-main ()
+main (int argc, char* argv[])
 {
-  return build2::main ();
+  return build2::main (argc, argv);
 }

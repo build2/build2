@@ -237,27 +237,20 @@ namespace build2
       v.insert<string> ("extension", variable_visibility::target);
     }
 
-    // Absolute path to the build system driver.
-    //
-    {
-      path p (argv0.effect_string ());
-
-      if (p.relative ())
-      {
-        p = work / p;
-        p.normalize ();
-      }
-
-      gs.assign<path> ("build.driver") = move (p);
-    }
-
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
 
-    // Enter the version.
+    // Build system driver process path.
+    //
+    gs.assign<process_path> ("build.path") =
+      process_path (nullptr, // Will be filled by value assignment.
+                    path (argv0.recall_string ()),
+                    path (argv0.effect));
+
+    // Build system version.
     //
     {
-      gs.assign<uint64_t> ("build.version") = uint64_t (BUILD2_VERSION);
+      gs.assign<uint64_t> ("build.version")      = uint64_t (BUILD2_VERSION);
       gs.assign<string> ("build.version.string") = BUILD2_VERSION_STR;
 
       // AABBCCDD
