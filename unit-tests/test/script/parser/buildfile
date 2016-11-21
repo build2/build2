@@ -7,8 +7,9 @@
 import libs = libbutl%lib{butl}
 src = token lexer parser diagnostics utility variable name context target \
 scope prerequisite file module operation rule b-options algorithm search \
-filesystem function functions-path config/{utility init operation} dump \
-types-parsers test/{target script/{token lexer parser script}}
+filesystem function functions-path functions-process-path \
+config/{utility init operation} dump types-parsers test/{target \
+script/{token lexer parser script}}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
 test{cleanup command-if command-re-parse description exit expansion \

@@ -302,14 +302,15 @@ namespace build2
   //
   function_map functions;
 
-  void
-  path_functions (); // functions-path.cxx
+  void path_functions ();          // functions-path.cxx
+  void process_path_functions ();  // functions-process-path.cxx
 
   struct functions_init
   {
     functions_init ()
     {
       path_functions ();
+      process_path_functions ();
     }
   };
 

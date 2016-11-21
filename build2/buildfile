@@ -4,86 +4,87 @@
 
 import libs = libbutl%lib{butl}
 
-exe{b}:                                           \
-            {hxx ixx     cxx}{ algorithm        } \
-            {            cxx}{ b                } \
-            {hxx ixx     cxx}{ b-options        } \
-            {hxx         cxx}{ context          } \
-            {hxx         cxx}{ depdb            } \
-            {hxx         cxx}{ diagnostics      } \
-            {hxx         cxx}{ dump             } \
-            {hxx ixx     cxx}{ file             } \
-            {hxx     txx cxx}{ filesystem       } \
-            {hxx         cxx}{ function         } \
-            {            cxx}{ functions-path   } \
-            {hxx         cxx}{ lexer            } \
-            {hxx         cxx}{ module           } \
-            {hxx ixx     cxx}{ name             } \
-            {hxx         cxx}{ operation        } \
-            {hxx         cxx}{ parser           } \
-            {hxx         cxx}{ prerequisite     } \
-            {hxx         cxx}{ rule             } \
-            {hxx            }{ rule-map         } \
-            {hxx         cxx}{ scope            } \
-            {hxx         cxx}{ search           } \
-            {hxx         cxx}{ spec             } \
-            {hxx ixx txx cxx}{ target           } \
-            {hxx            }{ target-key       } \
-            {hxx            }{ target-type      } \
-            {hxx         cxx}{ token            } \
-            {hxx            }{ types            } \
-            {hxx         cxx}{ types-parsers    } \
-            {hxx ixx txx cxx}{ utility          } \
-            {hxx ixx txx cxx}{ variable         } \
-            {hxx            }{ version          } \
-        bin/{hxx         cxx}{ guess            } \
-        bin/{hxx         cxx}{ init             } \
-        bin/{hxx         cxx}{ rule             } \
-        bin/{hxx         cxx}{ target           } \
-          c/{hxx         cxx}{ init             } \
-          c/{hxx            }{ target           } \
-         cc/{hxx         cxx}{ common           } \
-         cc/{hxx         cxx}{ compile          } \
-         cc/{            cxx}{ gcc              } \
-         cc/{hxx         cxx}{ guess            } \
-         cc/{hxx         cxx}{ init             } \
-         cc/{hxx         cxx}{ install          } \
-         cc/{hxx         cxx}{ link             } \
-         cc/{hxx         cxx}{ module           } \
-         cc/{            cxx}{ msvc             } \
-         cc/{            cxx}{ pkgconfig        } \
-         cc/{hxx         cxx}{ target           } \
-         cc/{hxx            }{ types            } \
-         cc/{hxx ixx     cxx}{ utility          } \
-         cc/{            cxx}{ windows-manifest } \
-         cc/{            cxx}{ windows-rpath    } \
-        cli/{hxx         cxx}{ init             } \
-        cli/{hxx         cxx}{ rule             } \
-        cli/{hxx         cxx}{ target           } \
-     config/{hxx         cxx}{ init             } \
-     config/{hxx            }{ module           } \
-     config/{hxx         cxx}{ operation        } \
-     config/{hxx     txx cxx}{ utility          } \
-        cxx/{hxx         cxx}{ init             } \
-        cxx/{hxx         cxx}{ target           } \
-       dist/{hxx         cxx}{ init             } \
-       dist/{hxx         cxx}{ operation        } \
-       dist/{hxx         cxx}{ rule             } \
-  pkgconfig/{hxx         cxx}{ init             } \
-    install/{hxx         cxx}{ init             } \
-    install/{hxx         cxx}{ operation        } \
-    install/{hxx         cxx}{ rule             } \
-    install/{hxx            }{ utility          } \
-       test/{hxx         cxx}{ init             } \
-       test/{hxx         cxx}{ operation        } \
-       test/{hxx         cxx}{ rule             } \
-       test/{hxx         cxx}{ target           } \
-test/script/{hxx         cxx}{ builtin          } \
-test/script/{hxx         cxx}{ lexer            } \
-test/script/{hxx         cxx}{ parser           } \
-test/script/{hxx         cxx}{ runner           } \
-test/script/{hxx         cxx}{ script           } \
-test/script/{hxx         cxx}{ token            } \
+exe{b}:                                                 \
+            {hxx ixx     cxx}{ algorithm              } \
+            {            cxx}{ b                      } \
+            {hxx ixx     cxx}{ b-options              } \
+            {hxx         cxx}{ context                } \
+            {hxx         cxx}{ depdb                  } \
+            {hxx         cxx}{ diagnostics            } \
+            {hxx         cxx}{ dump                   } \
+            {hxx ixx     cxx}{ file                   } \
+            {hxx     txx cxx}{ filesystem             } \
+            {hxx         cxx}{ function               } \
+            {            cxx}{ functions-path         } \
+	    {            cxx}{ functions-process-path } \
+            {hxx         cxx}{ lexer                  } \
+            {hxx         cxx}{ module                 } \
+            {hxx ixx     cxx}{ name                   } \
+            {hxx         cxx}{ operation              } \
+            {hxx         cxx}{ parser                 } \
+            {hxx         cxx}{ prerequisite           } \
+            {hxx         cxx}{ rule                   } \
+            {hxx            }{ rule-map               } \
+            {hxx         cxx}{ scope                  } \
+            {hxx         cxx}{ search                 } \
+            {hxx         cxx}{ spec                   } \
+            {hxx ixx txx cxx}{ target                 } \
+            {hxx            }{ target-key             } \
+            {hxx            }{ target-type            } \
+            {hxx         cxx}{ token                  } \
+            {hxx            }{ types                  } \
+            {hxx         cxx}{ types-parsers          } \
+            {hxx ixx txx cxx}{ utility                } \
+            {hxx ixx txx cxx}{ variable               } \
+            {hxx            }{ version                } \
+        bin/{hxx         cxx}{ guess                  } \
+        bin/{hxx         cxx}{ init                   } \
+        bin/{hxx         cxx}{ rule                   } \
+        bin/{hxx         cxx}{ target                 } \
+          c/{hxx         cxx}{ init                   } \
+          c/{hxx            }{ target                 } \
+         cc/{hxx         cxx}{ common                 } \
+         cc/{hxx         cxx}{ compile                } \
+         cc/{            cxx}{ gcc                    } \
+         cc/{hxx         cxx}{ guess                  } \
+         cc/{hxx         cxx}{ init                   } \
+         cc/{hxx         cxx}{ install                } \
+         cc/{hxx         cxx}{ link                   } \
+         cc/{hxx         cxx}{ module                 } \
+         cc/{            cxx}{ msvc                   } \
+         cc/{            cxx}{ pkgconfig              } \
+         cc/{hxx         cxx}{ target                 } \
+         cc/{hxx            }{ types                  } \
+         cc/{hxx ixx     cxx}{ utility                } \
+         cc/{            cxx}{ windows-manifest       } \
+         cc/{            cxx}{ windows-rpath          } \
+        cli/{hxx         cxx}{ init                   } \
+        cli/{hxx         cxx}{ rule                   } \
+        cli/{hxx         cxx}{ target                 } \
+     config/{hxx         cxx}{ init                   } \
+     config/{hxx            }{ module                 } \
+     config/{hxx         cxx}{ operation              } \
+     config/{hxx     txx cxx}{ utility                } \
+        cxx/{hxx         cxx}{ init                   } \
+        cxx/{hxx         cxx}{ target                 } \
+       dist/{hxx         cxx}{ init                   } \
+       dist/{hxx         cxx}{ operation              } \
+       dist/{hxx         cxx}{ rule                   } \
+  pkgconfig/{hxx         cxx}{ init                   } \
+    install/{hxx         cxx}{ init                   } \
+    install/{hxx         cxx}{ operation              } \
+    install/{hxx         cxx}{ rule                   } \
+    install/{hxx            }{ utility                } \
+       test/{hxx         cxx}{ init                   } \
+       test/{hxx         cxx}{ operation              } \
+       test/{hxx         cxx}{ rule                   } \
+       test/{hxx         cxx}{ target                 } \
+test/script/{hxx         cxx}{ builtin                } \
+test/script/{hxx         cxx}{ lexer                  } \
+test/script/{hxx         cxx}{ parser                 } \
+test/script/{hxx         cxx}{ runner                 } \
+test/script/{hxx         cxx}{ script                 } \
+test/script/{hxx         cxx}{ token                  } \
                                $libs
 
 # Pass our compiler target to be used as build2 host.
