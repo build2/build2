@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 +mkdir build
-+cat <<EOI >>>build/boostrap.build
++cat <<EOI >>>build/bootstrap.build
 project = test
 amalgamation =
 EOI
