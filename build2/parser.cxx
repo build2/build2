@@ -226,7 +226,7 @@ namespace build2
   bool parser::
   parse_clause (token& t, type& tt, bool one)
   {
-    tracer trace ("parser::clause", &path_);
+    tracer trace ("parser::parse_clause", &path_);
 
     // clause() should always stop at a token that is at the beginning of
     // the line (except for eof). That is, if something is called to parse
@@ -761,7 +761,7 @@ namespace build2
   void parser::
   parse_source (token& t, type& tt)
   {
-    tracer trace ("parser::source", &path_);
+    tracer trace ("parser::parse_source", &path_);
 
     // The rest should be a list of buildfiles. Parse them as names in the
     // value mode to get variable expansion and directory prefixes.
@@ -834,7 +834,7 @@ namespace build2
   void parser::
   parse_include (token& t, type& tt)
   {
-    tracer trace ("parser::include", &path_);
+    tracer trace ("parser::parse_include", &path_);
 
     if (root_->src_path_ == nullptr)
       fail (t) << "inclusion during bootstrap";
@@ -973,7 +973,7 @@ namespace build2
   void parser::
   parse_import (token& t, type& tt)
   {
-    tracer trace ("parser::import", &path_);
+    tracer trace ("parser::parse_import", &path_);
 
     if (root_->src_path_ == nullptr)
       fail (t) << "import during bootstrap";
@@ -1121,7 +1121,7 @@ namespace build2
   void parser::
   parse_export (token& t, type& tt)
   {
-    tracer trace ("parser::export", &path_);
+    tracer trace ("parser::parse_export", &path_);
 
     scope* ps (scope_->parent_scope ());
 
@@ -1163,7 +1163,7 @@ namespace build2
   void parser::
   parse_using (token& t, type& tt)
   {
-    tracer trace ("parser::using", &path_);
+    tracer trace ("parser::parse_using", &path_);
 
     bool optional (t.value.back () == '?');
 
@@ -2043,7 +2043,7 @@ namespace build2
     // Note that support for pre-parsing is partial, it does not handle
     // groups ({}).
 
-    tracer trace ("parser::names", &path_);
+    tracer trace ("parser::parse_names", &path_);
 
     bool null (false);
 
