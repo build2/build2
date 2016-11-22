@@ -193,6 +193,12 @@ namespace build2
           //
           assert (empty (sp.wd_path));
 
+        // We don't change the current directory here but indicate that the
+        // scope test commands will be executed in that directory.
+        //
+        if (verb >= 2)
+          text << "cd " << sp.wd_path;
+
         sp.clean ({cleanup_type::always, sp.wd_path}, true);
       }
 
@@ -272,6 +278,14 @@ namespace build2
             fail (ll) << "registered for cleanup file " << p
                       << " does not exist";
         }
+
+        // Return to the parent scope directory or to the out_base one for the
+        // script scope.
+        //
+        if (verb >= 2)
+          text << "cd " << (sp.parent != nullptr
+                            ? sp.parent->wd_path
+                            : sp.wd_path.directory ());
       }
 
       void concurrent_runner::
