@@ -30,7 +30,7 @@ namespace build2
 
     function_family f ("dummy");
 
-    f["fail"]     = []()        {error << "failed"; throw failed ();};
+    f["fail"]     = []()        {fail << "failed" << endf;};
     f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};
 
     f["null"]     = [](names* a)          {return a == nullptr;};

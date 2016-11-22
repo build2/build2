@@ -41,8 +41,7 @@ namespace build2
           // executed let's add the location anyway to ease the
           // troubleshooting. And let's stick to that principle down the road.
           //
-          error (ll) << "unable to read " << p << ": " << e.what ();
-          throw failed ();
+          fail (ll) << "unable to read " << p << ": " << e.what () << endf;
         }
       }
 

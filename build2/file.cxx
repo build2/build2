@@ -306,8 +306,7 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      error << "unable to read buildfile " << bf << ": " << e.what ();
-      throw failed ();
+      fail << "unable to read buildfile " << bf << ": " << e.what () << endf;
     }
 
     // Never reached.
@@ -1050,12 +1049,10 @@ namespace build2
     if (!p.empty ())
       fail << "unable to import target " << pk <<
         info << "consider explicitly specifying its project out_root via the "
-           << "config.import." << p << " command line variable";
+           << "config.import." << p << " command line variable" << endf;
     else
       fail << "unable to import target " << pk <<
         info << "consider adding its installation location" <<
-        info << "or explicitly specifying its project name";
-
-    throw failed (); // No return.
+        info << "or explicitly specifying its project name" << endf;
   }
 }

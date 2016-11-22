@@ -112,11 +112,6 @@ namespace build2
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
-  // Path printing with trailing slash for directories (utility.cxx).
-  //
-  ostream&
-  operator<< (ostream&, const path&);
-
   // <butl/timestamp>
   //
   using butl::system_clock;
@@ -137,12 +132,26 @@ namespace build2
   using butl::process_path;
   using butl::process_error;
 
-  ostream&
-  operator<< (ostream&, const process_path&); // Print as recall[@effect].
-
   using butl::auto_fd;
   using butl::ifdstream;
   using butl::ofdstream;
+}
+
+// In order to be found (via ADL) these have to be either in std:: or in
+// butl::. The latter is bad idea since libbutl includes the default
+// implementation. They are defined in utility.cxx.
+//
+namespace std
+{
+  // Path printing with trailing slash for directories.
+  //
+  ostream&
+  operator<< (ostream&, const ::butl::path&);
+
+  // Print as recall[@effect].
+  //
+  ostream&
+  operator<< (ostream&, const ::butl::process_path&);
 }
 
 // <build2/name>

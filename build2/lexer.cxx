@@ -573,11 +573,4 @@ namespace build2
 
     return r;
   }
-
-  location_prologue lexer::fail_mark_base::
-  operator() (const xchar& c) const
-  {
-    return build2::fail_mark_base<failed>::operator() (
-      location (&name_, c.line, c.column));
-  }
 }

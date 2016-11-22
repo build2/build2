@@ -79,7 +79,7 @@ namespace build2
         : lexer (is, name, escapes, processor, true) {}
 
     const path&
-    name () const {return fail.name_;}
+    name () const {return name_;}
 
     // Note: sets mode for the next token. The second argument can be used to
     // specifythe pair separator character (if the mode supports pairs).
@@ -157,17 +157,6 @@ namespace build2
     // Diagnostics.
     //
   protected:
-    struct fail_mark_base: build2::fail_mark_base<failed>
-    {
-      fail_mark_base (const path& n): name_ (n) {}
-
-      location_prologue
-      operator() (const xchar&) const;
-
-      path name_;
-    };
-    typedef diag_mark<fail_mark_base> fail_mark;
-
     fail_mark fail;
 
     // Lexer state.
@@ -179,7 +168,8 @@ namespace build2
            void (*p) (token&, const lexer&),
            bool sm)
         : char_scanner (is),
-          fail (n),
+          fail ("error", &name_),
+          name_ (n),
           escapes_ (e),
           processor_ (p),
           sep_ (false)
@@ -188,6 +178,7 @@ namespace build2
         mode (lexer_mode::normal, '@');
     }
 
+    const path name_;
     const char* escapes_;
     void (*processor_) (token&, const lexer&);
 
@@ -195,6 +186,20 @@ namespace build2
 
     bool sep_; // True if we skipped spaces in peek().
   };
+}
+
+// Diagnostics plumbing.
+//
+namespace butl // ADL
+{
+  inline build2::location
+  get_location (const butl::char_scanner::xchar& c, const void* data)
+  {
+    using namespace build2;
+
+    assert (data != nullptr); // E.g., must be &lexer::name_.
+    return location (static_cast<const path*> (data), c.line, c.column);
+  }
 }
 
 #endif // BUILD2_LEXER

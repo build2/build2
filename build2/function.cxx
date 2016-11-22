@@ -177,54 +177,49 @@ namespace build2
       {
         // No match.
         //
+        diag_record dr;
+
+        dr << fail (loc) << "unmatched call to "; print_call (dr.os);
+
+        for (auto i (ip.first); i != ip.second; ++i)
+          dr << info << "candidate: " << i->second;
+
+        // If this is an unqualified name, then also print qualified
+        // functions that end with this name. But skip functions that we
+        // have already printed in the previous loop.
+        //
+        if (name.find ('.') == string::npos)
         {
-          diag_record dr (error (loc));
+          size_t n (name.size ());
 
-          dr << "unmatched call to "; print_call (dr.os);
-
-          for (auto i (ip.first); i != ip.second; ++i)
-            dr << info << "candidate: " << i->second;
-
-          // If this is an unqualified name, then also print qualified
-          // functions that end with this name. But skip functions that we
-          // have already printed in the previous loop.
-          //
-          if (name.find ('.') == string::npos)
+          for (auto i (functions.begin ()); i != functions.end (); ++i)
           {
-            size_t n (name.size ());
+            const string& q (i->first);
+            const function_overload& f (i->second);
 
-            for (auto i (functions.begin ()); i != functions.end (); ++i)
+            if ((f.alt_name == nullptr || f.alt_name != name) &&
+                q.size () > n)
             {
-              const string& q (i->first);
-              const function_overload& f (i->second);
-
-              if ((f.alt_name == nullptr || f.alt_name != name) &&
-                  q.size () > n)
-              {
-                size_t p (q.size () - n);
-                if (q[p - 1] == '.' && q.compare (p, n, name) == 0)
-                  dr << info << "candidate: " << i->second;
-              }
+              size_t p (q.size () - n);
+              if (q[p - 1] == '.' && q.compare (p, n, name) == 0)
+                dr << info << "candidate: " << i->second;
             }
           }
         }
 
-        throw failed ();
+        dr << endf;
       }
     default:
       {
         // Ambigous match.
         //
-        {
-          diag_record dr (error (loc));
+        diag_record dr;
+        dr << fail (loc) << "ambiguous call to "; print_call (dr.os);
 
-          dr << "ambiguous call to "; print_call (dr.os);
+        for (auto f: r)
+          dr << info << "candidate: " << *f;
 
-          for (auto f: r)
-            dr << info << "candidate: " << *f;
-        }
-
-        throw failed ();
+        dr << endf;
       }
     }
   }
@@ -245,16 +240,14 @@ namespace build2
   }
   catch (const invalid_argument& e)
   {
-    {
-      diag_record dr (error);
-      dr << "invalid argument";
+    diag_record dr (fail);
+    dr << "invalid argument";
 
-      const char* w (e.what ());
-      if (*w != '\0')
-        dr << ": " << w;
-    }
+    const char* w (e.what ());
+    if (*w != '\0')
+      dr << ": " << w;
 
-    throw failed ();
+    dr << endf;
   }
 
 #if !defined(_MSC_VER) || _MSC_VER > 1900

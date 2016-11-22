@@ -1211,8 +1211,7 @@ namespace build2
           try {iv = to_version (v);}
           catch (const invalid_argument& e)
           {
-            error (l) << "invalid version '" << v << "': " << e.what ();
-            throw failed ();
+            fail (l) << "invalid version '" << v << "': " << e.what () << endf;
           }
 
           if (iv > BUILD2_VERSION)

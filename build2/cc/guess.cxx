@@ -421,9 +421,8 @@ namespace build2
         catch (const invalid_argument&) {}
         catch (const out_of_range&) {}
 
-        error << "unable to extract gcc " << m << " version from '"
-              << string (s, b, e - b) << "'";
-        throw failed ();
+        fail << "unable to extract gcc " << m << " version from '"
+             << string (s, b, e - b) << "'" << endf;
       };
 
       v.major = next ("major");
@@ -561,9 +560,8 @@ namespace build2
         catch (const invalid_argument&) {}
         catch (const out_of_range&) {}
 
-        error << "unable to extract clang " << m << " version from '"
-              << string (s, b, e - b) << "'";
-        throw failed ();
+        fail << "unable to extract clang " << m << " version from '"
+             << string (s, b, e - b) << "'" << endf;
       };
 
       v.major = next ("major", false);
@@ -718,9 +716,8 @@ namespace build2
         catch (const invalid_argument&) {}
         catch (const out_of_range&) {}
 
-        error << "unable to extract icc " << m << " version from '"
-              << string (s, b, e - b) << "'";
-        throw failed ();
+        fail << "unable to extract icc " << m << " version from '"
+             << string (s, b, e - b) << "'" << endf;
       };
 
       v.major = next ("major", false);
@@ -920,9 +917,8 @@ namespace build2
         catch (const invalid_argument&) {}
         catch (const out_of_range&) {}
 
-        error << "unable to extract msvc " << m << " version from '"
-              << string (s, b, e - b) << "'";
-        throw failed ();
+        fail << "unable to extract msvc " << m << " version from '"
+             << string (s, b, e - b) << "'" << endf;
       };
 
       v.major = next ("major");

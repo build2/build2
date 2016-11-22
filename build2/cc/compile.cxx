@@ -703,8 +703,7 @@ namespace build2
           }
         }
 
-        error << "unable to parse /showIncludes include error line";
-        throw failed ();
+        fail << "unable to parse /showIncludes include error line" << endf;
       }
       else
       {

@@ -14,9 +14,8 @@
 #include <functional> // ref(), cref()
 
 #include <butl/utility> // combine_hash(), reverse_iterate(), casecmp(),
-                        // lcase()
+                        // lcase(), etc
 
-#include <exception>     // uncaught_exception()
 #include <unordered_set>
 
 #include <build2/types>
@@ -53,6 +52,9 @@ namespace build2
   using butl::alpha;
   using butl::alnum;
   using butl::digit;
+
+  using butl::exception_guard;
+  using butl::make_exception_guard;
 
   // Basic string utilities.
   //
@@ -433,46 +435,6 @@ namespace build2
   //
   unsigned int
   to_version (const string&);
-
-  // Call a function if there is an exception.
-  //
-
-  // Means we are in the body of a destructor that is being called
-  // as part of the exception stack unwindining. Used to compensate
-  // for the deficiencies of uncaught_exception() until C++17
-  // uncaught_exceptions() becomes available.
-  //
-  // @@ MT: will have to be TLS.
-  //
-  extern bool exception_unwinding_dtor;
-
-  template <typename F>
-  struct exception_guard;
-
-  template <typename F>
-  inline exception_guard<F>
-  make_exception_guard (F f)
-  {
-    return exception_guard<F> (move (f));
-  }
-
-  template <typename F>
-  struct exception_guard
-  {
-    exception_guard (F f): f_ (move (f)) {}
-    ~exception_guard ()
-    {
-      if (std::uncaught_exception ())
-      {
-        exception_unwinding_dtor = true;
-        f_ ();
-        exception_unwinding_dtor = false;
-      }
-    }
-
-  private:
-    F f_;
-  };
 
   // Pools (@@ perhaps move into a separate header).
   //

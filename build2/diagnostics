@@ -5,15 +5,14 @@
 #ifndef BUILD2_DIAGNOSTICS
 #define BUILD2_DIAGNOSTICS
 
-#include <sstream>
-#include <type_traits>
+#include <butl/diagnostics>
 
 #include <build2/types>
 #include <build2/utility>
 
 namespace build2
 {
-  struct diag_record;
+  using butl::diag_record;
 
   // Throw this exception to terminate the build. The handler should
   // assume that the diagnostics has already been issued.
@@ -109,150 +108,10 @@ namespace build2
     os.iword (stream_verb_index) = static_cast<long> (v + 1);
   }
 
-  // Diagnostic facility, base infrastructure (potentially reusable).
+  // Diagnostic facility, base infrastructure.
   //
-  extern ostream* diag_stream;
-
-  template <typename> struct diag_prologue;
-  template <typename> struct diag_mark;
-
-  typedef void (*diag_epilogue) (const diag_record&);
-
-  struct diag_record
-  {
-    template <typename T>
-    friend const diag_record&
-    operator<< (const diag_record& r, const T& x)
-    {
-      r.os << x;
-      return r;
-    }
-
-    diag_record (): empty_ (true), epilogue_ (nullptr) {}
-
-    template <typename B>
-    explicit
-    diag_record (const diag_prologue<B>& p)
-        : empty_ (true), epilogue_ (nullptr) { *this << p;}
-
-    template <typename B>
-    explicit
-    diag_record (const diag_mark<B>& m)
-        : empty_ (true), epilogue_ (nullptr) { *this << m;}
-
-    ~diag_record () noexcept (false);
-
-    void
-    append (diag_epilogue e) const
-    {
-      if (e != nullptr)
-      {
-        assert (epilogue_ == nullptr); // No multiple epilogues support.
-        epilogue_ = e;
-      }
-
-      if (empty_)
-        empty_ = false;
-      else
-        os << "\n  ";
-    }
-
-    // Move constructible-only type.
-    //
-    // Older versions of libstdc++ don't have the ostringstream move support
-    // and accuratly detecting its version is non-trivial. So we always use
-    // the pessimized implementation with libstdc++. Luckily, GCC doesn't seem
-    // to be needing move due to copy/move elision.
-    //
-    diag_record (diag_record&& r)
-#ifndef __GLIBCXX__
-        : os (move (r.os))
-#endif
-    {
-      empty_ = r.empty_;
-      epilogue_ = r.epilogue_;
-
-      if (!empty_)
-      {
-#ifdef __GLIBCXX__
-        stream_verb (os, stream_verb (r.os));
-        os << r.os.str ();
-#endif
-        r.empty_ = true;
-        r.epilogue_ = nullptr;
-      }
-    }
-
-    diag_record& operator= (diag_record&&) = delete;
-
-    diag_record (const diag_record&) = delete;
-    diag_record& operator= (const diag_record&) = delete;
-
-  public:
-    mutable std::ostringstream os;
-
-  private:
-    mutable bool empty_;
-    mutable diag_epilogue epilogue_;
-  };
-
-  template <typename B>
-  struct diag_prologue: B
-  {
-    diag_prologue (diag_epilogue e = nullptr): B (), epilogue_ (e) {}
-
-    template <typename... A>
-    diag_prologue (A&&... a)
-        : B (forward<A> (a)...), epilogue_ (nullptr) {}
-
-    template <typename... A>
-    diag_prologue (diag_epilogue e, A&&... a)
-        : B (forward<A> (a)...), epilogue_ (e) {}
-
-    template <typename T>
-    diag_record
-    operator<< (const T& x) const
-    {
-      diag_record r;
-      r.append (epilogue_);
-      B::operator() (r);
-      r << x;
-      return r;
-    }
-
-    friend const diag_record&
-    operator<< (const diag_record& r, const diag_prologue& p)
-    {
-      r.append (p.epilogue_);
-      p (r);
-      return r;
-    }
-
-  private:
-    diag_epilogue epilogue_;
-  };
-
-  template <typename B>
-  struct diag_mark: B
-  {
-    diag_mark (): B () {}
-
-    template <typename... A>
-    diag_mark (A&&... a): B (forward<A> (a)...) {}
-
-    template <typename T>
-    diag_record
-    operator<< (const T& x) const
-    {
-      return B::operator() () << x;
-    }
-
-    friend const diag_record&
-    operator<< (const diag_record& r, const diag_mark& m)
-    {
-      return r << m ();
-    }
-  };
+  using butl::diag_stream;
+  using butl::diag_epilogue;
 
   // Diagnostic facility, project specifics.
   //
@@ -274,7 +133,6 @@ namespace build2
     const char* name_;
     const uint16_t sverb_;
   };
-  typedef diag_prologue<simple_prologue_base> simple_prologue;
 
   class location
   {
@@ -313,17 +171,19 @@ namespace build2
     const location loc_;
     const uint16_t sverb_;
   };
-  typedef diag_prologue<location_prologue_base> location_prologue;
 
   struct basic_mark_base
   {
+    using simple_prologue   = butl::diag_prologue<simple_prologue_base>;
+    using location_prologue = butl::diag_prologue<location_prologue_base>;
+
     explicit
-    basic_mark_base (uint16_t (*sverb) (),
-                     const char* type,
+    basic_mark_base (const char* type,
+                     uint16_t (*sverb) () = &stream_verb_map,
                      const char* mod = nullptr,
                      const char* name = nullptr,
                      const void* data = nullptr,
-                     diag_epilogue epilogue = nullptr)
+                     diag_epilogue* epilogue = nullptr)
         : sverb_ (sverb),
           type_ (type), mod_ (mod), name_ (name), data_ (data),
           epilogue_ (epilogue) {}
@@ -354,9 +214,9 @@ namespace build2
     const char* mod_;
     const char* name_;
     const void* data_;
-    const diag_epilogue epilogue_;
+    diag_epilogue* const epilogue_;
   };
-  typedef diag_mark<basic_mark_base> basic_mark;
+  using basic_mark = butl::diag_mark<basic_mark_base>;
 
   extern const basic_mark error;
   extern const basic_mark warn;
@@ -374,36 +234,47 @@ namespace build2
     trace_mark_base (const char* mod,
                      const char* name,
                      const void* data = nullptr)
-        : basic_mark_base ([]() {return stream_verb_max;},
-                           "trace",
-                           mod, name,
+        : basic_mark_base ("trace",
+                           []() {return stream_verb_max;},
+                           mod,
+                           name,
                            data) {}
   };
-  typedef diag_mark<trace_mark_base> trace_mark;
-
-  typedef trace_mark tracer;
+  using trace_mark = butl::diag_mark<trace_mark_base>;
+  using tracer = trace_mark;
 
   // fail
   //
-  template <typename E>
   struct fail_mark_base: basic_mark_base
   {
     explicit
-    fail_mark_base (const void* data = nullptr)
-        : basic_mark_base (&stream_verb_map,
-                           "error",
-                           nullptr, nullptr,
+    fail_mark_base (const char* type,
+                    const void* data = nullptr)
+        : basic_mark_base (type,
+                           &stream_verb_map,
+                           nullptr,
+                           nullptr,
                            data,
-                           &epilogue) {}
-
-    static void
-    epilogue (const diag_record&) {throw E ();}
+                           [](const diag_record&) {throw failed ();}) {}
   };
+  using fail_mark = butl::diag_mark<fail_mark_base>;
 
-  template <typename E>
-  using fail_mark = diag_mark<fail_mark_base<E>>;
+  struct fail_end_base
+  {
+    [[noreturn]] void
+    operator() (const diag_record& r) const
+    {
+      // If we just throw then the record's destructor will see an active
+      // exception and will not flush the record.
+      //
+      r.flush ();
+      throw failed ();
+    }
+  };
+  using fail_end = butl::diag_noreturn_end<fail_end_base>;
 
-  extern const fail_mark<failed> fail;
+  extern const fail_mark fail;
+  extern const fail_end  endf;
 }
 
 #endif // BUILD2_DIAGNOSTICS

@@ -15,23 +15,27 @@
 
 using namespace std;
 
-namespace build2
-{
-  //
-  // <build2/types>
-  //
+//
+// <build2/types>
+//
 
+namespace std
+{
   ostream&
-  operator<< (ostream& os, const path& p)
+  operator<< (ostream& os, const ::butl::path& p)
   {
+    using namespace build2;
+
     return os << (stream_verb (os) < 2
                   ? diag_relative (p)
                   : p.representation ());
   }
 
   ostream&
-  operator<< (ostream& os, const process_path& p)
+  operator<< (ostream& os, const ::butl::process_path& p)
   {
+    using namespace build2;
+
     if (p.empty ())
       os << "<empty>";
     else
@@ -47,7 +51,10 @@ namespace build2
 
     return os;
   }
+}
 
+namespace build2
+{
   //
   // <build2/utility>
   //
@@ -153,8 +160,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    error << "unable to execute " << args0 << ": " << e.what ();
-    throw failed ();
+    fail << "unable to execute " << args0 << ": " << e.what () << endf;
   }
 
   process_path
@@ -165,8 +171,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    error << "unable to execute " << f << ": " << e.what ();
-    throw failed ();
+    fail << "unable to execute " << f << ": " << e.what () << endf;
   }
 
   process
@@ -191,9 +196,7 @@ namespace build2
         exit (1);
       }
       else
-        error << "unable to execute " << args[0] << ": " << e.what ();
-
-      throw failed ();
+        fail << "unable to execute " << args[0] << ": " << e.what () << endf;
     }
   }
 
@@ -222,8 +225,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    error << "unable to execute " << args[0] << ": " << e.what ();
-    throw failed ();
+    fail << "unable to execute " << args[0] << ": " << e.what () << endf;
   }
 
   const string empty_string;
@@ -503,8 +505,6 @@ namespace build2
 
     return r;
   }
-
-  bool exception_unwinding_dtor = false;
 
   void
   init (const char* a0, uint16_t v)

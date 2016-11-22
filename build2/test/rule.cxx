@@ -582,14 +582,12 @@ namespace build2
       else if (verb)
         text << "test " << t;
 
+      diag_record dr;
+      if (!run_test (t, dr, args.data ()))
       {
-        diag_record dr;
-
-        if (!run_test (t, dr, args.data ()))
-        {
-          dr << info << "test command line: ";
-          print_process (dr, args);
-        }
+        dr << info << "test command line: ";
+        print_process (dr, args);
+        dr << endf; // return
       }
 
       return target_state::changed;

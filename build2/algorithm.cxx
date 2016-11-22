@@ -236,7 +236,7 @@ namespace build2
     if (verb < 4)
       dr << info << "re-run with --verbose 4 for more information";
 
-    return r;
+    dr << endf;
   }
 
   group_view

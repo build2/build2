@@ -47,8 +47,8 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          error << "unable to read testscript " << p << ": " << e.what ();
-          throw failed ();
+          fail << "unable to read testscript " << p << ": " << e.what ()
+               << endf;
         }
       }
 
@@ -986,11 +986,9 @@ namespace build2
           }
           catch (const invalid_path&) {} // Fall through.
 
-          {
-            diag_record dr (fail (dl));
-            dr << "invalid testscript include path ";
-            to_stream (dr.os, n, true); // Quote.
-          }
+          diag_record dr (fail (dl));
+          dr << "invalid testscript include path ";
+          to_stream (dr.os, n, true); // Quote.
         }
       }
 
@@ -1311,14 +1309,12 @@ namespace build2
                 return p;
               }
 
-              error (l) << "empty " << what;
+              fail (l) << "empty " << what << endf;
             }
             catch (const invalid_path& e)
             {
-              error (l) << "invalid " << what << " '" << e.path << "'";
+              fail (l) << "invalid " << what << " '" << e.path << "'" << endf;
             }
-
-            throw failed ();
           };
 
           auto add_file = [&app, &parse_path] (redirect& r, int fd, string&& w)
@@ -2630,8 +2626,7 @@ namespace build2
         }
         catch (const exception&)
         {
-          error (loc) << "invalid $* index " << var.name;
-          throw failed ();
+          fail (loc) << "invalid $* index " << var.name << endf;
         }
 
         const strings& s (cast<strings> (v));

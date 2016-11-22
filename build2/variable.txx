@@ -63,17 +63,13 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    {
-      diag_record dr (error);
+    diag_record dr (fail);
 
-      dr << "invalid " << value_traits<T>::value_type.name
-         << " value '" << ns << "'";
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
 
-      if (var != nullptr)
-        dr << " in variable " << var->name;
-    }
-
-    throw failed ();
+    if (var != nullptr)
+      dr << " in variable " << var->name;
   }
 
   template <typename T, bool empty>
@@ -97,17 +93,13 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    {
-      diag_record dr (error);
+    diag_record dr (fail);
 
-      dr << "invalid " << value_traits<T>::value_type.name
-         << " value '" << ns << "'";
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
 
-      if (var != nullptr)
-        dr << " in variable " << var->name;
-    }
-
-    throw failed ();
+    if (var != nullptr)
+      dr << " in variable " << var->name;
   }
 
   template <typename T, bool empty>
@@ -131,17 +123,13 @@ namespace build2
       catch (const invalid_argument&) {} // Fall through.
     }
 
-    {
-      diag_record dr (error);
+    diag_record dr (fail);
 
-      dr << "invalid " << value_traits<T>::value_type.name
-         << " value '" << ns << "'";
+    dr << "invalid " << value_traits<T>::value_type.name
+       << " value '" << ns << "'";
 
-      if (var != nullptr)
-        dr << " in variable " << var->name;
-    }
-
-    throw failed ();
+    if (var != nullptr)
+      dr << " in variable " << var->name;
   }
 
   template <typename T>
