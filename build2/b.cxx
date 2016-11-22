@@ -587,7 +587,20 @@ main (int argc, char* argv[])
           // out. If src_base is still undetermined, calculate it.
           //
           if (src_base.empty ())
+          {
             src_base = src_root / out_base.leaf (out_root);
+
+            if (!exists (src_base))
+            {
+              diag_record dr;
+              dr << fail << "src_base directory " << src_base
+                 << " does not exist";
+
+              if (guessing)
+                dr << info << "consider explicitly specifying src_base "
+                   << "for " << tn;
+            }
+          }
 
           // Check that out_root that we have found is the innermost root
           // for this project. If it is not, then it means we are trying
