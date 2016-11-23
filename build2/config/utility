@@ -120,9 +120,9 @@ namespace build2
 
     // Set the config.*.configured value. Note that you only need to set it to
     // false. It will be automatically ignored if there are any other config.*
-    // values for this module.
+    // values for this module. Return true if this sets a new value.
     //
-    void
+    bool
     unconfigured (scope& root, const string& ns, bool);
 
     // Enter the variable so that it is saved during configuration. See

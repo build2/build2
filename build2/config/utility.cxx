@@ -105,7 +105,7 @@ namespace build2
       return l && !cast<bool> (l);
     }
 
-    void
+    bool
     unconfigured (scope& root, const string& ns, bool v)
     {
       // Note: not overridable.
@@ -115,7 +115,15 @@ namespace build2
       if (current_mif->id == configure_id)
         save_variable (root, var);
 
-      root.assign (var) = !v;
+      value& x (root.assign (var));
+
+      if (x.null || cast<bool> (x) != !v)
+      {
+        x = !v;
+        return true;
+      }
+      else
+        return false;
     }
 
     void

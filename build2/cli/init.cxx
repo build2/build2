@@ -28,7 +28,7 @@ namespace build2
     bool
     config_init (scope& rs,
                  scope& bs,
-                 const location&,
+                 const location& l,
                  unique_ptr<module_base>&,
                  bool first,
                  bool optional,
@@ -47,6 +47,9 @@ namespace build2
 
         // Note: some overridable, some not.
         //
+        // The config.cli=false is recognized as an explicit request to leave
+        // the module unconfigured.
+        //
         v.insert<path>    ("config.cli",         true);
         v.insert<strings> ("config.cli.options", true);
 
@@ -59,17 +62,33 @@ namespace build2
       // The plan is as follows: try to configure the module. If this fails,
       // we are using default values, and the module is optional, leave it
       // unconfigured.
-      //
 
-      // We will only honor optional if the user didn't specify any cli
-      // configuration explicitly.
+      // First take care of the explicit request by the user to leave the
+      // module unconfigured.
       //
-      optional = optional && !config::specified (rs, "config.cli");
+      bool conf (true);
 
-      // If the configuration says we are unconfigured, then we don't need to
-      // re-run tests, etc. But we may still need to print the config report.
-      //
-      bool conf (!optional || !config::unconfigured (rs, "config.cli"));
+      if (const path* p = cast_null<path> (rs["config.cli"]))
+      {
+        conf = p->string () != "false";
+
+        if (!conf && !optional)
+          fail (l) << "non-optional module requested to be left unconfigured";
+      }
+
+      if (conf)
+      {
+        // Otherwise we will only honor optional if the user didn't specify
+        // any cli configuration explicitly.
+        //
+        optional = optional && !config::specified (rs, "config.cli");
+
+        // If the configuration says we are unconfigured, then we should't
+        // re-run tests, etc. But we may still need to print the config
+        // report.
+        //
+        conf = !optional || !config::unconfigured (rs, "config.cli");
+      }
 
       if (first)
       {
@@ -168,13 +187,7 @@ namespace build2
             ver = test (cli);
 
             if (ver.empty ())
-            {
-              // Note that we are unconfigured so that we don't keep
-              // re-testing this on each run.
-              //
-              config::unconfigured (rs, "config.cli", true);
               conf = false;
-            }
             else
             {
               auto p (config::required (rs, "config.cli", cli));
@@ -196,6 +209,12 @@ namespace build2
 
           nv = p.second;
         }
+
+        // Note that we are unconfigured so that we don't keep re-testing this
+        // on each run.
+        //
+        if (!conf)
+          nv = config::unconfigured (rs, "config.cli", true) || nv;
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -234,7 +253,7 @@ namespace build2
     bool
     init (scope& rs,
           scope& bs,
-          const location& loc,
+          const location& l,
           unique_ptr<module_base>&,
           bool,
           bool optional,
@@ -249,19 +268,19 @@ namespace build2
       // the user load cxx explicitly.
       //
       if (!cast_false<bool> (bs["cxx.loaded"]))
-        fail (loc) << "cxx module must be loaded before cli";
+        fail (l) << "cxx module must be loaded before cli";
 
       // Load cli.config.
       //
       if (!cast_false<bool> (bs["cli.config.loaded"]))
       {
-        if (!load_module ("cli.config", rs, bs, loc, optional, hints))
+        if (!load_module ("cli.config", rs, bs, l, optional, hints))
           return false;
       }
       else if (!cast_false<bool> (bs["cli.config.configured"]))
       {
         if (!optional)
-          fail << "cli module could not be configured" <<
+          fail (l) << "cli module could not be configured" <<
             info << "re-run with -V option for more information";
 
         return false;
