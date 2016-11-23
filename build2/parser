@@ -110,8 +110,9 @@ namespace build2
                             value&& rhs,
                             token_type kind);
 
-    // Return the value as well as the indication of whether this is a non-
-    // empty eval context (i.e., '()' potentially with whitespace in between).
+    // Return the value (can be NULL/typed) as well as the indication of
+    // whether this is a non-empty eval context (i.e., '()' potentially with
+    // whitespace in between).
     //
     pair<value, bool>
     parse_eval (token&, token_type&);
@@ -187,26 +188,46 @@ namespace build2
       return ns;
     }
 
-    // As above but return the result as a value (always untyped) indicating
-    // if it is NULL. The only way for the value to be NULL is if it is the
-    // result of a sole, unquoted variable expansion, function call, or
-    // context evaluation.
+    // As above but return the result as a value, which can be typed and NULL.
     //
     value
-    parse_names_value (token& t, token_type& tt,
-                       const char* what = "name",
-                       const string* separators = &name_separators)
+    parse_value (token& t, token_type& tt,
+                 const char* what = "name",
+                 const string* separators = &name_separators)
     {
       names ns;
-      return parse_names (
-        t, tt, ns, false, what, separators, 0, nullptr, nullptr, nullptr)
-        ? value (move (ns))
-        : value (nullptr);
+      pair<bool, const value_type*> p (
+        parse_names (
+          t, tt, ns, false, what, separators, 0, nullptr, nullptr, nullptr));
+
+      value r (p.second); // Potentially typed NULL value.
+
+      // This should not fail since we are typing the result of reversal from
+      // the typed value.
+      //
+      if (p.first) // Not NULL.
+        r.assign (move (ns), nullptr);
+
+      return r;
     }
 
-    // Append names and return true if the parsed value is NOT NULL.
+    // Append names and return the indication if the parsed value is NOT NULL
+    // (first) and whether it is typed (second).
     //
-    bool
+    // You may have noticed that what we return here is essentially a value
+    // and doing it this way (i.e., reversing it to untyped names and
+    // returning its type so that it can potentially be "typed back") is kind
+    // of backwards. The reason we are doing it this way is because in many
+    // places we expect things untyped and if we were to always return a
+    // (potentially typed) value, then we would have to reverse it in all
+    // those places. Still it may make sense to look into redesigning the
+    // whole thing one day.
+    //
+    // Currently the only way for the result to be NULL or have a type is if
+    // it is the result of a sole, unquoted variable expansion, function call,
+    // or context evaluation.
+    //
+    pair<bool, const value_type*>
     parse_names (token&, token_type&,
                  names&,
                  bool chunk = false,

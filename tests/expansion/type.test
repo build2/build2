@@ -1,0 +1,53 @@
+# file      : tests/expansion/type.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test type propagation during expansion.
+
+.include common.test
+
+: var
+:
+$* <<EOI
+x = [bool] true
+y = \$x
+assert \(\$type\(\$y) == bool)
+EOI
+
+: eval
+:
+$* <<EOI
+y = \([bool] true)
+assert \(\$type\(\$y) == bool)
+EOI
+
+: func
+:
+$* <<EOI
+y = \$identity\([bool] true)
+assert \(\$type\(\$y) == bool)
+EOI
+
+: untypify
+:
+$* <<EOI
+x = [bool] true
+y = "\$x"
+assert \(\$type\(\$y) == "")
+EOI
+
+: type-conflict
+:
+$* <'print [bool] ([string] true)' 2>>EOE != 0
+<stdin>:1:7: error: conflicting attribute type bool and value type string
+  info: use quoting to untypify the value
+EOE
+
+: retypify
+:
+$* <'print [bool] "([string] true)"' >'true'
+
+: retypify-name
+: Test the "steal" case of untypify()
+:
+$* <'print [bool] "([name] true)"' >'true'

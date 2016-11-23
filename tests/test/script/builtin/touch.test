@@ -39,7 +39,7 @@ touch '' 2>"touch: invalid path ''" == 1
 :
 : Test touching an existing directory.
 :
-a = [path] $~;
+a = $~;
 a += "a";
 mkdir a;
 touch 2>"touch: '$a' exists and is not a file" a == 1

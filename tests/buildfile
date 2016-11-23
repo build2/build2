@@ -2,6 +2,6 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-d = directive/ function/ test/
+d = directive/ expansion/ function/ test/
 ./: $d
 include $d

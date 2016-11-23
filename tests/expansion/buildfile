@@ -1,0 +1,7 @@
+# file      : tests/expansion/buildfile
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+./: test{type} file{common.test}
+
+test{*}: test = $effect($build.path)

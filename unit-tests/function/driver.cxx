@@ -33,7 +33,7 @@ namespace build2
     f["fail"]     = []()        {fail << "failed" << endf;};
     f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};
 
-    f["null"]     = [](names* a)          {return a == nullptr;};
+    f["nullable"] = [](names* a)          {return a == nullptr;};
     f["optional"] = [](optional<names> a) {return !a;};
 
     f["dummy0"] = []()         {return "abc";};

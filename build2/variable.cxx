@@ -336,6 +336,41 @@ namespace build2
     }
   }
 
+  void
+  untypify (value& v)
+  {
+    if (v.type == nullptr)
+      return;
+
+    if (v.null)
+    {
+      v.type = nullptr;
+      return;
+    }
+
+    names ns;
+    names_view nv (v.type->reverse (v, ns));
+
+    if (nv.empty () || nv.data () == ns.data ())
+    {
+      // If the data is in storage, then we are all set.
+      //
+      ns.resize (nv.size ()); // Just to be sure.
+    }
+    else
+    {
+      // If the data is somewhere in the value itself, then steal it.
+      //
+      auto b (const_cast<name*> (nv.data ()));
+      ns.assign (make_move_iterator (b),
+                 make_move_iterator (b + nv.size ()));
+    }
+
+    v = nullptr;                   // Free old data.
+    v.type = nullptr;              // Change type.
+    v.assign (move (ns), nullptr); // Assign new data.
+  }
+
   // Throw invalid_argument for an invalid simple value.
   //
   [[noreturn]] static void
@@ -736,6 +771,34 @@ namespace build2
   }
 
   void
+  process_path_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<process_path>;
+
+    size_t n (ns.size ());
+
+    if (n <= 2)
+    {
+      try
+      {
+        traits::assign (
+          v,
+          (n == 0
+           ? process_path ()
+           : traits::convert (move (ns[0]), n == 2 ? &ns[1] : nullptr)));
+        return;
+      }
+      catch (const invalid_argument&) {} // Fall through.
+    }
+
+    diag_record dr (fail);
+    dr << "invalid process_path value '" << ns << "'";
+
+    if (var != nullptr)
+      dr << " in variable " << var->name;
+  }
+
+  void
   process_path_copy_ctor (value& l, const value& r, bool m)
   {
     const auto& rhs (r.as<process_path> ());
@@ -798,15 +861,15 @@ namespace build2
   {
     type_name,
     sizeof (process_path),
-    nullptr,                            // No base.
+    nullptr,                         // No base.
     &default_dtor<process_path>,
     &process_path_copy_ctor,
     &process_path_copy_assign,
-    &simple_assign<process_path, true>, // Allow empty values.
-    nullptr,                            // Append not supported.
-    nullptr,                            // Prepend not supported.
+    &process_path_assign,
+    nullptr,                         // Append not supported.
+    nullptr,                         // Prepend not supported.
     &process_path_reverse,
-    nullptr,                            // No cast (cast data_ directly).
+    nullptr,                         // No cast (cast data_ directly).
     &simple_compare<process_path>,
     &default_empty<process_path>
   };

@@ -296,6 +296,11 @@ namespace build2
   void typify (value&, const variable&);
   void typify (value&, const value_type&, const variable*);
 
+  // Remove value type from the value reversing it to names. This is similar
+  // to reverse() below except that it modifies the value itself.
+  //
+  void untypify (value&);
+
   // Reverse the value back to names. The value should not be NULL and storage
   // should be empty.
   //

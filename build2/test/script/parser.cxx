@@ -1190,7 +1190,7 @@ namespace build2
         attributes_push (t, tt, true);
 
         return tt != type::newline && tt != type::semi
-          ? parse_names_value (t, tt, "variable value", nullptr)
+          ? parse_value (t, tt, "variable value", nullptr)
           : value (names ());
       }
 

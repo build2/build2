@@ -21,15 +21,5 @@ namespace build2
       {
         return move (p.effect.empty () ? p.recall : p.effect);
       };
-
-    //@@ TMP kludge
-    //
-    f["effect"] = [](names n)
-      {
-        auto p (value_traits<process_path>::convert (
-                  move (n[0]), n.size () > 1 ? &n[1] : nullptr));
-
-        return move (p.effect.empty () ? p.recall : p.effect);
-      };
   }
 }

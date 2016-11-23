@@ -80,11 +80,11 @@ $* <'print $optional(abc)' >'false'
 
 : null-true
 :
-$* <'print $null([null])' >'true'
+$* <'print $nullable([null])' >'true'
 
 : null-false
 :
-$* <'print $null(nonull)' >'false'
+$* <'print $nullable(nonull)' >'false'
 
 : null-fail
 :

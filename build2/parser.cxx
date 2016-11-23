@@ -626,7 +626,8 @@ namespace build2
 
                   if (lhs.extra != 0 && lhs.type != nullptr)
                     fail (at) << "typed prepend/append to target type/pattern-"
-                              << "specific variable " << var;
+                              << "specific variable " << var <<
+                      info << "use quoting to untypify the value";
                 }
               }
 
@@ -1138,6 +1139,7 @@ namespace build2
     // The rest is a value. Parse it as a variable value to get expansion,
     // attributes, etc. build2::import() will check the names, if required.
     //
+    location l (get_location (t));
     value rhs (parse_variable_value (t, tt));
 
     // While it may seem like supporting attributes is a good idea here,
@@ -1155,7 +1157,11 @@ namespace build2
       attributes_pop ();
 
     if (!rhs)
-      fail (t) << "null value in export";
+      fail (l) << "null value in export";
+
+    if (rhs.type != nullptr)
+      fail (l) << "typed value in export" <<
+        info << "use quoting to untypify the value";
 
     export_value_ = move (rhs).as<names> ();
 
@@ -1526,7 +1532,7 @@ namespace build2
     attributes_push (t, tt, true);
 
     return tt != type::newline && tt != type::eos
-      ? parse_names_value (t, tt)
+      ? parse_value (t, tt)
       : value (names ());
   }
 
@@ -1643,6 +1649,23 @@ namespace build2
         fail (l) << "unexpected value for attribute " << k << ": " << v;
     }
 
+    // If we have both attribute and value types, then they better match.
+    //
+    if (rhs.type != nullptr)
+    {
+      if (type != nullptr && type != rhs.type)
+      {
+        fail (l) << "conflicting attribute type " << type->name
+                 << " and value type " << rhs.type->name <<
+          info << "use quoting to untypify the value";
+      }
+
+      // Reduce this to the untyped value case for simplicity.
+      //
+      type = rhs.type;
+      untypify (rhs);
+    }
+
     // When do we set the type and when do we keep the original? This gets
     // tricky for append/prepend where both values contribute. The guiding
     // rule here is that if the user specified the type, then they reasonable
@@ -1720,14 +1743,14 @@ namespace build2
   {
     // Parse the next value (if any) handling its attributes.
     //
-    auto parse_value = [&t, &tt, this] () -> value
+    auto parse = [&t, &tt, this] () -> value
     {
       // Parse value attributes if any. Note that it's ok not to have anything
       // after the attributes, as in, ($foo == [null]), or even ([null])
       //
       auto at (attributes_push (t, tt, true));
 
-      // Note that if names() gets called, it expects to see a name.
+      // Note that if parse_value() gets called, it expects to see a value.
       //
       value r (tt != type::rparen     &&
                tt != type::colon      &&
@@ -1737,7 +1760,7 @@ namespace build2
                tt != type::less_equal &&
                tt != type::greater    &&
                tt != type::greater_equal
-               ? parse_names_value (t, tt)
+               ? parse_value (t, tt)
                : value (names ()));
 
       if (pre_parse_)
@@ -1756,7 +1779,7 @@ namespace build2
       return v;
     };
 
-    value lhs (parse_value ());
+    value lhs (parse ());
 
     // We continue evaluating from left to right until we reach ')', storing
     // the result in lhs (think 'a == b == false').
@@ -1814,7 +1837,7 @@ namespace build2
           // @@ In C++ == and != have lower precedence than <, etc.
           //
           next (t, tt);
-          value rhs (parse_value ());
+          value rhs (parse ());
 
           if (pre_parse_)
             break;
@@ -2076,7 +2099,7 @@ namespace build2
   const string parser::name_separators (
     string (path::traits::directory_separators) + '%');
 
-  bool parser::
+  pair<bool, const value_type*> parser::
   parse_names (token& t, type& tt,
                names& ns,
                bool chunk,
@@ -2092,7 +2115,10 @@ namespace build2
 
     tracer trace ("parser::parse_names", &path_);
 
-    bool null (false);
+    // Returned value NULL/type (see below).
+    //
+    bool vnull (false);
+    const value_type* vtype (nullptr);
 
     // If pair is not 0, then it is an index + 1 of the first half of
     // the pair for which we are parsing the second halves, e.g.,
@@ -2315,11 +2341,11 @@ namespace build2
         names lv_storage;
         names_view lv;
 
-        // Check if we should set/propagate NULL. We only do this if this is
-        // the only expansion, that is, it is the first and the text token is
-        // not part of the name.
+        // Check if we should set/propagate value NULL/type. We only do this
+        // if this is the only expansion, that is, it is the first and the
+        // text token is not part of the name.
         //
-        auto set_null = [first, &tt] ()
+        auto set_value = [first, &tt] ()
         {
           return first &&
             tt != type::word &&
@@ -2423,17 +2449,15 @@ namespace build2
                                        args.second ? 1 : 0),
                                      loc);
 
-            // See if we should propagate the NULL indicator.
+            // See if we should propagate the value NULL/type.
             //
-            if (!result)
+            if (set_value ())
             {
-              if (set_null ())
-                null = true;
-
-              continue;
+              vnull = result.null;
+              vtype = result.type;
             }
 
-            if (result.empty ())
+            if (!result || result.empty ())
               continue;
 
             lv = reverse (result, lv_storage);
@@ -2448,17 +2472,15 @@ namespace build2
             //
             lookup l (lookup_variable (move (qual), move (name), loc));
 
-            if (!l)
+            // See if we should propagate the value NULL/type.
+            //
+            if (set_value ())
             {
-              // See if we should set the NULL indicator.
-              //
-              if (set_null ())
-                null = true;
-
-              continue;
+              vnull = !l;
+              vtype = l.defined () ? l->type : nullptr;
             }
 
-            if (l->empty ())
+            if (!l || l->empty ())
               continue;
 
             lv = reverse (*l, lv_storage);
@@ -2475,17 +2497,15 @@ namespace build2
           if (pre_parse_)
             continue; // As if empty result.
 
-          // See if we should propagate the NULL indicator.
+          // See if we should propagate the value NULL/type.
           //
-          if (!result)
+          if (set_value ())
           {
-            if (set_null ())
-              null = true;
-
-            continue;
+            vnull = result.null;
+            vtype = result.type;
           }
 
-          if (result.empty ())
+          if (!result || result.empty ())
             continue;
 
           lv = reverse (result, lv_storage);
@@ -2678,7 +2698,7 @@ namespace build2
         continue;
       }
 
-      // Note: remember to update set_null test if adding new recognized
+      // Note: remember to update set_value() test if adding new recognized
       // tokens.
 
       if (!first)
@@ -2714,7 +2734,7 @@ namespace build2
                        string ());
     }
 
-    return !null;
+    return make_pair (!vnull, vtype);
   }
 
   void parser::
@@ -2791,23 +2811,23 @@ namespace build2
   //
 
   // Here is the problem: we "overload" '(' and ')' to mean operation
-  // application rather than the eval context. At the same time we want
-  // to use names() to parse names, get variable expansion/function calls,
-  // quoting, etc. We just need to disable the eval context. The way this
-  // is done has two parts: Firstly, we parse names in chunks and detect
-  // and handle the opening paren. In other words, a buildspec like
-  // 'clean (./)' is "chunked" as 'clean', '(', etc. While this is fairly
-  // straightforward, there is one snag: concatenating eval contexts, as
-  // in 'clean(./)'. Normally, this will be treated as a single chunk and
-  // we don't want that. So here comes the trick (or hack, if you like):
-  // we will make every opening paren token "separated" (i.e., as if it
-  // was proceeded by a space). This will disable concatenating eval. In
-  // fact, we will even go a step further and only do this if we are in
-  // the original value mode. This will allow us to still use eval
-  // contexts in buildspec, provided that we quote it: '"cle(an)"'. Note
-  // also that function calls still work as usual: '$filter (clean test)'.
-  // To disable a function call and make it instead a var that is expanded
-  // into operation name(s), we can use quoting: '"$ops"(./)'.
+  // application rather than the eval context. At the same time we want to use
+  // parse_names() to parse names, get variable expansion/function calls,
+  // quoting, etc. We just need to disable the eval context. The way this is
+  // done has two parts: Firstly, we parse names in chunks and detect and
+  // handle the opening paren. In other words, a buildspec like 'clean (./)'
+  // is "chunked" as 'clean', '(', etc. While this is fairly straightforward,
+  // there is one snag: concatenating eval contexts, as in
+  // 'clean(./)'. Normally, this will be treated as a single chunk and we
+  // don't want that. So here comes the trick (or hack, if you like): we will
+  // make every opening paren token "separated" (i.e., as if it was proceeded
+  // by a space). This will disable concatenating eval. In fact, we will even
+  // go a step further and only do this if we are in the original value
+  // mode. This will allow us to still use eval contexts in buildspec,
+  // provided that we quote it: '"cle(an)"'. Note also that function calls
+  // still work as usual: '$filter (clean test)'.  To disable a function call
+  // and make it instead a var that is expanded into operation name(s), we can
+  // use quoting: '"$ops"(./)'.
   //
   static void
   paren_processor (token& t, const lexer& l)
@@ -2889,7 +2909,7 @@ namespace build2
       // opening paren, then they are operation/meta-operation names.
       // Otherwise they are targets.
       //
-      if (tt == type::lparen) // Peeked into by names().
+      if (tt == type::lparen) // Peeked into by parse_names().
       {
         if (ns.empty ())
           fail (t) << "operation name expected before '('";
