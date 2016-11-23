@@ -273,11 +273,16 @@ namespace build2
         const string& n (t.value);
         void (parser::*f) (token&, type&) = nullptr;
 
-        if (n == "print")
+        // @@ Is this the only place where some of these are valid? Probably
+        // also in the var namespace?
+        //
+        if (n == "assert" ||
+            n == "assert!")
         {
-          // @@ Is this the only place where it is valid? Probably also
-          // in var namespace.
-          //
+          f = &parser::parse_assert;
+        }
+        else if (n == "print")
+        {
           f = &parser::parse_print;
         }
         else if (n == "source")
@@ -1402,36 +1407,78 @@ namespace build2
   }
 
   void parser::
+  parse_assert (token& t, type& tt)
+  {
+    bool neg (t.value.back () == '!');
+    const location al (get_location (t));
+
+    // Parse the next chunk as names to get variable expansion, evaluation,
+    // etc. Do it in the value mode so that we don't treat ':', etc., as
+    // special.
+    //
+    mode (lexer_mode::value);
+    next (t, tt);
+
+    const location el (get_location (t));
+    names ns (parse_names (t, tt, true, "expression", nullptr));
+
+    // Should evaluate to 'true' or 'false'.
+    //
+    try
+    {
+      if (ns.size () != 1)
+        throw invalid_argument (string ());
+
+      bool e (convert<bool> (move (ns[0])));
+      e = (neg ? !e : e);
+
+      if (e)
+      {
+        skip_line (t, tt);
+
+        if (tt != type::eos)
+          next (t, tt); // Swallow newline.
+
+        return;
+      }
+    }
+    catch (const invalid_argument&)
+    {
+      fail (el) << "expected assert-expression to evaluate to "
+                << "'true' or 'false' instead of '" << ns << "'";
+    }
+
+    // Being here means things didn't end up well. Parse the description, if
+    // any, with expansion. Then fail.
+    //
+    ns = tt != type::newline && tt != type::eos
+      ? parse_names (t, tt, false, "description", nullptr)
+      : names ();
+
+    diag_record dr (fail (al));
+    dr << "assertion failed";
+
+    if (!ns.empty ())
+      dr << ": " << ns;
+  }
+
+  void parser::
   parse_print (token& t, type& tt)
   {
     // Parse the rest as a variable value to get expansion, attributes, etc.
     //
-    value v (parse_variable_value (t, tt));
+    value rhs (parse_variable_value (t, tt));
 
-    if (attributes_top ())
+    value lhs;
+    apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
+
+    if (lhs)
     {
-      // Round-trip it through (a potentially typed) value.
-      //
-      value tv;
-      apply_value_attributes (nullptr, tv, move (v), type::assign);
-
-      if (tv)
-      {
-        names storage;
-        cout << reverse (tv, storage) << endl;
-      }
-      else
-        cout << "[null]" << endl;
+      names storage;
+      cout << reverse (lhs, storage) << endl;
     }
     else
-    {
-      attributes_pop ();
-
-      if (v)
-        cout << v.as<names> () << endl;
-      else
-        cout << "[null]" << endl;
-    }
+      cout << "[null]" << endl;
 
     if (tt != type::eos)
       next (t, tt); // Swallow newline.

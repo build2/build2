@@ -64,6 +64,9 @@ namespace build2
     parse_clause (token&, token_type&, bool one = false);
 
     void
+    parse_assert (token&, token_type&);
+
+    void
     parse_print (token&, token_type&);
 
     void
