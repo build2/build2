@@ -64,11 +64,11 @@ EOE
 
 : ambig
 :
-$* <'$ambig(abc)' 2>>EOE != 0
-buildfile:1:2: error: ambiguous call to ambig\(<untyped>)
-  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
-  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
-EOE
+$* <'$ambig(abc)' 2>- != 0 # @@ REGEX
+#buildfile:1:2: error: ambiguous call to ambig\(<untyped>)
+#  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+#  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+#EOE
 
 : optional-absent
 :
@@ -116,11 +116,11 @@ EOE
 
 : print-fovl
 :
-$* <'$ambig([bool] true)' 2>>EOE != 0
-buildfile:1:2: error: unmatched call to ambig\(bool)
-  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
-  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
-EOE
+$* <'$ambig([bool] true)' 2>- != 0 # @@ REGEX
+#buildfile:1:2: error: unmatched call to ambig\(bool)
+#  info: candidate: ambig\(<untyped> [, uint64]), qualified name dummy.ambig
+#  info: candidate: ambig\(<untyped> [, string]), qualified name dummy.ambig
+#EOE
 
 : print-fovl-variadic
 :
