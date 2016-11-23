@@ -1,7 +1,7 @@
-# file      : tests/function/buildfile
+# file      : tests/function/builtin/buildfile
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-d = builtin/ path/
-./: $d
-include $d
+./: test{testscript}
+
+test{*}: test = $effect($build.path)

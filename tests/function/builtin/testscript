@@ -1,0 +1,68 @@
+# file      : tests/function/path/testscript
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
++mkdir build
++cat <<EOI >>>build/bootstrap.build
+project = test
+amalgamation =
+EOI
+
+test.options += -q --buildfile - noop
+
+: type
+:
+{
+  $* <'print $type([string])'      >'string'  : empty-typed
+  $* <'print $type("")'            >''        : empty-untyped
+
+  $* <'print $type([string null])' >'string'  : null-typed
+  $* <'print $type([null])'        >''        : null-untyped
+
+  $* <'print $type([string] abc)'  >'string'  : value-typed
+  $* <'print $type(abc)'           >''        : value-untyped
+}
+
+: null
+:
+{
+  $* <'print $null("")'     >'false'       : empty
+  $* <'print $null(abc)'    >'false'       : value
+  $* <'print $null([null])' >'true'        : null
+}
+
+: empty
+:
+{
+  $* <<EOI     >'true'                       : empty-untyped
+  x =
+  print \$empty\(\$x)
+  EOI
+
+  $* <'print $empty([string])'     >'true'   : empty-typed
+  $* <'print $empty(abc)'          >'false'  : name
+  $* <'print $empty(abc cxx{foo})' >'false'  : names
+  $* <'print $empty([bool] false)' >'false'  : bool
+}
+
+: identity
+:
+{
+  $* <'print       $identity([string])'        >'';
+  $* <'print $type($identity([string]))'       >'string'   : empty-typed
+
+  $* <'print       $identity("")'              >'{}';
+  $* <'print $type($identity(""))'             >''         : empty-untyped
+
+  $* <'print       $identity([string null])'   >'[null]';
+  $* <'print $type($identity([string null]))'  >'string'   : null-typed
+
+  $* <'print       $identity([null])'          >'[null]';
+  $* <'print $type($identity([null]))'         >''         : null-untyped
+
+  $* <'print       $identity([string] abc)'    >'abc';
+  $* <'print $type($identity([string] abc))'   >'string'   : null-typed
+
+  $* <'print       $identity(abc)'             >'abc';
+  $* <'print $type($identity(abc))'            >''         : null-untyped
+}

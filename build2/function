@@ -37,7 +37,8 @@ namespace build2
   // T           - statically-typed (value_traits<T> must be defined)
   // names       - untyped
   // value       - any type
-  // T*          - NULL-able argument (here T can be names, value).
+  // T*          - NULL-able argument (here T can be names)
+  // value*      - NULL-able any type (never NULL itself, use value::null)
   // optional<T> - optional argument (here T can be T*, names, value)
   //
   // Optional arguments must be last. In case of a failure the function is
@@ -279,6 +280,15 @@ namespace build2
       T&& r (function_arg<T>::cast (v));
       return &r;
     }
+  };
+
+  template <>
+  struct function_arg<value*>: function_arg<value>
+  {
+    static const bool null = true;
+
+    static value*
+    cast (value* v) {return v;} // NULL indicator in value::null.
   };
 
   template <typename T>
