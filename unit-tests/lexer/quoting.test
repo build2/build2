@@ -1,0 +1,95 @@
+# file      : unit-tests/lexer/quoting.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.options += -q
+
+: unquoted
+:
+$* <'foo' >>EOO
+'foo'
+<newline>
+EOO
+
+: single-comp
+:
+$* <":'foo':" >>EOO
+:
+'foo' [S/C]
+:
+<newline>
+EOO
+
+: double-comp
+:
+$* <':"foo":' >>EOO
+:
+'foo' [D/C]
+:
+<newline>
+EOO
+
+: single-empty-comp
+:
+$* <"''" >>EOO
+'' [S/C]
+<newline>
+EOO
+
+: double-empty-comp
+:
+$* <'""' >>EOO
+'' [D/C]
+<newline>
+EOO
+
+: part-start-quoted
+: Token start already quoted
+:
+$* <'"$foo"' >>EOO
+'' [D/P]
+\$
+'foo' [D/P]
+<newline>
+EOO
+
+: part-end-quoted
+: Token end still quoted
+:
+$* <'"foo$"' >>EOO
+'foo' [D/P]
+\$
+'' [D/P]
+<newline>
+EOO
+
+: part-start-unquoted
+: Token starts with unquoted character
+:
+$* <'f"oo"' >>EOO
+'foo' [D/P]
+<newline>
+EOO
+
+: part-unquoted
+: Token continous with unquoted character
+:
+$* <'"fo"o' >>EOO
+'foo' [D/P]
+<newline>
+EOO
+
+: part-unquoted-escape
+: Token continous with unquoted escaped character
+:
+$* <'"fo"\"' >>EOO
+'fo"' [D/P]
+<newline>
+EOO
+
+: mixed
+:
+$* <"\"fo\"'o'" >>EOO
+'foo' [M/P]
+<newline>
+EOO

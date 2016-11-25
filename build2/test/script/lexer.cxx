@@ -137,7 +137,7 @@ namespace build2
           break;
         }
 
-        if (r.quoted)
+        if (r.qtype != quote_type::unquoted)
           ++quoted_;
 
         return r;
@@ -448,7 +448,10 @@ namespace build2
           lexeme += c;
         }
 
-        return token (move (lexeme), false, false, ln, cn);
+        return token (move (lexeme),
+                      false,
+                      quote_type::unquoted, false,
+                      ln, cn);
       }
 
       token lexer::
@@ -480,7 +483,10 @@ namespace build2
         }
 
         state_.pop (); // Expire the variable mode.
-        return token (move (lexeme), sep, false, ln, cn);
+        return token (move (lexeme),
+                      sep,
+                      quote_type::unquoted, false,
+                      ln, cn);
       }
     }
   }

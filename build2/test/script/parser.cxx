@@ -321,7 +321,7 @@ namespace build2
             //
             lt = line_type::cmd; // Default.
 
-            if (tt == type::word && !t.quoted)
+            if (tt == type::word && t.qtype == quote_type::unquoted)
             {
               const string& n (t.value);
 
@@ -353,7 +353,7 @@ namespace build2
             //
             lt = line_type::cmd; // Default.
 
-            if (tt == type::word && !t.quoted)
+            if (tt == type::word && t.qtype == quote_type::unquoted)
             {
               const string& n (t.value);
 
@@ -719,7 +719,7 @@ namespace build2
           const token& p (peeked ());
           const location ll (get_location (p));
 
-          if (pt == type::word && !p.quoted)
+          if (pt == type::word && p.qtype == quote_type::unquoted)
           {
             if      (p.value == "elif")  lt = line_type::cmd_elif;
             else if (p.value == "elif!") lt = line_type::cmd_elifn;
@@ -1652,7 +1652,7 @@ namespace build2
                   //
                   next (t, tt);
 
-                  if (tt != type::word || t.quoted)
+                  if (tt != type::word || t.qtype != quote_type::unquoted)
                     fail (l) << "expected here-document end marker";
 
                   hd.push_back (here_doc {0, 0, 0, move (t.value), nn});
@@ -1751,7 +1751,8 @@ namespace build2
               // quoted (note that the current token is "next" and is not part
               // of this).
               //
-              bool q ((quoted () - (t.quoted ? 1 : 0)) != 0);
+              bool q ((quoted () -
+                       (t.qtype != quote_type::unquoted ? 1 : 0)) != 0);
 
               for (name& n: ns)
               {
@@ -2074,7 +2075,9 @@ namespace build2
           // Check if this is the end marker. For starters, it should be a
           // single, unquoted word followed by a newline.
           //
-          if (tt == type::word && !t.quoted && peek () == type::newline)
+          if (tt == type::word &&
+              t.qtype == quote_type::unquoted &&
+              peek () == type::newline)
           {
             const string& v (t.value);
 
@@ -2652,7 +2655,7 @@ namespace build2
           // Examine tokens we have replayed since last reset.
           //
           for (size_t i (replay_quoted_); i != replay_i_; ++i)
-            if (replay_data_[i].token.quoted)
+            if (replay_data_[i].token.qtype != quote_type::unquoted)
               ++r;
         }
 
@@ -2663,14 +2666,14 @@ namespace build2
       reset_quoted (token& cur)
       {
         if (replay_ != replay::play)
-          lexer_->reset_quoted (cur.quoted ? 1 : 0);
+          lexer_->reset_quoted (cur.qtype != quote_type::unquoted ? 1 : 0);
         else
         {
           replay_quoted_ = replay_i_ - 1;
 
           // Must be the same token.
           //
-          assert (replay_data_[replay_quoted_].token.quoted == cur.quoted);
+          assert (replay_data_[replay_quoted_].token.qtype == cur.qtype);
         }
       }
 

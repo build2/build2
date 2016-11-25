@@ -56,6 +56,11 @@ namespace build2
     value_type v_;
   };
 
+  // Token can be unquoted, single-quoted ('') or double-quoted (""). It can
+  // also be mixed.
+  //
+  enum class quote_type {unquoted, single, double_, mixed};
+
   class token;
 
   void
@@ -68,7 +73,13 @@ namespace build2
 
     token_type type;
     bool separated; // Whitespace-separated from the previous token.
-    bool quoted;    // Word (or some part of it) was quoted.
+
+    // Quoting can be complete, where the token starts and ends with the quote
+    // characters and quoting is contiguous or partial where only some part(s)
+    // of the token are quoted or quoting continus to the next token.
+    //
+    quote_type qtype;
+    bool qcomp;
 
     string value;   // Only valid for word.
 
@@ -82,12 +93,16 @@ namespace build2
         : token (token_type::eos, false, 0, 0, token_printer) {}
 
     token (token_type t, bool s, uint64_t l, uint64_t c, printer_type* p)
-        : type (t), separated (s), quoted (false),
+        : type (t), separated (s), qtype (quote_type::unquoted),
           line (l), column (c),
           printer (p) {}
 
-    token (string v, bool s, bool q, uint64_t l, uint64_t c)
-        : type (token_type::word), separated (s), quoted (q), value (move (v)),
+    token (string v, bool s,
+           quote_type qt, bool qc,
+           uint64_t l, uint64_t c)
+        : type (token_type::word), separated (s),
+          qtype (qt), qcomp (qc),
+          value (move (v)),
           line (l), column (c),
           printer (&token_printer) {}
   };

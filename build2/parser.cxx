@@ -2154,7 +2154,10 @@ namespace build2
             tt != type::lparen) || peeked ().separated))
       {
         tt = type::word;
-        t = token (move (concat_str), true, false, t.line, t.column);
+        t = token (move (concat_str),
+                   true,
+                   quote_type::unquoted, false,
+                   t.line, t.column);
         concat = false;
       }
       else if (!first)
@@ -2792,7 +2795,7 @@ namespace build2
     //
     // See tests/keyword.
     //
-    if (!t.quoted)
+    if (t.qtype == quote_type::unquoted)
     {
       // We cannot peek at the whole token here since it might have to be
       // lexed in a different mode. So peek at its first character.

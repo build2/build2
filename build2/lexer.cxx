@@ -295,7 +295,24 @@ namespace build2
     uint64_t ln (c.line), cn (c.column);
 
     string lexeme;
-    bool quoted (m == lexer_mode::double_quoted);
+    quote_type qtype (m == lexer_mode::double_quoted
+                      ? quote_type::double_
+                      : quote_type::unquoted);
+
+    // If we are already in the quoted mode then we didn't start with the
+    // quote character.
+    //
+    bool qcomp (false);
+
+    auto append = [&lexeme, &m, &qcomp] (char c)
+    {
+      lexeme += c;
+
+      // An unquoted character after a quoted fragment.
+      //
+      if (qcomp && m != lexer_mode::double_quoted)
+        qcomp = false;
+    };
 
     for (; !eos (c); c = peek ())
     {
@@ -321,7 +338,7 @@ namespace build2
             fail (p) << "unterminated escape sequence";
 
           if (p != '\n') // Ignore if line continuation.
-            lexeme += p;
+            append (p);
 
           continue;
         }
@@ -424,6 +441,22 @@ namespace build2
               //
               mode (lexer_mode::single_quoted);
 
+              switch (qtype)
+              {
+              case quote_type::unquoted:
+                qtype = quote_type::single;
+                qcomp = lexeme.empty ();
+                break;
+              case quote_type::single:
+                qcomp = false; // Non-contiguous.
+                break;
+              case quote_type::double_:
+                qtype = quote_type::mixed;
+              case quote_type::mixed:
+                qcomp = false;
+                break;
+              }
+
               get ();
               for (c = get (); !eos (c) && c != '\''; c = get ())
                 lexeme += c;
@@ -432,8 +465,6 @@ namespace build2
                 fail (c) << "unterminated single-quoted sequence";
 
               state_.pop ();
-
-              quoted = true;
               continue;
             }
           case '\"':
@@ -444,7 +475,22 @@ namespace build2
               st = state_.top ();
               m = st.mode;
 
-              quoted = true;
+              switch (qtype)
+              {
+              case quote_type::unquoted:
+                qtype = quote_type::double_;
+                qcomp = lexeme.empty ();
+                break;
+              case quote_type::double_:
+                qcomp = false; // Non-contiguous.
+                break;
+              case quote_type::single:
+                qtype = quote_type::mixed;
+              case quote_type::mixed:
+                qcomp = false;
+                break;
+              }
+
               continue;
             }
           }
@@ -455,19 +501,27 @@ namespace build2
         break;
 
       get ();
-      lexeme += c;
+      append (c);
     }
 
-    if (eos (c) && m == lexer_mode::double_quoted)
-      fail (c) << "unterminated double-quoted sequence";
+    if (m == lexer_mode::double_quoted)
+    {
+      if (eos (c))
+        fail (c) << "unterminated double-quoted sequence";
+
+      // If we are still in the quoted mode then we didn't end with the quote
+      // character.
+      //
+      if (qcomp)
+        qcomp = false;
+    }
 
     // Expire variable mode at the end of the word.
     //
     if (m == lexer_mode::variable)
       state_.pop ();
 
-    return token (move (lexeme), sep, quoted, ln, cn);
-
+    return token (move (lexeme), sep, qtype, qcomp, ln, cn);
   }
 
   bool lexer::

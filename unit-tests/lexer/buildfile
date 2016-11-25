@@ -1,0 +1,13 @@
+# file      : unit-tests/lexer/buildfile
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+#@@ Temporary until we get utility library support.
+#
+import libs = libbutl%lib{butl}
+src = token lexer diagnostics utility variable name b-options types-parsers
+
+exe{driver}: cxx{driver} ../../build2/cxx{$src} $libs \
+test{comment quoting}
+
+include ../../build2/

@@ -2,6 +2,6 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-d = function/ test/script/
+d = function/ lexer/ test/script/
 ./: $d
 include $d
