@@ -11,7 +11,7 @@ EOO
 $* <<EOI >>EOO          # quote-file
 cmd 0<<<"a f" 1>>>"b f" 2>>>&"c f"
 EOI
-cmd <<<"a f" >>>"b f" 2>>>&"c f"
+cmd <<<'a f' >>>'b f' 2>>>&'c f'
 EOO
 
 $* <<EOI 2>>EOE !=0     # in-file-fail1

@@ -10,6 +10,6 @@ test/script/{token lexer}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
 test{script-line command-line first-token second-token variable-line \
-     description-line variable comment}
+     description-line variable}
 
 include ../../../../build2/

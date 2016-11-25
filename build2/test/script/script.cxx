@@ -38,14 +38,16 @@ namespace build2
       }
 
       // Quote if empty or contains spaces or any of the special characters.
+      // Note that we use single quotes since double quotes still allow
+      // expansion.
       //
-      // @@ What if it contains quotes, escapes?
+      // @@ What if it contains single quotes?
       //
       static void
       to_stream_q (ostream& o, const string& s)
       {
-        if (s.empty () || s.find_first_of (" |&<>=") != string::npos)
-          o << '"' << s << '"';
+        if (s.empty () || s.find_first_of (" |&<>=\\\"") != string::npos)
+          o << '\'' << s << '\'';
         else
           o << s;
       };
@@ -100,7 +102,8 @@ namespace build2
               // Add another '>' or '<'. Note that here end marker never
               // needs to be quoted.
               //
-              o << d << (nl ? "" : ":") << r.doc.end;
+              o << d << (nl ? "" : ":");
+              to_stream_q (o, r.doc.end);
               break;
             }
           case redirect_type::file:

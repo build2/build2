@@ -1652,8 +1652,45 @@ namespace build2
                   //
                   next (t, tt);
 
-                  if (tt != type::word || t.qtype != quote_type::unquoted)
-                    fail (l) << "expected here-document end marker";
+                  // We require the end marker to be an unquoted or completely
+                  // quoted word. The complete quoting becomes important for
+                  // cases like foo"$bar" (where we will see word 'foo').
+                  //
+                  // For good measure we could have also required it to be
+                  // separated from the following token, but out grammar
+                  // allows one to write >>EOO;. The problematic sequence
+                  // would be >>FOO$bar -- on reparse it will be expanded
+                  // as a single word.
+                  //
+                  if (tt != type::word)
+                    fail (t) << "expected here-document end marker";
+
+                  peek ();
+                  const token& p (peeked ());
+                  if (!p.separated)
+                  {
+                    switch (p.type)
+                    {
+                    case type::dollar:
+                    case type::lparen:
+                      fail (p) << "here-document end marker must be literal";
+                    }
+                  }
+
+                  quote_type qt (t.qtype);
+                  switch (qt)
+                  {
+                  case quote_type::unquoted:
+                    qt = quote_type::single; // Treat as single-quoted.
+                    break;
+                  case quote_type::single:
+                  case quote_type::double_:
+                    if (t.qcomp)
+                      break;
+                    // Fall through.
+                  case quote_type::mixed:
+                    fail (t) << "partially-quoted here-document end marker";
+                  }
 
                   hd.push_back (here_doc {0, 0, 0, move (t.value), nn});
                   break;

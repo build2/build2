@@ -1,11 +1,11 @@
 $* <<EOI >>EOO # empty
 cmd <""
 EOI
-cmd <""
+cmd <''
 EOO
 
 $* <<EOI >>EOO # empty-nn
 cmd <:""
 EOI
-cmd <:""
+cmd <:''
 EOO

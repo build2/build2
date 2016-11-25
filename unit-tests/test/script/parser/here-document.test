@@ -1,3 +1,78 @@
+: end-marker
+:
+{
+  : missing-newline
+  :
+  $* <'cmd <<' 2>>EOE != 0
+  testscript:1:7: error: expected here-document end marker
+  EOE
+
+  : missing-exit
+  :
+  $* <'cmd << != 0' 2>>EOE != 0
+  testscript:1:8: error: expected here-document end marker
+  EOE
+
+  : unseparated-expansion
+  :
+  $* <'cmd <<FOO$foo' 2>>EOE != 0
+  testscript:1:10: error: here-document end marker must be literal
+  EOE
+
+  : quoted-single-partial
+  :
+  $* <"cmd <<F'O'O" 2>>EOE != 0
+  testscript:1:7: error: partially-quoted here-document end marker
+  EOE
+
+  : quoted-double-partial
+  :
+  $* <'cmd <<"FO"O' 2>>EOE != 0
+  testscript:1:7: error: partially-quoted here-document end marker
+  EOE
+
+  : quoted-mixed
+  :
+  $* <"cmd <<\"FO\"'O'" 2>>EOE != 0
+  testscript:1:7: error: partially-quoted here-document end marker
+  EOE
+
+  : unseparated
+  :
+  $* <<EOI >>EOO
+  cmd <<EOF!=0
+  foo
+  EOF
+  EOI
+  cmd <<EOF != 0
+  foo
+  EOF
+  EOO
+
+  : quoted-single
+  :
+  $* <<EOI >>EOO
+  cmd <<'EOF'
+  foo
+  EOF
+  EOI
+  cmd <<EOF
+  foo
+  EOF
+  EOO
+
+  : quoted-double
+  :
+  $* <<EOI >>EOO
+  cmd <<"EOF"
+  foo
+  EOF
+  EOI
+  cmd <<EOF
+  foo
+  EOF
+  EOO
+}
 
 : indent
 :
@@ -87,7 +162,9 @@
   EOE
 }
 
-$* <<EOI >>EOO  # blank-lines
+: blank
+:
+$* <<EOI >>EOO
 cmd <<EOF
 foo
 
@@ -103,10 +180,10 @@ bar
 EOF
 EOO
 
-# quote
-#
-# Note: they are still recognized in eval contexts.
-#
+: quote
+:
+: Note: they are still recognized in eval contexts.
+:
 $* <<EOI >>EOO
 cmd <<EOF
 'single'
