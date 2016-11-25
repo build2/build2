@@ -1,0 +1,82 @@
+# file      : tests/test/script/runner/rm.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
++if ($cxx.target.class != windows) # @@ TMP trailing  separator
+  s = '/'
+else
+  s = '\'
+end
+
+: no-args
+:
+: Removing with no arguments fails.
+:
+rm 2>"rm: missing file" == 1
+
+: no-args-force
+:
+: Removing with no arguments succeeds with -f option.
+:
+rm -f
+
+: empty-path
+:
+: Removing an empty path fails.
+:
+rm '' 2>"rm: invalid path ''" == 1
+
+: file
+:
+: Removing existing file succeeds.
+:
+touch a &!a;
+rm a
+
+: file-not-exists
+:
+: Removing non-existing file fails.
+:
+rm a 2>- == 1 # @@ REGEX
+
+: file-not-exists-force
+:
+: Removing non-existing file succeeds with -f option.
+:
+rm -f a
+
+: dir
+:
+: Removing directory fails by default.
+:
+mkdir a;
+rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
+
+: dir-recursive
+:
+: Removing directory succeeds with -r option.
+:
+mkdir -p a/b &!a &!a/b;
+rm -r a
+
+: scope-dir
+:
+: Removing scope directory fails.
+:
+rm -r ./ 2>"rm: '$~$s' contains scope working directory" == 1
+
+: outside-scope
+:
+: Removing path outside the script working directory fails. Need to use a path
+: that unlikely exists (not to remove something useful).
+:
+:
+rm ../../a/b/c 2>"rm: '$normalize([path] $~/../../a/b/c)' is outside script working directory" == 1
+
+: outside-scope-force
+:
+: Removing path outside the script scope working directory succeeds with -f
+: option. Need to use a path that unlikely exists (not to remove something
+: useful).
+:
+rm -f ../../a/b/c

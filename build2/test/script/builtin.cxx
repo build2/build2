@@ -370,6 +370,146 @@ namespace build2
         return 1;
       }
 
+      // rm [-r] [-f] <path>...
+      //
+      // Remove a file or directory. A path must not be the test scope working
+      // directory or its parent directory. It also must not be outside the
+      // script working directory unless -f option is specified. Note that
+      // directories are not removed by default.
+      //
+      // -r
+      //    Remove directories recursively. Must be specified to remove even an
+      //    empty directory.
+      //
+      // -f
+      //    Do not fail if path doesn't exist or no paths specified. Removing
+      //    paths outside the script working directory is not an error.
+      //
+      // The implementation deviates from POSIX in a number of ways. It doesn't
+      // interact with a user and fails immediatelly if unable to process an
+      // argument. It doesn't check for dots containment in the path, and
+      // doesn't consider files and directory permissions in any way just
+      // trying to remove a filesystem entry. Always fails if empty path is
+      // specified.
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      rm (scope& sp,
+          const strings& args,
+          auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          auto i (args.begin ());
+
+          // Process options.
+          //
+          bool dir (false);
+          bool force (false);
+          for (; i != args.end (); ++i)
+          {
+            if (*i == "-r")
+              dir = true;
+            else if (*i == "-f")
+              force = true;
+            else
+            {
+              if (*i == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          // Remove entries.
+          //
+          if (i == args.end () && !force)
+          {
+            cerr << "rm: missing file" << endl;
+            throw failed ();
+          }
+
+          for (; i != args.end (); ++i)
+          {
+            path p (parse_path (*i, sp.wd_path));
+
+            if (!p.sub (sp.root->wd_path) && !force)
+            {
+              cerr << "rm: '" << p << "' is outside script working directory"
+                   << endl;
+              throw failed ();
+            }
+
+            try
+            {
+              dir_path d (path_cast<dir_path> (p));
+
+              if (dir_exists (d))
+              {
+                if (!dir)
+                {
+                  cerr << "rm: '" << p << "' is a directory" << endl;
+                  throw failed ();
+                }
+
+                if (sp.wd_path.sub (d))
+                {
+                  cerr << "rm: '" << p << "' contains scope working directory"
+                       << endl;
+                  throw failed ();
+                }
+
+                // The call can result in rmdir_status::not_exist. That's not
+                // very likelly but there is also nothing bad about it.
+                //
+                try_rmdir_r (d);
+              }
+              else if (try_rmfile (p) == rmfile_status::not_exist && !force)
+                throw system_error (ENOENT, system_category ());
+            }
+            catch (const system_error& e)
+            {
+              cerr << "rm: unable to remove '" << p << "': " << e.what ()
+                   << endl;
+              throw failed ();
+            }
+          }
+
+          r = 0;
+        }
+        catch (const invalid_path& e)
+        {
+          cerr << "rm: invalid path '" << e.path << "'" << endl;
+        }
+        // Can be thrown while closing in, out or writing to cerr (that's why
+        // need to check its state before writing).
+        //
+        catch (const io_error& e)
+        {
+          if (cerr.good ())
+            cerr << "rm: " << e.what () << endl;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
       // touch <file>...
       //
       // Change file access and modification times to the current time. Create
@@ -548,6 +688,7 @@ namespace build2
         {"echo",  &async_impl<&echo>},
         {"false", &false_},
         {"mkdir", &sync_impl<&mkdir>},
+        {"rm",    &sync_impl<&rm>},
         {"touch", &sync_impl<&touch>},
         {"true",  &true_}
       };

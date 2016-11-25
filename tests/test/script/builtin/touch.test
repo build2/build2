@@ -20,8 +20,18 @@ rm a
 cat <"" >>>a;
 touch a
 
-# @@ How we can test that touch of an existing file doesn't register a cleanup?
-#
+: no-cleanup
+:
+: Test that touching an existing file doesn't register cleanup. If it does then
+: the file would be removed while leaving the embedded scope, and so the
+: cleanup registered by the first touch would fail.
+:
+{
+  +touch a
+  {
+    touch ../a
+  }
+}
 
 : no-args
 :
