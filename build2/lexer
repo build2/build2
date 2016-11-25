@@ -85,7 +85,9 @@ namespace build2
     // specifythe pair separator character (if the mode supports pairs).
     //
     virtual void
-    mode (lexer_mode, char pair_separator = '\0');
+    mode (lexer_mode,
+          char pair_separator = '\0',
+          const char* escapes = nullptr);
 
     // Expire the current mode early.
     //
@@ -118,6 +120,8 @@ namespace build2
       char sep_pair;
       bool sep_space; // Are whitespaces separators (see skip_spaces())?
       bool quotes;    // Recognize quoted fragments.
+
+      const char* escapes; // Effective escape sequences to recognize.
 
       // Word separator characters. For two-character sequence put the first
       // one in sep_first and the second one in the corresponding position of
@@ -170,16 +174,14 @@ namespace build2
         : char_scanner (is),
           fail ("error", &name_),
           name_ (n),
-          escapes_ (e),
           processor_ (p),
           sep_ (false)
     {
       if (sm)
-        mode (lexer_mode::normal, '@');
+        mode (lexer_mode::normal, '@', e);
     }
 
     const path name_;
-    const char* escapes_;
     void (*processor_) (token&, const lexer&);
 
     std::stack<state> state_;

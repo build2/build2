@@ -59,34 +59,34 @@ EOO
 #
 
 $* <<EOI >>:EOO # multi-only
-#\\
+#\
 comment
 comment
-#\\
+#\
 EOI
 EOO
 
 $* <<EOI >>:EOO # multi-empty
-#\\
-#\\
+#\
+#\
 EOI
 EOO
 
 $* <<EOI >>EOO # multi-start-same
-foo #\\
+foo #\
 comment
 comment
-#\\
+#\
 EOI
 'foo'
 <newline>
 EOO
 
 $* <<EOI >>EOO # multi-end-same
-#\\
+#\
 comment
 comment
-foo #\\
+foo #\
 bar
 EOI
 'bar'
@@ -94,10 +94,10 @@ EOI
 EOO
 
 $* <<EOI >>EOO # multi-end-not
-#\\
+#\
 comment
-#\\ not an end
-foo #\\
+#\ not an end
+foo #\
 bar
 EOI
 'bar'
@@ -105,7 +105,7 @@ EOI
 EOO
 
 $* <<EOI 2>>EOE != 0 # multi-unterm
-#\\
+#\
 comment
 EOI
 stdin:3:1: error: unterminated multi-line comment

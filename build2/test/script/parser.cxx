@@ -1261,11 +1261,11 @@ namespace build2
         cleanup_type ct;  // Pending cleanup type.
         here_docs hd;     // Expected here-documents.
 
-        // Add the next word to either one of the pending positions or
-        // to program arguments by default.
+        // Add the next word to either one of the pending positions or to
+        // program arguments by default.
         //
-        auto add_word = [&expr, &c, &p, &nn, &app, &ct, &hd, this]
-          (string&& w, const location& l)
+        auto add_word =
+          [&c, &p, &nn, &app, &ct, this] (string&& w, const location& l)
         {
           auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
           {
@@ -1288,13 +1288,6 @@ namespace build2
           {
             if (!nn) w += '\n';
             r.str = move (w);
-          };
-
-          auto add_here_end = [&expr, &hd, &nn] (size_t r, string&& w)
-          {
-            hd.push_back (
-              here_doc {
-                expr.size () - 1, expr.back ().pipe.size (), r, move (w), nn});
           };
 
           auto parse_path = [&l, this] (string&& w, const char* what) -> path
@@ -1335,10 +1328,8 @@ namespace build2
           {
           case pending::none: c.arguments.push_back (move (w)); break;
           case pending::program:
-          {
             c.program = parse_path (move (w), "program path");
             break;
-          }
 
           case pending::out_merge: add_merge (c.out, w, 2); break;
           case pending::err_merge: add_merge (c.err, w, 1); break;
@@ -1347,21 +1338,19 @@ namespace build2
           case pending::out_string: add_here_str (c.out, move (w)); break;
           case pending::err_string: add_here_str (c.err, move (w)); break;
 
-          case pending::in_document:  add_here_end (0, move (w)); break;
-          case pending::out_document: add_here_end (1, move (w)); break;
-          case pending::err_document: add_here_end (2, move (w)); break;
+            // These are handled specially below.
+            //
+          case pending::in_document:
+          case pending::out_document:
+          case pending::err_document: assert (false); break;
 
           case pending::in_file:  add_file (c.in,  0, move (w)); break;
           case pending::out_file: add_file (c.out, 1, move (w)); break;
           case pending::err_file: add_file (c.err, 2, move (w)); break;
 
           case pending::clean:
-            {
-              c.cleanups.push_back (
-                {ct, parse_path (move (w), "cleanup path")});
-
-              break;
-            }
+            c.cleanups.push_back ({ct, parse_path (move (w), "cleanup path")});
+            break;
           }
 
           p = pending::none;
@@ -1692,7 +1681,9 @@ namespace build2
                     fail (t) << "partially-quoted here-document end marker";
                   }
 
-                  hd.push_back (here_doc {0, 0, 0, move (t.value), nn});
+                  hd.push_back (
+                    here_doc {
+                      0, 0, 0, move (t.value), qt == quote_type::single, nn});
                   break;
                 }
 
@@ -1774,6 +1765,40 @@ namespace build2
             }
           default:
             {
+              // Here-document end markers are literal (we verified that above
+              // during pre-parsing) and we need to know whether they were
+              // quoted. So handle this case specially.
+              //
+              {
+                int fd;
+                switch (p)
+                {
+                case pending::in_document:  fd =  0; break;
+                case pending::out_document: fd =  1; break;
+                case pending::err_document: fd =  2; break;
+                default:                    fd = -1; break;
+                }
+
+                if (fd != -1)
+                {
+                  hd.push_back (
+                    here_doc {
+                      expr.size () - 1,
+                      expr.back ().pipe.size (),
+                      fd,
+                      move (t.value),
+                      (t.qtype == quote_type::unquoted ||
+                       t.qtype == quote_type::single),
+                      nn});
+
+                  p = pending::none;
+                  nn = false;
+
+                  next (t, tt);
+                  break;
+                }
+              }
+
               // Parse the next chunk as simple names to get expansion, etc.
               // Note that we do it in the chunking mode to detect whether
               // anything in each chunk is quoted.
@@ -2060,10 +2085,12 @@ namespace build2
         //
         for (here_doc& h: p.second)
         {
-          // Switch to the here-line mode which is like double-quoted but
-          // recognized the newline as a separator.
+          // Switch to the here-line mode which is like single/double-quoted
+          // string but recognized the newline as a separator.
           //
-          mode (lexer_mode::here_line);
+          mode (h.literal
+                ? lexer_mode::here_line_single
+                : lexer_mode::here_line_double);
           next (t, tt);
 
           string v (parse_here_document (t, tt, h.end, h.no_newline));
@@ -2071,7 +2098,7 @@ namespace build2
           if (!pre_parse_)
           {
             command& c (p.first[h.expr].pipe[h.pipe]);
-            redirect& r (h.redir == 0 ? c.in : h.redir == 1 ? c.out : c.err);
+            redirect& r (h.fd == 0 ? c.in : h.fd == 1 ? c.out : c.err);
 
             r.doc.doc = move (v);
             r.doc.end = move (h.end);

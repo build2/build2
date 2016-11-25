@@ -34,7 +34,8 @@ namespace build2
           else if (s == "second-token")     m = lexer_mode::second_token;
           else if (s == "variable-line")    m = lexer_mode::variable_line;
           else if (s == "command-line")     m = lexer_mode::command_line;
-          else if (s == "here-line")        m = lexer_mode::here_line;
+          else if (s == "here-line-single") m = lexer_mode::here_line_single;
+          else if (s == "here-line-double") m = lexer_mode::here_line_double;
           else if (s == "description-line") m = lexer_mode::description_line;
           else if (s == "variable")         m = lexer_mode::variable;
           else                           assert (false);

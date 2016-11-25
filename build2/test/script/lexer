@@ -29,7 +29,8 @@ namespace build2
           second_token,    // Expires at the end of the token.
           variable_line,   // Expires at the end of the line.
           command_line,
-          here_line,
+          here_line_single,
+          here_line_double,
           description_line // Expires at the end of the line.
         };
 
@@ -48,10 +49,13 @@ namespace build2
                const path& name,
                lexer_mode m,
                const char* escapes = nullptr)
-            : base_lexer (is, name, escapes, nullptr, false) {mode (m);}
+            : base_lexer (is, name, nullptr, nullptr, false)
+        {
+          mode (m, '\0', escapes);
+        }
 
         virtual void
-        mode (base_mode, char = '\0') override;
+        mode (base_mode, char = '\0', const char* = nullptr) override;
 
         // Number of quoted (double or single) tokens since last reset.
         //

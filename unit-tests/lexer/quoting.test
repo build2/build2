@@ -48,7 +48,7 @@ EOO
 :
 $* <'"$foo"' >>EOO
 '' [D/P]
-\$
+$
 'foo' [D/P]
 <newline>
 EOO
@@ -58,7 +58,7 @@ EOO
 :
 $* <'"foo$"' >>EOO
 'foo' [D/P]
-\$
+$
 '' [D/P]
 <newline>
 EOO

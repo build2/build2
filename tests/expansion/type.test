@@ -10,30 +10,30 @@
 :
 $* <<EOI
 x = [bool] true
-y = \$x
-assert \(\$type\(\$y) == bool)
+y = $x
+assert ($type($y) == bool)
 EOI
 
 : eval
 :
 $* <<EOI
-y = \([bool] true)
-assert \(\$type\(\$y) == bool)
+y = ([bool] true)
+assert ($type($y) == bool)
 EOI
 
 : func
 :
 $* <<EOI
-y = \$identity\([bool] true)
-assert \(\$type\(\$y) == bool)
+y = $identity([bool] true)
+assert ($type($y) == bool)
 EOI
 
 : untypify
 :
 $* <<EOI
 x = [bool] true
-y = "\$x"
-assert \(\$type\(\$y) == "")
+y = "$x"
+assert ($type($y) == "")
 EOI
 
 : type-conflict

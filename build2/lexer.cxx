@@ -30,7 +30,7 @@ namespace build2
   }
 
   void lexer::
-  mode (lexer_mode m, char ps)
+  mode (lexer_mode m, char ps, const char* esc)
   {
     const char* s1 (nullptr);
     const char* s2 (nullptr);
@@ -76,7 +76,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, ps, s, q, s1, s2});
+    state_.push (state {m, ps, s, q, esc, s1, s2});
   }
 
   token lexer::
@@ -329,8 +329,10 @@ namespace build2
         get ();
         xchar p (peek ());
 
-        if (escapes_ == nullptr ||
-            (!eos (p) && strchr (escapes_, p) != nullptr))
+        const char* esc (st.escapes);
+
+        if (esc == nullptr ||
+            (*esc != '\0' && !eos (p) && strchr (esc, p) != nullptr))
         {
           get ();
 

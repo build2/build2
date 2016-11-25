@@ -180,7 +180,7 @@ EOE
 $* <<EOI >>EOO                                         # legal-var
 : foo bar
 x = y;
-cmd \$x
+cmd $x
 EOI
 : sm:foo bar
 cmd y
@@ -334,7 +334,7 @@ EOO
 :
 : No merge since test has description.
 :
-$* -s -i <<EOI >>EOO                    # 
+$* -s -i <<EOI >>EOO                    #
 {
   : foo-bar
   : foo bar

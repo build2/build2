@@ -2,8 +2,8 @@
 # double-quote
 #
 $* <<EOI >>EOO
-x = cmd \\">-\\" "'<-'"
-\$x
+x = cmd \">-\" "'<-'"
+$x
 EOI
 cmd '>-' '<-'
 EOO

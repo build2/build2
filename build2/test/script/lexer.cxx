@@ -15,7 +15,7 @@ namespace build2
       using type = token_type;
 
       void lexer::
-      mode (base_mode m, char ps)
+      mode (base_mode m, char ps, const char* esc)
       {
         const char* s1 (nullptr);
         const char* s2 (nullptr);
@@ -76,7 +76,23 @@ namespace build2
             s = false;
             break;
           }
-        case lexer_mode::here_line:
+        case lexer_mode::here_line_single:
+          {
+            // This one is like a single-quoted string except it treats
+            // newlines as a separator. We also treat quotes as literals.
+            //
+            // Note that it might be tempting to enable line continuation
+            // escapes. However, we will then have to also enable escaping of
+            // the backslash, which makes it a lot less tempting.
+            //
+            s1 = "\n";
+            s2 = " ";
+            esc = ""; // Disable escape sequences.
+            s = false;
+            q = false;
+            break;
+          }
+        case lexer_mode::here_line_double:
           {
             // This one is like a double-quoted string except it treats
             // newlines as a separator. We also treat quotes as literals.
@@ -105,13 +121,13 @@ namespace build2
                     m == lexer_mode::eval ||
                     m == lexer_mode::attribute);
 
-            base_lexer::mode (m, ps);
+            base_lexer::mode (m, ps, esc);
             return;
           }
         }
 
         assert (ps == '\0');
-        state_.push (state {m, ps, s, q, s1, s2});
+        state_.push (state {m, ps, s, q, esc, s1, s2});
       }
 
       token lexer::
@@ -126,7 +142,8 @@ namespace build2
         case lexer_mode::second_token:
         case lexer_mode::variable_line:
         case lexer_mode::command_line:
-        case lexer_mode::here_line:
+        case lexer_mode::here_line_single:
+        case lexer_mode::here_line_double:
           r = next_line ();
           break;
         case lexer_mode::description_line:
@@ -184,13 +201,20 @@ namespace build2
               sep = true; // Treat newline as always separated.
               return make_token (type::newline);
             }
+          }
+        }
 
+        if (m != lexer_mode::here_line_single)
+        {
+          switch (c)
+          {
             // Variable expansion, function call, and evaluation context.
             //
           case '$': return make_token (type::dollar);
           case '(': return make_token (type::lparen);
           }
         }
+
 
         if (m == lexer_mode::variable_line)
         {

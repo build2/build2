@@ -19,9 +19,9 @@ $* <<EOI >>EOO
 foo = FOO
 bar = BAR
 
-print \$foo"\(\$bar)"
-print "\$foo"\(\$bar)
-print "\$foo""\(\$bar)"
+print $foo"($bar)"
+print "$foo"($bar)
+print "$foo""($bar)"
 EOI
 FOOBAR
 FOOBAR

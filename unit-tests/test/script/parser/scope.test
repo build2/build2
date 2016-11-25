@@ -74,7 +74,7 @@ EOO
 $* -s -i <<EOI >>EOO                    # test-scope-var
 {
   x = abc
-  cmd \$x
+  cmd $x
 }
 EOI
 {
@@ -88,7 +88,7 @@ $* -s -i <<EOI >>EOO                    # test-scope-setup
 {
   x = abc
   +setup
-  cmd \$x
+  cmd $x
 }
 EOI
 {
@@ -166,7 +166,7 @@ EOO
 $* -s <<EOI >>EOO                    # test-var
 cmd1;
 x = abc;
-cmd2 \$x
+cmd2 $x
 EOI
 {
   {
@@ -178,7 +178,7 @@ EOO
 
 $* -s <<EOI >>EOO                    # test-var-first
 x = abc;
-cmd \$x
+cmd $x
 EOI
 {
   {
@@ -189,7 +189,7 @@ EOO
 
 $* -s <<EOI >>EOO                    # var-setup-tdown
 x = abc
-cmd \$x
+cmd $x
 y = 123
 EOI
 {

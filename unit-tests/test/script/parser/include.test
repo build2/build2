@@ -14,7 +14,7 @@ EOO
 touch foo.test;
 $* <<EOI
 x = foo.test
-.include\$x
+.include$x
 EOI
 
 : none
@@ -108,7 +108,7 @@ cat <<EOI >>>foo-$(build.version).test;
 cmd
 EOI
 $* <<EOI >>EOO
-.include foo-\$\(build.version\).test
+.include foo-$(build.version).test
 EOI
 cmd
 EOO

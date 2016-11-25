@@ -49,7 +49,7 @@ rm a
 : Test that file append redirect doesn't not register cleanup. If it did, that
 : cleanup would fail as the file would be already deleted by 'rm'.
 :
-$c <<EOI;
+$c <<"EOI";
 touch a &!a;
 $* -o foo >>>&a;
 rm a
@@ -222,7 +222,7 @@ EOE
 :
 : Test an explicit cleanup not being overwritten with the implicit one.
 :
-$c <<EOO;
+$c <<"EOO";
 $* &!a;
 $* -o foo >>>a
 EOO

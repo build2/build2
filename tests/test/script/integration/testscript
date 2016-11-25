@@ -69,8 +69,7 @@ touch test/dummy &!test/dummy;
 $* <<EOI 2>>EOE
 ./: test{foo}
 EOI
-warning: working directory test/ exists and is not empty at the beginning \
-of the test
+warning: working directory test/ exists and is not empty at the beginning of the test
 EOE
 
 : wd-not-empty-after

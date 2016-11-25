@@ -99,10 +99,10 @@ namespace build2
         {
           size_t expr;  // Index in command_expr.
           size_t pipe;  // Index in command_pipe.
-          size_t redir; // Redirect (0 - in, 1 - out, 2 - err).
-
+          int fd;       // Redirect fd (0 - in, 1 - out, 2 - err).
           string end;
-          bool no_newline;
+          bool literal;    // Literal (single-quote).
+          bool no_newline; // No final newline.
         };
         using here_docs = vector<here_doc>;
 

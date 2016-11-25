@@ -1421,10 +1421,22 @@ error: no such table 'no_such_table'
 EOE
 \
 
-The lines in here-document are expanded as if they were double-quoted except
-that the double quote itself is not treated as special. This means we can use
-variables and evaluation contexts in here-documents but have to escape the
-\c{\\$(} character set.
+Here-strings can be single-quoted literals or double-quoted with expansion.
+This semantics is extended to here-documents as follows. If the end marker
+on the command line is single-quoted, then the here-document lines are
+parsed as if they were single-quoted except that the single quote itself
+is not treated as special. In this mode there are no expansions, escape
+sequences, not even line continuations \- each line is taken literally.
+
+If the end marker on the command line is double-quoted, then the here-document
+lines are parsed as if they were double-quoted except that the double quote
+itself is not treated as special. In this mode we can use variables
+expansions, function calls, and evaluation contexts. However, we have to
+escape the \c{$(\\} character set.
+
+If the end marker is not quoted then it is treated as if it were
+single-quoted. Note also that quoted end markers must be quoted \i{wholly},
+that is, from the beginning and until the end and without any interruptions.
 
 If the preceding command line starts with leading whitespaces, then the
 equivalent number is stripped (if present) from each here-document line

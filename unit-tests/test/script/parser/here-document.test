@@ -128,8 +128,8 @@
   :
   $* <<EOI >>EOO
   x = foo bar
-  cmd <<EOF
-    \$x
+  cmd <<"EOF"
+    $x
     EOF
   EOI
   cmd <<EOF
@@ -142,8 +142,8 @@
   :
   $* <<EOI >>EOO
   x = foo
-  cmd <<EOF
-     \$x bar \$x
+  cmd <<"EOF"
+     $x bar $x
     EOF
   EOI
   cmd <<EOF
@@ -185,7 +185,7 @@ EOO
 : Note: they are still recognized in eval contexts.
 :
 $* <<EOI >>EOO
-cmd <<EOF
+cmd <<"EOF"
 'single'
 "double"
 b'o't"h"

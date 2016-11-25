@@ -36,13 +36,13 @@ $b
 : eq-false
 :
 $c <"$* -s 1 == 0";
-$b 2>>EOE != 0
+$b 2>>"EOE" != 0
 testscript:1: error: ../../../driver$ext exit status 1 != 0
 EOE
 
 : ne-false
 :
 $c <"$* -s 1 != 1";
-$b 2>>EOE != 0
+$b 2>>"EOE" != 0
 testscript:1: error: ../../../driver$ext exit status 1 == 1
 EOE

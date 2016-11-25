@@ -34,6 +34,6 @@ if ($cxx.target.class != windows) # @@ TMP ternarry
 else
   p = c:/../foo
 end;
-$* <"\$path.normalize\('$p')" 2>>EOE != 0
+$* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
 EOE

@@ -249,7 +249,7 @@ if true
 else
   x = bar
 end;
-cmd \$x
+cmd $x
 EOI
 ? true
 cmd foo
