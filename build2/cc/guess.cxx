@@ -282,6 +282,7 @@ namespace build2
           // Microsoft (R) C/C++ Optimizing Compiler Version 17.00.50727.1 for x86
           // Microsoft (R) C/C++ Optimizing Compiler Version 18.00.21005.1 for x86
           // Microsoft (R) C/C++ Optimizing Compiler Version 19.00.23026 for x86
+          // Microsoft (R) C/C++ Optimizing Compiler Version 19.10.24629 for x86
           //
           // In the recent versions the architecture is either "x86", "x64",
           // or "ARM".
@@ -1001,20 +1002,25 @@ namespace build2
 
         // Mapping of compiler versions to runtime versions:
         //
-        // 19.00  140/14.0  VS2015
-        // 18.00  120/12.0  VS2013
-        // 17.00  110/11.0  VS2012
-        // 16.00  100/10.0  VS2010
-        // 15.00   90/9.0   VS2008
-        // 14.00   80/8.0   VS2005
-        // 13.10   71/7.1   VS2003
+        // Note that VC15 has runtime version 14.1 but the DLLs are still
+        // called *140.dll (they are said to be backwards-compatible).
         //
-        /**/ if (v.major == 19 && v.minor == 0)  arch += "14.0";
-        else if (v.major == 18 && v.minor == 0)  arch += "12.0";
-        else if (v.major == 17 && v.minor == 0)  arch += "11.0";
-        else if (v.major == 16 && v.minor == 0)  arch += "10.0";
-        else if (v.major == 15 && v.minor == 0)  arch += "9.0";
-        else if (v.major == 14 && v.minor == 0)  arch += "8.0";
+        // 19.10  140/14.1   15/2017
+        // 19.00  140/14.0   14/2015
+        // 18.00  120/12.0   12/2013
+        // 17.00  110/11.0   11/2012
+        // 16.00  100/10.0   10/2010
+        // 15.00   90/9.0     9/2008
+        // 14.00   80/8.0     8/2005
+        // 13.10   71/7.1   7.1/2003
+        //
+        /**/ if (v.major == 19 && v.minor == 10) arch += "14.1";
+        else if (v.major == 19 && v.minor ==  0) arch += "14.0";
+        else if (v.major == 18 && v.minor ==  0) arch += "12.0";
+        else if (v.major == 17 && v.minor ==  0) arch += "11.0";
+        else if (v.major == 16 && v.minor ==  0) arch += "10.0";
+        else if (v.major == 15 && v.minor ==  0) arch += "9.0";
+        else if (v.major == 14 && v.minor ==  0) arch += "8.0";
         else if (v.major == 13 && v.minor == 10) arch += "7.1";
         else fail << "unable to map msvc compiler version '" << v.string
                   << "' to runtime version";

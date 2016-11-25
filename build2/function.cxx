@@ -250,7 +250,7 @@ namespace build2
     dr << endf;
   }
 
-#if !defined(_MSC_VER) || _MSC_VER > 1900
+#if !defined(_MSC_VER) || _MSC_VER > 1910
   constexpr const optional<const value_type*>* function_args<>::types;
 #else
   const optional<const value_type*>* const function_args<>::types = nullptr;

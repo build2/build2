@@ -644,7 +644,7 @@ namespace build2
     return r;
   }
 
-  // VC 19 rejects constexpr.
+  // VC14 rejects constexpr.
   //
   extern const char derived_tt_ext_var[] = "extension";
 

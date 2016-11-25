@@ -237,7 +237,7 @@ namespace build2
     //
     std::aligned_storage<sizeof (name)>::type data_;
 
-    // VC 19 needs decltype.
+    // VC14 needs decltype.
     //
     static const size_t size_ = sizeof (decltype (data_));
 

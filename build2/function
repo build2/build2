@@ -116,10 +116,10 @@ namespace build2
                        D d)
         : function_overload (an, mi, ma, move (ts), im)
     {
-      // std::is_pod appears to be broken in VC14 and also in GCC up to
+      // std::is_pod appears to be broken in VC15 and also in GCC up to
       // 5 (pointers to members).
       //
-#if !((defined(_MSC_VER) && _MSC_VER <= 1900) || \
+#if !((defined(_MSC_VER) && _MSC_VER <= 1910) || \
       (defined(__GNUC__) && !defined(__clang__) && __GNUC__ <= 5))
       static_assert (std::is_pod<D>::value, "type is not POD");
 #endif
@@ -327,10 +327,10 @@ namespace build2
     static const size_t max = sizeof...(A);
     static const size_t min = max - function_args_opt<A...>::count;
 
-    // VC14 doesn't realize that a pointer to static object (in our case it is
+    // VC15 doesn't realize that a pointer to static object (in our case it is
     // &value_trair<T>::value_type) is constexpr.
     //
-#if !defined(_MSC_VER) || _MSC_VER > 1900
+#if !defined(_MSC_VER) || _MSC_VER > 1910
     static constexpr const optional<const value_type*> types[max] = {
       function_arg<A>::type ()...};
 #else
@@ -339,7 +339,7 @@ namespace build2
   };
 
   template <typename... A>
-#if !defined(_MSC_VER) || _MSC_VER > 1900
+#if !defined(_MSC_VER) || _MSC_VER > 1910
   constexpr const optional<const value_type*>
   function_args<A...>::types[function_args<A...>::max];
 #else
@@ -356,7 +356,7 @@ namespace build2
     static const size_t max = 0;
     static const size_t min = 0;
 
-#if !defined(_MSC_VER) || _MSC_VER > 1900
+#if !defined(_MSC_VER) || _MSC_VER > 1910
     static constexpr const optional<const value_type*>* types = nullptr;
 #else
     static const optional<const value_type*>* const types;

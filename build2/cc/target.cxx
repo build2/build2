@@ -21,7 +21,7 @@ namespace build2
       false
     };
 
-    extern const char ext_var[] = "extension";  // VC 19 rejects constexpr.
+    extern const char ext_var[] = "extension";  // VC14 rejects constexpr.
 
     extern const char h_ext_def[] = "h";
     const target_type h::static_type

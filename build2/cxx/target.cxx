@@ -10,7 +10,7 @@ namespace build2
 {
   namespace cxx
   {
-    extern const char ext_var[] = "extension";  // VC 19 rejects constexpr.
+    extern const char ext_var[] = "extension";  // VC14 rejects constexpr.
 
     extern const char hxx_ext_def[] = "hxx";
     const target_type hxx::static_type

@@ -538,7 +538,7 @@ namespace build2
        : &extension_pool.find (ext)));
   }
 
-  extern const char file_ext_var[] = "extension"; // VC 19 rejects constexpr.
+  extern const char file_ext_var[] = "extension"; // VC14 rejects constexpr.
   extern const char file_ext_def[] = "";
 
   const target_type file::static_type
@@ -653,7 +653,7 @@ namespace build2
     false
   };
 
-  extern const char man1_ext[] = "1"; // VC 19 rejects constexpr.
+  extern const char man1_ext[] = "1"; // VC14 rejects constexpr.
 
   const target_type man1::static_type
   {
