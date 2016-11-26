@@ -81,7 +81,10 @@ namespace build2
     quote_type qtype;
     bool qcomp;
 
-    string value;   // Only valid for word.
+    // Normally only used for word, but can also be used to store "modifiers"
+    // or some such for other tokens.
+    //
+    string value;
 
     uint64_t line;
     uint64_t column;
@@ -93,18 +96,23 @@ namespace build2
         : token (token_type::eos, false, 0, 0, token_printer) {}
 
     token (token_type t, bool s, uint64_t l, uint64_t c, printer_type* p)
-        : type (t), separated (s), qtype (quote_type::unquoted),
-          line (l), column (c),
-          printer (p) {}
+        : token (t, string (), s, quote_type::unquoted, false, l, c, p) {}
 
     token (string v, bool s,
            quote_type qt, bool qc,
            uint64_t l, uint64_t c)
-        : type (token_type::word), separated (s),
+        : token (token_type::word, move (v), s, qt, qc, l, c, &token_printer){}
+
+    token (token_type t,
+           string v, bool s,
+           quote_type qt, bool qc,
+           uint64_t l, uint64_t c,
+           printer_type* p)
+        : type (t), separated (s),
           qtype (qt), qcomp (qc),
           value (move (v)),
           line (l), column (c),
-          printer (&token_printer) {}
+          printer (p) {}
   };
 
   // Output the token value in a format suitable for diagnostics.

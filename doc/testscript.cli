@@ -792,16 +792,16 @@ stderr: '2'(out-redirect)
 
 in-redirect:  '<-'|\
               '<+'|\
-              ('<'|'<:') <text>|\
-              ('<<'|'<<:') <here-end>|\
+              '<'{':'?} <text>|\
+              '<<'{':'?} <here-end>|\
               '<<<' <file>
 
 out-redirect: '>-'|\
               '>+'|\
               '>&' ('1'|'2')|\
-              ('>'|'>:') <text>|\
-              ('>>'|'>>:') <here-end>|\
-              ('>>>'|'>>>&') <file>
+              '>'{':'?'~'?} <text>|\
+              '>>'{':'?'~'?} <here-end>|\
+              '>>>'{'&'?} <file>
 
 cleanup: ('&'|'&!'|'&?') (<file>|<dir>)
 
@@ -1462,6 +1462,100 @@ EOI
 \
 
 The leading whitespace stripping does not apply to line continuations.
+
+\h#here-regex|Output Regex|
+
+The expected result in output here-strings and here-documents can be specified
+as a regular expression instead of plain text. To signal the use of regular
+expressions the redirect must include the \c{~} modifier, for example:
+
+\
+$* >~'/fo+/' 2>>~/EOE/
+/ba+r/
+baz
+EOE
+\
+
+The regular expression used for output matching has two levels. At the outer
+level the expression is over lines with each line treated as a single
+character. We will refer to this outer expression as \i{line-regex} and
+to its characters as \i{line-char}.
+
+A line-char can be a literal line (like \c{baz} in the example above) in
+which case it will only be equal to an identical line in the output. Or a
+line-char can be an inner level regex (like \c{ba+r} above) in which
+case it will be equal to any line in the output that matches this regex.
+Where not clear from context we will refer to this inner expression as
+\i{char-regex} and its characters as \c{char}.
+
+A line is treated as literal unless it starts with the \i{regex introducer
+character} (\c{/} in the above example). In contrast, the line-regex is always
+in effect (in a sense, the \c{~} modifier is its introducer). Note that the
+here-string regex naturally must always start with an introducer.
+
+A char-regex line that starts with an introducer must also end with one
+optionally followed by \i{match flags}. Currently the only supported flag is
+\c{i} for case-insensitive match. For example:
+
+\
+$* >>~/EOO/
+/ba+r/i
+/ba+z/i
+EOO
+\
+
+Any character can act as a regex introducer. For here-strings it is the first
+character in the string. For here-documents the introducer is specified as
+part of the end marker. In this case the first character is the introducer,
+everything after that and until the second occurrence of the introducer is the
+actual end marker, and everything after that are global match flags. Global
+match flags apply to every char-regex (but not literal line) in this
+here-document. Note that there is no way to escape the introducer character
+inside the regex.
+
+As an example, here is a shorter version of the previous example that also
+uses a different introducer character.
+
+\
+$* >>~%EOO%i
+%ba+r%
+%ba+z%
+EOO
+\
+
+By default a line-char is treated as an ordinary, non-syntax character with
+regards to line-regex. Lines that start with a regex introducer but do not end
+with one are used to specify syntax line-chars. Such syntax line-chars can
+also be specified after (or instead of) match flags. For example:
+
+\
+$* >>~/EOO/
+/(
+/fo+x/|
+/ba+r/|
+/ba+z/
+/)+
+EOO
+\
+
+As an illustration, if we call the \c{/fo+x/} expression \c{A}, \c{/ba+r/} \-
+\c{B}, and \c{/ba+z/} \- C, then we can represent the above line-regex in
+the following more traditional form:
+
+\
+(A|B|C)+
+\
+
+Only characters from the \c{()|*+?{\}0123456789,=!} set are allowed as
+syntax line-chars with presence of any other character being an error.
+
+A blank line as well as the \c{//} sequence (assuming \c{/} is the introducer)
+are treated as an empty line-char. For the purpose of matching, newlines are
+viewed as separators rather than being part of a line. In particular, in this
+model, the customary trailing newline at the end of the output introduces a
+trailing empty line-char. As a result, unless the \c{:} (no newline) redirect
+modifier is used, an empty line-char is implicitly added to line-regex.
+
 
 \h1#style|Style Guide|
 

@@ -15,42 +15,37 @@ namespace build2
       void
       token_printer (ostream& os, const token& t, bool d)
       {
+        const string& v (t.value);
+
         // Only quote non-name tokens for diagnostics.
         //
         const char* q (d ? "'" : "");
 
         switch (t.type)
         {
-        case token_type::semi:         os << q << ';'    << q; break;
+        case token_type::semi:         os << q << ';'        << q; break;
 
-        case token_type::plus:         os << q << '+'    << q; break;
-        case token_type::minus:        os << q << '-'    << q; break;
+        case token_type::plus:         os << q << '+'        << q; break;
+        case token_type::minus:        os << q << '-'        << q; break;
 
-        case token_type::clean_always: os << q << '&'    << q; break;
-        case token_type::clean_maybe:  os << q << "&?"   << q; break;
-        case token_type::clean_never:  os << q << "&!"   << q; break;
+        case token_type::clean:        os << q << '&'   << v << q; break;
 
-        case token_type::pipe:         os << q << '|'    << q; break;
-        case token_type::log_and:      os << q << "&&"   << q; break;
-        case token_type::log_or:       os << q << "||"   << q; break;
+        case token_type::pipe:         os << q << '|'        << q; break;
+        case token_type::log_and:      os << q << "&&"       << q; break;
+        case token_type::log_or:       os << q << "||"       << q; break;
 
-        case token_type::in_pass:      os << q << "<+"   << q; break;
-        case token_type::in_null:      os << q << "<-"   << q; break;
-        case token_type::in_str:       os << q << '<'    << q; break;
-        case token_type::in_str_nn:    os << q << "<:"   << q; break;
-        case token_type::in_doc:       os << q << "<<"   << q; break;
-        case token_type::in_doc_nn:    os << q << "<<:"  << q; break;
-        case token_type::in_file:      os << q << "<<<"  << q; break;
+        case token_type::in_pass:      os << q << "<+"       << q; break;
+        case token_type::in_null:      os << q << "<-"       << q; break;
+        case token_type::in_str:       os << q << '<'   << v << q; break;
+        case token_type::in_doc:       os << q << "<<"  << v << q; break;
+        case token_type::in_file:      os << q << "<<<"      << q; break;
 
-        case token_type::out_pass:     os << q << ">+"   << q; break;
-        case token_type::out_null:     os << q << ">-"   << q; break;
-        case token_type::out_merge:    os << q << ">&"   << q; break;
-        case token_type::out_str:      os << q << '>'    << q; break;
-        case token_type::out_str_nn:   os << q << ">:"   << q; break;
-        case token_type::out_doc:      os << q << ">>"   << q; break;
-        case token_type::out_doc_nn:   os << q << ">>:"  << q; break;
-        case token_type::out_file:     os << q << ">>>"  << q; break;
-        case token_type::out_file_app: os << q << ">>>&" << q; break;
+        case token_type::out_pass:     os << q << ">+"       << q; break;
+        case token_type::out_null:     os << q << ">-"       << q; break;
+        case token_type::out_merge:    os << q << ">&"       << q; break;
+        case token_type::out_str:      os << q << '>'   << v << q; break;
+        case token_type::out_doc:      os << q << ">>"  << v << q; break;
+        case token_type::out_file:     os << q << ">>>" << v << q; break;
 
         default: build2::token_printer (os, t, d);
         }

@@ -1256,16 +1256,13 @@ namespace build2
           clean
         };
         pending p (pending::program);
-        bool nn (false);  // True if pending here-{str,doc} is "no-newline".
-        bool app (false); // True if to append to pending file.
-        cleanup_type ct;  // Pending cleanup type.
-        here_docs hd;     // Expected here-documents.
+        string mod;   // Modifiers for pending in_* and out_* positions.
+        here_docs hd; // Expected here-documents.
 
         // Add the next word to either one of the pending positions or to
         // program arguments by default.
         //
-        auto add_word =
-          [&c, &p, &nn, &app, &ct, this] (string&& w, const location& l)
+        auto add_word = [&c, &p, &mod, this] (string&& w, const location& l)
         {
           auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
           {
@@ -1284,9 +1281,10 @@ namespace build2
                      << "file descriptor must be " << fd;
           };
 
-          auto add_here_str = [&nn] (redirect& r, string&& w)
+          auto add_here_str = [&mod] (redirect& r, string&& w)
           {
-            if (!nn) w += '\n';
+            if (mod.find (':') == string::npos)
+              w += '\n';
             r.str = move (w);
           };
 
@@ -1310,7 +1308,7 @@ namespace build2
             }
           };
 
-          auto add_file = [&app, &parse_path] (redirect& r, int fd, string&& w)
+          auto add_file = [&mod, &parse_path] (redirect& r, int fd, string&& w)
           {
             const char* what (nullptr);
             switch (fd)
@@ -1321,7 +1319,7 @@ namespace build2
             }
 
             r.file.path = parse_path (move (w), what);
-            r.file.append = app;
+            r.file.append = mod.find ('&') != string::npos;
           };
 
           switch (p)
@@ -1349,13 +1347,23 @@ namespace build2
           case pending::err_file: add_file (c.err, 2, move (w)); break;
 
           case pending::clean:
-            c.cleanups.push_back ({ct, parse_path (move (w), "cleanup path")});
-            break;
+            {
+              cleanup_type t;
+              switch (mod[0]) // Ok, if empty
+              {
+              case '!': t = cleanup_type::never;  break;
+              case '?': t = cleanup_type::maybe;  break;
+              default:  t = cleanup_type::always; break;
+              }
+
+              c.cleanups.push_back (
+                {t, parse_path (move (w), "cleanup path")});
+              break;
+            }
           }
 
           p = pending::none;
-          nn = false;
-          app = false;
+          mod.clear ();
         };
 
         // Make sure we don't have any pending positions to fill.
@@ -1389,11 +1397,11 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&c, &p, &nn, &app, this] (const token& t, const location& l)
+          [&c, &p, &mod, this] (token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
-          assert (p == pending::none && !nn && !app);
+          assert (p == pending::none && mod.empty ());
 
           // See if we have the file descriptor.
           //
@@ -1430,9 +1438,7 @@ namespace build2
           case type::in_pass:
           case type::in_null:
           case type::in_str:
-          case type::in_str_nn:
           case type::in_doc:
-          case type::in_doc_nn:
           case type::in_file:
             {
               if ((fd = fd == 3 ? 0 : fd) != 0)
@@ -1444,11 +1450,8 @@ namespace build2
           case type::out_null:
           case type::out_merge:
           case type::out_str:
-          case type::out_str_nn:
           case type::out_doc:
-          case type::out_doc_nn:
           case type::out_file:
-          case type::out_file_app:
             {
               if ((fd = fd == 3 ? 1 : fd) == 0)
                 fail (l) << "invalid out redirect file descriptor " << fd;
@@ -1468,17 +1471,12 @@ namespace build2
 
           case type::out_merge:    rt = redirect_type::merge;         break;
 
-          case type::in_str_nn:
-          case type::out_str_nn:   nn = true; // Fall through.
           case type::in_str:
           case type::out_str:      rt = redirect_type::here_string;   break;
 
-          case type::in_doc_nn:
-          case type::out_doc_nn:   nn = true; // Fall through.
           case type::in_doc:
           case type::out_doc:      rt = redirect_type::here_document; break;
 
-          case type::out_file_app: app = true; // Fall through.
           case type::in_file:
           case type::out_file:     rt = redirect_type::file; break;
           }
@@ -1525,20 +1523,16 @@ namespace build2
             }
             break;
           }
+
+          mod = move (t.value);
         };
 
         // Set pending cleanup type.
         //
-        auto parse_clean = [&p, &ct] (type tt)
+        auto parse_clean = [&p, &mod] (token& t)
         {
-          switch (tt)
-          {
-          case type::clean_always: ct = cleanup_type::always; break;
-          case type::clean_maybe:  ct = cleanup_type::maybe;  break;
-          case type::clean_never:  ct = cleanup_type::never;  break;
-          }
-
           p = pending::clean;
+          mod = move (t.value);
         };
 
         const location ll (get_location (t)); // Line location.
@@ -1606,18 +1600,10 @@ namespace build2
           case type::out_str:
           case type::out_doc:
 
-          case type::in_str_nn:
-          case type::in_doc_nn:
-          case type::out_str_nn:
-          case type::out_doc_nn:
-
           case type::in_file:
           case type::out_file:
-          case type::out_file_app:
 
-          case type::clean_always:
-          case type::clean_maybe:
-          case type::clean_never:
+          case type::clean:
             {
               if (pre_parse_)
               {
@@ -1625,16 +1611,12 @@ namespace build2
                 // end markers since we need to know how many of them to pre-
                 // parse after the command.
                 //
-                nn = false;
-
                 switch (tt)
                 {
-                case type::in_doc_nn:
-                case type::out_doc_nn:
-                  nn = true;
-                  // Fall through.
                 case type::in_doc:
                 case type::out_doc:
+                  mod = move (t.value);
+
                   // We require the end marker to be a literal, unquoted word.
                   // In particularm, we don't allow quoted because of cases
                   // like foo"$bar" (where we will see word 'foo').
@@ -1683,7 +1665,10 @@ namespace build2
 
                   hd.push_back (
                     here_doc {
-                      0, 0, 0, move (t.value), qt == quote_type::single, nn});
+                      0, 0, 0,
+                      move (t.value),
+                      qt == quote_type::single,
+                      move (mod)});
                   break;
                 }
 
@@ -1736,24 +1721,16 @@ namespace build2
               case type::out_str:
               case type::out_doc:
 
-              case type::in_str_nn:
-              case type::in_doc_nn:
-              case type::out_str_nn:
-              case type::out_doc_nn:
-
               case type::in_file:
               case type::out_file:
-              case type::out_file_app:
                 {
                   parse_redirect (t, l);
                   break;
                 }
 
-              case type::clean_always:
-              case type::clean_maybe:
-              case type::clean_never:
+              case type::clean:
                 {
-                  parse_clean (tt);
+                  parse_clean (t);
                   break;
                 }
 
@@ -1789,10 +1766,10 @@ namespace build2
                       move (t.value),
                       (t.qtype == quote_type::unquoted ||
                        t.qtype == quote_type::single),
-                      nn});
+                      move (mod)});
 
                   p = pending::none;
-                  nn = false;
+                  mod.clear ();
 
                   next (t, tt);
                   break;
@@ -1975,30 +1952,21 @@ namespace build2
                     case type::in_str:
                     case type::out_str:
 
-                    case type::in_str_nn:
-                    case type::out_str_nn:
-
                     case type::in_file:
                     case type::out_file:
-                    case type::out_file_app:
                       {
                         parse_redirect (t, l);
                         break;
                       }
 
-                    case type::clean_always:
-                    case type::clean_maybe:
-                    case type::clean_never:
+                    case type::clean:
                       {
-                        parse_clean (tt);
+                        parse_clean (t);
                         break;
                       }
 
                     case type::in_doc:
                     case type::out_doc:
-
-                    case type::in_doc_nn:
-                    case type::out_doc_nn:
                       {
                         fail (l) << "here-document redirect in expansion";
                         break;
@@ -2093,7 +2061,7 @@ namespace build2
                 : lexer_mode::here_line_double);
           next (t, tt);
 
-          string v (parse_here_document (t, tt, h.end, h.no_newline));
+          string v (parse_here_document (t, tt, h.end, h.modifiers));
 
           if (!pre_parse_)
           {
@@ -2109,7 +2077,9 @@ namespace build2
       }
 
       string parser::
-      parse_here_document (token& t, type& tt, const string& em, bool nn)
+      parse_here_document (token& t, type& tt,
+                           const string& em,
+                           const string& mod)
       {
         // enter: first token on first line
         // leave: newline (after end marker)
@@ -2259,9 +2229,9 @@ namespace build2
         }
         else
         {
-          // Add final newline if requested.
+          // Add final newline unless suppressed.
           //
-          if (!nn)
+          if (mod.find (':') == string::npos)
             r += '\n';
         }
 

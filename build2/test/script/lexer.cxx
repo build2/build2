@@ -4,6 +4,8 @@
 
 #include <build2/test/script/lexer>
 
+#include <cstring> // strchr()
+
 using namespace std;
 
 namespace build2
@@ -176,6 +178,33 @@ namespace build2
         if (eos (c))
           return make_token (type::eos);
 
+        auto make_token_with_modifiers =
+          [&sep, ln, cn, this] (type t, const char* mods, bool exc = false)
+        {
+          string v;
+          if (mods != nullptr)
+          {
+            for (xchar p (peek ());
+                 (strchr (mods, p) != nullptr &&      // Modifier.
+                  strchr (v.c_str (), p) == nullptr); // Not already seen.
+                 p = peek ())
+            {
+              get ();
+              v += p;
+
+              // If mutually exclusive, then we are done.
+              //
+              if (exc)
+                break;
+            }
+          }
+
+          return token (t, move (v), sep,
+                        quote_type::unquoted, false,
+                        ln, cn,
+                        token_printer);
+        };
+
         state st (state_.top ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
@@ -299,27 +328,22 @@ namespace build2
             {
               xchar p (peek ());
 
-              if (p == '?' || p == '!' || p == '&')
+              if (p == '&')
               {
                 get ();
-
-                switch (p)
-                {
-                case '?': return make_token (type::clean_maybe);
-                case '!': return make_token (type::clean_never);
-                case '&': return make_token (type::log_and);
-                }
+                return make_token (type::log_and);
               }
-              else
-                return make_token (type::clean_always);
+
+              return make_token_with_modifiers (type::clean, "!?", true);
             }
             // <
             //
           case '<':
             {
+              type r (type::in_str);
               xchar p (peek ());
 
-              if (p == '+' || p == '-' || p == ':' || p == '<')
+              if (p == '+' || p == '-' || p == '<')
               {
                 get ();
 
@@ -327,35 +351,40 @@ namespace build2
                 {
                 case '+': return make_token (type::in_pass);
                 case '-': return make_token (type::in_null);
-                case ':': return make_token (type::in_str_nn);
                 case '<':
                   {
+                    r = type::in_doc;
                     p = peek ();
 
-                    if (p == ':' || p == '<')
+                    if (p == '<')
                     {
                       get ();
-
-                      return make_token (p == ':'
-                                         ? type::in_doc_nn
-                                         : type::in_file);
+                      r = type::in_file;
                     }
-                    else
-                      return make_token (type::in_doc);
+                    break;
                   }
                 }
               }
-              else
-                return make_token (type::in_str);
 
+              // Handle modifiers.
+              //
+              const char* mod (nullptr);
+              switch (r)
+              {
+              case type::in_str:
+              case type::in_doc: mod = ":"; break;
+              }
+
+              return make_token_with_modifiers (r, mod);
             }
             // >
             //
           case '>':
             {
+              type r (type::out_str);
               xchar p (peek ());
 
-              if (p == '+' || p == '-' || p == '&' || p == ':' || p == '>')
+              if (p == '+' || p == '-' || p == '&' || p == '>')
               {
                 get ();
 
@@ -364,37 +393,32 @@ namespace build2
                 case '+': return make_token (type::out_pass);
                 case '-': return make_token (type::out_null);
                 case '&': return make_token (type::out_merge);
-                case ':': return make_token (type::out_str_nn);
                 case '>':
                   {
+                    r = type::out_doc;
                     p = peek ();
 
-                    if (p == ':' || p == '>')
+                    if (p == '>')
                     {
                       get ();
-
-                      if (p == ':')
-                        return make_token (type::out_doc_nn);
-
-                      // File redirect.
-                      //
-                      p = peek ();
-
-                      if (p == '&')
-                      {
-                        get ();
-                        return make_token (type::out_file_app);
-                      }
-                      else
-                        return make_token (type::out_file);
+                      r = type::out_file;
                     }
-                    else
-                      return make_token (type::out_doc);
+                    break;
                   }
                 }
               }
-              else
-                return make_token (type::out_str);
+
+              // Handle modifiers.
+              //
+              const char* mod (nullptr);
+              switch (r)
+              {
+              case type::out_str:
+              case type::out_doc:  mod = "~:"; break;
+              case type::out_file: mod = "&";  break;
+              }
+
+              return make_token_with_modifiers (r, mod);
             }
           }
         }

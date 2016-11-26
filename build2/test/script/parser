@@ -102,7 +102,7 @@ namespace build2
           int fd;       // Redirect fd (0 - in, 1 - out, 2 - err).
           string end;
           bool literal;    // Literal (single-quote).
-          bool no_newline; // No final newline.
+          string modifiers;
         };
         using here_docs = vector<here_doc>;
 
@@ -116,7 +116,9 @@ namespace build2
         parse_here_documents (token&, token_type&,
                               pair<command_expr, here_docs>&);
         string
-        parse_here_document (token&, token_type&, const string&, bool);
+        parse_here_document (token&, token_type&,
+                             const string&,
+                             const string&);
 
         // Execute. Issue diagnostics and throw failed in case of an error.
         //
