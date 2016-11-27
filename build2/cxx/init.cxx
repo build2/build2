@@ -44,27 +44,52 @@ namespace build2
 
       if (ci.id.type == "msvc")
       {
-        // C++ standard-wise, with VC you get what you get. The question is
-        // whether we should verify that the requested standard is provided by
-        // this VC version. And if so, from which version should we say VC
-        // supports 11, 14, and 17? We should probably be as loose as possible
-        // here since the author will always be able to tighten (but not
-        // loosen) this in the buildfile (i.e., detect unsupported versions).
+        // C++ standard-wise, with VC you got what you got up until 14u2.
+        // Starting with 14u3 there is now the /std: switch which defaults
+        // to c++14 but can be set to c++latest.
+        //
+        // The question is also whether we should verify that the requested
+        // standard is provided by this VC version. And if so, from which
+        // version should we say VC supports 11, 14, and 17? We should
+        // probably be as loose as possible here since the author will always
+        // be able to tighten (but not loosen) this in the buildfile (i.e.,
+        // detect unsupported versions).
         //
         // For now we are not going to bother doing this for C++03.
         //
         if (v != "98" && v != "03")
         {
-          uint64_t cver (ci.version.major);
+          uint64_t mj (ci.version.major);
+          uint64_t mi (ci.version.minor);
+          uint64_t p (ci.version.patch);
 
-          // @@ Is mapping for 14 and 17 correct? Maybe Update 2 for 14?
-          //
-          if ((v == "11" && cver < 16) || // C++11 since VS2010/10.0.
-              (v == "14" && cver < 19) || // C++14 since VS2015/14.0.
-              (v == "17" && cver < 20))   // C++17 since VS20??/15.0.
+          bool sup (false);
+
+          if      (v == "11") // C++11 since VS2010/10.0.
           {
+            sup = mj >= 16;
+          }
+          else if (v == "14") // C++14 since VS2015/14.0.
+          {
+            sup = mj >= 19;
+          }
+          else if (v == "17") // C++17 since VS2015/14.0u2.
+          {
+            // Note: the VC15 compiler version is 19.10.
+            //
+            sup = mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918)));
+          }
+
+          if (!sup)
             fail << "C++" << v << " is not supported by " << ci.signature <<
               info << "required by " << project (rs) << '@' << rs.out_path ();
+
+          // VC14u3 and later has /std:
+          //
+          if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+          {
+            if (v == "17")
+              r = "/std:c++latest";
           }
         }
       }
