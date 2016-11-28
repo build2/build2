@@ -1,0 +1,76 @@
+// file      : build2/test/script/regex -*- C++ -*-
+// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_TEST_SCRIPT_REGEX
+#define BUILD2_TEST_SCRIPT_REGEX
+
+#include <regex>
+
+#include <build2/types>
+#include <build2/utility>
+
+namespace build2
+{
+  namespace test
+  {
+    namespace script
+    {
+      // @@ How can we get the position the first line_char in the output that
+      //    did not match, for diagnostics? Failed that it will be very hard
+      //    to debug match failures.
+      //
+
+      using char_string = std::basic_string<char>;
+      using char_regex = std::basic_regex<char>;
+
+      // Newlines are line separators and are not part of the line:
+      //
+      // line<newline>line<newline>
+      //
+      // Specifically, this means that a customary trailing newline creates a
+      // trailing blank line.
+      //
+      // Special characters should only be compared to special. All others
+      // can inter-compare (though there cannot be regex characters in the
+      // output, only in line_regex).
+      //
+      enum class line_type
+      {
+        blank,
+        special,
+        literal,
+        regex
+      };
+
+      struct line_char
+      {
+        line_type type;
+
+        union
+        {                       // Uninitialized if type is blank.
+          char special;         // [()|*+?{\}0123456789,=!] (excluding []).
+          char_string literal;
+          char_regex regex;
+        };
+      };
+
+      // Note: line_string is not NUL-terminated.
+      //
+      using line_string = vector<line_char>;
+
+      class line_regex: public std::basic_regex<line_char>
+      {
+      public:
+        using base_type = std::basic_regex<line_char>;
+
+        using base_type::base_type;
+
+        explicit
+        line_regex (const line_string&);
+      };
+    }
+  }
+}
+
+#endif // BUILD2_TEST_SCRIPT_REGEX

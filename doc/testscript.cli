@@ -1486,7 +1486,7 @@ which case it will only be equal to an identical line in the output. Or a
 line-char can be an inner level regex (like \c{ba+r} above) in which
 case it will be equal to any line in the output that matches this regex.
 Where not clear from context we will refer to this inner expression as
-\i{char-regex} and its characters as \c{char}.
+\i{char-regex} and its characters as \i{char}.
 
 A line is treated as literal unless it starts with the \i{regex introducer
 character} (\c{/} in the above example). In contrast, the line-regex is always
