@@ -82,12 +82,14 @@ namespace build2
     name () const {return name_;}
 
     // Note: sets mode for the next token. The second argument can be used to
-    // specifythe pair separator character (if the mode supports pairs).
+    // specifythe pair separator character (if the mode supports pairs). If
+    // escapes not specified, then inherit the current mode's (thought a mode
+    // can also override it).
     //
     virtual void
     mode (lexer_mode,
           char pair_separator = '\0',
-          const char* escapes = nullptr);
+          optional<const char*> escapes = nullopt);
 
     // Expire the current mode early.
     //

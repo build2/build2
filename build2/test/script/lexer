@@ -55,7 +55,9 @@ namespace build2
         }
 
         virtual void
-        mode (base_mode, char = '\0', const char* = nullptr) override;
+        mode (base_mode,
+              char = '\0',
+              optional<const char*> = nullopt) override;
 
         // Number of quoted (double or single) tokens since last reset.
         //

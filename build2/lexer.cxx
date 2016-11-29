@@ -30,12 +30,18 @@ namespace build2
   }
 
   void lexer::
-  mode (lexer_mode m, char ps, const char* esc)
+  mode (lexer_mode m, char ps, optional<const char*> esc)
   {
     const char* s1 (nullptr);
     const char* s2 (nullptr);
     bool s (true);
     bool q (true);
+
+    if (!esc)
+    {
+      assert (!state_.empty ());
+      esc = state_.top ().escapes;
+    }
 
     switch (m)
     {
@@ -76,7 +82,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, ps, s, q, esc, s1, s2});
+    state_.push (state {m, ps, s, q, *esc, s1, s2});
   }
 
   token lexer::
@@ -272,10 +278,15 @@ namespace build2
 
     uint64_t ln (c.line), cn (c.column);
 
+    auto make_token = [ln, cn] (type t)
+    {
+      return token (t, false, quote_type::double_, ln, cn, token_printer);
+    };
+
     switch (c)
     {
-    case '$': return token (type::dollar, false, ln, cn, token_printer);
-    case '(': return token (type::lparen, false, ln, cn, token_printer);
+    case '$': return make_token (type::dollar);
+    case '(': return make_token (type::lparen);
     }
 
     // Otherwise it is a word.

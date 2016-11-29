@@ -17,12 +17,18 @@ namespace build2
       using type = token_type;
 
       void lexer::
-      mode (base_mode m, char ps, const char* esc)
+      mode (base_mode m, char ps, optional<const char*> esc)
       {
         const char* s1 (nullptr);
         const char* s2 (nullptr);
         bool s (true);
         bool q (true);
+
+        if (!esc)
+        {
+          assert (!state_.empty ());
+          esc = state_.top ().escapes;
+        }
 
         switch (m)
         {
@@ -129,7 +135,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, ps, s, q, esc, s1, s2});
+        state_.push (state {m, ps, s, q, *esc, s1, s2});
       }
 
       token lexer::
@@ -170,16 +176,24 @@ namespace build2
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);
 
-        auto make_token = [&sep, ln, cn] (type t)
+        if (eos (c))
+          return token (type::eos, sep, ln, cn, token_printer);
+
+        state st (state_.top ()); // Make copy (see first/second_token).
+        lexer_mode m (st.mode);
+
+        auto make_token = [&sep, &m, ln, cn] (type t, string v = string ())
         {
-          return token (t, sep, ln, cn, token_printer);
+          bool q (m == lexer_mode::here_line_double);
+
+          return token (t, move (v), sep,
+                        (q ? quote_type::double_ : quote_type::unquoted), q,
+                        ln, cn,
+                        token_printer);
         };
 
-        if (eos (c))
-          return make_token (type::eos);
-
         auto make_token_with_modifiers =
-          [&sep, ln, cn, this] (type t, const char* mods, bool exc = false)
+          [&make_token, this] (type t, const char* mods, bool exc = false)
         {
           string v;
           if (mods != nullptr)
@@ -199,14 +213,8 @@ namespace build2
             }
           }
 
-          return token (t, move (v), sep,
-                        quote_type::unquoted, false,
-                        ln, cn,
-                        token_printer);
+          return make_token (t, move (v));
         };
-
-        state st (state_.top ()); // Make copy (see first/second_token).
-        lexer_mode m (st.mode);
 
         // Expire certain modes at the end of the token. Do it early in case
         // we push any new mode (e.g., double quote).
