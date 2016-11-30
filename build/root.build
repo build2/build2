@@ -11,7 +11,7 @@ ixx{*}: extension = ixx
 txx{*}: extension = txx
 cxx{*}: extension = cxx
 
-cxx.poptions =+ -I$out_root -I$src_root
+cxx.poptions =+ "-I$out_root" "-I$src_root"
 
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.

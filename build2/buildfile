@@ -18,6 +18,7 @@ exe{b}:                                                 \
             {            cxx}{ functions-builtin      } \
             {            cxx}{ functions-path         } \
 	    {            cxx}{ functions-process-path } \
+	    {            cxx}{ functions-string       } \
             {hxx         cxx}{ lexer                  } \
             {hxx         cxx}{ module                 } \
             {hxx ixx     cxx}{ name                   } \

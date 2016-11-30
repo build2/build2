@@ -4,13 +4,13 @@ $* foo.test   <'cmd $@' >"cmd foo/1" # id
 wd = [dir_path] $~;
 wd += test-driver;
 wd += 1;
-$* testscript <'cmd $~' >"cmd $wd"   # wd-testscript
+$* testscript <'cmd "$~"' >"cmd $wd"   # wd-testscript
 
 wd = [dir_path] $~;
 wd += test-driver;
 wd += foo;
 wd += 1;
-$* foo.test   <'cmd $~' >"cmd $wd"   # wd
+$* foo.test   <'cmd "$~"' >"cmd $wd"   # wd
 
 $* -s <<EOI                          # group-empty
 {

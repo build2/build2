@@ -145,7 +145,23 @@ namespace build2
     erase (iterator i) {map_.erase (i);}
 
     value
-    call (const string& name, vector_view<value> args, const location&) const;
+    call (const string& name, vector_view<value> args, const location& l) const
+    {
+      return call (name, args, l, true).first;
+    }
+
+    // As above but do not fail if no match was found (but still do if the
+    // match is ambiguous). Instead return an indication of whether the call
+    // was made. Used to issue custom diagnostics when calling internal
+    // functions.
+    //
+    pair<value, bool>
+    try_call (const string& name,
+              vector_view<value> args,
+              const location& l) const
+    {
+      return call (name, args, l, false);
+    }
 
     iterator
     begin () {return map_.begin ();}
@@ -160,6 +176,9 @@ namespace build2
     end () const {return map_.end ();}
 
   private:
+    pair<value, bool>
+    call (const string&, vector_view<value>, const location&, bool fail) const;
+
     map_type map_;
   };
 

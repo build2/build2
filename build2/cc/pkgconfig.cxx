@@ -314,7 +314,7 @@ namespace build2
               continue;
             }
 
-            libs.push_back (name (move (o), false));
+            libs.push_back (name (move (o)));
             continue;
           }
 

@@ -208,14 +208,11 @@ namespace build2
     // Assign/append/prepend raw data. Variable is optional and is only used
     // for diagnostics.
     //
-    void
-    assign (names&&, const variable*);
+    void assign  (names&&, const variable*);
+    void assign  (name&&, const variable*);  // Shortcut for single name.
+    void append  (names&&, const variable*);
+    void prepend (names&&, const variable*);
 
-    void
-    append (names&&, const variable*);
-
-    void
-    prepend (names&&, const variable*);
 
     // Implementation details, don't use directly except in representation
     // type implementations.
@@ -229,13 +226,14 @@ namespace build2
       return reinterpret_cast<const T&> (data_);}
 
   public:
-    // The maximum size we can store directly in the value is that of a name,
-    // which is sufficient for the most commonly used types (string, vector,
-    // map) on all the platforms that we support (each type should static
-    // assert this in its value_traits specialization below). Types that don't
-    // fit will have to be handled with an extra dynamic allocation.
+    // The maximum size we can store directly in the value is that of names
+    // (which is a small_vector<name, 1>), which is sufficient for the most
+    // commonly used types (string, vector, map) on all the platforms that we
+    // support (each type should static assert this in its value_traits
+    // specialization below). Types that don't fit will have to be handled
+    // with an extra dynamic allocation.
     //
-    std::aligned_storage<sizeof (name)>::type data_;
+    std::aligned_storage<sizeof (names)>::type data_;
 
     // VC14 needs decltype.
     //
@@ -413,6 +411,10 @@ namespace build2
   //   //
   //   static bool empty (const T&);
   //
+  //   // True if can be constructed from empty names as T().
+  //   //
+  //   static const bool empty_value = true;
+  //
   //   // For simple types (those that can be used as elements of containers),
   //   // type_name must be constexpr in order to sidestep the static init
   //   // order issue (in fact, that's the only reason we have it both here
@@ -431,10 +433,11 @@ namespace build2
   template <typename T> T convert (name&&);
   template <typename T> T convert (name&&, name&&);
 
-  // As above but for container types. Note that in case of invalid_argument
-  // the names are not guaranteed to be unchanged.
+  // As above but can also be called for container types. Note that in this
+  // case (container) if invalid_argument is thrown, the names are not
+  // guaranteed to be unchanged.
   //
-  template <typename T> T convert (names&&);
+  //template <typename T> T convert (names&&); (declaration causes ambiguity)
 
   // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
   // types that are stored directly in value::data_ and the provide all the
@@ -462,19 +465,17 @@ namespace build2
   // Default implementations of the assign/append/prepend callbacks for simple
   // types. They call value_traits<T>::convert() and then pass the result to
   // value_traits<T>::assign()/append()/prepend(). As a result, it may not be
-  // the most efficient way to do it. If the empty template parameter is true,
-  // then an empty names sequence is converted to a default-constructed T. And
-  // if false, then an empty value is not allowed.
+  // the most efficient way to do it.
   //
-  template <typename T, bool empty>
+  template <typename T>
   static void
   simple_assign (value&, names&&, const variable*);
 
-  template <typename T, bool empty>
+  template <typename T>
   static void
   simple_append (value&, names&&, const variable*);
 
-  template <typename T, bool empty>
+  template <typename T>
   static void
   simple_prepend (value&, names&&, const variable*);
 
@@ -503,10 +504,11 @@ namespace build2
     static bool convert (name&&, name*);
     static void assign (value&, bool);
     static void append (value&, bool); // OR.
-    static name reverse (bool x) {return name (x ? "true" : "false", false);}
+    static name reverse (bool x) {return name (x ? "true" : "false");}
     static int compare (bool, bool);
     static bool empty (bool) {return false;}
 
+    static const bool empty_value = false;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -519,10 +521,11 @@ namespace build2
     static uint64_t convert (name&&, name*);
     static void assign (value&, uint64_t);
     static void append (value&, uint64_t); // ADD.
-    static name reverse (uint64_t x) {return name (to_string (x), false);}
+    static name reverse (uint64_t x) {return name (to_string (x));}
     static int compare (uint64_t, uint64_t);
     static bool empty (bool) {return false;}
 
+    static const bool empty_value = false;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -548,10 +551,11 @@ namespace build2
     static void assign (value&, string&&);
     static void append (value&, string&&);
     static void prepend (value&, string&&);
-    static name reverse (const string& x) {return name (x, false);}
+    static name reverse (const string& x) {return name (x);}
     static int compare (const string&, const string&);
     static bool empty (const string& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -572,10 +576,15 @@ namespace build2
     static void assign (value&, path&&);
     static void append (value&, path&&);  // operator/
     static void prepend (value&, path&&); // operator/
-    static name reverse (const path& x) {return name (x.string (), false);}
+    static name reverse (const path& x) {
+      return x.to_directory ()
+        ? name (path_cast<dir_path> (x))
+        : name (x.string ());
+    }
     static int compare (const path&, const path&);
     static bool empty (const path& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -591,10 +600,11 @@ namespace build2
     static void assign (value&, dir_path&&);
     static void append (value&, dir_path&&);  // operator/
     static void prepend (value&, dir_path&&); // operator/
-    static name reverse (const dir_path& x) {return name (x, false);}
+    static name reverse (const dir_path& x) {return name (x);}
     static int compare (const dir_path&, const dir_path&);
     static bool empty (const dir_path& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -610,10 +620,11 @@ namespace build2
     static abs_dir_path convert (name&&, name*);
     static void assign (value&, abs_dir_path&&);
     static void append (value&, abs_dir_path&&);  // operator/
-    static name reverse (const abs_dir_path& x) {return name (x, false);}
+    static name reverse (const abs_dir_path& x) {return name (x);}
     static int compare (const abs_dir_path&, const abs_dir_path&);
     static bool empty (const abs_dir_path& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -631,6 +642,7 @@ namespace build2
     static int compare (const name&, const name&);
     static bool empty (const name& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -653,6 +665,7 @@ namespace build2
     static int compare (const process_path&, const process_path&);
     static bool empty (const process_path& x) {return x.empty ();}
 
+    static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
   };

@@ -58,13 +58,11 @@ namespace build2
   value& value::
   operator= (value&& v)
   {
-    assert (type == nullptr || type == v.type);
-
     if (this != &v)
     {
       // Prepare the receiving value.
       //
-      if (type == nullptr && v.type != nullptr)
+      if (type != v.type)
       {
         *this = nullptr;
         type = v.type;
@@ -99,13 +97,11 @@ namespace build2
   value& value::
   operator= (const value& v)
   {
-    assert (type == nullptr || type == v.type);
-
     if (this != &v)
     {
       // Prepare the receiving value.
       //
-      if (type == nullptr && v.type != nullptr)
+      if (type != v.type)
       {
         *this = nullptr;
         type = v.type;
@@ -212,7 +208,7 @@ namespace build2
           ns.insert (ns.end (),
                      make_move_iterator (p.begin ()),
                      make_move_iterator (p.end ()));
-          p.swap (ns);
+          p = move (ns);
         }
       }
     }
@@ -388,8 +384,7 @@ namespace build2
       if (n.simple ())
         m += "'" + n.value + "'";
       else if (n.directory ())
-        m += "'" +
-          (n.original ? n.dir.representation () : n.dir.string ()) + "'";
+        m += "'" + n.dir.representation () + "'";
       else
         m += "complex name";
     }
@@ -428,9 +423,9 @@ namespace build2
     nullptr,                      // No dtor (POD).
     nullptr,                      // No copy_ctor (POD).
     nullptr,                      // No copy_assign (POD).
-    &simple_assign<bool, false>,  // No empty value.
-    &simple_append<bool, false>,
-    &simple_append<bool, false>,  // Prepend same as append.
+    &simple_assign<bool>,
+    &simple_append<bool>,
+    &simple_append<bool>,         // Prepend same as append.
     &simple_reverse<bool>,
     nullptr,              // No cast (cast data_ directly).
     nullptr,              // No compare (compare as POD).
@@ -469,9 +464,9 @@ namespace build2
     nullptr,                          // No dtor (POD).
     nullptr,                          // No copy_ctor (POD).
     nullptr,                          // No copy_assign (POD).
-    &simple_assign<uint64_t, false>,  // No empty value.
-    &simple_append<uint64_t, false>,
-    &simple_append<uint64_t, false>,  // Prepend same as append.
+    &simple_assign<uint64_t>,
+    &simple_append<uint64_t>,
+    &simple_append<uint64_t>,         // Prepend same as append.
     &simple_reverse<uint64_t>,
     nullptr,                          // No cast (cast data_ directly).
     nullptr,                          // No compare (compare as POD).
@@ -497,13 +492,10 @@ namespace build2
     string s;
 
     if (n.directory (true))
-      // Use either the precise or traditional representation depending on
-      // whether this is the original name (if it is, then this might not be
-      // a path after all; think s/foo/bar/).
+      // Note that here we cannot assume what's in dir is really a
+      // path (think s/foo/bar/) so we have to reverse it exactly.
       //
-      s = n.original
-        ? move (n.dir).representation () // Move out of path.
-        : move (n.dir).string ();
+      s = move (n.dir).representation (); // Move out of path.
     else
       s.swap (n.value);
 
@@ -530,12 +522,7 @@ namespace build2
       }
 
       if (r->directory (true))
-      {
-        if (r->original)
-          s += move (r->dir).representation ();
-        else
-          s += r->dir.string ();
-      }
+        s += move (r->dir).representation ();
       else
         s += r->value;
     }
@@ -553,9 +540,9 @@ namespace build2
     &default_dtor<string>,
     &default_copy_ctor<string>,
     &default_copy_assign<string>,
-    &simple_assign<string, true>, // Allow empty strings.
-    &simple_append<string, true>,
-    &simple_prepend<string, true>,
+    &simple_assign<string>,
+    &simple_append<string>,
+    &simple_prepend<string>,
     &simple_reverse<string>,
     nullptr,                      // No cast (cast data_ directly).
     &simple_compare<string>,
@@ -599,9 +586,9 @@ namespace build2
     &default_dtor<path>,
     &default_copy_ctor<path>,
     &default_copy_assign<path>,
-    &simple_assign<path, true>, // Allow empty paths.
-    &simple_append<path, true>,
-    &simple_prepend<path, true>,
+    &simple_assign<path>,
+    &simple_append<path>,
+    &simple_prepend<path>,
     &simple_reverse<path>,
     nullptr,                    // No cast (cast data_ directly).
     &simple_compare<path>,
@@ -643,9 +630,9 @@ namespace build2
     &default_dtor<dir_path>,
     &default_copy_ctor<dir_path>,
     &default_copy_assign<dir_path>,
-    &simple_assign<dir_path, true>, // Allow empty paths.
-    &simple_append<dir_path, true>,
-    &simple_prepend<dir_path, true>,
+    &simple_assign<dir_path>,
+    &simple_append<dir_path>,
+    &simple_prepend<dir_path>,
     &simple_reverse<dir_path>,
     nullptr,                        // No cast (cast data_ directly).
     &simple_compare<dir_path>,
@@ -689,8 +676,8 @@ namespace build2
     &default_dtor<abs_dir_path>,
     &default_copy_ctor<abs_dir_path>,
     &default_copy_assign<abs_dir_path>,
-    &simple_assign<abs_dir_path, true>,  // Allow empty paths.
-    &simple_append<abs_dir_path, true>,
+    &simple_assign<abs_dir_path>,
+    &simple_append<abs_dir_path>,
     nullptr,                             // No prepend.
     &simple_reverse<abs_dir_path>,
     nullptr,                             // No cast (cast data_ directly).
@@ -704,10 +691,7 @@ namespace build2
   convert (name&& n, name* r)
   {
     if (r == nullptr)
-    {
-      n.original = false;
       return move (n);
-    }
 
     throw_invalid_argument (n, r, "name");
   }
@@ -729,7 +713,7 @@ namespace build2
     &default_dtor<name>,
     &default_copy_ctor<name>,
     &default_copy_assign<name>,
-    &simple_assign<name, true>, // Allow empty names.
+    &simple_assign<name>,
     nullptr,                    // Append not supported.
     nullptr,                    // Prepend not supported.
     &name_reverse,

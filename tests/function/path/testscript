@@ -19,8 +19,8 @@ end
 : normalize
 :
 {
-  $* <'print $normalize([path] a/../b/)'             >"b"        : path
-  $* <'print $normalize([paths] a/../b/ a/../c)'     >"b c"      : paths
+  $* <'print $normalize([path] a/../b)'              >"b"        : path
+  $* <'print $normalize([paths] a/../b a/../c)'      >"b c"      : paths
   $* <'print $normalize([dir_path] a/../b)'          >"b$s"      : dir-path
   $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
   $* <'print $path.normalize(a/../b)'                >"b"        : untyped

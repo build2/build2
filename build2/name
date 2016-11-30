@@ -23,14 +23,11 @@ namespace build2
   // a project. If the project name is empty, then it means the name is in a
   // project other than our own (e.g., it is installed).
   //
+  // A type or project can only be specified if either directory or value are
+  // not empty.
+  //
   // If pair is not '\0', then this name and the next in the list form a
   // pair. Can be used as a bool flag.
-  //
-  // The original flag indicates whether this is the original name (e.g., came
-  // from the buildfile) or if it is the result of reversing a typed value.
-  // Original names have stricter representation requirements since we don't
-  // know what they actually mean (e.g., is s/foo/bar/ really a directory or
-  // a sed script).
   //
   struct name
   {
@@ -39,11 +36,10 @@ namespace build2
     string type;
     string value;
     char pair = '\0';
-    bool original = true;
 
     name () = default;
-    name (string v, bool o): value (move (v)), original (o) {}
-    name (dir_path d, bool o): dir (move (d)), original (o) {}
+    name (string v): value (move (v)) {}
+    name (dir_path d): dir (move (d)) {}
     name (string t, string v): type (move (t)), value (move (v)) {}
 
     name (dir_path d, string t, string v)
@@ -66,6 +62,8 @@ namespace build2
     bool
     untyped () const {return type.empty ();}
 
+    // Note: if dir and value are empty then so should be proj and type.
+    //
     bool
     empty () const {return dir.empty () && value.empty ();}
 
@@ -101,6 +99,11 @@ namespace build2
   inline bool
   operator< (const name& x, const name& y) {return x.compare (y) < 0;}
 
+  // Return string representation of a name.
+  //
+  string
+  to_string (const name&);
+
   // Serialize the name to the stream. If requested, the name components
   // containing special characters are quoted. The special characters are:
   //
@@ -122,17 +125,14 @@ namespace build2
   inline ostream&
   operator<< (ostream& os, const name& n) {return to_stream (os, n, false);}
 
-
   // Vector of names.
   //
-  // We make it a separate type rather than an alias for vector<name> in order
-  // to distinguish between untyped variable values (names) and typed ones
-  // (vector<name>).
+  // Quote often it will contain just one element so we use small_vector<1>.
+  // Note also that it must be a separate type rather than an alias for
+  // vector<name> in order to distinguish between untyped variable values
+  // (names) and typed ones (vector<name>).
   //
-  struct names: vector<name>
-  {
-    using vector::vector;
-  };
+  using names = small_vector<name, 1>;
 
   using names_view = vector_view<const name>;
 

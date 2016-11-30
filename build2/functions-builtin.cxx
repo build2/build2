@@ -20,5 +20,11 @@ namespace build2
     f["empty"] = [](value v)  {return v.empty ();};
 
     f["identity"] = [](value* v) {return move (*v);};
+
+    // string
+    //
+    f["string"] = [](bool b) {return b ? "true" : "false";};
+    f["string"] = [](uint64_t i) {return to_string (i);};
+    f["string"] = [](name n) {return to_string (n);};
   }
 }

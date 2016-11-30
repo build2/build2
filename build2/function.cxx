@@ -73,8 +73,11 @@ namespace build2
     return i;
   }
 
-  value function_map::
-  call (const string& name, vector_view<value> args, const location& loc) const
+  pair<value, bool> function_map::
+  call (const string& name,
+        vector_view<value> args,
+        const location& loc,
+        bool fa) const
   {
     auto print_call = [&name, &args] (ostream& os)
     {
@@ -157,13 +160,13 @@ namespace build2
     {
     case 1:
       {
-        // Print the call location if the function fails.
+        // Print the call location in case the function fails.
         //
         auto g (
           make_exception_guard (
-            [&loc, &print_call] ()
+            [fa, &loc, &print_call] ()
             {
-              if (verb != 0)
+              if (fa && verb != 0)
               {
                 diag_record dr (info (loc));
                 dr << "while calling "; print_call (dr.os);
@@ -171,10 +174,13 @@ namespace build2
             }));
 
         auto f (r.back ());
-        return f->impl (move (args), *f);
+        return make_pair (f->impl (move (args), *f), true);
       }
     case 0:
       {
+        if (!fa)
+          return make_pair (value (nullptr), false);
+
         // No match.
         //
         diag_record dr;
@@ -298,6 +304,7 @@ namespace build2
   void builtin_functions ();       // functions-builtin.cxx
   void path_functions ();          // functions-path.cxx
   void process_path_functions ();  // functions-process-path.cxx
+  void string_functions ();        // functions-string.cxx
 
   struct functions_init
   {
@@ -306,6 +313,7 @@ namespace build2
       builtin_functions ();
       path_functions ();
       process_path_functions ();
+      string_functions ();
     }
   };
 

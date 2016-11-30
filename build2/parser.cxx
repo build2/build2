@@ -658,7 +658,7 @@ namespace build2
                 fail (ploc) << "unknown target type " << pn.type;
 
               if (!pn.dir.empty ())
-                pn.dir.normalize ();
+                pn.dir.normalize (); //@@ NORM (empty)
 
               // Find or insert.
               //
@@ -781,7 +781,7 @@ namespace build2
 
     for (name& n: ns)
     {
-      if (n.pair || n.qualified () || n.empty () || n.value.empty ())
+      if (n.pair || n.qualified () || n.typed () || n.value.empty ())
         fail (l) << "expected buildfile instead of " << n;
 
       // Construct the buildfile path.
@@ -857,7 +857,7 @@ namespace build2
 
     for (name& n: ns)
     {
-      if (n.pair || n.qualified () || n.empty ())
+      if (n.pair || n.qualified () || n.typed () || n.empty ())
         fail (l) << "expected buildfile instead of " << n;
 
       // Construct the buildfile path. If it is a directory, then append
@@ -1983,7 +1983,7 @@ namespace build2
                        names& ns,
                        const char* what,
                        const string* separators,
-                       size_t pair,
+                       size_t pairn,
                        const string* pp,
                        const dir_path* dp,
                        const string* tp)
@@ -1998,8 +1998,8 @@ namespace build2
                  false,
                  what,
                  separators,
-                 (pair != 0
-                  ? pair
+                 (pairn != 0
+                  ? pairn
                   : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
                  pp, dp, tp);
     count = ns.size () - count;
@@ -2105,7 +2105,7 @@ namespace build2
                bool chunk,
                const char* what,
                const string* separators,
-               size_t pair,
+               size_t pairn,
                const string* pp,
                const dir_path* dp,
                const string* tp)
@@ -2130,35 +2130,180 @@ namespace build2
     // The idea is to concatenate all the individual parts in this buffer and
     // then re-inject it into the loop as a single token.
     //
+    // If the concatenation is untyped (see below), then the name should be
+    // simple (i.e., just a string).
+    //
     bool concat (false);
-    string concat_str;
+    name concat_data;
+
+    auto concat_typed = [&vnull, &vtype, &concat, &concat_data, this]
+      (value&& rhs, const location& loc)
+    {
+      // If we have no LHS yet, then simply copy value/type.
+      //
+      if (concat)
+      {
+        small_vector<value, 2> a;
+
+        // Convert LHS to value.
+        //
+        a.push_back (value (vtype)); // Potentially typed NULL value.
+
+        if (!vnull)
+          a.back ().assign (move (concat_data), nullptr);
+
+        // RHS.
+        //
+        a.push_back (move (rhs));
+
+        const char* l ((a[0].type != nullptr ? a[0].type->name : "<untyped>"));
+        const char* r ((a[1].type != nullptr ? a[1].type->name : "<untyped>"));
+
+        pair<value, bool> p;
+        {
+          // Print the location information in case the function fails.
+          //
+          auto g (
+            make_exception_guard (
+              [&loc, l, r] ()
+              {
+                if (verb != 0)
+                  info (loc) << "while concatenating " << l << " to " << r <<
+                    info << "use quoting to force untyped concatenation";
+              }));
+
+          p = functions.try_call (
+            "builtin.concat", vector_view<value> (a), loc);
+        }
+
+        if (!p.second)
+          fail (loc) << "no typed concatenation of " << l << " to " << r <<
+            info << "use quoting to force untyped concatenation";
+
+        rhs = move (p.first);
+
+        // It seems natural to expect that a typed concatenation result
+        // is also typed.
+        //
+        assert (rhs.type != nullptr);
+      }
+
+      vnull = rhs.null;
+      vtype = rhs.type;
+
+      if (!vnull)
+      {
+        untypify (rhs);
+        names& d (rhs.as<names> ());
+        assert (d.size () == 1); // Must be single value.
+        concat_data = move (d[0]);
+      }
+    };
+
 
     // Number of names in the last group. This is used to detect when
     // we need to add an empty first pair element (e.g., @y) or when
     // we have a (for now unsupported) multi-name LHS (e.g., {x y}@z).
     //
     size_t count (0);
+    size_t start (ns.size ());
 
     for (bool first (true);; first = false)
     {
       // Note that here we assume that, except for the first iterartion,
       // tt contains the type of the peeked token.
 
-      // If the accumulating buffer is not empty, then we have two options:
-      // continue accumulating or inject. We inject if the next token is
-      // not a word, var expansion, or eval context or if it is separated.
+      // Return true if the next token which should be peeked at won't be part
+      // of the name.
+      //
+      auto last_token = [chunk, this] ()
+      {
+        const token& t (peeked ());
+        type tt (t.type);
+
+        return ((chunk && t.separated) ||
+                (tt != type::word    &&
+                 tt != type::dollar  &&
+                 tt != type::lparen  &&
+                 tt != type::lcbrace &&
+                 tt != type::pair_separator));
+      };
+
+      // If we have accumulated some concatenations, then we have two options:
+      // continue accumulating or inject. We inject if the next token is not a
+      // word, var expansion, or eval context or if it is separated.
       //
       if (concat &&
           ((tt != type::word   &&
             tt != type::dollar &&
             tt != type::lparen) || peeked ().separated))
       {
-        tt = type::word;
-        t = token (move (concat_str),
-                   true,
-                   quote_type::unquoted, false,
-                   t.line, t.column);
+        // Concatenation does not affect the tokens we get, only what we do
+        // with them. As a result, we never set the concat flag during pre-
+        // parsing.
+        //
+        assert (!pre_parse_);
         concat = false;
+
+        // If this is a result of typed concatenation, then don't inject. For
+        // one we don't want any of the "interpretations" performed in the
+        // word parsing code below.
+        //
+        // And if this is the only name, then we also want to preserve the
+        // type in the result.
+        //
+        // There is one exception, however: if the type is path, dir_path, or
+        // string and what follows is an unseparated '{', then we need to
+        // de-type it and inject in order to support our directory/target-type
+        // syntax, for example:
+        //
+        // $out_root/foo/lib{bar}
+        // $out_root/$libtype{bar}
+        //
+        // This means that a target type must be a valid path component.
+        //
+        vnull = false; // A concatenation cannot produce NULL.
+
+        if (vtype != nullptr)
+        {
+          if (tt == type::lcbrace && !peeked ().separated)
+          {
+            if (vtype == &value_traits<path>::value_type ||
+                vtype == &value_traits<string>::value_type)
+              ; // Representation is already in concat_data.value.
+            else if (vtype == &value_traits<dir_path>::value_type)
+              concat_data.value = move (concat_data.dir).representation ();
+            else
+              fail (t) << "expected directory and/or target type "
+                       << "instead of " << vtype->name;
+
+            vtype = nullptr;
+            // Fall through to injection.
+          }
+          else
+          {
+            ns.push_back (move (concat_data));
+
+            // Clear the type information if that's not the only name.
+            //
+            if (start != ns.size () || !last_token ())
+              vtype = nullptr;
+
+            // Restart the loop (but now with concat mode off) to handle
+            // chunking, etc.
+            //
+            continue;
+          }
+        }
+
+        // Replace the current token with our injection (after handling it
+        // we will peek at the current token again).
+        //
+        tt = type::word;
+        t = token (move (concat_data.value),
+                   true,
+                   quote_type::unquoted, false, // @@ Not quite true.
+                   t.line, t.column);
       }
       else if (!first)
       {
@@ -2174,8 +2319,12 @@ namespace build2
       //
       if (tt == type::word)
       {
-        string name (move (t.value));
         tt = peek ();
+
+        if (pre_parse_)
+          continue;
+
+        string val (move (t.value));
 
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
@@ -2187,180 +2336,173 @@ namespace build2
             ((tt == type::dollar ||
               tt == type::lparen) && !peeked ().separated)) // Start.
         {
-          if (!pre_parse_)
+          // If LHS is typed then do typed concatenation.
+          //
+          if (concat && vtype != nullptr)
           {
-            if (concat_str.empty ())
-              concat_str = move (name);
+            // Create untyped RHS.
+            //
+            names ns;
+            ns.push_back (name (move (val)));
+            concat_typed (value (move (ns)), get_location (t));
+          }
+          else
+          {
+            auto& v (concat_data.value);
+
+            if (v.empty ())
+              v = move (val);
             else
-              concat_str += name;
+              v += val;
           }
 
           concat = true;
           continue;
         }
 
-        if (!pre_parse_)
+        // Find a separator (slash or %).
+        //
+        string::size_type p (separators != nullptr
+                             ? val.find_last_of (*separators)
+                             : string::npos);
+
+        // First take care of project. A project-qualified name is not very
+        // common, so we can afford some copying for the sake of simplicity.
+        //
+        const string* pp1 (pp);
+
+        if (p != string::npos)
         {
-          // Find a separator (slash or %).
-          //
-          string::size_type p (separators != nullptr
-                               ? name.find_last_of (*separators)
-                               : string::npos);
+          bool last (val[p] == '%');
+          string::size_type p1 (last ? p : val.rfind ('%', p - 1));
 
-          // First take care of project. A project-qualified name is
-          // not very common, so we can afford some copying for the
-          // sake of simplicity.
-          //
-          const string* pp1 (pp);
-
-          if (p != string::npos)
+          if (p1 != string::npos)
           {
-            bool last (name[p] == '%');
-            string::size_type p1 (last ? p : name.rfind ('%', p - 1));
+            string proj;
+            proj.swap (val);
 
-            if (p1 != string::npos)
-            {
-              string proj;
-              proj.swap (name);
-
-              // First fix the rest of the name.
-              //
-              name.assign (proj, p1 + 1, string::npos);
-              p = last ? string::npos : p - (p1 + 1);
-
-              // Now process the project name.
-              //
-              proj.resize (p1);
-
-              if (pp != nullptr)
-                fail (t) << "nested project name " << proj;
-
-              pp1 = &project_name_pool.find (proj);
-            }
-          }
-
-          string::size_type n (p != string::npos ? name.size () - 1 : 0);
-
-          // See if this is a type name, directory prefix, or both. That
-          // is, it is followed by an un-separated '{'.
-          //
-          if (tt == type::lcbrace && !peeked ().separated)
-          {
-            next (t, tt);
-
-            if (p != n && tp != nullptr)
-              fail (t) << "nested type name " << name;
-
-            dir_path d1;
-            const dir_path* dp1 (dp);
-
-            string t1;
-            const string* tp1 (tp);
-
-            if (p == string::npos) // type
-              tp1 = &name;
-            else if (p == n) // directory
-            {
-              if (dp == nullptr)
-                d1 = dir_path (name);
-              else
-                d1 = *dp / dir_path (name);
-
-              dp1 = &d1;
-            }
-            else // both
-            {
-              t1.assign (name, p + 1, n - p);
-
-              if (dp == nullptr)
-                d1 = dir_path (name, 0, p + 1);
-              else
-                d1 = *dp / dir_path (name, 0, p + 1);
-
-              dp1 = &d1;
-              tp1 = &t1;
-            }
-
-            count = parse_names_trailer (
-              t, tt, ns, what, separators, pair, pp1, dp1, tp1);
-            tt = peek ();
-            continue;
-          }
-
-          // If we are a second half of a pair, add another first half
-          // unless this is the first instance.
-          //
-          if (pair != 0 && pair != ns.size ())
-            ns.push_back (ns[pair - 1]);
-
-          count = 1;
-
-          // If it ends with a directory separator, then it is a directory.
-          // Note that at this stage we don't treat '.' and '..' as special
-          // (unless they are specified with a directory separator) because
-          // then we would have ended up treating '.: ...' as a directory
-          // scope.  Instead, this is handled higher up the processing chain,
-          // in scope::find_target_type(). This would also mess up
-          // reversibility to simple name.
-          //
-          // @@ TODO: and not quoted
-          //
-          if (p == n)
-          {
-            // For reversibility to simple name, only treat it as a directory
-            // if the string is an exact representation.
+            // First fix the rest of the name.
             //
-            dir_path dir (move (name), dir_path::exact);
+            val.assign (proj, p1 + 1, string::npos);
+            p = last ? string::npos : p - (p1 + 1);
 
-            if (!dir.empty ())
-            {
-              if (dp != nullptr)
-                dir = *dp / dir;
+            // Now process the project name.
+            //
+            proj.resize (p1);
 
-              ns.emplace_back (pp1,
-                               move (dir),
-                               (tp != nullptr ? *tp : string ()),
-                               string ());
-              continue;
-            }
+            if (pp != nullptr)
+              fail (t) << "nested project name " << proj;
+
+            pp1 = &project_name_pool.find (proj);
           }
-
-          ns.emplace_back (pp1,
-                           (dp != nullptr ? *dp : dir_path ()),
-                           (tp != nullptr ? *tp : string ()),
-                           move (name));
         }
 
+        string::size_type n (p != string::npos ? val.size () - 1 : 0);
+
+        // See if this is a type name, directory prefix, or both. That
+        // is, it is followed by an un-separated '{'.
+        //
+        if (tt == type::lcbrace && !peeked ().separated)
+        {
+          next (t, tt);
+
+          if (p != n && tp != nullptr)
+            fail (t) << "nested type name " << val;
+
+          dir_path d1;
+          const dir_path* dp1 (dp);
+
+          string t1;
+          const string* tp1 (tp);
+
+          if (p == string::npos) // type
+            tp1 = &val;
+          else if (p == n) // directory
+          {
+            if (dp == nullptr)
+              d1 = dir_path (val);
+            else
+              d1 = *dp / dir_path (val);
+
+            dp1 = &d1;
+          }
+          else // both
+          {
+            t1.assign (val, p + 1, n - p);
+
+            if (dp == nullptr)
+              d1 = dir_path (val, 0, p + 1);
+            else
+              d1 = *dp / dir_path (val, 0, p + 1);
+
+            dp1 = &d1;
+            tp1 = &t1;
+          }
+
+          count = parse_names_trailer (
+            t, tt, ns, what, separators, pairn, pp1, dp1, tp1);
+          tt = peek ();
+          continue;
+        }
+
+        // If we are a second half of a pair, add another first half
+        // unless this is the first instance.
+        //
+        if (pairn != 0 && pairn != ns.size ())
+          ns.push_back (ns[pairn - 1]);
+
+        count = 1;
+
+        // If it ends with a directory separator, then it is a directory.
+        // Note that at this stage we don't treat '.' and '..' as special
+        // (unless they are specified with a directory separator) because
+        // then we would have ended up treating '.: ...' as a directory
+        // scope. Instead, this is handled higher up the processing chain,
+        // in scope::find_target_type(). This would also mess up
+        // reversibility to simple name.
+        //
+        // @@ TODO: and not quoted (but what about partially quoted, e.g.,
+        //    "foo bar"/ or concatenated, e.g., $dir/foo/).
+        //
+        if (p == n)
+        {
+          // For reversibility to simple name, only treat it as a directory
+          // if the string is an exact representation.
+          //
+          dir_path dir (move (val), dir_path::exact);
+
+          if (!dir.empty ())
+          {
+            if (dp != nullptr)
+              dir = *dp / dir;
+
+            ns.emplace_back (pp1,
+                             move (dir),
+                             (tp != nullptr ? *tp : string ()),
+                             string ());
+            continue;
+          }
+        }
+
+        ns.emplace_back (pp1,
+                         (dp != nullptr ? *dp : dir_path ()),
+                         (tp != nullptr ? *tp : string ()),
+                         move (val));
         continue;
       }
 
-      // Variable expansion/function call or eval context.
+      // Variable expansion, function call, or eval context.
       //
       if (tt == type::dollar || tt == type::lparen)
       {
-        // These two cases are pretty similar in that in both we quickly end
-        // up with a list of names that we need to splice into the result.
+        // These cases are pretty similar in that in both we quickly end up
+        // with a list of names that we need to splice into the result.
         //
-        names lv_storage;
-        names_view lv;
-
-        // Check if we should set/propagate value NULL/type. We only do this
-        // if this is the only expansion, that is, it is the first and the
-        // text token is not part of the name.
-        //
-        auto set_value = [first, &tt] ()
-        {
-          return first &&
-            tt != type::word &&
-            tt != type::dollar &&
-            tt != type::lparen &&
-            tt != type::lcbrace &&
-            tt != type::pair_separator;
-        };
-
         location loc;
+        value result_data;
+        const value* result (&result_data);
         const char* what; // Variable, function, or evaluation context.
-        value result;     // Holds function call/eval context result.
+        bool quoted (t.qtype != quote_type::unquoted);
 
         if (tt == type::dollar)
         {
@@ -2446,81 +2588,50 @@ namespace build2
 
             // Note that we move args to call().
             //
-            result = functions.call (name,
-                                     vector_view<value> (
-                                       args.second ? &args.first : nullptr,
-                                       args.second ? 1 : 0),
-                                     loc);
+            result_data = functions.call (
+              name,
+              vector_view<value> (
+                args.second ? &args.first : nullptr,
+                args.second ? 1 : 0),
+              loc);
 
-            // See if we should propagate the value NULL/type.
-            //
-            if (set_value ())
-            {
-              vnull = result.null;
-              vtype = result.type;
-            }
-
-            if (!result || result.empty ())
-              continue;
-
-            lv = reverse (result, lv_storage);
             what = "function call";
           }
           else
           {
+            // Variable expansion.
+            //
+
             if (pre_parse_)
               continue; // As if empty value.
 
-            // Variable expansion.
-            //
             lookup l (lookup_variable (move (qual), move (name), loc));
 
-            // See if we should propagate the value NULL/type.
-            //
-            if (set_value ())
-            {
-              vnull = !l;
-              vtype = l.defined () ? l->type : nullptr;
-            }
+            if (l.defined ())
+              result = l.value; // Otherwise leave as NULL result_data.
 
-            if (!l || l->empty ())
-              continue;
-
-            lv = reverse (*l, lv_storage);
             what = "variable expansion";
           }
         }
         else
         {
+          // Context evaluation.
+          //
+
           loc = get_location (t);
-          result = parse_eval (t, tt).first;
+          result_data = parse_eval (t, tt).first;
 
           tt = peek ();
 
           if (pre_parse_)
             continue; // As if empty result.
 
-          // See if we should propagate the value NULL/type.
-          //
-          if (set_value ())
-          {
-            vnull = result.null;
-            vtype = result.type;
-          }
-
-          if (!result || result.empty ())
-            continue;
-
-          lv = reverse (result, lv_storage);
           what = "context evaluation";
         }
 
-        // Note that we never end up here during pre-parsing.
+        // We never end up here during pre-parsing.
         //
         assert (!pre_parse_);
-
-        // @@ Could move if lv is lv_storage (or even result).
-        //
 
         // Should we accumulate? If the buffer is not empty, then
         // we continue accumulating (the case where we are separated
@@ -2533,41 +2644,145 @@ namespace build2
               tt == type::dollar ||
               tt == type::lparen) && !peeked ().separated))
         {
-          // This should be a simple value or a simple directory. The token
-          // still points to the name (or closing paren).
+          // This can be a typed or untyped concatenation. The rules that
+          // determine which one it is are as follows:
           //
-          if (lv.size () > 1)
-            fail (loc) << "concatenating " << what << " contains multiple "
-                       << "values";
+          // 1. Determine if to preserver the type of RHS: if its first
+          //    token is quoted, then we do not.
+          //
+          // 2. Given LHS (if any) and RHS we do typed concatenation if
+          //    either is typed.
+          //
+          // Here are some interesting corner cases to meditate on:
+          //
+          // $dir/"foo bar"
+          // $dir"/foo bar"
+          // "foo"$dir
+          // "foo""$dir"
+          // ""$dir
+          //
 
-          const name& n (lv[0]);
-
-          if (n.qualified ())
-            fail (loc) << "concatenating " << what << " contains project name";
-
-          if (n.typed ())
-            fail (loc) << "concatenating " << what << " contains type";
-
-          if (!n.dir.empty ())
+          // First if RHS is typed but quoted then convert it to an untyped
+          // string.
+          //
+          // Conversion to an untyped string happens differently, depending
+          // on whether we are in a quoted or unquoted context. In an
+          // unquoted context we use $representation() which must return a
+          // "round-trippable representation" (and if that it not possible,
+          // then it should not be overloaded for a type). In a quoted
+          // context we use $string() which returns a "canonical
+          // representation" (e.g., a directory path without a trailing
+          // slash).
+          //
+          if (result->type != nullptr && quoted)
           {
-            if (!n.value.empty ())
-              fail (loc) << "concatenating " << what << " contains directory";
-
-            // If this is an original name, then we cannot assume it is
-            // actually a directory path (think s/foo/bar/) so we have to
-            // reverse it exactly.
+            // RHS is already a value but it could be a const reference (to
+            // the variable value) while we need to move things around. So in
+            // this case we make a copy.
             //
-            concat_str += n.original
-              ? n.dir.representation ()
-              : n.dir.string ();
+            if (result != &result_data)
+              result = &(result_data = *result);
+
+            const char* t (result_data.type->name);
+
+            pair<value, bool> p;
+            {
+              // Print the location information in case the function fails.
+              //
+              auto g (
+                make_exception_guard (
+                  [&loc, t] ()
+                  {
+                    if (verb != 0)
+                      info (loc) << "while converting " << t << " to string";
+                  }));
+
+              p = functions.try_call (
+                "string", vector_view<value> (&result_data, 1), loc);
+            }
+
+            if (!p.second)
+              fail (loc) << "no string conversion for " << t;
+
+            result_data = move (p.first);
+            untypify (result_data); // Convert to untyped simple name.
           }
-          else
-            concat_str += n.value;
+
+          if ((concat && vtype != nullptr) || // LHS typed.
+              (result->type != nullptr))      // RHS typed.
+          {
+            if (result != &result_data) // Same reason as above.
+              result = &(result_data = *result);
+
+            concat_typed (move (result_data), loc);
+          }
+          //
+          // Untyped concatenation. Note that if RHS is NULL/empty, we still
+          // set the concat flag.
+          //
+          else if (!result->null && !result->empty ())
+          {
+            // This can only an untyped value.
+            //
+            // @@ Could move if result == &result_data.
+            //
+            const names& lv (cast<names> (*result));
+
+            // This should be a simple value or a simple directory.
+            //
+            if (lv.size () > 1)
+              fail (loc) << "concatenating " << what << " contains multiple "
+                         << "values";
+
+            const name& n (lv[0]);
+
+            if (n.qualified ())
+              fail (loc) << "concatenating " << what << " contains project "
+                         << "name";
+
+            if (n.typed ())
+              fail (loc) << "concatenating " << what << " contains type";
+
+            if (!n.dir.empty ())
+            {
+              if (!n.value.empty ())
+                fail (loc) << "concatenating " << what << " contains "
+                           << "directory";
+
+              // Note that here we cannot assume what's in dir is really a
+              // path (think s/foo/bar/) so we have to reverse it exactly.
+              //
+              concat_data.value += n.dir.representation ();
+            }
+            else
+              concat_data.value += n.value;
+          }
 
           concat = true;
         }
         else
         {
+          // See if we should propagate the value NULL/type. We only do this
+          // if this is the only expansion, that is, it is the first and the
+          // text token is not part of the name.
+          //
+          if (first && last_token ())
+          {
+            vnull = result->null;
+            vtype = result->type;
+          }
+
+          // Nothing else to do here if the result is NULL or empty.
+          //
+          if (result->null || result->empty ())
+            continue;
+
+          // @@ Could move if lv is lv_storage (or even result_data; see
+          //    untypify()).
+          //
+          names lv_storage;
+          names_view lv (reverse (*result, lv_storage));
+
           // Copy the names from the variable into the resulting name list
           // while doing sensible things with the types and directories.
           //
@@ -2612,7 +2827,7 @@ namespace build2
 
             // If we are a second half of a pair.
             //
-            if (pair != 0)
+            if (pairn != 0)
             {
               // Check that there are no nested pairs.
               //
@@ -2621,8 +2836,8 @@ namespace build2
 
               // And add another first half unless this is the first instance.
               //
-              if (pair != ns.size ())
-                ns.push_back (ns[pair - 1]);
+              if (pairn != ns.size ())
+                ns.push_back (ns[pairn - 1]);
             }
 
             ns.emplace_back (pp1,
@@ -2631,7 +2846,6 @@ namespace build2
                              n.value);
 
             ns.back ().pair = n.pair;
-            ns.back ().original = n.original;
           }
 
           count = lv.size ();
@@ -2645,7 +2859,7 @@ namespace build2
       if (tt == type::lcbrace)
       {
         count = parse_names_trailer (
-          t, tt, ns, what, separators, pair, pp, dp, tp);
+          t, tt, ns, what, separators, pairn, pp, dp, tp);
         tt = peek ();
         continue;
       }
@@ -2654,7 +2868,7 @@ namespace build2
       //
       if (tt == type::pair_separator)
       {
-        if (pair != 0)
+        if (pairn != 0)
           fail (t) << "nested pair on the right hand side of a pair";
 
         tt = peek ();
@@ -2701,7 +2915,7 @@ namespace build2
         continue;
       }
 
-      // Note: remember to update set_value() test if adding new recognized
+      // Note: remember to update last_token() test if adding new recognized
       // tokens.
 
       if (!first)
@@ -2712,8 +2926,8 @@ namespace build2
         // If we are a second half of a pair, add another first half
         // unless this is the first instance.
         //
-        if (pair != 0 && pair != ns.size ())
-          ns.push_back (ns[pair - 1]);
+        if (pairn != 0 && pairn != ns.size ())
+          ns.push_back (ns[pairn - 1]);
 
         ns.emplace_back (pp,
                          (dp != nullptr ? *dp : dir_path ()),

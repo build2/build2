@@ -44,7 +44,7 @@ namespace build2
       fail << "unknown target type " << n.type << " in name " << n;
 
     if (!n.dir.empty ())
-      n.dir.normalize ();
+      n.dir.normalize (); //@@ NORM (empty)
 
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.

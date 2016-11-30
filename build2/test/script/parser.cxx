@@ -1296,7 +1296,7 @@ namespace build2
 
               if (!p.empty ())
               {
-                p.normalize ();
+                p.normalize (); //@@ NORM
                 return p;
               }
 

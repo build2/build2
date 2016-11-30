@@ -80,6 +80,14 @@ namespace build2
     return *this;
   }
 
+  inline void value::
+  assign (name&& n, const variable* var)
+  {
+    names ns;
+    ns.push_back (move (n));
+    assign (move (ns), var);
+  }
+
   inline bool
   operator!= (const value& x, const value& y)
   {
@@ -226,9 +234,11 @@ namespace build2
     return value_traits<T>::convert (move (l), &r);
   }
 
+  // This one will be SFINAE'd out unless T is a container.
+  //
   template <typename T>
-  inline T
-  convert (names&& ns)
+  inline auto
+  convert (names&& ns) -> decltype (value_traits<T>::convert (move (ns)))
   {
     return value_traits<T>::convert (move (ns));
   }
@@ -474,11 +484,10 @@ namespace build2
   inline void value_traits<name>::
   assign (value& v, name&& x)
   {
-    name* p (v
-             ? &(v.as<name> () = move (x))
-             : new (&v.data_) name (move (x)));
-
-    p->original = false;
+    if (v)
+      v.as<name> () = move (x);
+    else
+      new (&v.data_) name (move (x));
   }
 
   inline int value_traits<name>::

@@ -13,7 +13,7 @@ EOI
 b = $effect($build.path) -q --no-column --buildfile - <"./: test{testscript}" \
   &?test/*** test
 c = cat >>>testscript
-test = \'$test\'
+test = "'$test'"
 
 +if ($cxx.target.class == "windows")
   ext = ".exe"

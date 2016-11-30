@@ -50,7 +50,7 @@ namespace build2
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "src_root = ";
-        to_stream (ofs, name (src_root, false), true, '@'); // Quote.
+        to_stream (ofs, name (src_root), true, '@'); // Quote.
         ofs << endl;
 
         ofs.close ();

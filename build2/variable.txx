@@ -6,8 +6,34 @@
 
 namespace build2
 {
-  // value
+  // This one will be SFINAE'd out unless T is a simple value.
   //
+  template <typename T>
+  auto
+  convert (names&& ns) ->
+    decltype (value_traits<T>::convert (move (ns[0]), nullptr))
+  {
+    size_t n (ns.size ());
+
+    if (n == 0)
+    {
+      if (value_traits<T>::empty_value)
+        return T ();
+    }
+    else if (n == 1)
+    {
+      return convert<T> (move (ns[0]));
+    }
+    else if (n == 2 && ns[0].pair != '\0')
+    {
+      return convert<T> (move (ns[0]), move (ns[1]));
+    }
+
+    throw invalid_argument (
+      string ("invalid ") + value_traits<T>::type_name +
+      (n == 0 ? " value: empty" : " value: multiple names"));
+  }
+
   template <typename T>
   void
   default_dtor (value& v)
@@ -42,13 +68,13 @@ namespace build2
     return value_traits<T>::empty (v.as<T> ());
   }
 
-  template <typename T, bool empty>
+  template <typename T>
   void
   simple_assign (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
-    if (empty ? n <= 1 : n == 1)
+    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
       {
@@ -72,13 +98,13 @@ namespace build2
       dr << " in variable " << var->name;
   }
 
-  template <typename T, bool empty>
+  template <typename T>
   void
   simple_append (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
-    if (empty ? n <= 1 : n == 1)
+    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
       {
@@ -102,13 +128,13 @@ namespace build2
       dr << " in variable " << var->name;
   }
 
-  template <typename T, bool empty>
+  template <typename T>
   void
   simple_prepend (value& v, names&& ns, const variable* var)
   {
     size_t n (ns.size ());
 
-    if (empty ? n <= 1 : n == 1)
+    if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
       {

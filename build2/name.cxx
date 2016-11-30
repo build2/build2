@@ -12,6 +12,49 @@
 
 namespace build2
 {
+  string
+  to_string (const name& n)
+  {
+    string r;
+
+    // Note: similar to to_stream() below.
+    //
+    if (n.empty ())
+      return r;
+
+    if (n.proj != nullptr)
+    {
+      r += *n.proj;
+      r += '%';
+    }
+
+    // If the value is empty, then we want to put the directory inside {},
+    // e.g., dir{bar/}, not bar/dir{}.
+    //
+    bool d (!n.dir.empty ());
+    bool v (!n.value.empty ());
+    bool t (!n.type.empty ());
+
+    if (v && d)
+      r += n.dir.representation ();
+
+    if (t)
+    {
+      r += n.type;
+      r += '{';
+    }
+
+    if (v)
+      r += n.value;
+    else
+      r += n.dir.representation ();
+
+    if (t)
+      r += '}';
+
+    return r;
+  }
+
   ostream&
   to_stream (ostream& os, const name& n, bool quote, char pair)
   {
@@ -62,9 +105,12 @@ namespace build2
         os << d;
     };
 
+    // Note: similar to to_string() below.
+    //
+
     // If quoted then print empty name as '' rather than {}.
     //
-    if (quote && n.empty () && n.proj == nullptr)
+    if (quote && n.empty ())
       return os << "''";
 
     if (n.proj != nullptr)
@@ -73,9 +119,9 @@ namespace build2
       os << '%';
     }
 
-    // If the value is empty, then we want to print the directory
-    // inside {}, e.g., dir{bar/}, not bar/dir{}. We also want to
-    // print {} for an empty name (unless quoted).
+    // If the value is empty, then we want to print the directory inside {},
+    // e.g., dir{bar/}, not bar/dir{}. We also want to print {} for an empty
+    // name (unless quoted).
     //
     bool d (!n.dir.empty ());
     bool v (!n.value.empty ());
