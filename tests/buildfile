@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = directive/ expansion/ function/ test/
-./: $d
+./: $d file{common.test}
 include $d

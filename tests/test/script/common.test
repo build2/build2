@@ -1,0 +1,27 @@
+# file      : tests/test/script/common.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Commonly-used build system test project setup and driver command line
+# (test module using testscript tests).
+#
+
++mkdir build
++cat <<EOI >>>build/bootstrap.build
+project = test
+amalgamation =
+
+using test
+EOI
+
+# The "cat & build" setup: first cat ($c) the testscript, then run build
+# ($b) which will execute the testscript.
+#
+c = cat >>>testscript
+b = $effect($build.path) -q --buildfile - <'./: test{testscript}' \
+  &?test/*** test
+
+# Add extra set of quotes since this value will be "cat" (normally as $*)
+# into testscript.
+#
+test = "'$test'"

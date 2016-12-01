@@ -4,4 +4,3 @@
 
 ./: test{testscript}
 
-test{*}: test = $effect($build.path)

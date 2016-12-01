@@ -2,6 +2,10 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+# @@ I think these should be run indirectly (via cat & build)
+# for cross-testing to work (we want to run the via the build
+# system we built, not the one we used to acomplish this.
+
 : in
 :
 cat <<EOI >>EOO

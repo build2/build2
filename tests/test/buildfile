@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = script/
-./: $d
+./: $d file{common.test}
 include $d

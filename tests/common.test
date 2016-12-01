@@ -1,0 +1,21 @@
+# file      : tests/common.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Commonly-used build system test project setup and driver command line.
+#
+
++mkdir build
++cat <<EOI >>>build/bootstrap.build
+project = test
+amalgamation =
+EOI
+
+test = $effect($build.path)
+test.options += -q --buildfile -
+
+# By default just load the buildfile.
+#
++if ($empty($test.arguments))
+  test.arguments = noop
+end

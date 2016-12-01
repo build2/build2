@@ -2,16 +2,11 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-+mkdir build
-+cat <<EOI >>>build/bootstrap.build
-project = test
-amalgamation =
+# @@ I think these should be run indirectly (via cat & build)
+# for cross-testing to work (we want to run the via the build
+# system we built, not the one we used to acomplish this.
 
-using test
-EOI
-
-test.options += -q --buildfile -
-test.arguments = test
+.include ../../common.test
 
 : scrip-files
 :

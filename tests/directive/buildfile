@@ -2,6 +2,4 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: test{assert} file{common.test}
-
-test{*}: test = $effect($build.path)
+./: test{assert}

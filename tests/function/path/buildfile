@@ -3,5 +3,3 @@
 # license   : MIT; see accompanying LICENSE file
 
 ./: test{testscript}
-
-test{*}: test = $effect($build.path)

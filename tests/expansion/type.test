@@ -4,7 +4,7 @@
 
 # Test type propagation during expansion.
 
-.include common.test
+.include ../common.test
 
 : var
 :

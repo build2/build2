@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = builtin/ integration/ runner/
-./: $d
+./: $d file{common.test}
 include $d

@@ -17,7 +17,7 @@ namespace build2
     f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
 
     f["null"]  = [](value* v) {return v->null;};
-    f["empty"] = [](value v)  {return v.empty ();};
+    f["empty"] = [](value* v)  {return v->null || v->empty ();};
 
     f["identity"] = [](value* v) {return move (*v);};
 
