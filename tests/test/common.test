@@ -19,6 +19,6 @@ test.options += -q --buildfile -
 
 # By default perform test.
 #
-+if ($empty($test.arguments))
+if ($empty($test.arguments))
   test.arguments = test
 end

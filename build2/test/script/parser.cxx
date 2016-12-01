@@ -111,10 +111,10 @@ namespace build2
             (t = dynamic_cast<test*> (sc.back ().get ())) != nullptr &&
             find_if (
               su.begin (), su.end (),
-              [] (const line& l)
-              {
+              [] (const line& l) {
                 return l.type != line_type::var;
               }) == su.end ()                                        &&
+
             td.empty ()                                              &&
             !t->desc                                                 &&
             !t->if_cond_)
@@ -491,15 +491,54 @@ namespace build2
 
         // Stop saving and get the tokens.
         //
-        line l {lt, replay_data ()};
+        lines ls_data;
 
-        // Decide where it goes.
-        //
-        lines tests;
         if (ls == nullptr)
+          ls = &ls_data;
+
+        ls->push_back (line {lt, replay_data ()});
+
+        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
         {
+          semi = pre_parse_if_else (t, tt, d, *ls);
+
+          // If this turned out to be scope-if, then ls is empty, semi is
+          // false, and none of the below logic applies.
+          //
+          if (ls->empty ())
+            return semi;
+        }
+
+        // Unless we were told where to put it, decide where it actually goes.
+        //
+        if (ls == &ls_data)
+        {
+          // First pre-check variable and variable-if: by themselves (i.e.,
+          // without a trailing semicolon) they are treated as either setup or
+          // teardown without plus/minus. Also handle illegal line types.
+          //
           switch (lt)
           {
+          case line_type::cmd_elif:
+          case line_type::cmd_elifn:
+          case line_type::cmd_else:
+          case line_type::cmd_end:
+            {
+              fail (ll) << lt << " without preceding 'if'";
+            }
+          case line_type::cmd_if:
+          case line_type::cmd_ifn:
+            {
+              // See if this is a variable-only command-if.
+              //
+              if (find_if (ls_data.begin (), ls_data.end (),
+                           [] (const line& l) {
+                             return l.type == line_type::cmd;
+                           }) != ls_data.end ())
+                break;
+
+              // Fall through.
+            }
           case line_type::var:
             {
               // If there is a semicolon after the variable then we assume
@@ -510,7 +549,13 @@ namespace build2
               if (!semi)
               {
                 if (d)
-                  fail (ll) << "description before setup/teardown variable";
+                {
+                  if (lt == line_type::var)
+                    fail (ll) << "description before setup/teardown variable";
+                  else
+                    fail (ll) << "description before/after setup/teardown "
+                              << "variable-if";
+                }
 
                 // If we don't have any nested scopes or teardown commands,
                 // then we assume this is a setup, otherwise -- teardown.
@@ -518,81 +563,75 @@ namespace build2
                 ls = group_->scopes.empty () && group_->tdown_.empty ()
                   ? &group_->setup_
                   : &group_->tdown_;
-
-                break;
-              }
-
-              // Fall through.
-            }
-          case line_type::cmd:
-          case line_type::cmd_if:
-          case line_type::cmd_ifn:
-            {
-              switch (st)
-              {
-                // Setup.
-                //
-              case type::plus:
-                {
-                  if (d)
-                    fail (ll) << "description before setup command";
-
-                  if (!group_->scopes.empty ())
-                    fail (ll) << "setup command after tests";
-
-                  if (!group_->tdown_.empty ())
-                    fail (ll) << "setup command after teardown";
-
-                  ls = &group_->setup_;
-                  break;
-                }
-                // Teardown.
-                //
-              case type::minus:
-                {
-                  if (d)
-                    fail (ll) << "description before teardown command";
-
-                  ls = &group_->tdown_;
-                  break;
-                }
-                // Test command or variable.
-                //
-              default:
-                {
-                  // First check that we don't have any teardown commands yet.
-                  // This will detect things like variable assignments between
-                  // tests.
-                  //
-                  if (!group_->tdown_.empty ())
-                  {
-                    location tl (
-                      group_->tdown_.back ().tokens.front ().location ());
-
-                    fail (ll) << "test after teardown" <<
-                      info (tl) << "last teardown line appears here";
-                  }
-
-                  ls = &tests;
-                  break;
-                }
               }
               break;
             }
-          case line_type::cmd_elif:
-          case line_type::cmd_elifn:
-          case line_type::cmd_else:
-          case line_type::cmd_end:
+          default:
+            break;
+          }
+
+          // If pre-check didn't change the destination, then it's a test.
+          //
+          if (ls == &ls_data)
+          {
+            switch (st)
             {
-              fail (ll) << lt << " without preceding 'if'";
+              // Setup.
+              //
+            case type::plus:
+              {
+                if (d)
+                  fail (ll) << "description before setup command";
+
+                if (!group_->scopes.empty ())
+                  fail (ll) << "setup command after tests";
+
+                if (!group_->tdown_.empty ())
+                  fail (ll) << "setup command after teardown";
+
+                ls = &group_->setup_;
+                break;
+              }
+
+              // Teardown.
+              //
+            case type::minus:
+              {
+                if (d)
+                  fail (ll) << "description before teardown command";
+
+                ls = &group_->tdown_;
+                break;
+              }
+
+              // Test command or variable.
+              //
+            default:
+              {
+                // First check that we don't have any teardown commands yet.
+                // This will detect things like variable assignments between
+                // tests.
+                //
+                if (!group_->tdown_.empty ())
+                {
+                  location tl (
+                    group_->tdown_.back ().tokens.front ().location ());
+
+                  fail (ll) << "test after teardown" <<
+                    info (tl) << "last teardown line appears here";
+                }
+                break;
+              }
             }
           }
+
+          // If the destination changed, then move the data over.
+          //
+          if (ls != &ls_data)
+            ls->insert (ls->end (),
+                        make_move_iterator (ls_data.begin ()),
+                        make_move_iterator (ls_data.end ()));
         }
-
-        ls->push_back (move (l));
-
-        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
-          semi = pre_parse_if_else (t, tt, d, *ls);
 
         // If this command ended with a semicolon, then the next one should
         // go to the same place.
@@ -620,10 +659,9 @@ namespace build2
           }
         }
 
-        // Create implicit test scope unless someone (e.g., scope if-else)
-        // used them for something else.
+        // If this is a test then create implicit test scope.
         //
-        if (ls == &tests && !tests.empty ())
+        if (ls == &ls_data)
         {
           // If there is no user-supplied id, use the line number (prefixed
           // with include id) as the scope id.
@@ -638,7 +676,7 @@ namespace build2
           p->desc = move (d);
 
           p->start_loc_ = ll;
-          p->tests_ = move (tests);
+          p->tests_ = move (ls_data);
           p->end_loc_ = get_location (t);
 
           group_->scopes.push_back (move (p));
@@ -829,10 +867,14 @@ namespace build2
           //
           if (lt == line_type::cmd_end)
           {
-            if (d && td)
-              fail (ll) << "both leading and trailing descriptions";
+            if (td)
+            {
+              if (d)
+                fail (ll) << "both leading and trailing descriptions";
 
-            d = move (td);
+              d = move (td);
+            }
+
             return semi;
           }
 

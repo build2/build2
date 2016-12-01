@@ -6,7 +6,7 @@
 
 b += --no-column
 
-+if ($cxx.target.class == "windows")
+if ($cxx.target.class == "windows")
   ext = ".exe"
 end
 

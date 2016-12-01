@@ -16,6 +16,6 @@ test.options += -q --buildfile -
 
 # By default just load the buildfile.
 #
-+if ($empty($test.arguments))
+if ($empty($test.arguments))
   test.arguments = noop
 end

@@ -222,6 +222,23 @@ EOI
 testscript:2:1: error: description before setup/teardown variable
 EOE
 
+$* <<EOI 2>>EOE != 0                                    # illegal-var-if
+: foo
+if true
+  x = y
+end
+EOI
+testscript:2:1: error: description before/after setup/teardown variable-if
+EOE
+
+$* <<EOI 2>>EOE != 0                                    # illegal-var-if-after
+if true
+  x = y
+end : foo
+EOI
+testscript:1:1: error: description before/after setup/teardown variable-if
+EOE
+
 $* <<EOI 2>>EOE != 0                                    # illegal-test
 cmd1;
 : foo

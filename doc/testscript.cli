@@ -740,10 +740,10 @@ description:
   +(':' <text>)
 
 setup:
-  variable-line|setup-line
+  variable-like|setup-line
 
 tdown:
-  variable-line|tdown-line
+  variable-like|tdown-line
 
 setup-line: '+' command-like
 tdown-line: '-' command-like
@@ -751,6 +751,24 @@ tdown-line: '-' command-like
 test:
   ?description
   +(variable-line|command-like)
+
+variable-like:
+  variable-line|variable-if
+
+variable-if: ('if'|'if!') command-line
+  variable-if-body
+  *variable-elif
+  ?variable-else
+  'end'
+
+variable-elif: ('elif'|'elif!') command-line
+  variable-if-body
+
+variable-else: 'else'
+  variable-if-body
+
+variable-if-body:
+  *variable-like
 
 variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
 value-attributes: '[' <key-value-pairs> ']'

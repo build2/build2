@@ -4,7 +4,7 @@
 
 .include ../../common.test
 
-+if ($cxx.target.class != windows) # @@ TMP ternarry
+if ($cxx.target.class != windows) # @@ TMP ternarry
   s = '/'
 else
   s = '\'

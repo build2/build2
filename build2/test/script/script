@@ -50,7 +50,9 @@ namespace build2
         replay_tokens tokens;
       };
 
-      using lines = vector<line>;
+      // Most of the time we will have just one line (test command).
+      //
+      using lines = small_vector<line, 1>;
 
       // Parse object model.
       //
