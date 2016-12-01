@@ -1,4 +1,0 @@
-project = variable-representation
-amalgamation = # Disabled.
-using config
-using test
