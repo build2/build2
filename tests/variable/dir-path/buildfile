@@ -27,7 +27,7 @@ print [strings] -I $y
 print -I $y/baz
 print
 
-z = [strings] "$x"   # Re-typed.
+z = [strings] $x   # Re-typed.
 print $z
 print
 
@@ -37,9 +37,9 @@ r = [dir_path] /
 print $r/foo
 
 r += foo
-print [strings] "$r"
+print [strings] $r
 
 r += bar
-print [strings] "$r"
+print [strings] $r
 
 ./:

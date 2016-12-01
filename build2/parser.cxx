@@ -560,6 +560,9 @@ namespace build2
                   // We store prepend/append values untyped (similar to
                   // overrides).
                   //
+                  if (rhs.type != nullptr && att != type::assign)
+                    untypify (rhs);
+
                   if (p.second)
                   {
                     // Note: we are always using assign and we don't pass the
@@ -626,8 +629,7 @@ namespace build2
 
                   if (lhs.extra != 0 && lhs.type != nullptr)
                     fail (at) << "typed prepend/append to target type/pattern-"
-                              << "specific variable " << var <<
-                      info << "use quoting to untypify the value";
+                              << "specific variable " << var;
                 }
               }
 
@@ -1160,8 +1162,7 @@ namespace build2
       fail (l) << "null value in export";
 
     if (rhs.type != nullptr)
-      fail (l) << "typed value in export" <<
-        info << "use quoting to untypify the value";
+      untypify (rhs);
 
     export_value_ = move (rhs).as<names> ();
 
@@ -1649,23 +1650,6 @@ namespace build2
         fail (l) << "unexpected value for attribute " << k << ": " << v;
     }
 
-    // If we have both attribute and value types, then they better match.
-    //
-    if (rhs.type != nullptr)
-    {
-      if (type != nullptr && type != rhs.type)
-      {
-        fail (l) << "conflicting attribute type " << type->name
-                 << " and value type " << rhs.type->name <<
-          info << "use quoting to untypify the value";
-      }
-
-      // Reduce this to the untyped value case for simplicity.
-      //
-      type = rhs.type;
-      untypify (rhs);
-    }
-
     // When do we set the type and when do we keep the original? This gets
     // tricky for append/prepend where both values contribute. The guiding
     // rule here is that if the user specified the type, then they reasonable
@@ -1685,6 +1669,32 @@ namespace build2
                << var->type->name << " and value type " << type->name;
     }
 
+    // What if both LHS and RHS are typed? For now we do lexical conversion:
+    // if this specific value can be converted, then all is good. The
+    // alternative would be to do type conversion: if any value of RHS type
+    // can be converted to LHS type, then we are good. This may be a better
+    // option in the future but currently our parse_names() implementation
+    // untypifies everything if there are multiple names. And having stricter
+    // rules just for single-element values would be strange.
+    //
+    // We also have "weaker" type propagation for the RHS type.
+    //
+    bool rhs_type (false);
+    if (rhs.type != nullptr)
+    {
+      // Only consider RHS type if there is no explicit or variable type.
+      //
+      if (type == nullptr && (var == nullptr || var->type == nullptr))
+      {
+        type = rhs.type;
+        rhs_type = true;
+      }
+
+      // Reduce this to the untyped value case for simplicity.
+      //
+      untypify (rhs);
+    }
+
     if (kind == type::assign)
     {
       if (type != v.type)
@@ -1699,7 +1709,7 @@ namespace build2
         v.type = type;
       else if (v.type == nullptr)
         typify (v, *type, var);
-      else if (v.type != type)
+      else if (v.type != type && !rhs_type)
         fail (l) << "conflicting original value type " << v.type->name
                  << " and append/prepend value type " << type->name;
     }
