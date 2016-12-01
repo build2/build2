@@ -260,12 +260,17 @@ namespace build2
     const dir_path& d (i->first);
     ++i;
 
-    // We don't want the extra notations (e.g., ~/) provided by
-    // diag_relative() since we want the path to be relative to
-    // the outer scope.
+    // We don't want the extra notations (e.g., ~/) provided by diag_relative()
+    // since we want the path to be relative to the outer scope. Print the root
+    // scope path (represented by an empty one) as a platform-dependent path
+    // separator.
     //
-    os << ind << relative (d) << ":" << endl
-       << ind << '{';
+    if (d.empty ())
+      os << ind << dir_path::traits::directory_separator;
+    else
+      os << ind << relative (d);
+
+    os << ":" << endl << ind << '{';
 
     const dir_path* orb (relative_base);
     relative_base = &d;

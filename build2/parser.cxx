@@ -24,7 +24,7 @@ namespace build2
 {
   using type = token_type;
 
-  static const dir_path root_dir ("/");
+  static const dir_path root_dir;
 
   class parser::enter_scope
   {
@@ -33,11 +33,8 @@ namespace build2
 
     enter_scope (parser& p, dir_path&& d): p_ (&p), r_ (p.root_), s_ (p.scope_)
     {
-      // Check for the global scope as a special case. While on POSIX the
-      // check is redundant, on Windows the path completion/normalization
-      // would otherwise transform it to the out path of the current scope
-      // since "/" is a relative path on Windows (and we use "/" even on
-      // Windows for that gloabl scope).
+      // Check for the global scope as a special case. Note that the global
+      // scope (empty) path is a prefix for any other scope path.
       //
       if (d != root_dir)
       {

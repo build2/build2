@@ -80,18 +80,16 @@ namespace build2
     operation_table.insert ("install");
     operation_table.insert ("uninstall");
 
-    // Create global scope. For Win32 this is not a "real" root path.
-    // On POSIX, however, this is a real path. See the comment in
-    // <build2/path-map> for details.
+    // Create global scope. Note that the empty path is a prefix for any other
+    // path. See the comment in <butl/prefix-map> for details.
     //
     {
-      auto i (scopes.insert (dir_path ("/"), false));
+      auto i (scopes.insert (dir_path (), false));
       global_scope = &i->second;
       global_scope->out_path_ = &i->first;
     }
 
     scope& gs (*global_scope);
-
 
     // Parse and enter the command line variables. We do it before entering
     // any other variables so that all the variables that are overriden are
