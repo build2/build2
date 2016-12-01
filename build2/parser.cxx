@@ -659,8 +659,10 @@ namespace build2
               if (ti == nullptr)
                 fail (ploc) << "unknown target type " << pn.type;
 
+              // Current dir collapses to an empty one.
+              //
               if (!pn.dir.empty ())
-                pn.dir.normalize (); //@@ NORM (empty)
+                pn.dir.normalize (false, true);
 
               // Find or insert.
               //

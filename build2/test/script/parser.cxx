@@ -1338,7 +1338,9 @@ namespace build2
 
               if (!p.empty ())
               {
-                p.normalize (); //@@ NORM
+                // Current dir collapses to an empty one.
+                //
+                p.normalize (false, true);
                 return p;
               }
 
