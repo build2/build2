@@ -10,6 +10,17 @@ else
   s = '\'
 end
 
+: canonicalize
+:
+{
+  $* <'print $canonicalize([path] a/b)'           >"a$(s)b"            : path
+  $* <'print $canonicalize([paths] a/b a/c)'      >"a$(s)b a$(s)c"     : paths
+  $* <'print $canonicalize([dir_path] a/b)'       >"a$(s)b$s"          : dir-path
+  $* <'print $canonicalize([dir_paths] a/b a/c/)' >"a$(s)b$s a$(s)c$s" : dir-paths
+  $* <'print $path.canonicalize(a/b)'             >"a$(s)b"            : untyped
+  $* <'print $path.canonicalize(a/b/ a/c)'        >"a$(s)b$s a$(s)c"   : mixed
+}
+
 : normalize
 :
 {
@@ -18,7 +29,7 @@ end
   $* <'print $normalize([dir_path] a/../b)'          >"b$s"      : dir-path
   $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
   $* <'print $path.normalize(a/../b)'                >"b"        : untyped
-  $* <'print $path.normalize(a/../b/ a/../b)'        >"b$s b"    : mixed
+  $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
 }
 
 : invalid-path

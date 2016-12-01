@@ -93,6 +93,30 @@ namespace build2
       return r;
     };
 
+    // canonicalize
+    //
+    f["canonicalize"] = [](path p) {p.canonicalize (); return p;};
+    f["canonicalize"] = [](dir_path p) {p.canonicalize (); return p;};
+
+    f["canonicalize"] = [](paths v) {for (auto& p: v) p.canonicalize (); return v;};
+    f["canonicalize"] = [](dir_paths v) {for (auto& p: v) p.canonicalize (); return v;};
+
+    f[".canonicalize"] = [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.canonicalize ();
+        else
+          n.value = convert<path> (move (n)).canonicalize ().string ();
+      }
+      return ns;
+    };
+
     // normalize
     //
     f["normalize"] = [](path p) {p.normalize (); return p;};
