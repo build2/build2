@@ -316,8 +316,8 @@ namespace build2
         };
 
         // Register the command explicit cleanups. Verify that the path being
-        // cleaned up is a sub-path of the root test scope working directory.
-        // Fail if this is not the case.
+        // cleaned up is a sub-path of the testscript working directory. Fail
+        // if this is not the case.
         //
         for (const auto& cl: c.cleanups)
         {
@@ -326,7 +326,7 @@ namespace build2
 
           bool wc (np.leaf ().string () == "***");
           const path& cp (wc ? np.directory () : np);
-          const path& wd (sp.root->wd_path);
+          const dir_path& wd (sp.root->wd_path);
 
           if (!cp.sub (wd))
             fail (ll) << (wc

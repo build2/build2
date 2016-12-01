@@ -6,6 +6,8 @@
 
 b += --no-column
 
+td = [string] $path.canonicalize(test/)
+
 # Valid cleanups.
 #
 # @@ TODO: $c <"$* -f a &a" && $b
@@ -27,7 +29,7 @@ $b
 
 : file-implicit
 :
-: Test that a file created out of the script working directory is not
+: Test that a file created out of the testscript working directory is not
 : implicitly registered for cleanup. If it were, the test would fail due to
 : 'rm' failure.
 :
@@ -59,7 +61,7 @@ $b
 
 : dir-implicit
 :
-: Test that a directory created out of the script working directory is not
+: Test that a directory created out of the testscript working directory is not
 : implicitly registered for cleanup. If it were, the test would fail due to
 : 'rm' failure.
 :
@@ -91,27 +93,27 @@ $b
 : Test cleanup of non-existing file.
 :
 $c <"$* &a";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup file test/1/a does not exist
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup file $path.canonicalize(test/1/a) does not exist
 EOE
 
 : file-out-wd
 :
-: Test explicit cleanup of a file out of the script working directory.
+: Test explicit cleanup of a file out of the testscript working directory.
 :
 $c <"$* &../../a";
-$b 2>>EOE != 0
-testscript:1: error: file cleanup ../../a is out of working directory test/
+$b 2>>"EOE" != 0
+testscript:1: error: file cleanup $path.canonicalize(../../a) is out of working directory $td
 EOE
 
 : file-in-wd
 :
-: Test cleanup explicit registration of a file being outside the scope working
+: Test cleanup explicit registration of a file being outside the test working
 : directory but inside the script working directory.
 :
 $c <"$* &../a";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup file test/a does not exist
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup file $path.canonicalize(test/a) does not exist
 EOE
 
 : not-file
@@ -126,27 +128,27 @@ $b 2>- != 0 # @@ REGEX
 : Test cleanup of non-existing directory.
 :
 $c <"$* &a/";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/a/)) does not exist
 EOE
 
 : dir-out-wd
 :
-: Test cleanup of a directory out of the script working directory.
+: Test cleanup of a directory out of the testscript working directory.
 :
 $c <"$* &../../a/";
-$b 2>>EOE != 0
-testscript:1: error: directory cleanup ../../a/ is out of working directory test/
+$b 2>>"EOE" != 0
+testscript:1: error: directory cleanup ([string] $path.canonicalize(../../a/)) is out of working directory $td
 EOE
 
 : dir-in-wd
 :
-: Test cleanup explicit registration of a directory being outside the scope
-: working directory but inside the script working directory.
+: Test cleanup explicit registration of a directory being outside the test
+: working directory but inside the testscript working directory.
 :
 $c <"$* &../a/";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup directory test/a/ does not exist
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/a/)) does not exist
 EOE
 
 : dir-not-empty
@@ -154,8 +156,8 @@ EOE
 : Test cleanup of a non-empty directory.
 :
 $c <"$* -d a -f a/b &a/";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup directory test/1/a/ is not empty
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/a/)) is not empty
 EOE
 
 : not-dir
@@ -170,27 +172,27 @@ $b 2>- != 0 # @@ REGEX
 : Test cleanup of a wildcard not matching any directory.
 :
 $c <"$* &a/***";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup wildcard test/1/a/*** doesn't match a directory
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup wildcard $path.canonicalize(test/1/a/***) doesn't match a directory
 EOE
 
 : wildcard-out-wd
 :
-: Test cleanup of a wildcard out of the script working directory.
+: Test cleanup of a wildcard out of the testscript working directory.
 :
 $c <"$* &../../a/***";
-$b 2>>EOE != 0
-testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+$b 2>>"EOE" != 0
+testscript:1: error: wildcard cleanup $path.canonicalize(../../a/***) is out of working directory $td
 EOE
 
 : wildcard-in-wd
 :
 : Test cleanup registration of a wildcard matching the directory that being
-: outside the scope working directory is inside the script working directory.
+: outside the test working directory is inside the testscript working directory.
 :
 $c <"$* &../a/***";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup wildcard test/a/*** doesn't match a directory
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup wildcard $path.canonicalize(test/a/***) doesn't match a directory
 EOE
 
 : wildcard-not-dir
@@ -205,8 +207,8 @@ $b 2>- != 0 # @@ REGEX
 : Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <"$* -o foo >>>a &!a";
-$b 2>>EOE != 0
-testscript:1: error: registered for cleanup directory test/1/ is not empty
+$b 2>>"EOE" != 0
+testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/)) is not empty
 EOE
 
 : explicit-overwrite
@@ -217,6 +219,6 @@ $c <<"EOO";
 $* &!a;
 $* -o foo >>>a
 EOO
-$b 2>>EOE != 0
-testscript:2: error: registered for cleanup directory test/1/ is not empty
+$b 2>>"EOE" != 0
+testscript:2: error: registered for cleanup directory ([string] $path.canonicalize(test/1/)) is not empty
 EOE

@@ -1,16 +1,23 @@
+# @@ REGEX Note that the script can still fail on POSIX for space-containing
+#    paths.
+#
+if ($cxx.target.class == "windows")
+  q = "'"
+end
+
 $* testscript <'cmd $@' >"cmd 1"     # id-testscript
 $* foo.test   <'cmd $@' >"cmd foo/1" # id
 
 wd = [dir_path] $~;
 wd += test-driver;
 wd += 1;
-$* testscript <'cmd "$~"' >"cmd $wd"   # wd-testscript
+$* testscript <'cmd "$~"' >"cmd $q$wd$q"   # wd-testscript
 
 wd = [dir_path] $~;
 wd += test-driver;
 wd += foo;
 wd += 1;
-$* foo.test   <'cmd "$~"' >"cmd $wd"   # wd
+$* foo.test   <'cmd "$~"' >"cmd $q$wd$q"   # wd
 
 $* -s <<EOI                          # group-empty
 {

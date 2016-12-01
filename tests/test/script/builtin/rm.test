@@ -2,11 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-+if ($cxx.target.class != windows) # @@ TMP trailing  separator
-  s = '/'
-else
-  s = '\'
-end
+td = $~
 
 : no-args
 :
@@ -63,19 +59,19 @@ rm -r a
 :
 : Removing scope directory fails.
 :
-rm -r ./ 2>"rm: '$~$s' contains scope working directory" == 1
+rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
 
 : outside-scope
 :
-: Removing path outside the script working directory fails. Need to use a path
-: that unlikely exists (not to remove something useful).
+: Removing path outside the testscript working directory fails. Need to use a
+: path that unlikely exists (not to remove something useful).
 :
 :
-rm ../../a/b/c 2>"rm: '$normalize([path] $~/../../a/b/c)' is outside script working directory" == 1
+rm ../../a/b/c 2>"rm: '$normalize([path] $~/../../a/b/c)' is out of working directory '$td'" == 1
 
 : outside-scope-force
 :
-: Removing path outside the script scope working directory succeeds with -f
+: Removing path outside the testscript working directory succeeds with -f
 : option. Need to use a path that unlikely exists (not to remove something
 : useful).
 :

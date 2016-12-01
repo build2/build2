@@ -8,6 +8,9 @@
 
 .include ../../common.test
 
+cd = [string] $path.canonicalize(./)
+td = [string] $path.canonicalize(test/)
+
 : scrip-files
 :
 {
@@ -15,18 +18,18 @@
 
   : testscript-and-other
   :
-  $* <<EOI 2>>EOE != 0
+  $* <<EOI 2>>"EOE" != 0
   ./: test{../testscript ../foo}
   EOI
-  error: both 'testscript' and other names specified for dir{./}
+  error: both 'testscript' and other names specified for dir{$cd}
   EOE
 
   : other-and-testscript
   :
-  $* <<EOI 2>>EOE != 0
+  $* <<EOI 2>>"EOE" != 0
   ./: test{../foo ../testscript}
   EOI
-  error: both 'testscript' and other names specified for dir{./}
+  error: both 'testscript' and other names specified for dir{$cd}
   EOE
 
   : others
@@ -40,20 +43,20 @@
 :
 touch foo.test;
 touch test;
-$* <<EOI 2>>EOE != 0
+$* <<EOI 2>>"EOE" != 0
 ./: test{foo}
 EOI
-error: working directory test/ is a file/symlink
+error: working directory $td is a file/symlink
 EOE
 
 : wd-exists-before
 :
 touch foo.test;
 mkdir test &!test/;
-$* <<EOI 2>>EOE
+$* <<EOI 2>>"EOE"
 ./: test{foo}
 EOI
-warning: working directory test/ exists at the beginning of the test
+warning: working directory $td exists at the beginning of the test
 EOE
 
 : wd-not-empty-before
@@ -61,10 +64,10 @@ EOE
 touch foo.test;
 mkdir test &!test/;
 touch test/dummy &!test/dummy;
-$* <<EOI 2>>EOE
+$* <<EOI 2>>"EOE"
 ./: test{foo}
 EOI
-warning: working directory test/ exists and is not empty at the beginning of the test
+warning: working directory $td exists and is not empty at the beginning of the test
 EOE
 
 : wd-not-empty-after
@@ -78,8 +81,8 @@ EOE
 cat <<EOI >>>foo.test;
 touch ../../dummy
 EOI
-$* <<EOI 2>>EOE &test/*** != 0
+$* <<EOI 2>>"EOE" &test/*** != 0
 ./: test{foo}
 EOI
-error: working directory test/ is not empty at the end of the test
+error: working directory $td is not empty at the end of the test
 EOE

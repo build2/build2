@@ -372,9 +372,9 @@ namespace build2
 
       // rm [-r] [-f] <path>...
       //
-      // Remove a file or directory. A path must not be the test scope working
+      // Remove a file or directory. A path must not be the test working
       // directory or its parent directory. It also must not be outside the
-      // script working directory unless -f option is specified. Note that
+      // testscript working directory unless -f option is specified. Note that
       // directories are not removed by default.
       //
       // -r
@@ -383,7 +383,7 @@ namespace build2
       //
       // -f
       //    Do not fail if path doesn't exist or no paths specified. Removing
-      //    paths outside the script working directory is not an error.
+      //    paths outside the testscript working directory is not an error.
       //
       // The implementation deviates from POSIX in a number of ways. It doesn't
       // interact with a user and fails immediatelly if unable to process an
@@ -441,10 +441,11 @@ namespace build2
           {
             path p (parse_path (*i, sp.wd_path));
 
-            if (!p.sub (sp.root->wd_path) && !force)
+            const dir_path& wd (sp.root->wd_path);
+            if (!p.sub (wd) && !force)
             {
-              cerr << "rm: '" << p << "' is outside script working directory"
-                   << endl;
+              cerr << "rm: '" << p << "' is out of working directory '" << wd
+                   << "'" << endl;
               throw failed ();
             }
 
@@ -462,8 +463,8 @@ namespace build2
 
                 if (sp.wd_path.sub (d))
                 {
-                  cerr << "rm: '" << p << "' contains scope working directory"
-                       << endl;
+                  cerr << "rm: '" << p << "' contains test working directory '"
+                       << sp.wd_path << "'" << endl;
                   throw failed ();
                 }
 

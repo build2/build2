@@ -1,4 +1,4 @@
-# file      : tests/directive/reverse.test
+# file      : tests/value/reverse.test
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
@@ -46,17 +46,15 @@ EOO
 
 : dir-path
 :
-r = ([string] $path.canonicalize(foo/bar/));
-s = ([string] $path.canonicalize(foo/bar));
 $* <<EOI >>"EOO"
 x = [dir_path] foo/bar/
 print ([string] $x)
 print "$x"
 print "-I$x"
 EOI
-$r
-$s
--I$s
+foo/bar/
+foo/bar
+-Ifoo/bar
 EOO
 
 : dir-path-root
