@@ -389,16 +389,25 @@ namespace build2
     // So this function translates an absolute Windows path to its MSYS
     // representation.
     //
-    static dir_path
+    // Note that we return the result as a string, not dir_path since path
+    // starting with / are illegal on Windows. Also note that the result
+    // doesn't have the trailing slash.
+    //
+    static string
     msys_path (const dir_path& d)
     {
       assert (d.absolute ());
-
       string s (d.representation ());
-      s[1] = lcase (s[0]); // Replace ':' with the drive letter.
+
+      // First replace ':' with the drive letter (so the path is no longer
+      // absolute) but postpone setting the first character to / until we are
+      // a string.
+      //
+      s[1] = lcase (s[0]);
+      s = dir_path (move (s)).posix_string ();
       s[0] = '/';
 
-      return dir_path (dir_path (move (s)).posix_representation ());
+      return s;
     }
 
     // install -d <dir>
@@ -433,10 +442,10 @@ namespace build2
 
       cstrings args;
 
-      dir_path reld (
+      string reld (
         cast<string> ((*global_scope)["build.host.class"]) == "windows"
         ? msys_path (d)
-        : relative (d));
+        : relative (d).string ());
 
       if (base.sudo != nullptr)
         args.push_back (base.sudo->c_str ());
@@ -449,7 +458,7 @@ namespace build2
 
       args.push_back ("-m");
       args.push_back (base.dir_mode->c_str ());
-      args.push_back (reld.string ().c_str ());
+      args.push_back (reld.c_str ());
       args.push_back (nullptr);
 
       try
@@ -491,13 +500,16 @@ namespace build2
     {
       path relf (relative (t.path ()));
 
-      path reld (
+      string reld (
         cast<string> ((*global_scope)["build.host.class"]) == "windows"
         ? msys_path (base.dir)
-        : relative (base.dir));
+        : relative (base.dir).string ());
 
       if (!name.empty ())
-        reld /= name;
+      {
+        reld += path::traits::directory_separator;
+        reld += name.string ();
+      }
 
       cstrings args;
 
@@ -512,7 +524,7 @@ namespace build2
       args.push_back ("-m");
       args.push_back (base.mode->c_str ());
       args.push_back (relf.string ().c_str ());
-      args.push_back (reld.string ().c_str ());
+      args.push_back (reld.c_str ());
       args.push_back (nullptr);
 
       try

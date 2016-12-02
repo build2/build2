@@ -24,8 +24,6 @@ namespace build2
 {
   using type = token_type;
 
-  static const dir_path root_dir;
-
   class parser::enter_scope
   {
   public:
@@ -33,32 +31,26 @@ namespace build2
 
     enter_scope (parser& p, dir_path&& d): p_ (&p), r_ (p.root_), s_ (p.scope_)
     {
-      // Check for the global scope as a special case. Note that the global
-      // scope (empty) path is a prefix for any other scope path.
+      // Try hard not to call normalize(). Most of the time we will go just
+      // one level deeper.
       //
-      if (d != root_dir)
+      bool n (true);
+
+      if (d.relative ())
       {
-        // Try hard not to call normalize(). Most of the time we will go just
-        // one level deeper.
+        // Relative scopes are opened relative to out, not src.
         //
-        bool n (true);
-
-        if (d.relative ())
+        if (d.simple () && d.string () != "." && d.string () != "..")
         {
-          // Relative scopes are opened relative to out, not src.
-          //
-          if (d.simple () && d.string () != "." && d.string () != "..")
-          {
-            d = dir_path (p.scope_->out_path ()) /= d.string ();
-            n = false;
-          }
-          else
-            d = p.scope_->out_path () / d;
+          d = dir_path (p.scope_->out_path ()) /= d.string ();
+          n = false;
         }
-
-        if (n)
-          d.normalize ();
+        else
+          d = p.scope_->out_path () / d;
       }
+
+      if (n)
+        d.normalize ();
 
       p.switch_scope (d);
     }

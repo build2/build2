@@ -137,6 +137,7 @@ namespace build2
       {
         lib_dirs = gcc_library_search_paths (ci.path, rs);
 
+#ifndef _WIN32
         // Many platforms don't search in /usr/local/lib by default (but do
         // for headers in /usr/local/include). So add it as the last option.
         //
@@ -150,6 +151,7 @@ namespace build2
         //
         if (tt.system == "freebsd")
           inc_dirs.push_back (dir_path ("/usr/local/include"));
+#endif
       }
 
       // If this is a new value (e.g., we are configuring), then print the
