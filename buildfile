@@ -13,5 +13,6 @@ include $d
 
 # Don't install tests or the INSTALL file.
 #
-dir{tests/}: install = false
-doc{INSTALL}@./: install = false
+dir{tests/}:      install = false
+dir{unit-tests/}: install = false
+doc{INSTALL}@./:  install = false
