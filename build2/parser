@@ -208,12 +208,13 @@ namespace build2
     value
     parse_value (token& t, token_type& tt,
                  const char* what = "name",
-                 const string* separators = &name_separators)
+                 const string* separators = &name_separators,
+                 bool chunk = false)
     {
       names ns;
       pair<bool, const value_type*> p (
         parse_names (
-          t, tt, ns, false, what, separators, 0, nullptr, nullptr, nullptr));
+          t, tt, ns, chunk, what, separators, 0, nullptr, nullptr, nullptr));
 
       value r (p.second); // Potentially typed NULL value.
 

@@ -1326,24 +1326,19 @@ namespace build2
 
           // Parse as names to get variable expansion, evaluation, etc.
           //
-          const location nsl (get_location (t));
-          names ns (parse_names (t, tt, false, "expression", nullptr));
+          const location l (get_location (t));
 
-          // Should evaluate to 'true' or 'false'.
-          //
           try
           {
-            if (ns.size () != 1)
-              throw invalid_argument (string ());
+            // Should evaluate to 'true' or 'false'.
+            //
+            bool e (
+              convert<bool> (
+                parse_value (t, tt, "expression", nullptr)));
 
-            bool e (convert<bool> (move (ns[0])));
             take = (k.back () == '!' ? !e : e);
           }
-          catch (const invalid_argument&)
-          {
-            fail (nsl) << "expected " << k << "-expression to evaluate to "
-                       << "'true' or 'false' instead of '" << ns << "'";
-          }
+          catch (const invalid_argument& e) { fail (l) << e.what (); }
         }
       }
       else
@@ -1427,16 +1422,14 @@ namespace build2
     next (t, tt);
 
     const location el (get_location (t));
-    names ns (parse_names (t, tt, true, "expression", nullptr));
 
-    // Should evaluate to 'true' or 'false'.
-    //
     try
     {
-      if (ns.size () != 1)
-        throw invalid_argument (string ());
-
-      bool e (convert<bool> (move (ns[0])));
+      // Should evaluate to 'true' or 'false'.
+      //
+      bool e (
+        convert<bool> (
+          parse_value (t, tt, "expression", nullptr, true)));
       e = (neg ? !e : e);
 
       if (e)
@@ -1449,18 +1442,14 @@ namespace build2
         return;
       }
     }
-    catch (const invalid_argument&)
-    {
-      fail (el) << "expected assert-expression to evaluate to "
-                << "'true' or 'false' instead of '" << ns << "'";
-    }
+    catch (const invalid_argument& e) { fail (el) << e.what (); }
 
     // Being here means things didn't end up well. Parse the description, if
     // any, with expansion. Then fail.
     //
-    ns = tt != type::newline && tt != type::eos
-      ? parse_names (t, tt, false, "description", nullptr)
-      : names ();
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt, false, "description", nullptr)
+              : names ());
 
     diag_record dr (fail (al));
     dr << "assertion failed";
