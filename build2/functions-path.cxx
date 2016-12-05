@@ -98,8 +98,19 @@ namespace build2
     f["canonicalize"] = [](path p) {p.canonicalize (); return p;};
     f["canonicalize"] = [](dir_path p) {p.canonicalize (); return p;};
 
-    f["canonicalize"] = [](paths v) {for (auto& p: v) p.canonicalize (); return v;};
-    f["canonicalize"] = [](dir_paths v) {for (auto& p: v) p.canonicalize (); return v;};
+    f["canonicalize"] = [](paths v)
+    {
+      for (auto& p: v)
+        p.canonicalize ();
+      return v;
+    };
+
+    f["canonicalize"] = [](dir_paths v)
+    {
+      for (auto& p: v)
+        p.canonicalize ();
+      return v;
+    };
 
     f[".canonicalize"] = [](names ns)
     {
@@ -119,14 +130,40 @@ namespace build2
 
     // normalize
     //
-    f["normalize"] = [](path p) {p.normalize (); return p;};
-    f["normalize"] = [](dir_path p) {p.normalize (); return p;};
-
-    f["normalize"] = [](paths v) {for (auto& p: v) p.normalize (); return v;};
-    f["normalize"] = [](dir_paths v) {for (auto& p: v) p.normalize (); return v;};
-
-    f[".normalize"] = [](names ns)
+    f["normalize"] = [](path p, optional<value> a)
     {
+      p.normalize (a && convert<bool> (move (*a)));
+      return p;
+    };
+
+    f["normalize"] = [](dir_path p, optional<value> a)
+    {
+      p.normalize (a && convert<bool> (move (*a)));
+      return p;
+    };
+
+    f["normalize"] = [](paths v, optional<value> a)
+    {
+      bool act (a && convert<bool> (move (*a)));
+
+      for (auto& p: v)
+        p.normalize (act);
+
+      return v;
+    };
+    f["normalize"] = [](dir_paths v, optional<value> a)
+    {
+      bool act (a && convert<bool> (move (*a)));
+
+      for (auto& p: v)
+        p.normalize (act);
+      return v;
+    };
+
+    f[".normalize"] = [](names ns, optional<value> a)
+    {
+      bool act (a && convert<bool> (move (*a)));
+
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as untyped list of (potentially
       // mixed) paths.
@@ -134,9 +171,9 @@ namespace build2
       for (name& n: ns)
       {
         if (n.directory ())
-          n.dir.normalize ();
+          n.dir.normalize (act);
         else
-          n.value = convert<path> (move (n)).normalize ().string ();
+          n.value = convert<path> (move (n)).normalize (act).string ();
       }
       return ns;
     };

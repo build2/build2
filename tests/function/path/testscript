@@ -4,11 +4,7 @@
 
 .include ../../common.test
 
-if ($cxx.target.class != windows) # @@ TMP ternarry
-  s = '/'
-else
-  s = '\'
-end
+s = ($cxx.target.class != windows ? '/' : '\')
 
 : canonicalize
 :
@@ -30,15 +26,19 @@ end
   $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
   $* <'print $path.normalize(a/../b)'                >"b"        : untyped
   $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
+
+  : actualize
+  :
+  if ($cxx.target.class == windows)
+  {
+    mkdir Foo;
+    $* <"print \$path.normalize\('$~/foo', true)" >"$~\\Foo"
+  }
 }
 
 : invalid-path
 :
-if ($cxx.target.class != windows) # @@ TMP ternarry
-  p = /../foo
-else
-  p = c:/../foo
-end;
+p = ($cxx.target.class != windows ? /../foo : 'c:/../foo');
 $* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
 EOE
