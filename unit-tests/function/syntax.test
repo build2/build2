@@ -12,6 +12,8 @@ $* <'$dump(d/t{x y z})' >'d/t{x} d/t{y} d/t{z}' : one-names
 
 $* <'print a$dummy1    ([string] b)c' >'abc' : concat
 
+$* <'print $dummy2([uint64] 123, [uint64] 321)' >'444' : multi-arg
+
 : quoting
 : Verify we can inhibit function call with quoting
 :

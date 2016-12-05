@@ -25,8 +25,7 @@ $* <'print $dummy.abs([abs_dir_path] .)' >'true'
 
 : variadic
 :
-# @@ TMP: add some args
-$* <'print $variadic([bool] true)' >'1'
+$* <'print $variadic([bool] true, foo, bar)' >'3'
 
 : fail
 :

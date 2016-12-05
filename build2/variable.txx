@@ -35,6 +35,20 @@ namespace build2
   }
 
   template <typename T>
+  T
+  convert (value&& v)
+  {
+    if (v.type == nullptr)
+      return convert<T> (move (v).as<names> ());
+    else if (v.type == &value_traits<T>::value_type)
+      return move (v).as<T> ();
+
+    throw invalid_argument (
+      string ("invalid ") + value_traits<T>::type_name +
+      " value: conversion from " + v.type->name);
+  }
+
+  template <typename T>
   void
   default_dtor (value& v)
   {

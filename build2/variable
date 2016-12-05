@@ -248,6 +248,12 @@ namespace build2
     reset ();
   };
 
+  // This is what we call a "value pack"; it can be created by the eval
+  // context and passed as arguments to functions. Usually we will have just
+  // one value.
+  //
+  using values = small_vector<value, 1>;
+
   // The values should be of the same type (or both be untyped) except NULL
   // values can also be untyped. NULL values compare equal and a NULL value
   // is always less than a non-NULL.
@@ -438,6 +444,11 @@ namespace build2
   // guaranteed to be unchanged.
   //
   //template <typename T> T convert (names&&); (declaration causes ambiguity)
+
+  // Convert value to T. If value is already of type T, then simply cast it.
+  // Otherwise call convert(names) above.
+  //
+  template <typename T> T convert (value&&);
 
   // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
   // types that are stored directly in value::data_ and the provide all the

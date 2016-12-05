@@ -65,8 +65,8 @@ namespace build2
       }
     case lexer_mode::eval:
       {
-        s1 = ":<>=! $(){}[]#\t\n";
-        s2 = "   ==           ";
+        s1 = ":<>=!&|?, $(){}[]#\t\n";
+        s2 = "   = &|             ";
         break;
       }
     case lexer_mode::single_quoted:
@@ -233,32 +233,51 @@ namespace build2
     case '[': return make_token (type::lsbrace);
     case ']': return make_token (type::rsbrace);
     case '$': return make_token (type::dollar);
+    case '?': return make_token (type::question);
+    case ',': return make_token (type::comma);
     case '(': return make_token (type::lparen);
     case ')':
       {
         state_.pop (); // Expire eval mode.
         return make_token (type::rparen);
       }
+      // Potentially two-character tokens.
+      //
     case '=':
     case '!':
-      {
-        if (peek () == '=')
-        {
-          get ();
-          return make_token (c == '=' ? type::equal : type::not_equal);
-        }
-        break;
-      }
     case '<':
     case '>':
+    case '|':
+    case '&':
       {
-        bool e (peek () == '=');
-        if (e)
-          get ();
+        xchar p (peek ());
 
-        return make_token (c == '<'
-                           ? e ? type::less_equal : type::less
-                           : e ? type::greater_equal : type::greater);
+        type r (type::eos);
+        switch (c)
+        {
+        case '|': if (p == '|') r = type::log_or; break;
+        case '&': if (p == '&') r = type::log_and; break;
+
+        case '<': r = (p == '=' ? type::less_equal : type::less); break;
+        case '>': r = (p == '=' ? type::greater_equal : type::greater); break;
+
+        case '=': if (p == '=') r = type::equal; break;
+
+        case '!': r = (p == '=' ? type::not_equal : type::log_not); break;
+        }
+
+        if (r == type::eos)
+          break;
+
+        switch (r)
+        {
+        case type::less:
+        case type::greater:
+        case type::log_not: break;
+        default:            get ();
+        }
+
+        return make_token (r);
       }
     }
 

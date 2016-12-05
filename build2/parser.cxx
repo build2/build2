@@ -1738,181 +1738,367 @@ namespace build2
     }
   }
 
-  pair<value, bool> parser::
+  values parser::
   parse_eval (token& t, type& tt)
   {
-    mode (lexer_mode::eval, '@');
+    // enter: lparen
+    // leave: rparen
+
+    mode (lexer_mode::eval, '@'); // Auto-expires at rparen.
     next (t, tt);
-    return tt != type::rparen
-      ? make_pair (parse_eval_trailer (t, tt), true)
-      : make_pair (value (names ()), false);
+
+    if (tt == type::rparen)
+      return values ();
+
+    values r (parse_eval_comma (t, tt, true));
+
+    if (tt != type::rparen)
+      fail (t) << "unexpected " << t; // E.g., stray ':'.
+
+    return r;
+  }
+
+  values parser::
+  parse_eval_comma (token& t, type& tt, bool first)
+  {
+    // enter: first token of LHS
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+    values r;
+    value lhs (parse_eval_ternary (t, tt, first));
+
+    if (!pre_parse_)
+      r.push_back (move (lhs));
+
+    while (tt == type::comma)
+    {
+      next (t, tt);
+      value rhs (parse_eval_ternary (t, tt));
+
+      if (!pre_parse_)
+        r.push_back (move (rhs));
+    }
+
+    return r;
   }
 
   value parser::
-  parse_eval_trailer (token& t, type& tt)
+  parse_eval_ternary (token& t, type& tt, bool first)
   {
-    // Parse the next value (if any) handling its attributes.
-    //
-    auto parse = [&t, &tt, this] () -> value
-    {
-      // Parse value attributes if any. Note that it's ok not to have anything
-      // after the attributes, as in, ($foo == [null]), or even ([null])
-      //
-      auto at (attributes_push (t, tt, true));
+    // enter: first token of LHS
+    // leave: next token after last RHS
 
-      // Note that if parse_value() gets called, it expects to see a value.
-      //
-      value r (tt != type::rparen     &&
-               tt != type::colon      &&
-               tt != type::equal      &&
-               tt != type::not_equal  &&
-               tt != type::less       &&
-               tt != type::less_equal &&
-               tt != type::greater    &&
-               tt != type::greater_equal
-               ? parse_value (t, tt)
-               : value (names ()));
+    // Right-associative (kind of): we parse what's between ?: without
+    // regard for priority and we recurse on what's after :. Here is an
+    // example:
+    //
+    // a ? x ? y : z : b ? c : d
+    //
+    // This should be parsed/evaluated as:
+    //
+    // a ? (x ? y : z) : (b ? c : d)
+    //
+    location l (get_location (t));
+    value lhs (parse_eval_or (t, tt, first));
+
+    if (tt != type::question)
+      return lhs;
+
+    // Use the pre-parse mechanism to implement short-circuit.
+    //
+    bool pp (pre_parse_);
+
+    bool q;
+    try
+    {
+      q = pp ? true : convert<bool> (move (lhs));
+    }
+    catch (const invalid_argument& e) { fail (l) << e.what (); }
+
+    if (!pp)
+      pre_parse_ = !q; // Short-circuit middle?
+
+    next (t, tt);
+    value mhs (parse_eval_ternary (t, tt));
+
+    if (tt != type::colon)
+      fail (t) << "expected ':' instead of " << t;
+
+    if (!pp)
+      pre_parse_ = q; // Short-circuit right?
+
+    next (t, tt);
+    value rhs (parse_eval_ternary (t, tt));
+
+    pre_parse_ = pp;
+    return q ? move (mhs) : move (rhs);
+  }
+
+  value parser::
+  parse_eval_or (token& t, type& tt, bool first)
+  {
+    // enter: first token of LHS
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+    location l (get_location (t));
+    value lhs (parse_eval_and (t, tt, first));
+
+    // Use the pre-parse mechanism to implement short-circuit.
+    //
+    bool pp (pre_parse_);
+
+    while (tt == type::log_or)
+    {
+      try
+      {
+        if (!pre_parse_ && convert<bool> (move (lhs)))
+          pre_parse_ = true;
+
+        next (t, tt);
+        l = get_location (t);
+        value rhs (parse_eval_and (t, tt));
+
+        if (pre_parse_)
+          continue;
+
+        // Store the result as bool value.
+        //
+        lhs = convert<bool> (move (rhs));
+      }
+      catch (const invalid_argument& e) { fail (l) << e.what (); }
+    }
+
+    pre_parse_ = pp;
+    return lhs;
+  }
+
+  value parser::
+  parse_eval_and (token& t, type& tt, bool first)
+  {
+    // enter: first token of LHS
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+    location l (get_location (t));
+    value lhs (parse_eval_comp (t, tt, first));
+
+    // Use the pre-parse mechanism to implement short-circuit.
+    //
+    bool pp (pre_parse_);
+
+    while (tt == type::log_and)
+    {
+      try
+      {
+        if (!pre_parse_ && !convert<bool> (move (lhs)))
+          pre_parse_ = true;
+
+        next (t, tt);
+        l = get_location (t);
+        value rhs (parse_eval_comp (t, tt));
+
+        if (pre_parse_)
+          continue;
+
+        // Store the result as bool value.
+        //
+        lhs = convert<bool> (move (rhs));
+      }
+      catch (const invalid_argument& e) { fail (l) << e.what (); }
+    }
+
+    pre_parse_ = pp;
+    return lhs;
+  }
+
+  value parser::
+  parse_eval_comp (token& t, type& tt, bool first)
+  {
+    // enter: first token of LHS
+    // leave: next token after last RHS
+
+    // Left-associative: parse in a loop for as long as we can.
+    //
+    value lhs (parse_eval_value (t, tt, first));
+
+    while (tt == type::equal      ||
+           tt == type::not_equal  ||
+           tt == type::less       ||
+           tt == type::less_equal ||
+           tt == type::greater    ||
+           tt == type::greater_equal)
+    {
+      type op (tt);
+      location l (get_location (t));
+
+      next (t, tt);
+      value rhs (parse_eval_value (t, tt));
 
       if (pre_parse_)
-        return r; // Empty.
+        continue;
+
+      // Use (potentially typed) comparison via value. If one of the values is
+      // typed while the other is not, then try to convert the untyped one to
+      // the other's type instead of complaining. This seems like a reasonable
+      // thing to do and will allow us to write:
+      //
+      // if ($build.version > 30000)
+      //
+      // Rather than having to write:
+      //
+      // if ($build.version > [uint64] 30000)
+      //
+      if (lhs.type != rhs.type)
+      {
+        // @@ Would be nice to pass location for diagnostics.
+        //
+        if (lhs.type == nullptr)
+        {
+          if (lhs)
+            typify (lhs, *rhs.type, nullptr);
+        }
+        else if (rhs.type == nullptr)
+        {
+          if (rhs)
+            typify (rhs, *lhs.type, nullptr);
+        }
+        else
+          fail (l) << "comparison between " << lhs.type->name << " and "
+                   << rhs.type->name;
+      }
+
+      bool r;
+      switch (op)
+      {
+      case type::equal:         r = lhs == rhs; break;
+      case type::not_equal:     r = lhs != rhs; break;
+      case type::less:          r = lhs <  rhs; break;
+      case type::less_equal:    r = lhs <= rhs; break;
+      case type::greater:       r = lhs >  rhs; break;
+      case type::greater_equal: r = lhs >= rhs; break;
+      default:                  r = false;      assert (false);
+      }
+
+      // Store the result as a bool value.
+      //
+      lhs = value (r);
+    }
+
+    return lhs;
+  }
+
+  value parser::
+  parse_eval_value (token& t, type& tt, bool first)
+  {
+    // enter: first token of value
+    // leave: next token after value
+
+    // Parse value attributes if any. Note that it's ok not to have anything
+    // after the attributes, as in, ($foo == [null]), or even ([null])
+    //
+    auto at (attributes_push (t, tt, true));
+
+    const location l (get_location (t));
+
+    value v;
+    switch (tt)
+    {
+    case type::log_not:
+      {
+        next (t, tt);
+        v = parse_eval_value (t, tt);
+
+        if (pre_parse_)
+          break;
+
+        try
+        {
+          // Store the result as bool value.
+          //
+          v = !convert<bool> (move (v));
+        }
+        catch (const invalid_argument& e) { fail (l) << e.what (); }
+        break;
+      }
+    default:
+      {
+        // If parse_value() gets called, it expects to see a value. Note that
+        // it will also handle nested eval contexts.
+        //
+        v = (tt != type::colon         &&
+             tt != type::question      &&
+             tt != type::comma         &&
+
+             tt != type::rparen        &&
+
+             tt != type::equal         &&
+             tt != type::not_equal     &&
+             tt != type::less          &&
+             tt != type::less_equal    &&
+             tt != type::greater       &&
+             tt != type::greater_equal &&
+
+             tt != type::log_or        &&
+             tt != type::log_and
+
+             ? parse_value (t, tt)
+             : value (names ()));
+      }
+    }
+
+    // If this is the first expression then handle the eval-qual special case
+    // (scope/target qualified name represented as a special ':'-style pair).
+    //
+    if (first && tt == type::colon)
+    {
+      if (at.first)
+        fail (at.second) << "attributes before qualified variable name";
+
+      attributes_pop ();
+
+      const location nl (get_location (t));
+      next (t, tt);
+      value n (parse_value (t, tt));
+
+      if (tt != type::rparen)
+        fail (t) << "expected ')' after variable name";
+
+      if (pre_parse_)
+        return v; // Empty.
+
+      if (v.type != nullptr || !v || v.as<names> ().size () != 1)
+        fail (l) << "expected scope/target before ':'";
+
+      if (n.type != nullptr || !n || n.as<names> ().size () != 1)
+        fail (nl) << "expected variable name after ':'";
+
+      names& ns (v.as<names> ());
+      ns.back ().pair = ':';
+      ns.push_back (move (n.as<names> ().back ()));
+      return v;
+    }
+    else
+    {
+      if (pre_parse_)
+        return v; // Empty.
 
       // Process attributes if any.
       //
       if (!at.first)
       {
         attributes_pop ();
-        return r;
+        return v;
       }
 
-      value v;
-      apply_value_attributes (nullptr, v, move (r), type::assign);
-      return v;
-    };
-
-    value lhs (parse ());
-
-    // We continue evaluating from left to right until we reach ')', storing
-    // the result in lhs (think 'a == b == false').
-    //
-    while (tt != type::rparen)
-    {
-      const location l (get_location (t));
-
-      // Remember to update parse_value above if adding any new name
-      // separators here.
-      //
-      switch (tt)
-      {
-      case type::colon:
-        {
-          // Later, when we support '?:', we will need to decide which case
-          // this is. But for now ':' is always a scope/target qualified name
-          // which we represent as a special ':'-style pair.
-          //
-          next (t, tt);
-          value rhs (parse_eval_trailer (t, tt));
-
-          if (tt != type::rparen)
-            fail (l) << "variable name expected after ':'";
-
-          if (pre_parse_)
-            break;
-
-          if (lhs.type != nullptr || !lhs || lhs.empty ())
-            fail (l) << "scope/target expected before ':'";
-
-          if (rhs.type != nullptr || !rhs || rhs.empty ())
-            fail (l) << "variable name expected after ':'";
-
-          names& ns (lhs.as<names> ());
-          ns.back ().pair = ':';
-
-          ns.insert (ns.end (),
-                     make_move_iterator (rhs.as<names> ().begin ()),
-                     make_move_iterator (rhs.as<names> ().end ()));
-
-          break;
-        }
-      case type::equal:
-      case type::not_equal:
-      case type::less:
-      case type::less_equal:
-      case type::greater:
-      case type::greater_equal:
-        {
-          type op (tt);
-
-          // These are left-associative, so get the rhs value and evaluate.
-          //
-          // @@ In C++ == and != have lower precedence than <, etc.
-          //
-          next (t, tt);
-          value rhs (parse ());
-
-          if (pre_parse_)
-            break;
-
-          // Use (potentially typed) comparison via value. If one of the
-          // values is typed while the other is not, then try to convert the
-          // untyped one to the other's type instead of complaining. This
-          // seems like a reasonable thing to do and will allow us to write:
-          //
-          // if ($build.version > 30000)
-          //
-          // Rather than having to write:
-          //
-          // if ($build.version > [uint64] 30000)
-          //
-          if (lhs.type != rhs.type)
-          {
-            // @@ Would be nice to pass location for diagnostics.
-            //
-            if (lhs.type == nullptr)
-            {
-              if (lhs)
-                typify (lhs, *rhs.type, nullptr);
-            }
-            else if (rhs.type == nullptr)
-            {
-              if (rhs)
-                typify (rhs, *lhs.type, nullptr);
-            }
-            else
-              fail (l) << "comparison between " << lhs.type->name << " and "
-                       << rhs.type->name;
-          }
-
-          bool r;
-          switch (op)
-          {
-          case type::equal:         r = lhs == rhs; break;
-          case type::not_equal:     r = lhs != rhs; break;
-          case type::less:          r = lhs <  rhs; break;
-          case type::less_equal:    r = lhs <= rhs; break;
-          case type::greater:       r = lhs >  rhs; break;
-          case type::greater_equal: r = lhs >= rhs; break;
-          default:                  r = false;      assert (false);
-          }
-
-          // Store the result as a bool value.
-          //
-          if (lhs.type != nullptr)
-          {
-            // Reset to NULL and untype.
-            //
-            lhs = nullptr;
-            lhs.type = nullptr;
-          }
-
-          lhs = r;
-          break;
-        }
-      default:
-        fail (l) << "expected ')' instead of " << t;
-      }
+      value r;
+      apply_value_attributes (nullptr, r, move (v), type::assign);
+      return r;
     }
-
-    return lhs;
   }
 
   pair<bool, location> parser::
@@ -2536,10 +2722,15 @@ namespace build2
           else if (tt == type::lparen)
           {
             expire_mode ();
-            value v (parse_eval (t, tt).first); //@@ OUT will parse @-pair and do well?
+            values vs (parse_eval (t, tt)); //@@ OUT will parse @-pair and do well?
 
             if (!pre_parse_)
             {
+              if (vs.size () != 1)
+                fail (loc) << "expected single variable/function name";
+
+              value& v (vs[0]);
+
               if (!v)
                 fail (loc) << "null variable/function name";
 
@@ -2553,7 +2744,7 @@ namespace build2
               if (n > 2 ||
                   (n == 2 && ns[0].pair != ':') ||
                   !ns[n - 1].simple ())
-                fail (loc) << "variable/function name expected instead of '"
+                fail (loc) << "expected variable/function name instead of '"
                            << ns << "'";
 
               if (n == 2)
@@ -2570,7 +2761,7 @@ namespace build2
             }
           }
           else
-            fail (t) << "variable/function name expected instead of " << t;
+            fail (t) << "expected variable/function name instead of " << t;
 
           if (!pre_parse_ && name.empty ())
             fail (loc) << "empty variable/function name";
@@ -2590,21 +2781,15 @@ namespace build2
             // @@ Should we use (target/scope) qualification (of name) as the
             // context in which to call the function?
             //
-            auto args (parse_eval (t, tt));
+            values args (parse_eval (t, tt));
             tt = peek ();
 
             if (pre_parse_)
               continue; // As if empty result.
 
-            // Note that we move args to call().
+            // Note that we "move" args to call().
             //
-            result_data = functions.call (
-              name,
-              vector_view<value> (
-                args.second ? &args.first : nullptr,
-                args.second ? 1 : 0),
-              loc);
-
+            result_data = functions.call (name, args, loc);
             what = "function call";
           }
           else
@@ -2629,12 +2814,18 @@ namespace build2
           //
 
           loc = get_location (t);
-          result_data = parse_eval (t, tt).first;
-
+          values vs (parse_eval (t, tt));
           tt = peek ();
 
           if (pre_parse_)
             continue; // As if empty result.
+
+          switch (vs.size ())
+          {
+          case 0:  result_data = value (names ()); break;
+          case 1:  result_data = move (vs[0]); break;
+          default: fail (loc) << "expected single value";
+          }
 
           what = "context evaluation";
         }

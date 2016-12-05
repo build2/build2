@@ -38,6 +38,7 @@ namespace build2
 
     f["dummy0"] = []()         {return "abc";};
     f["dummy1"] = [](string s) {return s;};
+    f["dummy2"] = [](uint64_t x, uint64_t y) {return x + y;};
 
     f["ambig"] = [](names a, optional<string>)   {return a;};
     f["ambig"] = [](names a, optional<uint64_t>) {return a;};

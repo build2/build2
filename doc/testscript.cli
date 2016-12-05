@@ -653,7 +653,7 @@ foo?       - zero or one multiplier
 foo bar    - concatenation (foo then bar)
 foo | bar  - alternation   (foo or bar)
 (foo bar)  - grouping
-{foo bar}  - concatenation in any order (foo then bar or bar then foo)
+{foo bar}  - grouping in any order (foo then bar or bar then foo)
 foo \
 bar        - line continuation
 # foo      - comment

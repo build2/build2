@@ -1,0 +1,28 @@
+# file      : tests/eval/qual.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test qualified name (eval-qual).
+
+.include ../common.test
+
+$* <'print (file{foo}: bar)' >'file{foo}:bar' : target
+$* <'print (foo/dir{}: bar)' >'dir{foo/}:bar' : scope
+
+: attribute
+:
+$* <'([string] foo:bar)' 2>>EOE != 0
+<stdin>:1:2: error: attributes before qualified variable name
+EOE
+
+: leader
+:
+$* <'(foo == foo:bar)' 2>>EOE != 0
+<stdin>:1:12: error: unexpected ':'
+EOE
+
+: trailer
+:
+$* <'(foo:bar == foo)' 2>>EOE != 0
+<stdin>:1:10: error: expected ')' after variable name
+EOE

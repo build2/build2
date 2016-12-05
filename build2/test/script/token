@@ -31,8 +31,6 @@ namespace build2
 
           pipe,                         // |
           clean,                        // &{?!}   (modifiers in value)
-          log_and,                      // &&
-          log_or,                       // ||
 
           in_pass,                      // <+
           in_null,                      // <-

@@ -15,11 +15,27 @@
 \h0#preface|Preface|
 
 This is the preface.
-"
 
-/*
+\h1#grammar|Grammar|
+
+\
+eval:         '(' (eval-comma | eval-qual)? ')'
+eval-comma:   eval-ternary (',' eval-ternary)*
+eval-ternary: eval-or ('?' eval-ternary ':' eval-ternary)?
+eval-or:      eval-and ('||' eval-and)*
+eval-and:     eval-comp ('&&' eval-comp)*
+eval-comp:    eval-value (('=='|'!='|'<'|'>'|'<='|'>=') eval-value)*
+eval-value:   value-attributes? (<value> | eval | '!' eval-value)
+eval-qual:    <name> ':' <name>
+
+value-attributes: '[' <key-value-pairs> ']'
+\
+
+Note that \c{?:} (ternary operator) and \c{!} (logical not) are
+right-associative. Unlike C++, all the comparison operators have the same
+precedence. A qualified name cannot be combined with any other operator
+(including ternary) unless enclosed in parentheses. The \c{eval} option
+in the \c{eval-value} production shall contain single value only (no
+commas).
+
 "
-\h Installation
-"
-source "../INSTALL.cli";
-*/

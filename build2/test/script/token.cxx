@@ -29,10 +29,7 @@ namespace build2
         case token_type::minus:        os << q << '-'        << q; break;
 
         case token_type::clean:        os << q << '&'   << v << q; break;
-
         case token_type::pipe:         os << q << '|'        << q; break;
-        case token_type::log_and:      os << q << "&&"       << q; break;
-        case token_type::log_or:       os << q << "||"       << q; break;
 
         case token_type::in_pass:      os << q << "<+"       << q; break;
         case token_type::in_null:      os << q << "<-"       << q; break;

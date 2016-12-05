@@ -8,6 +8,6 @@ import libs = libbutl%lib{butl}
 src = token lexer diagnostics utility variable name b-options types-parsers
 
 exe{driver}: cxx{driver} ../../build2/cxx{$src} $libs \
-test{comment quoting}
+test{comment eval quoting}
 
 include ../../build2/

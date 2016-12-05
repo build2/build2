@@ -1,0 +1,47 @@
+# file      : tests/eval/comp.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test comparison operators (eval-comp).
+
+.include ../common.test
+
+$* <'print (foo == bar)' >'false' : eq-false
+$* <'print (foo == foo)' >'true'  : eq-true
+
+$* <'print (foo != foo)' >'false' : ne-false
+$* <'print (foo != bar)' >'true'  : ne-true
+
+$* <'print (foo < bar)' >'false'  : lt-false
+$* <'print (bar < foo)' >'true'   : lt-true
+
+$* <'print (bar > foo)' >'false'  : gt-false
+$* <'print (foo > bar)' >'true'   : gt-true
+
+$* <'print (foo <= bar)' >'false' : le-false
+$* <'print (bar <= foo)' >'true'  : le-true
+$* <'print (bar <= bar)' >'true'  : le-true-eq
+
+$* <'print (bar >= foo)' >'false' : gt-false
+$* <'print (foo >= bar)' >'true'  : gt-true
+$* <'print (foo >= foo)' >'true'  : gt-true-eq
+
+: associativity
+:
+$* <'print (foo == bar == false)' >'true'
+
+: type
+:
+{
+  $* <'print ((foo bar) == foo bar)' >'true' : untyped-list
+  $* <'print ("" == "")' >'true'             : untyped-empty
+
+  $* <'print (0 < 00)'                   >'true'     : untyped-untyped
+  $* <'print (0 < [null])'               >'false'    : untyped-null
+  $* <'print ([uint64] 00 < 0)'          >'false'    : uint64-untyped
+  $* <'print ([uint64] 00 < [null])'     >'false'    : uint64-null
+  $* <'print ([uint64] 00 < [uint64] 0)' >'false'    : uint64-uint64
+  $* <'print ([uint64] 00 < [string] 0)' 2>>EOE != 0 : uint64-string
+  <stdin>:1:20: error: comparison between uint64 and string
+  EOE
+}

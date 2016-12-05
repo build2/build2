@@ -28,23 +28,35 @@ namespace build2
       newline,
       word,
       pair_separator,
-      colon,
-      lcbrace,       // {
-      rcbrace,       // }
-      lsbrace,       // [
-      rsbrace,       // ]
-      assign,        // =
-      prepend,       // =+
-      append,        // +=
-      equal,         // ==
-      not_equal,     // !=
-      less,          // <
-      greater,       // >
-      less_equal,    // <=
-      greater_equal, // >=
-      dollar,        // $
-      lparen,        // (
-      rparen,        // )
+
+      colon,           // :
+      dollar,          // $
+      question,        // ?
+      comma,           // ,
+
+      lparen,          // (
+      rparen,          // )
+
+      lcbrace,         // {
+      rcbrace,         // }
+
+      lsbrace,         // [
+      rsbrace,         // ]
+
+      assign,          // =
+      prepend,         // =+
+      append,          // +=
+
+      equal,           // ==
+      not_equal,       // !=
+      less,            // <
+      greater,         // >
+      less_equal,      // <=
+      greater_equal,   // >=
+
+      log_or,          // ||
+      log_and,         // &&
+      log_not,         // !
 
       value_next
     };

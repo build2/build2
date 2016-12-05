@@ -110,15 +110,30 @@ namespace build2
                             value&& rhs,
                             token_type kind);
 
-    // Return the value (can be NULL/typed) as well as the indication of
-    // whether this is a non-empty eval context (i.e., '()' potentially with
-    // whitespace in between).
+    // Return the value pack (values can be NULL/typed). Note that for an
+    // empty eval context ('()' potentially with whitespaces in between) the
+    // result is an empty pack, not a pack of one empty.
     //
-    pair<value, bool>
+    values
     parse_eval (token&, token_type&);
 
+    values
+    parse_eval_comma (token&, token_type&, bool = false);
+
     value
-    parse_eval_trailer (token&, token_type&);
+    parse_eval_ternary (token&, token_type&, bool = false);
+
+    value
+    parse_eval_or (token&, token_type&, bool = false);
+
+    value
+    parse_eval_and (token&, token_type&, bool = false);
+
+    value
+    parse_eval_comp (token&, token_type&, bool = false);
+
+    value
+    parse_eval_value (token&, token_type&, bool = false);
 
     // Attributes stack. We can have nested attributes, for example:
     //
