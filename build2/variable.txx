@@ -357,13 +357,20 @@ namespace build2
   }
 
   template <typename T>
-  const string value_traits<vector<T>>::type_name = string (
-    value_traits<T>::type_name) + 's';
+  value_traits<vector<T>>::value_type_ex::
+  value_type_ex (value_type&& v)
+    : value_type (move (v))
+  {
+    type_name  = value_traits<T>::type_name;
+    type_name += 's';
+    name = type_name.c_str ();
+  }
 
   template <typename T>
-  const value_type value_traits<vector<T>>::value_type = // VC14 wants =.
+  const typename value_traits<vector<T>>::value_type_ex
+  value_traits<vector<T>>::value_type = build2::value_type // VC14 wants =.
   {
-    value_traits<vector<T>>::type_name.c_str (),
+    nullptr,                          // Patched above.
     sizeof (vector<T>),
     nullptr,                          // No base.
     &default_dtor<vector<T>>,
@@ -516,14 +523,22 @@ namespace build2
   }
 
   template <typename K, typename V>
-  const string value_traits<std::map<K, V>>::type_name = string (
-    value_traits<K>::type_name) + '_' +
-    value_traits<V>::type_name + "_map";
+  value_traits<std::map<K, V>>::value_type_ex::
+  value_type_ex (value_type&& v)
+    : value_type (move (v))
+  {
+    type_name  = value_traits<K>::type_name;
+    type_name += '_';
+    type_name += value_traits<V>::type_name;
+    type_name += "_map";
+    name = type_name.c_str ();
+  }
 
   template <typename K, typename V>
-  const value_type value_traits<std::map<K, V>>::value_type = // VC14 wants =.
+  const typename value_traits<std::map<K, V>>::value_type_ex
+  value_traits<std::map<K, V>>::value_type = build2::value_type // VC14 wants =
   {
-    value_traits<map<K, V>>::type_name.c_str (),
+    nullptr,             // Patched above.
     sizeof (map<K, V>),
     nullptr,             // No base.
     &default_dtor<map<K, V>>,

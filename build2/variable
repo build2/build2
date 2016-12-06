@@ -694,8 +694,15 @@ namespace build2
     static void prepend (value&, vector<T>&&);
     static bool empty (const vector<T>& x) {return x.empty ();}
 
-    static const string type_name;
-    static const build2::value_type value_type;
+    // Make sure these are static-initialized together. Failed that VC will
+    // make sure it's done in the wrong order.
+    //
+    struct value_type_ex: build2::value_type
+    {
+      string type_name;
+      value_type_ex (value_type&&);
+    };
+    static const value_type_ex value_type;
   };
 
   // map<K, V>
@@ -713,8 +720,15 @@ namespace build2
       return append (v, move (x));}
     static bool empty (const map<K, V>& x) {return x.empty ();}
 
-    static const string type_name;
-    static const build2::value_type value_type;
+    // Make sure these are static-initialized together. Failed that VC will
+    // make sure it's done in the wrong order.
+    //
+    struct value_type_ex: build2::value_type
+    {
+      string type_name;
+      value_type_ex (value_type&&);
+    };
+    static const value_type_ex value_type;
   };
 
   // variable_pool
