@@ -523,7 +523,7 @@ namespace build2
 
     // Figure out work and home directories.
     //
-    work = dir_path::current ();
-    home = dir_path::home ();
+    work = dir_path::current_directory ();
+    home = dir_path::home_directory ();
   }
 }

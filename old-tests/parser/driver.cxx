@@ -143,7 +143,7 @@ parse (const char* s)
 
   // Create a minimal root scope.
   //
-  auto i (scopes.insert (path::current (), nullptr, true, true));
+  auto i (scopes.insert (path::current_directory (), nullptr, true, true));
   scope& root (*i->second);
   root.src_path_ = root.out_path_ = &i->first;
 

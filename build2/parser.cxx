@@ -40,7 +40,7 @@ namespace build2
       {
         // Relative scopes are opened relative to out, not src.
         //
-        if (d.simple () && d.string () != "." && d.string () != "..")
+        if (d.simple () && !d.current () && !d.parent ())
         {
           d = dir_path (p.scope_->out_path ()) /= d.string ();
           n = false;
@@ -1797,7 +1797,7 @@ namespace build2
     {
       q = pp ? true : convert<bool> (move (lhs));
     }
-    catch (const invalid_argument& e) { fail (l) << e.what (); }
+    catch (const invalid_argument& e) { fail (l) << e.what () << endf; }
 
     if (!pp)
       pre_parse_ = !q; // Short-circuit middle?
