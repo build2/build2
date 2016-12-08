@@ -84,7 +84,7 @@ namespace build2
           case redirect_type::null:  o << '-';         break;
           case redirect_type::merge: o << '&' << r.fd; break;
 
-          case redirect_type::here_string:
+          case redirect_type::here_str_literal:
             {
               const string& v (r.str);
               bool nl (!v.empty () && v.back () == '\n');
@@ -95,16 +95,16 @@ namespace build2
               to_stream_q (o, nl ? string (v, 0, v.size () - 1) : v);
               break;
             }
-          case redirect_type::here_document:
+          case redirect_type::here_doc_literal:
             {
-              const string& v (r.doc.doc);
+              const string& v (r.str);
               bool nl (!v.empty () && v.back () == '\n');
 
               // Add another '>' or '<'. Note that here end marker never
               // needs to be quoted.
               //
               o << d << (nl ? "" : ":");
-              to_stream_q (o, r.doc.end);
+              to_stream_q (o, r.end);
               break;
             }
           case redirect_type::file:
@@ -115,14 +115,16 @@ namespace build2
               print_path (r.file.path);
               break;
             }
+          case redirect_type::here_str_regex: // @@ REGEX
+          case redirect_type::here_doc_regex: assert (false); break;
           }
         };
 
         auto print_doc = [&o] (const redirect& r)
         {
-          const string& v (r.doc.doc);
+          const string& v (r.str);
           bool nl (!v.empty () && v.back () == '\n');
-          o << endl << v << (nl ? "" : "\n") << r.doc.end;
+          o << endl << v << (nl ? "" : "\n") << r.end;
         };
 
         if ((m & command_to_stream::header) == command_to_stream::header)
@@ -171,9 +173,9 @@ namespace build2
         {
           // Here-documents.
           //
-          if (c.in.type  == redirect_type::here_document) print_doc (c.in);
-          if (c.out.type == redirect_type::here_document) print_doc (c.out);
-          if (c.err.type == redirect_type::here_document) print_doc (c.err);
+          if (c.in.type  == redirect_type::here_doc_literal) print_doc (c.in);
+          if (c.out.type == redirect_type::here_doc_literal) print_doc (c.out);
+          if (c.err.type == redirect_type::here_doc_literal) print_doc (c.err);
         }
       }
 
@@ -238,15 +240,19 @@ namespace build2
         case redirect_type::null:
         case redirect_type::merge: break;
 
-        case redirect_type::here_string:   new (&str)  string ();    break;
-        case redirect_type::here_document: new (&doc)  doc_type ();  break;
-        case redirect_type::file:          new (&file) file_type (); break;
+        case redirect_type::here_str_literal:
+        case redirect_type::here_doc_literal: new (&str) string (); break;
+
+        case redirect_type::here_str_regex:
+        case redirect_type::here_doc_regex: new (&regex) regex_type (); break;
+
+        case redirect_type::file: new (&file) file_type (); break;
         }
       }
 
       redirect::
       redirect (redirect&& r)
-          : type (r.type)
+          : type (r.type), end (move (r.end))
       {
         switch (type)
         {
@@ -256,41 +262,21 @@ namespace build2
 
         case redirect_type::merge: fd = r.fd; break;
 
-        case redirect_type::here_string:
+        case redirect_type::here_str_literal:
+        case redirect_type::here_doc_literal:
           {
             new (&str) string (move (r.str));
             break;
           }
-        case redirect_type::here_document:
+        case redirect_type::here_str_regex:
+        case redirect_type::here_doc_regex:
           {
-            new (&doc) doc_type (move (r.doc));
+            new (&regex) regex_type (move (r.regex));
             break;
           }
         case redirect_type::file:
           {
             new (&file) file_type (move (r.file));
-            break;
-          }
-        }
-      }
-
-      redirect::
-      redirect (const redirect& r)
-          : type (r.type)
-      {
-        switch (type)
-        {
-        case redirect_type::none:
-        case redirect_type::pass:
-        case redirect_type::null: break;
-
-        case redirect_type::merge: fd = r.fd; break;
-
-        case redirect_type::here_string:   new (&str) string (r.str);   break;
-        case redirect_type::here_document: new (&doc) doc_type (r.doc); break;
-        case redirect_type::file:
-          {
-            new (&file) file_type (r.file);
             break;
           }
         }
@@ -306,9 +292,13 @@ namespace build2
         case redirect_type::null:
         case redirect_type::merge: break;
 
-        case redirect_type::here_string:   str.~string ();     break;
-        case redirect_type::here_document: doc.~doc_type ();   break;
-        case redirect_type::file:          file.~file_type (); break;
+        case redirect_type::here_str_literal:
+        case redirect_type::here_doc_literal: str.~string (); break;
+
+        case redirect_type::here_str_regex:
+        case redirect_type::here_doc_regex: regex.~regex_type (); break;
+
+        case redirect_type::file: file.~file_type (); break;
         }
       }
 
@@ -320,14 +310,6 @@ namespace build2
           this->~redirect ();
           new (this) redirect (move (r)); // Assume noexcept move-constructor.
         }
-        return *this;
-      }
-
-      redirect& redirect::
-      operator= (const redirect& r)
-      {
-        if (this != &r)
-          *this = redirect (r); // Reduce to move-assignment.
         return *this;
       }
 

@@ -15,6 +15,7 @@
 #include <build2/test/target>
 
 #include <build2/test/script/token> // replay_tokens
+#include <build2/test/script/regex>
 
 namespace build2
 {
@@ -70,8 +71,10 @@ namespace build2
         pass,
         null,
         merge,
-        here_string,
-        here_document,
+        here_str_literal,
+        here_doc_literal,
+        here_str_regex,
+        here_doc_regex,
         file
       };
 
@@ -79,10 +82,10 @@ namespace build2
       {
         redirect_type type;
 
-        struct doc_type
+        struct regex_type
         {
-          string doc; // Note: includes trailing newline, if required.
-          string end;
+          regex::line_regex regex;
+          string str;              // String representation for printing.
         };
 
         struct file_type
@@ -94,19 +97,21 @@ namespace build2
 
         union
         {
-          int       fd;  // Merge-to descriptor.
-          string    str; // Note: includes trailing newline, if required.
-          doc_type  doc;
-          file_type file;
+          int        fd;    // Merge-to descriptor.
+          string     str;   // Note: includes trailing newline, if requested.
+          regex_type regex; // Note: includes trailing blank, if requested.
+          file_type  file;
         };
+
+        string end; // Here-document end marker for printing.
 
         explicit
         redirect (redirect_type = redirect_type::none);
 
+        // Move constuctible/assignable-only type.
+        //
         redirect (redirect&&);
-        redirect (const redirect&);
         redirect& operator= (redirect&&);
-        redirect& operator= (const redirect&);
 
         ~redirect ();
       };

@@ -1277,7 +1277,9 @@ namespace build2
         // enter: first token of the command line
         // leave: <newline>
 
-        command_expr expr {{expr_operator::log_and, {}}};
+        command_expr expr;
+        expr.emplace_back (expr_term ());
+
         command c; // Command being assembled.
 
         // Make sure the command makes sense.
@@ -1517,18 +1519,18 @@ namespace build2
           switch (tt)
           {
           case type::in_pass:
-          case type::out_pass:     rt = redirect_type::pass;          break;
+          case type::out_pass:     rt = redirect_type::pass;  break;
 
           case type::in_null:
-          case type::out_null:     rt = redirect_type::null;          break;
+          case type::out_null:     rt = redirect_type::null;  break;
 
-          case type::out_merge:    rt = redirect_type::merge;         break;
+          case type::out_merge:    rt = redirect_type::merge; break;
 
           case type::in_str:
-          case type::out_str:      rt = redirect_type::here_string;   break;
+          case type::out_str:      rt = redirect_type::here_str_literal; break;
 
           case type::in_doc:
-          case type::out_doc:      rt = redirect_type::here_document; break;
+          case type::out_doc:      rt = redirect_type::here_doc_literal; break;
 
           case type::in_file:
           case type::out_file:     rt = redirect_type::file; break;
@@ -1551,7 +1553,7 @@ namespace build2
             case 2: p = pending::err_merge; break;
             }
             break;
-          case redirect_type::here_string:
+          case redirect_type::here_str_literal:
             switch (fd)
             {
             case 0: p = pending::in_string;  break;
@@ -1559,7 +1561,7 @@ namespace build2
             case 2: p = pending::err_string; break;
             }
             break;
-          case redirect_type::here_document:
+          case redirect_type::here_doc_literal:
             switch (fd)
             {
             case 0: p = pending::in_document;  break;
@@ -1567,6 +1569,10 @@ namespace build2
             case 2: p = pending::err_document; break;
             }
             break;
+
+          case redirect_type::here_str_regex: // @@ REGEX
+          case redirect_type::here_doc_regex: assert (false); break;
+
           case redirect_type::file:
             switch (fd)
             {
@@ -2121,8 +2127,8 @@ namespace build2
             command& c (p.first[h.expr].pipe[h.pipe]);
             redirect& r (h.fd == 0 ? c.in : h.fd == 1 ? c.out : c.err);
 
-            r.doc.doc = move (v);
-            r.doc.end = move (h.end);
+            r.str = move (v);
+            r.end = move (h.end);
           }
 
           expire_mode ();

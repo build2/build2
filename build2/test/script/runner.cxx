@@ -79,8 +79,8 @@ namespace build2
             input_info (d);
           }
         }
-        else if (rd.type == redirect_type::here_string ||
-                 rd.type == redirect_type::here_document)
+        else if (rd.type == redirect_type::here_str_literal ||
+                 rd.type == redirect_type::here_doc_literal)
         {
           assert (!op.empty ());
 
@@ -90,11 +90,7 @@ namespace build2
           {
             ofdstream os (orp);
             sp.clean ({cleanup_type::always, orp}, true);
-
-            os << (rd.type == redirect_type::here_string
-                   ? rd.str
-                   : rd.doc.doc);
-
+            os << rd.str;
             os.close ();
           }
           catch (const io_error& e)
@@ -441,8 +437,8 @@ namespace build2
             break;
           }
 
-        case redirect_type::here_string:
-        case redirect_type::here_document:
+        case redirect_type::here_str_literal:
+        case redirect_type::here_doc_literal:
           {
             // We could write to the command stdin directly but instead will
             // cache the data for potential troubleshooting.
@@ -453,11 +449,7 @@ namespace build2
             {
               ofdstream os (isp);
               sp.clean ({cleanup_type::always, isp}, true);
-
-              os << (c.in.type == redirect_type::here_string
-                     ? c.in.str
-                     : c.in.doc.doc);
-
+              os << c.in.str;
               os.close ();
             }
             catch (const io_error& e)
@@ -470,6 +462,8 @@ namespace build2
           }
 
         case redirect_type::merge: assert (false); break;
+        case redirect_type::here_str_regex: // @@ REGEX
+        case redirect_type::here_doc_regex: assert (false); break;
         }
 
         // Dealing with stdout and stderr redirect types other than 'null'
@@ -553,13 +547,15 @@ namespace build2
             }
 
           case redirect_type::none:
-          case redirect_type::here_string:
-          case redirect_type::here_document:
+          case redirect_type::here_str_literal:
+          case redirect_type::here_doc_literal:
             {
               p = std_path (what);
               m |= fdopen_mode::truncate;
               break;
             }
+          case redirect_type::here_str_regex: // @@ REGEX
+          case redirect_type::here_doc_regex: assert (false); break;
           }
 
           try

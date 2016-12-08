@@ -85,6 +85,7 @@ exe{b}:                                                 \
 test/script/{hxx         cxx}{ builtin                } \
 test/script/{hxx         cxx}{ lexer                  } \
 test/script/{hxx         cxx}{ parser                 } \
+test/script/{hxx         cxx}{ regex                  } \
 test/script/{hxx         cxx}{ runner                 } \
 test/script/{hxx ixx     cxx}{ script                 } \
 test/script/{hxx         cxx}{ token                  } \
