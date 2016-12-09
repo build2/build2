@@ -229,9 +229,9 @@ namespace build2
   }
 
   inline const bool& options::
-  q () const
+  quiet () const
   {
-    return this->q_;
+    return this->quiet_;
   }
 
   inline const uint16_t& options::
@@ -244,6 +244,18 @@ namespace build2
   verbose_specified () const
   {
     return this->verbose_specified_;
+  }
+
+  inline const size_t& options::
+  jobs () const
+  {
+    return this->jobs_;
+  }
+
+  inline bool options::
+  jobs_specified () const
+  {
+    return this->jobs_specified_;
   }
 
   inline const bool& options::

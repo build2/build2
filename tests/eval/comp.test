@@ -22,9 +22,9 @@ $* <'print (foo <= bar)' >'false' : le-false
 $* <'print (bar <= foo)' >'true'  : le-true
 $* <'print (bar <= bar)' >'true'  : le-true-eq
 
-$* <'print (bar >= foo)' >'false' : gt-false
-$* <'print (foo >= bar)' >'true'  : gt-true
-$* <'print (foo >= foo)' >'true'  : gt-true-eq
+$* <'print (bar >= foo)' >'false' : ge-false
+$* <'print (foo >= bar)' >'true'  : ge-true
+$* <'print (foo >= foo)' >'true'  : ge-true-eq
 
 : associativity
 :

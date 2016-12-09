@@ -402,13 +402,19 @@ namespace build2
     V () const;
 
     const bool&
-    q () const;
+    quiet () const;
 
     const uint16_t&
     verbose () const;
 
     bool
     verbose_specified () const;
+
+    const size_t&
+    jobs () const;
+
+    bool
+    jobs_specified () const;
 
     const bool&
     no_column () const;
@@ -473,9 +479,11 @@ namespace build2
     public:
     bool v_;
     bool V_;
-    bool q_;
+    bool quiet_;
     uint16_t verbose_;
     bool verbose_specified_;
+    size_t jobs_;
+    bool jobs_specified_;
     bool no_column_;
     bool no_line_;
     path buildfile_;

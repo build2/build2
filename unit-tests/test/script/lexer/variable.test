@@ -29,18 +29,12 @@ $* <"0" >>EOO
 <newline>
 EOO
 
-$* <"10" >>EOO
-'10'
-<newline>
-EOO
-
-$* <"101" >>EOO
-'101'
-<newline>
-EOO
-
 $* <"1abc" >>EOO
 '1'
 'abc'
 <newline>
 EOO
+
+$* <"10" 2>>EOE != 0
+stdin:1:1: error: multi-digit special variable name
+EOE

@@ -1,0 +1,14 @@
+# file      : unit-tests/scheduler/buildfile
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+#@@ Temporary until we get utility library support.
+#
+if ($cxx.target.class != "windows")
+  cxx.libs += -lpthread
+import libs = libbutl%lib{butl}
+src = scheduler diagnostics utility variable name b-options types-parsers
+
+exe{driver}: cxx{driver} ../../build2/cxx{$src} $libs
+
+include ../../build2/

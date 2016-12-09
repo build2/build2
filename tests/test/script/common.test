@@ -18,8 +18,8 @@ EOI
 # ($b) which will execute the testscript.
 #
 c = cat >>>testscript
-b = $effect($build.path) -q --buildfile - <'./: test{testscript}' \
-  &?test/*** test
+b = $effect($build.path) --jobs 1 --quiet --buildfile - test \
+  <'./: test{testscript}' &?test/***
 
 # Add extra set of quotes since this value will be "cat" (normally as $*)
 # into testscript.

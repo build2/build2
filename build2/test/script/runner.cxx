@@ -188,8 +188,9 @@ namespace build2
           //
           mkdir (sp.wd_path, 2);
         else
-          // The working directory is cleaned up by the test rule prior the
-          // script execution.
+          // Scope working directory shall be empty (the script working
+          // directory is cleaned up by the test rule prior the script
+          // execution).
           //
           assert (empty (sp.wd_path));
 

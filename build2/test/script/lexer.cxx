@@ -516,7 +516,7 @@ namespace build2
         lexer_mode m (st.mode);
 
         // Customized implementation that handles special variable names ($*,
-        // $NN, $~, $@).
+        // $N, $~, $@).
         //
         if (m != lexer_mode::variable)
           return base_lexer::word (st, sep);
@@ -526,23 +526,16 @@ namespace build2
         if (c != '*' && c != '~' && c != '@' && !digit (c))
           return base_lexer::word (st, sep);
 
-        uint64_t ln (c.line), cn (c.column);
-        string lexeme;
-
         get ();
-        lexeme += c;
 
-        if (digit (c))
-        {
-          for (; digit (c = peek ()); get ())
-            lexeme += c;
-        }
+        if (digit (c) && digit (peek ()))
+          fail (c) << "multi-digit special variable name";
 
         state_.pop (); // Expire the variable mode.
-        return token (move (lexeme),
+        return token (string (1, c),
                       sep,
                       quote_type::unquoted, false,
-                      ln, cn);
+                      c.line, c.column);
       }
     }
   }

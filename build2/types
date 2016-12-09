@@ -5,6 +5,7 @@
 #ifndef BUILD2_TYPES
 #define BUILD2_TYPES
 
+#include <array>
 #include <tuple>
 #include <vector>
 #include <string>
@@ -56,6 +57,7 @@ namespace build2
   using std::shared_ptr;
   using std::weak_ptr;
 
+  using std::array;
   using std::vector;
   using butl::vector_view;  // <butl/vector-view>
   using butl::small_vector; // <butl/small-vector>

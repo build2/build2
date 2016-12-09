@@ -29,6 +29,7 @@
 #include <build2/diagnostics>
 #include <build2/context>
 #include <build2/variable>
+#include <build2/scheduler>
 
 #include <build2/parser>
 
@@ -164,7 +165,7 @@ main (int argc, char* argv[])
     init (argv[0],
           ops.verbose_specified ()
           ? ops.verbose ()
-          : ops.V () ? 3 : ops.v () ? 2 : ops.q () ? 0 : 1);
+          : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1);
 
     // Version.
     //
@@ -244,6 +245,29 @@ main (int argc, char* argv[])
       bm["cli"] = mf {nullptr, &cli::init};
     }
 
+    // Start up the scheduler.
+    //
+    size_t jobs (0);
+
+    if (ops.jobs_specified ())
+      jobs = ops.jobs ();
+
+    if (jobs == 0)
+      jobs = scheduler::hardware_concurrency ();
+
+    if (jobs == 0)
+    {
+      warn << "unable to determine the number of hardware threads" <<
+        info << "falling back to serial execution" <<
+        info << "use --jobs|-j to override";
+
+      jobs = 1;
+    }
+
+    sched.startup (jobs);
+
+    // Trace some overall environment information.
+    //
     if (verb >= 5)
     {
       const char* p (getenv ("PATH"));
@@ -251,6 +275,7 @@ main (int argc, char* argv[])
       trace << "work: " << work;
       trace << "home: " << home;
       trace << "path: " << (p != nullptr ? p : "<NULL>");
+      trace << "jobs: " << jobs;
     }
 
     // Parse the buildspec.
@@ -1045,16 +1070,36 @@ main (int argc, char* argv[])
       if (lifted == nullptr && skip == 0)
         ++mit;
     }
+
+    // Shutdown the scheduler.
+    //
+    scheduler::stat st (sched.shutdown ());
+
+    if (verb >= (jobs > 1 ? 3 : 4))
+    {
+      info << "scheduler statistics:" << '\n'
+           << "  thread_max_active      " << st.thread_max_active     << '\n'
+           << "  thread_max_total       " << st.thread_max_total      << '\n'
+           << "  thread_helpers         " << st.thread_helpers        << '\n'
+           << "  thread_max_waiting     " << st.thread_max_waiting    << '\n'
+           << '\n'
+           << "  task_queue_depth       " << st.task_queue_depth      << '\n'
+           << "  task_queue_full        " << st.task_queue_full       << '\n'
+           << '\n'
+           << "  wait_queue_slots       " << st.wait_queue_slots      << '\n'
+           << "  wait_queue_collisions  " << st.wait_queue_collisions << '\n';
+    }
+
+    return 0;
   }
   catch (const failed&)
   {
-    return 1; // Diagnostics has already been issued.
+    // Diagnostics has already been issued.
   }
-  /*
-  catch (const std::exception& e)
+  catch (const system_error& e)
   {
-    error << e.what ();
-    return 1;
+    error << "unhandled system error: " << e.what ();
   }
-  */
+
+  return 1;
 }

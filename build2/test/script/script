@@ -48,6 +48,11 @@ namespace build2
       {
         line_type type;
         replay_tokens tokens;
+
+        union
+        {
+          const variable* var; // Pre-entered for line_type::var.
+        };
       };
 
       // Most of the time we will have just one line (test command).
@@ -296,6 +301,11 @@ namespace build2
         value&
         append (const variable&);
 
+        // Reset special $*, $N variables based on the test.* values.
+        //
+        void
+        reset_special ();
+
         // Cleanup.
         //
       public:
@@ -400,9 +410,10 @@ namespace build2
         const variable& opts_var; // test.options
         const variable& args_var; // test.arguments
 
-        const variable& cmd_var; // $*
-        const variable& wd_var;  // $~
-        const variable& id_var;  // $@
+        const variable& wd_var;       // $~
+        const variable& id_var;       // $@
+        const variable& cmd_var;      // $*
+        const variable* cmdN_var[10]; // $N
       };
 
       class script: public script_base, public group

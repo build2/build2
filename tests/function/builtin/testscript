@@ -55,8 +55,8 @@
   $* <'print $type($identity([null]))'         >''         : null-untyped
 
   $* <'print       $identity([string] abc)'    >'abc';
-  $* <'print $type($identity([string] abc))'   >'string'   : null-typed
+  $* <'print $type($identity([string] abc))'   >'string'   : typed
 
   $* <'print       $identity(abc)'             >'abc';
-  $* <'print $type($identity(abc))'            >''         : null-untyped
+  $* <'print $type($identity(abc))'            >''         : untyped
 }

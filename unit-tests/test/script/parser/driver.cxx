@@ -10,6 +10,7 @@
 
 #include <build2/target>
 #include <build2/context>
+#include <build2/scheduler>
 
 #include <build2/test/target>
 
@@ -136,6 +137,7 @@ namespace build2
         tracer trace ("main");
 
         init (argv[0], 1);  // Fake build system driver, default verbosity.
+        sched.startup (1);  // Serial execution.
         reset (strings ()); // No command line variables.
 
         bool scope (false);

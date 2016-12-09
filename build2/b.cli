@@ -212,7 +212,7 @@ namespace build2
        \cb{--verbose 3}."
     }
 
-    bool -q
+    bool --quiet|-q
     {
       "Run quietly, only printing error messages. This is equivalent to
        \cb{--verbose 0}."
@@ -239,6 +239,16 @@ namespace build2
        \li|Information that could be helpful to the developer.|
 
        \li|Even more detailed information, including state dumps.||"
+    }
+
+    size_t --jobs|-j
+    {
+      "<num>",
+      "Number of jobs to perform in parallel. This includes both the number of
+       active threads inside the build system as well as the number of external
+       commands (compilers, linkers, etc) started but not yet finished. If this
+       option is not specified, then the number of available hardware threads
+       is used."
     }
 
     bool --no-column

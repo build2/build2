@@ -4,12 +4,15 @@
 
 #@@ Temporary until we get utility library support.
 #
+if ($cxx.target.class != "windows")
+  cxx.libs += -lpthread
 import libs = libbutl%lib{butl}
 src = token lexer parser diagnostics utility variable name context target \
 scope prerequisite file module operation rule b-options algorithm search \
 filesystem function functions-builtin functions-path functions-process-path \
 functions-string config/{utility init operation} dump types-parsers \
-test/{target script/{token lexer parser script}}
+test/{target script/{token lexer parser script}} \
+scheduler
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
 test{cleanup command-if command-re-parse description exit expansion \

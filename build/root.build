@@ -27,6 +27,7 @@ if! $cli.configured
   cli{*}: extension = cli
 }
 
-# All exe{} in tests/ are, well, tests.
+# All exe{} in tests/ and unit-tests/ are, well, tests.
 #
-tests/exe{*}: test = true
+tests/exe{*}:      test = true
+unit-tests/exe{*}: test = true

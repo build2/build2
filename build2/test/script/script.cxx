@@ -397,9 +397,20 @@ namespace build2
             opts_var (var_pool.insert<strings> ("test.options")),
             args_var (var_pool.insert<strings> ("test.arguments")),
 
-            cmd_var (var_pool.insert<strings> ("*")),
             wd_var (var_pool.insert<dir_path> ("~")),
-            id_var (var_pool.insert<path> ("@")) {}
+            id_var (var_pool.insert<path> ("@")),
+            cmd_var (var_pool.insert<strings> ("*")),
+            cmdN_var {
+              &var_pool.insert<path> ("0"),
+              &var_pool.insert<string> ("1"),
+              &var_pool.insert<string> ("2"),
+              &var_pool.insert<string> ("3"),
+              &var_pool.insert<string> ("4"),
+              &var_pool.insert<string> ("5"),
+              &var_pool.insert<string> ("6"),
+              &var_pool.insert<string> ("7"),
+              &var_pool.insert<string> ("8"),
+              &var_pool.insert<string> ("9")} {}
 
       // script
       //
@@ -445,10 +456,9 @@ namespace build2
             v = path (tt.dir.string ()); // Strip trailing slash.
         }
 
-        // Also add the NULL $* value that signals it needs to be recalculated
-        // on first access.
+        // Set the special $*, $N variables.
         //
-        assign (cmd_var) = nullptr;
+        reset_special ();
       }
 
       lookup scope::
@@ -474,7 +484,7 @@ namespace build2
       {
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
-        // concurrently). Plus, if there is no such variable, then we cannot
+        // in parallel). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
         const variable* pvar (build2::var_pool.find (n));
@@ -522,12 +532,53 @@ namespace build2
 
         value& r (assign (var)); // NULL.
 
-        //@@ I guess this is where we convert untyped value to strings?
-        //
         if (l.defined ())
           r = *l; // Copy value (and type) from the outer scope.
 
         return r;
+      }
+
+      void scope::
+      reset_special ()
+      {
+        // First assemble the $* value.
+        //
+        strings s;
+
+        auto append = [&s] (const strings& v)
+        {
+          s.insert (s.end (), v.begin (), v.end ());
+        };
+
+        if (lookup l = find (root->test_var))
+          s.push_back (cast<path> (l).representation ());
+
+        if (lookup l = find (root->opts_var))
+          append (cast<strings> (l));
+
+        if (lookup l = find (root->args_var))
+          append (cast<strings> (l));
+
+        // Set the $N values if present.
+        //
+        for (size_t i (0); i <= 9; ++i)
+        {
+          value& v (assign (*root->cmdN_var[i]));
+
+          if (i < s.size ())
+          {
+            if (i == 0)
+              v = path (s[i]);
+            else
+              v = s[i];
+          }
+          else
+            v = nullptr; // Clear any old values.
+        }
+
+        // Set $*.
+        //
+        assign (root->cmd_var) = move (s);
       }
     }
   }

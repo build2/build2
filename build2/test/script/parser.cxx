@@ -4,6 +4,8 @@
 
 #include <build2/test/script/parser>
 
+#include <build2/scheduler>
+
 #include <build2/test/script/lexer>
 #include <build2/test/script/runner>
 
@@ -17,17 +19,13 @@ namespace build2
     {
       using type = token_type;
 
-      // Return true if the string contains only digit characters (used to
-      // detect the special $NN variables).
+      // Return true if the string contains only a single digit characters
+      // (used to detect the special $N variables).
       //
       static inline bool
-      digits (const string& s)
+      digit (const string& s)
       {
-        for (char c: s)
-          if (!digit (c))
-            return false;
-
-        return !s.empty ();
+        return s.size () == 1 && butl::digit (s[0]);
       }
 
       //
@@ -403,17 +401,23 @@ namespace build2
         //
         bool semi (false);
 
+        line ln;
         switch (lt)
         {
         case line_type::var:
           {
             // Check if we are trying to modify any of the special aliases
-            // ($*, $~, $N).
+            // ($*, $N, $~, $@).
             //
-            const string& n (t.value);
+            string& n (t.value);
 
-            if (n == "*" || n == "~" || digits (n))
+            if (n == "*" || n == "~" || n == "@" || digit (n))
               fail (t) << "attempt to set '" << n << "' variable directly";
+
+            // Pre-enter the variables now while we are executing serially.
+            // Once parallel, it becomes a lot harder to do.
+            //
+            ln.var = &script_->var_pool.insert (move (n));
 
             next (t, tt); // Assignment kind.
             parse_variable_line (t, tt);
@@ -496,7 +500,9 @@ namespace build2
         if (ls == nullptr)
           ls = &ls_data;
 
-        ls->push_back (line {lt, replay_data ()});
+        ln.type = lt;
+        ln.tokens = replay_data ();
+        ls->push_back (move (ln));
 
         if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
         {
@@ -1163,13 +1169,13 @@ namespace build2
         if (p != string::npos && ++p != r.details.size ())
           r.details.resize (p);
 
+        if (r.empty ())
+          fail (loc) << "empty description";
+
         // Insert id into the id map if we have one.
         //
         if (!r.id.empty ())
           insert_id (r.id, loc);
-
-        if (r.empty ())
-          fail (loc) << "empty description";
 
         return r;
       }
@@ -1210,6 +1216,11 @@ namespace build2
 
         if (r.empty ())
           fail (loc) << "empty description";
+
+        // Insert id into the id map if we have one.
+        //
+        if (pre_parse_ && !r.id.empty ())
+          insert_id (r.id, loc);
 
         return r;
       }
@@ -2318,6 +2329,8 @@ namespace build2
         {
           exec_lines (g->setup_.begin (), g->setup_.end (), li, false);
 
+          scheduler::atomic_count task_count (0);
+
           for (const unique_ptr<scope>& chain: g->scopes)
           {
             // Pick a scope from the if-else chain.
@@ -2388,10 +2401,24 @@ namespace build2
               // exec_scope_body ();
               // scope_ = os;
               //
-              parser p;
-              p.execute (*s, *script_, *runner_);
+
+              // @@ Exceptions.
+              //
+              sched.async (task_count,
+                           [] (scope& scp, script& scr, runner& r)
+                           {
+                             parser p;
+                             p.execute (scp, scr, r);
+                           },
+                           ref (*s),
+                           ref (*script_),
+                           ref (*runner_));
             }
           }
+
+          sched.wait (task_count);
+
+          //@@ Check if failed.
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
         }
@@ -2409,11 +2436,11 @@ namespace build2
 
         for (; i != e; ++i)
         {
-          line& l (*i);
-          line_type lt (l.type);
+          line& ln (*i);
+          line_type lt (ln.type);
 
           assert (path_ == nullptr);
-          replay_data (move (l.tokens)); // Set the tokens and start playing.
+          replay_data (move (ln.tokens)); // Set the tokens and start playing.
 
           // We don't really need to change the mode since we already know
           // the line type.
@@ -2441,32 +2468,22 @@ namespace build2
 
               // Assign.
               //
-              const variable& var (script_->var_pool.insert (move (name)));
+              const variable& var (*ln.var);
 
               value& lhs (kind == type::assign
                           ? scope_->assign (var)
                           : scope_->append (var));
 
-              // @@ Need to adjust to make strings the default type.
-              //
               apply_value_attributes (&var, lhs, move (rhs), kind);
 
-              // Handle the $*, $NN special aliases.
-              //
-              // The plan is as follows: here we detect modification of the
-              // source variables (test*), and (re)set $* to NULL on this
-              // scope (this is important to both invalidate any old values
-              // but also to "stake" the lookup position). This signals to
-              // the variable lookup function below that the $* and $NN
-              // values need to be recalculated from their sources. Note
-              // that we don't need to invalidate $NN since their lookup
-              // always checks $* first.
+              // If we changes any of the test.* values, then reset the $*,
+              // $N special aliases.
               //
               if (var.name == script_->test_var.name ||
                   var.name == script_->opts_var.name ||
                   var.name == script_->args_var.name)
               {
-                scope_->assign (script_->cmd_var) = nullptr;
+                scope_->reset_special ();
               }
 
               replay_stop ();
@@ -2623,100 +2640,18 @@ namespace build2
         // If we have no scope (happens when pre-parsing directives), then we
         // only look for buildfile variables.
         //
-        if (scope_ == nullptr)
-          return script_->find_in_buildfile (name);
-
-        // @@ MT: will need RW mutex on var_pool. Or maybe if it's not there
-        // then it can't possibly be found? Still will be setting variables.
+        // Otherwise, every variable that is ever set in a script has been
+        // pre-entered during pre-parse. Which means that if one is not found
+        // in the script pool then it can only possibly be set in the
+        // buildfile.
         //
-        if (name != "*" && !digits (name))
-          return scope_->find (script_->var_pool.insert (move (name)));
+        const variable* pvar (scope_ != nullptr
+                              ? script_->var_pool.find (name)
+                              : nullptr);
 
-        // Handle the $*, $NN special aliases.
-        //
-        // See the exec_lines() for the overall plan.
-        //
-        // @@ MT: we are potentially changing outer scopes. Could force
-        //    lookup before executing tests in each group scope. Poblem is
-        //    we don't know which $NN vars will be looked up from inside.
-        //    Could we collect all the variable names during the pre-parse
-        //    stage? They could be computed.
-        //
-        //    Or we could set all the non-NULL $NN (i.e., based on the number
-        //    of elements in $*).
-        //
-
-        // In both cases first thing we do is lookup $*. It should always be
-        // defined since we set it on the script's root scope.
-        //
-        lookup l (scope_->find (script_->cmd_var));
-        assert (l.defined ());
-
-        // $* NULL value means it needs to be (re)calculated.
-        //
-        value& v (const_cast<value&> (*l));
-        bool recalc (v.null);
-
-        if (recalc)
-        {
-          strings s;
-
-          auto append = [&s] (const strings& v)
-          {
-            s.insert (s.end (), v.begin (), v.end ());
-          };
-
-          if (lookup l = scope_->find (script_->test_var))
-            s.push_back (cast<path> (l).string ());
-
-          if (lookup l = scope_->find (script_->opts_var))
-            append (cast<strings> (l));
-
-          if (lookup l = scope_->find (script_->args_var))
-            append (cast<strings> (l));
-
-          v = move (s);
-        }
-
-        if (name == "*")
-          return l;
-
-        // Use the string type for the $NN variables.
-        //
-        const variable& var (script_->var_pool.insert<string> (move (name)));
-
-        // We need to look for $NN in the same scope as where we found $*.
-        //
-        variable_map& vars (const_cast<variable_map&> (*l.vars));
-
-        // If there is already a value and no need to recalculate it, then we
-        // are done.
-        //
-        if (!recalc && (l = vars[var]).defined ())
-          return l;
-
-        // Convert the variable name to index we can use on $*.
-        //
-        unsigned long i;
-
-        try
-        {
-          i = stoul (var.name);
-        }
-        catch (const exception&)
-        {
-          fail (loc) << "invalid $* index " << var.name << endf;
-        }
-
-        const strings& s (cast<strings> (v));
-        value& nv (vars.assign (var));
-
-        if (i < s.size ())
-          nv = s[i];
-        else
-          nv = nullptr;
-
-        return lookup (nv, vars);
+        return pvar != nullptr
+          ? scope_->find (*pvar)
+          : script_->find_in_buildfile (name);
       }
 
       size_t parser::

@@ -15,7 +15,7 @@ using test
 EOI
 
 test = $effect($build.path)
-test.options += -q --buildfile -
+test.options += --jobs 1 --quiet --buildfile -
 
 # By default perform test.
 #

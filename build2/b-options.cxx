@@ -571,9 +571,11 @@ namespace build2
   options ()
   : v_ (),
     V_ (),
-    q_ (),
+    quiet_ (),
     verbose_ (1),
     verbose_specified_ (false),
+    jobs_ (),
+    jobs_specified_ (false),
     no_column_ (),
     no_line_ (),
     buildfile_ ("buildfile"),
@@ -668,7 +670,7 @@ namespace build2
        << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m-q\033[0m                   Run quietly, only printing error messages. This is" << ::std::endl
+       << "\033[1m--quiet\033[0m|\033[1m-q\033[0m           Run quietly, only printing error messages. This is" << ::std::endl
        << "                     equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
 
     os << std::endl
@@ -684,6 +686,14 @@ namespace build2
        << "                     4. Information that could be helpful to the user." << ::std::endl
        << "                     5. Information that could be helpful to the developer." << ::std::endl
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of jobs to perform in parallel. This includes both" << ::std::endl
+       << "                     the number of active threads inside the build system as" << ::std::endl
+       << "                     well as the number of external commands (compilers," << ::std::endl
+       << "                     linkers, etc) started but not yet finished. If this option" << ::std::endl
+       << "                     is not specified, then the number of available hardware" << ::std::endl
+       << "                     threads is used." << ::std::endl;
 
     os << std::endl
        << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
@@ -754,11 +764,19 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::v_ >;
       _cli_options_map_["-V"] = 
       &::build2::cl::thunk< options, bool, &options::V_ >;
+      _cli_options_map_["--quiet"] = 
+      &::build2::cl::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["-q"] = 
-      &::build2::cl::thunk< options, bool, &options::q_ >;
+      &::build2::cl::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
+      _cli_options_map_["--jobs"] = 
+      &::build2::cl::thunk< options, size_t, &options::jobs_,
+        &options::jobs_specified_ >;
+      _cli_options_map_["-j"] = 
+      &::build2::cl::thunk< options, size_t, &options::jobs_,
+        &options::jobs_specified_ >;
       _cli_options_map_["--no-column"] = 
       &::build2::cl::thunk< options, bool, &options::no_column_ >;
       _cli_options_map_["--no-line"] = 
