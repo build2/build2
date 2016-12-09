@@ -110,7 +110,7 @@ namespace build2
           new (&td->data) task {
             &task_count,
             decay_copy (forward <F> (f)),
-            {decay_copy (forward <A> (a))...}};
+            typename task::args_type (decay_copy (forward <A> (a))...)};
 
           td->thunk = &task_thunk<F, A...>;
         }
@@ -235,9 +235,12 @@ namespace build2
     template <typename F, typename... A>
     struct task_type
     {
+      using func_type = std::decay_t<F>;
+      using args_type = std::tuple<std::decay_t<A>...>;
+
       atomic_count* task_count;
-      std::decay_t<F> func;
-      std::tuple<std::decay_t<A>...> args;
+      func_type func;
+      args_type args;
 
       template <size_t... i>
       void

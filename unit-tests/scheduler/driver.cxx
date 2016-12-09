@@ -17,11 +17,24 @@ using namespace std;
 
 namespace build2
 {
+  // Usage argv[0] <max-active-threads>
+  //
   int
-  main ()
+  main (int argc, char* argv[])
   {
-    //scheduler s (1);
-    scheduler s (scheduler::hardware_concurrency ());
+    bool verb (false);
+    size_t max_active (0);
+
+    if (argc > 1)
+    {
+      verb = true;
+      max_active = stoul (argv[1]);
+    }
+
+    if (max_active == 0)
+      max_active = scheduler::hardware_concurrency ();
+
+    scheduler s (max_active);
 
     auto inner = [] (size_t x, size_t y, size_t& out)
     {
@@ -70,25 +83,26 @@ namespace build2
 
     scheduler::stat st (s.shutdown ());
 
-    /*
-    cerr << "thread_max_active      " << st.thread_max_active     << endl
-         << "thread_max_total       " << st.thread_max_total      << endl
-         << "thread_helpers         " << st.thread_helpers        << endl
-         << "thread_max_waiting     " << st.thread_max_waiting    << endl
-         << endl
-         << "task_queue_depth       " << st.task_queue_depth      << endl
-         << "task_queue_full        " << st.task_queue_full       << endl
-         << endl
-         << "wait_queue_slots       " << st.wait_queue_slots      << endl
-         << "wait_queue_collisions  " << st.wait_queue_collisions << endl;
-    */
+    if (verb)
+    {
+      cerr << "thread_max_active      " << st.thread_max_active     << endl
+           << "thread_max_total       " << st.thread_max_total      << endl
+           << "thread_helpers         " << st.thread_helpers        << endl
+           << "thread_max_waiting     " << st.thread_max_waiting    << endl
+           << endl
+           << "task_queue_depth       " << st.task_queue_depth      << endl
+           << "task_queue_full        " << st.task_queue_full       << endl
+           << endl
+           << "wait_queue_slots       " << st.wait_queue_slots      << endl
+           << "wait_queue_collisions  " << st.wait_queue_collisions << endl;
+    }
 
     return 0;
   }
 }
 
 int
-main ()
+main (int argc, char* argv[])
 {
-  return build2::main ();
+  return build2::main (argc, argv);
 }
