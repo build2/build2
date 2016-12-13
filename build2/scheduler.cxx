@@ -4,6 +4,8 @@
 
 #include <build2/scheduler>
 
+#include <cerrno>
+
 using namespace std;
 
 namespace build2
@@ -16,27 +18,14 @@ namespace build2
 
     // See if we can run some of our own tasks.
     //
-    task_queue& tq (*task_queue_); // Must have been initializied by async().
+    task_queue& tq (*task_queue_); // Must have been set by async() or task
+                                   // would have been 0.
 
     for (lock ql (tq.mutex); !tq.shutdown && !empty_back (tq); )
-    {
-      // Save the old stop point and set the new one in case the task we are
-      // about to run adds sub-tasks.
-      //
-      size_t stop (tq.stop);
-      tq.stop = tq.tail - 1; // Index of the first sub-task to be added (-1
-                             // is for the following pop_back()).
+      pop_back (tq, ql);
 
-      pop_back (tq, ql); // Releases the lock.
-      ql.lock ();
-
-      // Restore the old stop point which we might have to adjust.
-      //
-      tq.stop = tq.head > stop ? tq.head : tq.tail < stop ? tq.tail : stop;
-    }
-
-    // Note that empty task queue doesn't automatically mean the task count is
-    // zero (some might still be executing asynchronously).
+    // Note that empty task queue doesn't automatically mean the task count
+    // is zero (some might still be executing asynchronously).
     //
     if (task_count == 0)
       return;
@@ -135,8 +124,16 @@ namespace build2
   }
 
   void scheduler::
-  startup (size_t max_active, size_t init_active, size_t max_threads)
+  startup (size_t max_active,
+           size_t init_active,
+           size_t max_threads,
+           size_t queue_depth)
   {
+    // Lock the mutex to make sure our changes are visible in (other) active
+    // threads.
+    //
+    lock l (mutex_);
+
     // Use 4x max_active on 32-bit and 8x max_active on 64-bit. Unless we were
     // asked to run serially.
     //
@@ -153,30 +150,53 @@ namespace build2
     max_threads_ = max_threads;
 
     // This value should be proportional to the amount of hardware concurrency
-    // we have. Note that the queue entry is quite sizable.
+    // we have (no use queing things if helpers cannot keep up). Note that the
+    // queue entry is quite sizable.
     //
-    task_queue_depth_ = max_active * sizeof (void*) * 4;
+    task_queue_depth_ = queue_depth != 0
+      ? queue_depth
+      : max_active * sizeof (void*) * 2;
 
-    task_queues_.clear ();
     task_queues_.reserve (max_threads_);
 
-    // Pick a nice prime for common max_threads numbers. Though Intel Xeons
-    // are all over the map when it comes to cores (6, 8, 10, 12, 14, 16,
-    // 18, 20, 22).
+    // Pick a nice prime for common max_threads numbers. Experience shows that
+    // we want something close to 2x for small numbers, then reduce to 1.5x
+    // in-between, and 1x for large ones.
+    //
+    // Note that Intel Xeons are all over the map when it comes to cores (6,
+    // 8, 10, 12, 14, 16, 18, 20, 22).
     //
     wait_queue_size_ =            // HW threads x bits
+      //
+      // 2x
+      //
       max_threads ==   8 ?   17 : // 2 x 4
       max_threads ==  16 ?   31 : // 4 x 4, 2 x 8
-      max_threads ==  32 ?   63 : // 4 x 8
-      max_threads ==  48 ?   97 : // 6 x 8
-      max_threads ==  64 ?  127 : // 8 x 8
-      max_threads ==  96 ?  191 : // 12 x 8
-      max_threads == 128 ?  257 : // 16 x 8
-      max_threads == 192 ?  383 : // 24 x 8
-      max_threads == 256 ?  509 : // 32 x 8
-      max_threads == 384 ?  769 : // 48 x 8
-      max_threads == 512 ? 1021 : // 64 x 8
-      2 * max_threads - 1;
+      //
+      // 1.5x
+      //
+      max_threads ==  32 ?   47 : // 4 x 8
+      max_threads ==  48 ?   53 : // 6 x 8
+      max_threads ==  64 ?   67 : // 8 x 8
+      max_threads ==  80 ?   89 : // 10 x 8
+      //
+      // 1x
+      //
+      max_threads ==  96 ?  101 : // 12 x 8
+      max_threads == 112 ?  127 : // 14 x 8
+      max_threads == 128 ?  131 : // 16 x 8
+      max_threads == 144 ?  139 : // 18 x 8
+      max_threads == 160 ?  157 : // 20 x 8
+      max_threads == 176 ?  173 : // 22 x 8
+      max_threads == 192 ?  191 : // 24 x 8
+      max_threads == 224 ?  223 : // 28 x 8
+      max_threads == 256 ?  251 : // 32 x 8
+      max_threads == 288 ?  271 : // 36 x 8
+      max_threads == 320 ?  313 : // 40 x 8
+      max_threads == 352 ?  331 : // 44 x 8
+      max_threads == 384 ?  367 : // 48 x 8
+      max_threads == 512 ?  499 : // 64 x 8
+      max_threads - 1;            // Assume max_threads is even.
 
     wait_queue_.reset (new wait_slot[wait_queue_size_]);
 
@@ -249,6 +269,11 @@ namespace build2
         l.lock ();
       }
 
+      // Free the memory.
+      //
+      wait_queue_.reset ();
+      task_queues_.clear ();
+
       r.thread_max_active     = max_active_;
       r.thread_max_total      = max_threads_;
       r.thread_max_waiting    = stat_max_waiters_;
@@ -281,7 +306,7 @@ namespace build2
     starting_++;
     l.unlock ();
 
-    // Restore the counter if the thread creation fails.
+    // Restore the counters if the thread creation fails.
     //
     struct guard
     {
@@ -338,10 +363,8 @@ namespace build2
           {
             task_queue& tq (*s.task_queues_[i]);
 
-            for (lock ql (tq.mutex);
-                 !tq.shutdown && !s.empty_front (tq);
-                 ql.lock ())
-              s.pop_front (tq, ql); // Releases the lock.
+            for (lock ql (tq.mutex); !tq.shutdown && !s.empty_front (tq); )
+              s.pop_front (tq, ql);
           }
 
           l.lock ();
@@ -367,16 +390,30 @@ namespace build2
     s.helpers_--;
   }
 
-  thread_local scheduler::task_queue* scheduler::task_queue_ = nullptr;
+#if defined(__apple_build_version__) && __apple_build_version__ < 8000000
+  __thread
+#else
+  thread_local
+#endif
+  scheduler::task_queue* scheduler::task_queue_ = nullptr;
 
   auto scheduler::
   create_queue () -> task_queue&
   {
-    lock l (mutex_);
-    task_queues_.push_back (make_unique<task_queue> (task_queue_depth_));
-    task_queue_ = task_queues_.back ().get ();
-    task_queue_->shutdown = shutdown_;
-    return *task_queue_;
+    // Note that task_queue_depth is immutable between startup() and
+    // shutdown() (but see join()).
+    //
+    unique_ptr<task_queue> tqp (new task_queue (task_queue_depth_));
+    task_queue& tq (*tqp);
+
+    {
+      lock l (mutex_);
+      tq.shutdown = shutdown_;
+      task_queues_.push_back (move (tqp));
+    }
+
+    task_queue_ = &tq;
+    return tq;
   }
 
   scheduler sched;
