@@ -2331,23 +2331,26 @@ namespace build2
 
           scheduler::atomic_count task_count (0);
 
-          for (const unique_ptr<scope>& chain: g->scopes)
+          for (unique_ptr<scope>& chain: g->scopes)
           {
             // Pick a scope from the if-else chain.
             //
-            // @@ Should we free the memory by dropping all but the choosen
-            //    scope?
+            // In fact, we are going to drop all but the selected (if any)
+            // scope. This way we can re-examine the scope states later. It
+            // will also free some memory.
             //
-            scope* s (chain.get ());
-            for (; s != nullptr; s = s->if_chain.get ())
+            unique_ptr<scope>* ps;
+            for (ps = &chain; *ps != nullptr; ps = &ps->get ()->if_chain)
             {
-              if (!s->if_cond_)
+              scope& s (**ps);
+
+              if (!s.if_cond_) // Unconditional.
               {
-                assert (s->if_chain == nullptr);
+                assert (s.if_chain == nullptr);
                 break;
               }
 
-              line l (move (*s->if_cond_));
+              line l (move (*s.if_cond_));
               line_type lt (l.type);
 
               replay_data (move (l.tokens));
@@ -2382,35 +2385,45 @@ namespace build2
               {
                 // Count the remaining conditions for the line index.
                 //
-                for (scope* r (s->if_chain.get ());
+                for (scope* r (s.if_chain.get ());
                      r != nullptr && r->if_cond_->type != line_type::cmd_else;
                      r = r->if_chain.get ())
                   ++li;
 
+                s.if_chain.reset (); // Drop remaining scopes.
                 break;
               }
             }
 
-            if (s != nullptr && !s->empty ())
+            chain.reset (*ps == nullptr || (*ps)->empty ()
+                         ? nullptr
+                         : ps->release ());
+
+            if (chain != nullptr)
             {
               // Hand it off to a sub-parser potentially in another thread.
               // But we could also have handled it serially in this parser:
               //
               // scope* os (scope_);
-              // scope_ = s;
+              // scope_ = chain.get ();
               // exec_scope_body ();
               // scope_ = os;
               //
-
-              // @@ Exceptions.
-              //
               sched.async (task_count,
-                           [] (scope& scp, script& scr, runner& r)
+                           [] (scope& s, script& scr, runner& r)
                            {
-                             parser p;
-                             p.execute (scp, scr, r);
+                             try
+                             {
+                               parser p;
+                               p.execute (s, scr, r);
+                               s.state = scope_state::passed;
+                             }
+                             catch (const failed&)
+                             {
+                               s.state = scope_state::failed;
+                             }
                            },
-                           ref (*s),
+                           ref (*chain),
                            ref (*script_),
                            ref (*runner_));
             }
@@ -2418,7 +2431,27 @@ namespace build2
 
           sched.wait (task_count);
 
-          //@@ Check if failed.
+          for (unique_ptr<scope>& chain: g->scopes)
+          {
+            if (chain == nullptr)
+              continue;
+
+            // @@ Currently we simply re-throw though the default mode should
+            //    probably be "keep going". While we could already do it at
+            //    the testscript level, there is no support for continuing
+            //    testing targets at the build2 level. This will probably all
+            //    fall into place when we add support for parallel builds.
+            //
+            //    At that stage we should also probably think about the "stop
+            //    on first error" mode (which is what we have now).
+            //
+            switch (chain->state)
+            {
+            case scope_state::passed: break;
+            case scope_state::failed: throw failed ();
+            default:                  assert (false);
+            }
+          }
 
           exec_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
         }

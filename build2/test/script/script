@@ -247,6 +247,8 @@ namespace build2
       //
       class script;
 
+      enum class scope_state {unknown, passed, failed};
+
       class scope
       {
       public:
@@ -267,6 +269,7 @@ namespace build2
 
         optional<description> desc;
 
+        scope_state state = scope_state::unknown;
         test::script::cleanups cleanups;
 
         // Variables.
