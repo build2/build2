@@ -1096,10 +1096,6 @@ main (int argc, char* argv[])
   {
     // Diagnostics has already been issued.
   }
-  catch (const system_error& e)
-  {
-    error << "unhandled system error: " << e.what ();
-  }
 
   return 1;
 }

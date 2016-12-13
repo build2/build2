@@ -457,14 +457,10 @@ namespace build2
     // TLS cache of thread's task queue.
     //
     static
-    // Apparently Apple's Clang "temporarily disabled" C++11 thread_local
-    // until they can implement a "fast" version, which reportedly happened in
-    // XCode 8. So for now we will continue using __thread for this target.
-    //
-#if defined(__apple_build_version__) && __apple_build_version__ < 8000000
-    __thread
-#else
+#ifdef BUTL_CXX11_THREAD_LOCAL
     thread_local
+#else
+    __thread
 #endif
     task_queue* task_queue_;
 

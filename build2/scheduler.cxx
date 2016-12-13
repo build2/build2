@@ -390,10 +390,10 @@ namespace build2
     s.helpers_--;
   }
 
-#if defined(__apple_build_version__) && __apple_build_version__ < 8000000
-  __thread
+#ifdef BUTL_CXX11_THREAD_LOCAL
+    thread_local
 #else
-  thread_local
+    __thread
 #endif
   scheduler::task_queue* scheduler::task_queue_ = nullptr;
 
