@@ -427,7 +427,7 @@ namespace build2
         script::script s (t, ts, wd);
         p.pre_parse (s);
 
-        script::concurrent_runner r;
+        script::default_runner r;
         p.execute (s, r);
       };
 

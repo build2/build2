@@ -178,7 +178,7 @@ namespace build2
         }
       }
 
-      void concurrent_runner::
+      void default_runner::
       enter (scope& sp, const location&)
       {
         if (!exists (sp.wd_path))
@@ -203,7 +203,7 @@ namespace build2
         sp.clean ({cleanup_type::always, sp.wd_path}, true);
       }
 
-      void concurrent_runner::
+      void default_runner::
       leave (scope& sp, const location& ll)
       {
         // Remove files and directories in the order opposite to the order of
@@ -289,7 +289,7 @@ namespace build2
                             : sp.wd_path.directory ());
       }
 
-      void concurrent_runner::
+      void default_runner::
       run (scope& sp, const command_expr& expr, size_t li, const location& ll)
       {
         const command& c (expr.back ().pipe.back ()); // @@ TMP
@@ -730,7 +730,7 @@ namespace build2
         check_output (p, esp, isp, c.err, ll, sp, "stderr");
       }
 
-      bool concurrent_runner::
+      bool default_runner::
       run_if (scope&, const command_expr& expr, size_t, const location&)
       {
         const command& c (expr.back ().pipe.back ()); // @@ TMP

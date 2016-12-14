@@ -46,7 +46,7 @@ namespace build2
         leave (scope&, const location&) = 0;
       };
 
-      class concurrent_runner: public runner
+      class default_runner: public runner
       {
       public:
         virtual void
