@@ -42,7 +42,49 @@ namespace build2
     {
       string r;
 
-      if (ci.id.type == "msvc")
+      const string& t (ci.id.type);
+      uint64_t mj (ci.version.major);
+      uint64_t mi (ci.version.minor);
+      uint64_t p (ci.version.patch);
+
+      // Translate "latest" to the compiler/version-appropriate option.
+      //
+      if (v == "latest")
+      {
+        if (t == "msvc")
+        {
+          // VC14u3 and later has /std:c++latest.
+          //
+          if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+            r = "/std:c++latest";
+        }
+        else if (t == "gcc")
+        {
+          if      (mj >= 5)            r = "-std=c++1z"; // 17
+          else if (mj == 4 && mi >= 8) r = "-std=c++1y"; // 14
+          else if (mj == 4 && mi >= 4) r = "-std=c++0x"; // 11
+        }
+        else if (t == "clang")
+        {
+          if       (mj >  3 || (mj == 3 && mi >= 5)) r = "-std=c++1z"; // 17
+          else if  (mj == 3 && mi >= 4)              r = "-std=c++1y"; // 14
+          else    /* ??? */                          r = "-std=c++0x"; // 11
+        }
+        else if (t == "icc")
+        {
+          if      (mj >= 17)                         r = "-std=c++1z"; // 17
+          else if (mj >  15 || (mj == 15 && p >= 3)) r = "-std=c++1y"; // 14
+          else    /* ??? */                          r = "-std=c++0x"; // 11
+        }
+        else
+          assert (false);
+
+        return r;
+      }
+
+      // Otherwise translate the standard value.
+      //
+      if (t == "msvc")
       {
         // C++ standard-wise, with VC you got what you got up until 14u2.
         // Starting with 14u3 there is now the /std: switch which defaults
@@ -59,10 +101,6 @@ namespace build2
         //
         if (v != "98" && v != "03")
         {
-          uint64_t mj (ci.version.major);
-          uint64_t mi (ci.version.minor);
-          uint64_t p (ci.version.patch);
-
           bool sup (false);
 
           if      (v == "11") // C++11 since VS2010/10.0.

@@ -130,5 +130,8 @@ src="$src build2/install/*.cxx"
 src="$src build2/pkgconfig/*.cxx"
 src="$src $libbutl/butl/*.cxx"
 
+# Note that for as long as we support GCC 4.9 we have to compile in the C++14
+# mode since 4.9 doesn't recognize c++1z.
+#
 set -x
 "$cxx" "-I$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src -lpthread
