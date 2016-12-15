@@ -1,4 +1,4 @@
-test.arguments += command-line
+test.arguments = command-line
 
 $* <:"0<+" >>EOO # in-pass-redirect
 '0'

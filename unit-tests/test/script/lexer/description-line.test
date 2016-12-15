@@ -1,4 +1,4 @@
-test.arguments += description-line
+test.arguments = description-line
 
 $* <" foo  bar " >>EOO # full
 ' foo  bar '

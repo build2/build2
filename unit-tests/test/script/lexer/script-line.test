@@ -1,4 +1,4 @@
-test.arguments += script-line
+test.arguments = script-line
 
 $* <"cmd;" >>EOO # semi
 'cmd'

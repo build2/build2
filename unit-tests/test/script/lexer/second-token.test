@@ -1,6 +1,6 @@
 # Note: this mode auto-expires after each token.
 #
-test.arguments += second-token
+test.arguments = second-token
 
 $* <";" >>EOO # semi
 ;

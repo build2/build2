@@ -1,6 +1,6 @@
 # Test handling custom variable names ($*, $~, $NN).
 #
-test.arguments += variable
+test.arguments = variable
 
 $* <"*" >>EOO
 '*'
