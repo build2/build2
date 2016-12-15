@@ -2512,9 +2512,11 @@ namespace build2
               // If we changes any of the test.* values, then reset the $*,
               // $N special aliases.
               //
-              if (var.name == script_->test_var.name ||
-                  var.name == script_->opts_var.name ||
-                  var.name == script_->args_var.name)
+              if (var.name == script_->test_var.name      ||
+                  var.name == script_->options_var.name   ||
+                  var.name == script_->arguments_var.name ||
+                  var.name == script_->redirects_var.name ||
+                  var.name == script_->cleanups_var.name)
               {
                 scope_->reset_special ();
               }

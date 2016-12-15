@@ -48,6 +48,11 @@ namespace build2
         v.insert<name>    ("test.roundtrip", variable_visibility::project);
         v.insert<strings> ("test.options",   variable_visibility::project);
         v.insert<strings> ("test.arguments", variable_visibility::project);
+
+        // These are only used in testscript.
+        //
+        v.insert<strings> ("test.redirects", variable_visibility::project);
+        v.insert<strings> ("test.cleanups", variable_visibility::project);
       }
     }
 

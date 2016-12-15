@@ -409,9 +409,11 @@ namespace build2
       public:
         variable_pool var_pool;
 
-        const variable& test_var; // test
-        const variable& opts_var; // test.options
-        const variable& args_var; // test.arguments
+        const variable& test_var;      // test
+        const variable& options_var;   // test.options
+        const variable& arguments_var; // test.arguments
+        const variable& redirects_var; // test.redirects
+        const variable& cleanups_var;  // test.cleanups
 
         const variable& wd_var;       // $~
         const variable& id_var;       // $@

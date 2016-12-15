@@ -393,9 +393,11 @@ namespace build2
           : // Enter the test* variables with the same variable types as in
             // buildfiles.
             //
-            test_var (var_pool.insert<path> ("test")),
-            opts_var (var_pool.insert<strings> ("test.options")),
-            args_var (var_pool.insert<strings> ("test.arguments")),
+            test_var      (var_pool.insert<path> ("test")),
+            options_var   (var_pool.insert<strings> ("test.options")),
+            arguments_var (var_pool.insert<strings> ("test.arguments")),
+            redirects_var (var_pool.insert<strings> ("test.redirects")),
+            cleanups_var  (var_pool.insert<strings> ("test.cleanups")),
 
             wd_var (var_pool.insert<dir_path> ("~")),
             id_var (var_pool.insert<path> ("@")),
@@ -440,6 +442,8 @@ namespace build2
 
         // Unless we have the test variable set on the test or script target,
         // set it at the script level to the test target's path.
+        //
+        // Note that test variable's visibility is target.
         //
         if (!find (test_var))
         {
@@ -553,10 +557,20 @@ namespace build2
         if (lookup l = find (root->test_var))
           s.push_back (cast<path> (l).representation ());
 
-        if (lookup l = find (root->opts_var))
+        if (lookup l = find (root->options_var))
           append (cast<strings> (l));
 
-        if (lookup l = find (root->args_var))
+        if (lookup l = find (root->arguments_var))
+          append (cast<strings> (l));
+
+        // Keep redirects/cleanups out of $N.
+        //
+        size_t n (s.size ());
+
+        if (lookup l = find (root->redirects_var))
+          append (cast<strings> (l));
+
+        if (lookup l = find (root->cleanups_var))
           append (cast<strings> (l));
 
         // Set the $N values if present.
@@ -565,7 +579,7 @@ namespace build2
         {
           value& v (assign (*root->cmdN_var[i]));
 
-          if (i < s.size ())
+          if (i < n)
           {
             if (i == 0)
               v = path (s[i]);
