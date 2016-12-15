@@ -1693,7 +1693,7 @@ the following more traditional form:
 (A|B|C)+
 \
 
-Only characters from the \c{()|*+?{\}0123456789,=!} set are allowed as
+Only characters from the \c{.()|*+?{\}0123456789,=!} set are allowed as
 syntax line-chars with presence of any other character being an error.
 
 A blank line as well as the \c{//} sequence (assuming \c{/} is the introducer)
