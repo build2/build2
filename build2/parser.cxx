@@ -2407,14 +2407,25 @@ namespace build2
                  tt != type::pair_separator));
       };
 
+      // Return true if the next token which should be peeked at won't be part
+      // of this concatenation.
+      //
+      auto last_concat = [this] ()
+      {
+        const token& t (peeked ());
+        type tt (t.type);
+
+        return (t.separated         ||
+                (tt != type::word   &&
+                 tt != type::dollar &&
+                 tt != type::lparen));
+      };
+
       // If we have accumulated some concatenations, then we have two options:
       // continue accumulating or inject. We inject if the next token is not a
       // word, var expansion, or eval context or if it is separated.
       //
-      if (concat &&
-          ((tt != type::word   &&
-            tt != type::dollar &&
-            tt != type::lparen) || peeked ().separated))
+      if (concat && last_concat ())
       {
         // Concatenation does not affect the tokens we get, only what we do
         // with them. As a result, we never set the concat flag during pre-
@@ -2510,9 +2521,8 @@ namespace build2
         // the next token is a var expansion or eval context and it
         // is not separated, then we need to start accumulating.
         //
-        if (concat ||                                       // Continue.
-            ((tt == type::dollar ||
-              tt == type::lparen) && !peeked ().separated)) // Start.
+        if (concat        || // Continue.
+            !last_concat ()) // Start.
         {
           // If LHS is typed then do typed concatenation.
           //
@@ -2822,10 +2832,8 @@ namespace build2
         // the next token is a word or var expansion and it is not
         // separated, then we need to start accumulating.
         //
-        if (concat ||                                 // Continue.
-            ((tt == type::word   ||                   // Start.
-              tt == type::dollar ||
-              tt == type::lparen) && !peeked ().separated))
+        if (concat        || // Continue.
+            !last_concat ()) // Start.
         {
           // This can be a typed or untyped concatenation. The rules that
           // determine which one it is are as follows:
