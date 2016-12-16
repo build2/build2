@@ -27,7 +27,7 @@ exe{b}:                                                 \
             {hxx         cxx}{ prerequisite           } \
             {hxx         cxx}{ rule                   } \
             {hxx            }{ rule-map               } \
-            {hxx         cxx}{ scheduler              } \
+            {hxx     txx cxx}{ scheduler              } \
             {hxx         cxx}{ scope                  } \
             {hxx         cxx}{ search                 } \
             {hxx         cxx}{ spec                   } \
