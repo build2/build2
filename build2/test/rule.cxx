@@ -68,8 +68,8 @@ namespace build2
           // We treat this target as testable unless the test variable is
           // explicitly set to false.
           //
-          lookup l (t["test"]);
-          md.test = !l || cast<path> (l).string () != "false";
+          const name* n (cast_null<name> (t["test"]));
+          md.test = n == nullptr || !n->simple () || n->value != "false";
           break;
         }
       }
@@ -88,14 +88,15 @@ namespace build2
         // Use lookup depths to figure out who "overrides" whom.
         //
         auto p (t.find ("test"));
+        const name* n (cast_null<name> (p.first));
 
-        if (p.first && cast<path> (p.first).string () != "false")
+        if (n != nullptr && n->simple () && n->value != "false")
           md.test = true;
         else
         {
-          auto test = [&t, &p] (const char* n)
+          auto test = [&t, &p] (const char* var)
           {
-            return t.find (n).second < p.second;
+            return t.find (var).second < p.second;
           };
 
           md.test =

@@ -8,6 +8,7 @@
 #include <algorithm> // find()
 
 #include <build2/target>
+#include <build2/algorithm>
 
 using namespace std;
 
@@ -390,8 +391,9 @@ namespace build2
       //
       script_base::
       script_base ()
-          : // Enter the test* variables with the same variable types as in
-            // buildfiles.
+          : // Enter the test.* variables with the same variable types as in
+            // buildfiles except for test: while in buildfiles it can be a
+            // target name, in testscripts it should be resolved to a path.
             //
             test_var      (var_pool.insert<path> ("test")),
             options_var   (var_pool.insert<strings> ("test.options")),
@@ -440,24 +442,75 @@ namespace build2
         //
         const_cast<dir_path&> (wd_path) = dir_path (rwd) /= id_path.string ();
 
-        // Unless we have the test variable set on the test or script target,
-        // set it at the script level to the test target's path.
+        // Set the test variable at the script level. We do it even if it's
+        // set in the buildfile since they use different types.
         //
-        // Note that test variable's visibility is target.
-        //
-        if (!find (test_var))
         {
           value& v (assign (test_var));
 
-          // If this is a path-based target, then we use the path. If this is
-          // an alias target (e.g., dir{}), then we use the directory path.
-          // Otherwise, we leave it NULL expecting the testscript to set it to
-          // something appropriate, if used.
+          // Note that the test variable's visibility is target.
           //
-          if (auto* p = tt.is_a<path_target> ())
-            v = p->path ();
-          else if (tt.is_a<alias> ())
-            v = path (tt.dir.string ()); // Strip trailing slash.
+          lookup l (find_in_buildfile ("test", false));
+
+          target* t (nullptr);
+          if (l.defined ())
+          {
+            const name* n (cast_null<name> (l));
+
+            if (n == nullptr)
+              v = nullptr;
+            else if (n->empty ())
+              v = path ();
+            else if (n->simple ())
+            {
+              // Ignore the special 'true' value.
+              //
+              if (n->value != "true")
+                v = path (n->value);
+              else
+                t = &tt;
+            }
+            else if (n->directory ())
+              v = path (n->dir);
+            else
+            {
+              // Must be a target name.
+              //
+              // @@ OUT: what if this is a @-qualified pair or names?
+              //
+              t = &search (*n, tt.base_scope ());
+            }
+          }
+          else
+            // By default we set it to the test target's path.
+            //
+            t = &tt;
+
+          // If this is a path-based target, then we use the path. If this
+          // is an alias target (e.g., dir{}), then we use the directory
+          // path. Otherwise, we leave it NULL expecting the testscript to
+          // set it to something appropriate, if used.
+          //
+          if (t != nullptr)
+          {
+            if (auto* p = t->is_a<path_target> ())
+            {
+              // Do some sanity checks: the target better be up-to-date with
+              // an assigned path.
+              //
+              if (p->path ().empty ())
+                fail << "target " << *p << " specified in the test variable "
+                     << "is out of date" <<
+                  info << "consider specifying it as a prerequisite of " << tt;
+
+              v = p->path ();
+            }
+            else if (t->is_a<alias> ())
+              v = path (t->dir);
+            else if (t != &tt)
+              fail << "target " << *t << " specified in the test variable "
+                   << "is not path-based";
+          }
         }
 
         // Set the special $*, $N variables.
@@ -484,7 +537,7 @@ namespace build2
 
 
       lookup scope::
-      find_in_buildfile (const string& n) const
+      find_in_buildfile (const string& n, bool target_only) const
       {
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
@@ -506,7 +559,7 @@ namespace build2
           // value. In this case, presumably the override also affects the
           // script target and we will pick it up there. A bit fuzzy.
           //
-          auto p (s.test_target.find_original (var, true));
+          auto p (s.test_target.find_original (var, target_only));
 
           if (p.first)
           {
