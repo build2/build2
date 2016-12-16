@@ -1,0 +1,9 @@
+# file      : tests/build/bootstrap.build
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+project = # Unnamed subproject.
+
+using config
+using dist
+using test

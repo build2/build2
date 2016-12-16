@@ -11,7 +11,6 @@ project = test
 amalgamation =
 EOI
 
-test = $effect($build.path)
 test.options += --jobs 1 --quiet --buildfile -
 
 # By default just load the buildfile.

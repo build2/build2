@@ -1,0 +1,17 @@
+# file      : tests/build/root.build
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+cxx.std = latest
+
+using cxx
+
+hxx{*}: extension =
+cxx{*}: extension = cxx
+
+# Setup the build system driver that we are testing (which may not be the same
+# as our $build.path).
+#
+import b = build2%exe{b}
+
+dir{*}: test = $b

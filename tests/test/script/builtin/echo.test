@@ -1,11 +1,15 @@
-# file      : tests/test/script/runner/echo.test
+# file      : tests/test/script/builtin/echo.test
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+.include ../common.test
+
 : string
 :
-echo foo >foo
+$c <'echo foo >foo';
+$b
 
 : strings
 :
-echo foo bar >"foo bar"
+$c <'echo foo bar >"foo bar"';
+$b

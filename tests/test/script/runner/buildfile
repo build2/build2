@@ -2,8 +2,11 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+./: test{cleanup status} exe{driver} $b
+
+# @@ Do test{*} once redirect folds in.
+#
+test{cleanup}@./ test{status}@./: target = exe{driver}
+
 import libs = libbutl%lib{butl}
-
-exe{driver}: cxx{driver} $libs test{cleanup redirect status}
-
-include ../../../../../build2/
+exe{driver}: cxx{driver} $libs test{redirect}

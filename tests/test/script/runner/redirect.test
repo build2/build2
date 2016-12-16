@@ -2,6 +2,8 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+# @@ Needs conversion to cat & build (then adjust buildfile).
+
 $* -o foo >-                        : out-null
 $* -e foo 2>-                       : err-null
 $* -i 0 <foo                        : in-str

@@ -7,33 +7,33 @@
 b += --no-column
 
 if ($cxx.target.class == "windows")
-  ext = ".exe"
+  ext = .exe
 end
 
 # Successfull tests.
 #
 : eq-true
 :
-$c <"$* == 0";
+$c <'$* == 0';
 $b
 
 : ne-true
 :
-$c <"$* -s 1 != 0";
+$c <'$* -s 1 != 0';
 $b
 
 # Faulty tests.
 #
 : eq-false
 :
-$c <"$* -s 1 == 0";
+$c <'$* -s 1 == 0';
 $b 2>>"EOE" != 0
 testscript:1: error: $path.canonicalize(../../../driver$ext) exit status 1 != 0
 EOE
 
 : ne-false
 :
-$c <"$* -s 1 != 1";
+$c <'$* -s 1 != 1';
 $b 2>>"EOE" != 0
 testscript:1: error: $path.canonicalize(../../../driver$ext) exit status 1 == 1
 EOE

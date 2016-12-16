@@ -7,21 +7,30 @@
 #
 
 +mkdir build
-+cat <<EOI >>>build/bootstrap.build
++cat <<"EOI" >>>build/bootstrap.build
 project = test
 amalgamation =
 
 using test
 EOI
 
-# The "cat & build" setup: first cat ($c) the testscript, then run build
-# ($b) which will execute the testscript.
+# We assume the specified target if any is in out_base which would be two
+# levels up from our working directory.
+#
++if! $empty($target)
+  cat <<"EOI" >>>build/root.build
+  target = \$src_root/../../$string([name] $target)
+  test{*}: test = \$target
+  EOI
+end
+
+# The "cat & build" setup: first cat ($c) the testscript, then run build ($b)
+# which will execute the testscript. We have to quote stdin because of the
+# command line re-expansion.
+#
+# Note that the buildfile is clever hack that relies on the first target
+# automatically becoming dir{./}'s prerequisite.
 #
 c = cat >>>testscript
-b = $effect($build.path) --jobs 1 --quiet --buildfile - test \
-  <'./: test{testscript}' &?test/***
-
-# Add extra set of quotes since this value will be "cat" (normally as $*)
-# into testscript.
-#
-test = "'$test'"
+b = $0 --jobs 1 --quiet --buildfile - test <"'test{testscript}: \$target'" \
+&?test/***
