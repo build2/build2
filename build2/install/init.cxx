@@ -245,6 +245,7 @@ namespace build2
 
       // Configure "installability" for built-in target types.
       //
+      install_path<exe>  (b, dir_path ("bin"));  // Install into install.bin.
       install_path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
       install_path<man>  (b, dir_path ("man"));  // Install into install.man.
       install_path<man1> (b, dir_path ("man1")); // Install into install.man1.

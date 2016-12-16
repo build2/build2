@@ -25,7 +25,7 @@ namespace build2
     }
 
     static const string*
-    testscript_target_extension (const target_key& tk, scope&)
+    testscript_target_extension (const target_key& tk, scope&, bool)
     {
       // If the name is special 'testscript', then there is no extension,
       // otherwise it is .test.

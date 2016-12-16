@@ -81,9 +81,7 @@ namespace build2
     if (ext == nullptr)
     {
       if (auto f = ctk.type->extension)
-      {
-        ext = f (ctk, *cpk.scope); // Already from the pool.
-      }
+        ext = f (ctk, *cpk.scope, true); // Already from the pool.
 
       if (ext == nullptr)
       {

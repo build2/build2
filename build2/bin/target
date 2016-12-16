@@ -60,16 +60,6 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class exe: public file
-    {
-    public:
-      using file::file;
-
-    public:
-      static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
-    };
-
     // The lib{} target group.
     //
     class liba: public file

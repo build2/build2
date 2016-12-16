@@ -314,6 +314,7 @@ namespace build2
       t.insert<alias> ();
       t.insert<dir>   ();
       t.insert<fsdir> ();
+      t.insert<exe>   ();
       t.insert<doc>   ();
       t.insert<man>   ();
       t.insert<man1>  ();

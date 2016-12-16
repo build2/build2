@@ -19,7 +19,7 @@ namespace build2
     link_type (target& t)
     {
       return
-        t.is_a<bin::exe> ()  ? otype::e :
+        t.is_a<exe> ()       ? otype::e :
         t.is_a<bin::liba> () ? otype::a :
         otype::s;
     }

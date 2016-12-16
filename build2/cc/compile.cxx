@@ -418,7 +418,9 @@ namespace build2
         const string* dummy (nullptr);
         target_key tk {&tt, nullptr, nullptr, &n, dummy};
 
-        if (const string* de = tt.extension (tk, s))
+        // This is like prerequisite search.
+        //
+        if (const string* de = tt.extension (tk, s, true))
           if (*de == e)
             return true;
 

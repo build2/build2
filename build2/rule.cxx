@@ -57,6 +57,11 @@ namespace build2
           //
           if (pt.path ().empty ())
           {
+            // Since we cannot come up with an extension, ask the target's
+            // derivation function to treat this as prerequisite (just like
+            // in search_existing_file()).
+            //
+            pt.derive_extension (nullptr, true);
             pt.derive_path ();
             ts = pt.mtime ();
           }

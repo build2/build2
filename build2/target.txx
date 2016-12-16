@@ -35,14 +35,14 @@ namespace build2
   //
   template <const char* ext>
   const string*
-  target_extension_fix (const target_key&, scope&)
+  target_extension_fix (const target_key&, scope&, bool)
   {
     return &extension_pool.find (ext);
   }
 
   template <const char* var, const char* def>
   const string*
-  target_extension_var (const target_key& tk, scope& s)
+  target_extension_var (const target_key& tk, scope& s, bool)
   {
     // Include target type/pattern-specific variables.
     //

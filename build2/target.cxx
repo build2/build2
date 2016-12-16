@@ -332,7 +332,7 @@ namespace build2
   // path_target
   //
   const string& path_target::
-  derive_extension (const char* de)
+  derive_extension (const char* de, bool search)
   {
     // See also search_existing_file() if updating anything here.
     //
@@ -346,7 +346,7 @@ namespace build2
       // the user can use to override extensions.
       //
       if (auto f = type ().extension)
-        ext = f (key (), base_scope ()); // Already from the pool.
+        ext = f (key (), base_scope (), search); // Already from the pool.
 
       if (ext == nullptr)
       {
@@ -453,13 +453,13 @@ namespace build2
   }
 
   const string*
-  target_extension_null (const target_key&, scope&)
+  target_extension_null (const target_key&, scope&, bool)
   {
     return nullptr;
   }
 
   const string*
-  target_extension_assert (const target_key&, scope&)
+  target_extension_assert (const target_key&, scope&, bool)
   {
     assert (false); // Attempt to obtain the default extension.
     throw failed ();
@@ -585,6 +585,35 @@ namespace build2
     false
   };
 
+  static const string*
+  exe_extension (const target_key&, scope&, bool search)
+  {
+    // If we are searching for an executable that is not a target, then
+    // use the build machine executable extension. Otherwise, if this is
+    // a target, then we expect the rule to use target machine extension.
+    //
+    return search
+      ? &extension_pool.find (
+#ifdef _WIN32
+        "exe"
+#else
+        ""
+#endif
+      )
+      : nullptr;
+  }
+
+  const target_type exe::static_type
+  {
+    "exe",
+    &file::static_type,
+    &target_factory<exe>,
+    &exe_extension,
+    nullptr,
+    &search_file,
+    false
+  };
+
   static target*
   buildfile_factory (const target_type&,
                      dir_path d,
@@ -599,7 +628,7 @@ namespace build2
   }
 
   static const string*
-  buildfile_target_extension (const target_key& tk, scope&)
+  buildfile_target_extension (const target_key& tk, scope&, bool)
   {
     // If the name is special 'buildfile', then there is no extension,
     // otherwise it is .build.

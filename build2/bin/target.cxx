@@ -129,28 +129,6 @@ namespace build2
       false
     };
 
-    // @@ What extension should we be using when searching for an existing
-    //    exe{}? Say we have a dependency on some pre-existing tool, maybe
-    //    some source code generator. Should we use 'build' extension? But
-    //    what if we find such an executable for something that we need to
-    //    build for 'host'?
-    //
-    //    What if we use extension variables and scoping. We could set the
-    //    root scope exe{*} extension to 'build' and then, say, cxx module
-    //    (or any module that knows how to build exe{}) changes it to the
-    //    'host'. Maybe that's not a bad idea?
-    //
-    const target_type exe::static_type
-    {
-      "exe",
-      &file::static_type,
-      &target_factory<exe>,
-      &target_extension_var<ext_var, nullptr>,
-      nullptr,
-      &search_file,
-      false
-    };
-
     static target*
     liba_factory (const target_type& t,
                   dir_path d,

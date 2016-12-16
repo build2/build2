@@ -425,7 +425,7 @@ namespace build2
     // By default we go an extra step and short-circuit to the target state
     // even if the raw state is not group provided the recipe is group_recipe.
     // This is normally what you want or need, as in inject_prerequisites()
-    // in the cxx module. But sometimes not, as in execute().
+    // in the cc module. But sometimes not, as in execute().
     //
     target_state
     state (bool shortcircuit = true) const
@@ -1140,10 +1140,11 @@ namespace build2
     derive_path (path_type base, const char* default_ext = nullptr);
 
     // As above but only derives (and returns) the extension (empty means no
-    // extension used).
+    // extension used). If search is true then look for the extension as if
+    // it was a prerequisite, not a target.
     //
     const string&
-    derive_extension (const char* default_ext = nullptr);
+    derive_extension (const char* default_ext = nullptr, bool search = false);
 
   public:
     static const target_type static_type;
@@ -1209,6 +1210,18 @@ namespace build2
   {
   public:
     using target::target;
+
+  public:
+    static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
+  };
+
+  // Executable file.
+  //
+  class exe: public file
+  {
+  public:
+    using file::file;
 
   public:
     static const target_type static_type;
@@ -1311,24 +1324,24 @@ namespace build2
   //
   template <const char* ext>
   const string*
-  target_extension_fix (const target_key&, scope&);
+  target_extension_fix (const target_key&, scope&, bool);
 
   // Get the extension from the variable or use the default if none set. If
   // the default is NULL, then return NULL.
   //
   template <const char* var, const char* def>
   const string*
-  target_extension_var (const target_key&, scope&);
+  target_extension_var (const target_key&, scope&, bool);
 
   // Always return NULL extension.
   //
   const string*
-  target_extension_null (const target_key&, scope&);
+  target_extension_null (const target_key&, scope&, bool);
 
   // Assert if called.
   //
   const string*
-  target_extension_assert (const target_key&, scope&);
+  target_extension_assert (const target_key&, scope&, bool);
 
   // Target print functions.
   //

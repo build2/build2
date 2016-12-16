@@ -342,9 +342,6 @@ namespace build2
         t.insert<obja> ();
         t.insert<objs> ();
 
-        t.insert<exe>  ();
-        install_path<exe> (b, dir_path ("bin")); // Install into install.bin.
-
         t.insert<lib>  ();
         t.insert<liba> ();
         t.insert<libs> ();
