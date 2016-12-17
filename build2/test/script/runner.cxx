@@ -46,8 +46,7 @@ namespace build2
       }
 
       // Check if the test command output matches the expected result (redirect
-      // value). Noop for redirect types other than none, here_string,
-      // here_document.
+      // value). Noop for redirect types other than none, here_*.
       //
       static void
       check_output (const path& pr,
@@ -64,6 +63,7 @@ namespace build2
             d << info << "stdin: " << ip;
         };
 
+        bool re;
         if (rd.type == redirect_type::none)
         {
           assert (!op.empty ());
@@ -79,95 +79,172 @@ namespace build2
             input_info (d);
           }
         }
-        else if (rd.type == redirect_type::here_str_literal ||
+        else if ((re = (rd.type == redirect_type::here_str_regex ||
+                        rd.type == redirect_type::here_doc_regex)) ||
+                 rd.type == redirect_type::here_str_literal ||
                  rd.type == redirect_type::here_doc_literal)
         {
           assert (!op.empty ());
 
-          path orp (op + ".orig");
+          // While the regex file is not used for output validation we still
+          // create it for troubleshooting.
+          //
+          path opp (op + (re ? ".regex" : ".orig"));
 
           try
           {
-            ofdstream os (orp);
-            sp.clean ({cleanup_type::always, orp}, true);
-            os << rd.str;
+            ofdstream os (opp);
+            sp.clean ({cleanup_type::always, opp}, true);
+            os << (re ? rd.regex.str : rd.str);
             os.close ();
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to write " << orp << ": " << e.what ();
+            fail (ll) << "unable to write " << opp << ": " << e.what ();
           }
 
-          // Use diff utility to compare the output with the expected result.
-          //
-          path dp ("diff");
-          process_path pp (run_search (dp, true));
-
-          cstrings args {
-            pp.recall_string (),
-            "--strip-trailing-cr",
-            "-u",
-            orp.string ().c_str (),
-            op.string ().c_str (),
-            nullptr};
-
-          if (verb >= 2)
-            print_process (args);
-
-          try
+          auto output_info = [&what, &ll] (diag_record& d,
+                                           const path& p,
+                                           const char* prefix = "",
+                                           const char* suffix = "")
           {
-            // Diff utility prints the differences to stdout. But for the user
-            // it is a part of the test failure diagnostics so let's redirect
-            // stdout to stderr.
+            if (non_empty (p, ll))
+              d << info << prefix << what << suffix << ": " << p;
+            else
+              d << info << prefix << what << suffix << " is empty";
+          };
+
+          if (re)
+          {
+            // Match the output with the line_regex. That requires to parse the
+            // output into the line_string of literals first.
             //
-            process p (pp, args.data (), 0, 2);
+            using namespace regex;
+
+            line_string ls;
 
             try
             {
-              if (p.wait ())
-                return;
-
-              // Output doesn't match the expected result.
+              // Do not throw when eofbit is set (end of stream reached), and
+              // when failbit is set (getline() failed to extract any
+              // character).
               //
-              diag_record d (error (ll));
-              d << pr << " " << what << " doesn't match the expected output";
+              // Note that newlines are treated as line-chars separators. That
+              // in particular means that the trailing newline produces a blank
+              // line-char (empty literal). Empty output produces the
+              // zero-length line-string.
+              //
+              // Also note that we strip the trailing CR characters (otherwise
+              // can mismatch when cross-test).
+              //
+              ifdstream is (op, ifdstream::in, ifdstream::badbit);
+              is.peek (); // Sets eofbit for an empty stream.
 
-              auto output_info =
-                [&d, &what, &ll] (const path& p, const char* prefix)
+              while (!is.eof ())
               {
-                if (non_empty (p, ll))
-                  d << info << prefix << what << ": " << p;
-                else
-                  d << info << prefix << what << " is empty";
-              };
+                string s;
+                getline (is, s);
 
-              output_info (op, "");
-              output_info (orp, "expected ");
-              input_info  (d);
+                // It is safer to strip CRs in cycle, as msvcrt unexplainably
+                // adds too much trailing junk to the system_error
+                // descriptions, and so it can appear in programs output. For
+                // example:
+                //
+                // ...: Invalid data.\r\r\n
+                //
+                while (!s.empty () && s.back () == '\r')
+                  s.pop_back ();
 
-              // Fall through.
-              //
+                ls += line_char (move (s), rd.regex.regex.pool);
+              }
             }
-            catch (const io_error&)
+            catch (const io_error& e)
             {
-              // Child exit status doesn't matter. Assume the child process
-              // issued diagnostics. Just wait for the process completion.
-              //
-              p.wait (); // Check throw.
-
-              error (ll) << "failed to compare " << what
-                         << " with the expected output";
+              fail (ll) << "unable to read " << op << ": " << e.what ();
             }
+
+            if (regex_match (ls, rd.regex.regex)) // Doesn't throw.
+              return;
+
+            // Output doesn't match the regex.
+            //
+            diag_record d (error (ll));
+            d << pr << " " << what << " doesn't match the regex";
+
+            output_info (d, op);
+            output_info (d, opp, "", " regex");
+            input_info  (d);
 
             // Fall through.
             //
           }
-          catch (const process_error& e)
+          else
           {
-            error (ll) << "unable to execute " << pp << ": " << e.what ();
+            // Use diff utility to compare the output with the expected result.
+            //
+            path dp ("diff");
+            process_path pp (run_search (dp, true));
 
-            if (e.child ())
-              exit (1);
+            cstrings args {
+              pp.recall_string (),
+                "--strip-trailing-cr", // Is essential for cross-testing.
+                "-u",
+                opp.string ().c_str (),
+                op.string ().c_str (),
+                nullptr};
+
+            if (verb >= 2)
+              print_process (args);
+
+            try
+            {
+              // Diff utility prints the differences to stdout. But for the
+              // user it is a part of the test failure diagnostics so let's
+              // redirect stdout to stderr.
+              //
+              process p (pp, args.data (), 0, 2);
+
+              try
+              {
+                if (p.wait ())
+                  return;
+
+                // Output doesn't match the expected result.
+                //
+                diag_record d (error (ll));
+                d << pr << " " << what << " doesn't match the expected output";
+
+                output_info (d, op);
+                output_info (d, opp, "expected ");
+                input_info  (d);
+
+                // Fall through.
+                //
+              }
+              catch (const io_error&)
+              {
+                // Child exit status doesn't matter. Assume the child process
+                // issued diagnostics. Just wait for the process completion.
+                //
+                p.wait (); // Check throw.
+
+                error (ll) << "failed to compare " << what
+                           << " with the expected output";
+              }
+
+              // Fall through.
+              //
+            }
+            catch (const process_error& e)
+            {
+              error (ll) << "unable to execute " << pp << ": " << e.what ();
+
+              if (e.child ())
+                exit (1);
+            }
+
+            // Fall through.
+            //
           }
 
           throw failed ();
@@ -461,8 +538,8 @@ namespace build2
             break;
           }
 
-        case redirect_type::merge: assert (false); break;
-        case redirect_type::here_str_regex: // @@ REGEX
+        case redirect_type::merge:
+        case redirect_type::here_str_regex:
         case redirect_type::here_doc_regex: assert (false); break;
         }
 
@@ -482,10 +559,9 @@ namespace build2
 
         // Open a file for command output redirect if requested explicitly
         // (file redirect) or for the purpose of the output validation (none,
-        // here_string, here_document), register the file for cleanup, return
-        // the file descriptor. Return the specified, default or -2 file
-        // descriptors for merge, pass or null redirects respectively not
-        // opening a file.
+        // here_*), register the file for cleanup, return the file descriptor.
+        // Return the specified, default or -2 file descriptors for merge, pass
+        // or null redirects respectively not opening a file.
         //
         auto open = [&sp, &ll, &std_path, &normalize] (const redirect& r,
                                                        int dfd,
@@ -549,13 +625,13 @@ namespace build2
           case redirect_type::none:
           case redirect_type::here_str_literal:
           case redirect_type::here_doc_literal:
+          case redirect_type::here_str_regex:
+          case redirect_type::here_doc_regex:
             {
               p = std_path (what);
               m |= fdopen_mode::truncate;
               break;
             }
-          case redirect_type::here_str_regex: // @@ REGEX
-          case redirect_type::here_doc_regex: assert (false); break;
           }
 
           try

@@ -13,6 +13,12 @@
   testscript:1:8: error: expected here-document end marker
   EOE
 
+  : missing-empty
+  :
+  $* <'cmd <<""' 2>>EOE != 0
+  testscript:1:7: error: expected here-document end marker
+  EOE
+
   : unseparated-expansion
   :
   $* <'cmd <<FOO$foo' 2>>EOE != 0

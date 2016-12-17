@@ -1,0 +1,188 @@
+# file      : unit-tests/test/script/parser/regex.test
+# copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: here-string
+:
+{
+  : stdout
+  :
+  {
+    : missing
+    :
+    $* <'cmd >~' 2>>EOE != 0
+    testscript:1:7: error: missing stdout here-string regex
+    EOE
+
+    : no-introducer
+    :
+    $* <'cmd >~""' 2>>EOE != 0
+    testscript:1:7: error: no introducer character in stdout regex redirect
+    EOE
+
+    : no-term-introducer
+    :
+    $* <'cmd >~/' 2>>EOE != 0
+    testscript:1:7: error: no closing introducer character in stdout regex redirect
+    EOE
+
+    : empty
+    :
+    $* <'cmd >~//' 2>>EOE != 0
+    testscript:1:7: error: stdout regex redirect is empty
+    EOE
+
+    : invalid-flags1
+    :
+    $* <'cmd >~/foo/z' 2>>EOE != 0
+    testscript:1:7: error: junk at the end of stdout regex redirect
+    EOE
+
+    : invalid-flags2
+    :
+    $* <'cmd >~/foo/iz' 2>>EOE != 0
+    testscript:1:7: error: junk at the end of stdout regex redirect
+    EOE
+
+    : malformed
+    :
+    $* <'cmd >~/*foo/' 2>>~/EOE/ != 0
+    /testscript:1:7: error: invalid stdout regex redirect.*/
+      info: regex: /*foo/
+    EOE
+
+    : without-flags
+    :
+    $* <'cmd >~/fo*/' >'cmd >~/fo*/'
+
+    : with-flags
+    :
+    $* <'cmd >~/fo*/i' >'cmd >~/fo*/i'
+
+    : no-newline
+    :
+    $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
+  }
+
+  : stderr
+  :
+  {
+    : missing
+    :
+    $* <'cmd 2>~' 2>>EOE != 0
+    testscript:1:8: error: missing stderr here-string regex
+    EOE
+
+    : no-introducer
+    :
+    : Note that there is no need to reproduce all the errors as for stdout.
+    : All we need is to make sure that the proper description is passed to
+    : the parse_regex() function.
+    :
+    $* <'cmd 2>~""' 2>>EOE != 0
+    testscript:1:8: error: no introducer character in stderr regex redirect
+    EOE
+  }
+}
+
+: here-doc
+:
+{
+  : stdout
+  :
+  {
+    : missing
+    :
+    $* <'cmd >>~' 2>>EOE != 0
+    testscript:1:8: error: expected here-document regex end marker
+    EOE
+
+    : unterminated-line-char
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>~/EOO/
+    /
+    EOO
+    EOI
+    testscript:2:1: error: regex introducer without regex
+      info: consider changing regex introducer '/' in here-document end marker
+    EOE
+
+    : invalid-syntax-char
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>~/EOO/
+    /x
+    EOO
+    EOI
+    testscript:2:1: error: invalid line-regex syntax character 'x'
+    EOE
+
+    : invalid-char-regex
+    :
+    $* <<EOI 2>>~/EOE/ != 0
+    cmd >>~/EOO/
+    /?foo/
+    EOO
+    EOI
+    /testscript:2:1: error: invalid regex.*/
+    EOE
+
+    : invalid-line-regex
+    :
+    $* <<EOI 2>>~/EOE/ != 0
+    cmd >>~/EOO/
+    /*
+    EOO
+    EOI
+    /testscript:3:1: error: invalid here-document regex.*/
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>:~/EOO/
+    EOO
+    EOI
+    testscript:2:1: error: empty here-document regex
+    EOE
+
+    : valid
+    :
+    $* <<EOI >>EOO
+    cmd 2>>~/EOE/
+    foo
+    /?
+    /foo/
+    /foo/*
+    /foo/i
+    /foo/i*
+
+    //
+    //*
+    EOE
+    EOI
+    cmd 2>>~/EOE/
+    foo
+    /?
+    /foo/
+    /foo/*
+    /foo/i
+    /foo/i*
+
+    //
+    //*
+    EOE
+    EOO
+  }
+
+  : stderr
+  :
+  {
+    : missing
+    :
+    $* <'cmd 2>>~' 2>>EOE != 0
+    testscript:1:9: error: expected here-document regex end marker
+    EOE
+  }
+}

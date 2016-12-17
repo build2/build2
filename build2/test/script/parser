@@ -12,6 +12,7 @@
 #include <build2/diagnostics>
 
 #include <build2/test/script/token>
+#include <build2/test/script/regex>
 #include <build2/test/script/script>
 
 namespace build2
@@ -97,12 +98,20 @@ namespace build2
         //
         struct here_doc
         {
-          size_t expr;  // Index in command_expr.
-          size_t pipe;  // Index in command_pipe.
-          int fd;       // Redirect fd (0 - in, 1 - out, 2 - err).
+          size_t expr;      // Index in command_expr.
+          size_t pipe;      // Index in command_pipe.
+          int fd;           // Redirect fd (0 - in, 1 - out, 2 - err).
           string end;
-          bool literal;    // Literal (single-quote).
+          bool literal;     // Literal (single-quote).
           string modifiers;
+
+          // Regex introducer ('\0' if not a regex, so can be used as bool).
+          //
+          char regex;
+
+          // Regex global flags. Meaningful if regex != '\0'.
+          //
+          regex::char_flags regex_flags;
         };
         using here_docs = vector<here_doc>;
 
@@ -115,10 +124,13 @@ namespace build2
         void
         parse_here_documents (token&, token_type&,
                               pair<command_expr, here_docs>&);
-        string
+
+        pair<string, regex::line_regex>
         parse_here_document (token&, token_type&,
                              const string&,
-                             const string&);
+                             const string& mode,
+                             char regex_introducer, // '\0' if not a regex.
+                             regex::char_flags);
 
         // Execute. Issue diagnostics and throw failed in case of an error.
         //

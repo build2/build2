@@ -2,6 +2,9 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <sstream>
+#include <cstring> // strstr(), strchr()
+
 #include <build2/test/script/parser>
 
 #include <build2/scheduler>
@@ -10,6 +13,35 @@
 #include <build2/test/script/runner>
 
 using namespace std;
+
+namespace std
+{
+  // Print regex error description but only if it is meaningful (this is also
+  // why we have to print leading colon here).
+  //
+  // Currently libstdc++ just returns the name of the exception (bug #67361).
+  // So we check that the description contains at least one space character.
+  //
+  // While VC's description is meaningful, it has an undesired prefix that
+  // resembles the following: 'regex_error(error_badrepeat): '. So we skip it.
+  //
+  static ostream&
+  operator<< (ostream& os, const regex_error& e)
+  {
+    const char* d (e.what ());
+    if (strchr (d, ' ') != nullptr)
+    {
+#if defined(_MSC_VER) && _MSC_VER <= 1910
+      const char* s (strstr (d, "): "));
+      if (s != nullptr)
+        d = s + 3;
+#endif
+      os << ": " << d;
+    }
+
+    return os;
+  }
+}
 
 namespace build2
 {
@@ -1277,7 +1309,68 @@ namespace build2
         assert (tt == type::newline);
 
         return move (p.first);
+      }
+
+      // Parse the regular expression representation (non-empty string value
+      // framed with introducer characters and optionally followed by flag
+      // characters from the {i} set, for example '/foo/i') into
+      // components. Also return end-of-parsing position if requested,
+      // otherwise treat any unparsed characters left as an error.
+      //
+      struct regex_parts
+      {
+        string value;
+        char introducer;
+        regex::char_flags flags; // {icase}
+
+        // Create a special empty object.
+        //
+        regex_parts ()
+            : introducer ('\0'), flags (regex::char_flags()) {}
+
+        regex_parts (string v, char i, regex::char_flags f)
+            : value (move (v)), introducer (i), flags (f) {}
       };
+
+      static regex_parts
+      parse_regex (const string& s,
+                   const location& l,
+                   const char* what,
+                   size_t* end = nullptr)
+      {
+        if (s.empty ())
+          fail (l) << "no introducer character in " << what;
+
+        size_t p (s.find (s[0], 1)); // Find terminating introducer.
+
+        if (p == string::npos)
+          fail (l) << "no closing introducer character in " << what;
+
+        size_t rn (p - 1); // Regex length.
+        if (rn == 0)
+          fail (l) << what << " is empty";
+
+        bool icase (s[++p] == 'i'); // Note: s[++p] can be '\0' (no flags).
+
+        if (icase)
+          ++p;
+
+        // If string end is not reached then report invalid flags, unless
+        // end-of-parsing position is requested (which means regex is just a
+        // prefix).
+        //
+        if (s[p] != '\0' && end == nullptr)
+          fail (l) << "junk at the end of " << what;
+
+        if (end != nullptr)
+          *end = p;
+
+        return regex_parts (string (s, 1, rn),
+                            s[0],
+                            icase
+                            ? regex::char_regex::icase
+                            : regex::char_flags ());
+      }
 
       pair<command_expr, parser::here_docs> parser::
       parse_command_expr (token& t, type& tt)
@@ -1310,11 +1403,15 @@ namespace build2
           in_file,
           out_merge,
           out_string,
+          out_str_regex,
           out_document,
+          out_doc_regex,
           out_file,
           err_merge,
           err_string,
+          err_str_regex,
           err_document,
+          err_doc_regex,
           err_file,
           clean
         };
@@ -1349,6 +1446,50 @@ namespace build2
             if (mod.find (':') == string::npos)
               w += '\n';
             r.str = move (w);
+          };
+
+          auto add_here_str_regex = [&l, &mod, this] (
+            redirect& r, int fd, string&& w)
+          {
+            using namespace regex;
+
+            const char* what (nullptr);
+            switch (fd)
+            {
+            case 1: what = "stdout regex redirect"; break;
+            case 2: what = "stderr regex redirect"; break;
+            }
+
+            line_pool pool;
+            line_string s;
+
+            try
+            {
+              regex_parts re (parse_regex (w, l, what));
+              s += line_char (char_regex (re.value,
+                                          char_regex::ECMAScript | re.flags),
+                              pool);
+            }
+            catch (const regex_error& e)
+            {
+              // Print regex_error description if meaningful.
+              //
+              fail (l) << "invalid " << what << e <<
+                info << "regex: " << w;
+            }
+
+            if (mod.find (':') == string::npos)
+            {
+              w += '\n';
+              s += line_char ("", pool);
+            }
+
+            r.regex.str = move (w);
+
+            // No special line-chars, so no way to try to create a malformed
+            // expression, and so can't throw.
+            //
+            r.regex.regex = line_regex (move (s), move (pool));
           };
 
           auto parse_path = [&l, this] (string&& w, const char* what) -> path
@@ -1399,11 +1540,24 @@ namespace build2
           case pending::out_string: add_here_str (c.out, move (w)); break;
           case pending::err_string: add_here_str (c.err, move (w)); break;
 
+          case pending::out_str_regex:
+            {
+              add_here_str_regex (c.out, 1, move (w));
+              break;
+            }
+          case pending::err_str_regex:
+            {
+              add_here_str_regex (c.err, 2, move (w));
+              break;
+            }
+
             // These are handled specially below.
             //
           case pending::in_document:
           case pending::out_document:
-          case pending::err_document: assert (false); break;
+          case pending::err_document:
+          case pending::out_doc_regex:
+          case pending::err_doc_regex: assert (false); break;
 
           case pending::in_file:  add_file (c.in,  0, move (w)); break;
           case pending::out_file: add_file (c.out, 1, move (w)); break;
@@ -1451,6 +1605,27 @@ namespace build2
           case pending::err_document: what = "stderr here-document end"; break;
           case pending::err_file:     what = "stderr file";              break;
           case pending::clean:        what = "cleanup path";             break;
+
+          case pending::out_str_regex:
+            {
+              what = "stdout here-string regex";
+              break;
+            }
+          case pending::err_str_regex:
+            {
+              what = "stderr here-string regex";
+              break;
+            }
+          case pending::out_doc_regex:
+            {
+              what = "stdout here-document regex end";
+              break;
+            }
+          case pending::err_doc_regex:
+            {
+              what = "stderr here-document regex end";
+              break;
+            }
           }
 
           if (what != nullptr)
@@ -1523,25 +1698,47 @@ namespace build2
             }
           }
 
+          mod = move (t.value);
+
           redirect_type rt (redirect_type::none);
           switch (tt)
           {
           case type::in_pass:
-          case type::out_pass:     rt = redirect_type::pass;  break;
+          case type::out_pass:  rt = redirect_type::pass;  break;
 
           case type::in_null:
-          case type::out_null:     rt = redirect_type::null;  break;
+          case type::out_null:  rt = redirect_type::null;  break;
 
-          case type::out_merge:    rt = redirect_type::merge; break;
+          case type::out_merge: rt = redirect_type::merge; break;
 
           case type::in_str:
-          case type::out_str:      rt = redirect_type::here_str_literal; break;
+          case type::out_str:
+            {
+              bool re (mod.find ('~') != string::npos);
+              assert (tt == type::out_str || !re);
+
+              rt = re
+                ? redirect_type::here_str_regex
+                : redirect_type::here_str_literal;
+
+              break;
+            }
 
           case type::in_doc:
-          case type::out_doc:      rt = redirect_type::here_doc_literal; break;
+          case type::out_doc:
+            {
+              bool re (mod.find ('~') != string::npos);
+              assert (tt == type::out_doc || !re);
+
+              rt = re
+                ? redirect_type::here_doc_regex
+                : redirect_type::here_doc_literal;
+
+              break;
+            }
 
           case type::in_file:
-          case type::out_file:     rt = redirect_type::file; break;
+          case type::out_file: rt = redirect_type::file; break;
           }
 
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
@@ -1569,6 +1766,14 @@ namespace build2
             case 2: p = pending::err_string; break;
             }
             break;
+          case redirect_type::here_str_regex:
+            switch (fd)
+            {
+            case 0: assert (false);             break;
+            case 1: p = pending::out_str_regex; break;
+            case 2: p = pending::err_str_regex; break;
+            }
+            break;
           case redirect_type::here_doc_literal:
             switch (fd)
             {
@@ -1577,10 +1782,14 @@ namespace build2
             case 2: p = pending::err_document; break;
             }
             break;
-
-          case redirect_type::here_str_regex: // @@ REGEX
-          case redirect_type::here_doc_regex: assert (false); break;
-
+          case redirect_type::here_doc_regex:
+            switch (fd)
+            {
+            case 0: assert (false);             break;
+            case 1: p = pending::out_doc_regex; break;
+            case 2: p = pending::err_doc_regex; break;
+            }
+            break;
           case redirect_type::file:
             switch (fd)
             {
@@ -1590,8 +1799,6 @@ namespace build2
             }
             break;
           }
-
-          mod = move (t.value);
         };
 
         // Set pending cleanup type.
@@ -1674,15 +1881,20 @@ namespace build2
             {
               if (pre_parse_)
               {
-                // The only thing we need to handle here are the here-document
-                // end markers since we need to know how many of them to pre-
-                // parse after the command.
+                // The only things we need to handle here are the here-document
+                // and here-document regex end markers since we need to know
+                // how many of them to pre-parse after the command.
                 //
                 switch (tt)
                 {
                 case type::in_doc:
                 case type::out_doc:
                   mod = move (t.value);
+
+                  bool re (mod.find ('~') != string::npos);
+                  const char* what (re
+                                    ? "here-document regex end marker"
+                                    : "here-document end marker");
 
                   // We require the end marker to be a literal, unquoted word.
                   // In particularm, we don't allow quoted because of cases
@@ -1700,8 +1912,8 @@ namespace build2
                   // would be >>FOO$bar -- on reparse it will be expanded
                   // as a single word.
                   //
-                  if (tt != type::word)
-                    fail (t) << "expected here-document end marker";
+                  if (tt != type::word || t.value.empty ())
+                    fail (t) << "expected " << what;
 
                   peek ();
                   const token& p (peeked ());
@@ -1711,7 +1923,7 @@ namespace build2
                     {
                     case type::dollar:
                     case type::lparen:
-                      fail (p) << "here-document end marker must be literal";
+                      fail (p) << what << " must be literal";
                     }
                   }
 
@@ -1727,15 +1939,25 @@ namespace build2
                       break;
                     // Fall through.
                   case quote_type::mixed:
-                    fail (t) << "partially-quoted here-document end marker";
+                    fail (t) << "partially-quoted " << what;
+                  }
+
+                  regex_parts r;
+                  string end (move (t.value));
+
+                  if (re)
+                  {
+                    r = parse_regex (end, l, what);
+                    end = move (r.value); // The "cleared" end marker.
                   }
 
                   hd.push_back (
                     here_doc {
                       0, 0, 0,
-                      move (t.value),
+                      move (end),
                       qt == quote_type::single,
-                      move (mod)});
+                      move (mod),
+                      r.introducer, r.flags});
                   break;
                 }
 
@@ -1817,23 +2039,40 @@ namespace build2
                 int fd;
                 switch (p)
                 {
-                case pending::in_document:  fd =  0; break;
-                case pending::out_document: fd =  1; break;
-                case pending::err_document: fd =  2; break;
-                default:                    fd = -1; break;
+                case pending::in_document:   fd =  0; break;
+                case pending::out_document:
+                case pending::out_doc_regex: fd =  1; break;
+                case pending::err_document:
+                case pending::err_doc_regex: fd =  2; break;
+                default:                     fd = -1; break;
                 }
 
                 if (fd != -1)
                 {
+                  string end (move (t.value));
+                  regex_parts r;
+
+                  if (p == pending::out_doc_regex ||
+                      p == pending::err_doc_regex)
+                  {
+                    // We can't fail here as we already parsed all the end
+                    // markers during pre-parsing stage, and so no need in the
+                    // description.
+                    //
+                    r = parse_regex (end, l, "");
+                    end = move (r.value); // The "cleared" end marker.
+                  }
+
                   hd.push_back (
                     here_doc {
                       expr.size () - 1,
                       expr.back ().pipe.size (),
                       fd,
-                      move (t.value),
+                      move (end),
                       (t.qtype == quote_type::unquoted ||
                        t.qtype == quote_type::single),
-                      move (mod)});
+                      move (mod),
+                      r.introducer, r.flags});
 
                   p = pending::none;
                   mod.clear ();
@@ -2130,30 +2369,54 @@ namespace build2
                 : lexer_mode::here_line_double);
           next (t, tt);
 
-          string v (parse_here_document (t, tt, h.end, h.modifiers));
+          pair<string, regex::line_regex> v (
+            parse_here_document (
+              t, tt, h.end, h.modifiers, h.regex, h.regex_flags));
 
           if (!pre_parse_)
           {
             command& c (p.first[h.expr].pipe[h.pipe]);
             redirect& r (h.fd == 0 ? c.in : h.fd == 1 ? c.out : c.err);
 
-            r.str = move (v);
-            r.end = move (h.end);
+            if (h.regex)
+            {
+              r.regex.str   = move (v.first);
+              r.regex.regex = move (v.second);
+
+              // Restore the original end marker.
+              //
+              r.end = h.regex + h.end + h.regex;
+              if ((h.regex_flags & regex::char_regex::icase) != 0)
+                r.end += 'i';
+            }
+            else
+            {
+              r.str = move (v.first);
+              r.end = move (h.end);
+            }
           }
 
           expire_mode ();
         }
       }
 
-      string parser::
+      pair<string, regex::line_regex> parser::
       parse_here_document (token& t, type& tt,
                            const string& em,
-                           const string& mod)
+                           const string& mod,
+                           char re,
+                           regex::char_flags refl)
       {
         // enter: first token on first line
         // leave: newline (after end marker)
 
-        string r;
+        using namespace regex;
+
+        string rs; // String or regex literal.
+
+        line_pool pool;
+        line_string ls;
+        line_regex rre;
 
         // Here-documents can be indented. The leading whitespaces of the end
         // marker line (called strip prefix) determine the indentation. Every
@@ -2173,8 +2436,17 @@ namespace build2
         //
         size_t ri (pre_parse_ ? replay_data_.size () - 1 : 0);
 
+        // We will use the location of the first token on the line for the
+        // regex diagnostics. At the end of the loop it will point to the
+        // beginning of the end marker which we use for diagnostics of the
+        // line_regex object creation.
+        //
+        location l;
+
         while (tt != type::eos)
         {
+          l = get_location (t);
+
           // Check if this is the end marker. For starters, it should be a
           // single, unquoted word followed by a newline.
           //
@@ -2216,31 +2488,125 @@ namespace build2
 
           if (!pre_parse_)
           {
-            if (!r.empty ()) // Add newline after previous line.
-              r += '\n';
-
             // What shall we do if the expansion results in multiple names?
             // For, example if the line contains just the variable expansion
             // and it is of type strings. Adding all the elements space-
             // separated seems like the natural thing to do.
             //
+            string s;
             for (auto b (ns.begin ()), i (b); i != ns.end (); ++i)
             {
-              string s;
+              string n;
 
               try
               {
-                s = value_traits<string>::convert (move (*i), nullptr);
+                n = value_traits<string>::convert (move (*i), nullptr);
               }
               catch (const invalid_argument&)
               {
-                fail (t) << "invalid string value '" << *i << "'";
+                fail (l) << "invalid string value '" << *i << "'";
               }
 
-              if (i != b)
-                r += ' ';
+              if (i == b)
+                s = move (n);
+              else
+              {
+                s += ' ';
+                s += n;
+              }
+            }
 
-              r += s;
+            // Add newline after previous line.
+            //
+            if (!rs.empty ())
+              rs += '\n';
+
+            rs += s;
+
+            if (re)
+            {
+              if (s[0] == re) // Line starts with the regex introducer.
+              {
+                size_t n (s.size ());
+
+                // Handle the empty line-regex characters.
+                //
+                if (n == 1)
+                  fail (l) << "regex introducer without regex" <<
+                    info << "consider changing regex introducer '" << re
+                           << "' in here-document end marker";
+
+                // This is a char-regex, or a sequence of line-regex syntax
+                // characters or both (in this specific order). So we will add
+                // the char-regex first (if present), and then sequentially
+                // add the line-regex syntax characters (if present).
+                //
+                size_t p (s.find (re, 1));
+                if (p == string::npos)
+                {
+                  // No char-regex, just a sequence of line-regex syntax
+                  // characters. Prepare to parse them starting from the
+                  // position right after the introducer.
+                  //
+                  p = 1;
+                }
+                else
+                {
+                  // Add regex line-char, and then position to the end of the
+                  // regex (that includes terminating introducer and the
+                  // optional flags). This is the first line-regex syntax
+                  // character position (if present).
+                  //
+                  line_char c;
+
+                  // Empty regex is a special case repesenting the blank line.
+                  //
+                  if (p == 1)
+                  {
+                    c = line_char ("", pool);
+                    ++p;
+                  }
+                  else
+                  {
+                    // Can't fail as all the pre-conditions verified (non-empty
+                    // with both introducers in place), so no description
+                    // required.
+                    //
+                    regex_parts re (parse_regex (s, l, "", &p));
+
+                    try
+                    {
+                      c = line_char (
+                        char_regex (re.value,
+                                    char_regex::ECMAScript | re.flags | refl),
+                        pool);
+                    }
+                    catch (const regex_error& e)
+                    {
+                      // Print regex_error description if meaningful.
+                      //
+                      fail (l) << "invalid regex" << e;
+                    }
+                  }
+
+                  ls += c;
+                }
+
+                while (p != n)
+                {
+                  char c (s[p++]);
+                  if (line_char::syntax (c))
+                    ls += line_char (c);
+                  else
+                    fail (l) << "invalid line-regex syntax character '" << c
+                             << "'";
+                }
+              }
+              else
+                // Line doesn't start with regex introducer. Add line-char
+                // literal (handles blank lines as well).
+                //
+                ls += line_char (move (s), pool);
             }
           }
 
@@ -2301,10 +2667,36 @@ namespace build2
           // Add final newline unless suppressed.
           //
           if (mod.find (':') == string::npos)
-            r += '\n';
+          {
+            rs += '\n';
+
+            if (re)
+              ls += line_char ("", pool);
+          }
+
+          // Parse line-regex.
+          //
+          if (re)
+          {
+            // Empty regex matches nothing, so not of much use.
+            //
+            if (ls.empty ())
+              fail (l) << "empty here-document regex";
+
+            try
+            {
+              rre = line_regex (move (ls), move (pool));
+            }
+            catch (const regex_error& e)
+            {
+              // Print regex_error description if meaningful.
+              //
+              fail (l) << "invalid here-document regex" << e;
+            }
+          }
         }
 
-        return r;
+        return make_pair (move (rs), move (rre));
       }
 
       //

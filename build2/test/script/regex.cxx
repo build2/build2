@@ -28,7 +28,6 @@ namespace build2
           // @@ How can we allow anything for basic_regex but only subset
           //    for our own code?
           //
-          const char sp[] = "()|.*+?{\\}0123456789,=!";
           const char ex[] = "pn\n\r";
 
           assert (c == 0  || // Null character.
@@ -45,7 +44,7 @@ namespace build2
                   (c > 0 && c <= 255 && (
                     // Supported regex special characters.
                     //
-                    string::traits_type::find (sp, 23, c) != nullptr ||
+                    syntax (c) ||
 
                     // libstdc++ look-ahead tokens, newline chars.
                     //
@@ -70,6 +69,13 @@ namespace build2
             //
             : line_char (&(*p.regexes.emplace (p.regexes.begin (), move (r))))
         {
+        }
+
+        bool
+        line_char::syntax (char c)
+        {
+          return string::traits_type::find (
+            "()|.*+?{}\\0123456789,=!", 23, c) != nullptr;
         }
 
         bool
@@ -157,7 +163,7 @@ namespace std
     if (n > 0 && d != s)
     {
       // If d < s then it can't be in [s, s + n) range and so using copy() is
-      // safe. Otherwise d + n is out of (first, last] range and so using
+      // safe. Otherwise d + n is out of (s, s + n] range and so using
       // copy_backward() is safe.
       //
       if (d < s)

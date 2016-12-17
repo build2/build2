@@ -6,8 +6,6 @@
 
 b += --no-column
 
-td = [string] $path.canonicalize(test/)
-
 # Valid cleanups.
 #
 # @@ TODO: $c <'$* -f a &a' && $b
@@ -93,8 +91,8 @@ $b
 : Test cleanup of non-existing file.
 :
 $c <'$* &a';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup file $path.canonicalize(test/1/a) does not exist
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup file test[/\\]1[/\\]a does not exist%
 EOE
 
 : file-out-wd
@@ -102,8 +100,8 @@ EOE
 : Test explicit cleanup of a file out of the testscript working directory.
 :
 $c <'$* &../../a';
-$b 2>>"EOE" != 0
-testscript:1: error: file cleanup $path.canonicalize(../../a) is out of working directory $td
+$b 2>>~%EOE% != 0
+%testscript:1: error: file cleanup \.\.[/\\]\.\.[/\\]a is out of working directory test[/\\]%
 EOE
 
 : file-in-wd
@@ -112,24 +110,30 @@ EOE
 : directory but inside the script working directory.
 :
 $c <'$* &../a';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup file $path.canonicalize(test/a) does not exist
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup file test[/\\]a does not exist%
 EOE
 
 : not-file
 :
 : Test cleanup of a directory as a file.
 :
+: Note that there is an optional trailing blank line in the regex that matches
+: the newline added by msvcrt as a part of the error description.
+:
 $c <'$* -d a &a';
-$b 2>- != 0 # @@ REGEX
+$b 2>>~%EOE% != 0
+%error: unable to remove file test[/\\]1[/\\]a: .+%
+%%?
+EOE
 
 : dir-not-exists
 :
 : Test cleanup of non-existing directory.
 :
 $c <'$* &a/';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/a/)) does not exist
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] does not exist%
 EOE
 
 : dir-out-wd
@@ -137,8 +141,8 @@ EOE
 : Test cleanup of a directory out of the testscript working directory.
 :
 $c <'$* &../../a/';
-$b 2>>"EOE" != 0
-testscript:1: error: directory cleanup ([string] $path.canonicalize(../../a/)) is out of working directory $td
+$b 2>>~%EOE% != 0
+%testscript:1: error: directory cleanup \.\.[/\\]\.\.[/\\]a[/\\] is out of working directory test[/\\]%
 EOE
 
 : dir-in-wd
@@ -147,8 +151,8 @@ EOE
 : working directory but inside the testscript working directory.
 :
 $c <'$* &../a/';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/a/)) does not exist
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup directory test[/\\]a[/\\] does not exist%
 EOE
 
 : dir-not-empty
@@ -156,24 +160,30 @@ EOE
 : Test cleanup of a non-empty directory.
 :
 $c <'$* -d a -f a/b &a/';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/a/)) is not empty
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] is not empty%
 EOE
 
 : not-dir
 :
 : Test cleanup of a file as a directory.
 :
+: Note that there is an optional trailing blank line in the regex that matches
+: the newline added by msvcrt as a part of the error description.
+:
 $c <'$* -f a &a/';
-$b 2>- != 0 # @@ REGEX
+$b 2>>~%EOE% != 0
+%error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
+%%?
+EOE
 
 : wildcard-not-exists
 :
 : Test cleanup of a wildcard not matching any directory.
 :
 $c <'$* &a/***';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup wildcard $path.canonicalize(test/1/a/***) doesn't match a directory
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup wildcard test[/\\]1[/\\]a[/\\]\*\*\* doesn't match a directory%
 EOE
 
 : wildcard-out-wd
@@ -181,8 +191,8 @@ EOE
 : Test cleanup of a wildcard out of the testscript working directory.
 :
 $c <'$* &../../a/***';
-$b 2>>"EOE" != 0
-testscript:1: error: wildcard cleanup $path.canonicalize(../../a/***) is out of working directory $td
+$b 2>>~%EOE% != 0
+%testscript:1: error: wildcard cleanup \.\.[/\\]\.\.[/\\]a[/\\]\*\*\* is out of working directory test[/\\]%
 EOE
 
 : wildcard-in-wd
@@ -192,24 +202,30 @@ EOE
 : directory.
 :
 $c <'$* &../a/***';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup wildcard $path.canonicalize(test/a/***) doesn't match a directory
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup wildcard test[/\\]a[/\\]\*\*\* doesn't match a directory%
 EOE
 
 : wildcard-not-dir
 :
 : Test cleanup of a file as a wildcard.
 :
+: Note that there is an optional trailing blank line in the regex that matches
+: the newline added by msvcrt as a part of the error description.
+:
 $c <'$* -f a &a/***';
-$b 2>- != 0 # @@ REGEX
+$b 2>>~%EOE% != 0
+%error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
+%%?
+EOE
 
 : implicit-overwrite
 :
 : Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <'$* -o foo >>>a &!a';
-$b 2>>"EOE" != 0
-testscript:1: error: registered for cleanup directory ([string] $path.canonicalize(test/1/)) is not empty
+$b 2>>~%EOE% != 0
+%testscript:1: error: registered for cleanup directory test[/\\]1[/\\] is not empty%
 EOE
 
 : explicit-overwrite
@@ -220,6 +236,6 @@ $c <<EOO;
 $* &!a;
 $* -o foo >>>a
 EOO
-$b 2>>"EOE" != 0
-testscript:2: error: registered for cleanup directory ([string] $path.canonicalize(test/1/)) is not empty
+$b 2>>~%EOE% != 0
+%testscript:2: error: registered for cleanup directory test[/\\]1[/\\] is not empty%
 EOE

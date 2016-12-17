@@ -37,14 +37,24 @@ mkdir '' 2>"mkdir: invalid path ''" == 1
 
 : already-exists
 :
-: Test creation of an existing directory. Note that error message is
-: platform-dependent so is not checked.
+: Test creation of an existing directory.
 :
-mkdir a 2>- a == 1 # @@ REGEX
+: Note that there is an optional trailing blank line in the regex that matches
+: the newline added by msvcrt as a part of the error description.
+:
+mkdir a a 2>>~%EOE% == 1
+%mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]already-exists[/\\]a': .+%
+%%?
+EOE
 
 : not-exists
 :
-: Test creation of a directory with non-existent parent. Note that error
-: message is platform-dependent so is not checked.
+: Test creation of a directory with non-existent parent.
 :
-mkdir a/b 2>- == 1 # @@ REGEX
+: Note that there is an optional trailing blank line in the regex that matches
+: the newline added by msvcrt as a part of the error description.
+:
+mkdir a/b 2>>~%EOE% == 1
+%mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]not-exists[/\\]a[/\\]b': .+%
+%%?
+EOE

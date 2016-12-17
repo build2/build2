@@ -32,9 +32,7 @@ s = ($cxx.target.class != windows ? '/' : '\')
   if ($cxx.target.class == windows)
   {
     mkdir Foo;
-    # @@ regex
-    #$* <'print $path.normalize($out_base/foo, true)' >~'/.+\Foo/' # cross
-    $* <'print $path.normalize($out_base/foo, true)' >"$~\\Foo"
+    $* <'print $path.normalize($out_base/foo, true)' >~'/.+\\Foo/'
   }
 }
 

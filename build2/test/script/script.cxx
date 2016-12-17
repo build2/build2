@@ -85,25 +85,36 @@ namespace build2
           case redirect_type::merge: o << '&' << r.fd; break;
 
           case redirect_type::here_str_literal:
+          case redirect_type::here_str_regex:
             {
-              const string& v (r.str);
+              bool re (r.type == redirect_type::here_str_regex);
+              const string& v (re ? r.regex.str : r.str);
               bool nl (!v.empty () && v.back () == '\n');
 
               if (!nl)
                 o << ':';
 
+              if (re)
+                o << '~';
+
               to_stream_q (o, nl ? string (v, 0, v.size () - 1) : v);
               break;
             }
           case redirect_type::here_doc_literal:
+          case redirect_type::here_doc_regex:
             {
-              const string& v (r.str);
+              bool re (r.type == redirect_type::here_doc_regex);
+              const string& v (re ? r.regex.str : r.str);
               bool nl (!v.empty () && v.back () == '\n');
 
               // Add another '>' or '<'. Note that here end marker never
               // needs to be quoted.
               //
               o << d << (nl ? "" : ":");
+
+              if (re)
+                o << '~';
+
               to_stream_q (o, r.end);
               break;
             }
@@ -115,16 +126,21 @@ namespace build2
               print_path (r.file.path);
               break;
             }
-          case redirect_type::here_str_regex: // @@ REGEX
-          case redirect_type::here_doc_regex: assert (false); break;
           }
         };
 
         auto print_doc = [&o] (const redirect& r)
         {
-          const string& v (r.str);
+          bool re (r.type == redirect_type::here_doc_regex);
+          const string& v (re ? r.regex.str : r.str);
           bool nl (!v.empty () && v.back () == '\n');
-          o << endl << v << (nl ? "" : "\n") << r.end;
+
+          // For the regex here-document the end marker contains introducer and
+          // flags characters, so need to remove them.
+          //
+          const string& e (r.end);
+          o << endl << v << (nl ? "" : "\n")
+            << (re ? string (e, 1, e.find (e[0], 1) - 1) : e);
         };
 
         if ((m & command_to_stream::header) == command_to_stream::header)
@@ -173,9 +189,17 @@ namespace build2
         {
           // Here-documents.
           //
-          if (c.in.type  == redirect_type::here_doc_literal) print_doc (c.in);
-          if (c.out.type == redirect_type::here_doc_literal) print_doc (c.out);
-          if (c.err.type == redirect_type::here_doc_literal) print_doc (c.err);
+          if (c.in.type == redirect_type::here_doc_literal ||
+              c.in.type == redirect_type::here_doc_regex)
+            print_doc (c.in);
+
+          if (c.out.type == redirect_type::here_doc_literal ||
+              c.out.type == redirect_type::here_doc_regex)
+            print_doc (c.out);
+
+          if (c.err.type == redirect_type::here_doc_literal ||
+              c.err.type == redirect_type::here_doc_regex)
+            print_doc (c.err);
         }
       }
 

@@ -129,6 +129,27 @@ main ()
     assert (v1 == vc ({'1', '2', '2'}));
   }
 
+  // Test line_string.
+  //
+  // @@ Add more tests.
+  //
+  // Note that the following code crashes if compiled with libc++ (LLVM bug
+  // #31454).
+  //
+  // @@ Probably we can overcome it by providing our own allocator for
+  //    basic_string instantiation. The function allocate() could allocate some
+  //    more elements that would be enough not to corrupt the memory (which
+  //    push_back() does).
+  // @@ But maybe doesn't worth to bother as the bug seems to get assigned.
+  // @@ Heavily affects MacOS where clang++/libc++ is the default setup.
+  //
+  {
+    line_string s;
+    s.push_back (line_char ('0'));
+    s.push_back (line_char ('1'));
+    s.push_back (line_char ('2'));
+  }
+
   // Test line_char_locale and ctype<line_char> (only non-trivial functions).
   //
   {
