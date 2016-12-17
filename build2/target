@@ -1013,6 +1013,18 @@ namespace build2
             const string* ext,
             tracer&);
 
+    template <typename T>
+    T&
+    insert (const target_type& tt,
+            dir_path dir,
+            dir_path out,
+            string name,
+            const string* ext,
+            tracer& t)
+    {
+      return static_cast<T&> (
+        insert (tt, move (dir), move (out), move (name), ext, t).first);
+    }
 
     template <typename T>
     T&

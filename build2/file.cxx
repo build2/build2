@@ -7,6 +7,7 @@
 #include <iostream> // cin
 
 #include <build2/scope>
+#include <build2/target>
 #include <build2/context>
 #include <build2/filesystem>   // exists()
 #include <build2/prerequisite>
@@ -1038,21 +1039,65 @@ namespace build2
   target&
   import (const prerequisite_key& pk)
   {
+    tracer trace ("import");
+
     assert (pk.proj != nullptr);
     const string& p (*pk.proj);
+
+    // Target type-specific search.
+    //
+    const target_key& tk (pk.tk);
+    const target_type& tt (*tk.type);
+
+    // Try to find the executable in PATH.
+    //
+    if (tt.is_a<exe> () && tk.dir->empty ())
+    {
+      process_path pp (
+        process::try_path_search (
+          tk.ext == nullptr ? *tk.name : *tk.name + '.' + *tk.ext, true));
+
+      if (!pp.empty ())
+      {
+        path& p (pp.effect);
+        assert (!p.empty ()); // We searched for a simple name.
+
+        dir_path d (p.directory ());
+        const char* e (p.extension ());
+
+        exe& t (
+          targets.insert<exe> (
+            tt,
+            move (d),
+            dir_path (), // No out (out of project).
+            p.leaf ().base ().string (),
+            &extension_pool.find (e == nullptr ? "" : e), // Specified.
+            trace));
+
+        if (t.path ().empty ())
+          t.path (move (p));
+        else
+          assert (t.path () == p);
+
+        return t;
+      }
+    }
 
     // @@ We no longer have location. This is especially bad for the
     //    empty case, i.e., where do I need to specify the project
     //    name)? Looks like the only way to do this is to keep location
     //    in name and then in prerequisite. Perhaps one day...
     //
-    if (!p.empty ())
-      fail << "unable to import target " << pk <<
-        info << "consider explicitly specifying its project out_root via the "
-           << "config.import." << p << " command line variable" << endf;
+    diag_record dr;
+    dr << fail << "unable to import target " << pk;
+
+    if (p.empty ())
+      dr << info << "consider adding its installation location" <<
+        info << "or explicitly specify its project name";
     else
-      fail << "unable to import target " << pk <<
-        info << "consider adding its installation location" <<
-        info << "or explicitly specifying its project name" << endf;
+      dr << info << "use config.import." << p << " command line variable to "
+         << "specifying its project out_root";
+
+    dr << endf;
   }
 }
