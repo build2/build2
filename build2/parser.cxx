@@ -3598,12 +3598,11 @@ namespace build2
       out = out_src (d, *root_);
     }
 
-    const char* e (p.extension ());
     targets.insert<buildfile> (
       move (d),
       move (out),
       p.leaf ().base ().string (),
-      &extension_pool.find (e == nullptr ? "" : e), // Always specified.
+      &extension_pool.find (p.extension ()), // Always specified.
       trace);
   }
 

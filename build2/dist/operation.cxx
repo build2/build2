@@ -156,12 +156,11 @@ namespace build2
                         ? out_src (d, rs)
                         : dir_path ());
 
-          const char* e (p.extension ());
           targets.insert<buildfile> (
             move (d),
             move (out),
             p.leaf ().base ().string (),
-            &extension_pool.find (e == nullptr ? "" : e), // Specified.
+            &extension_pool.find (p.extension ()), // Specified.
             trace);
         }
       };

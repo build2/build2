@@ -222,7 +222,7 @@ namespace build2
         args.push_back (option);
         args.push_back (t.ext->empty ()
                         ? t.ext->c_str ()
-                        : t.path ().extension () - 1);
+                        : t.path ().extension_cstring () - 1);
       }
     }
 

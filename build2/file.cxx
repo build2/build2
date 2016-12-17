@@ -825,10 +825,9 @@ namespace build2
 
     l5 ([&]{trace << target << " from " << ibase.out_path ();});
 
-    // If there is no project specified for this target, then our
-    // run will be short and sweet: we simply return it as empty-
-    // project-qualified and let someone else (e.g., a rule) take
-    // a stab at it.
+    // If there is no project specified for this target, then our run will be
+    // short and sweet: we simply return it as empty- project-qualified and
+    // let someone else (e.g., a rule) take a stab at it.
     //
     if (target.unqualified ())
     {
@@ -836,10 +835,9 @@ namespace build2
       return names {move (target)};
     }
 
-    // Otherwise, get the project name and convert the target to
-    // unqualified.
+    // Otherwise, get the project name and convert the target to unqualified.
     //
-    const string& project (*target.proj);
+    const string& proj (*target.proj);
     target.proj = nullptr;
 
     scope& iroot (*ibase.root_scope ());
@@ -853,30 +851,88 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
-
-    // Note: overridable variable with path auto-completion.
-    //
-    const variable& var (
-      var_pool.insert<abs_dir_path> ("config.import." + project, true));
-
-    if (auto l = iroot[var])
+    for (;;) // Break-out loop.
     {
-      out_root = cast<dir_path> (l); // Normalized and actualized.
-      config::save_variable (iroot, var); // Mark as part of configuration.
+      string n ("config.import." + proj);
 
-      // Empty config.import.* value means don't look in subprojects or
-      // amalgamations and go straight to the rule-specific import (e.g., to
-      // use system-installed).
+      // config.import.<proj>
       //
-      if (out_root.empty ())
+      // Note: overridable variable with path auto-completion.
+      //
       {
-        target.proj = &project;
-        l5 ([&]{trace << "skipping " << target;});
-        return names {move (target)};
+        const variable& var (var_pool.insert<abs_dir_path> (n, true));
+
+        if (auto l = iroot[var])
+        {
+          out_root = cast<dir_path> (l);      // Normalized and actualized.
+          config::save_variable (iroot, var); // Mark as part of configuration.
+
+          // Empty config.import.* value means don't look in subprojects or
+          // amalgamations and go straight to the rule-specific import (e.g.,
+          // to use system-installed).
+          //
+          if (out_root.empty ())
+          {
+            target.proj = &proj;
+            l5 ([&]{trace << "skipping " << target;});
+            return names {move (target)};
+          }
+
+          break;
+        }
       }
-    }
-    else
-    {
+
+      // config.import.<proj>.<name>.<type>
+      // config.import.<proj>.<name>
+      //
+      // For example: config.import.build2.b.exe=/opt/build2/bin/b
+      //
+      if (!target.value.empty ())
+      {
+        auto lookup = [&iroot, &loc] (string name) -> path
+        {
+          const variable& var (var_pool.insert<path> (name, true));
+
+          path r;
+          if (auto l = iroot[var])
+          {
+            r = cast<path> (l);
+
+            if (r.empty ())
+              fail (loc) << "empty path in " << var.name;
+
+            config::save_variable (iroot, var);
+          }
+
+          return r;
+        };
+
+        // First try .<name>.<type>, then just .<name>.
+        //
+        path p;
+        if (target.typed ())
+          p = lookup (n + '.' + target.value + '.' + target.type);
+
+        if (p.empty ())
+          p = lookup (n + '.' + target.value);
+
+        if (!p.empty ())
+        {
+          // If the path is relative, then keep it project-qualified assuming
+          // import phase 2 knows what to do with it. Think:
+          //
+          // config.import.build2.b=b-boot
+          //
+          if (p.relative ())
+            target.proj = &proj;
+
+          target.dir = p.directory ();
+          target.value = p.leaf ().string ();
+
+          return names {move (target)};
+        }
+      }
+
       // Otherwise search subprojects, starting with our root and then trying
       // outer roots for as long as we are inside an amalgamation.
       //
@@ -886,7 +942,7 @@ namespace build2
 
         // First check the amalgamation itself.
         //
-        if (r != &iroot && cast<string> (r->vars["project"]) == project)
+        if (r != &iroot && cast<string> (r->vars["project"]) == proj)
         {
           out_root = r->out_path ();
           break;
@@ -895,7 +951,7 @@ namespace build2
         if (auto l = r->vars["subprojects"])
         {
           const auto& m (cast<subprojects> (l));
-          auto i (m.find (project));
+          auto i (m.find (proj));
 
           if (i != m.end ())
           {
@@ -908,14 +964,16 @@ namespace build2
         if (!r->vars["amalgamation"])
           break;
       }
+
+      break;
     }
 
     // If we couldn't find the project, convert it back into qualified target
-    // and return to let someone else (e.g., a rule) to take a stab at it.
+    // and return to let someone else (e.g., a rule) take a stab at it.
     //
     if (out_root.empty ())
     {
-      target.proj = &project;
+      target.proj = &proj;
       l5 ([&]{trace << "postponing " << target;});
       return names {move (target)};
     }
@@ -949,8 +1007,7 @@ namespace build2
                        << "discovered " << src_root;
         }
         else
-          fail (loc) << "unable to determine src_root for imported "
-                     << project <<
+          fail (loc) << "unable to determine src_root for imported " << proj <<
             info << "consider configuring " << out_root;
 
         setup_root (*root);
@@ -961,13 +1018,13 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<string> (root->vars["project"]) == project)
+      if (cast<string> (root->vars["project"]) == proj)
         break;
 
       if (auto l = root->vars["subprojects"])
       {
         const auto& m (cast<subprojects> (l));
-        auto i (m.find (project));
+        auto i (m.find (proj));
 
         if (i != m.end ())
         {
@@ -977,7 +1034,7 @@ namespace build2
         }
       }
 
-      fail (loc) << out_root << " is not out_root for " << project;
+      fail (loc) << out_root << " is not out_root for " << proj;
     }
 
     // Bootstrap outer roots if any. Loading will be done by
@@ -1049,29 +1106,29 @@ namespace build2
     const target_key& tk (pk.tk);
     const target_type& tt (*tk.type);
 
-    // Try to find the executable in PATH.
+    // Try to find the executable in PATH (or CWD is relative).
     //
-    if (tt.is_a<exe> () && tk.dir->empty ())
+    if (tt.is_a<exe> ())
     {
-      process_path pp (
-        process::try_path_search (
-          tk.ext == nullptr ? *tk.name : *tk.name + '.' + *tk.ext, true));
+      path n (*tk.dir);
+      n /= *tk.name;
+      if (tk.ext != nullptr)
+        n += *tk.ext;
+
+      process_path pp (process::try_path_search (n, true));
 
       if (!pp.empty ())
       {
         path& p (pp.effect);
         assert (!p.empty ()); // We searched for a simple name.
 
-        dir_path d (p.directory ());
-        const char* e (p.extension ());
-
         exe& t (
           targets.insert<exe> (
             tt,
-            move (d),
+            p.directory (),
             dir_path (), // No out (out of project).
             p.leaf ().base ().string (),
-            &extension_pool.find (e == nullptr ? "" : e), // Specified.
+            &extension_pool.find (p.extension ()), // Specified.
             trace));
 
         if (t.path ().empty ())

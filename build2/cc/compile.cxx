@@ -922,8 +922,7 @@ namespace build2
           //
           dir_path d (f.directory ());
           string n (f.leaf ().base ().string ());
-          const char* es (f.extension ());
-          const string* e (&extension_pool.find (es != nullptr ? es : ""));
+          const string* e (&extension_pool.find (f.extension ()));
 
           // Determine the target type.
           //
