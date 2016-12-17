@@ -30,6 +30,16 @@ namespace build2
       static target_state
       perform_test (action, target&);
     };
+
+    class alias_rule: public rule
+    {
+    public:
+      virtual recipe
+      apply (action, target&) const override;
+
+      static target_state
+      perform_test (action, target&);
+    };
   }
 }
 

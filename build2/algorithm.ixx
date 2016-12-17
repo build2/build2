@@ -31,10 +31,11 @@ namespace build2
           const dir_path& out,
           const string& name,
           const string* ext,
-          scope* scope)
+          scope* scope,
+          const string* proj)
   {
     return search (
-      prerequisite_key {nullptr, {&type, &dir, &out, &name, ext}, scope});
+      prerequisite_key {proj, {&type, &dir, &out, &name, ext}, scope});
   }
 
   template <typename T>
@@ -99,28 +100,44 @@ namespace build2
     return r.members != nullptr ? r : resolve_group_members_impl (a, g);
   }
 
+  void
+  search_and_match_prerequisites (action, target&, scope*);
+
+  void
+  search_and_match_prerequisite_members (action, target&, scope*);
+
   inline void
   search_and_match_prerequisites (action a, target& t)
   {
     search_and_match_prerequisites (
       a,
       t,
-      (a.operation () != clean_id
-       ? dir_path ()
-       : t.root_scope ().out_path ()));
+      (a.operation () != clean_id ? nullptr : &t.root_scope ()));
   }
 
   inline void
   search_and_match_prerequisite_members (action a, target& t)
   {
     if (a.operation () != clean_id)
-      search_and_match_prerequisite_members (a, t, dir_path ());
+      search_and_match_prerequisite_members (a, t, nullptr);
     else
       // Note that here we don't iterate over members even for see-
       // through groups since the group target should clean eveything
       // up. A bit of an optimization.
       //
-      search_and_match_prerequisites (a, t, t.root_scope ().out_path ());
+      search_and_match_prerequisites (a, t, &t.root_scope ());
+  }
+
+  inline void
+  search_and_match_prerequisites (action a, target& t, scope& s)
+  {
+    search_and_match_prerequisites (a, t, &s);
+  }
+
+  inline void
+  search_and_match_prerequisite_members (action a, target& t, scope& s)
+  {
+    search_and_match_prerequisite_members (a, t, &s);
   }
 
   target_state

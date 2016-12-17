@@ -147,6 +147,37 @@ namespace build2
       return mr;
     }
 
+    recipe alias_rule::
+    apply (action a, target& t) const
+    {
+      match_data md (move (t.data<match_data> ()));
+      t.clear_data (); // In case delegated-to rule also uses aux storage.
+
+      // We can only test an alias via a testscript, not a simple test.
+      //
+      assert (!md.test || md.script);
+
+      // If this is the update pre-operation then simply redirect to the
+      // standard alias rule.
+      //
+      if (a.operation () == update_id)
+        return match_delegate (a, t, *this).first;
+
+      // For the test operation we have to implement our own search and match
+      // because we need to ignore prerequisites that are outside of our
+      // project. They can be from projects that don't use the test module
+      // (and thus won't have a suitable rule). Or they can be from no project
+      // at all (e.g., installed). Also, generally, not testing stuff that's
+      // not ours seems right. Note that we still want to make sure they are
+      // up to date (via the above delegate) since our tests might use them.
+      //
+      search_and_match_prerequisites (a, t, t.root_scope ());
+
+      // If not a test then also redirect to the alias rule.
+      //
+      return md.test ? perform_test : default_recipe;
+    }
+
     recipe rule::
     apply (action a, target& t) const
     {
@@ -154,40 +185,6 @@ namespace build2
 
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule also uses aux storage.
-
-      // The alias case is special so handle it first.
-      //
-      if (t.is_a<alias> ())
-      {
-        // We can only test an alias via a testscript, not a simple test.
-        //
-        assert (!md.test || md.script);
-
-        // Find the actual alias rule.
-        //
-        recipe d (match_delegate (a, t, *this).first);
-
-        // If not a test or this is the update pre-operation then simply
-        // redirect to the alias rule.
-        //
-        if (!md.test || a.operation () == update_id)
-          return d;
-
-        // Otherwise, we have to combine the two recipes. Note that we will
-        // reuse the prerequisite_targets prepared by the alias rule.
-        //
-        // Note: this most likely won't fit the small object optimization. We
-        // could check if the target is a function pointer (which it will most
-        // likely be) and return an optimized lambda in this case.
-        //
-        return [dr = move (d)] (action a, target& t) -> target_state
-        {
-          // Run the alias recipe first then the test.
-          //
-          target_state r (execute_delegate (dr, a, t));
-          return r |= perform_script (a, t);
-        };
-      }
 
       if (!md.test)
         return noop_recipe;
@@ -592,6 +589,19 @@ namespace build2
       }
 
       return target_state::changed;
+    }
+
+    target_state alias_rule::
+    perform_test (action a, target& t)
+    {
+      // Run the alias recipe first then the test.
+      //
+      target_state r (execute_prerequisites (a, t));
+
+      // Note that we reuse the prerequisite_targets prepared by the standard
+      // search and match.
+      //
+      return r |= perform_script (a, t);
     }
   }
 }

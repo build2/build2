@@ -45,7 +45,8 @@ namespace build2
           const dir_path& out,
           const string& name,
           const string* ext,
-          scope*);
+          scope*,
+          const string* proj = nullptr);
 
   // As above but specify the target type as template argument.
   //
@@ -57,32 +58,30 @@ namespace build2
           const string* ext,
           scope*);
 
-  // Search for a target identified by the name. The semantics
-  // is "as if" we first created a prerequisite based on this
-  // name in exactly the same way as the parser would and then
-  // searched based on this prerequisite.
+  // Search for a target identified by the name. The semantics is "as if" we
+  // first created a prerequisite based on this name in exactly the same way
+  // as the parser would and then searched based on this prerequisite.
   //
   target&
   search (name, scope&);
 
-  // Match and apply a rule to the action/target with ambiguity
-  // detection. Increment the target's dependents count, which
-  // means that you should call this function with the intent
-  // to also call execute(). In case of optimizations that would
-  // avoid calling execute(), call unmatch() to indicate this.
+  // Match and apply a rule to the action/target with ambiguity detection.
+  // Increment the target's dependents count, which means that you should call
+  // this function with the intent to also call execute(). In case of
+  // optimizations that would avoid calling execute(), call unmatch() to
+  // indicate this.
   //
   void
   match (action, target&);
 
-  // Note that calling this function only makes sense if the
-  // target itself doesn't have its own dependents.
+  // Note that calling this function only makes sense if the target itself
+  // doesn't have its own dependents.
   //
   void
   unmatch (action, target&);
 
-  // Match (but do not apply) a rule to the action/target with
-  // ambiguity detection. Note that this function does not touch
-  // the dependents count.
+  // Match (but do not apply) a rule to the action/target with ambiguity
+  // detection. Note that this function does not touch the dependents count.
   //
   void
   match_only (action, target&);

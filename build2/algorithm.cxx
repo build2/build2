@@ -49,7 +49,7 @@ namespace build2
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
     //
-    return search (*tt, n.dir, dir_path (), n.value, e, &s);
+    return search (*tt, n.dir, dir_path (), n.value, e, &s, n.proj);
   }
 
   pair<const rule*, match_result>
@@ -275,15 +275,13 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisites (action a, target& t, const dir_path& d)
+  search_and_match_prerequisites (action a, target& t, scope* s)
   {
-    const bool e (d.empty ());
-
     for (prerequisite p: group_prerequisites (t))
     {
       target& pt (search (p));
 
-      if (e || pt.dir.sub (d))
+      if (s == nullptr || pt.in (*s))
       {
         match (a, pt);
         t.prerequisite_targets.push_back (&pt);
@@ -292,17 +290,13 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisite_members (action a,
-                                         target& t,
-                                         const dir_path& d)
+  search_and_match_prerequisite_members (action a, target& t, scope* s)
   {
-    const bool e (d.empty ());
-
     for (prerequisite_member p: group_prerequisite_members (a, t))
     {
       target& pt (p.search ());
 
-      if (e || pt.dir.sub (d))
+      if (s == nullptr || pt.in (*s))
       {
         match (a, pt);
         t.prerequisite_targets.push_back (&pt);

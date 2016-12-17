@@ -21,6 +21,7 @@ namespace build2
   namespace test
   {
     static rule rule_;
+    static alias_rule alias_rule_;
 
     void
     boot (scope& rs, const location&, unique_ptr<module_base>&)
@@ -105,7 +106,7 @@ namespace build2
         // Register our test running rule.
         //
         r.insert<target> (perform_test_id, "test", rule_);
-        r.insert<alias> (perform_test_id, "test", rule_); // Override generic.
+        r.insert<alias> (perform_test_id, "test", alias_rule_);
 
         // Register our rule for the dist meta-operation. We need to do this
         // because we may have ad hoc prerequisites (test input/output files)
