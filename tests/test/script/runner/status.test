@@ -24,12 +24,21 @@ $b
 :
 $c <'$* -s 1 == 0';
 $b 2>>~%EOE% != 0
-%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(.exe)? exit status 1 != 0%
+%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 != 0%
 EOE
 
 : ne-false
 :
 $c <'$* -s 1 != 1';
 $b 2>>~%EOE% != 0
-%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(.exe)? exit status 1 == 1%
+%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 == 1%
+EOE
+
+: error
+:
+$c <'$* -s 1 -e "Error"';
+$b 2>>~%EOE% != 0
+%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 != 0%
+%  info: stderr: test[/\\]1[/\\]stderr%
+Error
 EOE

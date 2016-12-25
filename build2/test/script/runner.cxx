@@ -5,7 +5,7 @@
 #include <build2/test/script/runner>
 
 #include <set>
-#include <iostream> // cerr
+#include <ios> // streamsize
 
 #include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
 
@@ -42,6 +42,57 @@ namespace build2
           // troubleshooting. And let's stick to that principle down the road.
           //
           fail (ll) << "unable to read " << p << ": " << e.what () << endf;
+        }
+      }
+
+      // If the file exists, not empty and not larger than 4KB print it to the
+      // diag record. The file content goes from the new line and is not
+      // indented.
+      //
+      static void
+      print_file (diag_record& d, const path& p, const location& ll)
+      {
+        if (exists (p))
+        {
+          try
+          {
+            ifdstream is (p, ifdstream::in, ifdstream::badbit);
+
+            if (is.peek () != ifdstream::traits_type::eof ())
+            {
+              char buf[4096 + 1]; // Extra byte is for terminating '\0'.
+
+              // Note that the string is always '\0'-terminated with a maximum
+              // sizeof (buf) - 1 bytes read.
+              //
+              is.getline (buf, sizeof (buf), '\0');
+
+              // Print if the file fits 4KB-size buffer. Note that if it
+              // doesn't the failbit is set.
+              //
+              if (is.eof ())
+              {
+                // Suppress the trailing newline character as the diag record
+                // adds it's own one when flush.
+                //
+                streamsize n (is.gcount ());
+                assert (n > 0);
+
+                // Note that if the file contains '\0' it will also be counted
+                // by gcount(). But even in the worst case we will stay in the
+                // buffer boundaries (and so not crash).
+                //
+                if (buf[n - 1] == '\n')
+                  buf[n - 1] = '\0';
+
+                d << "\n" << buf;
+              }
+            }
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "unable to read " << p << ": " << e.what ();
+          }
         }
       }
 
@@ -198,39 +249,44 @@ namespace build2
 
             try
             {
+              // Save diff's stdout to a file for troubleshooting and for the
+              // optional (if not too large) printing (at the end of
+              // diagnostics).
+              //
+              path ep (op + ".diff");
+              auto_fd efd;
+
+              try
+              {
+                efd = fdopen (ep, fdopen_mode::out | fdopen_mode::create);
+                sp.clean ({cleanup_type::always, ep}, true);
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to write " << ep << ": " << e.what ();
+              }
+
               // Diff utility prints the differences to stdout. But for the
               // user it is a part of the test failure diagnostics so let's
               // redirect stdout to stderr.
               //
-              process p (pp, args.data (), 0, 2);
+              process p (pp, args.data (), 0, 2, efd.get ());
+              efd.reset ();
 
-              try
-              {
-                if (p.wait ())
-                  return;
+              if (p.wait ())
+                return;
 
-                // Output doesn't match the expected result.
-                //
-                diag_record d (error (ll));
-                d << pr << " " << what << " doesn't match the expected output";
+              // Output doesn't match the expected result.
+              //
+              diag_record d (error (ll));
+              d << pr << " " << what << " doesn't match the expected output";
 
-                output_info (d, op);
-                output_info (d, opp, "expected ");
-                input_info  (d);
+              output_info (d, op);
+              output_info (d, opp, "expected ");
+              output_info (d, ep, "", " diff");
+              input_info  (d);
 
-                // Fall through.
-                //
-              }
-              catch (const io_error&)
-              {
-                // Child exit status doesn't matter. Assume the child process
-                // issued diagnostics. Just wait for the process completion.
-                //
-                p.wait (); // Check throw.
-
-                error (ll) << "failed to compare " << what
-                           << " with the expected output";
-              }
+              print_file (d, ep, ll);
 
               // Fall through.
               //
@@ -743,8 +799,9 @@ namespace build2
 
         const path& p (c.program);
 
-        // If there is no correct exit status by whatever reason then dump
-        // stderr (if cached), print the proper diagnostics and fail.
+        // If there is no correct exit status by whatever reason then print the
+        // proper diagnostics, dump stderr (if cached and not too large) and
+        // fail.
         //
         // Comparison *status >= 0 causes "always true" warning on Windows
         // where process::status_type is defined as uint32_t.
@@ -755,22 +812,6 @@ namespace build2
 
         if (!correct_status)
         {
-          // Dump cached stderr.
-          //
-          if (exists (esp))
-          {
-            try
-            {
-              ifdstream is (esp);
-              if (is.peek () != ifdstream::traits_type::eof ())
-                cerr << is.rdbuf ();
-            }
-            catch (const io_error& e)
-            {
-              fail (ll) << "unable to read " << esp << ": " << e.what ();
-            }
-          }
-
           // Fail with a proper diagnostics.
           //
           diag_record d (fail (ll));
@@ -794,6 +835,10 @@ namespace build2
 
           if (non_empty (isp, ll))
             d << info << "stdin: " << isp;
+
+          // Dump cached stderr.
+          //
+          print_file (d, esp, ll);
         }
 
         // Check if the standard outputs match expectations.

@@ -44,13 +44,16 @@ $b
 :
 $c <'$* -i 1 <foo >bar';
 $b 2>>~%EOE% != 0
-%.{3}
--bar
-+foo
 %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
 %  info: stdout: test[/\\]1[/\\]stdout%
 %  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
+%  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
 %  info: stdin: test[/\\]1[/\\]stdin%
+%--- .*%
+%\+\+\+ .*%
+%@@ .*%
+-bar
++foo
 EOE
 
 : inerr-str
@@ -141,6 +144,28 @@ EOO
 EOI
 $b
 
+: doc-fail-largediff
+:
+: Make sure that the large (>4KB) expected/real output difference is not
+: printed as a part of diagnostics.
+:
+$c <<EOI;
+s="------------------------------------------------------------------------";
+s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+$* -i 1 <<"EOF" >>"EOO"
+$s
+EOF
+x$s
+EOO
+EOI
+$b 2>>~%EOE% != 0
+%testscript:3: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
+%  info: stdout: test[/\\]1[/\\]stdout%
+%  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
+%  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
+%  info: stdin: test[/\\]1[/\\]stdin%
+EOE
+
 # No-newline tests.
 #
 : no-newline-str
@@ -157,24 +182,22 @@ $b
 :
 $c <'$* -i 1 <:"foo" >"foo"';
 $b 2>>~/EOE/ != 0
-/.{3}
+/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+/.{7}
 -foo
 +foo
 \ No newline at end of file
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{3}
 EOE
 
 : no-newline-str-fail2
 :
 $c <'$* -i 1 <"foo" >:"foo"';
 $b 2>>~/EOE/ != 0
-/.{3}
+/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+/.{7}
 -foo
 \ No newline at end of file
 +foo
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{3}
 EOE
 
 : no-newline-doc
@@ -198,12 +221,11 @@ foo
 EOO
 EOI
 $b 2>>~/EOE/ != 0
-/.{3}
+/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+/.{7}
 -foo
 +foo
 \ No newline at end of file
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{3}
 EOE
 
 : no-newline-doc-fail2
@@ -216,12 +238,11 @@ foo
 EOO
 EOI
 $b 2>>~/EOE/ != 0
-/.{3}
+/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+/.{7}
 -foo
 \ No newline at end of file
 +foo
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{3}
 EOE
 
 : no-newline-empty-str-doc
