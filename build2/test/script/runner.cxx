@@ -733,7 +733,7 @@ namespace build2
           }
         }
 
-        optional<process::status_type> status;
+        optional<process_exit> exit;
         builtin* b (builtins.find (c.program.string ()));
 
         if (b != nullptr)
@@ -745,7 +745,7 @@ namespace build2
             future<uint8_t> f (
               (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd)));
 
-            status = f.get ();
+            exit = process_exit (f.get ());
           }
           catch (const system_error& e)
           {
@@ -784,48 +784,69 @@ namespace build2
             efd.reset ();
 
             pr.wait ();
-            status = move (pr.status);
+            exit = move (pr.exit);
           }
           catch (const process_error& e)
           {
             error (ll) << "unable to execute " << pp << ": " << e.what ();
 
             if (e.child ())
-              exit (1);
+              std::exit (1);
 
             throw failed ();
           }
         }
 
+        assert (exit);
+
         const path& p (c.program);
 
-        // If there is no correct exit status by whatever reason then print the
+        // If there is no correct exit code by whatever reason then print the
         // proper diagnostics, dump stderr (if cached and not too large) and
         // fail.
         //
-        // Comparison *status >= 0 causes "always true" warning on Windows
-        // where process::status_type is defined as uint32_t.
-        //
-        bool valid_status (status && *status < 256 && *status + 1 > 0);
-        bool eq (c.exit.comparison == exit_comparison::eq);
-        bool correct_status (valid_status && eq == (*status == c.exit.status));
+        bool valid (exit->normal ());
 
-        if (!correct_status)
+        // On Windows the exit code can be out of the valid codes range being
+        // defined as uint16_t.
+        //
+#ifdef _WIN32
+        if (valid)
+          valid = exit->code () < 256;
+#endif
+
+        bool eq (c.exit.comparison == exit_comparison::eq);
+        bool correct (valid && eq == (exit->code () == c.exit.status));
+
+        if (!correct)
         {
           // Fail with a proper diagnostics.
           //
           diag_record d (fail (ll));
 
-          if (!status)
-            d << p << " terminated abnormally";
-          else if (!valid_status)
-            d << p << " exit status " << *status << " is invalid" <<
-              info << "must be an unsigned integer < 256";
-          else if (!correct_status)
-            d << p << " exit status " << *status << (eq ? " != " : " == ")
-              << static_cast<uint16_t> (c.exit.status);
+          if (!exit->normal ())
+          {
+            d << p << " terminated abnormally" <<
+              info << exit->description ();
+
+#ifndef _WIN32
+            if (exit->core ())
+              d << " (core dumped)";
+#endif
+          }
           else
-            assert (false);
+          {
+            uint16_t ec (exit->code ()); // Make sure is printed as integer.
+
+            if (!valid)
+              d << p << " exit status " << ec << " is invalid" <<
+                info << "must be an unsigned integer < 256";
+            else if (!correct)
+              d << p << " exit status " << ec << (eq ? " != " : " == ")
+                << static_cast<uint16_t> (c.exit.status);
+            else
+              assert (false);
+          }
 
           if (non_empty (esp, ll))
             d << info << "stderr: " << esp;
@@ -836,12 +857,13 @@ namespace build2
           if (non_empty (isp, ll))
             d << info << "stdin: " << isp;
 
-          // Dump cached stderr.
+          // Print cached stderr.
           //
           print_file (d, esp, ll);
         }
 
-        // Check if the standard outputs match expectations.
+        // Exit code is correct. Check if the standard outputs match the
+        // expectations.
         //
         check_output (p, osp, isp, c.out, ll, sp, "stdout");
         check_output (p, esp, isp, c.err, ll, sp, "stderr");
