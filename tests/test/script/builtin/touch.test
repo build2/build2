@@ -2,54 +2,73 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+.include ../common.test
+
 : file
 :
-touch a
+$c <'touch a';
+$b
 
 : file-create
 :
 : Test that file is created. If it didn't then 'rm' would fail.
 :
+$c <<EOI;
 touch a &!a;
 rm a
+EOI
+$b
 
 : file-update
 :
 : Test that existing file touch doesn't fail.
 :
+$c <<EOI;
 cat <"" >>>a;
 touch a
+EOI
+$b
 
 : no-cleanup
 :
-: Test that touching an existing file doesn't register cleanup. If it does then
+: Test that touches an existing file doesn't register cleanup. If it does then
 : the file would be removed while leaving the embedded scope, and so the
 : cleanup registered by the first touch would fail.
 :
+$c <<EOI;
 {
   +touch a
   {
     touch ../a
   }
 }
+EOI
+$b
 
 : no-args
 :
 : Test passing no arguments.
 :
-touch 2>"touch: missing file" == 1
+$c <'touch 2>"touch: missing file" == 1';
+$b
 
 : empty-path
 :
 : Test touching an empty path.
 :
+$c <<EOI;
 touch '' 2>"touch: invalid path ''" == 1
+EOI
+$b
 
 : dir-update
 :
 : Test touching an existing directory.
 :
+$c <<EOI;
 a = $~;
 a += "a";
 mkdir a;
-touch 2>"touch: '$a' exists and is not a file" a == 1
+touch a 2>"touch: '$a' exists and is not a file" == 1
+EOI
+$b

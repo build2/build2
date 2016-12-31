@@ -6,365 +6,382 @@
 
 b += --no-column
 
-# null-redirect tests.
-#
-: out-null
-:
-$c <'$* -o foo >-';
-$b
-
-: err-null
-:
-$c <'$* -e foo 2>-';
-$b
-
-# Here-string tests.
-#
-: in-str
-:
-$c <'$* -i 0 <foo';
-$b
-
-: out-str
-:
-$c <'$* -o foo >foo';
-$b
-
-: err-str
-:
-$c <'$* -e foo 2>foo';
-$b
-
-: inout-str
-:
-$c <'$* -i 1 <foo >foo';
-$b
-
-: inout-str-fail
-:
-$c <'$* -i 1 <foo >bar';
-$b 2>>~%EOE% != 0
-%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
-%  info: stdout: test[/\\]1[/\\]stdout%
-%  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
-%  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
-%  info: stdin: test[/\\]1[/\\]stdin%
-%--- .*%
-%\+\+\+ .*%
-%@@ .*%
--bar
-+foo
-EOE
-
-: inerr-str
-:
-$c <'$* -i 2 <foo 2>foo';
-$b
-
-: inout-err-str
-:
-$c <'$* -i 1 -e bar <foo 1>foo 2>bar';
-$b
-
-# Here-document tests.
-#
-: in-doc
-:
-$c <<EOI;
-$* -i 0 <<EOO
-foo
-bar
-EOO
-EOI
-$b
-
-: out-doc
-:
-$c <<EOI;
-$* -o foo -o bar >>EOO
-foo
-bar
-EOO
-EOI
-$b
-
-: err-doc
-:
-$c <<EOI;
-$* -e foo -e bar 2>>EOO
-foo
-bar
-EOO
-EOI
-$b
-
-: inout-doc
-:
-$c <<EOI;
-$* -i 1 <<EOF >>EOO
-foo
-bar
-EOF
-foo
-bar
-EOO
-EOI
-$b
-
-: inerr-doc
-:
-$c <<EOI;
-$* -i 2 <<EOF 2>>EOE
-foo
-bar
-EOF
-foo
-bar
-EOE
-EOI
-$b
-
-: empty-str-doc
-:
-$c <<EOI;
-$* -i 1 -e "" <<EOF >>EOO 2>""
-EOF
-EOO
-EOI
-$b
-
-: nl-containing-doc
-:
-$c <<EOI;
-$* -i 1 <<EOF >>EOO
-
-EOF
-
-EOO
-EOI
-$b
-
-: doc-fail-largediff
-:
-: Make sure that the large (>4KB) expected/real output difference is not
-: printed as a part of diagnostics.
-:
-$c <<EOI;
-s="------------------------------------------------------------------------";
-s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
-$* -i 1 <<"EOF" >>"EOO"
-$s
-EOF
-x$s
-EOO
-EOI
-$b 2>>~%EOE% != 0
-%testscript:3: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
-%  info: stdout: test[/\\]1[/\\]stdout%
-%  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
-%  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
-%  info: stdin: test[/\\]1[/\\]stdin%
-EOE
-
-# No-newline tests.
-#
-: no-newline-str
-:
-$c <'$* -i 1 <:"foo" >:"foo"';
-$b
-
-: no-newline-empty-str
-:
-$c <'$* -i 1 <:"" >:""';
-$b
-
-: no-newline-str-fail1
-:
-$c <'$* -i 1 <:"foo" >"foo"';
-$b 2>>~/EOE/ != 0
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{7}
--foo
-+foo
-\ No newline at end of file
-EOE
-
-: no-newline-str-fail2
-:
-$c <'$* -i 1 <"foo" >:"foo"';
-$b 2>>~/EOE/ != 0
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{7}
--foo
-\ No newline at end of file
-+foo
-EOE
-
-: no-newline-doc
-:
-$c <<EOI;
-$* -i 1 <<:EOF >>:EOO
-foo
-EOF
-foo
-EOO
-EOI
-$b
-
-: no-newline-doc-fail1
-:
-$c <<EOI;
-$* -i 1 <<:EOF >>EOO
-foo
-EOF
-foo
-EOO
-EOI
-$b 2>>~/EOE/ != 0
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{7}
--foo
-+foo
-\ No newline at end of file
-EOE
-
-: no-newline-doc-fail2
-:
-$c <<EOI;
-$* -i 1 <<EOF >>:EOO
-foo
-EOF
-foo
-EOO
-EOI
-$b 2>>~/EOE/ != 0
-/testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
-/.{7}
--foo
-\ No newline at end of file
-+foo
-EOE
-
-: no-newline-empty-str-doc
-:
-$c <<EOI;
-$* -i 1 <<:EOF >>:EOO 2>:""
-EOF
-EOO
-EOI
-$b
-
-: no-newline-nl-cont-doc
-:
-$c <<EOI;
-$* -i 1 <<:EOF >>:EOO
-
-EOF
-
-EOO
-EOI
-$b
-
-# Merge tests.
-#
-: merge-str
-:
-$c <<EOI;
-$* -o foo -e bar 2>>EOE 1>&2
-foo
-bar
-EOE
-EOI
-$b
-
-: merge-doc
-:
-$c <<EOI;
-$* -i 1 <<EOF -e baz >>EOO 2>&1
-foo
-bar
-EOF
-foo
-bar
-baz
-EOO
-EOI
-$b
-
-# File tests.
-#
-: file
-:
-$c <<EOI;
-$* -o foo >>>out;
-$* -e bar 2>>>&out;
-$* -i 1 <<<out >>EOO
-foo
-bar
-EOO
-EOI
-$b
-
-: merge-file
-:
-$c <<EOI;
-$* -o foo -e bar 2>&1 >>>out;
-$* -e baz -o biz 1>&2 2>>>&out;
-$* -i 1 <<<out >>EOO
-foo
-bar
-baz
-biz
-EOO
-EOI
-$b
-
-# Regex tests.
-#
-: out-str-regex
+: null
 :
 {
-  : match
+  : out
   :
-  $c <'$* -o foo >~/Foo?/i';
+  $c <'$* -o foo >-';
   $b
 
-  : fail
+  : err
   :
-  $c <'$* -o fooo >~/Foo?/i';
+  $c <'$* -e foo 2>-';
+  $b
+}
+
+: str
+:
+{
+  : in
+  :
+  $c <'$* -i 0 <foo';
+  $b
+
+  : out
+  :
+  $c <'$* -o foo >foo';
+  $b
+
+  : err
+  :
+  $c <'$* -e foo 2>foo';
+  $b
+
+  : inout
+  :
+  $c <'$* -i 1 <foo >foo';
+  $b
+
+  : inout-fail
+  :
+  $c <'$* -i 1 <foo >bar';
   $b 2>>~%EOE% != 0
-  %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the regex%
+  %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
   %  info: stdout: test[/\\]1[/\\]stdout%
-  %  info: stdout regex: test[/\\]1[/\\]stdout\.regex%
+  %  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
+  %  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
+  %  info: stdin: test[/\\]1[/\\]stdin%
+  %--- .*%
+  %\+\+\+ .*%
+  %@@ .*%
+  -bar
+  +foo
+  EOE
+
+  : inerr
+  :
+  $c <'$* -i 2 <foo 2>foo';
+  $b
+
+  : inout-err
+  :
+  $c <'$* -i 1 -e bar <foo 1>foo 2>bar';
+  $b
+
+  : empty
+  :
+  $c <'$* -o "" >""';
+  $b
+
+  : no-newline
+  :
+  $c <'$* -i 1 <:"foo" >:"foo"';
+  $b
+
+  : no-newline-empty
+  :
+  $c <'$* -i 1 <:"" >:""';
+  $b
+
+  : no-newline-fail1
+  :
+  $c <'$* -i 1 <:"foo" >"foo"';
+  $b 2>>~/EOE/ != 0
+  /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+  /.{7}
+  -foo
+  +foo
+  \ No newline at end of file
+  EOE
+
+  : no-newline-fail2
+  :
+  $c <'$* -i 1 <"foo" >:"foo"';
+  $b 2>>~/EOE/ != 0
+  /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+  /.{7}
+  -foo
+  \ No newline at end of file
+  +foo
+  EOE
+
+  : merge
+  :
+  $c <<EOI;
+  $* -o foo -e bar 2>>EOE 1>&2
+  foo
+  bar
+  EOE
+  EOI
+  $b
+}
+
+: doc
+:
+{
+  : in
+  :
+  $c <<EOI;
+  $* -i 0 <<EOO
+  foo
+  bar
+  EOO
+  EOI
+  $b
+
+  : out
+  :
+  $c <<EOI;
+  $* -o foo -o bar >>EOO
+  foo
+  bar
+  EOO
+  EOI
+  $b
+
+  : err
+  :
+  $c <<EOI;
+  $* -e foo -e bar 2>>EOO
+  foo
+  bar
+  EOO
+  EOI
+  $b
+
+  : inout
+  :
+  $c <<EOI;
+  $* -i 1 <<EOF >>EOO
+  foo
+  bar
+  EOF
+  foo
+  bar
+  EOO
+  EOI
+  $b
+
+  : inerr
+  :
+  $c <<EOI;
+  $* -i 2 <<EOF 2>>EOE
+  foo
+  bar
+  EOF
+  foo
+  bar
+  EOE
+  EOI
+  $b
+
+  : empty
+  :
+  $c <<EOI;
+  $* -i 1 <<EOF >>EOO
+  EOF
+  EOO
+  EOI
+  $b
+
+  : extra-newline
+  :
+  $c <<EOI;
+  $* -i 1 <<EOF >>EOO
+
+  EOF
+
+  EOO
+  EOI
+  $b
+
+  : no-newline
+  :
+  $c <<EOI;
+  $* -i 1 <<:EOF >>:EOO
+  foo
+  EOF
+  foo
+  EOO
+  EOI
+  $b
+
+  : no-newline-fail1
+  :
+  $c <<EOI;
+  $* -i 1 <<:EOF >>EOO
+  foo
+  EOF
+  foo
+  EOO
+  EOI
+  $b 2>>~/EOE/ != 0
+  /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+  /.{7}
+  -foo
+  +foo
+  \ No newline at end of file
+  EOE
+
+  : no-newline-fail2
+  :
+  $c <<EOI;
+  $* -i 1 <<EOF >>:EOO
+  foo
+  EOF
+  foo
+  EOO
+  EOI
+  $b 2>>~/EOE/ != 0
+  /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+  /.{7}
+  -foo
+  \ No newline at end of file
+  +foo
+  EOE
+
+  : no-newline-empty
+  :
+  $c <<EOI;
+  $* -i 1 <<:EOF >>:EOO
+  EOF
+  EOO
+  EOI
+  $b
+
+  : no-newline-extra-newline
+  :
+  $c <<EOI;
+  $* -i 1 <<:EOF >>:EOO
+
+  EOF
+
+  EOO
+  EOI
+  $b
+
+  : merge
+  :
+  $c <<EOI;
+  $* -i 1 <<EOF -e baz >>EOO 2>&1
+  foo
+  bar
+  EOF
+  foo
+  bar
+  baz
+  EOO
+  EOI
+  $b
+
+  : large-diff
+  :
+  : Make sure that the large (>4KB) expected/real output difference is not
+  : printed as a part of the diagnostics.
+  :
+  $c <<EOI;
+  s="------------------------------------------------------------------------";
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+  $* -i 1 <<"EOF" >>"EOO"
+  $s
+  EOF
+  x$s
+  EOO
+  EOI
+  $b 2>>~%EOE% != 0
+  %testscript:3: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the expected output%
+  %  info: stdout: test[/\\]1[/\\]stdout%
+  %  info: expected stdout: test[/\\]1[/\\]stdout\.orig%
+  %  info: stdout diff: test[/\\]1[/\\]stdout\.diff%
+  %  info: stdin: test[/\\]1[/\\]stdin%
   EOE
 }
 
-: out-doc-regex
+: file
 :
 {
-  : match
+  : in-out
   :
   $c <<EOI;
-  $* -o foo -o foo -o bar >>~/EOO/i
-  /FO*/*
+  $* -o foo >>>out;
+  $* -i 1 <<<out >foo
+  EOI
+  $b
+
+  : append
+  :
+  $c <<EOI;
+  $* -o foo >>>out;
+  $* -e bar 2>>>&out;
+  $* -i 1 <<<out >>EOO
+  foo
   bar
-  /*
   EOO
   EOI
   $b
 
-  : match-empty
+  : merge
   :
   $c <<EOI;
-  $* >>:~/EOO/i
-  /.{0}
+  $* -o foo -e bar 2>&1 >>>out;
+  $* -e baz -o biz 1>&2 2>>>&out;
+  $* -i 1 <<<out >>EOO
+  foo
+  bar
+  baz
+  biz
   EOO
   EOI
   $b
 }
 
-# Builtins redirects.
-#
+: regex
+:
+{
+  : str
+  :
+  {
+    : match
+    :
+    $c <'$* -o foo >~/Foo?/i';
+    $b
+
+    : mismatch
+    :
+    $c <'$* -o fooo >~/Foo?/i';
+    $b 2>>~%EOE% != 0
+    %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? stdout doesn't match the regex%
+    %  info: stdout: test[/\\]1[/\\]stdout%
+    %  info: stdout regex: test[/\\]1[/\\]stdout\.regex%
+    EOE
+  }
+
+  : doc
+  :
+  {
+    : match
+    :
+    $c <<EOI;
+    $* -o foo -o foo -o bar >>~/EOO/i
+    /FO*/*
+    bar
+    /*
+    EOO
+    EOI
+    $b
+
+    : match-empty
+    :
+    $c <<EOI;
+    $* >>:~/EOO/i
+    /.{0}
+    EOO
+    EOI
+    $b
+  }
+}
+
 # @@ That will probably become redundant when builtins and process obtain file
 #    descriptors uniformly.
 #

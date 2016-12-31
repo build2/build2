@@ -2,32 +2,40 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-td = $~
+.include ../common.test
 
 : no-args
 :
 : Removing with no arguments fails.
 :
-rm 2>"rm: missing file" == 1
+$c <'rm 2>"rm: missing file" == 1';
+$b
 
 : no-args-force
 :
 : Removing with no arguments succeeds with -f option.
 :
-rm -f
+$c <'rm -f';
+$b
 
 : empty-path
 :
 : Removing an empty path fails.
 :
+$c <<EOI;
 rm '' 2>"rm: invalid path ''" == 1
+EOI
+$b
 
 : file
 :
 : Removing existing file succeeds.
 :
+$c <<EOI;
 touch a &!a;
 rm a
+EOI
+$b
 
 : file-not-exists
 :
@@ -36,36 +44,49 @@ rm a
 : Note that there is an optional trailing blank line in the regex that matches
 : the newline added by msvcrt as a part of the error description.
 :
+$c <<EOI;
 rm a 2>>~%EOE% == 1
-%rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file-not-exists[/\\]a': .+%
+%rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file-not-exists[/\\]test[/\\]1[/\\]a': .+%
 %%?
 EOE
+EOI
+$b
 
 : file-not-exists-force
 :
 : Removing non-existing file succeeds with -f option.
 :
-rm -f a
+$c <'rm -f a';
+$b
 
 : dir
 :
 : Removing directory fails by default.
 :
+$c <<EOI;
 mkdir a;
 rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
+EOI
+$b
 
 : dir-recursive
 :
 : Removing directory succeeds with -r option.
 :
+$c <<EOI;
 mkdir -p a/b &!a &!a/b;
 rm -r a
+EOI
+$b
 
 : scope-dir
 :
 : Removing scope directory fails.
 :
+$c <<EOI;
 rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
+EOI
+$b
 
 : outside-scope
 :
@@ -73,7 +94,12 @@ rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
 : path that unlikely exists (not to remove something useful).
 :
 :
-rm ../../a/b/c 2>"rm: '$normalize([path] $~/../../a/b/c)' is out of working directory '$td'" == 1
+$c <<EOI;
+rm ../../a/b/c 2>>~%EOE% == 1
+%rm: '.+[/\\]outside-scope[/\\]a[/\\]b[/\\]c' is out of working directory '.+[/\\]outside-scope[/\\]test'%
+EOE
+EOI
+$b
 
 : outside-scope-force
 :
@@ -81,4 +107,5 @@ rm ../../a/b/c 2>"rm: '$normalize([path] $~/../../a/b/c)' is out of working dire
 : option. Need to use a path that unlikely exists (not to remove something
 : useful).
 :
-rm -f ../../a/b/c
+$c <'rm -f ../../a/b/c';
+$b

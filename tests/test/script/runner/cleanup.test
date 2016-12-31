@@ -6,76 +6,221 @@
 
 b += --no-column
 
-# Valid cleanups.
-#
 # @@ TODO: $c <'$* -f a &a' && $b
 #
-: file-always
-:
-$c <'$* -f a &a';
-$b
 
-: file-maybe
+: file
 :
-$c <'$* &?a';
-$b
+{
+  : always
+  :
+  $c <'$* -f a &a';
+  $b
 
-: file-never
-:
-$c <'$* &!a';
-$b
+  : maybe
+  :
+  $c <'$* &?a';
+  $b
 
-: file-implicit
-:
-: Test that a file created out of the testscript working directory is not
-: implicitly registered for cleanup. If it were, the test would fail due to
-: rm failure.
-:
-$c <'touch ../../a';
-$b;
-rm a
+  : never
+  :
+  $c <'$* &!a';
+  $b
 
-: file-append
-:
-: Test that file append redirect does not not register cleanup. If it did,
-: that cleanup would fail as the file would be already deleted by rm.
-:
-$c <<EOI;
-touch a &!a;
-$* -o foo >>>&a;
-rm a
-EOI
-$b
+  : implicit
+  :
+  : Test that a file created out of the testscript working directory is not
+  : implicitly registered for cleanup. If it were, the test would fail due to
+  : the file absence at the cleanup time.
+  :
+  $c <<EOI;
+  touch ../../a;
+  rm -f ../../a
+  EOI
+  $b
 
-: dir-always
-:
-$c <'$* -d a &a/';
-$b
+  : append
+  :
+  : Test that file append redirect does not not register cleanup. If it did,
+  : that cleanup would fail as the file would be already deleted by rm.
+  :
+  $c <<EOI;
+  touch a &!a;
+  $* -o foo >>>&a;
+  rm a
+  EOI
+  $b
 
-: dir-maybe
-:
-$c <'$* &?a/';
-$b
+  : not-exists
+  :
+  : Test cleanup of non-existing file.
+  :
+  $c <'$* &a';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup file test[/\\]1[/\\]a does not exist%
+  EOE
 
-: dir-implicit
-:
-: Test that a directory created out of the testscript working directory is not
-: implicitly registered for cleanup. If it were, the test would fail due to
-: rm failure.
-:
-$c <'mkdir ../../a';
-$b;
-rm -r a
+  : out-wd
+  :
+  : Test explicit cleanup of a file out of the testscript working directory.
+  :
+  $c <'$* &../../a';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: file cleanup \.\.[/\\]\.\.[/\\]a is out of working directory test[/\\]%
+  EOE
 
-: wildcard-always
-:
-$c <'$* -d a/b -f a/b/c &a/***';
-$b
+  : in-wd
+  :
+  : Test cleanup explicit registration of a file being outside the test working
+  : directory but inside the script working directory.
+  :
+  $c <'$* &../a';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup file test[/\\]a does not exist%
+  EOE
 
-: wildcard-maybe
+  : not-file
+  :
+  : Test cleanup of a directory as a file. Note that there is an optional
+  : trailing blank line in the regex that matches the newline added by msvcrt
+  : as a part of the error description.
+  :
+  $c <'$* -d a &a';
+  $b 2>>~%EOE% != 0
+  %error: unable to remove file test[/\\]1[/\\]a: .+%
+  %%?
+  EOE
+}
+
+: dir
 :
-$c <'$* &?a/***';
-$b
+{
+  : always
+  :
+  $c <'$* -d a &a/';
+  $b
+
+  : maybe
+  :
+  $c <'$* &?a/';
+  $b
+
+  : implicit
+  :
+  : Test that a directory created out of the testscript working directory is
+  : not implicitly registered for cleanup. If it were, the test would fail due
+  : to the directory absence at the cleanup time.
+  :
+  $c <<EOI;
+  mkdir ../../a;
+  rm -r -f ../../a
+  EOI
+  $b
+
+  : not-exists
+  :
+  : Test cleanup of non-existing directory.
+  :
+  $c <'$* &a/';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] does not exist%
+  EOE
+
+  : out-wd
+  :
+  : Test cleanup of a directory out of the testscript working directory.
+  :
+  $c <'$* &../../a/';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: directory cleanup \.\.[/\\]\.\.[/\\]a[/\\] is out of working directory test[/\\]%
+  EOE
+
+  : in-wd
+  :
+  : Test cleanup explicit registration of a directory being outside the test
+  : working directory but inside the testscript working directory.
+  :
+  $c <'$* &../a/';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup directory test[/\\]a[/\\] does not exist%
+  EOE
+
+  : not-empty
+  :
+  : Test cleanup of a non-empty directory.
+  :
+  $c <'$* -d a -f a/b &a/';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] is not empty%
+  EOE
+
+  : not-dir
+  :
+  : Test cleanup of a file as a directory. Note that there is an optional
+  : trailing blank line in the regex that matches the newline added by msvcrt
+  : as a part of the error description.
+  :
+  $c <'$* -f a &a/';
+  $b 2>>~%EOE% != 0
+  %error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
+  %%?
+  EOE
+}
+
+: wildcard
+:
+{
+  : always
+  :
+  $c <'$* -d a/b -f a/b/c &a/***';
+  $b
+
+  : maybe
+  :
+  $c <'$* &?a/***';
+  $b
+
+  : not-exists
+  :
+  : Test cleanup of a wildcard not matching any directory.
+  :
+  $c <'$* &a/***';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup wildcard test[/\\]1[/\\]a[/\\]\*\*\* doesn't match a directory%
+  EOE
+
+  : out-wd
+  :
+  : Test cleanup of a wildcard out of the testscript working directory.
+  :
+  $c <'$* &../../a/***';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: wildcard cleanup \.\.[/\\]\.\.[/\\]a[/\\]\*\*\* is out of working directory test[/\\]%
+  EOE
+
+  : in-wd
+  :
+  : Test cleanup registration of a wildcard matching the directory that being
+  : outside the test working directory is inside the testscript working
+  : directory.
+  :
+  $c <'$* &../a/***';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: registered for cleanup wildcard test[/\\]a[/\\]\*\*\* doesn't match a directory%
+  EOE
+
+  : not-dir
+  :
+  : Test cleanup of a file as a wildcard. Note that there is an optional
+  : trailing blank line in the regex that matches the newline added by msvcrt
+  : as a part of the error description.
+  :
+  $c <'$* -f a &a/***';
+  $b 2>>~%EOE% != 0
+  %error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
+  %%?
+  EOE
+}
 
 : order
 :
@@ -83,141 +228,6 @@ $b
 :
 $c <'$* -d a/b &a/ &a/b/';
 $b
-
-# Invalid cleanups.
-#
-: file-not-exists
-:
-: Test cleanup of non-existing file.
-:
-$c <'$* &a';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup file test[/\\]1[/\\]a does not exist%
-EOE
-
-: file-out-wd
-:
-: Test explicit cleanup of a file out of the testscript working directory.
-:
-$c <'$* &../../a';
-$b 2>>~%EOE% != 0
-%testscript:1: error: file cleanup \.\.[/\\]\.\.[/\\]a is out of working directory test[/\\]%
-EOE
-
-: file-in-wd
-:
-: Test cleanup explicit registration of a file being outside the test working
-: directory but inside the script working directory.
-:
-$c <'$* &../a';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup file test[/\\]a does not exist%
-EOE
-
-: not-file
-:
-: Test cleanup of a directory as a file.
-:
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
-$c <'$* -d a &a';
-$b 2>>~%EOE% != 0
-%error: unable to remove file test[/\\]1[/\\]a: .+%
-%%?
-EOE
-
-: dir-not-exists
-:
-: Test cleanup of non-existing directory.
-:
-$c <'$* &a/';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] does not exist%
-EOE
-
-: dir-out-wd
-:
-: Test cleanup of a directory out of the testscript working directory.
-:
-$c <'$* &../../a/';
-$b 2>>~%EOE% != 0
-%testscript:1: error: directory cleanup \.\.[/\\]\.\.[/\\]a[/\\] is out of working directory test[/\\]%
-EOE
-
-: dir-in-wd
-:
-: Test cleanup explicit registration of a directory being outside the test
-: working directory but inside the testscript working directory.
-:
-$c <'$* &../a/';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup directory test[/\\]a[/\\] does not exist%
-EOE
-
-: dir-not-empty
-:
-: Test cleanup of a non-empty directory.
-:
-$c <'$* -d a -f a/b &a/';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup directory test[/\\]1[/\\]a[/\\] is not empty%
-EOE
-
-: not-dir
-:
-: Test cleanup of a file as a directory.
-:
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
-$c <'$* -f a &a/';
-$b 2>>~%EOE% != 0
-%error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
-%%?
-EOE
-
-: wildcard-not-exists
-:
-: Test cleanup of a wildcard not matching any directory.
-:
-$c <'$* &a/***';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup wildcard test[/\\]1[/\\]a[/\\]\*\*\* doesn't match a directory%
-EOE
-
-: wildcard-out-wd
-:
-: Test cleanup of a wildcard out of the testscript working directory.
-:
-$c <'$* &../../a/***';
-$b 2>>~%EOE% != 0
-%testscript:1: error: wildcard cleanup \.\.[/\\]\.\.[/\\]a[/\\]\*\*\* is out of working directory test[/\\]%
-EOE
-
-: wildcard-in-wd
-:
-: Test cleanup registration of a wildcard matching the directory that being
-: outside the test working directory is inside the testscript working
-: directory.
-:
-$c <'$* &../a/***';
-$b 2>>~%EOE% != 0
-%testscript:1: error: registered for cleanup wildcard test[/\\]a[/\\]\*\*\* doesn't match a directory%
-EOE
-
-: wildcard-not-dir
-:
-: Test cleanup of a file as a wildcard.
-:
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
-$c <'$* -f a &a/***';
-$b 2>>~%EOE% != 0
-%error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
-%%?
-EOE
 
 : implicit-overwrite
 :

@@ -45,8 +45,8 @@ namespace build2
 
     f[".qual"] = []() {return "abc";};
 
-    f[".length"] = &string::size; // Member function.
-    f[".type"]   = &name::type;   // Data member.
+    f[".length"] = &path::size; // Member function.
+    f[".type"]   = &name::type; // Data member.
 
     f[".abs"] = [](dir_path d) {return d.absolute ();};
 

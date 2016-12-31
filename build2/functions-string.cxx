@@ -15,7 +15,11 @@ namespace build2
     function_family f ("string");
 
     f["string"] = [](string s)  {return s;};
-    f["string"] = [](strings v) {return v;};
+
+    // @@ Shouldn't it concatenate elements into the single string?
+    // @@ Doesn't seem to be used so far. Can consider removing.
+    //
+    // f["string"] = [](strings v) {return v;};
 
     // String-specific overloads from builtins.
     //

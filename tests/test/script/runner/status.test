@@ -6,33 +6,37 @@
 
 b += --no-column
 
-# Successfull tests.
-#
-: eq-true
+: eq
 :
-$c <'$* == 0';
-$b
+{
+  : true
+  :
+  $c <'$* == 0';
+  $b
 
-: ne-true
-:
-$c <'$* -s 1 != 0';
-$b
+  : false
+  :
+  $c <'$* -s 1 == 0';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 != 0%
+  EOE
+}
 
-# Faulty tests.
-#
-: eq-false
+: ne
 :
-$c <'$* -s 1 == 0';
-$b 2>>~%EOE% != 0
-%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 != 0%
-EOE
+{
+  : true
+  :
+  $c <'$* -s 1 != 0';
+  $b
 
-: ne-false
-:
-$c <'$* -s 1 != 1';
-$b 2>>~%EOE% != 0
-%testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 == 1%
-EOE
+  : false
+  :
+  $c <'$* -s 1 != 1';
+  $b 2>>~%EOE% != 0
+  %testscript:1: error: \.\.[/\\]\.\.[/\\]\.\.[/\\]\.\.[/\\]driver(\.exe)? exit status 1 == 1%
+  EOE
+}
 
 : error
 :

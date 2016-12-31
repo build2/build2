@@ -140,7 +140,7 @@ EOE
 
 : member-function
 :
-$* <'print $dummy.length([string] abc)' >'3'
+$* <'print $dummy.length([path] abc)' >'3'
 
 : data-member
 :

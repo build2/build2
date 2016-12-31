@@ -2,66 +2,82 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-# @@ I think these should be run indirectly (via cat & build)
-# for cross-testing to work (we want to run the via the build
-# system we built, not the one we used to acomplish this.
+.include ../common.test
 
 : in
 :
-cat <<EOI >>EOO
+$c <<EOI;
+cat <<EOF >>EOO
 foo
 bar
-EOI
+EOF
 foo
 bar
 EOO
+EOI
+$b
 
 : dash
 :
-cat - <<EOI >>EOO
+$c <<EOI;
+cat - <<EOF >>EOO
 foo
 bar
-EOI
+EOF
 foo
 bar
 EOO
+EOI
+$b
 
 : file
 :
-cat <<EOI >>>out;
+$c <<EOI;
+cat <<EOF >>>out;
 foo
 bar
-EOI
+EOF
 cat out >>EOO
 foo
 bar
 EOO
+EOI
+$b
 
 : in-repeat
 :
-cat - <<EOI >>EOO
+$c <<EOI;
+cat - <<EOF >>EOO
 foo
 bar
-EOI
+EOF
 foo
 bar
 EOO
+EOI
+$b
 
 : non-existent
 :
 : Note that there is an optional trailing blank line in the regex that matches
 : the newline added by msvcrt as a part of the error description.
 :
+$c <<EOI;
 cat in 2>>~%EOE% != 0
-%cat: unable to print '.+[/\\]test[/\\]cat[/\\]non-existent[/\\]in': .+%
+%cat: unable to print '.+[/\\]test[/\\]cat[/\\]non-existent[/\\]test[/\\]1[/\\]in': .+%
 %%?
 EOE
+EOI
+$b
 
 : empty-path
 :
 : Cat an empty path.
 :
+$c <<EOI;
 cat '' 2>"cat: invalid path ''" == 1
+EOI
+$b
 
 # @@ When piping is ready test cat on a big file to test it is asynchronous.
 #
