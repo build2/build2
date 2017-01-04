@@ -9,7 +9,7 @@ src = token lexer diagnostics utility variable name b-options types-parsers \
 test/script/{token lexer}
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
-test{script-line command-line first-token second-token variable-line \
+test{command-line first-token second-token command-expansion variable-line \
      description-line variable}
 
 include ../../../../build2/

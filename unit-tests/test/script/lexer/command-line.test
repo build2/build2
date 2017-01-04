@@ -1,134 +1,134 @@
 test.arguments = command-line
 
-$* <:"0<+" >>EOO # in-pass-redirect
-'0'
-<+
+$* <"cmd;" >>EOO # semi
+'cmd'
+;
+<newline>
 EOO
 
-$* <:"0 <+" >>EOO # arg-in-pass-redirect
-'0 '
-<+
+$* <"cmd ;" >>EOO # semi-separated
+'cmd'
+;
+<newline>
 EOO
 
-$* <:"1>+" >>EOO # out-pass-redirect
+$* <";" >>EOO # semi-only
+;
+<newline>
+EOO
+
+$* <"cmd: dsc" >>EOO # colon
+'cmd'
+:
+'dsc'
+<newline>
+EOO
+
+$* <"cmd :dsc" >>EOO # colon-separated
+'cmd'
+:
+'dsc'
+<newline>
+EOO
+
+$* <":" >>EOO # colon-only
+:
+<newline>
+EOO
+
+$* <"cmd <+ 1>+" >>EOO # pass-redirect
+'cmd'
+<+
 '1'
 >+
+<newline>
 EOO
 
-$* <:"1 >+" >>EOO # arg-out-pass-redirect
-'1 '
->+
-EOO
-
-$* <:"0<-" >>EOO # in-null-redirect
-'0'
+$* <"cmd <- 1>-" >>EOO # null-redirect
+'cmd'
 <-
-EOO
-
-$* <:"0 <-" >>EOO # arg-in-null-redirect
-'0 '
-<-
-EOO
-
-$* <:"1>-" >>EOO # out-null-redirect
 '1'
 >-
+<newline>
 EOO
 
-$* <:"1 >-" >>EOO # arg-out-null-redirect
-'1 '
->-
-EOO
-
-$* <:"1>&2" >>EOO # merge-redirect
+$* <"cmd 1>&2" >>EOO # merge-redirect
+'cmd'
 '1'
 >&
 '2'
+<newline>
 EOO
 
-$* <:"1 >&2" >>EOO # arg-merge-redirect
-'1 '
->&
-'2'
-EOO
-
-$* <:"0<a b" >>EOO # in-str-redirect
-'0'
+$* <"cmd <a 1>b" >>EOO # str-redirect
+'cmd'
 <
-'a b'
-EOO
-
-$* <:"1>a b" >>EOO # out-str-redirect
+'a'
 '1'
 >
-'a b'
+'b'
+<newline>
 EOO
 
-$* <:"0<:a b" >>EOO # in-str-nn-redirect
-'0'
+$* <"cmd <:a 1>:b" >>EOO # str-nn-redirect
+'cmd'
 <:
-'a b'
-EOO
-
-$* <:"1>:a b" >>EOO # out-str-nn-redirect
+'a'
 '1'
 >:
-'a b'
+'b'
+<newline>
 EOO
 
-$* <:"0<<E O I" >>EOO # in-doc-redirect
-'0'
+$* <"cmd <<EOI 1>>EOO" >>EOO # doc-redirect
+'cmd'
 <<
-'E O I'
-EOO
-
-$* <:"1>>E O O" >>EOO # out-doc-redirect
+'EOI'
 '1'
 >>
-'E O O'
+'EOO'
+<newline>
 EOO
 
-$* <:"0<<:E O I" >>EOO # in-doc-nn-redirect
-'0'
+$* <"cmd <<:EOI 1>>:EOO" >>EOO # doc-nn-redirect
+'cmd'
 <<:
-'E O I'
-EOO
-
-$* <:"1>>:E O O" >>EOO # out-doc-nn-redirect
+'EOI'
 '1'
 >>:
-'E O O'
+'EOO'
+<newline>
 EOO
 
-$* <:"0<<<a b" >>EOO # in-file-redirect
-'0'
+$* <"cmd <<<in >>>out 2>>>&err" >>EOO # file-redirect
+'cmd'
 <<<
-'a b'
-EOO
-
-$* <:"1>>>a b" >>EOO # out-file-redirect
-'1'
+'in'
 >>>
-'a b'
-EOO
-
-$* <:"1>>>&a b" >>EOO # out-file-app-redirect
-'1'
+'out'
+'2'
 >>>&
-'a b'
+'err'
+<newline>
 EOO
 
-$* <:"&file" >>EOO # cleanup-always
+$* <"cmd &file" >>EOO # cleanup-always
+'cmd'
 &
 'file'
+<newline>
 EOO
 
-$* <:"&?file" >>EOO # cleanup-maybe
+$* <"cmd &?file" >>EOO # cleanup-maybe
+'cmd'
 &?
 'file'
+<newline>
 EOO
 
-$* <:"&!file" >>EOO # cleanup-never
+$* <"cmd &!file" >>EOO # cleanup-never
+'cmd'
 &!
 'file'
+<newline>
 EOO
