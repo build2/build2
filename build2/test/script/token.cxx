@@ -25,6 +25,8 @@ namespace build2
         {
         case token_type::semi:         os << q << ';'        << q; break;
 
+        case token_type::dot:          os << q << '.'        << q; break;
+
         case token_type::plus:         os << q << '+'        << q; break;
         case token_type::minus:        os << q << '-'        << q; break;
 

@@ -174,7 +174,7 @@ namespace build2
         //
         for (;;)
         {
-          // Start lexing each line recognizing leading ':+-{}'.
+          // Start lexing each line recognizing leading '.+-{}'.
           //
           tt = peek (lexer_mode::first_token);
 
@@ -304,6 +304,31 @@ namespace build2
 
         switch (tt)
         {
+        case type::dot:
+          {
+            // Directive.
+            //
+            next (t, tt); // Skip dot.
+            next (t, tt); // Get the directive name.
+
+            if (tt != type::word || t.qtype != quote_type::unquoted)
+              fail (t) << "expected directive name instead of " << t;
+
+            // Make sure we are not inside a test (i.e., after semi).
+            //
+            if (ls != nullptr)
+              fail (ll) << "directive after ';'";
+
+            const string& n (t.value);
+
+            if (n == "include")
+              pre_parse_directive (t, tt);
+            else
+              fail (t) << "unknown directive '" << n << "'";
+
+            assert (tt == type::newline);
+            return false;
+          }
         case type::plus:
         case type::minus:
           {
@@ -331,23 +356,19 @@ namespace build2
           }
         default:
           {
-            // Either directive, variable assignment, or test command.
+            // Either variable assignment or test command.
             //
             replay_save (); // Start saving tokens from the current one.
             next (t, tt);
 
-            // Decide whether this is a variable assignment, directive or a
-            // command.
-            //
-            // It is a directive if the first token is an unquoted directive
-            // name.
+            // Decide whether this is a variable assignment or a command.
             //
             // It is an assignment if the first token is an unquoted name and
             // the next token is an assign/append/prepend operator. Assignment
             // to a computed variable name must use the set builtin.
             //
-            // Note also that directives/special commands take precedence over
-            // variable assignments.
+            // Note also thatspecial commands take precedence over variable
+            // assignments.
             //
             lt = line_type::cmd; // Default.
 
@@ -355,20 +376,7 @@ namespace build2
             {
               const string& n (t.value);
 
-              if (n == ".include")
-              {
-                replay_stop (); // Stop replay and discard the data.
-
-                // Make sure we are not inside a test (i.e., after semi).
-                //
-                if (ls != nullptr)
-                  fail (ll) << "directive after ';'";
-
-                pre_parse_directive (t, tt);
-                assert (tt == type::newline);
-                return false;
-              }
-              else if (n == "if")    lt = line_type::cmd_if;
+              if      (n == "if")    lt = line_type::cmd_if;
               else if (n == "if!")   lt = line_type::cmd_ifn;
               else if (n == "elif")  lt = line_type::cmd_elif;
               else if (n == "elif!") lt = line_type::cmd_elifn;
@@ -941,7 +949,7 @@ namespace build2
         if (tt != type::newline)
           fail (t) << t << " after directive";
 
-        if (d == ".include")
+        if (d == "include")
           pre_parse_include_line (move (args), move (l));
         else
           assert (false); // Unhandled directive.

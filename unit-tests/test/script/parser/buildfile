@@ -15,8 +15,8 @@ test/{target script/{token lexer parser regex script}} \
 scheduler
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs \
-test{cleanup command-if command-re-parse description exit expansion \
-     here-document here-string include pipe-expr pre-parse redirect \
-     scope scope-if setup-teardown}
+test{cleanup command-if command-re-parse description directive exit \
+     expansion here-document here-string include pipe-expr pre-parse \
+     redirect scope scope-if setup-teardown}
 
 include ../../../../build2/

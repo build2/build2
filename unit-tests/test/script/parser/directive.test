@@ -1,0 +1,70 @@
+: not-directive
+:
+$* <<EOI >>EOO
+x = x
+".include" foo.test
+\.include foo.test
+EOI
+.include foo.test
+.include foo.test
+EOO
+
+: expected-name
+:
+$* <<EOI 2>>EOE != 0
+.$
+EOI
+testscript:1:2: error: expected directive name instead of '$'
+EOE
+
+: unknown-name
+:
+$* <<EOI 2>>EOE != 0
+.bogus
+EOI
+testscript:1:2: error: unknown directive 'bogus'
+EOE
+
+: separated
+:
+touch foo.test;
+$* <<EOI
+.  include foo.test
+EOI
+
+: not-separated
+:
+touch foo.test;
+$* <<EOI
+x = foo.test
+.include$x
+EOI
+
+: var-expansion
+:
+cat <<EOI >>>"foo-$(build.version).test";
+cmd
+EOI
+$* <<EOI >>EOO
+.include "foo-$(build.version).test"
+EOI
+cmd
+EOO
+
+: after-semi
+:
+$* <<EOI 2>>EOE != 0
+cmd;
+.include foo.test
+EOI
+testscript:2:1: error: directive after ';'
+EOE
+
+: semi-after
+:
+$* <<EOI 2>>EOE != 0
+.include foo.test;
+cmd
+EOI
+testscript:1:18: error: ';' after directive
+EOE

@@ -2,6 +2,11 @@
 #
 test.arguments = first-token
 
+$* <"." >>EOO # dot
+.
+<newline>
+EOO
+
 $* <";" >>EOO # semi
 ;
 <newline>

@@ -26,6 +26,8 @@ namespace build2
 
           semi = base_type::value_next, // ;
 
+          dot,                          // .
+
           plus,                         // +
           minus,                        // -
 
