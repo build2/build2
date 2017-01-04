@@ -57,7 +57,7 @@ namespace build2
 
         pre_parse_ = true;
 
-        lexer l (is, *path_, lexer_mode::script_line);
+        lexer l (is, *path_, lexer_mode::command_line);
         set_lexer (&l);
 
         id_prefix_.clear ();
@@ -989,7 +989,7 @@ namespace build2
             try
             {
               ifdstream ifs (p);
-              lexer l (ifs, p, lexer_mode::script_line);
+              lexer l (ifs, p, lexer_mode::command_line);
 
               const path* op (path_);
               path_ = &p;
@@ -1908,7 +1908,7 @@ namespace build2
                     name = path (move (n));
                   }
 
-                  // When re-parsing we do "effective escaping" and only for
+                  // When re-lexing we do "effective escaping" and only for
                   // ['"\] (quotes plus the backslash itself). In particular,
                   // there is no way to escape redirects, operators, etc. The
                   // idea is to prefer quoting except for passing literal
@@ -1921,7 +1921,9 @@ namespace build2
                   // cmd $args               # cmd x="foo bar"
                   //
                   istringstream is (s);
-                  lexer lex (is, name, lexer_mode::command_line, "\'\"\\");
+                  lexer lex (is, name,
+                             lexer_mode::command_expansion,
+                             "\'\"\\");
 
                   // Treat the first "sub-token" as always separated from what
                   // we saw earlier.

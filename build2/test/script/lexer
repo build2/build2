@@ -24,11 +24,11 @@ namespace build2
 
         enum
         {
-          script_line = base_type::value_next,
+          command_line = base_type::value_next,
           first_token,     // Expires at the end of the token.
           second_token,    // Expires at the end of the token.
           variable_line,   // Expires at the end of the line.
-          command_line,
+          command_expansion,
           here_line_single,
           here_line_double,
           description_line // Expires at the end of the line.

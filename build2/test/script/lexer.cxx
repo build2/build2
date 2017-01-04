@@ -32,7 +32,7 @@ namespace build2
 
         switch (m)
         {
-        case lexer_mode::script_line:
+        case lexer_mode::command_line:
           {
             s1 = ":;=!|&<> $(#\t\n";
             s2 = "  ==          ";
@@ -40,9 +40,9 @@ namespace build2
           }
         case lexer_mode::first_token:
           {
-            // First token on the script line. Like script_line but recognizes
-            // leading '+-{}' as tokens as well as variable assignments as
-            // separators.
+            // First token on the script line. Like command_line but
+            // recognizes leading '+-{}' as tokens as well as variable
+            // assignments as separators.
             //
             // Note that to recognize only leading '+-{}' we shouldn't add
             // them to the separator strings.
@@ -53,12 +53,12 @@ namespace build2
           }
         case lexer_mode::second_token:
           {
-            // Second token on the script line. Like script_line but
+            // Second token on the script line. Like command_line but
             // recognizes leading variable assignments.
             //
             // Note that to recognize only leading assignments we shouldn't
             // add them to the separator strings (so this is identical to
-            // script_line).
+            // command_line).
             //
             s1 = ":;=!|&<> $(#\t\n";
             s2 = "  ==          ";
@@ -75,7 +75,7 @@ namespace build2
             break;
           }
 
-        case lexer_mode::command_line:
+        case lexer_mode::command_expansion:
           {
             // Note that whitespaces are not word separators in this mode.
             //
@@ -145,11 +145,11 @@ namespace build2
 
         switch (state_.top ().mode)
         {
-        case lexer_mode::script_line:
+        case lexer_mode::command_line:
         case lexer_mode::first_token:
         case lexer_mode::second_token:
         case lexer_mode::variable_line:
-        case lexer_mode::command_line:
+        case lexer_mode::command_expansion:
         case lexer_mode::here_line_single:
         case lexer_mode::here_line_double:
           r = next_line ();
@@ -224,7 +224,7 @@ namespace build2
 
         // NOTE: remember to update mode() if adding new special characters.
 
-        if (m != lexer_mode::command_line)
+        if (m != lexer_mode::command_expansion)
         {
           switch (c)
           {
@@ -266,7 +266,7 @@ namespace build2
 
         // Line separators.
         //
-        if (m == lexer_mode::script_line  ||
+        if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
             m == lexer_mode::second_token ||
             m == lexer_mode::variable_line)
@@ -277,7 +277,7 @@ namespace build2
           }
         }
 
-        if (m == lexer_mode::script_line  ||
+        if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
             m == lexer_mode::second_token)
         {
@@ -289,8 +289,8 @@ namespace build2
 
         // Command line operator/separators.
         //
-        if (m == lexer_mode::script_line ||
-            m == lexer_mode::first_token ||
+        if (m == lexer_mode::command_line ||
+            m == lexer_mode::first_token  ||
             m == lexer_mode::second_token)
         {
           switch (c)
@@ -311,10 +311,10 @@ namespace build2
 
         // Command operators/separators.
         //
-        if (m == lexer_mode::script_line  ||
+        if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
             m == lexer_mode::second_token ||
-            m == lexer_mode::command_line)
+            m == lexer_mode::command_expansion)
         {
           switch (c)
           {
