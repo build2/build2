@@ -1,7 +1,7 @@
 @echo off
 
 rem file      : bootstrap-msvc.bat
-rem copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+rem copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 rem license   : MIT; see accompanying LICENSE file
 
 setlocal EnableDelayedExpansion

@@ -1,5 +1,5 @@
 // file      : build2/b.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <string.h>    // strerror()
@@ -174,7 +174,7 @@ main (int argc, char* argv[])
       cout << "build2 " << BUILD2_VERSION_STR<< endl
            << "libbutl " << LIBBUTL_VERSION_STR << endl
            << "host " << BUILD2_HOST_TRIPLET << endl
-           << "Copyright (c) 2014-2016 Code Synthesis Ltd" << endl
+           << "Copyright (c) 2014-2017 Code Synthesis Ltd" << endl
            << "This is free software released under the MIT license." << endl;
       return 0;
     }

@@ -1,5 +1,5 @@
 // file      : tests/test/script/runner/driver.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
+// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <limits>    // numeric_limits
