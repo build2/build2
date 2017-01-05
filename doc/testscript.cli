@@ -11,19 +11,16 @@
 // - Maximum <pre> line is 70 characters.
 //
 
-// @@ Testscript vs testscript
-//
-
 "
 \h0#preface|Preface|
 
-This document describes the \c{build2} Testscript language. It begins with an
-introduction that discusses the motivation for having a separate
-domain-specific language and then introduces a number of Testscript concepts
-with examples. The remainder of the document provides a more formal
-specification of the language, including its integration into the build
-system, parsing and execution model, lexical structure, as well as grammar and
-semantics. The final chapter describes the Testscript style used in the
+This document describes the \c{build2} Testscript language. It starts with a
+discussion of the motivations behind a separate domain-specific language for
+running tests and then introduces a number of Testscript concepts with
+examples. The remainder of the document provides a more formal specification
+of the language, including its integration into the build system, parsing and
+execution model, lexical structure, as well as grammar and semantics. The
+final chapter describes the recommended Testscript style as used in the
 \c{build2} project.
 
 In this document we use the term \i{Testscript} (capitalized) to refer to the
@@ -37,30 +34,31 @@ We also use the equivalent distinction between \i{Buildfile} (language),
 \h1#intro|Introduction|
 
 The \c{build2} \c{test} module provides the ability to run an executable
-target as a test, optionally passing options and arguments, providing
+target as a test, including passing options and arguments, providing
 \c{stdin} input, as well as comparing the \c{stdout} output to the expected
 result. For example:
 
 \
-exe{xml-parser}: test.options = --validate
-exe{xml-parser}: test.input   = test.xml
-exe{xml-parser}: test.output  = test.out
+exe{hello}: test.options   = --greeting 'Hi'
+exe{hello}: test.arguments = -               # Read names from stdin.
+exe{hello}: test.input     = names.txt
+exe{hello}: test.output    = greetings.txt
 \
 
 This works well for simple, single-run tests. If, however, your testing
 requires multiple runs with varying input and/or analyzing output,
-traditionally, you would resort to use a scripting language, for instance
-Bash. This has a number of drawbacks. Firstly, this approach is usually not
-portable (there is no Bash on Windows \i{out of the box}). It is also hard to
-write concise tests in a general-purpose scripting language. The result is
-often a test suite that has grown incomprehensible with everyone dreading
-adding new tests. Finally, it is hard to run such tests in parallel without a
-major effort (for example, by having a separate script for each test and
-having some kind of \i{test driver}).
+traditionally, you would resort to using a scripting language, for instance
+Bash or Python. This, however, has a number of drawbacks. Firstly, this
+approach is usually not portable (there is no Bash or Python on Windows \i{out
+of the box}). It is also hard to write concise tests in a general-purpose
+scripting language. The result is often a test suite that has grown
+incomprehensible with everyone dreading adding new tests. Secondly, it is hard
+to run such tests in parallel without a major effort, for example, by having a
+separate script for each test and implementing some kind of a test harness.
 
 Testscript is a domain-specific language for running tests. It vaguely
-resembles Bash and is optimized for concise test description by focusing on
-the following functionality:
+resembles Bash and is optimized for concise test description and fast
+execution by focusing on the following functionality:
 
 \ul|
 
@@ -86,9 +84,9 @@ the following functionality:
 Note that Testscript is a \i{test runner}, not a testing framework for a
 particular programming language. It does not concern itself with how the test
 executables themselves are implemented. As a result, it is mostly geared
-towards functional testing but can also be used for unit testing if external
-input/output is required. Testscript is an extension of the \c{build2} build
-system and is implemented by its \c{test} module.
+towards functional testing but can also be used for unit testing if
+external input/output is required. Testscript is an extension of the
+\c{build2} build system and is implemented by its \c{test} module.
 
 As a quick introduction to Testscript's capabilities, let's test a \"Hello,
 World\" program. For a simple implementation the corresponding \c{buildfile}
@@ -124,7 +122,7 @@ target path of which this testscript is a prerequisite. So in our case the
 testscript will receive the path to our \c{hello} executable. The buildfile
 can also pass along additional options and arguments. Inside the testscript,
 all of this (target path, options, and arguments) are bound to the \c{$*}
-variable. So in our case, if we expand the above line, it will be something
+variable. So in our case, if we expand the above line, it would be something
 like this:
 
 \
@@ -158,7 +156,7 @@ cerr << \"error: missing name\" << endl
 
 In testscripts you can compare output to the expected result for both
 \c{stdout} and \c{stderr}. We can supply the expected result as either
-\i{here-string} or \i{here-document} both which can be either literal or
+\i{here-string} or \i{here-document}, both which can be either literal or
 regex. The here-string approach works best for short, single-line output and
 we will use it for another test in a minute. For this test let's use
 here-document since the expected diagnostics has two lines:
@@ -175,7 +173,7 @@ Let's decrypt this: the \c{2>>EOE} is a here-document redirect with \c{EOE}
 here-document. Next comes the here-document fragment followed by the end
 marker.
 
-Now when executing this test the \c{test} module will check two things: it
+Now, when executing this test, the \c{test} module will check two things: it
 will compare the \c{stderr} output to the expected result using the \c{diff}
 tool and it will make sure the test exits with a non-zero status. Let's give
 it a go:
@@ -209,21 +207,21 @@ EOE
 
 You can probably guess what \c{$0} expands to. But did you notice another
 change? Yes, those double quotes in \c{2>>\"EOE\"}. Here is what's going on:
-similar to Bash, single-quoted strings (\c{'foo'}) are taken literaly while
+similar to Bash, single-quoted strings (\c{'foo'}) are taken literally while
 double-quoted ones (\c{\"foo\"}) have variable expansion, escaping, etc. This
 semantics is extended to here-documents in a curious way: if the end marker is
 single-quoted then the here-document lines are taken literally and if it is
 double-quoted, then there can be variable expansions, etc.  An unquoted end
 marker is treated as single-quoted (note that this is unlike Bash where
-here-documents always have variable expanion).
+here-documents always have variable expansions).
 
 This example illustrated a fairly common testing problem: output variability.
-In this case we could fix it perfectly since we could calculate the varying
-parts exactly. But often figuring out the varying part is difficult of
-outright impossible. A good example would be a system error message based
-on the \c{errno} code, such as file not found. Different targets can phrase
-the message slightly differently, or, worse, it can be a slightly different
-error code, for example \c{ENOENT} vs \c{ENOTDIR}.
+In this case we could fix it perfectly since we could easily calculate the
+varying parts exactly. But often figuring out the varying part is difficult of
+outright impossible. A good example would be a system error message based on
+the \c{errno} code, such as file not being found. Different C runtimes can
+phrase the message slightly differently or it can be localized. Worse, it can
+be a slightly different error code, for example \c{ENOENT} vs \c{ENOTDIR}.
 
 To handle output variability, Testscript allows us to specify the expected
 output as regular expressions. For example, this is an alternative fix to our
@@ -236,11 +234,16 @@ error: missing name
 EOE
 \
 
-To use a regex here-string or here-document we use the \c{~} redirect
-modifier. In this case the here-document end marker must start and end with
-the regex introducer character of your choice (\c{/} in our case). Any line
-inside the here-document fragment that begins with this introducer is then
-treated as a regular expression rather than a literal (@@ ref to regex).
+Let's explain what's going here: to use a regex here-string or here-document
+we add the \c{~} redirect modifier. In this case the here-document end marker
+must start and end with the regex introducer character of your choice (\c{/}
+in our case). Any line inside the here-document fragment that begins with this
+introducer is then treated as a regular expression rather than a literal (@@
+ref to regex).
+
+While this was a fairly deep rabbit hole for a first example, it is a good
+illustration of how quickly things get complicated when testing real-world
+software.
 
 Now that we have tested the failure case, let's test the normal functionality.
 While we could have used here-document, in this case here-string will be more
@@ -250,10 +253,10 @@ concise:
 $* 'World' >'Hello, World!'
 \
 
-It's a good idea to document our tests. Testscript has a formalized test
-description that can capture the test \i{id}, \i{summary}, and
-\i{details}. All three components are optional and how thoroughly you document
-your tests is up to you.
+Nothing new here. It's also a good idea to document our tests. Testscript
+has a formalized test description that can capture the test \i{id},
+\i{summary}, and \i{details}. All three components are optional and how
+thoroughly you document your tests is up to you.
 
 The description lines precede the test command. They start with a colon
 (\c{:}), and have the following layout:
@@ -267,10 +270,10 @@ The description lines precede the test command. They start with a colon
 \
 
 The recommended format for \c{<id>} is \c{<keyword>-<keyword>...} with at
-least two keywords. The id is used in diagnostics as well as to run individual
-tests. The recommended style for \c{<summary>} is that of the \c{git(1)}
-commit summary. The detailed description is free-form. Here are some
-examples (\c{#} starts a comment):
+least two keywords. The id is used in diagnostics, to name the test working
+directory, as well as to run individual tests. The recommended style for
+\c{<summary>} is that of the \c{git(1)} commit summary. The detailed
+description is free-form. Here are some examples (\c{#} starts a comment):
 
 \
 # Only id.
@@ -306,7 +309,7 @@ essential keywords by removing generic words like \"test\", \"handle\", and so
 on. If you do this, then both the id and summary will convey essentially the
 same information. As a result, to keep things concise, you may choose to drop
 the summary and only have the id. This is what we often do in \c{build2}.
-Note that if the id is not provided, the it will be automatically derived
+Note that if the id is not provided, then it will be automatically derived
 from the line number in testscript.
 
 Either the id or summary (but not both) can alternatively be specified inline
@@ -317,7 +320,7 @@ $* 'World' >'Hello, World!' : command-name
 \
 
 Similar to handling output, Testscript provides a convenient way to supply
-input to test's \c{stdin}. Let's say our \c{hello} program recognizes the
+input to the test's \c{stdin}. Let's say our \c{hello} program recognizes the
 special \c{-} name as an instruction to read the names from \c{stdin}. This
 is how we could test this functionality:
 
@@ -366,14 +369,14 @@ created the \c{hello.log} file on unsuccessful runs, then here is how we could
 have cleaned it up:
 
 \
-$* &hello.log != 0
+$* ... &hello.log != 0
 \
 
 What if we wanted to run two tests for this configuration file functionality?
 For example, we may want to test the custom greeting as above but also make
 sure the default greeting is not affected. One way to do this would be to
-repeat the setup command in each test. But there is a better way to do it:
-testscripts can define test groups. For example:
+repeat the setup command in each test. But there is a better way: testscripts
+can define test groups. For example:
 
 \
 : config
@@ -488,7 +491,7 @@ else
 \
 
 Note also that in cases when you simply need to conditionally pick a value for
-a variable, the \c{build2} evaluation contex will often be more concise than
+a variable, the \c{build2} evaluation context will often be more concise than
 \c{if-else}. For example:
 
 \
@@ -528,7 +531,7 @@ EOO
 \
 
 To conclude, let's put all our (sensible) tests together so that we can have a
-complete picure:
+complete picture:
 
 \
 $* 'World' >'Hello, World!' : command-name
@@ -651,7 +654,7 @@ The value of \c{test} inside the testscript will be the absolute path to the
 \c{hello} executable.
 
 If the \c{test} variable is set manually to a name of a target, then it is
-automatically converted to the target path. This can be usefult when testing
+automatically converted to the target path. This can be useful when testing
 a program that is built in another subdirectory of a project. For example,
 our \c{hello} may reside in the \c{hello/} subdirectory while we may want
 to keep the tests in \c{tests/}:
@@ -749,15 +752,17 @@ $ b test \"config.test=basics/foo basics/fox/bar\" # Run fox and bar.
 \h1#lexical|Lexical Structure|
 
 Testscript is a line-oriented language with a context-dependent lexical
-structure. It \"borrows\" several building blocks (for example, variable
-expansion) from the Buildfile language. In a sense, testscripts are
+structure. It \"borrows\" several building blocks (variable expansion,
+function calls, and evaluation contexts; collectively called \i{expansions}
+from now on) from the Buildfile language. In a sense, testscripts are
 specialized (for testing) continuations of buildfiles.
 
 Except in here-document fragments, leading whitespaces and blank lines are
 ignored except for the line/column counts. A non-empty testscript must
 end with a newline.
 
-The backslash (\c{\\}) character followed by a newline signals the line
+Except in single-quoted strings and single-quoted here-document fragments,
+the backslash (\c{\\}) character followed by a newline signals the line
 continuation. Both this character and the newline are removed (note: not
 replaced with a whitespace) and the following line is read as if it was part
 of the first line. Note that \c{'\\'} followed by EOF is invalid. For example:
@@ -767,8 +772,9 @@ $* foo | \
 $* bar
 \
 
-An unquoted and unescaped \c{'#'} character starts a comments; everything from
-this character until the end of line is ignored. For example:
+Except in here-document fragments, an unquoted and unescaped \c{'#'} character
+starts a comment; everything from this character until the end of line is
+ignored. For example:
 
 \
 # Setup foo.
@@ -777,32 +783,45 @@ $* foo
 $* bar # Setup bar.
 \
 
-Note that there is no line continuation in comments; the trailing \c{'\\'} is
+There is no line continuation support in comments; the trailing \c{'\\'} is
 ignored except in one case: if the comment is just \c{'#\\'} followed by the
-newline, then it starts a multi-line comment that spans until the closing
-\c{'#\\'} comment is encountered. For example:
+newline, then it starts a multi-line comment that spans until closing
+\c{'#\\'} is encountered. For example:
 
 \
 #\
 $* foo
 $* bar
 #\
+
+$* foo #\
+$* bar
+$* baz #\
 \
 
 Similar to Buildfile, the Testscript language supports two types of quoting:
 single (\c{'}) and double (\c{\"}). Both can span multiple lines.
 
-The single-quoted string does not recognize any escape sequences (not even for
-the single quote itself or line continuations) with all the characters taken
-literally until the closing single quote is encountered.
+The single-quoted strings and single-quoted here-document fragments do not
+recognize any escape sequences (not even for the single quote itself or line
+continuations) or expansions with all the characters taken literally until the
+closing single quote or here-document end marker is encountered.
 
-The double-quoted string recognizes escape sequences (including line
-continuations) as well as expansions of variables and evaluations of contexts.
-For example:
+The double-quoted strings and double-quoted here-document fragments recognize
+escape sequences (including line continuations) and expansions. For example:
 
 \
 foo = FOO
-bar = \"$foo ($foo == FOO)\" # 'FOO true'
+
+# 'FOO true'
+#
+bar = \"$foo ($foo == FOO)\"
+
+# 'FOO bool'
+#
+$* <<\"EOI\"
+$foo $type($foo == FOO)
+EOI
 \
 
 Characters that have special syntactic meaning (for example \c{'$'}) can be
@@ -821,16 +840,20 @@ foo = '$foo\bar'
 \
 
 Inside double-quoted strings only the \c{\"\\$(} character set needs to be
-escaped.
+escaped. Inside double-quoted here-document fragments \- only \c{\\$(}.
+
+The lexical structure of a line depends on its type. The line type may be
+dictated by the preceding construct, as is the case for here-document
+fragments. Otherwise the line type is determined by examining the leading
+character and, if that fails to determine the line type, leading tokens,
+as described next.
 
 A character is said to be \i{unquoted} and \i{unescaped} if it is not escaped
 and is not part of a quoted string. A token is said to be unquoted and
 unescaped if all its characters are unquoted and unescaped.
 
-The lexical structure of the remainder of a line (that is, the \i{context}) is
-determined by the leading (unquoted and unescaped) character after ignoring
-any (unquoted and unescaped) leading whitespaces. The following characters are
-context-introducing.
+The following characters determine the line type if they appear unquoted and
+unescaped at the beginning of the line:
 
 \
 ':'  - description line
@@ -841,11 +864,129 @@ context-introducing.
 '-'  - teardown command line
 \
 
-For the here-document lines the context is implied by the preceding line. If
-none of the above determinants apply, then the line is either a variable
-assignment or a test command line. Distinguishing between the two is performed
-during parsing and is described below.
+If the line doesn't start with any of these characters then the first token of
+the line is examined in the \c{first_token} mode (see below). If the first
+token is an unquoted word, then the second token of the line is examined in
+the \c{second_token} mode (see below). If it is a variable assignment (either
+\c{+=}, \c{=+}, or \c{=}), then the line type is a variable line. Otherwise,
+it is a test command line. Note that this means computed variable names are
+not supported.
 
+The Testscript language defines the following distinct lexing modes (or
+contexts):
+
+\dl|
+
+\li|\n\n\cb{command_line}\n
+
+  Whitespaces are token separators. The following characters and character
+  sequences (read vertically) are recognized as tokens:
+
+  \
+  :;=!|&<>$(#
+    ==
+  \
+
+  |
+
+\li|\n\n\cb{first_token}\n
+
+  Like \c{command_line} but recognizes variable assignments as separators.|
+
+\li|\n\n\cb{second_token}\n
+
+  Like \c{command_line} but recognizes variable assignments as tokens.|
+
+\li|\n\n\cb{command_expansion}\n
+
+  Subset of \c{command_line} used for re-lexing expansions (see below). Only
+  the \c{|&<>} characters are recognized as tokens. Note that whitespaces are
+  not separators in this mode.|
+
+\li|\n\n\cb{variable_line}\n
+
+  Similar to the Buildfile value mode. The \c{;$([]} characters are recognized
+  as tokens.|
+
+\li|\n\n\cb{description_line}\n
+
+  Like a single-quoted string.|
+
+\li|\n\n\cb{here_line_single}\n
+
+  Like a single-quoted string except it treats newlines as a separator and
+  quotes as literals.|
+
+\li|\n\n\cb{here_line_double}\n
+
+  Like a double-quoted string except it treats newlines as a separator and
+  quotes as literals. The \c{$(} characters are recognized as tokens.||
+
+Besides having varying lexical structure, parsing some line types involves
+performing expansions (variable expansions, function calls, and evaluations
+contexts). The following table summarizes the mapping of line types to lexing
+modes and indicates whether they are parsed with expansions:
+
+\
+variable line                 variable_line
+directive line                command_line       expansions
+description line              description_line
+
+test command line             command_line       expansions
+setup command line            command_line       expansions
+teardown command line         command_line       expansions
+
+here-document single-quoted   here_line_single
+here-document double-quoted   here_line_double   expansions
+\
+
+Finally, unquoted expansions in command lines (test, setup, and teardown) are
+re-lexed in the \c{command_expansion} mode in order to recognize command line
+syntax tokens (redirects, pipes, etc). To illustrate why this re-lexing is
+necessary, consider the following example of a \"canned\" command line:
+
+\
+x = echo >-
+$x foo
+\
+
+The command line token sequence will be \c{$}, \c{x}, \c{foo}. After the
+expansion we get \c{echo}, \c{>-}, \c{foo}, however, the second string is not
+(yet) recognized as a redirect. To achieve this we need to re-lex the result
+of the expansion.
+
+Note that besides the few command line syntax characters, re-lexing will also
+\"consume\" quotes and escapes, for example:
+
+\
+args = \"'foo'\"  # 'foo'
+echo $args      # echo foo
+\
+
+To preserve quotes in this context we need to escape them:
+
+\
+args = \"\'foo\'\"  # \'foo\'
+echo $args        # echo 'foo'
+\
+
+Alternatively, for a single value, we could quote the expansion:
+
+\
+arg = \"'foo'\"  # 'foo'
+echo \"$arg\"    # echo 'foo'
+\
+
+To minimize unhelpful consumptions of escape sequences (e.g., in Windows
+paths), re-lexing performs only \"effective escaping\" for the \c{'\"\\}
+characters. All other escape sequences are passed through uninterpreted. Note
+that this means there is no way to escape command line syntax characters. The
+idea is to use quoting except for passing literal quotes, for example:
+
+\
+args = \'&foo\'  # '&foo'
+echo $args       # echo &foo
+\
 
 \h1#grammar|Grammar and Semantics|
 
@@ -866,26 +1007,38 @@ foo bar    - concatenation (foo then bar)
 foo | bar  - alternation   (foo or bar)
 (foo bar)  - grouping
 {foo bar}  - grouping in any order (foo then bar or bar then foo)
-foo \
+foo\
 bar        - line continuation
 # foo      - comment
 \
 
 Rule right-hand-sides that start on a new line describe the line-level syntax
 and ones that start on the same line describes the syntax inside the line. If
-a multiplier appears in from on the line then it specifies the number of
+a rule contains multiple lines, then each line matches a separate line in the
+input.
+
+If a multiplier appears in from on the line then it specifies the number of
 repetitions for the whole line. For example, from the following three rules,
-the first describes a single line of multiple literals (such as
-\c{'foofoofoo'}), the second \- multiple lines of a single literal (such as
-\c{'foo\\nfoo\\nfoo'}), and the third \- multiple lines of multiple literals
-(such as \c{'foo\\nfoofoo\\nfoofoofoo'}).
+the first describes a single line of multiple literals, the second \- multiple
+lines of a single literal, and the third \- multiple lines of multiple
+literals.
 
 \
+# foofoofoo
+#
 text-line: 'foo'+
 
+# foo
+# foo
+# foo
+#
 text-lines:
   +'foo'
 
+# foo
+# foofoo
+# foofoofoo
+#
 text-lines:
   +('foo'+)
 \
@@ -898,19 +1051,22 @@ may not be whitespace-separated in which case they will be written without any
 spaces between them, for example:
 
 \
-foo: 'foo' ';'    # \"foo;\" or \"foo ;\" or \"foo      ;\"
-bar: 'bar'';'     # \"bar;\"
-baz: 'baz'' '+';' # \"baz ;\" or \"baz      ;\"
+foo: 'foo' ';'    # 'foo;' or 'foo ;' or 'foo      ;'
+bar: 'bar'';'     # 'bar;'
+baz: 'baz'' '+';' # 'baz ;' or 'baz      ;'
 
-fox: bar''bar     # \"bar;bar;\"
+fox: bar''bar     # 'bar;bar;'
 \
 
 You may also notice that several production rules below end with \c{-line}
-while potentially spanning several physical lines. In such cases they
-represent \i{logical lines}, for example, a test, its description, and its
-here-document fragments.
+while potentially spanning several physical lines. In this case they represent
+\i{logical lines}, for example, a command line and its here-document
+fragments.
 
-\h#grammar-all|Grammar|
+\h#grammar-all|Testscript Grammar|
+
+The complete grammar of the Testscript language is presented next with the
+following sections discussing the semantics of each production rule.
 
 \
 script:
@@ -918,13 +1074,8 @@ script:
 
 scope-body:
   *setup
-  *(directive|scope|test)
+  *(scope|directive|test)
   *tdown
-
-directive:
-  include
-
-include: '.include' (' '+'--once')*(' '+<path>)*
 
 scope:
   ?description
@@ -935,19 +1086,24 @@ scope-block:
   scope-body
   '}'
 
-scope-if: ('if'|'if!') command-line
+scope-if:
+  ('if'|'if!') command-line
   scope-block
   *scope-elif
   ?scope-else
 
-scope-elif: ('elif'|'elif!') command-line
+scope-elif:
+  ('elif'|'elif!') command-line
   scope-block
 
-scope-else: 'else'
+scope-else:
+  'else'
   scope-block
 
-description:
-  +(':' <text>)
+directive:
+  '.' include
+
+include: 'include' (' '+'--once')*(' '+<path>)*
 
 setup:
   variable-like|setup-line
@@ -965,52 +1121,60 @@ test:
 variable-like:
   variable-line|variable-if
 
-variable-if: ('if'|'if!') command-line
+variable-line:
+  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+
+value-attributes: '[' <key-value-pairs> ']'
+
+variable-if:
+  ('if'|'if!') command-line
   variable-if-body
   *variable-elif
   ?variable-else
   'end'
 
-variable-elif: ('elif'|'elif!') command-line
+variable-elif:
+  ('elif'|'elif!') command-line
   variable-if-body
 
-variable-else: 'else'
+variable-else:
+  'else'
   variable-if-body
 
 variable-if-body:
   *variable-like
 
-variable-line: <variable> ('='|'+='|'=+') value-attributes? <value>
-value-attributes: '[' <key-value-pairs> ']'
-
 command-like:
   command-line|command-if
 
-# Note: ':' and ';' only valid directly in test.
-#
 command-line: command-expr (';'|(':' <text>))?
   *here-document
-
-command-if: ('if'|'if!') command-line
-  command-if-body
-  *command-elif
-  ?command-else
-  'end' (';'|(':' <text>))?
-
-command-elif: ('elif'|'elif!') command-line
-  command-if-body
-
-command-else: 'else'
-  command-if-body
-
-command-if-body:
-  *(variable-line|command-like)
 
 command-expr: command-pipe (('||'|'&&') command-pipe)*
 
 command-pipe: command ('|' command)*
 
 command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
+
+command-exit: ('=='|'!=') <exit-status>
+
+command-if:
+  ('if'|'if!') command-line
+  command-if-body
+  *command-elif
+  ?command-else
+  'end' (';'|(':' <text>))?
+
+command-elif:
+  ('elif'|'elif!') command-line
+  command-if-body
+
+command-else:
+  'else'
+  command-if-body
+
+command-if-body:
+  *(variable-line|command-like)
 
 redirect: stdin|stdout|stderr
 
@@ -1033,34 +1197,217 @@ out-redirect: '>-'|\
 
 cleanup: ('&'|'&!'|'&?') (<file>|<dir>)
 
-command-exit: ('=='|'!=') <exit-status>
-
 here-document:
   *<text>
   <here-end>
+
+description:
+  +(':' <text>)
 \
 
-Note that file descriptors must not be separated from the redirect operators
-with whitespaces. And if leading text is not separated from the redirect
-operators, then it is expected to be a file descriptor. As an example, the
-first command below has \c{2} as an argument and redirects \c{stdout}, not
-\c{stderr}. While the second is invalid since \c{a1} is not a valid file
-descriptor.
+\h#grammar-script|Script|
 
 \
-$* 2 >!
-$* a1>!
+script:
+  scope-body
 \
 
-In merge redirects the left-hand-side descriptor (implied or explicit) must
-not be the same as the right-hand-side. Having both merge redirects at the
-same time is illegal.
+A testscript file is an implicit group scope with its id being the file
+name without the \c{.test} extension.
 
-Here-line is like double-quoted string but recognizes newlines.
+\h#grammar-scope|Scope|
 
-It is an error to specify both leading and trailing descriptions.
+\
+scope-body:
+  *setup
+  *(scope|directive|test)
+  *tdown
 
-\h#include|Inclusion|
+scope:
+  ?description
+  scope-block|scope-if
+
+scope-block:
+  '{'
+  scope-body
+  '}'
+\
+
+A scope is either a test group scope or an explicit test scope. An explicit
+scope is a test scope if it contains a single test, only variable assignments
+in setup commands, no teardown commands, and only the scope having the
+description, if any. Otherwise, it is a group scope. If there is no explicit
+scope for a test, one is established implicitly.
+
+Group scopes are used to organize related tests with potentially shared
+variables as well as setup and teardown commands. Explicit test scopes are
+normally used for better visual separation of complex tests.
+
+A scope establishes a nested variable and cleanup context. A variable set
+within a scope will only have effect until the end of this scope. All
+scope-level cleanups are triggered at the end of the scope.
+
+Entering a scope triggers the creation of a nested temporary directory with
+the group/test id as its name. This directory then becomes the group/test
+working directory (\c{CWD}). When leaving the scope, this temporary directory
+is automatically removed provided that it is empty. If it is not empty, the
+test fails (unexpected output).
+
+As an example, consider the following testscript file which we assume is
+called \c{basics.test}:
+
+\
+test &out-test: test
+
+: group
+{
+  foo = bar
+
+  +setup1
+  +setup2 &out-setup2
+
+  test1 &out-test1: test1
+
+  : test2
+  {
+    foo = baz
+    test2 $foo
+  }
+
+  test3 $foo: test3
+
+  -teardown2
+  -teardown1
+}
+\
+
+Below is its annotated version that shows all the \i{as-if} transformations
+as well as various actions performed during its execution:
+
+\
+# Set CWD=$out_root/
+
+: basics    # Implicit group scope for the script.
+{           # Create basics/ subdirectory, set CWD=.../basics/
+
+  : test    # Implicit test scope.
+  {         # Create test/ subdirectory, set CWD=.../basics/test/
+
+    test &out-test
+
+  }         # Remove out-test, remove test/, set CWD=.../basics/
+
+  : group
+  {         # Create group/ subdirectory, set CWD=.../basics/group/
+            # Execute setup commands
+
+    foo = bar
+
+    +setup1
+    +setup2 &out-setup2
+
+    : test1 # Implicit test scope.
+    {       # Create test1/ subdirectory, set CWD=.../group/test1/
+
+      test1 &out-test1: test1
+
+    }       # Remove out-test1, remove test1/, set CWD=.../group/
+
+    : test2
+    {       # Create test2/ subdirectory, set CWD=.../group/test2/
+
+      foo = baz
+      test2 $foo # test2 baz
+
+    }       # Inner variable foo is no longer in effect
+            # Remove remove test2/, set CWD=.../group/
+
+    : test3 # Implicit test scope.
+    {       # Create test3/ subdirectory, set CWD=.../group/test3/
+
+      test3 $foo # test3 bar
+
+    }       # Remove remove test3/, set CWD=.../group/
+
+    -teardown2
+    -teardown1
+  }         # Execute teardown commands
+            # Variable foo is no longer in effect
+            # Remove out-setup2, group/, set CWD=.../basics/
+
+}           # Remove basics/, set CWD=$out_root/
+\
+
+Because of this nested directory structure, a test can use \c{../}-based
+relative paths to refer to, for example, a file created by a group's setup
+command. For example:
+
+\
+{
+  +setup >>>test.conf
+
+  test1 ../test.conf
+  test2 ../test.conf
+}
+\
+
+Alternative, one can use an absolute path:
+
+\
+{
+  conf = $~/test.conf
+  +setup >>>$conf
+
+  test1 $conf
+  test2 $conf
+}
+\
+
+\h#grammar-scope-if|Scope-If|
+
+\
+scope-if:
+  ('if'|'if!') command-line
+  scope-block
+  *scope-elif
+  ?scope-else
+
+scope-elif:
+  ('elif'|'elif!') command-line
+  scope-block
+
+scope-else:
+  'else'
+  scope-block
+\
+
+A scope, either test or group, can be executed conditionally. The condition
+\c{command-line} is executed in the context of the outer scope. Note that all
+the scopes in an \c{if-else} chain are alternative implementations of the same
+group/test (thus the single description). If at least one of them is a group
+scope, then all the others are treated as groups as well.
+
+\h#grammar-directive|Directive|
+
+\
+directive:
+  '.' include
+\
+
+A line that starts with \c{.} is a Testscript directive. Note that directives
+are evaluated during parsing, before any command is executed or testscript
+variable assigned. You can, however, use variables assigned in the
+buildfile. For example:
+
+\
+include common-$(cxx.target.class).test
+\
+
+\h2#grammar-directive-include|Include|
+
+\
+include: 'include' (' '+'--once')*(' '+<path>)*
+\
 
 While in the grammar the \c{include} directive is shown to only appear
 interleaving with scopes and tests, it can be used anywhere in the scope
@@ -1070,152 +1417,303 @@ test lines.
 The \c{--once} option signals that files that have already been included in
 this scope should not be included again. The implementation is not required to
 handle links when determining if two paths are to the same file. Relative
-paths are assumed to be relative to the including testscript.
+paths are assumed to be relative to the including testscript file.
 
-Note that \c{include} is a directive, not a command. It is performed during
-parsing before any command is executed or testscript variable assigned. You
-can, however, use variables assigned in the buildfile. For example:
+\h#grammar-setup-teardown|Setup and Teardown|
 
 \
-include --once common-$(cxx.target.class).test
+setup:
+  variable-like|setup-line
+
+tdown:
+  variable-like|tdown-line
+
+setup-line: '+' command-like
+tdown-line: '-' command-like
 \
 
+Setup and teardown commands are executed sequentially in the order
+specified. Note that variable assignments (including \c{variable-if}) do not
+use the \c{'+'} and \c{'-'} prefixes. A standalone (not part of a test)
+variable assignment is automatically treated as setup if no tests have yet
+been encountered in this scope and as teardown otherwise.
 
-\h#grammar-script|Script|
-
-\
-script:
-  (script-scope | script-line)*
-\
-
-A testscript file is a sequence of scopes and (logical) lines.
-
-\h#grammar-scope|Scope|
+\h#grammar-test|Test|
 
 \
-script-scope:
-  description-line?
-  '{'
-  script
-  '}'
+test:
+  ?description
+  +(variable-line|command-like)
 \
 
-A block establishes a nested variable scope and a cleanup context. Any
-variables set within the block will only have effect until the end of the
-block. All registered cleanups are triggered at the end of the block.
-
-Additionally, entering a block triggers the creation of a nested temporary
-directory with the test/group id (see below) as its name. This directory then
-becomes the current working directory (\c{CWD}). Unless instructed otherwise,
-this temporary directory is removed at the end of the block and the previous
-\c{CWD} value is restored. (@@ Should we expect it to be empty, i.e., no
-unexpected output from the test?).
-
-Test and test group blocks have the same semantics except that in a test block
-each test line is considered to be part of the same test while in the test
-group each test line is treated as an individual test. Individual test lines
-in a group are treated \i{as if} they were in a test block consisting of just
-that line. In particular, this means that a nested temporary directory is also
-created for such individual tests and cleanup happens immediately after
-executing the test line.
-
-While test group blocks can contain other test group and test blocks, test
-blocks cannot contain nested blocks of any kind.
-
-A testscript execution starts in \c{out_base} as \c{CWD} and \i{as if} in an
-implicit test group block with the testscript file name (without the
-extension) as this group's id.
-
-For example, consider the following testscript file which we assume is called
-\c{basics.test}:
+A test that contains multiple lines is called \i{compound}. In this case each
+(logical) line except the last must end with a semicolon to signal the test
+continuation. For example:
 
 \
-: group1
-{{
-  foo = bar
-
-  + setup1
-  + setup2 &out-setup2
-
-  test1 &out-test1 ; test1
-
-  : test2
-  {
-    bar = baz
-
-    test2a $baz &out-test2
-    test2b <out-test2
-  }
-
-  test3 $foo ; test3
-
-  - teardown2
-  - teardown1
-}}
+conf = test.conf;
+cat <'verbose = true' >>>$conf;
+test $conf
 \
 
-Below is its annotated version that shows all the \i{as if} transformations
-as well as various actions performed during its execution:
+\h#grammar-variable|Variable|
 
 \
-# set CWD=$out_root/
+variable-like:
+  variable-line|variable-if
 
-: basics
-{{ # Create basics/ temporary subdirectory, set CWD=basics/
+variable-line:
+  <variable-name> ('='|'+='|'=+') value-attributes? <value>
 
-  : group1
-  {{ # Create group1/ temporary subdirectory, set CWD=group1/
-
-    foo = bar
-
-    + setup1
-    + setup2 &out-setup2
-
-    : test1
-    { # Create test1/ temporary subdirectory, set CWD=test1/
-
-      test1 &out-test1
-
-    } # Remove out-test1, remove test1/, set CWD=group1/
-
-    : test2
-    { # Create test2/ temporary subdirectory, set CWD=test2/
-
-      bar = baz
-
-      test2a $baz &out-test2
-      test2b <out-test2
-
-    } # Variable bar is no longer in effect
-      # Remove out-test2, remove test2/, set CWD=group1/
-
-    : test3
-    { # Create test3/ temporary subdirectory, set CWD=test3/
-
-      test3 $foo
-
-    } # Remove test3/, set CWD=group1/
-
-    - teardown2
-    - teardown1
-
-  }} # Variable foo is no longer in effect
-     # Remove out-setup2, group1/, set CWD=basics/
-
-}} # Remove basics/, set CWD=$out_root/
+value-attributes: '[' <key-value-pairs> ']'
 \
 
-Because of this nested directory structure, a test can use \c{..}-based
-relative paths to refer to, for example, a file created by a group's setup
-command. For example:
+The Testscript variable assignment semantics is equivalent to Buildfile except
+that no \c{{\}}-based name-generation is performed. For example:
 
 \
-{{
-  + setup &out-setup
-
-  test ../out-setup
-}}
+args = [strings] foo   bar 'fox   baz'
+echo $args # foo bar fox   baz
 \
+
+\h#grammar-variable-if|Variable-If|
+
+\
+variable-if:
+  ('if'|'if!') command-line
+  variable-if-body
+  *variable-elif
+  ?variable-else
+  'end'
+
+variable-elif:
+  ('elif'|'elif!') command-line
+  variable-if-body
+
+variable-else:
+  'else'
+  variable-if-body
+
+variable-if-body:
+  *variable-like
+\
+
+A group of variables can be set conditionally. The condition \c{command-line}
+semantics is the same as in \c{scope-if}. For example:
+
+\
+if ($cxx.target.class == 'windows')
+  slash = \\
+  case = false
+else
+  slash = /
+  case = true
+end
+\
+
+When conditionally setting a single variable, using the evaluation context
+with a ternary operator is often more concise:
+
+\
+slash = ($cxx.target.class == 'windows' ? \\ : /)
+\
+
+Note also that the only purpose of having a separate (from \c{command-if})
+variable-only if-block is to remove the error-prone requirement of having to
+specify \c{+} and \c{-} prefixes in group setup/teardown.
+
+\h#grammar-command|Command|
+
+\
+command-like:
+  command-line|command-if
+
+command-line: command-expr (';'|(':' <text>))?
+  *here-document
+
+command-expr: command-pipe (('||'|'&&') command-pipe)*
+
+command-pipe: command ('|' command)*
+
+command: <path>(' '+(<arg>|redirect|cleanup))* command-exit?
+
+command-exit: ('=='|'!=') <exit-status>
+\
+
+A \c{command-line} is \c{command-expr}. If it appears directly (as opposed to
+inside \c{command-if}) in a test, then it can be followed by \c{;} to signal
+the test continuation or by \c{:} and the trailing description.
+
+A \c{command-expr} can combine several \c{command-pipe}'s with logical AND and
+OR operators. Note that the evaluation order is always from left to right
+(left-associative), both operators have the same precedence, and are
+short-circuiting. Note, however, that short-circuiting does not apply to
+expansions (variable, function calls, evaluation contexts). The logical result
+of a \c{command-expr} is the result of the last \c{command-pipe} executed.
+
+A \c{command-pipe} can combine several \c{command}'s with a pipe (\c{stdout}
+of the left-hand-side command is connected to \c{stdin} of the
+right-hand-side). The logical result of a \c{command-pipe} is the logical
+AND of all its \c{command}'s.
+
+A \c{command} begins with a command path following by options/arguments,
+redirects, and cleanups, all optional and in any order.
+
+A \c{command} may specify an exist code check. If executing a \c{command}
+results in an abnormal process termination, then the whole outer construct
+(e.g., test, setup/teardown, etc) summarily fails. Otherwise (that is, in case
+of a normal termination) the exit code is checked. If omitted, then the test
+is expected to succeed (0 exit code). The logical result of executing a
+\c{command} is therefore a boolean value which is used in the higher-level
+constructs (pipe and expression).
+
+\h#grammar-command-if|Command-If|
+
+\
+command-if:
+  ('if'|'if!') command-line
+  command-if-body
+  *command-elif
+  ?command-else
+  'end' (';'|(':' <text>))?
+
+command-elif:
+  ('elif'|'elif!') command-line
+  command-if-body
+
+command-else:
+  'else'
+  command-if-body
+
+command-if-body:
+  *(variable-line|command-like)
+\
+
+A group of commands can be executed conditionally. The condition
+\c{command-line} semantics is the same as in \c{scope-if}. Note that in a
+compound test commands inside \c{command-if} must not end with \c{;}. Rather,
+\c{;} may follow \c{end}. For example:
+
+\
+if ($cxx.target.class == 'windows')
+  foo = windows
+  setup1
+  setup2
+else
+  foo = posix
+end;
+test $foo
+\
+
+\h#grammar-redirect|Redirect|
+
+\
+redirect: stdin|stdout|stderr
+
+stdin:  '0'?(in-redirect)
+stdout: '1'?(out-redirect)
+stderr: '2'(out-redirect)
+\
+
+The file descriptors must not be separated from the redirect operators with
+whitespaces. And if leading text is not separated from the redirect operators,
+then it is expected to be the file descriptor. As an example, the first command
+below has \c{2} as an argument and redirects \c{stdout}, not \c{stderr}. While
+the second is invalid since \c{a1} is not a valid file descriptor.
+
+\
+$* 2 >-
+$* a1>-
+\
+
+\h#grammar-in-redirect|Input Redirect|
+
+\
+in-redirect:  '<-'|\
+              '<+'|\
+              '<'{':'?} <text>|\
+              '<<'{':'?} <here-end>|\
+              '<<<' <file>
+\
+
+The \c{stdin} data can come from a pipe, here-string (\c{<}), here-document
+(\c{<<}), a file (\c{<<<}), or \c{/dev/null}-equivalent (\c{<-}). Specifying
+both a pipe and a redirect is an error. If no pipe or \c{stdin} redirect is
+specified and the test tries to read from \c{stdin}, it is considered to have
+failed. However, whether this is detected and diagnosed is
+implementation-defined. To allow reading from the default \c{stdin} (for
+instance if the test is really an example), the \c{<+} redirect is used.
+
+The \c{:} here-string and here-document redirect modifier is used to suppress
+the otherwise automatically-added terminating newline.
+
+\h#grammar-in-output|Output Redirect|
+
+\
+out-redirect: '>-'|\
+              '>+'|\
+              '>&' ('1'|'2')|\
+              '>'{':'?'~'?} <text>|\
+              '>>'{':'?'~'?} <here-end>|\
+              '>>>'{'&'?} <file>
+\
+
+=======================================================================
+
+The \c{stdout} and \c{stderr} stream data can go to a pipe (\c{stdout} only),
+file (append if \c{>>>&}), or \c{/dev/null} (\c{>!}). It can also be
+compared to a string or the here-document fragment. For \c{stdout} specifying
+both pipe and redirect is an error. If no explicit \c{stderr} redirect is
+specified and the test is expected to fail (non-zero exit status), then an
+implicit \c{2>!} redirect is assumed.
+
+If no \c{stdout} or \c{stderr} redirect is specified and the test tries to
+write any data to either stream, it is considered to have failed. If you need
+to allow writing to the default \c{stdout} or \c{stderr}, specify \c{>?} and
+\c{2>?}, respectively.
+
+We can also merge \c{stderr} to \c{stdout} (\c{2>&1}) or vice versa
+(\c{1>&2}).
+
+If a command creates extra files or directories then we can register them for
+automatic cleanup at the end of the test. Files mentioned in redirects are
+registered automatically.
+
+Note that unlike shell no whitespaces around \c{<} and \c{>} redirects
+or after the \c{&} cleanups are allowed.
+
+A here-document redirect must be specified \i{literally} on test command
+line. Specifically, it must not be the result of a variable expansion or
+context evaluation, which rarely makes sense anyway since the following
+here-document fragment itself cannot be the result of the
+expansion/evaluation either; in a sense they both are part of the syntax.
+
+This requirement is imposed in order to be able to skip test lines and their
+associated here-document fragments in the \c{if-else} directives without
+performing any expansions/evaluations (which may not be valid).
+
+The skipping procedure for a line that is either a variable assignment or a
+test command is as follows: The line is lexed until the newline or EOF which
+checking each token either for one of the variable assignment operators or
+here-document redirects. If both kinds are present then this is an ambiguity
+error which can be resolved by quoting either of the token, depending on the
+desired semantics (variable assignment or test command). Otherwise, all the
+here-document redirects are noted and the corresponding number of here-document
+fragments is skipped (which \c{here-end} match/order validation).
+
+Note also that this procedure is applied even in case of \c{if-else} with
+\c{directive-block} since the block end (\c{.\}}) may appears literally in
+one of the here-document fragments.
+
+=======================================================================
+
+In merge redirects the left-hand-side descriptor (implied or explicit) must
+not be the same as the right-hand-side. Having both merge redirects at the
+same time is illegal.
+
+Here-line is like double-quoted string but recognizes newlines.
+
+It is an error to specify both leading and trailing descriptions.
 
 
 \h#grammar-line|Line|
@@ -1390,159 +1888,7 @@ The reminder of the line after the \c{'.if'} and \c{'.elif'} words is expanded
 as a Buildfile variable value and should evaluate to either \c{'true'} or
 \c{'false'} text literals.
 
-\h#grammar-variable|Variable Assignment|
 
-\
-variable-line: <variable> ('=' | '+=' | '=+') value-attributes? <value>
-
-value-attributes: '[' <key-value-pairs> ']'
-\
-
-The Testscript variable assignment semantics is equivalent to Buildfile except
-that \c{<value>} is expanded as \"strings\", not \"names\" (@@ clarify) and
-the default value type is \c{strings}. Note that unlike Buildfile no variable
-attributes are supported.
-
-\h#grammar-test|Test|
-
-\
-test-line:
-  description-line?
-  command-expr command-exit? (';' | ':' <text>)?
-  here-document*
-
-command-exit: ('==' | '!=') <exit-status>
-\
-
-The test command line can specify an optional exist status check. If omitted,
-then the test is expected to succeed (0 exit status).
-
-Variable expansion and context evaluation is performed (using chunked parsing)
-in \c{command-expr} and \c{command-exit} but not in the inline test
-description.
-
-\h#grammar-setup-teardown|Setup/Teardown|
-
-\
-setup-line: '+' command-expr ';'?
-  here-document*
-
-teardown-line: '-' command-expr ';'?
-  here-document*
-\
-
-The setup and teardown command lines are similar to the test command line
-except that they cannot have a test description or exit status check (they are
-always expected to succeed). The main motivation for distinguishing between
-test and setup/teardown commands is the ability to ignore the teardown
-commands in order to preserve the setup of test. For example, of a failed test
-that you are debugging. Also, the setup/teardown and test commands are shown
-at different verbosity levels (\c{3/-V} and \c{2/-v} respectively).
-
-Setup and teardown commands associeted with the test group are executed
-sequenctially in the order specified.
-
-\h#grammar-command-expr|Command Expression|
-
-\
-command-expr: command-pipe (('||' | '&&') command-pipe)*
-\
-
-Multiple commands can be combination with AND and OR operators. Note that the
-evaluation order is always from left to right (left-associative) and both
-operators have the same precedence and are short-circuiting. Note, however,
-that short-circuiting does not apply to variable expansion.
-
-The result of the expression is the exit status of the last \c{command-pipe}
-executed.
-
-
-\h#grammar-command-pipe|Command Pipe|
-
-\
-command-pipe: command ('|' command)*
-\
-
-Commands can also be combined with a pipe. All the piped commands except that
-last are expected to succeed with the last command's exit status being the
-result of \c{command-pipe}.
-
-\h#grammar-command|Command|
-
-\
-command: <path> <arg>* {stdin? stdout? stderr? merge? cleanup*}
-\
-
-A command starts with a command path following by options and arguments, if
-any. We can also redirect/merge standard streams as well as register for
-automatic cleanup files and directories that may be created by the command.
-Note that redirects, merge, and cleanups can appear in any order but must
-come after the arguments.
-
-\h#grammar-redirect-merge-cleanup|Redirect, Merge, Cleanup|
-
-\
-stdin:  '0'?('<'<text> | '<<'<here-end> | '<<<'<file>     | '<!' | '<?')
-stdout: '1'?('>'<text> | '>>'<here-end> | '>>>''&'?<file> | '>!' | '>?')
-stderr: '2'('>'<text>  | '>>'<here-end> | '>>>''&'?<file> | '>!' | '>?')
-
-merge: '1>&2' | '2>&1'
-
-cleanup: '&'(<file> | <dir>)
-\
-
-The \c{stdin} stream data can come from a pipe, string, the here-document
-fragment, file, or \c{/dev/null} (\c{<!}). Specifying both pipe and redirect
-is an error.
-
-If no \c{stdin} redirect is specified and the test tries to read any data, it
-is considered to have failed. If you need to allow reading from the default
-\c{stdin} (for instance if the test is really an example), specify \c{<?}.
-
-The \c{stdout} and \c{stderr} stream data can go to a pipe (\c{stdout} only),
-file (append if \c{>>>&}), or \c{/dev/null} (\c{>!}). It can also be
-compared to a string or the here-document fragment. For \c{stdout} specifying
-both pipe and redirect is an error. If no explicit \c{stderr} redirect is
-specified and the test is expected to fail (non-zero exit status), then an
-implicit \c{2>!} redirect is assumed.
-
-If no \c{stdout} or \c{stderr} redirect is specified and the test tries to
-write any data to either stream, it is considered to have failed. If you need
-to allow writing to the default \c{stdout} or \c{stderr}, specify \c{>?} and
-\c{2>?}, respectively.
-
-We can also merge \c{stderr} to \c{stdout} (\c{2>&1}) or vice versa
-(\c{1>&2}).
-
-If a command creates extra files or directories then we can register them for
-automatic cleanup at the end of the test. Files mentioned in redirects are
-registered automatically.
-
-Note that unlike shell no whitespaces around \c{<} and \c{>} redirects
-or after the \c{&} cleanups are allowed.
-
-A here-document redirect must be specified \i{literally} on test command
-line. Specifically, it must not be the result of a variable expansion or
-context evaluation, which rarely makes sense anyway since the following
-here-document fragment itself cannot be the result of the
-expansion/evaluation either; in a sense they both are part of the syntax.
-
-This requirement is imposed in order to be able to skip test lines and their
-associated here-document fragments in the \c{if-else} directives without
-performing any expansions/evaluations (which may not be valid).
-
-The skipping procedure for a line that is either a variable assignment or a
-test command is as follows: The line is lexed until the newline or EOF which
-checking each token either for one of the variable assignment operators or
-here-document redirects. If both kinds are present then this is an ambiguity
-error which can be resolved by quoting either of the token, depending on the
-desired semantics (variable assignment or test command). Otherwise, all the
-here-document redirects are noted and the corresponding number of here-document
-fragments is skipped (which \c{here-end} match/order validation).
-
-Note also that this procedure is applied even in case of \c{if-else} with
-\c{directive-block} since the block end (\c{.\}}) may appears literally in
-one of the here-document fragments.
 
 \h#grammar-here-document|Here-Document|
 
@@ -1715,9 +2061,10 @@ To this effect, don't try to test every possible combination; this striving
 will quickly lead to everyone drowning in hundreds of tests that are only
 slight variations of each other. Sometimes combination tests are useful but
 generally keep things simple and test one thing at a time. The believe here is
-that real-world usage will uncover much more interesting interactions that you
-would never have thought of yourself.To quote a famous physicist, \"\i{... the
-imagination of nature is far, far greater than the imagination of man.}\"
+that real-world usage will uncover much more interesting interactions (which
+must become regression tests) that you would never have thought of yourself.
+To quote a famous physicist, \"\i{...  the imagination of nature is far, far
+greater than the imagination of man.}\"
 
 To expand on combination tests, don't confuse them with corner case tests. As
 an example, say you have tests for feature A and B. Now you wonder what if for
@@ -1727,24 +2074,32 @@ more test, \i{for good measure}. We don't do that. To put it another way, for
 each test you should have a clear understanding of what logic in the code you
 are testing.
 
-One approach that we found works well is to look at the changes you would like
-to commit and make sure you have a test that exercises each \i{logic
-branch}. It is also a good idea to keep testing in mind as you implement
-things. When tempted to add a small special case just to make the result
-\i{nicer}, remember that you will also have to test this special case. Given a
-choice, always prefer functional to unit tests since the former test the end
-result rather than something intermediate and possibly mocked.
+One approach that we found works well is to look at the diff of changes you
+would like to commit and make sure you at least have a test that exercises
+each \i{happy} (non-error) \i{logic branch}. For critical code you may also
+want to do so for unhappy logic branches.
+
+It is also a good idea to keep testing in mind as you implement things. When
+tempted to add a small special case just to make the result \i{nicer},
+remember that you will also have to test this special case.
+
+If the functionality is well exposed in the program, prefer functional to unit
+tests since the former test the end result rather than something intermediate
+and possibly mocked. If unit-testing a complex piece of functionality,
+consider designing a concise textual \i{mini-format} for input (either via
+command line or \c{stdin}) and output rather than constructing the test data
+and expected results programmatically.
 
 Documentation-wise, each test should at least include explicit id that
 adequately summarizes what it tests. Add summary or even details for more
-complex tests. Failure tests almost always fall into this category.
+complex tests. Failure tests usually fall into this category.
 
 Use the leading description for multi-line tests, for example:
 
 \
 : multi-name
 :
-$* John Jane >>EOO
+$* 'John' 'Jane' >>EOO
 Hello, John!
 Hello, Jane!
 EOO
@@ -1759,7 +2114,7 @@ Here is an example of a description that includes all three components:
 : This test makes sure we properly handle multiple names passed as
 : separate command line arguments.
 :
-$* John Jane >>EOO
+$* 'John' 'Jane' >>EOO
 Hello, John!
 Hello, Jane!
 EOO
@@ -1775,7 +2130,7 @@ that here-documents are indented as well. For example:
 : multi-name
 :
 {
-  $* John Jane >>EOO
+  $* 'John' 'Jane' >>EOO
   Hello, John!
 
   Hello, Jane!
@@ -1789,8 +2144,8 @@ the test id). Within a test block (one-liners without a blank between
 them), the ids should be aligned, for example:
 
 \
-$* John >\"Hi, John!\"       : custom-john
-$* World >\"Hello, World!\"  : custom-world
+$* John >'Hi, John!'       : custom-john
+$* World >'Hello, World!'  : custom-world
 \
 
 Note that you are free to put multiple spaces between the end of the command
@@ -1808,8 +2163,8 @@ tests. It is also a good idea to give the summary of the group, for example:
 : Test custom greetings
 :
 {
-  $* John >\"Hi, John!\"       : john
-  $* World >\"Hello, World!\"  : world
+  $* John >'Hi, John!'       : john
+  $* World >'Hello, World!'  : world
 }
 \
 
@@ -1819,4 +2174,23 @@ using \c{custom-greeting} as the group id would be unnecessarily repetitive
 since the id path would become, for example,
 \c{greeting/custom-greeting/john}.
 
+We quote values that are \i{strings} as opposed to options, file names, paths
+(unless contain spaces), integers, or boolean. When quoting, use the single
+quote unless you use expansion (or single quotes) inside. Note that unlike
+Bash you do not need to quote variable expansions in order to preserve
+whitespaces.  For example:
+
+\
+arg = 'Hello   Spaces'
+echo $arg              # Hello   Spaces
+\
+
+For further reading on testing that we (mostly) agree with, see:
+
+\dl|
+
+\li|\n\n\l{https://blog.nelhage.com/2016/12/how-i-test/ How I Write Tests} by Nelson Elhage\n
+
+  The only part we don't agree on is the (somewhat implied) suggestion to
+  write as many tests as possible.||
 "
