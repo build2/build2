@@ -57,6 +57,26 @@ namespace build2
 
         struct line_char
         {
+          /*
+        private:
+          size_t data_;
+
+          // Steal two bits from the pointer (need to static assert).
+          //
+        public:
+          line_type
+          type () const;
+
+          int
+          special () const; // Stored as (shifted) int16.
+
+          const char_string*
+          literal () const;
+
+          const char_regex*
+          regex () const;
+          */
+
           line_type type;
 
           union
