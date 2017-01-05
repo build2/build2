@@ -62,8 +62,8 @@ namespace build2
           union
           {
             int special; //  0 (nul character)
-            // -1 (EOF)
-            // [()|.*+?{\}0123456789,=!] (excluding [])
+                         // -1 (EOF)
+                         // [()|.*+?{\}0123456789,=!] (excluding [])
 
             const char_string* literal;
             const char_regex* regex;
