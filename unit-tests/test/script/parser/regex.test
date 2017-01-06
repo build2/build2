@@ -83,6 +83,12 @@
     testscript:1:8: error: no introducer character in stderr regex redirect
     EOE
   }
+
+  : modifier-last
+  :
+  $* <'cmd >~/x' 2>>EOE != 0
+  testscript:1:7: error: no closing introducer character in stdout regex redirect
+  EOE
 }
 
 : here-doc
@@ -185,4 +191,10 @@
     testscript:1:9: error: expected here-document regex end marker
     EOE
   }
+
+  : modifier-last
+  :
+  $* <'cmd >>~:/FOO/' 2>>EOE != 0
+  testscript:1:8: error: expected here-document regex end marker
+  EOE
 }

@@ -193,7 +193,9 @@ namespace build2
         };
 
         auto make_token_with_modifiers =
-          [&make_token, this] (type t, const char* mods, bool exc = false)
+          [&make_token, this] (type t,
+                               const char* mods,           // To recorgnize.
+                               const char* stop = nullptr) // To stop after.
         {
           string v;
           if (mods != nullptr)
@@ -206,9 +208,7 @@ namespace build2
               get ();
               v += p;
 
-              // If mutually exclusive, then we are done.
-              //
-              if (exc)
+              if (stop != nullptr && strchr (stop, p) != nullptr)
                 break;
             }
           }
@@ -342,7 +342,10 @@ namespace build2
                 return make_token (type::log_and);
               }
 
-              return make_token_with_modifiers (type::clean, "!?", true);
+              // These modifiers are mutually exclusive so stop after seeing
+              // either one.
+              //
+              return make_token_with_modifiers (type::clean, "!?", "!?");
             }
             // <
             //
@@ -376,14 +379,14 @@ namespace build2
 
               // Handle modifiers.
               //
-              const char* mod (nullptr);
+              const char* mods (nullptr);
               switch (r)
               {
               case type::in_str:
-              case type::in_doc: mod = ":"; break;
+              case type::in_doc: mods = ":/"; break;
               }
 
-              return make_token_with_modifiers (r, mod);
+              return make_token_with_modifiers (r, mods);
             }
             // >
             //
@@ -418,15 +421,16 @@ namespace build2
 
               // Handle modifiers.
               //
-              const char* mod (nullptr);
+              const char* mods (nullptr);
+              const char* stop (nullptr);
               switch (r)
               {
               case type::out_str:
-              case type::out_doc:  mod = "~:"; break;
-              case type::out_file: mod = "&";  break;
+              case type::out_doc:  mods = ":/~"; stop = "~"; break;
+              case type::out_file: mods = "&";               break;
               }
 
-              return make_token_with_modifiers (r, mod);
+              return make_token_with_modifiers (r, mods, stop);
             }
           }
         }
