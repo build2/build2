@@ -41,7 +41,7 @@ namespace build2
           // executed let's add the location anyway to ease the
           // troubleshooting. And let's stick to that principle down the road.
           //
-          fail (ll) << "unable to read " << p << ": " << e.what () << endf;
+          fail (ll) << "unable to read " << p << ": " << e << endf;
         }
       }
 
@@ -91,7 +91,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to read " << p << ": " << e.what ();
+            fail (ll) << "unable to read " << p << ": " << e;
           }
         }
       }
@@ -151,7 +151,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to write " << opp << ": " << e.what ();
+            fail (ll) << "unable to write " << opp << ": " << e;
           }
 
           auto output_info = [&what, &ll] (diag_record& d,
@@ -203,6 +203,9 @@ namespace build2
                 //
                 // ...: Invalid data.\r\r\n
                 //
+                // Note that our custom operator<<(ostream&, const exception&)
+                // removes this junk.
+                //
                 while (!s.empty () && s.back () == '\r')
                   s.pop_back ();
 
@@ -211,7 +214,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to read " << op << ": " << e.what ();
+              fail (ll) << "unable to read " << op << ": " << e;
             }
 
             if (regex_match (ls, rd.regex.regex)) // Doesn't throw.
@@ -263,7 +266,7 @@ namespace build2
               }
               catch (const io_error& e)
               {
-                fail (ll) << "unable to write " << ep << ": " << e.what ();
+                fail (ll) << "unable to write " << ep << ": " << e;
               }
 
               // Diff utility prints the differences to stdout. But for the
@@ -293,7 +296,7 @@ namespace build2
             }
             catch (const process_error& e)
             {
-              error (ll) << "unable to execute " << pp << ": " << e.what ();
+              error (ll) << "unable to execute " << pp << ": " << e;
 
               if (e.child ())
                 exit (1);
@@ -506,7 +509,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to read " << isp << ": " << e.what ();
+            fail (ll) << "unable to read " << isp << ": " << e;
           }
         };
 
@@ -521,7 +524,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to duplicate stdin: " << e.what ();
+              fail (ll) << "unable to duplicate stdin: " << e;
             }
 
             break;
@@ -556,7 +559,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to write to null device: " << e.what ();
+              fail (ll) << "unable to write to null device: " << e;
             }
 
             break;
@@ -587,7 +590,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to write " << isp << ": " << e.what ();
+              fail (ll) << "unable to write " << isp << ": " << e;
             }
 
             open_stdin ();
@@ -639,8 +642,7 @@ namespace build2
               }
               catch (const io_error& e)
               {
-                fail (ll) << "unable to duplicate " << what << ": "
-                          << e.what ();
+                fail (ll) << "unable to duplicate " << what << ": " << e;
               }
 
               return dfd;
@@ -658,7 +660,7 @@ namespace build2
               }
               catch (const io_error& e)
               {
-                fail (ll) << "unable to write to null device: " << e.what ();
+                fail (ll) << "unable to write to null device: " << e;
               }
 
               return -2;
@@ -699,7 +701,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to write " << p << ": " << e.what ();
+            fail (ll) << "unable to write " << p << ": " << e;
           }
 
           return fd.get ();
@@ -729,7 +731,7 @@ namespace build2
           catch (const io_error& e)
           {
             fail (ll) << "unable to duplicate " << (mo ? "stderr" : "stdout")
-                      << ": " << e.what ();
+                      << ": " << e;
           }
         }
 
@@ -750,7 +752,7 @@ namespace build2
           catch (const system_error& e)
           {
             fail (ll) << "unable to execute " << c.program << " builtin: "
-                      << e.what ();
+                      << e;
           }
         }
         else
@@ -788,7 +790,7 @@ namespace build2
           }
           catch (const process_error& e)
           {
-            error (ll) << "unable to execute " << pp << ": " << e.what ();
+            error (ll) << "unable to execute " << pp << ": " << e;
 
             if (e.child ())
               std::exit (1);

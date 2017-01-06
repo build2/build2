@@ -425,7 +425,7 @@ namespace build2
       }
       catch (const system_error& e)
       {
-        fail << "invalid installation directory " << d << ": " << e.what ();
+        fail << "invalid installation directory " << d << ": " << e;
       }
 
       // While install -d will create all the intermediate components between
@@ -477,7 +477,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         if (e.child ())
           exit (1);
@@ -543,7 +543,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         if (e.child ())
           exit (1);
@@ -592,7 +592,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         if (e.child ())
           exit (1);
@@ -690,7 +690,7 @@ namespace build2
       }
       catch (const system_error& e)
       {
-        fail << "invalid installation directory " << d << ": " << e.what ();
+        fail << "invalid installation directory " << d << ": " << e;
       }
 
       if (r)
@@ -718,7 +718,7 @@ namespace build2
           }
           catch (const system_error& e)
           {
-            fail << "unable to remove directory " << d << ": " << e.what ();
+            fail << "unable to remove directory " << d << ": " << e;
           }
         }
         else
@@ -748,7 +748,7 @@ namespace build2
           }
           catch (const process_error& e)
           {
-            error << "unable to execute " << args[0] << ": " << e.what ();
+            error << "unable to execute " << args[0] << ": " << e;
 
             if (e.child ())
               exit (1);
@@ -791,7 +791,7 @@ namespace build2
       }
       catch (const system_error& e)
       {
-        fail << "invalid installation path " << f << ": " << e.what ();
+        fail << "invalid installation path " << f << ": " << e;
       }
 
       path relf (relative (f));
@@ -818,7 +818,7 @@ namespace build2
         }
         catch (const system_error& e)
         {
-          fail << "unable to remove file " << f << ": " << e.what ();
+          fail << "unable to remove file " << f << ": " << e;
         }
       }
       else
@@ -847,7 +847,7 @@ namespace build2
         }
         catch (const process_error& e)
         {
-          error << "unable to execute " << args[0] << ": " << e.what ();
+          error << "unable to execute " << args[0] << ": " << e;
 
           if (e.child ())
             exit (1);

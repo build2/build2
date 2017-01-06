@@ -3,7 +3,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <sstream>
-#include <cstring> // strstr(), strchr()
+#include <cstring> // strstr()
 
 #include <build2/test/script/parser>
 
@@ -26,20 +26,24 @@ namespace std
   // resembles the following: 'regex_error(error_badrepeat): '. So we skip it.
   //
   static ostream&
-  operator<< (ostream& os, const regex_error& e)
+  operator<< (ostream& o, const regex_error& e)
   {
     const char* d (e.what ());
-    if (strchr (d, ' ') != nullptr)
-    {
-#if defined(_MSC_VER) && _MSC_VER <= 1910
-      const char* s (strstr (d, "): "));
-      if (s != nullptr)
-        d = s + 3;
-#endif
-      os << ": " << d;
-    }
 
-    return os;
+#if defined(_MSC_VER) && _MSC_VER <= 1910
+    const char* rd (strstr (d, "): "));
+    if (rd != nullptr)
+      d = rd + 3;
+#endif
+
+    ostringstream os;
+    os << runtime_error (d); // Purify the description.
+
+    string s (os.str ());
+    if (s.find (' ') != string::npos)
+      o << ": " << s;
+
+    return o;
   }
 }
 
@@ -77,8 +81,7 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          fail << "unable to read testscript " << p << ": " << e.what ()
-               << endf;
+          fail << "unable to read testscript " << p << ": " << e << endf;
         }
       }
 
@@ -1054,8 +1057,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (dl) << "unable to read testscript " << p << ": "
-                        << e.what ();
+              fail (dl) << "unable to read testscript " << p << ": " << e;
             }
           }
         };

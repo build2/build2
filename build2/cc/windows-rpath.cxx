@@ -311,7 +311,7 @@ namespace build2
             if (c != EPERM && c != ENOSYS)
             {
               print ("ln -s");
-              fail << "unable to create symlink " << l << ": " << e.what ();
+              fail << "unable to create symlink " << l << ": " << e;
             }
 
             try
@@ -326,7 +326,7 @@ namespace build2
               if (c != EPERM && c != ENOSYS)
               {
                 print ("ln");
-                fail << "unable to create hardlink " << l << ": " << e.what ();
+                fail << "unable to create hardlink " << l << ": " << e;
               }
 
               try
@@ -337,7 +337,7 @@ namespace build2
               catch (const system_error& e)
               {
                 print ("cp");
-                fail << "unable to create copy " << l << ": " << e.what ();
+                fail << "unable to create copy " << l << ": " << e;
               }
             }
           }
@@ -371,7 +371,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write to " << am << ": " << e.what ();
+        fail << "unable to write to " << am << ": " << e;
       }
     }
   }

@@ -55,13 +55,9 @@ $b
 :
 : Test creation of an existing directory.
 :
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
 $c <<EOI;
 mkdir a a 2>>~%EOE% == 1
 %mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]already-exists[/\\]test[/\\]1[/\\]a': .+%
-%%?
 EOE
 EOI
 $b
@@ -70,13 +66,9 @@ $b
 :
 : Test creation of a directory with non-existent parent.
 :
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
 $c <<EOI;
 mkdir a/b 2>>~%EOE% == 1
 %mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]not-exists[/\\]test[/\\]1[/\\]a[/\\]b': .+%
-%%?
 EOE
 EOI
 $b

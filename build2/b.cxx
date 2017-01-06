@@ -201,7 +201,7 @@ main (int argc, char* argv[])
       //
       catch (const system_error& e)
       {
-        error << "pager failed: " << e.what ();
+        error << "pager failed: " << e;
         return 1;
       }
     }

@@ -41,13 +41,9 @@ $b
 :
 : Removing non-existing file fails.
 :
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
 $c <<EOI;
 rm a 2>>~%EOE% == 1
 %rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file-not-exists[/\\]test[/\\]1[/\\]a': .+%
-%%?
 EOE
 EOI
 $b

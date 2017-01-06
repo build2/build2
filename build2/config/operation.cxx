@@ -57,7 +57,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << f << ": " << e.what ();
+        fail << "unable to write " << f << ": " << e;
       }
     }
 
@@ -277,7 +277,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << f << ": " << e.what ();
+        fail << "unable to write " << f << ": " << e;
       }
     }
 

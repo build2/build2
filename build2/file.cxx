@@ -107,7 +107,7 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e.what ();
+      fail << "unable to read buildfile " << bf << ": " << e;
     }
   }
 
@@ -307,7 +307,7 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e.what () << endf;
+      fail << "unable to read buildfile " << bf << ": " << e << endf;
     }
 
     // Never reached.
@@ -1087,7 +1087,7 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail (loc) << "unable to read buildfile " << es << ": " << e.what ();
+      fail (loc) << "unable to read buildfile " << es << ": " << e;
     }
 
     return names (); // Never reached.

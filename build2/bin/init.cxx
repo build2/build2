@@ -246,8 +246,7 @@ namespace build2
             // This is where we suggest that the user specifies --config-sub
             // to help us out.
             //
-            fail << "unable to parse binutils target '" << s << "': "
-                 << e.what () <<
+            fail << "unable to parse binutils target '" << s << "': " << e <<
               info << "consider using the --config-sub option";
           }
 

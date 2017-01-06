@@ -299,7 +299,7 @@ namespace build2
       }
       catch (const invalid_argument& e)
       {
-        fail << "unable to parse build host '" << orig << "': " << e.what () <<
+        fail << "unable to parse build host '" << orig << "': " << e <<
           info << "consider using the --config-guess option";
       }
     }

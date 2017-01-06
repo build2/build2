@@ -127,7 +127,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write to " << m << ": " << e.what ();
+        fail << "unable to write to " << m << ": " << e;
       }
 
       return mf;

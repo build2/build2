@@ -81,14 +81,11 @@ b += --no-column
 
   : not-file
   :
-  : Test cleanup of a directory as a file. Note that there is an optional
-  : trailing blank line in the regex that matches the newline added by msvcrt
-  : as a part of the error description.
+  : Test cleanup of a directory as a file.
   :
   $c <'$* -d a &a';
   $b 2>>~%EOE% != 0
   %error: unable to remove file test[/\\]1[/\\]a: .+%
-  %%?
   EOE
 }
 
@@ -156,14 +153,11 @@ b += --no-column
 
   : not-dir
   :
-  : Test cleanup of a file as a directory. Note that there is an optional
-  : trailing blank line in the regex that matches the newline added by msvcrt
-  : as a part of the error description.
+  : Test cleanup of a file as a directory.
   :
   $c <'$* -f a &a/';
   $b 2>>~%EOE% != 0
   %error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
-  %%?
   EOE
 }
 
@@ -211,14 +205,11 @@ b += --no-column
 
   : not-dir
   :
-  : Test cleanup of a file as a wildcard. Note that there is an optional
-  : trailing blank line in the regex that matches the newline added by msvcrt
-  : as a part of the error description.
+  : Test cleanup of a file as a wildcard.
   :
   $c <'$* -f a &a/***';
   $b 2>>~%EOE% != 0
   %error: unable to remove directory test[/\\]1[/\\]a[/\\]: .+%
-  %%?
   EOE
 }
 

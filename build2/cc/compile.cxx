@@ -1370,7 +1370,7 @@ namespace build2
           }
           catch (const process_error& e)
           {
-            error << "unable to execute " << args[0] << ": " << e.what ();
+            error << "unable to execute " << args[0] << ": " << e;
 
             // In a multi-threaded program that fork()'ed but did not exec(),
             // it is unwise to try to do any kind of cleanup (like unwinding
@@ -1596,7 +1596,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         // In a multi-threaded program that fork()'ed but did not exec(),
         // it is unwise to try to do any kind of cleanup (like unwinding

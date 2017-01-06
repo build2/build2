@@ -157,7 +157,7 @@ namespace build2
             // found). So it would be good to redirect child's STDERR.
             //
             if (!optional)
-              error << "unable to execute " << args[0] << ": " << e.what ();
+              error << "unable to execute " << args[0] << ": " << e;
 
             if (e.child ())
               exit (1);

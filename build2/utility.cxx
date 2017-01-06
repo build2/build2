@@ -160,7 +160,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << args0 << ": " << e.what () << endf;
+    fail << "unable to execute " << args0 << ": " << e << endf;
   }
 
   process_path
@@ -171,7 +171,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << f << ": " << e.what () << endf;
+    fail << "unable to execute " << f << ": " << e << endf;
   }
 
   process
@@ -192,11 +192,11 @@ namespace build2
       {
         // Note: run_finish() expects this exact message.
         //
-        cerr << "unable to execute " << args[0] << ": " << e.what () << endl;
+        cerr << "unable to execute " << args[0] << ": " << e << endl;
         exit (1);
       }
       else
-        fail << "unable to execute " << args[0] << ": " << e.what () << endf;
+        fail << "unable to execute " << args[0] << ": " << e << endf;
     }
   }
 
@@ -225,7 +225,7 @@ namespace build2
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << args[0] << ": " << e.what () << endf;
+    fail << "unable to execute " << args[0] << ": " << e << endf;
   }
 
   const string empty_string;

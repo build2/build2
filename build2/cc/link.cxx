@@ -978,12 +978,12 @@ namespace build2
               {
                 if (pr.wait ()) // Ignore if child failed.
                   fail << "unable to pipe resource file to " << args[0]
-                       << ": " << e.what ();
+                       << ": " << e;
               }
             }
             catch (const process_error& e)
             {
-              error << "unable to execute " << args[0] << ": " << e.what ();
+              error << "unable to execute " << args[0] << ": " << e;
 
               if (e.child ())
                 exit (1);
@@ -1498,7 +1498,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         // In a multi-threaded program that fork()'ed but did not exec(),
         // it is unwise to try to do any kind of cleanup (like unwinding
@@ -1536,7 +1536,7 @@ namespace build2
         }
         catch (const process_error& e)
         {
-          error << "unable to execute " << args[0] << ": " << e.what ();
+          error << "unable to execute " << args[0] << ": " << e;
 
           if (e.child ())
             exit (1);
@@ -1577,7 +1577,7 @@ namespace build2
           }
           catch (const system_error& e)
           {
-            fail << "unable to create symlink " << l << ": " << e.what ();
+            fail << "unable to create symlink " << l << ": " << e;
           }
         };
 

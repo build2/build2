@@ -37,7 +37,7 @@ namespace build2
     catch (const system_error& e)
     {
       print ();
-      error << "unable to remove file " << f << ": " << e.what ();
+      error << "unable to remove file " << f << ": " << e;
       throw failed ();
     }
 
@@ -78,7 +78,7 @@ namespace build2
     catch (const system_error& e)
     {
       print ();
-      error << "unable to remove directory " << d << ": " << e.what ();
+      error << "unable to remove directory " << d << ": " << e;
       throw failed ();
     }
 

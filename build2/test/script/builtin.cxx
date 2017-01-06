@@ -161,7 +161,7 @@ namespace build2
             else
               cerr << "'" << p << "'";
 
-            cerr << ": " << e.what () << endl;
+            cerr << ": " << e << endl;
             throw failed ();
           }
 
@@ -179,7 +179,7 @@ namespace build2
         catch (const io_error& e)
         {
           if (cerr.good ())
-            cerr << "cat: " << e.what () << endl;
+            cerr << "cat: " << e << endl;
         }
         catch (const failed&)
         {
@@ -222,7 +222,7 @@ namespace build2
         }
         catch (const std::exception& e)
         {
-          cerr << "echo: " << e.what () << endl;
+          cerr << "echo: " << e << endl;
         }
 
         cerr.close ();
@@ -338,7 +338,7 @@ namespace build2
             catch (const system_error& e)
             {
               cerr << "mkdir: unable to create directory '" << p << "': "
-                   << e.what () << endl;
+                   << e << endl;
               throw failed ();
             }
           }
@@ -355,7 +355,7 @@ namespace build2
         catch (const io_error& e)
         {
           if (cerr.good ())
-            cerr << "mkdir: " << e.what () << endl;
+            cerr << "mkdir: " << e << endl;
         }
         catch (const failed&)
         {
@@ -478,8 +478,7 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              cerr << "rm: unable to remove '" << p << "': " << e.what ()
-                   << endl;
+              cerr << "rm: unable to remove '" << p << "': " << e << endl;
               throw failed ();
             }
           }
@@ -496,7 +495,7 @@ namespace build2
         catch (const io_error& e)
         {
           if (cerr.good ())
-            cerr << "rm: " << e.what () << endl;
+            cerr << "rm: " << e << endl;
         }
         catch (const failed&)
         {
@@ -578,8 +577,8 @@ namespace build2
                 }
                 catch (const io_error& e)
                 {
-                  cerr << "touch: cannot create file '" << p << "': "
-                       << e.what () << endl;
+                  cerr << "touch: cannot create file '" << p << "': " << e
+                       << endl;
                   throw failed ();
                 }
 
@@ -594,8 +593,8 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              cerr << "touch: cannot create/update '" << p << "': "
-                   << e.what () << endl;
+              cerr << "touch: cannot create/update '" << p << "': " << e
+                   << endl;
               throw failed ();
             }
           }
@@ -612,7 +611,7 @@ namespace build2
         catch (const io_error& e)
         {
           if (cerr.good ())
-            cerr << "touch: " << e.what () << endl;
+            cerr << "touch: " << e << endl;
         }
         catch (const failed&)
         {

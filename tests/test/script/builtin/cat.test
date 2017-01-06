@@ -59,13 +59,9 @@ $b
 
 : non-existent
 :
-: Note that there is an optional trailing blank line in the regex that matches
-: the newline added by msvcrt as a part of the error description.
-:
 $c <<EOI;
 cat in 2>>~%EOE% != 0
 %cat: unable to print '.+[/\\]test[/\\]cat[/\\]non-existent[/\\]test[/\\]1[/\\]in': .+%
-%%?
 EOE
 EOI
 $b

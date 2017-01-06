@@ -301,7 +301,7 @@ namespace build2
       }
       catch (const process_error& e)
       {
-        error << "unable to execute " << args[0] << ": " << e.what ();
+        error << "unable to execute " << args[0] << ": " << e;
 
         if (e.child ())
           exit (1);

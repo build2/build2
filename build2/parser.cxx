@@ -820,7 +820,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail (l) << "unable to read buildfile " << p << ": " << e.what ();
+        fail (l) << "unable to read buildfile " << p << ": " << e;
       }
     }
 
@@ -956,7 +956,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail (l) << "unable to read buildfile " << p << ": " << e.what ();
+        fail (l) << "unable to read buildfile " << p << ": " << e;
       }
 
       scope_ = ocs;
@@ -1214,7 +1214,7 @@ namespace build2
           try {iv = to_version (v);}
           catch (const invalid_argument& e)
           {
-            fail (l) << "invalid version '" << v << "': " << e.what () << endf;
+            fail (l) << "invalid version '" << v << "': " << e << endf;
           }
 
           if (iv > BUILD2_VERSION)
@@ -1329,7 +1329,7 @@ namespace build2
 
             take = (k.back () == '!' ? !e : e);
           }
-          catch (const invalid_argument& e) { fail (l) << e.what (); }
+          catch (const invalid_argument& e) { fail (l) << e; }
         }
       }
       else
@@ -1433,7 +1433,7 @@ namespace build2
         return;
       }
     }
-    catch (const invalid_argument& e) { fail (el) << e.what (); }
+    catch (const invalid_argument& e) { fail (el) << e; }
 
     // Being here means things didn't end up well. Parse the description, if
     // any, with expansion. Then fail.
@@ -1798,7 +1798,7 @@ namespace build2
     {
       q = pp ? true : convert<bool> (move (lhs));
     }
-    catch (const invalid_argument& e) { fail (l) << e.what () << endf; }
+    catch (const invalid_argument& e) { fail (l) << e << endf; }
 
     if (!pp)
       pre_parse_ = !q; // Short-circuit middle?
@@ -1852,7 +1852,7 @@ namespace build2
         //
         lhs = convert<bool> (move (rhs));
       }
-      catch (const invalid_argument& e) { fail (l) << e.what (); }
+      catch (const invalid_argument& e) { fail (l) << e; }
     }
 
     pre_parse_ = pp;
@@ -1892,7 +1892,7 @@ namespace build2
         //
         lhs = convert<bool> (move (rhs));
       }
-      catch (const invalid_argument& e) { fail (l) << e.what (); }
+      catch (const invalid_argument& e) { fail (l) << e; }
     }
 
     pre_parse_ = pp;
@@ -2005,7 +2005,7 @@ namespace build2
           //
           v = !convert<bool> (move (v));
         }
-        catch (const invalid_argument& e) { fail (l) << e.what (); }
+        catch (const invalid_argument& e) { fail (l) << e; }
         break;
       }
     default:

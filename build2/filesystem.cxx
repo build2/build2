@@ -28,7 +28,7 @@ namespace build2
       if (verb >= v)
         text << "mkdir " << d;
 
-      fail << "unable to create directory " << d << ": " << e.what () << endf;
+      fail << "unable to create directory " << d << ": " << e << endf;
     }
 
     if (ms == mkdir_status::success)
@@ -57,7 +57,7 @@ namespace build2
       if (verb >= v)
         text << "mkdir -p " << d;
 
-      fail << "unable to create directory " << d << ": " << e.what () << endf;
+      fail << "unable to create directory " << d << ": " << e << endf;
     }
 
     if (ms == mkdir_status::success)
@@ -89,7 +89,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      fail << "unable to remove directory " << d << ": " << e.what ();
+      fail << "unable to remove directory " << d << ": " << e;
     }
 
     return rmdir_status::success;
@@ -104,7 +104,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      fail << "unable to stat path " << f << ": " << e.what () << endf;
+      fail << "unable to stat path " << f << ": " << e << endf;
     }
   }
 
@@ -117,7 +117,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      fail << "unable to stat path " << d << ": " << e.what () << endf;
+      fail << "unable to stat path " << d << ": " << e << endf;
     }
   }
 
@@ -130,7 +130,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      fail << "unable to stat path " << p << ": " << e.what () << endf;
+      fail << "unable to stat path " << p << ": " << e << endf;
     }
   }
 
@@ -143,7 +143,7 @@ namespace build2
     }
     catch (const system_error& e)
     {
-      fail << "unable to scan directory " << d << ": " << e.what () << endf;
+      fail << "unable to scan directory " << d << ": " << e << endf;
     }
   }
 }

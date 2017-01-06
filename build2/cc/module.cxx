@@ -115,7 +115,7 @@ namespace build2
           // help us out.
           //
           fail << "unable to parse " << x_lang << " compiler target '"
-               << ci.target << "': " << e.what () <<
+               << ci.target << "': " << e <<
             info << "consider using the --config-sub option";
         }
       }

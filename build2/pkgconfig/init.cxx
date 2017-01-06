@@ -72,7 +72,7 @@ namespace build2
         }
         catch (const process_error& e)
         {
-          fail << "unable to execute " << x << ": " << e.what ();
+          fail << "unable to execute " << x << ": " << e;
         }
       }
 

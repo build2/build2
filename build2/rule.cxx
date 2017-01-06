@@ -226,7 +226,7 @@ namespace build2
       }
       catch (const system_error& e)
       {
-        fail << "unable to create directory " << d << ": " << e.what ();
+        fail << "unable to create directory " << d << ": " << e;
       }
 
       ts |= target_state::changed;

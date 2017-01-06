@@ -249,9 +249,8 @@ namespace build2
     diag_record dr (fail);
     dr << "invalid argument";
 
-    const char* w (e.what ());
-    if (*w != '\0')
-      dr << ": " << w;
+    if (*e.what () != '\0')
+      dr << ": " << e;
 
     dr << endf;
   }
