@@ -6,8 +6,6 @@
 
 #include <map>
 
-#include <butl/triplet>
-
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/diagnostics>
@@ -54,6 +52,9 @@ namespace build2
         auto& v (var_pool);
 
         // Note: some overridable, some not.
+        //
+        // Target is a string and not target_triplet because it can be
+        // specified by the user.
         //
         v.insert<string>    ("config.bin.target",   true);
         v.insert<string>    ("config.bin.pattern",  true);
@@ -222,22 +223,23 @@ namespace build2
 
           try
           {
-            string canon;
-            triplet t (s, canon);
+            target_triplet t (s);
 
-            l5 ([&]{trace << "canonical target: '" << canon << "'; "
+            l5 ([&]{trace << "canonical target: '" << t.string () << "'; "
                           << "class: " << t.class_;});
 
-            assert (!hint || s == canon);
+            assert (!hint || s == t.string ());
 
-            // Enter as bin.target.{cpu,vendor,system,version,class}.
+            // Also enter as bin.target.{cpu,vendor,system,version,class}
+            // for convenience of access.
             //
-            r.assign<string> ("bin.target") = move (canon);
-            r.assign<string> ("bin.target.cpu") = move (t.cpu);
-            r.assign<string> ("bin.target.vendor") = move (t.vendor);
-            r.assign<string> ("bin.target.system") = move (t.system);
-            r.assign<string> ("bin.target.version") = move (t.version);
-            r.assign<string> ("bin.target.class") = move (t.class_);
+            r.assign<string> ("bin.target.cpu")     = t.cpu;
+            r.assign<string> ("bin.target.vendor")  = t.vendor;
+            r.assign<string> ("bin.target.system")  = t.system;
+            r.assign<string> ("bin.target.version") = t.version;
+            r.assign<string> ("bin.target.class")   = t.class_;
+
+            r.assign<target_triplet> ("bin.target") = move (t);
           }
           catch (const invalid_argument& e)
           {
@@ -298,7 +300,7 @@ namespace build2
           diag_record dr (text);
 
           dr << "bin " << project (r) << '@' << r.out_path () << '\n'
-             << "  target     " << cast<string> (r["bin.target"]);
+             << "  target     " << cast<target_triplet> (r["bin.target"]);
 
           if (auto l = r["bin.pattern"])
             dr << '\n'

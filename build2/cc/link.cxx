@@ -1046,7 +1046,7 @@ namespace build2
       // Next check the target. While it might be incorporated into the linker
       // checksum, it also might not (e.g., VC link.exe).
       //
-      if (dd.expect (ctg) != nullptr)
+      if (dd.expect (ctg.string ()) != nullptr)
         l4 ([&]{trace << "target mismatch forcing update of " << t;});
 
       // Start building the command line. While we don't yet know whether we

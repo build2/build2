@@ -238,7 +238,8 @@ namespace build2
         v.insert<string>   ("cxx.signature"),
         v.insert<string>   ("cxx.checksum"),
 
-        v.insert<string>   ("cxx.target"),
+        v.insert<target_triplet> ("cxx.target"),
+
         v.insert<string>   ("cxx.target.cpu"),
         v.insert<string>   ("cxx.target.vendor"),
         v.insert<string>   ("cxx.target.system"),
@@ -305,10 +306,8 @@ namespace build2
         "cxx.install",
         "cxx.uninstall",
 
-        cast<string> (rs[cm.x_id]),
-        cast<string> (rs[cm.x_target]),
-        cast<string> (rs[cm.x_target_system]),
-        cast<string> (rs[cm.x_target_class]),
+        cast<string>         (rs[cm.x_id]),
+        cast<target_triplet> (rs[cm.x_target]),
 
         cm.tstd,
 

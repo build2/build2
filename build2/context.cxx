@@ -6,8 +6,6 @@
 
 #include <sstream>
 
-#include <butl/triplet>
-
 #include <build2/rule>
 #include <build2/scope>
 #include <build2/target>
@@ -283,20 +281,21 @@ namespace build2
 
       try
       {
-        string canon;
-        triplet t (orig, canon);
+        target_triplet t (orig);
 
-        l5 ([&]{trace << "canonical host: '" << canon << "'; "
+        l5 ([&]{trace << "canonical host: '" << t.string () << "'; "
                       << "class: " << t.class_;});
 
-        // Enter as build.host.{cpu,vendor,system,version,class}.
+        // Also enter as build.host.{cpu,vendor,system,version,class} for
+        // convenience of access.
         //
-        gs.assign<string> ("build.host") = move (canon);
-        gs.assign<string> ("build.host.cpu") = move (t.cpu);
-        gs.assign<string> ("build.host.vendor") = move (t.vendor);
-        gs.assign<string> ("build.host.system") = move (t.system);
-        gs.assign<string> ("build.host.version") = move (t.version);
-        gs.assign<string> ("build.host.class") = move (t.class_);
+        gs.assign<string> ("build.host.cpu")     = t.cpu;
+        gs.assign<string> ("build.host.vendor")  = t.vendor;
+        gs.assign<string> ("build.host.system")  = t.system;
+        gs.assign<string> ("build.host.version") = t.version;
+        gs.assign<string> ("build.host.class")   = t.class_;
+
+        gs.assign<target_triplet> ("build.host") = move (t);
       }
       catch (const invalid_argument& e)
       {

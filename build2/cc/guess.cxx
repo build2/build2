@@ -946,8 +946,8 @@ namespace build2
 
       // Now we need to map x86, x64, and ARM to the target triplets. The
       // problem is, there aren't any established ones so we got to invent
-      // them ourselves. Based on the discussion in <butl/triplet>, we need
-      // something in the CPU-VENDOR-OS-ABI form.
+      // them ourselves. Based on the discussion in <butl/target-triplet>,
+      // we need something in the CPU-VENDOR-OS-ABI form.
       //
       // The CPU part is fairly straightforward with x86 mapped to 'i386' (or
       // maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also

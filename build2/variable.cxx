@@ -858,6 +858,51 @@ namespace build2
     &default_empty<process_path>
   };
 
+  // target_triplet value
+  //
+  target_triplet value_traits<target_triplet>::
+  convert (name&& n, name* r)
+  {
+    if (r == nullptr)
+    {
+      if (n.simple ())
+      {
+        try
+        {
+          return n.empty () ? target_triplet () : target_triplet (n.value);
+        }
+        catch (const invalid_argument& e)
+        {
+          throw invalid_argument (
+            string ("invalid target_triplet value: ") + e.what ());
+        }
+      }
+
+      // Fall through.
+    }
+
+    throw_invalid_argument (n, r, "target_triplet");
+  }
+
+  const char* const value_traits<target_triplet>::type_name = "target_triplet";
+
+  const value_type value_traits<target_triplet>::value_type
+  {
+    type_name,
+    sizeof (target_triplet),
+    nullptr,                         // No base.
+    &default_dtor<target_triplet>,
+    &default_copy_ctor<target_triplet>,
+    &default_copy_assign<target_triplet>,
+    &simple_assign<target_triplet>,
+    nullptr,                         // Append not supported.
+    nullptr,                         // Prepend not supported.
+    &simple_reverse<target_triplet>,
+    nullptr,                         // No cast (cast data_ directly).
+    &simple_compare<target_triplet>,
+    &default_empty<target_triplet>
+  };
+
   // variable_pool
   //
   const variable& variable_pool::

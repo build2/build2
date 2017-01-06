@@ -1523,17 +1523,18 @@ namespace build2
     auto ptr = [] (const value_type& vt) {return &vt;};
 
     return
-      n == "bool"         ? ptr (value_traits<bool>::value_type)         :
-      n == "uint64"       ? ptr (value_traits<uint64_t>::value_type)     :
-      n == "string"       ? ptr (value_traits<string>::value_type)       :
-      n == "path"         ? ptr (value_traits<path>::value_type)         :
-      n == "dir_path"     ? ptr (value_traits<dir_path>::value_type)     :
-      n == "abs_dir_path" ? ptr (value_traits<abs_dir_path>::value_type) :
-      n == "name"         ? ptr (value_traits<name>::value_type)         :
-      n == "strings"      ? ptr (value_traits<strings>::value_type)      :
-      n == "paths"        ? ptr (value_traits<paths>::value_type)        :
-      n == "dir_paths"    ? ptr (value_traits<dir_paths>::value_type)    :
-      n == "names"        ? ptr (value_traits<vector<name>>::value_type) :
+      n == "bool"           ? ptr (value_traits<bool>::value_type)           :
+      n == "uint64"         ? ptr (value_traits<uint64_t>::value_type)       :
+      n == "string"         ? ptr (value_traits<string>::value_type)         :
+      n == "path"           ? ptr (value_traits<path>::value_type)           :
+      n == "dir_path"       ? ptr (value_traits<dir_path>::value_type)       :
+      n == "abs_dir_path"   ? ptr (value_traits<abs_dir_path>::value_type)   :
+      n == "name"           ? ptr (value_traits<name>::value_type)           :
+      n == "target_triplet" ? ptr (value_traits<target_triplet>::value_type) :
+      n == "strings"        ? ptr (value_traits<strings>::value_type)        :
+      n == "paths"          ? ptr (value_traits<paths>::value_type)          :
+      n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
+      n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
       nullptr;
   }
 

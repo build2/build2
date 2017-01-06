@@ -6,8 +6,6 @@
 
 #include <iomanip> // left, setw()
 
-#include <butl/triplet>
-
 #include <build2/scope>
 #include <build2/context>
 #include <build2/diagnostics>
@@ -93,31 +91,33 @@ namespace build2
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
       //
-      string ct, st;
-      triplet tt;
+      target_triplet tt;
+      {
+        string ct;
 
-      if (ops.config_sub_specified ())
-      {
-        st = run<string> (ops.config_sub (),
-                          ci.target.c_str (),
-                          [] (string& l) {return move (l);});
-        l5 ([&]{trace << "config.sub target: '" << st << "'";});
-      }
+        if (ops.config_sub_specified ())
+        {
+          ct = run<string> (ops.config_sub (),
+                            ci.target.c_str (),
+                            [] (string& l) {return move (l);});
+          l5 ([&]{trace << "config.sub target: '" << ct << "'";});
+        }
 
-      try
-      {
-        tt = triplet (st.empty () ? ci.target : st, ct);
-        l5 ([&]{trace << "canonical target: '" << ct << "'; "
-                      << "class: " << tt.class_;});
-      }
-      catch (const invalid_argument& e)
-      {
-        // This is where we suggest that the user specifies --config-sub to
-        // help us out.
-        //
-        fail << "unable to parse " << x_lang << " compiler target '"
-             << ci.target << "': " << e.what () <<
-          info << "consider using the --config-sub option";
+        try
+        {
+          tt = target_triplet (ct.empty () ? ci.target : ct);
+          l5 ([&]{trace << "canonical target: '" << tt.string () << "'; "
+                        << "class: " << tt.class_;});
+        }
+        catch (const invalid_argument& e)
+        {
+          // This is where we suggest that the user specifies --config-sub to
+          // help us out.
+          //
+          fail << "unable to parse " << x_lang << " compiler target '"
+               << ci.target << "': " << e.what () <<
+            info << "consider using the --config-sub option";
+        }
       }
 
       // Translate x_std value (if any) to the compiler option (if any).
@@ -177,6 +177,8 @@ namespace build2
         }
 
         {
+          const string& ct (tt.string ()); // Canonical target.
+
           dr << "  signature  " << ci.signature << '\n'
              << "  target     " << ct;
 
@@ -232,14 +234,16 @@ namespace build2
       rs.assign (x_signature) = move (ci.signature);
       rs.assign (x_checksum) = move (ci.checksum);
 
-      // Enter as x.target.{cpu,vendor,system,version,class}.
+      // Also enter as x.target.{cpu,vendor,system,version,class} for
+      // convenience of access.
       //
-      rs.assign (x_target) = move (ct);
-      rs.assign (x_target_cpu) = move (tt.cpu);
-      rs.assign (x_target_vendor) = move (tt.vendor);
-      rs.assign (x_target_system) = move (tt.system);
-      rs.assign (x_target_version) = move (tt.version);
-      rs.assign (x_target_class) = move (tt.class_);
+      rs.assign (x_target_cpu)     = tt.cpu;
+      rs.assign (x_target_vendor)  = tt.vendor;
+      rs.assign (x_target_system)  = tt.system;
+      rs.assign (x_target_version) = tt.version;
+      rs.assign (x_target_class)   = tt.class_;
+
+      rs.assign (x_target) = move (tt);
 
       // config.x.{p,c,l}options
       // config.x.libs
@@ -278,7 +282,7 @@ namespace build2
         variable_map h;
 
         h.assign ("config.cc.id") = cast<string> (rs[x_id]);
-        h.assign ("config.cc.target") = cast<string> (rs[x_target]);
+        h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
 
         if (!ci.cc_pattern.empty ())
           h.assign ("config.cc.pattern") = move (ci.cc_pattern);
@@ -294,25 +298,29 @@ namespace build2
         // matched ours since it could have been loaded by another c-family
         // module.
         //
-        auto check = [&rs, &loc, this](const char* cvar,
-                                      const variable& xvar,
-                                      const char* w)
-        {
-          const string& cv (cast<string> (rs[cvar]));
-          const string& xv (cast<string> (rs[xvar]));
-
-          if (cv != xv)
-            fail (loc) << "cc and " << x << " module " << w << " mismatch" <<
-              info << cvar << " is " << cv <<
-              info << xvar.name << " is " << xv;
-        };
-
         // Note that we don't require that patterns match. Presumably, if the
         // toolchain id and target are the same, then where exactly the tools
         // come from doesn't really matter.
         //
-        check ("cc.id",     x_id,     "toolchain");
-        check ("cc.target", x_target, "target");
+        {
+          const auto& cv (cast<string> (rs["cc.id"]));
+          const auto& xv (cast<string> (rs[x_id]));
+
+          if (cv != xv)
+            fail (loc) << "cc and " << x << " module toolchain mismatch" <<
+              info << "cc.id is " << cv <<
+              info << x_id.name << " is " << xv;
+        }
+
+        {
+          const auto& cv (cast<target_triplet> (rs["cc.target"]));
+          const auto& xv (cast<target_triplet> (rs[x_target]));
+
+          if (cv != xv)
+            fail (loc) << "cc and " << x << " module target mismatch" <<
+              info << "cc.target is " << cv <<
+              info << x_target.name << " is " << xv;
+        }
       }
     }
 

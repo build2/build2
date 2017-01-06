@@ -32,6 +32,7 @@
 #include <butl/timestamp>
 #include <butl/vector-view>
 #include <butl/small-vector>
+#include <butl/target-triplet>
 
 namespace build2
 {
@@ -137,6 +138,10 @@ namespace build2
   using butl::auto_fd;
   using butl::ifdstream;
   using butl::ofdstream;
+
+  // <butl/target-triplet>
+  //
+  using butl::target_triplet;
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in

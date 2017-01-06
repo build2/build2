@@ -42,8 +42,10 @@ namespace build2
       auto& vp (var_pool);
 
       const variable& c_x (vp.insert<path> ("config.pkgconfig", true));
-      const variable& c_x_tgt (vp.insert<string> ("config.pkgconfig.target"));
       const variable& x_path (vp.insert<process_path> ("pkgconfig.path"));
+
+      const variable& c_x_tgt (
+        vp.insert<target_triplet> ("config.pkgconfig.target"));
 
       // Configure.
       //
@@ -80,9 +82,9 @@ namespace build2
       //
       if (pp.empty ())
       {
-        if (const string* t = cast_null<string> (hints[c_x_tgt]))
+        if (const auto* t = cast_null<target_triplet> (hints[c_x_tgt]))
         {
-          d = *t;
+          d = t->string ();
           d += "-pkg-config";
 
           l5 ([&]{trace << "trying " << d;});

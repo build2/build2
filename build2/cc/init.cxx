@@ -4,8 +4,6 @@
 
 #include <build2/cc/init>
 
-#include <butl/triplet>
-
 #include <build2/scope>
 #include <build2/context>
 #include <build2/diagnostics>
@@ -56,9 +54,9 @@ namespace build2
 
       // Hint variables (not overridable).
       //
-      v.insert<string> ("config.cc.id");
-      v.insert<string> ("config.cc.target");
-      v.insert<string> ("config.cc.pattern");
+      v.insert<string>         ("config.cc.id");
+      v.insert<string>         ("config.cc.pattern");
+      v.insert<target_triplet> ("config.cc.target");
 
       // Target type, for example, "C library" or "C++ library". Should be set
       // on the target by the matching rule to the name of the module (e.g.,
@@ -115,31 +113,20 @@ namespace build2
       // config.cc.target
       //
       {
-        // This value must be hinted and already canonicalized.
+        // This value must be hinted.
         //
-        const string& s (cast<string> (hints["config.cc.target"]));
+        const auto& t (cast<target_triplet> (hints["config.cc.target"]));
 
-        try
-        {
-          //@@ We do it in the hinting module and here. Any way not to
-          //   duplicate the effort? Maybe move the splitting here and
-          //   simply duplicate the values there?
-          //
-          triplet t (s);
+        // Also enter as cc.target.{cpu,vendor,system,version,class} for
+        // convenience of access.
+        //
+        rs.assign<string> ("cc.target.cpu")     = t.cpu;
+        rs.assign<string> ("cc.target.vendor")  = t.vendor;
+        rs.assign<string> ("cc.target.system")  = t.system;
+        rs.assign<string> ("cc.target.version") = t.version;
+        rs.assign<string> ("cc.target.class")   = t.class_;
 
-          // Enter as cc.target.{cpu,vendor,system,version,class}.
-          //
-          rs.assign<string> ("cc.target") = s;
-          rs.assign<string> ("cc.target.cpu") = move (t.cpu);
-          rs.assign<string> ("cc.target.vendor") = move (t.vendor);
-          rs.assign<string> ("cc.target.system") = move (t.system);
-          rs.assign<string> ("cc.target.version") = move (t.version);
-          rs.assign<string> ("cc.target.class") = move (t.class_);
-        }
-        catch (const invalid_argument& e)
-        {
-          assert (false); // Should have been caught by the hinting module.
-        }
+        rs.assign<target_triplet> ("cc.target") = t;
       }
 
       // config.cc.pattern
@@ -182,10 +169,11 @@ namespace build2
         variable_map h;
         if (first)
         {
-          h.assign ("config.bin.target") = cast<string> (rs["cc.target"]);
+          h.assign ("config.bin.target") =
+            cast<target_triplet> (rs["cc.target"]).string ();
 
           if (auto l = hints["config.bin.pattern"])
-          h.assign ("config.bin.pattern") = cast<string> (l);
+            h.assign ("config.bin.pattern") = cast<string> (l);
         }
 
         load_module ("bin.config", rs, rs, loc, false, h);
@@ -197,8 +185,8 @@ namespace build2
       //
       if (first)
       {
-        const string& ct (cast<string> (rs["cc.target"]));
-        const string& bt (cast<string> (rs["bin.target"]));
+        const auto& ct (cast<target_triplet> (rs["cc.target"]));
+        const auto& bt (cast<target_triplet> (rs["bin.target"]));
 
         if (bt != ct)
           fail (loc) << "cc and bin module target mismatch" <<
@@ -245,7 +233,8 @@ namespace build2
         // Prepare configuration hints.
         //
         variable_map h;
-        h.assign ("config.pkgconfig.target") = cast<string> (rs["cc.target"]);
+        h.assign ("config.pkgconfig.target") =
+          cast<target_triplet> (rs["cc.target"]);
 
         load_module ("pkgconfig.config", rs, rs, loc, true, h);
       }

@@ -525,6 +525,17 @@ namespace build2
     return r;
   }
 
+  // target_triplet value
+  //
+  inline void value_traits<target_triplet>::
+  assign (value& v, target_triplet&& x)
+  {
+    if (v)
+      v.as<target_triplet> () = move (x);
+    else
+      new (&v.data_) target_triplet (move (x));
+  }
+
   // vector<T> value
   //
   template <typename T>

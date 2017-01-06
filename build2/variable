@@ -226,14 +226,13 @@ namespace build2
       return reinterpret_cast<const T&> (data_);}
 
   public:
-    // The maximum size we can store directly in the value is that of names
-    // (which is a small_vector<name, 1>), which is sufficient for the most
+    // The maximum size we can store directly is sufficient for the most
     // commonly used types (string, vector, map) on all the platforms that we
     // support (each type should static assert this in its value_traits
     // specialization below). Types that don't fit will have to be handled
     // with an extra dynamic allocation.
     //
-    std::aligned_storage<sizeof (names)>::type data_;
+    std::aligned_storage<sizeof (string) * 5>::type data_;
 
     // VC14 needs decltype.
     //
@@ -666,7 +665,8 @@ namespace build2
   template <>
   struct value_traits<process_path>
   {
-    static_assert (sizeof (process_path) <= value::size_, "insufficient space");
+    static_assert (sizeof (process_path) <= value::size_,
+                   "insufficient space");
 
     // This one is represented as a @-pair of names. As a result it cannot
     // be stored in a container.
@@ -675,6 +675,27 @@ namespace build2
     static void assign (value&, process_path&&);
     static int compare (const process_path&, const process_path&);
     static bool empty (const process_path& x) {return x.empty ();}
+
+    static const bool empty_value = true;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+
+  // target_triplet
+  //
+  template <>
+  struct value_traits<target_triplet>
+  {
+    static_assert (sizeof (target_triplet) <= value::size_,
+                   "insufficient space");
+
+    static target_triplet convert (name&&, name*);
+    static void assign (value&, target_triplet&&);
+    static name reverse (const target_triplet& x) {return name (x.string ());}
+    static int compare (const target_triplet& x, const target_triplet& y) {
+      return x.compare (y);}
+    static bool empty (const target_triplet& x) {return x.empty ();}
 
     static const bool empty_value = true;
     static const char* const type_name;
