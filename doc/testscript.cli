@@ -1063,7 +1063,7 @@ while potentially spanning several physical lines. In this case they represent
 \i{logical lines}, for example, a command line and its here-document
 fragments.
 
-\h#grammar-all|Testscript Grammar|
+\h#grammar-all|Grammar|
 
 The complete grammar of the Testscript language is presented next with the
 following sections discussing the semantics of each production rule.
@@ -1184,22 +1184,22 @@ stderr: '2'(out-redirect)
 
 in-redirect:  '<-'|\
               '<+'|\
-              '<'{':'?} <text>|\
-              '<<'{':'?} <here-end>|\
+              '<'{':'?'/'?} <text>|\
+              '<<'{':'?'/'?} <here-end>|\
               '<<<' <file>
 
 out-redirect: '>-'|\
               '>+'|\
               '>&' ('1'|'2')|\
-              '>'{':'?'~'?} <text>|\
-              '>>'{':'?'~'?} <here-end>|\
+              '>'{':'?'/'?}'~'? <text>|\
+              '>>'{':'?'/'?}'~'? <here-end>|\
               '>>>'{'&'?} <file>
-
-cleanup: ('&'|'&!'|'&?') (<file>|<dir>)
 
 here-document:
   *<text>
   <here-end>
+
+cleanup: ('&'|'&?'|'&!') (<file>|<dir>)
 
 description:
   +(':' <text>)
@@ -1626,13 +1626,14 @@ $* 2 >-
 $* a1>-
 \
 
+
 \h#grammar-in-redirect|Input Redirect|
 
 \
 in-redirect:  '<-'|\
               '<+'|\
-              '<'{':'?} <text>|\
-              '<<'{':'?} <here-end>|\
+              '<'{':'?'/'?} <text>|\
+              '<<'{':'?'/'?} <here-end>|\
               '<<<' <file>
 \
 
@@ -1640,12 +1641,23 @@ The \c{stdin} data can come from a pipe, here-string (\c{<}), here-document
 (\c{<<}), a file (\c{<<<}), or \c{/dev/null}-equivalent (\c{<-}). Specifying
 both a pipe and a redirect is an error. If no pipe or \c{stdin} redirect is
 specified and the test tries to read from \c{stdin}, it is considered to have
-failed. However, whether this is detected and diagnosed is
+failed (unexpected input). However, whether this is detected and diagnosed is
 implementation-defined. To allow reading from the default \c{stdin} (for
-instance if the test is really an example), the \c{<+} redirect is used.
+instance, if the test is really an example), the \c{<+} redirect is used.
 
-The \c{:} here-string and here-document redirect modifier is used to suppress
-the otherwise automatically-added terminating newline.
+Here-string and here-document redirects may specify the following modifiers.
+The \c{:} modifier is used to suppress the otherwise automatically-added
+terminating newline.
+
+The \c{/} modifier causes all the forward slashes in the here-string or
+here-document to be translated to the test target platform's directory
+separator.
+
+A here-document redirect must be specified \i{literally} on the command
+line. Specifically, it must not be the result of an expansion (which rarely
+makes sense anyway since the following here-document fragment itself cannot be
+the result of an expansion either).
+
 
 \h#grammar-in-output|Output Redirect|
 
@@ -1653,252 +1665,43 @@ the otherwise automatically-added terminating newline.
 out-redirect: '>-'|\
               '>+'|\
               '>&' ('1'|'2')|\
-              '>'{':'?'~'?} <text>|\
-              '>>'{':'?'~'?} <here-end>|\
+              '>'{':'?'/'?}'~'? <text>|\
+              '>>'{':'?'/'?}'~'? <here-end>|\
               '>>>'{'&'?} <file>
 \
 
-=======================================================================
+The \c{stdout} and \c{stderr} data can go to a pipe (\c{stdout} only), file
+(\c{>>>&} or \c{>>>&} to append), or \c{/dev/null}-equivalent (\c{>-}). It can
+also be compared to here-string (\c{>}) or here-document (\c{>>}). For
+\c{stdout} specifying both a pipe and a redirect is an error. A test that ties
+to write to un-redirected stream (either \c{stdout} or \c{stderr}) it is
+considered to have failed (unexpected output).
 
-The \c{stdout} and \c{stderr} stream data can go to a pipe (\c{stdout} only),
-file (append if \c{>>>&}), or \c{/dev/null} (\c{>!}). It can also be
-compared to a string or the here-document fragment. For \c{stdout} specifying
-both pipe and redirect is an error. If no explicit \c{stderr} redirect is
-specified and the test is expected to fail (non-zero exit status), then an
-implicit \c{2>!} redirect is assumed.
+To allow writing to the default \c{stdout} or \c{stderr} (for instance, if the
+test is really an example), the \c{>+} redirect is used.
 
-If no \c{stdout} or \c{stderr} redirect is specified and the test tries to
-write any data to either stream, it is considered to have failed. If you need
-to allow writing to the default \c{stdout} or \c{stderr}, specify \c{>?} and
-\c{2>?}, respectively.
+It is also possible to merge \c{stderr} to \c{stdout} or vice versa with a
+merge redirect (\c{>&}). In this case the left-hand-side descriptor (implied
+or explicit) must not be the same as the right-hand-side. Having both merge
+redirects at the same time is illegal.
 
-We can also merge \c{stderr} to \c{stdout} (\c{2>&1}) or vice versa
-(\c{1>&2}).
+The \c{:/} redirect modifiers have the same semantics as in the input
+redirects. The \c{~} modifier is used to indicate that the following
+here-string/here-document is a regular expression (discussed below) rather
+than a literal. Note that if present, it must be specified last.
 
-If a command creates extra files or directories then we can register them for
-automatic cleanup at the end of the test. Files mentioned in redirects are
-registered automatically.
-
-Note that unlike shell no whitespaces around \c{<} and \c{>} redirects
-or after the \c{&} cleanups are allowed.
-
-A here-document redirect must be specified \i{literally} on test command
-line. Specifically, it must not be the result of a variable expansion or
-context evaluation, which rarely makes sense anyway since the following
-here-document fragment itself cannot be the result of the
-expansion/evaluation either; in a sense they both are part of the syntax.
-
-This requirement is imposed in order to be able to skip test lines and their
-associated here-document fragments in the \c{if-else} directives without
-performing any expansions/evaluations (which may not be valid).
-
-The skipping procedure for a line that is either a variable assignment or a
-test command is as follows: The line is lexed until the newline or EOF which
-checking each token either for one of the variable assignment operators or
-here-document redirects. If both kinds are present then this is an ambiguity
-error which can be resolved by quoting either of the token, depending on the
-desired semantics (variable assignment or test command). Otherwise, all the
-here-document redirects are noted and the corresponding number of here-document
-fragments is skipped (which \c{here-end} match/order validation).
-
-Note also that this procedure is applied even in case of \c{if-else} with
-\c{directive-block} since the block end (\c{.\}}) may appears literally in
-one of the here-document fragments.
-
-=======================================================================
-
-In merge redirects the left-hand-side descriptor (implied or explicit) must
-not be the same as the right-hand-side. Having both merge redirects at the
-same time is illegal.
-
-Here-line is like double-quoted string but recognizes newlines.
-
-It is an error to specify both leading and trailing descriptions.
-
-
-\h#grammar-line|Line|
-
-\
-script-line:
-  directive-line | \
-  variable-line  | \
-  test-line | setup-line | teardown-line
-\
-
-A testscript line is either a directive, a variable assignment, a
-setup/teardown command, or a test command.
-
-To distinguish between the variable assignment and test command line the
-parsing and expansion is performed in the \i{chunking} mode, that is, the
-parser parses a minimum amount of semantically complete input and stops.
-
-If parsing the first chunk of the input resulted in a single simple name and
-the following lexer token is one of \c{=}, \c{+=}, or \c{=+}, then this line
-is treated as a variable assignment. Otherwise, it is a test command line.
-
-Similar to the Buildfile language, this semantics supports indirect/computed
-variable names, for example:
-
-\
-foo = bar
-$bar = baz
-\
-
-\h#grammar-description|Description|
-
-\
-description-line: ': '<text>
-  (': '<text>)*
-\
-
-Description lines start with a colon (\c{:}) and are used to document tests
-(either single-line or compound) as well as test groups. In a sense, they are
-formalized comments.
-
-By convention the description has the following format with all three
-components being optional.
-
-\
-: <id>
-: <summary>
-:
-: <details>
-\
-
-If the first line in the description does not contain any whitespaces, then it
-is assumed to be the test or test group id. If the next line is followed by a
-blank line, then it is assume to be the test or test group summary. After the
-blank line come optional details which are free-form.
-
-If an id is not specified then it is automatically derived from the test or
-test group location. If the test or test group is contained directly in the
-top-level testscript file, then just its start line number is used as an id.
-Otherwise, if the test or test group reside in an included file, then the
-start line number (inside the included file) is prefixed with the line number
-of the \c{.include} directive followed by the included file name (without the
-extension) in the form \c{<line>-<file>-}. This process is repeated
-recursively for nested inclusion.
-
-The start line for a block (either test or group) is the line containing
-opening brace (\c{{}) and for a simple test \- the test line itself.
-
-\h#grammar-directives|Directives|
-
-\
-directive-line:
-  include
-  if-else
-\
-
-All directive lines start with a leading dot (\c{.}). To specify a
-non-directive line that starts with a dot you can either escape or quote it,
-for example:
-
-\
-\.include
-'.include'
-\
-
-\h2#grammar-directives-include|\c{.include}|
-
-\
-include: '.include' (<path> )+
-\
-
-The \c{include} directive includes one or more testscript files into
-another. If the specified path is not absolute, then it is interpreted as
-being relative to the including file. The semantics of inclusion is \i{as if}
-the contents of the included file appeared directly in the including file
-except for deriving test/group ids and displaying locations in diagnostics.
-
-The reminder of the line after the \c{'.include'} word is expanded as a
-Buildfile variable value.
-
-
-\h2#grammar-directives-if-else|\c{.if} \c{.else}|
-
-\
-if-else: ('.if' | '.if!') <condition>
-  script
-  elif*
-  else?
-  '.end'
-
-elif: ('.elif' | '.elif!') <condition>
-  script
-
-else: '.else'
-  script
-\
-
-The \c{if-else} directives allow for conditional exclusion of testscript
-fragments. The body of the \c{if-else} directive can be either a single
-(logical) line, a single block, or multiple lines/blocks. For example:
-
-\
-.if ($foo == FOO)
-  bar = BAR
-
-.if ($cxx.target.class != windows)
-  $* foo
-
-.if ($cxx.target.class != windows)
-  {
-    $* foo
-    $* bar
-  }
-
-.if ($foo == FOO)
-.{
-  $* foo
-
-  bar = BAR
-  baz = BAZ
-
-  {
-    $* $bar
-    $* $baz
-  }
-.}
-\
-
-Note that \c{if-else} operates on logical lines/blocks, for example:
-
-\
-.if ($foo == FOO)
-  : foo-bar
-  : Test foo bar combination
-  $* foo bar >>EOO
-  foo
-  bar
-  EOO
-
-
-.if ($foo == FOO)
-  : foo-bar
-  : Test foo bar combination
-  : foo-bar
-  {
-    $* foo
-    $* bar
-  }
-\
-
-The reminder of the line after the \c{'.if'} and \c{'.elif'} words is expanded
-as a Buildfile variable value and should evaluate to either \c{'true'} or
-\c{'false'} text literals.
-
-
+Similar to the input redirects, an output here-document redirect must be
+specified literally on the command line.
 
 \h#grammar-here-document|Here-Document|
 
 \
 here-document:
-  <text>*
+  *<text>
   <here-end>
 \
 
-The here-document fragments can be used to supply data to \c{stdin} or to
+A here-document fragments can be used to supply data to \c{stdin} or to
 compare output to the expected result for \c{stdout} and \c{stderr}. Note that
 the order of here-document fragments must match the order of redirects, for
 example:
@@ -1956,7 +1759,8 @@ EOI
 
 The leading whitespace stripping does not apply to line continuations.
 
-\h#here-regex|Output Regex|
+
+\h#grammar-regex|Output Regex|
 
 The expected result in output here-strings and here-documents can be specified
 as a regular expression instead of plain text. To signal the use of regular
@@ -2049,6 +1853,197 @@ model, the customary trailing newline at the end of the output introduces a
 trailing empty line-char. As a result, unless the \c{:} (no newline) redirect
 modifier is used, an empty line-char is implicitly added to line-regex.
 
+
+\h#grammar-cleanup|Cleanup|
+
+\
+cleanup: ('&'|'&?'|'&!') (<file>|<dir>)
+\
+
+If a command creates extra files or directories then they can be register for
+automatic cleanup at the end of the scope (test or group). Files mentioned in
+redirects are registered automatically. Additionally, certain builtints (for
+example \c{touch} and \c{mkdir}) also register their output files/directories
+automatically (as described in each builtin's documentation).
+
+If the path ends with a directory separator (slash), then it is assumed to be
+a directory. Otherwise \- a file. A directory about to be removed must be
+empty (no unexpected output).
+
+The \c{&} syntax registers a normal or \i{always} cleanup: the test fails if
+the file/directory does not exist. The \c{&?} syntax is a \i{maybe} cleanup:
+the file/directory is removed if it exists. Finally, \c{&!} is a \i{never}
+cleanup: it disables a previously registered cleanup for this file/directory
+(primarily used to disable automatic cleanups registered by builtins).
+
+The last component in the path may contain a wildcard with the following
+semantics:
+
+\
+dir/*   - all immediate files
+dir/*/  - all immediate sub-directories (which must be empty)
+dir/**  - all files recursively
+dir/**/ - all sub-directories recursively (which must be empty)
+dir/*** - all files and sub-directories recursively and dir/
+\
+
+Registering a cleanup outside testscript working directory is an error
+(@@ is that correct).
+
+
+\h#grammar-description|Description|
+
+\
+description:
+  +(':' <text>)
+\
+
+Description lines start with a colon (\c{:}) and are used to document tests
+and test groups. In a sense they are formalized comments.
+
+A description can be \i{leading}, that is, specified before the test or
+group. For tests it can also be \i{trailing} \- specified as a single line
+after the (last) command of the test. It is an error to specify both leading
+and trailing descriptions.
+
+By convention the leading description has the following format with all three
+components being optional.
+
+\
+: <id>
+: <summary>
+:
+: <details>
+\
+
+If the first line in the description does not contain any whitespaces, then it
+is assumed to be the test or test group id. If the next line is followed by a
+blank line, then it is assume to be the test or test group summary. After the
+blank line come optional details which are free-form.
+
+The trailing description can only be used to specify the id or summary (but
+not both).
+
+If an id is not specified then it is automatically derived from the test or
+test group location. If the test or test group is contained directly in the
+top-level testscript file, then just its start line number is used as an id.
+Otherwise, if the test or test group reside in an included file, then the
+start line number (inside the included file) is prefixed with the line number
+of the \c{include} directive followed by the included file name (without the
+extension) in the form \c{<line>-<file>-}. This process is repeated
+recursively in case of nested inclusion.
+
+The start line for a scope (either test or group) is the line containing its
+opening brace (\c{{}) and for a test \- the first test line.
+
+
+\h1#builtins|Builtins|
+
+The Testscript language provides a portable subset of POSIX utilities. Each
+utility normally implements the commonly used subset of the corresponding
+POSIX specification, though there are deviations (e.g., in option handling)
+and extensions, as described in this chapter. Note also the builtins are
+implemented in-process with some of the simple ones (e.g., \c{true/false},
+\c{mkdir}, etc) are being just function calls.
+
+
+\h#builtins-cat|\c{cat}|
+
+\
+cat <file>...
+\
+
+Read files in order and write their contents to \c{stdout}. Read from
+\c{stdin} if no file is specified or \c{-} is specified as a file name.
+
+
+\h#builtins-echo|\c{echo}|
+
+\
+echo <string>...
+\
+
+Write strings to \c{stdout} separating them with a single space followed
+by a newline.
+
+\h#builtins-false|\c{false}|
+
+\
+false
+\
+
+Do nothing and terminate normally with 1 exit code indicating failure.
+
+\h#builtins-mkdir|\c{mkdir}|
+
+\
+mkdir [-p] <dir>...
+\
+
+Create directories. Unless the \c{-p} option is specified, all the leading
+directories must exist and the directory itself must not exist.
+
+\dl|
+
+\li|\n\c{-p}
+
+  Create missing leading directories and ignore directories that already
+  exist.||
+
+Created directories (including the leading ones) that are inside the script
+working directory are automatically registered for cleanup.
+
+
+\h#builtins-rm|\c{rm}|
+
+\
+rm [-r] [-f] <path>...
+\
+
+Remove filesystem entries. To remove a directory (even empty) the \c{-r}
+option must be specified.
+
+The path must not be the test working directory or its parent directory. It
+also must not be outside the script working directory unless the \c{-f} option
+is specified.
+
+\dl|
+
+\li|\n\c{-r}
+
+  Remove directories and their contents recursively.|
+
+\li|\n\c{-f}
+
+  Do not fail if path does not exist or no path is specified.||
+
+Note that the implementation deviates from POSIX in a number of ways. It never
+interacts with the user and fails immediately if unable to act on an
+argument. It does not check for dot containment in the path nor considers
+filesystem permissions. In essence, it simply tries to remove the filesystem
+entry. I also always fails if an empty path is specified.
+
+
+\h#builtins-touch|\c{touch}|
+
+\
+touch <file>...
+\
+
+Change file access and modification times to the current time. Create files
+that do not exist. Fail if a file system entry other than the file exists for
+the specified name.
+
+Created files that are inside the script working directory are automatically
+registered for cleanup.
+
+\h#builtins-true|\c{true}|
+
+\
+true
+\
+
+Do nothing and terminate normally with 0 exit code indicating success.
 
 \h1#style|Style Guide|
 
