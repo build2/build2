@@ -1,134 +1,230 @@
+# file      : unit-tests/test/script/lexer/command-expansion.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 test.arguments = command-expansion
 
-$* <:"0<+" >>EOO # in-pass-redirect
-'0'
-<+
-EOO
+: pass-redirect
+:
+{
+  : in
+  :
+  $* <:"0<+" >>EOO
+  '0'
+  <+
+  EOO
 
-$* <:"0 <+" >>EOO # arg-in-pass-redirect
-'0 '
-<+
-EOO
+  : arg-in
+  :
+  $* <:"0 <+" >>EOO
+  '0 '
+  <+
+  EOO
 
-$* <:"1>+" >>EOO # out-pass-redirect
-'1'
->+
-EOO
+  : out
+  :
+  $* <:"1>+" >>EOO
+  '1'
+  >+
+  EOO
 
-$* <:"1 >+" >>EOO # arg-out-pass-redirect
-'1 '
->+
-EOO
+  : arg-out
+  :
+  $* <:"1 >+" >>EOO
+  '1 '
+  >+
+  EOO
+}
 
-$* <:"0<-" >>EOO # in-null-redirect
-'0'
-<-
-EOO
+: null-redirect
+:
+{
+  : in
+  :
+  $* <:"0<-" >>EOO
+  '0'
+  <-
+  EOO
 
-$* <:"0 <-" >>EOO # arg-in-null-redirect
-'0 '
-<-
-EOO
+  : arg-in
+  :
+  $* <:"0 <-" >>EOO
+  '0 '
+  <-
+  EOO
 
-$* <:"1>-" >>EOO # out-null-redirect
-'1'
->-
-EOO
+  : out
+  :
+  $* <:"1>-" >>EOO
+  '1'
+  >-
+  EOO
 
-$* <:"1 >-" >>EOO # arg-out-null-redirect
-'1 '
->-
-EOO
+  : arg-out
+  :
+  $* <:"1 >-" >>EOO
+  '1 '
+  >-
+  EOO
+}
 
-$* <:"1>&2" >>EOO # merge-redirect
-'1'
->&
-'2'
-EOO
+: merge-redirect
+:
+{
+  : out
+  :
+  $* <:"1>&2" >>EOO
+  '1'
+  >&
+  '2'
+  EOO
 
-$* <:"1 >&2" >>EOO # arg-merge-redirect
-'1 '
->&
-'2'
-EOO
+  : arg-out
+  :
+  $* <:"1 >&2" >>EOO
+  '1 '
+  >&
+  '2'
+  EOO
+}
 
-$* <:"0<a b" >>EOO # in-str-redirect
-'0'
-<
-'a b'
-EOO
+: str-redirect
+:
+{
+  : in
+  :
+  {
+    : newline
+    :
+    $* <:"0<a b" >>EOO
+    '0'
+    <
+    'a b'
+    EOO
 
-$* <:"1>a b" >>EOO # out-str-redirect
-'1'
->
-'a b'
-EOO
+    : no-newline
+    :
+    $* <:"0<:a b" >>EOO
+    '0'
+    <:
+    'a b'
+    EOO
+  }
 
-$* <:"0<:a b" >>EOO # in-str-nn-redirect
-'0'
-<:
-'a b'
-EOO
+  : out
+  :
+  {
+    : newline
+    :
+    $* <:"1>a b" >>EOO
+    '1'
+    >
+    'a b'
+    EOO
 
-$* <:"1>:a b" >>EOO # out-str-nn-redirect
-'1'
->:
-'a b'
-EOO
+    : no-newline
+    :
+    $* <:"1>:a b" >>EOO
+    '1'
+    >:
+    'a b'
+    EOO
+  }
+}
 
-$* <:"0<<E O I" >>EOO # in-doc-redirect
-'0'
-<<
-'E O I'
-EOO
+: doc-redirect
+:
+{
+  : in
+  :
+  {
+    : newline
+    :
+    $* <:"0<<E O I" >>EOO
+    '0'
+    <<
+    'E O I'
+    EOO
 
-$* <:"1>>E O O" >>EOO # out-doc-redirect
-'1'
->>
-'E O O'
-EOO
+    : no-newline
+    :
+    $* <:"0<<:E O I" >>EOO
+    '0'
+    <<:
+    'E O I'
+    EOO
+  }
 
-$* <:"0<<:E O I" >>EOO # in-doc-nn-redirect
-'0'
-<<:
-'E O I'
-EOO
+  : out
+  :
+  {
+    : newline
+    :
+    $* <:"1>>E O O" >>EOO
+    '1'
+    >>
+    'E O O'
+    EOO
 
-$* <:"1>>:E O O" >>EOO # out-doc-nn-redirect
-'1'
->>:
-'E O O'
-EOO
+    : no-newline
+    :
+    $* <:"1>>:E O O" >>EOO
+    '1'
+    >>:
+    'E O O'
+    EOO
+  }
+}
 
-$* <:"0<<<a b" >>EOO # in-file-redirect
-'0'
-<<<
-'a b'
-EOO
+: file-redirect
+:
+{
+  : in
+  :
+  $* <:"0<<<a b" >>EOO
+  '0'
+  <<<
+  'a b'
+  EOO
 
-$* <:"1>>>a b" >>EOO # out-file-redirect
-'1'
->>>
-'a b'
-EOO
+  : out
+  :
+  $* <:"1>>>a b" >>EOO
+  '1'
+  >>>
+  'a b'
+  EOO
 
-$* <:"1>>>&a b" >>EOO # out-file-app-redirect
-'1'
->>>&
-'a b'
-EOO
+  : out-app
+  :
+  $* <:"1>>>&a b" >>EOO
+  '1'
+  >>>&
+  'a b'
+  EOO
+}
 
-$* <:"&file" >>EOO # cleanup-always
-&
-'file'
-EOO
+: cleanup
+:
+{
+  : always
+  :
+  $* <:"&file" >>EOO
+  &
+  'file'
+  EOO
 
-$* <:"&?file" >>EOO # cleanup-maybe
-&?
-'file'
-EOO
+  : maybe
+  :
+  $* <:"&?file" >>EOO
+  &?
+  'file'
+  EOO
 
-$* <:"&!file" >>EOO # cleanup-never
-&!
-'file'
-EOO
+  : never
+  :
+  $* <:"&!file" >>EOO
+  &!
+  'file'
+  EOO
+}

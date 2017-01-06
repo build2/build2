@@ -7,68 +7,76 @@
 
 .include ../common.test
 
-: name-dir
+: name
 :
-$* <<EOI >>EOO
-x = s/foo/bar/
-print ([string] $x)
-print "$x"
-print -e=$x
-EOI
-s/foo/bar/
-s/foo/bar/
--e=s/foo/bar/
-EOO
+{
+  : dir
+  :
+  $* <<EOI >>EOO
+  x = s/foo/bar/
+  print ([string] $x)
+  print "$x"
+  print -e=$x
+  EOI
+  s/foo/bar/
+  s/foo/bar/
+  -e=s/foo/bar/
+  EOO
 
-: name-proj
-:
-$* <<EOI >>EOO
-print ([strings] foo%bar foo% %bar)
-EOI
-foo%bar foo% %bar
-EOO
+  : proj
+  :
+  $* <<EOI >>EOO
+  print ([strings] foo%bar foo% %bar)
+  EOI
+  foo%bar foo% %bar
+  EOO
 
-: name-pair
-:
-$* <<EOI >>EOO
-print ([strings] foo@bar foo/@bar/ foo@ @bar @ "@@")
-EOI
-foo@bar foo/@bar/ foo@ @bar @ @@
-EOO
+  : pair
+  :
+  $* <<EOI >>EOO
+  print ([strings] foo@bar foo/@bar/ foo@ @bar @ "@@")
+  EOI
+  foo@bar foo/@bar/ foo@ @bar @ @@
+  EOO
 
-: name-combined
-:
-$* <<EOI >>EOO
-print ([strings] x%foo@y%bar x%foo/@y%bar/)
-EOI
-x%foo@y%bar x%foo/@y%bar/
-EOO
+  : combined
+  :
+  $* <<EOI >>EOO
+  print ([strings] x%foo@y%bar x%foo/@y%bar/)
+  EOI
+  x%foo@y%bar x%foo/@y%bar/
+  EOO
+}
 
 : dir-path
 :
-$* <<EOI >>"EOO"
-x = [dir_path] foo/bar/
-print ([string] $x)
-print "$x"
-print "-I$x"
-EOI
-foo/bar/
-foo/bar
--Ifoo/bar
-EOO
-
-: dir-path-root
-:
-if ($cxx.target.class != windows)
 {
-  $* <<EOI >>EOO
-  x = [dir_path] /
+  : rel
+  :
+  $* <<EOI >>"EOO"
+  x = [dir_path] foo/bar/
   print ([string] $x)
   print "$x"
   print "-I$x"
   EOI
-  /
-  /
-  -I/
+  foo/bar/
+  foo/bar
+  -Ifoo/bar
   EOO
+
+  : root
+  :
+  if ($cxx.target.class != windows)
+  {
+    $* <<EOI >>EOO
+    x = [dir_path] /
+    print ([string] $x)
+    print "$x"
+    print "-I$x"
+    EOI
+    /
+    /
+    -I/
+    EOO
+  }
 }

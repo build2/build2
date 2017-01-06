@@ -1,47 +1,67 @@
+# file      : unit-tests/test/script/lexer/second-token.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 # Note: this mode auto-expires after each token.
 #
 test.arguments = second-token
 
-$* <";" >>EOO # semi
+: semi
+:
+$* <";" >>EOO
 ;
 <newline>
 EOO
 
-$* <":" >>EOO # colon
+: colon
+:
+$* <":" >>EOO
 :
 <newline>
 EOO
 
-$* <"=foo" >>EOO # assign
+: assign
+:
+$* <"=foo" >>EOO
 =
 'foo'
 <newline>
 EOO
 
-$* <"+= foo" >>EOO # append
+: append
+:
+$* <"+= foo" >>EOO
 +=
 'foo'
 <newline>
 EOO
 
-$* <" =+ foo" >>EOO # prepend
+: prepend
+:
+$* <" =+ foo" >>EOO
 =+
 'foo'
 <newline>
 EOO
 
-$* <"foo=bar" >>EOO # assign-leading
+: assign-leading
+:
+$* <"foo=bar" >>EOO
 'foo=bar'
 <newline>
 EOO
 
-$* <"foo+= bar" >>EOO # append-leading
+: append-leading
+:
+$* <"foo+= bar" >>EOO
 'foo+='
 'bar'
 <newline>
 EOO
 
-$* <"foo =+bar" >>EOO # prepend-leading
+: prepend-leading
+:
+$* <"foo =+bar" >>EOO
 'foo'
 '=+bar'
 <newline>

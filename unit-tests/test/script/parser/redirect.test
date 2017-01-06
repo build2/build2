@@ -1,117 +1,185 @@
+# file      : unit-tests/test/script/parser/redirect.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 # @@ Add tests for redirects other than file and merge.
 # @@ Does it make sense to split into separate files - one per redirect type?
 #
 
-$* <<EOI >>EOO          # file
-cmd 0<<<a 1>>>b 2>>>&c
-EOI
-cmd <<<a >>>b 2>>>&c
-EOO
+: file
+:
+{
+  : not-quote
+  :
+  $* <<EOI >>EOO
+  cmd 0<<<a 1>>>b 2>>>&c
+  EOI
+  cmd <<<a >>>b 2>>>&c
+  EOO
 
-$* <<EOI >>EOO          # quote-file
-cmd 0<<<"a f" 1>>>"b f" 2>>>&"c f"
-EOI
-cmd <<<'a f' >>>'b f' 2>>>&'c f'
-EOO
+  : quote
+  :
+  $* <<EOI >>EOO
+  cmd 0<<<"a f" 1>>>"b f" 2>>>&"c f"
+  EOI
+  cmd <<<'a f' >>>'b f' 2>>>&'c f'
+  EOO
 
-$* <<EOI 2>>EOE !=0     # in-file-fail1
-cmd <<<
-EOI
-testscript:1:8: error: missing stdin file
-EOE
+  : in
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <<<
+    EOI
+    testscript:1:8: error: missing stdin file
+    EOE
 
-$* <<EOI 2>>EOE !=0     # in-file-fail2
-cmd <<<""
-EOI
-testscript:1:8: error: empty stdin redirect path
-EOE
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <<<""
+    EOI
+    testscript:1:8: error: empty stdin redirect path
+    EOE
+  }
 
-$* <<EOI 2>>EOE !=0     # out-file-fail1
-cmd >>>
-EOI
-testscript:1:8: error: missing stdout file
-EOE
+  : out
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >>>
+    EOI
+    testscript:1:8: error: missing stdout file
+    EOE
 
-$* <<EOI 2>>EOE !=0     # out-file-fail2
-cmd >>>""
-EOI
-testscript:1:8: error: empty stdout redirect path
-EOE
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >>>""
+    EOI
+    testscript:1:8: error: empty stdout redirect path
+    EOE
+  }
 
-$* <<EOI 2>>EOE !=0     # err-file-fail1
-cmd 2>>>
-EOI
-testscript:1:9: error: missing stderr file
-EOE
+  : err
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>>>
+    EOI
+    testscript:1:9: error: missing stderr file
+    EOE
 
-$* <<EOI 2>>EOE !=0     # err-file-fail2
-cmd 2>>>""
-EOI
-testscript:1:9: error: empty stderr redirect path
-EOE
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>>>""
+    EOI
+    testscript:1:9: error: empty stderr redirect path
+    EOE
+  }
+}
 
-$* <<EOI >>EOO          # out-merge1
-cmd 1>&2
-EOI
-cmd >&2
-EOO
+: merge
+{
+  : out
+  :
+  {
+    : err
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2
+    EOI
+    cmd >&2
+    EOO
 
-$* <<EOI >>EOO          # out-merge2
-cmd 1>&2 2>&1 2>a
-EOI
-cmd >&2 2>a
-EOO
+    : no-mutual
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2 2>&1 2>a
+    EOI
+    cmd >&2 2>a
+    EOO
 
-$* <<EOI 2>>EOE != 0    # out-merge-fail1
-cmd 1>&a
-EOI
-testscript:1:8: error: stdout merge redirect file descriptor must be 2
-EOE
+    : not-descriptor
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&a
+    EOI
+    testscript:1:8: error: stdout merge redirect file descriptor must be 2
+    EOE
 
-$* <<EOI 2>>EOE != 0    # out-merge-fail2
-cmd 1>&1
-EOI
-testscript:1:8: error: stdout merge redirect file descriptor must be 2
-EOE
+    : self
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&1
+    EOI
+    testscript:1:8: error: stdout merge redirect file descriptor must be 2
+    EOE
 
-$* <<EOI 2>>EOE != 0    # out-merge-fail3
-cmd 1>&
-EOI
-testscript:1:8: error: missing stdout file descriptor
-EOE
+    : missed
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&
+    EOI
+    testscript:1:8: error: missing stdout file descriptor
+    EOE
+  }
 
-$* <<EOI >>EOO          # err-merge1
-cmd 2>&1
-EOI
-cmd 2>&1
-EOO
+  : err
+  {
+    : out
+    :
+    $* <<EOI >>EOO
+    cmd 2>&1
+    EOI
+    cmd 2>&1
+    EOO
 
-$* <<EOI >>EOO          # err-merge2
-cmd 1>&2 2>&1 >a
-EOI
-cmd >a 2>&1
-EOO
+    : no-mutual
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2 2>&1 >a
+    EOI
+    cmd >a 2>&1
+    EOO
 
-$* <<EOI 2>>EOE != 0    # err-merge-fail1
-cmd 2>&2
-EOI
-testscript:1:8: error: stderr merge redirect file descriptor must be 1
-EOE
+    : not-descriptor
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&a
+    EOI
+    testscript:1:8: error: stderr merge redirect file descriptor must be 1
+    EOE
 
-$* <<EOI 2>>EOE != 0    # err-merge-fail2
-cmd 2>&2
-EOI
-testscript:1:8: error: stderr merge redirect file descriptor must be 1
-EOE
+    : self
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&2
+    EOI
+    testscript:1:8: error: stderr merge redirect file descriptor must be 1
+    EOE
 
-$* <<EOI 2>>EOE != 0    # err-merge-fail3
-cmd 2>&
-EOI
-testscript:1:8: error: missing stderr file descriptor
-EOE
+    : missed
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&
+    EOI
+    testscript:1:8: error: missing stderr file descriptor
+    EOE
+  }
 
-$* <<EOI 2>>EOE != 0    # merge-fail1
-cmd 1>&2 2>&1
-EOI
-testscript:1:14: error: stdout and stderr redirected to each other
-EOE
+  : mutual
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd 1>&2 2>&1
+  EOI
+  testscript:1:14: error: stdout and stderr redirected to each other
+  EOE
+}

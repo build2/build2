@@ -1,43 +1,83 @@
-$* <"+cmd;" 2>>EOE != 0                 # semi-after-setup
-testscript:1:5: error: ';' after setup command
-EOE
+# file      : unit-tests/test/script/parser/setup-teardown.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
 
-$* <"+cmd:" 2>>EOE != 0                 # colon-after-setup
-testscript:1:5: error: ':' after setup command
-EOE
+: setup
+:
+{
+  : followed
+  :
+  {
+    : semi
+    :
+    $* <"+cmd;" 2>>EOE != 0
+    testscript:1:5: error: ';' after setup command
+    EOE
 
-$* <"-cmd;" 2>>EOE != 0                 # semi-after-tdown
-testscript:1:5: error: ';' after teardown command
-EOE
+    : colon
+    :
+    $* <"+cmd:" 2>>EOE != 0
+    testscript:1:5: error: ':' after setup command
+    EOE
+  }
 
-$* <"-cmd:" 2>>EOE != 0                 # colon-after-tdown
-testscript:1:5: error: ':' after teardown command
-EOE
+  : after
+  :
+  {
+    : test
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd
+    +cmd
+    EOI
+    testscript:2:1: error: setup command after tests
+    EOE
 
-$* <<EOI 2>>EOE != 0                 # setup-in-test
-cmd;
-+cmd
-EOI
-testscript:2:1: error: setup command in test
-EOE
+    : after-tdownt
+    :
+    $* <<EOI 2>>EOE != 0
+    -cmd
+    +cmd
+    EOI
+    testscript:2:1: error: setup command after teardown
+    EOE
+  }
 
-$* <<EOI 2>>EOE != 0                 # tdown-in-test
-cmd;
--cmd
-EOI
-testscript:2:1: error: teardown command in test
-EOE
+  : in-test
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  +cmd
+  EOI
+  testscript:2:1: error: setup command in test
+  EOE
+}
 
-$* <<EOI 2>>EOE != 0                 # setup-after-test
-cmd
-+cmd
-EOI
-testscript:2:1: error: setup command after tests
-EOE
+: tdown
+:
+{
+  : followed
+  :
+  {
+    : semi
+    :
+    $* <"-cmd;" 2>>EOE != 0
+    testscript:1:5: error: ';' after teardown command
+    EOE
 
-$* <<EOI 2>>EOE != 0                 # setup-after-tdownt
--cmd
-+cmd
-EOI
-testscript:2:1: error: setup command after teardown
-EOE
+    : colon
+    :
+    $* <"-cmd:" 2>>EOE != 0
+    testscript:1:5: error: ':' after teardown command
+    EOE
+  }
+
+  : in-test
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  -cmd
+  EOI
+  testscript:2:1: error: teardown command in test
+  EOE
+}

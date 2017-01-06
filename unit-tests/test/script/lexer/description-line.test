@@ -1,20 +1,32 @@
+# file      : unit-tests/test/script/lexer/description-line.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 test.arguments = description-line
 
-$* <" foo  bar " >>EOO # full
+: full
+:
+$* <" foo  bar " >>EOO
 ' foo  bar '
 <newline>
 EOO
 
-$* <"  " >>EOO # space
+: space
+:
+$* <"  " >>EOO
 '  '
 <newline>
 EOO
 
-$* <"" >>EOO # empty
+: empty
+:
+$* <"" >>EOO
 <newline>
 EOO
 
-$* <:"foo" >>EOO 2>>EOE != 0 # eof
+: eof
+:
+$* <:"foo" >>EOO 2>>EOE != 0
 'foo'
 EOO
 stdin:1:4: error: expected newline at the end of description line

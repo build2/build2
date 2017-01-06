@@ -109,14 +109,11 @@ $* <'$bogus([uint64] 123)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to bogus(uint64)
 EOE
 
-#\
-@@ TMP
 : print-call-2
 :
 $* <'$bogus(abc, [uint64] 123)' 2>>EOE != 0
 buildfile:1:2: error: unmatched call to bogus(<untyped>, uint64)
 EOE
-#\
 
 : print-fovl
 :

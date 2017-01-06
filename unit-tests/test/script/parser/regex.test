@@ -8,7 +8,7 @@
   : stdout
   :
   {
-    : missing
+    : missed
     :
     $* <'cmd >~' 2>>EOE != 0
     testscript:1:7: error: missing stdout here-string regex
@@ -67,7 +67,7 @@
   : stderr
   :
   {
-    : missing
+    : missed
     :
     $* <'cmd 2>~' 2>>EOE != 0
     testscript:1:8: error: missing stderr here-string regex
@@ -97,7 +97,7 @@
   : stdout
   :
   {
-    : missing
+    : missed
     :
     $* <'cmd >>~' 2>>EOE != 0
     testscript:1:8: error: expected here-document regex end marker
@@ -185,7 +185,7 @@
   : stderr
   :
   {
-    : missing
+    : missed
     :
     $* <'cmd 2>>~' 2>>EOE != 0
     testscript:1:9: error: expected here-document regex end marker

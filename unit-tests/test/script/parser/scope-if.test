@@ -1,365 +1,450 @@
-: if-true
+# file      : unit-tests/test/script/parser/scope-if.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: if
 :
-$* -s <<EOI >>EOO
-if true foo
 {
-  cmd
-}
-EOI
-{
-  ? true foo
+  : true
+  :
+  $* -s <<EOI >>EOO
+  if true foo
   {
     cmd
   }
-}
-EOO
+  EOI
+  {
+    ? true foo
+    {
+      cmd
+    }
+  }
+  EOO
 
-: if-false
-:
-$* -s <<EOI >>EOO
-if false foo
-{
-  cmd
-}
-EOI
-{
-  ? false foo
-}
-EOO
-
-: ifn-true
-:
-$* -s <<EOI >>EOO
-if! true
-{
-  cmd
-}
-EOI
-{
-  ? true
-}
-EOO
-
-: ifn-false
-:
-$* -s <<EOI >>EOO
-if! false
-{
-  cmd
-}
-EOI
-{
-  ? false
+  : false
+  :
+  $* -s <<EOI >>EOO
+  if false foo
   {
     cmd
   }
-}
-EOO
+  EOI
+  {
+    ? false foo
+  }
+  EOO
 
-: elif-true
+  : not-true
+  :
+  $* -s <<EOI >>EOO
+  if! true
+  {
+    cmd
+  }
+  EOI
+  {
+    ? true
+  }
+  EOO
+
+  : not-false
+  :
+  $* -s <<EOI >>EOO
+  if! false
+  {
+    cmd
+  }
+  EOI
+  {
+    ? false
+    {
+      cmd
+    }
+  }
+  EOO
+
+  : eos-inside
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+  {
+  EOI
+  testscript:3:1: error: expected '}' at the end of the scope
+  EOE
+
+}
+
+: elif
 :
-$* -s <<EOI >>EOO
-if false
 {
-  cmd
-}
-elif true
-{
-  cmd1
-}
-EOI
-{
-  ? false
-  ? true
+  : true
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  elif true
   {
     cmd1
   }
-}
-EOO
-
-: elif-false
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-elif false
-{
-  cmd
-}
-EOI
-{
-  ? false
-  ? false
-}
-EOO
-
-: elifn-false
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-elif! false
-{
-  cmd1
-}
-EOI
-{
-  ? false
-  ? false
+  EOI
   {
-    cmd1
-  }
-}
-EOO
-
-: elifn-true
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-elif! true
-{
-  cmd
-}
-EOI
-{
-  ? false
-  ? true
-}
-EOO
-
-: else-true
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-else
-{
-  cmd1
-}
-EOI
-{
-  ? false
-  {
-    cmd1
-  }
-}
-EOO
-
-: else-false
-:
-$* -s <<EOI >>EOO
-if true
-{
-  cmd1
-}
-else
-{
-  cmd
-}
-EOI
-{
-  ? true
-  {
-    cmd1
-  }
-}
-EOO
-
-: if-chain
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-elif false
-{
-  cmd
-  cmd
-}
-elif false
-{
-  cmd
-}
-elif true
-{
-  cmd1
-  cmd2
-}
-elif false
-{
-  cmd
-}
-else
-{
-  cmd
-  cmd
-}
-EOI
-{
-  ? false
-  ? false
-  ? false
-  ? true
-  {
+    ? false
+    ? true
     {
       cmd1
     }
-    {
-      cmd2
-    }
   }
-}
-EOO
+  EOO
 
-: nested-take
-:
-$* -s <<EOI >>EOO
-if true
-{
-  cmd1
+  : false
+  :
+  $* -s <<EOI >>EOO
   if false
   {
     cmd
   }
   elif false
   {
-    if true
-    {
-      cmd
-    }
+    cmd
   }
-  else
+  EOI
   {
-    cmd2
+    ? false
+    ? false
   }
-  cmd3
-}
-EOI
-{
-  ? true
+  EOO
+
+  : not-false
+  :
+  $* -s <<EOI >>EOO
+  if false
   {
+    cmd
+  }
+  elif! false
+  {
+    cmd1
+  }
+  EOI
+  {
+    ? false
+    ? false
     {
       cmd1
     }
+  }
+  EOO
+
+  : not-true
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  elif! true
+  {
+    cmd
+  }
+  EOI
+  {
     ? false
+    ? true
+  }
+  EOO
+
+  : after-else
+  :
+  $* <<EOI 2>>EOE != 0
+  if false
+  {
+    cmd
+  }
+  else
+  {
+    cmd
+  }
+  elif true
+  {
+    cmd
+  }
+  EOI
+  testscript:9:1: error: 'elif' after 'else'
+  EOE
+}
+
+: else
+:
+{
+  : true
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  else
+  {
+    cmd1
+  }
+  EOI
+  {
     ? false
     {
+      cmd1
+    }
+  }
+  EOO
+
+  : false
+  :
+  $* -s <<EOI >>EOO
+  if true
+  {
+    cmd1
+  }
+  else
+  {
+    cmd
+  }
+  EOI
+  {
+    ? true
+    {
+      cmd1
+    }
+  }
+  EOO
+
+  : chain
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  elif false
+  {
+    cmd
+    cmd
+  }
+  elif false
+  {
+    cmd
+  }
+  elif true
+  {
+    cmd1
+    cmd2
+  }
+  elif false
+  {
+    cmd
+  }
+  else
+  {
+    cmd
+    cmd
+  }
+  EOI
+  {
+    ? false
+    ? false
+    ? false
+    ? true
+    {
+      {
+        cmd1
+      }
       {
         cmd2
       }
     }
-    {
-      cmd3
-    }
   }
-}
-EOO
+  EOO
 
-: nested-skip
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd1
+  : scope-expected
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+  {
+    cmd
+  }
+  else
+  cmd
+  EOI
+  testscript:5:1: error: expected scope after 'else'
+  EOE
+
+  : after-else
+  :
+  $* <<EOI 2>>EOE != 0
   if false
   {
     cmd
   }
-  elif false
+  else
   {
-    if true
-    {
-      cmd
-    }
+    cmd
   }
   else
   {
-    cmd2
+    cmd
   }
-  cmd3
+  EOI
+  testscript:9:1: error: 'else' after 'else'
+  EOE
 }
-else
+
+: nested
+:
 {
-  cmd
-}
-EOI
-{
-  ? false
+  : take
+  :
+  $* -s <<EOI >>EOO
+  if true
   {
+    cmd1
+    if false
     {
       cmd
     }
-  }
-}
-EOO
-
-: demote-group
-: Chain remains a group
-:
-$* -s <<EOI >>EOO
-if false
-{
-  cmd
-}
-elif true
-{
-  cmd1
-  cmd2
-}
-else
-{
-  cmd
-}
-EOI
-{
-  ? false
-  ? true
-  {
+    elif false
     {
-      cmd1
+      if true
+      {
+        cmd
+      }
     }
+    else
     {
       cmd2
     }
+    cmd3
   }
-}
-EOO
+  EOI
+  {
+    ? true
+    {
+      {
+        cmd1
+      }
+      ? false
+      ? false
+      {
+        {
+          cmd2
+        }
+      }
+      {
+        cmd3
+      }
+    }
+  }
+  EOO
 
-: demote-test
-: Chain demoted to test
+  : skip
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd1
+    if false
+    {
+      cmd
+    }
+    elif false
+    {
+      if true
+      {
+        cmd
+      }
+    }
+    else
+    {
+      cmd2
+    }
+    cmd3
+  }
+  else
+  {
+    cmd
+  }
+  EOI
+  {
+    ? false
+    {
+      {
+        cmd
+      }
+    }
+  }
+  EOO
+}
+
+: demote
 :
-$* -s <<EOI >>EOO
-if false
 {
-  cmd
-}
-elif true
-{
-  cmd1
-}
-else
-{
-  cmd
-}
-EOI
-{
-  ? false
-  ? true
+  : group
+  : Chain remains a group
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  elif true
+  {
+    cmd1
+    cmd2
+  }
+  else
+  {
+    cmd
+  }
+  EOI
+  {
+    ? false
+    ? true
+    {
+      {
+        cmd1
+      }
+      {
+        cmd2
+      }
+    }
+  }
+  EOO
+
+  : test
+  : Chain demoted to test
+  :
+  $* -s <<EOI >>EOO
+  if false
+  {
+    cmd
+  }
+  elif true
   {
     cmd1
   }
+  else
+  {
+    cmd
+  }
+  EOI
+  {
+    ? false
+    ? true
+    {
+      cmd1
+    }
+  }
+  EOO
 }
-EOO
 
 : line-index
 : Make sure command line index spans setup/if/teardown
@@ -467,63 +552,3 @@ EOI
   }
 }
 EOO
-
-: eos-inside
-:
-$* <<EOI 2>>EOE != 0
-if
-{
-EOI
-testscript:3:1: error: expected '}' at the end of the scope
-EOE
-
-: scope-expected
-:
-$* <<EOI 2>>EOE != 0
-if
-{
-  cmd
-}
-else
-cmd
-EOI
-testscript:5:1: error: expected scope after 'else'
-EOE
-
-: else-after-else
-:
-$* <<EOI 2>>EOE != 0
-if false
-{
-  cmd
-}
-else
-{
-  cmd
-}
-else
-{
-  cmd
-}
-EOI
-testscript:9:1: error: 'else' after 'else'
-EOE
-
-: elif-after-else
-:
-$* <<EOI 2>>EOE != 0
-if false
-{
-  cmd
-}
-else
-{
-  cmd
-}
-elif true
-{
-  cmd
-}
-EOI
-testscript:9:1: error: 'elif' after 'else'
-EOE

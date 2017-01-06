@@ -1,15 +1,23 @@
-# attribute-pair
-#
-$* <<EOI 2>>EOE != 0
-x = [foo=bar]
-EOI
-testscript:1:5: error: unknown value attribute foo=bar
-EOE
+# file      : unit-tests/test/script/parser/pre-parse.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
 
-# attribute-pair-empty
-#
-$* <<EOI 2>>EOE != 0
-x = [foo=]
-EOI
-testscript:1:5: error: unknown value attribute foo
-EOE
+: attribute
+:
+{
+  : pair
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo=bar]
+  EOI
+  testscript:1:5: error: unknown value attribute foo=bar
+  EOE
+
+  : pair-empty
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo=]
+  EOI
+  testscript:1:5: error: unknown value attribute foo
+  EOE
+}

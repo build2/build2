@@ -1,10 +1,18 @@
-$* <<EOI >>EOO # empty
+# file      : unit-tests/test/script/parser/here-string.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: empty
+:
+$* <<EOI >>EOO
 cmd <""
 EOI
 cmd <''
 EOO
 
-$* <<EOI >>EOO # empty-nn
+: empty-nn
+:
+$* <<EOI >>EOO
 cmd <:""
 EOI
 cmd <:''

@@ -6,102 +6,118 @@
 
 : no-args
 :
-: Removing with no arguments fails.
-:
-$c <'rm 2>"rm: missing file" == 1';
-$b
+{
+  : fail
+  :
+  : Removing with no arguments fails.
+  :
+  $c <'rm 2>"rm: missing file" == 1';
+  $b
 
-: no-args-force
-:
-: Removing with no arguments succeeds with -f option.
-:
-$c <'rm -f';
-$b
-
-: empty-path
-:
-: Removing an empty path fails.
-:
-$c <<EOI;
-rm '' 2>"rm: invalid path ''" == 1
-EOI
-$b
+  : force
+  :
+  : Removing with no arguments succeeds with -f option.
+  :
+  $c <'rm -f';
+  $b
+}
 
 : file
 :
-: Removing existing file succeeds.
-:
-$c <<EOI;
-touch a &!a;
-rm a
-EOI
-$b
+{
+  : exists
+  :
+  : Removing existing file succeeds.
+  :
+  $c <<EOI;
+  touch a &!a;
+  rm a
+  EOI
+  $b
 
-: file-not-exists
-:
-: Removing non-existing file fails.
-:
-$c <<EOI;
-rm a 2>>~%EOE% == 1
-%rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file-not-exists[/\\]test[/\\]1[/\\]a': .+%
-EOE
-EOI
-$b
+  : not-exists
+  :
+  : Removing non-existing file fails.
+  :
+  $c <<EOI;
+  rm a 2>>~%EOE% == 1
+  %rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file[/\\]not-exists[/\\]test[/\\]1[/\\]a': .+%
+  EOE
+  EOI
+  $b
 
-: file-not-exists-force
-:
-: Removing non-existing file succeeds with -f option.
-:
-$c <'rm -f a';
-$b
+  : not-exists-force
+  :
+  : Removing non-existing file succeeds with -f option.
+  :
+  $c <'rm -f a';
+  $b
+}
 
 : dir
 :
-: Removing directory fails by default.
-:
-$c <<EOI;
-mkdir a;
-rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
-EOI
-$b
+{
+  : default
+  :
+  : Removing directory fails by default.
+  :
+  $c <<EOI;
+  mkdir a;
+  rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
+  EOI
+  $b
 
-: dir-recursive
-:
-: Removing directory succeeds with -r option.
-:
-$c <<EOI;
-mkdir -p a/b &!a &!a/b;
-rm -r a
-EOI
-$b
+  : recursive
+  :
+  : Removing directory succeeds with -r option.
+  :
+  $c <<EOI;
+  mkdir -p a/b &!a &!a/b;
+  rm -r a
+  EOI
+  $b
 
-: scope-dir
-:
-: Removing scope directory fails.
-:
-$c <<EOI;
-rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
-EOI
-$b
+  : scope
+  :
+  : Removing scope directory fails.
+  :
+  $c <<EOI;
+  rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
+  EOI
+  $b
+}
 
-: outside-scope
+: path
 :
-: Removing path outside the testscript working directory fails. Need to use a
-: path that unlikely exists (not to remove something useful).
-:
-:
-$c <<EOI;
-rm ../../a/b/c 2>>~%EOE% == 1
-%rm: '.+[/\\]outside-scope[/\\]a[/\\]b[/\\]c' is out of working directory '.+[/\\]outside-scope[/\\]test'%
-EOE
-EOI
-$b
+{
+  : empty
+  :
+  : Removing an empty path fails.
+  :
+  $c <<EOI;
+  rm '' 2>"rm: invalid path ''" == 1
+  EOI
+  $b
 
-: outside-scope-force
-:
-: Removing path outside the testscript working directory succeeds with -f
-: option. Need to use a path that unlikely exists (not to remove something
-: useful).
-:
-$c <'rm -f ../../a/b/c';
-$b
+  : outside-scope
+  :
+  : Removing path outside the testscript working directory fails. Need to use
+  : a path that unlikely exists (not to remove something useful).
+  :
+  :
+  $c <<EOI;
+  rm ../../a/b/c 2>>~%EOE% == 1
+  %rm: '.+[/\\]path[/\\]outside-scope[/\\]a[/\\]b[/\\]c' is out of working directory '.+[/\\]outside-scope[/\\]test'%
+  EOE
+  EOI
+  $b
+
+  : outside-scope-force
+  :
+  : Removing path outside the testscript working directory succeeds with -f
+  : option. Need to use a path that unlikely exists (not to remove something
+  : useful).
+  :
+  $c <'rm -f ../../a/b/c';
+  $b
+}

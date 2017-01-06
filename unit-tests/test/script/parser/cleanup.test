@@ -1,3 +1,7 @@
+# file      : unit-tests/test/script/parser/cleanup.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 : always
 :
 $* <<EOI >>EOO
@@ -30,20 +34,25 @@ EOI
 testscript:1:6: error: empty cleanup path
 EOE
 
-: missed-before-token
-: Path missed before command next token
+: missed-before
 :
-$* <<EOI 2>>EOE != 0
-cmd & >file
-EOI
-testscript:1:7: error: missing cleanup path
-EOE
+{
+  : token
+  :
+  : Path missed before command next token
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd & >file
+  EOI
+  testscript:1:7: error: missing cleanup path
+  EOE
 
-: missed-before-end
-: Test path missed before end of command
-:
-$* <<EOI 2>>EOE != 0
-cmd &
-EOI
-testscript:1:6: error: missing cleanup path
-EOE
+  : end
+  : Test path missed before end of command
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd &
+  EOI
+  testscript:1:6: error: missing cleanup path
+  EOE
+}

@@ -1,68 +1,96 @@
+# file      : unit-tests/test/script/lexer/first-token.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 # Note: this mode auto-expires after each token.
 #
 test.arguments = first-token
 
-$* <"." >>EOO # dot
+: dot
+:
+$* <"." >>EOO
 .
 <newline>
 EOO
 
-$* <";" >>EOO # semi
+: semi
+:
+$* <";" >>EOO
 ;
 <newline>
 EOO
 
-$* <":" >>EOO # colon
+: colon
+:
+$* <":" >>EOO
 :
 <newline>
 EOO
 
-$* <"{" >>EOO # lcbrace
+: lcbrace
+:
+$* <"{" >>EOO
 {
 <newline>
 EOO
 
-$* <"}" >>EOO # rcbrace
+: rcbrace
+:
+$* <"}" >>EOO
 }
 <newline>
 EOO
 
-$* <"+foo" >>EOO # setup
+: setup
+:
+$* <"+foo" >>EOO
 +
 'foo'
 <newline>
 EOO
 
-$* <"- foo" >>EOO # tdown
+: tdown
+:
+$* <"- foo" >>EOO
 -
 'foo'
 <newline>
 EOO
 
-$* <"foo+bar" >>EOO # plus-leading
+: plus-leading
+:
+$* <"foo+bar" >>EOO
 'foo+bar'
 <newline>
 EOO
 
-$* <"foo- x" >>EOO # minus-leading
+: minus-leading
+:
+$* <"foo- x" >>EOO
 'foo-'
 'x'
 <newline>
 EOO
 
-$* <"foo=" >>EOO # assign
+: assign
+:
+$* <"foo=" >>EOO
 'foo'
 '='
 <newline>
 EOO
 
-$* <"foo+=" >>EOO # append
+: append
+:
+$* <"foo+=" >>EOO
 'foo'
 '+='
 <newline>
 EOO
 
-$* <"foo=+" >>EOO # prepend
+: prepend
+:
+$* <"foo=+" >>EOO
 'foo'
 '=+'
 <newline>

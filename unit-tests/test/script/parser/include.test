@@ -1,3 +1,7 @@
+# file      : unit-tests/test/script/parser/include.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 : none
 :
 $* <<EOI
@@ -7,7 +11,7 @@ EOI
 
 : empty
 :
-touch foo.test &foo.test; #@@ TMP
+touch foo.test;
 $* <<EOI
 .include foo.test
 .include --once foo.test
@@ -93,8 +97,8 @@ EOE
 
 : unable-open
 :
-: Note that the error message is platform specific.
-:
-$* <<EOI 2>- != 0
+$* <<EOI 2>>~/EOE/ != 0
 .include foo.test
 EOI
+/testscript:1:2: error: unable to read testscript foo.test: .+/
+EOE

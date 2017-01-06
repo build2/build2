@@ -1,18 +1,28 @@
+# file      : unit-tests/test/script/lexer/variable-line.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
 test.arguments = variable-line
 
-$* <"cmd;" >>EOO # semi
+: semi
+:
+$* <"cmd;" >>EOO
 'cmd'
 ;
 <newline>
 EOO
 
-$* <"cmd ;" >>EOO # semi-separated
+: semi-separated
+:
+$* <"cmd ;" >>EOO
 'cmd'
 ;
 <newline>
 EOO
 
-$* <";" >>EOO # semi-only
+: semi-only
+:
+$* <";" >>EOO
 ;
 <newline>
 EOO

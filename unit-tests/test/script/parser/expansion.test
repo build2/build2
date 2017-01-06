@@ -1,8 +1,11 @@
-# Make sure everything expanded as strings.
-#
+# file      : unit-tests/test/script/parser/expansion.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
 
-# quote
-#
+: quote
+:
+: Make sure everything expanded as strings.
+:
 $* <<EOI >>EOO
 x = dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
 cmd dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
