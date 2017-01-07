@@ -220,9 +220,9 @@ namespace build2
   public:
     // Fast, unchecked cast of data_ to T.
     //
-    template<typename T> T& as () & {return reinterpret_cast<T&> (data_);}
-    template<typename T> T&& as () && {return move (as<T> ());}
-    template<typename T> const T& as () const& {
+    template <typename T> T& as () & {return reinterpret_cast<T&> (data_);}
+    template <typename T> T&& as () && {return move (as<T> ());}
+    template <typename T> const T& as () const& {
       return reinterpret_cast<const T&> (data_);}
 
   public:
@@ -232,7 +232,7 @@ namespace build2
     // specialization below). Types that don't fit will have to be handled
     // with an extra dynamic allocation.
     //
-    std::aligned_storage<sizeof (string) * 5>::type data_;
+    std::aligned_storage<sizeof (string) * 11>::type data_;
 
     // VC14 needs decltype.
     //

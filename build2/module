@@ -68,7 +68,7 @@ namespace build2
 
   struct loaded_module_map: std::map<string, module_state>
   {
-    template<typename T>
+    template <typename T>
     T*
     lookup (const string& name) const
     {
