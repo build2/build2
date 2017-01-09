@@ -419,7 +419,10 @@ namespace build2
       auto run = [&t, &wd] (testscript& ts)
       {
         if (verb)
-          text << "test " << t << " with " << ts;
+        {
+          const auto& tt (cast<target_triplet> (t["test.target"]));
+          text << "test " << t << " with " << ts << " on " << tt;
+        }
 
         script::parser p;
         script::script s (t, ts, wd);

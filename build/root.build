@@ -31,3 +31,7 @@ if! $cli.configured
 #
 tests/exe{*}:      test = true
 unit-tests/exe{*}: test = true
+
+# Specify the test target for cross-testing.
+#
+test.target = $cxx.target

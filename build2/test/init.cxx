@@ -37,25 +37,38 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
+      auto& vp (var_pool);
+
+      // Note: none are overridable.
+      //
+      // The test variable is a name which can be a path (with the
+      // true/false special values) or a target name.
+      //
+      vp.insert<name>    ("test",           variable_visibility::target);
+      vp.insert<name>    ("test.input",     variable_visibility::project);
+      vp.insert<name>    ("test.output",    variable_visibility::project);
+      vp.insert<name>    ("test.roundtrip", variable_visibility::project);
+      vp.insert<strings> ("test.options",   variable_visibility::project);
+      vp.insert<strings> ("test.arguments", variable_visibility::project);
+
+      // These are only used in testscript.
+      //
+      vp.insert<strings> ("test.redirects", variable_visibility::project);
+      vp.insert<strings> ("test.cleanups",  variable_visibility::project);
+
+      // Test target platform.
+      //
+      // Unless already set, default test.target to build.host. Note that it
+      // can still be overriden by the user, e.g., in root.build.
+      //
       {
-        auto& v (var_pool);
+        value& v (
+          rs.assign (
+            vp.insert<target_triplet> (
+              "test.target", variable_visibility::project)));
 
-        // Note: none are overridable.
-        //
-        // The test variable is a name which can be a path (with the
-        // true/false special values) or a target name.
-        //
-        v.insert<name>    ("test",           variable_visibility::target);
-        v.insert<name>    ("test.input",     variable_visibility::project);
-        v.insert<name>    ("test.output",    variable_visibility::project);
-        v.insert<name>    ("test.roundtrip", variable_visibility::project);
-        v.insert<strings> ("test.options",   variable_visibility::project);
-        v.insert<strings> ("test.arguments", variable_visibility::project);
-
-        // These are only used in testscript.
-        //
-        v.insert<strings> ("test.redirects", variable_visibility::project);
-        v.insert<strings> ("test.cleanups", variable_visibility::project);
+        if (!v || v.empty ())
+          v = cast<target_triplet> ((*global_scope)["build.host"]);
       }
     }
 
