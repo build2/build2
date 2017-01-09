@@ -573,7 +573,7 @@ running all script-level tests as well as the \c{config} group immediately.
 Inside \c{config}, once the setup command (\c{cat}) is performed, the two
 inner tests are executed in parallel as well.
 
-@@ temp directory structure (why ../)? term: 'test working directory'
+@@ Show directory structure and give a test of execution (ref to details)!
 
 
 \h1#integration|Build System Integration|
@@ -601,15 +601,15 @@ target:
 ./: test{basics}
 \
 
-During variable lookup if a variable is not found in a testscript, then its
-search continues in the buildfile starting with the target-specific variables
-of the target being tested (e.g., \c{exe{hello\}}; called \i{test target}),
-then target-specific variables of the the testscript target (e.g.,
-\c{test{basics\}}; called \i{script target}), and the continuing with the
-scopes starting from the one containing the testscript target. This means a
-testscript can \"see\" all the existing buildfile variables plus we can use
-target-specific variables to pass additional information to testscrips, for
-example:
+During variable lookup if a variable is not found in one of the testscript
+scopes, then its search continues in the buildfile starting with the
+target-specific variables of the target being tested (e.g., \c{exe{hello\}};
+called \i{test target}), then target-specific variables of the testscript
+target (e.g., \c{test{basics\}}; called \i{script target}), and then
+continuing with the scopes starting from the one containing the testscript
+target. This means a testscript can \"see\" all the existing buildfile
+variables plus we can use target-specific variables to pass additional
+information to testscrips, for example:
 
 \
 # basics.test
@@ -642,9 +642,11 @@ test{basics}@./: foo = FOO
 \
 
 Additionally, a number of \c{test.*} variables are used by convention to pass
-commonly required information to testscripts. Unless set manually as a test or
-script target-specific variable, the \c{test} variable is automatically set to
-the target path being tested. For example, given this \c{buildfile}:
+commonly required information to testscripts.
+
+Unless set manually as a test or script target-specific variable, the \c{test}
+variable is automatically set to the target path being tested. For example,
+given this \c{buildfile}:
 
 \
 exe{hello}: test{testscript}
@@ -679,11 +681,12 @@ hello = ../hello/exe{hello}
 include ../hello/
 \
 
-The other \c{test.} variables are \c{test.options}, \c{test.arguments},
-\c{test.redirects}, and \c{test.cleanups}. You can use them to pass additional
-command line options, arguments, redirects, and cleanups to your test scripts
-and together with \c{test} they form the test target command line which,
-for conciseness, is bound to the following read-only variable aliases:
+The other special \c{test.} variables are \c{test.options},
+\c{test.arguments}, \c{test.redirects}, and \c{test.cleanups}. You can use
+them to pass additional command line options, arguments, redirects, and
+cleanups to your test scripts and together with \c{test} they form the test
+target command line which, for conciseness, is bound to the following
+read-only variable aliases:
 
 \
 $* - $test $test.options $test.arguments $test.redirects $test.cleanups
@@ -701,21 +704,282 @@ test.options += --foo
 $* bar # Includes --foo.
 \
 
-Note also that the \c{test.} variables only establish a convention. You
-could also put everything into, say \c{test.arguments}, and it will still
-work as expected.
+Note also that these \c{test.} variables only establish a convention. You
+could also put everything into, say \c{test.arguments}, and it will still work
+as expected.
+
+Finally, the \c{test.target} variable can be used to specify the test target
+platform when cross-testing (for example, when running Windows test on Linux
+under Wine). Normally, you would set it in your \c{build/root.build} to the
+cross-compilation target of your toolchain, for example:
+
+\
+# root.build
+#
+
+using cxx                 # Load the C++ module.
+test.target = $cxx.target # Set test target to the C++ compiler target.
+\
+
+If this variable is not set explicitly, then it default to \c{build.host}
+(which is the platform on which the build system is running) and only
+native testing will be supported.
+
+All the testscripts for a particular test target are executed in a
+subdirectory of \c{out_root} (or, more precisely, in subdirectories of this
+subdirectory, as discussed below). If the test target is a directory, then the
+subdirectory is called \c{test}. Otherwise, it is the name of the target
+prefixed with\c{test-}. For example:
+
+\
+./:         test{foo}   # $out_root/test/
+exe{hello}: test{bar}   # $out_root/test-hello/
+\
+
+
+\h1#model|Model and Execution|
+
+A testscript file is a set of nested scopes. A scope is either a group scope
+or a test scope. Group scopes contain nested group and test scopes. Test
+scopes only contain test commands.
+
+Group scopes are used to organize related tests with potentially shared
+variables as well as setup and teardown commands. Explicit test scopes are
+normally used for better visual separation of complex tests.
+
+The top level scope is always an implicit group scope corresponding to the
+entire script file. If there is no explicit scope for a test, one is
+established implicitly. As a result, a testscript file always starts with a
+group scope which then contains other group scopes and/or test scopes,
+recursively.
+
+A scope (both group and test) has an \i{id}. If not specified explicitly, it
+is automatically derived from the group/test location in the testscript file
+(@@ ref description). The id of the implicit outermost scope is the script
+file name without the \c{.test} extension. If the file name is \c{testscript},
+then the id is empty.
+
+Based on the ids each nested group and test has an \i{id path} that uniquely
+identifies it. It starts with the id of the implied outermost group (unless
+empty), may include a number of intermediate group ids, and ends with the
+final test or group id. The ids in the path are separated with a forward slash
+(\c{/}). Note that this also happens to be the relative filesystem path to the
+temporary directory where the test is executed (as discussed below). Inside a
+scope its id path is available via the special \c{$@} variable (read-only).
+
+As an example, consider the following testscript file which we assume is
+called \c{basics.test}:
+
+\
+test: test
+
+: group
+{
+  test1
+
+  : test2
+  {
+    test2a;
+    test2b
+  }
+}
+\
+
+Below is its version annotated with id paths that also shows all the implicit
+scopes:
+
+\
+# basics
+{
+  # basics/test
+  {
+    test
+  }
+
+  # basics/group
+  {
+    # basics/group/5
+    {
+      test1
+    }
+
+    # basics/group/test2
+    {
+      test2a;
+      test2b
+    }
+  }
+}
+\
+
+A scope establishes a nested variable context. A variable set within a scope
+will only have effect until the end of this scope. Variable lookup is
+performed starting from the scope of the expansion, continuing with the outer
+testscript scopes, and then continuing in the buildfile.
+
+A scope also establishes a cleanup context. All cleanups registered in a
+certain scope are performed at the end of that scope's execution.
+
+Prior to executing a scope, a nested temporary directory is created with the
+scope id as its name. This directory then becomes the scope's working
+directory. After executing the scope (and after performing cleanups) this
+temporary directory is automatically removed provided that it is empty. If it
+is not empty, the test is considered failed (unexpected output).  Inside a
+scope its working directory is available via the special \c{$~} variable
+(read-only).
+
+As an example, consider the following version of \c{basics.test}. We also
+assume that its test target is a directory.
+
+\
+: group
+{
+  foo = FOO
+  bar = BAR
+
+  +setup &out-setup
+
+  : test1
+  {
+    bar = BAZ
+    test1 $foo $bar
+  }
+
+  test2 $bar: test2
+}
+
+test $foo &out-test
+\
+
+Below is its annotated version:
+
+\
+{                         # $~ = $out_root/test/basics/
+  {                       # $~ = .../test/basics/group/
+    foo = FOO
+    bar = BAR
+
+    +setup &out-setup
+
+    {                     # $~ = .../basics/group/test1/
+      bar = BAZ
+      test1 $foo $bar     # test1 FOO BAZ
+    }
+
+    {                     # $~ = .../basics/group/test2/
+      test2 $bar          # test2 BAR
+    }
+  }                       # Remove out-setup.
+
+  {                       # $~ = .../test/basics/17/
+    test $foo &out-test   # test
+  }                       # Remove out-test.
+}
+\
+
+A test should normally create any files or directories in its working
+directory to ensure test isolation. A test can, however, access (but normally
+not modify) files created by an outer group's setup commands. Because of this
+nested directory structure this can be done using \c{../}-based relative
+paths, for example:
+
+\
+{
+  +setup >>>test.conf
+
+  test1 ../test.conf
+  test2 ../test.conf
+}
+\
+
+Alternative, one can use an absolute path:
+
+\
+{
+  conf = $~/test.conf
+  +setup >>>$conf
+
+  test1 $conf
+  test2 $conf
+}
+\
+
+Inside the scope working directory names that start with \c{stdin},
+\c{stdout}, \c{stderr}, as well as, \c{cmd-} are reserved.
+
+To executing a test scope its commands (including variable assignments) are
+are executed sequentially and in order specified. If any of the commands
+fails, nor further commands are executed and the test fails.
+
+Executing a group scope starts with performing its setup commands (including
+variable assignments) sequentially and in order specified. If any of them
+fail, the group execution is terminated.
+
+After completing the setup, inner scopes (both group and test) are
+executed. Because scopes are isolated and test should not depend on each
+other, the execution can be performed in parallel.
+
+After executing the inner scopes, if all of them succeeded, the teardown
+commands are executed sequentially and in order specified. Again, if any of
+them fail, the group execution is terminated.
+
+As an example, consider the following version of \c{basics.test}:
+
+\
+test0
+
+: group
+{
+  +setup1
+  +setup2
+
+  test1
+  test2
+  test3
+
+  -teardown2
+  -teardown1
+}
+\
+
+At the top level, both \c{test0} and \c{group} can start executing in
+parallel. Inside \c{group}, first the two setup command are executed
+sequentially. Once the setup is completed, \c{test1}, \c{test2}, \c{test3}
+can all be executed in parallel (along with \c{test0} which may still be
+running). Once the three inner tests complete successfully, the \c{group}'s
+teardown command are executed sequentially. At the top level, the script
+is completed only when both \c{test0} and \c{group} complete.
+
+The following annotated version illustrated a possible thread scheduling
+for this example:
+
+\
+{               # thread 1
+
+  test0         # thread 2
+
+  : group       # thread 1
+  {
+    +setup1     # thread 1
+    +setup2     # thread 1
+
+    test1       # thread 3
+    test2       # thread 4
+    test3       # thread 1
+
+                # thread 1 (wait for 3 & 4)
+
+    -teardown2  # thread 1
+    -teardown1  # thread 1
+  }
+                # thread 1 (wait for 2)
+}
+\
 
 A testscript would normally contain multiple tests and sometimes it is
-desirable to only run a specific test or a group of tests. For example, you
-may be debugging a failing tests and would like to re-run it. Each test and
-group in a testscript has an id. As a result each test has an \i{id path} that
-uniquely identifies it. The id path starts with the testscript file name
-(corresponds to the id of the implied outermost group, as described below),
-may include a number of intermediate group ids, and ends with the test id. The
-ids in a path are separated with a forward slash (\c{/}). Note that this also
-happens to be the filesystem path to the temporary directory where the test is
-executed (again, as discussed below). As an example, consider the following
-testscript file called \c{basics.test}:
+desirable to only execute a specific test or a group of tests. For example,
+you may be debugging a failing test and would like to re-run it. As an
+example, consider the following testscript file called \c{basics.test}:
 
 \
 $* foo : foo
@@ -748,6 +1012,7 @@ $ b test \"config.test=basics/foo basics/fox/bar\" # Run fox and bar.
 @@ Maybe test.id instead of config.test?
 
 @@ What about running from root, with multiple basics.test?
+
 
 \h1#lexical|Lexical Structure|
 
@@ -988,9 +1253,9 @@ args = \'&foo\'  # '&foo'
 echo $args       # echo &foo
 \
 
-\h1#grammar|Grammar and Semantics|
+\h1#syntax|Syntax and Semantics|
 
-\h#grammar-notation|Notation|
+\h#syntax-notation|Notation|
 
 The formal grammar of the Testscript language is specified using an EBNF-like
 notation with the following elements:
@@ -1063,7 +1328,7 @@ while potentially spanning several physical lines. In this case they represent
 \i{logical lines}, for example, a command line and its here-document
 fragments.
 
-\h#grammar-all|Grammar|
+\h#syntax-grammar|Grammar|
 
 The complete grammar of the Testscript language is presented next with the
 following sections discussing the semantics of each production rule.
@@ -1205,17 +1470,16 @@ description:
   +(':' <text>)
 \
 
-\h#grammar-script|Script|
+\h#syntax-script|Script|
 
 \
 script:
   scope-body
 \
 
-A testscript file is an implicit group scope with its id being the file
-name without the \c{.test} extension.
+A testscript file is an implicit group scope.
 
-\h#grammar-scope|Scope|
+\h#syntax-scope|Scope|
 
 \
 scope-body:
@@ -1239,131 +1503,8 @@ in setup commands, no teardown commands, and only the scope having the
 description, if any. Otherwise, it is a group scope. If there is no explicit
 scope for a test, one is established implicitly.
 
-Group scopes are used to organize related tests with potentially shared
-variables as well as setup and teardown commands. Explicit test scopes are
-normally used for better visual separation of complex tests.
 
-A scope establishes a nested variable and cleanup context. A variable set
-within a scope will only have effect until the end of this scope. All
-scope-level cleanups are triggered at the end of the scope.
-
-Entering a scope triggers the creation of a nested temporary directory with
-the group/test id as its name. This directory then becomes the group/test
-working directory (\c{CWD}). When leaving the scope, this temporary directory
-is automatically removed provided that it is empty. If it is not empty, the
-test fails (unexpected output).
-
-As an example, consider the following testscript file which we assume is
-called \c{basics.test}:
-
-\
-test &out-test: test
-
-: group
-{
-  foo = bar
-
-  +setup1
-  +setup2 &out-setup2
-
-  test1 &out-test1: test1
-
-  : test2
-  {
-    foo = baz
-    test2 $foo
-  }
-
-  test3 $foo: test3
-
-  -teardown2
-  -teardown1
-}
-\
-
-Below is its annotated version that shows all the \i{as-if} transformations
-as well as various actions performed during its execution:
-
-\
-# Set CWD=$out_root/
-
-: basics    # Implicit group scope for the script.
-{           # Create basics/ subdirectory, set CWD=.../basics/
-
-  : test    # Implicit test scope.
-  {         # Create test/ subdirectory, set CWD=.../basics/test/
-
-    test &out-test
-
-  }         # Remove out-test, remove test/, set CWD=.../basics/
-
-  : group
-  {         # Create group/ subdirectory, set CWD=.../basics/group/
-            # Execute setup commands
-
-    foo = bar
-
-    +setup1
-    +setup2 &out-setup2
-
-    : test1 # Implicit test scope.
-    {       # Create test1/ subdirectory, set CWD=.../group/test1/
-
-      test1 &out-test1: test1
-
-    }       # Remove out-test1, remove test1/, set CWD=.../group/
-
-    : test2
-    {       # Create test2/ subdirectory, set CWD=.../group/test2/
-
-      foo = baz
-      test2 $foo # test2 baz
-
-    }       # Inner variable foo is no longer in effect
-            # Remove remove test2/, set CWD=.../group/
-
-    : test3 # Implicit test scope.
-    {       # Create test3/ subdirectory, set CWD=.../group/test3/
-
-      test3 $foo # test3 bar
-
-    }       # Remove remove test3/, set CWD=.../group/
-
-    -teardown2
-    -teardown1
-  }         # Execute teardown commands
-            # Variable foo is no longer in effect
-            # Remove out-setup2, group/, set CWD=.../basics/
-
-}           # Remove basics/, set CWD=$out_root/
-\
-
-Because of this nested directory structure, a test can use \c{../}-based
-relative paths to refer to, for example, a file created by a group's setup
-command. For example:
-
-\
-{
-  +setup >>>test.conf
-
-  test1 ../test.conf
-  test2 ../test.conf
-}
-\
-
-Alternative, one can use an absolute path:
-
-\
-{
-  conf = $~/test.conf
-  +setup >>>$conf
-
-  test1 $conf
-  test2 $conf
-}
-\
-
-\h#grammar-scope-if|Scope-If|
+\h#syntax-scope-if|Scope-If|
 
 \
 scope-if:
@@ -1387,7 +1528,7 @@ the scopes in an \c{if-else} chain are alternative implementations of the same
 group/test (thus the single description). If at least one of them is a group
 scope, then all the others are treated as groups as well.
 
-\h#grammar-directive|Directive|
+\h#syntax-directive|Directive|
 
 \
 directive:
@@ -1403,7 +1544,7 @@ buildfile. For example:
 include common-$(cxx.target.class).test
 \
 
-\h2#grammar-directive-include|Include|
+\h2#syntax-directive-include|Include|
 
 \
 include: 'include' (' '+'--once')*(' '+<path>)*
@@ -1419,7 +1560,7 @@ this scope should not be included again. The implementation is not required to
 handle links when determining if two paths are to the same file. Relative
 paths are assumed to be relative to the including testscript file.
 
-\h#grammar-setup-teardown|Setup and Teardown|
+\h#syntax-setup-teardown|Setup and Teardown|
 
 \
 setup:
@@ -1438,7 +1579,7 @@ use the \c{'+'} and \c{'-'} prefixes. A standalone (not part of a test)
 variable assignment is automatically treated as setup if no tests have yet
 been encountered in this scope and as teardown otherwise.
 
-\h#grammar-test|Test|
+\h#syntax-test|Test|
 
 \
 test:
@@ -1456,7 +1597,7 @@ cat <'verbose = true' >>>$conf;
 test $conf
 \
 
-\h#grammar-variable|Variable|
+\h#syntax-variable|Variable|
 
 \
 variable-like:
@@ -1476,7 +1617,7 @@ args = [strings] foo   bar 'fox   baz'
 echo $args # foo bar fox   baz
 \
 
-\h#grammar-variable-if|Variable-If|
+\h#syntax-variable-if|Variable-If|
 
 \
 variable-if:
@@ -1522,7 +1663,7 @@ Note also that the only purpose of having a separate (from \c{command-if})
 variable-only if-block is to remove the error-prone requirement of having to
 specify \c{+} and \c{-} prefixes in group setup/teardown.
 
-\h#grammar-command|Command|
+\h#syntax-command|Command|
 
 \
 command-like:
@@ -1567,7 +1708,7 @@ is expected to succeed (0 exit code). The logical result of executing a
 \c{command} is therefore a boolean value which is used in the higher-level
 constructs (pipe and expression).
 
-\h#grammar-command-if|Command-If|
+\h#syntax-command-if|Command-If|
 
 \
 command-if:
@@ -1605,7 +1746,7 @@ end;
 test $foo
 \
 
-\h#grammar-redirect|Redirect|
+\h#syntax-redirect|Redirect|
 
 \
 redirect: stdin|stdout|stderr
@@ -1627,7 +1768,7 @@ $* a1>-
 \
 
 
-\h#grammar-in-redirect|Input Redirect|
+\h#syntax-in-redirect|Input Redirect|
 
 \
 in-redirect:  '<-'|\
@@ -1659,7 +1800,7 @@ makes sense anyway since the following here-document fragment itself cannot be
 the result of an expansion either).
 
 
-\h#grammar-in-output|Output Redirect|
+\h#syntax-in-output|Output Redirect|
 
 \
 out-redirect: '>-'|\
@@ -1693,7 +1834,7 @@ than a literal. Note that if present, it must be specified last.
 Similar to the input redirects, an output here-document redirect must be
 specified literally on the command line.
 
-\h#grammar-here-document|Here-Document|
+\h#syntax-here-document|Here-Document|
 
 \
 here-document:
@@ -1760,7 +1901,7 @@ EOI
 The leading whitespace stripping does not apply to line continuations.
 
 
-\h#grammar-regex|Output Regex|
+\h#syntax-regex|Output Regex|
 
 The expected result in output here-strings and here-documents can be specified
 as a regular expression instead of plain text. To signal the use of regular
@@ -1854,7 +1995,7 @@ trailing empty line-char. As a result, unless the \c{:} (no newline) redirect
 modifier is used, an empty line-char is implicitly added to line-regex.
 
 
-\h#grammar-cleanup|Cleanup|
+\h#syntax-cleanup|Cleanup|
 
 \
 cleanup: ('&'|'&?'|'&!') (<file>|<dir>)
@@ -1891,7 +2032,7 @@ Registering a cleanup outside testscript working directory is an error
 (@@ is that correct).
 
 
-\h#grammar-description|Description|
+\h#syntax-description|Description|
 
 \
 description:
