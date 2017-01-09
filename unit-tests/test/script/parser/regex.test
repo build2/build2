@@ -46,9 +46,12 @@
 
     : malformed
     :
-    $* <'cmd >~/*foo/' 2>>~/EOE/ != 0
+    : Note that old versions of libc++ (for example 1.1) do not detect some
+    : regex errors. For example '*' is parsed successfully.
+    :
+    $* <'cmd >~/foo[/' 2>>~/EOE/ != 0
     /testscript:1:7: error: invalid stdout regex redirect.*/
-      info: regex: /*foo/
+      info: regex: /foo[/
     EOE
 
     : without-flags
@@ -128,7 +131,7 @@
     :
     $* <<EOI 2>>~/EOE/ != 0
     cmd >>~/EOO/
-    /?foo/
+    /foo[/
     EOO
     EOI
     /testscript:2:1: error: invalid regex.*/
@@ -138,10 +141,11 @@
     :
     $* <<EOI 2>>~/EOE/ != 0
     cmd >>~/EOO/
-    /*
+    a
+    /{
     EOO
     EOI
-    /testscript:3:1: error: invalid here-document regex.*/
+    /testscript:4:1: error: invalid here-document regex.*/
     EOE
 
     : empty

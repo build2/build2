@@ -16,14 +16,41 @@ namespace build2
     {
       namespace regex
       {
+        static_assert (alignof (char_string) % 4 == 0,
+                       "inappropriate allignment for char_string");
+
+        static_assert (alignof (char_regex) % 4 == 0,
+                       "inappropriate allignment for char_regex");
+
+        static_assert (sizeof (uintptr_t) > sizeof (int16_t),
+                       "inappropriate uintptr_t size");
+
         const line_char line_char::nul (0);
         const line_char line_char::eof (-1);
 
         // line_char
         //
+        // We package the special character into uintptr_t with the following
+        // steps:
+        //
+        // - narrow down int value to int16_t (preserves all the valid values)
+        //
+        // - convert to uint16_t (bitwise representation stays the same, but no
+        //   need to bother with signed value widening, leftmost bits loss on
+        //   left shift, etc)
+        //
+        // - convert to uintptr_t (storage type)
+        //
+        // - shift left by two bits (the operation is fully reversible as
+        //   uintptr_t is wider then uint16_t)
+        //
         line_char::
         line_char (int c)
-            : type (line_type::special), special (c)
+            : data_ (
+              (static_cast <uintptr_t> (
+                static_cast<uint16_t> (
+                  static_cast<int16_t> (c))) << 2) |
+              static_cast <uintptr_t> (line_type::special))
         {
           // @@ How can we allow anything for basic_regex but only subset
           //    for our own code?
@@ -81,19 +108,22 @@ namespace build2
         bool
         operator== (const line_char& l, const line_char& r)
         {
-          if (l.type == r.type)
+          line_type lt (l.type ());
+          line_type rt (r.type ());
+
+          if (lt == rt)
           {
             bool res (true);
 
-            switch (l.type)
+            switch (lt)
             {
-            case line_type::special: res = l.special == r.special; break;
+            case line_type::special: res = l.special () == r.special (); break;
             case line_type::regex:   assert (false); break;
 
               // Note that we use pointers (rather than vales) comparison
               // assuming that the strings must belong to the same pool.
               //
-            case line_type::literal: res = l.literal == r.literal; break;
+            case line_type::literal: res = l.literal () == r.literal (); break;
             }
 
             return res;
@@ -101,10 +131,10 @@ namespace build2
 
           // Match literal with regex.
           //
-          if (l.type == line_type::literal && r.type == line_type::regex)
-            return regex_match (*l.literal, *r.regex);
-          else if (r.type == line_type::literal && l.type == line_type::regex)
-            return regex_match (*r.literal, *l.regex);
+          if (lt == line_type::literal && rt == line_type::regex)
+            return regex_match (*l.literal (), *r.regex ());
+          else if (rt == line_type::literal && lt == line_type::regex)
+            return regex_match (*r.literal (), *l.regex ());
 
           return false;
         }
@@ -115,15 +145,18 @@ namespace build2
           if (l == r)
             return false;
 
-          if (l.type != r.type)
-            return l.type < r.type;
+          line_type lt (l.type ());
+          line_type rt (r.type ());
+
+          if (lt != rt)
+            return lt < rt;
 
           bool res (false);
 
-          switch (l.type)
+          switch (lt)
           {
-          case line_type::special: res = l.special < r.special; break;
-          case line_type::literal: res = *l.literal < *r.literal; break;
+          case line_type::special: res =  l.special () <  r.special (); break;
+          case line_type::literal: res = *l.literal () < *r.literal (); break;
           case line_type::regex:   assert (false); break;
           }
 
@@ -229,7 +262,7 @@ namespace std
     {
       const char_type& c (*b++);
 
-      *m++ = c.type == line_type::special && build2::digit (c.special)
+      *m++ = c.type () == line_type::special && build2::digit (c.special ())
         ? digit
         : 0;
     }
@@ -286,11 +319,11 @@ namespace std
   {
     assert (radix == 8 || radix == 10 || radix == 16);
 
-    if (c.type != line_type::special)
+    if (c.type () != line_type::special)
       return -1;
 
     const char digits[] = "0123456789ABCDEF";
-    const char* d (string::traits_type::find (digits, radix, c.special));
+    const char* d (string::traits_type::find (digits, radix, c.special ()));
     return d != nullptr ? d - digits : -1;
   }
 }

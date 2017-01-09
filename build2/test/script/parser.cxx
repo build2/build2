@@ -37,7 +37,7 @@ namespace std
 #endif
 
     ostringstream os;
-    os << runtime_error (d); // Purify the description.
+    os << runtime_error (d); // Sanitize the description.
 
     string s (os.str ());
     if (s.find (' ') != string::npos)
@@ -1328,7 +1328,7 @@ namespace build2
         // Create a special empty object.
         //
         regex_parts ()
-            : introducer ('\0'), flags (regex::char_flags()) {}
+            : introducer ('\0'), flags (regex::char_flags ()) {}
 
         regex_parts (string v, char i, regex::char_flags f)
             : value (move (v)), introducer (i), flags (f) {}

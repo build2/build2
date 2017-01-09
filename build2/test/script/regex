@@ -8,6 +8,7 @@
 #include <list>
 #include <regex>
 #include <locale>
+#include <cstdint>       // uintptr_t
 #include <type_traits>   // make_unsigned, is_unsigned
 #include <unordered_set>
 
@@ -57,37 +58,45 @@ namespace build2
 
         struct line_char
         {
-          /*
-        private:
-          size_t data_;
-
-          // Steal two bits from the pointer (need to static assert).
+          // Steal last two bits from the pointer to store the type.
           //
+        private:
+          std::uintptr_t data_;
+
         public:
           line_type
-          type () const;
+          type () const {return static_cast<line_type> (data_ & 0x3);}
 
           int
-          special () const; // Stored as (shifted) int16.
+          special () const
+          {
+            // Stored as (shifted) int16_t. Perform steps reversed to those
+            // that are described in the comment for the corresponding ctor.
+            // Note that the intermediate cast to uint16_t is required to
+            // portably preserve the -1 special character.
+            //
+            return static_cast<int16_t> (static_cast<uint16_t> (data_ >> 2));
+          }
 
           const char_string*
-          literal () const;
+          literal () const
+          {
+            // Note that 2 rightmost bits are used for packaging line_char
+            // type. Read the comment for the corresponding ctor for details.
+            //
+            return reinterpret_cast<const char_string*> (
+              data_ & ~std::uintptr_t (0x3));
+          }
 
           const char_regex*
-          regex () const;
-          */
-
-          line_type type;
-
-          union
+          regex () const
           {
-            int special; //  0 (nul character)
-                         // -1 (EOF)
-                         // [()|.*+?{\}0123456789,=!] (excluding [])
-
-            const char_string* literal;
-            const char_regex* regex;
-          };
+            // Note that 2 rightmost bits are used for packaging line_char
+            // type. Read the comment for the corresponding ctor for details.
+            //
+            return reinterpret_cast<const char_regex*> (
+              data_ & ~std::uintptr_t (0x3));
+          }
 
           static const line_char nul;
           static const line_char eof;
@@ -96,7 +105,12 @@ namespace build2
           //
           line_char () = default;
 
-          // Create a special character.
+          // Create a special character. The argument value must be one of the
+          // following ones:
+          //
+          // 0 (nul character)
+          // -1 (EOF)
+          // [()|.*+?{\}0123456789,=!] (excluding [])
           //
           // Note that the constructor is implicit to allow basic_regex to
           // implicitly construct line_chars from special char literals (in
@@ -121,7 +135,13 @@ namespace build2
 
           explicit
           line_char (const char_string* s) // Assume already pooled.
-              : type (line_type::literal), literal (s) {}
+              //
+              // Steal two bits from the pointer to package line_char type.
+              // Assume (and statically assert) that char_string address is a
+              // multiple of four.
+              //
+              : data_ (reinterpret_cast <std::uintptr_t> (s) |
+                       static_cast <std::uintptr_t> (line_type::literal)) {}
 
           // Create a regex character.
           //
@@ -130,7 +150,13 @@ namespace build2
 
           explicit
           line_char (const char_regex* r) // Assume already pooled.
-              : type (line_type::regex), regex (r) {}
+              //
+              // Steal two bits from the pointer to package line_char type.
+              // Assume (and statically assert) that char_regex address is a
+              // multiple of four.
+              //
+              : data_ (reinterpret_cast <std::uintptr_t> (r) |
+                       static_cast <std::uintptr_t> (line_type::regex)) {}
 
           // Provide basic_regex with the ability to use line_char in a context
           // where a char value is expected (e.g., as a function argument).
@@ -145,7 +171,7 @@ namespace build2
           //
           operator char () const
           {
-            return type == line_type::special ? special : '\a'; // BELL.
+            return type () == line_type::special ? special () : '\a'; // BELL.
           }
 
           // Return true if the character is a syntax (special) one.
@@ -160,8 +186,8 @@ namespace build2
           explicit
           operator T () const
           {
-            assert (type == line_type::special);
-            return static_cast<T> (special);
+            assert (type () == line_type::special);
+            return static_cast<T> (special ());
           }
         };
 
@@ -234,16 +260,16 @@ namespace build2
         bool
         operator== (const line_char& l, const T& r)
         {
-          return
-            l.type == line_type::special && static_cast<T> (l.special) == r;
+          return l.type () == line_type::special &&
+            static_cast<T> (l.special ()) == r;
         }
 
         template <typename T, typename = typename line_char_cmp<T>::type>
         bool
         operator== (const T& l, const line_char& r)
         {
-          return
-            r.type == line_type::special && static_cast<T> (r.special) == l;
+          return r.type () == line_type::special &&
+            static_cast<T> (r.special ()) == l;
         }
 
         template <typename T, typename = typename line_char_cmp<T>::type>
@@ -264,16 +290,16 @@ namespace build2
         bool
         operator< (const line_char& l, const T& r)
         {
-          return
-            l.type == line_type::special && static_cast<T> (l.special) < r;
+          return l.type () == line_type::special &&
+            static_cast<T> (l.special ()) < r;
         }
 
         template <typename T, typename = typename line_char_cmp<T>::type>
         bool
         operator< (const T& l, const line_char& r)
         {
-          return
-            r.type == line_type::special && l < static_cast<T> (r.special);
+          return r.type () == line_type::special &&
+            l < static_cast<T> (r.special ());
         }
 
         template <typename T, typename = typename line_char_cmp<T>::type>
@@ -419,9 +445,10 @@ namespace std
     bool
     is (mask m, char_type c) const
     {
-      return m == (c.type == line_type::special && build2::digit (c.special)
-                   ? digit
-                   : 0);
+      return m ==
+        (c.type () == line_type::special && build2::digit (c.special ())
+         ? digit
+         : 0);
     }
 
     const char_type*
@@ -454,7 +481,7 @@ namespace std
     char
     narrow (char_type c, char def) const
     {
-      return c.type == line_type::special ? c.special : def;
+      return c.type () == line_type::special ? c.special () : def;
     }
 
     const char_type*

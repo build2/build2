@@ -35,12 +35,20 @@ main ()
 
     enum meta {mn = 'n', mp = 'p'};
 
+    // Special roundtrip.
+    //
+    assert (lc ('0').special ()       == '0');
+    assert (lc (0).special ()         == 0);
+    assert (lc (-1).special ()        == -1);
+    assert (lc ('p').special ()       == 'p');
+    assert (lc (u'\u2028').special () == u'\u2028');
+
     // Special comparison.
     //
     assert (lc ('0') == lc ('0'));
     assert (lc ('0') == '0');
     assert (lc ('n') == mn);
-    assert (mn              == static_cast<meta> (lc ('n')));
+    assert (mn       == static_cast<meta> (lc ('n')));
 
     assert (lc ('0') != lc ('1'));
     assert (lc ('0') != '1');
@@ -58,11 +66,15 @@ main ()
     assert (lc ('n') <= mn);
     assert (lc ('1') <= lc ("0", p));
 
+    // Literal roundtrip.
+    //
+    assert (*lc ("abc", p).literal () == "abc");
+
     // Literal comparison.
     //
-    assert (lc ("a", p)         == lc ("a", p));
-    assert (lc ("a", p).literal == lc ("a", p).literal);
-    assert (char (lc ("a", p))  == '\a');
+    assert (lc ("a", p)            == lc ("a", p));
+    assert (lc ("a", p).literal () == lc ("a", p).literal ());
+    assert (char (lc ("a", p))     == '\a');
 
     assert (lc ("a", p)   != lc ("b", p));
     assert (!(lc ("a", p) != lc (regex ("a"), p))); // Matches.
@@ -74,6 +86,10 @@ main ()
     assert (lc ("a", p) <= lc ("b", p));
     assert (lc ("a", p) <= lc (regex ("a"), p));
     assert (lc ("a", p) <  lc (regex ("c"), p));
+
+    // Regex roundtrip.
+    //
+    assert (regex_match ("abc", *lc (regex ("abc"), p).regex ()));
 
     // Regex comparison.
     //
@@ -127,27 +143,6 @@ main ()
     v1 = vc ({'0', '1', '2'});
     ct::move (v1.data (), v1.data () + 1, 2);
     assert (v1 == vc ({'1', '2', '2'}));
-  }
-
-  // Test line_string.
-  //
-  // @@ Add more tests.
-  //
-  // Note that the following code crashes if compiled with libc++ (LLVM bug
-  // #31454).
-  //
-  // @@ Probably we can overcome it by providing our own allocator for
-  //    basic_string instantiation. The function allocate() could allocate some
-  //    more elements that would be enough not to corrupt the memory (which
-  //    push_back() does).
-  // @@ But maybe doesn't worth to bother as the bug seems to get assigned.
-  // @@ Heavily affects MacOS where clang++/libc++ is the default setup.
-  //
-  {
-    line_string s;
-    s.push_back (line_char ('0'));
-    s.push_back (line_char ('1'));
-    s.push_back (line_char ('2'));
   }
 
   // Test line_char_locale and ctype<line_char> (only non-trivial functions).

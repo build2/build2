@@ -232,11 +232,14 @@ namespace build2
     // specialization below). Types that don't fit will have to be handled
     // with an extra dynamic allocation.
     //
-    std::aligned_storage<sizeof (string) * 11>::type data_;
-
-    // VC14 needs decltype.
+    // std::max() is not constexpr on GCC 4.9.
     //
-    static const size_t size_ = sizeof (decltype (data_));
+    static constexpr size_t size_ =
+      sizeof (names) > sizeof (target_triplet)
+      ? sizeof (names)
+      : sizeof (target_triplet);
+
+    std::aligned_storage<size_>::type data_;
 
     // Make sure we have sufficient storage for untyped values.
     //
