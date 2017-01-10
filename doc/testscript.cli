@@ -238,8 +238,8 @@ Let's explain what's going here: to use a regex here-string or here-document
 we add the \c{~} redirect modifier. In this case the here-document end marker
 must start and end with the regex introducer character of your choice (\c{/}
 in our case). Any line inside the here-document fragment that begins with this
-introducer is then treated as a regular expression rather than a literal (@@
-ref to regex).
+introducer is then treated as a regular expression rather than a literal (see
+\l{#syntax-regex Output Regex} for details).
 
 While this was a fairly deep rabbit hole for a first example, it is a good
 illustration of how quickly things get complicated when testing real-world
@@ -411,7 +411,7 @@ But what is \c{cat} exactly? While most POSIX systems will have a program with
 this name, there is no such thing in vanilla Windows. To help with this
 Testscript provides a subset (both in terms of the number and supported
 features) of POSIX utilities, such as, \c{echo}, \c{touch}, \c{cat},
-\c{mkdir}, \c{rm}, and so on (@@ ref builtins).
+\c{mkdir}, \c{rm}, and so on (see \l{#builtins Builtins} for details).
 
 Besides explicit group scopes each test is automatically placed in its own
 implicit test scope. However, we can make the test scope explicit, for
@@ -568,12 +568,34 @@ usage: $0 <name>
 EOE
 \
 
-The execution of these tests happens in parallel. Testscript will start
-running all script-level tests as well as the \c{config} group immediately.
-Inside \c{config}, once the setup command (\c{cat}) is performed, the two
-inner tests are executed in parallel as well.
+Testscript isolates tests from each other by running each test in its own
+temporary working directory under \c{out_base}. For the above \c{testscript}
+the working directory structure will be as follows:
 
-@@ Show directory structure and give a test of execution (ref to details)!
+\
+$out_base/
+└── test-hello/
+      ├── command-name/
+      ├── command-names/
+      ├── stdin-names/
+      ├── config/
+      │    ├── hello.conf
+      │    ├── custom-greet/
+      │    └── default-greet/
+      └── missing-name/
+\
+
+If all the test succeed then this working directory structure is automatically
+removed. In case of a failure, however, it is left behind in case you need to
+examine the output of the failed tests. It will also be automatically cleaned
+on the subsequent run, before executing any tests.
+
+The execution of tests happens in parallel. In the above case Testscript will
+start running all the top-level tests as well as the \c{config} group
+immediately.  Inside \c{config}, once the setup command (\c{cat}) is
+completed, the two inner tests are executed in parallel as well. Refer to
+\l{#model Model and Execution} for details on the test directory structure and
+execution.
 
 
 \h1#integration|Build System Integration|
@@ -726,14 +748,14 @@ If this variable is not set explicitly, then it default to \c{build.host}
 native testing will be supported.
 
 All the testscripts for a particular test target are executed in a
-subdirectory of \c{out_root} (or, more precisely, in subdirectories of this
+subdirectory of \c{out_base} (or, more precisely, in subdirectories of this
 subdirectory, as discussed below). If the test target is a directory, then the
 subdirectory is called \c{test}. Otherwise, it is the name of the target
 prefixed with\c{test-}. For example:
 
 \
-./:         test{foo}   # $out_root/test/
-exe{hello}: test{bar}   # $out_root/test-hello/
+./:         test{foo}   # $out_base/test/
+exe{hello}: test{bar}   # $out_base/test-hello/
 \
 
 
@@ -755,9 +777,9 @@ recursively.
 
 A scope (both group and test) has an \i{id}. If not specified explicitly, it
 is automatically derived from the group/test location in the testscript file
-(@@ ref description). The id of the implicit outermost scope is the script
-file name without the \c{.test} extension. If the file name is \c{testscript},
-then the id is empty.
+(see \l{#syntax-description Description} for details). The id of the
+implicit outermost scope is the script file name without the \c{.test}
+extension. If the file name is \c{testscript}, then the id is empty.
 
 Based on the ids each nested group and test has an \i{id path} that uniquely
 identifies it. It starts with the id of the implied outermost group (unless
@@ -854,7 +876,7 @@ test $foo &out-test
 Below is its annotated version:
 
 \
-{                         # $~ = $out_root/test/basics/
+{                         # $~ = $out_base/test/basics/
   {                       # $~ = .../test/basics/group/
     foo = FOO
     bar = BAR
@@ -991,7 +1013,7 @@ $* foo : foo
 }
 \
 
-The id paths for the three test will then be:
+The id paths for these three test will then be:
 
 \
 basics/foo
@@ -1003,15 +1025,11 @@ To only run individual tests, test groups, or testscript files we can specify
 their id paths in the \c{config.test} variable, for example:
 
 \
-$ b test config.test=basics     # Run all tests in basics.test.
-$ b test config.test=basics/fox # Run bar and baz.
-$ b test config.test=basics/foo # Run foo.
-$ b test \"config.test=basics/foo basics/fox/bar\" # Run fox and bar.
+$ b test config.test=basics     # All tests in basics.test.
+$ b test config.test=basics/fox # All tests in fox (bar and baz).
+$ b test config.test=basics/foo # Test foo.
+$ b test \"config.test=basics/foo basics/fox/bar\" # Tests foo and bar.
 \
-
-@@ Maybe test.id instead of config.test?
-
-@@ What about running from root, with multiple basics.test?
 
 
 \h1#lexical|Lexical Structure|
@@ -2042,8 +2060,8 @@ dir/**/ - all sub-directories recursively (which must be empty)
 dir/*** - all files and sub-directories recursively and dir/
 \
 
-Registering a cleanup outside testscript working directory is an error
-(@@ is that correct).
+Registering a path for cleanup that is outside the script working directory is
+an error.
 
 
 \h#syntax-description|Description|
