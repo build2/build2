@@ -1,0 +1,321 @@
+# file      : tests/test/script/runner/regex.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Here we test that regex objects are properly created by the parser/runner
+# venture. The unit test approach is not of much use as regex object is not
+# serializable back to string. The only way we can test their proper creation
+# is via matching.
+#
+# Note that such a tests are separated from ones that check regex matching
+# specifically (in particular matching failures), The latest ones are located
+# in redirect.test testscript.
+#
+# Also note that the following tests are grouped by features: basic
+# functionality, flags, portable-path modifier.
+#
+
+.include ../common.test
+
+: basic
+:
+{
+  : str
+  :
+  {
+    : out
+    :
+    $c <'cat <foo >~/fo./';
+    $b
+
+    : err
+    :
+    $c <'cat <foo 1>&2 2>~/fo./';
+    $b
+
+    : no-newline
+    :
+    $c <'cat <:foo >:~/fo./';
+    $b
+
+    : malformed
+    :
+    : Note that old versions of libc++ (for example 1.1) do not detect some
+    : regex errors. For example '*' is parsed successfully.
+    :
+    $c <'$* -o foo >~/foo[/';
+    $b 2>>~/EOE/ != 0
+    /testscript:1:13: error: invalid stdout regex redirect.*/
+      info: regex: '/foo[/'
+    EOE
+  }
+
+  : doc
+  :
+  {
+    : out
+    :
+    $c <<EOI;
+    cat <foo >>~/EOO/
+    /foo/
+    EOO
+    EOI
+    $b
+
+    : err
+    :
+    $c <<EOI;
+    cat <foo 1>&2 2>>~/EOO/
+    /fo./
+    EOO
+    EOI
+    $b
+
+    : no-newline
+    :
+    $c <<EOI;
+    cat <:foo >>:~/EOO/
+    /fo./
+    EOO
+    EOI
+    $b
+
+    : line-char
+    :
+    $c <<EOI;
+    cat <<EOF >>~/EOO/
+    foo
+    bar
+    baz
+    baz
+    Biz
+    Fox
+    fox
+
+
+
+
+    EOF
+    foo
+    /?
+    /bar/
+    /baz/+
+    /biz/i
+    /fox/i+
+
+    //
+    //{2}
+    EOO
+    EOI
+    $b
+
+    : expansion
+    :
+    $c <<EOI;
+    s="O*/i
+    bar
+    ";
+    cat <<EOF >>~"/EOO/"
+    foo
+    bar
+
+    baz
+    EOF
+    /f$(s)
+    baz
+    EOO
+    EOI
+    $b
+
+    : invalid-syntax-char
+    :
+    $c <<EOI;
+    $* -o foo >>~/EOO/
+      /x
+      EOO
+    EOI
+    $b 2>>EOE != 0
+    testscript:2:3: error: invalid syntax character 'x' in stdout regex redirect
+      info: regex line: '/x'
+    EOE
+
+    : invalid-char-regex
+    :
+    $c <<EOI;
+    $* -o foo >>~/EOO/
+      /foo[/
+      EOO
+    EOI
+    $b 2>>~/EOE/ != 0
+    /testscript:2:3: error: invalid char-regex in stdout regex redirect.*/
+      info: regex line: '/foo[/'
+    EOE
+
+    : invalid-line-regex
+    :
+    $c <<EOI;
+    $* -o foo >>~/EOO/
+      a
+      /{
+      EOO
+    EOI
+    $b 2>>/~%EOE% != 0
+    %testscript:4:3: error: invalid stdout regex redirect.*%
+      info: stdout regex: test/1/stdout.regex
+    EOE
+  }
+}
+
+:flags
+:
+{
+  : str
+  :
+  {
+    : i
+    :
+    $c <'cat <Foo >~/foo/i';
+    $b
+
+    : d
+    :
+    {
+      : escaped-dot
+      :
+      : Escaped dot becomes syntax dot and matches any character ('i' in our
+      : case).
+      :
+      $c <'cat <fio >~/f\\.o/d';
+      $b
+
+      : syntax-dot
+      :
+      : Syntax dot becomes escaped dot and matches only '.' and so we fail.
+      :
+      $c <'cat <fio >~/f.o/d';
+      $b 2>>~/EOE/ != 0
+      testscript:1:1: error: cat stdout doesn't match the regex
+      /.+
+      EOE
+    }
+  }
+
+  : doc
+  {
+    : i
+    :
+    $c <<EOI;
+    cat <Foo >>~/EOO/
+    /foo/i
+    EOO
+    EOI
+    $b
+
+    : d
+    :
+    : All the reasonings for the /flags/str/d test group are valid for the
+    : current one.
+    :
+    {
+      : escaped-dot
+      :
+      $c <<EOI;
+      cat <fio >>~/EOO/
+      /f\.o/d
+      EOO
+      EOI
+      $b
+
+      : syntax-dot
+      :
+      $c <<EOI;
+      cat <fio >>~/EOO/
+      /f.o/d
+      EOO
+      EOI
+      $b 2>>~/EOE/ != 0
+      testscript:1:1: error: cat stdout doesn't match the regex
+      /.+
+      EOE
+    }
+
+    : global
+    :
+    {
+      : i
+      :
+      $c <<EOI;
+      cat <Foo >>~/EOO/i
+      /foo/
+      EOO
+      EOI
+      $b
+
+      : d
+      :
+      {
+        : escaped-dot
+        :
+        $c <<EOI;
+        cat <fio >>~/EOO/d
+        /f\.o/
+        EOO
+        EOI
+        $b
+
+        : syntax-dot
+        :
+        $c <<EOI;
+        cat <fio >>~/EOO/d
+        /f.o/
+        EOO
+        EOI
+        $b 2>>~/EOE/ != 0
+        testscript:1:1: error: cat stdout doesn't match the regex
+        /.+
+        EOE
+      }
+    }
+  }
+}
+
+: portable-path
+:
+{
+  ps = ($cxx.target.class != 'windows' ? '/' : '\')
+
+  : str
+  :
+  {
+    : out
+    :
+    $c <"cat <'foo$ps' >/~%foo/%";
+    $b
+
+    : err
+    :
+    $c <"cat <'foo$ps' >/~%foo/%";
+    $b
+  }
+
+  : doc
+  {
+    : out
+    :
+    $c <<"EOI";
+    cat <'foo$ps' >>/~%EOO%
+    foo/
+    EOO
+    EOI
+    $b
+
+    : err
+    :
+    $c <<"EOI";
+    cat <'foo$ps' >>/~%EOO%
+    foo/
+    EOO
+    EOI
+    $b
+  }
+}

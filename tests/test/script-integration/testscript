@@ -11,18 +11,18 @@
 
   : testscript-and-other
   :
-  $* <<EOI 2>>~%EOE% != 0
+  $* <<EOI 2>>/EOE != 0
   ./: test{../testscript ../foo}
   EOI
-  %error: both 'testscript' and other names specified for dir\{\.[/\\]\}%
+  error: both 'testscript' and other names specified for dir{./}
   EOE
 
   : other-and-testscript
   :
-  $* <<EOI 2>>~%EOE% != 0
+  $* <<EOI 2>>/EOE != 0
   ./: test{../foo ../testscript}
   EOI
-  %error: both 'testscript' and other names specified for dir\{\.[/\\]\}%
+  error: both 'testscript' and other names specified for dir{./}
   EOE
 
   : others
@@ -33,6 +33,9 @@
 }
 
 : wd-is-file
+:
+: Note that here we can not use portable path modifier as not all slashes are
+: path separators.
 :
 touch foo.test;
 touch test;
@@ -46,10 +49,10 @@ EOE
 :
 touch foo.test;
 mkdir test &!test/;
-$* <<EOI 2>>~%EOE%
+$* <<EOI 2>>/EOE
 ./: test{foo}
 EOI
-%warning: working directory test[/\\] exists at the beginning of the test%
+warning: working directory test/ exists at the beginning of the test
 EOE
 
 : wd-not-empty-before
@@ -57,10 +60,10 @@ EOE
 touch foo.test;
 mkdir test &!test/;
 touch test/dummy &!test/dummy;
-$* <<EOI 2>>~%EOE%
+$* <<EOI 2>>/EOE
 ./: test{foo}
 EOI
-%warning: working directory test[/\\] exists and is not empty at the beginning of the test%
+warning: working directory test/ exists and is not empty at the beginning of the test
 EOE
 
 : wd-not-empty-after
@@ -74,8 +77,8 @@ EOE
 cat <<EOI >>>foo.test;
 touch ../../dummy
 EOI
-$* <<EOI 2>>~%EOE% &test/*** != 0
+$* <<EOI 2>>/EOE &test/*** != 0
 ./: test{foo}
 EOI
-%error: working directory test[/\\] is not empty at the end of the test%
+error: working directory test/ is not empty at the end of the test
 EOE

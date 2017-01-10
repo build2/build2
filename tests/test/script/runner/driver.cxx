@@ -72,6 +72,7 @@ main (int argc, char* argv[])
   optional<int> status;
   char aterm ('\0');    // Abnormal termination method.
 
+  cin.exceptions  (ostream::failbit | ostream::badbit);
   cout.exceptions (ostream::failbit | ostream::badbit);
   cerr.exceptions (ostream::failbit | ostream::badbit);
 

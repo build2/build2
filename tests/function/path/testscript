@@ -4,7 +4,7 @@
 
 .include ../../common.test
 
-s = ($cxx.target.class != windows ? '/' : '\')
+s = ($cxx.target.class != 'windows' ? '/' : '\')
 
 : canonicalize
 :
@@ -29,7 +29,7 @@ s = ($cxx.target.class != windows ? '/' : '\')
 
   : actualize
   :
-  if ($cxx.target.class == windows)
+  if ($cxx.target.class == 'windows')
   {
     mkdir Foo;
     $* <'print $path.normalize($out_base/foo, true)' >~'/.+\\Foo/'
@@ -38,7 +38,7 @@ s = ($cxx.target.class != windows ? '/' : '\')
 
 : invalid-path
 :
-p = ($cxx.target.class != windows ? /../foo : 'c:/../foo');
+p = ($cxx.target.class != 'windows' ? /../foo : 'c:/../foo');
 $* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
 EOE

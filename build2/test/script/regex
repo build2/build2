@@ -24,8 +24,25 @@ namespace build2
       namespace regex
       {
         using char_string = std::basic_string<char>;
-        using char_regex = std::basic_regex<char>;
-        using char_flags = char_regex::flag_type;
+
+        enum class char_flags: std::uint16_t
+        {
+          icase = 0x1, // Case-insensitive match.
+          idot  = 0x2, // Invert '.' escaping.
+
+          none = 0
+        };
+
+        // Restricts valid standard flags to just {icase}, extends with custom
+        // flags {idot}.
+        //
+        class char_regex: public std::basic_regex<char>
+        {
+        public:
+          using base_type = std::basic_regex<char>;
+
+          char_regex (const char_string&, char_flags = char_flags::none);
+        };
 
         // Newlines are line separators and are not part of the line:
         //
@@ -110,7 +127,7 @@ namespace build2
           //
           // 0 (nul character)
           // -1 (EOF)
-          // [()|.*+?{\}0123456789,=!] (excluding [])
+          // [()|.*+?{}\0123456789,=!] (excluding [])
           //
           // Note that the constructor is implicit to allow basic_regex to
           // implicitly construct line_chars from special char literals (in
@@ -252,9 +269,8 @@ namespace build2
         template <typename T>
         struct line_char_cmp
           : public std::enable_if<std::is_integral<T>::value ||
-                                  std::is_enum<T>::value>
-        {
-        };
+                                  (std::is_enum<T>::value &&
+                                   !std::is_same<T, char_flags>::value)> {};
 
         template <typename T, typename = typename line_char_cmp<T>::type>
         bool
@@ -655,14 +671,13 @@ namespace build2
           line_regex& operator= (const line_regex&) = delete;
 
         public:
-          // Mutable since input line_char literals must go into the same
-          // pool (and thus is MT-unsafe).
-          //
-          mutable line_pool pool;
+          line_pool pool;
         };
       }
     }
   }
 }
+
+#include <build2/test/script/regex.ixx>
 
 #endif // BUILD2_TEST_SCRIPT_REGEX

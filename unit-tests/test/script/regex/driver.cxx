@@ -16,6 +16,8 @@ main ()
   using lc = line_char;
   using ls = line_string;
   using lr = line_regex;
+  using cf = char_flags;
+  using cr = char_regex;
 
   // Test line_char.
   //
@@ -54,7 +56,7 @@ main ()
     assert (lc ('0') != '1');
     assert (lc ('n') != mp);
     assert (lc ('0') != lc ("0", p));
-    assert (lc ('0') != lc (regex ("0"), p));
+    assert (lc ('0') != lc (cr ("0"), p));
 
     assert (lc ('0') < lc ('1'));
     assert (lc ('0') < '1');
@@ -77,24 +79,54 @@ main ()
     assert (char (lc ("a", p))     == '\a');
 
     assert (lc ("a", p)   != lc ("b", p));
-    assert (!(lc ("a", p) != lc (regex ("a"), p))); // Matches.
-    assert (lc ("a", p)   != lc (regex ("b"), p));
+    assert (!(lc ("a", p) != lc (cr ("a"), p)));
+    assert (lc ("a", p)   != lc (cr ("b"), p));
 
     assert (lc ("a", p)   < lc ("b", p));
-    assert (!(lc ("a", p) < lc (regex ("a"), p))); // Matches.
+    assert (!(lc ("a", p) < lc (cr ("a"), p)));
 
     assert (lc ("a", p) <= lc ("b", p));
-    assert (lc ("a", p) <= lc (regex ("a"), p));
-    assert (lc ("a", p) <  lc (regex ("c"), p));
+    assert (lc ("a", p) <= lc (cr ("a"), p));
+    assert (lc ("a", p) <  lc (cr ("c"), p));
 
     // Regex roundtrip.
     //
-    assert (regex_match ("abc", *lc (regex ("abc"), p).regex ()));
+    assert (regex_match ("abc", *lc (cr ("abc"), p).regex ()));
+
+    // Regex flags.
+    //
+    // icase
+    //
+    assert (regex_match ("ABC", cr ("abc", cf::icase)));
+
+    // idot
+    //
+    assert (!regex_match ("a", cr ("[.]",  cf::idot)));
+    assert (!regex_match ("a", cr ("[\\.]", cf::idot)));
+
+    assert (regex_match  ("a", cr (".")));
+    assert (!regex_match ("a", cr (".", cf::idot)));
+    assert (regex_match  ("a", cr ("\\.", cf::idot)));
+    assert (!regex_match ("a", cr ("\\.")));
+
+    // regex::transform()
+    //
+    // The function is static and we can't test it directly. So we will test
+    // it indirectly via regex matches.
+    //
+    // @@ Would be nice to somehow address the inability to test internals (not
+    //    exposed via headers). As a part of utility library support?
+    //
+    assert (regex_match  (".a[.", cr (".\\.\\[[.]",   cf::idot)));
+    assert (regex_match  (".a[.", cr (".\\.\\[[\\.]", cf::idot)));
+    assert (!regex_match ("ba[.", cr (".\\.\\[[.]",   cf::idot)));
+    assert (!regex_match (".a[b", cr (".\\.\\[[.]",   cf::idot)));
+    assert (!regex_match (".a[b", cr (".\\.\\[[\\.]", cf::idot)));
 
     // Regex comparison.
     //
-    assert (lc ("a", p)           == lc (regex ("a|b"), p));
-    assert (lc (regex ("a|b"), p) == lc ("a", p));
+    assert (lc ("a", p)        == lc (cr ("a|b"), p));
+    assert (lc (cr ("a|b"), p) == lc ("a", p));
   }
 
   // Test char_traits<line_char>.
@@ -159,7 +191,7 @@ main ()
     const ct& t (use_facet<ct> (l));
     line_pool p;
 
-    assert (t.is (ct::digit, '0'));
+    assert (t.is  (ct::digit, '0'));
     assert (!t.is (ct::digit, '?'));
     assert (!t.is (ct::digit, lc ("0", p)));
 
@@ -216,7 +248,7 @@ main ()
   //
   {
     line_pool p;
-    lr r1 ({lc ("foo", p), lc (regex ("ba(r|z)"), p)}, move (p));
+    lr r1 ({lc ("foo", p), lc (cr ("ba(r|z)"), p)}, move (p));
 
     lr r2 (move (r1));
     assert (regex_match (ls ({lc ("foo", r2.pool), lc ("bar", r2.pool)}), r2));
@@ -239,11 +271,12 @@ main ()
     assert (regex_match (ls ({bar, foo}),
                          lr ({'(', foo, '|', bar, ')', '+'})));
 
-    assert (regex_match (ls ({foo, foo}), lr ({'(', foo, ')', '\\', '1'})));
+    assert (regex_match (ls ({foo, foo, bar}),
+                         lr ({'(', foo, ')', '\\', '1', bar})));
 
-    assert (regex_match (ls ({foo}),   lr ({lc (regex ("fo+"), p)})));
-    assert (regex_match (ls ({foo}),   lr ({lc (regex (".*"), p)})));
-    assert (regex_match (ls ({blank}), lr ({lc (regex (".*"), p)})));
+    assert (regex_match (ls ({foo}),   lr ({lc (cr ("fo+"), p)})));
+    assert (regex_match (ls ({foo}),   lr ({lc (cr (".*"), p)})));
+    assert (regex_match (ls ({blank}), lr ({lc (cr (".*"), p)})));
 
     assert (regex_match (ls ({blank, blank, foo}),
                          lr ({blank, '*', foo, blank, '*'})));

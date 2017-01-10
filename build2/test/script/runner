@@ -16,7 +16,7 @@ namespace build2
 {
   namespace test
   {
-    class common;
+    struct common;
 
     namespace script
     {

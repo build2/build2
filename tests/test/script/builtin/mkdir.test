@@ -56,8 +56,8 @@ $b
 : Test creation of an existing directory.
 :
 $c <<EOI;
-mkdir a a 2>>~%EOE% == 1
-%mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]already-exists[/\\]test[/\\]1[/\\]a': .+%
+mkdir a a 2>>/~%EOE% == 1
+%mkdir: unable to create directory '.+/test/mkdir/already-exists/test/1/a': .+%
 EOE
 EOI
 $b
@@ -67,8 +67,8 @@ $b
 : Test creation of a directory with non-existent parent.
 :
 $c <<EOI;
-mkdir a/b 2>>~%EOE% == 1
-%mkdir: unable to create directory '.+[/\\]test[/\\]mkdir[/\\]not-exists[/\\]test[/\\]1[/\\]a[/\\]b': .+%
+mkdir a/b 2>>/~%EOE% == 1
+%mkdir: unable to create directory '.+/test/mkdir/not-exists/test/1/a/b': .+%
 EOE
 EOI
 $b

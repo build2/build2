@@ -85,44 +85,65 @@ namespace build2
           case redirect_type::merge: o << '&' << r.fd; break;
 
           case redirect_type::here_str_literal:
-          case redirect_type::here_str_regex:
+          case redirect_type::here_doc_literal:
             {
-              bool re (r.type == redirect_type::here_str_regex);
-              const string& v (re ? r.regex.str : r.str);
-              bool nl (!v.empty () && v.back () == '\n');
+              bool doc (r.type == redirect_type::here_doc_literal);
 
-              if (!nl)
-                o << ':';
+              // For here-document add another '>' or '<'. Note that here end
+              // marker never needs to be quoted.
+              //
+              if (doc)
+                o << d;
 
-              if (re)
-                o << '~';
+              o << r.modifiers;
 
-              to_stream_q (o, nl ? string (v, 0, v.size () - 1) : v);
+              if (doc)
+                o << r.end;
+              else
+              {
+                const string& v (r.str);
+                to_stream_q (o,
+                             r.modifiers.find (':') == string::npos
+                             ? string (v, 0, v.size () - 1) // Strip newline.
+                             : v);
+              }
+
               break;
             }
-          case redirect_type::here_doc_literal:
+
+          case redirect_type::here_str_regex:
           case redirect_type::here_doc_regex:
             {
-              bool re (r.type == redirect_type::here_doc_regex);
-              const string& v (re ? r.regex.str : r.str);
-              bool nl (!v.empty () && v.back () == '\n');
+              bool doc (r.type == redirect_type::here_doc_regex);
 
-              // Add another '>' or '<'. Note that here end marker never
-              // needs to be quoted.
+              // For here-document add another '>' or '<'. Note that here end
+              // marker never needs to be quoted.
               //
-              o << d << (nl ? "" : ":");
+              if (doc)
+                o << d;
 
-              if (re)
-                o << '~';
+              o << r.modifiers;
 
-              to_stream_q (o, r.end);
+              const regex_lines& re (r.regex);
+
+              if (doc)
+                o << re.intro + r.end + re.intro + re.flags;
+              else
+              {
+                assert (!re.lines.empty ()); // Regex can't be empty.
+
+                regex_line l (re.lines[0]);
+                to_stream_q (o, re.intro + l.value + re.intro + l.flags);
+              }
+
               break;
             }
+
           case redirect_type::file:
             {
               // Add '>>' or '<<' (and so make it '<<<' or '>>>').
               //
-              o << d << d << (r.file.append ? "&" : "");
+              o << d << d << r.modifiers;
               print_path (r.file.path);
               break;
             }
@@ -131,16 +152,36 @@ namespace build2
 
         auto print_doc = [&o] (const redirect& r)
         {
-          bool re (r.type == redirect_type::here_doc_regex);
-          const string& v (re ? r.regex.str : r.str);
-          bool nl (!v.empty () && v.back () == '\n');
+          o << endl;
 
-          // For the regex here-document the end marker contains introducer and
-          // flags characters, so need to remove them.
-          //
-          const string& e (r.end);
-          o << endl << v << (nl ? "" : "\n")
-            << (re ? string (e, 1, e.find (e[0], 1) - 1) : e);
+          if (r.type == redirect_type::here_doc_literal)
+            o << r.str;
+          else
+          {
+            assert (r.type == redirect_type::here_doc_regex);
+
+            const regex_lines& rl (r.regex);
+
+            for (auto b (rl.lines.cbegin ()), i (b), e (rl.lines.cend ());
+                 i != e; ++i)
+            {
+              if (i != b)
+                o << endl;
+
+              const regex_line& l (*i);
+
+              if (l.regex)                  // Regex (possibly empty),
+                o << rl.intro << l.value << rl.intro << l.flags;
+              else if (!l.special.empty ()) // Special literal.
+                o << rl.intro;
+              else                          // Textual literal.
+                o << l.value;
+
+              o << l.special;
+            }
+          }
+
+          o << (r.modifiers.find (':') == string::npos ? "" : "\n") << r.end;
         };
 
         if ((m & command_to_stream::header) == command_to_stream::header)
@@ -268,7 +309,11 @@ namespace build2
         case redirect_type::here_doc_literal: new (&str) string (); break;
 
         case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex: new (&regex) regex_type (); break;
+        case redirect_type::here_doc_regex:
+          {
+            new (&regex) regex_lines ();
+            break;
+          }
 
         case redirect_type::file: new (&file) file_type (); break;
         }
@@ -276,7 +321,11 @@ namespace build2
 
       redirect::
       redirect (redirect&& r)
-          : type (r.type), end (move (r.end))
+          : type (r.type),
+            modifiers (move (r.modifiers)),
+            end (move (r.end)),
+            end_line (r.end_line),
+            end_column (r.end_column)
       {
         switch (type)
         {
@@ -295,7 +344,7 @@ namespace build2
         case redirect_type::here_str_regex:
         case redirect_type::here_doc_regex:
           {
-            new (&regex) regex_type (move (r.regex));
+            new (&regex) regex_lines (move (r.regex));
             break;
           }
         case redirect_type::file:
@@ -320,7 +369,7 @@ namespace build2
         case redirect_type::here_doc_literal: str.~string (); break;
 
         case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex: regex.~regex_type (); break;
+        case redirect_type::here_doc_regex: regex.~regex_lines (); break;
 
         case redirect_type::file: file.~file_type (); break;
         }

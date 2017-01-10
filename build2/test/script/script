@@ -15,7 +15,6 @@
 #include <build2/test/target>
 
 #include <build2/test/script/token> // replay_tokens
-#include <build2/test/script/regex>
 
 namespace build2
 {
@@ -78,15 +77,63 @@ namespace build2
         file
       };
 
+      // Pre-parsed (but not instantiated) regex lines. The idea here is that
+      // we should be able to re-create their (more or less) exact text
+      // representation for diagnostics but also instantiate without any
+      // re-parsing.
+      //
+      struct regex_line
+      {
+        // If regex is true, then value is the regex expression. Otherwise, it
+        // is a literal. Note that special characters can be present in both
+        // cases. For example, //+ is a regex, while /+ is a literal, both
+        // with '+' as a special character. Flags are only valid for regex.
+        // Literals falls apart into textual (has no special characters) and
+        // special (has just special characters instead) ones. For example
+        // foo is a textual literal, while /.+ is a special one. Note that
+        // literal must not have value and special both non-empty.
+        //
+        bool regex;
+
+        string value;
+        string flags;
+        string special;
+
+        uint64_t line;
+        uint64_t column;
+
+        // Create regex with optional special characters.
+        //
+        regex_line (uint64_t l, uint64_t c,
+                    string v, string f, string s = string ())
+            : regex (true),
+              value (move (v)),
+              flags (move (f)),
+              special (move (s)),
+              line (l),
+              column (c) {}
+
+        // Create a literal, either text or special.
+        //
+        regex_line (uint64_t l, uint64_t c, string v, bool s)
+            : regex (false),
+              value (s ? string () : move (v)),
+              special (s ? move (v) : string ()),
+              line (l),
+              column (c) {}
+      };
+
+      struct regex_lines
+      {
+        char intro;   // Introducer character.
+        string flags; // Global flags (here-document).
+
+        small_vector<regex_line, 8> lines;
+      };
+
       struct redirect
       {
         redirect_type type;
-
-        struct regex_type
-        {
-          regex::line_regex regex;
-          string str;              // String representation for printing.
-        };
 
         struct file_type
         {
@@ -97,13 +144,16 @@ namespace build2
 
         union
         {
-          int        fd;    // Merge-to descriptor.
-          string     str;   // Note: includes trailing newline, if requested.
-          regex_type regex; // Note: includes trailing blank, if requested.
-          file_type  file;
+          int         fd;    // Merge-to descriptor.
+          string      str;   // Note: includes trailing newline, if requested.
+          regex_lines regex; // Note: includes trailing blank, if requested.
+          file_type   file;
         };
 
-        string end; // Here-document end marker for printing.
+        string modifiers;   // Redirect modifiers.
+        string end;         // Here-document end marker (no regex intro/flags).
+        uint64_t end_line;  // Here-document end marker location.
+        uint64_t end_column;
 
         explicit
         redirect (redirect_type = redirect_type::none);

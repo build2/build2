@@ -171,6 +171,87 @@ namespace build2
                       new std::ctype<line_char> ()) // Hidden by ctype bitmask.
         {
         }
+
+        // char_regex
+        //
+        // Transform regex according to the extended flags {idot}. If regex is
+        // malformed then keep transforming, so the resulting string is
+        // malformed the same way. We expect the error to be reported by the
+        // char_regex ctor.
+        //
+        static string
+        transform (const string& s, char_flags f)
+        {
+          assert ((f & char_flags::idot) != char_flags::none);
+
+          string r;
+          bool escape (false);
+          bool cclass (false);
+
+          for (char c: s)
+          {
+            // Inverse escaping for a dot which is out of the char class
+            // brackets.
+            //
+            bool inverse (c == '.' && !cclass);
+
+            // Handle the escape case. Note that we delay adding the backslash
+            // since we may have to inverse things.
+            //
+            if (escape)
+            {
+              if (!inverse)
+                r += '\\';
+
+              r += c;
+              escape = false;
+
+              continue;
+            }
+            else if (c == '\\')
+            {
+              escape = true;
+              continue;
+            }
+
+            // Keep track of being inside the char class brackets, escape if
+            // inversion. Note that we never inverse square brackets.
+            //
+            if (c == '[' && !cclass)
+              cclass = true;
+            else if (c == ']' && cclass)
+              cclass = false;
+            else if (inverse)
+              r += '\\';
+
+            r += c;
+          }
+
+          if (escape) // Regex is malformed but that's not our problem.
+            r += '\\';
+
+          return r;
+        }
+
+        static char_regex::flag_type
+        to_std_flags (char_flags f)
+        {
+          // Note that ECMAScript flag is implied in the absense of a grammar
+          // flag.
+          //
+          return (f & char_flags::icase) != char_flags::none
+            ? char_regex::icase
+            : char_regex::flag_type ();
+        }
+
+        char_regex::
+        char_regex (const char_string& s, char_flags f)
+            : base_type ((f & char_flags::idot) != char_flags::none
+                         ? transform (s, f)
+                         : s,
+                         to_std_flags (f))
+        {
+        }
       }
     }
   }

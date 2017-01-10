@@ -12,7 +12,6 @@
 #include <build2/diagnostics>
 
 #include <build2/test/script/token>
-#include <build2/test/script/regex>
 #include <build2/test/script/script>
 
 namespace build2
@@ -111,7 +110,7 @@ namespace build2
 
           // Regex global flags. Meaningful if regex != '\0'.
           //
-          regex::char_flags regex_flags;
+          string regex_flags;
         };
         using here_docs = vector<here_doc>;
 
@@ -125,12 +124,29 @@ namespace build2
         parse_here_documents (token&, token_type&,
                               pair<command_expr, here_docs>&);
 
-        pair<string, regex::line_regex>
+        struct parsed_doc
+        {
+          union
+          {
+            string str;        // Here-document literal.
+            regex_lines regex; // Here-document regex.
+          };
+
+          bool re;             // True if regex.
+          uint64_t end_line;   // Here-document end marker location.
+          uint64_t end_column;
+
+          parsed_doc (string, uint64_t line, uint64_t column);
+          parsed_doc (regex_lines, uint64_t line, uint64_t column);
+          parsed_doc (parsed_doc&&); // Note: move constuctible-only type.
+          ~parsed_doc ();
+        };
+
+        parsed_doc
         parse_here_document (token&, token_type&,
                              const string&,
                              const string& mode,
-                             char regex_introducer, // '\0' if not a regex.
-                             regex::char_flags);
+                             char re_intro);      // '\0' if not a regex.
 
         // Execute. Issue diagnostics and throw failed in case of an error.
         //

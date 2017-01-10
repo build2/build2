@@ -189,6 +189,13 @@ namespace build2
                                   string (),
                                   trace));
 
+          value& v (
+            tt.assign (
+              var_pool.insert<target_triplet> (
+                "test.target", variable_visibility::project)));
+
+          v = cast<target_triplet> ((*global_scope)["build.host"]);
+
           testscript& st (
             targets.insert<testscript> (work,
                                         dir_path (),

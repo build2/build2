@@ -60,8 +60,8 @@ $b
 : non-existent
 :
 $c <<EOI;
-cat in 2>>~%EOE% != 0
-%cat: unable to print '.+[/\\]test[/\\]cat[/\\]non-existent[/\\]test[/\\]1[/\\]in': .+%
+cat in 2>>/~%EOE% != 0
+%cat: unable to print '.+/test/cat/non-existent/test/1/in': .+%
 EOE
 EOI
 $b

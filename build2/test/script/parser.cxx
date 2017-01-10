@@ -5,7 +5,6 @@
 #include <build2/test/script/parser>
 
 #include <sstream>
-#include <cstring> // strstr()
 
 #include <build2/scheduler>
 
@@ -13,39 +12,6 @@
 #include <build2/test/script/runner>
 
 using namespace std;
-
-namespace std
-{
-  // Print regex error description but only if it is meaningful (this is also
-  // why we have to print leading colon here).
-  //
-  // Currently libstdc++ just returns the name of the exception (bug #67361).
-  // So we check that the description contains at least one space character.
-  //
-  // While VC's description is meaningful, it has an undesired prefix that
-  // resembles the following: 'regex_error(error_badrepeat): '. So we skip it.
-  //
-  static ostream&
-  operator<< (ostream& o, const regex_error& e)
-  {
-    const char* d (e.what ());
-
-#if defined(_MSC_VER) && _MSC_VER <= 1910
-    const char* rd (strstr (d, "): "));
-    if (rd != nullptr)
-      d = rd + 3;
-#endif
-
-    ostringstream os;
-    os << runtime_error (d); // Sanitize the description.
-
-    string s (os.str ());
-    if (s.find (' ') != string::npos)
-      o << ": " << s;
-
-    return o;
-  }
-}
 
 namespace build2
 {
@@ -1340,23 +1306,22 @@ namespace build2
 
       // Parse the regular expression representation (non-empty string value
       // framed with introducer characters and optionally followed by flag
-      // characters from the {i} set, for example '/foo/i') into
+      // characters from the {di} set, for example '/foo/id') into
       // components. Also return end-of-parsing position if requested,
       // otherwise treat any unparsed characters left as an error.
       //
       struct regex_parts
       {
         string value;
-        char introducer;
-        regex::char_flags flags; // {icase}
+        char   intro;
+        string flags; // Combination of characters from {di} set.
 
         // Create a special empty object.
         //
-        regex_parts ()
-            : introducer ('\0'), flags (regex::char_flags ()) {}
+        regex_parts (): intro ('\0') {}
 
-        regex_parts (string v, char i, regex::char_flags f)
-            : value (move (v)), introducer (i), flags (f) {}
+        regex_parts (string v, char i, string f)
+            : value (move (v)), intro (i), flags (move (f)) {}
       };
 
       static regex_parts
@@ -1377,10 +1342,10 @@ namespace build2
         if (rn == 0)
           fail (l) << what << " is empty";
 
-        bool icase (s[++p] == 'i'); // Note: s[++p] can be '\0' (no flags).
-
-        if (icase)
-          ++p;
+        // Find end-of-flags position.
+        //
+        size_t fp (++p); // Save flags starting position.
+        for (char c; (c = s[p]) == 'd' || c == 'i'; ++p) ;
 
         // If string end is not reached then report invalid flags, unless
         // end-of-parsing position is requested (which means regex is just a
@@ -1392,11 +1357,7 @@ namespace build2
         if (end != nullptr)
           *end = p;
 
-        return regex_parts (string (s, 1, rn),
-                            s[0],
-                            icase
-                            ? regex::char_regex::icase
-                            : regex::char_flags ());
+        return regex_parts (string (s, 1, rn), s[0], string (s, fp, p - fp));
       }
 
       pair<command_expr, parser::here_docs> parser::
@@ -1417,6 +1378,27 @@ namespace build2
           if (c.out.type == redirect_type::merge &&
               c.err.type == redirect_type::merge)
             fail (l) << "stdout and stderr redirected to each other";
+        };
+
+        // Check that the introducer character differs from '/' if the
+        // portable path modifier is specified. Must be called before
+        // parse_regex() (see below) to make sure its diagnostics is
+        // meaningful.
+        //
+        // Note that the portable path modifier assumes '/' to be a valid
+        // regex character and so makes it indistinguishable from the
+        // terminating introducer.
+        //
+        auto check_regex_mod = [this] (const string& mod,
+                                       const string& re,
+                                       const location& l,
+                                       const char* what)
+        {
+          // Handles empty regex properly.
+          //
+          if (mod.find ('/') != string::npos && re[0] == '/')
+            fail (l) << "portable path modifier and '/' introducer in "
+                     << what;
         };
 
         // Pending positions where the next word should go.
@@ -1449,7 +1431,8 @@ namespace build2
         // Add the next word to either one of the pending positions or to
         // program arguments by default.
         //
-        auto add_word = [&c, &p, &mod, this] (string&& w, const location& l)
+        auto add_word = [&c, &p, &mod, &check_regex_mod, this] (
+          string&& w, const location& l)
         {
           auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
           {
@@ -1468,18 +1451,16 @@ namespace build2
                      << "file descriptor must be " << fd;
           };
 
-          auto add_here_str = [&mod] (redirect& r, string&& w)
+          auto add_here_str = [] (redirect& r, string&& w)
           {
-            if (mod.find (':') == string::npos)
+            if (r.modifiers.find (':') == string::npos)
               w += '\n';
             r.str = move (w);
           };
 
-          auto add_here_str_regex = [&l, &mod, this] (
+          auto add_here_str_regex = [&l, &check_regex_mod, this] (
             redirect& r, int fd, string&& w)
           {
-            using namespace regex;
-
             const char* what (nullptr);
             switch (fd)
             {
@@ -1487,36 +1468,23 @@ namespace build2
             case 2: what = "stderr regex redirect"; break;
             }
 
-            line_pool pool;
-            line_string s;
+            check_regex_mod (r.modifiers, w, l, what);
 
-            try
-            {
-              regex_parts re (parse_regex (w, l, what));
-              s += line_char (char_regex (re.value,
-                                          char_regex::ECMAScript | re.flags),
-                              pool);
-            }
-            catch (const regex_error& e)
-            {
-              // Print regex_error description if meaningful.
-              //
-              fail (l) << "invalid " << what << e <<
-                info << "regex: " << w;
-            }
+            regex_parts rp (parse_regex (w, l, what));
 
-            if (mod.find (':') == string::npos)
-            {
-              w += '\n';
-              s += line_char ("", pool);
-            }
+            regex_lines& re (r.regex);
+            re.intro = rp.intro;
 
-            r.regex.str = move (w);
+            re.lines.emplace_back (
+              l.line, l.column, move (rp.value), move (rp.flags));
 
-            // No special line-chars, so no way to try to create a malformed
-            // expression, and so can't throw.
+            // Add final blank line unless suppressed.
             //
-            r.regex.regex = line_regex (move (s), move (pool));
+            // Note that the position is synthetic, but that's ok as we don't
+            // expect any diagnostics to refer this line.
+            //
+            if (r.modifiers.find (':') == string::npos)
+              re.lines.emplace_back (l.line, l.column, string (), false);
           };
 
           auto parse_path = [&l, this] (string&& w, const char* what) -> path
@@ -1539,7 +1507,7 @@ namespace build2
             }
           };
 
-          auto add_file = [&mod, &parse_path] (redirect& r, int fd, string&& w)
+          auto add_file = [&parse_path] (redirect& r, int fd, string&& w)
           {
             const char* what (nullptr);
             switch (fd)
@@ -1550,7 +1518,7 @@ namespace build2
             }
 
             r.file.path = parse_path (move (w), what);
-            r.file.append = mod.find ('&') != string::npos;
+            r.file.append = r.modifiers.find ('&') != string::npos;
           };
 
           switch (p)
@@ -1771,6 +1739,11 @@ namespace build2
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
           r = redirect (rt);
 
+          // Don't move as still may be used for pending here-document end
+          // marker processing.
+          //
+          r.modifiers = mod;
+
           switch (rt)
           {
           case redirect_type::none:
@@ -1974,6 +1947,8 @@ namespace build2
 
                   if (re)
                   {
+                    check_regex_mod (mod, end, l, what);
+
                     r = parse_regex (end, l, what);
                     end = move (r.value); // The "cleared" end marker.
                   }
@@ -1984,7 +1959,7 @@ namespace build2
                       move (end),
                       qt == quote_type::single,
                       move (mod),
-                      r.introducer, r.flags});
+                      r.intro, move (r.flags)});
                   break;
                 }
 
@@ -2099,7 +2074,7 @@ namespace build2
                       (t.qtype == quote_type::unquoted ||
                        t.qtype == quote_type::single),
                       move (mod),
-                      r.introducer, r.flags});
+                      r.intro, move (r.flags)});
 
                   p = pending::none;
                   mod.clear ();
@@ -2396,54 +2371,43 @@ namespace build2
                 : lexer_mode::here_line_double);
           next (t, tt);
 
-          pair<string, regex::line_regex> v (
-            parse_here_document (
-              t, tt, h.end, h.modifiers, h.regex, h.regex_flags));
+          parsed_doc v (
+            parse_here_document (t, tt, h.end, h.modifiers, h.regex));
 
           if (!pre_parse_)
           {
             command& c (p.first[h.expr].pipe[h.pipe]);
             redirect& r (h.fd == 0 ? c.in : h.fd == 1 ? c.out : c.err);
 
-            if (h.regex)
+            if (v.re)
             {
-              r.regex.str   = move (v.first);
-              r.regex.regex = move (v.second);
-
-              // Restore the original end marker.
-              //
-              r.end = h.regex + h.end + h.regex;
-              if ((h.regex_flags & regex::char_regex::icase) != 0)
-                r.end += 'i';
+              r.regex = move (v.regex);
+              r.regex.flags = move (h.regex_flags);
             }
             else
-            {
-              r.str = move (v.first);
-              r.end = move (h.end);
-            }
+              r.str = move (v.str);
+
+            r.end        = move (h.end);
+            r.end_line   = v.end_line;
+            r.end_column = v.end_column;
           }
 
           expire_mode ();
         }
       }
 
-      pair<string, regex::line_regex> parser::
+      parser::parsed_doc parser::
       parse_here_document (token& t, type& tt,
                            const string& em,
                            const string& mod,
-                           char re,
-                           regex::char_flags refl)
+                           char re)
       {
         // enter: first token on first line
         // leave: newline (after end marker)
 
-        using namespace regex;
+        string rs; // String literal.
 
-        string rs; // String or regex literal.
-
-        line_pool pool;
-        line_string ls;
-        line_regex rre;
+        regex_lines rre;
 
         // Here-documents can be indented. The leading whitespaces of the end
         // marker line (called strip prefix) determine the indentation. Every
@@ -2465,8 +2429,7 @@ namespace build2
 
         // We will use the location of the first token on the line for the
         // regex diagnostics. At the end of the loop it will point to the
-        // beginning of the end marker which we use for diagnostics of the
-        // line_regex object creation.
+        // beginning of the end marker.
         //
         location l;
 
@@ -2543,97 +2506,93 @@ namespace build2
               }
             }
 
-            // Add newline after previous line.
-            //
-            if (!rs.empty ())
-              rs += '\n';
-
-            rs += s;
-
-            if (re)
+            if (!re)
             {
-              if (s[0] == re) // Line starts with the regex introducer.
+              // Add newline after previous line.
+              //
+              if (!rs.empty ())
+                rs += '\n';
+
+              rs += s;
+            }
+            else
+            {
+              // Due to expansion we can end up with multiple lines. If empty
+              // then will add a blank textual literal.
+              //
+              for (size_t p (0); p != string::npos; )
               {
-                size_t n (s.size ());
+                string ln;
+                size_t np (s.find ('\n', p));
 
-                // Handle the empty line-regex characters.
-                //
-                if (n == 1)
-                  fail (l) << "regex introducer without regex" <<
-                    info << "consider changing regex introducer '" << re
-                           << "' in here-document end marker";
-
-                // This is a char-regex, or a sequence of line-regex syntax
-                // characters or both (in this specific order). So we will add
-                // the char-regex first (if present), and then sequentially
-                // add the line-regex syntax characters (if present).
-                //
-                size_t p (s.find (re, 1));
-                if (p == string::npos)
+                if (np != string::npos)
                 {
-                  // No char-regex, just a sequence of line-regex syntax
-                  // characters. Prepare to parse them starting from the
-                  // position right after the introducer.
-                  //
-                  p = 1;
+                  ln = string (s, p, np - p);
+                  p = np + 1;
                 }
                 else
                 {
-                  // Add regex line-char, and then position to the end of the
-                  // regex (that includes terminating introducer and the
-                  // optional flags). This is the first line-regex syntax
-                  // character position (if present).
-                  //
-                  line_char c;
-
-                  // Empty regex is a special case repesenting the blank line.
-                  //
-                  if (p == 1)
-                  {
-                    c = line_char ("", pool);
-                    ++p;
-                  }
-                  else
-                  {
-                    // Can't fail as all the pre-conditions verified (non-empty
-                    // with both introducers in place), so no description
-                    // required.
-                    //
-                    regex_parts re (parse_regex (s, l, "", &p));
-
-                    try
-                    {
-                      c = line_char (
-                        char_regex (re.value,
-                                    char_regex::ECMAScript | re.flags | refl),
-                        pool);
-                    }
-                    catch (const regex_error& e)
-                    {
-                      // Print regex_error description if meaningful.
-                      //
-                      fail (l) << "invalid regex" << e;
-                    }
-                  }
-
-                  ls += c;
+                  ln = string (s, p);
+                  p = np;
                 }
 
-                while (p != n)
+                if (ln[0] != re) // Line doesn't start with regex introducer.
                 {
-                  char c (s[p++]);
-                  if (line_char::syntax (c))
-                    ls += line_char (c);
+                  // This is a line-char literal (covers blank lines as well).
+                  //
+                  // Append textual literal.
+                  //
+                  rre.lines.emplace_back (l.line, l.column, move (ln), false);
+                }
+                else // Line starts with the regex introducer.
+                {
+                  // This is a char-regex, or a sequence of line-regex syntax
+                  // characters or both (in this specific order). So we will
+                  // add regex (with optional special characters) or special
+                  // literal.
+                  //
+                  size_t p (ln.find (re, 1));
+                  if (p == string::npos)
+                  {
+                    // No regex, just a sequence of syntax characters.
+                    //
+                    string spec (ln, 1);
+                    if (spec.empty ())
+                      fail (l) << "no syntax line characters";
+
+                    // Append special literal.
+                    //
+                    rre.lines.emplace_back (
+                      l.line, l.column, move (spec), true);
+                  }
                   else
-                    fail (l) << "invalid line-regex syntax character '" << c
-                             << "'";
+                  {
+                    // Regex (probably with syntax characters).
+                    //
+                    regex_parts re;
+
+                    // Empty regex is a special case repesenting a blank line.
+                    //
+                    if (p == 1)
+                      // Position to optional specal characters of an empty
+                      // regex.
+                      //
+                      ++p;
+                    else
+                      // Can't fail as all the pre-conditions verified
+                      // (non-empty with both introducers in place), so no
+                      // description required.
+                      //
+                      re = parse_regex (ln, l, "", &p);
+
+                    // Append regex with optional special characters.
+                    //
+                    rre.lines.emplace_back (l.line, l.column,
+                                            move (re.value), move (re.flags),
+                                            string (ln, p));
+                  }
                 }
               }
-              else
-                // Line doesn't start with regex introducer. Add line-char
-                // literal (handles blank lines as well).
-                //
-                ls += line_char (move (s), pool);
             }
           }
 
@@ -2695,35 +2654,31 @@ namespace build2
           //
           if (mod.find (':') == string::npos)
           {
-            rs += '\n';
-
             if (re)
-              ls += line_char ("", pool);
+              // Note that the position is synthetic, but that's ok as we don't
+              // expect any diagnostics to refer this line.
+              //
+              rre.lines.emplace_back (l.line, l.column, string (), false);
+            else
+              rs += '\n';
           }
 
-          // Parse line-regex.
+          // Finalize regex lines.
           //
           if (re)
           {
             // Empty regex matches nothing, so not of much use.
             //
-            if (ls.empty ())
+            if (rre.lines.empty ())
               fail (l) << "empty here-document regex";
 
-            try
-            {
-              rre = line_regex (move (ls), move (pool));
-            }
-            catch (const regex_error& e)
-            {
-              // Print regex_error description if meaningful.
-              //
-              fail (l) << "invalid here-document regex" << e;
-            }
+            rre.intro  = re;
           }
         }
 
-        return make_pair (move (rs), move (rre));
+        return re
+          ? parsed_doc (move (rre), l.line, l.column)
+          : parsed_doc (move (rs), l.line, l.column);
       }
 
       //
@@ -3183,6 +3138,39 @@ namespace build2
       {
         lexer_ = l;
         base_parser::lexer_ = l;
+      }
+
+      // parser::parsed_doc
+      //
+      parser::parsed_doc::
+      parsed_doc (string s, uint64_t l, uint64_t c)
+          : str (move (s)), re (false), end_line (l), end_column (c)
+      {
+      }
+
+      parser::parsed_doc::
+      parsed_doc (regex_lines r, uint64_t l, uint64_t c)
+          : regex (move (r)), re (true), end_line (l), end_column (c)
+      {
+      }
+
+      parser::parsed_doc::
+      parsed_doc (parsed_doc&& d)
+          : re (d.re), end_line (d.end_line), end_column (d.end_column)
+      {
+        if (re)
+          new (&regex) regex_lines (move (d.regex));
+        else
+          new (&str) string (move (d.str));
+      }
+
+      parser::parsed_doc::
+      ~parsed_doc ()
+      {
+        if (re)
+          regex.~regex_lines ();
+        else
+          str.~string ();
       }
     }
   }

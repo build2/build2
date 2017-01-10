@@ -26,11 +26,29 @@
     testscript:1:7: error: no closing introducer character in stdout regex redirect
     EOE
 
+    : portable-path-introducer
+    :
+    $* <'cmd >/~/foo/' 2>>EOE != 0
+    testscript:1:8: error: portable path modifier and '/' introducer in stdout regex redirect
+    EOE
+
     : empty
     :
     $* <'cmd >~//' 2>>EOE != 0
     testscript:1:7: error: stdout regex redirect is empty
     EOE
+
+    : no-flags
+    :
+    $* <'cmd >~/fo*/' >'cmd >~/fo*/'
+
+    : idot
+    :
+    $* <'cmd >~/fo*/d' >'cmd >~/fo*/d'
+
+    : icase
+    :
+    $* <'cmd >~/fo*/i' >'cmd >~/fo*/i'
 
     : invalid-flags1
     :
@@ -43,24 +61,6 @@
     $* <'cmd >~/foo/iz' 2>>EOE != 0
     testscript:1:7: error: junk at the end of stdout regex redirect
     EOE
-
-    : malformed
-    :
-    : Note that old versions of libc++ (for example 1.1) do not detect some
-    : regex errors. For example '*' is parsed successfully.
-    :
-    $* <'cmd >~/foo[/' 2>>~/EOE/ != 0
-    /testscript:1:7: error: invalid stdout regex redirect.*/
-      info: regex: /foo[/
-    EOE
-
-    : without-flags
-    :
-    $* <'cmd >~/fo*/' >'cmd >~/fo*/'
-
-    : with-flags
-    :
-    $* <'cmd >~/fo*/i' >'cmd >~/fo*/i'
 
     : no-newline
     :
@@ -106,6 +106,16 @@
     testscript:1:8: error: expected here-document regex end marker
     EOE
 
+    : portable-path-introducer
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>/~/EOO/
+    foo
+    EOO
+    EOI
+    testscript:1:5: error: portable path modifier and '/' introducer in here-document regex end marker
+    EOE
+
     : unterminated-line-char
     :
     $* <<EOI 2>>EOE != 0
@@ -113,39 +123,7 @@
     /
     EOO
     EOI
-    testscript:2:1: error: regex introducer without regex
-      info: consider changing regex introducer '/' in here-document end marker
-    EOE
-
-    : invalid-syntax-char
-    :
-    $* <<EOI 2>>EOE != 0
-    cmd >>~/EOO/
-    /x
-    EOO
-    EOI
-    testscript:2:1: error: invalid line-regex syntax character 'x'
-    EOE
-
-    : invalid-char-regex
-    :
-    $* <<EOI 2>>~/EOE/ != 0
-    cmd >>~/EOO/
-    /foo[/
-    EOO
-    EOI
-    /testscript:2:1: error: invalid regex.*/
-    EOE
-
-    : invalid-line-regex
-    :
-    $* <<EOI 2>>~/EOE/ != 0
-    cmd >>~/EOO/
-    a
-    /{
-    EOO
-    EOI
-    /testscript:4:1: error: invalid here-document regex.*/
+    testscript:2:1: error: no syntax line characters
     EOE
 
     : empty
@@ -157,7 +135,7 @@
     testscript:2:1: error: empty here-document regex
     EOE
 
-    : valid
+    : no-flags
     :
     $* <<EOI >>EOO
     cmd 2>>~/EOE/
@@ -184,6 +162,47 @@
     //*
     EOE
     EOO
+
+    : no-newline
+    :
+    $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
+    $* <<EOI >>EOO
+    cmd 2>>:~/EOE/
+    foo
+    EOE
+    EOI
+    cmd 2>>:~/EOE/
+    foo
+    EOE
+    EOO
+
+    : end-marker-restore
+    :
+    {
+      : idot
+      :
+      $* <<EOI >>EOO
+      cmd 2>>~/EOE/d
+      foo
+      EOE
+      EOI
+      cmd 2>>~/EOE/d
+      foo
+      EOE
+      EOO
+
+      : icase
+      :
+      $* <<EOI >>EOO
+      cmd 2>>~/EOE/i
+      foo
+      EOE
+      EOI
+      cmd 2>>~/EOE/i
+      foo
+      EOE
+      EOO
+    }
   }
 
   : stderr

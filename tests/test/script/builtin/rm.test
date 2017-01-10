@@ -40,8 +40,8 @@
   : Removing non-existing file fails.
   :
   $c <<EOI;
-  rm a 2>>~%EOE% == 1
-  %rm: unable to remove '.+[/\\]test[/\\]rm[/\\]file[/\\]not-exists[/\\]test[/\\]1[/\\]a': .+%
+  rm a 2>>/~%EOE% == 1
+  %rm: unable to remove '.+/test/rm/file/not-exists/test/1/a': .+%
   EOE
   EOI
   $b
@@ -106,8 +106,8 @@
   :
   :
   $c <<EOI;
-  rm ../../a/b/c 2>>~%EOE% == 1
-  %rm: '.+[/\\]path[/\\]outside-scope[/\\]a[/\\]b[/\\]c' is out of working directory '.+[/\\]outside-scope[/\\]test'%
+  rm ../../a/b/c 2>>/~%EOE% == 1
+  %rm: '.+/path/outside-scope/a/b/c' is out of working directory '.+/outside-scope/test'%
   EOE
   EOI
   $b

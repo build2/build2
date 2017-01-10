@@ -6,6 +6,82 @@
 # @@ Does it make sense to split into separate files - one per redirect type?
 #
 
+: str
+:
+{
+  : literal
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd </foo >/bar 2>/baz
+    EOI
+    cmd </foo >/bar 2>/baz
+    EOO
+  }
+
+  : regex
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd >/~%foo% 2>/~%bar%
+    EOI
+    cmd >/~%foo% 2>/~%bar%
+    EOO
+  }
+}
+
+: doc
+:
+{
+  : literal
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd <</EOI_ >/EOO_ 2>/EOE_
+    foo
+    EOI_
+    bar
+    EOO_
+    baz
+    EOE_
+    EOI
+    cmd <</EOI_ >/EOO_ 2>/EOE_
+    foo
+    EOI_
+    bar
+    EOO_
+    baz
+    EOE_
+    EOO
+  }
+
+  : regex
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd >/~%EOF% 2>/~%EOE%
+    foo
+    EOF
+    bar
+    EOE
+    EOI
+    cmd >/~%EOF% 2>/~%EOE%
+    foo
+    EOF
+    bar
+    EOE
+    EOO
+  }
+}
+
 : file
 :
 {

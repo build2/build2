@@ -66,7 +66,7 @@
 
   : root
   :
-  if ($cxx.target.class != windows)
+  if ($cxx.target.class != 'windows')
   {
     $* <<EOI >>EOO
     x = [dir_path] /
