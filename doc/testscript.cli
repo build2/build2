@@ -2097,9 +2097,9 @@ opening brace (\c{{}) and for a test \- the first test line.
 The Testscript language provides a portable subset of POSIX utilities. Each
 utility normally implements the commonly used subset of the corresponding
 POSIX specification, though there are deviations (e.g., in option handling)
-and extensions, as described in this chapter. Note also the builtins are
+and extensions, as described in this chapter. Note also that the builtins are
 implemented in-process with some of the simple ones (e.g., \c{true/false},
-\c{mkdir}, etc) are being just function calls.
+\c{mkdir}, etc) being just function calls.
 
 
 \h#builtins-cat|\c{cat}|
@@ -2170,13 +2170,32 @@ is specified.
 
 \li|\n\c{-f}
 
-  Do not fail if path does not exist or no path is specified.||
+  Do not fail if no path is specified, the path does not exist, or is outside
+  the script working directory.||
 
 Note that the implementation deviates from POSIX in a number of ways. It never
 interacts with the user and fails immediately if unable to act on an
 argument. It does not check for dot containment in the path nor considers
 filesystem permissions. In essence, it simply tries to remove the filesystem
-entry. I also always fails if an empty path is specified.
+entry. It also always fails if an empty path is specified.
+
+
+\h#builtins-rmdir|\c{rmdir}|
+
+\
+rmdir [-f] <dir>...
+\
+
+Remove directories. The directory must be empty and not be the test working
+directory or its parent directory. It also must not be outside the script
+working directory unless the \c{-f} option is specified.
+
+\dl|
+
+\li|\n\c{-f}
+
+  Do not fail if no directory is specified, the directory does not exist, or
+  is outside the script working directory.||
 
 
 \h#builtins-touch|\c{touch}|
