@@ -18,14 +18,14 @@ This document describes the \c{build2} Testscript language. It starts with a
 discussion of the motivations behind a separate domain-specific language for
 running tests and then introduces a number of Testscript concepts with
 examples. The remainder of the document provides a more formal specification
-of the language, including its integration into the build system, parsing and
-execution model, lexical structure, as well as grammar and semantics. The
-final chapter describes the recommended Testscript style as used in the
-\c{build2} project.
+of the language, including its integration into the build system, conceptual
+model and execution, lexical structure, as well as syntax and semantics. The
+final chapter describes the testing guidelines and the Testscript style as
+used in the \c{build2} project itself.
 
 In this document we use the term \i{Testscript} (capitalized) to refer to the
-Testscript language. Just \i{testscript} means some code written in this
-language. For example: \"We can pass addition information to testscripts using
+Testscript language. Just \i{testscript} means code written in this language.
+For example: \"We can pass addition information to testscripts using
 target-specific variables.\" Finally, \c{testscript} refers to the file name.
 
 We also use the equivalent distinction between \i{Buildfile} (language),
@@ -34,26 +34,26 @@ We also use the equivalent distinction between \i{Buildfile} (language),
 \h1#intro|Introduction|
 
 The \c{build2} \c{test} module provides the ability to run an executable
-target as a test, including passing options and arguments, providing
+target as a test along with passing options and arguments, providing the
 \c{stdin} input, as well as comparing the \c{stdout} output to the expected
 result. For example:
 
 \
 exe{hello}: test.options   = --greeting 'Hi'
-exe{hello}: test.arguments = -               # Read names from stdin.
+exe{hello}: test.arguments = - # Read names from stdin.
 exe{hello}: test.input     = names.txt
 exe{hello}: test.output    = greetings.txt
 \
 
-This works well for simple, single-run tests. If, however, your testing
-requires multiple runs with varying input and/or analyzing output,
-traditionally, you would resort to using a scripting language, for instance
+This works well for simple, single-run tests. If, however, our testing
+required multiple runs with varying inputs and/or analyzing output,
+traditionally, we would resort to using a scripting language, for instance
 Bash or Python. This, however, has a number of drawbacks. Firstly, this
-approach is usually not portable (there is no Bash or Python on Windows \i{out
-of the box}). It is also hard to write concise tests in a general-purpose
-scripting language. The result is often a test suite that has grown
-incomprehensible with everyone dreading adding new tests. Secondly, it is hard
-to run such tests in parallel without a major effort, for example, by having a
+approach is not portable (there is no Bash or Python on Windows \i{out of the
+box}). It is also hard to write concise tests in a general-purpose scripting
+language. The result is often a test suite that has grown incomprehensible
+with everyone dreading adding new tests. Secondly, it is hard to run such
+tests in parallel without a major effort. Usually this involves having a
 separate script for each test and implementing some kind of a test harness.
 
 Testscript is a domain-specific language for running tests. It vaguely
@@ -84,13 +84,13 @@ execution by focusing on the following functionality:
 Note that Testscript is a \i{test runner}, not a testing framework for a
 particular programming language. It does not concern itself with how the test
 executables themselves are implemented. As a result, it is mostly geared
-towards functional testing but can also be used for unit testing if
-external input/output is required. Testscript is an extension of the
-\c{build2} build system and is implemented by its \c{test} module.
+towards functional testing but can also be used for unit testing if external
+input/output is required. Testscript is part of the \c{build2} build system
+and is implemented by its \c{test} module.
 
-As a quick introduction to Testscript's capabilities, let's test a \"Hello,
-World\" program. For a simple implementation the corresponding \c{buildfile}
-might look like this:
+As a quick introduction to the Testscript's capabilities, let's \i{properly}
+test a \"Hello, World\" program. For a simple implementation the corresponding
+\c{buildfile} might look like this:
 
 \
 exe{hello}: cxx{hello}
@@ -107,23 +107,23 @@ prerequisite, for example:
 exe{hello}: cxx{hello} test{testscript}
 \
 
-Let's assume our \c{hello} program expects us to pass the name to greet on the
-command line. And if we don't pass anything, it prints an error following by
-usage and terminates with a non-zero exit status. We can test this failure
-case by adding the following line to the \c{testscript} file:
+Let's assume our \c{hello} program expects us to pass the name to greet as a
+command line argument. And if we don't pass anything, it prints an error
+following by usage and terminates with a non-zero exit code. We can test
+this failure case by adding the following line to the \c{testscript} file:
 
 \
 $* 2>- != 0
 \
 
-While it sure is concise, it may look cryptic without some explanation. When
-the \c{test} module runs tests, it (by default) passes to each testscript the
-target path of which this testscript is a prerequisite. So in our case the
+While it sure is concise, it may look cryptic without explanation. When the
+\c{test} module runs tests, it passes to each testscript the path to the
+target of which this testscript is a prerequisite. So in our case the
 testscript will receive the path to our \c{hello} executable. The buildfile
-can also pass along additional options and arguments. Inside the testscript,
-all of this (target path, options, and arguments) are bound to the \c{$*}
-variable. So in our case, if we expand the above line, it would be something
-like this:
+can also pass along additional options and arguments (see \l{#integration
+Build System Integration} for details). Inside the testscript, all of this
+(target path, options, and arguments) are bound to the \c{$*} variable. So, in
+our case, if we expand the above line, it would be something like this:
 
 \
 /tmp/hello/hello 2>- != 0
@@ -138,11 +138,11 @@ C:\projects\hello\hello.exe 2>- != 0
 The \c{2>-} redirect is the Testscript equivalent of \c{2>/dev/null} that is
 both portable and more concise (\c{2} here is the \c{stderr} file
 descriptor). If we don't specify it and our program prints anything to
-\c{stderr}, then the test will fail (unexpected output).
+\c{stderr}, then the test fails (unexpected output).
 
 The remainder of the command (\c{!= 0}) is the exit status check. If we don't
-specify it, then the test is expected to exit with zero status (which is
-equivalent to specifying \c{== 0}).
+specify it, then the test is expected to return zero exit code (which
+is equivalent to specifying \c{== 0}).
 
 If we run our test, it will pass provided our program behaves as expected.
 One thing our test doesn't verify, however, is the diagnostics that gets
@@ -154,11 +154,11 @@ cerr << \"error: missing name\" << endl
      << \"usage: \" << argv[0] << \" <name>\" << endl;
 \
 
-In testscripts you can compare output to the expected result for both
-\c{stdout} and \c{stderr}. We can supply the expected result as either
+In Testscript you can compare output to the expected result for both
+\c{stdout} and \c{stderr}. We can supply the expected result as either a
 \i{here-string} or \i{here-document}, both which can be either literal or
 regex. The here-string approach works best for short, single-line output and
-we will use it for another test in a minute. For this test let's use
+we will use it for another test in a minute. For this test let's use the
 here-document since the expected diagnostics has two lines:
 
 \
@@ -169,13 +169,13 @@ EOE
 \
 
 Let's decrypt this: the \c{2>>EOE} is a here-document redirect with \c{EOE}
-(stands for End-Of-Error) being the string we chose to mark the end of
-here-document. Next comes the here-document fragment followed by the end
-marker.
+(stands for End-Of-Error) being the string we chose to mark the end of the
+here-document fragment. Next comes the here-document fragment followed by the
+end marker.
 
 Now, when executing this test, the \c{test} module will check two things: it
 will compare the \c{stderr} output to the expected result using the \c{diff}
-tool and it will make sure the test exits with a non-zero status. Let's give
+tool and it will make sure the test returns a non-zero exit code. Let's give
 it a go:
 
 \
@@ -193,7 +193,7 @@ testscript:1:1: error: stderr doesn't match expected output
 +usage: /tmp/hello/hello <name>
 \
 
-While not what we expected, at least the problem is clear: the program name
+While not what we hoped for, at least the problem is clear: the program name
 varies at runtime so we cannot just hardcode \c{hello} in our expected output.
 How do we solve this? The best fix would be to use the actual path to the
 target; after all, we know it's the first element in \c{$*}:
@@ -208,23 +208,23 @@ EOE
 You can probably guess what \c{$0} expands to. But did you notice another
 change? Yes, those double quotes in \c{2>>\"EOE\"}. Here is what's going on:
 similar to Bash, single-quoted strings (\c{'foo'}) are taken literally while
-double-quoted ones (\c{\"foo\"}) have variable expansion, escaping, etc. This
-semantics is extended to here-documents in a curious way: if the end marker is
-single-quoted then the here-document lines are taken literally and if it is
-double-quoted, then there can be variable expansions, etc.  An unquoted end
-marker is treated as single-quoted (note that this is unlike Bash where
-here-documents always have variable expansions).
+double-quoted ones (\c{\"foo\"}) have variable expansions, escaping, and so
+on. In Testscript this semantics is extended to here-documents in a curious
+way: if the end marker is single-quoted then the here-document lines are taken
+literally and if it is double-quoted, then there can be variable expansions,
+etc. An unquoted end marker is treated as single-quoted (note that this is
+unlike Bash where here-documents always have variable expansions).
 
 This example illustrated a fairly common testing problem: output variability.
-In this case we could fix it perfectly since we could easily calculate the
-varying parts exactly. But often figuring out the varying part is difficult of
+In our case we could fix it perfectly since we could easily calculate the
+varying part exactly. But often figuring out the varying part is difficult of
 outright impossible. A good example would be a system error message based on
 the \c{errno} code, such as file not being found. Different C runtimes can
 phrase the message slightly differently or it can be localized. Worse, it can
 be a slightly different error code, for example \c{ENOENT} vs \c{ENOTDIR}.
 
 To handle output variability, Testscript allows us to specify the expected
-output as regular expressions. For example, this is an alternative fix to our
+output as a regular expression. For example, this is an alternative fix to our
 usage problem that simply ignores the program name:
 
 \
@@ -235,28 +235,28 @@ EOE
 \
 
 Let's explain what's going here: to use a regex here-string or here-document
-we add the \c{~} redirect modifier. In this case the here-document end marker
-must start and end with the regex introducer character of your choice (\c{/}
-in our case). Any line inside the here-document fragment that begins with this
-introducer is then treated as a regular expression rather than a literal (see
-\l{#syntax-regex Output Regex} for details).
+we add the \c{~} \i{redirect modifier}. In this case the here-document end
+marker must start and end with the regex introducer character of your choice
+(\c{/} in our case). Any line inside the here-document fragment that begins
+with this introducer is then treated as a regular expression rather than a
+literal (see \l{#syntax-regex Output Regex} for details).
 
 While this was a fairly deep rabbit hole for a first example, it is a good
 illustration of how quickly things get complicated when testing real-world
 software.
 
 Now that we have tested the failure case, let's test the normal functionality.
-While we could have used here-document, in this case here-string will be more
-concise:
+While we could have used a here-document, in this case a here-string will be
+more concise:
 
 \
 $* 'World' >'Hello, World!'
 \
 
-Nothing new here. It's also a good idea to document our tests. Testscript
-has a formalized test description that can capture the test \i{id},
-\i{summary}, and \i{details}. All three components are optional and how
-thoroughly you document your tests is up to you.
+It's also a good idea to document our tests. Testscript has a formalized test
+description that can capture the test \i{id}, \i{summary}, and \i{details}.
+All three components are optional and how thoroughly you document your tests
+is up to you.
 
 The description lines precede the test command. They start with a colon
 (\c{:}), and have the following layout:
@@ -300,7 +300,7 @@ $* 2>>\"EOE\" != 0
 :
 : This test makes sure the program detects that the name to greet
 : was not specified on the command line and both prints usage and
-: exits with non-zero status.
+: exits with non-zero code.
 ...
 \
 
@@ -308,9 +308,10 @@ The recommended way to come up with an id is to distill the summary to its
 essential keywords by removing generic words like \"test\", \"handle\", and so
 on. If you do this, then both the id and summary will convey essentially the
 same information. As a result, to keep things concise, you may choose to drop
-the summary and only have the id. This is what we often do in \c{build2}.
-Note that if the id is not provided, then it will be automatically derived
-from the line number in testscript.
+the summary and only have the id (this is what we often do in \c{build2}
+tests). If the id is not provided, then it will be automatically derived from
+the line number in testscript (we have already seen one in the earlier failed
+test diagnostics).
 
 Either the id or summary (but not both) can alternatively be specified inline
 in the test command after a colon (\c{:}), for example:
@@ -321,8 +322,8 @@ $* 'World' >'Hello, World!' : command-name
 
 Similar to handling output, Testscript provides a convenient way to supply
 input to the test's \c{stdin}. Let's say our \c{hello} program recognizes the
-special \c{-} name as an instruction to read the names from \c{stdin}. This
-is how we could test this functionality:
+\c{-} argument as an instruction to read the names from \c{stdin}. This is how
+we could test this functionality:
 
 \
 $* - <<EOI >>EOO : stdin-names
@@ -334,7 +335,7 @@ Hello, John!
 EOO
 \
 
-As you might suspect, we can also use here-string to supply \c{stdin}, for
+As you might suspect, we can also use here-strings to supply \c{stdin}, for
 example:
 
 \
@@ -375,8 +376,8 @@ $* ... &hello.log != 0
 What if we wanted to run two tests for this configuration file functionality?
 For example, we may want to test the custom greeting as above but also make
 sure the default greeting is not affected. One way to do this would be to
-repeat the setup command in each test. But there is a better way: testscripts
-can define test groups. For example:
+repeat the setup command in each test. But there is a better way: in
+Testscript we can combine related tests into groups. For example:
 
 \
 : config
@@ -393,24 +394,25 @@ can define test groups. For example:
 }
 \
 
-A test group is a scope that contains several test/setup/teardown commands.
-Variables set inside a scope (like our \c{conf}) are only in effect until the
-end of the scope. Plus, setup and teardown commands that are not part of any
-test (notice the lack of \c{;} after \c{+cat}) are associated with the scope;
-their automatic cleanup only happens at the end of the scope (so our
-\c{hello.conf} will only be removed after all the tests in the group have
+A test group is a scope that contains several tests with common setup/teardown
+commands. Variables set inside a scope (like our \c{conf}) are only in effect
+until the end of the scope. Plus, setup and teardown commands that are not
+part of any test (notice the lack of \c{;} after \c{+cat}) are associated with
+the scope. Their automatic cleanup only happens at the end of the scope (so
+our \c{hello.conf} will only be removed after all the tests in the group have
 completed). Note also that a scope can have a description. In particular,
 assigning a test group an id allows us to run tests only from this specific
 group.
 
 Other than that the two other things we need to discuss in this example are
-\c{$~} and \c{cat}. The \c{$~} variable is easy: it stands for the test/group
-working directory.
+\c{$~} and \c{cat}. The \c{$~} variable is easy: it stands for the scope
+working directory (we will talk more about working directories at the end of
+this chapter).
 
 But what is \c{cat} exactly? While most POSIX systems will have a program with
-this name, there is no such thing in vanilla Windows. To help with this
-Testscript provides a subset (both in terms of the number and supported
-features) of POSIX utilities, such as, \c{echo}, \c{touch}, \c{cat},
+this name, there is no such thing, say, on vanilla Windows. To help with
+portability Testscript provides a subset (both in terms of the number and
+supported features) of POSIX utilities, such as, \c{echo}, \c{touch}, \c{cat},
 \c{mkdir}, \c{rm}, and so on (see \l{#builtins Builtins} for details).
 
 Besides explicit group scopes each test is automatically placed in its own
@@ -427,11 +429,11 @@ example, for better visual separation of complex tests:
 }
 \
 
-We can conditionally exclude sections of testscripts using \c{if-else}
-branching. This can be done both at the scope level to exclude test or
-group scopes as well as at the command level to exclude individual
-commands or variable assignments. Let's start with a scope example by
-providing a Windows-specific implementation of a test:
+We can conditionally exclude sections of a testscript using the \c{if-else}
+branching. This can be done both at the scope level to exclude test or group
+scopes as well as at the command level to exclude individual commands or
+variable assignments. Let's start with a scope example by providing a
+Windows-specific implementation of a test:
 
 \
 : config-empty
@@ -446,8 +448,8 @@ else
 }
 \
 
-Note the \c{if-else} chain is treated as variants of the same test thus
-the single description at the beginning.
+Note that the scopes in the \c{if-else} chain are treated as variants of the
+same test or group thus the single description at the beginning.
 
 Let's now see an example of command-level \c{if-else} by reimplementing
 the above as a single test with some branching and without using the
@@ -456,6 +458,7 @@ the above as a single test with some branching and without using the
 \
 : config-empty
 :
+@@ Why no +?
 if ($cxx.target.class != windows)
   conf = /dev/null
 else
@@ -468,10 +471,11 @@ $* 'Jane' $conf >'Hello, Jane!'
 You may have noticed that in the above examples we referenced the
 \c{cxx.target.class} variable as if we were in a buildfile. We could do that
 because the testscript variable lookup continues in the buildfile starting
-from the testscript target and continuing with the standard buildfile variable
-lookup. In particular, this means we can pass arbitrary information to
-testscripts using target-specific variables. For example, this how we can move
-the above platform test to \c{buildfile}:
+from the target being tested, then the testscript target, and continuing with
+the standard scope lookup (see \l{#model Model and Execution} for details). In
+particular, this means we can pass arbitrary information to testscripts using
+target-specific variables. For example, this how we can move the above
+platform test to \c{buildfile}:
 
 \
 # buildfile
@@ -490,9 +494,9 @@ else
   ...
 \
 
-Note also that in cases when you simply need to conditionally pick a value for
-a variable, the \c{build2} evaluation context will often be more concise than
-\c{if-else}. For example:
+Note also that in cases you simply need to conditionally pick a value for a
+variable, the \c{build2} evaluation context will often be a more concise
+option. For example:
 
 \
 : config-empty
@@ -503,7 +507,7 @@ $* 'Jane' $conf >'Hello, Jane!'
 
 Similar to Bash, test commands can be chained with pipes (\c{|}) and combined
 with logical operators (\c{||} and \c{&&}). Let's say our \c{hello} program
-provides the \c{-o} option to write the result to a file instead of
+provided the \c{-o} option to write the result to a file instead of
 \c{stdout}. Here is how we could test it:
 
 \
@@ -516,7 +520,7 @@ Hello, Jane!
 EOO
 \
 
-Similarly, if it has the \c{-r} option to reverse the greetings back to
+Similarly, if it had the \c{-r} option to reverse the greetings back to
 their names (as every \c{hello} program should), then we could write a
 test like this:
 
@@ -585,17 +589,17 @@ $out_base/
       └── missing-name/
 \
 
-If all the test succeed then this working directory structure is automatically
-removed. In case of a failure, however, it is left behind in case you need to
-examine the output of the failed tests. It will also be automatically cleaned
-on the subsequent run, before executing any tests.
+If all the tests succeed then this working directory structure is
+automatically removed. In case of a failure, however, it is left behind in
+case you need to examine the output of the failed tests. It will be
+automatically cleaned on the subsequent run, before executing any tests.
 
-The execution of tests happens in parallel. In the above case Testscript will
+The execution of tests happens in parallel. In the above case Testscript can
 start running all the top-level tests as well as the \c{config} group
 immediately.  Inside \c{config}, once the setup command (\c{cat}) is
 completed, the two inner tests are executed in parallel as well. Refer to
-\l{#model Model and Execution} for details on the test directory structure and
-execution.
+\l{#model Model and Execution} for details on the working directory structure
+and test execution.
 
 
 \h1#integration|Build System Integration|
