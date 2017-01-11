@@ -16,11 +16,18 @@ namespace build2
 {
   namespace test
   {
+    class common;
+
     namespace script
     {
       class runner
       {
       public:
+        // Return false if this test/group should be skipped.
+        //
+        virtual bool
+        test (scope&) const = 0;
+
         // Location is the scope start location (for diagnostics, etc).
         //
         virtual void
@@ -49,6 +56,12 @@ namespace build2
       class default_runner: public runner
       {
       public:
+        explicit
+        default_runner (const common& c): common_ (c) {}
+
+        virtual bool
+        test (scope& s) const override;
+
         virtual void
         enter (scope&, const location&) override;
 
@@ -60,6 +73,9 @@ namespace build2
 
         virtual void
         leave (scope&, const location&) override;
+
+      private:
+        const common& common_;
       };
     }
   }

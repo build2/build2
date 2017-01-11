@@ -424,24 +424,11 @@ namespace build2
 
       // script
       //
-      static inline string
-      script_id (const path& p)
-      {
-        string r (p.leaf ().string ());
-
-        if (r == "testscript")
-          return string ();
-
-        size_t n (path::traits::find_extension (r));
-        assert (n != string::npos);
-        r.resize (n);
-        return r;
-      }
-
       script::
       script (target& tt, testscript& st, const dir_path& rwd)
-          : group (script_id (st.path ())),
-            test_target (tt), script_target (st)
+          : group (st.name == "testscript" ? string () : st.name),
+            test_target (tt),
+            script_target (st)
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
         // for root is just the id which is empty if st is 'testscript').
@@ -458,7 +445,10 @@ namespace build2
           //
           lookup l (find_in_buildfile ("test", false));
 
+          // Note that we have similar code for simple tests.
+          //
           target* t (nullptr);
+
           if (l.defined ())
           {
             const name* n (cast_null<name> (l));

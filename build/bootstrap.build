@@ -15,6 +15,6 @@ if ($revision != 0)
   dist.package += +$revision
 
 using config
-using dist
 using test
+using dist
 using install

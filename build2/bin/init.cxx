@@ -112,7 +112,7 @@ namespace build2
       {
         value& v (b.assign ("bin.lib"));
         if (!v)
-          v = required (r, "config.bin.lib", "both").first;
+          v = *required (r, "config.bin.lib", "both").first;
       }
 
       // config.bin.exe.lib
@@ -120,7 +120,7 @@ namespace build2
       {
         value& v (b.assign ("bin.exe.lib"));
         if (!v)
-          v = required (r, "config.bin.exe.lib", exe_lib).first;
+          v = *required (r, "config.bin.exe.lib", exe_lib).first;
       }
 
       // config.bin.liba.lib
@@ -128,7 +128,7 @@ namespace build2
       {
         value& v (b.assign ("bin.liba.lib"));
         if (!v)
-          v = required (r, "config.bin.liba.lib", liba_lib).first;
+          v = *required (r, "config.bin.liba.lib", liba_lib).first;
       }
 
       // config.bin.libs.lib
@@ -136,7 +136,7 @@ namespace build2
       {
         value& v (b.assign ("bin.libs.lib"));
         if (!v)
-          v = required (r, "config.bin.libs.lib", libs_lib).first;
+          v = *required (r, "config.bin.libs.lib", libs_lib).first;
       }
 
       // config.bin.rpath
@@ -154,16 +154,16 @@ namespace build2
       // that might have been specified before loading the module.
       //
       {
-        const value* p (omitted (r, "config.bin.prefix").first);
-        const value* s (omitted (r, "config.bin.suffix").first);
+        lookup p (omitted (r, "config.bin.prefix").first);
+        lookup s (omitted (r, "config.bin.suffix").first);
 
-        auto set = [&r, &b] (const char* bv, const char* cv, const value* v)
+        auto set = [&r, &b] (const char* bv, const char* cv, lookup l)
         {
-          if (const value* o = omitted (r, cv).first)
-            v = o;
+          if (lookup o = omitted (r, cv).first)
+            l = o;
 
-          if (v != nullptr)
-            b.assign (bv) = *v;
+          if (l)
+            b.assign (bv) = *l;
         };
 
         set ("bin.lib.prefix", "config.bin.lib.prefix", p);
@@ -186,21 +186,21 @@ namespace build2
           // mechanism.
           //
           auto p (omitted (r, var));
-          const value* v (p.first);
+          lookup l (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
           //
           bool hint (false);
-          if (v == nullptr)
+          if (!l)
           {
-            if (auto l = hints[var])
+            if (auto hl = hints[var])
             {
-              v = l.value;
+              l = hl;
               hint = true;
             }
           }
 
-          if (v == nullptr)
+          if (!l)
             fail (loc) << "unable to determine binutils target" <<
               info << "consider specifying it with " << var <<
               info << "or first load a module that can provide it as a hint, "
@@ -208,7 +208,7 @@ namespace build2
 
           // Split/canonicalize the target.
           //
-          string s (cast<string> (*v));
+          string s (cast<string> (l));
 
           // Did the user ask us to use config.sub? If this is a hinted value,
           // then we assume it has already been passed through config.sub.
@@ -262,22 +262,22 @@ namespace build2
           // mechanism.
           //
           auto p (omitted (r, var));
-          const value* v (p.first);
+          lookup l (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
           //
-          if (v == nullptr)
+          if (!l)
           {
-            if (auto l = hints[var])
-              v = l.value;
+            if (auto hl = hints[var])
+              l = hl;
           }
 
           // For ease of use enter it as bin.pattern (since it can come from
           // different places).
           //
-          if (v != nullptr)
+          if (l)
           {
-            const string& s (cast<string> (*v));
+            const string& s (cast<string> (l));
 
             if (s.empty () ||
                 (!path::traits::is_separator (s.back ()) &&

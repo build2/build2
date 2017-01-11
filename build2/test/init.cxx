@@ -9,7 +9,9 @@
 #include <build2/rule>
 #include <build2/diagnostics>
 
-#include <build2/test/rule>
+#include <build2/config/utility>
+
+#include <build2/test/module>
 #include <build2/test/target>
 #include <build2/test/operation>
 
@@ -20,9 +22,6 @@ namespace build2
 {
   namespace test
   {
-    static rule rule_;
-    static alias_rule alias_rule_;
-
     void
     boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
@@ -38,6 +37,16 @@ namespace build2
       // in bootstrap.build.
       //
       auto& vp (var_pool);
+
+      // Tests to execute.
+      //
+      // Specified as <target>@<path-id> pairs with both sides being optional.
+      // The variable is untyped (we want a list of name-pairs), overridable,
+      // and inheritable. The target is relative (in essence a prerequisite)
+      // which is resolved from the (root) scope where the config.test value
+      // is defined.
+      //
+      vp.insert ("config.test", true);
 
       // Note: none are overridable.
       //
@@ -76,7 +85,7 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>&,
+          unique_ptr<module_base>& mod,
           bool first,
           bool,
           const variable_map& config_hints)
@@ -92,16 +101,39 @@ namespace build2
       const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
-      assert (config_hints.empty ()); // We don't known any hints.
+      assert (mod == nullptr);
+      mod.reset (new module ());
+      module& m (static_cast<module&> (*mod));
 
-      //@@ TODO: Need ability to specify extra diff options (e.g.,
-      //   --strip-trailing-cr, now hardcoded).
+      // Configure.
+      //
+      assert (config_hints.empty ()); // We don't known any hints.
 
       // Adjust module priority so that the config.test.* values are saved at
       // the end of config.build.
       //
-      // if (s)
-      //   config::save_module (r, "test", INT32_MAX);
+      config::save_module (rs, "test", INT32_MAX);
+
+      // config.test
+      //
+      if (lookup l = config::omitted (rs, "config.test").first)
+      {
+        // Figure out which root scope it came from.
+        //
+        scope* s (&rs);
+        for (;
+             s != nullptr && !l.belongs (*s);
+             s = s->parent_scope ()->root_scope ())
+        assert (s != nullptr);
+
+        m.test_ = &cast<names> (l);
+        m.root_ = s;
+      }
+
+      //@@ TODO: Need ability to specify extra diff options (e.g.,
+      //   --strip-trailing-cr, now hardcoded).
+      //
+      //@@ TODO: Pring report.
 
       // Register target types.
       //
@@ -114,18 +146,19 @@ namespace build2
       // Register rules.
       //
       {
-        auto& r (rs.rules);
+        rule& r (m);
+        alias_rule& ar (m);
 
         // Register our test running rule.
         //
-        r.insert<target> (perform_test_id, "test", rule_);
-        r.insert<alias> (perform_test_id, "test", alias_rule_);
+        rs.rules.insert<target> (perform_test_id, "test", r);
+        rs.rules.insert<alias> (perform_test_id, "test", ar);
 
         // Register our rule for the dist meta-operation. We need to do this
         // because we may have ad hoc prerequisites (test input/output files)
         // that need to be entered into the target list.
         //
-        r.insert<target> (dist_id, test_id, "test", rule_);
+        rs.rules.insert<target> (dist_id, test_id, "test", r);
       }
 
       return true;

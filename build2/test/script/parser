@@ -136,7 +136,11 @@ namespace build2
         //
       public:
         void
-        execute (script& s, runner& r) {if (!s.empty ()) execute (s, s, r);}
+        execute (script& s, runner& r)
+        {
+          if (!s.empty ())
+            execute (s, s, r);
+        }
 
         void
         execute (scope&, script&, runner&);
@@ -195,7 +199,7 @@ namespace build2
         lexer* lexer_;
         string id_prefix_; // Auto-derived id prefix.
 
-        // Parse state.
+        // Execute state.
         //
         runner* runner_;
         scope* scope_;

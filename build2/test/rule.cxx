@@ -25,14 +25,16 @@ namespace build2
   {
     struct match_data
     {
-      bool test = false;
-      bool script = false;
+      bool pass; // Pass-through to prerequsites (for alias only).
+      bool test;
+
+      bool script;
     };
 
     static_assert (sizeof (match_data) <= target::data_size,
                    "insufficient space");
 
-    match_result rule::
+    match_result rule_common::
     match (action a, target& t, const string&) const
     {
       // The (admittedly twisted) logic of this rule tries to achieve the
@@ -47,64 +49,69 @@ namespace build2
       // (which, if not testable, it will noop).
       //
       // And to add a bit more complexity, we want to handle aliases slightly
-      // differently: we don't want to ignore their prerequisites if the alias
-      // is not testable since their prerequisites could be.
+      // differently: we may not want to ignore their prerequisites if the
+      // alias is not testable since their prerequisites could be.
 
-      match_data md;
+      match_data md {t.is_a<alias> () && pass (t), false, false};
 
-      // We have two very different cases: testscript and simple test (plus it
-      // may not be a testable target at all). So as the first step determine
-      // which case this is.
-      //
-      // If we have any prerequisites of the test{} type, then this is the
-      // testscript case.
-      //
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      if (test (t))
       {
-        if (p.is_a<testscript> ())
-        {
-          md.script = true;
-
-          // We treat this target as testable unless the test variable is
-          // explicitly set to false.
-          //
-          const name* n (cast_null<name> (t["test"]));
-          md.test = n == nullptr || !n->simple () || n->value != "false";
-          break;
-        }
-      }
-
-      // If this is not a script, then determine if it is a simple test.
-      // Ignore aliases and testscripts files themselves at the outset.
-      //
-      if (!md.script && !t.is_a<alias> () && !t.is_a<testscript> ())
-      {
-        // For the simple case whether this is a test is controlled by the
-        // test variable. Also, it feels redundant to specify, say, "test =
-        // true" and "test.output = test.out" -- the latter already says this
-        // is a test.
+        // We have two very different cases: testscript and simple test (plus
+        // it may not be a testable target at all). So as the first step
+        // determine which case this is.
         //
-
-        // Use lookup depths to figure out who "overrides" whom.
+        // If we have any prerequisites of the test{} type, then this is the
+        // testscript case.
         //
-        auto p (t.find ("test"));
-        const name* n (cast_null<name> (p.first));
-
-        if (n != nullptr && n->simple () && n->value != "false")
-          md.test = true;
-        else
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
-          auto test = [&t, &p] (const char* var)
+          if (p.is_a<testscript> ())
           {
-            return t.find (var).second < p.second;
-          };
+            md.script = true;
 
-          md.test =
-            test ("test.input")     ||
-            test ("test.output")    ||
-            test ("test.roundtrip") ||
-            test ("test.options")   ||
-            test ("test.arguments");
+            // We treat this target as testable unless the test variable is
+            // explicitly set to false.
+            //
+            const name* n (cast_null<name> (t["test"]));
+            md.test = n == nullptr || !n->simple () || n->value != "false";
+            break;
+          }
+        }
+
+        // If this is not a script, then determine if it is a simple test.
+        // Ignore aliases and testscripts files themselves at the outset.
+        //
+        if (!md.script && !t.is_a<alias> () && !t.is_a<testscript> ())
+        {
+          // For the simple case whether this is a test is controlled by the
+          // test variable. Also, it feels redundant to specify, say, "test =
+          // true" and "test.output = test.out" -- the latter already says this
+          // is a test.
+          //
+
+          // Use lookup depths to figure out who "overrides" whom.
+          //
+          auto p (t.find ("test"));
+          const name* n (cast_null<name> (p.first));
+
+          // Note that test can be set to an "override" target.
+          //
+          if (n != nullptr && (!n->simple () || n->value != "false"))
+            md.test = true;
+          else
+          {
+            auto test = [&t, &p] (const char* var)
+            {
+              return t.find (var).second < p.second;
+            };
+
+            md.test =
+              test ("test.input")     ||
+              test ("test.output")    ||
+              test ("test.roundtrip") ||
+              test ("test.options")   ||
+              test ("test.arguments");
+          }
         }
       }
 
@@ -137,7 +144,7 @@ namespace build2
       // Change the recipe action to (update, 0) (i.e., "unconditional
       // update") to make sure we won't match any prerequisites.
       //
-      if (md.test && a.operation () == update_id)
+      if (a.operation () == update_id && (md.pass || md.test))
         mr.recipe_action = action (a.meta_operation (), update_id);
 
       // Note that we match even if this target is not testable so that we can
@@ -157,6 +164,9 @@ namespace build2
       //
       assert (!md.test || md.script);
 
+      if (!md.pass && !md.test)
+        return noop_recipe;
+
       // If this is the update pre-operation then simply redirect to the
       // standard alias rule.
       //
@@ -175,7 +185,9 @@ namespace build2
 
       // If not a test then also redirect to the alias rule.
       //
-      return md.test ? perform_test : default_recipe;
+      return md.test
+        ? [this] (action a, target& t) {return perform_test (a, t);}
+        : default_recipe;
     }
 
     recipe rule::
@@ -206,7 +218,7 @@ namespace build2
             t.prerequisite_targets.push_back (&p.search ());
         }
 
-        return &perform_script;
+        return [this] (action a, target& t) {return perform_script (a, t);};
       }
       else
       {
@@ -350,29 +362,33 @@ namespace build2
       }
     }
 
-    target_state rule::
-    perform_script (action, target& t)
+    target_state rule_common::
+    perform_script (action, target& t) const
     {
       // Figure out whether the testscript file is called 'testscript', in
       // which case it should be the only one.
       //
-      optional<bool> one;
-      for (target* pt: t.prerequisite_targets)
+      bool one;
       {
-        // In case we are using the alias rule's list (see above).
-        //
-        if (testscript* ts = pt->is_a<testscript> ())
+        optional<bool> o;
+        for (target* pt: t.prerequisite_targets)
         {
-          bool r (ts->name == "testscript");
+          // In case we are using the alias rule's list (see above).
+          //
+          if (testscript* ts = pt->is_a<testscript> ())
+          {
+            bool r (ts->name == "testscript");
 
-          if ((r && one) || (!r && one && *one))
-            fail << "both 'testscript' and other names specified for " << t;
+            if ((r && o) || (!r && o && *o))
+              fail << "both 'testscript' and other names specified for " << t;
 
-          one = r;
+            o = r;
+          }
         }
-      }
 
-      assert (one); // We should have a testscript or we wouldn't be here.
+        assert (o); // We should have a testscript or we wouldn't be here.
+        one = *o;
+      }
 
       // Calculate root working directory. It is in the out_base of the target
       // and is called just test for dir{} targets and test-<target-name> for
@@ -402,45 +418,58 @@ namespace build2
 
       if (exists (wd))
       {
-        bool e (empty (wd));
-
         warn << "working directory " << wd << " exists "
-             << (e ? "" : "and is not empty ") << "at the beginning "
+             << (empty (wd) ? "" : "and is not empty ") << "at the beginning "
              << "of the test";
 
-        if (!e)
-          build2::rmdir_r (wd, false, 2);
+        // Remove the directory itself not to confuse the runner which tries
+        // to detect when tests stomp on each others feet.
+        //
+        build2::rmdir_r (wd, true, 2);
       }
-      else if (!*one)
-        mkdir (wd, 2);
+
+      // Delay actually creating the directory in case all the tests are
+      // ignored (via config.test).
+      //
+      bool mk (!one);
 
       // Run all the testscripts.
       //
-      auto run = [&t, &wd] (testscript& ts)
-      {
-        if (verb)
-        {
-          const auto& tt (cast<target_triplet> (t["test.target"]));
-          text << "test " << t << " with " << ts << " on " << tt;
-        }
-
-        script::parser p;
-        script::script s (t, ts, wd);
-        p.pre_parse (s);
-
-        script::default_runner r;
-        p.execute (s, r);
-      };
-
       for (target* pt: t.prerequisite_targets)
       {
         if (testscript* ts = pt->is_a<testscript> ())
-          run (*ts);
+        {
+          // If this is just the testscript, then its id path is empty (and
+          // it can only be ignored by ignoring the test target, which makes
+          // sense since it's the only testscript file).
+          //
+          if (one || test (t, path (ts->name)))
+          {
+            if (mk)
+            {
+              mkdir (wd, 2);
+              mk = false;
+            }
+
+            if (verb)
+            {
+              const auto& tt (cast<target_triplet> (t["test.target"]));
+              text << "test " << t << " with " << *ts << " on " << tt;
+            }
+
+            script::parser p;
+            script::script s (t, *ts, wd);
+            p.pre_parse (s);
+
+            script::default_runner r (*this);
+            p.execute (s, r);
+          }
+        }
       }
 
       // Cleanup.
       //
-      if (!*one)
+      if (!one && !mk)
       {
         if (!empty (wd))
           fail << "working directory " << wd << " is not empty at the "
@@ -471,10 +500,9 @@ namespace build2
       for (next++; *next != nullptr; next++) ;
       next++;
 
-      // Redirect stdout to a pipe unless we are last, in which
-      // case redirect it to stderr.
+      // Redirect stdout to a pipe unless we are last.
       //
-      int out (*next == nullptr ? 2 : -1);
+      int out (*next != nullptr ? -1 : 1);
       bool pr, wr;
 
       try
@@ -519,28 +547,89 @@ namespace build2
     }
 
     target_state rule::
-    perform_test (action, target& t)
+    perform_test (action, target& tt)
     {
       // @@ Would be nice to print what signal/core was dumped.
       //
-      // @@ Doesn't have to be a file target if we have test.cmd (or
-      //    just use test which is now path).
+
+      // See if we have the test executable override.
       //
+      path p;
+      {
+        // Note that the test variable's visibility is target.
+        //
+        lookup l (tt["test"]);
 
-      file& ft (static_cast<file&> (t));
-      assert (!ft.path ().empty ()); // Should have been assigned by update.
+        // Note that we have similar code for scripted tests.
+        //
+        target* t (nullptr);
 
-      process_path fpp (run_search (ft.path (), true));
-      cstrings args {fpp.recall_string ()};
+        if (l.defined ())
+        {
+          const name* n (cast_null<name> (l));
+
+          if (n == nullptr)
+            fail << "invalid test executable override: null value";
+          else if (n->empty ())
+            fail << "invalid test executable override: empty value";
+          else if (n->simple ())
+          {
+            // Ignore the special 'true' value.
+            //
+            if (n->value != "true")
+              p = path (n->value);
+            else
+              t = &tt;
+          }
+          else if (n->directory ())
+            fail << "invalid test executable override: '" << *n << "'";
+          else
+          {
+            // Must be a target name.
+            //
+            // @@ OUT: what if this is a @-qualified pair or names?
+            //
+            t = &search (*n, tt.base_scope ());
+          }
+        }
+        else
+          // By default we set it to the test target's path.
+          //
+          t = &tt;
+
+        if (t != nullptr)
+        {
+          if (auto* pt = t->is_a<path_target> ())
+          {
+            // Do some sanity checks: the target better be up-to-date with
+            // an assigned path.
+            //
+            p = pt->path ();
+
+            if (p.empty ())
+              fail << "target " << *pt << " specified in the test variable "
+                   << "is out of date" <<
+                info << "consider specifying it as a prerequisite of " << tt;
+          }
+          else
+            fail << "target " << *t << (t != &tt
+                                        ? " specified in the test variable "
+                                        : " requested to be tested ")
+                 << "is not path-based";
+        }
+      }
+
+      process_path pp (run_search (p, true));
+      cstrings args {pp.recall_string ()};
 
       // Do we have options?
       //
-      if (auto l = t["test.options"])
+      if (auto l = tt["test.options"])
         append_options (args, cast<strings> (l));
 
       // Do we have input?
       //
-      auto& pts (t.prerequisite_targets);
+      auto& pts (tt.prerequisite_targets);
       if (pts.size () != 0 && pts[0] != nullptr)
       {
         file& it (static_cast<file&> (*pts[0]));
@@ -551,7 +640,7 @@ namespace build2
       //
       else
       {
-        if (auto l = t["test.arguments"])
+        if (auto l = tt["test.arguments"])
           append_options (args, cast<strings> (l));
       }
 
@@ -581,10 +670,10 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << "test " << t;
+        text << "test " << tt;
 
       diag_record dr;
-      if (!run_test (t, dr, args.data ()))
+      if (!run_test (tt, dr, args.data ()))
       {
         dr << info << "test command line: ";
         print_process (dr, args);
@@ -595,7 +684,7 @@ namespace build2
     }
 
     target_state alias_rule::
-    perform_test (action a, target& t)
+    perform_test (action a, target& t) const
     {
       // Run the alias recipe first then the test.
       //

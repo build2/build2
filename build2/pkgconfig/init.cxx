@@ -59,9 +59,9 @@ namespace build2
 
       auto p (config::omitted (rs, c_x));
 
-      if (const value* v = p.first)
+      if (p.first)
       {
-        const path& x (cast<path> (*v));
+        const path& x (cast<path> (p.first));
 
         try
         {

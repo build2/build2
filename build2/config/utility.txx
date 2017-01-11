@@ -10,7 +10,7 @@ namespace build2
   namespace config
   {
     template <typename T>
-    pair<reference_wrapper<const value>, bool>
+    pair<lookup, bool>
     required (scope& root,
               const variable& var,
               const T& def_val,
@@ -60,7 +60,7 @@ namespace build2
         }
       }
 
-      return pair<reference_wrapper<const value>, bool> (*l, n);
+      return pair<lookup, bool> (l, n);
     }
   }
 }

@@ -55,7 +55,7 @@ namespace build2
       //
       auto p (config::omitted (rs, config_x));
 
-      if (p.first == nullptr)
+      if (!p.first)
       {
         // If someone already loaded cc.core.config then use its toolchain
         // id and (optional) pattern to guess an appropriate default (e.g.,
@@ -71,13 +71,11 @@ namespace build2
         // user changes the source of the pattern, this one will get updated
         // as well.
         //
-        auto p1 (config::required (rs,
-                                   config_x,
-                                   d,
-                                   false,
-                                   cc_loaded ? config::save_commented : 0));
-        p.first = &p1.first.get ();
-        p.second = p1.second;
+        p = config::required (rs,
+                              config_x,
+                              d,
+                              false,
+                              cc_loaded ? config::save_commented : 0);
       }
 
       // Figure out which compiler we are dealing with, its target, etc.

@@ -79,7 +79,9 @@ exe{b}:                                                   \
     install/{hxx         cxx}{ operation                } \
     install/{hxx         cxx}{ rule                     } \
     install/{hxx            }{ utility                  } \
+       test/{hxx         cxx}{ common                   } \
        test/{hxx         cxx}{ init                     } \
+       test/{hxx            }{ module                   } \
        test/{hxx         cxx}{ operation                } \
        test/{hxx         cxx}{ rule                     } \
        test/{hxx         cxx}{ target                   } \

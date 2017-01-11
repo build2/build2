@@ -28,14 +28,16 @@ namespace build2
     // the value is "new", that is, it was set to the default value (inherited
     // or not, including overrides). We also treat command line overrides
     // (inherited or not) as new. This flag is usually used to test that the
-    // new value is valid, print report, etc.
+    // new value is valid, print report, etc. We return the value as lookup
+    // (always defined) to pass alone its location (could be used to detect
+    // inheritance, etc).
     //
     // Note also that if save_flags has save_commented, then a default value
     // is never considered "new" since for such variables absence of a value
     // means the default value.
     //
     template <typename T>
-    pair<reference_wrapper<const value>, bool>
+    pair<lookup, bool>
     required (scope& root,
               const variable&,
               const T& default_value,
@@ -43,7 +45,7 @@ namespace build2
               uint64_t save_flags = 0);
 
     template <typename T>
-    inline pair<reference_wrapper<const value>, bool>
+    inline pair<lookup, bool>
     required (scope& root,
               const string& name,
               const T& default_value,
@@ -54,7 +56,7 @@ namespace build2
         root, var_pool[name], default_value, override, save_flags);
     }
 
-    inline pair<reference_wrapper<const value>, bool>
+    inline pair<lookup, bool>
     required (scope& root,
               const string& name,
               const char* default_value,
@@ -65,32 +67,31 @@ namespace build2
         root, name, string (default_value), override, save_flags);
     }
 
-    // As above, but leave the unspecified value as undefined (and return
-    // NULL pointer) rather than setting it to the default value.
+    // As above, but leave the unspecified value as undefined rather than
+    // setting it to the default value.
     //
     // This can be useful when we don't have a default value but may figure
     // out some fallback. See config.bin.target for an example.
     //
-    pair<const value*, bool>
+    pair<lookup, bool>
     omitted (scope& root, const variable&);
 
-    inline pair<const value*, bool>
+    inline pair<lookup, bool>
     omitted (scope& root, const string& name)
     {
       return omitted (root, var_pool[name]);
     }
 
-    // Set, if necessary, an optional config.* variable. In particular,
-    // an unspecified variable is set to NULL which is used to distinguish
-    // between the "configured as unspecified" and "not yet configured"
-    // cases.
+    // Set, if necessary, an optional config.* variable. In particular, an
+    // unspecified variable is set to NULL which is used to distinguish
+    // between the "configured as unspecified" and "not yet configured" cases.
     //
-    // Return the value, which can be NULL.
+    // Return the value (as always defined lookup), which can be NULL.
     //
-    const value&
+    lookup
     optional (scope& root, const variable&);
 
-    inline const value&
+    inline lookup
     optional (scope& root, const string& var)
     {
       return optional (root, var_pool[var]);

@@ -46,7 +46,7 @@ namespace build2
              bool override = false)
     {
       string vn;
-      const value* cv (nullptr);
+      lookup l;
 
       bool global (*name == '\0');
 
@@ -61,10 +61,10 @@ namespace build2
         vn += var;
         const variable& vr (var_pool.insert<CT> (move (vn), true));
 
-        cv = dv != nullptr
-          ? &config::required (r, vr, *dv, override).first.get ()
+        l = dv != nullptr
+          ? config::required (r, vr, *dv, override).first
           : (global
-             ? &config::optional (r, vr)
+             ? config::optional (r, vr)
              : config::omitted (r, vr).first);
       }
 
@@ -80,8 +80,8 @@ namespace build2
 
       if (spec)
       {
-        if (cv != nullptr && *cv)
-          v = cast<T> (*cv); // Strip CT to T.
+        if (l)
+          v = cast<T> (l); // Strip CT to T.
       }
       else
       {

@@ -1,0 +1,10 @@
+# file      : tests/test/config-build/buildfile
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test config.test.
+#
+
+./: test{testscript} exe{driver} $b
+
+exe{driver}: cxx{driver}

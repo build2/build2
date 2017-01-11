@@ -2,10 +2,10 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <build2/test/script/parser>
+
 #include <sstream>
 #include <cstring> // strstr()
-
-#include <build2/test/script/parser>
 
 #include <build2/scheduler>
 
@@ -2743,6 +2743,14 @@ namespace build2
 
           for (unique_ptr<scope>& chain: g->scopes)
           {
+            // Check if this scope is ignored (e.g., via config.test).
+            //
+            if (!runner_->test (*chain))
+            {
+              chain.reset ();
+              continue;
+            }
+
             // Pick a scope from the if-else chain.
             //
             // In fact, we are going to drop all but the selected (if any)

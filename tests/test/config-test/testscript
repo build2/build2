@@ -1,0 +1,200 @@
+# file      : tests/test/config-build/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Setup a realistic test project that we will then exercise.
+#
+
+test.options   = --jobs 1 --quiet
+test.arguments = 'test(../proj/@./)' # Test out-of-src (for parallel).
+#test.cleanups  = &**/                # Cleanup out directory structure.
+test.cleanups  = &!./ #@@ TMP
+
++mkdir proj
++mkdir proj/build
++cat <<EOI >>>proj/build/bootstrap.build
+project = proj
+amalgamation =
+
+using test
+EOI
+
++cat <<EOI >>>proj/buildfile
+d = tests/ units/
+./: $d
+include $d
+EOI
+
+# tests/ - as a subproject
+#
++mkdir proj/tests
++mkdir proj/tests/build
++cat <<EOI >>>proj/tests/build/bootstrap.build
+project =
+
+using test
+EOI
+
++cat <<EOI >>>proj/tests/buildfile
+d = script/
+./: $d
+include $d
+EOI
+
+# tests/script - scripted test
+#
++mkdir proj/tests/script
++cat <<EOI >>>proj/tests/script/buildfile
+./: test{basics.test}
+EOI
++cat <<EOI >>>proj/tests/script/basics.test
+echo 'tests/script/basics/foo' >+ : foo
+echo 'tests/script/basics/bar' >+ : bar
+
+: baz
+{
+  echo 'tests/script/basics/baz/foo' >+ : foo
+  echo 'tests/script/basics/baz/bar' >+ : bar
+}
+EOI
+
+# units/ - as a subdirectory
+#
++mkdir proj/units
+
+# This one is "dual": test and sub-test alias.
+#
++cat <<EOI >>>proj/units/buildfile
+d = simple/ script/
+./: $d test{testscript}
+include $d
+EOI
++cat <<EOI >>>proj/units/testscript
+echo 'units' >+
+EOI
+
+# units/simple - simple (non-scripted) test
+#
+# This one is a bit tricky since we need an executable to run. We don't want
+# to be building anything as part of our test project so what we do is test
+# a dummy file target with an overridden test target.
+#
++mkdir proj/units/simple
++touch proj/units/simple/driver
++cat <<EOI >>>proj/units/simple/buildfile
+driver = $src_root/../../exe{driver}
+#@@ TMP file{driver}@./: $driver
+./: file{driver} $driver
+file{driver}@./: test = $driver
+file{driver}@./: test.arguments = units/simple
+EOI
+
+# units/script - scripted test
+#
++mkdir proj/units/script
++cat <<EOI >>>proj/units/script/buildfile
+./: test{testscript}
+EOI
++cat <<EOI >>>proj/units/script/testscript
+echo 'units/script/foo' >+ : foo
+echo 'units/script/bar' >+ : bar
+EOI
+
+# Now the tests. Should all be top-level, no groups (or set test.arguments).
+#
+
+: all
+:
+$* >>EOO
+tests/script/basics/foo
+tests/script/basics/bar
+tests/script/basics/baz/foo
+tests/script/basics/baz/bar
+units/simple
+units/script/foo
+units/script/bar
+units
+EOO
+
+: alias-pass
+: Test lead-up alias pass-through (but not test)
+:
+$* config.test=units/simple/file{driver} >>EOO
+units/simple
+EOO
+
+: alias-test
+: Test lead-up alias test (but not pass-through)
+:
+$* config.test=dir{units/} >>EOO
+units
+EOO
+
+: alias-pass-test
+: Test lead-up alias pass-through and test
+:
+$* config.test=units/ >>EOO
+units/simple
+units/script/foo
+units/script/bar
+units
+EOO
+
+: alias-pass-id-only
+: Test lead-up alias pass-through (ids only)
+:
+$* config.test=bogus >>EOO
+units/simple
+EOO
+
+: target-simple
+:
+$* config.test=units/simple/file{driver} >>EOO
+units/simple
+EOO
+
+: target-script
+:
+$* config.test=dir{units/script/} >>EOO
+units/script/foo
+units/script/bar
+EOO
+
+: id
+:
+$* config.test=foo >>EOO
+units/simple
+units/script/foo
+EOO
+
+: target-id
+:
+$* config.test=dir{units/script/}@foo >>EOO
+units/script/foo
+EOO
+
+: target-ids
+:
+$* 'config.test=dir{units/script/}@{foo bar}' >>EOO
+units/script/foo
+units/script/bar
+EOO
+
+: id-group
+:
+$* config.test=tests/@{basics/baz} >>EOO
+tests/script/basics/baz/foo
+tests/script/basics/baz/bar
+EOO
+
+: id-in-group
+:
+$* config.test=tests/@{basics/baz/bar} >>EOO
+tests/script/basics/baz/bar
+EOO
+
+# @@ TMP HACK
+#
+-rm -r all/ alias-pass/ alias-test/ alias-pass-test/ alias-pass-id-only/ \
+  target-simple/ target-script/ id/ target-id/ target-ids/ id-group/ \
+  id-in-group/

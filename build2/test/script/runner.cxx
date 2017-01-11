@@ -10,6 +10,9 @@
 #include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
 
 #include <build2/filesystem>
+
+#include <build2/test/common>
+
 #include <build2/test/script/builtin>
 
 using namespace std;
@@ -310,21 +313,26 @@ namespace build2
         }
       }
 
+      bool default_runner::
+      test (scope& s) const
+      {
+        return common_.test (s.root->test_target, s.id_path);
+      }
+
       void default_runner::
       enter (scope& sp, const location&)
       {
-        if (!exists (sp.wd_path))
-          // @@ Shouldn't we add an optional location parameter to mkdir() and
-          // alike utility functions so the failure message can contain
-          // location info?
-          //
-          mkdir (sp.wd_path, 2);
-        else
-          // Scope working directory shall be empty (the script working
-          // directory is cleaned up by the test rule prior the script
-          // execution).
-          //
-          assert (empty (sp.wd_path));
+        // Scope working directory shall be empty (the script working
+        // directory is cleaned up by the test rule prior the script
+        // execution).
+        //
+        // @@ Shouldn't we add an optional location parameter to mkdir() and
+        // alike utility functions so the failure message can contain
+        // location info?
+        //
+        if (mkdir (sp.wd_path, 2) == mkdir_status::already_exists)
+          fail << "working directory " << sp.wd_path << " already exists" <<
+            info << "are tests stomping on each other's feet?";
 
         // We don't change the current directory here but indicate that the
         // scope test commands will be executed in that directory.

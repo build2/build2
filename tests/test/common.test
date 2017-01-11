@@ -14,10 +14,16 @@ amalgamation =
 using test
 EOI
 
-test.options += --jobs 1 --quiet --buildfile -
+# By default read buildfile from stdin.
+#
+if ($null($test.options))
+  test.options = --buildfile -
+end
+
+test.options += --jobs 1 --quiet
 
 # By default perform test.
 #
-if ($empty($test.arguments))
+if ($null($test.arguments))
   test.arguments = test
 end

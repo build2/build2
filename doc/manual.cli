@@ -38,4 +38,46 @@ precedence. A qualified name cannot be combined with any other operator
 in the \c{eval-value} production shall contain single value only (no
 commas).
 
+\h1#module-test|Test Module|
+
+The targets to be tested as well as the tests/groups from testscripts to be
+run can be narrowed down using the \c{config.test} variable. While this
+value is normally specified as a command line override (for example, to
+quickly re-run a previously failed test), it can also be persisted in
+\c{config.build} in order to create a configuration that will only run a
+subset of tests by default. For example:
+
+\
+b test config.test=foo/exe{driver} # Only test foo/exe{driver} target.
+b test config.test=bar/baz         # Only run bar/baz testscript test.
+\
+
+The \c{config.test} variable contains a list of \c{@}-separated pairs with the
+left hand side being the target and the right hand side being the testscript
+id path. Either can be omitted (along with \c{@}). If the value contains a
+target type or ends with a directory separator, then it is treated as a target
+name. Otherwise \- an id path. The targets are resolved relative to the root
+scope where the \c{config.test} value is set. For example:
+
+\
+b test config.test=foo/exe{driver}@bar
+\
+
+To specify multiple id paths for the same target we can use the pair
+generation syntax:
+
+\
+b test config.test=foo/exe{driver}@{bar baz}
+\
+
+If no targets are specified (only id paths), then all the targets are tested
+(with the testscript tests to be run limited to the specified id paths). If no
+id paths are specified (only targets), then all the testscript tests are run
+(with the targets to be tested limited to the specified targets). An id path
+without a target applies to all the targets being considered.
+
+A directory target without an explicit target type (for example, \c{foo/}) is
+treated specially. It enables all the tests at and under its directory. This
+special treatment can be inhibited by specifying the target type explicitly
+(for example, \c{dir{foo/\}}).
 "

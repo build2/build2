@@ -14,7 +14,7 @@ namespace build2
 {
   namespace config
   {
-    pair<const value*, bool>
+    pair<lookup, bool>
     omitted (scope& r, const variable& var)
     {
       // This is a stripped-down version of the required() twisted
@@ -44,12 +44,12 @@ namespace build2
       }
 
       if (l.defined () && current_mif->id == configure_id)
-          save_variable (r, var);
+        save_variable (r, var);
 
-      return pair<const value*, bool> (l.value, n);
+      return pair<lookup, bool> (l, n);
     }
 
-    const value&
+    lookup
     optional (scope& r, const variable& var)
     {
       if (current_mif->id == configure_id)
@@ -57,8 +57,8 @@ namespace build2
 
       auto l (r[var]);
       return l.defined ()
-        ? *l
-        : r.assign (var); // NULL.
+        ? l
+        : lookup (r.assign (var), r); // NULL.
     }
 
     bool

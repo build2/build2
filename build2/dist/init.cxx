@@ -112,8 +112,8 @@ namespace build2
 
         if (s)
         {
-          if (const value& cv = config::optional (r, "config.dist.root"))
-            v = cast<dir_path> (cv); // Strip abs_dir_path.
+          if (lookup l = config::optional (r, "config.dist.root"))
+            v = cast<dir_path> (l); // Strip abs_dir_path.
         }
       }
 
@@ -124,10 +124,10 @@ namespace build2
 
         if (s)
         {
-          if (const value& cv = config::required (r,
-                                                  "config.dist.cmd",
-                                                  path ("install")).first)
-            v = run_search (cast<path> (cv), true);
+          if (lookup l = config::required (r,
+                                           "config.dist.cmd",
+                                           path ("install")).first)
+            v = run_search (cast<path> (l), true);
         }
       }
 
@@ -138,8 +138,8 @@ namespace build2
 
         if (s)
         {
-          if (const value& cv = config::optional (r, "config.dist.archives"))
-            v = cv;
+          if (lookup l = config::optional (r, "config.dist.archives"))
+            v = *l;
         }
       }
 

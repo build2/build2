@@ -34,6 +34,12 @@ namespace build2
         print_runner (bool scope, bool id, bool line)
             : scope_ (scope), id_ (id), line_ (line) {}
 
+        virtual bool
+        test (scope&) const override
+        {
+          return true;
+        }
+
         virtual void
         enter (scope& s, const location&) override
         {
@@ -184,11 +190,12 @@ namespace build2
                                   trace));
 
           testscript& st (
-            targets.insert<testscript> (work,
-                                        dir_path (),
-                                        "testscript",
-                                        &extension_pool.find (""),
-                                        trace));
+            targets.insert<testscript> (
+              work,
+              dir_path (),
+              name.leaf ().base ().string (),
+              &extension_pool.find (name.leaf ().extension ()),
+              trace));
 
           tt.path (path ("driver"));
           st.path (name);
