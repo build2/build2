@@ -312,9 +312,11 @@ namespace build2
     scope& bs (t.base_scope ());
     scope* rs (bs.root_scope ());
 
-    // Handle the outside of any project and at root scope cases.
+    // Handle the outside of any project case. Note that we also used to bail
+    // our of this is the root of the project. But that proved not to be such
+    // a great idea in case of subprojects (e.g., tests/).
     //
-    if (rs == nullptr || &bs == rs)
+    if (rs == nullptr)
       return nullptr;
 
     // If t is a directory (name is empty), say foo/bar/, then t is bar and
@@ -322,9 +324,9 @@ namespace build2
     //
     const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    // Handle the src = out and (again) root scope cases.
+    // Handle the src = out.
     //
-    if (d.sub (rs->src_path ()) || d == rs->out_path ())
+    if (d.sub (rs->src_path ()))
       return nullptr;
 
     l6 ([&]{trace << d << " for " << t;});
