@@ -374,8 +374,8 @@ namespace build2
       //
       // Remove a file or directory. A path must not be the test working
       // directory or its parent directory. It also must not be outside the
-      // testscript working directory unless -f option is specified. Note that
-      // directories are not removed by default.
+      // testscript working directory unless the -f option is specified. Note
+      // that directories are not removed by default.
       //
       // -r
       //    Remove directories recursively. Must be specified to remove even an
@@ -437,14 +437,16 @@ namespace build2
             throw failed ();
           }
 
+          const dir_path& wd  (sp.wd_path);
+          const dir_path& rwd (sp.root->wd_path);
+
           for (; i != args.end (); ++i)
           {
-            path p (parse_path (*i, sp.wd_path));
+            path p (parse_path (*i, wd));
 
-            const dir_path& wd (sp.root->wd_path);
-            if (!p.sub (wd) && !force)
+            if (!p.sub (rwd) && !force)
             {
-              cerr << "rm: '" << p << "' is out of working directory '" << wd
+              cerr << "rm: '" << p << "' is out of working directory '" << rwd
                    << "'" << endl;
               throw failed ();
             }
@@ -461,10 +463,10 @@ namespace build2
                   throw failed ();
                 }
 
-                if (sp.wd_path.sub (d))
+                if (wd.sub (d))
                 {
                   cerr << "rm: '" << p << "' contains test working directory '"
-                       << sp.wd_path << "'" << endl;
+                       << wd << "'" << endl;
                   throw failed ();
                 }
 
@@ -496,6 +498,122 @@ namespace build2
         {
           if (cerr.good ())
             cerr << "rm: " << e << endl;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
+      // rmdir [-f] <path>...
+      //
+      // Remove a directory. The directory must be empty and not be the test
+      // working directory or its parent directory. It also must not be outside
+      // the testscript working directory unless the -f option is specified.
+      //
+      // -f
+      //    Do not fail if no directory is specified, the directory does not
+      //    exist, or is outside the script working directory.
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      rmdir (scope& sp,
+             const strings& args,
+             auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          auto i (args.begin ());
+
+          // Process options.
+          //
+          bool force (false);
+          for (; i != args.end (); ++i)
+          {
+            if (*i == "-f")
+              force = true;
+            else
+            {
+              if (*i == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          // Remove directories.
+          //
+          if (i == args.end () && !force)
+          {
+            cerr << "rmdir: missing directory" << endl;
+            throw failed ();
+          }
+
+          const dir_path& wd  (sp.wd_path);
+          const dir_path& rwd (sp.root->wd_path);
+
+          for (; i != args.end (); ++i)
+          {
+            dir_path p (path_cast<dir_path> (parse_path (*i, wd)));
+
+            if (wd.sub (p))
+            {
+              cerr << "rmdir: '" << p << "' contains test working directory '"
+                   << wd << "'" << endl;
+              throw failed ();
+            }
+
+            if (!p.sub (rwd) && !force)
+            {
+              cerr << "rmdir: '" << p << "' is out of working directory '"
+                   << rwd << "'" << endl;
+              throw failed ();
+            }
+
+            try
+            {
+              rmdir_status s (try_rmdir (p));
+
+              if (s == rmdir_status::not_empty)
+                throw system_error (ENOTEMPTY, system_category ());
+              else if (s == rmdir_status::not_exist && !force)
+                throw system_error (ENOENT, system_category ());
+            }
+            catch (const system_error& e)
+            {
+              cerr << "rmdir: unable to remove '" << p << "': " << e << endl;
+              throw failed ();
+            }
+          }
+
+          r = 0;
+        }
+        catch (const invalid_path& e)
+        {
+          cerr << "rmdir: invalid path '" << e.path << "'" << endl;
+        }
+        // Can be thrown while closing in, out or writing to cerr (that's why
+        // need to check its state before writing).
+        //
+        catch (const io_error& e)
+        {
+          if (cerr.good ())
+            cerr << "rmdir: " << e << endl;
         }
         catch (const failed&)
         {
@@ -689,6 +807,7 @@ namespace build2
         {"false", &false_},
         {"mkdir", &sync_impl<&mkdir>},
         {"rm",    &sync_impl<&rm>},
+        {"rmdir", &sync_impl<&rmdir>},
         {"touch", &sync_impl<&touch>},
         {"true",  &true_}
       };
