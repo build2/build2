@@ -349,7 +349,7 @@ configuration file. This calls for a multi-command or \i{compound} test, for
 example:
 
 \
-cat <<EOI >>>hello.conf;
+cat <<EOI >=hello.conf;
 John = Howdy
 Jane = Good day
 EOI
@@ -388,7 +388,7 @@ Testscript we can combine related tests into groups. For example:
 {
   conf = $~/hello.conf
 
-  +cat <<EOI >>>$conf
+  +cat <<EOI >=$conf
   John = Howdy
   Jane = Good day
   EOI
@@ -428,7 +428,7 @@ example, for better visual separation of complex tests:
 {
   conf = hello.conf
 
-  cat <'Jane = Good day' >>>$conf;
+  cat <'Jane = Good day' >=$conf;
   $* -c $conf 'Jane' >'Good day, Jane!'
 }
 \
@@ -561,7 +561,7 @@ EOO
 {
   conf = $~/hello.conf
 
-  +cat <<EOI >>>$conf
+  +cat <<EOI >=$conf
   John = Howdy
   Jane = Good day
   EOI
@@ -921,7 +921,7 @@ relative paths, for example:
 
 \
 {
-  +setup >>>test.conf
+  +setup >=test.conf
 
   test1 ../test.conf
   test2 ../test.conf
@@ -933,7 +933,7 @@ Alternatively, we can use an absolute path:
 \
 {
   conf = $~/test.conf
-  +setup >>>$conf
+  +setup >=$conf
 
   test1 $conf
   test2 $conf
@@ -1488,17 +1488,19 @@ stdout: '1'?(out-redirect)
 stderr: '2'(out-redirect)
 
 in-redirect:  '<-'|\
-              '<+'|\
+              '<|'|\
               '<'{':'?'/'?} <text>|\
               '<<'{':'?'/'?} <here-end>|\
               '<<<' <file>
 
 out-redirect: '>-'|\
-              '>+'|\
+              '>|'|\
+              '>=' <file>|\
+              '>+' <file>|\
               '>&' ('1'|'2')|\
               '>'{':'?'/'?}'~'? <text>|\
               '>>'{':'?'/'?}'~'? <here-end>|\
-              '>>>'{'&'?} <file>
+              '>>>' <file>
 
 here-document:
   *<text>
@@ -1633,7 +1635,7 @@ continuation. For example:
 
 \
 conf = test.conf;
-cat <'verbose = true' >>>$conf;
+cat <'verbose = true' >=$conf;
 test1 $conf
 \
 
@@ -1812,7 +1814,7 @@ $* a1>-
 
 \
 in-redirect:  '<-'|\
-              '<+'|\
+              '<|'|\
               '<'{':'?'/'?} <text>|\
               '<<'{':'?'/'?} <here-end>|\
               '<<<' <file>
@@ -1824,7 +1826,7 @@ both a pipe and a redirect is an error. If no pipe or \c{stdin} redirect is
 specified and the test tries to read from \c{stdin}, it is considered to have
 failed (unexpected input). However, whether this is detected and diagnosed is
 implementation-defined. To allow reading from the default \c{stdin} (for
-instance, if the test is really an example), the \c{<+} redirect is used.
+instance, if the test is really an example), the \c{<|} redirect is used.
 
 Here-string and here-document redirects may specify the following redirect
 modifiers:
@@ -1847,21 +1849,23 @@ for details.
 
 \
 out-redirect: '>-'|\
-              '>+'|\
+              '>|'|\
+              '>=' <file>|\
+              '>+' <file>|\
               '>&' ('1'|'2')|\
               '>'{':'?'/'?}'~'? <text>|\
               '>>'{':'?'/'?}'~'? <here-end>|\
-              '>>>'{'&'?} <file>
+              '>>>' <file>
 \
 
 The \c{stdout} and \c{stderr} data can go to a pipe (\c{stdout} only), file
-(\c{>>>} or \c{>>>&} to append), or \c{/dev/null}-equivalent (\c{>-}). It can
-also be compared to a here-string (\c{>}) or a here-document (\c{>>}). For
-\c{stdout} specifying both a pipe and a redirect is an error. A test that
-tries to write to an un-redirected stream (either \c{stdout} or \c{stderr}) is
-considered to have failed (unexpected output). To allow writing to the default
-\c{stdout} or \c{stderr} (for instance, if the test is really an example), the
-\c{>+} redirect is used.
+(\c{>=} to overwrite and \c{>+} to append), or \c{/dev/null}-equivalent
+(\c{>-}). It can also be compared to a here-string (\c{>}), a here-document
+(\c{>>}), or a file contents (\c{>>>}). For \c{stdout} specifying both a pipe
+and a redirect is an error. A test that tries to write to an un-redirected
+stream (either \c{stdout} or \c{stderr}) is considered to have failed
+(unexpected output). To allow writing to the default \c{stdout} or \c{stderr}
+(for instance, if the test is really an example), the \c{>|} redirect is used.
 
 It is also possible to merge \c{stderr} to \c{stdout} or vice versa with a
 merge redirect (\c{>&}). In this case the left-hand-side descriptor (implied
