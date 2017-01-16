@@ -2276,6 +2276,28 @@ working directory unless the \c{-f} option is specified.
   is outside the script working directory.||
 
 
+\h#builtins-test|\c{test}|
+
+\
+test -f|-d <path>
+\
+
+Test the specified \i{path} according to one of the following options. Succeed
+(0 exit code) if the test passes and fail (non-0 exit code) otherwise.
+
+\dl|
+
+\li|\n\c{-f}
+
+  Path exists and is to a regular file.|
+
+\li|\n\c{-d}
+
+  Path exists and is to a directory.||
+
+Note that all tests dereference symbolic links.
+
+
 \h#builtins-touch|\c{touch}|
 
 \
