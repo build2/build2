@@ -2176,6 +2176,20 @@ Read files in order and write their contents to \c{stdout}. Read from
 \c{stdin} if no file is specified or \c{-} is specified as a file name.
 
 
+\h#builtins-diff|\c{diff}|
+
+\
+diff [-u] [-U <num>] <file1> <file2>
+\
+
+Compare the contents of \i{file1} and \i{file2}.
+
+The \c{diff} utility is not a builtin. Instead, the test platform is expected
+to provide a (reasonably) POSIX-compatible implementation. It should at least
+supports the \c{-u} and \c{-U} options. On Windows GNU \c{diff} can be
+assumed (provided as part of the \c{build2} toolchain).
+
+
 \h#builtins-echo|\c{echo}|
 
 \
