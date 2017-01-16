@@ -1886,7 +1886,7 @@ here-document:
 \
 
 A here-document can be used to supply data to \c{stdin} or to compare output
-to the expected result for \c{stdout} and \c{stderr}. Note that the order of
+to the expected result for \c{stdout} and \c{stderr}. The order of
 here-document fragments must match the order of redirects, for example:
 
 \
@@ -1898,6 +1898,20 @@ SELECT * FROM no_such_table
 EOI
 error: no such table 'no_such_table'
 EOE
+\
+
+Two or more here-document redirects can use the same end marker. In this case
+all the redirects must have the same modifiers, if any. Only the here-document
+fragment corresponding to the first occurrence of the end marker must be
+present (called \i{shared} here-document) with the subsequent redirects
+reusing the same data. This mechanism is primarily useful for round-trip
+testing, for example:
+
+\
+: xml-round-trip
+$* <<EOD >>EOD
+<hello>Hello, World!</hello>
+EOD
 \
 
 Here-strings can be single-quoted literals or double-quoted with expansion.
