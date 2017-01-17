@@ -13,9 +13,9 @@ while [ $# -gt 0 ]; do
   case $1 in
     --clean)
       rm -f b*.xhtml b*.1
-      rm -f build2-build-system-manual*.ps \
-	 build2-build-system-manual*.pdf   \
-	 build2-build-system-manual.xhtml
+      rm -f build2-build-system-manual.xhtml
+      rm -f build2-testscript-manual.xhtml
+      rm -f *.ps *.pdf
       exit 0
       ;;
     *)
@@ -59,32 +59,32 @@ for p in $pages; do
   compile $p $o
 done
 
-# Manual.
+# Manuals.
 #
 
-cli -I .. \
+function compile_doc () # <file> <prefix> <suffix>
+{
+  cli -I .. \
 -v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
 -v date="$date" \
 --generate-html --html-suffix .xhtml \
 --html-prologue-file doc-prologue.xhtml \
 --html-epilogue-file doc-epilogue.xhtml \
---output-prefix build2-build-system- manual.cli
+--output-prefix "$2" \
+--output-suffix "$3" \
+"$1"
 
-html2ps -f doc.html2ps:a4.html2ps -o build2-build-system-manual-a4.ps build2-build-system-manual.xhtml
-ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true build2-build-system-manual-a4.ps build2-build-system-manual-a4.pdf
+  local n="$2$(basename -s .cli $1)$3"
 
-html2ps -f doc.html2ps:letter.html2ps -o build2-build-system-manual-letter.ps build2-build-system-manual.xhtml
-ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true build2-build-system-manual-letter.ps build2-build-system-manual-letter.pdf
+  html2ps -f doc.html2ps:a4.html2ps -o "$n-a4.ps" "$n.xhtml"
+  ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true "$n-a4.ps" "$n-a4.pdf"
 
-# Testscript spec.
-#
-cli -I .. \
--v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
--v date="$date" \
---generate-html --html-suffix .xhtml \
---html-prologue-file doc-prologue.xhtml \
---html-epilogue-file doc-epilogue.xhtml \
---output-prefix build2- testscript.cli
+  html2ps -f doc.html2ps:letter.html2ps -o "$n-letter.ps" "$n.xhtml"
+  ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true "$n-letter.ps" "$n-letter.pdf"
+}
+
+compile_doc manual.cli 'build2-build-system-'
+compile_doc testscript.cli 'build2-' '-manual'
 
 # Generate INSTALL in ../
 #
