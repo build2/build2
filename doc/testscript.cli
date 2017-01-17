@@ -462,7 +462,6 @@ the above as a single test with some branching and without using the
 \
 : config-empty
 :
-@@ Why no +?
 if ($cxx.target.class != windows)
   conf = /dev/null
 else
@@ -853,7 +852,7 @@ buildfile as described in \l{#integration Build System Integration}.
 
 A scope also establishes a cleanup context. All cleanups (\l{syntax-cleanup
 Cleanup}) registered in a scope are performed at the end of that scope's
-execution.
+execution in the reverse order of their registration.
 
 Prior to executing a scope, a nested temporary directory is created with the
 scope id as its name. This directory then becomes the scope's working
@@ -1322,7 +1321,7 @@ and ones that start on the same line describes the syntax inside the line. If
 a rule contains multiple lines, then each line matches a separate line in the
 input.
 
-If a multiplier appears in from of a line then it specifies the number of
+If a multiplier appears in front of a line then it specifies the number of
 repetitions of the entire line. For example, from the following three rules,
 the first describes a single line of multiple literals, the second \- multiple
 lines of a single literal, and the third \- multiple lines of multiple
@@ -1427,7 +1426,7 @@ variable-like:
   variable-line|variable-if
 
 variable-line:
-  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+  <variable-name> ('='|'+='|'=+') value-attributes? <value> ';'?
 
 value-attributes: '[' <key-value-pairs> ']'
 
@@ -1646,7 +1645,7 @@ variable-like:
   variable-line|variable-if
 
 variable-line:
-  <variable-name> ('='|'+='|'=+') value-attributes? <value>
+  <variable-name> ('='|'+='|'=+') value-attributes? <value> ';'?
 
 value-attributes: '[' <key-value-pairs> ']'
 \
@@ -1658,6 +1657,9 @@ that no \c{{\}}-based name-generation is performed. For example:
 args = [strings] foo   bar 'fox   baz'
 echo $args # foo bar fox   baz
 \
+
+The value can only be followed by \c{;} inside a test to signal the test
+continuation.
 
 \h#syntax-variable-if|Variable-If|
 
@@ -1965,9 +1967,11 @@ continuations.
 
 \h#syntax-regex|Output Regex|
 
-The expected result in output here-strings and here-documents can be specified
-as a regular expression instead of literal text. To signal the use of regular
-expressions the redirect must end with the \c{~} modifier, for example:
+Instead of literal text the expected result in output here-strings and
+here-documents can be specified as ECMAScript regular expressions (more
+specifically, ECMA-262-based C++11 regular expressions). To signal the use of
+regular expressions the redirect must end with the \c{~} modifier, for
+example:
 
 \
 $* >~'/fo+/' 2>>~/EOE/
@@ -2186,8 +2190,10 @@ Compare the contents of \i{file1} and \i{file2}.
 
 The \c{diff} utility is not a builtin. Instead, the test platform is expected
 to provide a (reasonably) POSIX-compatible implementation. It should at least
-supports the \c{-u} and \c{-U} options. On Windows GNU \c{diff} can be
-assumed (provided as part of the \c{build2} toolchain).
+supports the \c{-u} (unified output format) and \c{-U} (unified output format
+with \i{num} lines of context) options and recognize the \c{-} file name as
+an instruction to read from \c{stdin}. On Windows, GNU \c{diff} can be assumed
+(provided as part of the \c{build2} toolchain).
 
 
 \h#builtins-echo|\c{echo}|
@@ -2276,6 +2282,80 @@ working directory unless the \c{-f} option is specified.
   is outside the script working directory.||
 
 
+\h#builtins-sed|\c{sed}|
+
+\
+sed [-n] -e <script> [<file>]
+\
+
+Read text from \i{file}, make editing changes according to \i{script}, and
+write the result to \c{stdout}. If \i{file} is not specified or is \c{-}, read
+from \c{stdin}.
+
+Note that this builtin implementation deviates significantly from POSIX
+\c{sed} (as described next). Most significantly, the regular expression flavor
+is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
+
+\dl|
+
+\li|\n\c{-n}
+
+  Suppress automatic printing of the pattern space at the end of the script.|
+
+\li|\n\c{-e <script>}\n
+
+  Editing commands to be executed (required).||
+
+To perform the transformation \c{sed} reads each line of input (without the
+newline) into the pattern space. It then executes the script commands on
+the pattern space. At the end of the script, unless the \c{-n} option is
+specified, \c{sed} writes the pattern space to \c{stdout} followed by a
+newline.
+
+Currently, only single-command scripts using the following editing commands
+are supported.
+
+\dl|
+
+\li|\n\c{s/<regex>/<replacement>/<flags>}\n
+
+  Match \i{regex} against the pattern space. If successful, replace the part
+  of the pattern space that matched with \i{replacement}. If the \c{g} flag is
+  present in \i{flags} then continue substituting subsequent matches of
+  \i{regex} in the same pattern space. If the \c{p} flag is present in
+  \i{flags} and the replacement has been made, then write the pattern space to
+  \c{stdout}. If both \c{g} and \c{p} were specified, then write the pattern
+  space out only after the last substitution.
+
+  Any character other than \c{\\} (backslash) or newline can be used instead
+  of \c{/} (slash) to delimit \i{regex}, \i{replacement}, and \i{flags}. Note
+  that no escaping of the delimiter character is supported.
+
+  If \i{regex} starts with \c{^}, then it only matches at the beginning of the
+  pattern space. Similarly, if it ends with \c{$}, then it only matches at the
+  end of the pattern space. If the \c{i} flag is present in \i{flags}, then
+  the match is performed in a case-insensitive manner.
+
+  In \i{replacement}, besides the standard ECMAScript escape sequences
+  (\c{$1}, \c{$2}, \c{$&}, etc), the following additional sequences are
+  recognized:
+
+  \
+    \N - Nth capture, where N is in the 1-9 range.
+
+    \u - Convert next character to the upper case.
+    \l - Convert next character to the lower case.
+
+    \U - Convert next characters until \E to the upper case.
+    \L - Convert next characters until \E to the lower case.
+
+    \\ - Literal backslash.
+  \
+
+  Note that unlike POSIX semantics, just \c{&} does not have a special meaning
+  in \i{replacement}.||
+
+
 \h#builtins-test|\c{test}|
 
 \
@@ -2295,7 +2375,7 @@ Test the specified \i{path} according to one of the following options. Succeed
 
   Path exists and is to a directory.||
 
-Note that all tests dereference symbolic links.
+Note that tests dereference symbolic links.
 
 
 \h#builtins-touch|\c{touch}|
