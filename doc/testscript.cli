@@ -15,7 +15,7 @@
 \h0#preface|Preface|
 
 This document describes the \c{build2} Testscript language. It starts with a
-discussion of the motivations behind a separate domain-specific language for
+discussion of the motivation behind a separate domain-specific language for
 running tests and then introduces a number of Testscript concepts with
 examples. The remainder of the document provides a more formal specification
 of the language, including its integration into the build system, conceptual
@@ -25,7 +25,7 @@ used in the \c{build2} project itself.
 
 In this document we use the term \i{Testscript} (capitalized) to refer to the
 Testscript language. Just \i{testscript} means code written in this language.
-For example: \"We can pass addition information to testscripts using
+For example: \"We can pass additional information to testscripts using
 target-specific variables.\" Finally, \c{testscript} refers to the file name.
 
 We also use the equivalent distinction between \i{Buildfile} (language),
@@ -53,7 +53,7 @@ approach is not portable (there is no Bash or Python on Windows \i{out of the
 box}). It is also hard to write concise tests in a general-purpose scripting
 language. The result is often a test suite that has grown incomprehensible
 with everyone dreading adding new tests. Secondly, it is hard to run such
-tests in parallel without a major effort. Usually this involves having a
+tests in parallel without major effort. Usually this involves having a
 separate script for each test and implementing some kind of a test harness.
 
 Testscript is a domain-specific language for running tests. It vaguely
@@ -109,14 +109,14 @@ exe{hello}: cxx{hello} test{testscript}
 
 Let's assume our \c{hello} program expects us to pass the name to greet as a
 command line argument. And if we don't pass anything, it prints an error
-following by usage and terminates with a non-zero exit code. We can test
+followed by usage and terminates with a non-zero exit code. We can test
 this failure case by adding the following line to the \c{testscript} file:
 
 \
 $* 2>- != 0
 \
 
-While it sure is concise, it may look cryptic without explanation. When the
+While it sure is concise, it may look cryptic without an explanation. When the
 \c{test} module runs tests, it passes to each testscript the path to the
 target of which this testscript is a prerequisite. So in our case the
 testscript will receive the path to our \c{hello} executable. The buildfile
@@ -217,9 +217,9 @@ unlike Bash where here-documents always have variable expansions).
 
 This example illustrated a fairly common testing problem: output variability.
 In our case we could fix it perfectly since we could easily calculate the
-varying part exactly. But often figuring out the varying part is difficult of
-outright impossible. A good example would be a system error message based on
-the \c{errno} code, such as file not being found. Different C runtimes can
+varying part exactly. But often figuring out the varying part is difficult if
+not outright impossible. A good example would be a system error message based
+on the \c{errno} code, such as file not being found. Different C runtimes can
 phrase the message slightly differently or it can be localized. Worse, it can
 be a slightly different error code, for example \c{ENOENT} vs \c{ENOTDIR}.
 
@@ -371,7 +371,7 @@ that removes \c{hello.conf}? It is not necessary because this file will be
 automatically registered for cleanup that happens at the end of the test. We
 can also register our own files and directories for automatic cleanup. For
 example, if the \c{hello} program created the \c{hello.log} file on
-unsuccessful runs, then here is how we could have cleaned it up:
+unsuccessful runs, then this is how we could have cleaned it up:
 
 \
 $* ... &hello.log != 0
@@ -419,7 +419,7 @@ The last thing we need to discuss in this example is \c{$~}. This variable
 stands for the scope working directory (we will talk more about working
 directories at the end of this introduction).
 
-Besides explicit group scopes each test is automatically placed in its own
+Besides explicit group scopes, each test is automatically placed in its own
 implicit test scope. However, we can make the test scope explicit, for
 example, for better visual separation of complex tests:
 
@@ -477,7 +477,7 @@ because the testscript variable lookup continues in the buildfile starting
 from the target being tested, then the testscript target, and continuing with
 the standard scope lookup (see \l{#model Model and Execution} for details). In
 particular, this means we can pass arbitrary information to testscripts using
-target-specific variables. For example, this how we can move the above
+target-specific variables. For example, this is how we can move the above
 platform test to \c{buildfile}:
 
 \
@@ -497,8 +497,8 @@ else
   ...
 \
 
-Note also that in cases you simply need to conditionally pick a value for a
-variable, the \c{build2} evaluation context will often be a more concise
+Note also that in cases where you simply need to conditionally pick a value
+for a variable, the \c{build2} evaluation context will often be a more concise
 option. For example:
 
 \
@@ -592,7 +592,7 @@ $out_base/
       └── missing-name/
 \
 
-If all the tests succeed then this working directory structure is
+If all the tests succeed, then this working directory structure is
 automatically removed. In case of a failure, however, it is left behind in
 case you need to examine the output of the failed tests. It will be
 automatically cleaned on the subsequent run, before executing any tests.
@@ -752,7 +752,7 @@ using cxx                 # Load the C++ module (sets sets cxx.target).
 test.target = $cxx.target # Set test target to the C++ compiler target.
 \
 
-If this variable is not set explicitly, then it default to \c{build.host}
+If this variable is not set explicitly, then it defaults to \c{build.host}
 (which is the platform on which the build system is running) and only native
 testing will be supported.
 
@@ -788,7 +788,7 @@ A scope (both group and test) has an \i{id}. If not specified explicitly (as
 part of the description), it is derived automatically from the group/test
 location in the testscript file (see \l{#syntax-description Description} for
 details). The id of the implicit outermost scope is the script file name
-without the \c{.test} extension. Except if the file name is \c{testscript},
+without the \c{.test} extension, except if the file name is \c{testscript},
 in which case the id is empty.
 
 Based on the ids each nested group and test has an \i{id path} that uniquely
@@ -942,12 +942,13 @@ Alternatively, we can use an absolute path:
 Inside the scope working directory filesystem names that start with \c{stdin},
 \c{stdout}, \c{stderr}, as well as, \c{cmd-} are reserved.
 
-To executing a test scope its commands (including variable assignments) are
-executed sequentially and in order specified. If any of the commands fails,
-no further commands are executed and the test is considered to have failed.
+To execute a test scope its commands (including variable assignments) are
+executed sequentially and in the order specified. If any of the commands
+fails, no further commands are executed and the test is considered to have
+failed.
 
 Executing a group scope starts with performing its setup commands (including
-variable assignments) sequentially and in order specified. If any of them
+variable assignments) sequentially and in the order specified. If any of them
 fail, the group execution is terminated and the group is considered to have
 failed.
 
@@ -956,8 +957,8 @@ executed. Because scopes are isolated and tests are assumed not to depend on
 each other, the execution of inner scopes can be performed in parallel.
 
 After completing the execution of the inner scopes, if all of them succeeded,
-the teardown commands are executed sequentially and in order specified. Again,
-if any of them fail, the group execution is terminated and the group is
+the teardown commands are executed sequentially and in the order specified.
+Again, if any of them fail, the group execution is terminated and the group is
 considered to have failed.
 
 As an example, consider the following version of \c{basics.test}:
@@ -980,14 +981,14 @@ test0
 \
 
 At the top level, both \c{test0} and \c{group} can start executing in
-parallel. Inside \c{group}, first the two setup command are executed
+parallel. Inside \c{group}, first the two setup commands are executed
 sequentially. Once the setup is completed, \c{test1}, \c{test2}, \c{test3}
 can all be executed in parallel (along with \c{test0} which may still be
 running). Once the three inner tests complete successfully, the \c{group}'s
-teardown command are executed sequentially. At the top level, the script
+teardown commands are executed sequentially. At the top level, the script
 is completed only when both \c{test0} and \c{group} complete.
 
-The following annotated version illustrated a possible thread scheduling
+The following annotated version illustrates a possible thread scheduling
 for this example:
 
 \
@@ -1138,12 +1139,12 @@ foo = '$foo\bar'
 \
 
 Inside double-quoted strings only the \c{\"\\$(} character set needs to be
-escaped. Inside double-quoted here-document fragments \- only \c{\\$(} (in
-here-documents quotes are taken literally).
+escaped. Inside double-quoted here-document fragments \- only \c{\\$(} (since
+in here-documents quotes are taken literally).
 
 The lexical structure of a line depends on its type. The line type could be
 dictated by the preceding construct, as is the case for here-document
-fragments. Otherwise the line type is determined by examining the leading
+fragments. Otherwise, the line type is determined by examining the leading
 character and, if that fails to determine the line type, leading tokens,
 as described next.
 
@@ -1223,7 +1224,7 @@ contexts):
   quotes as literals. The \c{$(} characters are recognized as tokens.||
 
 Besides having a varying lexical structure, parsing some line types involves
-performing expansions (variable expansions, function calls, and evaluations
+performing expansions (variable expansions, function calls, and evaluation
 contexts). The following table summarizes the mapping of line types to lexing
 modes and indicates whether they are parsed with expansions:
 
@@ -1316,10 +1317,10 @@ bar        - line continuation
 # foo      - comment
 \
 
-Rule right-hand-sides that start on a new line describe the line-level syntax
-and ones that start on the same line describes the syntax inside the line. If
-a rule contains multiple lines, then each line matches a separate line in the
-input.
+A rule's right-hand-sides that start on a new line describe the line-level
+syntax and ones that start on the same line describes the syntax inside the
+line. If a rule contains multiple lines, then each line matches a separate
+line in the input.
 
 If a multiplier appears in front of a line then it specifies the number of
 repetitions of the entire line. For example, from the following three rules,
@@ -1740,13 +1741,13 @@ A command pipe can combine several commands with a pipe (\c{stdout} of the
 left-hand-side command is connected to \c{stdin} of the right-hand-side). The
 logical result of a command pipe is the logical AND of all its commands.
 
-A command begins with a command path following by options/arguments,
-redirects, and cleanups, all optional and in any order.
+A command begins with a command path followed by options/arguments, redirects,
+and cleanups, all optional and in any order.
 
-A command may specify an exist code check. If executing a command results in
+A command may specify an exit code check. If executing a command results in
 an abnormal process termination, then the whole outer construct (e.g., test,
 setup/teardown, etc) summarily fails. Otherwise (that is, in case of a normal
-termination) the exit code is checked. If omitted, then the test is expected
+termination), the exit code is checked. If omitted, then the test is expected
 to succeed (0 exit code). The logical result of executing a command is
 therefore a boolean value which is used in the higher-level constructs (pipe
 and expression).
@@ -1929,7 +1930,7 @@ sequences, not even line continuations \- each line is taken literally.
 
 If the end marker on the command line is double-quoted, then the here-document
 lines are parsed as if they were double-quoted except that the double quote
-itself is not treated as special. In this mode we can use variables
+itself is not treated as special. In this mode we can use variable
 expansions, function calls, and evaluation contexts. However, we have to
 escape the \c{$(\\} character set.
 
@@ -2008,7 +2009,7 @@ $* >>~/EOO/
 EOO
 \
 
-The following match flag are recognized:
+The following match flags are recognized:
 
 \dl|
 
@@ -2066,7 +2067,7 @@ the following more traditional form:
 \
 
 Only characters from the \c{.()|*+?{\}\\0123456789,=!} set are allowed as
-syntax line-chars with presence of any other character being an error.
+syntax line-chars with the presence of any other characters being an error.
 
 A blank line as well as the \c{//} sequence (assuming \c{/} is the introducer)
 are treated as an empty line-char. For the purpose of matching, newlines are
@@ -2083,9 +2084,9 @@ line-regex.
 cleanup: ('&'|'&?'|'&!') (<file>|<dir>)
 \
 
-If a command creates extra files or directories, then they can be register for
-automatic cleanup at the end of the scope (test or group). Files mentioned in
-redirects are registered automatically. Additionally, certain builtins (for
+If a command creates extra files or directories, then they can be registered
+for automatic cleanup at the end of the scope (test or group). Files mentioned
+in redirects are registered automatically. Additionally, certain builtins (for
 example \c{touch} and \c{mkdir}) also register their output files/directories
 automatically (as described in each builtin's documentation).
 
@@ -2141,7 +2142,7 @@ components being optional.
 
 If the first line in the description does not contain any whitespaces, then it
 is assumed to be the test or test group id. If the next line is followed by a
-blank line, then it is assume to be the test or test group summary. After the
+blank line, then it is assumed to be the test or test group summary. After the
 blank line come optional details which are free-form.
 
 The trailing description can only be used to specify the id or summary (but
@@ -2150,7 +2151,7 @@ not both).
 If an id is not specified then it is automatically derived from the test or
 test group location. If the test or test group is contained directly in the
 top-level testscript file, then just its start line number is used as an id.
-Otherwise, if the test or test group reside in an included file, then the
+Otherwise, if the test or test group resides in an included file, then the
 start line number (inside the included file) is prefixed with the line number
 of the \c{include} directive followed by the included file name (without the
 extension) in the form \c{<line>-<file>-}. This process is repeated
@@ -2300,15 +2301,16 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 
 \li|\n\c{-n}
 
-  Suppress automatic printing of the pattern space at the end of the script.|
+  Suppress automatic printing of the pattern space at the end of the script
+  execution.|
 
 \li|\n\c{-e <script>}\n
 
   Editing commands to be executed (required).||
 
 To perform the transformation \c{sed} reads each line of input (without the
-newline) into the pattern space. It then executes the script commands on
-the pattern space. At the end of the script, unless the \c{-n} option is
+newline) into the pattern space. It then executes the script commands on the
+pattern space. At the end of the script execution, unless the \c{-n} option is
 specified, \c{sed} writes the pattern space to \c{stdout} followed by a
 newline.
 
@@ -2431,7 +2433,7 @@ each \i{happy} (non-error) \i{logic branch}. For important code you may also
 want to do so for \i{unhappy logic branches}.
 
 It is also a good idea to keep testing in mind as you implement things. When
-tempted to add a small special case just to make the result is a little bit
+tempted to add a small special case just to make the result a little bit
 \i{nicer}, remember that you will also have to test this special case.
 
 If the functionality is well exposed in the program, prefer functional to unit
