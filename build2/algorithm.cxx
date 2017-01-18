@@ -413,54 +413,15 @@ namespace build2
     return r;
   }
 
-  bool
-  execute_prerequisites (action a, target& t, const timestamp& mt)
+  pair<target*, target_state>
+  execute_prerequisites (const target_type* tt,
+                         action a, target& t,
+                         const timestamp& mt, const prerequisite_filter& pf)
   {
     bool e (mt == timestamp_nonexistent);
 
-    for (target* pt: t.prerequisite_targets)
-    {
-      if (pt == nullptr) // Skipped.
-        continue;
-
-      target_state ts (execute (a, *pt));
-
-      if (!e)
-      {
-        // If this is an mtime-based target, then compare timestamps.
-        //
-        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
-        {
-          timestamp mp (mpt->mtime ());
-
-          // What do we do if timestamps are equal? This can happen, for
-          // example, on filesystems that don't have subsecond resolution.
-          // There is not much we can do here except detect the case where
-          // the prerequisite was changed in this run which means the
-          // action must be executed on the target as well.
-          //
-          if (mt < mp || (mt == mp && ts == target_state::changed))
-            e = true;
-        }
-        else
-        {
-          // Otherwise we assume the prerequisite is newer if it was changed.
-          //
-          if (ts == target_state::changed)
-            e = true;
-        }
-      }
-    }
-
-    return e;
-  }
-
-  target*
-  execute_prerequisites (const target_type& tt,
-                         action a, target& t, const timestamp& mt)
-  {
-    bool e (mt == timestamp_nonexistent);
-    target* r (nullptr);
+    target* rt (tt != nullptr ? nullptr : &t);
+    target_state rs (target_state::unchanged);
 
     for (target* pt: t.prerequisite_targets)
     {
@@ -468,8 +429,11 @@ namespace build2
         continue;
 
       target_state ts (execute (a, *pt));
+      rs |= ts;
 
-      if (!e)
+      // Should we compare the timestamp to this target's?
+      //
+      if (!e && (!pf || pf (*pt)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //
@@ -477,11 +441,8 @@ namespace build2
         {
           timestamp mp (mpt->mtime ());
 
-          // What do we do if timestamps are equal? This can happen, for
-          // example, on filesystems that don't have subsecond resolution.
-          // There is not much we can do here except detect the case where
-          // the prerequisite was changed in this run which means the
-          // action must be executed on the target as well.
+          // The same logic as in mtime_target::newer() (but avoids a call to
+          // state()).
           //
           if (mt < mp || (mt == mp && ts == target_state::changed))
             e = true;
@@ -495,12 +456,12 @@ namespace build2
         }
       }
 
-      if (r == nullptr && pt->is_a (tt))
-        r = pt;
+      if (rt == nullptr && pt->is_a (*tt))
+        rt = pt;
     }
 
-    assert (r != nullptr);
-    return e ? r : nullptr;
+    assert (rt != nullptr);
+    return make_pair (e ? rt : nullptr, rs);
   }
 
   target_state

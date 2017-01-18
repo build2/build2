@@ -888,16 +888,7 @@ namespace build2
           }
         }
 
-        if (ts != timestamp_unknown)
-        {
-          timestamp mt (pt.mtime ());
-
-          // See execute_prerequisites() for rationale behind the equal part.
-          //
-          return ts < mt || (ts == mt && pt.state () != target_state::changed);
-        }
-
-        return false;
+        return ts != timestamp_unknown ? pt.newer (ts) : false;
       };
 
       // Update and add a header file to the list of prerequisite targets.
@@ -1394,10 +1385,18 @@ namespace build2
     perform_update (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
-      file* s (execute_prerequisites<file> (x_src, a, t, t.mtime ()));
 
-      if (s == nullptr)
-        return target_state::unchanged;
+      // Update prerequisites and determine if any relevant ones render us
+      // out-of-date. Note that currently we treat all the prerequisites
+      // as potentially affecting the result (for simplicity/performance).
+      //
+      file* s;
+      {
+        auto p (execute_prerequisites<file> (x_src, a, t, t.mtime ()));
+
+        if ((s = p.first) == nullptr)
+          return p.second;
+      }
 
       scope& bs (t.base_scope ());
       scope& rs (*bs.root_scope ());

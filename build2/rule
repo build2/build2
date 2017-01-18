@@ -39,8 +39,7 @@ namespace build2
     apply (action, target&) const = 0;
   };
 
-  // Fallback rule that on update verifies that the file exists and is
-  // not older than any of its prerequisites.
+  // Fallback rule that only matches if the file exists.
   //
   class file_rule: public rule
   {
@@ -50,9 +49,6 @@ namespace build2
 
     virtual recipe
     apply (action, target&) const override;
-
-    static target_state
-    perform_update (action, target&);
 
     static file_rule instance;
   };

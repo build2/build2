@@ -81,22 +81,18 @@ namespace build2
   recipe file_rule::
   apply (action a, target& t) const
   {
-    // Update triggers the update of this target's prerequisites
-    // so it would seem natural that we should also trigger their
-    // cleanup. However, this possibility is rather theoretical
-    // since such an update would render this target out of date
-    // which in turn would lead to an error. So until we see a
-    // real use-case for this functionality, we simply ignore
-    // the clean operation.
+    // Update triggers the update of this target's prerequisites so it would
+    // seem natural that we should also trigger their cleanup. However, this
+    // possibility is rather theoretical so until we see a real use-case for
+    // this functionality, we simply ignore the clean operation.
     //
     if (a.operation () == clean_id)
       return noop_recipe;
 
-    // If we have no prerequisites, then this means this file
-    // is up to date. Return noop_recipe which will also cause
-    // the target's state to be set to unchanged. This is an
-    // important optimization on which quite a few places that
-    // deal with predominantly static content rely.
+    // If we have no prerequisites, then this means this file is up to date.
+    // Return noop_recipe which will also cause the target's state to be set
+    // to unchanged. This is an important optimization on which quite a few
+    // places that deal with predominantly static content rely.
     //
     if (!t.has_prerequisites ())
       return noop_recipe;
@@ -104,43 +100,14 @@ namespace build2
     // Search and match all the prerequisites.
     //
     search_and_match_prerequisites (a, t);
-    return a == perform_update_id ? &perform_update : default_recipe;
-  }
 
-  target_state file_rule::
-  perform_update (action a, target& t)
-  {
-    // Make sure the target is not older than any of its prerequisites.
+    // Note that we used to provide perform_update() which checked that this
+    // target is not older than any of its prerequisites. However, later we
+    // realized this is probably wrong: consider a script with a testscript as
+    // a prerequisite; chances are the testscript will be newer than the
+    // script and there is nothing wrong with that.
     //
-    timestamp mt (dynamic_cast<path_target&> (t).mtime ());
-
-    for (target* pt: t.prerequisite_targets)
-    {
-      target_state ts (execute (a, *pt));
-
-      // If this is an mtime-based target, then compare timestamps.
-      //
-      if (auto mpt = dynamic_cast<const mtime_target*> (pt))
-      {
-        timestamp mp (mpt->mtime ());
-
-        if (mt < mp)
-          fail << "no recipe to " << diag_do (a, t) <<
-            info << "prerequisite " << *pt << " is ahead of " << t
-               << " by " << (mp - mt);
-      }
-      else
-      {
-        // Otherwise we assume the prerequisite is newer if it was changed.
-        //
-        if (ts == target_state::changed)
-          fail << "no recipe to " << diag_do (a, t) <<
-            info << "prerequisite " << *pt << " is ahead of " << t
-               << " because it was updated";
-      }
-    }
-
-    return target_state::unchanged;
+    return default_recipe;
   }
 
   file_rule file_rule::instance;

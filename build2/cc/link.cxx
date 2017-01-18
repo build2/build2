@@ -890,9 +890,12 @@ namespace build2
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));
 
-      // Update prerequisites.
+      // Update prerequisites. We determine if any relevant ones render us
+      // out-of-date manually below.
       //
-      bool update (execute_prerequisites (a, t, t.mtime ()));
+      bool update (false);
+      timestamp mt (t.mtime ());
+      target_state ts (execute_prerequisites (a, t));
 
       // If targeting Windows, take care of the manifest.
       //
@@ -913,7 +916,7 @@ namespace build2
             t,
             rpath_timestamp != timestamp_nonexistent));
 
-        timestamp mt (file_mtime (mf));
+        timestamp mf_mt (file_mtime (mf));
 
         if (tsys == "mingw32")
         {
@@ -923,7 +926,7 @@ namespace build2
           //
           manifest = mf + ".o";
 
-          if (mt > file_mtime (manifest))
+          if (mf_mt > file_mtime (manifest))
           {
             path of (relative (manifest));
 
@@ -998,7 +1001,7 @@ namespace build2
         {
           manifest = move (mf); // Save for link.exe's /MANIFESTINPUT.
 
-          if (mt > t.mtime ())
+          if (mf_mt > mt)
             update = true; // Manifest changed, force update.
         }
       }
@@ -1204,9 +1207,16 @@ namespace build2
             else
               cs.append (f->path ().string ());
           }
+          else
+            f = pt->is_a<exe> (); // Consider executable mtime (e.g., linker).
+
+          // Check if this input renders us out-of-date.
+          //
+          if (f != nullptr)
+            update = update || f->newer (mt);
         }
 
-        // Treat it as input for both MinGW and VC.
+        // Treat it as input for both MinGW and VC (mtime checked above).
         //
         if (!manifest.empty ())
           cs.append (manifest.string ());
@@ -1229,7 +1239,7 @@ namespace build2
       // this situation in the "from scratch" flag.
       //
       bool scratch (false);
-      if (dd.writing () || dd.mtime () > t.mtime ())
+      if (dd.writing () || dd.mtime () > mt)
         scratch = update = true;
 
       dd.close ();
@@ -1237,7 +1247,7 @@ namespace build2
       // If nothing changed, then we are done.
       //
       if (!update)
-        return target_state::unchanged;
+        return ts;
 
       // Ok, so we are updating. Finish building the command line.
       //

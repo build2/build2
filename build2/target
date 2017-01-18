@@ -1098,6 +1098,21 @@ namespace build2
       mtime_ = mt;
     }
 
+    // Return true if this target is newer than the specified timestamp.
+    //
+    bool
+    newer (timestamp mt)
+    {
+      timestamp mp (mtime ());
+
+      // What do we do if timestamps are equal? This can happen, for example,
+      // on filesystems that don't have subsecond resolution. There is not
+      // much we can do here except detect the case where the target was
+      // changed on this run.
+      //
+      return mt < mp || (mt == mp && state () == target_state::changed);
+    }
+
   protected:
     // Return timestamp_unknown if the mtime cannot be loaded.
     //

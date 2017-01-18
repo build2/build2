@@ -231,12 +231,18 @@ namespace build2
     {
       cli_cxx& t (static_cast<cli_cxx&> (xt));
 
-      // Execute our prerequsites and check if we are out of date.
+      // Update prerequisites and determine if any relevant ones render us
+      // out-of-date. Note that currently we treat all the prerequisites
+      // as potentially affecting the result (think prologues/epilogues,
+      // etc).
       //
-      cli* s (execute_prerequisites<cli> (a, t, t.mtime ()));
+      cli* s;
+      {
+        auto p (execute_prerequisites<cli> (a, t, t.mtime ()));
 
-      if (s == nullptr)
-        return target_state::unchanged;
+        if ((s = p.first) == nullptr)
+          return p.second;
+      }
 
       // Translate paths to relative (to working directory). This
       // results in easier to read diagnostics.

@@ -180,15 +180,31 @@ namespace build2
   target_state
   reverse_execute_prerequisites (action, target&);
 
-  // A version of the above that also determines whether the action
-  // needs to be executed on the target based on the passed mtime
-  // timestamp.
+  // A version of the above that also determines whether the action needs to
+  // be executed on the target based on the passed timestamp and filter.
   //
-  // Note that because we use mtime, this function should normally
-  // only be used in the perform_update action.
+  // The filter is passed each prerequisite target and is expected to signal
+  // which ones should be used for timestamp comparison. If the filter is
+  // NULL, then all the prerequisites are used.
   //
-  bool
-  execute_prerequisites (action, target&, const timestamp&);
+  // Note that the return value is a pair with the second half indicating
+  // whether any prerequisites were updated. This is used to handle the
+  // situation where some prerequisites were updated but no update of the
+  // target is necessary. In this case we still signal that the target was
+  // (conceptually, but not physically) changed. This is important both to
+  // propagate the fact that some work has been done and to also allow our
+  // dependents to detect this case if they are up to something tricky (like
+  // recursively linking liba{} prerequisites).
+  //
+  // Note that because we use mtime, this function should normally only be
+  // used in the perform_update action.
+  //
+  using prerequisite_filter = function<bool (target&)>;
+
+  pair<bool, target_state>
+  execute_prerequisites (action, target&,
+                         const timestamp&,
+                         const prerequisite_filter& = nullptr);
 
   // Another version of the above that does two extra things for the caller:
   // it determines whether the action needs to be executed on the target based
@@ -198,17 +214,23 @@ namespace build2
   // prerequisites of the same type may get injected).
   //
   template <typename T>
-  T*
-  execute_prerequisites (action, target&, const timestamp&);
+  pair<T*, target_state>
+  execute_prerequisites (action, target&,
+                         const timestamp&,
+                         const prerequisite_filter& = nullptr);
 
-  target*
+  pair<target*, target_state>
   execute_prerequisites (const target_type&,
-                         action, target&, const timestamp&);
+                         action, target&,
+                         const timestamp&,
+                         const prerequisite_filter& = nullptr);
 
   template <typename T>
-  T*
+  pair<T*, target_state>
   execute_prerequisites (const target_type&,
-                         action, target&, const timestamp&);
+                         action, target&,
+                         const timestamp&,
+                         const prerequisite_filter& = nullptr);
 
   // Return noop_recipe instead of using this function directly.
   //

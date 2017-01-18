@@ -217,18 +217,46 @@ namespace build2
     }
   }
 
-  template <typename T>
-  inline T*
-  execute_prerequisites (action a, target& t, const timestamp& mt)
+  // If the first argument is NULL, then the result is treated as a boolean
+  // value.
+  //
+  pair<target*, target_state>
+  execute_prerequisites (const target_type*,
+                         action, target&,
+                         const timestamp&, const prerequisite_filter&);
+
+  inline pair<bool, target_state>
+  execute_prerequisites (action a, target& t,
+                         const timestamp& mt, const prerequisite_filter& pf)
   {
-    return static_cast<T*> (execute_prerequisites (T::static_type, a, t, mt));
+    auto p (execute_prerequisites (nullptr, a, t, mt, pf));
+    return make_pair (p.first != nullptr, p.second);
   }
 
   template <typename T>
-  inline T*
-  execute_prerequisites (const target_type& tt,
-                         action a, target& t, const timestamp& mt)
+  inline pair<T*, target_state>
+  execute_prerequisites (action a, target& t,
+                         const timestamp& mt, const prerequisite_filter& pf)
   {
-    return static_cast<T*> (execute_prerequisites (tt, a, t, mt));
+    auto p (execute_prerequisites (T::static_type, a, t, mt, pf));
+    return make_pair (static_cast<T*> (p.first), p.second);
+  }
+
+  inline pair<target*, target_state>
+  execute_prerequisites (const target_type& tt,
+                         action a, target& t,
+                         const timestamp& mt, const prerequisite_filter& pf)
+  {
+    return execute_prerequisites (&tt, a, t, mt, pf);
+  }
+
+  template <typename T>
+  inline pair<T*, target_state>
+  execute_prerequisites (const target_type& tt,
+                         action a, target& t,
+                         const timestamp& mt, const prerequisite_filter& pf)
+  {
+    auto p (execute_prerequisites (tt, a, t, mt, pf));
+    return make_pair (static_cast<T*> (p.first), p.second);
   }
 }
