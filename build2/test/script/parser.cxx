@@ -240,6 +240,19 @@ namespace build2
               next (t, tt); // Get '{'.
               const location sl (get_location (t));
 
+              // First check that we don't have any teardown commands yet.
+              // This will detect things like variable assignments between
+              // scopes.
+              //
+              if (!group_->tdown_.empty ())
+              {
+                location tl (
+                  group_->tdown_.back ().tokens.front ().location ());
+
+                fail (sl) << "scope after teardown" <<
+                  info (tl) << "last teardown line appears here";
+              }
+
               // If there is no user-supplied id, use the line number
               // (prefixed with include id) as the scope id.
               //
@@ -762,6 +775,18 @@ namespace build2
         // Use if/if! as the entire scope chain location.
         //
         const location sl (ls.back ().tokens.front ().location ());
+
+        // First check that we don't have any teardown commands yet. This
+        // will detect things like variable assignments between scopes.
+        //
+        if (!group_->tdown_.empty ())
+        {
+          location tl (
+            group_->tdown_.back ().tokens.front ().location ());
+
+          fail (sl) << "scope after teardown" <<
+            info (tl) << "last teardown line appears here";
+        }
 
         // If there is no user-supplied id, use the line number (prefixed with
         // include id) as the scope id. Note that we use the same id for all

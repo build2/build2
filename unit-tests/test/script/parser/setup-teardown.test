@@ -81,3 +81,71 @@
   testscript:2:1: error: teardown command in test
   EOE
 }
+
+: var
+:
+{
+  : between-tests
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  x = y
+  cmd
+  EOI
+  testscript:3:1: error: test after teardown
+    testscript:2:1: info: last teardown line appears here
+  EOE
+
+  : between-tests-scope
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  x = y
+  {
+    cmd
+  }
+  EOI
+  testscript:3:1: error: scope after teardown
+    testscript:2:1: info: last teardown line appears here
+  EOE
+
+  : between-tests-command-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  x = y
+  if true
+    cmd
+  end
+  EOI
+  testscript:3:1: error: test after teardown
+    testscript:2:1: info: last teardown line appears here
+  EOE
+
+  : between-tests-scope-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  x = y
+  if true
+  {
+    cmd
+  }
+  EOI
+  testscript:3:1: error: scope after teardown
+    testscript:2:1: info: last teardown line appears here
+  EOE
+
+  : between-tests-variable-if
+  :
+  $* <<EOI >>EOO
+  cmd
+  x = y
+  if true
+    y = x
+  end
+  EOI
+  cmd
+  ? true
+  EOO
+}
