@@ -658,8 +658,13 @@ namespace build2
         dpp = run_search (dp, true);
 
         args.push_back (dpp.recall_string ());
-        args.push_back ("--strip-trailing-cr"); //@@ TMP: see init.cxx
         args.push_back ("-u");
+
+        // Ignore Windows newline fluff if that's what we are running on.
+        //
+        if (cast<target_triplet> (tt["test.target"]).class_ == "windows")
+          args.push_back ("--strip-trailing-cr");
+
         args.push_back (ot.path ().string ().c_str ());
         args.push_back ("-");
         args.push_back (nullptr);
