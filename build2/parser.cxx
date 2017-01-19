@@ -2163,7 +2163,7 @@ namespace build2
                        const char* what,
                        const string* separators,
                        size_t pairn,
-                       const string* pp,
+                       const optional<string>& pp,
                        const dir_path* dp,
                        const string* tp)
   {
@@ -2195,7 +2195,7 @@ namespace build2
 
       names x; // Parse into a separate list of names.
       parse_names_trailer (
-        t, tt, x, what, separators, 0, nullptr, nullptr, nullptr);
+        t, tt, x, what, separators, 0, nullopt, nullptr, nullptr);
 
       if (size_t n = x.size ())
       {
@@ -2219,12 +2219,12 @@ namespace build2
 
             // Move the project names.
             //
-            if (r.proj != nullptr)
+            if (r.proj)
             {
-              if (l.proj != nullptr)
+              if (l.proj)
                 fail (loc) << "nested project name " << *r.proj;
 
-              l.proj = r.proj;
+              l.proj = move (r.proj);
             }
 
             // Merge directories.
@@ -2285,7 +2285,7 @@ namespace build2
                const char* what,
                const string* separators,
                size_t pairn,
-               const string* pp,
+               const optional<string>& pp,
                const dir_path* dp,
                const string* tp)
   {
@@ -2378,7 +2378,6 @@ namespace build2
         concat_data = move (d[0]);
       }
     };
-
 
     // Number of names in the last group. This is used to detect when
     // we need to add an empty first pair element (e.g., @y) or when
@@ -2558,31 +2557,33 @@ namespace build2
         // First take care of project. A project-qualified name is not very
         // common, so we can afford some copying for the sake of simplicity.
         //
-        const string* pp1 (pp);
+        optional<string> p1;
+        const optional<string>* pp1 (&pp);
 
         if (p != string::npos)
         {
           bool last (val[p] == '%');
-          string::size_type p1 (last ? p : val.rfind ('%', p - 1));
+          string::size_type q (last ? p : val.rfind ('%', p - 1));
 
-          if (p1 != string::npos)
+          if (q != string::npos)
           {
             string proj;
             proj.swap (val);
 
             // First fix the rest of the name.
             //
-            val.assign (proj, p1 + 1, string::npos);
-            p = last ? string::npos : p - (p1 + 1);
+            val.assign (proj, q + 1, string::npos);
+            p = last ? string::npos : p - (q + 1);
 
             // Now process the project name.
             //
-            proj.resize (p1);
+            proj.resize (q);
 
-            if (pp != nullptr)
+            if (pp)
               fail (t) << "nested project name " << proj;
 
-            pp1 = &project_name_pool.find (proj);
+            p1 = move (proj);
+            pp1 = &p1;
           }
         }
 
@@ -2629,7 +2630,7 @@ namespace build2
           }
 
           count = parse_names_trailer (
-            t, tt, ns, what, separators, pairn, pp1, dp1, tp1);
+            t, tt, ns, what, separators, pairn, *pp1, dp1, tp1);
           tt = peek ();
           continue;
         }
@@ -2665,7 +2666,7 @@ namespace build2
             if (dp != nullptr)
               dir = *dp / dir;
 
-            ns.emplace_back (pp1,
+            ns.emplace_back (*pp1,
                              move (dir),
                              (tp != nullptr ? *tp : string ()),
                              string ());
@@ -2673,7 +2674,7 @@ namespace build2
           }
         }
 
-        ns.emplace_back (pp1,
+        ns.emplace_back (*pp1,
                          (dp != nullptr ? *dp : dir_path ()),
                          (tp != nullptr ? *tp : string ()),
                          move (val));
@@ -2980,14 +2981,18 @@ namespace build2
           //
           for (const name& n: lv)
           {
-            const string* pp1 (pp);
+            const optional<string>* pp1 (&pp);
             const dir_path* dp1 (dp);
             const string* tp1 (tp);
 
-            if (n.proj != 0)
+            optional<string> p1;
+            if (n.proj)
             {
-              if (pp == nullptr)
-                pp1 = n.proj;
+              if (!pp)
+              {
+                p1 = n.proj;
+                pp1 = &p1;
+              }
               else
                 fail (loc) << "nested project name " << *n.proj << " in "
                            << what;
@@ -3032,7 +3037,7 @@ namespace build2
                 ns.push_back (ns[pairn - 1]);
             }
 
-            ns.emplace_back (pp1,
+            ns.emplace_back (*pp1,
                              (dp1 != nullptr ? *dp1 : dir_path ()),
                              (tp1 != nullptr ? *tp1 : string ()),
                              n.value);
@@ -3573,7 +3578,7 @@ namespace build2
 
     prerequisite& p (
       scope_->prerequisites.insert (
-        nullptr,
+        nullopt,
         dt.key (),
         *scope_,   // Doesn't matter which scope since dir is absolute.
         trace).first);

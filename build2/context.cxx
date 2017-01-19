@@ -24,7 +24,6 @@ using namespace butl;
 namespace build2
 {
   string_pool extension_pool;
-  string_pool project_name_pool;
 
   const string* current_mname;
   const string* current_oname;
@@ -58,7 +57,6 @@ namespace build2
     var_pool.clear ();
 
     extension_pool.clear ();
-    project_name_pool.clear ();
 
     // Reset meta/operation tables. Note that the order should match the id
     // constants in <build2/operation>.

@@ -17,7 +17,6 @@ namespace build2
   class file;
 
   extern string_pool extension_pool;
-  extern string_pool project_name_pool;
 
   // Current action (meta/operation).
   //

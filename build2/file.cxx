@@ -826,19 +826,19 @@ namespace build2
     l5 ([&]{trace << target << " from " << ibase.out_path ();});
 
     // If there is no project specified for this target, then our run will be
-    // short and sweet: we simply return it as empty- project-qualified and
+    // short and sweet: we simply return it as empty-project-qualified and
     // let someone else (e.g., a rule) take a stab at it.
     //
     if (target.unqualified ())
     {
-      target.proj = &project_name_pool.find ("");
+      target.proj = string ();
       return names {move (target)};
     }
 
     // Otherwise, get the project name and convert the target to unqualified.
     //
-    const string& proj (*target.proj);
-    target.proj = nullptr;
+    string proj (move (*target.proj));
+    target.proj = nullopt;
 
     scope& iroot (*ibase.root_scope ());
 
@@ -873,7 +873,7 @@ namespace build2
           //
           if (out_root.empty ())
           {
-            target.proj = &proj;
+            target.proj = move (proj);
             l5 ([&]{trace << "skipping " << target;});
             return names {move (target)};
           }
@@ -924,7 +924,7 @@ namespace build2
           // config.import.build2.b=b-boot
           //
           if (p.relative ())
-            target.proj = &proj;
+            target.proj = move (proj);
 
           target.dir = p.directory ();
           target.value = p.leaf ().string ();
@@ -973,7 +973,7 @@ namespace build2
     //
     if (out_root.empty ())
     {
-      target.proj = &proj;
+      target.proj = move (proj);
       l5 ([&]{trace << "postponing " << target;});
       return names {move (target)};
     }
@@ -1098,7 +1098,7 @@ namespace build2
   {
     tracer trace ("import");
 
-    assert (pk.proj != nullptr);
+    assert (pk.proj);
     const string& p (*pk.proj);
 
     // Target type-specific search.

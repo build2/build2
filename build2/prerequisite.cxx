@@ -15,10 +15,12 @@ namespace build2
 {
   // prerequisite_key
   //
+  const optional<string> prerequisite_key::nullproj = nullopt;
+
   ostream&
   operator<< (ostream& os, const prerequisite_key& pk)
   {
-    if (pk.proj != nullptr)
+    if (pk.proj)
       os << *pk.proj << '%';
     //
     // Don't print scope if we are project-qualified or the prerequisite's
@@ -49,7 +51,7 @@ namespace build2
   // prerequisite_set
   //
   auto prerequisite_set::
-  insert (const string* proj,
+  insert (optional<string> proj,
           const target_type& tt,
           dir_path dir,
           dir_path out,
@@ -64,7 +66,8 @@ namespace build2
 
     // Find or insert.
     //
-    auto r (emplace (proj, tt, move (dir), move (out), move (name), ext, s));
+    auto r (
+      emplace (move (proj), tt, move (dir), move (out), move (name), ext, s));
     prerequisite& p (const_cast<prerequisite&> (*r.first));
 
     // Update extension if the existing prerequisite has it unspecified.

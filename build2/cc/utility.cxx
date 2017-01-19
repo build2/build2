@@ -67,7 +67,7 @@ namespace build2
 
       if (r == nullptr)
         r = &search (ls ? libs::static_type : liba::static_type,
-                     prerequisite_key {nullptr, l.key (), nullptr});
+                     prerequisite_key {nullopt, l.key (), nullptr});
 
       return *r;
     }

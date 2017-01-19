@@ -7,13 +7,7 @@ namespace build2
   inline int name::
   compare (const name& x) const
   {
-    int r;
-
-    // Project string is pooled, so for equality can just compare pointers.
-    //
-    r = proj == x.proj
-      ? 0
-      : proj == nullptr || (x.proj != nullptr && *proj < *x.proj) ? -1 : 1;
+    int r (proj < x.proj ? -1 : (proj > x.proj ? 1 : 0));
 
     if (r == 0)
       r = dir.compare (x.dir);

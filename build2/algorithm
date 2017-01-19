@@ -46,7 +46,7 @@ namespace build2
           const string& name,
           const string* ext,
           scope*,
-          const string* proj = nullptr);
+          const optional<string>& proj = nullopt);
 
   // As above but specify the target type as template argument.
   //

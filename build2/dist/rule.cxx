@@ -33,7 +33,7 @@ namespace build2
 
         // Skip prerequisites imported from other projects.
         //
-        if (p.proj () != nullptr)
+        if (p.proj ())
           continue;
 
         // If we can, go inside see-through groups. Note that here we are

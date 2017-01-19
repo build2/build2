@@ -153,7 +153,7 @@ namespace build2
 
             // Handle imported libraries.
             //
-            if (p.proj () != nullptr)
+            if (p.proj ())
               pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
             if (pt == nullptr)
@@ -437,7 +437,10 @@ namespace build2
         {
           // Handle imported libraries.
           //
-          if (p.proj () != nullptr)
+          // Note that since the search is rule-specific, we don't cache the
+          // target in the prerequisite.
+          //
+          if (p.proj ())
             pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
           // The rest is the same basic logic as in search_and_match().

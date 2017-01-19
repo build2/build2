@@ -41,7 +41,7 @@ namespace build2
                        lib& lt,
                        liba* at,
                        libs* st,
-                       const string* proj,
+                       const optional<string>& proj,
                        const string& stem,
                        const dir_path& libd,
                        const dir_paths& sysd) const
@@ -56,7 +56,7 @@ namespace build2
       // names).
       //
       path f;
-      auto search = [&f, proj, &stem, &libd] (const dir_path& dir) -> bool
+      auto search = [&f, &proj, &stem, &libd] (const dir_path& dir) -> bool
       {
         // Check if we have this directory inrelative to this library's
         // directory.
@@ -93,7 +93,7 @@ namespace build2
         if (exists (f))
           return true;
 
-        if (proj != nullptr)
+        if (proj)
         {
           f = pkgd;
           f /= *proj;
@@ -420,7 +420,7 @@ namespace build2
           const string* ext (nullptr);
 
           prerequisite_key pk {
-            nullptr, {&lib::static_type, &out, &out, &name, ext}, &s};
+            nullopt, {&lib::static_type, &out, &out, &name, ext}, &s};
 
           if (lib* lt = static_cast<lib*> (search_library (sysd, usrd, pk)))
           {

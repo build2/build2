@@ -748,12 +748,14 @@ namespace build2
       return target != nullptr ? target->name : prerequisite.get ().name;
     }
 
-    const string*
+    const optional<string>&
     proj () const
     {
       // Target cannot be project-qualified.
       //
-      return target != nullptr ? nullptr : prerequisite.get ().proj;
+      return target != nullptr
+        ? prerequisite_key::nullproj
+        : prerequisite.get ().proj;
     }
 
     target_type&

@@ -22,7 +22,7 @@ namespace build2
     if (n.empty ())
       return r;
 
-    if (n.proj != nullptr)
+    if (n.proj)
     {
       r += *n.proj;
       r += '%';
@@ -113,7 +113,7 @@ namespace build2
     if (quote && n.empty ())
       return os << "''";
 
-    if (n.proj != nullptr)
+    if (n.proj)
     {
       write_string (*n.proj);
       os << '%';

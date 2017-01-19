@@ -199,7 +199,7 @@ namespace build2
     {
       names ns;
       parse_names (
-        t, tt, ns, chunk, what, separators, 0, nullptr, nullptr, nullptr);
+        t, tt, ns, chunk, what, separators, 0, nullopt, nullptr, nullptr);
       return ns;
     }
 
@@ -214,7 +214,7 @@ namespace build2
       names ns;
       pair<bool, const value_type*> p (
         parse_names (
-          t, tt, ns, chunk, what, separators, 0, nullptr, nullptr, nullptr));
+          t, tt, ns, chunk, what, separators, 0, nullopt, nullptr, nullptr));
 
       value r (p.second); // Potentially typed NULL value.
 
@@ -250,7 +250,7 @@ namespace build2
                  const char* what = "name",
                  const string* separators = &name_separators,
                  size_t pair = 0,
-                 const string* prj = nullptr,
+                 const optional<string>& prj = nullopt,
                  const dir_path* dir = nullptr,
                  const string* type = nullptr);
 
@@ -260,7 +260,7 @@ namespace build2
                          const char* what,
                          const string* separators,
                          size_t pair,
-                         const string* prj,
+                         const optional<string>& prj,
                          const dir_path* dir,
                          const string* type);
 

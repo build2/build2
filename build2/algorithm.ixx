@@ -32,7 +32,7 @@ namespace build2
           const string& name,
           const string* ext,
           scope* scope,
-          const string* proj)
+          const optional<string>& proj)
   {
     return search (
       prerequisite_key {proj, {&type, &dir, &out, &name, ext}, scope});

@@ -157,7 +157,7 @@ namespace build2
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
-        if (p.proj () != nullptr)
+        if (p.proj ())
           continue;
 
         // Let a customized rule have its say.

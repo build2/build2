@@ -27,22 +27,21 @@ namespace build2
   public:
     typedef build2::scope scope_type;
 
-    mutable const string* proj; // Can be NULL, from project_name_pool.
-    target_key tk;              // .dir and .out can be relative.
-    mutable scope_type* scope;  // Can be NULL if tk.dir is absolute.
+    const optional<string>& proj;
+    target_key tk;                // .dir and .out can be relative.
+    mutable scope_type* scope;    // Can be NULL if tk.dir is absolute.
 
     template <typename T>
     bool is_a () const {return tk.is_a<T> ();}
     bool is_a (const target_type& tt) const {return tk.is_a (tt);}
+
+    static const optional<string> nullproj;
   };
 
   inline bool
   operator== (const prerequisite_key& x, const prerequisite_key& y)
   {
     assert (x.scope == y.scope);
-
-    // Can compare project name pointers since they are from project_name_pool.
-    //
     return x.proj == y.proj && x.tk == y.tk;
   }
 
@@ -71,9 +70,7 @@ namespace std
     size_t
     operator() (const build2::prerequisite_key& k) const noexcept
     {
-      // Can hash project name pointers since they are from project_name_pool.
-      //
-      return build2::combine_hash (hash<const string*> () (k.proj),
+      return build2::combine_hash (hash<build2::optional<string>> () (k.proj),
                                    hash<build2::target_key> () (k.tk));
     }
   };
@@ -91,7 +88,7 @@ namespace build2
     // Note that unlike targets, for prerequisites an empty out directory
     // means undetermined rather than being definitely in the out tree.
     //
-    const string* const proj; // NULL if not project-qualified.
+    const optional<string>  proj;
     const target_type_type& type;
     const dir_path dir;      // Normalized absolute or relative (to scope).
     const dir_path out;      // Empty, normalized absolute, or relative.
@@ -103,14 +100,14 @@ namespace build2
                              // a target group.
 
   public:
-    prerequisite (const string* p,
+    prerequisite (optional<string> p,
                   const target_type_type& t,
                   dir_path d,
                   dir_path o,
                   string n,
                   const string* e,
                   scope_type& s)
-        : proj (p),
+        : proj (move (p)),
           type (t),
           dir (move (d)),
           out (move (o)),
@@ -186,7 +183,7 @@ namespace build2
   struct prerequisite_set: std::unordered_set<prerequisite>
   {
     pair<prerequisite&, bool>
-    insert (const string* proj,
+    insert (optional<string> proj,
             const target_type&,
             dir_path dir,
             dir_path out,
@@ -196,9 +193,10 @@ namespace build2
             tracer&);
 
     pair<prerequisite&, bool>
-    insert (const string* proj, const target_key& tk, scope& s, tracer& t)
+    insert (optional<string> proj, const target_key& tk, scope& s, tracer& t)
     {
-      return insert (proj, *tk.type, *tk.dir, *tk.out, *tk.name, tk.ext, s, t);
+      return insert (
+        move (proj), *tk.type, *tk.dir, *tk.out, *tk.name, tk.ext, s, t);
     }
   };
 }

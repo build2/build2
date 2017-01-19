@@ -19,9 +19,11 @@ namespace build2
   // A name is what we operate on by default. Depending on the context, it can
   // be interpreted as a target or prerequisite name. A name without a type
   // and directory can be used to represent any text. A name with directory
-  // and empty value represents a directory. A name may also be qualified with
-  // a project. If the project name is empty, then it means the name is in a
-  // project other than our own (e.g., it is installed).
+  // and empty value represents a directory.
+  //
+  // A name may also be qualified with a project. If the project name is
+  // empty, then it means the name is in a project other than our own (e.g.,
+  // it is installed).
   //
   // A type or project can only be specified if either directory or value are
   // not empty.
@@ -31,7 +33,7 @@ namespace build2
   //
   struct name
   {
-    const string* proj = nullptr; // Points to project_name_pool.
+    optional<string> proj;
     dir_path dir;
     string type;
     string value;
@@ -45,16 +47,14 @@ namespace build2
     name (dir_path d, string t, string v)
         : dir (move (d)), type (move (t)), value (move (v)) {}
 
-    // The first argument should be from project_name_pool.
-    //
-    name (const string* p, dir_path d, string t, string v)
-        : proj (p), dir (move (d)), type (move (t)), value (move (v)) {}
+    name (optional<string> p, dir_path d, string t, string v)
+        : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)) {}
 
     bool
-    qualified () const {return proj != nullptr;}
+    qualified () const {return proj.has_value ();}
 
     bool
-    unqualified () const {return proj == nullptr;}
+    unqualified () const {return !qualified ();}
 
     bool
     typed () const {return !type.empty ();}
@@ -62,7 +62,7 @@ namespace build2
     bool
     untyped () const {return type.empty ();}
 
-    // Note: if dir and value are empty then so should be proj and type.
+    // Note: if dir and value are empty then there should be no proj or type.
     //
     bool
     empty () const {return dir.empty () && value.empty ();}

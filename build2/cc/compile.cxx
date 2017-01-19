@@ -277,7 +277,7 @@ namespace build2
             // we don't need to do match() in order to get options (if
             // any, they would be set by search_library()).
             //
-            if (p.proj () == nullptr ||
+            if (!p.proj () ||
                 search_library (
                   sys_lib_dirs, usr_lib_dirs, p.prerequisite) == nullptr)
             {

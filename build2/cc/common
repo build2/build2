@@ -229,7 +229,7 @@ namespace build2
                          bin::lib&,
                          bin::liba*,
                          bin::libs*,
-                         const string*,
+                         const optional<string>&,
                          const string&,
                          const dir_path&,
                          const dir_paths&) const; // pkgconfig.cxx
