@@ -408,7 +408,7 @@ namespace build2
       {
         // This is import.
         //
-        const string* ext;
+        optional<string> ext;
         const target_type* tt (s.find_target_type (n, ext)); // Changes name.
 
         if (tt == nullptr)
@@ -455,7 +455,7 @@ namespace build2
       //    Windows.
       //
       bool l (p.is_a<lib> ());
-      const string* ext (l ? nullptr : p.tk.ext); // Only for liba/libs.
+      const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.
 
       // Then figure out what we need to search for.
       //
@@ -464,7 +464,7 @@ namespace build2
       // liba
       //
       path an;
-      const string* ae (nullptr);
+      optional<string> ae;
 
       if (l || p.is_a<liba> ())
       {
@@ -494,10 +494,7 @@ namespace build2
           e = "a";
         }
 
-        ae = ext == nullptr
-          ? &extension_pool.find (e)
-          : ext;
-
+        ae = ext ? ext : string (e);
         if (!ae->empty ())
         {
           an += '.';
@@ -508,7 +505,7 @@ namespace build2
       // libs
       //
       path sn;
-      const string* se (nullptr);
+      optional<string> se;
 
       if (l || p.is_a<libs> ())
       {
@@ -528,10 +525,7 @@ namespace build2
           else                        e = "so";
         }
 
-        se = ext == nullptr
-          ? &extension_pool.find (e)
-          : ext;
-
+        se = ext ? ext : string (e);
         if (!se->empty ())
         {
           sn += '.';
@@ -574,7 +568,7 @@ namespace build2
             //
             if (tclass == "windows")
             {
-              s = &targets.insert<libs> (d, dir_path (), name, nullptr, trace);
+              s = &targets.insert<libs> (d, dir_path (), name, nullopt, trace);
 
               if (s->member == nullptr)
               {
@@ -606,7 +600,7 @@ namespace build2
               s->mtime (mt);
             }
           }
-          else if (ext == nullptr && tsys == "mingw32")
+          else if (!ext && tsys == "mingw32")
           {
             // Above we searched for the import library (.dll.a) but if it's
             // not found, then we also search for the .dll (unless the
@@ -614,7 +608,7 @@ namespace build2
             // directly. Note also that the resulting libs{} would end up
             // being the .dll.
             //
-            se = &extension_pool.find ("dll");
+            se = string ("dll");
             f = f.base (); // Remove .a from .dll.a.
             mt = file_mtime (f);
 
@@ -762,7 +756,7 @@ namespace build2
       //
       lib& lt (
         targets.insert<lib> (
-          *pd, dir_path (), name, l ? p.tk.ext : nullptr, trace));
+          *pd, dir_path (), name, l ? p.tk.ext : nullopt, trace));
 
       // It should automatically link-up to the members we have found.
       //

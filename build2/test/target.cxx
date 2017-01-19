@@ -16,21 +16,21 @@ namespace build2
                         dir_path d,
                         dir_path o,
                         string n,
-                        const string* e)
+                        optional<string> e)
     {
-      if (e == nullptr)
-        e = &extension_pool.find (n == "testscript" ? "" : "test");
+      if (!e)
+        e = (n == "testscript" ? string () : "test");
 
-      return new testscript (move (d), move (o), move (n), e);
+      return new testscript (move (d), move (o), move (n), move (e));
     }
 
-    static const string*
+    static optional<string>
     testscript_target_extension (const target_key& tk, scope&, bool)
     {
       // If the name is special 'testscript', then there is no extension,
       // otherwise it is .test.
       //
-      return &extension_pool.find (*tk.name == "testscript" ? "" : "test");
+      return *tk.name == "testscript" ? string () : "test";
     }
 
     const target_type testscript::static_type

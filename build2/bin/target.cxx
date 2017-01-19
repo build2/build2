@@ -17,10 +17,10 @@ namespace build2
                   dir_path dir,
                   dir_path out,
                   string n,
-                  const string* ext)
+                  optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      obje* e (new obje (move (dir), move (out), move (n), ext));
+      obje* e (new obje (move (dir), move (out), move (n), move (ext)));
 
       if ((e->group = o))
         o->e = e;
@@ -44,10 +44,10 @@ namespace build2
                   dir_path dir,
                   dir_path out,
                   string n,
-                  const string* ext)
+                  optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      obja* a (new obja (move (dir), move (out), move (n), ext));
+      obja* a (new obja (move (dir), move (out), move (n), move (ext)));
 
       if ((a->group = o))
         o->a = a;
@@ -71,10 +71,10 @@ namespace build2
                    dir_path dir,
                    dir_path out,
                    string n,
-                   const string* ext)
+                   optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      objs* s (new objs (move (dir), move (out), move (n), ext));
+      objs* s (new objs (move (dir), move (out), move (n), move (ext)));
 
       if ((s->group = o))
         o->s = s;
@@ -98,13 +98,13 @@ namespace build2
                  dir_path dir,
                  dir_path out,
                  string n,
-                 const string* ext)
+                 optional<string> ext)
     {
       obje* e (targets.find<obje> (dir, out, n));
       obja* a (targets.find<obja> (dir, out, n));
       objs* s (targets.find<objs> (dir, out, n));
 
-      obj* o (new obj (move (dir), move (out), move (n), ext));
+      obj* o (new obj (move (dir), move (out), move (n), move (ext)));
 
       if ((o->e = e))
         e->group = o;
@@ -134,12 +134,12 @@ namespace build2
                   dir_path d,
                   dir_path o,
                   string n,
-                  const string* ext)
+                  optional<string> ext)
     {
       // Only link-up to the group if the types match exactly.
       //
       lib* l (t == liba::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      liba* a (new liba (move (d), move (o), move (n), ext));
+      liba* a (new liba (move (d), move (o), move (n), move (ext)));
 
       if ((a->group = l))
         l->a = a;
@@ -175,12 +175,12 @@ namespace build2
                   dir_path d,
                   dir_path o,
                   string n,
-                  const string* ext)
+                  optional<string> ext)
     {
       // Only link-up to the group if the types match exactly.
       //
       lib* l (t == libs::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      libs* s (new libs (move (d), move (o), move (n), ext));
+      libs* s (new libs (move (d), move (o), move (n), move (ext)));
 
       if ((s->group = l))
         l->s = s;
@@ -215,12 +215,12 @@ namespace build2
                  dir_path d,
                  dir_path o,
                  string n,
-                 const string* ext)
+                 optional<string> ext)
     {
       liba* a (targets.find<liba> (d, o, n));
       libs* s (targets.find<libs> (d, o, n));
 
-      lib* l (new lib (move (d), move (o), move (n), ext));
+      lib* l (new lib (move (d), move (o), move (n), move (ext)));
 
       if ((l->a = a))
         a->group = l;

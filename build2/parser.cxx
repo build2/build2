@@ -91,7 +91,7 @@ namespace build2
                   tracer& tr)
         : p_ (&p), t_ (p.target_)
     {
-      const string* e;
+      optional<string> e;
       const target_type* ti (p.scope_->find_target_type (n, e));
 
       if (ti == nullptr)
@@ -131,7 +131,7 @@ namespace build2
       // Find or insert.
       //
       p.target_ = &targets.insert (
-        *ti, move (d), move (out), move (n.value), e, tr).first;
+        *ti, move (d), move (out), move (n.value), move (e), tr).first;
     }
 
     ~enter_target ()
@@ -642,7 +642,7 @@ namespace build2
 
             for (auto& pn: pns)
             {
-              const string* e;
+              optional<string> e;
               const target_type* ti (scope_->find_target_type (pn, e));
 
               if (ti == nullptr)
@@ -672,7 +672,7 @@ namespace build2
                   move (pn.dir),
                   dir_path (),
                   move (pn.value),
-                  e,
+                  move (e),
                   *scope_,
                   trace).first);
 
@@ -3560,7 +3560,7 @@ namespace build2
                       scope_->out_path (),
                       dir_path (),         // Out tree target.
                       "",
-                      nullptr,
+                      nullopt,
                       trace) != targets.end ())
       return;
 
@@ -3573,7 +3573,7 @@ namespace build2
                       scope_->out_path (),
                       dir_path (),
                       "",
-                      nullptr,
+                      nullopt,
                       trace).first);
 
     prerequisite& p (
@@ -3608,7 +3608,7 @@ namespace build2
       move (d),
       move (out),
       p.leaf ().base ().string (),
-      &extension_pool.find (p.extension ()), // Always specified.
+      p.extension (),               // Always specified.
       trace);
   }
 

@@ -88,15 +88,15 @@ namespace build2
         //
         if (t.h == nullptr)
         {
-          t.h = &search<cxx::hxx> (t.dir, t.out, t.name, nullptr, nullptr);
+          t.h = &search<cxx::hxx> (t.dir, t.out, t.name, nullopt, nullptr);
           t.h->group = &t;
 
-          t.c = &search<cxx::cxx> (t.dir, t.out, t.name, nullptr, nullptr);
+          t.c = &search<cxx::cxx> (t.dir, t.out, t.name, nullopt, nullptr);
           t.c->group = &t;
 
           if (!find_option ("--suppress-inline", t, "cli.options"))
           {
-            t.i = &search<cxx::ixx> (t.dir, t.out, t.name, nullptr, nullptr);
+            t.i = &search<cxx::ixx> (t.dir, t.out, t.name, nullopt, nullptr);
             t.i->group = &t;
           }
         }
@@ -211,7 +211,7 @@ namespace build2
                       const char* option,
                       const char* default_extension)
     {
-      assert (t.ext != nullptr); // Should have been figured out in apply().
+      assert (t.ext); // Should have been figured out in apply().
 
       if (*t.ext != default_extension)
       {

@@ -37,8 +37,8 @@ namespace build2
   target&
   search (name n, scope& s)
   {
-    const string* e;
-    const target_type* tt (s.find_target_type (n, e));
+    optional<string> ext;
+    const target_type* tt (s.find_target_type (n, ext));
 
     if (tt == nullptr)
       fail << "unknown target type " << n.type << " in name " << n;
@@ -49,7 +49,7 @@ namespace build2
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
     //
-    return search (*tt, n.dir, dir_path (), n.value, e, &s, n.proj);
+    return search (*tt, n.dir, dir_path (), n.value, ext, &s, n.proj);
   }
 
   pair<const rule*, match_result>
@@ -333,7 +333,7 @@ namespace build2
 
     // Target is in the out tree, so out directory is empty.
     //
-    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullptr, nullptr));
+    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullopt, nullptr));
     match (a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;

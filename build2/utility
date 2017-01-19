@@ -437,17 +437,6 @@ namespace build2
   unsigned int
   to_version (const string&);
 
-  // Pools (@@ perhaps move into a separate header).
-  //
-  struct string_pool: std::unordered_set<std::string>
-  {
-    const std::string&
-    find (const char* s) {return *emplace (s).first;}
-
-    const std::string&
-    find (const std::string& s) {return *emplace (s).first;}
-  };
-
   // Initialize build2 global state (verbosity, home/work directories, etc).
   // Should be called early in main() once.
   //

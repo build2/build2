@@ -8,6 +8,7 @@
 
 #include <build2/scope>
 #include <build2/target>
+#include <build2/context>
 #include <build2/prerequisite>
 #include <build2/diagnostics>
 
@@ -76,14 +77,14 @@ namespace build2
 
     // Figure out the extension. Pretty similar logic to file::derive_path().
     //
-    const string* ext (ctk.ext);
+    optional<string> ext (ctk.ext);
 
-    if (ext == nullptr)
+    if (!ext)
     {
       if (auto f = ctk.type->extension)
-        ext = f (ctk, *cpk.scope, true); // Already from the pool.
+        ext = f (ctk, *cpk.scope, true);
 
-      if (ext == nullptr)
+      if (!ext)
       {
         // What should we do here, fail or say we didn't find anything?
         // Current think is that if the target type couldn't find the default

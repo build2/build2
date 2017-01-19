@@ -15,6 +15,10 @@ using namespace std;
 
 namespace build2
 {
+  // target_key
+  //
+  const optional<string> target_key::nullext = nullopt;
+
   // target_type
   //
   bool target_type::
@@ -207,13 +211,13 @@ namespace build2
 
       // Update the extension if the existing target has it unspecified.
       //
-      const string* ext (k.ext);
+      const optional<string>& ext (k.ext);
       if (t.ext != ext)
       {
         l5 ([&]{
             diag_record r (trace);
             r << "assuming target " << t << " is the same as the one with ";
-            if (ext == nullptr)
+            if (!ext)
               r << "unspecified extension";
             else if (ext->empty ())
               r << "no extension";
@@ -221,7 +225,7 @@ namespace build2
               r << "extension " << *ext;
           });
 
-        if (ext != nullptr)
+        if (ext)
           t.ext = ext;
       }
     }
@@ -234,7 +238,7 @@ namespace build2
           dir_path dir,
           dir_path out,
           string name,
-          const string* ext,
+          optional<string> ext,
           tracer& trace)
   {
     iterator i (find (target_key {&tt, &dir, &out, &name, ext}, trace));
@@ -243,7 +247,7 @@ namespace build2
     if (r)
     {
       unique_ptr<target> pt (
-        tt.factory (tt, move (dir), move (out), move (name), ext));
+        tt.factory (tt, move (dir), move (out), move (name), move (ext)));
       i = map_.emplace (
         make_pair (target_key {&tt, &pt->dir, &pt->out, &pt->name, pt->ext},
                    move (pt))).first;
@@ -285,13 +289,13 @@ namespace build2
         // it if there is one. For 2 we print 'foo.?' if it hasn't yet been
         // assigned and 'foo.' if it is assigned as "no extension" (empty).
         //
-        if (ev > 0 && (ev > 1 || (k.ext != nullptr && !k.ext->empty ())))
+        if (ev > 0 && (ev > 1 || (k.ext && !k.ext->empty ())))
         {
-          os << '.' << (k.ext != nullptr ? *k.ext : "?");
+          os << '.' << (k.ext ? *k.ext : "?");
         }
       }
       else
-        assert (k.ext == nullptr);
+        assert (!k.ext);
     }
     else
       os << *k.dir;
@@ -338,7 +342,7 @@ namespace build2
     //
     assert (de == nullptr || type ().extension != nullptr);
 
-    if (ext == nullptr)
+    if (!ext)
     {
       // If the target type has the extension function then try that first.
       // The reason for preferring it over what's been provided by the caller
@@ -346,12 +350,12 @@ namespace build2
       // the user can use to override extensions.
       //
       if (auto f = type ().extension)
-        ext = f (key (), base_scope (), search); // Already from the pool.
+        ext = f (key (), base_scope (), search);
 
-      if (ext == nullptr)
+      if (!ext)
       {
         if (de != nullptr)
-          ext = &extension_pool.find (de);
+          ext = de;
         else
           fail << "no default extension for target " << *this;
       }
@@ -452,13 +456,13 @@ namespace build2
     return t;
   }
 
-  const string*
+  optional<string>
   target_extension_null (const target_key&, scope&, bool)
   {
-    return nullptr;
+    return nullopt;
   }
 
-  const string*
+  optional<string>
   target_extension_assert (const target_key&, scope&, bool)
   {
     assert (false); // Attempt to obtain the default extension.
@@ -521,7 +525,7 @@ namespace build2
                 dir_path d,
                 dir_path o,
                 string n,
-                const string* e)
+                optional<string> e)
   {
     // A generic file target type doesn't imply any extension while a very
     // specific one (say man1) may have a fixed extension. So if one wasn't
@@ -533,9 +537,9 @@ namespace build2
       move (d),
       move (o),
       move (n),
-      (e != nullptr || ext == nullptr || tt.factory != &file_factory<T, ext>
-       ? e
-       : &extension_pool.find (ext)));
+      (e || ext == nullptr || tt.factory != &file_factory<T, ext>
+       ? move (e)
+       : string (ext)));
   }
 
   extern const char file_ext_var[] = "extension"; // VC14 rejects constexpr.
@@ -585,7 +589,7 @@ namespace build2
     false
   };
 
-  static const string*
+  static optional<string>
   exe_extension (const target_key&, scope&, bool search)
   {
     // If we are searching for an executable that is not a target, then
@@ -593,14 +597,14 @@ namespace build2
     // a target, then we expect the rule to use target machine extension.
     //
     return search
-      ? &extension_pool.find (
+      ? optional<string> (
 #ifdef _WIN32
         "exe"
 #else
         ""
 #endif
       )
-      : nullptr;
+      : nullopt;
   }
 
   const target_type exe::static_type
@@ -619,21 +623,21 @@ namespace build2
                      dir_path d,
                      dir_path o,
                      string n,
-                     const string* e)
+                     optional<string> e)
   {
-    if (e == nullptr)
-      e = &extension_pool.find (n == "buildfile" ? "" : "build");
+    if (!e)
+      e = (n == "buildfile" ? string () : "build");
 
-    return new buildfile (move (d), move (o), move (n), e);
+    return new buildfile (move (d), move (o), move (n), move (e));
   }
 
-  static const string*
+  static optional<string>
   buildfile_target_extension (const target_key& tk, scope&, bool)
   {
     // If the name is special 'buildfile', then there is no extension,
     // otherwise it is .build.
     //
-    return &extension_pool.find (*tk.name == "buildfile" ? "" : "build");
+    return *tk.name == "buildfile" ? string () : "build";
   }
 
   const target_type buildfile::static_type
@@ -663,12 +667,12 @@ namespace build2
                dir_path d,
                dir_path o,
                string n,
-               const string* e)
+               optional<string> e)
   {
-    if (e == nullptr)
+    if (!e)
       fail << "man target '" << n << "' must include extension (man section)";
 
-    return new man (move (d), move (o), move (n), e);
+    return new man (move (d), move (o), move (n), move (e));
   }
 
   const target_type man::static_type

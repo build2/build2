@@ -75,7 +75,7 @@ namespace build2
       if (a)
       {
         if (t.a == nullptr)
-          t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
+          t.a = &search<liba> (t.dir, t.out, t.name, nullopt, nullptr);
 
         match_only (act, *t.a);
       }
@@ -83,7 +83,7 @@ namespace build2
       if (s)
       {
         if (t.s == nullptr)
-          t.s = &search<libs> (t.dir, t.out, t.name, nullptr, nullptr);
+          t.s = &search<libs> (t.dir, t.out, t.name, nullopt, nullptr);
 
         match_only (act, *t.s);
       }

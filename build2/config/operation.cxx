@@ -570,7 +570,7 @@ namespace build2
                             root.out_path (),
                             dir_path (), // Out tree.
                             "",
-                            nullptr,
+                            nullopt,
                             trace).first);
 
           if (!quiet)

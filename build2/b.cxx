@@ -967,7 +967,9 @@ main (int argc, char* argv[])
           //
           scope& bs (scopes.find (ts.out_base));
 
-          const string* e;
+          // Find the target type and extract the extension.
+          //
+          optional<string> e;
           const target_type* ti (bs.find_target_type (tn, e));
 
           if (ti == nullptr)

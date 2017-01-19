@@ -9,7 +9,7 @@
 #include <build2/utility>
 
 #include <build2/target>
-#include <build2/context>
+#include <build2/context>   // reset()
 #include <build2/scheduler>
 
 #include <build2/test/target>
@@ -186,16 +186,15 @@ namespace build2
             targets.insert<file> (work,
                                   dir_path (),
                                   "driver",
-                                  &extension_pool.find (""),
+                                  string (),
                                   trace));
 
           testscript& st (
-            targets.insert<testscript> (
-              work,
-              dir_path (),
-              name.leaf ().base ().string (),
-              &extension_pool.find (name.leaf ().extension ()),
-              trace));
+            targets.insert<testscript> (work,
+                                        dir_path (),
+                                        name.leaf ().base ().string (),
+                                        name.leaf ().extension (),
+                                        trace));
 
           tt.path (path ("driver"));
           st.path (name);

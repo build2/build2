@@ -218,7 +218,7 @@ namespace build2
     // necessarily normalized). Return NULL if not found.
     //
     const target_type*
-    find_target_type (name&, const string*& ext) const;
+    find_target_type (name&, optional<string>& ext) const;
 
     // Dynamically derive a new target type from an existing one. Return the
     // reference to the target type and an indicator of whether it was

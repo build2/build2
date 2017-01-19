@@ -337,7 +337,7 @@ namespace build2
         if (t.member != nullptr) // Might already be there.
           assert (t.member->type () == tt);
         else
-          t.member = &search (tt, t.dir, t.out, t.name, nullptr, nullptr);
+          t.member = &search (tt, t.dir, t.out, t.name, nullopt, nullptr);
 
         file& r (static_cast<file&> (*t.member));
         r.recipe (a, group_recipe);
@@ -519,7 +519,7 @@ namespace build2
         // obj*{} is always in the out tree.
         //
         target& ot (
-          search (tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+          search (tt, d, dir_path (), *cp.tk.name, nullopt, cp.scope));
 
         // If we are cleaning, check that this target is in the same or
         // a subdirectory of our project root.

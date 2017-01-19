@@ -1112,8 +1112,11 @@ namespace build2
     {
       path n (*tk.dir);
       n /= *tk.name;
-      if (tk.ext != nullptr)
+      if (tk.ext)
+      {
+        n += '.';
         n += *tk.ext;
+      }
 
       process_path pp (process::try_path_search (n, true));
 
@@ -1126,9 +1129,9 @@ namespace build2
           targets.insert<exe> (
             tt,
             p.directory (),
-            dir_path (), // No out (out of project).
+            dir_path (),                 // No out (out of project).
             p.leaf ().base ().string (),
-            &extension_pool.find (p.extension ()), // Specified.
+            p.extension (),              // Always specified.
             trace));
 
         if (t.path ().empty ())

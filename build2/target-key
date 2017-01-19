@@ -26,7 +26,9 @@ namespace build2
     const dir_path* const dir; // Can be relative if part of prerequisite_key.
     const dir_path* const out; // Can be relative if part of prerequisite_key.
     const string* const name;
-    const string* const& ext;
+    const optional<string>& ext;
+
+    static const optional<string> nullext;
 
     template <typename T>
     bool is_a () const {return type->is_a<T> ();}
@@ -47,15 +49,14 @@ namespace build2
   inline bool
   operator== (const target_key& x, const target_key& y)
   {
-    // Unspecified and specified extension are assumed equal. The extension
-    // strings are from the pool, so we can just compare pointers.
+    // Unspecified and specified extension are assumed equal.
     //
     return
       x.type == y.type &&
       *x.dir == *y.dir &&
       *x.out == *y.out &&
       *x.name == *y.name &&
-      (x.ext == nullptr || y.ext == nullptr || x.ext == y.ext);
+      (!x.ext || !y.ext || *x.ext == *y.ext);
   }
 
   inline bool

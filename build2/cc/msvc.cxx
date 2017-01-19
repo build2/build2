@@ -231,7 +231,7 @@ namespace build2
       //
       tracer trace (mod, "msvc_search_library");
 
-      const string* ext (p.tk.ext);
+      const optional<string>& ext (p.tk.ext);
       const string& name (*p.tk.name);
 
       // Assemble the file path.
@@ -249,10 +249,9 @@ namespace build2
       if (*sfx != '\0')
         f += sfx;
 
-      const string& e (
-        ext == nullptr || p.is_a<lib> () // Only for liba/libs.
-        ? extension_pool.find ("lib")
-        : *ext);
+      const string& e (!ext || p.is_a<lib> () // Only for liba/libs.
+                       ? string ("lib")
+                       : *ext);
 
       if (!e.empty ())
       {
@@ -268,7 +267,7 @@ namespace build2
       {
         // Enter the target.
         //
-        T& t (targets.insert<T> (d, dir_path (), name, &e, trace));
+        T& t (targets.insert<T> (d, dir_path (), name, e, trace));
 
         if (t.path ().empty ())
           t.path (move (f));
@@ -323,7 +322,7 @@ namespace build2
               msvc_search_library<libi> (x, ld, d, p, otype::s, pf, sf))
         {
           r = &targets.insert<libs> (
-            d, dir_path (), *p.tk.name, nullptr, trace);
+            d, dir_path (), *p.tk.name, nullopt, trace);
 
           if (r->member == nullptr)
           {

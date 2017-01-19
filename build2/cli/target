@@ -49,8 +49,8 @@ namespace build2
 
       //using mtime_target::mtime_target; // @@ GCC 4.8
 
-      cli_cxx (dir_path d, dir_path o, string n, const string* e)
-          : mtime_target (move (d), move (o), move (n), e)
+      cli_cxx (dir_path d, dir_path o, string n, optional<string> e)
+          : mtime_target (move (d), move (o), move (n), move (e))
       {
         m[0] = m[1] = m[2] = nullptr;
       }

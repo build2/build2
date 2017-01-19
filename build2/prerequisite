@@ -31,11 +31,11 @@ namespace build2
     target_key tk;                // .dir and .out can be relative.
     mutable scope_type* scope;    // Can be NULL if tk.dir is absolute.
 
+    static const optional<string> nullproj;
+
     template <typename T>
     bool is_a () const {return tk.is_a<T> ();}
     bool is_a (const target_type& tt) const {return tk.is_a (tt);}
-
-    static const optional<string> nullproj;
   };
 
   inline bool
@@ -90,14 +90,14 @@ namespace build2
     //
     const optional<string>  proj;
     const target_type_type& type;
-    const dir_path dir;      // Normalized absolute or relative (to scope).
-    const dir_path out;      // Empty, normalized absolute, or relative.
+    const dir_path dir;         // Normalized absolute or relative (to scope).
+    const dir_path out;         // Empty, normalized absolute, or relative.
     const string name;
-    const string* ext;       // NULL if unspecified.
+    const optional<string> ext; // Absent if unspecified.
     scope_type& scope;
-    target_type* target;     // NULL if not yet resolved. Note that this should
-                             // always be the "primary target", not a member of
-                             // a target group.
+    target_type* target;        // NULL if not yet resolved. Note that this
+                                // should always be the "primary target", not
+                                // a member of a target group.
 
   public:
     prerequisite (optional<string> p,
@@ -105,14 +105,14 @@ namespace build2
                   dir_path d,
                   dir_path o,
                   string n,
-                  const string* e,
+                  optional<string> e,
                   scope_type& s)
         : proj (move (p)),
           type (t),
           dir (move (d)),
           out (move (o)),
           name (move (n)),
-          ext (e),
+          ext (move (e)),
           scope (s),
           target (nullptr) {}
 
@@ -188,7 +188,7 @@ namespace build2
             dir_path dir,
             dir_path out,
             string name,
-            const string* ext,
+            optional<string> ext,
             scope&,
             tracer&);
 

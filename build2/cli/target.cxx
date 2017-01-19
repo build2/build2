@@ -53,7 +53,7 @@ namespace build2
                      dir_path d,
                      dir_path o,
                      string n,
-                     const string* e)
+                     optional<string> e)
     {
       tracer trace ("cli::cli_cxx_factory");
 
@@ -66,7 +66,7 @@ namespace build2
       targets.insert<cxx::cxx> (d, o, n, trace);
       targets.insert<cxx::ixx> (d, o, n, trace);
 
-      return new cli_cxx (move (d), move (o), move (n), e);
+      return new cli_cxx (move (d), move (o), move (n), move (e));
     }
 
     const target_type cli_cxx::static_type

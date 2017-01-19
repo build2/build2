@@ -144,10 +144,10 @@ namespace build2
     // when src == out). We also treat out of project targets as being in the
     // out tree.
     //
-    const dir_path dir; // Absolute and normalized.
-    const dir_path out; // Empty or absolute and normalized.
-    const string name;
-    const string* ext;  // Extension. NULL - unspecified, empty - no extension.
+    const dir_path   dir;  // Absolute and normalized.
+    const dir_path   out;  // Empty or absolute and normalized.
+    const string     name;
+    optional<string> ext;  // Absent - unspecified, empty - no extension.
 
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
@@ -259,8 +259,8 @@ namespace build2
     target (const target&) = delete;
     target& operator= (const target&) = delete;
 
-    target (dir_path d, dir_path o, string n, const string* e)
-        : dir (move (d)), out (move (o)), name (move (n)), ext (e) {}
+    target (dir_path d, dir_path o, string n, optional<string> e)
+        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)) {}
 
     // Reset the target before matching it to a rule. The default
     // implementation clears the auxilary data and prerequisite_targets.
@@ -986,7 +986,7 @@ namespace build2
           const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const string* ext,
+          const optional<string>& ext,
           tracer& trace) const
     {
       return find (target_key {&type, &dir, &out, &name, ext}, trace);
@@ -1000,7 +1000,7 @@ namespace build2
     find (const dir_path& dir, const dir_path& out, const string& name) const
     {
       auto i (map_.find (
-                target_key {&T::static_type, &dir, &out, &name, nullptr}));
+                target_key {&T::static_type, &dir, &out, &name, nullopt}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
     }
 
@@ -1012,7 +1012,7 @@ namespace build2
             dir_path dir,
             dir_path out,
             string name,
-            const string* ext,
+            optional<string> ext,
             tracer&);
 
     template <typename T>
@@ -1021,11 +1021,11 @@ namespace build2
             dir_path dir,
             dir_path out,
             string name,
-            const string* ext,
+            optional<string> ext,
             tracer& t)
     {
       return static_cast<T&> (
-        insert (tt, move (dir), move (out), move (name), ext, t).first);
+        insert (tt, move (dir), move (out), move (name), move (ext), t).first);
     }
 
     template <typename T>
@@ -1033,7 +1033,7 @@ namespace build2
     insert (const dir_path& dir,
             const dir_path& out,
             const string& name,
-            const string* ext,
+            const optional<string>& ext,
             tracer& t)
     {
       return static_cast<T&> (
@@ -1048,7 +1048,7 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, out, name, nullptr, t).first);
+        insert (T::static_type, dir, out, name, nullopt, t).first);
     }
 
     void
@@ -1344,32 +1344,32 @@ namespace build2
                   dir_path d,
                   dir_path o,
                   string n,
-                  const string* e)
+                  optional<string> e)
   {
-    return new T (move (d), move (o), move (n), e);
+    return new T (move (d), move (o), move (n), move (e));
   }
 
   // Return fixed target extension.
   //
   template <const char* ext>
-  const string*
+  optional<string>
   target_extension_fix (const target_key&, scope&, bool);
 
   // Get the extension from the variable or use the default if none set. If
   // the default is NULL, then return NULL.
   //
   template <const char* var, const char* def>
-  const string*
+  optional<string>
   target_extension_var (const target_key&, scope&, bool);
 
   // Always return NULL extension.
   //
-  const string*
+  optional<string>
   target_extension_null (const target_key&, scope&, bool);
 
   // Assert if called.
   //
-  const string*
+  optional<string>
   target_extension_assert (const target_key&, scope&, bool);
 
   // Target print functions.

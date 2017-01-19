@@ -415,12 +415,11 @@ namespace build2
         // only use the target type and name from the target key so we can
         // pass bogus values for the rest.
         //
-        const string* dummy (nullptr);
-        target_key tk {&tt, nullptr, nullptr, &n, dummy};
+        target_key tk {&tt, nullptr, nullptr, &n, target_key::nullext};
 
         // This is like prerequisite search.
         //
-        if (const string* de = tt.extension (tk, s, true))
+        if (optional<string> de = tt.extension (tk, s, true))
           if (*de == e)
             return true;
 
@@ -913,7 +912,7 @@ namespace build2
           //
           dir_path d (f.directory ());
           string n (f.leaf ().base ().string ());
-          const string* e (&extension_pool.find (f.extension ()));
+          string e (f.extension ());
 
           // Determine the target type.
           //
@@ -935,7 +934,7 @@ namespace build2
           scope& bs (scopes.find (d));
           if (scope* rs = bs.root_scope ())
           {
-            tt = map_extension (bs, n, *e);
+            tt = map_extension (bs, n, e);
 
             if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
               out = out_src (d, *rs);

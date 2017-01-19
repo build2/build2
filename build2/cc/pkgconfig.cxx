@@ -417,10 +417,11 @@ namespace build2
           //
           dir_path out;
           string name (l, 2); // Sans -l.
-          const string* ext (nullptr);
 
           prerequisite_key pk {
-            nullopt, {&lib::static_type, &out, &out, &name, ext}, &s};
+            nullopt,
+            {&lib::static_type, &out, &out, &name, target_key::nullext},
+            &s};
 
           if (lib* lt = static_cast<lib*> (search_library (sysd, usrd, pk)))
           {

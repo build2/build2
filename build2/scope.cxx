@@ -547,9 +547,9 @@ namespace build2
   static const string file_tt ("file");
 
   const target_type* scope::
-  find_target_type (name& n, const string*& ext) const
+  find_target_type (name& n, optional<string>& ext) const
   {
-    ext = nullptr;
+    ext = nullopt;
 
     string& v (n.value);
 
@@ -613,7 +613,7 @@ namespace build2
 
       if (j != string::npos)
       {
-        ext = &extension_pool.find (v.c_str () + j + 1);
+        ext = string (v.c_str () + j + 1);
         v.resize (j);
       }
     }
@@ -626,7 +626,7 @@ namespace build2
                       dir_path d,
                       dir_path o,
                       string n,
-                      const string* e)
+                      optional<string> e)
   {
     // Pass our type to the base factory so that it can detect that it is
     // being called to construct a derived target. This can be used, for
@@ -639,7 +639,7 @@ namespace build2
     const target_type* bt (t.base);
     for (; bt->factory == &derived_tt_factory; bt = bt->base) ;
 
-    target* r (bt->factory (t, move (d), move (o), move (n), e));
+    target* r (bt->factory (t, move (d), move (o), move (n), move (e)));
     r->derived_type = &t;
     return r;
   }

@@ -16,8 +16,6 @@ namespace build2
 {
   class file;
 
-  extern string_pool extension_pool;
-
   // Current action (meta/operation).
   //
   // The names unlike info are available during boot but may not yet be

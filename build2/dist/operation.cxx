@@ -160,7 +160,7 @@ namespace build2
             move (d),
             move (out),
             p.leaf ().base ().string (),
-            &extension_pool.find (p.extension ()), // Specified.
+            p.extension (),              // Specified.
             trace);
         }
       };

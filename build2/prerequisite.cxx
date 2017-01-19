@@ -56,7 +56,7 @@ namespace build2
           dir_path dir,
           dir_path out,
           string name,
-          const string* ext,
+          optional<string> ext,
           scope& s,
           tracer& trace) -> pair<prerequisite&, bool>
   {
@@ -66,8 +66,13 @@ namespace build2
 
     // Find or insert.
     //
-    auto r (
-      emplace (move (proj), tt, move (dir), move (out), move (name), ext, s));
+    auto r (emplace (move (proj),
+                     tt,
+                     move (dir),
+                     move (out),
+                     move (name),
+                     ext, // Note: cannot move.
+                     s));
     prerequisite& p (const_cast<prerequisite&> (*r.first));
 
     // Update extension if the existing prerequisite has it unspecified.
@@ -78,7 +83,7 @@ namespace build2
           diag_record r (trace);
           r << "assuming prerequisite " << p << " is the same as the "
             << "one with ";
-          if (ext == nullptr)
+          if (!ext)
             r << "unspecified extension";
           else if (ext->empty ())
             r << "no extension";
@@ -86,8 +91,8 @@ namespace build2
             r << "extension " << *ext;
         });
 
-      if (ext != nullptr)
-        p.ext = ext;
+      if (ext)
+        const_cast<optional<string>&> (p.ext) = move (ext);
     }
 
     return pair<prerequisite&, bool> (p, r.second);
