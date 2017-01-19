@@ -28,8 +28,8 @@ namespace build2
     typedef build2::scope scope_type;
 
     const optional<string>& proj;
-    target_key tk;                // .dir and .out can be relative.
-    mutable scope_type* scope;    // Can be NULL if tk.dir is absolute.
+    target_key tk;                // The .dir and .out members can be relative.
+    scope_type* scope;            // Can be NULL if tk.dir is absolute.
 
     static const optional<string> nullproj;
 
