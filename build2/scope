@@ -15,7 +15,7 @@
 
 #include <build2/module>
 #include <build2/variable>
-#include <build2/prerequisite>
+#include <build2/target-key>
 #include <build2/target-type>
 #include <build2/rule-map>
 #include <build2/operation>
@@ -184,18 +184,14 @@ namespace build2
     //
     variable_type_map target_vars;
 
-    // Prerequisite cache.
-    //
-  public:
-    prerequisite_set prerequisites;
-
     // Meta/operations supported by this project (set on the root
     // scope only).
     //
+  public:
     build2::meta_operations meta_operations;
     build2::operations operations;
 
-    typedef build2::path path_type;
+    using path_type = build2::path;
 
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against the project's root scope while
@@ -261,13 +257,13 @@ namespace build2
                               // NULL means no strong amalgamtion.
   };
 
-  // Temporary scope. The idea is to be able to create a temporary
-  // scope in order not to change the variables in the current scope.
-  // Such a scope is not entered in to the scope map. As a result it
-  // can only be used as a temporary set of variables. In particular,
-  // defining targets/prerequisites directly in such a scope will surely
-  // end up badly. Defining any nested scopes will be as if defining
-  // such a scope in the parent (since path() returns parent's path).
+  // Temporary scope. The idea is to be able to create a temporary scope in
+  // order not to change the variables in the current scope.  Such a scope is
+  // not entered in to the scope map. As a result it can only be used as a
+  // temporary set of variables. In particular, defining targetsdirectly in
+  // such a scope will surely end up badly. Defining any nested scopes will be
+  // as if defining such a scope in the parent (since path() returns parent's
+  // path).
   //
   class temp_scope: public scope
   {

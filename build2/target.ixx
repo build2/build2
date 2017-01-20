@@ -4,32 +4,20 @@
 
 namespace build2
 {
-  // prerequisite_ref
-  //
-  inline bool prerequisite_ref::
-  belongs (const target& t) const
-  {
-    const auto& p (t.prerequisites);
-    return !(p.empty () || this < &p.front () || this > &p.back ());
-  }
-
   // prerequisite_member
   //
-  inline prerequisite& prerequisite_member::
-  as_prerequisite (tracer& trace) const
+  inline prerequisite prerequisite_member::
+  as_prerequisite_for (target_type& owner) const
   {
     if (target == nullptr)
-      return prerequisite;
+      return prerequisite_type (prerequisite, owner);
 
     // An ad hoc group member cannot be used as a prerequisite (use the whole
     // group instead).
     //
     assert (!target->adhoc_member ());
 
-    // The use of the group's prerequisite scope is debatable.
-    //
-    scope& s (prerequisite.get ().scope);
-    return s.prerequisites.insert (nullopt, key ().tk, s, trace).first;
+    return prerequisite_type (*target, owner);
   }
 
   // prerequisite_members
@@ -50,7 +38,7 @@ namespace build2
       //
       target* t (g_.count != 0
                  ? j_ != 0 ? g_.members[j_ - 1] : nullptr // enter_group()
-                 : i_->get ().target);
+                 : i_->target);
       if (t != nullptr && t->member != nullptr)
         k_ = t->member;
     }
@@ -66,7 +54,7 @@ namespace build2
     {
       ++i_;
 
-      if (r_->members_ && i_ != r_->e_ && i_->get ().type.see_through)
+      if (r_->members_ && i_ != r_->e_ && i_->type.see_through)
         switch_mode ();
     }
 
@@ -82,7 +70,7 @@ namespace build2
     //
     target* t (g_.count != 0
                ? j_ != 0 ? g_.members[j_ - 1] : nullptr
-               : i_->get ().target);
+               : i_->target);
 
     if (t != nullptr && t->member != nullptr)
       k_ = t->member;
@@ -117,7 +105,7 @@ namespace build2
     {
       target* t (g_.count != 0
                  ? j_ != 0 ? g_.members[j_ - 1] : nullptr
-                 : i_->get ().target);
+                 : i_->target);
       if (t != nullptr && t->member != nullptr)
         k_ = t->member;
     }

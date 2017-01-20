@@ -95,26 +95,6 @@ namespace build2
   target_state
   group_action (action, target&); // Defined in <build2/algorithm>.
 
-  // Prerequisite references as used in the target::prerequisites list
-  // below.
-  //
-  struct prerequisite_ref: reference_wrapper<prerequisite>
-  {
-    typedef reference_wrapper<prerequisite> base;
-
-    using base::base;
-
-    // Return true if this reference belongs to the target's prerequisite
-    // list. Note that this test only works if you use references to
-    // the container elements and the container hasn't been resized
-    // since such a reference was obtained. Normally this function is
-    // used when iterating over a combined prerequisites range (see
-    // group_prerequisites below).
-    //
-    bool
-    belongs (const target&) const;
-  };
-
   // A view of target group members.
   //
   struct group_view
@@ -253,15 +233,6 @@ namespace build2
     }
 
   public:
-    virtual
-    ~target ();
-
-    target (const target&) = delete;
-    target& operator= (const target&) = delete;
-
-    target (dir_path d, dir_path o, string n, optional<string> e)
-        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)) {}
-
     // Reset the target before matching it to a rule. The default
     // implementation clears the auxilary data and prerequisite_targets.
     //
@@ -317,7 +288,7 @@ namespace build2
     // Prerequisites.
     //
   public:
-    typedef vector<prerequisite_ref> prerequisites_type;
+    using prerequisites_type = small_vector<prerequisite, 4>;
     prerequisites_type prerequisites;
 
     // Targets to which prerequisites resolve for this recipe. Note
@@ -566,9 +537,32 @@ namespace build2
     virtual const target_type& dynamic_type () const = 0;
     static const target_type static_type;
 
+  public:
+    virtual
+    ~target ();
+
+    target (const target&) = delete;
+    target& operator= (const target&) = delete;
+
+    // The only way to create a target should be via the targets set below.
+    //
+  public:
+    friend class target_set;
+
+    target (dir_path d, dir_path o, string n, optional<string> e)
+        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)) {}
+
   private:
     recipe_type recipe_;
   };
+
+  // All targets are from the targets set below.
+  //
+  inline bool
+  operator== (const target& x, const target& y) {return &x == &y;}
+
+  inline bool
+  operator!= (const target& x, const target& y) {return !(x == y);}
 
   inline ostream&
   operator<< (ostream& os, const target& t) {return os << t.key ();}
@@ -580,9 +574,9 @@ namespace build2
   // come first followed by the member's. If you need to see them
   // in the other direction, iterate in reverse, for example:
   //
-  // for (prerequisite_ref& pr: group_prerequisites (t))
+  // for (prerequisite& p: group_prerequisites (t))
   //
-  // for (prerequisite_ref& pr: reverse_iterate (group_prerequisites (t))
+  // for (prerequisite& p: reverse_iterate (group_prerequisites (t))
   //
   // Note that in this case the individual elements of each list will
   // also be traversed in reverse, but that's what you usually want,
@@ -708,7 +702,7 @@ namespace build2
     using prerequisite_type = build2::prerequisite;
     using target_type_type = build2::target_type;
 
-    prerequisite_ref& prerequisite;
+    prerequisite_type& prerequisite;
     target_type* target;
 
     template <typename T>
@@ -717,35 +711,33 @@ namespace build2
     {
       return target != nullptr
         ? target->is_a<T> () != nullptr
-        : prerequisite.get ().is_a<T> ();
+        : prerequisite.is_a<T> ();
     }
 
     bool
     is_a (const target_type_type& tt) const
     {
-      return target != nullptr
-        ? target->is_a (tt)
-        : prerequisite.get ().is_a (tt);
+      return target != nullptr ? target->is_a (tt) : prerequisite.is_a (tt);
     }
 
     prerequisite_key
     key () const
     {
       return target != nullptr
-        ? prerequisite_key {prerequisite.get ().proj, target->key (), nullptr}
-        : prerequisite.get ().key ();
+        ? prerequisite_key {prerequisite.proj, target->key (), nullptr}
+        : prerequisite.key ();
     }
 
     const target_type_type&
     type () const
     {
-      return target != nullptr ? target->type () : prerequisite.get ().type;
+      return target != nullptr ? target->type () : prerequisite.type;
     }
 
     const string&
     name () const
     {
-      return target != nullptr ? target->name : prerequisite.get ().name;
+      return target != nullptr ? target->name : prerequisite.name;
     }
 
     const optional<string>&
@@ -755,7 +747,7 @@ namespace build2
       //
       return target != nullptr
         ? prerequisite_key::nullproj
-        : prerequisite.get ().proj;
+        : prerequisite.proj;
     }
 
     target_type&
@@ -764,8 +756,13 @@ namespace build2
       return target != nullptr ? *target : build2::search (prerequisite);
     }
 
-    prerequisite_type&
-    as_prerequisite (tracer&) const;
+    // Return as a new prerequisite instance for the specified owner target.
+    // Note that if this is a prerequisite, then both owners should be in the
+    // same scope (not a requirement if this is a target because then its path
+    // will be absolute).
+    //
+    prerequisite_type
+    as_prerequisite_for (target_type& owner) const;
   };
 
   // It is often stored as the target's auxiliary data so make sure there is
@@ -835,7 +832,7 @@ namespace build2
       iterator (const prerequisite_members_range* r, const base_iterator& i)
           : r_ (r), i_ (i), g_ {nullptr, 0}, k_ (nullptr)
       {
-        if (r_->members_ && i_ != r_->e_ && i_->get ().type.see_through)
+        if (r_->members_ && i_ != r_->e_ && i_->type.see_through)
           switch_mode ();
       }
 

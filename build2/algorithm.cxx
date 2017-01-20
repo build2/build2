@@ -277,7 +277,7 @@ namespace build2
   void
   search_and_match_prerequisites (action a, target& t, scope* s)
   {
-    for (prerequisite p: group_prerequisites (t))
+    for (prerequisite& p: group_prerequisites (t))
     {
       target& pt (search (p));
 

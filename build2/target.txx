@@ -27,7 +27,7 @@ namespace build2
         break;
       }
     }
-    while (++i_ != r_->e_ && i_->get ().type.see_through);
+    while (++i_ != r_->e_ && i_->type.see_through);
   }
 
   //

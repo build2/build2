@@ -49,7 +49,7 @@ namespace build2
     {
       tracer trace ("install::alias_rule::apply");
 
-      for (prerequisite p: group_prerequisites (t))
+      for (prerequisite& p: group_prerequisites (t))
       {
         target& pt (search (p));
 

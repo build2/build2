@@ -5,7 +5,7 @@
 #include <build2/prerequisite>
 
 #include <build2/scope>
-#include <build2/target> // target_type
+#include <build2/target>
 #include <build2/context>
 #include <build2/diagnostics>
 
@@ -48,53 +48,41 @@ namespace build2
     return os << pk.tk;
   }
 
-  // prerequisite_set
+  // prerequisite
   //
-  auto prerequisite_set::
-  insert (optional<string> proj,
-          const target_type& tt,
-          dir_path dir,
-          dir_path out,
-          string name,
-          optional<string> ext,
-          scope& s,
-          tracer& trace) -> pair<prerequisite&, bool>
+  prerequisite::
+  prerequisite (const prerequisite& p, target_type& w)
+      : proj (p.proj),
+        type (p.type),
+        dir (p.dir),
+        out (p.out),
+        name (p.name),
+        ext (p.ext),
+        owner (w),
+        target (nullptr)
   {
-    //@@ OPT: would be nice to somehow first check if this prerequisite is
-    //   already in the set before allocating a new instance. Something with
-    //   bounds and insert hints?
+    assert (&w.base_scope () == &p.owner.base_scope ());
+  }
 
-    // Find or insert.
-    //
-    auto r (emplace (move (proj),
-                     tt,
-                     move (dir),
-                     move (out),
-                     move (name),
-                     ext, // Note: cannot move.
-                     s));
-    prerequisite& p (const_cast<prerequisite&> (*r.first));
+  // Make a prerequisite from a target.
+  //
+  prerequisite::
+  prerequisite (target_type& t, target_type& w)
+      : proj (nullopt),
+        type (t.type ()),
+        dir (t.dir),
+        out (t.out),   // @@ If it's empty, then we treat as undetermined?
+        name (t.name),
+        ext (t.ext),
+        owner (w),
+        target (&t)
+  {
+  }
 
-    // Update extension if the existing prerequisite has it unspecified.
-    //
-    if (p.ext != ext)
-    {
-      l5 ([&]{
-          diag_record r (trace);
-          r << "assuming prerequisite " << p << " is the same as the "
-            << "one with ";
-          if (!ext)
-            r << "unspecified extension";
-          else if (ext->empty ())
-            r << "no extension";
-          else
-            r << "extension " << *ext;
-        });
-
-      if (ext)
-        const_cast<optional<string>&> (p.ext) = move (ext);
-    }
-
-    return pair<prerequisite&, bool> (p, r.second);
+  prerequisite_key prerequisite::
+  key () const
+  {
+    return prerequisite_key {
+      proj, {&type, &dir, &out, &name, ext}, &owner.base_scope ()};
   }
 }

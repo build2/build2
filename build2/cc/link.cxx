@@ -165,7 +165,7 @@ namespace build2
             // If the prerequisite came from the lib{} group, then also
             // add it to lib's prerequisite_targets.
             //
-            if (!p.prerequisite.belongs (t))
+            if (p.prerequisite.owner != t)
               t.group->prerequisite_targets.push_back (pt);
 
             t.prerequisite_targets.push_back (pt);
@@ -487,7 +487,7 @@ namespace build2
         // @@ Why are we creating the obj{} group if the source came from a
         //    group?
         //
-        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+        bool group (p.prerequisite.owner != t); // Group's prerequisite.
 
         const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
         const target_type& tt (group ? obj::static_type : ott);
@@ -614,7 +614,7 @@ namespace build2
         {
           // Note: add the source to the group, not the member.
           //
-          ot.prerequisites.emplace_back (p.as_prerequisite (trace));
+          ot.prerequisites.push_back (p.as_prerequisite_for (ot));
 
           // Add our lib*{} prerequisites to the object file (see the export.*
           // machinery for details).
@@ -634,7 +634,7 @@ namespace build2
           for (prerequisite& p: group_prerequisites (t))
           {
             if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-              ot.prerequisites.emplace_back (p);
+              ot.prerequisites.emplace_back (p, ot);
           }
 
           build2::match (a, *pt);

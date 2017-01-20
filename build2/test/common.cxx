@@ -143,7 +143,7 @@ namespace build2
               t.name == n->value &&       // Name matches.
               tt.name == n->type &&       // Target type matches.
               d == n->dir &&              // Directory matches.
-              &search (*n, *root_) == &t;
+              search (*n, *root_) == t;
 
           if (r)
             break;
@@ -190,7 +190,7 @@ namespace build2
                 t.name == n->value &&
                 tt.name == n->type &&
                 d == n->dir &&
-                &search (*n, *root_) == &t;
+                search (*n, *root_) == t;
 
             if (!r)
               continue; // Not our target.

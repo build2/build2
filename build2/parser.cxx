@@ -635,11 +635,28 @@ namespace build2
             else
               attributes_pop ();
 
-            // Prepare the prerequisite list.
+            // First enter all the targets (normally we will have just one).
             //
-            target::prerequisites_type ps;
-            ps.reserve (pns.size ());
+            small_vector<reference_wrapper<target>, 1> tgs;
 
+            for (auto& tn: ns)
+            {
+              if (tn.qualified ())
+                fail (nloc) << "project name in target " << tn;
+
+              // @@ OUT TODO
+              //
+              enter_target tg (*this, move (tn), name (), nloc, trace);
+
+              if (default_target_ == nullptr)
+                default_target_ = target_;
+
+              target_->prerequisites.reserve (pns.size ());
+              tgs.push_back (*target_);
+            }
+
+            // Now enter each prerequisite into each target.
+            //
             for (auto& pn: pns)
             {
               optional<string> e;
@@ -653,8 +670,6 @@ namespace build2
               if (!pn.dir.empty ())
                 pn.dir.normalize (false, true);
 
-              // Find or insert.
-              //
               // @@ OUT: for now we assume the prerequisite's out is
               // undetermined. The only way to specify an src prerequisite
               // will be with the explicit @-syntax.
@@ -665,36 +680,20 @@ namespace build2
               // natually suppress any searches by specifying the absolute
               // path.
               //
-              prerequisite& p (
-                scope_->prerequisites.insert (
-                  pn.proj,
-                  *ti,
-                  move (pn.dir),
-                  dir_path (),
-                  move (pn.value),
-                  move (e),
-                  *scope_,
-                  trace).first);
+              prerequisite p (pn.proj,
+                              *ti,
+                              move (pn.dir),
+                              dir_path (),
+                              move (pn.value),
+                              move (e),
+                              tgs.back ());
 
-              ps.emplace_back (p);
-            }
-
-            for (auto& tn: ns)
-            {
-              if (tn.qualified ())
-                fail (nloc) << "project name in target " << tn;
-
-              // @@ OUT TODO
+              // Move last prerequisite (which will normally be the only one).
               //
-              enter_target tg (*this, move (tn), name (), nloc, trace);
-
-              //@@ OPT: move if last/single target (common cases).
-              //
-              target_->prerequisites.insert (
-                target_->prerequisites.end (), ps.begin (), ps.end ());
-
-              if (default_target_ == nullptr)
-                default_target_ = target_;
+              for (target& t: tgs)
+                t.prerequisites.push_back (&t == &p.owner
+                                           ? move (p)
+                                           : prerequisite (p, t));
             }
           }
 
@@ -3559,7 +3558,7 @@ namespace build2
         targets.find (dir::static_type,    // Explicit current dir target.
                       scope_->out_path (),
                       dir_path (),         // Out tree target.
-                      "",
+                      string (),
                       nullopt,
                       trace) != targets.end ())
       return;
@@ -3572,19 +3571,11 @@ namespace build2
       targets.insert (dir::static_type,
                       scope_->out_path (),
                       dir_path (),
-                      "",
+                      string (),
                       nullopt,
                       trace).first);
 
-    prerequisite& p (
-      scope_->prerequisites.insert (
-        nullopt,
-        dt.key (),
-        *scope_,   // Doesn't matter which scope since dir is absolute.
-        trace).first);
-
-    p.target = &dt;
-    ct.prerequisites.emplace_back (p);
+    ct.prerequisites.emplace_back (dt, ct);
   }
 
   void parser::
