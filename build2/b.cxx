@@ -935,7 +935,7 @@ main (int argc, char* argv[])
           ts.root_scope = &rs;
           ts.out_base = move (out_base);
           ts.buildfile = move (bf);
-        }
+        } // target
 
         // If this operation has been lifted, break out.
         //
@@ -945,7 +945,7 @@ main (int argc, char* argv[])
           break;
         }
 
-        // Now load/search/match the targets.
+        // Now load the buildfiles and search the targets.
         //
         action_targets tgs;
         tgs.reserve (os.size ());
@@ -995,9 +995,9 @@ main (int argc, char* argv[])
 
             mif->search (rs, target_key {ti, &d, &out, &tn.value, e}, l, tgs);
           }
-        }
+        } // target
 
-        // Finally perform the operation.
+        // Finally, match the rules and perform the operation.
         //
         if (pre_oid != 0)
         {
@@ -1058,7 +1058,7 @@ main (int argc, char* argv[])
 
         l5 ([&]{trace << "end operation batch " << oif->name
                       << ", id " << static_cast<uint16_t> (oid);});
-      }
+      } // operation
 
       if (mid != 0)
       {
@@ -1071,7 +1071,7 @@ main (int argc, char* argv[])
 
       if (lifted == nullptr && skip == 0)
         ++mit;
-    }
+    } // meta-operation
 
     // Shutdown the scheduler.
     //
