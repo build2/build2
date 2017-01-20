@@ -46,7 +46,7 @@ b += --no-column
   :
   $c <<EOI;
   touch a &!a;
-  $* -o foo >>>&a;
+  $* -o foo >+a;
   rm a
   EOI
   $b
@@ -224,7 +224,7 @@ $b
 :
 : Test an implicit cleanup being overwritten with the explicit one,
 :
-$c <'$* -o foo >>>a &!a';
+$c <'$* -o foo >=a &!a';
 $b 2>>/EOE != 0
 testscript:1: error: registered for cleanup directory test/1/ is not empty
 EOE
@@ -235,7 +235,7 @@ EOE
 :
 $c <<EOO;
 $* &!a;
-$* -o foo >>>a
+$* -o foo >=a
 EOO
 $b 2>>/EOE != 0
 testscript:2: error: registered for cleanup directory test/1/ is not empty

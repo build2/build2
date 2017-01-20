@@ -6,7 +6,7 @@
 #
 
 +mkdir build
-+cat <<EOI >>>build/bootstrap.build
++cat <<EOI >=build/bootstrap.build
 project = test
 amalgamation =
 EOI

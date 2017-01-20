@@ -1518,7 +1518,6 @@ namespace build2
             }
 
             r.file.path = parse_path (move (w), what);
-            r.file.append = r.modifiers.find ('&') != string::npos;
           };
 
           switch (p)
@@ -1684,7 +1683,9 @@ namespace build2
           case type::out_merge:
           case type::out_str:
           case type::out_doc:
-          case type::out_file:
+          case type::out_file_cmp:
+          case type::out_file_ovr:
+          case type::out_file_app:
             {
               if ((fd = fd == 3 ? 1 : fd) == 0)
                 fail (l) << "invalid out redirect file descriptor " << fd;
@@ -1733,7 +1734,9 @@ namespace build2
             }
 
           case type::in_file:
-          case type::out_file: rt = redirect_type::file; break;
+          case type::out_file_cmp:
+          case type::out_file_ovr:
+          case type::out_file_app: rt = redirect_type::file; break;
           }
 
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
@@ -1797,6 +1800,15 @@ namespace build2
             case 1: p = pending::out_file; break;
             case 2: p = pending::err_file; break;
             }
+
+            // Also sets for stdin, but this is harmless.
+            //
+            r.file.mode = tt == type::out_file_ovr
+              ? redirect_fmode::overwrite
+              : (tt == type::out_file_app
+                 ? redirect_fmode::append
+                 : redirect_fmode::compare);
+
             break;
           }
         };
@@ -1875,7 +1887,9 @@ namespace build2
           case type::out_doc:
 
           case type::in_file:
-          case type::out_file:
+          case type::out_file_cmp:
+          case type::out_file_ovr:
+          case type::out_file_app:
 
           case type::clean:
             {
@@ -2013,7 +2027,9 @@ namespace build2
               case type::out_doc:
 
               case type::in_file:
-              case type::out_file:
+              case type::out_file_cmp:
+              case type::out_file_ovr:
+              case type::out_file_app:
                 {
                   parse_redirect (t, l);
                   break;
@@ -2263,7 +2279,9 @@ namespace build2
                     case type::out_str:
 
                     case type::in_file:
-                    case type::out_file:
+                    case type::out_file_cmp:
+                    case type::out_file_ovr:
+                    case type::out_file_app:
                       {
                         parse_redirect (t, l);
                         break;

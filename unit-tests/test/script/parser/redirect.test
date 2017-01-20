@@ -85,20 +85,28 @@
 : file
 :
 {
-  : not-quote
+  : cmp
   :
   $* <<EOI >>EOO
-  cmd 0<<<a 1>>>b 2>>>&c
+  cmd 0<<<a 1>>>b 2>>>c
   EOI
-  cmd <<<a >>>b 2>>>&c
+  cmd <<<a >>>b 2>>>c
+  EOO
+
+  : write
+  :
+  $* <<EOI >>EOO
+  cmd 1>=b 2>+c
+  EOI
+  cmd >=b 2>+c
   EOO
 
   : quote
   :
   $* <<EOI >>EOO
-  cmd 0<<<"a f" 1>>>"b f" 2>>>&"c f"
+  cmd 0<<<"a f" 1>="b f" 2>+"c f"
   EOI
-  cmd <<<'a f' >>>'b f' 2>>>&'c f'
+  cmd <<<'a f' >='b f' 2>+'c f'
   EOO
 
   : in
@@ -127,17 +135,17 @@
     : missed
     :
     $* <<EOI 2>>EOE !=0
-    cmd >>>
+    cmd >=
     EOI
-    testscript:1:8: error: missing stdout file
+    testscript:1:7: error: missing stdout file
     EOE
 
     : empty
     :
     $* <<EOI 2>>EOE !=0
-    cmd >>>""
+    cmd >=""
     EOI
-    testscript:1:8: error: empty stdout redirect path
+    testscript:1:7: error: empty stdout redirect path
     EOE
   }
 
@@ -147,17 +155,17 @@
     : missed
     :
     $* <<EOI 2>>EOE !=0
-    cmd 2>>>
+    cmd 2>=
     EOI
-    testscript:1:9: error: missing stderr file
+    testscript:1:8: error: missing stderr file
     EOE
 
     : empty
     :
     $* <<EOI 2>>EOE !=0
-    cmd 2>>>""
+    cmd 2>=""
     EOI
-    testscript:1:9: error: empty stderr redirect path
+    testscript:1:8: error: empty stderr redirect path
     EOE
   }
 }

@@ -33,7 +33,7 @@ $b
 : file
 :
 $c <<EOI;
-cat <<EOF >>>out;
+cat <<EOF >=out;
 foo
 bar
 EOF

@@ -9,30 +9,30 @@ test.arguments = command-expansion
 {
   : in
   :
-  $* <:"0<+" >>EOO
+  $* <:"0<|" >>EOO
   '0'
-  <+
+  <|
   EOO
 
   : arg-in
   :
-  $* <:"0 <+" >>EOO
+  $* <:"0 <|" >>EOO
   '0 '
-  <+
+  <|
   EOO
 
   : out
   :
-  $* <:"1>+" >>EOO
+  $* <:"1>|" >>EOO
   '1'
-  >+
+  >|
   EOO
 
   : arg-out
   :
-  $* <:"1 >+" >>EOO
+  $* <:"1 >|" >>EOO
   '1 '
-  >+
+  >|
   EOO
 }
 
@@ -189,17 +189,17 @@ test.arguments = command-expansion
 
   : out
   :
-  $* <:"1>>>a b" >>EOO
+  $* <:"1>=a b" >>EOO
   '1'
-  >>>
+  >=
   'a b'
   EOO
 
   : out-app
   :
-  $* <:"1>>>&a b" >>EOO
+  $* <:"1>+a b" >>EOO
   '1'
-  >>>&
+  >+
   'a b'
   EOO
 }

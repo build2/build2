@@ -11,11 +11,11 @@ test.arguments = 'update(../)'
 # baz/ has invalid buildfile
 #
 +mkdir foo bar baz
-+cat <<EOI >>>bar/buildfile
++cat <<EOI >=bar/buildfile
 print bar
 ./:
 EOI
-+cat <'assert false' >>>baz/buildfile
++cat <'assert false' >=baz/buildfile
 
 : no-buildfile
 :

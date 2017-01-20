@@ -74,7 +74,7 @@ EOE
 : scope. Also note that we still have to remove everything after detecting the
 : failure.
 :
-cat <<EOI >>>foo.test;
+cat <<EOI >=foo.test;
 touch ../../dummy
 EOI
 $* <<EOI 2>>/EOE &test/*** != 0

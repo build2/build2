@@ -33,18 +33,20 @@ namespace build2
         case token_type::clean:        os << q << '&'   << v << q; break;
         case token_type::pipe:         os << q << '|'        << q; break;
 
-        case token_type::in_pass:      os << q << "<+"       << q; break;
+        case token_type::in_pass:      os << q << "<|"       << q; break;
         case token_type::in_null:      os << q << "<-"       << q; break;
         case token_type::in_str:       os << q << '<'   << v << q; break;
         case token_type::in_doc:       os << q << "<<"  << v << q; break;
         case token_type::in_file:      os << q << "<<<"      << q; break;
 
-        case token_type::out_pass:     os << q << ">+"       << q; break;
+        case token_type::out_pass:     os << q << ">|"       << q; break;
         case token_type::out_null:     os << q << ">-"       << q; break;
         case token_type::out_merge:    os << q << ">&"       << q; break;
         case token_type::out_str:      os << q << '>'   << v << q; break;
         case token_type::out_doc:      os << q << ">>"  << v << q; break;
-        case token_type::out_file:     os << q << ">>>" << v << q; break;
+        case token_type::out_file_cmp: os << q << ">>>" << v << q; break;
+        case token_type::out_file_ovr: os << q << ">="  << v << q; break;
+        case token_type::out_file_app: os << q << ">+"  << v << q; break;
 
         default: build2::token_printer (os, t, d);
         }

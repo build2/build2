@@ -80,7 +80,7 @@ namespace build2
           switch (r.type)
           {
           case redirect_type::none:  assert (false);   break;
-          case redirect_type::pass:  o << '+';         break;
+          case redirect_type::pass:  o << '|';         break;
           case redirect_type::null:  o << '-';         break;
           case redirect_type::merge: o << '&' << r.fd; break;
 
@@ -141,9 +141,15 @@ namespace build2
 
           case redirect_type::file:
             {
-              // Add '>>' or '<<' (and so make it '<<<' or '>>>').
+              // For stdin or stdout-comparison redirect add '>>' or '<<' (and
+              // so make it '<<<' or '>>>'). Otherwise add '+' or '=' (and so
+              // make it '>+' or '>=').
               //
-              o << d << d << r.modifiers;
+              if (d == '<' || r.file.mode == redirect_fmode::compare)
+                o << d << d;
+              else
+                o << (r.file.mode == redirect_fmode::append ? '+' : '=');
+
               print_path (r.file.path);
               break;
             }

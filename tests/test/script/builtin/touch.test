@@ -24,7 +24,7 @@ $b
 : Test that existing file touch doesn't fail.
 :
 $c <<EOI;
-cat <"" >>>a;
+cat <"" >=a;
 touch a
 EOI
 $b

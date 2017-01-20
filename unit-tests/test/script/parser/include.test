@@ -19,7 +19,7 @@ EOI
 
 : one
 :
-cat <"cmd" >>>foo.test;
+cat <"cmd" >=foo.test;
 $* <<EOI >>EOO
 .include foo.test
 EOI
@@ -28,8 +28,8 @@ EOO
 
 : multiple
 :
-cat <"cmd foo" >>>foo.test;
-cat <"cmd bar" >>>bar.test;
+cat <"cmd foo" >=foo.test;
+cat <"cmd bar" >=bar.test;
 $* <<EOI >>EOO
 .include foo.test bar.test
 EOI
@@ -39,7 +39,7 @@ EOO
 
 : once
 :
-cat <"cmd" >>>foo.test;
+cat <"cmd" >=foo.test;
 $* <<EOI >>EOO
 .include foo.test
 x
@@ -56,7 +56,7 @@ EOO
 
 : group-id
 :
-cat <<EOI >>>foo.test;
+cat <<EOI >=foo.test;
 {
   x = b
 }
@@ -73,7 +73,7 @@ EOO
 
 : test-id
 :
-cat <<EOI >>>foo.test;
+cat <<EOI >=foo.test;
 cmd
 EOI
 $* -s -i <<EOI >>EOO

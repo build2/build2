@@ -60,6 +60,26 @@ namespace build2
   {
     namespace script
     {
+      // Normalize a path. Also make the relative path absolute using the
+      // scope's working directory unless it is already absolute.
+      //
+      static path
+      normalize (path p, const scope& sp, const location& l)
+      {
+        path r (p.absolute () ? move (p) : sp.wd_path / move (p));
+
+        try
+        {
+          r.normalize ();
+        }
+        catch (const invalid_path& e)
+        {
+          fail (l) << "invalid file path " << e.path;
+        }
+
+        return r;
+      }
+
       // Check if a path is not empty, the referenced file exists and is not
       // empty.
       //
@@ -213,7 +233,17 @@ namespace build2
             d << info << "stdin: " << ip;
         };
 
-        bool re;
+        auto output_info = [&what, &ll] (diag_record& d,
+                                         const path& p,
+                                         const char* prefix = "",
+                                         const char* suffix = "")
+        {
+          if (non_empty (p, ll))
+            d << info << prefix << what << suffix << ": " << p;
+          else
+            d << info << prefix << what << suffix << " is empty";
+        };
+
         if (rd.type == redirect_type::none)
         {
           assert (!op.empty ());
@@ -229,382 +259,373 @@ namespace build2
             input_info (d);
           }
         }
-        else if ((re = (rd.type == redirect_type::here_str_regex ||
-                        rd.type == redirect_type::here_doc_regex)) ||
-                 rd.type == redirect_type::here_str_literal ||
-                 rd.type == redirect_type::here_doc_literal)
+        else if (rd.type == redirect_type::here_str_literal ||
+                 rd.type == redirect_type::here_doc_literal ||
+                 (rd.type == redirect_type::file &&
+                  rd.file.mode == redirect_fmode::compare))
         {
           assert (!op.empty ());
 
-          auto output_info = [&what, &ll] (diag_record& d,
-                                           const path& p,
-                                           const char* prefix = "",
-                                           const char* suffix = "")
+          // The expected output is provided as a file or as a string. Save the
+          // string to a file in the later case.
+          //
+          path eop;
+
+          if (rd.type == redirect_type::file)
+            eop = normalize (rd.file.path, sp, ll);
+          else
           {
-            if (non_empty (p, ll))
-              d << info << prefix << what << suffix << ": " << p;
-            else
-              d << info << prefix << what << suffix << " is empty";
-          };
+            eop = path (op + ".orig");
+            save (eop, transform (rd.str, false, rd.modifiers, *sp.root), ll);
+            sp.clean ({cleanup_type::always, eop}, true);
+          }
 
-          if (re) // Match the output with the regex.
+          // Use diff utility for the comparison.
+          //
+          path dp ("diff");
+          process_path pp (run_search (dp, true));
+
+          cstrings args {
+            pp.recall_string (),
+              "--strip-trailing-cr", // Is essential for cross-testing.
+              "-u",
+              eop.string ().c_str (),
+              op.string ().c_str (),
+              nullptr};
+
+          if (verb >= 2)
+            print_process (args);
+
+          try
           {
-            // The overall plan is:
+            // Save diff's stdout to a file for troubleshooting and for the
+            // optional (if not too large) printing (at the end of
+            // diagnostics).
             //
-            // 1. Create regex line string. While creating it's line characters
-            //    transform regex lines according to the redirect modifiers.
-            //
-            // 2. Create line regex using the line string. If creation fails
-            //    then save the (transformed) regex redirect to a file for
-            //    troubleshooting.
-            //
-            // 3. Parse the output into the literal line string.
-            //
-            // 4. Match the output line string with the line regex.
-            //
-            // 5. If match fails save the (transformed) regex redirect to a
-            //    file for troubleshooting.
-            //
-            using namespace regex;
-
-            // Create regex line string.
-            //
-            line_pool pool;
-            line_string rls;
-            const regex_lines rl (rd.regex);
-
-            // Parse regex flags.
-            //
-            // When add support for new flags don't forget to update
-            // parse_regex().
-            //
-            auto parse_flags = [] (const string& f) -> char_flags
-            {
-              char_flags r (char_flags::none);
-
-              for (char c: f)
-              {
-                switch (c)
-                {
-                case 'd': r |= char_flags::idot;  break;
-                case 'i': r |= char_flags::icase; break;
-                default: assert (false); // Error so should have been checked.
-                }
-              }
-
-              return r;
-            };
-
-            // Return original regex line with the transformation applied.
-            //
-            auto line = [&rl, &rd, &sp] (const regex_line& l) -> string
-            {
-              string r;
-              if (l.regex)                  // Regex (possibly empty),
-              {
-                r += rl.intro;
-                r += transform (l.value, true, rd.modifiers, *sp.root);
-                r += rl.intro;
-                r += l.flags;
-              }
-              else if (!l.special.empty ()) // Special literal.
-                r += rl.intro;
-              else                          // Textual literal.
-                r += transform (l.value, false, rd.modifiers, *sp.root);
-
-              r += l.special;
-              return r;
-            };
-
-            // Return regex line location.
-            //
-            // Note that we rely on the fact that the command and regex lines
-            // are always belong to the same testscript file.
-            //
-            auto loc = [&ll] (uint64_t line, uint64_t column) -> location
-            {
-              location r (ll);
-              r.line = line;
-              r.column = column;
-              return r;
-            };
-
-            // Save the regex to file for troubleshooting, return the file path
-            // it have been saved to.
-            //
-            // Note that we save the regex on line regex creation failure or if
-            // the program output doesn't match.
-            //
-            auto save_regex = [&op, &rl, &rd, &ll, &line] () -> path
-            {
-              path rp (op + ".regex");
-
-              // Encode here-document regex global flags if present as a file
-              // name suffix. For example if icase and idot flags are specified
-              // the name will look like:
-              //
-              // test/1/stdout.regex~di
-              //
-              if (rd.type == redirect_type::here_doc_regex &&
-                  !rl.flags.empty ())
-                rp += "~" + rl.flags;
-
-              // Note that if would be more efficient to directly write chunks
-              // to file rather than to compose a string first. Hower we don't
-              // bother (about performance) for the sake of the code as we
-              // already failed.
-              //
-              string s;
-              for (const auto& l: rl.lines)
-              {
-                if (!s.empty ()) s += '\n';
-                s += line (l);
-              }
-
-              save (rp, s, ll);
-              return rp;
-            };
-
-            // Finally create regex line string.
-            //
-            // Note that diagnostics doesn't refer to the program path as it is
-            // irrelevant to failures at this stage.
-            //
-            char_flags gf (parse_flags (rl.flags)); // Regex global flags.
-
-            for (const auto& l: rl.lines)
-            {
-              if (l.regex) // Regex (with optional special characters).
-              {
-                line_char c;
-
-                // Empty regex is a special case repesenting the blank line.
-                //
-                if (l.value.empty ())
-                  c = line_char ("", pool);
-                else
-                {
-                  try
-                  {
-                    string s (
-                      transform (l.value, true, rd.modifiers, *sp.root));
-
-                    c = line_char (
-                      char_regex (s, gf | parse_flags (l.flags)), pool);
-                  }
-                  catch (const regex_error& e)
-                  {
-                    // Print regex_error description if meaningful.
-                    //
-                    diag_record d (fail (loc (l.line, l.column)));
-
-                    if (rd.type == redirect_type::here_str_regex)
-                      d << "invalid " << what << " regex redirect" << e <<
-                        info << "regex: '" << line (l) << "'";
-                    else
-                      d << "invalid char-regex in " << what
-                        << " regex redirect" << e <<
-                        info << "regex line: '" << line (l) << "'";
-                  }
-                }
-
-                rls += c; // Append blank literal or regex line char.
-              }
-              else if (!l.special.empty ()) // Special literal.
-              {
-                // Literal can not be followed by special characters in the
-                // same line.
-                //
-                assert (l.value.empty ());
-              }
-              else // Textual literal.
-              {
-                // Append literal line char.
-                //
-                rls += line_char (
-                  transform (l.value, false, rd.modifiers, *sp.root), pool);
-              }
-
-              for (char c: l.special)
-              {
-                if (line_char::syntax (c))
-                  rls += line_char (c); // Append special line char.
-                else
-                  fail (loc (l.line, l.column))
-                    << "invalid syntax character '" << c << "' in " << what
-                    << " regex redirect" <<
-                    info << "regex line: '" << line (l) << "'";
-              }
-            }
-
-            // Create line regex.
-            //
-            line_regex regex;
+            path ep (op + ".diff");
+            auto_fd efd;
 
             try
             {
-              regex = line_regex (move (rls), move (pool));
-            }
-            catch (const regex_error& e)
-            {
-              // Note that line regex creation can not fail for here-string
-              // redirect as it doesn't have syntax line chars. That in
-              // particular means that end_line and end_column are meaningful.
-              //
-              assert (rd.type == redirect_type::here_doc_regex);
-
-              diag_record d (fail (loc (rd.end_line, rd.end_column)));
-
-              // Print regex_error description if meaningful.
-              //
-              d << "invalid " << what << " regex redirect" << e;
-
-              output_info (d, save_regex (), "", " regex");
-            }
-
-            // Parse the output into the literal line string.
-            //
-            line_string ls;
-
-            try
-            {
-              // Do not throw when eofbit is set (end of stream reached), and
-              // when failbit is set (getline() failed to extract any
-              // character).
-              //
-              // Note that newlines are treated as line-chars separators. That
-              // in particular means that the trailing newline produces a blank
-              // line-char (empty literal). Empty output produces the
-              // zero-length line-string.
-              //
-              // Also note that we strip the trailing CR characters (otherwise
-              // can mismatch when cross-test).
-              //
-              ifdstream is (op, ifdstream::in, ifdstream::badbit);
-              is.peek (); // Sets eofbit for an empty stream.
-
-              while (!is.eof ())
-              {
-                string s;
-                getline (is, s);
-
-                // It is safer to strip CRs in cycle, as msvcrt unexplainably
-                // adds too much trailing junk to the system_error
-                // descriptions, and so it can appear in programs output. For
-                // example:
-                //
-                // ...: Invalid data.\r\r\n
-                //
-                // Note that our custom operator<<(ostream&, const exception&)
-                // removes this junk.
-                //
-                while (!s.empty () && s.back () == '\r')
-                  s.pop_back ();
-
-                ls += line_char (move (s), regex.pool);
-              }
+              efd = fdopen (ep, fdopen_mode::out | fdopen_mode::create);
+              sp.clean ({cleanup_type::always, ep}, true);
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to read " << op << ": " << e;
+              fail (ll) << "unable to write " << ep << ": " << e;
             }
 
-            // Match the output with the regex.
+            // Diff utility prints the differences to stdout. But for the
+            // user it is a part of the test failure diagnostics so let's
+            // redirect stdout to stderr.
             //
-            if (regex_match (ls, regex)) // Doesn't throw.
+            process p (pp, args.data (), 0, 2, efd.get ());
+            efd.reset ();
+
+            if (p.wait ())
               return;
 
-            // Output doesn't match the regex.
+            // Output doesn't match the expected result.
             //
             diag_record d (error (ll));
-            d << pr << " " << what << " doesn't match the regex";
+            d << pr << " " << what << " doesn't match the expected output";
 
             output_info (d, op);
-            output_info (d, save_regex (), "", " regex");
+            output_info (d, eop, "expected ");
+            output_info (d, ep, "", " diff");
             input_info  (d);
+
+            print_file (d, ep, ll);
 
             // Fall through.
             //
           }
-          else // Compare the output with the expected result.
+          catch (const process_error& e)
           {
-            // Use diff utility for the comparison.
-            //
-            path eop (op + ".orig");
-            save (eop, transform (rd.str, false, rd.modifiers, *sp.root), ll);
-            sp.clean ({cleanup_type::always, eop}, true);
+            error (ll) << "unable to execute " << pp << ": " << e;
 
-            path dp ("diff");
-            process_path pp (run_search (dp, true));
-
-            cstrings args {
-              pp.recall_string (),
-                "--strip-trailing-cr", // Is essential for cross-testing.
-                "-u",
-                eop.string ().c_str (),
-                op.string ().c_str (),
-                nullptr};
-
-            if (verb >= 2)
-              print_process (args);
-
-            try
-            {
-              // Save diff's stdout to a file for troubleshooting and for the
-              // optional (if not too large) printing (at the end of
-              // diagnostics).
-              //
-              path ep (op + ".diff");
-              auto_fd efd;
-
-              try
-              {
-                efd = fdopen (ep, fdopen_mode::out | fdopen_mode::create);
-                sp.clean ({cleanup_type::always, ep}, true);
-              }
-              catch (const io_error& e)
-              {
-                fail (ll) << "unable to write " << ep << ": " << e;
-              }
-
-              // Diff utility prints the differences to stdout. But for the
-              // user it is a part of the test failure diagnostics so let's
-              // redirect stdout to stderr.
-              //
-              process p (pp, args.data (), 0, 2, efd.get ());
-              efd.reset ();
-
-              if (p.wait ())
-                return;
-
-              // Output doesn't match the expected result.
-              //
-              diag_record d (error (ll));
-              d << pr << " " << what << " doesn't match the expected output";
-
-              output_info (d, op);
-              output_info (d, eop, "expected ");
-              output_info (d, ep, "", " diff");
-              input_info  (d);
-
-              print_file (d, ep, ll);
-
-              // Fall through.
-              //
-            }
-            catch (const process_error& e)
-            {
-              error (ll) << "unable to execute " << pp << ": " << e;
-
-              if (e.child ())
-                exit (1);
-            }
-
-            // Fall through.
-            //
+            if (e.child ())
+              exit (1);
           }
 
           throw failed ();
+        }
+        else if (rd.type == redirect_type::here_str_regex ||
+                 rd.type == redirect_type::here_doc_regex)
+        {
+          assert (!op.empty ());
+
+          // The overall plan is:
+          //
+          // 1. Create regex line string. While creating it's line characters
+          //    transform regex lines according to the redirect modifiers.
+          //
+          // 2. Create line regex using the line string. If creation fails
+          //    then save the (transformed) regex redirect to a file for
+          //    troubleshooting.
+          //
+          // 3. Parse the output into the literal line string.
+          //
+          // 4. Match the output line string with the line regex.
+          //
+          // 5. If match fails save the (transformed) regex redirect to a file
+          //    for troubleshooting.
+          //
+          using namespace regex;
+
+          // Create regex line string.
+          //
+          line_pool pool;
+          line_string rls;
+          const regex_lines rl (rd.regex);
+
+          // Parse regex flags.
+          //
+          // When add support for new flags don't forget to update
+          // parse_regex().
+          //
+          auto parse_flags = [] (const string& f) -> char_flags
+          {
+            char_flags r (char_flags::none);
+
+            for (char c: f)
+            {
+              switch (c)
+              {
+              case 'd': r |= char_flags::idot;  break;
+              case 'i': r |= char_flags::icase; break;
+              default: assert (false); // Error so should have been checked.
+              }
+            }
+
+            return r;
+          };
+
+          // Return original regex line with the transformation applied.
+          //
+          auto line = [&rl, &rd, &sp] (const regex_line& l) -> string
+          {
+            string r;
+            if (l.regex)                  // Regex (possibly empty),
+            {
+              r += rl.intro;
+              r += transform (l.value, true, rd.modifiers, *sp.root);
+              r += rl.intro;
+              r += l.flags;
+            }
+            else if (!l.special.empty ()) // Special literal.
+              r += rl.intro;
+            else                          // Textual literal.
+              r += transform (l.value, false, rd.modifiers, *sp.root);
+
+            r += l.special;
+            return r;
+          };
+
+          // Return regex line location.
+          //
+          // Note that we rely on the fact that the command and regex lines
+          // are always belong to the same testscript file.
+          //
+          auto loc = [&ll] (uint64_t line, uint64_t column) -> location
+          {
+            location r (ll);
+            r.line = line;
+            r.column = column;
+            return r;
+          };
+
+          // Save the regex to file for troubleshooting, return the file path
+          // it have been saved to.
+          //
+          // Note that we save the regex on line regex creation failure or if
+          // the program output doesn't match.
+          //
+          auto save_regex = [&op, &rl, &rd, &ll, &line] () -> path
+          {
+            path rp (op + ".regex");
+
+            // Encode here-document regex global flags if present as a file
+            // name suffix. For example if icase and idot flags are specified
+            // the name will look like:
+            //
+            // test/1/stdout.regex~di
+            //
+            if (rd.type == redirect_type::here_doc_regex &&
+                !rl.flags.empty ())
+              rp += "~" + rl.flags;
+
+            // Note that if would be more efficient to directly write chunks
+            // to file rather than to compose a string first. Hower we don't
+            // bother (about performance) for the sake of the code as we
+            // already failed.
+            //
+            string s;
+            for (const auto& l: rl.lines)
+            {
+              if (!s.empty ()) s += '\n';
+              s += line (l);
+            }
+
+            save (rp, s, ll);
+            return rp;
+          };
+
+          // Finally create regex line string.
+          //
+          // Note that diagnostics doesn't refer to the program path as it is
+          // irrelevant to failures at this stage.
+          //
+          char_flags gf (parse_flags (rl.flags)); // Regex global flags.
+
+          for (const auto& l: rl.lines)
+          {
+            if (l.regex) // Regex (with optional special characters).
+            {
+              line_char c;
+
+              // Empty regex is a special case repesenting the blank line.
+              //
+              if (l.value.empty ())
+                c = line_char ("", pool);
+              else
+              {
+                try
+                {
+                  string s (
+                    transform (l.value, true, rd.modifiers, *sp.root));
+
+                  c = line_char (
+                    char_regex (s, gf | parse_flags (l.flags)), pool);
+                }
+                catch (const regex_error& e)
+                {
+                  // Print regex_error description if meaningful.
+                  //
+                  diag_record d (fail (loc (l.line, l.column)));
+
+                  if (rd.type == redirect_type::here_str_regex)
+                    d << "invalid " << what << " regex redirect" << e <<
+                      info << "regex: '" << line (l) << "'";
+                  else
+                    d << "invalid char-regex in " << what << " regex redirect"
+                      << e <<
+                      info << "regex line: '" << line (l) << "'";
+                }
+              }
+
+              rls += c; // Append blank literal or regex line char.
+            }
+            else if (!l.special.empty ()) // Special literal.
+            {
+              // Literal can not be followed by special characters in the same
+              // line.
+              //
+              assert (l.value.empty ());
+            }
+            else // Textual literal.
+            {
+              // Append literal line char.
+              //
+              rls += line_char (
+                transform (l.value, false, rd.modifiers, *sp.root), pool);
+            }
+
+            for (char c: l.special)
+            {
+              if (line_char::syntax (c))
+                rls += line_char (c); // Append special line char.
+              else
+                fail (loc (l.line, l.column))
+                  << "invalid syntax character '" << c << "' in " << what
+                  << " regex redirect" <<
+                  info << "regex line: '" << line (l) << "'";
+            }
+          }
+
+          // Create line regex.
+          //
+          line_regex regex;
+
+          try
+          {
+            regex = line_regex (move (rls), move (pool));
+          }
+          catch (const regex_error& e)
+          {
+            // Note that line regex creation can not fail for here-string
+            // redirect as it doesn't have syntax line chars. That in
+            // particular means that end_line and end_column are meaningful.
+            //
+            assert (rd.type == redirect_type::here_doc_regex);
+
+            diag_record d (fail (loc (rd.end_line, rd.end_column)));
+
+            // Print regex_error description if meaningful.
+            //
+            d << "invalid " << what << " regex redirect" << e;
+
+            output_info (d, save_regex (), "", " regex");
+          }
+
+          // Parse the output into the literal line string.
+          //
+          line_string ls;
+
+          try
+          {
+            // Do not throw when eofbit is set (end of stream reached), and
+            // when failbit is set (getline() failed to extract any character).
+            //
+            // Note that newlines are treated as line-chars separators. That
+            // in particular means that the trailing newline produces a blank
+            // line-char (empty literal). Empty output produces the zero-length
+            // line-string.
+            //
+            // Also note that we strip the trailing CR characters (otherwise
+            // can mismatch when cross-test).
+            //
+            ifdstream is (op, ifdstream::in, ifdstream::badbit);
+            is.peek (); // Sets eofbit for an empty stream.
+
+            while (!is.eof ())
+            {
+              string s;
+              getline (is, s);
+
+              // It is safer to strip CRs in cycle, as msvcrt unexplainably
+              // adds too much trailing junk to the system_error descriptions,
+              // and so it can appear in programs output. For example:
+              //
+              // ...: Invalid data.\r\r\n
+              //
+              // Note that our custom operator<<(ostream&, const exception&)
+              // removes this junk.
+              //
+              while (!s.empty () && s.back () == '\r')
+                s.pop_back ();
+
+              ls += line_char (move (s), regex.pool);
+            }
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "unable to read " << op << ": " << e;
+          }
+
+          // Match the output with the regex.
+          //
+          if (regex_match (ls, regex)) // Doesn't throw.
+            return;
+
+          // Output doesn't match the regex.
+          //
+          diag_record d (fail (ll));
+          d << pr << " " << what << " doesn't match the regex";
+
+          output_info (d, op);
+          output_info (d, save_regex (), "", " regex");
+          input_info  (d);
         }
       }
 
@@ -732,25 +753,6 @@ namespace build2
         if (verb >= 3)
           text << c;
 
-        // Normalize a path. Also make the relative path absolute using the
-        // scope's working directory unless it is already absolute.
-        //
-        auto normalize = [&sp, &ll] (path p) -> path
-        {
-          path r (p.absolute () ? move (p) : sp.wd_path / move (p));
-
-          try
-          {
-            r.normalize ();
-          }
-          catch (const invalid_path& e)
-          {
-            fail (ll) << "invalid file path " << e.path;
-          }
-
-          return r;
-        };
-
         // Register the command explicit cleanups. Verify that the path being
         // cleaned up is a sub-path of the testscript working directory. Fail
         // if this is not the case.
@@ -758,7 +760,7 @@ namespace build2
         for (const auto& cl: c.cleanups)
         {
           const path& p (cl.path);
-          path np (normalize (p));
+          path np (normalize (p, sp, ll));
 
           bool wc (np.leaf ().string () == "***");
           const path& cp (wc ? np.directory () : np);
@@ -778,7 +780,7 @@ namespace build2
 
         // Create a unique path for a command standard stream cache file.
         //
-        auto std_path = [&li, &normalize] (const char* n) -> path
+        auto std_path = [&li, &sp, &ll] (const char* n) -> path
         {
           path p (n);
 
@@ -788,7 +790,7 @@ namespace build2
           if (li > 0)
             p += "-" + to_string (li);
 
-          return normalize (move (p));
+          return normalize (move (p), sp, ll);
         };
 
         // Assign file descriptors to pass as a builtin or a process standard
@@ -870,7 +872,7 @@ namespace build2
 
         case redirect_type::file:
           {
-            isp = normalize (c.in.file.path);
+            isp = normalize (c.in.file.path, sp, ll);
 
             open_stdin ();
             break;
@@ -917,11 +919,11 @@ namespace build2
         // Return the specified, default or -2 file descriptors for merge, pass
         // or null redirects respectively not opening a file.
         //
-        auto open = [&sp, &ll, &std_path, &normalize] (const redirect& r,
-                                                       int dfd,
-                                                       path& p,
-                                                       auto_fd& fd) -> int
-        {
+        auto open = [&sp, &ll, &std_path] (const redirect& r,
+                                           int dfd,
+                                           path& p,
+                                           auto_fd& fd) -> int
+          {
           assert (dfd == 1 || dfd == 2);
           const char* what (dfd == 1 ? "stdout" : "stderr");
 
@@ -970,8 +972,19 @@ namespace build2
 
           case redirect_type::file:
             {
-              p = normalize (r.file.path);
-              m |= r.file.append ? fdopen_mode::at_end : fdopen_mode::truncate;
+              // For the cmp mode the user-provided path refers a content to
+              // match against, rather than a content to be produced (as for
+              // overwrite and append modes). And so for cmp mode we redirect
+              // the process output to a temporary file.
+              //
+              p = r.file.mode == redirect_fmode::compare
+                ? std_path (what)
+                : normalize (r.file.path, sp, ll);
+
+              m |= r.file.mode == redirect_fmode::append
+                ? fdopen_mode::at_end
+                : fdopen_mode::truncate;
+
               break;
             }
 

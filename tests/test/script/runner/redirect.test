@@ -465,31 +465,53 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 : file
 :
 {
-  : in-out
+  : in
   :
   $c <<EOI;
-  $* -o foo >>>out;
+  $* -o foo >=out;
   $* -i 1 <<<out >foo
   EOI
   $b
 
-  : append
+  : out
   :
-  $c <<EOI;
-  $* -o foo >>>out;
-  $* -e bar 2>>>&out;
-  $* -i 1 <<<out >>EOO
-  foo
-  bar
-  EOO
-  EOI
-  $b
+  {
+    : match
+    :
+    $c <<EOI;
+    $* -o foo >=out;
+    $* -e bar 2>+out;
+    $* -i 1 <<EOF >>>out
+    foo
+    bar
+    EOF
+    EOI
+    $b
+
+    : mismatch
+    :
+    $c <<EOI;
+    $* -o foo >=out;
+    $* -o bar >>>out
+    EOI
+    $b 2>>/~%EOE%d != 0
+    %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
+      info: stdout: test/1/stdout-2
+      info: expected stdout: test/1/out
+      info: stdout diff: test/1/stdout-2.diff
+    %--- \.*%
+    %\+\+\+ \.*%
+    %@@ \.*%
+    -foo
+    +bar
+    EOE
+  }
 
   : merge
   :
   $c <<EOI;
-  $* -o foo -e bar 2>&1 >>>out;
-  $* -e baz -o biz 1>&2 2>>>&out;
+  $* -o foo -e bar 2>&1 >=out;
+  $* -e baz -o biz 1>&2 2>+out;
   $* -i 1 <<<out >>EOO
   foo
   bar

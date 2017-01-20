@@ -354,13 +354,13 @@ namespace build2
               type r (type::in_str);
               xchar p (peek ());
 
-              if (p == '+' || p == '-' || p == '<')
+              if (p == '|' || p == '-' || p == '<')
               {
                 get ();
 
                 switch (p)
                 {
-                case '+': return make_token (type::in_pass);
+                case '|': return make_token (type::in_pass);
                 case '-': return make_token (type::in_null);
                 case '<':
                   {
@@ -395,15 +395,18 @@ namespace build2
               type r (type::out_str);
               xchar p (peek ());
 
-              if (p == '+' || p == '-' || p == '&' || p == '>')
+              if (p == '|' || p == '-' || p == '&' ||
+                  p == '=' || p == '+' || p == '>')
               {
                 get ();
 
                 switch (p)
                 {
-                case '+': return make_token (type::out_pass);
+                case '|': return make_token (type::out_pass);
                 case '-': return make_token (type::out_null);
                 case '&': return make_token (type::out_merge);
+                case '=': return make_token (type::out_file_ovr);
+                case '+': return make_token (type::out_file_app);
                 case '>':
                   {
                     r = type::out_doc;
@@ -412,7 +415,7 @@ namespace build2
                     if (p == '>')
                     {
                       get ();
-                      r = type::out_file;
+                      r = type::out_file_cmp;
                     }
                     break;
                   }
@@ -427,7 +430,6 @@ namespace build2
               {
               case type::out_str:
               case type::out_doc:  mods = ":/~"; stop = "~"; break;
-              case type::out_file: mods = "&";               break;
               }
 
               return make_token_with_modifiers (r, mods, stop);

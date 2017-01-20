@@ -64,11 +64,11 @@ test.arguments = command-line
 {
   : pass
   :
-  $* <"cmd <+ 1>+" >>EOO
+  $* <"cmd <| 1>|" >>EOO
   'cmd'
-  <+
+  <|
   '1'
-  >+
+  >|
   <newline>
   EOO
 
@@ -140,16 +140,28 @@ test.arguments = command-line
   <newline>
   EOO
 
-  : file
+  : file-cmp
   :
-  $* <"cmd <<<in >>>out 2>>>&err" >>EOO
+  $* <"cmd <<<in >>>out 2>>>err" >>EOO
   'cmd'
   <<<
   'in'
   >>>
   'out'
   '2'
-  >>>&
+  >>>
+  'err'
+  <newline>
+  EOO
+
+  : file-write
+  :
+  $* <"cmd >=out 2>+err" >>EOO
+  'cmd'
+  >=
+  'out'
+  '2'
+  >+
   'err'
   <newline>
   EOO

@@ -12,14 +12,14 @@ test.cleanups  = &!./ #@@ TMP
 
 +mkdir proj
 +mkdir proj/build
-+cat <<EOI >>>proj/build/bootstrap.build
++cat <<EOI >=proj/build/bootstrap.build
 project = proj
 amalgamation =
 
 using test
 EOI
 
-+cat <<EOI >>>proj/buildfile
++cat <<EOI >=proj/buildfile
 d = tests/ units/
 ./: $d
 include $d
@@ -29,13 +29,13 @@ EOI
 #
 +mkdir proj/tests
 +mkdir proj/tests/build
-+cat <<EOI >>>proj/tests/build/bootstrap.build
++cat <<EOI >=proj/tests/build/bootstrap.build
 project =
 
 using test
 EOI
 
-+cat <<EOI >>>proj/tests/buildfile
++cat <<EOI >=proj/tests/buildfile
 d = script/
 ./: $d
 include $d
@@ -44,17 +44,17 @@ EOI
 # tests/script - scripted test
 #
 +mkdir proj/tests/script
-+cat <<EOI >>>proj/tests/script/buildfile
++cat <<EOI >=proj/tests/script/buildfile
 ./: test{basics.test}
 EOI
-+cat <<EOI >>>proj/tests/script/basics.test
-echo 'tests/script/basics/foo' >+ : foo
-echo 'tests/script/basics/bar' >+ : bar
++cat <<EOI >=proj/tests/script/basics.test
+echo 'tests/script/basics/foo' >| : foo
+echo 'tests/script/basics/bar' >| : bar
 
 : baz
 {
-  echo 'tests/script/basics/baz/foo' >+ : foo
-  echo 'tests/script/basics/baz/bar' >+ : bar
+  echo 'tests/script/basics/baz/foo' >| : foo
+  echo 'tests/script/basics/baz/bar' >| : bar
 }
 EOI
 
@@ -64,13 +64,13 @@ EOI
 
 # This one is "dual": test and sub-test alias.
 #
-+cat <<EOI >>>proj/units/buildfile
++cat <<EOI >=proj/units/buildfile
 d = simple/ script/
 ./: $d test{testscript}
 include $d
 EOI
-+cat <<EOI >>>proj/units/testscript
-echo 'units' >+
++cat <<EOI >=proj/units/testscript
+echo 'units' >|
 EOI
 
 # units/simple - simple (non-scripted) test
@@ -81,7 +81,7 @@ EOI
 #
 +mkdir proj/units/simple
 +touch proj/units/simple/driver
-+cat <<EOI >>>proj/units/simple/buildfile
++cat <<EOI >=proj/units/simple/buildfile
 driver = $src_root/../../exe{driver}
 #@@ TMP file{driver}@./: $driver
 ./: file{driver} $driver
@@ -92,12 +92,12 @@ EOI
 # units/script - scripted test
 #
 +mkdir proj/units/script
-+cat <<EOI >>>proj/units/script/buildfile
++cat <<EOI >=proj/units/script/buildfile
 ./: test{testscript}
 EOI
-+cat <<EOI >>>proj/units/script/testscript
-echo 'units/script/foo' >+ : foo
-echo 'units/script/bar' >+ : bar
++cat <<EOI >=proj/units/script/testscript
+echo 'units/script/foo' >| : foo
+echo 'units/script/bar' >| : bar
 EOI
 
 # Now the tests. Should all be top-level, no groups (or set test.arguments).

@@ -34,18 +34,20 @@ namespace build2
           pipe,                         // |
           clean,                        // &{?!}   (modifiers in value)
 
-          in_pass,                      // <+
+          in_pass,                      // <|
           in_null,                      // <-
           in_str,                       // <{:}    (modifiers in value)
           in_doc,                       // <<{:}   (modifiers in value)
           in_file,                      // <<<
 
-          out_pass,                     // >+
+          out_pass,                     // >|
           out_null,                     // >-
           out_merge,                    // >&
           out_str,                      // >{:~}   (modifiers in value)
           out_doc,                      // >>{:~}  (modifiers in value)
-          out_file                      // >>>{&}  (modifiers in value)
+          out_file_cmp,                 // >>>
+          out_file_ovr,                 // >=
+          out_file_app                  // >+
         };
 
         token_type () = default;

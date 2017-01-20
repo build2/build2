@@ -7,7 +7,7 @@
 #
 
 +mkdir build
-+cat <<"EOI" >>>build/bootstrap.build
++cat <<"EOI" >=build/bootstrap.build
 project = test
 amalgamation =
 
@@ -18,7 +18,7 @@ EOI
 # levels up from our working directory.
 #
 +if! $empty($target)
-  cat <<"EOI" >>>build/root.build
+  cat <<"EOI" >=build/root.build
   target = \$src_root/../../$string([name] $target)
   test{*}: test = \$target
   EOI
@@ -31,6 +31,6 @@ end
 # Note that the buildfile is clever hack that relies on the first target
 # automatically becoming dir{./}'s prerequisite.
 #
-c = cat >>>testscript
+c = cat >=testscript
 b = $0 --jobs 1 --quiet --buildfile - test <"'test{testscript}: \$target'" \
 &?test/***

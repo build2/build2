@@ -131,6 +131,15 @@ namespace build2
         small_vector<regex_line, 8> lines;
       };
 
+      // Output file redirect mode.
+      //
+      enum class redirect_fmode
+      {
+        compare,
+        overwrite,
+        append
+      };
+
       struct redirect
       {
         redirect_type type;
@@ -139,7 +148,7 @@ namespace build2
         {
           using path_type = build2::path;
           path_type path;
-          bool append = false;
+          redirect_fmode mode; // Meaningless for input redirect.
         };
 
         union

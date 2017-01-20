@@ -90,7 +90,7 @@ namespace build2
       //    this. That would require to fstat() file descriptors and complicate
       //    the code a bit. Was able to reproduce on a big file (should be
       //    bigger than the stream buffer size) with the test
-      //    'cat file >>>&file'.
+      //    'cat file >+file'.
       //
       // Note: must be executed asynchronously.
       //

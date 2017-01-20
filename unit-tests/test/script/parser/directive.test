@@ -46,7 +46,7 @@ EOI
 
 : var-expansion
 :
-cat <<EOI >>>"foo-$(build.version).test";
+cat <<EOI >="foo-$(build.version).test";
 cmd
 EOI
 $* <<EOI >>EOO
