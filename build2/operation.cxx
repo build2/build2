@@ -109,32 +109,31 @@ namespace build2
     //
     vector<reference_wrapper<target>> psp;
 
-    auto body (
-      [a, quiet, &psp, &trace] (void* v)
+    auto body = [a, quiet, &psp, &trace] (void* v)
+    {
+      target& t (*static_cast<target*> (v));
+
+      l5 ([&]{trace << diag_doing (a, t);});
+
+      switch (execute (a, t))
       {
-        target& t (*static_cast<target*> (v));
-
-        l5 ([&]{trace << diag_doing (a, t);});
-
-        switch (execute (a, t))
+      case target_state::unchanged:
         {
-        case target_state::unchanged:
-          {
-            if (!quiet)
-              info << diag_done (a, t);
-            break;
-          }
-        case target_state::postponed:
-          psp.push_back (t);
+          if (!quiet)
+            info << diag_done (a, t);
           break;
-        case target_state::changed:
-          break;
-        case target_state::failed:
-          //@@ This could probably happen in a parallel build.
-        default:
-          assert (false);
         }
-      });
+      case target_state::postponed:
+        psp.push_back (t);
+        break;
+      case target_state::changed:
+        break;
+      case target_state::failed:
+        //@@ This could probably happen in a parallel build.
+      default:
+        assert (false);
+      }
+    };
 
     if (current_mode == execution_mode::first)
       for (void* v: ts) body (v);
