@@ -492,8 +492,7 @@ namespace build2
               {
                 try
                 {
-                  string s (
-                    transform (l.value, true, rd.modifiers, *sp.root));
+                  string s (transform (l.value, true, rd.modifiers, *sp.root));
 
                   c = line_char (
                     char_regex (s, gf | parse_flags (l.flags)), pool);
@@ -799,18 +798,19 @@ namespace build2
         //
         path isp;
         auto_fd ifd;
-        int in (0); // @@ TMP
+        int id (0); // @@ TMP
+        const redirect& in (c.in.effective ());
 
         // Open a file for passing to the command stdin.
         //
-        auto open_stdin = [&isp, &ifd, &in, &ll] ()
+        auto open_stdin = [&isp, &ifd, &id, &ll] ()
         {
           assert (!isp.empty ());
 
           try
           {
             ifd = fdopen (isp, fdopen_mode::in);
-            in  = ifd.get ();
+            id  = ifd.get ();
           }
           catch (const io_error& e)
           {
@@ -818,14 +818,14 @@ namespace build2
           }
         };
 
-        switch (c.in.type)
+        switch (in.type)
         {
         case redirect_type::pass:
           {
             try
             {
-              ifd = fddup (in);
-              in  = 0;
+              ifd = fddup (id);
+              id  = 0;
             }
             catch (const io_error& e)
             {
@@ -860,7 +860,7 @@ namespace build2
                 throw io_error (
                   error_code (errno, system_category ()).message ());
 
-              in = -2;
+              id = -2;
             }
             catch (const io_error& e)
             {
@@ -872,7 +872,7 @@ namespace build2
 
         case redirect_type::file:
           {
-            isp = normalize (c.in.file.path, sp, ll);
+            isp = normalize (in.file.path, sp, ll);
 
             open_stdin ();
             break;
@@ -886,8 +886,7 @@ namespace build2
             //
             isp = std_path ("stdin");
 
-            const redirect& r (c.in);
-            save (isp, transform (r.str, false, r.modifiers, *sp.root), ll);
+            save (isp, transform (in.str, false, in.modifiers, *sp.root), ll);
             sp.clean ({cleanup_type::always, isp}, true);
 
             open_stdin ();
@@ -896,7 +895,8 @@ namespace build2
 
         case redirect_type::merge:
         case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex: assert (false); break;
+        case redirect_type::here_doc_regex:
+        case redirect_type::here_doc_ref:   assert (false); break;
         }
 
         // Dealing with stdout and stderr redirect types other than 'null'
@@ -998,6 +998,8 @@ namespace build2
               m |= fdopen_mode::truncate;
               break;
             }
+
+          case redirect_type::here_doc_ref: assert (false); break;
           }
 
           try
@@ -1017,16 +1019,18 @@ namespace build2
 
         path osp;
         auto_fd ofd;
-        int out (open (c.out, 1, osp, ofd));
+        const redirect& out (c.out.effective ());
+        int od (open (out, 1, osp, ofd));
 
         path esp;
         auto_fd efd;
-        int err (open (c.err, 2, esp, efd));
+        const redirect& err (c.err.effective ());
+        int ed (open (err, 2, esp, efd));
 
         // Merge standard streams.
         //
-        bool mo (c.out.type == redirect_type::merge);
-        if (mo || c.err.type == redirect_type::merge)
+        bool mo (out.type == redirect_type::merge);
+        if (mo || err.type == redirect_type::merge)
         {
           auto_fd& self  (mo ? ofd : efd);
           auto_fd& other (mo ? efd : ofd);
@@ -1084,7 +1088,7 @@ namespace build2
             process pr (sp.wd_path.string ().c_str (),
                         pp,
                         args.data (),
-                        in, out, err);
+                        id, od, ed);
 
             ifd.reset ();
             ofd.reset ();
@@ -1172,8 +1176,8 @@ namespace build2
         // Exit code is correct. Check if the standard outputs match the
         // expectations.
         //
-        check_output (p, osp, isp, c.out, ll, sp, "stdout");
-        check_output (p, esp, isp, c.err, ll, sp, "stderr");
+        check_output (p, osp, isp, out, ll, sp, "stdout");
+        check_output (p, esp, isp, err, ll, sp, "stderr");
       }
 
       bool default_runner::

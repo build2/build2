@@ -95,11 +95,20 @@ namespace build2
         // Ordered sequence of here-document redirects that we can expect to
         // see after the command line.
         //
+        struct here_redirect
+        {
+          size_t expr; // Index in command_expr.
+          size_t pipe; // Index in command_pipe.
+          int fd;      // Redirect fd (0 - in, 1 - out, 2 - err).
+        };
+
         struct here_doc
         {
-          size_t expr;      // Index in command_expr.
-          size_t pipe;      // Index in command_pipe.
-          int fd;           // Redirect fd (0 - in, 1 - out, 2 - err).
+          // Redirects that share here_doc. Most of the time we will have no
+          // more than 2 (2 - for the roundtrip test cases).
+          //
+          small_vector<here_redirect, 2> redirects;
+
           string end;
           bool literal;     // Literal (single-quote).
           string modifiers;

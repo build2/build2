@@ -264,6 +264,16 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     EOI
     $b
 
+    : shared
+    :
+    $c <<EOI;
+    $* -i 1 <<EOF >>EOF
+    foo
+    bar
+    EOF
+    EOI
+    $b
+
     : extra-newline
     :
     $c <<EOI;
@@ -431,6 +441,15 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     $* >>:~/EOO/
     /.{0}
     EOO
+    EOI
+    $b
+
+    : shared
+    :
+    $c <<EOI;
+    $* -o foo -e foo >>~/EOF/ 2>>~/EOF/
+    foo
+    EOF
     EOI
     $b
 

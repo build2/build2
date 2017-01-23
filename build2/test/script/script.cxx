@@ -153,6 +153,8 @@ namespace build2
               print_path (r.file.path);
               break;
             }
+
+          case redirect_type::here_doc_ref: assert (false); break;
           }
         };
 
@@ -206,9 +208,14 @@ namespace build2
 
           // Redirects.
           //
-          if (c.in.type  != redirect_type::none) print_redirect (c.in,   "<");
-          if (c.out.type != redirect_type::none) print_redirect (c.out,  ">");
-          if (c.err.type != redirect_type::none) print_redirect (c.err, "2>");
+          if (c.in.effective ().type  != redirect_type::none)
+            print_redirect (c.in.effective (), "<");
+
+          if (c.out.effective ().type != redirect_type::none)
+            print_redirect (c.out.effective (),  ">");
+
+          if (c.err.effective ().type != redirect_type::none)
+            print_redirect (c.err.effective (), "2>");
 
           for (const auto& p: c.cleanups)
           {
@@ -322,6 +329,8 @@ namespace build2
           }
 
         case redirect_type::file: new (&file) file_type (); break;
+
+        case redirect_type::here_doc_ref: assert (false); break;
         }
       }
 
@@ -358,6 +367,11 @@ namespace build2
             new (&file) file_type (move (r.file));
             break;
           }
+        case redirect_type::here_doc_ref:
+          {
+            new (&ref) reference_wrapper<const redirect> (r.ref);
+            break;
+          }
         }
       }
 
@@ -378,6 +392,12 @@ namespace build2
         case redirect_type::here_doc_regex: regex.~regex_lines (); break;
 
         case redirect_type::file: file.~file_type (); break;
+
+        case redirect_type::here_doc_ref:
+          {
+            ref.~reference_wrapper<const redirect> ();
+            break;
+          }
         }
       }
 

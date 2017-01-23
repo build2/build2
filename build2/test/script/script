@@ -71,10 +71,11 @@ namespace build2
         null,
         merge,
         here_str_literal,
-        here_doc_literal,
         here_str_regex,
+        here_doc_literal,
         here_doc_regex,
-        file
+        here_doc_ref,     // Reference to here_doc literal or regex.
+        file,
       };
 
       // Pre-parsed (but not instantiated) regex lines. The idea here is that
@@ -154,9 +155,10 @@ namespace build2
         union
         {
           int         fd;    // Merge-to descriptor.
-          string      str;   // Note: includes trailing newline, if requested.
-          regex_lines regex; // Note: includes trailing blank, if requested.
+          string      str;   // Note: with trailing newline, if requested.
+          regex_lines regex; // Note: with trailing blank, if requested.
           file_type   file;
+          reference_wrapper<const redirect> ref; // Note: no chains.
         };
 
         string modifiers;   // Redirect modifiers.
@@ -164,8 +166,21 @@ namespace build2
         uint64_t end_line;  // Here-document end marker location.
         uint64_t end_column;
 
+        // Create redirect of a type other than reference.
+        //
         explicit
         redirect (redirect_type = redirect_type::none);
+
+        // Create redirect of the reference type.
+        //
+        redirect (redirect_type t, const redirect& r)
+            : type (redirect_type::here_doc_ref), ref (r)
+        {
+          // There is no support (and need) for reference chains.
+          //
+          assert (t == redirect_type::here_doc_ref &&
+                  r.type != redirect_type::here_doc_ref);
+        }
 
         // Move constuctible/assignable-only type.
         //
@@ -173,6 +188,12 @@ namespace build2
         redirect& operator= (redirect&&);
 
         ~redirect ();
+
+        const redirect&
+        effective () const noexcept
+        {
+          return type == redirect_type::here_doc_ref ? ref.get () : *this;
+        }
       };
 
       // cleanup

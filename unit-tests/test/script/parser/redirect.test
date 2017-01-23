@@ -59,6 +59,46 @@
     baz
     EOE_
     EOO
+
+    : sharing
+    :
+    {
+      : in-out
+      :
+      $* <<EOI >>EOO
+      cmd <<:/EOF >>:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<:/EOF >>:/EOF
+      foo
+      EOF
+      EOO
+
+      : different
+      :
+      {
+        : modifiers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd <<:/EOF >>:EOF
+        foo
+        EOF
+        EOI
+        testscript:1:16: error: different modifiers for shared here-document 'EOF'
+        EOE
+
+        : quoting
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd <<EOF >>"EOF"
+        foo
+        EOF
+        EOI
+        testscript:1:13: error: different quoting for shared here-document 'EOF'
+        EOE
+      }
+    }
   }
 
   : regex
@@ -79,6 +119,46 @@
     bar
     EOE
     EOO
+
+    : sharing
+    :
+    {
+      : in-out
+      :
+      $* <<EOI >>EOO
+      cmd >>~/EOF/ 2>>~/EOF/
+      foo
+      EOF
+      EOI
+      cmd >>~/EOF/ 2>>~/EOF/
+      foo
+      EOF
+      EOO
+
+      : different
+      :
+      {
+        : introducers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>~/EOF/ 2>>~%EOF%
+        foo
+        EOF
+        EOI
+        testscript:1:18: error: different introducers for shared here-document regex 'EOF'
+        EOE
+
+        : flags
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>~/EOF/ 2>>~/EOF/i
+        foo
+        EOF
+        EOI
+        testscript:1:18: error: different global flags for shared here-document regex 'EOF'
+        EOE
+      }
+    }
   }
 }
 

@@ -1810,6 +1810,8 @@ namespace build2
                  : redirect_fmode::compare);
 
             break;
+
+          case redirect_type::here_doc_ref: assert (false); break;
           }
         };
 
@@ -1967,13 +1969,45 @@ namespace build2
                     end = move (r.value); // The "cleared" end marker.
                   }
 
-                  hd.push_back (
-                    here_doc {
-                      0, 0, 0,
-                      move (end),
-                      qt == quote_type::single,
-                      move (mod),
-                      r.intro, move (r.flags)});
+                  bool literal (qt == quote_type::single);
+                  bool shared (false);
+
+                  for (const auto& d: hd)
+                  {
+                    if (d.end == end)
+                    {
+                      auto check = [&t, &end, &re, this] (bool c,
+                                                          const char* what)
+                      {
+                        if (!c)
+                          fail (t) << "different " << what
+                                   << " for shared here-document "
+                                   << (re ? "regex '" : "'") << end << "'";
+                      };
+
+                      check (d.modifiers == mod, "modifiers");
+                      check (d.literal == literal, "quoting");
+
+                      if (re)
+                      {
+                        check (d.regex == r.intro, "introducers");
+                        check (d.regex_flags == r.flags, "global flags");
+                      }
+
+                      shared = true;
+                      break;
+                    }
+                  }
+
+                  if (!shared)
+                    hd.push_back (
+                      here_doc {
+                        {},
+                        move (end),
+                        literal,
+                        move (mod),
+                        r.intro, move (r.flags)});
+
                   break;
                 }
 
@@ -2067,7 +2101,11 @@ namespace build2
 
                 if (fd != -1)
                 {
+                  here_redirect rd {
+                    expr.size () - 1, expr.back ().pipe.size (), fd};
+
                   string end (move (t.value));
+
                   regex_parts r;
 
                   if (p == pending::out_doc_regex ||
@@ -2081,16 +2119,30 @@ namespace build2
                     end = move (r.value); // The "cleared" end marker.
                   }
 
-                  hd.push_back (
-                    here_doc {
-                      expr.size () - 1,
-                      expr.back ().pipe.size (),
-                      fd,
-                      move (end),
-                      (t.qtype == quote_type::unquoted ||
-                       t.qtype == quote_type::single),
-                      move (mod),
-                      r.intro, move (r.flags)});
+                  bool shared (false);
+                  for (auto& d: hd)
+                  {
+                    // No need to check that redirects that share here-document
+                    // have the same modifiers, etc. That have been done during
+                    // pre-parsing.
+                    //
+                    if (d.end == end)
+                    {
+                      d.redirects.emplace_back (rd);
+                      shared = true;
+                      break;
+                    }
+                  }
+
+                  if (!shared)
+                    hd.push_back (
+                      here_doc {
+                        {rd},
+                        move (end),
+                        (t.qtype == quote_type::unquoted ||
+                         t.qtype == quote_type::single),
+                        move (mod),
+                        r.intro, move (r.flags)});
 
                   p = pending::none;
                   mod.clear ();
@@ -2394,8 +2446,11 @@ namespace build2
 
           if (!pre_parse_)
           {
-            command& c (p.first[h.expr].pipe[h.pipe]);
-            redirect& r (h.fd == 0 ? c.in : h.fd == 1 ? c.out : c.err);
+            assert (!h.redirects.empty ());
+            auto i (h.redirects.cbegin ());
+
+            command& c (p.first[i->expr].pipe[i->pipe]);
+            redirect& r (i->fd == 0 ? c.in : i->fd == 1 ? c.out : c.err);
 
             if (v.re)
             {
@@ -2408,6 +2463,18 @@ namespace build2
             r.end        = move (h.end);
             r.end_line   = v.end_line;
             r.end_column = v.end_column;
+
+            // Note that our references cannot be invalidated because the
+            // command_expr/command-pipe vectors already contain all their
+            // elements.
+            //
+            for (++i; i != h.redirects.cend (); ++i)
+            {
+              command& c (p.first[i->expr].pipe[i->pipe]);
+
+              (i->fd == 0 ? c.in : i->fd == 1 ? c.out : c.err) =
+                redirect (redirect_type::here_doc_ref, r);
+            }
           }
 
           expire_mode ();
