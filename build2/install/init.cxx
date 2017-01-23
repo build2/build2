@@ -120,8 +120,8 @@ namespace build2
         var_pool.insert<bool> (string ("install.") + n + ".subdirs");
     }
 
-    static alias_rule alias_;
-    static file_rule file_;
+    static const alias_rule alias_;
+    static const file_rule file_;
 
     void
     boot (scope& r, const location&, unique_ptr<module_base>&)

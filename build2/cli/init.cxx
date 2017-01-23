@@ -23,7 +23,7 @@ namespace build2
 {
   namespace cli
   {
-    static compile compile_;
+    static const compile compile_;
 
     bool
     config_init (scope& rs,

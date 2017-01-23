@@ -110,7 +110,7 @@ namespace build2
     return default_recipe;
   }
 
-  file_rule file_rule::instance;
+  const file_rule file_rule::instance;
 
   // alias_rule
   //
@@ -132,7 +132,7 @@ namespace build2
     return default_recipe;
   }
 
-  alias_rule alias_rule::instance;
+  const alias_rule alias_rule::instance;
 
   // fsdir_rule
   //
@@ -222,9 +222,9 @@ namespace build2
     return ts;
   }
 
-  fsdir_rule fsdir_rule::instance;
+  const fsdir_rule fsdir_rule::instance;
 
   // fallback_rule
   //
-  fallback_rule fallback_rule::instance;
+  const fallback_rule fallback_rule::instance;
 }

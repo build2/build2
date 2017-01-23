@@ -29,6 +29,10 @@ namespace build2
     match_result (bool r, action a): result (r), recipe_action (a) {}
   };
 
+  // Once a rule is registered (for a scope), it is treated as immutable. If
+  // you need to modify some state (e.g., counters or some such), then make
+  // sure it is MT-safe.
+  //
   class rule
   {
   public:
@@ -50,7 +54,7 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
-    static file_rule instance;
+    static const file_rule instance;
   };
 
   class alias_rule: public rule
@@ -62,7 +66,7 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
-    static alias_rule instance;
+    static const alias_rule instance;
   };
 
   class fsdir_rule: public rule
@@ -80,7 +84,7 @@ namespace build2
     static target_state
     perform_clean (action, target&);
 
-    static fsdir_rule instance;
+    static const fsdir_rule instance;
   };
 
   // Fallback rule that always matches and does nothing.
@@ -94,7 +98,7 @@ namespace build2
     virtual recipe
     apply (action, target&) const override {return noop_recipe;}
 
-    static fallback_rule instance;
+    static const fallback_rule instance;
   };
 }
 

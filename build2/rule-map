@@ -21,7 +21,7 @@ namespace build2
   using target_type_rule_map = std::map<
     const target_type*,
     butl::prefix_map<string, // Rule hint.
-                     reference_wrapper<rule>, '.'>>;
+                     reference_wrapper<const rule>, '.'>>;
 
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.
@@ -31,7 +31,7 @@ namespace build2
   public:
     template <typename T>
     void
-    insert (operation_id oid, const char* hint, rule& r)
+    insert (operation_id oid, const char* hint, const rule& r)
     {
       // 3 is the number of builtin operations.
       //
@@ -69,14 +69,17 @@ namespace build2
 
     template <typename T>
     void
-    insert (action_id a, const char* hint, rule& r)
+    insert (action_id a, const char* hint, const rule& r)
     {
       insert<T> (a >> 4, a & 0x0F, hint, r);
     }
 
     template <typename T>
     void
-    insert (meta_operation_id mid, operation_id oid, const char* hint, rule& r)
+    insert (meta_operation_id mid,
+            operation_id oid,
+            const char* hint,
+            const rule& r)
     {
       if (mid_ == mid)
         map_.insert<T> (oid, hint, r);

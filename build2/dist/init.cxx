@@ -20,7 +20,7 @@ namespace build2
 {
   namespace dist
   {
-    static rule rule_;
+    static const rule rule_;
 
     void
     boot (scope& r, const location&, unique_ptr<module_base>&)

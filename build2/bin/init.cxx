@@ -24,8 +24,8 @@ namespace build2
 {
   namespace bin
   {
-    static obj_rule obj_;
-    static lib_rule lib_;
+    static const obj_rule obj_;
+    static const lib_rule lib_;
 
     // Default config.bin.*.lib values.
     //

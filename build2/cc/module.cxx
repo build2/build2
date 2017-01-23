@@ -363,9 +363,9 @@ namespace build2
         //
         // @@ Should we check if install module was loaded (see bin)?
         //
-        compile& cr (*this);
-        link&    lr (*this);
-        install& ir (*this);
+        const compile& cr (*this);
+        const link&    lr (*this);
+        const install& ir (*this);
 
         r.insert<obje> (perform_update_id,    x_compile, cr);
         r.insert<obje> (perform_clean_id,     x_compile, cr);

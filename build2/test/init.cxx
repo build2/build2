@@ -146,8 +146,8 @@ namespace build2
       // Register rules.
       //
       {
-        rule& r (m);
-        alias_rule& ar (m);
+        const rule&        r (m);
+        const alias_rule& ar (m);
 
         // Register our test running rule.
         //
