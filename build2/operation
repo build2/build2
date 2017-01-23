@@ -251,8 +251,8 @@ namespace build2
   void
   execute (action, const action_targets&, bool quiet);
 
-  extern meta_operation_info noop;
-  extern meta_operation_info perform;
+  extern const meta_operation_info noop;
+  extern const meta_operation_info perform;
 
   // Operation info.
   //
@@ -283,9 +283,9 @@ namespace build2
 
   // Built-in operations.
   //
-  extern operation_info default_;
-  extern operation_info update;
-  extern operation_info clean;
+  extern const operation_info default_;
+  extern const operation_info update;
+  extern const operation_info clean;
 
   // Global meta/operation tables. Each registered meta/operation
   // is assigned an id which is used as an index in the per-project

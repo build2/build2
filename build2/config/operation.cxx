@@ -386,7 +386,7 @@ namespace build2
       }
     }
 
-    meta_operation_info configure {
+    const meta_operation_info configure {
       configure_id,
       "configure",
       "configure",
@@ -580,7 +580,7 @@ namespace build2
       }
     }
 
-    meta_operation_info disfigure {
+    const meta_operation_info disfigure {
       disfigure_id,
       "disfigure",
       "disfigure",

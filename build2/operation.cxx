@@ -169,7 +169,7 @@ namespace build2
     }
   }
 
-  meta_operation_info noop {
+  const meta_operation_info noop {
     noop_id,
     "noop",
     "",      // Presumably we will never need these since we are not going
@@ -185,7 +185,7 @@ namespace build2
     nullptr  // meta-operation post
   };
 
-  meta_operation_info perform {
+  const meta_operation_info perform {
     perform_id,
     "perform",
     "",
@@ -203,7 +203,7 @@ namespace build2
 
   // operations
   //
-  operation_info default_ {
+  const operation_info default_ {
     default_id,
     "<default>",
     "",
@@ -214,7 +214,7 @@ namespace build2
     nullptr
   };
 
-  operation_info update {
+  const operation_info update {
     update_id,
     "update",
     "update",
@@ -225,7 +225,7 @@ namespace build2
     nullptr
   };
 
-  operation_info clean {
+  const operation_info clean {
     clean_id,
     "clean",
     "clean",

@@ -35,7 +35,7 @@ namespace build2
 
   // target_state
   //
-  static const char* target_state_[] = {
+  static const char* const target_state_[] = {
     "unknown", "unchanged", "postponed", "changed", "failed", "group"};
 
   ostream&

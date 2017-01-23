@@ -191,13 +191,13 @@ namespace build2
       return true;
     }
 
-    static const target_type* hdr[] =
+    static const target_type* const hdr[] =
     {
       &h::static_type,
       nullptr
     };
 
-    static const target_type* inc[] =
+    static const target_type* const inc[] =
     {
       &h::static_type,
       &c::static_type,

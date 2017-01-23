@@ -19,7 +19,7 @@ namespace build2
       return mo != disfigure_id ? update_id : 0;
     }
 
-    operation_info install {
+    const operation_info install {
       install_id,
       "install",
       "install",
@@ -39,7 +39,7 @@ namespace build2
     // link.exe only creates a DLL's import library if there are any exported
     // symbols).
     //
-    operation_info uninstall {
+    const operation_info uninstall {
       uninstall_id,
       "uninstall",
       "uninstall",

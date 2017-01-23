@@ -453,7 +453,7 @@ namespace build2
       }
     }
 
-    meta_operation_info dist {
+    const meta_operation_info dist {
       dist_id,
       "dist",
       "distribute",
