@@ -763,13 +763,10 @@ namespace build2
       return target != nullptr ? *target : build2::search (prerequisite);
     }
 
-    // Return as a new prerequisite instance for the specified owner target.
-    // Note that if this is a prerequisite, then both owners should be in the
-    // same scope (not a requirement if this is a target because then its path
-    // will be absolute).
+    // Return as a new prerequisite instance.
     //
     prerequisite_type
-    as_prerequisite_for (target_type& owner) const;
+    as_prerequisite () const;
   };
 
   // It is often stored as the target's auxiliary data so make sure there is

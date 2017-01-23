@@ -7,17 +7,17 @@ namespace build2
   // prerequisite_member
   //
   inline prerequisite prerequisite_member::
-  as_prerequisite_for (target_type& owner) const
+  as_prerequisite () const
   {
     if (target == nullptr)
-      return prerequisite_type (prerequisite, owner);
+      return prerequisite;
 
     // An ad hoc group member cannot be used as a prerequisite (use the whole
     // group instead).
     //
     assert (!target->adhoc_member ());
 
-    return prerequisite_type (*target, owner);
+    return prerequisite_type (*target);
   }
 
   // prerequisite_members

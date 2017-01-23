@@ -51,38 +51,22 @@ namespace build2
   // prerequisite
   //
   prerequisite::
-  prerequisite (const prerequisite& p, target_type& w)
-      : proj (p.proj),
-        type (p.type),
-        dir (p.dir),
-        out (p.out),
-        name (p.name),
-        ext (p.ext),
-        owner (w),
-        target (nullptr)
-  {
-    assert (&w.base_scope () == &p.owner.base_scope ());
-  }
-
-  // Make a prerequisite from a target.
-  //
-  prerequisite::
-  prerequisite (target_type& t, target_type& w)
+  prerequisite (target_type& t)
       : proj (nullopt),
         type (t.type ()),
         dir (t.dir),
         out (t.out),   // @@ If it's empty, then we treat as undetermined?
         name (t.name),
         ext (t.ext),
-        owner (w),
+        scope (t.base_scope ()),
         target (&t)
   {
   }
 
-  prerequisite_key prerequisite::
-  key () const
+  bool prerequisite::
+  belongs (const target_type& t) const
   {
-    return prerequisite_key {
-      proj, {&type, &dir, &out, &name, ext}, &owner.base_scope ()};
+    const auto& p (t.prerequisites);
+    return !(p.empty () || this < &p.front () || this > &p.back ());
   }
 }

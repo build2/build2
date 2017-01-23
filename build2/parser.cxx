@@ -693,14 +693,16 @@ namespace build2
                               dir_path (),
                               move (pn.value),
                               move (e),
-                              tgs.back ());
+                              *scope_);
 
-              // Move last prerequisite (which will normally be the only one).
-              //
-              for (target& t: tgs)
-                t.prerequisites.push_back (&t == &p.owner
-                                           ? move (p)
-                                           : prerequisite (p, t));
+              for (auto i (tgs.begin ()), e (tgs.end ()); i != e; )
+              {
+                // Move last prerequisite (which will normally be the only
+                // one).
+                //
+                target& t (*i);
+                t.prerequisites.push_back (++i == e ? move (p) : p);
+              }
             }
           }
 
@@ -3552,7 +3554,7 @@ namespace build2
                       false,         // Enter as real (not implied).
                       trace).first);
 
-    ct.prerequisites.emplace_back (dt, ct);
+    ct.prerequisites.emplace_back (prerequisite (dt));
   }
 
   void parser::

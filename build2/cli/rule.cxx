@@ -136,7 +136,7 @@ namespace build2
                 if (g == nullptr)
                   g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
-                g->prerequisites.push_back (p.as_prerequisite_for (*g));
+                g->prerequisites.push_back (p.as_prerequisite ());
               }
               else
                 l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
