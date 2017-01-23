@@ -4,7 +4,7 @@
 
 namespace build2
 {
-  inline void
+  inline bool
   source_once (const path& bf, scope& root, scope& base)
   {
     return source_once (bf, root, base, base);

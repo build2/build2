@@ -1,0 +1,51 @@
+# file      : tests/search/dir/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = 'update(../)'
+
+.include ../../common.test
+
+# foo/ has no buildfile
+# bar/ has valid buildfile
+# baz/ has invalid buildfile
+#
++mkdir foo bar baz
++cat <<EOI >>>bar/buildfile
+print bar
+./:
+EOI
++cat <'assert false' >>>baz/buildfile
+
+: no-buildfile
+:
+$* <'./: foo/' 2>>/EOE != 0
+error: no explicit target for prerequisite ../:dir{foo/}
+  info: did you forget to include the corresponding buildfile?
+info: while applying rule alias to update dir{../}
+EOE
+
+: basic
+:
+$* <'./: bar/' >'bar'
+
+: existing-scope
+:
+$* <<EOI >'bar'
+bar/: x = y
+./: bar/
+EOI
+
+: existing-target-implied
+:
+$* <<EOI >'bar'
+dir{bar/}: x = y
+./: bar/
+EOI
+
+: existing-target-real
+:
+$* <<EOI
+dir{baz/}:
+./: baz/
+EOI

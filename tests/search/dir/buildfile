@@ -1,0 +1,8 @@
+# file      : tests/search/dir/buildfile
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test loading of dir{} buildfiles during target search.
+#
+
+./: test{testscript} $b

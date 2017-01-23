@@ -6,9 +6,11 @@
 
 #include <butl/filesystem> // file_mtime()
 
+#include <build2/file>
 #include <build2/scope>
 #include <build2/search>
 #include <build2/algorithm>
+#include <build2/filesystem>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -239,6 +241,7 @@ namespace build2
           dir_path out,
           string name,
           optional<string> ext,
+          bool implied,
           tracer& trace)
   {
     iterator i (find (target_key {&tt, &dir, &out, &name, ext}, trace));
@@ -248,9 +251,21 @@ namespace build2
     {
       unique_ptr<target> pt (
         tt.factory (tt, move (dir), move (out), move (name), move (ext)));
+
+      pt->implied = implied;
+
       i = map_.emplace (
         make_pair (target_key {&tt, &pt->dir, &pt->out, &pt->name, pt->ext},
                    move (pt))).first;
+    }
+    else if (!implied)
+    {
+      // Clear the implied flag.
+      //
+      target& t (**i);
+
+      if (t.implied)
+        t.implied = false;
     }
 
     return pair<target&, bool> (**i, r);
@@ -442,20 +457,6 @@ namespace build2
     return pk.tk.dir->relative () ? search_existing_file (pk) : nullptr;
   }
 
-  static target*
-  search_alias (const prerequisite_key& pk)
-  {
-    // For an alias we don't want to silently create a target since it
-    // will do nothing and it most likely not what the user intended.
-    //
-    target* t (search_existing_target (pk));
-
-    if (t == nullptr)
-      fail << "no explicit target for prerequisite " << pk;
-
-    return t;
-  }
-
   optional<string>
   target_extension_null (const target_key&, scope&, bool)
   {
@@ -556,6 +557,20 @@ namespace build2
     false
   };
 
+  static target*
+  search_alias (const prerequisite_key& pk)
+  {
+    // For an alias we don't want to silently create a target since it will do
+    // nothing and it most likely not what the user intended.
+    //
+    target* t (search_existing_target (pk));
+
+    if (t == nullptr || t->implied)
+      fail << "no explicit target for prerequisite " << pk;
+
+    return t;
+  }
+
   const target_type alias::static_type
   {
     "alias",
@@ -567,6 +582,80 @@ namespace build2
     false
   };
 
+  static target*
+  search_dir (const prerequisite_key& pk)
+  {
+    tracer trace ("search_dir");
+
+    // The first step is like in search_alias(): looks for an existing target.
+    //
+    target* t (search_existing_target (pk));
+
+    if (t != nullptr && !t->implied)
+      return t;
+
+    // If not found (or is implied), then try to load the corresponding
+    // buildfile which would normally define this target.
+    //
+    const dir_path& d (*pk.tk.dir);
+
+    // We only do this for relative paths.
+    //
+    if (d.relative ())
+    {
+      // Note: this code is a custom version of parser::parse_include().
+
+      scope& s (*pk.scope);
+
+      // Calculate the new out_base.
+      //
+      dir_path out_base (s.out_path () / d);
+      out_base.normalize ();
+
+      // In our world modifications to the scope structure during search &
+      // match should be "pure" in the sense that they should not affect any
+      // existing targets that have already been searched & matched.
+      //
+      // A straightforward way to enforce this is to not allow any existing
+      // targets to be inside any newly created scopes (except, perhaps for
+      // the directory target itself which we know hasn't been searched yet).
+      // This, however, is not that straightforward to implement: we would
+      // need to keep a directory prefix map for all the targets (e.g., in
+      // target_set). Also, a buildfile could load from a directory that is
+      // not a subdirectory of out_base. So for now we just assume that this
+      // is so. And so it is.
+
+      pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));
+
+      if (sp.second != nullptr) // Ignore scopes out of any project.
+      {
+        scope& base (sp.first);
+        scope& root (*sp.second);
+
+        path bf (base.src_path () / "buildfile");
+
+        if (exists (bf))
+        {
+          l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
+
+          if (source_once (bf, root, base, root))
+          {
+            // If we loaded the buildfile, examine the target again.
+            //
+            if (t == nullptr)
+              t = search_existing_target (pk);
+
+            if (t != nullptr && !t->implied)
+              return t;
+          }
+        }
+      }
+    }
+
+    fail << "no explicit target for prerequisite " << pk <<
+      info << "did you forget to include the corresponding buildfile?" << endf;
+  }
+
   const target_type dir::static_type
   {
     "dir",
@@ -574,7 +663,7 @@ namespace build2
     &target_factory<dir>,
     nullptr, // Extension not used.
     nullptr,
-    &search_alias,
+    &search_dir,
     false
   };
 

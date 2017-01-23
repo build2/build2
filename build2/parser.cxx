@@ -87,6 +87,7 @@ namespace build2
     enter_target (parser& p,
                   name&& n,  // If n.pair, then o is out dir.
                   name&& o,
+                  bool implied,
                   const location& loc,
                   tracer& tr)
         : p_ (&p), t_ (p.target_)
@@ -130,8 +131,13 @@ namespace build2
 
       // Find or insert.
       //
-      p.target_ = &targets.insert (
-        *ti, move (d), move (out), move (n.value), move (e), tr).first;
+      p.target_ = &targets.insert (*ti,
+                                   move (d),
+                                   move (out),
+                                   move (n.value),
+                                   move (e),
+                                   implied,
+                                   tr).first;
     }
 
     ~enter_target ()
@@ -497,7 +503,8 @@ namespace build2
                 if (p == string::npos)
                 {
                   name o (n.pair ? move (*++i) : name ());
-                  enter_target tg (*this, move (n), move (o), nloc, trace);
+                  enter_target tg (
+                    *this, move (n), move (o), true, nloc, trace);
                   parse_variable (t, tt, var, att);
                 }
                 else
@@ -646,7 +653,7 @@ namespace build2
 
               // @@ OUT TODO
               //
-              enter_target tg (*this, move (tn), name (), nloc, trace);
+              enter_target tg (*this, move (tn), name (), false, nloc, trace);
 
               if (default_target_ == nullptr)
                 default_target_ = target_;
@@ -3477,7 +3484,8 @@ namespace build2
     else if (!qual.empty ())
       // @@ OUT TODO
       //
-      tg = enter_target (*this, move (qual), build2::name (), loc, trace);
+      tg = enter_target (
+        *this, move (qual), build2::name (), true, loc, trace);
 
     // Lookup.
     //
@@ -3496,50 +3504,18 @@ namespace build2
   }
 
   void parser::
-  switch_scope (const dir_path& p)
+  switch_scope (const dir_path& d)
   {
     tracer trace ("parser::switch_scope", &path_);
 
-    // First, enter the scope into the map and see if it is in any project. If
-    // it is not, then there is nothing else to do.
-    //
-    auto i (scopes.insert (p, false));
-    scope_ = &i->second;
-    scope* rs (scope_->root_scope ());
+    auto p (build2::switch_scope (*root_, d));
+    scope_ = &p.first;
 
-    if (rs == nullptr)
-      return;
-
-    // Path p can be src_base or out_base. Figure out which one it is.
-    //
-    dir_path out_base (p.sub (rs->out_path ()) ? p : src_out (p, *rs));
-
-    // Create and bootstrap root scope(s) of subproject(s) that this
-    // scope may belong to. If any were created, load them. Note that
-    // we need to do this before figuring out src_base since we may
-    // switch the root project (and src_root with it).
-    //
+    if (p.second != nullptr && p.second != root_)
     {
-      scope* nrs (&create_bootstrap_inner (*rs, out_base));
-
-      if (rs != nrs)
-        rs = nrs;
+      root_ = p.second;
+      l5 ([&]{trace << "switching to root scope " << root_->out_path ();});
     }
-
-    // Switch to the new root scope.
-    //
-    if (rs != root_)
-    {
-      load_root_pre (*rs); // Load new root(s) recursively.
-
-      l5 ([&]{trace << "switching to root scope " << rs->out_path ();});
-      root_ = rs;
-    }
-
-    // Now we can figure out src_base and finish setting the scope.
-    //
-    dir_path src_base (src_out (out_base, *rs));
-    setup_base (i, move (out_base), move (src_base));
   }
 
   void parser::
@@ -3573,6 +3549,7 @@ namespace build2
                       dir_path (),
                       string (),
                       nullopt,
+                      false,         // Enter as real (not implied).
                       trace).first);
 
     ct.prerequisites.emplace_back (dt, ct);

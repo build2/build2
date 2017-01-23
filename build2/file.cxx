@@ -114,10 +114,10 @@ namespace build2
   void
   source (const path& bf, scope& root, scope& base)
   {
-    return source (bf, root, base, false);
+    source (bf, root, base, false);
   }
 
-  void
+  bool
   source_once (const path& bf, scope& root, scope& base, scope& once)
   {
     tracer trace ("source_once");
@@ -125,10 +125,11 @@ namespace build2
     if (!once.buildfiles.insert (bf).second)
     {
       l5 ([&]{trace << "skipping already sourced " << bf;});
-      return;
+      return false;
     }
 
     source (bf, root, base);
+    return true;
   }
 
   scope&
@@ -251,6 +252,48 @@ namespace build2
       assert (*s.src_path_ == src_base);
 
     return s;
+  }
+
+  pair<scope&, scope*>
+  switch_scope (scope& root, const dir_path& p)
+  {
+    // First, enter the scope into the map and see if it is in any project. If
+    // it is not, then there is nothing else to do.
+    //
+    auto i (scopes.insert (p, false));
+    scope& base (i->second);
+    scope* rs (base.root_scope ());
+
+    if (rs != nullptr)
+    {
+      // Path p can be src_base or out_base. Figure out which one it is.
+      //
+      dir_path out_base (p.sub (rs->out_path ()) ? p : src_out (p, *rs));
+
+      // Create and bootstrap root scope(s) of subproject(s) that this scope
+      // may belong to. If any were created, load them. Note that we need to
+      // do this before figuring out src_base since we may switch the root
+      // project (and src_root with it).
+      //
+      {
+        scope* nrs (&create_bootstrap_inner (*rs, out_base));
+
+        if (rs != nrs)
+          rs = nrs;
+      }
+
+      // Switch to the new root scope.
+      //
+      if (rs != &root)
+        load_root_pre (*rs); // Load new root(s) recursively.
+
+      // Now we can figure out src_base and finish setting the scope.
+      //
+      dir_path src_base (src_out (out_base, *rs));
+      setup_base (i, move (out_base), move (src_base));
+    }
+
+    return pair<scope&, scope*> (base, rs);
   }
 
   void

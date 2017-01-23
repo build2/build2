@@ -378,8 +378,7 @@ namespace build2
     value&
     assign (string name) {return vars.assign<T> (move (name)).first.get ();}
 
-    // Return a value suitable for appending. See class scope for
-    // details.
+    // Return a value suitable for appending. See class scope for details.
     //
     value&
     append (const variable&);
@@ -390,6 +389,15 @@ namespace build2
       return append (var_pool[name]);
     }
 
+    // A target that is not (yet) entered as part of a real dependency
+    // declaration (for example, that is entered as part of a target-specific
+    // variable assignment) is called implied.
+    //
+  public:
+    bool implied;
+
+    // Target state.
+    //
   public:
     target_state raw_state = target_state::unknown;
 
@@ -498,17 +506,21 @@ namespace build2
       }
     }
 
+    // Recipe.
+    //
   public:
-    action_type action; // Action this recipe is for.
+    using recipe_type = build2::recipe;
 
-  public:
-    typedef build2::recipe recipe_type;
+    action_type action; // Action this recipe is for.
 
     const recipe_type&
     recipe (action_type a) const {return a > action ? empty_recipe : recipe_;}
 
     void
     recipe (action_type, recipe_type);
+
+  private:
+    recipe_type recipe_;
 
     // Target type info.
     //
@@ -547,13 +559,8 @@ namespace build2
     // The only way to create a target should be via the targets set below.
     //
   public:
-    friend class target_set;
-
     target (dir_path d, dir_path o, string n, optional<string> e)
         : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)) {}
-
-  private:
-    recipe_type recipe_;
   };
 
   // All targets are from the targets set below.
@@ -1010,6 +1017,7 @@ namespace build2
             dir_path out,
             string name,
             optional<string> ext,
+            bool implied,
             tracer&);
 
     template <typename T>
@@ -1022,7 +1030,13 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (tt, move (dir), move (out), move (name), move (ext), t).first);
+        insert (tt,
+                move (dir),
+                move (out),
+                move (name),
+                move (ext),
+                false,       // Always real (not implied).
+                t).first);
     }
 
     template <typename T>
@@ -1034,7 +1048,7 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, out, name, ext, t).first);
+        insert (T::static_type, dir, out, name, ext, false, t).first);
     }
 
     template <typename T>
@@ -1045,7 +1059,7 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, out, name, nullopt, t).first);
+        insert (T::static_type, dir, out, name, nullopt, false, t).first);
     }
 
     void

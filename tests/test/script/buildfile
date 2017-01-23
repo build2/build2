@@ -2,6 +2,5 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-d = builtin/ runner/
-./: $d file{common.test}
-include $d
+./: builtin/ runner/ file{common.test}
+

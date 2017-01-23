@@ -159,7 +159,7 @@ namespace build2
     // Find or insert. Note that we are using our updated extension.
     //
     auto r (targets.insert (
-              *tk.type, move (d), move (out), *tk.name, ext, trace));
+              *tk.type, move (d), move (out), *tk.name, ext, false, trace));
 
     // Has to be a file_target.
     //
@@ -203,7 +203,7 @@ namespace build2
     // @@ OUT: same story as in search_existing_target() re out.
     //
     auto r (targets.insert (
-              *tk.type, move (d), *tk.out, *tk.name, tk.ext, trace));
+              *tk.type, move (d), *tk.out, *tk.name, tk.ext, false, trace));
     assert (r.second);
 
     target& t (r.first);

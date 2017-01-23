@@ -571,6 +571,7 @@ namespace build2
                             dir_path (), // Out tree.
                             "",
                             nullopt,
+                            false,       // Real (not implied).
                             trace).first);
 
           if (!quiet)
