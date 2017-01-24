@@ -17,6 +17,8 @@ namespace build2
     class obj_rule: public rule
     {
     public:
+      obj_rule () {}
+
       virtual match_result
       match (action, target&, const string& hint) const override;
 
@@ -27,6 +29,8 @@ namespace build2
     class lib_rule: public rule
     {
     public:
+      lib_rule () {}
+
       virtual match_result
       match (action, target&, const string& hint) const override;
 

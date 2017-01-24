@@ -48,6 +48,8 @@ namespace build2
   class file_rule: public rule
   {
   public:
+    file_rule () {}
+
     virtual match_result
     match (action, target&, const string& hint) const override;
 
@@ -60,6 +62,8 @@ namespace build2
   class alias_rule: public rule
   {
   public:
+    alias_rule () {}
+
     virtual match_result
     match (action, target&, const string& hint) const override;
 
@@ -72,6 +76,8 @@ namespace build2
   class fsdir_rule: public rule
   {
   public:
+    fsdir_rule () {}
+
     virtual match_result
     match (action, target&, const string& hint) const override;
 
@@ -92,6 +98,8 @@ namespace build2
   class fallback_rule: public build2::rule
   {
   public:
+    fallback_rule () {}
+
     virtual match_result
     match (action, target&, const string&) const override {return true;}
 

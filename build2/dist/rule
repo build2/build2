@@ -19,6 +19,8 @@ namespace build2
     class rule: public build2::rule
     {
     public:
+      rule () {}
+
       virtual match_result
       match (action, target&, const string&) const override;
 

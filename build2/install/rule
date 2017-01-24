@@ -19,6 +19,8 @@ namespace build2
     class alias_rule: public rule
     {
     public:
+      alias_rule () {}
+
       virtual match_result
       match (action, target&, const string&) const override;
 
@@ -31,6 +33,8 @@ namespace build2
     class file_rule: public rule
     {
     public:
+      file_rule () {}
+
       virtual match_result
       match (action, target&, const string&) const override;
 

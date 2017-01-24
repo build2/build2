@@ -17,6 +17,8 @@ namespace build2
     class compile: public rule
     {
     public:
+      compile () {}
+
       virtual match_result
       match (action, target&, const string& hint) const override;
 
