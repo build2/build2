@@ -13,7 +13,8 @@
 #include <iterator>   // make_move_iterator()
 #include <functional> // ref(), cref()
 
-#include <butl/config>  // BUTL_CXXNN_*
+#include <butl/ft/lang>
+
 #include <butl/utility> // combine_hash(), reverse_iterate(), casecmp(),
                         // lcase(), etc
 

@@ -457,7 +457,7 @@ namespace build2
     // TLS cache of thread's task queue.
     //
     static
-#ifdef BUTL_CXX11_THREAD_LOCAL
+#ifdef __cpp_thread_local
     thread_local
 #else
     __thread
