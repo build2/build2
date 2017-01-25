@@ -44,6 +44,8 @@ namespace build2
               bool override = false,
               uint64_t save_flags = 0);
 
+    // Note that the variable is expected to have already been registered.
+    //
     template <typename T>
     inline pair<lookup, bool>
     required (scope& root,
@@ -76,6 +78,8 @@ namespace build2
     pair<lookup, bool>
     omitted (scope& root, const variable&);
 
+    // Note that the variable is expected to have already been registered.
+    //
     inline pair<lookup, bool>
     omitted (scope& root, const string& name)
     {
@@ -91,10 +95,12 @@ namespace build2
     lookup
     optional (scope& root, const variable&);
 
+    // Note that the variable is expected to have already been registered.
+    //
     inline lookup
-    optional (scope& root, const string& var)
+    optional (scope& root, const string& name)
     {
-      return optional (root, var_pool[var]);
+      return optional (root, var_pool[name]);
     }
 
     // Check whether there are any variables specified from the config

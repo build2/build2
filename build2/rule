@@ -37,10 +37,10 @@ namespace build2
   {
   public:
     virtual match_result
-    match (action, target&, const string& hint) const = 0;
+    match (slock&, action, target&, const string& hint) const = 0;
 
     virtual recipe
-    apply (action, target&) const = 0;
+    apply (slock&, action, target&) const = 0;
   };
 
   // Fallback rule that only matches if the file exists.
@@ -51,10 +51,10 @@ namespace build2
     file_rule () {}
 
     virtual match_result
-    match (action, target&, const string& hint) const override;
+    match (slock&, action, target&, const string&) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (slock&, action, target&) const override;
 
     static const file_rule instance;
   };
@@ -65,10 +65,10 @@ namespace build2
     alias_rule () {}
 
     virtual match_result
-    match (action, target&, const string& hint) const override;
+    match (slock&, action, target&, const string&) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (slock&, action, target&) const override;
 
     static const alias_rule instance;
   };
@@ -79,10 +79,10 @@ namespace build2
     fsdir_rule () {}
 
     virtual match_result
-    match (action, target&, const string& hint) const override;
+    match (slock&, action, target&, const string&) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (slock&, action, target&) const override;
 
     static target_state
     perform_update (action, target&);
@@ -101,10 +101,13 @@ namespace build2
     fallback_rule () {}
 
     virtual match_result
-    match (action, target&, const string&) const override {return true;}
+    match (slock&, action, target&, const string&) const override
+    {
+      return true;
+    }
 
     virtual recipe
-    apply (action, target&) const override {return noop_recipe;}
+    apply (slock&, action, target&) const override {return noop_recipe;}
 
     static const fallback_rule instance;
   };

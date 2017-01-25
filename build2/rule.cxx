@@ -26,7 +26,7 @@ namespace build2
   // use it as a guide to implement your own, normal, rules.
   //
   match_result file_rule::
-  match (action a, target& t, const string&) const
+  match (slock&, action a, target& t, const string&) const
   {
     tracer trace ("file_rule::match");
 
@@ -79,7 +79,7 @@ namespace build2
   }
 
   recipe file_rule::
-  apply (action a, target& t) const
+  apply (slock& ml, action a, target& t) const
   {
     // Update triggers the update of this target's prerequisites so it would
     // seem natural that we should also trigger their cleanup. However, this
@@ -99,7 +99,7 @@ namespace build2
 
     // Search and match all the prerequisites.
     //
-    search_and_match_prerequisites (a, t);
+    search_and_match_prerequisites (ml, a, t);
 
     // Note that we used to provide perform_update() which checked that this
     // target is not older than any of its prerequisites. However, later we
@@ -115,20 +115,20 @@ namespace build2
   // alias_rule
   //
   match_result alias_rule::
-  match (action, target&, const string&) const
+  match (slock&, action, target&, const string&) const
   {
     return true;
   }
 
   recipe alias_rule::
-  apply (action a, target& t) const
+  apply (slock& ml, action a, target& t) const
   {
     // Inject dependency on our directory (note: not parent) so that it is
     // automatically created on update and removed on clean.
     //
-    inject_fsdir (a, t, false);
+    inject_fsdir (ml, a, t, false);
 
-    search_and_match_prerequisites (a, t);
+    search_and_match_prerequisites (ml, a, t);
     return default_recipe;
   }
 
@@ -137,22 +137,22 @@ namespace build2
   // fsdir_rule
   //
   match_result fsdir_rule::
-  match (action, target&, const string&) const
+  match (slock&, action, target&, const string&) const
   {
     return true;
   }
 
   recipe fsdir_rule::
-  apply (action a, target& t) const
+  apply (slock& ml, action a, target& t) const
   {
     // Inject dependency on the parent directory. Note that we don't do it for
     // clean since we shouldn't (and can't possibly, since it's our parent) be
     // removing it.
     //
     if (a.operation () != clean_id)
-      inject_fsdir (a, t);
+      inject_fsdir (ml, a, t);
 
-    search_and_match_prerequisites (a, t);
+    search_and_match_prerequisites (ml, a, t);
 
     switch (a)
     {

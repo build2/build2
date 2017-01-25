@@ -72,9 +72,10 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
+      const variable& vns (var_pool.rw (r).insert (ns));
       for (scope* s (&r); s != nullptr; s = s->parent_scope ())
       {
-        for (auto p (s->vars.find_namespace (ns));
+        for (auto p (s->vars.find_namespace (vns));
              p.first != p.second;
              ++p.first)
         {
@@ -92,30 +93,30 @@ namespace build2
     }
 
     bool
-    unconfigured (scope& root, const string& ns)
+    unconfigured (scope& rs, const string& ns)
     {
       // Note: not overridable.
       //
-      const variable& var (var_pool.insert<bool> (ns + ".configured"));
+      const variable& var (var_pool.rw (rs).insert<bool> (ns + ".configured"));
 
       if (current_mif->id == configure_id)
-        save_variable (root, var);
+        save_variable (rs, var);
 
-      auto l (root[var]); // Include inherited values.
+      auto l (rs[var]); // Include inherited values.
       return l && !cast<bool> (l);
     }
 
     bool
-    unconfigured (scope& root, const string& ns, bool v)
+    unconfigured (scope& rs, const string& ns, bool v)
     {
       // Note: not overridable.
       //
-      const variable& var (var_pool.insert<bool> (ns + ".configured"));
+      const variable& var (var_pool.rw (rs).insert<bool> (ns + ".configured"));
 
       if (current_mif->id == configure_id)
-        save_variable (root, var);
+        save_variable (rs, var);
 
-      value& x (root.assign (var));
+      value& x (rs.assign (var));
 
       if (x.null || cast<bool> (x) != !v)
       {

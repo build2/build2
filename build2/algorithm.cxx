@@ -53,7 +53,7 @@ namespace build2
   }
 
   pair<const rule*, match_result>
-  match_impl (action a, target& t, bool apply, const rule* skip)
+  match_impl (slock& ml, action a, target& t, bool apply, const rule* skip)
   {
     pair<const rule*, match_result> r (nullptr, false);
 
@@ -153,7 +153,7 @@ namespace build2
                            << diag_do (ra, t);
                     }));
 
-                if (!(m = ru.match (ra, t, hint)))
+                if (!(m = ru.match (ml, ra, t, hint)))
                   continue;
 
                 if (!m.recipe_action.valid ())
@@ -180,7 +180,7 @@ namespace build2
                              << diag_do (ra, t);
                       }));
 
-                  if (!ru1.match (ra, t, hint))
+                  if (!ru1.match (ml, ra, t, hint))
                     continue;
                 }
 
@@ -212,7 +212,7 @@ namespace build2
                   // @@ We could also allow the rule to change the recipe
                   // action in apply(). Could be useful with delegates.
                   //
-                  t.recipe (ra, ru.apply (ra, t));
+                  t.recipe (ra, ru.apply (ml, ra, t));
                 }
                 else
                 {
@@ -240,7 +240,7 @@ namespace build2
   }
 
   group_view
-  resolve_group_members_impl (action a, target& g)
+  resolve_group_members_impl (slock& ml, action a, target& g)
   {
     group_view r;
 
@@ -249,7 +249,7 @@ namespace build2
     //
     if (!g.recipe (a))
     {
-      auto rp (match_impl (a, g, false));
+      auto rp (match_impl (ml, a, g, false));
 
       r = g.group_members (a);
       if (r.members != nullptr)
@@ -259,7 +259,8 @@ namespace build2
       // phase.
       //
       const match_result& mr (rp.second);
-      g.recipe (mr.recipe_action, rp.first->apply (mr.recipe_action, g));
+      g.recipe (mr.recipe_action,
+                rp.first->apply (ml, mr.recipe_action, g));
     }
 
     // Note that we use execute_direct() rather than execute() here to
@@ -275,7 +276,7 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisites (action a, target& t, scope* s)
+  search_and_match_prerequisites (slock& ml, action a, target& t, scope* s)
   {
     for (prerequisite& p: group_prerequisites (t))
     {
@@ -283,29 +284,30 @@ namespace build2
 
       if (s == nullptr || pt.in (*s))
       {
-        match (a, pt);
+        match (ml, a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
     }
   }
 
   void
-  search_and_match_prerequisite_members (action a, target& t, scope* s)
+  search_and_match_prerequisite_members (
+    slock& ml, action a, target& t, scope* s)
   {
-    for (prerequisite_member p: group_prerequisite_members (a, t))
+    for (prerequisite_member p: group_prerequisite_members (ml, a, t))
     {
       target& pt (p.search ());
 
       if (s == nullptr || pt.in (*s))
       {
-        match (a, pt);
+        match (ml, a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
     }
   }
 
   fsdir*
-  inject_fsdir (action a, target& t, bool parent)
+  inject_fsdir (slock& ml, action a, target& t, bool parent)
   {
     tracer trace ("inject_fsdir");
 
@@ -334,7 +336,7 @@ namespace build2
     // Target is in the out tree, so out directory is empty.
     //
     fsdir* r (&search<fsdir> (d, dir_path (), string (), nullopt, nullptr));
-    match (a, *r);
+    match (ml, a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;
   }

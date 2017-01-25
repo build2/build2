@@ -622,33 +622,19 @@ namespace build2
 
   // variable_pool
   //
+  inline const variable& variable_pool::
+  operator[] (const string& n) const
+  {
+    const variable* r (find (n));
+    assert (r != nullptr);
+    return *r;
+  }
+
   inline const variable* variable_pool::
-  find (const string& n)
+  find (const string& n) const
   {
     auto i (map_.find (&n));
     return i != map_.end () ? &i->second : nullptr;
-  }
-
-  inline const variable& variable_pool::
-  insert (string n)
-  {
-    // We are not overriding anything so skip the custom insert() checks.
-    //
-    auto p (
-      insert (
-        variable {move (n), nullptr, nullptr, variable_visibility::normal}));
-
-    return p.first->second;
-  }
-
-
-  inline const variable& variable_pool::
-  operator[] (const string& n)
-  {
-    if (const variable* v = find (n))
-      return *v;
-    else
-      return insert (n);
   }
 
   // variable_map::iterator_adapter

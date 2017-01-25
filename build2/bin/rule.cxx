@@ -20,7 +20,7 @@ namespace build2
     // obj
     //
     match_result obj_rule::
-    match (action a, target& t, const string&) const
+    match (slock&, action a, target& t, const string&) const
     {
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select obje{}, obja{}, or objs{} member";
@@ -29,7 +29,7 @@ namespace build2
     }
 
     recipe obj_rule::
-    apply (action, target&) const {return empty_recipe;}
+    apply (slock&, action, target&) const {return empty_recipe;}
 
     // lib
     //
@@ -46,7 +46,7 @@ namespace build2
                    "insufficient space");
 
     match_result lib_rule::
-    match (action act, target& xt, const string&) const
+    match (slock& ml, action act, target& xt, const string&) const
     {
       lib& t (static_cast<lib&> (xt));
 
@@ -77,7 +77,7 @@ namespace build2
         if (t.a == nullptr)
           t.a = &search<liba> (t.dir, t.out, t.name, nullopt, nullptr);
 
-        match_only (act, *t.a);
+        match_only (ml, act, *t.a);
       }
 
       if (s)
@@ -85,7 +85,7 @@ namespace build2
         if (t.s == nullptr)
           t.s = &search<libs> (t.dir, t.out, t.name, nullopt, nullptr);
 
-        match_only (act, *t.s);
+        match_only (ml, act, *t.s);
       }
 
       t.data (match_data {type}); // Save in the target's auxilary storage.
@@ -102,7 +102,7 @@ namespace build2
     }
 
     recipe lib_rule::
-    apply (action act, target& xt) const
+    apply (slock& ml, action act, target& xt) const
     {
       lib& t (static_cast<lib&> (xt));
 
@@ -115,10 +115,10 @@ namespace build2
       // Now we do full match.
       //
       if (a)
-        build2::match (act, *t.a);
+        build2::match (ml, act, *t.a);
 
       if (s)
-        build2::match (act, *t.s);
+        build2::match (ml, act, *t.s);
 
       return &perform;
     }

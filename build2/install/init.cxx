@@ -52,6 +52,8 @@ namespace build2
 
       if (spec)
       {
+        // Note: overridable.
+        //
         vn = "config.install";
         if (!global)
         {
@@ -59,7 +61,7 @@ namespace build2
           vn += name;
         }
         vn += var;
-        const variable& vr (var_pool.insert<CT> (move (vn), true));
+        const variable& vr (var_pool.rw (r).insert<CT> (move (vn), true));
 
         l = dv != nullptr
           ? config::required (r, vr, *dv, override).first
@@ -71,10 +73,12 @@ namespace build2
       if (global)
         return;
 
+      // Note: not overridable.
+      //
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (var_pool.insert<T> (move (vn))); // Not overridable.
+      const variable& vr (var_pool.rw (r).insert<T> (move (vn)));
 
       value& v (r.assign (vr));
 
@@ -117,7 +121,7 @@ namespace build2
       // This one doesn't have config.* value (only set in a buildfile).
       //
       if (!global)
-        var_pool.insert<bool> (string ("install.") + n + ".subdirs");
+        var_pool.rw (r).insert<bool> (string ("install.") + n + ".subdirs");
     }
 
     static const alias_rule alias_;
@@ -153,8 +157,8 @@ namespace build2
     static const dir_path dir_man1 (dir_path ("man") /= "man1");
 
     bool
-    init (scope& r,
-          scope& b,
+    init (scope& rs,
+          scope& bs,
           const location& l,
           unique_ptr<module_base>&,
           bool first,
@@ -169,7 +173,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (r.out_path ());
+      const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
       assert (config_hints.empty ()); // We don't known any hints.
@@ -179,7 +183,7 @@ namespace build2
       // Note that the set_dir() calls below enter some more.
       //
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (rs));
 
         // Note: not overridable.
         //
@@ -196,11 +200,11 @@ namespace build2
 
       // Register our alias and file rules.
       //
-      b.rules.insert<alias> (perform_install_id,   "install.alias", alias_);
-      b.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", alias_);
+      bs.rules.insert<alias> (perform_install_id,   "install.alias", alias_);
+      bs.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", alias_);
 
-      b.rules.insert<file> (perform_install_id,   "install.file", file_);
-      b.rules.insert<file> (perform_uninstall_id, "uinstall.file", file_);
+      bs.rules.insert<file> (perform_install_id,   "install.file", file_);
+      bs.rules.insert<file> (perform_uninstall_id, "uinstall.file", file_);
 
       // Configuration.
       //
@@ -211,44 +215,44 @@ namespace build2
       {
         using build2::path;
 
-        bool s (config::specified (r, "config.install"));
+        bool s (config::specified (rs, "config.install"));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.
         //
         if (s)
-          config::save_module (r, "install", INT32_MAX);
+          config::save_module (rs, "install", INT32_MAX);
 
-        const string& n (cast<string> (r["project"]));
+        const string& n (project (rs));
 
         // Global config.install.* values.
         //
-        set_dir (s, r, "",          abs_dir_path (), false, "644", "755", cmd);
+        set_dir (s, rs, "",          abs_dir_path (), false, "644", "755", cmd);
 
-        set_dir (s, r, "root",      abs_dir_path ());
+        set_dir (s, rs, "root",      abs_dir_path ());
 
-        set_dir (s, r, "data_root", dir_root);
-        set_dir (s, r, "exec_root", dir_root, false, "755");
+        set_dir (s, rs, "data_root", dir_root);
+        set_dir (s, rs, "exec_root", dir_root, false, "755");
 
-        set_dir (s, r, "sbin",      dir_sbin);
-        set_dir (s, r, "bin",       dir_bin);
-        set_dir (s, r, "lib",       dir_lib);
-        set_dir (s, r, "libexec",   dir_path (dir_libexec) /= n, true);
+        set_dir (s, rs, "sbin",      dir_sbin);
+        set_dir (s, rs, "bin",       dir_bin);
+        set_dir (s, rs, "lib",       dir_lib);
+        set_dir (s, rs, "libexec",   dir_path (dir_libexec) /= n, true);
 
-        set_dir (s, r, "data",      dir_path (dir_data) /= n, true);
-        set_dir (s, r, "include",   dir_include);
+        set_dir (s, rs, "data",      dir_path (dir_data) /= n, true);
+        set_dir (s, rs, "include",   dir_include);
 
-        set_dir (s, r, "doc",       dir_path (dir_doc) /= n, true);
-        set_dir (s, r, "man",       dir_man);
-        set_dir (s, r, "man1",      dir_man1);
+        set_dir (s, rs, "doc",       dir_path (dir_doc) /= n, true);
+        set_dir (s, rs, "man",       dir_man);
+        set_dir (s, rs, "man1",      dir_man1);
       }
 
       // Configure "installability" for built-in target types.
       //
-      install_path<exe>  (b, dir_path ("bin"));  // Install into install.bin.
-      install_path<doc>  (b, dir_path ("doc"));  // Install into install.doc.
-      install_path<man>  (b, dir_path ("man"));  // Install into install.man.
-      install_path<man1> (b, dir_path ("man1")); // Install into install.man1.
+      install_path<exe>  (bs, dir_path ("bin"));  // Install into install.bin.
+      install_path<doc>  (bs, dir_path ("doc"));  // Install into install.doc.
+      install_path<man>  (bs, dir_path ("man"));  // Install into install.man.
+      install_path<man1> (bs, dir_path ("man1")); // Install into install.man1.
 
       return true;
     }

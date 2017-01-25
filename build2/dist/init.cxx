@@ -23,21 +23,21 @@ namespace build2
     static const rule rule_;
 
     void
-    boot (scope& r, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("dist::boot");
 
-      l5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       // Register meta-operation.
       //
-      r.meta_operations.insert (dist_id, dist);
+      rs.meta_operations.insert (dist_id, dist);
 
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build (which is customary for, e.g., dist.package).
       //
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (rs));
 
         // Note: some overridable, some not.
         //
@@ -63,7 +63,7 @@ namespace build2
     }
 
     bool
-    init (scope& r,
+    init (scope& rs,
           scope&,
           const location& l,
           unique_ptr<module_base>&,
@@ -79,7 +79,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (r.out_path ());
+      const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
       assert (config_hints.empty ()); // We don't known any hints.
@@ -88,8 +88,8 @@ namespace build2
       // to prevent something like insert<target>(dist_id, test_id)
       // taking precedence.
       //
-      r.rules.insert<target> (dist_id, 0, "dist", rule_);
-      r.rules.insert<alias> (dist_id, 0, "dist.alias", rule_);
+      rs.rules.insert<target> (dist_id, 0, "dist", rule_);
+      rs.rules.insert<alias> (dist_id, 0, "dist.alias", rule_);
 
       // Configuration.
       //
@@ -97,22 +97,22 @@ namespace build2
       // must be explicitly specified or we will complain if and when
       // we try to dist.
       //
-      bool s (config::specified (r, "config.dist"));
+      bool s (config::specified (rs, "config.dist"));
 
       // Adjust module priority so that the config.dist.* values are saved at
       // the end of config.build.
       //
       if (s)
-        config::save_module (r, "dist", INT32_MAX);
+        config::save_module (rs, "dist", INT32_MAX);
 
       // dist.root
       //
       {
-        value& v (r.assign ("dist.root"));
+        value& v (rs.assign ("dist.root"));
 
         if (s)
         {
-          if (lookup l = config::optional (r, "config.dist.root"))
+          if (lookup l = config::optional (rs, "config.dist.root"))
             v = cast<dir_path> (l); // Strip abs_dir_path.
         }
       }
@@ -120,11 +120,11 @@ namespace build2
       // dist.cmd
       //
       {
-        value& v (r.assign<process_path> ("dist.cmd"));
+        value& v (rs.assign<process_path> ("dist.cmd"));
 
         if (s)
         {
-          if (lookup l = config::required (r,
+          if (lookup l = config::required (rs,
                                            "config.dist.cmd",
                                            path ("install")).first)
             v = run_search (cast<path> (l), true);
@@ -134,11 +134,11 @@ namespace build2
       // dist.archives
       //
       {
-        value& v (r.assign ("dist.archives"));
+        value& v (rs.assign ("dist.archives"));
 
         if (s)
         {
-          if (lookup l = config::optional (r, "config.dist.archives"))
+          if (lookup l = config::optional (rs, "config.dist.archives"))
             v = *l;
         }
       }

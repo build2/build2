@@ -20,10 +20,10 @@ namespace build2
       obj_rule () {}
 
       virtual match_result
-      match (action, target&, const string& hint) const override;
+      match (slock&, action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
     };
 
     class lib_rule: public rule
@@ -32,10 +32,10 @@ namespace build2
       lib_rule () {}
 
       virtual match_result
-      match (action, target&, const string& hint) const override;
+      match (slock&, action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
 
       static target_state
       perform (action, target&);

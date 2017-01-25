@@ -30,7 +30,7 @@ namespace build2
     }
 
     static void
-    dist_match (action, action_targets&)
+    dist_match (ulock&, action, action_targets&)
     {
       // Don't match anything -- see execute ().
     }
@@ -54,7 +54,7 @@ namespace build2
              const string& ext);
 
     static void
-    dist_execute (action, const action_targets& ts, bool)
+    dist_execute (ulock& ml, action, const action_targets& ts, bool)
     {
       tracer trace ("dist_execute");
 
@@ -97,6 +97,10 @@ namespace build2
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs->vars["dist.cmd"]));
 
+      // Relock for shared access. @@ BOGUS
+      //
+      ml.unlock ();
+
       // Get the list of operations supported by this project. Skip
       // default_id.
       //
@@ -120,6 +124,9 @@ namespace build2
         if (verb >= 6)
           dump (a);
 
+        slock sl (*ml.mutex ());
+        model_lock = &sl; // @@ Guard?
+
         for (void* v: ts)
         {
           target& t (*static_cast<target*> (v));
@@ -131,12 +138,16 @@ namespace build2
 
           l5 ([&]{trace << diag_doing (a, t);});
 
-          match (a, t);
+          match (sl, a, t);
         }
+
+        model_lock = nullptr;
 
         if (verb >= 6)
           dump (a);
       }
+
+      ml.lock ();
 
       // Add buildfiles that are not normally loaded as part of the
       // project, for example, the export stub. They will still be
@@ -169,7 +180,7 @@ namespace build2
 
       // The same for subprojects that have been loaded.
       //
-      if (auto l = rs->vars["subprojects"])
+      if (auto l = rs->vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
@@ -247,8 +258,8 @@ namespace build2
 
         action a (perform_id, update_id);
 
-        perform.match (a, files);
-        perform.execute (a, files, true); // Run quiet.
+        perform.match (ml, a, files);
+        perform.execute (ml, a, files, true); // Run quiet.
 
         if (perform.operation_post != nullptr)
           perform.operation_post (update_id);

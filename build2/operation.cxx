@@ -44,8 +44,9 @@ namespace build2
   // perform
   //
   void
-  load (const path& bf,
+  load (ulock&,
         scope& root,
+        const path& bf,
         const dir_path& out_base,
         const dir_path& src_base,
         const location&)
@@ -62,11 +63,12 @@ namespace build2
 
     // Load the buildfile unless it has already been loaded.
     //
-    source_once (bf, root, base, root);
+    source_once (root, base, bf, root);
   }
 
   void
-  search (scope&,
+  search (ulock&,
+          scope&,
           const target_key& tk,
           const location& l,
           action_targets& ts)
@@ -81,26 +83,38 @@ namespace build2
   }
 
   void
-  match (action a, action_targets& ts)
+  match (ulock& ml, action a, action_targets& ts)
   {
     tracer trace ("match");
 
     if (verb >= 6)
       dump (a);
 
-    for (void* vt: ts)
+    // Relock for shared access.
+    //
+    ml.unlock ();
+
     {
-      target& t (*static_cast<target*> (vt));
-      l5 ([&]{trace << "matching " << t;});
-      match (a, t);
+      for (void* vt: ts)
+      {
+        target& t (*static_cast<target*> (vt));
+        l5 ([&]{trace << "matching " << t;});
+
+        slock sl (*ml.mutex ());
+        model_lock = &sl; // @@ Guard?
+        match (sl, a, t);
+        model_lock = nullptr;
+      }
     }
+
+    ml.lock ();
 
     if (verb >= 6)
       dump (a);
   }
 
   void
-  execute (action a, const action_targets& ts, bool quiet)
+  execute (ulock& ml, action a, const action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
 
@@ -109,13 +123,21 @@ namespace build2
     //
     vector<reference_wrapper<target>> psp;
 
-    auto body = [a, quiet, &psp, &trace] (void* v)
+    auto body = [&ml, a, quiet, &psp, &trace] (void* v)
     {
       target& t (*static_cast<target*> (v));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
-      switch (execute (a, t))
+      target_state ts;
+      {
+        slock sl (*ml.mutex ());
+        model_lock = &sl; // @@ Guard?
+        ts = execute (a, t);
+        model_lock = nullptr;
+      }
+
+      switch (ts)
       {
       case target_state::unchanged:
         {
@@ -135,10 +157,16 @@ namespace build2
       }
     };
 
+    // Relock for shared access.
+    //
+    ml.unlock ();
+
     if (current_mode == execution_mode::first)
       for (void* v: ts) body (v);
     else
       for (void* v: reverse_iterate (ts)) body (v);
+
+    ml.lock ();
 
     // We should have executed every target that we matched.
     //

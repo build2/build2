@@ -82,7 +82,7 @@ namespace build2
 
         ofs << "config.version = " << module::version << endl;
 
-        if (auto l = root.vars["amalgamation"])
+        if (auto l = root.vars[var_amalgamation])
         {
           const dir_path& d (cast<dir_path> (l));
 
@@ -325,7 +325,7 @@ namespace build2
 
       // Configure subprojects that have been loaded.
       //
-      if (auto l = root.vars["subprojects"])
+      if (auto l = root.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
@@ -345,13 +345,13 @@ namespace build2
     }
 
     static void
-    configure_match (action, action_targets&)
+    configure_match (ulock&, action, action_targets&)
     {
       // Don't match anything -- see execute ().
     }
 
     static void
-    configure_execute (action a, const action_targets& ts, bool)
+    configure_execute (ulock& ml, action a, const action_targets& ts, bool)
     {
       // Match rules to configure every operation supported by each
       // project. Note that we are not calling operation_pre/post()
@@ -360,6 +360,10 @@ namespace build2
       //
       set<scope*> projects;
 
+      // Relock for shared access.
+      //
+      ml.unlock ();
+
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
@@ -367,6 +371,9 @@ namespace build2
 
         if (rs == nullptr)
           fail << "out of project target " << t;
+
+        slock sl (*ml.mutex ());
+        model_lock = &sl; // @@ Guard?
 
         for (operations::size_type id (default_id + 1); // Skip default_id
              id < rs->operations.size ();
@@ -379,11 +386,15 @@ namespace build2
           set_current_oif (*oif);
           dependency_count = 0;
 
-          match (action (configure_id, id), t);
+          match (sl, action (configure_id, id), t);
         }
+
+        model_lock = nullptr;
 
         configure_project (a, *rs, projects);
       }
+
+      ml.lock ();
     }
 
     const meta_operation_info configure {
@@ -414,8 +425,9 @@ namespace build2
     }
 
     static void
-    disfigure_load (const path& bf,
+    disfigure_load (ulock&,
                     scope&,
+                    const path& bf,
                     const dir_path&,
                     const dir_path&,
                     const location&)
@@ -425,7 +437,8 @@ namespace build2
     }
 
     static void
-    disfigure_search (scope& root,
+    disfigure_search (ulock&,
+                      scope& root,
                       const target_key&,
                       const location&,
                       action_targets& ts)
@@ -436,7 +449,9 @@ namespace build2
     }
 
     static void
-    disfigure_match (action, action_targets&) {}
+    disfigure_match (ulock&, action, action_targets&)
+    {
+    }
 
     static bool
     disfigure_project (action a, scope& root, set<scope*>& projects)
@@ -457,7 +472,7 @@ namespace build2
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto l = root.vars["subprojects"])
+      if (auto l = root.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
@@ -475,7 +490,7 @@ namespace build2
           {
             bootstrap_out (nroot);
 
-            value& val (nroot.assign ("src_root"));
+            value& val (nroot.assign (var_src_root));
 
             if (!val)
               val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
@@ -550,7 +565,7 @@ namespace build2
     }
 
     static void
-    disfigure_execute (action a, const action_targets& ts, bool quiet)
+    disfigure_execute (ulock&, action a, const action_targets& ts, bool quiet)
     {
       tracer trace ("disfigure_execute");
 

@@ -613,8 +613,9 @@ namespace build2
       out_base.normalize ();
 
       // In our world modifications to the scope structure during search &
-      // match should be "pure" in the sense that they should not affect any
-      // existing targets that have already been searched & matched.
+      // match should be "pure append" in the sense that they should not
+      // affect any existing targets that have already been searched &
+      // matched.
       //
       // A straightforward way to enforce this is to not allow any existing
       // targets to be inside any newly created scopes (except, perhaps for
@@ -624,6 +625,10 @@ namespace build2
       // target_set). Also, a buildfile could load from a directory that is
       // not a subdirectory of out_base. So for now we just assume that this
       // is so. And so it is.
+
+      // Relock for exclusive access.
+      //
+      rlock rl (model_lock);
 
       pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));
 
@@ -638,7 +643,7 @@ namespace build2
         {
           l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
 
-          if (source_once (bf, root, base, root))
+          if (source_once (root, base, bf, root))
           {
             // If we loaded the buildfile, examine the target again.
             //

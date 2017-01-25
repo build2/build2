@@ -44,7 +44,7 @@ namespace build2
     }
 
     match_result compile::
-    match (action a, target& xt, const string&) const
+    match (slock& ml, action a, target& xt, const string&) const
     {
       tracer trace ("cli::compile::match");
 
@@ -57,7 +57,7 @@ namespace build2
         // See if we have a .cli source file.
         //
         bool r (false);
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
         {
           if (p.is_a<cli> ())
           {
@@ -125,7 +125,7 @@ namespace build2
         //
         if (g == nullptr || !g->has_prerequisites ())
         {
-          for (prerequisite_member p: group_prerequisite_members (a, t))
+          for (prerequisite_member p: group_prerequisite_members (ml, a, t))
           {
             if (p.is_a<cli> ())
             {
@@ -151,7 +151,7 @@ namespace build2
           // Resolve the group's members. This should link us up to the
           // group.
           //
-          resolve_group_members (a, *g);
+          resolve_group_members (ml, a, *g);
 
           // For ixx{}, verify it is part of the group.
           //
@@ -169,7 +169,7 @@ namespace build2
     }
 
     recipe compile::
-    apply (action a, target& xt) const
+    apply (slock& ml, action a, target& xt) const
     {
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
@@ -184,11 +184,11 @@ namespace build2
 
         // Inject dependency on the output directory.
         //
-        inject_fsdir (a, t);
+        inject_fsdir (ml, a, t);
 
         // Search and match prerequisite members.
         //
-        search_and_match_prerequisite_members (a, t);
+        search_and_match_prerequisite_members (ml, a, t);
 
         switch (a)
         {
@@ -200,7 +200,7 @@ namespace build2
       else
       {
         cli_cxx& g (*static_cast<cli_cxx*> (xt.group));
-        build2::match (a, g);
+        build2::match (ml, a, g);
         return group_recipe; // Execute the group's recipe.
       }
     }

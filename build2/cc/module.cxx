@@ -279,6 +279,8 @@ namespace build2
         //
         variable_map h;
 
+        // Note that all these variables have already been registered.
+        //
         h.assign ("config.cc.id") = cast<string> (rs[x_id]);
         h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
 
@@ -288,7 +290,7 @@ namespace build2
         if (!ci.bin_pattern.empty ())
           h.assign ("config.bin.pattern") = move (ci.bin_pattern);
 
-        load_module ("cc.core.config", rs, rs, loc, false, h);
+        load_module (rs, rs, "cc.core.config", loc, false, h);
       }
       else
       {
@@ -331,7 +333,7 @@ namespace build2
       // extra bin.* modules we may need.
       //
       if (!cast_false<bool> (rs["cc.core.loaded"]))
-        load_module ("cc.core", rs, rs, loc);
+        load_module (rs, rs, "cc.core", loc);
 
       // Register target types and configure their "installability".
       //
@@ -347,7 +349,7 @@ namespace build2
         for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
         {
           t.insert (**ht);
-          install_path (**ht, rs, dir_path ("include"));
+          install_path (rs, **ht, dir_path ("include"));
         }
       }
 

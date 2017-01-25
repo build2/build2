@@ -16,17 +16,17 @@ namespace build2
   namespace dist
   {
     match_result rule::
-    match (action, target&, const string&) const
+    match (slock&, action, target&, const string&) const
     {
       return true; // We always match.
     }
 
     recipe rule::
-    apply (action a, target& t) const
+    apply (slock& ml, action a, target& t) const
     {
       const dir_path& out_root (t.root_scope ().out_path ());
 
-      auto r (group_prerequisite_members (a, t, false));
+      auto r (group_prerequisite_members (ml, a, t, false));
       for (auto i (r.begin ()); i != r.end (); ++i)
       {
         prerequisite_member p (*i);
@@ -48,7 +48,7 @@ namespace build2
         // Don't match targets that are outside of our project.
         //
         if (pt.dir.sub (out_root))
-          build2::match (a, pt);
+          build2::match (ml, a, pt);
       }
 
       return noop_recipe; // We will never be executed.

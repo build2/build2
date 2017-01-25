@@ -15,7 +15,7 @@ namespace build2
   available_module_map builtin_modules;
 
   void
-  boot_module (const string& name, scope& rs, const location& loc)
+  boot_module (scope& rs, const string& name, const location& loc)
   {
     // First see if this modules has already been loaded for this project.
     //
@@ -50,9 +50,9 @@ namespace build2
   }
 
   bool
-  load_module (const string& name,
-               scope& rs,
+  load_module (scope& rs,
                scope& bs,
+               const string& name,
                const location& loc,
                bool opt,
                const variable_map& hints)
@@ -100,10 +100,13 @@ namespace build2
     bool c (l &&
             i->second.init (rs, bs, loc, i->second.module, f, opt, hints));
 
-    const variable& lv (var_pool.insert<bool> (name + ".loaded",
-                                               variable_visibility::project));
-    const variable& cv (var_pool.insert<bool> (name + ".configured",
-                                               variable_visibility::project));
+    auto& vp (var_pool.rw (rs));
+
+    const variable& lv (vp.insert<bool> (name + ".loaded",
+                                         variable_visibility::project));
+
+    const variable& cv (vp.insert<bool> (name + ".configured",
+                                         variable_visibility::project));
     bs.assign (lv) = l;
     bs.assign (cv) = c;
 

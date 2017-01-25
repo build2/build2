@@ -94,9 +94,17 @@ namespace build2
     }
 
     lookup
+    operator[] (const variable* var) const // For cached variables.
+    {
+      assert (var != nullptr);
+      return operator[] (*var);
+    }
+
+    lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool[name]);
+      const variable* var (var_pool.find (name));
+      return var != nullptr ? operator[] (*var) : lookup ();
     }
 
     // As above, but include target type/pattern-specific variables.
@@ -108,21 +116,9 @@ namespace build2
     }
 
     lookup
-    find (const string& var, const target_key& tk) const
-    {
-      return find (var_pool[var], tk);
-    }
-
-    lookup
     find (const variable& var, const target_type& tt, const string& tn) const
     {
       return find (var, &tt, &tn).first;
-    }
-
-    lookup
-    find (const string& var, const target_type& tt, const string& tn) const
-    {
-      return find (var_pool[var], tt, tn);
     }
 
     pair<lookup, size_t>
@@ -149,24 +145,35 @@ namespace build2
                    pair<lookup, size_t> original,
                    bool target = false) const;
 
-    // Return a value suitable for assignment (or append if you only
-    // want to append to the value from this scope). If the variable
-    // does not exist in this scope's map, then a new one with the
-    // NULL value is added and returned. Otherwise the existing value
-    // is returned.
+    // Return a value suitable for assignment (or append if you only want to
+    // append to the value from this scope). If the value does not exist in
+    // this scope's map, then a new one with the NULL value is added and
+    // returned. Otherwise the existing value is returned.
     //
     value&
     assign (const variable& var) {return vars.assign (var);}
 
     value&
-    assign (const string& name) {return vars.assign (name);}
+    assign (const variable* var) // For cached variables.
+    {
+      assert (var != nullptr);
+      return vars.assign (*var);
+    }
 
-    // Unlike the two above, assign a typed non-overridable variable with
-    // normal visibility.
+    value&
+    assign (string name)
+    {
+      return assign (variable_pool::instance.insert (move (name)));
+    }
+
+    // Assign a typed non-overridable variable with normal visibility.
     //
     template <typename T>
     value&
-    assign (string name) {return vars.assign<T> (move (name));}
+    assign (string name)
+    {
+      return vars.assign (variable_pool::instance.insert<T> (move (name)));
+    }
 
     // Return a value suitable for appending. If the variable does not
     // exist in this scope's map, then outer scopes are searched for
@@ -176,9 +183,6 @@ namespace build2
     //
     value&
     append (const variable&);
-
-    value&
-    append (const string& name) {return append (var_pool[name]);}
 
     // Target type/pattern-specific variables.
     //
@@ -278,7 +282,10 @@ namespace build2
     }
   };
 
-  // Note that the scope map is only for paths from the out tree.
+  // Scope map.
+  //
+  // Protected by the model mutex. Note that the scope map is only for paths
+  // from the out tree.
   //
   using scope_map_base = butl::dir_path_map<scope>;
 

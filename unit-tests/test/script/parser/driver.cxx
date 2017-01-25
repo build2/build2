@@ -142,9 +142,10 @@ namespace build2
       {
         tracer trace ("main");
 
-        init (argv[0], 1);  // Fake build system driver, default verbosity.
-        sched.startup (1);  // Serial execution.
-        reset (strings ()); // No command line variables.
+        init (argv[0], 1);      // Fake build system driver, default verbosity.
+        ulock ml (model);
+        sched.startup (1);      // Serial execution.
+        reset (ml, strings ()); // No command line variables.
 
         bool scope (false);
         bool id (false);
@@ -191,7 +192,7 @@ namespace build2
 
           value& v (
             tt.assign (
-              var_pool.insert<target_triplet> (
+              var_pool.rw (ml).insert<target_triplet> (
                 "test.target", variable_visibility::project)));
 
           v = cast<target_triplet> ((*global_scope)["build.host"]);

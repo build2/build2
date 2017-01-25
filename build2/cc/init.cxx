@@ -35,7 +35,7 @@ namespace build2
 
       // Enter variables. Note: some overridable, some not.
       //
-      auto& v (var_pool);
+      auto& v (var_pool.rw (r));
 
       v.insert<strings> ("config.cc.poptions", true);
       v.insert<strings> ("config.cc.coptions", true);
@@ -90,10 +90,12 @@ namespace build2
 
       assert (first);
 
+      auto& vp (var_pool.rw (rs));
+
       // Load cc.core.vars.
       //
       if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
-        load_module ("cc.core.vars", rs, rs, loc);
+        load_module (rs, rs, "cc.core.vars", loc);
 
       // Configure.
       //
@@ -169,14 +171,20 @@ namespace build2
         variable_map h;
         if (first)
         {
-          h.assign ("config.bin.target") =
-            cast<target_triplet> (rs["cc.target"]).string ();
+          // Note that these variables have not yet been registered (we don't
+          // yet have the "bin.vars" module).
+          //
+          const variable& t (vp.insert ("config.bin.target"));
+          h.assign (t) = cast<target_triplet> (rs["cc.target"]).string ();
 
           if (auto l = hints["config.bin.pattern"])
-            h.assign ("config.bin.pattern") = cast<string> (l);
+          {
+            const variable& p (vp.insert ("config.bin.pattern"));
+            h.assign (p) = cast<string> (l);
+          }
         }
 
-        load_module ("bin.config", rs, rs, loc, false, h);
+        load_module (rs, rs, "bin.config", loc, false, h);
       }
 
       // Verify bin's target matches ours (we do it even if we loaded it
@@ -205,20 +213,20 @@ namespace build2
         if (cast<string> (l) != "shared")
         {
           if (!cast_false<bool> (rs["bin.ar.config.loaded"]))
-            load_module ("bin.ar.config", rs, rs, loc);
+            load_module (rs, rs, "bin.ar.config", loc);
         }
       }
 
       if (cid == "msvc")
       {
         if (!cast_false<bool> (rs["bin.ld.config.loaded"]))
-          load_module ("bin.ld.config", rs, rs, loc);
+          load_module (rs, rs, "bin.ld.config", loc);
       }
 
       if (tsys == "mingw32")
       {
         if (!cast_false<bool> (rs["bin.rc.config.loaded"]))
-          load_module ("bin.rc.config", rs, rs, loc);
+          load_module (rs, rs, "bin.rc.config", loc);
       }
 
       // Load (optionally) the pkgconfig.config module.
@@ -233,10 +241,13 @@ namespace build2
         // Prepare configuration hints.
         //
         variable_map h;
-        h.assign ("config.pkgconfig.target") =
-          cast<target_triplet> (rs["cc.target"]);
 
-        load_module ("pkgconfig.config", rs, rs, loc, true, h);
+        // Note that this variable has not yet been registered.
+        //
+        const variable& t (vp.insert ("config.pkgconfig.target"));
+        h.assign (t) = cast<target_triplet> (rs["cc.target"]);
+
+        load_module (rs, rs, "pkgconfig.config", loc, true, h);
       }
 
       return true;
@@ -259,12 +270,12 @@ namespace build2
       // Load cc.core.config.
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
-        load_module ("cc.core.config", rs, rs, loc, false, hints);
+        load_module (rs, rs, "cc.core.config", loc, false, hints);
 
       // Load the bin module.
       //
       if (!cast_false<bool> (rs["bin.loaded"]))
-        load_module ("bin", rs, rs, loc);
+        load_module (rs, rs, "bin", loc);
 
       const string& cid (cast<string> (rs["cc.id"]));
       const string& tsys (cast<string> (rs["cc.target.system"]));
@@ -277,7 +288,7 @@ namespace build2
         if (cast<string> (l) != "shared")
         {
           if (!cast_false<bool> (rs["bin.ar.loaded"]))
-            load_module ("bin.ar", rs, rs, loc);
+            load_module (rs, rs, "bin.ar", loc);
         }
       }
 
@@ -287,7 +298,7 @@ namespace build2
       if (cid == "msvc")
       {
         if (!cast_false<bool> (rs["bin.ld.loaded"]))
-          load_module ("bin.ld", rs, rs, loc);
+          load_module (rs, rs, "bin.ld", loc);
       }
 
       // If our target is MinGW, then we will need the resource compiler
@@ -296,7 +307,7 @@ namespace build2
       if (tsys == "mingw32")
       {
         if (!cast_false<bool> (rs["bin.rc.loaded"]))
-          load_module ("bin.rc", rs, rs, loc);
+          load_module (rs, rs, "bin.rc", loc);
       }
 
       return true;
@@ -308,13 +319,13 @@ namespace build2
     //
     static inline bool
     init_alias (tracer& trace,
+                scope& rs,
+                scope& bs,
                 const char* m,
                 const char* c,
                 const char* c_loaded,
                 const char* cxx,
                 const char* cxx_loaded,
-                scope& rs,
-                scope& bs,
                 const location& loc,
                 const variable_map& hints)
     {
@@ -338,13 +349,13 @@ namespace build2
       //
       if (lc && lp && rs["config.c"])
       {
-        load_module (c, rs, rs, loc, false, hints);
-        load_module (cxx, rs, rs, loc, false, hints);
+        load_module (rs, rs, c, loc, false, hints);
+        load_module (rs, rs, cxx, loc, false, hints);
       }
       else
       {
-        if (lp) load_module (cxx, rs, rs, loc, false, hints);
-        if (lc) load_module (c, rs, rs, loc, false, hints);
+        if (lp) load_module (rs, rs, cxx, loc, false, hints);
+        if (lc) load_module (rs, rs, c, loc, false, hints);
       }
 
       return true;
@@ -360,10 +371,11 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("cc::config_init");
-      return init_alias (trace, "cc.config",
+      return init_alias (trace, rs, bs,
+                         "cc.config",
                          "c.config",   "c.config.loaded",
                          "cxx.config", "cxx.config.loaded",
-                         rs, bs, loc, hints);
+                         loc, hints);
     }
 
     bool
@@ -376,10 +388,11 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("cc::init");
-      return init_alias (trace, "cc",
+      return init_alias (trace, rs, bs,
+                         "cc",
                          "c",   "c.loaded",
                          "cxx", "cxx.loaded",
-                         rs, bs, loc, hints);
+                         loc, hints);
     }
   }
 }

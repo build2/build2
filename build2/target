@@ -331,9 +331,17 @@ namespace build2
     }
 
     lookup
+    operator[] (const variable* var) const // For cached variables.
+    {
+      assert (var != nullptr);
+      return operator[] (*var);
+    }
+
+    lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool[name]);
+      const variable* var (var_pool.find (name));
+      return var != nullptr ? operator[] (*var) : lookup ();
     }
 
     // As above but also return the depth at which the value is found. The
@@ -354,9 +362,6 @@ namespace build2
         : base_scope ().find_override (var, move (p), true);
     }
 
-    pair<lookup, size_t>
-    find (const string& name) const {return find (var_pool[name]);}
-
     // If target_only is true, then only look in target and its target group
     // without continuing in scopes.
     //
@@ -368,26 +373,10 @@ namespace build2
     value&
     assign (const variable& var) {return vars.assign (var);}
 
-    value&
-    assign (const string& name) {return vars.assign (name);}
-
-    // Unlike the two above, assign a typed non-overridable variable with
-    // normal visibility.
-    //
-    template <typename T>
-    value&
-    assign (string name) {return vars.assign<T> (move (name)).first.get ();}
-
     // Return a value suitable for appending. See class scope for details.
     //
     value&
     append (const variable&);
-
-    value&
-    append (const string& name)
-    {
-      return append (var_pool[name]);
-    }
 
     // A target that is not (yet) entered as part of a real dependency
     // declaration (for example, that is entered as part of a target-specific
@@ -810,17 +799,17 @@ namespace build2
 
   template <typename T>
   inline prerequisite_members_range<T>
-  prerequisite_members (action a, T&& x, bool members = true)
+  prerequisite_members (slock& ml, action a, T&& x, bool members = true)
   {
-    return prerequisite_members_range<T> (a, forward<T> (x), members);
+    return prerequisite_members_range<T> (ml, a, forward<T> (x), members);
   }
 
   template <typename T>
   class prerequisite_members_range
   {
   public:
-    prerequisite_members_range (action a, T&& r, bool m)
-        : a_ (a), members_ (m), r_ (forward<T> (r)), e_ (r_.end ()) {}
+    prerequisite_members_range (slock& l, action a, T&& r, bool m)
+        : l_ (l), a_ (a), members_ (m), r_ (forward<T> (r)), e_ (r_.end ()) {}
 
     using base_iterator = decltype (declval<T> ().begin ());
 
@@ -925,6 +914,7 @@ namespace build2
     end () const {return iterator (this, e_);}
 
   private:
+    slock& l_;
     action a_;
     bool members_; // Go into group members by default?
     T r_;
@@ -934,35 +924,38 @@ namespace build2
   // prerequisite_members(t.prerequisites)
   //
   inline auto
-  prerequisite_members (action a, target& t, bool members = true)
+  prerequisite_members (slock& ml, action a, target& t, bool members = true)
   {
-    return prerequisite_members (a, t.prerequisites, members);
+    return prerequisite_members (ml, a, t.prerequisites, members);
   }
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
   //
   inline auto
-  reverse_prerequisite_members (action a, target& t, bool members = true)
+  reverse_prerequisite_members (
+    slock& ml, action a, target& t, bool members = true)
   {
     return prerequisite_members (
-      a, reverse_iterate (t.prerequisites), members);
+      ml, a, reverse_iterate (t.prerequisites), members);
   }
 
   // prerequisite_members(group_prerequisites (t))
   //
   inline auto
-  group_prerequisite_members (action a, target& t, bool members = true)
+  group_prerequisite_members (
+    slock& ml, action a, target& t, bool members = true)
   {
-    return prerequisite_members (a, group_prerequisites (t), members);
+    return prerequisite_members (ml, a, group_prerequisites (t), members);
   }
 
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
   //
   inline auto
-  reverse_group_prerequisite_members (action a, target& t, bool members = true)
+  reverse_group_prerequisite_members (
+    slock& ml, action a, target& t, bool members = true)
   {
     return prerequisite_members (
-      a, reverse_iterate (group_prerequisites (t)), members);
+      ml, a, reverse_iterate (group_prerequisites (t)), members);
   }
 
   // A target with an unspecified extension is considered equal to the one

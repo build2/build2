@@ -72,7 +72,7 @@ namespace build2
   // indicate this.
   //
   void
-  match (action, target&);
+  match (slock&, action, target&);
 
   // Note that calling this function only makes sense if the target itself
   // doesn't have its own dependents.
@@ -84,7 +84,7 @@ namespace build2
   // detection. Note that this function does not touch the dependents count.
   //
   void
-  match_only (action, target&);
+  match_only (slock&, action, target&);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // skipping recursive matches (thus the third argument). Return recipe and
@@ -93,20 +93,20 @@ namespace build2
   // execute_delegate().
   //
   pair<recipe, action>
-  match_delegate (action, target&, const rule&);
+  match_delegate (slock&, action, target&, const rule&);
 
   // The standard prerequisite search and match implementations. They call
   // search_and_match_*() versions below passing non-empty directory for
   // the clean operation.
   //
   void
-  search_and_match_prerequisites (action, target&);
+  search_and_match_prerequisites (slock&, action, target&);
 
   // If we are cleaning, this function doesn't go into group members,
   // as an optimization (the group should clean everything up).
   //
   void
-  search_and_match_prerequisite_members (action, target&);
+  search_and_match_prerequisite_members (slock&, action, target&);
 
   // The actual prerequisite search and match implementations. They call
   // search() and then match() for each prerequisite in a loop. If this
@@ -117,10 +117,11 @@ namespace build2
   // match) prerequisites that are not in the same or its subdirectory.
   //
   void
-  search_and_match_prerequisites (action, target&, const dir_path&);
+  search_and_match_prerequisites (slock&, action, target&, const dir_path&);
 
   void
-  search_and_match_prerequisite_members (action, target&, const dir_path&);
+  search_and_match_prerequisite_members (
+    slock&, action, target&, const dir_path&);
 
   // Unless already available, match, and, if necessary, execute the group
   // in order to obtain its members list. Note that even after that the
@@ -128,7 +129,7 @@ namespace build2
   // fallback rule matched).
   //
   group_view
-  resolve_group_members (action, target&);
+  resolve_group_members (slock&, action, target&);
 
   // Inject dependency on the target's directory fsdir{}, unless it is in the
   // src tree or is outside of any project (say, for example, an installation
@@ -138,7 +139,7 @@ namespace build2
   // rule's apply() function.
   //
   fsdir*
-  inject_fsdir (action, target&, bool parent = true);
+  inject_fsdir (slock&, action, target&, bool parent = true);
 
   // Execute the action on target, assuming a rule has been matched
   // and the recipe for this action has been set. This is the default

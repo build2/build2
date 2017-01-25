@@ -26,7 +26,9 @@ namespace build2
   };
 
   using module_boot_function =
-    void (scope& root, const location&, unique_ptr<module_base>&);
+    void (scope& root,
+          const location&,
+          unique_ptr<module_base>&);
 
   // Return false if the module configuration (normally based on the default
   // values) was unsuccessful but this is not (yet) an error. One example
@@ -82,7 +84,7 @@ namespace build2
   // Load and boot the specified module.
   //
   void
-  boot_module (const string& name, scope& root, const location&);
+  boot_module (scope& root, const string& name, const location&);
 
   // Load (if not already loaded) and initialize the specified module. Used
   // by the parser but also by some modules to load prerequisite modules.
@@ -96,9 +98,9 @@ namespace build2
   // its tools).
   //
   bool
-  load_module (const string& name,
-               scope& root,
+  load_module (scope& root,
                scope& base,
+               const string& name,
                const location&,
                bool optional = false,
                const variable_map& config_hints = variable_map ());

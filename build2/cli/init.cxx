@@ -43,7 +43,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (rs));
 
         // Note: some overridable, some not.
         //
@@ -274,7 +274,7 @@ namespace build2
       //
       if (!cast_false<bool> (bs["cli.config.loaded"]))
       {
-        if (!load_module ("cli.config", rs, bs, l, optional, hints))
+        if (!load_module (rs, bs, "cli.config", l, optional, hints))
           return false;
       }
       else if (!cast_false<bool> (bs["cli.config.configured"]))

@@ -25,10 +25,10 @@ namespace build2
       link (data&&);
 
       virtual match_result
-      match (action, target&, const string& hint) const override;
+      match (slock&, action, target&, const string& hint) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
 
       target_state
       perform_update (action, target&) const;

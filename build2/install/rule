@@ -22,10 +22,10 @@ namespace build2
       alias_rule () {}
 
       virtual match_result
-      match (action, target&, const string&) const override;
+      match (slock&, action, target&, const string&) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
     };
 
     struct install_dir;
@@ -36,17 +36,17 @@ namespace build2
       file_rule () {}
 
       virtual match_result
-      match (action, target&, const string&) const override;
+      match (slock&, action, target&, const string&) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation ignores prerequsites that
       // are outside of this target's project.
       //
       virtual target*
-      filter (action, target&, prerequisite_member) const;
+      filter (slock&, action, target&, prerequisite_member) const;
 
       // Extra installation hooks.
       //

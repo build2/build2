@@ -457,7 +457,8 @@ namespace build2
             type att (tt);
 
             const variable& var (
-              var_pool.insert (parse_variable_name (move (pns), ploc)));
+              var_pool.rw (*scope_).insert (
+                parse_variable_name (move (pns), ploc)));
 
             // Apply variable attributes.
             //
@@ -725,7 +726,8 @@ namespace build2
       if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
         const variable& var (
-          var_pool.insert (parse_variable_name (move (ns), nloc)));
+          var_pool.rw (*scope_).insert (
+            parse_variable_name (move (ns), nloc)));
 
         // Apply variable attributes.
         //
@@ -1049,9 +1051,10 @@ namespace build2
       // Is this the 'foo=...' case?
       //
       size_t p (t.value.find ('='));
+      auto& vp (var_pool.rw (*scope_));
 
       if (p != string::npos)
-        var = &var_pool.insert (split (p));
+        var = &vp.insert (split (p));
       //
       // This could still be the 'foo =...' case.
       //
@@ -1066,7 +1069,7 @@ namespace build2
             (v[p = 0] == '=' ||
              (n > 1 && v[0] == '+' && v[p = 1] == '=')))
         {
-          var = &var_pool[t.value];
+          var = &vp.insert (move (t.value));
           next (t, tt); // Get the peeked token.
           split (p);    // Returned name should be empty.
         }
@@ -1235,9 +1238,9 @@ namespace build2
         assert (v.empty ()); // Module versioning not yet implemented.
 
         if (boot_)
-          boot_module (n, *root_, l);
+          boot_module (*root_, n, l);
         else
-          load_module (n, *root_, *scope_, l, optional);
+          load_module (*root_, *scope_, n, l, optional);
       }
     }
 
@@ -1503,8 +1506,12 @@ namespace build2
 
     value& lhs (
       kind == type::assign
-      ? target_ != nullptr ? target_->assign (var) : scope_->assign (var)
-      : target_ != nullptr ? target_->append (var) : scope_->append (var));
+      ? (target_ != nullptr
+         ? target_->assign (var)
+         :  scope_->assign (var))
+      : (target_ != nullptr
+         ? target_->append (var)
+         :  scope_->append (var)));
 
     apply_value_attributes (&var, lhs, move (rhs), kind);
   }
@@ -3491,7 +3498,7 @@ namespace build2
 
     // Lookup.
     //
-    const auto& var (var_pool.insert (move (name)));
+    const auto& var (var_pool.rw (*scope_).insert (move (name)));
     return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
 
     // Undefined/NULL namespace variables are not allowed.

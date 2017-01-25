@@ -198,20 +198,25 @@ namespace build2
     // Meta-operation-specific logic to load the buildfile, search and match
     // the targets, and execute the action on the targets.
     //
-    void (*load) (const path& buildfile,
+    // Note that the model lock is passed locked and is expected to also be
+    // locked on return (but it can be released and re-acquired inside).
+    //
+    void (*load) (ulock&,
                   scope& root,
+                  const path& buildfile,
                   const dir_path& out_base,
                   const dir_path& src_base,
                   const location&);
 
-    void (*search) (scope& root,
+    void (*search) (ulock&,
+                    scope& root,
                     const target_key&,
                     const location&,
                     action_targets&);
 
-    void (*match) (action, action_targets&);
+    void (*match) (ulock&, action, action_targets&);
 
-    void (*execute) (action, const action_targets&, bool quiet);
+    void (*execute) (ulock&, action, const action_targets&, bool quiet);
 
     void (*operation_post) (operation_id); // End of operation batch.
     void (*meta_operation_post) (); // End of meta-operation batch.
@@ -229,8 +234,9 @@ namespace build2
   // scope.
   //
   void
-  load (const path& buildfile,
+  load (ulock&,
         scope& root,
+        const path& buildfile,
         const dir_path& out_base,
         const dir_path& src_base,
         const location&);
@@ -239,17 +245,17 @@ namespace build2
   // that does just that and adds a pointer to the target to the list.
   //
   void
-  search (scope&, const target_key&, const location&, action_targets&);
+  search (ulock&, scope&, const target_key&, const location&, action_targets&);
 
   void
-  match (action, action_targets&);
+  match (ulock&, action, action_targets&);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
   // diagnostics (unless quiet).
   //
   void
-  execute (action, const action_targets&, bool quiet);
+  execute (ulock&, action, const action_targets&, bool quiet);
 
   extern const meta_operation_info noop;
   extern const meta_operation_info perform;

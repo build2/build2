@@ -22,10 +22,10 @@ namespace build2
       rule () {}
 
       virtual match_result
-      match (action, target&, const string&) const override;
+      match (slock&, action, target&, const string&) const override;
 
       virtual recipe
-      apply (action, target&) const override;
+      apply (slock&, action, target&) const override;
     };
   }
 }

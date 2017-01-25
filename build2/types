@@ -9,7 +9,6 @@
 #include <tuple>
 #include <vector>
 #include <string>
-#include <future>
 #include <memory>           // unique_ptr, shared_ptr
 #include <utility>          // pair, move()
 #include <cstddef>          // size_t, nullptr_t
@@ -18,6 +17,11 @@
 #include <ostream>
 #include <functional>       // function, reference_wrapper
 #include <initializer_list>
+
+#include <mutex>
+#include <future>
+#include <butl/ft/shared_mutex>
+#include <shared_mutex>
 
 #include <ios>           // ios_base::failure
 #include <exception>     // exception
@@ -69,10 +73,56 @@ namespace build2
   using std::istream;
   using std::ostream;
 
+  // Concurrency.
+  //
   using std::future;
 
-  // Exceptions. While <exception> is included, there is no using for
-  // std::exception -- use qualified.
+#ifdef __cpp_lib_shared_mutex
+  using shared_mutex = std::shared_mutex;
+#else
+  using shared_mutex = std::shared_timed_mutex;
+#endif
+
+  using slock = std::shared_lock<shared_mutex>;
+  using ulock = std::unique_lock<shared_mutex>;
+
+  // Re-lock shared to exclusive for the lifetime or rlock.
+  //
+  struct rlock
+  {
+    explicit
+    rlock (slock* sl)
+        : sl_ (sl)
+    {
+      if (sl_ != nullptr)
+      {
+        sl_->unlock ();
+        ul_ = ulock (*sl_->mutex ());
+      }
+    }
+
+    ~rlock ()
+    {
+      if (sl_ != nullptr)
+      {
+        ul_.unlock ();
+        sl_->lock ();
+      }
+    }
+
+    // Can be treated as const ulock.
+    //
+    operator const ulock& () const {return ul_;}
+
+  private:
+    slock* sl_;
+    ulock ul_;
+  };
+
+  // Exceptions.
+  //
+  // While <exception> is included, there is no using for std::exception --
+  // use qualified.
   //
   using std::logic_error;
   using std::invalid_argument;

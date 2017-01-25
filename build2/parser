@@ -521,7 +521,6 @@ namespace build2
 
   protected:
     bool pre_parse_ = false;
-
     bool boot_;
 
     const path* path_; // Current path.

@@ -44,7 +44,7 @@ namespace build2
                    "insufficient space");
 
     match_result compile::
-    match (action a, target& t, const string&) const
+    match (slock& ml, action a, target& t, const string&) const
     {
       tracer trace (x, "compile::match");
 
@@ -58,7 +58,8 @@ namespace build2
       // file specified for an obj*{} member overrides the one specified for
       // the group. Also "see through" groups.
       //
-      for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
+      for (prerequisite_member p:
+             reverse_group_prerequisite_members (ml, a, t))
       {
         if (p.is_a (x_src))
         {
@@ -75,7 +76,7 @@ namespace build2
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_options (cstrings& args, target& t, scope& bs, lorder lo) const
+    append_lib_options (scope& bs, cstrings& args, target& t, lorder lo) const
     {
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -116,7 +117,7 @@ namespace build2
     }
 
     void compile::
-    hash_lib_options (sha256& cs, target& t, scope& bs, lorder lo) const
+    hash_lib_options (scope& bs, sha256& cs, target& t, lorder lo) const
     {
       auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -155,7 +156,7 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_prefixes (prefix_map& m, target& t, scope& bs, lorder lo) const
+    append_lib_prefixes (scope& bs, prefix_map& m, target& t, lorder lo) const
     {
       auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -191,7 +192,7 @@ namespace build2
     }
 
     recipe compile::
-    apply (action a, target& xt) const
+    apply (slock& ml, action a, target& xt) const
     {
       tracer trace (x, "compile::apply");
 
@@ -250,7 +251,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      fsdir* dir (inject_fsdir (a, t));
+      fsdir* dir (inject_fsdir (ml, a, t));
 
       // Search and match all the existing prerequisites. The injection code
       // takes care of the ones it is adding.
@@ -260,7 +261,7 @@ namespace build2
       //
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
         // A dependency on a library is there so that we can get its
         // *.export.poptions. In particular, making sure it is executed before
@@ -281,7 +282,7 @@ namespace build2
                 search_library (
                   sys_lib_dirs, usr_lib_dirs, p.prerequisite) == nullptr)
             {
-              match_only (a, p.search ());
+              match_only (ml, a, p.search ());
             }
           }
 
@@ -293,7 +294,7 @@ namespace build2
         if (a.operation () == clean_id && !pt.dir.sub (rs.out_path ()))
           continue;
 
-        build2::match (a, pt);
+        build2::match (ml, a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
 
@@ -351,7 +352,7 @@ namespace build2
 
         // Hash *.export.poptions from prerequisite libraries.
         //
-        hash_lib_options (cs, t, bs, lo);
+        hash_lib_options (bs, cs, t, lo);
 
         // Extra system header dirs (last).
         //
@@ -385,7 +386,7 @@ namespace build2
         if (dd.writing () || dd.mtime () > t.mtime ())
           t.mtime (timestamp_nonexistent);
 
-        inject (a, t, lo, src, dd);
+        inject (ml, a, t, lo, src, dd);
 
         dd.close ();
       }
@@ -525,7 +526,7 @@ namespace build2
     }
 
     auto compile::
-    build_prefix_map (target& t, scope& bs, lorder lo) const -> prefix_map
+    build_prefix_map (scope& bs, target& t, lorder lo) const -> prefix_map
     {
       prefix_map m;
 
@@ -536,7 +537,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (m, t, bs, lo);
+      append_lib_prefixes (bs, m, t, lo);
 
       return m;
     }
@@ -715,7 +716,12 @@ namespace build2
     }
 
     void compile::
-    inject (action a, target& t, lorder lo, file& src, depdb& dd) const
+    inject (slock& ml,
+            action a,
+            target& t,
+            lorder lo,
+            file& src,
+            depdb& dd) const
     {
       tracer trace (x, "compile::inject");
 
@@ -739,14 +745,14 @@ namespace build2
       const process_path* xc (nullptr);
       cstrings args;
 
-      auto init_args = [&t, lo, &src, &rs, &bs, &xc, &args, this] ()
+      auto init_args = [&ml, &t, lo, &src, &rs, &bs, &xc, &args, this] ()
       {
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (args, t, bs, lo);
+        append_lib_options (bs, args, t, lo);
 
         append_options (args, t, c_poptions);
         append_options (args, t, x_poptions);
@@ -895,7 +901,7 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, a, &t, lo, &dd, &bs, this]
+      auto add = [&trace, &ml, &update, &pm, a, &t, lo, &dd, &bs, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
@@ -991,7 +997,7 @@ namespace build2
           // then we would have failed below.
           //
           if (pm.empty ())
-            pm = build_prefix_map (t, bs, lo);
+            pm = build_prefix_map (bs, t, lo);
 
           // First try the whole file. Then just the directory.
           //
@@ -1068,7 +1074,7 @@ namespace build2
 
         // Match to a rule.
         //
-        build2::match (a, *pt);
+        build2::match (ml, a, *pt);
 
         // Update.
         //
@@ -1417,7 +1423,7 @@ namespace build2
 
       // Add *.export.poptions from prerequisite libraries.
       //
-      append_lib_options (args, t, bs, lo);
+      append_lib_options (bs, args, t, lo);
 
       // Extra system header dirs (last).
       //

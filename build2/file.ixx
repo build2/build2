@@ -5,8 +5,8 @@
 namespace build2
 {
   inline bool
-  source_once (const path& bf, scope& root, scope& base)
+  source_once (scope& root, scope& base, const path& bf)
   {
-    return source_once (bf, root, base, base);
+    return source_once (root, base, bf, base);
   }
 }

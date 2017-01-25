@@ -51,14 +51,16 @@ namespace build2
   }
 
   pair<const rule*, match_result>
-  match_impl (action, target&, bool apply, const rule* skip = nullptr);
+  match_impl (slock&, action, target&, bool apply, const rule* skip = nullptr);
 
   inline void
-  match (action a, target& t)
+  match (slock& ml, action a, target& t)
   {
     if (!t.recipe (a))
-      match_impl (a, t, true);
+      match_impl (ml, a, t, true);
 
+    //@@ MT
+    //
     t.dependents++;
     dependency_count++;
 
@@ -70,74 +72,79 @@ namespace build2
   {
     // text << "U " << t << ": " << t.dependents << " " << dependency_count;
 
+    //@@ MT
+    //
     assert (t.dependents != 0 && dependency_count != 0);
     t.dependents--;
     dependency_count--;
   }
 
   inline void
-  match_only (action a, target& t)
+  match_only (slock& ml, action a, target& t)
   {
     if (!t.recipe (a))
-      match_impl (a, t, false);
+      match_impl (ml, a, t, false);
   }
 
   inline pair<recipe, action>
-  match_delegate (action a, target& t, const rule& r)
+  match_delegate (slock& ml, action a, target& t, const rule& r)
   {
-    auto rp (match_impl (a, t, false, &r));
+    auto rp (match_impl (ml, a, t, false, &r));
     const match_result& mr (rp.second);
-    return make_pair (rp.first->apply (mr.recipe_action, t), mr.recipe_action);
+    return make_pair (rp.first->apply (ml, mr.recipe_action, t),
+                      mr.recipe_action);
   }
 
   group_view
-  resolve_group_members_impl (action, target&);
+  resolve_group_members_impl (slock& ml, action, target&);
 
   inline group_view
-  resolve_group_members (action a, target& g)
+  resolve_group_members (slock& ml, action a, target& g)
   {
     group_view r (g.group_members (a));
-    return r.members != nullptr ? r : resolve_group_members_impl (a, g);
+    return r.members != nullptr ? r : resolve_group_members_impl (ml, a, g);
   }
 
   void
-  search_and_match_prerequisites (action, target&, scope*);
+  search_and_match_prerequisites (slock&, action, target&, scope*);
 
   void
-  search_and_match_prerequisite_members (action, target&, scope*);
+  search_and_match_prerequisite_members (slock&, action, target&, scope*);
 
   inline void
-  search_and_match_prerequisites (action a, target& t)
+  search_and_match_prerequisites (slock& ml, action a, target& t)
   {
     search_and_match_prerequisites (
+      ml,
       a,
       t,
       (a.operation () != clean_id ? nullptr : &t.root_scope ()));
   }
 
   inline void
-  search_and_match_prerequisite_members (action a, target& t)
+  search_and_match_prerequisite_members (slock& ml, action a, target& t)
   {
     if (a.operation () != clean_id)
-      search_and_match_prerequisite_members (a, t, nullptr);
+      search_and_match_prerequisite_members (ml, a, t, nullptr);
     else
       // Note that here we don't iterate over members even for see-
       // through groups since the group target should clean eveything
       // up. A bit of an optimization.
       //
-      search_and_match_prerequisites (a, t, &t.root_scope ());
+      search_and_match_prerequisites (ml, a, t, &t.root_scope ());
   }
 
   inline void
-  search_and_match_prerequisites (action a, target& t, scope& s)
+  search_and_match_prerequisites (slock& ml, action a, target& t, scope& s)
   {
-    search_and_match_prerequisites (a, t, &s);
+    search_and_match_prerequisites (ml, a, t, &s);
   }
 
   inline void
-  search_and_match_prerequisite_members (action a, target& t, scope& s)
+  search_and_match_prerequisite_members (
+    slock& ml, action a, target& t, scope& s)
   {
-    search_and_match_prerequisite_members (a, t, &s);
+    search_and_match_prerequisite_members (ml, a, t, &s);
   }
 
   target_state

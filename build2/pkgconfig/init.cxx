@@ -39,7 +39,7 @@ namespace build2
       //
       // config.pkgconfig.target is a hint.
       //
-      auto& vp (var_pool);
+      auto& vp (var_pool.rw (rs));
 
       const variable& c_x (vp.insert<path> ("config.pkgconfig", true));
       const variable& x_path (vp.insert<process_path> ("pkgconfig.path"));
@@ -142,7 +142,7 @@ namespace build2
       //
       if (!cast_false<bool> (rs["pkgconfig.config.loaded"]))
       {
-        if (!load_module ("pkgconfig.config", rs, rs, loc, optional, hints))
+        if (!load_module (rs, rs, "pkgconfig.config", loc, optional, hints))
           return false;
       }
       else if (!cast_false<bool> (rs["pkgconfig.config.configured"]))

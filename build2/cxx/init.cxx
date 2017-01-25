@@ -175,11 +175,11 @@ namespace build2
       // Load cc.core.vars so that we can cache all the cc.* variables.
       //
       if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
-        load_module ("cc.core.vars", rs, rs, loc);
+        load_module (rs, rs, "cc.core.vars", loc);
 
       // Enter all the variables and initialize the module data.
       //
-      auto& v (var_pool);
+      auto& v (var_pool.rw (rs));
 
       cc::config_data d {
         cc::lang::cxx,
@@ -294,7 +294,7 @@ namespace build2
       // Load cxx.config.
       //
       if (!cast_false<bool> (rs["cxx.config.loaded"]))
-        load_module ("cxx.config", rs, rs, loc, false, hints);
+        load_module (rs, rs, "cxx.config", loc, false, hints);
 
       config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
 

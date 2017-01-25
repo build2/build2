@@ -49,7 +49,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (r));
 
         // Note: some overridable, some not.
         //
@@ -325,7 +325,7 @@ namespace build2
       // Load bin.config.
       //
       if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module ("bin.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.config", loc, false, hints);
 
       // Cache some config values we will be needing below.
       //
@@ -427,13 +427,13 @@ namespace build2
       // Make sure bin.config is loaded.
       //
       if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module ("bin.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (r));
 
         v.insert<process_path> ("bin.rc.path");
         v.insert<process_path> ("bin.ranlib.path");
@@ -528,7 +528,7 @@ namespace build2
         if (ranlib != nullptr)
         {
           r.assign<process_path> ("bin.ranlib.path") = move (ari.ranlib_path);
-          r.assign<string>       ("bin.ranlib.id") = move (ari.ranlib_id);
+          r.assign<string>       ("bin.ranlib.id")   = move (ari.ranlib_id);
           r.assign<string>       ("bin.ranlib.signature") =
             move (ari.ranlib_signature);
           r.assign<string>       ("bin.ranlib.checksum") =
@@ -554,10 +554,10 @@ namespace build2
       // Make sure the bin core and ar.config are loaded.
       //
       if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, hints);
+        load_module (r, b, "bin", loc, false, hints);
 
       if (!cast_false<bool> (b["bin.ar.config.loaded"]))
-        load_module ("bin.ar.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.ar.config", loc, false, hints);
 
       return true;
     }
@@ -577,13 +577,13 @@ namespace build2
       // Make sure bin.config is loaded.
       //
       if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module ("bin.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (r));
 
         v.insert<process_path> ("bin.ld.path");
         v.insert<path>         ("config.bin.ld", true);
@@ -652,10 +652,10 @@ namespace build2
       // Make sure the bin core and ld.config are loaded.
       //
       if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, hints);
+        load_module (r, b, "bin", loc, false, hints);
 
       if (!cast_false<bool> (b["bin.ld.config.loaded"]))
-        load_module ("bin.ld.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.ld.config", loc, false, hints);
 
       const string& lid (cast<string> (r["bin.ld.id"]));
 
@@ -666,8 +666,8 @@ namespace build2
       if (lid == "msvc")
       {
         const target_type& pdb (b.derive_target_type<file> ("pdb").first);
-        install_path (pdb, b, dir_path ("bin")); // Goes to install.bin
-        install_mode (pdb, b, "644");            // But not executable.
+        install_path (b, pdb, dir_path ("bin")); // Goes to install.bin
+        install_mode (b, pdb, "644");            // But not executable.
       }
 
       return true;
@@ -688,13 +688,13 @@ namespace build2
       // Make sure bin.config is loaded.
       //
       if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module ("bin.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool);
+        auto& v (var_pool.rw (r));
 
         v.insert<process_path> ("bin.rc.path");
         v.insert<path>         ("config.bin.rc", true);
@@ -763,10 +763,10 @@ namespace build2
       // Make sure the bin core and rc.config are loaded.
       //
       if (!cast_false<bool> (b["bin.loaded"]))
-        load_module ("bin", r, b, loc, false, hints);
+        load_module (r, b, "bin", loc, false, hints);
 
       if (!cast_false<bool> (b["bin.rc.config.loaded"]))
-        load_module ("bin.rc.config", r, b, loc, false, hints);
+        load_module (r, b, "bin.rc.config", loc, false, hints);
 
       return true;
     }

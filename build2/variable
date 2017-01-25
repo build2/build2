@@ -755,36 +755,32 @@ namespace build2
     static const value_type_ex value_type;
   };
 
-  // variable_pool
+  // Variable pool.
+  //
+  // Protected by the model mutex.
   //
   class variable_pool
   {
   public:
-    // Find existing or insert new. Find bias.
+    // Find existing or insert new.
     //
     const variable&
-    operator[] (const string& name);
-
-    // Find existing or insert new. Insert bias.
-    //
-    const variable&
-    insert (string name);
+    operator[] (const string& name) const;
 
     // Return NULL if there is no variable with this name.
     //
     const variable*
-    find (const string& name);
+    find (const string& name) const;
 
-    // Insert or override.
+    // Find existing or insert new (untyped, non-overridable, normal
+    // visibility).
     //
-    template <typename T>
     const variable&
-    insert (string name)
-    {
-      return insert (
-        move (name), &value_traits<T>::value_type, nullptr, nullptr);
-    }
+    insert (string name);
 
+    // Insert or override (type/visibility). Note that by default the
+    // variable is not overridable.
+    //
     const variable&
     insert (string name, variable_visibility v)
     {
@@ -805,9 +801,16 @@ namespace build2
 
     template <typename T>
     const variable&
+    insert (string name)
+    {
+      return insert (move (name), &value_traits<T>::value_type);
+    }
+
+    template <typename T>
+    const variable&
     insert (string name, variable_visibility v)
     {
-      return insert (move (name), &value_traits<T>::value_type, &v, nullptr);
+      return insert (move (name), &value_traits<T>::value_type, &v);
     }
 
     template <typename T>
@@ -829,12 +832,29 @@ namespace build2
     void
     clear () {map_.clear ();}
 
+    // Proof of lock for RW access.
+    //
+    variable_pool&
+    rw (const ulock&) const {return const_cast<variable_pool&> (*this);}
+
+    variable_pool&
+    rw (scope&) const {return const_cast<variable_pool&> (*this);}
+
   private:
+    // Classes that can access bypassing the lock.
+    //
+    friend class scope;
+
+    static variable_pool instance;
+
     const variable&
     insert (string name,
             const build2::value_type*,
-            const variable_visibility*,
-            const bool* overridable);
+            const variable_visibility* = nullptr,
+            const bool* overridable = nullptr);
+
+  public:
+    static const variable_pool& cinstance; // For var_pool initialization.
 
   private:
     using key = butl::map_key<string>;
@@ -860,7 +880,7 @@ namespace build2
     map map_;
   };
 
-  extern variable_pool var_pool;
+  extern const variable_pool& var_pool;
 }
 
 // variable_map
@@ -929,9 +949,17 @@ namespace build2
     }
 
     lookup
+    operator[] (const variable* var) const // For cached variables.
+    {
+      assert (var != nullptr);
+      return operator[] (*var);
+    }
+
+    lookup
     operator[] (const string& name) const
     {
-      return operator[] (var_pool[name]);
+      const variable* var (var_pool.find (name));
+      return var != nullptr ? operator[] (*var) : lookup ();
     }
 
     // If typed is false, leave the value untyped even if the variable is.
@@ -947,18 +975,10 @@ namespace build2
     value&
     assign (const variable& var) {return insert (var).first;}
 
-    value&
-    assign (const string& name) {return insert (name).first;}
-
-    // Unlike the two above, assign a typed, non-overridable variable with
-    // normal visibility.
+    // Note that the variable is expected to have already been registered.
     //
-    template <typename T>
     value&
-    assign (string name)
-    {
-      return assign (var_pool.insert<T> (move (name)));
-    }
+    assign (const string& name) {return insert (var_pool[name]).first;}
 
     // As above but also return an indication of whether the new value (which
     // will be NULL) was actually inserted. Similar to find(), if typed is
@@ -967,16 +987,10 @@ namespace build2
     pair<reference_wrapper<value>, bool>
     insert (const variable&, bool typed = true);
 
-    pair<reference_wrapper<value>, bool>
-    insert (const string& name, bool typed = true)
-    {
-      return insert (var_pool[name], typed);
-    }
-
     pair<const_iterator, const_iterator>
-    find_namespace (const string& ns) const
+    find_namespace (const variable& ns) const
     {
-      auto r (m_.find_prefix (var_pool[ns]));
+      auto r (m_.find_prefix (ns));
       return make_pair (const_iterator (r.first), const_iterator (r.second));
     }
 

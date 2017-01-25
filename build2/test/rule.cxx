@@ -35,7 +35,7 @@ namespace build2
                    "insufficient space");
 
     match_result rule_common::
-    match (action a, target& t, const string&) const
+    match (slock& ml, action a, target& t, const string&) const
     {
       // The (admittedly twisted) logic of this rule tries to achieve the
       // following: If the target is testable, then we want both first update
@@ -63,7 +63,7 @@ namespace build2
         // If we have any prerequisites of the test{} type, then this is the
         // testscript case.
         //
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
         {
           if (p.is_a<testscript> ())
           {
@@ -91,7 +91,7 @@ namespace build2
 
           // Use lookup depths to figure out who "overrides" whom.
           //
-          auto p (t.find ("test"));
+          auto p (t.find (var_pool["test"]));
           const name* n (cast_null<name> (p.first));
 
           // Note that test can be set to an "override" target.
@@ -102,7 +102,7 @@ namespace build2
           {
             auto test = [&t, &p] (const char* var)
             {
-              return t.find (var).second < p.second;
+              return t.find (var_pool[var]).second < p.second;
             };
 
             md.test =
@@ -155,7 +155,7 @@ namespace build2
     }
 
     recipe alias_rule::
-    apply (action a, target& t) const
+    apply (slock& ml, action a, target& t) const
     {
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule also uses aux storage.
@@ -171,7 +171,7 @@ namespace build2
       // standard alias rule.
       //
       if (a.operation () == update_id)
-        return match_delegate (a, t, *this).first;
+        return match_delegate (ml, a, t, *this).first;
 
       // For the test operation we have to implement our own search and match
       // because we need to ignore prerequisites that are outside of our
@@ -181,7 +181,7 @@ namespace build2
       // not ours seems right. Note that we still want to make sure they are
       // up to date (via the above delegate) since our tests might use them.
       //
-      search_and_match_prerequisites (a, t, t.root_scope ());
+      search_and_match_prerequisites (ml, a, t, t.root_scope ());
 
       // If not a test then also redirect to the alias rule.
       //
@@ -191,7 +191,7 @@ namespace build2
     }
 
     recipe rule::
-    apply (action a, target& t) const
+    apply (slock& ml, action a, target& t) const
     {
       tracer trace ("test::rule::apply");
 
@@ -208,11 +208,11 @@ namespace build2
       if (md.script)
       {
         if (a.operation () == update_id)
-          return match_delegate (a, t, *this).first;
+          return match_delegate (ml, a, t, *this).first;
 
         // Collect all the testscript targets in prerequisite_targets.
         //
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
         {
           if (p.is_a<testscript> ())
             t.prerequisite_targets.push_back (&p.search ());
@@ -229,10 +229,10 @@ namespace build2
         // We should have either arguments or input/roundtrip. Again, use
         // lookup depth to figure out who takes precedence.
         //
-        auto ip (t.find ("test.input"));
-        auto op (t.find ("test.output"));
-        auto rp (t.find ("test.roundtrip"));
-        auto ap (t.find ("test.arguments"));
+        auto ip (t.find (var_pool["test.input"]));
+        auto op (t.find (var_pool["test.output"]));
+        auto rp (t.find (var_pool["test.roundtrip"]));
+        auto ap (t.find (var_pool["test.arguments"]));
 
         auto test = [&t] (pair<lookup, size_t>& x, const char* xn,
                           pair<lookup, size_t>& y, const char* yn)
@@ -286,7 +286,7 @@ namespace build2
           //
           if (it != nullptr)
           {
-            build2::match (a, *it);
+            build2::match (ml, a, *it);
 
             if (it->state () == target_state::unchanged)
             {
@@ -299,7 +299,7 @@ namespace build2
           {
             if (in != on)
             {
-              build2::match (a, *ot);
+              build2::match (ml, a, *ot);
 
               if (ot->state () == target_state::unchanged)
               {
@@ -315,7 +315,7 @@ namespace build2
           // been found if we signalled that we do not match from match()
           // above.
           //
-          recipe d (match_delegate (a, t, *this).first);
+          recipe d (match_delegate (ml, a, t, *this).first);
 
           // If we have no input/output that needs updating, then simply
           // redirect to it.

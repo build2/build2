@@ -18,7 +18,7 @@ namespace build2
     //
     do
     {
-      g_ = resolve_group_members (r_->a_, search (*i_));
+      g_ = resolve_group_members (r_->l_, r_->a_, search (*i_));
       assert (g_.members != nullptr); // Group could not be resolved.
 
       if (g_.count != 0) // Skip empty see through groups.
@@ -45,7 +45,7 @@ namespace build2
   {
     // Include target type/pattern-specific variables.
     //
-    if (auto l = s.find (var, tk))
+    if (auto l = s.find (var_pool[var], tk))
     {
       // Help the user here and strip leading '.' from the extension.
       //

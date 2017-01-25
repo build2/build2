@@ -39,13 +39,13 @@ namespace build2
     // alias_rule
     //
     match_result alias_rule::
-    match (action, target&, const string&) const
+    match (slock&, action, target&, const string&) const
     {
       return true;
     }
 
     recipe alias_rule::
-    apply (action a, target& t) const
+    apply (slock& ml, action a, target& t) const
     {
       tracer trace ("install::alias_rule::apply");
 
@@ -73,7 +73,7 @@ namespace build2
           continue;
         }
 
-        build2::match (a, pt);
+        build2::match (ml, a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
 
@@ -91,7 +91,7 @@ namespace build2
                    "insufficient space");
 
     match_result file_rule::
-    match (action a, target& t, const string&) const
+    match (slock&, action a, target& t, const string&) const
     {
       // First determine if this target should be installed (called
       // "installable" for short).
@@ -119,14 +119,14 @@ namespace build2
     }
 
     target* file_rule::
-    filter (action, target& t, prerequisite_member p) const
+    filter (slock&, action, target& t, prerequisite_member p) const
     {
       target& pt (p.search ());
       return pt.in (t.root_scope ()) ? &pt : nullptr;
     }
 
     recipe file_rule::
-    apply (action a, target& t) const
+    apply (slock& ml, action a, target& t) const
     {
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule also uses aux storage.
@@ -149,7 +149,7 @@ namespace build2
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
-      auto r (group_prerequisite_members (a, t));
+      auto r (group_prerequisite_members (ml, a, t));
       for (auto i (r.begin ()); i != r.end (); ++i)
       {
         prerequisite_member p (*i);
@@ -162,7 +162,7 @@ namespace build2
 
         // Let a customized rule have its say.
         //
-        target* pt (filter (a, t, p));
+        target* pt (filter (ml, a, t, p));
         if (pt == nullptr)
           continue;
 
@@ -172,7 +172,7 @@ namespace build2
         if (l && cast<path> (l).string () == "false")
           continue;
 
-        build2::match (a, *pt);
+        build2::match (ml, a, *pt);
 
         // If the matched rule returned noop_recipe, then the target
         // state will be set to unchanged as an optimization. Use this
@@ -209,7 +209,7 @@ namespace build2
         // have been found if we signalled that we do not match from
         // match() above.
         //
-        recipe d (match_delegate (a, t, *this).first);
+        recipe d (match_delegate (ml, a, t, *this).first);
 
         // If we have no installable prerequisites, then simply redirect
         // to it.

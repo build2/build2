@@ -4,7 +4,7 @@
 
 #include <build2/cc/common>
 
-#include <build2/file>   // import()
+#include <build2/file>        // import()
 #include <build2/scope>
 #include <build2/context>
 #include <build2/variable>
@@ -287,7 +287,7 @@ namespace build2
             if (sysd == nullptr) find_sysd ();
             if (!lo) find_lo ();
 
-            file& t (resolve_library (n, bs, *lo, *sysd, usrd));
+            file& t (resolve_library (bs, n, *lo, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -386,8 +386,8 @@ namespace build2
     // that's the only way to guarantee it will be up-to-date.
     //
     file& common::
-    resolve_library (name n,
-                     scope& s,
+    resolve_library (scope& s,
+                     name n,
                      lorder lo,
                      const dir_paths& sysd,
                      optional<dir_paths>& usrd) const
@@ -768,7 +768,7 @@ namespace build2
       const char* bl (lt.a != nullptr
                       ? (lt.s != nullptr ? "both" : "static")
                       : "shared");
-      lt.assign ("bin.lib") = bl;
+      lt.assign (var_pool["bin.lib"]) = bl;
 
       target* r (l ? &lt : (p.is_a<liba> () ? static_cast<target*> (a) : s));
 

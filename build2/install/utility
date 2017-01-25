@@ -17,9 +17,12 @@ namespace build2
     // Set install path, mode for a target type.
     //
     inline void
-    install_path (const target_type& tt, scope& s, dir_path d)
+    install_path (scope& s, const target_type& tt, dir_path d)
     {
-      auto r (s.target_vars[tt]["*"].insert ("install"));
+      auto r (
+        s.target_vars[tt]["*"].insert (
+          var_pool.rw (s).insert ("install")));
+
       if (r.second) // Already set by the user?
         r.first.get () = path_cast<path> (move (d));
     }
@@ -28,13 +31,16 @@ namespace build2
     inline void
     install_path (scope& s, dir_path d)
     {
-      return install_path (T::static_type, s, move (d));
+      return install_path (s, T::static_type, move (d));
     }
 
     inline void
-    install_mode (const target_type& tt, scope& s, string m)
+    install_mode (scope& s, const target_type& tt, string m)
     {
-      auto r (s.target_vars[tt]["*"].insert ("install.mode"));
+      auto r (
+        s.target_vars[tt]["*"].insert (
+          var_pool.rw (s).insert ("install.mode")));
+
       if (r.second) // Already set by the user?
         r.first.get () = move (m);
     }
@@ -43,7 +49,7 @@ namespace build2
     inline void
     install_mode (scope& s, string m)
     {
-      return install_mode (T::static_type, s, move (m));
+      return install_mode (s, T::static_type, move (m));
     }
   }
 }

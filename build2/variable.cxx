@@ -906,6 +906,23 @@ namespace build2
   // variable_pool
   //
   const variable& variable_pool::
+  insert (string n)
+  {
+    // We are not overriding anything so skip the insert_() checks.
+    //
+    auto p (
+      insert (
+        variable {move (n), nullptr, nullptr, variable_visibility::normal}));
+
+    const variable& r (p.first->second);
+
+    if (r.override != nullptr)
+      fail << "variable " << r.name << " cannot be overridden";
+
+    return r;
+  }
+
+  const variable& variable_pool::
   insert (string n,
           const build2::value_type* t,
           const variable_visibility* v,
@@ -943,16 +960,18 @@ namespace build2
       }
 
       // Check overridability (all overrides, if any, should already have
-      // been enetered (see context.cxx:reset()).
+      // been entered (see context.cxx:reset()).
       //
-      if (o != nullptr && r.override != nullptr && !*o)
+      if (r.override != nullptr && (o == nullptr || !*o))
         fail << "variable " << r.name << " cannot be overridden";
     }
 
     return r;
   }
 
-  variable_pool var_pool;
+  variable_pool variable_pool::instance;
+  const variable_pool& variable_pool::cinstance = variable_pool::instance;
+  const variable_pool& var_pool = variable_pool::cinstance;
 
   // variable_map
   //

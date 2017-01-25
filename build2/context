@@ -14,7 +14,32 @@
 
 namespace build2
 {
-  class file;
+  // Top-level internal state mutex.
+  //
+  extern shared_mutex model;
+
+  // Thread's shared model lock. NULL in the serial stages.
+  //
+  extern
+#ifdef __cpp_thread_local
+  thread_local
+#else
+  __thread
+#endif
+  slock* model_lock;
+
+  // Cached variables.
+  //
+  extern const variable* var_src_root;
+  extern const variable* var_out_root;
+  extern const variable* var_src_base;
+  extern const variable* var_out_base;
+
+  extern const variable* var_project;
+  extern const variable* var_amalgamation;
+  extern const variable* var_subprojects;
+
+  extern const variable* var_import_target; // import.target
 
   // Current action (meta/operation).
   //
@@ -75,14 +100,14 @@ namespace build2
   // scopes, and variables.
   //
   variable_overrides
-  reset (const strings& cmd_vars);
+  reset (const ulock&, const strings& cmd_vars);
 
   // Return the project name or empty string if unnamed.
   //
   inline const string&
-  project (scope& root)
+  project (const scope& root)
   {
-    auto l (root["project"]);
+    auto l (root[var_project]);
     return l ? cast<string> (l) : empty_string;
   }
 

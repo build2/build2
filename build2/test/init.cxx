@@ -36,7 +36,7 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
-      auto& vp (var_pool);
+      auto& vp (var_pool.rw (rs));
 
       // Tests to execute.
       //

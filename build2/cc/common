@@ -210,8 +210,8 @@ namespace build2
 
     private:
       file&
-      resolve_library (name,
-                       scope&,
+      resolve_library (scope&,
+                       name,
                        lorder,
                        const dir_paths&,
                        optional<dir_paths>&) const;

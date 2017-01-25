@@ -41,7 +41,7 @@ namespace build2
     }
 
     match_result link::
-    match (action a, target& t, const string& hint) const
+    match (slock& ml, action a, target& t, const string& hint) const
     {
       tracer trace (x, "link::match");
 
@@ -64,7 +64,7 @@ namespace build2
       //
       bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
         if (p.is_a (x_src))
         {
@@ -145,7 +145,7 @@ namespace build2
 
         optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
         {
           if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
           {
@@ -159,7 +159,7 @@ namespace build2
             if (pt == nullptr)
             {
               pt = &p.search ();
-              match_only (a, *pt);
+              match_only (ml, a, *pt);
             }
 
             // If the prerequisite came from the lib{} group, then also
@@ -316,7 +316,7 @@ namespace build2
     }
 
     recipe link::
-    apply (action a, target& xt) const
+    apply (slock& ml, action a, target& xt) const
     {
       tracer trace (x, "link::apply");
 
@@ -415,7 +415,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      inject_fsdir (a, t);
+      inject_fsdir (ml, a, t);
 
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
@@ -429,7 +429,7 @@ namespace build2
                               lt == otype::a ? obja::static_type :
                               objs::static_type);
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
         target* pt (nullptr);
 
@@ -471,7 +471,7 @@ namespace build2
             pt = &link_member (*l, lo);
           }
 
-          build2::match (a, *pt);
+          build2::match (ml, a, *pt);
           t.prerequisite_targets.push_back (pt);
           continue;
         }
@@ -567,7 +567,7 @@ namespace build2
         //
         bool found (false);
         for (prerequisite_member p1:
-               reverse_group_prerequisite_members (a, *pt))
+               reverse_group_prerequisite_members (ml, a, *pt))
         {
           // Most of the time we will have just a single source so fast-path
           // that case.
@@ -576,7 +576,7 @@ namespace build2
           {
             if (!found)
             {
-              build2::match (a, *pt); // Now p1 should be resolved.
+              build2::match (ml, a, *pt); // Now p1 should be resolved.
 
               // Searching our own prerequisite is ok.
               //
@@ -637,7 +637,7 @@ namespace build2
               ot.prerequisites.emplace_back (p);
           }
 
-          build2::match (a, *pt);
+          build2::match (ml, a, *pt);
         }
 
         t.prerequisite_targets.push_back (pt);

@@ -23,7 +23,7 @@ namespace build2
     install (data&& d, const link& l): common (move (d)), link_ (l) {}
 
     target* install::
-    filter (action a, target& t, prerequisite_member p) const
+    filter (slock& ml, action a, target& t, prerequisite_member p) const
     {
       if (t.is_a<exe> ())
       {
@@ -53,11 +53,11 @@ namespace build2
           return pt->in (t.weak_scope ()) ? pt : nullptr;
       }
 
-      return file_rule::filter (a, t, p);
+      return file_rule::filter (ml, a, t, p);
     }
 
     match_result install::
-    match (action a, target& t, const string& hint) const
+    match (slock& ml, action a, target& t, const string& hint) const
     {
       // @@ How do we split the hint between the two?
       //
@@ -65,8 +65,8 @@ namespace build2
       // We only want to handle installation if we are also the
       // ones building this target. So first run link's match().
       //
-      match_result r (link_.match (a, t, hint));
-      return r ? install::file_rule::match (a, t, "") : r;
+      match_result r (link_.match (ml, a, t, hint));
+      return r ? install::file_rule::match (ml, a, t, "") : r;
     }
 
     void install::

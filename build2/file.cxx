@@ -83,7 +83,7 @@ namespace build2
   }
 
   static void
-  source (const path& bf, scope& root, scope& base, bool boot)
+  source (scope& root, scope& base, const path& bf, bool boot)
   {
     tracer trace ("source");
 
@@ -112,13 +112,13 @@ namespace build2
   }
 
   void
-  source (const path& bf, scope& root, scope& base)
+  source (scope& root, scope& base, const path& bf)
   {
-    source (bf, root, base, false);
+    source (root, base, bf, false);
   }
 
   bool
-  source_once (const path& bf, scope& root, scope& base, scope& once)
+  source_once (scope& root, scope& base, const path& bf, scope& once)
   {
     tracer trace ("source_once");
 
@@ -128,7 +128,7 @@ namespace build2
       return false;
     }
 
-    source (bf, root, base);
+    source (root, base, bf);
     return true;
   }
 
@@ -168,7 +168,7 @@ namespace build2
     // consistent.
     //
     {
-      value& v (rs.assign ("out_root"));
+      value& v (rs.assign (var_out_root));
 
       if (!v)
         v = out_root;
@@ -184,7 +184,7 @@ namespace build2
 
     if (!src_root.empty ())
     {
-      value& v (rs.assign ("src_root"));
+      value& v (rs.assign (var_src_root));
 
       if (!v)
         v = src_root;
@@ -206,7 +206,7 @@ namespace build2
   {
     // The caller must have made sure src_root is set on this scope.
     //
-    value& v (s.assign ("src_root"));
+    value& v (s.assign (var_src_root));
     assert (v);
     const dir_path& d (cast<dir_path> (v));
 
@@ -225,14 +225,14 @@ namespace build2
 
     // Set src/out_base variables.
     //
-    value& ov (s.assign ("out_base"));
+    value& ov (s.assign (var_out_base));
 
     if (!ov)
       ov = out_base;
     else
       assert (cast<dir_path> (ov) == out_base);
 
-    value& sv (s.assign ("src_base"));
+    value& sv (s.assign (var_src_base));
 
     if (!sv)
       sv = src_base;
@@ -309,7 +309,7 @@ namespace build2
     //   prevent multiple sourcing. We handle it here but we still
     //   need something like source_once (once [scope] source).
     //
-    source_once (bf, root, root);
+    source_once (root, root, bf);
   }
 
   // Extract the specified variable value from a buildfile. It is expected to
@@ -317,7 +317,7 @@ namespace build2
   // other than those from the global scope or any variable overrides.
   //
   pair<value, bool>
-  extract_variable (const path& bf, const char* name)
+  extract_variable (const path& bf, const variable& var)
   {
     try
     {
@@ -327,15 +327,13 @@ namespace build2
       token t (lex.next ());
       token_type tt;
 
-      if (t.type != token_type::word || t.value != name ||
+      if (t.type != token_type::word || t.value != var.name ||
           ((tt = lex.next ().type) != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))
       {
         return make_pair (value (), false);
       }
-
-      const variable& var (var_pool[t.value]);
 
       parser p;
       temp_scope tmp (*global_scope);
@@ -382,7 +380,7 @@ namespace build2
         src_root = &fallback_src_root;
       else
       {
-        auto p (extract_variable (f, "src_root"));
+        auto p (extract_variable (f, *var_src_root));
 
         if (!p.second)
           fail << "variable 'src_root' expected as first line in " << f;
@@ -397,10 +395,11 @@ namespace build2
     string name;
     {
       path f (*src_root / bootstrap_file);
-      auto p (extract_variable (f, "project"));
+      auto p (extract_variable (f, *var_project));
 
       if (!p.second)
-        fail << "variable 'project' expected as first line in " << f;
+        fail << "variable '" << var_project->name << "' expected "
+             << "as a first line in " << f;
 
       name = cast<string> (move (p.first));
     }
@@ -513,7 +512,7 @@ namespace build2
       // same root scope multiple time.
       //
       if (root.buildfiles.insert (bf).second)
-        source (bf, root, root, true);
+        source (root, root, bf, true);
       else
         l5 ([&]{trace << "skipping already sourced " << bf;});
 
@@ -532,7 +531,7 @@ namespace build2
     // amalgamated.
     //
     {
-      auto rp (root.vars.insert ("amalgamation")); // Set NULL by default.
+      auto rp (root.vars.insert (*var_amalgamation)); // Set NULL by default.
       value& v (rp.first);
 
       if (v && v.empty ()) // Convert empty to NULL.
@@ -603,8 +602,7 @@ namespace build2
     // NULL value indicates that we found no subprojects.
     //
     {
-      const variable& var (var_pool["subprojects"]);
-      auto rp (root.vars.insert (var)); // Set NULL by default.
+      auto rp (root.vars.insert (*var_subprojects)); // Set NULL by default.
       value& v (rp.first);
 
       if (rp.second)
@@ -725,14 +723,14 @@ namespace build2
     // It should either be NULL or typed (so we assume that the user will
     // never set it to NULL).
     //
-    auto l (root.vars["subprojects"]);
+    auto l (root.vars[var_subprojects]);
     return l.defined () && (l->null || l->type != nullptr);
   }
 
   void
   create_bootstrap_outer (scope& root)
   {
-    auto l (root.vars["amalgamation"]);
+    auto l (root.vars[var_amalgamation]);
 
     if (!l)
       return;
@@ -758,7 +756,7 @@ namespace build2
     {
       bootstrap_out (rs); // #3 happens here, if at all.
 
-      value& v (rs.assign ("src_root"));
+      value& v (rs.assign (var_src_root));
 
       if (!v)
       {
@@ -787,7 +785,7 @@ namespace build2
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
-    if (auto l = root.vars["subprojects"])
+    if (auto l = root.vars[var_subprojects])
     {
       for (const auto& p: cast<subprojects> (l))
       {
@@ -804,7 +802,7 @@ namespace build2
         {
           bootstrap_out (rs);
 
-          value& v (rs.assign ("src_root"));
+          value& v (rs.assign (var_src_root));
 
           if (!v)
             v = is_src_root (out_root)
@@ -848,7 +846,7 @@ namespace build2
 
       if (s.boot)
       {
-        load_module (n, root, root, s.loc);
+        load_module (root, root, n, s.loc);
         assert (!s.boot);
       }
     }
@@ -858,7 +856,7 @@ namespace build2
     path bf (root.src_path () / root_file);
 
     if (exists (bf))
-      source_once (bf, root, root);
+      source_once (root, root, bf);
   }
 
   names
@@ -903,12 +901,13 @@ namespace build2
       // Note: overridable variable with path auto-completion.
       //
       {
-        const variable& var (var_pool.insert<abs_dir_path> (n, true));
+        const variable& var (
+          var_pool.rw (ibase).insert<abs_dir_path> (n, true));
 
         if (auto l = iroot[var])
         {
           out_root = cast<dir_path> (l);      // Normalized and actualized.
-          config::save_variable (iroot, var); // Mark as part of configuration.
+          config::save_variable (iroot, var); // Mark as part of config.
 
           // Empty config.import.* value means don't look in subprojects or
           // amalgamations and go straight to the rule-specific import (e.g.,
@@ -934,7 +933,7 @@ namespace build2
       {
         auto lookup = [&iroot, &loc] (string name) -> path
         {
-          const variable& var (var_pool.insert<path> (name, true));
+          const variable& var (var_pool.rw (iroot).insert<path> (name, true));
 
           path r;
           if (auto l = iroot[var])
@@ -985,13 +984,13 @@ namespace build2
 
         // First check the amalgamation itself.
         //
-        if (r != &iroot && cast<string> (r->vars["project"]) == proj)
+        if (r != &iroot && cast<string> (r->vars[var_project]) == proj)
         {
           out_root = r->out_path ();
           break;
         }
 
-        if (auto l = r->vars["subprojects"])
+        if (auto l = r->vars[var_subprojects])
         {
           const auto& m (cast<subprojects> (l));
           auto i (m.find (proj));
@@ -1004,7 +1003,7 @@ namespace build2
           }
         }
 
-        if (!r->vars["amalgamation"])
+        if (!r->vars[var_amalgamation])
           break;
       }
 
@@ -1041,7 +1040,7 @@ namespace build2
 
         // Check that the bootstrap process set src_root.
         //
-        if (auto l = root->vars["src_root"])
+        if (auto l = root->vars[*var_src_root])
         {
           const dir_path& p (cast<dir_path> (l));
 
@@ -1061,10 +1060,10 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<string> (root->vars["project"]) == proj)
+      if (cast<string> (root->vars[var_project]) == proj)
         break;
 
-      if (auto l = root->vars["subprojects"])
+      if (auto l = root->vars[var_subprojects])
       {
         const auto& m (cast<subprojects> (l));
         auto i (m.find (proj));
@@ -1096,13 +1095,13 @@ namespace build2
 
     // "Pass" the imported project's roots to the stub.
     //
-    ts.assign ("out_root") = move (out_root);
-    ts.assign ("src_root") = move (src_root);
+    ts.assign (var_out_root) = move (out_root);
+    ts.assign (var_src_root) = move (src_root);
 
-    // Also pass the target being imported.
+    // Also pass the target being imported in the import.target variable.
     //
     {
-      value& v (ts.assign ("target"));
+      value& v (ts.assign (var_import_target));
 
       if (!target.empty ()) // Otherwise leave NULL.
         v = move (target);

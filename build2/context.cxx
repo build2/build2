@@ -23,6 +23,26 @@ using namespace butl;
 
 namespace build2
 {
+  shared_mutex model;
+
+#ifdef __cpp_thread_local
+  thread_local
+#else
+  __thread
+#endif
+  slock* model_lock;
+
+  const variable* var_src_root;
+  const variable* var_out_root;
+  const variable* var_src_base;
+  const variable* var_out_base;
+
+  const variable* var_project;
+  const variable* var_amalgamation;
+  const variable* var_subprojects;
+
+  const variable* var_import_target;
+
   const string* current_mname;
   const string* current_oname;
 
@@ -37,7 +57,7 @@ namespace build2
   variable_override_cache var_override_cache;
 
   variable_overrides
-  reset (const strings& cmd_vars)
+  reset (const ulock& ml, const strings& cmd_vars)
   {
     tracer trace ("reset");
 
@@ -46,13 +66,15 @@ namespace build2
 
     l6 ([&]{trace << "resetting build state";});
 
+    auto& vp (var_pool.rw (ml));
+
     variable_overrides vos;
 
     var_override_cache.clear ();
 
     targets.clear ();
     scopes.clear ();
-    var_pool.clear ();
+    vp.clear ();
 
     // Reset meta/operation tables. Note that the order should match the id
     // constants in <build2/operation>.
@@ -147,7 +169,7 @@ namespace build2
                              c == '%' ? variable_visibility::project :
                              variable_visibility::normal);
 
-      const variable& var (var_pool[n]);
+      const variable& var (vp.insert (n));
       const char* k (tt == token_type::assign ? ".__override" :
                      tt == token_type::append ? ".__suffix" : ".__prefix");
 
@@ -209,23 +231,23 @@ namespace build2
 
     // Enter builtin variables.
     //
-    {
-      auto& v (var_pool);
+    var_src_root = &vp.insert<dir_path> ("src_root");
+    var_out_root = &vp.insert<dir_path> ("out_root");
+    var_src_base = &vp.insert<dir_path> ("src_base");
+    var_out_base = &vp.insert<dir_path> ("out_base");
 
-      v.insert<dir_path> ("src_root");
-      v.insert<dir_path> ("out_root");
-      v.insert<dir_path> ("src_base");
-      v.insert<dir_path> ("out_base");
+    // Note that subprojects is not typed since the value requires
+    // pre-processing (see file.cxx).
+    //
+    var_project      = &vp.insert<string>   ("project");
+    var_amalgamation = &vp.insert<dir_path> ("amalgamation");
+    var_subprojects  = &vp.insert           ("subprojects");
 
-      v.insert<string> ("project");
-      v.insert<dir_path> ("amalgamation");
+    var_import_target = &vp.insert<name> ("import.target");
 
-      // Not typed since the value requires pre-processing (see file.cxx).
-      //
-      v.insert ("subprojects");
-
-      v.insert<string> ("extension", variable_visibility::target);
-    }
+    // Target extension.
+    //
+    vp.insert<string> ("extension", variable_visibility::target);
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
@@ -240,8 +262,8 @@ namespace build2
     // Build system version.
     //
     {
-      gs.assign<uint64_t> ("build.version")      = uint64_t (BUILD2_VERSION);
-      gs.assign<string> ("build.version.string") = BUILD2_VERSION_STR;
+      gs.assign<uint64_t> ("build.version") = uint64_t (BUILD2_VERSION);
+      gs.assign<string>   ("build.version.string") = BUILD2_VERSION_STR;
 
       // AABBCCDD
       //

@@ -38,6 +38,8 @@ namespace build2
       rs.meta_operations.insert (configure_id, configure);
       rs.meta_operations.insert (disfigure_id, disfigure);
 
+      auto& vp (var_pool.rw (rs));
+
       // Load config.build if one exists.
       //
       // Note that we have to do this during bootstrap since the order in
@@ -45,7 +47,7 @@ namespace build2
       // possible that some module which needs the configuration will get
       // called first.
       //
-      const variable& c_v (var_pool.insert<uint64_t> ("config.version"));
+      const variable& c_v (vp.insert<uint64_t> ("config.version"));
 
       // Don't load it if we are disfiguring. This is a bit tricky since the
       // build2 core may not yet know it is disfiguring. But we know.
@@ -68,7 +70,7 @@ namespace build2
           {
             // Assume missing version is 0.
             //
-            auto p (extract_variable (f, c_v.name.c_str ()));
+            auto p (extract_variable (f, c_v));
             uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
             if (v != module::version)
@@ -80,7 +82,7 @@ namespace build2
                          << out_root;
           }
 
-          source (f, rs, rs);
+          source (rs, rs, f);
         }
       }
     }
