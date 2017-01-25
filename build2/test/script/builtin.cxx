@@ -628,6 +628,94 @@ namespace build2
         return 1;
       }
 
+      // test -f|-d <path>
+      //
+      // Test the specified path according to one of the following options.
+      // Succeed (0 exit code) if the test passes and fail (1 exit code)
+      // otherwise. In case of an error exit with code 2. Providing no
+      // arguments is an error (unlike POSIX).
+      //
+      // -f
+      //    Path exists and is to a regular file.
+      //
+      // -d
+      //    Path exists and is to a directory.
+      //
+      // Note that tests dereference symbolic links.
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      test (scope& sp,
+            const strings& args,
+            auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (2);
+        ofdstream cerr (move (err));
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          if (args.size () < 2)
+          {
+            cerr << "test: missing path" << endl;
+            throw failed ();
+          }
+
+          bool file (args[0] == "-f");
+
+          if (!file && args[0] != "-d")
+          {
+            cerr << "test: invalid option" << endl;
+            throw failed ();
+          }
+
+          if (args.size () > 2)
+          {
+            cerr << "test: unexpected argument" << endl;
+            throw failed ();
+          }
+
+          path p (parse_path (args[1], sp.wd_path));
+
+          try
+          {
+            r = (file ? file_exists (p) : dir_exists (p)) ? 0 : 1;
+          }
+          catch (const system_error& e)
+          {
+            cerr << "test: cannot test '" << p << "': " << e << endl;
+            throw failed ();
+          }
+        }
+        catch (const invalid_path& e)
+        {
+          cerr << "test: invalid path '" << e.path << "'" << endl;
+        }
+        // Can be thrown while closing in, out or writing to cerr (that's why
+        // need to check its state before writing).
+        //
+        catch (const io_error& e)
+        {
+          if (cerr.good ())
+            cerr << "test: " << e << endl;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 2;
+      }
+
       // touch <file>...
       //
       // Change file access and modification times to the current time. Create
@@ -808,6 +896,7 @@ namespace build2
         {"mkdir", &sync_impl<&mkdir>},
         {"rm",    &sync_impl<&rm>},
         {"rmdir", &sync_impl<&rmdir>},
+        {"test",  &sync_impl<&test>},
         {"touch", &sync_impl<&touch>},
         {"true",  &true_}
       };

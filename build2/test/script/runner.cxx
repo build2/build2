@@ -510,6 +510,8 @@ namespace build2
                     d << "invalid char-regex in " << what << " regex redirect"
                       << e <<
                       info << "regex line: '" << line (l) << "'";
+
+                  d << endf;
                 }
               }
 

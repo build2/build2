@@ -1,0 +1,79 @@
+# file      : tests/test/script/builtin/test.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.test
+
+: file
+:
+{
+  : exists
+  :
+  $c <<EOI;
+  touch a;
+  test -f a
+  EOI
+  $b
+
+  : not-exists
+  :
+  $c <'test -f a == 1';
+  $b
+
+  : not-file
+  :
+  $c <'test -f . == 1';
+  $b
+}
+
+: dir
+:
+{
+  : exists
+  :
+  $c <'test -d .';
+  $b
+
+  : not-exists
+  :
+  $c <'test -d a == 1';
+  $b
+
+  : not-dir
+  :
+  $c <<EOI;
+  touch a;
+  test -d a == 1
+  EOI
+  $b
+}
+
+: no-args
+:
+: Test passing no arguments.
+:
+$c <'test 2>"test: missing path" == 2';
+$b
+
+: invalid-option
+:
+: Test passing invalid option.
+:
+$c <'test -c a 2>"test: invalid option" == 2';
+$b
+
+: unexpected-arg
+:
+: Test passing extra argument.
+:
+$c <'test -f a b 2>"test: unexpected argument" == 2';
+$b
+
+: empty-path
+:
+: Test testing an empty path.
+:
+$c <<EOI;
+test -d '' 2>"test: invalid path ''" == 2
+EOI
+$b
