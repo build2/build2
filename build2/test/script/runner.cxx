@@ -285,13 +285,17 @@ namespace build2
           path dp ("diff");
           process_path pp (run_search (dp, true));
 
-          cstrings args {
-            pp.recall_string (),
-              "--strip-trailing-cr", // Is essential for cross-testing.
-              "-u",
-              eop.string ().c_str (),
-              op.string ().c_str (),
-              nullptr};
+          cstrings args {pp.recall_string (), "-u"};
+
+          // Ignore Windows newline fluff if that's what we are running on.
+          //
+          if (cast<target_triplet> (
+                sp.root->test_target["test.target"]).class_ == "windows")
+            args.push_back ("--strip-trailing-cr");
+
+          args.push_back (eop.string ().c_str ());
+          args.push_back (op.string ().c_str ());
+          args.push_back (nullptr);
 
           if (verb >= 2)
             print_process (args);
