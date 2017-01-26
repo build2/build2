@@ -218,13 +218,14 @@ namespace build2
       // Check if the test command output matches the expected result (redirect
       // value). Noop for redirect types other than none, here_*.
       //
-      static void
+      static bool
       check_output (const path& pr,
                     const path& op,
                     const path& ip,
                     const redirect& rd,
                     const location& ll,
                     scope& sp,
+                    bool diag,
                     const char* what)
       {
         auto input_info = [&ip, &ll] (diag_record& d)
@@ -246,29 +247,35 @@ namespace build2
 
         if (rd.type == redirect_type::none)
         {
-          assert (!op.empty ());
-
           // Check that there is no output produced.
           //
-          if (non_empty (op, ll))
+          assert (!op.empty ());
+
+          if (!non_empty (op, ll))
+            return true;
+
+          if (diag)
           {
-            diag_record d (fail (ll));
+            diag_record d (error (ll));
             d << pr << " unexpectedly writes to " << what <<
               info << what << ": " << op;
 
             input_info (d);
           }
+
+          // Fall through (to return false).
+          //
         }
         else if (rd.type == redirect_type::here_str_literal ||
                  rd.type == redirect_type::here_doc_literal ||
                  (rd.type == redirect_type::file &&
                   rd.file.mode == redirect_fmode::compare))
         {
-          assert (!op.empty ());
-
           // The expected output is provided as a file or as a string. Save the
           // string to a file in the later case.
           //
+          assert (!op.empty ());
+
           path eop;
 
           if (rd.type == redirect_type::file)
@@ -327,21 +334,24 @@ namespace build2
             efd.reset ();
 
             if (p.wait ())
-              return;
+              return true;
 
             // Output doesn't match the expected result.
             //
-            diag_record d (error (ll));
-            d << pr << " " << what << " doesn't match the expected output";
+            if (diag)
+            {
+              diag_record d (error (ll));
+              d << pr << " " << what << " doesn't match the expected output";
 
-            output_info (d, op);
-            output_info (d, eop, "expected ");
-            output_info (d, ep, "", " diff");
-            input_info  (d);
+              output_info (d, op);
+              output_info (d, eop, "expected ");
+              output_info (d, ep, "", " diff");
+              input_info  (d);
 
-            print_file (d, ep, ll);
+              print_file (d, ep, ll);
+            }
 
-            // Fall through.
+            // Fall through (to return false).
             //
           }
           catch (const process_error& e)
@@ -350,15 +360,13 @@ namespace build2
 
             if (e.child ())
               exit (1);
-          }
 
-          throw failed ();
+            throw failed ();
+          }
         }
         else if (rd.type == redirect_type::here_str_regex ||
                  rd.type == redirect_type::here_doc_regex)
         {
-          assert (!op.empty ());
-
           // The overall plan is:
           //
           // 1. Create regex line string. While creating it's line characters
@@ -376,6 +384,8 @@ namespace build2
           //    for troubleshooting.
           //
           using namespace regex;
+
+          assert (!op.empty ());
 
           // Create regex line string.
           //
@@ -621,17 +631,31 @@ namespace build2
           // Match the output with the regex.
           //
           if (regex_match (ls, regex)) // Doesn't throw.
-            return;
+            return true;
 
-          // Output doesn't match the regex.
+          // Output doesn't match the regex. We save the regex to file for
+          // troubleshooting regardless of whether we print the diagnostics or
+          // not.
           //
-          diag_record d (fail (ll));
-          d << pr << " " << what << " doesn't match the regex";
+          path rp (save_regex ());
 
-          output_info (d, op);
-          output_info (d, save_regex (), "", " regex");
-          input_info  (d);
+          if (diag)
+          {
+            diag_record d (error (ll));
+            d << pr << " " << what << " doesn't match the regex";
+
+            output_info (d, op);
+            output_info (d, rp, "", " regex");
+            input_info  (d);
+          }
+
+          // Fall through (to return false).
+          //
         }
+        else // Noop.
+          return true;
+
+        return false;
       }
 
       bool default_runner::
@@ -750,10 +774,26 @@ namespace build2
                             : sp.wd_path.directory ());
       }
 
-      void default_runner::
-      run (scope& sp, const command_expr& expr, size_t li, const location& ll)
+      static bool
+      run_pipe (scope& sp,
+                command_pipe::const_iterator bc,
+                command_pipe::const_iterator ec,
+                auto_fd ifd,
+                size_t ci, size_t li, const location& ll,
+                bool diag)
       {
-        const command& c (expr.back ().pipe.back ()); // @@ TMP
+        if (bc == ec) // End of the pipeline.
+          return true;
+
+        // The overall plan is to run the first command in the pipe, reading
+        // its input from the file descriptor passed (or, for the first
+        // command, according to stdin redirect specification) and redirecting
+        // its output to the right-hand part of the pipe recursively. Fail if
+        // the right-hand part fails. Otherwise check the process exit code,
+        // match stderr (and stdout for the last command in the pipe) according
+        // to redirect specification(s) and fail if any of the above fails.
+        //
+        const command& c (*bc);
 
         if (verb >= 3)
           text << c;
@@ -785,7 +825,7 @@ namespace build2
 
         // Create a unique path for a command standard stream cache file.
         //
-        auto std_path = [&li, &sp, &ll] (const char* n) -> path
+        auto std_path = [&sp, &ci, &li, &ll] (const char* n) -> path
         {
           path p (n);
 
@@ -795,146 +835,145 @@ namespace build2
           if (li > 0)
             p += "-" + to_string (li);
 
+          // 0 if belongs to a single-command expression, otherwise is the
+          // command number (start from one) in the expression.
+          //
+          // Note that the name like stdin-N can relate to N-th command of a
+          // single-line test or to N-th single-command line of multi-line
+          // test. These cases are mutually exclusive and so are unambiguous.
+          //
+          if (ci > 0)
+            p += "-" + to_string (ci);
+
           return normalize (move (p), sp, ll);
         };
 
-        // Assign file descriptors to pass as a builtin or a process standard
-        // streams. Eventually the raw descriptors should gone when the process
-        // is fully moved to auto_fd usage.
+        // If stdin file descriptor is not open then this is the first pipeline
+        // command. Open stdin descriptor according to the redirect specified.
         //
         path isp;
-        auto_fd ifd;
-        int id (0); // @@ TMP
         const redirect& in (c.in.effective ());
 
-        // Open a file for passing to the command stdin.
-        //
-        auto open_stdin = [&isp, &ifd, &id, &ll] ()
+        if (ifd.get () != -1)
+          assert (in.type == redirect_type::none); // No redirect expected.
+        else
         {
-          assert (!isp.empty ());
+          // Open a file for passing to the command stdin.
+          //
+          auto open_stdin = [&isp, &ifd, &ll] ()
+          {
+            assert (!isp.empty ());
 
-          try
-          {
-            ifd = fdopen (isp, fdopen_mode::in);
-            id  = ifd.get ();
-          }
-          catch (const io_error& e)
-          {
-            fail (ll) << "unable to read " << isp << ": " << e;
-          }
-        };
-
-        switch (in.type)
-        {
-        case redirect_type::pass:
-          {
             try
             {
-              ifd = fddup (id);
-              id  = 0;
+              ifd = fdopen (isp, fdopen_mode::in);
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to duplicate stdin: " << e;
+              fail (ll) << "unable to read " << isp << ": " << e;
             }
+          };
 
-            break;
-          }
-
-        case redirect_type::none:
-          // Somehow need to make sure that the child process doesn't read from
-          // stdin. That is tricky to do in a portable way. Here we suppose
-          // that the program which (erroneously) tries to read some data from
-          // stdin being redirected to /dev/null fails not being able to read
-          // the expected data, and so the test doesn't pass through.
-          //
-          // @@ Obviously doesn't cover the case when the process reads
-          //    whatever available.
-          // @@ Another approach could be not to redirect stdin and let the
-          //    process to hang which can be interpreted as a test failure.
-          // @@ Both ways are quite ugly. Is there some better way to do this?
-          //
-          // Fall through.
-          //
-        case redirect_type::null:
+          switch (in.type)
           {
-            try
+          case redirect_type::pass:
             {
-              ifd.reset (fdnull ()); // @@ Eventually will be throwing.
+              try
+              {
+                ifd = fddup (0);
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to duplicate stdin: " << e;
+              }
 
-              if (ifd.get () == -1) // @@ TMP
-                throw io_error (
-                  error_code (errno, system_category ()).message ());
-
-              id = -2;
+              break;
             }
-            catch (const io_error& e)
-            {
-              fail (ll) << "unable to write to null device: " << e;
-            }
 
-            break;
-          }
-
-        case redirect_type::file:
-          {
-            isp = normalize (in.file.path, sp, ll);
-
-            open_stdin ();
-            break;
-          }
-
-        case redirect_type::here_str_literal:
-        case redirect_type::here_doc_literal:
-          {
-            // We could write to the command stdin directly but instead will
-            // cache the data for potential troubleshooting.
+          case redirect_type::none:
+            // Somehow need to make sure that the child process doesn't read
+            // from stdin. That is tricky to do in a portable way. Here we
+            // suppose that the program which (erroneously) tries to read some
+            // data from stdin being redirected to /dev/null fails not being
+            // able to read the expected data, and so the test doesn't pass
+            // through.
             //
-            isp = std_path ("stdin");
+            // @@ Obviously doesn't cover the case when the process reads
+            //    whatever available.
+            // @@ Another approach could be not to redirect stdin and let the
+            //    process to hang which can be interpreted as a test failure.
+            // @@ Both ways are quite ugly. Is there some better way to do
+            //    this?
+            //
+            // Fall through.
+            //
+          case redirect_type::null:
+            {
+              try
+              {
+                ifd.reset (fdnull ()); // @@ Eventually will be throwing.
 
-            save (isp, transform (in.str, false, in.modifiers, *sp.root), ll);
-            sp.clean ({cleanup_type::always, isp}, true);
+                if (ifd.get () == -1) // @@ TMP
+                  throw io_error (
+                    error_code (errno, system_category ()).message ());
+              }
+              catch (const io_error& e)
+              {
+                fail (ll) << "unable to write to null device: " << e;
+              }
 
-            open_stdin ();
-            break;
+              break;
+            }
+
+          case redirect_type::file:
+            {
+              isp = normalize (in.file.path, sp, ll);
+
+              open_stdin ();
+              break;
+            }
+
+          case redirect_type::here_str_literal:
+          case redirect_type::here_doc_literal:
+            {
+              // We could write to the command stdin directly but instead will
+              // cache the data for potential troubleshooting.
+              //
+              isp = std_path ("stdin");
+
+              save (
+                isp, transform (in.str, false, in.modifiers, *sp.root), ll);
+
+              sp.clean ({cleanup_type::always, isp}, true);
+
+              open_stdin ();
+              break;
+            }
+
+          case redirect_type::merge:
+          case redirect_type::here_str_regex:
+          case redirect_type::here_doc_regex:
+          case redirect_type::here_doc_ref:   assert (false); break;
           }
-
-        case redirect_type::merge:
-        case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex:
-        case redirect_type::here_doc_ref:   assert (false); break;
         }
 
-        // Dealing with stdout and stderr redirect types other than 'null'
-        // using pipes is tricky in the general case. Going this path we would
-        // need to read both streams in non-blocking manner which we can't
-        // (easily) do in a portable way. Using diff utility to get a
-        // nice-looking actual/expected outputs difference would complicate
-        // things further.
-        //
-        // So the approach is the following. Child standard streams are
-        // redirected to files. When the child exits and the exit status is
-        // validated we just sequentially compare each file content with the
-        // expected output. The positive side-effect of this approach is that
-        // the output of a faulty command can be provided for troubleshooting.
-        //
-
         // Open a file for command output redirect if requested explicitly
-        // (file redirect) or for the purpose of the output validation (none,
-        // here_*), register the file for cleanup, return the file descriptor.
-        // Return the specified, default or -2 file descriptors for merge, pass
-        // or null redirects respectively not opening a file.
+        // (file overwrite/append redirects) or for the purpose of the output
+        // validation (none, here_*, file comparison redirects), register the
+        // file for cleanup, return the file descriptor. Return nullfd,
+        // standard stream descriptor duplicate or null-device descriptor for
+        // merge, pass or null redirects respectively (not opening any file).
         //
         auto open = [&sp, &ll, &std_path] (const redirect& r,
                                            int dfd,
-                                           path& p,
-                                           auto_fd& fd) -> int
-          {
+                                           path& p) -> auto_fd
+        {
           assert (dfd == 1 || dfd == 2);
           const char* what (dfd == 1 ? "stdout" : "stderr");
 
           fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
 
+          auto_fd fd;
           switch (r.type)
           {
           case redirect_type::pass:
@@ -948,7 +987,7 @@ namespace build2
                 fail (ll) << "unable to duplicate " << what << ": " << e;
               }
 
-              return dfd;
+              return fd;
             }
 
           case redirect_type::null:
@@ -966,14 +1005,14 @@ namespace build2
                 fail (ll) << "unable to write to null device: " << e;
               }
 
-              return -2;
+              return fd;
             }
 
           case redirect_type::merge:
             {
               // Duplicate the paired file descriptor later.
               //
-              return r.fd;
+              return fd; // nullfd
             }
 
           case redirect_type::file:
@@ -1020,18 +1059,51 @@ namespace build2
             fail (ll) << "unable to write " << p << ": " << e;
           }
 
-          return fd.get ();
+          return fd;
         };
 
         path osp;
-        auto_fd ofd;
         const redirect& out (c.out.effective ());
-        int od (open (out, 1, osp, ofd));
+        auto_fd ofd;
+
+        // If this is the last command in the pipeline than redirect the
+        // command process stdout to a file. Otherwise create a pipe and
+        // redirect the stdout to the write-end of the pipe. The read-end will
+        // be passed as stdin for the next command in the pipeline.
+        //
+        // @@ Shouldn't we allow the here-* and file output redirects for a
+        //    command with pipelined output? Say if such redirect is present
+        //    then the process output is redirected to a file first (as it is
+        //    when no output pipelined), and only after the process exit code
+        //    and the output are validated the next command in the pipeline is
+        //    executed taking the file as an input. This could be usefull for
+        //    test failures investigation and for tests "tightening".
+        //
+        fdpipe p;
+        command_pipe::const_iterator nc (bc + 1);
+        bool last (nc == ec);
+
+        if (last)
+          ofd = open (out, 1, osp);
+        else
+        {
+          assert (out.type == redirect_type::none); // No redirect expected.
+
+          try
+          {
+            p = fdopen_pipe ();
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "unable to open pipe: " << e;
+          }
+
+          ofd = move (p.out);
+        }
 
         path esp;
-        auto_fd efd;
         const redirect& err (c.err.effective ());
-        int ed (open (err, 2, esp, efd));
+        auto_fd efd (open (err, 2, esp));
 
         // Merge standard streams.
         //
@@ -1053,8 +1125,14 @@ namespace build2
           }
         }
 
+        // All descriptors should be open to the date.
+        //
+        assert (ifd.get () != -1 && ofd.get () != -1 && efd.get () != -1);
+
         optional<process_exit> exit;
         builtin* b (builtins.find (c.program.string ()));
+
+        bool success;
 
         if (b != nullptr)
         {
@@ -1065,12 +1143,14 @@ namespace build2
             future<uint8_t> f (
               (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd)));
 
+            success = run_pipe (sp, nc, ec, move (p.in), ci + 1, li, ll, diag);
+
             exit = process_exit (f.get ());
           }
           catch (const system_error& e)
           {
             fail (ll) << "unable to execute " << c.program << " builtin: "
-                      << e;
+                      << e << endf;
           }
         }
         else
@@ -1094,13 +1174,16 @@ namespace build2
             process pr (sp.wd_path.string ().c_str (),
                         pp,
                         args.data (),
-                        id, od, ed);
+                        ifd.get (), ofd.get (), efd.get ());
 
             ifd.reset ();
             ofd.reset ();
             efd.reset ();
 
+            success = run_pipe (sp, nc, ec, move (p.in), ci + 1, li, ll, diag);
+
             pr.wait ();
+
             exit = move (pr.exit);
           }
           catch (const process_error& e)
@@ -1116,11 +1199,19 @@ namespace build2
 
         assert (exit);
 
-        const path& p (c.program);
+        // If the righ-hand side pipeline failed than the whole pipeline fails,
+        // and no further checks are required.
+        //
+        if (!success)
+          return false;
 
-        // If there is no correct exit code by whatever reason then print the
-        // proper diagnostics, dump stderr (if cached and not too large) and
-        // fail.
+        const path& pr (c.program);
+
+        // If there is no valid exit code available by whatever reason then we
+        // print the proper diagnostics, dump stderr (if cached and not too
+        // large) and fail the whole test. Otherwise if the exit code is not
+        // correct then we print diagnostics if requested and fail the
+        // pipeline.
         //
         bool valid (exit->normal ());
 
@@ -1133,17 +1224,18 @@ namespace build2
 #endif
 
         bool eq (c.exit.comparison == exit_comparison::eq);
-        bool correct (valid && eq == (exit->code () == c.exit.status));
+        success = valid && eq == (exit->code () == c.exit.status);
 
-        if (!correct)
+        if (!valid || (!success && diag))
         {
-          // Fail with a proper diagnostics.
+          // In the presense of a valid exit code we print the diagnostics and
+          // return false rather than throw.
           //
-          diag_record d (fail (ll));
+          diag_record d (valid ? error (ll) : fail (ll));
 
           if (!exit->normal ())
           {
-            d << p << " terminated abnormally" <<
+            d << pr << " terminated abnormally" <<
               info << exit->description ();
 
 #ifndef _WIN32
@@ -1156,11 +1248,14 @@ namespace build2
             uint16_t ec (exit->code ()); // Make sure is printed as integer.
 
             if (!valid)
-              d << p << " exit status " << ec << " is invalid" <<
+              d << pr << " exit status " << ec << " is invalid" <<
                 info << "must be an unsigned integer < 256";
-            else if (!correct)
-              d << p << " exit status " << ec << (eq ? " != " : " == ")
-                << static_cast<uint16_t> (c.exit.status);
+            else if (!success)
+            {
+              if (diag)
+                d << pr << " exit status " << ec << (eq ? " != " : " == ")
+                  << static_cast<uint16_t> (c.exit.status);
+            }
             else
               assert (false);
           }
@@ -1179,18 +1274,83 @@ namespace build2
           print_file (d, esp, ll);
         }
 
-        // Exit code is correct. Check if the standard outputs match the
-        // expectations.
+        // If exit code is correct then check if the standard outputs match the
+        // expectations. Note that stdout is only redirected to file for the
+        // last command in the pipeline.
         //
-        check_output (p, osp, isp, out, ll, sp, "stdout");
-        check_output (p, esp, isp, err, ll, sp, "stderr");
+        if (success)
+          success =
+            (!last ||
+             check_output (pr, osp, isp, out, ll, sp, diag, "stdout")) &&
+            check_output (pr, esp, isp, err, ll, sp, diag, "stderr");
+
+        return success;
+      }
+
+      static bool
+      run_expr (scope& sp,
+                const command_expr& expr,
+                size_t li, const location& ll,
+                bool diag)
+      {
+        bool r (false);
+
+        // Commands are numbered sequentially throughout the expression
+        // starting with 1. Number 0 means the command is a single one.
+        //
+        size_t ci (expr.size () == 1 && expr.back ().pipe.size () == 1
+                   ? 0
+                   : 1);
+
+        // If there is no ORs to the right of a pipe then the pipe failure is
+        // fatal for the whole expression. In particular, the pipe must print
+        // the diagnostics on failure (if generally allowed). So we find the
+        // pipe that "switches on" the diagnostics potential printing.
+        //
+        command_expr::const_iterator trailing_ands; // Undefined if diag is
+                                                    // disallowed.
+        if (diag)
+        {
+          auto i (expr.crbegin ());
+          for (; i != expr.crend () && i->op == expr_operator::log_and; ++i) ;
+          trailing_ands = i.base ();
+        }
+
+        bool print (false);
+        for (auto b (expr.cbegin ()), i (b), e (expr.cend ()); i != e; ++i)
+        {
+          if (diag && i + 1 == trailing_ands)
+            print = true;
+
+          const command_pipe& p (i->pipe);
+          bool or_op (i->op == expr_operator::log_or);
+
+          // Short-circuit if the pipe result must be OR-ed with true or AND-ed
+          // with false.
+          //
+          if (!((or_op && r) || (!or_op && !r)))
+            r = run_pipe (
+              sp, p.begin (), p.end (), auto_fd (), ci, li, ll, print);
+
+          ci += p.size ();
+        }
+
+        return r;
+      }
+
+      void default_runner::
+      run (scope& sp, const command_expr& expr, size_t li, const location& ll)
+      {
+        if (!run_expr (sp, expr, li, ll, true))
+          throw failed (); // Assume diagnostics is already printed.
       }
 
       bool default_runner::
-      run_if (scope&, const command_expr& expr, size_t, const location&)
+      run_if (scope& sp,
+              const command_expr& expr,
+              size_t li, const location& ll)
       {
-        const command& c (expr.back ().pipe.back ()); // @@ TMP
-        return c.program.string () == "true"; // @@ TMP
+        return run_expr (sp, expr, li, ll, false);
       }
     }
   }

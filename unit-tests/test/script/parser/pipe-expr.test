@@ -87,3 +87,47 @@ cmd &&
 EOI
 testscript:1:7: error: missing program
 EOE
+
+: redirected
+:
+{
+  : input
+  :
+  {
+    : first
+    :
+    $* <<EOI >>EOO
+    cmd1 <foo | cmd2
+    EOI
+    cmd1 <foo | cmd2
+    EOO
+
+    : non-first
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1 | cmd2 <foo
+    EOI
+    testscript:1:13: error: stdin is both piped and redirected
+    EOE
+  }
+
+  : output
+  :
+  {
+    : last
+    :
+    $* <<EOI >>EOO
+    cmd1 | cmd2 >foo
+    EOI
+    cmd1 | cmd2 >foo
+    EOO
+
+    : non-last
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1 >foo | cmd2
+    EOI
+    testscript:1:11: error: stdout is both redirected and piped
+    EOE
+  }
+}

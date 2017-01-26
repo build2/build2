@@ -301,7 +301,7 @@ namespace build2
 
       struct expr_term
       {
-        expr_operator op; // Ignored for the first term.
+        expr_operator op;  // OR-ed to an implied false for the first term.
         command_pipe pipe;
       };
 

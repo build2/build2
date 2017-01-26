@@ -1367,17 +1367,23 @@ namespace build2
         // leave: <newline>
 
         command_expr expr;
-        expr.emplace_back (expr_term ());
+
+        // OR-ed to an implied false for the first term.
+        //
+        expr.push_back ({expr_operator::log_or, command_pipe ()});
 
         command c; // Command being assembled.
 
         // Make sure the command makes sense.
         //
-        auto check_command = [&c, this] (const location& l)
+        auto check_command = [&c, this] (const location& l, bool last)
         {
           if (c.out.type == redirect_type::merge &&
               c.err.type == redirect_type::merge)
             fail (l) << "stdout and stderr redirected to each other";
+
+          if (!last && c.out.type != redirect_type::none)
+            fail (l) << "stdout is both redirected and piped";
         };
 
         // Check that the introducer character differs from '/' if the
@@ -1629,7 +1635,7 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&c, &p, &mod, this] (token& t, const location& l)
+          [&c, &expr, &p, &mod, this] (token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
@@ -1675,6 +1681,9 @@ namespace build2
             {
               if ((fd = fd == 3 ? 0 : fd) != 0)
                 fail (l) << "invalid in redirect file descriptor " << fd;
+
+              if (!expr.back ().pipe.empty ())
+                fail (l) << "stdin is both piped and redirected";
 
               break;
             }
@@ -2030,7 +2039,7 @@ namespace build2
                 {
                   // Check that the previous command makes sense.
                   //
-                  check_command (l);
+                  check_command (l, tt != type::pipe);
                   expr.back ().pipe.push_back (move (c));
 
                   c = command ();
@@ -2302,7 +2311,7 @@ namespace build2
                       {
                         // Check that the previous command makes sense.
                         //
-                        check_command (l);
+                        check_command (l, tt != type::pipe);
                         expr.back ().pipe.push_back (move (c));
 
                         c = command ();
@@ -2373,7 +2382,7 @@ namespace build2
           // command makes sense.
           //
           check_pending (l);
-          check_command (l);
+          check_command (l, true);
 
           expr.back ().pipe.push_back (move (c));
         }
