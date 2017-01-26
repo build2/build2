@@ -14,12 +14,14 @@
 
 namespace build2
 {
-  // Top-level internal state mutex.
+  // Top-level model (internal state) mutex and its per-thread shared lock.
+  //
+  // - model_lock is     NULL during serial execution, all changes are a go
+  // - model_lock is not NULL during parallel execution, append-only changes
+  // - parallel execution starts with a shared lock by creating model_slock
   //
   extern shared_mutex model;
 
-  // Thread's shared model lock. NULL in the serial stages.
-  //
   extern
 #ifdef __cpp_thread_local
   thread_local
