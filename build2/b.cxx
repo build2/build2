@@ -96,8 +96,6 @@ main (int argc, char* argv[])
            << system_error (errno, system_category ()); // Sanitize.
 #endif
 
-    ulock ml (model);
-
     // Parse the command line. We want to be able to specify options, vars,
     // and buildspecs in any order (it is really handy to just add -v at the
     // end of the command line).
@@ -364,7 +362,7 @@ main (int argc, char* argv[])
       //
       if (dirty)
       {
-        var_ovs = reset (ml, cmd_vars);
+        var_ovs = reset (cmd_vars);
         dirty = false;
       }
 
@@ -975,7 +973,7 @@ main (int argc, char* argv[])
 
           // Load the buildfile.
           //
-          mif->load (ml, rs, ts.buildfile, ts.out_base, ts.src_base, l);
+          mif->load (rs, ts.buildfile, ts.out_base, ts.src_base, l);
 
           // Next search and match the targets. We don't want to start
           // building before we know how to for all the targets in this
@@ -1009,11 +1007,7 @@ main (int argc, char* argv[])
                           ? out_src (d, rs)
                           : dir_path ());
 
-            mif->search (ml,
-                         rs,
-                         target_key {ti, &d, &out, &tn.value, e},
-                         l,
-                         tgs);
+            mif->search (rs, target_key {ti, &d, &out, &tn.value, e}, l, tgs);
           }
         } // target
 
@@ -1032,8 +1026,8 @@ main (int argc, char* argv[])
 
           action a (mid, pre_oid, oid);
 
-          mif->match (ml, a, tgs);
-          mif->execute (ml, a, tgs, true); // Run quiet.
+          mif->match (a, tgs);
+          mif->execute (a, tgs, true); // Run quiet.
 
           if (mif->operation_post != nullptr)
             mif->operation_post (pre_oid);
@@ -1047,8 +1041,8 @@ main (int argc, char* argv[])
 
         action a (mid, oid, 0);
 
-        if (mif->match != nullptr)   mif->match (ml, a, tgs);
-        if (mif->execute != nullptr) mif->execute (ml, a, tgs, verb == 0);
+        if (mif->match != nullptr)   mif->match (a, tgs);
+        if (mif->execute != nullptr) mif->execute (a, tgs, verb == 0);
 
         if (post_oid != 0)
         {
@@ -1063,8 +1057,8 @@ main (int argc, char* argv[])
 
           action a (mid, post_oid, oid);
 
-          mif->match (ml, a, tgs);
-          mif->execute (ml, a, tgs, true); // Run quiet.
+          mif->match (a, tgs);
+          mif->execute (a, tgs, true); // Run quiet.
 
           if (mif->operation_post != nullptr)
             mif->operation_post (post_oid);

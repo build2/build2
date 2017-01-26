@@ -25,15 +25,16 @@ namespace build2
   // tests). To acomplish this, the master, via a call to async(), can ask the
   // scheduler to run a task in another thread (called "helper"). If a helper
   // is available, then the task is executed asynchronously by such helper.
-  // Otherwise, the task is executed synchronously as part of the async()
-  // call. Once the master thread has scheduled all the tasks, it calls wait()
-  // to await for their completion.
+  // Otherwise, the task is (normally) executed synchronously as part of the
+  // wait() call below. However, in certain cases (serial execution or full
+  // queue), the task may be executed synchronously as part of the async()
+  // call itself. Once the master thread has scheduled all the tasks, it calls
+  // wait() to await for their completion.
   //
   // The scheduler makes sure that only a certain number of threads (for
   // example, the number of available hardware threads) are "active" at any
-  // given time (thus the reason why async() may choose to perform the task
-  // synchronously). When a master thread calls wait(), it is "suspended"
-  // until all its asynchronous tasks are completed (at which point it becomes
+  // given time. When a master thread calls wait(), it is "suspended" until
+  // all its asynchronous tasks are completed (at which point it becomes
   // "ready"). A suspension of a master results in either another ready master
   // being "resumed" or another helper thread becoming available.
   //
@@ -46,7 +47,7 @@ namespace build2
   // helper thread is always created if none is available. This is done to
   // allow a ready master to continue as soon as possible. If it were reused
   // as a helper, then it could be blocked on a nested wait() further down the
-  // stack. This means that the number of threads created by the scheduler
+  // stack. All this means that the number of threads created by the scheduler
   // will normally exceed the maximum active allowed.
   //
   class scheduler
@@ -61,7 +62,10 @@ namespace build2
     //
     // The argument passing semantics is the same as for std::thread. In
     // particular, lvalue-references are passed as copies (use ref()/cref()
-    // for the by-reference semantics).
+    // for the by-reference semantics), except the case where the task is
+    // executed synchronously and as part of the async() call itself (this
+    // subtlety can become important when passing shared locks; you would
+    // only want it to be copied if the task is queued).
     //
     // If the scheduler is shutdown, throw system_error(ECANCELED).
     //
@@ -110,6 +114,19 @@ namespace build2
              size_t init_active = 1,
              size_t max_threads = 0,
              size_t queue_depth = 0);
+
+    // Tune a started up scheduler.
+    //
+    // Currently one cannot increase the number of max_active. Pass 0 to
+    // restore the initial value.
+    //
+    // Note that tuning can only be done while the scheduler is inactive, that
+    // is, no threads are executing a task or are suspended. For example, in a
+    // setup with a single initial active thread that would be after a return
+    // from the top-level wait() call.
+    //
+    void
+    tune (size_t max_active);
 
     // Wait for all the helper threads to terminate. Throw system_error on
     // failure. Note that the initially active threads are not waited for.
@@ -221,8 +238,8 @@ namespace build2
   private:
     std::mutex mutex_;
 
-    bool shutdown_ = true;   // Shutdown flag.
-    bool task_ = false;      // Task queued flag (see below).
+    bool shutdown_ = true;  // Shutdown flag.
+    bool task_     = false; // Task queued flag (see below).
 
     // The constraints that we must maintain:
     //
@@ -246,6 +263,11 @@ namespace build2
     size_t waiting_  = 0;  // Suspended master threads waiting for their tasks.
     size_t ready_    = 0;  // Ready master thread waiting to become active.
     size_t starting_ = 0;  // Helper threads starting up.
+
+    // Original values (as specified during startup) that can be altered via
+    // tuning.
+    //
+    size_t orig_max_active_ = 0;
 
     std::condition_variable idle_condv_;  // Idle helpers queue.
     std::condition_variable ready_condv_; // Ready masters queue.

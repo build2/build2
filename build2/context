@@ -28,6 +28,80 @@ namespace build2
 #endif
   slock* model_lock;
 
+  // A shared model lock. If there is already an instance of model_slock in
+  // this thread, then the new instance simply references it (asserting that
+  // it is locked).
+  //
+  // The reason for this semantics is to support the following scheduling
+  // pattern:
+  //
+  // scheduler::atomic_count task_count (0);
+  //
+  // {
+  //   model_slock ml;                    // (1)
+  //
+  //   for (...)
+  //   {
+  //     sched.async (task_count,
+  //                  [] (...)
+  //                  {
+  //                    model_slock ml;   // (2)
+  //                    ...
+  //                  },
+  //                  ...);
+  //   }
+  // }
+  //
+  // sched.wait ();                       // (3)
+  //
+  // Here is what's going on here:
+  //
+  // 1. We first get a shared lock "for ourselves" since after the first
+  //    iteration of the loop, things may become asynchronous (including
+  //    attempts to relock for exclusive access and change the structure we
+  //    are iteration upon).
+  //
+  // 2. The task can be queued or it can be executed synchronously inside
+  //    async() (refer to the scheduler class for details on this semantics).
+  //
+  //    If this is an async()-synchronous execution, then the task will create
+  //    a referencing model_slock. If, however, this is a queued execution
+  //    (including wait()-synchronous), then the task will create a top-level
+  //    model_slock.
+  //
+  //    Note that we only acquire the lock once the task starts executing
+  //    (there is no reason to hold the lock while the task is sitting in the
+  //    queue). This optimization assumes that whatever else we pass to the
+  //    task (for example, a reference to a target) is immutable (so such a
+  //    reference cannot become invalid).
+  //
+  // 3. Before calling wait(), we release our shared lock to allow re-locking
+  //    for exclusive access. And once wait() returns we are again running
+  //    serially.
+  //
+  struct model_slock
+  {
+    model_slock ()
+    {
+      if (slock* l = model_lock)
+        assert (l->owns_lock ());
+      else
+        model_lock = &(l_ = slock (model));
+    }
+
+    ~model_slock ()
+    {
+      if (&l_ == model_lock)
+        model_lock = nullptr;
+    }
+
+    operator slock& () {return *model_lock;}
+    operator const slock& () const {return *model_lock;}
+
+  private:
+    slock l_;
+  };
+
   // Cached variables.
   //
   extern const variable* var_src_root;
@@ -80,18 +154,6 @@ namespace build2
   //
   extern uint64_t dependency_count;
 
-  // Project-wide (as opposed to global) variable overrides. Returned by
-  // reset().
-  //
-  struct variable_override
-  {
-    const variable& var; // Original variable.
-    const variable& ovr; // Override variable.
-    value val;
-  };
-
-  using variable_overrides = vector<variable_override>;
-
   // Variable override value cache.
   //
   extern variable_override_cache var_override_cache;
@@ -100,7 +162,7 @@ namespace build2
   // scopes, and variables.
   //
   variable_overrides
-  reset (const ulock&, const strings& cmd_vars);
+  reset (const strings& cmd_vars);
 
   // Return the project name or empty string if unnamed.
   //

@@ -755,6 +755,30 @@ namespace build2
     static const value_type_ex value_type;
   };
 
+  // Variable override cache.
+  //
+  struct variable_override_value
+  {
+    build2::value value;
+    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
+  };
+
+  using variable_override_cache = std::map<pair<const variable_map*,
+                                                const variable*>,
+                                           variable_override_value>;
+
+  // Project-wide (as opposed to global) variable overrides. Returned by
+  // context.cxx:reset().
+  //
+  struct variable_override
+  {
+    const variable& var; // Original variable.
+    const variable& ovr; // Override variable.
+    value val;
+  };
+
+  using variable_overrides = vector<variable_override>;
+
   // Variable pool.
   //
   // Protected by the model mutex.
@@ -841,10 +865,6 @@ namespace build2
     rw (scope&) const {return const_cast<variable_pool&> (*this);}
 
   private:
-    // Classes that can access bypassing the lock.
-    //
-    friend class scope;
-
     static variable_pool instance;
 
     const variable&
@@ -852,6 +872,11 @@ namespace build2
             const build2::value_type*,
             const variable_visibility* = nullptr,
             const bool* overridable = nullptr);
+
+    // Entities that can access bypassing the lock.
+    //
+    friend class scope;
+    friend variable_overrides reset (const strings&);
 
   public:
     static const variable_pool& cinstance; // For var_pool initialization.
@@ -1034,18 +1059,6 @@ namespace build2
     mutable
     std::map<tuple<const value*, const target_type*, string>, value> cache;
   };
-
-  // Override cache.
-  //
-  struct variable_override_value
-  {
-    build2::value value;
-    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
-  };
-
-  using variable_override_cache = std::map<pair<const variable_map*,
-                                                const variable*>,
-                                           variable_override_value>;
 }
 
 #include <build2/variable.ixx>

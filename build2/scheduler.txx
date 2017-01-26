@@ -40,8 +40,8 @@ namespace build2
         //
         new (&td->data) task {
           &task_count,
-          decay_copy (forward <F> (f)),
-          typename task::args_type (decay_copy (forward <A> (a))...)};
+          decay_copy (forward<F> (f)),
+          typename task::args_type (decay_copy (forward<A> (a))...)};
 
         td->thunk = &task_thunk<F, A...>;
       }
@@ -49,8 +49,8 @@ namespace build2
         tq->stat_full++;
     }
 
-    // If serial/full, then run the task synchronously. In this case
-    // there is no need to mess with task count.
+    // If serial/full, then run the task synchronously. In this case there is
+    // no need to mess with task count.
     //
     if (td == nullptr)
     {

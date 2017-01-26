@@ -26,9 +26,7 @@ namespace build2
   main (int, char* argv[])
   {
     init (argv[0], 1);  // Fake build system driver, default verbosity.
-
-    ulock ml (model);
-    reset (ml, strings ()); // No command line variables.
+    reset (strings ()); // No command line variables.
 
     function_family f ("dummy");
 

@@ -345,13 +345,13 @@ namespace build2
     }
 
     static void
-    configure_match (ulock&, action, action_targets&)
+    configure_match (action, action_targets&)
     {
       // Don't match anything -- see execute ().
     }
 
     static void
-    configure_execute (ulock& ml, action a, const action_targets& ts, bool)
+    configure_execute (action a, const action_targets& ts, bool)
     {
       // Match rules to configure every operation supported by each
       // project. Note that we are not calling operation_pre/post()
@@ -360,9 +360,13 @@ namespace build2
       //
       set<scope*> projects;
 
-      // Relock for shared access.
+      // Note that we cannot do this in parallel. We cannot parallelize the
+      // outer loop because we should match for a single action at a time.
+      // And we cannot swap the loops because the list of operations is
+      // target-specific. However, inside match(), things can proceed in
+      // parallel.
       //
-      ml.unlock ();
+      model_slock ml;
 
       for (void* v: ts)
       {
@@ -371,9 +375,6 @@ namespace build2
 
         if (rs == nullptr)
           fail << "out of project target " << t;
-
-        slock sl (*ml.mutex ());
-        model_lock = &sl; // @@ Guard?
 
         for (operations::size_type id (default_id + 1); // Skip default_id
              id < rs->operations.size ();
@@ -386,15 +387,11 @@ namespace build2
           set_current_oif (*oif);
           dependency_count = 0;
 
-          match (sl, action (configure_id, id), t);
+          match (ml, action (configure_id, id), t);
         }
-
-        model_lock = nullptr;
 
         configure_project (a, *rs, projects);
       }
-
-      ml.lock ();
     }
 
     const meta_operation_info configure {
@@ -425,8 +422,7 @@ namespace build2
     }
 
     static void
-    disfigure_load (ulock&,
-                    scope&,
+    disfigure_load (scope&,
                     const path& bf,
                     const dir_path&,
                     const dir_path&,
@@ -437,8 +433,7 @@ namespace build2
     }
 
     static void
-    disfigure_search (ulock&,
-                      scope& root,
+    disfigure_search (scope& root,
                       const target_key&,
                       const location&,
                       action_targets& ts)
@@ -449,7 +444,7 @@ namespace build2
     }
 
     static void
-    disfigure_match (ulock&, action, action_targets&)
+    disfigure_match (action, action_targets&)
     {
     }
 
@@ -565,7 +560,7 @@ namespace build2
     }
 
     static void
-    disfigure_execute (ulock&, action a, const action_targets& ts, bool quiet)
+    disfigure_execute (action a, const action_targets& ts, bool quiet)
     {
       tracer trace ("disfigure_execute");
 

@@ -10,6 +10,7 @@
 #include <build2/target>
 #include <build2/context>
 #include <build2/algorithm>
+#include <build2/scheduler>
 #include <build2/filesystem>
 #include <build2/diagnostics>
 
@@ -20,21 +21,6 @@ namespace build2
 {
   namespace dist
   {
-    static operation_id
-    dist_operation_pre (operation_id o)
-    {
-      if (o != default_id)
-        fail << "explicit operation specified for dist meta-operation";
-
-      return o;
-    }
-
-    static void
-    dist_match (ulock&, action, action_targets&)
-    {
-      // Don't match anything -- see execute ().
-    }
-
     // install -d <dir>
     //
     static void
@@ -53,8 +39,23 @@ namespace build2
              const dir_path& dir,
              const string& ext);
 
+    static operation_id
+    dist_operation_pre (operation_id o)
+    {
+      if (o != default_id)
+        fail << "explicit operation specified for dist meta-operation";
+
+      return o;
+    }
+
     static void
-    dist_execute (ulock& ml, action, const action_targets& ts, bool)
+    dist_match (action, action_targets&)
+    {
+      // Don't match anything -- see execute ().
+    }
+
+    static void
+    dist_execute (action, const action_targets& ts, bool)
     {
       tracer trace ("dist_execute");
 
@@ -97,57 +98,60 @@ namespace build2
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs->vars["dist.cmd"]));
 
-      // Relock for shared access. @@ BOGUS
-      //
-      ml.unlock ();
-
-      // Get the list of operations supported by this project. Skip
+      // Match a rule for every operation supported by this project. Skip
       // default_id.
       //
-      for (operations::size_type id (default_id + 1);
-           id < rs->operations.size ();
-           ++id)
+      auto match = [&trace, &rs, &ts] (const operation_info& o)
       {
-        const operation_info* oif (rs->operations[id]);
-        if (oif == nullptr)
-          continue;
-
         // Note that we are not calling operation_pre/post() callbacks
         // here since the meta operation is dist and we know what we
         // are doing.
         //
-        set_current_oif (*oif);
+        set_current_oif (o);
         dependency_count = 0;
 
-        action a (dist_id, id);
+        action a (dist_id, o.id);
 
         if (verb >= 6)
           dump (a);
 
-        slock sl (*ml.mutex ());
-        model_lock = &sl; // @@ Guard?
-
-        for (void* v: ts)
+        scheduler::atomic_count task_count (0);
         {
-          target& t (*static_cast<target*> (v));
+          model_slock ml;
 
-          if (rs != t.base_scope ().root_scope ())
-            fail << "target " << t << " is from a different project" <<
-              info << "one dist() meta-operation can handle one project" <<
-              info << "consider using several dist() meta-operations";
+          for (void* v: ts)
+          {
+            target& t (*static_cast<target*> (v));
 
-          l5 ([&]{trace << diag_doing (a, t);});
+            if (rs != t.base_scope ().root_scope ())
+              fail << "target " << t << " is from a different project" <<
+                info << "one dist() meta-operation can handle one project" <<
+                info << "consider using several dist() meta-operations";
 
-          match (sl, a, t);
+            l5 ([&]{trace << diag_doing (a, t);});
+
+            sched.async (task_count,
+                         [a] (target& t)
+                         {
+                           model_slock ml;
+                           build2::match (ml, a, t); // @@ MT exception.
+                         },
+                         ref (t));
+          }
         }
-
-        model_lock = nullptr;
+        sched.wait (task_count);
 
         if (verb >= 6)
           dump (a);
-      }
+      };
 
-      ml.lock ();
+      for (operations::size_type id (default_id + 1);
+           id < rs->operations.size ();
+           ++id)
+      {
+        if (const operation_info* oif = rs->operations[id])
+          match (*oif);
+      }
 
       // Add buildfiles that are not normally loaded as part of the
       // project, for example, the export stub. They will still be
@@ -258,8 +262,8 @@ namespace build2
 
         action a (perform_id, update_id);
 
-        perform.match (ml, a, files);
-        perform.execute (ml, a, files, true); // Run quiet.
+        perform.match (a, files);
+        perform.execute (a, files, true); // Run quiet.
 
         if (perform.operation_post != nullptr)
           perform.operation_post (update_id);

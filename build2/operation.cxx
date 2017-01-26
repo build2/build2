@@ -4,12 +4,13 @@
 
 #include <build2/operation>
 
+#include <build2/file>
+#include <build2/dump>
 #include <build2/scope>
 #include <build2/target>
-#include <build2/file>
 #include <build2/algorithm>
+#include <build2/scheduler>
 #include <build2/diagnostics>
-#include <build2/dump>
 
 using namespace std;
 using namespace butl;
@@ -44,8 +45,7 @@ namespace build2
   // perform
   //
   void
-  load (ulock&,
-        scope& root,
+  load (scope& root,
         const path& bf,
         const dir_path& out_base,
         const dir_path& src_base,
@@ -67,8 +67,7 @@ namespace build2
   }
 
   void
-  search (ulock&,
-          scope&,
+  search (scope&,
           const target_key& tk,
           const location& l,
           action_targets& ts)
@@ -83,38 +82,39 @@ namespace build2
   }
 
   void
-  match (ulock& ml, action a, action_targets& ts)
+  match (action a, action_targets& ts)
   {
     tracer trace ("match");
 
     if (verb >= 6)
       dump (a);
 
-    // Relock for shared access.
-    //
-    ml.unlock ();
-
+    scheduler::atomic_count task_count (0);
     {
+      model_slock ml;
+
       for (void* vt: ts)
       {
         target& t (*static_cast<target*> (vt));
         l5 ([&]{trace << "matching " << t;});
 
-        slock sl (*ml.mutex ());
-        model_lock = &sl; // @@ Guard?
-        match (sl, a, t);
-        model_lock = nullptr;
+        sched.async (task_count,
+                     [a] (target& t)
+                     {
+                       model_slock ml;
+                       match (ml, a, t); // @@ MT exception handling.
+                     },
+                     ref (t));
       }
     }
-
-    ml.lock ();
+    sched.wait (task_count);
 
     if (verb >= 6)
       dump (a);
   }
 
   void
-  execute (ulock& ml, action a, const action_targets& ts, bool quiet)
+  execute (action a, const action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
 
@@ -123,21 +123,13 @@ namespace build2
     //
     vector<reference_wrapper<target>> psp;
 
-    auto body = [&ml, a, quiet, &psp, &trace] (void* v)
+    auto body = [a, quiet, &psp, &trace] (void* v)
     {
       target& t (*static_cast<target*> (v));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
-      target_state ts;
-      {
-        slock sl (*ml.mutex ());
-        model_lock = &sl; // @@ Guard?
-        ts = execute (a, t);
-        model_lock = nullptr;
-      }
-
-      switch (ts)
+      switch (execute (a, t))
       {
       case target_state::unchanged:
         {
@@ -157,16 +149,10 @@ namespace build2
       }
     };
 
-    // Relock for shared access.
-    //
-    ml.unlock ();
-
     if (current_mode == execution_mode::first)
       for (void* v: ts) body (v);
     else
       for (void* v: reverse_iterate (ts)) body (v);
-
-    ml.lock ();
 
     // We should have executed every target that we matched.
     //

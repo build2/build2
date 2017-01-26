@@ -57,7 +57,7 @@ namespace build2
   variable_override_cache var_override_cache;
 
   variable_overrides
-  reset (const ulock& ml, const strings& cmd_vars)
+  reset (const strings& cmd_vars)
   {
     tracer trace ("reset");
 
@@ -66,7 +66,7 @@ namespace build2
 
     l6 ([&]{trace << "resetting build state";});
 
-    auto& vp (var_pool.rw (ml));
+    auto& vp (variable_pool::instance);
 
     variable_overrides vos;
 

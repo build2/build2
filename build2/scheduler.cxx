@@ -146,7 +146,7 @@ namespace build2
             max_active <= max_threads);
 
     active_ = init_active_ = init_active;
-    max_active_ = max_active;
+    max_active_ = orig_max_active_ = max_active;
     max_threads_ = max_threads;
 
     // This value should be proportional to the amount of hardware concurrency
@@ -212,12 +212,32 @@ namespace build2
       wait_queue_[i].shutdown = false;
   }
 
+  void scheduler::
+  tune (size_t max_active)
+  {
+    lock l (mutex_);
+
+    if (max_active)
+      max_active = orig_max_active_;
+
+    assert (max_active >= init_active_ &&
+            max_active <= orig_max_active_);
+
+    // The schduler must not be active.
+    //
+    assert (active_ == init_active_);
+    assert (waiting_ == 0);
+    assert (ready_ == 0);
+
+    max_active_ = max_active;
+  }
+
   auto scheduler::
   shutdown () -> stat
   {
     // Our overall approach to shutdown is not to try and stop everything as
     // quickly as possible but rather to avoid performing any tasks. This
-    // avoids having code littered with if(shutdown) on every second line.
+    // avoids having code littered with if(shutdown) on every other line.
 
     stat r;
     lock l (mutex_);
@@ -274,7 +294,7 @@ namespace build2
       wait_queue_.reset ();
       task_queues_.clear ();
 
-      r.thread_max_active     = max_active_;
+      r.thread_max_active     = orig_max_active_;
       r.thread_max_total      = max_threads_;
       r.thread_max_waiting    = stat_max_waiters_;
 
