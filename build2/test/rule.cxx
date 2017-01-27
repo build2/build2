@@ -589,7 +589,11 @@ namespace build2
             //
             // @@ OUT: what if this is a @-qualified pair or names?
             //
-            t = &search (*n, tt.base_scope ());
+            t = search_existing (*n, tt.base_scope ());
+
+            if (t == nullptr)
+              fail << "invalid test executable override: unknown target: '"
+                   << n << "'";
           }
         }
         else

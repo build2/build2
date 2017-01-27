@@ -21,7 +21,7 @@ namespace build2
       const names* test_ = nullptr; // The config.test value if any.
       scope*       root_ = nullptr; // The root scope for target resolution.
 
-      // Return true if the specified alias target should pass-through to it
+      // Return true if the specified alias target should pass-through to its
       // prerequisites.
       //
       bool

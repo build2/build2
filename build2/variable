@@ -781,7 +781,7 @@ namespace build2
 
   // Variable pool.
   //
-  // Protected by the model mutex.
+  // The global version is protected by the model mutex.
   //
   class variable_pool
   {
@@ -856,6 +856,8 @@ namespace build2
     void
     clear () {map_.clear ();}
 
+    variable_pool (): variable_pool (false) {}
+
     // Proof of lock for RW access.
     //
     variable_pool&
@@ -902,6 +904,10 @@ namespace build2
       return r;
     }
 
+    explicit
+    variable_pool (bool global): global_ (global) {}
+
+    bool global_;
     map map_;
   };
 

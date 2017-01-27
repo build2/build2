@@ -136,14 +136,19 @@ namespace build2
             r = d.sub (n->dir);
           else
             // First quickly and cheaply weed out names that cannot possibly
-            // match. Only then search for a target as if it was a prerequisite,
-            // which can be expensive.
+            // match. Only then search for a target (as if it was a
+            // prerequisite), which can be expensive.
+            //
+            // We cannot specify an src target in config.test since we used
+            // the pair separator for ids. As a result, we search for both
+            // out and src targets.
             //
             r =
-              t.name == n->value &&       // Name matches.
-              tt.name == n->type &&       // Target type matches.
-              d == n->dir &&              // Directory matches.
-              search (*n, *root_) == t;
+              t.name == n->value &&                   // Name matches.
+              tt.name == n->type &&                   // Target type matches.
+              d == n->dir        &&                   // Directory matches.
+              (search_existing (*n, *root_)    == &t ||
+               search_existing (*n, *root_, d) == &t);
 
           if (r)
             break;
@@ -189,8 +194,9 @@ namespace build2
               r =
                 t.name == n->value &&
                 tt.name == n->type &&
-                d == n->dir &&
-                search (*n, *root_) == t;
+                d == n->dir        &&
+                (search_existing (*n, *root_)    == &t ||
+                 search_existing (*n, *root_, d) == &t);
 
             if (!r)
               continue; // Not our target.

@@ -21,7 +21,7 @@ EOI
 +cat <<EOI >=proj/buildfile
 d = tests/ units/
 ./: $d
-include $d
+#include $d
 EOI
 
 # tests/ - as a subproject
@@ -37,7 +37,7 @@ EOI
 +cat <<EOI >=proj/tests/buildfile
 d = script/
 ./: $d
-include $d
+#include $d
 EOI
 
 # tests/script - scripted test
@@ -66,7 +66,7 @@ EOI
 +cat <<EOI >=proj/units/buildfile
 d = simple/ script/
 ./: $d test{testscript}
-include $d
+#include $d
 EOI
 +cat <<EOI >=proj/units/testscript
 echo 'units' >|

@@ -11,6 +11,8 @@ namespace build2
   inline target&
   search (prerequisite& p)
   {
+    assert (phase == run_phase::search_match);
+
     if (p.target == nullptr)
       p.target = &search (p.key ());
 
@@ -56,6 +58,8 @@ namespace build2
   inline void
   match (slock& ml, action a, target& t)
   {
+    assert (phase == run_phase::search_match);
+
     if (!t.recipe (a))
       match_impl (ml, a, t, true);
 
@@ -72,6 +76,8 @@ namespace build2
   {
     // text << "U " << t << ": " << t.dependents << " " << dependency_count;
 
+    assert (phase == run_phase::search_match);
+
     //@@ MT
     //
     assert (t.dependents != 0 && dependency_count != 0);
@@ -82,6 +88,8 @@ namespace build2
   inline void
   match_only (slock& ml, action a, target& t)
   {
+    assert (phase == run_phase::search_match);
+
     if (!t.recipe (a))
       match_impl (ml, a, t, false);
   }
@@ -89,6 +97,8 @@ namespace build2
   inline pair<recipe, action>
   match_delegate (slock& ml, action a, target& t, const rule& r)
   {
+    assert (phase == run_phase::search_match);
+
     auto rp (match_impl (ml, a, t, false, &r));
     const match_result& mr (rp.second);
     return make_pair (rp.first->apply (ml, mr.recipe_action, t),
@@ -101,6 +111,8 @@ namespace build2
   inline group_view
   resolve_group_members (slock& ml, action a, target& g)
   {
+    assert (phase == run_phase::search_match);
+
     group_view r (g.group_members (a));
     return r.members != nullptr ? r : resolve_group_members_impl (ml, a, g);
   }

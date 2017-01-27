@@ -6,6 +6,7 @@
 
 #include <cstring> // memcmp()
 
+#include <build2/context>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -908,6 +909,8 @@ namespace build2
   const variable& variable_pool::
   insert (string n)
   {
+    assert (!global_ || phase == run_phase::load);
+
     // We are not overriding anything so skip the insert_() checks.
     //
     auto p (
@@ -928,6 +931,8 @@ namespace build2
           const variable_visibility* v,
           const bool* o)
   {
+    assert (!global_ || phase == run_phase::load);
+
     auto p (
       insert (
         variable {
@@ -940,9 +945,39 @@ namespace build2
 
     if (!p.second)
     {
+      // Check overridability (all overrides, if any, should already have
+      // been entered (see context.cxx:reset()).
+      //
+      if (r.override != nullptr && (o == nullptr || !*o))
+        fail << "variable " << r.name << " cannot be overridden";
+
+      bool ut (t != nullptr && r.type != t);
+      bool uv (v != nullptr && r.visibility != *v);
+
+      // In the global pool existing variables can only be updated during
+      // serial load.
+      //
+      /*
+        @@ MT
+
+      if (global_)
+      {
+        //assert (!(ut || uv) || model_lock == nullptr);
+
+        if (model_lock != nullptr)
+        {
+          if (ut)
+            text << r.name << " type update during exclusive load";
+
+          if (uv)
+            text << r.name << " visibility update during exclusive load";
+        }
+      }
+      */
+
       // Update type?
       //
-      if (t != nullptr && r.type != t)
+      if (ut)
       {
         assert (r.type == nullptr);
         const_cast<variable&> (r).type = t; // Not changing the key.
@@ -953,23 +988,17 @@ namespace build2
       // were set, in which case the variable will be entered with the
       // default visibility.
       //
-      if (v != nullptr && r.visibility != *v)
+      if (uv)
       {
         assert (r.visibility == variable_visibility::normal); // Default.
         const_cast<variable&> (r).visibility = *v; // Not changing the key.
       }
-
-      // Check overridability (all overrides, if any, should already have
-      // been entered (see context.cxx:reset()).
-      //
-      if (r.override != nullptr && (o == nullptr || !*o))
-        fail << "variable " << r.name << " cannot be overridden";
     }
 
     return r;
   }
 
-  variable_pool variable_pool::instance;
+  variable_pool variable_pool::instance (true);
   const variable_pool& variable_pool::cinstance = variable_pool::instance;
   const variable_pool& var_pool = variable_pool::cinstance;
 

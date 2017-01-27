@@ -115,31 +115,35 @@ namespace build2
         if (verb >= 6)
           dump (a);
 
-        scheduler::atomic_count task_count (0);
         {
-          model_slock ml;
+          phase_guard pg (run_phase::search_match);
 
-          for (void* v: ts)
+          scheduler::atomic_count task_count (0);
           {
-            target& t (*static_cast<target*> (v));
+            model_slock ml;
 
-            if (rs != t.base_scope ().root_scope ())
-              fail << "target " << t << " is from a different project" <<
-                info << "one dist() meta-operation can handle one project" <<
-                info << "consider using several dist() meta-operations";
+            for (void* v: ts)
+            {
+              target& t (*static_cast<target*> (v));
 
-            l5 ([&]{trace << diag_doing (a, t);});
+              if (rs != t.base_scope ().root_scope ())
+                fail << "target " << t << " is from a different project" <<
+                  info << "one dist() meta-operation can handle one project" <<
+                  info << "consider using several dist() meta-operations";
 
-            sched.async (task_count,
-                         [a] (target& t)
-                         {
-                           model_slock ml;
-                           build2::match (ml, a, t); // @@ MT exception.
-                         },
-                         ref (t));
+              l5 ([&]{trace << diag_doing (a, t);});
+
+              sched.async (task_count,
+                           [a] (target& t)
+                           {
+                             model_slock ml;
+                             build2::match (ml, a, t); // @@ MT exception.
+                           },
+                           ref (t));
+            }
           }
+          sched.wait (task_count);
         }
-        sched.wait (task_count);
 
         if (verb >= 6)
           dump (a);

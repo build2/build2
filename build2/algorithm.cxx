@@ -22,6 +22,8 @@ namespace build2
   target&
   search (const prerequisite_key& pk)
   {
+    assert (phase == run_phase::search_match);
+
     // If this is a project-qualified prerequisite, then this is import's
     // business.
     //
@@ -37,6 +39,8 @@ namespace build2
   target&
   search (name n, scope& s)
   {
+    assert (phase == run_phase::search_match);
+
     optional<string> ext;
     const target_type* tt (s.find_target_type (n, ext));
 
@@ -50,6 +54,36 @@ namespace build2
     //         Would need to pass a pair of names.
     //
     return search (*tt, n.dir, dir_path (), n.value, ext, &s, n.proj);
+  }
+
+  target*
+  search_existing (const name& cn, scope& s, const dir_path& out)
+  {
+    assert (phase == run_phase::search_match || phase == run_phase::execute);
+
+    // We don't handle this for now.
+    //
+    if (cn.qualified ())
+      return nullptr;
+
+    name n (cn);
+    optional<string> ext;
+    const target_type* tt (s.find_target_type (n, ext));
+
+    // For now we treat an unknown target type as an unknown target. Seems
+    // logical.
+    //
+    if (tt == nullptr)
+      return nullptr;
+
+    if (!n.dir.empty ())
+      n.dir.normalize (false, true); // Current dir collapses to an empty one.
+
+    // @@ OUT: for now we assume the prerequisite's out is undetermined.
+    //         Would need to pass a pair of names.
+    //
+    return search_existing_target (
+      prerequisite_key {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s});
   }
 
   pair<const rule*, match_result>

@@ -387,6 +387,7 @@ namespace build2
           set_current_oif (*oif);
           dependency_count = 0;
 
+          phase_guard pg (run_phase::search_match);
           match (ml, action (configure_id, id), t);
         }
 
@@ -566,6 +567,8 @@ namespace build2
 
       set<scope*> projects;
 
+      // Note: doing everything in the load phase.
+      //
       for (void* v: ts)
       {
         scope& root (*static_cast<scope*> (v));

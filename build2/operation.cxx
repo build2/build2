@@ -74,6 +74,8 @@ namespace build2
   {
     tracer trace ("search");
 
+    phase_guard pg (run_phase::search_match);
+
     auto i (targets.find (tk, trace));
     if (i == targets.end ())
       fail (l) << "unknown target " << tk;
@@ -89,25 +91,29 @@ namespace build2
     if (verb >= 6)
       dump (a);
 
-    scheduler::atomic_count task_count (0);
     {
-      model_slock ml;
+      phase_guard pg (run_phase::search_match);
 
-      for (void* vt: ts)
+      scheduler::atomic_count task_count (0);
       {
-        target& t (*static_cast<target*> (vt));
-        l5 ([&]{trace << "matching " << t;});
+        model_slock ml;
 
-        sched.async (task_count,
-                     [a] (target& t)
-                     {
-                       model_slock ml;
-                       match (ml, a, t); // @@ MT exception handling.
-                     },
-                     ref (t));
+        for (void* vt: ts)
+        {
+          target& t (*static_cast<target*> (vt));
+          l5 ([&]{trace << "matching " << t;});
+
+          sched.async (task_count,
+                       [a] (target& t)
+                       {
+                         model_slock ml;
+                         match (ml, a, t); // @@ MT exception handling.
+                       },
+                       ref (t));
+        }
       }
+      sched.wait (task_count);
     }
-    sched.wait (task_count);
 
     if (verb >= 6)
       dump (a);
@@ -117,6 +123,8 @@ namespace build2
   execute (action a, const action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
+
+    phase_guard pg (run_phase::execute);
 
     // Execute collecting postponed targets (to be re-examined later).
     // Do it in reverse order if the execution mode is 'last'.

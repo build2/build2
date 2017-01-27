@@ -892,6 +892,8 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
+    auto& vp (var_pool.rw (iroot));
+
     for (;;) // Break-out loop.
     {
       string n ("config.import." + proj);
@@ -901,8 +903,7 @@ namespace build2
       // Note: overridable variable with path auto-completion.
       //
       {
-        const variable& var (
-          var_pool.rw (ibase).insert<abs_dir_path> (n, true));
+        const variable& var (vp.insert<abs_dir_path> (n, true));
 
         if (auto l = iroot[var])
         {
@@ -931,9 +932,9 @@ namespace build2
       //
       if (!target.value.empty ())
       {
-        auto lookup = [&iroot, &loc] (string name) -> path
+        auto lookup = [&iroot, &vp, &loc] (string name) -> path
         {
-          const variable& var (var_pool.rw (iroot).insert<path> (name, true));
+          const variable& var (vp.insert<path> (name, true));
 
           path r;
           if (auto l = iroot[var])

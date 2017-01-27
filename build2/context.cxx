@@ -23,6 +23,8 @@ using namespace butl;
 
 namespace build2
 {
+  run_phase phase = run_phase::load;
+
   shared_mutex model;
 
 #ifdef __cpp_thread_local

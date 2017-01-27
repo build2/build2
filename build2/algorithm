@@ -65,6 +65,15 @@ namespace build2
   target&
   search (name, scope&);
 
+  // As above but only search for an already existing target. Unlike the
+  // above version, this one can be called during the execute phase.
+  //
+  // Note that currently we return NULL for project-qualified names and
+  // unknown target types.
+  //
+  target*
+  search_existing (const name&, scope&, const dir_path& out = dir_path ());
+
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call
   // this function with the intent to also call execute(). In case of

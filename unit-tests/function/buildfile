@@ -13,7 +13,6 @@ functions-builtin functions-path functions-process-path functions-string \
 functions-target-triplet algorithm search dump filesystem scheduler \
 config/{utility init operation}
 
-
 exe{driver}: cxx{driver} ../../build2/cxx{$src} $libs test{call syntax}
 
 include ../../build2/

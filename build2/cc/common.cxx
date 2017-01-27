@@ -402,7 +402,10 @@ namespace build2
         // Search for an existing target with this name "as if" it was a
         // prerequisite.
         //
-        xt = &search (move (n), s);
+        xt = search_existing (n, s);
+
+        if (xt == nullptr)
+          fail << "unable to find library " << n;
       }
       else
       {

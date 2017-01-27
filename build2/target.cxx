@@ -625,35 +625,40 @@ namespace build2
       // target_set). Also, a buildfile could load from a directory that is
       // not a subdirectory of out_base. So for now we just assume that this
       // is so. And so it is.
-
-      // Relock for exclusive access.
       //
-      rlock rl (model_lock);
-
-      pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));
-
-      if (sp.second != nullptr) // Ignore scopes out of any project.
+      bool retest (false);
       {
-        scope& base (sp.first);
-        scope& root (*sp.second);
+        // Relock for exclusive access and change to the load phase.
+        //
+        rlock rl (model_lock);
+        phase_guard pg (run_phase::load);
 
-        path bf (base.src_path () / "buildfile");
+        pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));
 
-        if (exists (bf))
+        if (sp.second != nullptr) // Ignore scopes out of any project.
         {
-          l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
+          scope& base (sp.first);
+          scope& root (*sp.second);
 
-          if (source_once (root, base, bf, root))
+          path bf (base.src_path () / "buildfile");
+
+          if (exists (bf))
           {
-            // If we loaded the buildfile, examine the target again.
-            //
-            if (t == nullptr)
-              t = search_existing_target (pk);
-
-            if (t != nullptr && !t->implied)
-              return t;
+            l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
+            retest = source_once (root, base, bf, root);
           }
         }
+      }
+
+      // If we loaded the buildfile, examine the target again.
+      //
+      if (retest)
+      {
+        if (t == nullptr)
+          t = search_existing_target (pk);
+
+        if (t != nullptr && !t->implied)
+          return t;
       }
     }
 

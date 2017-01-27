@@ -14,14 +14,43 @@
 
 namespace build2
 {
-  // Top-level model (internal state) mutex and its per-thread shared lock.
+  // In order to perform each operation the build system goes through the
+  // following phases:
   //
-  // - model_lock is     NULL during serial execution, all changes are a go
-  // - model_lock is not NULL during parallel execution, append-only changes
-  // - parallel execution starts with a shared lock by creating model_slock
+  // load           - load the buildfiles
+  // search & match - search prerequisites and match rules
+  // execute        - execute the matched rule
+  //
+  // The phase can only be changed during serial or exclusive execution
+  // (see below).
+  //
+  extern enum class run_phase {load, search_match, execute} phase;
+
+  // The build system model (internal state) is protected at the top level by
+  // the model mutex. During serial execution the model mutex is unlocked.
   //
   extern shared_mutex model;
 
+  // Parallel execution always starts with acquiring a shared model lock (by
+  // creating model_slock; see below). Pointers to these locks are cached in
+  // the model_lock TLS variable (which is NULL during serial execution).
+  //
+  // The build system starts with a "serial load" phase and then continues
+  // with parallel search & match and execute. Search & match, however, can be
+  // interrupted with an "exclusive load" by re-locking the shared lock as
+  // exclusive, changing the phase, and loading additional buildfiles.
+  //
+  // Serial load can perform arbitrary changes to the model. Exclusive load,
+  // however, can only perform "pure appends". That is, it can create new
+  // "nodes" (variables, scopes, etc) but not change already existing nodes
+  // or invalidate any references to such (the idea here is that one should
+  // be able to load additional buildfiles as long as they don't interfere
+  // with the existing build state).
+  //
+  // @@ MT: do we really have to hold shared lock during execute?
+  // @@ MT: we can also interrupt load s&m with execute -- neither handled
+  //        nor documented.
+  //
   extern
 #ifdef __cpp_thread_local
   thread_local
@@ -29,6 +58,13 @@ namespace build2
   __thread
 #endif
   slock* model_lock;
+
+  struct phase_guard
+  {
+    explicit phase_guard (run_phase p): o (phase) {phase = p;}
+    ~phase_guard () {phase = o;}
+    run_phase o;
+  };
 
   // A shared model lock. If there is already an instance of model_slock in
   // this thread, then the new instance simply references it (asserting that

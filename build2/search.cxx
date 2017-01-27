@@ -31,7 +31,7 @@ namespace build2
       d = *tk.dir; // Already normalized.
     else
     {
-      d = pk.scope->out_path ();
+      d = tk.out->empty () ? pk.scope->out_path () : pk.scope->src_path ();
 
       if (!tk.dir->empty ())
       {
@@ -51,12 +51,27 @@ namespace build2
     //
     // relative The out directory was specified using @-syntax as relative (to
     //          the prerequisite's scope) and we need to complete it similar
-    //          to how we complete the relative dir above. This is @@ OUT TODO.
+    //          to how we complete the relative dir above.
     //
-    // What if we have user-supplied out but it is in-src build. Shouldn't we
-    // drop it?
-    //
-    auto i (targets.find (*tk.type, d, *tk.out, *tk.name, tk.ext, trace));
+    dir_path o;
+    if (!tk.out->empty ())
+    {
+      if (tk.out->absolute ())
+        o = *tk.out; // Already normalized.
+      else
+      {
+        o = pk.scope->out_path ();
+        o /= *tk.out;
+        o.normalize ();
+      }
+
+      // Drop out if it is the same as src (in-src build).
+      //
+      if (o == d)
+        o.clear ();
+    }
+
+    auto i (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
 
     if (i == targets.end ())
       return 0;
