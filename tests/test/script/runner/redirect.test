@@ -12,7 +12,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 : pass
 :
 {
-  $c <'$* -i 1 -e bar <| >| 2>|';
+  cat <'$* -i 1 -e bar <| >| 2>|' >=testscript;
   cat <<EOI >=buildfile;
   test{testscript}: $target
   EOI
@@ -22,15 +22,8 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 : null
 :
 {
-  : out
-  :
-  $c <'$* -o foo >-';
-  $b
-
-  : err
-  :
-  $c <'$* -e foo 2>-';
-  $b
+  $c <'$* -o foo >-' && $b  : out
+  $c <'$* -e foo 2>-' && $b : err
 }
 
 : str
@@ -39,25 +32,10 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   : literal
   :
   {
-    : in
-    :
-    $c <'$* -i 0 <foo';
-    $b
-
-    : out
-    :
-    $c <'$* -o foo >foo';
-    $b
-
-    : err
-    :
-    $c <'$* -e foo 2>foo';
-    $b
-
-    : inout
-    :
-    $c <'$* -i 1 <foo >foo';
-    $b
+    $c <'$* -i 0 <foo' && $b      : in
+    $c <'$* -o foo >foo' && $b    : out
+    $c <'$* -e foo 2>foo' && $b   : err
+    $c <'$* -i 1 <foo >foo' && $b : inout
 
     : inout-fail
     :
@@ -75,30 +53,11 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     +foo
     EOE
 
-    : inerr
-    :
-    $c <'$* -i 2 <foo 2>foo';
-    $b
-
-    : inout-err
-    :
-    $c <'$* -i 1 -e bar <foo 1>foo 2>bar';
-    $b
-
-    : empty
-    :
-    $c <'$* -o "" >""';
-    $b
-
-    : no-newline
-    :
-    $c <'$* -i 1 <:"foo" >:"foo"';
-    $b
-
-    : no-newline-empty
-    :
-    $c <'$* -i 1 <:"" >:""';
-    $b
+    $c <'$* -i 2 <foo 2>foo' && $b              : inerr
+    $c <'$* -i 1 -e bar <foo 1>foo 2>bar' && $b : inout-err
+    $c <'$* -o "" >""' && $b                    : empty
+    $c <'$* -i 1 <:"foo" >:"foo"' && $b         : no-newline
+    $c <'$* -i 1 <:"" >:""' && $b               : no-newline-empty
 
     : no-newline-fail1
     :
@@ -124,31 +83,19 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : merge
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -o foo -e bar 2>>EOE 1>&2
     foo
     bar
     EOE
     EOI
-    $b
 
     : portable-path
     :
     {
-      : in
-      :
-      $c <"\$* -i 1 </'foo/' >'foo$ps'";
-      $b
-
-      : out
-      :
-      $c <"\$* -i 1 <'foo$ps' >/'foo/'";
-      $b
-
-      : err
-      :
-      $c <"\$* -i 2 <'foo$ps' 2>/'foo/'";
-      $b
+      $c <"\$* -i 1 </'foo/' >'foo$ps'" && $b  : in
+      $c <"\$* -i 1 <'foo$ps' >/'foo/'" && $b  : out
+      $c <"\$* -i 2 <'foo$ps' 2>/'foo/'" && $b : err
     }
   }
 
@@ -211,37 +158,34 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   {
     : in
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 0 <<EOO
     foo
     bar
     EOO
     EOI
-    $b
 
     : out
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -o foo -o bar >>EOO
     foo
     bar
     EOO
     EOI
-    $b
 
     : err
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -e foo -e bar 2>>EOO
     foo
     bar
     EOO
     EOI
-    $b
 
     : inout
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<EOF >>EOO
     foo
     bar
@@ -250,11 +194,10 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     bar
     EOO
     EOI
-    $b
 
     : inerr
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 2 <<EOF 2>>EOE
     foo
     bar
@@ -263,59 +206,53 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     bar
     EOE
     EOI
-    $b
 
     : empty
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<EOF >>EOO
     EOF
     EOO
     EOI
-    $b
 
     : shared
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<EOF >>EOF
     foo
     bar
     EOF
     EOI
-    $b
 
     : extra-newline
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<EOF >>EOO
 
     EOF
 
     EOO
     EOI
-    $b
 
     : no-newline
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<:EOF >>:EOO
     foo
     EOF
     foo
     EOO
     EOI
-    $b
 
     : no-newline-fail1
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>~/EOE/ != 0
     $* -i 1 <<:EOF >>EOO
     foo
     EOF
     foo
     EOO
     EOI
-    $b 2>>~/EOE/ != 0
     /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
     /.{7}
     -foo
@@ -325,14 +262,13 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : no-newline-fail2
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>~/EOE/ != 0
     $* -i 1 <<EOF >>:EOO
     foo
     EOF
     foo
     EOO
     EOI
-    $b 2>>~/EOE/ != 0
     /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
     /.{7}
     -foo
@@ -342,27 +278,25 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : no-newline-empty
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<:EOF >>:EOO
     EOF
     EOO
     EOI
-    $b
 
     : no-newline-extra-newline
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<:EOF >>:EOO
 
     EOF
 
     EOO
     EOI
-    $b
 
     : merge
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -i 1 <<EOF -e baz >>EOO 2>&1
     foo
     bar
@@ -372,23 +306,21 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     baz
     EOO
     EOI
-    $b
 
     : large-diff
     :
     : Make sure that the large (>4KB) expected/real output difference is not
     : printed as a part of the diagnostics.
     :
-    $c <<EOI;
-    s="------------------------------------------------------------------------";
-    s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    s="----------------------------------------------------------------------";
+    s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
     $* -i 1 <<"EOF" >>"EOO"
     $s
     EOF
     x$s
     EOO
     EOI
-    $b 2>>/~%EOE%d != 0
     %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
       info: stdout: test/1/stdout
       info: expected stdout: test/1/stdout.orig
@@ -401,30 +333,27 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     {
       : in
       :
-      $c <<"EOI";
+      $c <<"EOI" && $b
       \$* -i 1 <</EOF >'foo$ps'
       foo/
       EOF
       EOI
-      $b
 
       : out
       :
-      $c <<"EOI";
+      $c <<"EOI" && $b
       \$* -i 1 <'foo$ps' >>/EOO
       foo/
       EOO
       EOI
-      $b
 
       : err
       :
-      $c <<"EOI";
+      $c <<"EOI" && $b
       \$* -i 2 <'foo$ps' 2>>/EOE
       foo/
       EOE
       EOI
-      $b
     }
   }
 
@@ -436,41 +365,37 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   {
     : match
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -o foo -o foo -o bar >>~/EOO/i
     /FO*/*
     bar
     /*
     EOO
     EOI
-    $b
 
     : match-empty
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* >>:~/EOO/
     /.{0}
     EOO
     EOI
-    $b
 
     : shared
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -o foo -e foo >>~/EOF/ 2>>~/EOF/
     foo
     EOF
     EOI
-    $b
 
     : mismatch
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>/~%EOE%d != 0
     $* -o foo >>~/EOO/
     bar
     EOO
     EOI
-    $b 2>>/~%EOE%d != 0
     %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
@@ -478,12 +403,11 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
     : mismatch-icase
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>/~%EOE%d != 0
     $* -o foo >>~/EOO/i
     bar
     EOO
     EOI
-    $b 2>>/~%EOE%d != 0
     %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex~i
@@ -496,18 +420,17 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 {
   : in
   :
-  $c <<EOI;
+  $c <<EOI && $b
   $* -o foo >=out;
   $* -i 1 <<<out >foo
   EOI
-  $b
 
   : out
   :
   {
     : match
     :
-    $c <<EOI;
+    $c <<EOI && $b
     $* -o foo >=out;
     $* -e bar 2>+out;
     $* -i 1 <<EOF >>>out
@@ -515,15 +438,13 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     bar
     EOF
     EOI
-    $b
 
     : mismatch
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>/~%EOE%d != 0
     $* -o foo >=out;
     $* -o bar >>>out
     EOI
-    $b 2>>/~%EOE%d != 0
     %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
       info: stdout: test/1/stdout-2
       info: expected stdout: test/1/out
@@ -538,7 +459,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
 
   : merge
   :
-  $c <<EOI;
+  $c <<EOI && $b
   $* -o foo -e bar 2>&1 >=out;
   $* -e baz -o biz 1>&2 2>+out;
   $* -i 1 <<<out >>EOO
@@ -548,5 +469,4 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   biz
   EOO
   EOI
-  $b
 }

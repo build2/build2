@@ -6,7 +6,7 @@
 
 : in
 :
-$c <<EOI;
+$c <<EOI && $b
 cat <<EOF >>EOO
 foo
 bar
@@ -15,11 +15,10 @@ foo
 bar
 EOO
 EOI
-$b
 
 : dash
 :
-$c <<EOI;
+$c <<EOI && $b
 cat - <<EOF >>EOO
 foo
 bar
@@ -28,11 +27,10 @@ foo
 bar
 EOO
 EOI
-$b
 
 : file
 :
-$c <<EOI;
+$c <<EOI && $b
 cat <<EOF >=out;
 foo
 bar
@@ -42,11 +40,10 @@ foo
 bar
 EOO
 EOI
-$b
 
 : in-repeat
 :
-$c <<EOI;
+$c <<EOI && $b
 cat - <<EOF >>EOO
 foo
 bar
@@ -55,25 +52,31 @@ foo
 bar
 EOO
 EOI
-$b
 
 : non-existent
 :
-$c <<EOI;
+$c <<EOI && $b
 cat in 2>>/~%EOE% != 0
 %cat: unable to print '.+/test/cat/non-existent/test/1/in': .+%
 EOE
 EOI
-$b
 
 : empty-path
 :
 : Cat an empty path.
 :
-$c <<EOI;
+$c <<EOI && $b
 cat '' 2>"cat: invalid path ''" == 1
 EOI
-$b
 
-# @@ When piping is ready test cat on a big file to test it is asynchronous.
-#
+: big
+:
+: Cat a big file (about 3MB) to test that the builtin is asynchronous.
+:
+{
+  s="------------------------------------------------------------------------"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  $c <"cat <'$s' | cat >'$s'" && $b
+}

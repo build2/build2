@@ -23,20 +23,9 @@
   : str
   :
   {
-    : out
-    :
-    $c <'cat <foo >~/fo./';
-    $b
-
-    : err
-    :
-    $c <'cat <foo 1>&2 2>~/fo./';
-    $b
-
-    : no-newline
-    :
-    $c <'cat <:foo >:~/fo./';
-    $b
+    $c <'cat <foo >~/fo./' && $b       : out
+    $c <'cat <foo 1>&2 2>~/fo./' && $b : err
+    $c <'cat <:foo >:~/fo./' && $b     : no-newline
 
     : malformed
     :
@@ -55,34 +44,31 @@
   {
     : out
     :
-    $c <<EOI;
+    $c <<EOI && $b
     cat <foo >>~/EOO/
     /foo/
     EOO
     EOI
-    $b
 
     : err
     :
-    $c <<EOI;
+    $c <<EOI && $b
     cat <foo 1>&2 2>>~/EOO/
     /fo./
     EOO
     EOI
-    $b
 
     : no-newline
     :
-    $c <<EOI;
+    $c <<EOI && $b
     cat <:foo >>:~/EOO/
     /fo./
     EOO
     EOI
-    $b
 
     : line-char
     :
-    $c <<EOI;
+    $c <<EOI && $b
     cat <<EOF >>~/EOO/
     foo
     bar
@@ -107,11 +93,10 @@
     //{2}
     EOO
     EOI
-    $b
 
     : expansion
     :
-    $c <<EOI;
+    $c <<EOI && $b
     s="O*/i
     bar
     ";
@@ -125,41 +110,37 @@
     baz
     EOO
     EOI
-    $b
 
     : invalid-syntax-char
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>EOE != 0
     $* -o foo >>~/EOO/
       /x
       EOO
     EOI
-    $b 2>>EOE != 0
     testscript:2:3: error: invalid syntax character 'x' in stdout regex redirect
       info: regex line: '/x'
     EOE
 
     : invalid-char-regex
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>~/EOE/ != 0
     $* -o foo >>~/EOO/
       /foo[/
       EOO
     EOI
-    $b 2>>~/EOE/ != 0
     /testscript:2:3: error: invalid char-regex in stdout regex redirect.*/
       info: regex line: '/foo[/'
     EOE
 
     : invalid-line-regex
     :
-    $c <<EOI;
+    $c <<EOI && $b 2>>/~%EOE% != 0
     $* -o foo >>~/EOO/
       a
       /{
       EOO
     EOI
-    $b 2>>/~%EOE% != 0
     %testscript:4:3: error: invalid stdout regex redirect.*%
       info: stdout regex: test/1/stdout.regex
     EOE
@@ -174,8 +155,7 @@
   {
     : i
     :
-    $c <'cat <Foo >~/foo/i';
-    $b
+    $c <'cat <Foo >~/foo/i' && $b
 
     : d
     :
@@ -185,15 +165,13 @@
       : Escaped dot becomes syntax dot and matches any character ('i' in our
       : case).
       :
-      $c <'cat <fio >~/f\\.o/d';
-      $b
+      $c <'cat <fio >~/f\\.o/d' && $b
 
       : syntax-dot
       :
       : Syntax dot becomes escaped dot and matches only '.' and so we fail.
       :
-      $c <'cat <fio >~/f.o/d';
-      $b 2>>~/EOE/ != 0
+      $c <'cat <fio >~/f.o/d' && $b 2>>~/EOE/ != 0
       testscript:1:1: error: cat stdout doesn't match the regex
       /.+
       EOE
@@ -204,12 +182,11 @@
   {
     : i
     :
-    $c <<EOI;
+    $c <<EOI && $b
     cat <Foo >>~/EOO/
     /foo/i
     EOO
     EOI
-    $b
 
     : d
     :
@@ -219,21 +196,19 @@
     {
       : escaped-dot
       :
-      $c <<EOI;
+      $c <<EOI && $b
       cat <fio >>~/EOO/
       /f\.o/d
       EOO
       EOI
-      $b
 
       : syntax-dot
       :
-      $c <<EOI;
+      $c <<EOI && $b 2>>~/EOE/ != 0
       cat <fio >>~/EOO/
       /f.o/d
       EOO
       EOI
-      $b 2>>~/EOE/ != 0
       testscript:1:1: error: cat stdout doesn't match the regex
       /.+
       EOE
@@ -244,33 +219,30 @@
     {
       : i
       :
-      $c <<EOI;
+      $c <<EOI && $b
       cat <Foo >>~/EOO/i
       /foo/
       EOO
       EOI
-      $b
 
       : d
       :
       {
         : escaped-dot
         :
-        $c <<EOI;
+        $c <<EOI && $b
         cat <fio >>~/EOO/d
         /f\.o/
         EOO
         EOI
-        $b
 
         : syntax-dot
         :
-        $c <<EOI;
+        $c <<EOI && $b 2>>~/EOE/ != 0
         cat <fio >>~/EOO/d
         /f.o/
         EOO
         EOI
-        $b 2>>~/EOE/ != 0
         testscript:1:1: error: cat stdout doesn't match the regex
         /.+
         EOE
@@ -287,35 +259,26 @@
   : str
   :
   {
-    : out
-    :
-    $c <"cat <'foo$ps' >/~%foo/%";
-    $b
-
-    : err
-    :
-    $c <"cat <'foo$ps' >/~%foo/%";
-    $b
+    $c <"cat <'foo$ps' >/~%foo/%" && $b       : out
+    $c <"cat <'foo$ps' 1>&2 2>/~%foo/%" && $b : err
   }
 
   : doc
   {
     : out
     :
-    $c <<"EOI";
+    $c <<"EOI" && $b
     cat <'foo$ps' >>/~%EOO%
     foo/
     EOO
     EOI
-    $b
 
     : err
     :
-    $c <<"EOI";
-    cat <'foo$ps' >>/~%EOO%
+    $c <<"EOI" && $b
+    cat <'foo$ps' 1>&2 2>>/~%EOO%
     foo/
     EOO
     EOI
-    $b
   }
 }

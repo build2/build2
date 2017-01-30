@@ -11,15 +11,13 @@
   :
   : Removing with no arguments fails.
   :
-  $c <'rmdir 2>"rmdir: missing directory" == 1';
-  $b
+  $c <'rmdir 2>"rmdir: missing directory" == 1' && $b
 
   : force
   :
   : Removing with no arguments succeeds with -f option.
   :
-  $c <'rmdir -f';
-  $b
+  $c <'rmdir -f' && $b
 }
 
 : dir
@@ -29,19 +27,17 @@
   :
   : Removing an empty path fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   rmdir '' 2>"rmdir: invalid path ''" == 1
   EOI
-  $b
 
   : test-scope
   :
   : Removing scope directory fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   rmdir ./ 2>"rmdir: '$~' contains test working directory '$~'" == 1
   EOI
-  $b
 
   : outside-scope
   :
@@ -52,31 +48,28 @@
     :
     : Removing directory outside the testscript working directory fails.
     :
-    $c <<EOI;
+    $c <<EOI && $b
     rmdir ../../a/b/c 2>>/~%EOE% == 1
     %rmdir: '.+/dir/outside-scope/fail/a/b/c' is out of working directory '.+/dir/outside-scope/fail/test'%
     EOE
     EOI
-    $b
 
     : force
     :
     : Removing path outside the testscript working directory succeeds with -f
     : option.
     :
-    $c <'rmdir -f ../../a/b/c';
-    $b
+    $c <'rmdir -f ../../a/b/c' && $b
   }
 
   : exists
   :
   : Removing existing directory succeeds.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   mkdir a &!a;
   rmdir a
   EOI
-  $b
 
   : not-exists
   :
@@ -84,42 +77,38 @@
     : fail
     : Removing non-existing directory fails.
     :
-    $c <<EOI;
+    $c <<EOI && $b
     rmdir a 2>>/~%EOE% == 1
     %rmdir: unable to remove '.+/dir/not-exists/fail/test/1/a': .+%
     EOE
     EOI
-    $b
 
     : force
     :
     : Removing non-existing directory succeeds with -f option.
     :
-    $c <'rmdir -f a';
-    $b
+    $c <'rmdir -f a' && $b
   }
 
   : not-empty
   :
   : Removing non-empty directory fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   mkdir -p a/b;
   rmdir a 2>>/~%EOE% == 1
   %rmdir: unable to remove '.+/dir/not-empty/test/1/a': .+%
   EOE
   EOI
-  $b
 
   : not-dir
   :
   : Removing not a directory path fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   touch a;
   rmdir a 2>>/~%EOE% == 1
   %rmdir: unable to remove '.+/dir/not-dir/test/1/a': .+%
   EOE
   EOI
-  $b
 }

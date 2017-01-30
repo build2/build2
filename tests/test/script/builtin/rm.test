@@ -11,15 +11,13 @@
   :
   : Removing with no arguments fails.
   :
-  $c <'rm 2>"rm: missing file" == 1';
-  $b
+  $c <'rm 2>"rm: missing file" == 1' && $b
 
   : force
   :
   : Removing with no arguments succeeds with -f option.
   :
-  $c <'rm -f';
-  $b
+  $c <'rm -f' && $b
 }
 
 : file
@@ -29,11 +27,10 @@
   :
   : Removing existing file succeeds.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   touch a &!a;
   rm a
   EOI
-  $b
 
   : not-exists
   :
@@ -42,19 +39,17 @@
     :
     : Removing non-existing file fails.
     :
-    $c <<EOI;
+    $c <<EOI && $b
     rm a 2>>/~%EOE% == 1
     %rm: unable to remove '.+/file/not-exists/fail/test/1/a': .+%
     EOE
     EOI
-    $b
 
     : force
     :
     : Removing non-existing file succeeds with -f option.
     :
-    $c <'rm -f a';
-    $b
+    $c <'rm -f a' && $b
   }
 }
 
@@ -65,30 +60,27 @@
   :
   : Removing directory fails by default.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   mkdir a;
   rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
   EOI
-  $b
 
   : recursive
   :
   : Removing directory succeeds with -r option.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   mkdir -p a/b &!a &!a/b;
   rm -r a
   EOI
-  $b
 
   : scope
   :
   : Removing scope directory fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
   EOI
-  $b
 }
 
 : path
@@ -98,10 +90,9 @@
   :
   : Removing an empty path fails.
   :
-  $c <<EOI;
+  $c <<EOI && $b
   rm '' 2>"rm: invalid path ''" == 1
   EOI
-  $b
 
   : outside-scope
   :
@@ -112,19 +103,17 @@
     :
     : Removing path outside the testscript working directory fails.
     :
-    $c <<EOI;
+    $c <<EOI && $b
     rm ../../a/b/c 2>>/~%EOE% == 1
     %rm: '.+/path/outside-scope/fail/a/b/c' is out of working directory '.+/path/outside-scope/fail/test'%
     EOE
     EOI
-    $b
 
     : force
     :
     : Removing path outside the testscript working directory succeeds with -f
     : option.
     :
-    $c <'rm -f ../../a/b/c';
-    $b
+    $c <'rm -f ../../a/b/c' && $b
   }
 }

@@ -6,28 +6,25 @@
 
 : file
 :
-$c <'touch a';
-$b
+$c <'touch a' && $b
 
 : file-create
 :
 : Test that file is created. If it didn't then 'rm' would fail.
 :
-$c <<EOI;
+$c <<EOI && $b
 touch a &!a;
 rm a
 EOI
-$b
 
 : file-update
 :
 : Test that existing file touch doesn't fail.
 :
-$c <<EOI;
+$c <<EOI && $b
 cat <"" >=a;
 touch a
 EOI
-$b
 
 : no-cleanup
 :
@@ -35,7 +32,7 @@ $b
 : the file would be removed while leaving the embedded scope, and so the
 : cleanup registered by the first touch would fail.
 :
-$c <<EOI;
+$c <<EOI && $b
 {
   +touch a
   {
@@ -43,32 +40,28 @@ $c <<EOI;
   }
 }
 EOI
-$b
 
 : no-args
 :
 : Test passing no arguments.
 :
-$c <'touch 2>"touch: missing file" == 1';
-$b
+$c <'touch 2>"touch: missing file" == 1' && $b
 
 : empty-path
 :
 : Test touching an empty path.
 :
-$c <<EOI;
+$c <<EOI && $b
 touch '' 2>"touch: invalid path ''" == 1
 EOI
-$b
 
 : dir-update
 :
 : Test touching an existing directory.
 :
-$c <<EOI;
+$c <<EOI && $b
 a = $~;
 a += "a";
 mkdir a;
 touch a 2>"touch: '$a' exists and is not a file" == 1
 EOI
-$b

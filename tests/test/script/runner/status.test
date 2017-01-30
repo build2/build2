@@ -11,13 +11,11 @@ b += --no-column
 {
   : true
   :
-  $c <'$* == 0';
-  $b
+  $c <'$* == 0' && $b
 
   : false
   :
-  $c <'$* -s 1 == 0';
-  $b 2>>/~%EOE%d != 0
+  $c <'$* -s 1 == 0' && $b 2>>/~%EOE%d != 0
   %testscript:1: error: ../../../../driver(.exe)? exit status 1 != 0%
   EOE
 }
@@ -27,21 +25,18 @@ b += --no-column
 {
   : true
   :
-  $c <'$* -s 1 != 0';
-  $b
+  $c <'$* -s 1 != 0' && $b
 
   : false
   :
-  $c <'$* -s 1 != 1';
-  $b 2>>/~%EOE% != 0
+  $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
   %testscript:1: error: ../../../../driver(.exe)? exit status 1 == 1%
   EOE
 }
 
 : error
 :
-$c <'$* -s 1 -e "Error"';
-$b 2>>/~%EOE% != 0
+$c <'$* -s 1 -e "Error"' && $b 2>>/~%EOE% != 0
 %testscript:1: error: ../../../driver(.exe)? exit status 1 != 0%
   info: stderr: test/1/stderr
 Error
@@ -53,8 +48,7 @@ EOE
 : Can pop up dialog boxes on Windows or produce coredump on POSIX. Note that
 : under Wine some extra info is printed to STDOUT.
 :
-$c <'$* -t m';
-$b 2>>/~%EOE% != 0
+$c <'$* -t m' && $b 2>>/~%EOE% != 0
 %wine: .+%?
 %testscript:1: error: ../../../driver(.exe)? terminated abnormally%d
 %  info: .+%

@@ -6,10 +6,20 @@
 
 : string
 :
-$c <'echo foo >foo';
-$b
+$c <'echo foo >foo' && $b
 
 : strings
 :
-$c <'echo foo bar >"foo bar"';
-$b
+$c <'echo foo bar >"foo bar"' && $b
+
+: big
+:
+: Echo a big string (about 3MB) to test that the builtin is asynchronous.
+:
+{
+  s="------------------------------------------------------------------------"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  $c <"echo '$s' | cat >'$s'" && $b
+}
