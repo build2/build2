@@ -215,7 +215,7 @@ namespace build2
       {
         using build2::path;
 
-        bool s (config::specified (rs, "config.install"));
+        bool s (config::specified (rs, "install"));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.

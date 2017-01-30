@@ -40,6 +40,10 @@ namespace build2
 
       auto& vp (var_pool.rw (rs));
 
+      // utility.cxx:unconfigured()
+      //
+      vp.insert_pattern<bool> ("config.*.configured");
+
       // Load config.build if one exists.
       //
       // Note that we have to do this during bootstrap since the order in

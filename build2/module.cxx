@@ -102,13 +102,11 @@ namespace build2
 
     auto& vp (var_pool.rw (rs));
 
-    const variable& lv (vp.insert<bool> (name + ".loaded",
-                                         variable_visibility::project));
-
-    const variable& cv (vp.insert<bool> (name + ".configured",
-                                         variable_visibility::project));
-    bs.assign (lv) = l;
-    bs.assign (cv) = c;
+    // Note: pattern-typed in context.cxx:reset() as project-visibility
+    // variables of type bool.
+    //
+    bs.assign (vp.insert (name + ".loaded"))     = l;
+    bs.assign (vp.insert (name + ".configured")) = c;
 
     return l && c;
   }

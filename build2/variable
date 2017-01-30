@@ -797,10 +797,13 @@ namespace build2
     find (const string& name) const;
 
     // Find existing or insert new (untyped, non-overridable, normal
-    // visibility).
+    // visibility; but may be overridden by a pattern).
     //
     const variable&
-    insert (string name);
+    insert (string name)
+    {
+      return insert (move (name), nullptr, nullptr, nullptr);
+    }
 
     // Insert or override (type/visibility). Note that by default the
     // variable is not overridable.
@@ -853,6 +856,37 @@ namespace build2
         move (name), &value_traits<T>::value_type, &v, &overridable);
     }
 
+    // Insert a variable pattern. Any variable that matches this pattern
+    // will have the specified type, visibility, and overridability.
+    //
+    // The pattern must be in the form [<prefix>.](*|**)[.<suffix>] where
+    // '*' matches single component stems (i.e., 'foo' but not 'foo.bar')
+    // and '**' matches single and multi-component stems. Note that only
+    // multi-component variables are considered for pattern matching (so
+    // just '*' won't match anything).
+    //
+    // Note that patterns are matched in the reverse order of insertion (as
+    // opposed to, say, more specific first) with the first match used. A
+    // newly inserted pattern is also applied retrospectively to all the
+    // existing variables that match.
+    //
+  public:
+    void
+    insert_pattern (const string& pattern,
+                    const build2::value_type* type,
+                    bool overridable,
+                    variable_visibility);
+
+    template <typename T>
+    void
+    insert_pattern (const string& p,
+                    bool overridable = false,
+                    variable_visibility v = variable_visibility::normal)
+    {
+      insert_pattern (p, &value_traits<T>::value_type, overridable, v);
+    }
+
+  public:
     void
     clear () {map_.clear ();}
 
@@ -875,6 +909,12 @@ namespace build2
             const variable_visibility* = nullptr,
             const bool* overridable = nullptr);
 
+    void
+    update (variable&,
+            const build2::value_type*,
+            const variable_visibility*,
+            const bool*) const;
+
     // Entities that can access bypassing the lock.
     //
     friend class scope;
@@ -883,6 +923,8 @@ namespace build2
   public:
     static const variable_pool& cinstance; // For var_pool initialization.
 
+    // Variable map.
+    //
   private:
     using key = butl::map_key<string>;
     using map = std::unordered_map<key, variable>;
@@ -904,11 +946,32 @@ namespace build2
       return r;
     }
 
+    map map_;
+
+    // Patterns.
+    //
+  public:
+    struct pattern
+    {
+      string prefix;
+      string suffix;
+      bool   multi;  // Match multi-component stems.
+
+      const build2::value_type* type;
+      variable_visibility       visibility;
+      bool                      overridable;
+    };
+
+  private:
+    vector<pattern> patterns_;
+
+    // Global pool flag.
+    //
+  private:
     explicit
     variable_pool (bool global): global_ (global) {}
 
     bool global_;
-    map map_;
   };
 
   extern const variable_pool& var_pool;

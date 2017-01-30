@@ -97,7 +97,7 @@ namespace build2
       // must be explicitly specified or we will complain if and when
       // we try to dist.
       //
-      bool s (config::specified (rs, "config.dist"));
+      bool s (config::specified (rs, "dist"));
 
       // Adjust module priority so that the config.dist.* values are saved at
       // the end of config.build.

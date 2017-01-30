@@ -62,7 +62,7 @@ namespace build2
     }
 
     bool
-    specified (scope& r, const string& ns)
+    specified (scope& r, const string& n)
     {
       // Search all outer scopes for any value in this namespace.
       //
@@ -72,7 +72,7 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
-      const variable& vns (var_pool.rw (r).insert (ns));
+      const variable& vns (var_pool.rw (r).insert ("config." + n));
       for (scope* s (&r); s != nullptr; s = s->parent_scope ())
       {
         for (auto p (s->vars.find_namespace (vns));
@@ -93,11 +93,12 @@ namespace build2
     }
 
     bool
-    unconfigured (scope& rs, const string& ns)
+    unconfigured (scope& rs, const string& n)
     {
-      // Note: not overridable.
+      // Pattern-typed in boot() as bool.
       //
-      const variable& var (var_pool.rw (rs).insert<bool> (ns + ".configured"));
+      const variable& var (
+        var_pool.rw (rs).insert ("config." + n + ".configured"));
 
       if (current_mif->id == configure_id)
         save_variable (rs, var);
@@ -107,11 +108,12 @@ namespace build2
     }
 
     bool
-    unconfigured (scope& rs, const string& ns, bool v)
+    unconfigured (scope& rs, const string& n, bool v)
     {
-      // Note: not overridable.
+      // Pattern-typed in boot() as bool.
       //
-      const variable& var (var_pool.rw (rs).insert<bool> (ns + ".configured"));
+      const variable& var (
+        var_pool.rw (rs).insert ("config." + n + ".configured"));
 
       if (current_mif->id == configure_id)
         save_variable (rs, var);

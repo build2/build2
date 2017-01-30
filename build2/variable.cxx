@@ -906,23 +906,82 @@ namespace build2
 
   // variable_pool
   //
-  const variable& variable_pool::
-  insert (string n)
+  void variable_pool::
+  update (variable& var,
+          const build2::value_type* t,
+          const variable_visibility* v,
+          const bool* o) const
   {
-    assert (!global_ || phase == run_phase::load);
-
-    // We are not overriding anything so skip the insert_() checks.
+    // Check overridability (all overrides, if any, should already have
+    // been entered (see context.cxx:reset()).
     //
-    auto p (
-      insert (
-        variable {move (n), nullptr, nullptr, variable_visibility::normal}));
+    if (var.override != nullptr && (o == nullptr || !*o))
+      fail << "variable " << var.name << " cannot be overridden";
 
-    const variable& r (p.first->second);
+    bool ut (t != nullptr && var.type != t);
+    bool uv (v != nullptr && var.visibility != *v);
 
-    if (r.override != nullptr)
-      fail << "variable " << r.name << " cannot be overridden";
+    // In the global pool existing variables can only be updated during
+    // serial load.
+    //
+    assert (!global_ || !(ut || uv) || model_lock == nullptr);
 
-    return r;
+    // Update type?
+    //
+    if (ut)
+    {
+      assert (var.type == nullptr);
+      var.type = t;
+    }
+
+    // Change visibility? While this might at first seem like a bad idea,
+    // it can happen that the variable lookup happens before any values
+    // were set, in which case the variable will be entered with the
+    // default visibility.
+    //
+    if (uv)
+    {
+      assert (var.visibility == variable_visibility::normal); // Default.
+      var.visibility = *v;
+    }
+  }
+
+  static bool
+  match_pattern (const string& n, const string& p, const string& s, bool multi)
+  {
+    size_t nn (n.size ()), pn (p.size ()), sn (s.size ());
+
+    if (nn < pn + sn + 1)
+      return false;
+
+    if (pn != 0)
+    {
+      if (n.compare (0, pn, p) != 0)
+        return false;
+    }
+
+    if (sn != 0)
+    {
+      if (n.compare (nn - sn, sn, s) != 0)
+        return false;
+    }
+
+    // Make sure the stem is a single name unless instructed otherwise.
+    //
+    return multi || string::traits_type::find (n.c_str () + pn,
+                                               nn - pn - sn,
+                                               '.') == nullptr;
+  }
+
+  static inline void
+  merge_pattern (const variable_pool::pattern& p,
+                 const build2::value_type*& t,
+                 const variable_visibility*& v,
+                 const bool*& o)
+  {
+    if (t == nullptr) t =  p.type;        else assert ( t == p.type);
+    if (v == nullptr) v = &p.visibility;  else assert (*v == p.visibility);
+    if (o == nullptr) o = &p.overridable; else assert (*o == p.overridable);
   }
 
   const variable& variable_pool::
@@ -933,6 +992,20 @@ namespace build2
   {
     assert (!global_ || phase == run_phase::load);
 
+    // Apply pattern.
+    //
+    if (n.find ('.') != string::npos)
+    {
+      for (const pattern& p: reverse_iterate (patterns_))
+      {
+        if (match_pattern (n, p.prefix, p.suffix, p.multi))
+        {
+          merge_pattern (p, t, v, o);
+          break;
+        }
+      }
+    }
+
     auto p (
       insert (
         variable {
@@ -941,61 +1014,63 @@ namespace build2
           nullptr,
           v != nullptr ? *v : variable_visibility::normal}));
 
-    const variable& r (p.first->second);
+    variable& r (p.first->second);
 
     if (!p.second)
     {
-      // Check overridability (all overrides, if any, should already have
-      // been entered (see context.cxx:reset()).
-      //
-      if (r.override != nullptr && (o == nullptr || !*o))
-        fail << "variable " << r.name << " cannot be overridden";
-
-      bool ut (t != nullptr && r.type != t);
-      bool uv (v != nullptr && r.visibility != *v);
-
-      // In the global pool existing variables can only be updated during
-      // serial load.
-      //
-      /*
-        @@ MT
-
-      if (global_)
-      {
-        //assert (!(ut || uv) || model_lock == nullptr);
-
-        if (model_lock != nullptr)
-        {
-          if (ut)
-            text << r.name << " type update during exclusive load";
-
-          if (uv)
-            text << r.name << " visibility update during exclusive load";
-        }
-      }
-      */
-
-      // Update type?
-      //
-      if (ut)
-      {
-        assert (r.type == nullptr);
-        const_cast<variable&> (r).type = t; // Not changing the key.
-      }
-
-      // Change visibility? While this might at first seem like a bad idea,
-      // it can happen that the variable lookup happens before any values
-      // were set, in which case the variable will be entered with the
-      // default visibility.
-      //
-      if (uv)
-      {
-        assert (r.visibility == variable_visibility::normal); // Default.
-        const_cast<variable&> (r).visibility = *v; // Not changing the key.
-      }
+      if (t != nullptr || v != nullptr || o != nullptr)
+        update (r, t, v, o); // Not changing the key.
+      else
+        if (r.override != nullptr)
+          fail << "variable " << r.name << " cannot be overridden";
     }
 
     return r;
+  }
+
+  void variable_pool::
+  insert_pattern (const string& p,
+                  const build2::value_type* t,
+                  bool o,
+                  variable_visibility v)
+  {
+    size_t pn (p.size ());
+
+    size_t w (p.find ('*'));
+    assert (w != string::npos);
+
+    bool multi (w + 1 != pn && p[w + 1] == '*');
+
+    // Extract prefix and suffix.
+    //
+    string pfx, sfx;
+
+    if (w != 0)
+    {
+      assert (p[w - 1] == '.' && w != 1);
+      pfx.assign (p, 0, w);
+    }
+
+    w += multi ? 2 : 1; // First suffix character.
+    size_t sn (pn - w); // Suffix length.
+
+    if (sn != 0)
+    {
+      assert (p[w] == '.' && sn != 1);
+      sfx.assign (p, w, sn);
+    }
+
+    // Apply retrospectively to existing variables.
+    //
+    for (auto& p: map_)
+    {
+      variable& var (p.second);
+
+      if (match_pattern (var.name, pfx, sfx, multi))
+        update (var, t, &v, &o); // Not changing the key.
+    }
+
+    patterns_.push_back (pattern {move (pfx), move (sfx), multi, t, v, o});
   }
 
   variable_pool variable_pool::instance (true);

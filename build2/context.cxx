@@ -231,8 +231,23 @@ namespace build2
         vos.emplace_back (variable_override {var, *o, move (r.first)});
     }
 
-    // Enter builtin variables.
+    // Enter builtin variables and patterns.
     //
+
+    // file.cxx:import()
+    //
+    // Note that the order is important (reverse application).
+    //
+    vp.insert_pattern<path> ("config.import.**", true);
+    vp.insert_pattern<abs_dir_path> ("config.import.*", true);
+
+    // module.cxx:load_module().
+    //
+    vp.insert_pattern<bool> ("**.loaded", false, variable_visibility::project);
+    vp.insert_pattern<bool> ("**.configured",
+                             false,
+                             variable_visibility::project);
+
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");
     var_src_base = &vp.insert<dir_path> ("src_base");

@@ -81,13 +81,13 @@ namespace build2
         // Otherwise we will only honor optional if the user didn't specify
         // any cli configuration explicitly.
         //
-        optional = optional && !config::specified (rs, "config.cli");
+        optional = optional && !config::specified (rs, "cli");
 
         // If the configuration says we are unconfigured, then we should't
         // re-run tests, etc. But we may still need to print the config
         // report.
         //
-        conf = !optional || !config::unconfigured (rs, "config.cli");
+        conf = !optional || !config::unconfigured (rs, "cli");
       }
 
       if (first)
@@ -214,7 +214,7 @@ namespace build2
         // on each run.
         //
         if (!conf)
-          nv = config::unconfigured (rs, "config.cli", true) || nv;
+          nv = config::unconfigured (rs, "cli", true) || nv;
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
