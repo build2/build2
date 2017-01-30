@@ -1138,7 +1138,7 @@ namespace build2
     //
     for (auto tt (&type); tt != nullptr; tt = tt->base)
     {
-      auto i (variable_type_map_base::find (*tt));
+      auto i (map_.find (*tt));
 
       if (i == end ())
         continue;

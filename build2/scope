@@ -253,7 +253,8 @@ namespace build2
     friend void create_bootstrap_outer (scope&);
     friend scope& create_bootstrap_inner (scope&, const dir_path&);
 
-    scope () = default;
+    explicit
+    scope (bool global): vars (global), target_vars (global) {}
 
     scope* parent_;
     scope* root_;
@@ -273,6 +274,7 @@ namespace build2
   {
   public:
     temp_scope (scope& p)
+        : scope (false) // Not global.
     {
       out_path_ = p.out_path_;
       src_path_ = p.src_path_;

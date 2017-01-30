@@ -701,7 +701,7 @@ namespace build2
   {
     scope_map_base& m (*this);
 
-    auto er (m.emplace (k, scope ()));
+    auto er (m.emplace (k, scope (true))); // Global.
     scope& s (er.first->second);
 
     // If this is a new scope, update the parent chain.

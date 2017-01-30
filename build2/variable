@@ -1102,18 +1102,67 @@ namespace build2
     size_type
     size () const {return m_.size ();}
 
+  public:
+    // Global should be true if this map is part of the global (model) state
+    // (e.g., scope, target, etc).
+    //
+    explicit
+    variable_map (bool global = false): global_ (global) {}
+
   private:
+    bool global_;
     map_type m_;
   };
 
   // Target type/pattern-specific variables.
   //
-  using variable_pattern_map = std::map<string, variable_map>;
-  using variable_type_map_base = std::map<reference_wrapper<const target_type>,
-                                          variable_pattern_map>;
-
-  struct variable_type_map: variable_type_map_base
+  class variable_pattern_map
   {
+  public:
+    using map_type = std::map<string, variable_map>;
+    using const_iterator = map_type::const_iterator;
+    using const_reverse_iterator = map_type::const_reverse_iterator;
+
+    explicit
+    variable_pattern_map (bool global): global_ (global) {}
+
+    variable_map&
+    operator[] (const string& v)
+    {
+      return map_.emplace (v, variable_map (global_)).first->second;
+    }
+
+    const_iterator         begin ()  const {return map_.begin ();}
+    const_iterator         end ()    const {return map_.end ();}
+    const_reverse_iterator rbegin () const {return map_.rbegin ();}
+    const_reverse_iterator rend ()   const {return map_.rend ();}
+    bool                   empty ()  const {return map_.empty ();}
+
+  private:
+    bool global_;
+    map_type map_;
+  };
+
+  class variable_type_map
+  {
+  public:
+    using map_type = std::map<reference_wrapper<const target_type>,
+                              variable_pattern_map>;
+    using const_iterator = map_type::const_iterator;
+
+    explicit
+    variable_type_map (bool global): global_ (global) {}
+
+    variable_pattern_map&
+    operator[] (const target_type& t)
+    {
+      return map_.emplace (t, variable_pattern_map (global_)).first->second;
+    }
+
+    const_iterator begin ()                    const {return map_.begin ();}
+    const_iterator end ()                      const {return map_.end ();}
+    bool           empty ()                    const {return map_.empty ();}
+
     lookup
     find (const target_type&, const string& tname, const variable&) const;
 
@@ -1127,8 +1176,14 @@ namespace build2
     // (as target type and target name). The target name, unfortunately, has
     // to be stored by value (maybe will pool them at some point).
     //
+    // @@ MT
+    //
     mutable
     std::map<tuple<const value*, const target_type*, string>, value> cache;
+
+  private:
+    bool global_;
+    map_type map_;
   };
 }
 

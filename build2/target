@@ -549,7 +549,9 @@ namespace build2
     //
   public:
     target (dir_path d, dir_path o, string n, optional<string> e)
-        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)) {}
+        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)),
+          vars (true) // Global.
+    {}
   };
 
   // All targets are from the targets set below.
