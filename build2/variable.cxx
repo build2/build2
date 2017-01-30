@@ -922,9 +922,12 @@ namespace build2
     bool uv (v != nullptr && var.visibility != *v);
 
     // In the global pool existing variables can only be updated during
-    // serial load.
+    // the same load generation or during serial execution.
     //
-    assert (!global_ || !(ut || uv) || model_lock == nullptr);
+    assert (!global_             ||
+            !(ut || uv)          ||
+            load_generation == 0 ||
+            var.generation == load_generation);
 
     // Update type?
     //
@@ -1012,7 +1015,8 @@ namespace build2
           move (n),
           t,
           nullptr,
-          v != nullptr ? *v : variable_visibility::normal}));
+          v != nullptr ? *v : variable_visibility::normal,
+          load_generation}));
 
     variable& r (p.first->second);
 
@@ -1034,6 +1038,8 @@ namespace build2
                   bool o,
                   variable_visibility v)
   {
+    assert (!global_ || phase == run_phase::load);
+
     size_t pn (p.size ());
 
     size_t w (p.find ('*'));

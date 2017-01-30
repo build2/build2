@@ -630,7 +630,7 @@ namespace build2
       {
         // Relock for exclusive access and change to the load phase.
         //
-        rlock rl (model_lock);
+        model_rlock rl;
         phase_guard pg (run_phase::load);
 
         pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));

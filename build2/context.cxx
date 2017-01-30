@@ -25,7 +25,7 @@ namespace build2
 {
   run_phase phase = run_phase::load;
 
-  shared_mutex model;
+  shared_mutex model_mutex;
 
 #ifdef __cpp_thread_local
   thread_local
@@ -33,6 +33,8 @@ namespace build2
   __thread
 #endif
   slock* model_lock;
+
+  size_t load_generation;
 
   const variable* var_src_root;
   const variable* var_out_root;
@@ -188,7 +190,8 @@ namespace build2
       // Add it if not found.
       //
       if (o->override == nullptr)
-        o->override.reset (new variable {n + k, nullptr, nullptr, v});
+        const_cast<variable*> (o)->override.reset (
+          new variable {n + k, nullptr, nullptr, v, 0});
 
       o = o->override.get ();
 

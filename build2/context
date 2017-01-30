@@ -29,7 +29,7 @@ namespace build2
   // The build system model (internal state) is protected at the top level by
   // the model mutex. During serial execution the model mutex is unlocked.
   //
-  extern shared_mutex model;
+  extern shared_mutex model_mutex;
 
   // Parallel execution always starts with acquiring a shared model lock (by
   // creating model_slock; see below). Pointers to these locks are cached in
@@ -38,14 +38,18 @@ namespace build2
   // The build system starts with a "serial load" phase and then continues
   // with parallel search & match and execute. Search & match, however, can be
   // interrupted with an "exclusive load" by re-locking the shared lock as
-  // exclusive, changing the phase, and loading additional buildfiles.
+  // exclusive (using model_rlock below), changing the phase, and loading
+  // additional buildfiles.
   //
   // Serial load can perform arbitrary changes to the model. Exclusive load,
-  // however, can only perform "pure appends". That is, it can create new
-  // "nodes" (variables, scopes, etc) but not change already existing nodes
-  // or invalidate any references to such (the idea here is that one should
-  // be able to load additional buildfiles as long as they don't interfere
-  // with the existing build state).
+  // however, can only perform "island appends". That is, it can create new
+  // "nodes" (variables, scopes, etc) but not change already existing nodes or
+  // invalidate any references to such (the idea here is that one should be
+  // able to load additional buildfiles as long as they don't interfere with
+  // the existing build state). The "islands" are identified by the
+  // load_generation number (0 for serial load). It is incremented/restored by
+  // phase_guard and is stored in various "nodes" (variables, etc) to allow
+  // modifications "within the islands".
   //
   // @@ MT: do we really have to hold shared lock during execute?
   // @@ MT: we can also interrupt load s&m with execute -- neither handled
@@ -59,10 +63,27 @@ namespace build2
 #endif
   slock* model_lock;
 
+  extern size_t load_generation;
+
   struct phase_guard
   {
-    explicit phase_guard (run_phase p): o (phase) {phase = p;}
-    ~phase_guard () {phase = o;}
+    explicit
+    phase_guard (run_phase p)
+        : o (phase)
+    {
+      phase = p;
+
+      if (phase == run_phase::load)
+        ++load_generation;
+    }
+
+    ~phase_guard ()
+    {
+      if (phase == run_phase::load)
+        --load_generation;
+
+      phase = o;
+    }
     run_phase o;
   };
 
@@ -124,7 +145,7 @@ namespace build2
       if (slock* l = model_lock)
         assert (l->owns_lock ());
       else
-        model_lock = &(l_ = slock (model));
+        model_lock = &(l_ = slock (model_mutex));
     }
 
     ~model_slock ()
@@ -138,6 +159,38 @@ namespace build2
 
   private:
     slock l_;
+  };
+
+  // Re-lock shared to exclusive for the lifetime or rlock.
+  //
+  struct model_rlock
+  {
+    model_rlock ()
+        : sl_ (model_lock)
+    {
+      if (sl_ != nullptr)
+      {
+        sl_->unlock ();
+        ul_ = ulock (*sl_->mutex ());
+      }
+    }
+
+    ~model_rlock ()
+    {
+      if (sl_ != nullptr)
+      {
+        ul_.unlock ();
+        sl_->lock ();
+      }
+    }
+
+    // Can be treated as const ulock.
+    //
+    operator const ulock& () const {return ul_;}
+
+  private:
+    slock* sl_;
+    ulock ul_;
   };
 
   // Cached variables.

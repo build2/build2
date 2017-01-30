@@ -1593,7 +1593,7 @@ namespace build2
     if (type != nullptr)
     {
       if (var.type == nullptr)
-        var.type = type;
+        var_pool.update (const_cast<variable&> (var), type);
       else if (var.type != type)
         fail (l) << "changing variable " << var << " type from "
                  << var.type->name << " to " << type->name;

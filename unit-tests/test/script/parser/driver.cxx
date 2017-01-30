@@ -182,7 +182,7 @@ namespace build2
           // be absolute. However, the testscript implementation doesn't
           // really care.
           //
-          ulock ml (model);
+          ulock ml (model_mutex);
 
           file& tt (
             targets.insert<file> (work,

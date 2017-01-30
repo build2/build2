@@ -86,39 +86,6 @@ namespace build2
   using slock = std::shared_lock<shared_mutex>;
   using ulock = std::unique_lock<shared_mutex>;
 
-  // Re-lock shared to exclusive for the lifetime or rlock.
-  //
-  struct rlock
-  {
-    explicit
-    rlock (slock* sl)
-        : sl_ (sl)
-    {
-      if (sl_ != nullptr)
-      {
-        sl_->unlock ();
-        ul_ = ulock (*sl_->mutex ());
-      }
-    }
-
-    ~rlock ()
-    {
-      if (sl_ != nullptr)
-      {
-        ul_.unlock ();
-        sl_->lock ();
-      }
-    }
-
-    // Can be treated as const ulock.
-    //
-    operator const ulock& () const {return ul_;}
-
-  private:
-    slock* sl_;
-    ulock ul_;
-  };
-
   // Exceptions.
   //
   // While <exception> is included, there is no using for std::exception --

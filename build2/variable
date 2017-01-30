@@ -116,9 +116,10 @@ namespace build2
   struct variable
   {
     string name;
-    mutable const value_type* type;        // If NULL, then not (yet) typed.
-    mutable unique_ptr<variable> override;
+    const value_type* type;        // If NULL, then not (yet) typed.
+    unique_ptr<variable> override;
     variable_visibility visibility;
+    size_t generation;             // load_generation of this variable.
   };
 
   inline bool
@@ -912,11 +913,12 @@ namespace build2
     void
     update (variable&,
             const build2::value_type*,
-            const variable_visibility*,
-            const bool*) const;
+            const variable_visibility* = nullptr,
+            const bool* = nullptr) const;
 
     // Entities that can access bypassing the lock.
     //
+    friend class parser;
     friend class scope;
     friend variable_overrides reset (const strings&);
 
