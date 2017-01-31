@@ -217,7 +217,7 @@ namespace build2
   {
     lock l (mutex_);
 
-    if (max_active)
+    if (max_active == 0)
       max_active = orig_max_active_;
 
     assert (max_active >= init_active_ &&
