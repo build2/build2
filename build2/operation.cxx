@@ -94,6 +94,9 @@ namespace build2
     {
       phase_guard pg (run_phase::search_match);
 
+      if (ts.size () > 1)
+        sched.tune (1); //@@ MT TMP run serially.
+
       scheduler::atomic_count task_count (0);
       {
         model_slock ml;
@@ -113,6 +116,8 @@ namespace build2
         }
       }
       sched.wait (task_count);
+
+      sched.tune (0); //@@ MT TMP run serially restore.
     }
 
     if (verb >= 6)
