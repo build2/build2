@@ -159,6 +159,10 @@ namespace build2
   // <butl/target-triplet>
   //
   using butl::target_triplet;
+
+  // See context.
+  //
+  enum class run_phase {load, search_match, execute};
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in

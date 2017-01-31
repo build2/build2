@@ -1011,26 +1011,37 @@ namespace build2
   class variable_map
   {
   public:
+    struct value_data: value
+    {
+      using value::value;
+
+      size_t generation; // load_generation of this value (global only).
+    };
+
     using map_type = butl::prefix_map<reference_wrapper<const variable>,
-                                      value,
+                                      value_data,
                                       '.'>;
     using size_type = map_type::size_type;
 
     template <typename I>
-    struct iterator_adapter: I
+    class iterator_adapter: public I
     {
+    public:
       iterator_adapter () = default;
-      iterator_adapter (const I& i): I (i) {}
+      iterator_adapter (const I& i, const variable_map& m): I (i), m_ (&m) {}
 
       // Automatically type a newly typed value on access.
       //
       typename I::reference operator* () const;
-      typename I::pointer operator-> () const;
+      typename I::pointer   operator-> () const;
 
       // Untyped access.
       //
       uint16_t extra () const {return I::operator* ().second.extra;}
       typename I::reference untyped () const {return I::operator* ();}
+
+    private:
+      const variable_map* m_;
     };
 
     using const_iterator = iterator_adapter<map_type::const_iterator>;
@@ -1060,10 +1071,10 @@ namespace build2
 
     // If typed is false, leave the value untyped even if the variable is.
     //
-    const value*
+    const value_data*
     find (const variable&, bool typed = true) const;
 
-    value*
+    value_data*
     find (const variable&, bool typed = true);
 
     // Return a value suitable for assignment. See scope for details.
@@ -1087,14 +1098,15 @@ namespace build2
     find_namespace (const variable& ns) const
     {
       auto r (m_.find_prefix (ns));
-      return make_pair (const_iterator (r.first), const_iterator (r.second));
+      return make_pair (const_iterator (r.first,  *this),
+                        const_iterator (r.second, *this));
     }
 
     const_iterator
-    begin () const {return m_.begin ();}
+    begin () const {return const_iterator (m_.begin (), *this);}
 
     const_iterator
-    end () const {return m_.end ();}
+    end () const {return const_iterator (m_.end (), *this);}
 
     bool
     empty () const {return m_.empty ();}
@@ -1104,10 +1116,16 @@ namespace build2
 
   public:
     // Global should be true if this map is part of the global (model) state
-    // (e.g., scope, target, etc).
+    // (e.g., scopes, etc).
     //
     explicit
     variable_map (bool global = false): global_ (global) {}
+
+  private:
+    friend class variable_type_map;
+
+    void
+    typify (value_data&, const variable&) const;
 
   private:
     bool global_;

@@ -24,7 +24,7 @@ namespace build2
   // The phase can only be changed during serial or exclusive execution
   // (see below).
   //
-  extern enum class run_phase {load, search_match, execute} phase;
+  extern run_phase phase;
 
   // The build system model (internal state) is protected at the top level by
   // the model mutex. During serial execution the model mutex is unlocked.

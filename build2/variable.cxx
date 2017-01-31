@@ -1016,7 +1016,7 @@ namespace build2
           t,
           nullptr,
           v != nullptr ? *v : variable_visibility::normal,
-          load_generation}));
+          global_ ? load_generation : 0}));
 
     variable& r (p.first->second);
 
@@ -1085,30 +1085,53 @@ namespace build2
 
   // variable_map
   //
-  const value* variable_map::
-  find (const variable& var, bool typed) const
+  void variable_map::
+  typify (value_data& v, const variable& var) const
+  {
+    // In the global state existing value can only be typified during
+    // the same load generation or during serial execution.
+    //
+    assert (!global_             ||
+            load_generation == 0 ||
+            v.generation == load_generation);
+
+    build2::typify (v, *var.type, &var);
+  }
+
+  auto variable_map::
+  find (const variable& var, bool typed) const -> const value_data*
   {
     auto i (m_.find (var));
-    const value* r (i != m_.end () ? &i->second : nullptr);
+    const value_data* r (i != m_.end () ? &i->second : nullptr);
 
     // First access after being assigned a type?
     //
     if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
-      typify (const_cast<value&> (*r), *var.type, &var);
+    {
+      // All values shall be typed during load.
+      //
+      assert (!global_ || phase == run_phase::load);
+      typify (const_cast<value_data&> (*r), var);
+    }
 
     return  r;
   }
 
-  value* variable_map::
-  find (const variable& var, bool typed)
+  auto variable_map::
+  find (const variable& var, bool typed) -> value_data*
   {
     auto i (m_.find (var));
-    value* r (i != m_.end () ? &i->second : nullptr);
+    value_data* r (i != m_.end () ? &i->second : nullptr);
 
     // First access after being assigned a type?
     //
     if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
-      typify (*r, *var.type, &var);
+    {
+      // All values shall be typed during load.
+      //
+      assert (!global_ || phase == run_phase::load);
+      typify (*r, var);
+    }
 
     return  r;
   }
@@ -1116,15 +1139,22 @@ namespace build2
   pair<reference_wrapper<value>, bool> variable_map::
   insert (const variable& var, bool typed)
   {
-    auto r (m_.emplace (var, value (typed ? var.type : nullptr)));
-    value& v (r.first->second);
+    assert (!global_ || phase == run_phase::load);
 
-    // First access after being assigned a type?
-    //
-    if (typed && !r.second && var.type != nullptr && v.type != var.type)
-      typify (v, *var.type, &var);
+    auto p (m_.emplace (var, value_data (typed ? var.type : nullptr)));
+    value_data& r (p.first->second);
 
-    return make_pair (reference_wrapper<value> (v), r.second);
+    if (p.second)
+      r.generation = global_ ? load_generation : 0;
+    else
+    {
+      // First access after being assigned a type?
+      //
+      if (typed && var.type != nullptr && r.type != var.type)
+        typify (r, var);
+    }
+
+    return make_pair (reference_wrapper<value> (r), p.second);
   }
 
   // variable_type_map
@@ -1187,12 +1217,19 @@ namespace build2
         // to automatically type it. And if it is assignment, then typify it
         // ourselves.
         //
-        if (const value* v = j->second.find (var, false))
+        const variable_map& vm (j->second);
+
+        if (const variable_map::value_data* v = vm.find (var, false))
         {
           if (v->extra == 0 && var.type != nullptr && v->type != var.type)
-            typify (const_cast<value&> (*v), *var.type, &var);
+          {
+            // All values shall be typed during load.
+            //
+            assert (!global_ || phase == run_phase::load);
+            vm.typify (const_cast<variable_map::value_data&> (*v), var);
+          }
 
-          return lookup (v, &j->second);
+          return lookup (v, &vm);
         }
       }
     }

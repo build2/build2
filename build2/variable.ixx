@@ -639,18 +639,25 @@ namespace build2
 
   // variable_map::iterator_adapter
   //
+  extern run_phase phase; // context
+
   template <typename I>
   inline typename I::reference variable_map::iterator_adapter<I>::
   operator* () const
   {
     auto& r (I::operator* ());
     const variable& var (r.first);
-    auto& val (r.second);
+    const value_data& val (r.second);
 
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      typify (const_cast<value&> (val), *var.type, &var);
+    {
+      // All values shall be typed during load.
+      //
+      assert (!m_->global_ || phase == run_phase::load);
+      m_->typify (const_cast<value_data&> (val), var);
+    }
 
     return r;
   }
@@ -661,12 +668,17 @@ namespace build2
   {
     auto p (I::operator-> ());
     const variable& var (p->first);
-    auto& val (p->second);
+    const value_data& val (p->second);
 
     // First access after being assigned a type?
     //
     if (var.type != nullptr && val.type != var.type)
-      typify (const_cast<value&> (val), *var.type, &var);
+    {
+      // All values shall be typed during load.
+      //
+      assert (!m_->global_ || phase == run_phase::load);
+      m_->typify (const_cast<value_data&> (val), var);
+    }
 
     return p;
   }

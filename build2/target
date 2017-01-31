@@ -550,7 +550,7 @@ namespace build2
   public:
     target (dir_path d, dir_path o, string n, optional<string> e)
         : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)),
-          vars (true) // Global.
+          vars (false) // Note: not global.
     {}
   };
 

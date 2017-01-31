@@ -1658,13 +1658,17 @@ namespace build2
     // be the same. Also check that the requested value type doesn't conflict
     // with the variable type.
     //
-    if (type != nullptr      &&
-        var != nullptr       &&
-        var->type != nullptr &&
-        var->type != type)
+    if (var != nullptr && var->type != nullptr)
     {
-      fail (l) << "conflicting variable " << var->name << " type "
-               << var->type->name << " and value type " << type->name;
+      if (type == nullptr)
+      {
+        type = var->type;
+      }
+      else if (var->type != type)
+      {
+        fail (l) << "conflicting variable " << var->name << " type "
+                 << var->type->name << " and value type " << type->name;
+      }
     }
 
     // What if both LHS and RHS are typed? For now we do lexical conversion:
@@ -1682,7 +1686,7 @@ namespace build2
     {
       // Only consider RHS type if there is no explicit or variable type.
       //
-      if (type == nullptr && (var == nullptr || var->type == nullptr))
+      if (type == nullptr)
       {
         type = rhs.type;
         rhs_type = true;
