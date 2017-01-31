@@ -8,8 +8,9 @@
 #include <list>
 #include <regex>
 #include <locale>
+#include <string>        // basic_string
 #include <cstdint>       // uintptr_t
-#include <type_traits>   // make_unsigned, is_unsigned
+#include <type_traits>   // make_unsigned, enable_if, is_*
 #include <unordered_set>
 
 #include <build2/types>
@@ -25,7 +26,7 @@ namespace build2
       {
         using char_string = std::basic_string<char>;
 
-        enum class char_flags: std::uint16_t
+        enum class char_flags: uint16_t
         {
           icase = 0x1, // Case-insensitive match.
           idot  = 0x2, // Invert '.' escaping.

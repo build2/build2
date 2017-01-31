@@ -5,12 +5,11 @@
 #include <build2/test/script/runner>
 
 #include <set>
-#include <ios>     // streamsize
-#include <cstring> // strstr()
-#include <sstream>
+#include <ios> // streamsize
 
 #include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
 
+#include <build2/regex>
 #include <build2/filesystem>
 
 #include <build2/test/common>
@@ -20,39 +19,6 @@
 
 using namespace std;
 using namespace butl;
-
-namespace std
-{
-  // Print regex error description but only if it is meaningful (this is also
-  // why we have to print leading colon here).
-  //
-  // Currently libstdc++ just returns the name of the exception (bug #67361).
-  // So we check that the description contains at least one space character.
-  //
-  // While VC's description is meaningful, it has an undesired prefix that
-  // resembles the following: 'regex_error(error_badrepeat): '. So we skip it.
-  //
-  static ostream&
-  operator<< (ostream& o, const regex_error& e)
-  {
-    const char* d (e.what ());
-
-#if defined(_MSC_VER) && _MSC_VER <= 1910
-    const char* rd (strstr (d, "): "));
-    if (rd != nullptr)
-      d = rd + 3;
-#endif
-
-    ostringstream os;
-    os << runtime_error (d); // Sanitize the description.
-
-    string s (os.str ());
-    if (s.find (' ') != string::npos)
-      o << ": " << s;
-
-    return o;
-  }
-}
 
 namespace build2
 {

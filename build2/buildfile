@@ -26,6 +26,7 @@ exe{b}:                                                   \
             {hxx         cxx}{ operation                } \
             {hxx         cxx}{ parser                   } \
             {hxx         cxx}{ prerequisite             } \
+            {hxx     txx cxx}{ regex                    } \
             {hxx         cxx}{ rule                     } \
             {hxx            }{ rule-map                 } \
             {hxx     txx cxx}{ scheduler                } \

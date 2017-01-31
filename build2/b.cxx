@@ -2,7 +2,10 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <string.h>    // strerror()
+#ifndef _WIN32
+#  include <signal.h> // signal()
+#endif
+
 #include <stdlib.h>    // getenv() _putenv()(_WIN32)
 
 #include <sstream>
@@ -81,6 +84,17 @@ main (int argc, char* argv[])
   try
   {
     tracer trace ("main");
+
+    // On POSIX ignore SIGPIPE which is signaled to a pipe-writing process if
+    // the pipe reading end is closed. Note that by default this signal
+    // terminates a process. Also note that there is no way to disable this
+    // behavior on a file descriptor basis or for the write() function call.
+    //
+#ifndef _WIN32
+    if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
+      fail << "unable to ignore broken pipe (SIGPIPE) signal: "
+           << system_error (errno, system_category ()); // Sanitize.
+#endif
 
     // Parse the command line. We want to be able to specify options, vars,
     // and buildspecs in any order (it is really handy to just add -v at the

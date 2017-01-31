@@ -10,11 +10,16 @@
 #  include <sys/utime.h>
 #endif
 
+#include <locale>
 #include <thread>
+#include <ostream>
+#include <sstream>
 
 #include <butl/path-io>    // use default operator<< implementation
 #include <butl/fdstream>   // fdopen_mode, fdstream_mode
 #include <butl/filesystem> // mkdir_status
+
+#include <build2/regex>
 
 #include <build2/test/script/script>
 
@@ -50,6 +55,74 @@ namespace build2
       // Operation failed, diagnostics has already been issued.
       //
       struct failed {};
+
+      // Accumulate an error message, print it atomically in dtor to the
+      // provided stream and throw failed afterwards if requested. Prefixes
+      // the message with the builtin name.
+      //
+      // Move constructible-only, not assignable (based to diag_record).
+      //
+      class error_record
+      {
+      public:
+        template <typename T>
+        friend const error_record&
+        operator<< (const error_record& r, const T& x)
+        {
+          r.ss_ << x;
+          return r;
+        }
+
+        error_record (ostream& o, bool fail, const char* name)
+            : os_ (o), fail_ (fail), empty_ (false)
+        {
+          ss_ << name << ": ";
+        }
+
+        // Older versions of libstdc++ don't have the ostringstream move
+        // support. Luckily, GCC doesn't seem to be actually needing move due
+        // to copy/move elision.
+        //
+#ifdef __GLIBCXX__
+        error_record (error_record&&);
+#else
+        error_record (error_record&& r)
+            : os_ (r.os_),
+              ss_ (move (r.ss_)),
+              fail_ (r.fail_),
+              empty_ (r.empty_)
+        {
+          r.empty_ = true;
+        }
+#endif
+
+        ~error_record () noexcept (false)
+        {
+          if (!empty_)
+          {
+            // The output stream can be in a bad state (for example as a
+            // result of unsuccessful attempt to report a previous error), so
+            // we check it.
+            //
+            if (os_.good ())
+            {
+              ss_.put ('\n');
+              os_ << ss_.str ();
+              os_.flush ();
+            }
+
+            if (fail_)
+              throw failed ();
+          }
+        }
+
+      private:
+        ostream& os_;
+        mutable ostringstream ss_;
+
+        bool fail_;
+        bool empty_;
+      };
 
       // Parse and normalize a path. Also, unless it is already absolute, make
       // the path absolute using the specified directory. Throw invalid_path
@@ -103,6 +176,11 @@ namespace build2
         uint8_t r (1);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "cat");
+        };
+
         try
         {
           ifdstream cin  (move (in),  fdstream_mode::binary);
@@ -154,15 +232,15 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            cerr << "cat: unable to print ";
+            error_record d (error ());
+            d << "unable to print ";
 
             if (p.empty ())
-              cerr << "stdin";
+              d << "stdin";
             else
-              cerr << "'" << p << "'";
+              d << "'" << p << "'";
 
-            cerr << ": " << e << endl;
-            throw failed ();
+            d << ": " << e;
           }
 
           cin.close ();
@@ -171,15 +249,13 @@ namespace build2
         }
         catch (const invalid_path& e)
         {
-          cerr << "cat: invalid path '" << e.path << "'" << endl;
+          error (false) << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing cin, cout or writing to cerr (that's
-        // why need to check its state before writing).
+        // Can be thrown while creating/closing cin, cout or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "cat: " << e << endl;
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -215,8 +291,7 @@ namespace build2
           for (auto b (args.begin ()), i (b), e (args.end ()); i != e; ++i)
             cout << (i != b ? " " : "") << *i;
 
-          cout << endl;
-
+          cout << '\n';
           cout.close ();
           r = 0;
         }
@@ -291,6 +366,11 @@ namespace build2
         uint8_t r (1);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "mkdir");
+        };
+
         try
         {
           in.close ();
@@ -317,10 +397,7 @@ namespace build2
           // Create directories.
           //
           if (i == args.end ())
-          {
-            cerr << "mkdir: missing directory" << endl;
-            throw failed ();
-          }
+            error () << "missing directory";
 
           for (; i != args.end (); ++i)
           {
@@ -337,9 +414,7 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              cerr << "mkdir: unable to create directory '" << p << "': "
-                   << e << endl;
-              throw failed ();
+              error () << "unable to create directory '" << p << "': " << e;
             }
           }
 
@@ -347,15 +422,13 @@ namespace build2
         }
         catch (const invalid_path& e)
         {
-          cerr << "mkdir: invalid path '" << e.path << "'" << endl;
+          error (false) << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing in, out or writing to cerr (that's why
-        // need to check its state before writing).
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "mkdir: " << e << endl;
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -403,6 +476,11 @@ namespace build2
         uint8_t r (1);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "rm");
+        };
+
         try
         {
           in.close ();
@@ -432,10 +510,7 @@ namespace build2
           // Remove entries.
           //
           if (i == args.end () && !force)
-          {
-            cerr << "rm: missing file" << endl;
-            throw failed ();
-          }
+            error () << "missing file";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
@@ -445,11 +520,8 @@ namespace build2
             path p (parse_path (*i, wd));
 
             if (!p.sub (rwd) && !force)
-            {
-              cerr << "rm: '" << p << "' is out of working directory '" << rwd
-                   << "'" << endl;
-              throw failed ();
-            }
+              error () << "'" << p << "' is out of working directory '" << rwd
+                       << "'";
 
             try
             {
@@ -458,17 +530,11 @@ namespace build2
               if (dir_exists (d))
               {
                 if (!dir)
-                {
-                  cerr << "rm: '" << p << "' is a directory" << endl;
-                  throw failed ();
-                }
+                  error () << "'" << p << "' is a directory";
 
                 if (wd.sub (d))
-                {
-                  cerr << "rm: '" << p << "' contains test working directory '"
-                       << wd << "'" << endl;
-                  throw failed ();
-                }
+                  error () << "'" << p << "' contains test working directory '"
+                           << wd << "'";
 
                 // The call can result in rmdir_status::not_exist. That's not
                 // very likelly but there is also nothing bad about it.
@@ -480,8 +546,7 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              cerr << "rm: unable to remove '" << p << "': " << e << endl;
-              throw failed ();
+              error () << "unable to remove '" << p << "': " << e;
             }
           }
 
@@ -489,15 +554,13 @@ namespace build2
         }
         catch (const invalid_path& e)
         {
-          cerr << "rm: invalid path '" << e.path << "'" << endl;
+          error (false) << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing in, out or writing to cerr (that's why
-        // need to check its state before writing).
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "rm: " << e << endl;
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -533,6 +596,11 @@ namespace build2
         uint8_t r (1);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "rmdir");
+        };
+
         try
         {
           in.close ();
@@ -559,10 +627,7 @@ namespace build2
           // Remove directories.
           //
           if (i == args.end () && !force)
-          {
-            cerr << "rmdir: missing directory" << endl;
-            throw failed ();
-          }
+            error () << "missing directory";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
@@ -572,18 +637,12 @@ namespace build2
             dir_path p (path_cast<dir_path> (parse_path (*i, wd)));
 
             if (wd.sub (p))
-            {
-              cerr << "rmdir: '" << p << "' contains test working directory '"
-                   << wd << "'" << endl;
-              throw failed ();
-            }
+              error () << "'" << p << "' contains test working directory '"
+                       << wd << "'";
 
             if (!p.sub (rwd) && !force)
-            {
-              cerr << "rmdir: '" << p << "' is out of working directory '"
-                   << rwd << "'" << endl;
-              throw failed ();
-            }
+              error () << "'" << p << "' is out of working directory '"
+                       << rwd << "'";
 
             try
             {
@@ -596,8 +655,7 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              cerr << "rmdir: unable to remove '" << p << "': " << e << endl;
-              throw failed ();
+              error () << "unable to remove '" << p << "': " << e;
             }
           }
 
@@ -605,15 +663,259 @@ namespace build2
         }
         catch (const invalid_path& e)
         {
-          cerr << "rmdir: invalid path '" << e.path << "'" << endl;
+          error (false) << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing in, out or writing to cerr (that's why
-        // need to check its state before writing).
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "rmdir: " << e << endl;
+          error (false) << e;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
+      // sed [-n] -e <script> [<file>]
+      //
+      // Read text from file, make editing changes according to script, and
+      // write the result to stdout. If file is not specified or is '-', read
+      // from stdin.
+      //
+      // -n
+      //    Suppress automatic printing of the pattern space at the end of the
+      //    script execution.
+      //
+      // -e <script>
+      //    Editing commands to be executed (required).
+      //
+      //  Currently, only single-command scripts using the following editing
+      //  commands are supported.
+      //
+      //  s/<regex>/<replacement>/<flags>
+      //    The supported flags are 'i' (case-insensitive search), 'g'
+      //    (substitute globally), 'p' (print if a replacement was made). If
+      //    regex starts with ^, then it only matches at the beginning of the
+      //    pattern space. Similarly, if it ends with $, then it only matches
+      //    at the end of the pattern space.
+      //
+      //    In replacement, besides the standard ECMAScript escape sequences a
+      //    subset of Perl-specific ones is recognized.
+      //
+      //  For more details read the builtin description in 'The build2
+      //  Testscript Language'.
+      //
+      // Note: must be executed asynchronously.
+      //
+      static uint8_t
+      sed (scope& sp,
+           const strings& args,
+           auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "sed");
+        };
+
+        try
+        {
+          // Do not throw when failbit is set (getline() failed to extract any
+          // character).
+          //
+          ifdstream cin  (move (in), ifdstream::badbit);
+          ofdstream cout (move (out));
+
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool auto_prn (true);
+
+          struct substitute
+          {
+            string regex;
+            string replacement;
+            bool icase  = false;
+            bool global = false;
+            bool print  = false;
+          };
+          optional<substitute> subst;
+
+          for (; i != e; ++i)
+          {
+            if (*i == "-n")
+              auto_prn = false;
+            else if (*i == "-e")
+            {
+              // Only a single script is supported.
+	      //
+              if (subst)
+                error () << "multiple scripts";
+
+              // If option has no value then bail out and report.
+              //
+              if (++i == e)
+                break;
+
+              const string& v (*i);
+              if (v.empty ())
+                error () << "empty script";
+
+              if (v[0] != 's')
+                error () << "only 's' command supported";
+
+              // Parse the substitute command.
+              //
+              if (v.size () < 2)
+                error () << "no delimiter for 's' command";
+
+              char delim (v[1]);
+              if (delim == '\\' || delim == '\n')
+                error () << "invalid delimiter for 's' command";
+
+              size_t p (v.find (delim, 2));
+              if (p == string::npos)
+                error () << "unterminated 's' command regex";
+
+              subst = substitute ();
+              subst->regex.assign (v, 2, p - 2);
+
+              // Empty regex matches nothing, so not of much use.
+              //
+              if (subst->regex.empty ())
+                error () << "empty regex in 's' command";
+
+              size_t b (p + 1);
+              p = v.find (delim, b);
+              if (p == string::npos)
+                error () << "unterminated 's' command replacement";
+
+              subst->replacement.assign (v, b, p - b);
+
+              // Parse the substitute command flags.
+              //
+              char c;
+              for (++p; (c = v[p]) != '\0'; ++p)
+              {
+                switch (c)
+                {
+                case 'i': subst->icase  = true; break;
+                case 'g': subst->global = true; break;
+                case 'p': subst->print  = true; break;
+                default:
+                  {
+                    error () << "invalid 's' command flag '" << c << "'";
+                  }
+                }
+              }
+            }
+            else
+            {
+              if (*i == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          if (!subst)
+            error () << "missing script";
+
+          // Path of a file to edit. An empty path represents stdin.
+          //
+          path p;
+          if (i != e)
+	  {
+	    if (*i != "-")
+              p = parse_path (*i, sp.wd_path);
+
+            ++i;
+	  }
+
+          if (i != e)
+	    error () << "unexpected argument";
+
+          // Note that ECMAScript is implied if no grammar flag is specified.
+          //
+          regex re (subst->regex,
+                    subst->icase ? regex::icase : regex::ECMAScript);
+
+          // Edit a file or STDIN.
+          //
+          try
+          {
+            // Open a file if specified.
+            //
+            if (!p.empty ())
+            {
+              cin.close (); // Flush and close.
+              cin.open (p);
+            }
+
+            // Read until failbit is set (throw on badbit).
+            //
+            string s;
+            while (getline (cin, s))
+            {
+              auto r (regex_replace_ex (s,
+                                        re,
+                                        subst->replacement,
+                                        subst->global
+                                        ? regex_constants::format_default
+                                        : regex_constants::format_first_only));
+
+              // Add newline regardless whether the source line is newline-
+              // terminated or not (in accordance with POSIX).
+              //
+              if (auto_prn || (r.second && subst->print))
+                cout << r.first << '\n';
+            }
+
+            cin.close ();
+            cout.close ();
+            r = 0;
+          }
+          catch (const io_error& e)
+          {
+            error_record d (error ());
+            d << "unable to edit ";
+
+            if (p.empty ())
+              d << "stdin";
+            else
+              d << "'" << p << "'";
+
+            d << ": " << e;
+          }
+        }
+        catch (const regex_error& e)
+        {
+          // Print regex_error description if meaningful (no space).
+          //
+          error (false) << "invalid regex" << e;
+        }
+        catch (const invalid_path& e)
+        {
+          error (false) << "invalid path '" << e.path << "'";
+        }
+        // Can be thrown while creating cin, cout or writing to cerr.
+        //
+        catch (const io_error& e)
+        {
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -654,30 +956,26 @@ namespace build2
         uint8_t r (2);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "test");
+        };
+
         try
         {
           in.close ();
           out.close ();
 
           if (args.size () < 2)
-          {
-            cerr << "test: missing path" << endl;
-            throw failed ();
-          }
+            error () << "missing path";
 
           bool file (args[0] == "-f");
 
           if (!file && args[0] != "-d")
-          {
-            cerr << "test: invalid option" << endl;
-            throw failed ();
-          }
+            error () << "invalid option";
 
           if (args.size () > 2)
-          {
-            cerr << "test: unexpected argument" << endl;
-            throw failed ();
-          }
+            error () << "unexpected argument";
 
           path p (parse_path (args[1], sp.wd_path));
 
@@ -687,21 +985,18 @@ namespace build2
           }
           catch (const system_error& e)
           {
-            cerr << "test: cannot test '" << p << "': " << e << endl;
-            throw failed ();
+            error () << "cannot test '" << p << "': " << e;
           }
         }
         catch (const invalid_path& e)
         {
-          cerr << "test: invalid path '" << e.path << "'" << endl;
+          error (false)  << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing in, out or writing to cerr (that's why
-        // need to check its state before writing).
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "test: " << e << endl;
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -740,16 +1035,18 @@ namespace build2
         uint8_t r (1);
         ofdstream cerr (move (err));
 
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "touch");
+        };
+
         try
         {
           in.close ();
           out.close ();
 
           if (args.empty ())
-          {
-            cerr << "touch: missing file" << endl;
-            throw failed ();
-          }
+            error () << "missing file";
 
           // Create files.
           //
@@ -783,25 +1080,17 @@ namespace build2
                 }
                 catch (const io_error& e)
                 {
-                  cerr << "touch: cannot create file '" << p << "': " << e
-                       << endl;
-                  throw failed ();
+                  error () << "cannot create file '" << p << "': " << e;
                 }
 
                 sp.clean ({cleanup_type::always, p}, true);
               }
               else
-              {
-                cerr << "touch: '" << p << "' exists and is not a file"
-                     << endl;
-                throw failed ();
-              }
+                error () << "'" << p << "' exists and is not a file";
             }
             catch (const system_error& e)
             {
-              cerr << "touch: cannot create/update '" << p << "': " << e
-                   << endl;
-              throw failed ();
+              error () << "cannot create/update '" << p << "': " << e;
             }
           }
 
@@ -809,15 +1098,13 @@ namespace build2
         }
         catch (const invalid_path& e)
         {
-          cerr << "touch: invalid path '" << e.path << "'" << endl;
+          error (false) << "invalid path '" << e.path << "'";
         }
-        // Can be thrown while closing in, out or writing to cerr (that's why
-        // need to check its state before writing).
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
-          if (cerr.good ())
-            cerr << "touch: " << e << endl;
+          error (false) << e;
         }
         catch (const failed&)
         {
@@ -896,6 +1183,7 @@ namespace build2
         {"mkdir", &sync_impl<&mkdir>},
         {"rm",    &sync_impl<&rm>},
         {"rmdir", &sync_impl<&rmdir>},
+        {"sed",   &async_impl<&sed>},
         {"test",  &sync_impl<&test>},
         {"touch", &sync_impl<&touch>},
         {"true",  &true_}
