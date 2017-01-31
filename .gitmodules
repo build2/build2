@@ -3,4 +3,4 @@
 	url = ../etc/style.git
 [submodule "config"]
 	path = config
-	url = git://git.sv.gnu.org/config.git
+	url = http://git.sv.gnu.org/r/config.git
