@@ -20,22 +20,27 @@ namespace build2
   namespace cc
   {
     bool
-    core_vars_init (scope& r,
+    core_vars_init (scope& rs,
                     scope&,
-                    const location&,
+                    const location& loc,
                     unique_ptr<module_base>&,
                     bool first,
                     bool,
                     const variable_map&)
     {
       tracer trace ("cc::core_vars_init");
-      l5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       assert (first);
 
+      // Load bin.vars (we need its config.bin.target/pattern for hints).
+      //
+      if (!cast_false<bool> (rs["bin.vars.loaded"]))
+        load_module (rs, rs, "bin.vars", loc);
+
       // Enter variables. Note: some overridable, some not.
       //
-      auto& v (var_pool.rw (r));
+      auto& v (var_pool.rw (rs));
 
       v.insert<strings> ("config.cc.poptions", true);
       v.insert<strings> ("config.cc.coptions", true);
@@ -171,17 +176,13 @@ namespace build2
         variable_map h;
         if (first)
         {
-          // Note that these variables have not yet been registered (we don't
-          // yet have the "bin.vars" module).
+          // Note that all these variables have already been registered.
           //
-          const variable& t (vp.insert ("config.bin.target"));
-          h.assign (t) = cast<target_triplet> (rs["cc.target"]).string ();
+          h.assign ("config.bin.target") =
+            cast<target_triplet> (rs["cc.target"]).string ();
 
           if (auto l = hints["config.bin.pattern"])
-          {
-            const variable& p (vp.insert ("config.bin.pattern"));
-            h.assign (p) = cast<string> (l);
-          }
+            h.assign ("config.bin.pattern") = cast<string> (l);
         }
 
         load_module (rs, rs, "bin.config", loc, false, h);

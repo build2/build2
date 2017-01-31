@@ -34,8 +34,62 @@ namespace build2
     static const strings libs_lib {"shared", "static"};
 
     bool
-    config_init (scope& r,
-                 scope& b,
+    vars_init (scope& r,
+               scope&,
+               const location&,
+               unique_ptr<module_base>&,
+               bool first,
+               bool,
+               const variable_map&)
+    {
+      tracer trace ("cc::core_vars_init");
+      l5 ([&]{trace << "for " << r.out_path ();});
+
+      assert (first);
+
+      // Enter variables. Note: some overridable, some not.
+      //
+      // Target is a string and not target_triplet because it can be
+      // specified by the user.
+      //
+      auto& vp (var_pool.rw (r));
+
+      vp.insert<string>    ("config.bin.target",   true);
+      vp.insert<string>    ("config.bin.pattern",  true);
+
+      vp.insert<string>    ("config.bin.lib",      true);
+      vp.insert<strings>   ("config.bin.exe.lib",  true);
+      vp.insert<strings>   ("config.bin.liba.lib", true);
+      vp.insert<strings>   ("config.bin.libs.lib", true);
+      vp.insert<dir_paths> ("config.bin.rpath",    true);
+
+      vp.insert<string>    ("config.bin.prefix", true);
+      vp.insert<string>    ("config.bin.suffix", true);
+      vp.insert<string>    ("config.bin.lib.prefix", true);
+      vp.insert<string>    ("config.bin.lib.suffix", true);
+      vp.insert<string>    ("config.bin.exe.prefix", true);
+      vp.insert<string>    ("config.bin.exe.suffix", true);
+
+      vp.insert<string>    ("bin.lib");
+      vp.insert<strings>   ("bin.exe.lib");
+      vp.insert<strings>   ("bin.liba.lib");
+      vp.insert<strings>   ("bin.libs.lib");
+      vp.insert<dir_paths> ("bin.rpath");
+
+      vp.insert<string>    ("bin.lib.prefix");
+      vp.insert<string>    ("bin.lib.suffix");
+      vp.insert<string>    ("bin.exe.prefix");
+      vp.insert<string>    ("bin.exe.suffix");
+
+      vp.insert<map<string, string>> ("bin.lib.version",
+                                      variable_visibility::project);
+
+      return true;
+    }
+
+    bool
+    config_init (scope& rs,
+                 scope& bs,
                  const location& loc,
                  unique_ptr<module_base>&,
                  bool first,
@@ -43,49 +97,12 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("bin::config_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
-      // Enter variables.
+      // Load bin.vars.
       //
-      if (first)
-      {
-        auto& v (var_pool.rw (r));
-
-        // Note: some overridable, some not.
-        //
-        // Target is a string and not target_triplet because it can be
-        // specified by the user.
-        //
-        v.insert<string>    ("config.bin.target",   true);
-        v.insert<string>    ("config.bin.pattern",  true);
-
-        v.insert<string>    ("config.bin.lib",      true);
-        v.insert<strings>   ("config.bin.exe.lib",  true);
-        v.insert<strings>   ("config.bin.liba.lib", true);
-        v.insert<strings>   ("config.bin.libs.lib", true);
-        v.insert<dir_paths> ("config.bin.rpath",    true);
-
-        v.insert<string>    ("config.bin.prefix", true);
-        v.insert<string>    ("config.bin.suffix", true);
-        v.insert<string>    ("config.bin.lib.prefix", true);
-        v.insert<string>    ("config.bin.lib.suffix", true);
-        v.insert<string>    ("config.bin.exe.prefix", true);
-        v.insert<string>    ("config.bin.exe.suffix", true);
-
-        v.insert<string>    ("bin.lib");
-        v.insert<strings>   ("bin.exe.lib");
-        v.insert<strings>   ("bin.liba.lib");
-        v.insert<strings>   ("bin.libs.lib");
-        v.insert<dir_paths> ("bin.rpath");
-
-        v.insert<string>    ("bin.lib.prefix");
-        v.insert<string>    ("bin.lib.suffix");
-        v.insert<string>    ("bin.exe.prefix");
-        v.insert<string>    ("bin.exe.suffix");
-
-        v.insert<map<string, string>> ("bin.lib.version",
-                                       variable_visibility::project);
-      }
+      if (!cast_false<bool> (rs["bin.vars.loaded"]))
+        load_module (rs, rs, "bin.vars", loc);
 
       // Configure.
       //
@@ -95,7 +112,7 @@ namespace build2
 
       // Adjust module priority (binutils).
       //
-      config::save_module (r, "bin", 350);
+      config::save_module (rs, "bin", 350);
 
       // The idea here is as follows: if we already have one of
       // the bin.* variables set, then we assume this is static
@@ -110,33 +127,33 @@ namespace build2
       // config.bin.lib
       //
       {
-        value& v (b.assign ("bin.lib"));
+        value& v (bs.assign ("bin.lib"));
         if (!v)
-          v = *required (r, "config.bin.lib", "both").first;
+          v = *required (rs, "config.bin.lib", "both").first;
       }
 
       // config.bin.exe.lib
       //
       {
-        value& v (b.assign ("bin.exe.lib"));
+        value& v (bs.assign ("bin.exe.lib"));
         if (!v)
-          v = *required (r, "config.bin.exe.lib", exe_lib).first;
+          v = *required (rs, "config.bin.exe.lib", exe_lib).first;
       }
 
       // config.bin.liba.lib
       //
       {
-        value& v (b.assign ("bin.liba.lib"));
+        value& v (bs.assign ("bin.liba.lib"));
         if (!v)
-          v = *required (r, "config.bin.liba.lib", liba_lib).first;
+          v = *required (rs, "config.bin.liba.lib", liba_lib).first;
       }
 
       // config.bin.libs.lib
       //
       {
-        value& v (b.assign ("bin.libs.lib"));
+        value& v (bs.assign ("bin.libs.lib"));
         if (!v)
-          v = *required (r, "config.bin.libs.lib", libs_lib).first;
+          v = *required (rs, "config.bin.libs.lib", libs_lib).first;
       }
 
       // config.bin.rpath
@@ -144,8 +161,8 @@ namespace build2
       // This one is optional and we merge it into bin.rpath, if any.
       // See the cxx module for details on merging.
       //
-      b.assign ("bin.rpath") += cast_null<dir_paths> (
-        optional (r, "config.bin.rpath"));
+      bs.assign ("bin.rpath") += cast_null<dir_paths> (
+        optional (rs, "config.bin.rpath"));
 
       // config.bin.{lib,exe}.{prefix,suffix}
       //
@@ -154,16 +171,16 @@ namespace build2
       // that might have been specified before loading the module.
       //
       {
-        lookup p (omitted (r, "config.bin.prefix").first);
-        lookup s (omitted (r, "config.bin.suffix").first);
+        lookup p (omitted (rs, "config.bin.prefix").first);
+        lookup s (omitted (rs, "config.bin.suffix").first);
 
-        auto set = [&r, &b] (const char* bv, const char* cv, lookup l)
+        auto set = [&rs, &bs] (const char* bv, const char* cv, lookup l)
         {
-          if (lookup o = omitted (r, cv).first)
+          if (lookup o = omitted (rs, cv).first)
             l = o;
 
           if (l)
-            b.assign (bv) = *l;
+            bs.assign (bv) = *l;
         };
 
         set ("bin.lib.prefix", "config.bin.lib.prefix", p);
@@ -185,7 +202,7 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (omitted (r, var));
+          auto p (omitted (rs, var));
           lookup l (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
@@ -233,13 +250,13 @@ namespace build2
             // Also enter as bin.target.{cpu,vendor,system,version,class}
             // for convenience of access.
             //
-            r.assign<string> ("bin.target.cpu")     = t.cpu;
-            r.assign<string> ("bin.target.vendor")  = t.vendor;
-            r.assign<string> ("bin.target.system")  = t.system;
-            r.assign<string> ("bin.target.version") = t.version;
-            r.assign<string> ("bin.target.class")   = t.class_;
+            rs.assign<string> ("bin.target.cpu")     = t.cpu;
+            rs.assign<string> ("bin.target.vendor")  = t.vendor;
+            rs.assign<string> ("bin.target.system")  = t.system;
+            rs.assign<string> ("bin.target.version") = t.version;
+            rs.assign<string> ("bin.target.class")   = t.class_;
 
-            r.assign<target_triplet> ("bin.target") = move (t);
+            rs.assign<target_triplet> ("bin.target") = move (t);
           }
           catch (const invalid_argument& e)
           {
@@ -261,7 +278,7 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (omitted (r, var));
+          auto p (omitted (rs, var));
           lookup l (p.first);
 
           // Then see if there is a config hint (e.g., from the C++ module).
@@ -286,7 +303,7 @@ namespace build2
               fail << "missing '*' in binutils pattern '" << s << "'";
             }
 
-            r.assign<string> ("bin.pattern") = s;
+            rs.assign<string> ("bin.pattern") = s;
             new_val = new_val || p.second; // False for a hinted value.
           }
         }
@@ -298,10 +315,10 @@ namespace build2
         {
           diag_record dr (text);
 
-          dr << "bin " << project (r) << '@' << r.out_path () << '\n'
-             << "  target     " << cast<target_triplet> (r["bin.target"]);
+          dr << "bin " << project (rs) << '@' << rs.out_path () << '\n'
+             << "  target     " << cast<target_triplet> (rs["bin.target"]);
 
-          if (auto l = r["bin.pattern"])
+          if (auto l = rs["bin.pattern"])
             dr << '\n'
                << "  pattern    " << cast<string> (l);
         }

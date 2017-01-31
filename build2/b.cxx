@@ -231,6 +231,7 @@ main (int argc, char* argv[])
       bm["test"]    = mf {&test::boot, &test::init};
       bm["install"] = mf {&install::boot, &install::init};
 
+      bm["bin.vars"] = mf {nullptr, &bin::vars_init};
       bm["bin.config"] = mf {nullptr, &bin::config_init};
       bm["bin"] = mf {nullptr, &bin::init};
       bm["bin.ar.config"] = mf {nullptr, &bin::ar_config_init};

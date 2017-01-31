@@ -15,6 +15,15 @@ namespace build2
   namespace bin
   {
     bool
+    vars_init (scope&,
+               scope&,
+               const location&,
+               unique_ptr<module_base>&,
+               bool,
+               bool,
+               const variable_map&);
+
+    bool
     config_init (scope&,
                  scope&,
                  const location&,
