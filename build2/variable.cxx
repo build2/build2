@@ -982,9 +982,29 @@ namespace build2
                  const variable_visibility*& v,
                  const bool*& o)
   {
-    if (t == nullptr) t =  p.type;        else assert ( t == p.type);
-    if (v == nullptr) v = &p.visibility;  else assert (*v == p.visibility);
-    if (o == nullptr) o = &p.overridable; else assert (*o == p.overridable);
+    if (p.type)
+    {
+      if (t == nullptr)
+        t = *p.type;
+      else if (p.match)
+        assert (t == *p.type);
+    }
+
+    if (p.visibility)
+    {
+      if (v == nullptr)
+        v = &*p.visibility;
+      else if (p.match)
+        assert (*v == *p.visibility);
+    }
+
+    if (p.overridable)
+    {
+      if (o == nullptr)
+        o = &*p.overridable;
+      else if (p.match)
+        assert (*o == *p.overridable);
+    }
   }
 
   const variable& variable_pool::
@@ -999,6 +1019,8 @@ namespace build2
     //
     if (n.find ('.') != string::npos)
     {
+      // Reverse means from the "largest" (most specific).
+      //
       for (const pattern& p: reverse_iterate (patterns_))
       {
         if (match_pattern (n, p.prefix, p.suffix, p.multi))
@@ -1034,9 +1056,11 @@ namespace build2
 
   void variable_pool::
   insert_pattern (const string& p,
-                  const build2::value_type* t,
-                  bool o,
-                  variable_visibility v)
+                  optional<const value_type*> t,
+                  optional<bool> o,
+                  optional<variable_visibility> v,
+                  bool retro,
+                  bool match)
   {
     assert (!global_ || phase == run_phase::load);
 
@@ -1066,17 +1090,38 @@ namespace build2
       sfx.assign (p, w, sn);
     }
 
+    auto i (
+      patterns_.insert (
+        pattern {move (pfx), move (sfx), multi, match, t, v, o}));
+
     // Apply retrospectively to existing variables.
     //
-    for (auto& p: map_)
+    if (retro)
     {
-      variable& var (p.second);
+      for (auto& p: map_)
+      {
+        variable& var (p.second);
 
-      if (match_pattern (var.name, pfx, sfx, multi))
-        update (var, t, &v, &o); // Not changing the key.
+        if (match_pattern (var.name, i->prefix, i->suffix, i->multi))
+        {
+          // Make sure that none of the existing more specific patterns
+          // match.
+          //
+          auto j (i), e (patterns_.end ());
+          for (++j; j != e; ++j)
+          {
+            if (match_pattern (var.name, j->prefix, j->suffix, j->multi))
+              break;
+          }
+
+          if (j == e)
+            update (var,
+                    t ?  *t : nullptr,
+                    v ? &*v : nullptr,
+                    o ? &*o : nullptr); // Not changing the key.
+        }
+      }
     }
-
-    patterns_.push_back (pattern {move (pfx), move (sfx), multi, t, v, o});
   }
 
   variable_pool variable_pool::instance (true);

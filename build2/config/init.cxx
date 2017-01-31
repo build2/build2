@@ -40,9 +40,10 @@ namespace build2
 
       auto& vp (var_pool.rw (rs));
 
-      // utility.cxx:unconfigured()
+      // utility.cxx:unconfigured() (note: not overridable).
       //
-      vp.insert_pattern<bool> ("config.*.configured");
+      vp.insert_pattern<bool> (
+        "config.*.configured", false, variable_visibility::normal);
 
       // Load config.build if one exists.
       //
@@ -51,7 +52,7 @@ namespace build2
       // possible that some module which needs the configuration will get
       // called first.
       //
-      const variable& c_v (vp.insert<uint64_t> ("config.version"));
+      const variable& c_v (vp.insert<uint64_t> ("config.version", false));
 
       // Don't load it if we are disfiguring. This is a bit tricky since the
       // build2 core may not yet know it is disfiguring. But we know.

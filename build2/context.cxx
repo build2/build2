@@ -237,19 +237,23 @@ namespace build2
     // Enter builtin variables and patterns.
     //
 
-    // file.cxx:import()
+    // All config. variables are by default overridable.
     //
-    // Note that the order is important (reverse application).
+    vp.insert_pattern ("config.**", nullopt, true, nullopt, true, false);
+
+    // file.cxx:import() (note that order is important; see insert_pattern()).
     //
-    vp.insert_pattern<path> ("config.import.**", true);
-    vp.insert_pattern<abs_dir_path> ("config.import.*", true);
+    vp.insert_pattern<abs_dir_path> (
+      "config.import.*", true, variable_visibility::normal, true);
+    vp.insert_pattern<path> (
+      "config.import.**", true, variable_visibility::normal, true);
 
     // module.cxx:load_module().
     //
-    vp.insert_pattern<bool> ("**.loaded", false, variable_visibility::project);
-    vp.insert_pattern<bool> ("**.configured",
-                             false,
-                             variable_visibility::project);
+    vp.insert_pattern<bool> (
+      "**.loaded", false, variable_visibility::project);
+    vp.insert_pattern<bool> (
+      "**.configured", false, variable_visibility::project);
 
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");

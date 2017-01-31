@@ -6,6 +6,7 @@
 #define BUILD2_VARIABLE
 
 #include <map>
+#include <set>
 #include <functional>    // hash
 #include <type_traits>   // aligned_storage
 #include <unordered_map>
@@ -858,7 +859,12 @@ namespace build2
     }
 
     // Insert a variable pattern. Any variable that matches this pattern
-    // will have the specified type, visibility, and overridability.
+    // will have the specified type, visibility, and overridability. If
+    // match is true, then individual insertions of the matching variable
+    // must match the specified type/visibility/overridability. Otherwise,
+    // individual insertions can provide alternative values and the pattern
+    // values are a fallback (if you specify false you better be very clear
+    // about what you are trying to achieve).
     //
     // The pattern must be in the form [<prefix>.](*|**)[.<suffix>] where
     // '*' matches single component stems (i.e., 'foo' but not 'foo.bar')
@@ -866,25 +872,37 @@ namespace build2
     // multi-component variables are considered for pattern matching (so
     // just '*' won't match anything).
     //
-    // Note that patterns are matched in the reverse order of insertion (as
-    // opposed to, say, more specific first) with the first match used. A
-    // newly inserted pattern is also applied retrospectively to all the
-    // existing variables that match.
+    // The patterns are matched in the more-specific-first order where the
+    // pattern is considered more specific if it has a greater sum of its
+    // prefix and suffix lengths. If the prefix and suffix are equal, then the
+    // '*' pattern is considered more specific than '**'. If neither is more
+    // specific, then they are matched in the reverse order of insertion.
+    //
+    // If retro is true then a newly inserted pattern is also applied
+    // retrospectively to all the existing variables that match but only
+    // if no more specific pattern already exists (which is then assumed
+    // to have been applied). So if you use this functionality, watch out
+    // for the insertion order (you probably want more specific first).
     //
   public:
     void
     insert_pattern (const string& pattern,
-                    const build2::value_type* type,
-                    bool overridable,
-                    variable_visibility);
+                    optional<const value_type*> type,
+                    optional<bool> overridable,
+                    optional<variable_visibility>,
+                    bool retro = false,
+                    bool match = true);
 
     template <typename T>
     void
     insert_pattern (const string& p,
-                    bool overridable = false,
-                    variable_visibility v = variable_visibility::normal)
+                    optional<bool> overridable,
+                    optional<variable_visibility> v,
+                    bool retro = false,
+                    bool match = true)
     {
-      insert_pattern (p, &value_traits<T>::value_type, overridable, v);
+      insert_pattern (
+        p, &value_traits<T>::value_type, overridable, v, retro, match);
     }
 
   public:
@@ -906,13 +924,13 @@ namespace build2
 
     const variable&
     insert (string name,
-            const build2::value_type*,
+            const value_type*,
             const variable_visibility* = nullptr,
             const bool* overridable = nullptr);
 
     void
     update (variable&,
-            const build2::value_type*,
+            const value_type*,
             const variable_visibility* = nullptr,
             const bool* = nullptr) const;
 
@@ -957,15 +975,29 @@ namespace build2
     {
       string prefix;
       string suffix;
-      bool   multi;  // Match multi-component stems.
+      bool   multi; // Match multi-component stems.
+      bool   match; // Must match individual variable insersions.
 
-      const build2::value_type* type;
-      variable_visibility       visibility;
-      bool                      overridable;
+      optional<const value_type*>   type;
+      optional<variable_visibility> visibility;
+      optional<bool>                overridable;
+
+      friend bool
+      operator< (const pattern& x, const pattern& y)
+      {
+        if (x.prefix.size () + x.suffix.size () <
+            y.prefix.size () + y.suffix.size ())
+          return true;
+
+        if (x.prefix == y.prefix && x.suffix == y.suffix)
+          return x.multi && !y.multi;
+
+        return false;
+      }
     };
 
   private:
-    vector<pattern> patterns_;
+    std::multiset<pattern> patterns_;
 
     // Global pool flag.
     //
