@@ -223,9 +223,16 @@ namespace build2
     assert (max_active >= init_active_ &&
             max_active <= orig_max_active_);
 
-    // The schduler must not be active.
+    // The scheduler must not be active though some threads might still be
+    // comming off from finishing a task. So we busy-wait for them.
     //
-    assert (active_ == init_active_);
+    while (active_ != init_active_)
+    {
+      l.unlock ();
+      this_thread::yield ();
+      l.lock ();
+    }
+
     assert (waiting_ == 0);
     assert (ready_ == 0);
 
