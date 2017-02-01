@@ -46,7 +46,7 @@ namespace build2
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
     timestamp link::
-    windows_rpath_timestamp (file& t, scope& bs, lorder lo) const
+    windows_rpath_timestamp (file& t, const scope& bs, lorder lo) const
     {
       timestamp r (timestamp_nonexistent);
 
@@ -116,7 +116,9 @@ namespace build2
     // duplicates).
     //
     auto link::
-    windows_rpath_dlls (file& t, scope& bs, lorder lo) const -> windows_dlls
+    windows_rpath_dlls (file& t,
+                        const scope& bs,
+                        lorder lo) const -> windows_dlls
     {
       windows_dlls r;
 
@@ -204,7 +206,7 @@ namespace build2
     //
     void link::
     windows_rpath_assembly (file& t,
-                            scope& bs,
+                            const scope& bs,
                             lorder lo,
                             const string& tcpu,
                             timestamp ts,
@@ -276,7 +278,7 @@ namespace build2
             << "                    processorArchitecture='" << pa << "'\n"
             << "                    version='0.0.0.0'/>\n";
 
-        scope& as (*t.root_scope ().weak_scope ()); // Amalgamation scope.
+        const scope& as (*t.root_scope ().weak_scope ()); // Amalgamation.
 
         auto link = [&as, &ad] (const path& f, const path& l)
         {

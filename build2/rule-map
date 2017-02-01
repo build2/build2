@@ -26,6 +26,9 @@ namespace build2
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.
   //
+  // Note that while we may resize some vectors during non-serial load, this
+  // is MT-safe since we never cache any references to their elements.
+  //
   class operation_rule_map
   {
   public:
@@ -62,6 +65,8 @@ namespace build2
   // perform meta-operation. The idea is to try and get away with a dynamic
   // allocation for the common cases since most rules will be registered
   // for perform, at least on non-root scopes.
+  //
+  // @@ Redo using small_vector?
   //
   class rule_map
   {

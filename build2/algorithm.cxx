@@ -37,7 +37,7 @@ namespace build2
   }
 
   target&
-  search (name n, scope& s)
+  search (name n, const scope& s)
   {
     assert (phase == run_phase::search_match);
 
@@ -57,7 +57,7 @@ namespace build2
   }
 
   target*
-  search_existing (const name& cn, scope& s, const dir_path& out)
+  search_existing (const name& cn, const scope& s, const dir_path& out)
   {
     assert (phase == run_phase::search_match || phase == run_phase::execute);
 
@@ -116,7 +116,7 @@ namespace build2
       //
       action ra (a.meta_operation (), io, o != oo ? 0 : oo);
 
-      scope& bs (t.base_scope ());
+      const scope& bs (t.base_scope ());
 
       for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
       {
@@ -310,7 +310,10 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisites (slock& ml, action a, target& t, scope* s)
+  search_and_match_prerequisites (slock& ml,
+                                  action a,
+                                  target& t,
+                                  const scope* s)
   {
     for (prerequisite& p: group_prerequisites (t))
     {
@@ -325,8 +328,10 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisite_members (
-    slock& ml, action a, target& t, scope* s)
+  search_and_match_prerequisite_members (slock& ml,
+                                         action a,
+                                         target& t,
+                                         const scope* s)
   {
     for (prerequisite_member p: group_prerequisite_members (ml, a, t))
     {
@@ -345,8 +350,8 @@ namespace build2
   {
     tracer trace ("inject_fsdir");
 
-    scope& bs (t.base_scope ());
-    scope* rs (bs.root_scope ());
+    const scope& bs (t.base_scope ());
+    const scope* rs (bs.root_scope ());
 
     // Handle the outside of any project case. Note that we also used to bail
     // our of this is the root of the project. But that proved not to be such

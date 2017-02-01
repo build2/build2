@@ -71,13 +71,14 @@ namespace build2
     l6 ([&]{trace << "resetting build state";});
 
     auto& vp (variable_pool::instance);
+    auto& sm (scope_map::instance);
 
     variable_overrides vos;
 
     var_override_cache.clear ();
 
     targets.clear ();
-    scopes.clear ();
+    sm.clear ();
     vp.clear ();
 
     // Reset meta/operation tables. Note that the order should match the id
@@ -101,13 +102,16 @@ namespace build2
     // Create global scope. Note that the empty path is a prefix for any other
     // path. See the comment in <butl/prefix-map> for details.
     //
+    auto make_global_scope = [&sm] () -> scope&
     {
-      auto i (scopes.insert (dir_path (), false));
-      global_scope = &i->second;
-      global_scope->out_path_ = &i->first;
-    }
+      auto i (sm.insert (dir_path (), false));
+      scope& r (i->second);
+      r.out_path_ = &i->first;
+      global_scope = scope::global_ = &r;
+      return r;
+    };
 
-    scope& gs (*global_scope);
+    scope& gs (make_global_scope ());
 
     // Parse and enter the command line variables. We do it before entering
     // any other variables so that all the variables that are overriden are
@@ -215,7 +219,7 @@ namespace build2
       //
       if (c == '!' || !dir.empty ())
       {
-        scope& s (c == '!' ? gs : scopes.insert (dir, false)->second);
+        scope& s (c == '!' ? gs : sm.insert (dir, false)->second);
         auto p (s.vars.insert (*o));
 
         if (!p.second)
@@ -377,14 +381,14 @@ namespace build2
   }
 
   dir_path
-  src_out (const dir_path& out, scope& r)
+  src_out (const dir_path& out, const scope& r)
   {
     assert (r.root ());
     return src_out (out, r.out_path (), r.src_path ());
   }
 
   dir_path
-  out_src (const dir_path& src, scope& r)
+  out_src (const dir_path& src, const scope& r)
   {
     assert (r.root ());
     return out_src (src, r.out_path (), r.src_path ());

@@ -184,7 +184,7 @@ namespace build2
       //
     public:
       void
-      process_libraries (scope&,
+      process_libraries (const scope&,
                          lorder,
                          const dir_paths&,
                          file&,
@@ -210,7 +210,7 @@ namespace build2
 
     private:
       file&
-      resolve_library (scope&,
+      resolve_library (const scope&,
                        name,
                        lorder,
                        const dir_paths&,
@@ -222,10 +222,10 @@ namespace build2
                       const prerequisite_key&) const;
 
       dir_paths
-      extract_library_dirs (scope&) const;
+      extract_library_dirs (const scope&) const;
 
       bool
-      pkgconfig_extract (scope&,
+      pkgconfig_extract (const scope&,
                          bin::lib&,
                          bin::liba*,
                          bin::libs*,

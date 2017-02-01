@@ -75,7 +75,7 @@ namespace build2
           {
             // Assume missing version is 0.
             //
-            auto p (extract_variable (f, c_v));
+            auto p (extract_variable (rs, f, c_v));
             uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
             if (v != module::version)
@@ -127,9 +127,10 @@ namespace build2
       //
       {
         // We need this rule for out-of-any-project dependencies (e.g.,
-        // libraries imported from /usr/lib).
+        // libraries imported from /usr/lib). Registring it on the global
+        // scope smells a bit but seems harmless.
         //
-        global_scope->rules.insert<file> (
+        rs.global ().rules.insert<file> (
           configure_id, 0, "config.file", file_rule::instance);
 
         auto& r (rs.rules);

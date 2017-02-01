@@ -33,7 +33,7 @@ namespace build2
           const dir_path& out,
           const string& name,
           const optional<string>& ext,
-          scope* scope,
+          const scope* scope,
           const optional<string>& proj)
   {
     return search (
@@ -46,7 +46,7 @@ namespace build2
           const dir_path& out,
           const string& name,
           const optional<string>& ext,
-          scope* scope)
+          const scope* scope)
   {
     return static_cast<T&> (
       search (T::static_type, dir, out, name, ext, scope));
@@ -118,10 +118,10 @@ namespace build2
   }
 
   void
-  search_and_match_prerequisites (slock&, action, target&, scope*);
+  search_and_match_prerequisites (slock&, action, target&, const scope*);
 
   void
-  search_and_match_prerequisite_members (slock&, action, target&, scope*);
+  search_and_match_prerequisite_members (slock&, action, target&, const scope*);
 
   inline void
   search_and_match_prerequisites (slock& ml, action a, target& t)
@@ -147,14 +147,19 @@ namespace build2
   }
 
   inline void
-  search_and_match_prerequisites (slock& ml, action a, target& t, scope& s)
+  search_and_match_prerequisites (slock& ml,
+                                  action a,
+                                  target& t,
+                                  const scope& s)
   {
     search_and_match_prerequisites (ml, a, t, &s);
   }
 
   inline void
-  search_and_match_prerequisite_members (
-    slock& ml, action a, target& t, scope& s)
+  search_and_match_prerequisite_members (slock& ml,
+                                         action a,
+                                         target& t,
+                                         const scope& s)
   {
     search_and_match_prerequisite_members (ml, a, t, &s);
   }

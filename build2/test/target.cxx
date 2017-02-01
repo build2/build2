@@ -25,7 +25,7 @@ namespace build2
     }
 
     static optional<string>
-    testscript_target_extension (const target_key& tk, scope&, bool)
+    testscript_target_extension (const target_key& tk, const scope&, bool)
     {
       // If the name is special 'testscript', then there is no extension,
       // otherwise it is .test.

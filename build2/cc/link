@@ -71,13 +71,13 @@ namespace build2
       // Library handling.
       //
       void
-      append_libraries (strings&, file&, bool, scope&, lorder) const;
+      append_libraries (strings&, file&, bool, const scope&, lorder) const;
 
       void
-      hash_libraries (sha256&, file&, bool, scope&, lorder) const;
+      hash_libraries (sha256&, file&, bool, const scope&, lorder) const;
 
       void
-      rpath_libraries (strings&, target&, scope&, lorder, bool) const;
+      rpath_libraries (strings&, target&, const scope&, lorder, bool) const;
 
       // Windows rpath emulation (windows-rpath.cxx).
       //
@@ -93,13 +93,13 @@ namespace build2
       using windows_dlls = std::set<windows_dll>;
 
       timestamp
-      windows_rpath_timestamp (file&, scope&, lorder) const;
+      windows_rpath_timestamp (file&, const scope&, lorder) const;
 
       windows_dlls
-      windows_rpath_dlls (file&, scope&, lorder) const;
+      windows_rpath_dlls (file&, const scope&, lorder) const;
 
       void
-      windows_rpath_assembly (file&, scope&, lorder,
+      windows_rpath_assembly (file&, const scope&, lorder,
                               const string&,
                               timestamp,
                               bool) const;

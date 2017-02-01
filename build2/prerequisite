@@ -33,7 +33,7 @@ namespace build2
 
     const optional<string>& proj;
     target_key tk;                // The .dir and .out members can be relative.
-    scope_type* scope;            // Can be NULL if tk.dir is absolute.
+    const scope_type* scope;      // Can be NULL if tk.dir is absolute.
 
     static const optional<string> nullproj;
 
@@ -69,7 +69,7 @@ namespace build2
     const dir_path out;         // Empty, normalized absolute, or relative.
     const string name;
     const optional<string> ext; // Absent if unspecified.
-    scope_type& scope;
+    const scope_type& scope;
 
     target_type* target;        // NULL if not yet resolved. Note that this
                                 // should always be the "primary target", not
@@ -82,7 +82,7 @@ namespace build2
                   dir_path o,
                   string n,
                   optional<string> e,
-                  scope_type& s)
+                  const scope_type& s)
         : proj (move (p)),
           type (t),
           dir (move (d)),

@@ -92,7 +92,7 @@ namespace build2
 
     try
     {
-      scope& s (*global_scope);
+      scope& s (*scope::global_);
 
       parser p;
       p.parse_buildfile (cin, path ("buildfile"), s, s);

@@ -76,7 +76,10 @@ namespace build2
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_options (scope& bs, cstrings& args, target& t, lorder lo) const
+    append_lib_options (const scope& bs,
+                        cstrings& args,
+                        target& t,
+                        lorder lo) const
     {
       auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -117,7 +120,7 @@ namespace build2
     }
 
     void compile::
-    hash_lib_options (scope& bs, sha256& cs, target& t, lorder lo) const
+    hash_lib_options (const scope& bs, sha256& cs, target& t, lorder lo) const
     {
       auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -156,7 +159,10 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile::
-    append_lib_prefixes (scope& bs, prefix_map& m, target& t, lorder lo) const
+    append_lib_prefixes (const scope& bs,
+                         prefix_map& m,
+                         target& t,
+                         lorder lo) const
     {
       auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
       {
@@ -199,8 +205,8 @@ namespace build2
       file& t (static_cast<file&> (xt));
       const match_data& md (t.data<match_data> ());
 
-      scope& bs (t.base_scope ());
-      scope& rs (*bs.root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
       otype ct (compile_type (t));
 
       // Derive file name from target name.
@@ -405,7 +411,7 @@ namespace build2
     // Reverse-lookup target type from extension.
     //
     const target_type* compile::
-    map_extension (scope& s, const string& n, const string& e) const
+    map_extension (const scope& s, const string& n, const string& e) const
     {
       // We will just have to try all of the possible ones, in the "most
       // likely to match" order.
@@ -442,7 +448,7 @@ namespace build2
       // "imported as installed" library), then it can't possibly
       // generate any headers for us.
       //
-      scope* rs (t.base_scope ().root_scope ());
+      const scope* rs (t.base_scope ().root_scope ());
       if (rs == nullptr)
         return;
 
@@ -526,7 +532,9 @@ namespace build2
     }
 
     auto compile::
-    build_prefix_map (scope& bs, target& t, lorder lo) const -> prefix_map
+    build_prefix_map (const scope& bs,
+                      target& t,
+                      lorder lo) const -> prefix_map
     {
       prefix_map m;
 
@@ -737,8 +745,8 @@ namespace build2
             info << "while extracting header dependencies from " << src;
           }));
 
-      scope& bs (t.base_scope ());
-      scope& rs (*bs.root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       // Initialize lazily, only if required.
       //
@@ -937,8 +945,8 @@ namespace build2
           //
           dir_path out;
 
-          scope& bs (scopes.find (d));
-          if (scope* rs = bs.root_scope ())
+          const scope& bs (scopes.find (d));
+          if (const scope* rs = bs.root_scope ())
           {
             tt = map_extension (bs, n, e);
 
@@ -1403,8 +1411,8 @@ namespace build2
           return p.second;
       }
 
-      scope& bs (t.base_scope ());
-      scope& rs (*bs.root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       otype ct (compile_type (t));
       lorder lo (link_order (bs, ct));

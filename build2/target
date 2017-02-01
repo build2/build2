@@ -256,7 +256,7 @@ namespace build2
    public:
     // Most qualified scope that contains this target.
     //
-    scope&
+    const scope&
     base_scope () const;
 
     // Root scope of a project that contains this target. Note that
@@ -264,19 +264,19 @@ namespace build2
     // this function asserts. If you need to detect this situation,
     // then use base_scope().root_scope() expression instead.
     //
-    scope&
+    const scope&
     root_scope () const;
 
     // Root scope of a strong amalgamation that contains this target.
     // The same notes as to root_scope() apply.
     //
-    scope&
+    const scope&
     strong_scope () const {return *root_scope ().strong_scope ();}
 
     // Root scope of the outermost amalgamation that contains this target.
     // The same notes as to root_scope() apply.
     //
-    scope&
+    const scope&
     weak_scope () const {return *root_scope ().weak_scope ();}
 
     bool
@@ -1356,24 +1356,24 @@ namespace build2
   //
   template <const char* ext>
   optional<string>
-  target_extension_fix (const target_key&, scope&, bool);
+  target_extension_fix (const target_key&, const scope&, bool);
 
   // Get the extension from the variable or use the default if none set. If
   // the default is NULL, then return NULL.
   //
   template <const char* var, const char* def>
   optional<string>
-  target_extension_var (const target_key&, scope&, bool);
+  target_extension_var (const target_key&, const scope&, bool);
 
   // Always return NULL extension.
   //
   optional<string>
-  target_extension_null (const target_key&, scope&, bool);
+  target_extension_null (const target_key&, const scope&, bool);
 
   // Assert if called.
   //
   optional<string>
-  target_extension_assert (const target_key&, scope&, bool);
+  target_extension_assert (const target_key&, const scope&, bool);
 
   // Target print functions.
   //

@@ -110,7 +110,7 @@ namespace build2
     return group_view {nullptr, 0};
   }
 
-  scope& target::
+  const scope& target::
   base_scope () const
   {
     // If this target is from the src tree, use its out directory to find
@@ -119,12 +119,12 @@ namespace build2
     return scopes.find (out_dir ());
   }
 
-  scope& target::
+  const scope& target::
   root_scope () const
   {
     // This is tricky to cache so we do the lookup for now.
     //
-    scope* r (base_scope ().root_scope ());
+    const scope* r (base_scope ().root_scope ());
     assert (r != nullptr);
     return *r;
   }
@@ -458,13 +458,13 @@ namespace build2
   }
 
   optional<string>
-  target_extension_null (const target_key&, scope&, bool)
+  target_extension_null (const target_key&, const scope&, bool)
   {
     return nullopt;
   }
 
   optional<string>
-  target_extension_assert (const target_key&, scope&, bool)
+  target_extension_assert (const target_key&, const scope&, bool)
   {
     assert (false); // Attempt to obtain the default extension.
     throw failed ();
@@ -605,7 +605,7 @@ namespace build2
     {
       // Note: this code is a custom version of parser::parse_include().
 
-      scope& s (*pk.scope);
+      const scope& s (*pk.scope);
 
       // Calculate the new out_base.
       //
@@ -633,7 +633,8 @@ namespace build2
         model_rlock rl;
         phase_guard pg (run_phase::load);
 
-        pair<scope&, scope*> sp (switch_scope (*s.root_scope (), out_base));
+        pair<scope&, scope*> sp (
+          switch_scope (*s.rw (rl).root_scope (), out_base));
 
         if (sp.second != nullptr) // Ignore scopes out of any project.
         {
@@ -689,7 +690,7 @@ namespace build2
   };
 
   static optional<string>
-  exe_extension (const target_key&, scope&, bool search)
+  exe_extension (const target_key&, const scope&, bool search)
   {
     // If we are searching for an executable that is not a target, then
     // use the build machine executable extension. Otherwise, if this is
@@ -731,7 +732,7 @@ namespace build2
   }
 
   static optional<string>
-  buildfile_target_extension (const target_key& tk, scope&, bool)
+  buildfile_target_extension (const target_key& tk, const scope&, bool)
   {
     // If the name is special 'buildfile', then there is no extension,
     // otherwise it is .build.

@@ -40,10 +40,10 @@ namespace build2
 
     private:
       void
-      append_lib_options (scope&, cstrings&, target&, lorder) const;
+      append_lib_options (const scope&, cstrings&, target&, lorder) const;
 
       void
-      hash_lib_options (scope&, sha256&, target&, lorder) const;
+      hash_lib_options (const scope&, sha256&, target&, lorder) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -61,15 +61,15 @@ namespace build2
       append_prefixes (prefix_map&, target&, const variable&) const;
 
       void
-      append_lib_prefixes (scope&, prefix_map&, target&, lorder) const;
+      append_lib_prefixes (const scope&, prefix_map&, target&, lorder) const;
 
       prefix_map
-      build_prefix_map (scope&, target&, lorder) const;
+      build_prefix_map (const scope&, target&, lorder) const;
 
       // Reverse-lookup target type from extension.
       //
       const target_type*
-      map_extension (scope&, const string&, const string&) const;
+      map_extension (const scope&, const string&, const string&) const;
 
       // Header dependency injection.
       //

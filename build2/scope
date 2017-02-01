@@ -39,16 +39,16 @@ namespace build2
     bool
     root () const {return root_ == this;}
 
-    scope*
-    parent_scope () const {return parent_;}
+    scope*       parent_scope ()       {return parent_;}
+    const scope* parent_scope () const {return parent_;}
 
     // Root scope of this scope or NULL if this scope is not (yet)
     // in any (known) project. Note that if the scope itself is
     // root, then this function return this. To get to the outer
     // root, query the root scope of the parent.
     //
-    scope*
-    root_scope () const {return root_;}
+    scope*       root_scope ()       {return root_;}
+    const scope* root_scope () const {return root_;}
 
     // Root scope of a strong amalgamation of this scope or NULL if
     // this scope is not (yet) in any (known) project. If there is
@@ -56,27 +56,16 @@ namespace build2
     // scope of the project (in other words, in this case a project
     // is treated as its own strong amalgamation).
     //
-    scope*
-    strong_scope () const
-    {
-      return root_ != nullptr
-        ? root_->strong_ != nullptr ? root_->strong_ : root_
-        : nullptr;
-    }
+    scope*       strong_scope ();
+    const scope* strong_scope () const;
 
     // Root scope of the outermost amalgamation or NULL if this scope is not
     // (yet) in any (known) project. If there is no amalgamation, then this
     // function returns the root scope of the project (in other words, in this
     // case a project is treated as its own amalgamation).
     //
-    scope*
-    weak_scope () const
-    {
-      scope* r (root_);
-      if (r != nullptr)
-        for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
-      return r;
-    }
+    scope*       weak_scope ();
+    const scope* weak_scope () const;
 
     // Variables.
     //
@@ -244,7 +233,27 @@ namespace build2
   public:
     loaded_module_map modules; // Only on root scope.
 
+  public:
+    // Proof of lock for RW access.
+    //
+    scope&
+    rw (const ulock&) const {return const_cast<scope&> (*this);}
+
+    // RW access to global scope (RO via global global_scope below).
+    //
+    scope&
+    global () {return *global_;}
+
   private:
+    static scope* global_;
+
+    // Entities that can access bypassing the lock proof.
+    //
+    friend int main (int, char*[]);
+    friend variable_overrides reset (const strings&);
+
+  private:
+    friend class parser;
     friend class scope_map;
     friend class temp_scope;
 
@@ -302,11 +311,14 @@ namespace build2
 
     // Find the most qualified scope that encompasses this path.
     //
-    scope&
-    find (const dir_path&);
+    const scope&
+    find (const dir_path& d) const
+    {
+      return const_cast<scope_map*> (this)->find (d);
+    }
 
-    scope&
-    find (const path& p)
+    const scope&
+    find (const path& p) const
     {
       // Natural thing to do here would be to call find (p.directory ()).
       // However, there could be a situation where the passed path is a
@@ -315,10 +327,34 @@ namespace build2
       //
       return find (path_cast<dir_path> (p));
     }
+
+    // Proof of lock for RW access.
+    //
+  public:
+    scope_map&
+    rw (ulock&) const {return const_cast<scope_map&> (*this);}
+
+    scope_map&
+    rw (scope&) const {return const_cast<scope_map&> (*this);}
+
+  private:
+    static scope_map instance;
+
+    // Entities that can access bypassing the lock proof.
+    //
+    friend variable_overrides reset (const strings&);
+
+    scope&
+    find (const dir_path&);
+
+  public:
+    static const scope_map& cinstance; // For var_pool initialization.
   };
 
-  extern scope_map scopes;
-  extern scope* global_scope;
+  extern const scope_map& scopes;
+  extern const scope* global_scope;
 }
+
+#include <build2/scope.ixx>
 
 #endif // BUILD2_SCOPE

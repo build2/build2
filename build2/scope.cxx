@@ -691,10 +691,15 @@ namespace build2
       pr.first->second.get (), pr.second);
   }
 
+  scope* scope::global_;
+
   // scope_map
   //
-  scope_map scopes;
-  scope* global_scope;
+  scope_map scope_map::instance;
+  const scope_map& scope_map::cinstance = scope_map::instance;
+  const scope_map& scopes = scope_map::cinstance;
+
+  const scope* global_scope;
 
   auto scope_map::
   insert (const dir_path& k, bool root) -> iterator

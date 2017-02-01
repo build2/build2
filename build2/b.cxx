@@ -52,9 +52,19 @@ using namespace std;
 #include <build2/install/init>
 #include <build2/pkgconfig/init>
 
-using namespace build2;
+namespace build2
+{
+  int
+  main (int argc, char* argv[]);
+}
 
 int
+main (int argc, char* argv[])
+{
+  return build2::main (argc, argv);
+}
+
+int build2::
 main (int argc, char* argv[])
 {
   // This is a little hack to make out baseutils for Windows work when called
@@ -563,7 +573,7 @@ main (int argc, char* argv[])
           // be of use to the bootstrap files (other than src-root.build,
           // which, BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (create_root (out_root, src_root));
+          scope& rs (create_root (*scope::global_, out_root, src_root));
 
           bool bootstrapped (build2::bootstrapped (rs));
 
@@ -980,7 +990,7 @@ main (int argc, char* argv[])
           // building before we know how to for all the targets in this
           // operation batch.
           //
-          scope& bs (scopes.find (ts.out_base));
+          const scope& bs (scopes.find (ts.out_base));
 
           // Find the target type and extract the extension.
           //

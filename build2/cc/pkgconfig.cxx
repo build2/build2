@@ -37,7 +37,7 @@ namespace build2
     // search_library() POV.
     //
     bool common::
-    pkgconfig_extract (scope& s,
+    pkgconfig_extract (const scope& s,
                        lib& lt,
                        liba* at,
                        libs* st,

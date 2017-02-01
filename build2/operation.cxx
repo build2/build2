@@ -58,7 +58,7 @@ namespace build2
     // Create the base scope. Note that its existence doesn't mean it was
     // already setup as a base scope; it can be the same as root.
     //
-    auto i (scopes.insert (out_base, false));
+    auto i (scopes.rw (root).insert (out_base, false));
     scope& base (setup_base (i, out_base, src_base));
 
     // Load the buildfile unless it has already been loaded.
@@ -67,7 +67,7 @@ namespace build2
   }
 
   void
-  search (scope&,
+  search (const scope&,
           const target_key& tk,
           const location& l,
           action_targets& ts)

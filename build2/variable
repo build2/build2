@@ -934,7 +934,7 @@ namespace build2
             const variable_visibility* = nullptr,
             const bool* = nullptr) const;
 
-    // Entities that can access bypassing the lock.
+    // Entities that can access bypassing the lock proof.
     //
     friend class parser;
     friend class scope;

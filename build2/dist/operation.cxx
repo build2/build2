@@ -62,7 +62,7 @@ namespace build2
       // For now we assume all the targets are from the same project.
       //
       target& t (*static_cast<target*> (ts[0]));
-      scope* rs (t.base_scope ().root_scope ());
+      const scope* rs (t.base_scope ().root_scope ());
 
       if (rs == nullptr)
         fail << "out of project target " << t;
@@ -162,7 +162,7 @@ namespace build2
       // ignored on the next step if the user explicitly marked them
       // nodist.
       //
-      auto add_adhoc = [&trace] (scope& rs, const path& f)
+      auto add_adhoc = [&trace] (const scope& rs, const path& f)
       {
         path p (rs.src_path () / f);
         if (exists (p))
@@ -194,7 +194,7 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          scope& nrs (scopes.find (out_nroot));
+          const scope& nrs (scopes.find (out_nroot));
 
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;

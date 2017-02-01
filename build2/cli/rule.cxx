@@ -250,7 +250,7 @@ namespace build2
       path relo (relative (t.dir));
       path rels (relative (s->path ()));
 
-      scope& rs (t.root_scope ());
+      const scope& rs (t.root_scope ());
 
       const process_path& cli (cast<process_path> (rs["cli.path"]));
 

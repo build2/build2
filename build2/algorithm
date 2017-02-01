@@ -45,7 +45,7 @@ namespace build2
           const dir_path& out,
           const string& name,
           const optional<string>& ext,
-          scope*,
+          const scope*,
           const optional<string>& proj = nullopt);
 
   // As above but specify the target type as template argument.
@@ -56,14 +56,14 @@ namespace build2
           const dir_path& out,
           const string& name,
           const optional<string>& ext,
-          scope*);
+          const scope*);
 
   // Search for a target identified by the name. The semantics is "as if" we
   // first created a prerequisite based on this name in exactly the same way
   // as the parser would and then searched based on this prerequisite.
   //
   target&
-  search (name, scope&);
+  search (name, const scope&);
 
   // As above but only search for an already existing target. Unlike the
   // above version, this one can be called during the execute phase.
@@ -72,7 +72,9 @@ namespace build2
   // unknown target types.
   //
   target*
-  search_existing (const name&, scope&, const dir_path& out = dir_path ());
+  search_existing (const name&,
+                   const scope&,
+                   const dir_path& out = dir_path ());
 
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call
@@ -105,8 +107,9 @@ namespace build2
   match_delegate (slock&, action, target&, const rule&);
 
   // The standard prerequisite search and match implementations. They call
-  // search_and_match_*() versions below passing non-empty directory for
-  // the clean operation.
+  // search() and then match() for each prerequisite in a loop omitting out of
+  // project prerequisites for the clean operation. If this target is a member
+  // of a group, then they first do this to the group's prerequisites.
   //
   void
   search_and_match_prerequisites (slock&, action, target&);
@@ -117,20 +120,14 @@ namespace build2
   void
   search_and_match_prerequisite_members (slock&, action, target&);
 
-  // The actual prerequisite search and match implementations. They call
-  // search() and then match() for each prerequisite in a loop. If this
-  // target is a member of a group, then they first do this to the group's
-  // prerequisites.
-  //
-  // If the directory argument is not empty, then they ignore (do not
-  // match) prerequisites that are not in the same or its subdirectory.
+  // As above but omit prerequisites that are not in the specified scope.
   //
   void
-  search_and_match_prerequisites (slock&, action, target&, const dir_path&);
+  search_and_match_prerequisites (slock&, action, target&, const scope&);
 
   void
   search_and_match_prerequisite_members (
-    slock&, action, target&, const dir_path&);
+    slock&, action, target&, const scope&);
 
   // Unless already available, match, and, if necessary, execute the group
   // in order to obtain its members list. Note that even after that the

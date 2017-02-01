@@ -70,10 +70,11 @@ namespace build2
   source_once (scope& root, scope& base, const path&, scope& once);
 
   // Create project's root scope. Only set the src_root variable if the
-  // passed src_root value is not empty.
+  // passed src_root value is not empty. The scope argument is only used
+  // as proof of lock.
   //
   scope&
-  create_root (const dir_path& out_root, const dir_path& src_root);
+  create_root (scope&, const dir_path& out_root, const dir_path& src_root);
 
   // Setup root scope. Note that it assume the src_root variable
   // has already been set.
@@ -140,10 +141,11 @@ namespace build2
   // Extract the specified variable value from a buildfile. It is expected to
   // be the first non-comment line and not to rely on any variable expansion
   // other than those from the global scope or any variable overrides. Return
-  // an indication of whether the variable was found.
+  // an indication of whether the variable was found. The scope is only used
+  // as proof of lock (though we don't modify anything).
   //
   pair<value, bool>
-  extract_variable (const path&, const variable&);
+  extract_variable (scope&, const path&, const variable&);
 
   // Import has two phases: the first is triggered by the import
   // directive in the buildfile. It will try to find and load the

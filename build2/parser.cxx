@@ -3280,7 +3280,7 @@ namespace build2
     lexer l (is, *path_, "\'\"\\$(", &paren_processor);
     lexer_ = &l;
     target_ = nullptr;
-    scope_ = root_ = global_scope;
+    scope_ = root_ = scope::global_;
 
     // Turn on the value mode/pairs recognition with '@' as the pair separator
     // (e.g., src_root/@out_root/exe{foo bar}).

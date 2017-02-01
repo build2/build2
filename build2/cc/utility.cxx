@@ -18,7 +18,7 @@ namespace build2
     using namespace bin;
 
     lorder
-    link_order (scope& bs, otype ot)
+    link_order (const scope& bs, otype ot)
     {
       // Initialize to suppress 'may be used uninitialized' warning produced
       // by MinGW GCC 5.4.0.

@@ -278,7 +278,10 @@ namespace build2
     // empty add it to install_dirs. Return the new last element.
     //
     static install_dir&
-    resolve_subdir (install_dirs& rs, target& t, scope& s, const lookup& l)
+    resolve_subdir (install_dirs& rs,
+                    target& t,
+                    const scope& s,
+                    const lookup& l)
     {
       // Find the scope from which this value came and use as a base
       // to calculate the subdirectory.
@@ -338,7 +341,7 @@ namespace build2
       }
 
       install_dir* r (&rs.back ());
-      scope& s (t.base_scope ());
+      const scope& s (t.base_scope ());
 
       // Override components in install_dir if we have our own.
       //

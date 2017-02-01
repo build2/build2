@@ -46,7 +46,7 @@ namespace build2
     //
     void common::
     process_libraries (
-      scope& top_bs,
+      const scope& top_bs,
       lorder top_lo,
       const dir_paths& top_sysd,
       file& l,
@@ -183,7 +183,7 @@ namespace build2
         proc_lib (&l, p, s);
       }
 
-      scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
+      const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
       optional<lorder> lo;                       // Calculate lazily.
       const dir_paths* sysd (nullptr);           // Resolve lazily.
 
@@ -386,7 +386,7 @@ namespace build2
     // that's the only way to guarantee it will be up-to-date.
     //
     file& common::
-    resolve_library (scope& s,
+    resolve_library (const scope& s,
                      name n,
                      lorder lo,
                      const dir_paths& sysd,
@@ -657,7 +657,7 @@ namespace build2
         //
         if (cid == "msvc")
         {
-          scope& rs (*p.scope->root_scope ());
+          const scope& rs (*p.scope->root_scope ());
           const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
 
           if (s == nullptr && !sn.empty ())
@@ -821,7 +821,7 @@ namespace build2
     }
 
     dir_paths common::
-    extract_library_dirs (scope& bs) const
+    extract_library_dirs (const scope& bs) const
     {
       dir_paths r;
 

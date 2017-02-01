@@ -61,8 +61,10 @@ namespace build2
       }
     }
 
+    using project_set = set<const scope*>; // Use pointers to get comparison.
+
     static void
-    save_config (scope& root, const set<scope*>& projects)
+    save_config (const scope& root, const project_set& projects)
     {
       const dir_path& out_root (root.out_path ());
       path f (out_root / config_file);
@@ -137,7 +139,7 @@ namespace build2
               // root.
               //
               bool found (false);
-              scope* r (&root);
+              const scope* r (&root);
               while ((r = r->parent_scope ()->root_scope ()) != nullptr)
               {
                 if (l.belongs (*r))
@@ -282,7 +284,7 @@ namespace build2
     }
 
     static void
-    configure_project (action a, scope& root, set<scope*>& projects)
+    configure_project (action a, const scope& root, project_set& projects)
     {
       tracer trace ("configure_project");
 
@@ -331,7 +333,7 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          scope& nroot (scopes.find (out_nroot));
+          const scope& nroot (scopes.find (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config
           // module was loaded for this subproject.
@@ -358,7 +360,7 @@ namespace build2
       // callbacks here since the meta operation is configure and we
       // know what we are doing.
       //
-      set<scope*> projects;
+      project_set projects;
 
       // Note that we cannot do this in parallel. We cannot parallelize the
       // outer loop because we should match for a single action at a time.
@@ -371,7 +373,7 @@ namespace build2
       for (void* v: ts)
       {
         target& t (*static_cast<target*> (v));
-        scope* rs (t.base_scope ().root_scope ());
+        const scope* rs (t.base_scope ().root_scope ());
 
         if (rs == nullptr)
           fail << "out of project target " << t;
@@ -423,7 +425,45 @@ namespace build2
     }
 
     static void
-    disfigure_load (scope&,
+    load_project (scope& root)
+    {
+      if (auto l = root.vars[var_subprojects])
+      {
+        const dir_path& out_root (root.out_path ());
+        const dir_path& src_root (root.src_path ());
+
+        for (auto p: cast<subprojects> (l))
+        {
+          const dir_path& pd (p.second);
+
+          // Create and bootstrap subproject's root scope.
+          //
+          dir_path out_nroot (out_root / pd);
+
+          // The same logic for src_root as in create_bootstrap_inner().
+          //
+          scope& nroot (create_root (root, out_nroot, dir_path ()));
+
+          if (!bootstrapped (nroot))
+          {
+            bootstrap_out (nroot);
+
+            value& val (nroot.assign (var_src_root));
+
+            if (!val)
+              val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
+
+            setup_root (nroot);
+            bootstrap_src (nroot);
+          }
+
+          load_project (nroot);
+        }
+      }
+    }
+
+    static void
+    disfigure_load (scope& root,
                     const path& bf,
                     const dir_path&,
                     const dir_path&,
@@ -431,17 +471,23 @@ namespace build2
     {
       tracer trace ("disfigure_load");
       l6 ([&]{trace << "skipping " << bf;});
+
+      // Since we don't load buildfiles during disfigure but still want to
+      // disfigure all the subprojects (see disfigure_project() below), we
+      // bootstrap all known subprojects.
+      //
+      load_project (root);
     }
 
     static void
-    disfigure_search (scope& root,
+    disfigure_search (const scope& root,
                       const target_key&,
                       const location&,
                       action_targets& ts)
     {
       tracer trace ("disfigure_search");
       l6 ([&]{trace << "collecting " << root.out_path ();});
-      ts.push_back (&root);
+      ts.push_back (const_cast<scope*> (&root)); //@@ MT TMP action_targets
     }
 
     static void
@@ -450,7 +496,7 @@ namespace build2
     }
 
     static bool
-    disfigure_project (action a, scope& root, set<scope*>& projects)
+    disfigure_project (action a, const scope& root, project_set& projects)
     {
       tracer trace ("disfigure_project");
 
@@ -473,27 +519,9 @@ namespace build2
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
-
-          // Create and bootstrap subproject's root scope.
-          //
           dir_path out_nroot (out_root / pd);
-
-          // The same logic for src_root as in create_bootstrap_inner().
-          //
-          scope& nroot (create_root (out_nroot, dir_path ()));
-
-          if (!bootstrapped (nroot))
-          {
-            bootstrap_out (nroot);
-
-            value& val (nroot.assign (var_src_root));
-
-            if (!val)
-              val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
-
-            setup_root (nroot);
-            bootstrap_src (nroot);
-          }
+          const scope& nroot (scopes.find (out_nroot));
+          assert (nroot.out_path () == out_nroot); // See disfigure_load().
 
           m = disfigure_project (a, nroot, projects) || m;
 
@@ -565,13 +593,14 @@ namespace build2
     {
       tracer trace ("disfigure_execute");
 
-      set<scope*> projects;
+      project_set projects;
 
-      // Note: doing everything in the load phase.
+      // Note: doing everything in the load phase (disfigure_project () does
+      // modify the model).
       //
       for (void* v: ts)
       {
-        scope& root (*static_cast<scope*> (v));
+        const scope& root (*static_cast<const scope*> (v));
 
         if (!disfigure_project (a, root, projects))
         {

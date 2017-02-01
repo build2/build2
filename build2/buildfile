@@ -30,7 +30,7 @@ exe{b}:                                                   \
             {hxx         cxx}{ rule                     } \
             {hxx            }{ rule-map                 } \
             {hxx     txx cxx}{ scheduler                } \
-            {hxx         cxx}{ scope                    } \
+            {hxx ixx     cxx}{ scope                    } \
             {hxx         cxx}{ search                   } \
             {hxx         cxx}{ spec                     } \
             {hxx ixx txx cxx}{ target                   } \

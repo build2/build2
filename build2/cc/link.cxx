@@ -322,8 +322,8 @@ namespace build2
 
       file& t (static_cast<file&> (xt));
 
-      scope& bs (t.base_scope ());
-      scope& rs (*bs.root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));
@@ -657,7 +657,7 @@ namespace build2
     void link::
     append_libraries (strings& args,
                       file& l, bool la,
-                      scope& bs, lorder lo) const
+                      const scope& bs, lorder lo) const
     {
       // Note: lack of the "small function object" optimization will really
       // kill us here since we are called in a loop.
@@ -704,7 +704,11 @@ namespace build2
     }
 
     void link::
-    hash_libraries (sha256& cs, file& l, bool la, scope& bs, lorder lo) const
+    hash_libraries (sha256& cs,
+                    file& l,
+                    bool la,
+                    const scope& bs,
+                    lorder lo) const
     {
       bool win (tclass == "windows");
 
@@ -747,7 +751,9 @@ namespace build2
 
     void link::
     rpath_libraries (strings& args,
-                     target& t, scope& bs, lorder lo,
+                     target& t,
+                     const scope& bs,
+                     lorder lo,
                      bool for_install) const
     {
       // Use -rpath-link on targets that support it (Linux, *BSD). Note
@@ -887,8 +893,8 @@ namespace build2
 
       file& t (static_cast<file&> (xt));
 
-      scope& bs (t.base_scope ());
-      scope& rs (*bs.root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));

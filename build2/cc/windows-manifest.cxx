@@ -43,7 +43,7 @@ namespace build2
     {
       tracer trace (x, "windows_manifest");
 
-      scope& rs (t.root_scope ());
+      const scope& rs (t.root_scope ());
 
       const char* pa (windows_manifest_arch (cast<string> (rs[x_target_cpu])));
 

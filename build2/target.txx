@@ -34,14 +34,14 @@ namespace build2
   //
   template <const char* ext>
   optional<string>
-  target_extension_fix (const target_key&, scope&, bool)
+  target_extension_fix (const target_key&, const scope&, bool)
   {
     return string (ext);
   }
 
   template <const char* var, const char* def>
   optional<string>
-  target_extension_var (const target_key& tk, scope& s, bool)
+  target_extension_var (const target_key& tk, const scope& s, bool)
   {
     // Include target type/pattern-specific variables.
     //

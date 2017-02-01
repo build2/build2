@@ -270,7 +270,7 @@ namespace build2
         // Resolve them to targets, which normally would be existing files
         // but could also be targets that need updating.
         //
-        scope& bs (t.base_scope ());
+        const scope& bs (t.base_scope ());
 
         // @@ OUT: what if this is a @-qualified pair or names?
         //

@@ -133,12 +133,12 @@ namespace build2
   }
 
   scope&
-  create_root (const dir_path& out_root, const dir_path& src_root)
+  create_root (scope& l, const dir_path& out_root, const dir_path& src_root)
   {
-    auto i (scopes.insert (out_root, true));
+    auto i (scopes.rw (l).insert (out_root, true));
     scope& rs (i->second);
 
-    // Set out_path. src_path is set in setup_root() below.
+    // Set out_path. Note that src_path is set in setup_root() below.
     //
     if (rs.out_path_ != &i->first)
     {
@@ -260,7 +260,7 @@ namespace build2
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (scopes.insert (p, false));
+    auto i (scopes.rw (root).insert (p, false));
     scope& base (i->second);
     scope* rs (base.root_scope ());
 
@@ -317,7 +317,7 @@ namespace build2
   // other than those from the global scope or any variable overrides.
   //
   pair<value, bool>
-  extract_variable (const path& bf, const variable& var)
+  extract_variable (scope& s, const path& bf, const variable& var)
   {
     try
     {
@@ -336,7 +336,7 @@ namespace build2
       }
 
       parser p;
-      temp_scope tmp (*global_scope);
+      temp_scope tmp (s.global ());
       p.parse_variable (lex, tmp, var, tt);
 
       value* v (tmp.vars.find (var));
@@ -357,7 +357,8 @@ namespace build2
   // Extract the project name from bootstrap.build.
   //
   static string
-  find_project_name (const dir_path& out_root,
+  find_project_name (scope& s,
+                     const dir_path& out_root,
                      const dir_path& fallback_src_root,
                      bool* src_hint = nullptr)
   {
@@ -380,7 +381,7 @@ namespace build2
         src_root = &fallback_src_root;
       else
       {
-        auto p (extract_variable (f, *var_src_root));
+        auto p (extract_variable (s, f, *var_src_root));
 
         if (!p.second)
           fail << "variable 'src_root' expected as first line in " << f;
@@ -395,7 +396,7 @@ namespace build2
     string name;
     {
       path f (*src_root / bootstrap_file);
-      auto p (extract_variable (f, *var_project));
+      auto p (extract_variable (s, f, *var_project));
 
       if (!p.second)
         fail << "variable '" << var_project->name << "' expected "
@@ -414,7 +415,8 @@ namespace build2
   // Otherwise, scan the subdirectory recursively.
   //
   static void
-  find_subprojects (subprojects& sps,
+  find_subprojects (scope& s,
+                    subprojects& sps,
                     const dir_path& d,
                     const dir_path& root,
                     bool out)
@@ -460,7 +462,7 @@ namespace build2
       // Load its name. Note that here we don't use fallback src_root
       // since this function is used to scan both out_root and src_root.
       //
-      string name (find_project_name (sd, dir_path (), &src));
+      string name (find_project_name (s, sd, dir_path (), &src));
 
       // If the name is empty, then is is an unnamed project. While the
       // 'project' variable stays empty, here we come up with a surrogate
@@ -619,13 +621,13 @@ namespace build2
         if (exists (out_root))
         {
           l5 ([&]{trace << "looking for subprojects in " << out_root;});
-          find_subprojects (sps, out_root, out_root, true);
+          find_subprojects (root, sps, out_root, out_root, true);
         }
 
         if (out_root != src_root)
         {
           l5 ([&]{trace << "looking for subprojects in " << src_root;});
-          find_subprojects (sps, src_root, src_root, false);
+          find_subprojects (root, sps, src_root, src_root, false);
         }
 
         if (!sps.empty ()) // Keep it NULL if no subprojects.
@@ -695,7 +697,7 @@ namespace build2
               // was specified by the user so it is most likely in our
               // src.
               //
-              n = find_project_name (out_root / d, src_root / d);
+              n = find_project_name (root, out_root / d, src_root / d);
 
               // See find_subprojects() for details on unnamed projects.
               //
@@ -750,7 +752,7 @@ namespace build2
     // explicitly configured by the user. After that, #2 followed
     // by #1 seems reasonable.
     //
-    scope& rs (create_root (out_root, dir_path ()));
+    scope& rs (create_root (root, out_root, dir_path ()));
 
     if (!bootstrapped (rs))
     {
@@ -796,7 +798,7 @@ namespace build2
 
         // The same logic to src_root as in create_bootstrap_outer().
         //
-        scope& rs (create_root (out_root, dir_path ()));
+        scope& rs (create_root (root, out_root, dir_path ()));
 
         if (!bootstrapped (rs))
         {
@@ -1037,7 +1039,7 @@ namespace build2
     for (;;)
     {
       src_root = is_src_root (out_root) ? out_root : dir_path ();
-      root = &create_root (out_root, src_root);
+      root = &create_root (iroot, out_root, src_root);
 
       if (!bootstrapped (*root))
       {

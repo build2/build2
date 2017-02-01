@@ -268,14 +268,14 @@ namespace build2
   // passed directory should be a sub-directory of out/src_root.
   //
   dir_path
-  src_out (const dir_path& out, scope& root);
+  src_out (const dir_path& out, const scope& root);
 
   dir_path
   src_out (const dir_path& out,
            const dir_path& out_root, const dir_path& src_root);
 
   dir_path
-  out_src (const dir_path& src, scope& root);
+  out_src (const dir_path& src, const scope& root);
 
   dir_path
   out_src (const dir_path& src,

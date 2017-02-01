@@ -173,7 +173,7 @@ namespace build2
   // Normally a list of resolved and matched targets to execute. But
   // can be something else, depending on the meta-operation.
   //
-  typedef vector<void*> action_targets;
+  typedef vector<void*> action_targets; //@@ MT TMP: make const void*
 
   struct meta_operation_info
   {
@@ -204,7 +204,7 @@ namespace build2
                   const dir_path& src_base,
                   const location&);
 
-    void (*search) (scope& root,
+    void (*search) (const scope& root,
                     const target_key&,
                     const location&,
                     action_targets&);
@@ -239,7 +239,7 @@ namespace build2
   // that does just that and adds a pointer to the target to the list.
   //
   void
-  search (scope&, const target_key&, const location&, action_targets&);
+  search (const scope&, const target_key&, const location&, action_targets&);
 
   void
   match (action, action_targets&);
