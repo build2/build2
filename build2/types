@@ -20,8 +20,11 @@
 
 #include <mutex>
 #include <future>
+
 #include <butl/ft/shared_mutex>
-#include <shared_mutex>
+#if defined(__cpp_lib_shared_mutex) || defined(__cpp_lib_shared_timed_mutex)
+#  include <shared_mutex>
+#endif
 
 #include <ios>           // ios_base::failure
 #include <exception>     // exception
@@ -77,14 +80,22 @@ namespace build2
   //
   using std::future;
 
-#ifdef __cpp_lib_shared_mutex
+#if   defined(__cpp_lib_shared_mutex)
   using shared_mutex = std::shared_mutex;
-#else
+  using ulock        = std::unique_lock<shared_mutex>;
+  using slock        = std::shared_lock<shared_mutex>;
+#elif defined(__cpp_lib_shared_timed_mutex)
   using shared_mutex = std::shared_timed_mutex;
+  using ulock        = std::unique_lock<shared_mutex>;
+  using slock        = std::shared_lock<shared_mutex>;
+#else
+  // Because we have this fallback, we need to be careful not to create
+  // multiple shared locks in the same thread.
+  //
+  using shared_mutex = std::mutex;
+  using ulock        = std::unique_lock<shared_mutex>;
+  using slock        = ulock;
 #endif
-
-  using slock = std::shared_lock<shared_mutex>;
-  using ulock = std::unique_lock<shared_mutex>;
 
   // Exceptions.
   //
