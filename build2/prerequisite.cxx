@@ -50,6 +50,12 @@ namespace build2
 
   // prerequisite
   //
+  static inline optional<string>
+  to_ext (const string* e)
+  {
+    return e != nullptr ? optional<string> (*e) : nullopt;
+  }
+
   prerequisite::
   prerequisite (target_type& t)
       : proj (nullopt),
@@ -57,7 +63,7 @@ namespace build2
         dir (t.dir),
         out (t.out),   // @@ If it's empty, then we treat as undetermined?
         name (t.name),
-        ext (t.ext ()),
+        ext (to_ext (t.ext ())),
         scope (t.base_scope ()),
         target (&t)
   {

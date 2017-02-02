@@ -53,7 +53,13 @@ namespace build2
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
     //
-    return search (*tt, n.dir, dir_path (), n.value, ext, &s, n.proj);
+    return search (*tt,
+                   n.dir,
+                   dir_path (),
+                   n.value,
+                   ext ? &*ext : nullptr,
+                   &s,
+                   n.proj);
   }
 
   target*
@@ -374,7 +380,7 @@ namespace build2
 
     // Target is in the out tree, so out directory is empty.
     //
-    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullopt, nullptr));
+    fsdir* r (&search<fsdir> (d, dir_path (), string (), nullptr, nullptr));
     match (ml, a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;

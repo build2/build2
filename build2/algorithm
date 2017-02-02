@@ -44,7 +44,7 @@ namespace build2
           const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const optional<string>& ext,
+          const string* ext,  // NULL means unspecified.
           const scope*,
           const optional<string>& proj = nullopt);
 
@@ -55,7 +55,7 @@ namespace build2
   search (const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const optional<string>& ext,
+          const string* ext,
           const scope*);
 
   // Search for a target identified by the name. The semantics is "as if" we

@@ -107,6 +107,8 @@ namespace build2
   //
   class target
   {
+    optional<string>* ext_; // Reference to value in target_key.
+
   public:
     using action_type = build2::action;
 
@@ -127,9 +129,9 @@ namespace build2
     const dir_path   dir;  // Absolute and normalized.
     const dir_path   out;  // Empty or absolute and normalized.
     const string     name;
-    optional<string> ext () const {return *ext_;}
 
-    optional<string>* ext_; // Reference to value in target_key.
+    const string* ext () const; // Return NULL if not specified.
+    const string& ext (string);
 
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
@@ -247,11 +249,11 @@ namespace build2
     virtual group_view
     group_members (action_type) const;
 
-    // Note that the returned key "tracks" the target; that is, any updates
-    // to the targets's members will be reflected in the key.
+    // Note that the returned key "tracks" the target (except for the
+    // extension).
     //
     target_key
-    key () const {return target_key {&type (), &dir, &out, &name, ext ()};}
+    key () const;
 
     // Scoping.
     //
@@ -382,7 +384,10 @@ namespace build2
 
     // A target that is not (yet) entered as part of a real dependency
     // declaration (for example, that is entered as part of a target-specific
-    // variable assignment) is called implied.
+    // variable assignment, dependency extraction, etc) is called implied.
+    //
+    // The implied flag should only be cleared during the load phase via the
+    // target_set::insert().
     //
   public:
     bool implied;
@@ -1000,8 +1005,10 @@ namespace build2
     T*
     find (const dir_path& dir, const dir_path& out, const string& name) const
     {
-      auto i (map_.find (
-                target_key {&T::static_type, &dir, &out, &name, nullopt}));
+      slock l (mutex_);
+      auto i (
+        map_.find (
+          target_key {&T::static_type, &dir, &out, &name, nullopt}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
     }
 
@@ -1014,6 +1021,8 @@ namespace build2
             bool implied,
             tracer&);
 
+    // Note that the following versions always enter implied targets.
+    //
     template <typename T>
     T&
     insert (const target_type& tt,
@@ -1029,7 +1038,7 @@ namespace build2
                 move (out),
                 move (name),
                 move (ext),
-                false,       // Always real (not implied).
+                true,
                 t).first);
     }
 
@@ -1042,7 +1051,7 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, out, name, ext, false, t).first);
+        insert (T::static_type, dir, out, name, ext, true, t).first);
     }
 
     template <typename T>
@@ -1053,7 +1062,7 @@ namespace build2
             tracer& t)
     {
       return static_cast<T&> (
-        insert (T::static_type, dir, out, name, nullopt, false, t).first);
+        insert (T::static_type, dir, out, name, nullopt, true, t).first);
     }
 
     // Note: not MT-safe so can only be used during serial execution.
@@ -1068,6 +1077,9 @@ namespace build2
     clear () {map_.clear ();}
 
   private:
+    friend class target; // Access to mutex.
+
+    mutable shared_mutex mutex_;
     map_type map_;
   };
 

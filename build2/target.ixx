@@ -4,6 +4,27 @@
 
 namespace build2
 {
+  // target
+  //
+  inline const string* target::
+  ext () const
+  {
+    slock l (targets.mutex_);
+    return *ext_ ? &**ext_ : nullptr;
+  }
+
+  inline target_key target::
+  key () const
+  {
+    const string* e (ext ());
+    return target_key {
+      &type (),
+      &dir,
+      &out,
+      &name,
+      e != nullptr ? optional<string> (*e) : nullopt};
+  }
+
   // prerequisite_member
   //
   inline prerequisite prerequisite_member::

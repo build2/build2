@@ -3556,13 +3556,16 @@ namespace build2
 
     l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
 
+    // While this target is not explicitly mentioned in the buildfile, we say
+    // that we behave as if it were. Thus not implied.
+    //
     target& ct (
       targets.insert (dir::static_type,
                       scope_->out_path (),
                       dir_path (),
                       string (),
                       nullopt,
-                      false,         // Enter as real (not implied).
+                      false,
                       trace).first);
 
     ct.prerequisites.emplace_back (prerequisite (dt));

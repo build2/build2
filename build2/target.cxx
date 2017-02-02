@@ -56,6 +56,31 @@ namespace build2
     clear_data ();
   }
 
+  const string& target::
+  ext (string v)
+  {
+    ulock l (targets.mutex_);
+
+    // Once the extension is set, it is immutable. However, it is possible
+    // that someone has already "branded" this target with a different
+    // extension.
+    //
+    optional<string>& e (*ext_);
+
+    if (!e)
+      e = move (v);
+    else if (*e != v)
+    {
+      string o (*e);
+      l.unlock ();
+
+      fail << "conflicting extensions '" << o << "' and '" << v << "' "
+           << "for target " << *this;
+    }
+
+    return *e;
+  }
+
   void target::
   recipe (action_type a, recipe_type r)
   {
@@ -201,34 +226,54 @@ namespace build2
   target* target_set::
   find (const target_key& k, tracer& trace) const
   {
-    target* t (nullptr);
+    slock sl (mutex_);
     map_type::const_iterator i (map_.find (k));
 
-    if (i != map_.end ())
+    if (i == map_.end ())
+      return nullptr;
+
+    target& t (*i->second);
+    optional<string>& ext (i->first.ext);
+
+    if (ext != k.ext)
     {
-      t = i->second.get ();
-      optional<string>& ext (i->first.ext);
+      ulock ul; // Keep locked for trace.
 
-      if (ext != k.ext)
+      if (k.ext)
       {
-        l5 ([&]{
-            diag_record r (trace);
-            r << "assuming target " << *t << " is the same as the one with ";
-            if (!k.ext)
-              r << "unspecified extension";
-            else if (k.ext->empty ())
-              r << "no extension";
-            else
-              r << "extension " << *k.ext;
-          });
+        // To update the extension we have to re-lock for exclusive access.
+        // Between us releasing the shared lock and acquiring unique the
+        // extension could change and possibly a new target that matches the
+        // key could be inserted. In this case we simply re-run find ().
+        //
+        sl.unlock ();
+        ul = ulock (mutex_);
 
+        if (ext) // Someone set the extension.
+        {
+          ul.unlock ();
+          return find (k, trace);
+        }
 
-        if (k.ext)
-          ext = k.ext;
+        ext = k.ext;
       }
+
+      l5 ([&]{
+          diag_record r (trace);
+          r << "assuming target ";
+          to_stream (r.os, t.key (), 0); // Don't print the extension.
+          r << " is the same as the one with ";
+
+          if (!k.ext)
+            r << "unspecified extension";
+          else if (k.ext->empty ())
+            r << "no extension";
+          else
+            r << "extension " << *k.ext;
+        });
     }
 
-    return t;
+    return &t;
   }
 
   pair<target&, bool> target_set::
@@ -241,35 +286,78 @@ namespace build2
           tracer& trace)
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
-
     target* t (find (tk, trace));
-    bool r (t == nullptr);
 
-    if (r)
+    if (t == nullptr)
     {
-      pair<target*, optional<string>> p (
+      pair<target*, optional<string>> te (
         tt.factory (
           tt, move (dir), move (out), move (name), move (tk.ext)));
 
-      t = p.first;
+      t = te.first;
 
-      map_type::iterator i (
+      // Re-lock for exclusive access. In the meantime, someone could have
+      // inserted this target so emplace() below could return false, in which
+      // case we proceed pretty much like find() except already under the
+      // exclusive lock.
+      //
+      ulock ul (mutex_);
+
+      auto p (
         map_.emplace (
-          target_key {&tt, &t->dir, &t->out, &t->name, move (p.second)},
-          p.first).first);
+          target_key {&tt, &t->dir, &t->out, &t->name, te.second},
+          unique_ptr<target> (te.first)));
 
-      t->ext_ = &i->first.ext;
-      t->implied = implied;
+      map_type::iterator i (p.first);
+
+      if (p.second)
+      {
+        t->ext_ = &i->first.ext;
+        t->implied = implied;
+        return pair<target&, bool> (*t, true);
+      }
+
+      // The "tail" of find().
+      //
+      t = i->second.get ();
+      optional<string>& ext (i->first.ext);
+
+      if (ext != te.second)
+      {
+        if (te.second)
+          ext = te.second;
+
+        l5 ([&]{
+            diag_record r (trace);
+            r << "assuming target ";
+            to_stream (r.os, t->key (), 0); // Don't print the extension.
+            r << " is the same as the one with ";
+
+            if (!te.second)
+              r << "unspecified extension";
+            else if (te.second->empty ())
+              r << "no extension";
+            else
+              r << "extension " << *te.second;
+          });
+      }
+
+      // Fall through (continue as if the first find() returned this target).
     }
-    else if (!implied)
+
+    if (!implied)
     {
+      // The implied flag can only be cleared during the load phase.
+      //
+      assert (phase == run_phase::load);
+
       // Clear the implied flag.
       //
       if (t->implied)
         t->implied = false;
     }
 
-    return pair<target&, bool> (*t, r);
+    return pair<target&, bool> (*t, false);
   }
 
   ostream&
@@ -358,31 +446,33 @@ namespace build2
     //
     assert (de == nullptr || type ().extension != nullptr);
 
-    optional<string>& ext (*ext_); //@@ MT lock
-
-    if (!ext)
+    if (const string* p = ext ())
+      // Note that returning by reference is now MT-safe since once the
+      // extension is specified, it is immutable.
+      //
+      return *p;
+    else
     {
+      optional<string> e;
+
       // If the target type has the extension function then try that first.
       // The reason for preferring it over what's been provided by the caller
       // is that this function will often use the 'extension' variable which
       // the user can use to override extensions.
       //
       if (auto f = type ().extension)
-        ext = f (key (), base_scope (), search);
+        e = f (key (), base_scope (), search);
 
-      if (!ext)
+      if (!e)
       {
         if (de != nullptr)
-          ext = de;
+          e = de;
         else
           fail << "no default extension for target " << *this;
       }
-    }
 
-    // Note that returning by reference is now MT-safe since once the
-    // extension is specified, it is immutable.
-    //
-    return *ext;
+      return ext (move (*e));
+    }
   }
 
   const path& path_target::

@@ -613,7 +613,7 @@ namespace build2
                             dir_path (), // Out tree.
                             "",
                             nullopt,
-                            false,       // Real (not implied).
+                            true,       // Implied.
                             trace).first);
 
           if (!quiet)

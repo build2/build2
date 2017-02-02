@@ -32,12 +32,21 @@ namespace build2
           const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const optional<string>& ext,
+          const string* ext,
           const scope* scope,
           const optional<string>& proj)
   {
     return search (
-      prerequisite_key {proj, {&type, &dir, &out, &name, ext}, scope});
+      prerequisite_key {
+        proj,
+        {
+          &type,
+          &dir,
+          &out,
+          &name,
+          ext != nullptr ? optional<string> (*ext) : nullopt
+        },
+        scope});
   }
 
   template <typename T>
@@ -45,7 +54,7 @@ namespace build2
   search (const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const optional<string>& ext,
+          const string* ext,
           const scope* scope)
   {
     return static_cast<T&> (

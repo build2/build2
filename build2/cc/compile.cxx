@@ -974,7 +974,7 @@ namespace build2
           //
           target* r;
           if (insert)
-            r = &search (*tt, d, out, n, e, nullptr);
+            r = &search (*tt, d, out, n, &e, nullptr);
           else
           {
             // Note that we skip any target type-specific searches (like for
