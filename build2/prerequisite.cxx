@@ -57,7 +57,7 @@ namespace build2
         dir (t.dir),
         out (t.out),   // @@ If it's empty, then we treat as undetermined?
         name (t.name),
-        ext (t.ext),
+        ext (t.ext ()),
         scope (t.base_scope ()),
         target (&t)
   {

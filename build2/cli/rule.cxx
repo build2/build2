@@ -211,17 +211,20 @@ namespace build2
                       const char* option,
                       const char* default_extension)
     {
-      assert (t.ext); // Should have been figured out in apply().
+      // Should have been figured out in apply().
+      //
+      const optional<string>& e (*t.ext_);
+      assert (e);
 
-      if (*t.ext != default_extension)
+      if (*e != default_extension)
       {
         // CLI needs the extension with the leading dot (unless it is empty)
         // while we store the extension without. But if there is an extension,
         // then we can get it (with the dot) from the file name.
         //
         args.push_back (option);
-        args.push_back (t.ext->empty ()
-                        ? t.ext->c_str ()
+        args.push_back (e->empty ()
+                        ? e->c_str ()
                         : t.path ().extension_cstring () - 1);
       }
     }

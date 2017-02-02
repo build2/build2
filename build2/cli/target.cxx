@@ -48,7 +48,7 @@ namespace build2
       return file_mtime (h->path ());
     }
 
-    static target*
+    static pair<target*, optional<string>>
     cli_cxx_factory (const target_type&,
                      dir_path d,
                      dir_path o,
@@ -66,7 +66,7 @@ namespace build2
       targets.insert<cxx::cxx> (d, o, n, trace);
       targets.insert<cxx::ixx> (d, o, n, trace);
 
-      return new cli_cxx (move (d), move (o), move (n), move (e));
+      return make_pair (new cli_cxx (move (d), move (o), move (n)), move (e));
     }
 
     const target_type cli_cxx::static_type

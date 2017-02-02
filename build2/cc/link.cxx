@@ -549,7 +549,7 @@ namespace build2
           }
 
           if (pt == nullptr)
-            pt = &search (ott, o.dir, o.out, o.name, o.ext, nullptr);
+            pt = &search (ott, o.dir, o.out, o.name, o.ext (), nullptr);
         }
         else
           pt = &ot;

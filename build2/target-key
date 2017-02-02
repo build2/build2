@@ -26,9 +26,7 @@ namespace build2
     const dir_path* const dir; // Can be relative if part of prerequisite_key.
     const dir_path* const out; // Can be relative if part of prerequisite_key.
     const string* const name;
-    const optional<string>& ext;
-
-    static const optional<string> nullext;
+    mutable optional<string> ext; // Absent - unspecified, empty - none.
 
     template <typename T>
     bool is_a () const {return type->is_a<T> ();}

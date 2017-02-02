@@ -108,7 +108,7 @@ namespace build2
   class target
   {
   public:
-    typedef build2::action action_type;
+    using action_type = build2::action;
 
     // For targets that are in the src tree of a project we also keep the
     // corresponding out directory. As a result we may end up with multiple
@@ -127,7 +127,9 @@ namespace build2
     const dir_path   dir;  // Absolute and normalized.
     const dir_path   out;  // Empty or absolute and normalized.
     const string     name;
-    optional<string> ext;  // Absent - unspecified, empty - no extension.
+    optional<string> ext () const {return *ext_;}
+
+    optional<string>* ext_; // Reference to value in target_key.
 
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
@@ -249,7 +251,7 @@ namespace build2
     // to the targets's members will be reflected in the key.
     //
     target_key
-    key () const {return target_key {&type (), &dir, &out, &name, ext};}
+    key () const {return target_key {&type (), &dir, &out, &name, ext ()};}
 
     // Scoping.
     //
@@ -548,8 +550,10 @@ namespace build2
     // The only way to create a target should be via the targets set below.
     //
   public:
-    target (dir_path d, dir_path o, string n, optional<string> e)
-        : dir (move (d)), out (move (o)), name (move (n)), ext (move (e)),
+    friend class target_set;
+
+    target (dir_path d, dir_path o, string n)
+        : dir (move (d)), out (move (o)), name (move (n)),
           vars (false) // Note: not global.
     {}
   };
@@ -967,10 +971,9 @@ namespace build2
   // map. The key's hash ignores the extension, so the hash will stay stable
   // across extension updates.
   //
-  struct target_set
+  class target_set
   {
-    // @@ Why do we dynalloc target?
-    //
+  public:
     typedef std::unordered_map<target_key, unique_ptr<target>> map;
     typedef butl::map_iterator_adapter<map::const_iterator> iterator;
 
@@ -1342,14 +1345,14 @@ namespace build2
   // search functions.
   //
   template <typename T>
-  target*
+  pair<target*, optional<string>>
   target_factory (const target_type&,
                   dir_path d,
                   dir_path o,
                   string n,
                   optional<string> e)
   {
-    return new T (move (d), move (o), move (n), move (e));
+    return make_pair (new T (move (d), move (o), move (n)), move (e));
   }
 
   // Return fixed target extension.

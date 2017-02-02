@@ -422,7 +422,7 @@ namespace build2
         // only use the target type and name from the target key so we can
         // pass bogus values for the rest.
         //
-        target_key tk {&tt, nullptr, nullptr, &n, target_key::nullext};
+        target_key tk {&tt, nullptr, nullptr, &n, nullopt};
 
         // This is like prerequisite search.
         //

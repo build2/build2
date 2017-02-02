@@ -41,11 +41,13 @@ namespace build2
     const char* name;
     const target_type* base;
 
-    target* (*factory) (const target_type&,
-                        dir_path,
-                        dir_path,
-                        string,
-                        optional<string>);
+    // Return target and extension.
+    //
+    pair<target*, optional<string>> (*factory) (const target_type&,
+                                                dir_path,
+                                                dir_path,
+                                                string,
+                                                optional<string>);
 
     optional<string> (*extension) (const target_key&,
                                    const scope&,

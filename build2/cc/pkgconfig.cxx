@@ -419,9 +419,7 @@ namespace build2
           string name (l, 2); // Sans -l.
 
           prerequisite_key pk {
-            nullopt,
-            {&lib::static_type, &out, &out, &name, target_key::nullext},
-            &s};
+            nullopt, {&lib::static_type, &out, &out, &name, nullopt}, &s};
 
           if (lib* lt = static_cast<lib*> (search_library (sysd, usrd, pk)))
           {

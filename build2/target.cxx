@@ -17,10 +17,6 @@ using namespace std;
 
 namespace build2
 {
-  // target_key
-  //
-  const optional<string> target_key::nullext = nullopt;
-
   // target_type
   //
   bool target_type::
@@ -205,30 +201,29 @@ namespace build2
   auto target_set::
   find (const target_key& k, tracer& trace) const -> iterator
   {
-    iterator i (map_.find (k));
+    map::const_iterator i (map_.find (k));
 
-    if (i != end ())
+    if (i != map_.end ())
     {
-      target& t (**i);
+      target& t (*i->second);
+      optional<string>& ext (i->first.ext);
 
-      // Update the extension if the existing target has it unspecified.
-      //
-      const optional<string>& ext (k.ext);
-      if (t.ext != ext)
+      if (ext != k.ext)
       {
         l5 ([&]{
             diag_record r (trace);
             r << "assuming target " << t << " is the same as the one with ";
-            if (!ext)
+            if (!k.ext)
               r << "unspecified extension";
-            else if (ext->empty ())
+            else if (k.ext->empty ())
               r << "no extension";
             else
-              r << "extension " << *ext;
+              r << "extension " << *k.ext;
           });
 
-        if (ext)
-          t.ext = ext;
+
+        if (k.ext)
+          ext = k.ext;
       }
     }
 
@@ -244,19 +239,27 @@ namespace build2
           bool implied,
           tracer& trace)
   {
-    iterator i (find (target_key {&tt, &dir, &out, &name, ext}, trace));
+    target_key tk {&tt, &dir, &out, &name, move (ext)};
+
+    iterator i (find (tk, trace));
     bool r (i == end ());
 
     if (r)
     {
-      unique_ptr<target> pt (
-        tt.factory (tt, move (dir), move (out), move (name), move (ext)));
+      pair<target*, optional<string>> p (
+        tt.factory (
+          tt, move (dir), move (out), move (name), move (tk.ext)));
 
-      pt->implied = implied;
+      target& t (*p.first);
 
-      i = map_.emplace (
-        make_pair (target_key {&tt, &pt->dir, &pt->out, &pt->name, pt->ext},
-                   move (pt))).first;
+      map::iterator j (
+        map_.emplace (
+          target_key {&tt, &t.dir, &t.out, &t.name, move (p.second)},
+          p.first).first);
+
+      t.ext_ = &j->first.ext;
+      t.implied = implied;
+      i = j;
     }
     else if (!implied)
     {
@@ -357,6 +360,8 @@ namespace build2
     //
     assert (de == nullptr || type ().extension != nullptr);
 
+    optional<string>& ext (*ext_); //@@ MT lock
+
     if (!ext)
     {
       // If the target type has the extension function then try that first.
@@ -376,6 +381,9 @@ namespace build2
       }
     }
 
+    // Note that returning by reference is now MT-safe since once the
+    // extension is specified, it is immutable.
+    //
     return *ext;
   }
 
@@ -403,12 +411,14 @@ namespace build2
   {
     // Derive and add the extension if any.
     //
-    derive_extension (de);
-
-    if (!ext->empty ())
     {
-      p += '.';
-      p += *ext;
+      const string& e (derive_extension (de));
+
+      if (!e.empty ())
+      {
+        p += '.';
+        p += e;
+      }
     }
 
     const path_type& ep (path ());
@@ -521,7 +531,7 @@ namespace build2
   };
 
   template <typename T, const char* ext>
-  static target*
+  static pair<target*, optional<string>>
   file_factory (const target_type& tt,
                 dir_path d,
                 dir_path o,
@@ -534,13 +544,10 @@ namespace build2
     // it to fixed ext rather than unspecified. For file{} we make it empty
     // which means we treat file{foo} as file{foo.}.
     //
-    return new T (
-      move (d),
-      move (o),
-      move (n),
-      (e || ext == nullptr || tt.factory != &file_factory<T, ext>
-       ? move (e)
-       : string (ext)));
+    if (!e && ext != nullptr && tt.factory == &file_factory<T, ext>)
+      e = string (ext);
+
+    return make_pair (new T (move (d), move (o), move (n)), move (e));
   }
 
   extern const char file_ext_var[] = "extension"; // VC14 rejects constexpr.
@@ -718,7 +725,7 @@ namespace build2
     false
   };
 
-  static target*
+  static pair<target*, optional<string>>
   buildfile_factory (const target_type&,
                      dir_path d,
                      dir_path o,
@@ -728,7 +735,7 @@ namespace build2
     if (!e)
       e = (n == "buildfile" ? string () : "build");
 
-    return new buildfile (move (d), move (o), move (n), move (e));
+    return make_pair (new buildfile (move (d), move (o), move (n)), move (e));
   }
 
   static optional<string>
@@ -762,7 +769,7 @@ namespace build2
     false
   };
 
-  static target*
+  static pair<target*, optional<string>>
   man_factory (const target_type&,
                dir_path d,
                dir_path o,
@@ -772,7 +779,7 @@ namespace build2
     if (!e)
       fail << "man target '" << n << "' must include extension (man section)";
 
-    return new man (move (d), move (o), move (n), move (e));
+    return make_pair (new man (move (d), move (o), move (n)), move (e));
   }
 
   const target_type man::static_type

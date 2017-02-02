@@ -11,7 +11,7 @@ namespace build2
 {
   namespace test
   {
-    static target*
+    static pair<target*, optional<string>>
     testscript_factory (const target_type&,
                         dir_path d,
                         dir_path o,
@@ -21,7 +21,8 @@ namespace build2
       if (!e)
         e = (n == "testscript" ? string () : "test");
 
-      return new testscript (move (d), move (o), move (n), move (e));
+      return make_pair (
+        new testscript (move (d), move (o), move (n)), move (e));
     }
 
     static optional<string>

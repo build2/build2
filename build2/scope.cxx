@@ -621,7 +621,7 @@ namespace build2
     return r;
   }
 
-  static target*
+  static pair<target*, optional<string>>
   derived_tt_factory (const target_type& t,
                       dir_path d,
                       dir_path o,
@@ -639,8 +639,8 @@ namespace build2
     const target_type* bt (t.base);
     for (; bt->factory == &derived_tt_factory; bt = bt->base) ;
 
-    target* r (bt->factory (t, move (d), move (o), move (n), move (e)));
-    r->derived_type = &t;
+    auto r (bt->factory (t, move (d), move (o), move (n), move (e)));
+    r.first->derived_type = &t;
     return r;
   }
 

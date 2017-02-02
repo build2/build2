@@ -12,7 +12,7 @@ namespace build2
   {
     extern const char ext_var[] = "extension"; // VC14 rejects constexpr.
 
-    static target*
+    static pair<target*, optional<string>>
     obje_factory (const target_type&,
                   dir_path dir,
                   dir_path out,
@@ -20,12 +20,12 @@ namespace build2
                   optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      obje* e (new obje (move (dir), move (out), move (n), move (ext)));
+      obje* e (new obje (move (dir), move (out), move (n)));
 
       if ((e->group = o))
         o->e = e;
 
-      return e;
+      return make_pair (e, move (ext));
     }
 
     const target_type obje::static_type
@@ -39,7 +39,7 @@ namespace build2
       false
     };
 
-    static target*
+    static pair<target*, optional<string>>
     obja_factory (const target_type&,
                   dir_path dir,
                   dir_path out,
@@ -47,12 +47,12 @@ namespace build2
                   optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      obja* a (new obja (move (dir), move (out), move (n), move (ext)));
+      obja* a (new obja (move (dir), move (out), move (n)));
 
       if ((a->group = o))
         o->a = a;
 
-      return a;
+      return make_pair (a, move (ext));
     }
 
     const target_type obja::static_type
@@ -66,7 +66,7 @@ namespace build2
       false
     };
 
-    static target*
+    static pair<target*, optional<string>>
     objs_factory (const target_type&,
                    dir_path dir,
                    dir_path out,
@@ -74,12 +74,12 @@ namespace build2
                    optional<string> ext)
     {
       obj* o (targets.find<obj> (dir, out, n));
-      objs* s (new objs (move (dir), move (out), move (n), move (ext)));
+      objs* s (new objs (move (dir), move (out), move (n)));
 
       if ((s->group = o))
         o->s = s;
 
-      return s;
+      return make_pair (s, move (ext));
     }
 
     const target_type objs::static_type
@@ -93,7 +93,7 @@ namespace build2
       false
     };
 
-    static target*
+    static pair<target*, optional<string>>
     obj_factory (const target_type&,
                  dir_path dir,
                  dir_path out,
@@ -104,7 +104,7 @@ namespace build2
       obja* a (targets.find<obja> (dir, out, n));
       objs* s (targets.find<objs> (dir, out, n));
 
-      obj* o (new obj (move (dir), move (out), move (n), move (ext)));
+      obj* o (new obj (move (dir), move (out), move (n)));
 
       if ((o->e = e))
         e->group = o;
@@ -115,7 +115,7 @@ namespace build2
       if ((o->s = s))
         s->group = o;
 
-      return o;
+      return make_pair (o, move (ext));
     }
 
     const target_type obj::static_type
@@ -129,7 +129,7 @@ namespace build2
       false
     };
 
-    static target*
+    static pair<target*, optional<string>>
     liba_factory (const target_type& t,
                   dir_path d,
                   dir_path o,
@@ -139,12 +139,12 @@ namespace build2
       // Only link-up to the group if the types match exactly.
       //
       lib* l (t == liba::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      liba* a (new liba (move (d), move (o), move (n), move (ext)));
+      liba* a (new liba (move (d), move (o), move (n)));
 
       if ((a->group = l))
         l->a = a;
 
-      return a;
+      return make_pair (a, move (ext));
     }
 
     // @@
@@ -170,7 +170,7 @@ namespace build2
       false
     };
 
-    static target*
+    static pair<target*, optional<string>>
     libs_factory (const target_type& t,
                   dir_path d,
                   dir_path o,
@@ -180,12 +180,12 @@ namespace build2
       // Only link-up to the group if the types match exactly.
       //
       lib* l (t == libs::static_type ? targets.find<lib> (d, o, n) : nullptr);
-      libs* s (new libs (move (d), move (o), move (n), move (ext)));
+      libs* s (new libs (move (d), move (o), move (n)));
 
       if ((s->group = l))
         l->s = s;
 
-      return s;
+      return make_pair (s, move (ext));
     }
 
     const target_type libs::static_type
@@ -210,7 +210,7 @@ namespace build2
       // members to implement "library meta-information protocol".
     }
 
-    static target*
+    static pair<target*, optional<string>>
     lib_factory (const target_type&,
                  dir_path d,
                  dir_path o,
@@ -220,7 +220,7 @@ namespace build2
       liba* a (targets.find<liba> (d, o, n));
       libs* s (targets.find<libs> (d, o, n));
 
-      lib* l (new lib (move (d), move (o), move (n), move (ext)));
+      lib* l (new lib (move (d), move (o), move (n)));
 
       if ((l->a = a))
         a->group = l;
@@ -228,7 +228,7 @@ namespace build2
       if ((l->s = s))
         s->group = l;
 
-      return l;
+      return make_pair (l, move (ext));
     }
 
     const target_type lib::static_type
