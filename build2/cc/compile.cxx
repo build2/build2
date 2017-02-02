@@ -981,8 +981,7 @@ namespace build2
             // an existing file) and go straight for the target object since
             // we need to find the target explicitly spelled out.
             //
-            auto i (targets.find (*tt, d, out, n, e, trace));
-            r = i != targets.end () ? i->get () : nullptr;
+            r = targets.find (*tt, d, out, n, e, trace);
           }
 
           return static_cast<path_target*> (r);

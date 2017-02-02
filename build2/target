@@ -971,16 +971,19 @@ namespace build2
   // map. The key's hash ignores the extension, so the hash will stay stable
   // across extension updates.
   //
+  // Note also that once the extension is specified, it becomes immutable.
+  //
   class target_set
   {
   public:
-    typedef std::unordered_map<target_key, unique_ptr<target>> map;
-    typedef butl::map_iterator_adapter<map::const_iterator> iterator;
+    using map_type = std::unordered_map<target_key, unique_ptr<target>>;
 
-    iterator
+    // Return existing target or NULL.
+    //
+    target*
     find (const target_key& k, tracer& trace) const;
 
-    iterator
+    target*
     find (const target_type& type,
           const dir_path& dir,
           const dir_path& out,
@@ -991,8 +994,7 @@ namespace build2
       return find (target_key {&type, &dir, &out, &name, ext}, trace);
     }
 
-    // As above but ignore the extension and return the target or nullptr
-    // instead of the iterator.
+    // As above but ignore the extension.
     //
     template <typename T>
     T*
@@ -1002,9 +1004,6 @@ namespace build2
                 target_key {&T::static_type, &dir, &out, &name, nullopt}));
       return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
     }
-
-    iterator begin () const {return map_.begin ();}
-    iterator end () const {return map_.end ();}
 
     pair<target&, bool>
     insert (const target_type&,
@@ -1057,11 +1056,19 @@ namespace build2
         insert (T::static_type, dir, out, name, nullopt, false, t).first);
     }
 
+    // Note: not MT-safe so can only be used during serial execution.
+    //
+  public:
+    using iterator = butl::map_iterator_adapter<map_type::const_iterator>;
+
+    iterator begin () const {return map_.begin ();}
+    iterator end ()   const {return map_.end ();}
+
     void
     clear () {map_.clear ();}
 
   private:
-    map map_;
+    map_type map_;
   };
 
   extern target_set targets;

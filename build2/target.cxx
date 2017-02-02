@@ -198,21 +198,22 @@ namespace build2
   //
   target_set targets;
 
-  auto target_set::
-  find (const target_key& k, tracer& trace) const -> iterator
+  target* target_set::
+  find (const target_key& k, tracer& trace) const
   {
-    map::const_iterator i (map_.find (k));
+    target* t (nullptr);
+    map_type::const_iterator i (map_.find (k));
 
     if (i != map_.end ())
     {
-      target& t (*i->second);
+      t = i->second.get ();
       optional<string>& ext (i->first.ext);
 
       if (ext != k.ext)
       {
         l5 ([&]{
             diag_record r (trace);
-            r << "assuming target " << t << " is the same as the one with ";
+            r << "assuming target " << *t << " is the same as the one with ";
             if (!k.ext)
               r << "unspecified extension";
             else if (k.ext->empty ())
@@ -227,7 +228,7 @@ namespace build2
       }
     }
 
-    return i;
+    return t;
   }
 
   pair<target&, bool> target_set::
@@ -241,8 +242,8 @@ namespace build2
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
 
-    iterator i (find (tk, trace));
-    bool r (i == end ());
+    target* t (find (tk, trace));
+    bool r (t == nullptr);
 
     if (r)
     {
@@ -250,28 +251,25 @@ namespace build2
         tt.factory (
           tt, move (dir), move (out), move (name), move (tk.ext)));
 
-      target& t (*p.first);
+      t = p.first;
 
-      map::iterator j (
+      map_type::iterator i (
         map_.emplace (
-          target_key {&tt, &t.dir, &t.out, &t.name, move (p.second)},
+          target_key {&tt, &t->dir, &t->out, &t->name, move (p.second)},
           p.first).first);
 
-      t.ext_ = &j->first.ext;
-      t.implied = implied;
-      i = j;
+      t->ext_ = &i->first.ext;
+      t->implied = implied;
     }
     else if (!implied)
     {
       // Clear the implied flag.
       //
-      target& t (**i);
-
-      if (t.implied)
-        t.implied = false;
+      if (t->implied)
+        t->implied = false;
     }
 
-    return pair<target&, bool> (**i, r);
+    return pair<target&, bool> (*t, r);
   }
 
   ostream&

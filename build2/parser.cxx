@@ -3549,7 +3549,7 @@ namespace build2
                       dir_path (),         // Out tree target.
                       string (),
                       nullopt,
-                      trace) != targets.end ())
+                      trace) != nullptr)
       return;
 
     target& dt (*default_target_);

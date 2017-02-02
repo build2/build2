@@ -71,15 +71,13 @@ namespace build2
         o.clear ();
     }
 
-    auto i (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
+    target* t (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
 
-    if (i == targets.end ())
-      return 0;
+    if (t != nullptr)
+      l5 ([&]{trace << "existing target " << t
+                    << " for prerequisite " << pk;});
 
-    target& t (**i);
-
-    l5 ([&]{trace << "existing target " << t << " for prerequisite " << pk;});
-    return &t;
+    return t;
   }
 
   target*

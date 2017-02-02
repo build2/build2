@@ -76,11 +76,10 @@ namespace build2
 
     phase_guard pg (run_phase::search_match);
 
-    auto i (targets.find (tk, trace));
-    if (i == targets.end ())
+    if (target* t = targets.find (tk, trace))
+      ts.push_back (t);
+    else
       fail (l) << "unknown target " << tk;
-
-    ts.push_back (i->get ());
   }
 
   void
