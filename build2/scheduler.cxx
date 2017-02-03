@@ -11,9 +11,9 @@ using namespace std;
 namespace build2
 {
   void scheduler::
-  wait (atomic_count& task_count)
+  wait (size_t start_count, atomic_count& task_count)
   {
-    if (task_count == 0)
+    if (task_count == start_count)
       return;
 
     // See if we can run some of our own tasks.
@@ -29,15 +29,15 @@ namespace build2
       // Note that empty task queue doesn't automatically mean the task count
       // is zero (some might still be executing asynchronously).
       //
-      if (task_count == 0)
+      if (task_count == start_count)
         return;
     }
 
-    suspend (task_count);
+    suspend (start_count, task_count);
   }
 
   void scheduler::
-  suspend (atomic_count& tc)
+  suspend (size_t start_count, atomic_count& tc)
   {
     wait_slot& s (
       wait_queue_[std::hash<atomic_count*> () (&tc) % wait_queue_size_]);
@@ -85,7 +85,8 @@ namespace build2
       // Since we use a mutex for synchronization, we can relax the atomic
       // access.
       //
-      while (!s.shutdown && tc.load (std::memory_order_relaxed) != 0)
+      while (!s.shutdown &&
+             tc.load (std::memory_order_relaxed) != start_count)
         s.condv.wait (l);
 
       s.waiters--;

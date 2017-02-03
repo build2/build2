@@ -58,7 +58,7 @@ namespace build2
     // F should return void and not throw any exceptions. The way the result
     // of a task is communicated back to the master thread is ad hoc, usually
     // via "out" arguments. Such result(s) can only be retrieved by the master
-    // once its task count reaches 0.
+    // once its task count reaches the start count.
     //
     // The argument passing semantics is the same as for std::thread. In
     // particular, lvalue-references are passed as copies (use ref()/cref()
@@ -71,16 +71,43 @@ namespace build2
     //
     template <typename F, typename... A>
     void
-    async (atomic_count& task_count, F&&, A&&...);
+    async (size_t start_count, atomic_count& task_count, F&&, A&&...);
 
-    // Wait until the task count reaches 0. If the scheduler is shutdown while
-    // waiting, throw system_error(ECANCELED).
+    template <typename F, typename... A>
+    void
+    async (atomic_count& task_count, F&& f, A&&... a)
+    {
+      async (0, task_count, forward<F> (f), forward<A> (a)...);
+    }
+
+    // Wait until the task count reaches the start count. If the scheduler is
+    // shutdown while waiting, throw system_error(ECANCELED).
     //
     // Note that it is valid to wait on another thread's task count (that is,
-    // without making any async() calls in this thread).
+    // without making any async() calls in this thread). However, if the start
+    // count differs from the one passed to async(), then whomever sets the
+    // start count to this alternative value must also call resume() below
+    // in order to signal waiting threads.
+    //
+    // Note also that in this case (waiting on someone else's start count),
+    // the async() call could execute the tasks synchronously without ever
+    // incrementing the task count. Thus if waiting on another thread's start
+    // count starts before/during async() calls, then it must be "gated" with
+    // an alternative (lower) start count.
     //
     void
-    wait (atomic_count& task_count);
+    wait (size_t start_count, atomic_count& task_count);
+
+    void
+    wait (atomic_count& task_count)
+    {
+      wait (0, task_count);
+    }
+
+    // Resume threads waiting on this task count.
+    //
+    void
+    resume (atomic_count& task_count);
 
     // Startup and shutdown.
     //
@@ -205,10 +232,7 @@ namespace build2
     helper (void*);
 
     void
-    suspend (atomic_count& task_count);
-
-    void
-    resume (atomic_count& task_count);
+    suspend (size_t start_count, atomic_count& task_count);
 
     // Task encapsulation.
     //
@@ -219,6 +243,7 @@ namespace build2
       using args_type = std::tuple<std::decay_t<A>...>;
 
       atomic_count* task_count;
+      size_t start_count;
       func_type func;
       args_type args;
 

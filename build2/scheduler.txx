@@ -8,7 +8,7 @@ namespace build2
 {
   template <typename F, typename... A>
   void scheduler::
-  async (atomic_count& task_count, F&& f, A&&... a)
+  async (size_t start_count, atomic_count& task_count, F&& f, A&&... a)
   {
     using task = task_type<F, A...>;
 
@@ -40,6 +40,7 @@ namespace build2
         //
         new (&td->data) task {
           &task_count,
+          start_count,
           decay_copy (forward<F> (f)),
           typename task::args_type (decay_copy (forward<A> (a))...)};
 
@@ -85,7 +86,7 @@ namespace build2
     t.thunk (std::index_sequence_for<A...> ());
 
     atomic_count& tc (*t.task_count);
-    if (--tc == 0)
+    if (--tc == t.start_count)
       s.resume (tc); // Resume a waiter, if any.
   }
 }
