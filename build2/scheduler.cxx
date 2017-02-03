@@ -18,17 +18,20 @@ namespace build2
 
     // See if we can run some of our own tasks.
     //
-    task_queue& tq (*task_queue_); // Must have been set by async() or task
-                                   // would have been 0.
-
-    for (lock ql (tq.mutex); !tq.shutdown && !empty_back (tq); )
-      pop_back (tq, ql);
-
-    // Note that empty task queue doesn't automatically mean the task count
-    // is zero (some might still be executing asynchronously).
+    // If we are waiting on someone else's task count then there migh still
+    // be no queue which is set by async().
     //
-    if (task_count == 0)
-      return;
+    if (task_queue* tq = task_queue_)
+    {
+      for (lock ql (tq->mutex); !tq->shutdown && !empty_back (*tq); )
+        pop_back (*tq, ql);
+
+      // Note that empty task queue doesn't automatically mean the task count
+      // is zero (some might still be executing asynchronously).
+      //
+      if (task_count == 0)
+        return;
+    }
 
     suspend (task_count);
   }
@@ -66,7 +69,18 @@ namespace build2
     bool collision;
     {
       lock l (s.mutex);
-      collision = (s.waiters++ != 0);
+
+      // We have a collision if there is already a waiter for a different
+      // task count.
+      //
+      collision = (s.waiters++ != 0 && s.tcount != &tc);
+
+      // This is nuanced: we want to always have the task count of the last
+      // thread to join the queue. Otherwise, if threads are leaving and
+      // joining the queue simultaneously, we may end up with a task count of
+      // a thread group that is no longer waiting.
+      //
+      s.tcount = &tc;
 
       // Since we use a mutex for synchronization, we can relax the atomic
       // access.

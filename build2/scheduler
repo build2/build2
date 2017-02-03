@@ -73,8 +73,11 @@ namespace build2
     void
     async (atomic_count& task_count, F&&, A&&...);
 
-    // Wait until the task count reaches 0. If the scheduler is shutdown
-    // while waiting, throw system_error(ECANCELED).
+    // Wait until the task count reaches 0. If the scheduler is shutdown while
+    // waiting, throw system_error(ECANCELED).
+    //
+    // Note that it is valid to wait on another thread's task count (that is,
+    // without making any async() calls in this thread).
     //
     void
     wait (atomic_count& task_count);
@@ -288,11 +291,15 @@ namespace build2
     // depends on the number of waiters that we can have which cannot be
     // greater than the total number of threads.
     //
+    // The pointer to the task count is used to identify the already waiting
+    // group of threads for collision statistics.
+    //
     struct wait_slot
     {
       std::mutex mutex;
       std::condition_variable condv;
       size_t waiters = 0;
+      const atomic_count* tcount;
       bool shutdown = true;
     };
 
