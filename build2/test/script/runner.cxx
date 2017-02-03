@@ -761,9 +761,6 @@ namespace build2
         //
         const command& c (*bc);
 
-        if (verb >= 3)
-          text << c;
-
         // Register the command explicit cleanups. Verify that the path being
         // cleaned up is a sub-path of the testscript working directory. Fail
         // if this is not the case.
@@ -1100,10 +1097,24 @@ namespace build2
 
         bool success;
 
+        auto process_args = [&c] () -> cstrings
+        {
+          cstrings args {c.program.string ().c_str ()};
+
+          for (const auto& a: c.arguments)
+            args.push_back (a.c_str ());
+
+          args.push_back (nullptr);
+          return args;
+        };
+
         if (b != nullptr)
         {
           // Execute the builtin.
           //
+          if (verb >= 2)
+            print_process (process_args ());
+
           try
           {
             future<uint8_t> f (
@@ -1123,12 +1134,7 @@ namespace build2
         {
           // Execute the process.
           //
-          cstrings args {c.program.string ().c_str ()};
-
-          for (const auto& a: c.arguments)
-            args.push_back (a.c_str ());
-
-          args.push_back (nullptr);
+          cstrings args (process_args ());
 
           try
           {
@@ -1307,6 +1313,9 @@ namespace build2
       void default_runner::
       run (scope& sp, const command_expr& expr, size_t li, const location& ll)
       {
+        if (verb >= 3)
+          text << expr;
+
         if (!run_expr (sp, expr, li, ll, true))
           throw failed (); // Assume diagnostics is already printed.
       }
@@ -1316,6 +1325,9 @@ namespace build2
               const command_expr& expr,
               size_t li, const location& ll)
       {
+        if (verb >= 3)
+          text << "? " << expr;
+
         return run_expr (sp, expr, li, ll, false);
       }
     }

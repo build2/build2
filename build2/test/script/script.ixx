@@ -47,7 +47,7 @@ namespace build2
         return o;
       }
 
-      // command_pipe
+      // command_expr
       //
       inline ostream&
       operator<< (ostream& o, const command_expr& e)

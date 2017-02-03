@@ -301,12 +301,14 @@
 
 : big
 :
-: Sed a big file (about 3MB) to test that the builtin is asynchronous.
+: Sed a big file (about 100K) to test that the builtin is asynchronous.
 :
 {
-  s="------------------------------------------------------------------------"
-  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
-  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
-  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
-  $c <"cat <'$s' | sed -e 's/^x//' >'$s'" && $b
+  $c <<EOI && $b
+  s="--------------------------------"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+  cat <"$s" | sed -e 's/^x//' | cat >"$s"
+  EOI
 }
