@@ -13,7 +13,7 @@ namespace build2
   void scheduler::
   wait (size_t start_count, atomic_count& task_count)
   {
-    if (task_count == start_count)
+    if (task_count <= start_count)
       return;
 
     // See if we can run some of our own tasks.
@@ -27,9 +27,9 @@ namespace build2
         pop_back (*tq, ql);
 
       // Note that empty task queue doesn't automatically mean the task count
-      // is zero (some might still be executing asynchronously).
+      // has been decremented (some might still be executing asynchronously).
       //
-      if (task_count == start_count)
+      if (task_count <= start_count)
         return;
     }
 
@@ -85,8 +85,8 @@ namespace build2
       // Since we use a mutex for synchronization, we can relax the atomic
       // access.
       //
-      while (!s.shutdown &&
-             tc.load (std::memory_order_relaxed) != start_count)
+      while (!(s.shutdown ||
+               tc.load (std::memory_order_relaxed) <= start_count))
         s.condv.wait (l);
 
       s.waiters--;

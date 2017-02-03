@@ -86,7 +86,7 @@ namespace build2
     t.thunk (std::index_sequence_for<A...> ());
 
     atomic_count& tc (*t.task_count);
-    if (--tc == t.start_count)
+    if (--tc <= t.start_count)
       s.resume (tc); // Resume a waiter, if any.
   }
 }
