@@ -16,6 +16,8 @@ namespace build2
     if (task_count <= start_count)
       return;
 
+    assert (max_active_ != 1); // Serial execution, nobody to wait for.
+
     // See if we can run some of our own tasks.
     //
     // If we are waiting on someone else's task count then there migh still
@@ -121,6 +123,9 @@ namespace build2
   void scheduler::
   resume (atomic_count& tc)
   {
+    if (max_active_ == 1) // Serial execution, nobody to wakeup.
+      return;
+
     wait_slot& s (
       wait_queue_[std::hash<atomic_count*> () (&tc) % wait_queue_size_]);
 
