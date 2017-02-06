@@ -10,6 +10,7 @@
 #include <build2/file> // import()
 #include <build2/search>
 #include <build2/context>
+#include <build2/scheduler>
 #include <build2/filesystem>
 #include <build2/diagnostics>
 #include <build2/prerequisite>
@@ -386,46 +387,131 @@ namespace build2
     return r;
   }
 
-  target_state
+  inline target_state
   execute_impl (action a, target& t)
   {
-    // Implementation with some multi-threading ideas in mind.
+    // Task count should be count_executing.
     //
-    switch (t.raw_state)
+    assert (t.state_ == target_state::unknown);
+
+    auto g (
+      make_exception_guard (
+        [a, &t]()
+        {
+          t.state_ = target_state::failed;
+
+          if (verb != 0)
+            info << "while " << diag_doing (a, t);
+        }));
+
+    target_state ts (t.recipe (a) (a, t));
+    assert (ts != target_state::unknown && ts != target_state::failed);
+
+    t.state_ = ts;
+    if (ts == target_state::group)
+      ts = t.group->state_;
+
+    // Decrement the task count (to count_executed) and wake up any threads
+    // that might be waiting for this target.
+    //
+    size_t tc (t.task_count--);
+    assert (tc == target::count_executing);
+    sched.resume (t.task_count);
+
+    return ts;
+  }
+
+  target_state
+  execute (action a, target& t)
+  {
+    // text << "E " << t << ": " << t.dependents << " " << dependency_count;
+
+    size_t d (0);
+    if (dependency_count != 0) // Re-examination of a postponed target?
     {
-    case target_state::group: // Means group's state is unknown.
-    case target_state::unknown:
-    case target_state::postponed:
-      {
-        auto g (
-          make_exception_guard (
-            [a, &t]()
-            {
-              t.raw_state = target_state::failed;
-
-              if (verb != 0)
-                info << "while " << diag_doing (a, t);
-            }));
-
-        target_state ts (t.recipe (a) (a, t));
-        assert (ts != target_state::unknown && ts != target_state::failed);
-
-        // Set the target's state unless it should be the group's state.
-        //
-        if (t.raw_state != target_state::group)
-          t.raw_state = ts;
-
-        return ts;
-      }
-    case target_state::unchanged:
-    case target_state::changed:
-      // Should have been handled by inline execute().
-      assert (false);
-    case target_state::failed:
-      break;
+      // Note that re-examination only happens during serial execution so
+      // dependency_count can only become 0 if we have skew counts.
+      //
+      // Note: memory order can probably be relaxed.
+      //
+      size_t g (dependency_count--);
+      d = t.dependents--;
+      assert (g != 0 && d != 0);
+      d--;
     }
 
-    throw failed ();
+    // Handle the "last" execution mode.
+    //
+    // This gets interesting when we consider interaction with
+    // groups. It seem to make sense to treat group members as
+    // dependents of the group, so, for example, if we try to
+    // clean the group via three of its members, only the last
+    // attempt will actually execute the clean. This means that
+    // when we match a group member, inside we should also match
+    // the group in order to increment the dependents count. This
+    // seems to be a natural requirement: if we are delegating to
+    // the group, we need to find a recipe for it, just like we
+    // would for a prerequisite.
+    //
+    // Note that below we are going to change the group state
+    // to postponed. This is not a mistake: until we execute
+    // the recipe, we want to keep returning postponed. And
+    // once the recipe is executed, it will reset the state
+    // to group (see group_action()). To put it another way,
+    // the execution of this member is postponed, not of the
+    // group.
+    //
+    // One important invariant to keep in mind: the return
+    // value from execute() should always be the same as what
+    // would get returned by a subsequent call to state().
+    //
+    size_t tc (target::count_unexecuted);
+    if (current_mode == execution_mode::last && d != 0)
+    {
+      // Try to atomically change unexecuted to postponed.
+      //
+      if (t.task_count.compare_exchange_strong (tc, target::count_postponed))
+        tc = target::count_postponed;
+    }
+    else
+    {
+      // Try to atomically change unexecuted to executing. But it can also be
+      // postponed to executing.
+      //
+      if (t.task_count.compare_exchange_strong (tc, target::count_executing) ||
+          (tc == target::count_postponed &&
+           t.task_count.compare_exchange_strong (tc, target::count_executing)))
+        return execute_impl (a, t);
+    }
+
+    switch (tc)
+    {
+    case target::count_unexecuted: assert (false);
+    case target::count_postponed:  return target_state::postponed;
+    case target::count_executed:   return t.state ();
+    default:                       return target_state::busy;
+    }
+  }
+
+  target_state
+  execute_direct (action a, target& t)
+  {
+    size_t tc (target::count_unexecuted);
+    if (t.task_count.compare_exchange_strong (tc, target::count_executing))
+      return execute_impl (a, t);
+
+    // If the target is busy, wait for it.
+    //
+    switch (tc)
+    {
+    case target::count_unexecuted:
+    case target::count_postponed:  assert (false);
+    case target::count_executed:   break;
+    default:                       sched.wait (target::count_executed,
+                                               t.task_count);
+    }
+
+    return t.state ();
   }
 
   target_state
@@ -522,14 +608,14 @@ namespace build2
   target_state
   group_action (action a, target& t)
   {
-    target_state r (execute (a, *t.group));
-
-    // Indicate to the standard execute() logic that this target's
-    // state comes from the group.
+    // If the group is busy, we wait, similar to prerequisites.
     //
-    t.raw_state = target_state::group;
+    if (execute (a, *t.group) == target_state::busy)
+      sched.wait (target::count_executed, t.group->task_count);
 
-    return r;
+    // Indicate to execute() that this target's state comes from the group.
+    //
+    return target_state::group;
   }
 
   target_state

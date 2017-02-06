@@ -243,7 +243,7 @@ namespace build2
   // execution with the expectation of it reaching 0. Used as a sanity
   // check.
   //
-  extern uint64_t dependency_count;
+  extern atomic_count dependency_count;
 
   // Variable override value cache.
   //

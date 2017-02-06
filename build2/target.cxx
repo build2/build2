@@ -31,8 +31,16 @@ namespace build2
 
   // target_state
   //
-  static const char* const target_state_[] = {
-    "unknown", "unchanged", "postponed", "changed", "failed", "group"};
+  static const char* const target_state_[] =
+  {
+    "unknown",
+    "unchanged",
+    "postponed",
+    "busy",
+    "changed",
+    "failed",
+    "group"
+  };
 
   ostream&
   operator<< (ostream& os, target_state ts)
@@ -99,7 +107,7 @@ namespace build2
     action = a;
     recipe_ = move (r);
 
-    raw_state = target_state::unknown;
+    state_ = target_state::unknown;
 
     // If this is a noop recipe, then mark the target unchanged so that we
     // don't waste time executing the recipe.
@@ -107,8 +115,14 @@ namespace build2
     if (recipe_function** f = recipe_.target<recipe_function*> ())
     {
       if (*f == &noop_action)
-        raw_state = target_state::unchanged;
+        state_ = target_state::unchanged;
     }
+
+    //@@ MT can this be a relaxed save?
+    //
+    task_count = state_ == target_state::unknown
+      ? count_unexecuted
+      : count_executed;
 
     // This one is tricky: we don't want to reset the dependents count
     // if we are merely overriding with a "stronger" recipe.

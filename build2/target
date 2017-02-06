@@ -33,13 +33,17 @@ namespace build2
   //
   enum class target_state: uint8_t
   {
-    // The order of the enumerators is arranged so that their integral
-    // values indicate whether one "overrides" the other in the merge
-    // operator (see below).
+    // The order of the enumerators is arranged so that their integral values
+    // indicate whether one "overrides" the other in the "merge" operator|
+    // (see below).
+    //
+    // Note that postponed is "greater" than unchanged since it may result in
+    // the changed state.
     //
     unknown,
     unchanged,
     postponed,
+    busy,
     changed,
     failed,
     group       // Target's state is the group's state.
@@ -63,10 +67,8 @@ namespace build2
   // though you shouldn't be returning postponed directly. If there is an
   // error, then the recipe should throw rather than returning failed.
   //
-  // The return value of the recipe is used to update the target state except
-  // if the state is set to target_state::group by the recipe. Note that in
-  // this case the returned by the recipe value is still used as the resulting
-  // target state so it should match the group's state.
+  // The return value of the recipe is used to update the target state. If it
+  // is target_state::group then the target's state is the group's state.
   //
   // Note that max size for the "small capture optimization" in std::function
   // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
@@ -394,30 +396,50 @@ namespace build2
 
     // Target state.
     //
-  public:
-    target_state raw_state = target_state::unknown;
+  protected:
+    friend target_state execute_impl (action, target&);
 
-    // By default we go an extra step and short-circuit to the target state
-    // even if the raw state is not group provided the recipe is group_recipe.
-    // This is normally what you want or need, as in inject_prerequisites()
-    // in the cc module. But sometimes not, as in execute().
+    target_state state_;
+
+  public:
+
+    // Atomic task count that is used during execution to (atomically) track a
+    // subset of the target's state as well as the number of its sub-tasks
+    // (execution of prerequisites).
+    //
+    // The task starts unexecuted and can then transition to postponed or
+    // executing. Postponed can transition to executing. And executing
+    // transitions (via a decrement) to executed. Once it is executed, then
+    // state_ becomes immutable.
+    //
+    static const size_t count_unexecuted = 0;
+    static const size_t count_postponed  = 1;
+    static const size_t count_executed   = 2;
+    static const size_t count_executing  = 3;
+
+    atomic_count task_count;
+
+    // @@ MT TODO: when can be called.
     //
     target_state
-    state (bool shortcircuit = true) const
+    state () const
     {
-      if (raw_state == target_state::group)
-        return group->raw_state;
+      // We go an extra step and short-circuit to the target state even if the
+      // raw state is not group provided the recipe is group_recipe.
 
-      if (group == nullptr || !shortcircuit)
-        return raw_state;
+      if (state_ == target_state::group)
+        return group->state_;
+
+      if (group == nullptr)
+        return state_;
 
       if (recipe_function* const* f = recipe_.target<recipe_function*> ())
       {
         if (*f == &group_action)
-          return group->raw_state;
+          return group->state_;
       }
 
-      return raw_state;
+      return state_;
     }
 
     // Number of direct targets that depend on this target in the current
@@ -433,7 +455,7 @@ namespace build2
     // should have been decremented to 0 naturally, as part of the previous
     // action execution.
     //
-    size_t dependents;
+    atomic_count dependents;
 
     // Auxilary data storage.
     //
@@ -1106,7 +1128,7 @@ namespace build2
     timestamp
     mtime (bool load = true) const
     {
-      const mtime_target* t (raw_state == target_state::group
+      const mtime_target* t (state_ == target_state::group
                              ? static_cast<const mtime_target*> (group)
                              : this);
 

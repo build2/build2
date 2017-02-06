@@ -56,7 +56,7 @@ namespace build2
 
   execution_mode current_mode;
 
-  uint64_t dependency_count;
+  atomic_count dependency_count;
 
   variable_override_cache var_override_cache;
 

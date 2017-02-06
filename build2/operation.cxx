@@ -173,6 +173,8 @@ namespace build2
     // Re-examine postponed targets. This is the only reliable way to
     // find out whether the target has changed.
     //
+    // Note: must be serial.
+    //
     for (target& t: psp)
     {
       switch (execute (a, t))

@@ -167,7 +167,8 @@ namespace build2
   // and "now" execution, that is, side-stepping the normal target-
   // prerequisite relationship (so no dependents count is decremented)
   // and execution order (so this function will never return postponed
-  // target state).
+  // target state). It will also wait for the completion if the target
+  // is busy.
   //
   target_state
   execute_direct (action, target&);

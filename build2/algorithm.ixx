@@ -3,7 +3,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <build2/rule>
-#include <build2/prerequisite>
 #include <build2/context>
 
 namespace build2
@@ -173,81 +172,10 @@ namespace build2
     search_and_match_prerequisite_members (ml, a, t, &s);
   }
 
-  target_state
-  execute_impl (action, target&);
-
-  inline target_state
-  execute (action a, target& t)
-  {
-    // text << "E " << t << ": " << t.dependents << " " << dependency_count;
-
-    if (dependency_count != 0) // Re-examination of a postponed target?
-    {
-      assert (t.dependents != 0);
-      --t.dependents;
-      --dependency_count;
-    }
-
-    // Don't short-circuit to the group state since we need to execute the
-    // member's recipe to keep the dependency counts straight.
-    //
-    switch (target_state ts = t.state (false))
-    {
-    case target_state::unchanged:
-    case target_state::changed:
-      return ts;
-    default:
-      {
-        // Handle the "last" execution mode.
-        //
-        // This gets interesting when we consider interaction with
-        // groups. It seem to make sense to treat group members as
-        // dependents of the group, so, for example, if we try to
-        // clean the group via three of its members, only the last
-        // attempt will actually execute the clean. This means that
-        // when we match a group member, inside we should also match
-        // the group in order to increment the dependents count. This
-        // seems to be a natural requirement: if we are delegating to
-        // the group, we need to find a recipe for it, just like we
-        // would for a prerequisite.
-        //
-        // Note that below we are going to change the group state
-        // to postponed. This is not a mistake: until we execute
-        // the recipe, we want to keep returning postponed. And
-        // once the recipe is executed, it will reset the state
-        // to group (see group_action()). To put it another way,
-        // the execution of this member is postponed, not of the
-        // group.
-        //
-        // One important invariant to keep in mind: the return
-        // value from execute() should always be the same as what
-        // would get returned by a subsequent call to state().
-        //
-        if (current_mode == execution_mode::last && t.dependents != 0)
-          return (t.raw_state = target_state::postponed);
-
-        return execute_impl (a, t);
-      }
-    }
-  }
-
   inline target_state
   execute_delegate (const recipe& r, action a, target& t)
   {
     return r (a, t);
-  }
-
-  inline target_state
-  execute_direct (action a, target& t)
-  {
-    // Here we don't care about the counts so short-circuit state is ok.
-    //
-    switch (target_state ts = t.state ())
-    {
-    case target_state::unchanged:
-    case target_state::changed: return ts;
-    default: return execute_impl (a, t);
-    }
   }
 
   // If the first argument is NULL, then the result is treated as a boolean
