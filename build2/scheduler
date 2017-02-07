@@ -96,10 +96,10 @@ namespace build2
     // an alternative (lower) start count.
     //
     void
-    wait (size_t start_count, atomic_count& task_count);
+    wait (size_t start_count, const atomic_count& task_count);
 
     void
-    wait (atomic_count& task_count)
+    wait (const atomic_count& task_count)
     {
       wait (0, task_count);
     }
@@ -107,7 +107,7 @@ namespace build2
     // Resume threads waiting on this task count.
     //
     void
-    resume (atomic_count& task_count);
+    resume (const atomic_count& task_count);
 
     // Startup and shutdown.
     //
@@ -232,7 +232,7 @@ namespace build2
     helper (void*);
 
     void
-    suspend (size_t start_count, atomic_count& task_count);
+    suspend (size_t start_count, const atomic_count& task_count);
 
     // Task encapsulation.
     //

@@ -11,7 +11,7 @@ using namespace std;
 namespace build2
 {
   void scheduler::
-  wait (size_t start_count, atomic_count& task_count)
+  wait (size_t start_count, const atomic_count& task_count)
   {
     if (task_count <= start_count)
       return;
@@ -39,10 +39,10 @@ namespace build2
   }
 
   void scheduler::
-  suspend (size_t start_count, atomic_count& tc)
+  suspend (size_t start_count, const atomic_count& tc)
   {
     wait_slot& s (
-      wait_queue_[std::hash<atomic_count*> () (&tc) % wait_queue_size_]);
+      wait_queue_[std::hash<const atomic_count*> () (&tc) % wait_queue_size_]);
 
     // This thread is no longer active.
     //
@@ -121,13 +121,13 @@ namespace build2
   }
 
   void scheduler::
-  resume (atomic_count& tc)
+  resume (const atomic_count& tc)
   {
     if (max_active_ == 1) // Serial execution, nobody to wakeup.
       return;
 
     wait_slot& s (
-      wait_queue_[std::hash<atomic_count*> () (&tc) % wait_queue_size_]);
+      wait_queue_[std::hash<const atomic_count*> () (&tc) % wait_queue_size_]);
 
     // See suspend() for why we must hold the lock.
     //
