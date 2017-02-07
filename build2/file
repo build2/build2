@@ -172,6 +172,14 @@ namespace build2
 
   target&
   import (const prerequisite_key&);
+
+  // As above but only imports as an already existing target. Unlike the above
+  // version, this one can be called during the execute phase.
+  //
+  // Note: similar to search_existing().
+  //
+  const target*
+  import_existing (const prerequisite_key&);
 }
 
 #include <build2/file.ixx>

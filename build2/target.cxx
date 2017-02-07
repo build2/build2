@@ -304,6 +304,11 @@ namespace build2
 
     if (t == nullptr)
     {
+      // We sometimes call insert() even if we expect to find an existing
+      // target in order to keep the same code (see cc/search_library()).
+      //
+      assert (phase != run_phase::execute);
+
       pair<target*, optional<string>> te (
         tt.factory (
           tt, move (dir), move (out), move (name), move (tk.ext)));

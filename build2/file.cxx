@@ -1142,8 +1142,8 @@ namespace build2
     return names (); // Never reached.
   }
 
-  target&
-  import (const prerequisite_key& pk)
+  target*
+  import (const prerequisite_key& pk, bool existing)
   {
     tracer trace ("import");
 
@@ -1155,7 +1155,7 @@ namespace build2
     const target_key& tk (pk.tk);
     const target_type& tt (*tk.type);
 
-    // Try to find the executable in PATH (or CWD is relative).
+    // Try to find the executable in PATH (or CWD if relative).
     //
     if (tt.is_a<exe> ())
     {
@@ -1174,23 +1174,35 @@ namespace build2
         path& p (pp.effect);
         assert (!p.empty ()); // We searched for a simple name.
 
-        exe& t (
-          targets.insert<exe> (
-            tt,
-            p.directory (),
-            dir_path (),                 // No out (out of project).
-            p.leaf ().base ().string (),
-            p.extension (),              // Always specified.
-            trace));
+        exe* t (
+          !existing
+          ? &targets.insert<exe> (tt,
+                                  p.directory (),
+                                  dir_path (),    // No out (out of project).
+                                  p.leaf ().base ().string (),
+                                  p.extension (), // Always specified.
+                                  trace)
+          : targets.find<exe> (tt,
+                               p.directory (),
+                               dir_path (),
+                               p.leaf ().base ().string (),
+                               p.extension (),
+                               trace));
 
-        if (t.path ().empty ())
-          t.path (move (p));
-        else
-          assert (t.path () == p);
+        if (t != nullptr)
+        {
+          if (t->path ().empty () && !existing)
+            t->path (move (p));
+          else
+            assert (t->path () == p);
 
-        return t;
+          return t;
+        }
       }
     }
+
+    if (existing)
+      return nullptr;
 
     // @@ We no longer have location. This is especially bad for the
     //    empty case, i.e., where do I need to specify the project

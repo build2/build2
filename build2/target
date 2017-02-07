@@ -1029,6 +1029,18 @@ namespace build2
       return find (target_key {&type, &dir, &out, &name, ext}, trace);
     }
 
+    template <typename T>
+    T*
+    find (const target_type& type,
+          const dir_path& dir,
+          const dir_path& out,
+          const string& name,
+          const optional<string>& ext,
+          tracer& trace) const
+    {
+      return static_cast<T*> (find (type, dir, out, name, ext, trace));
+    }
+
     // As above but ignore the extension.
     //
     template <typename T>

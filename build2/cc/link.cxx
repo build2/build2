@@ -693,7 +693,7 @@ namespace build2
       {
         // If we need an interface value, then use the group (lib{}).
         //
-        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group.get () : &l)
         {
           const variable& var (
             com
@@ -738,7 +738,7 @@ namespace build2
       auto opt = [&cs, this] (
         const file& l, const string& t, bool com, bool exp)
       {
-        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group.get () : &l)
         {
           const variable& var (
             com

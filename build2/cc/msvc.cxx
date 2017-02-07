@@ -225,7 +225,8 @@ namespace build2
                          const prerequisite_key& p,
                          otype lt,
                          const char* pfx,
-                         const char* sfx)
+                         const char* sfx,
+                         bool exist)
     {
       // Pretty similar logic to search_library().
       //
@@ -267,7 +268,15 @@ namespace build2
       {
         // Enter the target.
         //
-        T& t (targets.insert<T> (d, dir_path (), name, e, trace));
+        auto p (targets.insert (T::static_type,
+                                d,
+                                dir_path (),
+                                name,
+                                e,
+                                true, // Implied.
+                                trace));
+        assert (!exist || !p.second);
+        T& t (static_cast<T&> (p.first));
 
         if (t.path ().empty ())
           t.path (move (f));
@@ -282,14 +291,15 @@ namespace build2
     liba* common::
     msvc_search_static (const process_path& ld,
                         const dir_path& d,
-                        const prerequisite_key& p) const
+                        const prerequisite_key& p,
+                        bool exist) const
     {
       liba* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p, this] (const char* pf, const char* sf)
-        -> bool
+      auto search = [&r, &ld, &d, &p, exist, this] (
+        const char* pf, const char* sf) -> bool
       {
-        r = msvc_search_library<liba> (x, ld, d, p, otype::a, pf, sf);
+        r = msvc_search_library<liba> (x, ld, d, p, otype::a, pf, sf, exist);
         return r != nullptr;
       };
 
@@ -309,20 +319,28 @@ namespace build2
     libs* common::
     msvc_search_shared (const process_path& ld,
                         const dir_path& d,
-                        const prerequisite_key& p) const
+                        const prerequisite_key& pk,
+                        bool exist) const
     {
       tracer trace (x, "msvc_search_shared");
 
       libs* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p, &trace, this] (
+      auto search = [&r, &ld, &d, &pk, &trace, exist, this] (
         const char* pf, const char* sf) -> bool
       {
         if (libi* i =
-              msvc_search_library<libi> (x, ld, d, p, otype::s, pf, sf))
+            msvc_search_library<libi> (x, ld, d, pk, otype::s, pf, sf, exist))
         {
-          r = &targets.insert<libs> (
-            d, dir_path (), *p.tk.name, nullopt, trace);
+          auto p (targets.insert (libs::static_type,
+                                  d,
+                                  dir_path (),
+                                  *pk.tk.name,
+                                  nullopt,
+                                  true, // Implied.
+                                  trace));
+          assert (!exist || !p.second);
+          r = static_cast<libs*> (&p.first);
 
           if (r->member == nullptr)
           {

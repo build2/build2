@@ -217,7 +217,16 @@ namespace build2
       target*
       search_library (const dir_paths&,
                       optional<dir_paths>&,
-                      const prerequisite_key&) const;
+                      const prerequisite_key&,
+                      bool existing = false) const;
+
+      const target*
+      search_library_existing (const dir_paths& sysd,
+                               optional<dir_paths>& usrd,
+                               const prerequisite_key& pk) const
+      {
+        return search_library (sysd, usrd, pk, true);
+      }
 
       dir_paths
       extract_library_dirs (const scope&) const;
@@ -237,12 +246,14 @@ namespace build2
       bin::liba*
       msvc_search_static (const process_path&,
                           const dir_path&,
-                          const prerequisite_key&) const;
+                          const prerequisite_key&,
+                          bool existing) const;
 
       bin::libs*
       msvc_search_shared (const process_path&,
                           const dir_path&,
-                          const prerequisite_key&) const;
+                          const prerequisite_key&,
+                          bool existing) const;
 
     };
   }

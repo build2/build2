@@ -422,15 +422,16 @@ namespace build2
         //
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
-        xt = search_library (sysd, usrd, pk); //@@ TM const
+        xt = search_library_existing (sysd, usrd, pk);
 
         if (xt == nullptr)
         {
           if (n.qualified ())
-            xt = &import (pk); //@@ TM const
-          else
-            fail << "unable to find library " << pk;
+            xt = import_existing (pk);
         }
+
+        if (xt == nullptr)
+          fail << "unable to find library " << pk;
       }
 
       // If this is lib{}, pick appropriate member.
@@ -448,7 +449,8 @@ namespace build2
     target* common::
     search_library (const dir_paths& sysd,
                     optional<dir_paths>& usrd,
-                    const prerequisite_key& p) const
+                    const prerequisite_key& p,
+                    bool exist) const
     {
       tracer trace (x, "search_library");
 
@@ -544,11 +546,31 @@ namespace build2
       path f; // Reuse the buffer.
       const dir_path* pd (nullptr);
 
+      // Insert a target verifying that it already exists if requested.
+      //
+      auto insert = [&name, exist, &trace] (auto*& r,
+                                            const dir_path& d,
+                                            optional<string> ext)
+      {
+        using T = typename std::remove_reference<decltype (*r)>::type;
+
+        auto p (targets.insert (T::static_type,
+                                d,
+                                dir_path (),
+                                name,
+                                move (ext),
+                                true, // Implied.
+                                trace));
+
+        assert (!exist || !p.second);
+        r = static_cast<T*> (&p.first);
+      };
+
       auto search =[&a, &s,
                     &an, &ae,
                     &sn, &se,
                     &name, ext,
-                    &p, &f, &trace, this] (const dir_path& d) -> bool
+                    &p, &f, &insert, exist, this] (const dir_path& d) -> bool
       {
         timestamp mt;
 
@@ -571,17 +593,17 @@ namespace build2
             //
             if (tclass == "windows")
             {
-              s = &targets.insert<libs> (d, dir_path (), name, nullopt, trace);
+              insert (s, d, nullopt);
 
               if (s->member == nullptr)
               {
-                libi& i (
-                  targets.insert<libi> (d, dir_path (), name, se, trace));
+                libi* i;
+                insert (i, d, se);
 
-                if (i.path ().empty ())
-                  i.path (move (f));
+                if (i->path ().empty ())
+                  i->path (move (f));
 
-                i.mtime (mt);
+                i->mtime (mt);
 
                 // Presumably there is a DLL somewhere, we just don't know
                 // where (and its possible we might have to look for one if we
@@ -590,12 +612,12 @@ namespace build2
                 // but valid timestamp (aka "trust me, it's there").
                 //
                 s->mtime (mt);
-                s->member = &i;
+                s->member = i;
               }
             }
             else
             {
-              s = &targets.insert<libs> (d, dir_path (), name, se, trace);
+              insert (s, d, se);
 
               if (s->path ().empty ())
                 s->path (move (f));
@@ -617,7 +639,7 @@ namespace build2
 
             if (mt != timestamp_nonexistent)
             {
-              s = &targets.insert<libs> (d, dir_path (), name, se, trace);
+              insert (s, d, se);
 
               if (s->path ().empty ())
                 s->path (move (f));
@@ -644,7 +666,7 @@ namespace build2
             // Note that this target is outside any project which we treat
             // as out trees.
             //
-            a = &targets.insert<liba> (d, dir_path (), name, ae, trace);
+            insert (a, d, ae);
 
             if (a->path ().empty ())
               a->path (move (f));
@@ -661,10 +683,10 @@ namespace build2
           const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
 
           if (s == nullptr && !sn.empty ())
-            s = msvc_search_shared (ld, d, p);
+            s = msvc_search_shared (ld, d, p, exist);
 
           if (a == nullptr && !an.empty ())
-            a = msvc_search_static (ld, d, p);
+            a = msvc_search_static (ld, d, p, exist);
         }
 
         return a != nullptr || s != nullptr;
@@ -704,6 +726,62 @@ namespace build2
 
       if (pd == nullptr)
         return nullptr;
+
+      // Enter (or find) the lib{} target group. Note that we must be careful
+      // here since its possible we have already imported some of its members.
+      //
+      lib* lt;
+      insert (lt, *pd, l ? p.tk.ext : nullopt);
+
+      // It should automatically link-up to the members we have found.
+      //
+      assert (a == nullptr || lt->a == a);
+      assert (s == nullptr || lt->s == s);
+
+      // Update the bin.lib variable to indicate what's available. Assume
+      // already done if existing.
+      //
+      if (!exist)
+      {
+        const char* bl (lt->a != nullptr
+                        ? (lt->s != nullptr ? "both" : "static")
+                        : "shared");
+        lt->assign (var_pool["bin.lib"]) = bl;
+      }
+
+      target* r (l ? lt : (p.is_a<liba> () ? static_cast<target*> (a) : s));
+
+      // Mark as a "cc" library (unless already marked) and set the system
+      // flag.
+      //
+      auto mark_cc = [sys, this] (target& t) -> bool
+      {
+        auto p (t.vars.insert (c_type));
+
+        if (p.second)
+        {
+          p.first.get () = string ("cc");
+
+          if (sys)
+            t.vars.assign (c_system) = true;
+        }
+
+        return p.second;
+      };
+
+      // If the library already has cc.type, then assume it was either already
+      // imported or was matched by a rule.
+      //
+      // Assume already done if existing.
+      //
+      if (!exist)
+      {
+        if (a != nullptr && !mark_cc (*a))
+          a = nullptr;
+
+        if (s != nullptr && !mark_cc (*s))
+          s = nullptr;
+      }
 
       // Add the "using static/shared library" macro (used, for example, to
       // handle DLL export). The absence of either of these macros would mean
@@ -754,55 +832,9 @@ namespace build2
         }
       };
 
-      // Enter (or find) the lib{} target group. Note that we must be careful
-      // here since its possible we have already imported some of its members.
+      // Assume already done if existing.
       //
-      lib& lt (
-        targets.insert<lib> (
-          *pd, dir_path (), name, l ? p.tk.ext : nullopt, trace));
-
-      // It should automatically link-up to the members we have found.
-      //
-      assert (a == nullptr || lt.a == a);
-      assert (s == nullptr || lt.s == s);
-
-      // Update the bin.lib variable to indicate what's available.
-      //
-      const char* bl (lt.a != nullptr
-                      ? (lt.s != nullptr ? "both" : "static")
-                      : "shared");
-      lt.assign (var_pool["bin.lib"]) = bl;
-
-      target* r (l ? &lt : (p.is_a<liba> () ? static_cast<target*> (a) : s));
-
-      // Mark as a "cc" library (unless already marked) and set the system
-      // flag.
-      //
-      auto mark_cc = [sys, this] (target& t) -> bool
-      {
-        auto p (t.vars.insert (c_type));
-
-        if (p.second)
-        {
-          p.first.get () = string ("cc");
-
-          if (sys)
-            t.vars.assign (c_system) = true;
-        }
-
-        return p.second;
-      };
-
-      // If the library already has cc.type, then assume it was either already
-      // imported or was matched by a rule.
-      //
-      if (a != nullptr && !mark_cc (*a))
-        a = nullptr;
-
-      if (s != nullptr && !mark_cc (*s))
-        s = nullptr;
-
-      if (a != nullptr || s != nullptr)
+      if (!exist && (a != nullptr || s != nullptr))
       {
         // Try to extract library information from pkg-config. We only add the
         // default macro if we could not extract more precise information. The
@@ -810,7 +842,7 @@ namespace build2
         // macros (or custom ones) from *.export.poptions.
         //
         if (pkgconfig == nullptr ||
-            !pkgconfig_extract (*p.scope, lt, a, s, p.proj, name, *pd, sysd))
+            !pkgconfig_extract (*p.scope, *lt, a, s, p.proj, name, *pd, sysd))
         {
           if (a != nullptr) add_macro (*a, "STATIC");
           if (s != nullptr) add_macro (*s, "SHARED");
