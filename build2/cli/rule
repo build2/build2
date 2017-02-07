@@ -26,10 +26,10 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       static target_state
-      perform_update (action, target&);
+      perform_update (action, const target&);
 
       static target_state
-      perform_clean (action, target&);
+      perform_clean (action, const target&);
     };
   }
 }

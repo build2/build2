@@ -71,10 +71,9 @@ namespace build2
     const optional<string> ext; // Absent if unspecified.
     const scope_type& scope;
 
-    target_type* target;        // NULL if not yet resolved. Note that this
-                                // should always be the "primary target", not
-                                // a member of a target group.
-
+    const_ptr<target_type> target; // NULL if not yet resolved. Note that this
+                                   // should always be the "primary target",
+                                   // not a member of a target group.
   public:
     prerequisite (optional<string> p,
                   const target_type_type& t,

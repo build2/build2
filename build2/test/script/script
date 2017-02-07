@@ -511,8 +511,8 @@ namespace build2
       class script: public script_base, public group
       {
       public:
-        script (target& test_target,
-                testscript& script_target,
+        script (const target& test_target,
+                const testscript& script_target,
                 const dir_path& root_wd);
 
         script (script&&) = delete;
@@ -521,8 +521,8 @@ namespace build2
         script& operator= (const script&) = delete;
 
       public:
-        target& test_target;       // Target we are testing.
-        testscript& script_target; // Target of the testscript file.
+        const target& test_target;       // Target we are testing.
+        const testscript& script_target; // Target of the testscript file.
 
         // Pre-parse data.
         //

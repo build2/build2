@@ -7,7 +7,7 @@ namespace build2
   namespace cc
   {
     inline otype
-    compile_type (target& t)
+    compile_type (const target& t)
     {
       return
         t.is_a<bin::obje> () ? otype::e :
@@ -16,7 +16,7 @@ namespace build2
     }
 
     inline otype
-    link_type (target& t)
+    link_type (const target& t)
     {
       return
         t.is_a<exe> ()       ? otype::e :

@@ -133,11 +133,11 @@ namespace build2
     // Execute collecting postponed targets (to be re-examined later).
     // Do it in reverse order if the execution mode is 'last'.
     //
-    vector<reference_wrapper<target>> psp;
+    vector<reference_wrapper<const target>> psp;
 
-    auto body = [a, quiet, &psp, &trace] (void* v)
+    auto body = [a, quiet, &psp, &trace] (const void* v)
     {
-      target& t (*static_cast<target*> (v));
+      const target& t (*static_cast<const target*> (v));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
@@ -162,9 +162,9 @@ namespace build2
     };
 
     if (current_mode == execution_mode::first)
-      for (void* v: ts) body (v);
+      for (const void* v: ts) body (v);
     else
-      for (void* v: reverse_iterate (ts)) body (v);
+      for (const void* v: reverse_iterate (ts)) body (v);
 
     // We should have executed every target that we matched.
     //
@@ -175,7 +175,7 @@ namespace build2
     //
     // Note: must be serial.
     //
-    for (target& t: psp)
+    for (const target& t: psp)
     {
       switch (execute (a, t))
       {

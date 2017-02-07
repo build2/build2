@@ -500,7 +500,7 @@ namespace build2
       // script
       //
       script::
-      script (target& tt, testscript& st, const dir_path& rwd)
+      script (const target& tt, const testscript& st, const dir_path& rwd)
           : group (st.name == "testscript" ? string () : st.name),
             test_target (tt),
             script_target (st)
@@ -522,7 +522,7 @@ namespace build2
 
           // Note that we have similar code for simple tests.
           //
-          target* t (nullptr);
+          const target* t (nullptr);
 
           if (l.defined ())
           {

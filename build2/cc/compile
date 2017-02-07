@@ -33,17 +33,23 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       target_state
-      perform_update (action, target&) const;
+      perform_update (action, const target&) const;
 
       target_state
-      perform_clean (action, target&) const;
+      perform_clean (action, const target&) const;
 
     private:
       void
-      append_lib_options (const scope&, cstrings&, target&, lorder) const;
+      append_lib_options (const scope&,
+                          cstrings&,
+                          const target&,
+                          lorder) const;
 
       void
-      hash_lib_options (const scope&, sha256&, target&, lorder) const;
+      hash_lib_options (const scope&,
+                        sha256&,
+                        const target&,
+                        lorder) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -58,7 +64,7 @@ namespace build2
       using prefix_map = butl::dir_path_map<dir_path>;
 
       void
-      append_prefixes (prefix_map&, target&, const variable&) const;
+      append_prefixes (prefix_map&, const target&, const variable&) const;
 
       void
       append_lib_prefixes (const scope&, prefix_map&, target&, lorder) const;

@@ -22,7 +22,7 @@ namespace build2
       obj* o (targets.find<obj> (dir, out, n));
       obje* e (new obje (move (dir), move (out), move (n)));
 
-      if ((e->group = o))
+      if ((e->group = o) != nullptr)
         o->e = e;
 
       return make_pair (e, move (ext));
@@ -49,7 +49,7 @@ namespace build2
       obj* o (targets.find<obj> (dir, out, n));
       obja* a (new obja (move (dir), move (out), move (n)));
 
-      if ((a->group = o))
+      if ((a->group = o) != nullptr)
         o->a = a;
 
       return make_pair (a, move (ext));
@@ -76,7 +76,7 @@ namespace build2
       obj* o (targets.find<obj> (dir, out, n));
       objs* s (new objs (move (dir), move (out), move (n)));
 
-      if ((s->group = o))
+      if ((s->group = o) != nullptr)
         o->s = s;
 
       return make_pair (s, move (ext));
@@ -106,13 +106,13 @@ namespace build2
 
       obj* o (new obj (move (dir), move (out), move (n)));
 
-      if ((o->e = e))
+      if ((o->e = e) != nullptr)
         e->group = o;
 
-      if ((o->a = a))
+      if ((o->a = a)!= nullptr)
         a->group = o;
 
-      if ((o->s = s))
+      if ((o->s = s)!= nullptr)
         s->group = o;
 
       return make_pair (o, move (ext));
@@ -141,7 +141,7 @@ namespace build2
       lib* l (t == liba::static_type ? targets.find<lib> (d, o, n) : nullptr);
       liba* a (new liba (move (d), move (o), move (n)));
 
-      if ((a->group = l))
+      if ((a->group = l) != nullptr)
         l->a = a;
 
       return make_pair (a, move (ext));
@@ -182,7 +182,7 @@ namespace build2
       lib* l (t == libs::static_type ? targets.find<lib> (d, o, n) : nullptr);
       libs* s (new libs (move (d), move (o), move (n)));
 
-      if ((s->group = l))
+      if ((s->group = l) != nullptr)
         l->s = s;
 
       return make_pair (s, move (ext));
@@ -222,10 +222,10 @@ namespace build2
 
       lib* l (new lib (move (d), move (o), move (n)));
 
-      if ((l->a = a))
+      if ((l->a = a) != nullptr)
         a->group = l;
 
-      if ((l->s = s))
+      if ((l->s = s) != nullptr)
         s->group = l;
 
       return make_pair (l, move (ext));

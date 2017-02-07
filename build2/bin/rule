@@ -38,7 +38,7 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       static target_state
-      perform (action, target&);
+      perform (action, const target&);
     };
   }
 }

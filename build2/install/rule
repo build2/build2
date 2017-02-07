@@ -53,12 +53,12 @@ namespace build2
       using install_dir = install::install_dir;
 
       virtual void
-      install_extra (file&, const install_dir&) const;
+      install_extra (const file&, const install_dir&) const;
 
       // Return true if anything was uninstalled.
       //
       virtual bool
-      uninstall_extra (file&, const install_dir&) const;
+      uninstall_extra (const file&, const install_dir&) const;
 
       // Installation "commands".
       //
@@ -84,16 +84,16 @@ namespace build2
       //
       static bool
       uninstall_f (const install_dir& base,
-                   file* t,
+                   const file* t,
                    const path& name,
                    bool verbose);
 
     private:
       target_state
-      perform_install (action, target&) const;
+      perform_install (action, const target&) const;
 
       target_state
-      perform_uninstall (action, target&) const;
+      perform_uninstall (action, const target&) const;
     };
   }
 }

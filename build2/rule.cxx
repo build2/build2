@@ -163,7 +163,7 @@ namespace build2
   }
 
   target_state fsdir_rule::
-  perform_update (action a, target& t)
+  perform_update (action a, const target& t)
   {
     target_state ts (target_state::unchanged);
 
@@ -203,7 +203,7 @@ namespace build2
   }
 
   target_state fsdir_rule::
-  perform_clean (action a, target& t)
+  perform_clean (action a, const target& t)
   {
     // The reverse order of update: first delete this directory,
     // then clean prerequisites (e.g., delete parent directories).

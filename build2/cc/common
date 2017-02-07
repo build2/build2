@@ -184,18 +184,16 @@ namespace build2
       //
     public:
       void
-      process_libraries (const scope&,
-                         lorder,
-                         const dir_paths&,
-                         file&,
-                         bool,
-                         const function<bool (file&, bool)>&,
-                         const function<void (file*, const string&, bool)>&,
-                         const function<void (file&,
-                                              const string&,
-                                              bool,
-                                              bool)>&,
-                         bool = false) const;
+      process_libraries (
+        const scope&,
+        lorder,
+        const dir_paths&,
+        const file&,
+        bool,
+        const function<bool (const file&, bool)>&,
+        const function<void (const file*, const string&, bool)>&,
+        const function<void (const file&, const string&, bool, bool)>&,
+        bool = false) const;
 
       target*
       search_library (const dir_paths& sysd,
@@ -209,7 +207,7 @@ namespace build2
       }
 
     private:
-      file&
+      const file&
       resolve_library (const scope&,
                        name,
                        lorder,

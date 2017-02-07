@@ -173,7 +173,7 @@ namespace build2
     if (auto p = vars.find (var))
       r.first = lookup (p, &vars);
 
-    target* g (nullptr);
+    const target* g (nullptr);
 
     if (!r.first)
     {

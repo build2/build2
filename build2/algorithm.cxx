@@ -63,7 +63,7 @@ namespace build2
                    n.proj);
   }
 
-  target*
+  const target*
   search_existing (const name& cn, const scope& s, const dir_path& out)
   {
     assert (phase == run_phase::search_match || phase == run_phase::execute);
@@ -422,8 +422,10 @@ namespace build2
   }
 
   target_state
-  execute (action a, target& t)
+  execute (action a, const target& ct)
   {
+    target& t (const_cast<target&> (ct)); // MT-aware.
+
     // text << "E " << t << ": " << t.dependents << " " << dependency_count;
 
     size_t d (0);
@@ -494,8 +496,10 @@ namespace build2
   }
 
   target_state
-  execute_direct (action a, target& t)
+  execute_direct (action a, const target& ct)
   {
+    target& t (const_cast<target&> (ct)); // MT-aware.
+
     size_t tc (target::count_unexecuted);
     if (t.task_count.compare_exchange_strong (tc, target::count_executing))
       return execute_impl (a, t);
@@ -515,11 +519,11 @@ namespace build2
   }
 
   target_state
-  execute_prerequisites (action a, target& t)
+  execute_prerequisites (action a, const target& t)
   {
     target_state r (target_state::unchanged);
 
-    for (target* pt: t.prerequisite_targets)
+    for (const target* pt: t.prerequisite_targets)
     {
       if (pt == nullptr) // Skipped.
         continue;
@@ -531,11 +535,11 @@ namespace build2
   }
 
   target_state
-  reverse_execute_prerequisites (action a, target& t)
+  reverse_execute_prerequisites (action a, const target& t)
   {
     target_state r (target_state::unchanged);
 
-    for (target* pt: reverse_iterate (t.prerequisite_targets))
+    for (const target* pt: reverse_iterate (t.prerequisite_targets))
     {
       if (pt == nullptr) // Skipped.
         continue;
@@ -546,17 +550,17 @@ namespace build2
     return r;
   }
 
-  pair<target*, target_state>
+  pair<const target*, target_state>
   execute_prerequisites (const target_type* tt,
-                         action a, target& t,
+                         action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     bool e (mt == timestamp_nonexistent);
 
-    target* rt (tt != nullptr ? nullptr : &t);
+    const target* rt (tt != nullptr ? nullptr : &t);
     target_state rs (target_state::unchanged);
 
-    for (target* pt: t.prerequisite_targets)
+    for (const target* pt: t.prerequisite_targets)
     {
       if (pt == nullptr) // Skip ignored.
         continue;
@@ -598,7 +602,7 @@ namespace build2
   }
 
   target_state
-  noop_action (action a, target& t)
+  noop_action (action a, const target& t)
   {
     text << "noop action triggered for " << diag_doing (a, t);
     assert (false); // We shouldn't be called, see target::recipe().
@@ -606,12 +610,13 @@ namespace build2
   }
 
   target_state
-  group_action (action a, target& t)
+  group_action (action a, const target& t)
   {
     // If the group is busy, we wait, similar to prerequisites.
     //
-    if (execute (a, *t.group) == target_state::busy)
-      sched.wait (target::count_executed, t.group->task_count);
+    const target& g (*t.group);
+    if (execute (a, g) == target_state::busy)
+      sched.wait (target::count_executed, g.task_count);
 
     // Indicate to execute() that this target's state comes from the group.
     //
@@ -619,7 +624,7 @@ namespace build2
   }
 
   target_state
-  default_action (action a, target& t)
+  default_action (action a, const target& t)
   {
     return current_mode == execution_mode::first
       ? execute_prerequisites (a, t)
@@ -628,7 +633,7 @@ namespace build2
 
   target_state
   clean_extra (action a,
-               file& ft,
+               const file& ft,
                initializer_list<initializer_list<const char*>> extra)
   {
     // Clean the extras first and don't print the commands at verbosity level
@@ -639,7 +644,8 @@ namespace build2
     bool ed (false);
     path ep;
 
-    auto clean = [&er, &ed, &ep] (file& f, initializer_list<const char*> es)
+    auto clean = [&er, &ed, &ep] (const file& f,
+                                  initializer_list<const char*> es)
     {
       for (const char* e: es)
       {
@@ -713,9 +719,9 @@ namespace build2
 
     // Now clean the ad hoc group file members, if any.
     //
-    for (target* m (ft.member); m != nullptr; m = m->member)
+    for (const target* m (ft.member); m != nullptr; m = m->member)
     {
-      file* fm (dynamic_cast<file*> (m));
+      const file* fm (dynamic_cast<const file*> (m));
 
       if (fm == nullptr || fm->path ().empty ())
         continue;
@@ -776,14 +782,14 @@ namespace build2
   }
 
   target_state
-  perform_clean (action a, target& t)
+  perform_clean (action a, const target& t)
   {
-    return clean_extra (a, dynamic_cast<file&> (t), {nullptr});
+    return clean_extra (a, dynamic_cast<const file&> (t), {nullptr});
   }
 
   target_state
-  perform_clean_depdb (action a, target& t)
+  perform_clean_depdb (action a, const target& t)
   {
-    return clean_extra (a, dynamic_cast<file&> (t), {".d"});
+    return clean_extra (a, dynamic_cast<const file&> (t), {".d"});
   }
 }

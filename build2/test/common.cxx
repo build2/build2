@@ -55,7 +55,7 @@ namespace build2
     }
 
     bool common::
-    pass (target& a) const
+    pass (const target& a) const
     {
       if (test_ == nullptr)
         return true;
@@ -95,7 +95,7 @@ namespace build2
     }
 
     bool common::
-    test (target& t) const
+    test (const target& t) const
     {
       if (test_ == nullptr)
         return true;
@@ -159,7 +159,7 @@ namespace build2
     }
 
     bool common::
-    test (target& t, const path& id) const
+    test (const target& t, const path& id) const
     {
       if (test_ == nullptr)
         return true;

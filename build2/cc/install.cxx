@@ -66,17 +66,35 @@ namespace build2
       // ones building this target. So first run link's match().
       //
       match_result r (link_.match (ml, a, t, hint));
-      return r ? install::file_rule::match (ml, a, t, "") : r;
+      return r ? file_rule::match (ml, a, t, "") : r;
+    }
+
+    recipe install::
+    apply (slock& s, action a, target& t) const
+    {
+      recipe r (file_rule::apply (s, a, t));
+
+      // Derive shared library paths and cache them in the target's aux
+      // storage if we are (un)installing (used in *_extra() functions below).
+      //
+      if (a.operation () == install_id || a.operation () == uninstall_id)
+      {
+        file* f;
+        if ((f = t.is_a<libs> ()) != nullptr && tclass != "windows")
+          t.data (link_.derive_libs_paths (*f));
+      }
+
+      return r;
     }
 
     void install::
-    install_extra (file& t, const install_dir& id) const
+    install_extra (const file& t, const install_dir& id) const
     {
       if (t.is_a<libs> () && tclass != "windows")
       {
         // Here we may have a bunch of symlinks that we need to install.
         //
-        link::libs_paths lp (link_.derive_libs_paths (t));
+        auto& lp (t.data<link::libs_paths> ());
 
         auto ln = [&id, this] (const path& f, const path& l)
         {
@@ -87,7 +105,7 @@ namespace build2
         const path& so (lp.soname);
         const path& in (lp.interm);
 
-        const path* f (lp.real);
+        const path* f (&lp.real);
 
         if (!in.empty ()) {ln (*f, in); f = &in;}
         if (!so.empty ()) {ln (*f, so); f = &so;}
@@ -96,7 +114,7 @@ namespace build2
     }
 
     bool install::
-    uninstall_extra (file& t, const install_dir& id) const
+    uninstall_extra (const file& t, const install_dir& id) const
     {
       bool r (false);
 
@@ -104,7 +122,7 @@ namespace build2
       {
         // Here we may have a bunch of symlinks that we need to uninstall.
         //
-        link::libs_paths lp (link_.derive_libs_paths (t));
+        auto& lp (t.data<link::libs_paths> ());
 
         auto rm = [&id, this] (const path& l)
         {

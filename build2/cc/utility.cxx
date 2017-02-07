@@ -38,6 +38,37 @@ namespace build2
         : v.size () > 1 && v[1] == "shared" ? lorder::a_s : lorder::a;
     }
 
+    const target&
+    link_member (const bin::lib& l, lorder lo)
+    {
+      bool ls (true);
+      const string& at (cast<string> (l["bin.lib"])); // Available members.
+
+      switch (lo)
+      {
+      case lorder::a:
+      case lorder::a_s:
+        ls = false; // Fall through.
+      case lorder::s:
+      case lorder::s_a:
+        {
+          if (ls ? at == "static" : at == "shared")
+          {
+            if (lo == lorder::a_s || lo == lorder::s_a)
+              ls = !ls;
+            else
+              assert (false);
+          }
+        }
+      }
+
+      target* r (ls ? static_cast<target*> (l.s) : l.a);
+
+      assert (r != nullptr);
+
+      return *r;
+    }
+
     target&
     link_member (bin::lib& l, lorder lo)
     {

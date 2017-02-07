@@ -173,7 +173,7 @@ namespace build2
   }
 
   inline target_state
-  execute_delegate (const recipe& r, action a, target& t)
+  execute_delegate (const recipe& r, action a, const target& t)
   {
     return r (a, t);
   }
@@ -181,13 +181,13 @@ namespace build2
   // If the first argument is NULL, then the result is treated as a boolean
   // value.
   //
-  pair<target*, target_state>
+  pair<const target*, target_state>
   execute_prerequisites (const target_type*,
-                         action, target&,
+                         action, const target&,
                          const timestamp&, const prerequisite_filter&);
 
   inline pair<bool, target_state>
-  execute_prerequisites (action a, target& t,
+  execute_prerequisites (action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     auto p (execute_prerequisites (nullptr, a, t, mt, pf));
@@ -195,29 +195,29 @@ namespace build2
   }
 
   template <typename T>
-  inline pair<T*, target_state>
-  execute_prerequisites (action a, target& t,
+  inline pair<const T*, target_state>
+  execute_prerequisites (action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     auto p (execute_prerequisites (T::static_type, a, t, mt, pf));
-    return make_pair (static_cast<T*> (p.first), p.second);
+    return make_pair (static_cast<const T*> (p.first), p.second);
   }
 
-  inline pair<target*, target_state>
+  inline pair<const target*, target_state>
   execute_prerequisites (const target_type& tt,
-                         action a, target& t,
+                         action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     return execute_prerequisites (&tt, a, t, mt, pf);
   }
 
   template <typename T>
-  inline pair<T*, target_state>
+  inline pair<const T*, target_state>
   execute_prerequisites (const target_type& tt,
-                         action a, target& t,
+                         action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     auto p (execute_prerequisites (tt, a, t, mt, pf));
-    return make_pair (static_cast<T*> (p.first), p.second);
+    return make_pair (static_cast<const T*> (p.first), p.second);
   }
 }

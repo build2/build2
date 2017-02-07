@@ -30,11 +30,14 @@ namespace build2
       virtual match_result
       match (slock&, action, target&, const string&) const override;
 
+      virtual recipe
+      apply (slock&, action, target&) const override;
+
       virtual void
-      install_extra (file&, const install_dir&) const override;
+      install_extra (const file&, const install_dir&) const override;
 
       virtual bool
-      uninstall_extra (file&, const install_dir&) const override;
+      uninstall_extra (const file&, const install_dir&) const override;
 
     private:
       const link& link_;

@@ -39,7 +39,7 @@ namespace build2
     // file corresponding to the exe{} target. Return the manifest file path.
     //
     path link::
-    windows_manifest (file& t, bool rpath_assembly) const
+    windows_manifest (const file& t, bool rpath_assembly) const
     {
       tracer trace (x, "windows_manifest");
 

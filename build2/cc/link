@@ -31,10 +31,10 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       target_state
-      perform_update (action, target&) const;
+      perform_update (action, const target&) const;
 
       target_state
-      perform_clean (action, target&) const;
+      perform_clean (action, const target&) const;
 
     private:
       friend class install;
@@ -50,19 +50,16 @@ namespace build2
         // The libs{} path is always the real path. On Windows the link path
         // is the import library.
         //
-        // @@ TODO: change real to reference, make other const once cache the
-        // object.
-        //
-              path  link;   // What we link: libfoo.so
-              path  soname; // SONAME:       libfoo-1.so, libfoo.so.1
-              path  interm; // Intermediate: libfoo.so.1.2
-        const path* real;   // Real:         libfoo.so.1.2.3
+        const path  link;   // What we link: libfoo.so
+        const path  soname; // SONAME:       libfoo-1.so, libfoo.so.1
+        const path  interm; // Intermediate: libfoo.so.1.2
+        const path& real;   // Real:         libfoo.so.1.2.3
 
         inline const path&
         effect_link () const {return link.empty () ? effect_soname () : link;}
 
         inline const path&
-        effect_soname () const {return soname.empty () ? *real : soname;}
+        effect_soname () const {return soname.empty () ? real : soname;}
       };
 
       libs_paths
@@ -71,13 +68,21 @@ namespace build2
       // Library handling.
       //
       void
-      append_libraries (strings&, file&, bool, const scope&, lorder) const;
+      append_libraries (strings&,
+                        const file&, bool,
+                        const scope&, lorder) const;
 
       void
-      hash_libraries (sha256&, file&, bool, const scope&, lorder) const;
+      hash_libraries (sha256&,
+                      const file&, bool,
+                      const scope&, lorder) const;
 
       void
-      rpath_libraries (strings&, target&, const scope&, lorder, bool) const;
+      rpath_libraries (strings&,
+                       const target&,
+                       const scope&,
+                       lorder,
+                       bool) const;
 
       // Windows rpath emulation (windows-rpath.cxx).
       //
@@ -93,13 +98,13 @@ namespace build2
       using windows_dlls = std::set<windows_dll>;
 
       timestamp
-      windows_rpath_timestamp (file&, const scope&, lorder) const;
+      windows_rpath_timestamp (const file&, const scope&, lorder) const;
 
       windows_dlls
-      windows_rpath_dlls (file&, const scope&, lorder) const;
+      windows_rpath_dlls (const file&, const scope&, lorder) const;
 
       void
-      windows_rpath_assembly (file&, const scope&, lorder,
+      windows_rpath_assembly (const file&, const scope&, lorder,
                               const string&,
                               timestamp,
                               bool) const;
@@ -107,7 +112,7 @@ namespace build2
       // Windows-specific (windows-manifest.cxx).
       //
       path
-      windows_manifest (file&, bool rpath_assembly) const;
+      windows_manifest (const file&, bool rpath_assembly) const;
 
     private:
       const string rule_id;

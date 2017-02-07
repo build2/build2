@@ -25,18 +25,18 @@ namespace build2
       // prerequisites.
       //
       bool
-      pass (target& alias_target) const;
+      pass (const target& alias_target) const;
 
       // Return true if the specified target should be tested.
       //
       bool
-      test (target& test_target) const;
+      test (const target& test_target) const;
 
       // Return true if the specified target should be tested with the
       // specified testscript test (or group).
       //
       bool
-      test (target& test_target, const path& id_path) const;
+      test (const target& test_target, const path& id_path) const;
     };
   }
 }

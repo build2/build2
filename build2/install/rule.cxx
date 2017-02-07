@@ -129,7 +129,8 @@ namespace build2
     apply (slock& ml, action a, target& t) const
     {
       match_data md (move (t.data<match_data> ()));
-      t.clear_data (); // In case delegated-to rule also uses aux storage.
+      t.clear_data (); // In case delegated-to rule (or the rule that overrides
+                       // us; see cc/install) also uses aux storage.
 
       if (!md.install) // Not installable.
         return noop_recipe;
@@ -220,8 +221,8 @@ namespace build2
         // Ok, the worst case scenario: we need to cause update of
         // prerequisite targets and also delegate to the real update.
         //
-        return [pt = move (p), dr = move (d)]
-          (action a, target& t) mutable -> target_state
+        return [pt = move (p), dr = move (d)] (
+          action a, const target& t) mutable -> target_state
         {
           // Do the target update first.
           //
@@ -237,16 +238,22 @@ namespace build2
         };
       }
       else if (a.operation () == install_id)
-        return [this] (action a, target& t) {return perform_install (a, t);};
+        return [this] (action a, const target& t)
+        {
+          return perform_install (a, t);
+        };
       else
-        return [this] (action a, target& t) {return perform_uninstall (a, t);};
+        return [this] (action a, const target& t)
+        {
+          return perform_uninstall (a, t);
+        };
     }
 
     void file_rule::
-    install_extra (file&, const install_dir&) const {}
+    install_extra (const file&, const install_dir&) const {}
 
     bool file_rule::
-    uninstall_extra (file&, const install_dir&) const {return false;}
+    uninstall_extra (const file&, const install_dir&) const {return false;}
 
     struct install_dir
     {
@@ -279,7 +286,7 @@ namespace build2
     //
     static install_dir&
     resolve_subdir (install_dirs& rs,
-                    target& t,
+                    const target& t,
                     const scope& s,
                     const lookup& l)
     {
@@ -310,7 +317,7 @@ namespace build2
     // all the super-directories leading up to the destination (last).
     //
     static install_dirs
-    resolve (target& t, dir_path d, const string* var = nullptr)
+    resolve (const target& t, dir_path d, const string* var = nullptr)
     {
       install_dirs rs;
 
@@ -498,7 +505,7 @@ namespace build2
     static void
     install_f (const install_dir& base,
                const path& name,
-               file& t,
+               const file& t,
                bool verbose)
     {
       path relf (relative (t.path ()));
@@ -605,12 +612,12 @@ namespace build2
     }
 
     target_state file_rule::
-    perform_install (action a, target& xt) const
+    perform_install (action a, const target& xt) const
     {
-      file& t (static_cast<file&> (xt));
+      const file& t (static_cast<const file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto install_target = [this] (file& t, const path& p, bool verbose)
+      auto install_target = [this] (const file& t, const path& p, bool verbose)
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
@@ -653,10 +660,10 @@ namespace build2
 
       // Then installable ad hoc group members, if any.
       //
-      for (target* m (t.member); m != nullptr; m = m->member)
+      for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          install_target (static_cast<file&> (*m), *p, false);
+          install_target (static_cast<const file&> (*m), *p, false);
       }
 
       // Finally install the target itself (since we got here we know the
@@ -777,7 +784,7 @@ namespace build2
 
     bool file_rule::
     uninstall_f (const install_dir& base,
-                 file* t,
+                 const file* t,
                  const path& name,
                  bool verbose)
     {
@@ -863,13 +870,13 @@ namespace build2
     }
 
     target_state file_rule::
-    perform_uninstall (action a, target& xt) const
+    perform_uninstall (action a, const target& xt) const
     {
-      file& t (static_cast<file&> (xt));
+      const file& t (static_cast<const file&> (xt));
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto uninstall_target = [this] (file& t, const path& p, bool verbose)
-        -> target_state
+      auto uninstall_target = [this] (
+        const file& t, const path& p, bool verbose) -> target_state
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
@@ -920,10 +927,10 @@ namespace build2
       // we would have to do it in reverse, but that's not easy (it's a
       // single-linked list).
       //
-      for (target* m (t.member); m != nullptr; m = m->member)
+      for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          r |= uninstall_target (static_cast<file&> (*m),
+          r |= uninstall_target (static_cast<const file&> (*m),
                                  *p,
                                  r != target_state::changed);
       }

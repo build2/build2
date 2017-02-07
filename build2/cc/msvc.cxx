@@ -69,7 +69,7 @@ namespace build2
         //
         if (lt == otype::s && l.compare (0, 3, "   ") == 0)
         {
-          path imp (static_cast<file*> (t.member)->path ().leaf ());
+          path imp (static_cast<const file&> (*t.member).path ().leaf ());
 
           if (l.find (imp.string ()) != string::npos &&
               l.find (imp.base ().string () + ".exp") != string::npos)

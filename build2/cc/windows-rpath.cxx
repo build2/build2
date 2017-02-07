@@ -46,16 +46,16 @@ namespace build2
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
     timestamp link::
-    windows_rpath_timestamp (file& t, const scope& bs, lorder lo) const
+    windows_rpath_timestamp (const file& t, const scope& bs, lorder lo) const
     {
       timestamp r (timestamp_nonexistent);
 
       // We need to collect all the DLLs, so go into implementation of both
       // shared and static (in case they depend on shared).
       //
-      auto imp = [] (file&, bool) {return true;};
+      auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (file* l, const string& f, bool sys)
+      auto lib = [&r] (const file* l, const string& f, bool sys)
       {
         // We don't rpath system libraries.
         //
@@ -97,10 +97,10 @@ namespace build2
           r = t;
       };
 
-      for (target* pt: t.prerequisite_targets)
+      for (const target* pt: t.prerequisite_targets)
       {
-        file* f;
-        liba* a;
+        const file* f;
+        const liba* a;
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
@@ -116,15 +116,15 @@ namespace build2
     // duplicates).
     //
     auto link::
-    windows_rpath_dlls (file& t,
+    windows_rpath_dlls (const file& t,
                         const scope& bs,
                         lorder lo) const -> windows_dlls
     {
       windows_dlls r;
 
-      auto imp = [] (file&, bool) {return true;};
+      auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (file* l, const string& f, bool sys)
+      auto lib = [&r] (const file* l, const string& f, bool sys)
       {
         if (sys)
           return;
@@ -137,7 +137,8 @@ namespace build2
             //
             const string* pdb (
               l->member != nullptr && l->member->member != nullptr
-              ? &static_cast<file&> (*l->member->member).path ().string ()
+              ? &static_cast<const file&> (
+                  *l->member->member).path ().string ()
               : nullptr);
 
             r.insert (windows_dll {f, pdb, string ()});
@@ -178,10 +179,10 @@ namespace build2
         }
       };
 
-      for (target* pt: t.prerequisite_targets)
+      for (const target* pt: t.prerequisite_targets)
       {
-        file* f;
-        liba* a;
+        const file* f;
+        const liba* a;
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
@@ -205,7 +206,7 @@ namespace build2
     // manifest file.
     //
     void link::
-    windows_rpath_assembly (file& t,
+    windows_rpath_assembly (const file& t,
                             const scope& bs,
                             lorder lo,
                             const string& tcpu,

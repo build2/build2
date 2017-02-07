@@ -186,7 +186,7 @@ namespace build2
       // If not a test then also redirect to the alias rule.
       //
       return md.test
-        ? [this] (action a, target& t) {return perform_test (a, t);}
+        ? [this] (action a, const target& t) {return perform_test (a, t);}
         : default_recipe;
     }
 
@@ -218,7 +218,10 @@ namespace build2
             t.prerequisite_targets.push_back (&p.search ());
         }
 
-        return [this] (action a, target& t) {return perform_script (a, t);};
+        return [this] (action a, const target& t)
+        {
+          return perform_script (a, t);
+        };
       }
       else
       {
@@ -327,7 +330,8 @@ namespace build2
           // update of input/output targets and also delegate to the real
           // update.
           //
-          return [it, ot, dr = move (d)] (action a, target& t) -> target_state
+          return [it, ot, dr = move (d)] (
+            action a, const target& t) -> target_state
           {
             // Do the general update first.
             //
@@ -363,7 +367,7 @@ namespace build2
     }
 
     target_state rule_common::
-    perform_script (action, target& t) const
+    perform_script (action, const target& t) const
     {
       // Figure out whether the testscript file is called 'testscript', in
       // which case it should be the only one.
@@ -371,11 +375,11 @@ namespace build2
       bool one;
       {
         optional<bool> o;
-        for (target* pt: t.prerequisite_targets)
+        for (const target* pt: t.prerequisite_targets)
         {
           // In case we are using the alias rule's list (see above).
           //
-          if (testscript* ts = pt->is_a<testscript> ())
+          if (const testscript* ts = pt->is_a<testscript> ())
           {
             bool r (ts->name == "testscript");
 
@@ -435,9 +439,9 @@ namespace build2
 
       // Run all the testscripts.
       //
-      for (target* pt: t.prerequisite_targets)
+      for (const target* pt: t.prerequisite_targets)
       {
-        if (testscript* ts = pt->is_a<testscript> ())
+        if (const testscript* ts = pt->is_a<testscript> ())
         {
           // If this is just the testscript, then its id path is empty (and
           // it can only be ignored by ignoring the test target, which makes
@@ -489,7 +493,7 @@ namespace build2
     // nameN arg arg ... nullptr nullptr
     //
     static bool
-    run_test (target& t,
+    run_test (const target& t,
               diag_record& dr,
               char const** args,
               process* prev = nullptr)
@@ -547,7 +551,7 @@ namespace build2
     }
 
     target_state rule::
-    perform_test (action, target& tt)
+    perform_test (action, const target& tt)
     {
       // @@ Would be nice to print what signal/core was dumped.
       //
@@ -562,7 +566,7 @@ namespace build2
 
         // Note that we have similar code for scripted tests.
         //
-        target* t (nullptr);
+        const target* t (nullptr);
 
         if (l.defined ())
         {
@@ -636,7 +640,7 @@ namespace build2
       auto& pts (tt.prerequisite_targets);
       if (pts.size () != 0 && pts[0] != nullptr)
       {
-        file& it (static_cast<file&> (*pts[0]));
+        const file& it (static_cast<const file&> (*pts[0]));
         assert (!it.path ().empty ()); // Should have been assigned by update.
         args.push_back (it.path ().string ().c_str ());
       }
@@ -656,7 +660,7 @@ namespace build2
       process_path dpp;
       if (pts.size () != 0 && pts[1] != nullptr)
       {
-        file& ot (static_cast<file&> (*pts[1]));
+        const file& ot (static_cast<const file&> (*pts[1]));
         assert (!ot.path ().empty ()); // Should have been assigned by update.
 
         dpp = run_search (dp, true);
@@ -693,7 +697,7 @@ namespace build2
     }
 
     target_state alias_rule::
-    perform_test (action a, target& t) const
+    perform_test (action a, const target& t) const
     {
       // Run the alias recipe first then the test.
       //

@@ -75,7 +75,7 @@ namespace build2
   // 14u2). With the size ranging (in bytes for 64-bit target) from 32 (GCC)
   // to 64 (VC).
   //
-  using recipe_function = target_state (action, target&);
+  using recipe_function = target_state (action, const target&);
   using recipe = function<recipe_function>;
 
   // Commonly-used recipes. The default recipe executes the action on
@@ -92,10 +92,10 @@ namespace build2
   extern const recipe group_recipe;
 
   target_state
-  noop_action (action, target&); // Defined in <build2/algorithm>.
+  noop_action (action, const target&); // Defined in <build2/algorithm>.
 
   target_state
-  group_action (action, target&); // Defined in <build2/algorithm>.
+  group_action (action, const target&); // Defined in <build2/algorithm>.
 
   // A view of target group members.
   //
@@ -179,7 +179,8 @@ namespace build2
     // special target_state::group state. You would normally also use the
     // group_recipe for group members.
     //
-    target* group = nullptr;
+    const_ptr<target> group = nullptr;
+
 
     // What has been described above is a "normal" group. That is, there is
     // a dedicated target type that explicitly serves as a group and there
@@ -221,7 +222,7 @@ namespace build2
     // - Member variable lookup skips the ad hoc group (since the group is
     //   the first member, this is normally what we want).
     //
-    target* member = nullptr;
+    const_ptr<target> member = nullptr;
 
     bool
     adhoc_group () const
@@ -307,8 +308,10 @@ namespace build2
     // track of the action here since the targets will be updated
     // if the recipe is updated, normally as part of rule::apply().
     //
-    typedef vector<target*> prerequisite_targets_type;
-    prerequisite_targets_type prerequisite_targets;
+    // Note that the recipe may modify (mutable) this list.
+    //
+    using prerequisite_targets_type = vector<const target*>;
+    mutable prerequisite_targets_type prerequisite_targets;
 
     // Check if there are any prerequisites, taking into account
     // group prerequisites.
@@ -477,12 +480,9 @@ namespace build2
     //
     // Currenly the data is not destroyed until the next match.
     //
-    std::aligned_storage<sizeof (void*) * 4>::type data_pad;
+    static constexpr size_t               data_size = sizeof (string) * 4;
+    std::aligned_storage<data_size>::type data_pad;
     void (*data_dtor) (void*) = nullptr;
-
-    // VC 14 needs decltype.
-    //
-    static const size_t data_size = sizeof (decltype (data_pad));
 
     template <typename R,
               typename T = typename std::remove_cv<
@@ -611,32 +611,30 @@ namespace build2
   // also be traversed in reverse, but that's what you usually want,
   // anyway.
   //
-  class group_prerequisites
+  // For constant iteration use const_group_prerequisites().
+  //
+  template <typename T, typename P, typename I>
+  class group_prerequisites_impl
   {
   public:
-    typedef target::prerequisites_type prerequisites_type;
-
     explicit
-    group_prerequisites (target& t)
+    group_prerequisites_impl (T& t)
         : t_ (t),
-          g_ (t_.group == nullptr ||
-              t_.group->member != nullptr || // Ad hoc group member.
+          g_ (t_.group == nullptr              ||
+              t_.group->member != nullptr      || // Ad hoc group member.
               t_.group->prerequisites.empty ()
               ? nullptr : t_.group) {}
 
     struct iterator
     {
-      typedef prerequisites_type::iterator base_iterator;
-
-      typedef base_iterator::value_type value_type;
-      typedef base_iterator::pointer pointer;
-      typedef base_iterator::reference reference;
-      typedef base_iterator::difference_type difference_type;
-      typedef std::bidirectional_iterator_tag iterator_category;
+      using value_type        = typename I::value_type;
+      using pointer           = typename I::pointer;
+      using reference         = typename I::reference;
+      using difference_type   = typename I::difference_type;
+      using iterator_category = std::bidirectional_iterator_tag;
 
       iterator () {}
-      iterator (target* t, target* g, prerequisites_type* c, base_iterator i)
-          : t_ (t), g_ (g), c_ (c), i_ (i) {}
+      iterator (T* t, T* g, P* c, I i): t_ (t), g_ (g), c_ (c), i_ (i) {}
 
       iterator&
       operator++ ()
@@ -681,25 +679,25 @@ namespace build2
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
     private:
-      target* t_ = nullptr;
-      target* g_ = nullptr;
-      prerequisites_type* c_ = nullptr;
-      base_iterator i_;
+      T* t_ = nullptr;
+      T* g_ = nullptr;
+      P* c_ = nullptr;
+      I  i_;
     };
 
-    typedef std::reverse_iterator<iterator> reverse_iterator;
+    using reverse_iterator = std::reverse_iterator<iterator>;
 
     iterator
     begin () const
     {
-      auto& c ((g_ != nullptr ? *g_ : t_).prerequisites);
+      P& c ((g_ != nullptr ? *g_ : t_).prerequisites);
       return iterator (&t_, g_, &c, c.begin ());
     }
 
     iterator
     end () const
     {
-      auto& c (t_.prerequisites);
+      P& c (t_.prerequisites);
       return iterator (&t_, g_, &c, c.end ());
     }
 
@@ -717,9 +715,19 @@ namespace build2
     }
 
   private:
-    target& t_;
-    target* g_;
+    T& t_;
+    T* g_;
   };
+
+  using group_prerequisites = group_prerequisites_impl<
+    target,
+    target::prerequisites_type,
+    target::prerequisites_type::iterator>;
+
+  using const_group_prerequisites = group_prerequisites_impl<
+    const target,
+    const target::prerequisites_type,
+    target::prerequisites_type::const_iterator>;
 
   // A member of a prerequisite. If 'target' is NULL, then this is the
   // prerequisite itself. Otherwise, it is its member. In this case
@@ -1128,21 +1136,21 @@ namespace build2
     timestamp
     mtime (bool load = true) const
     {
-      const mtime_target* t (state_ == target_state::group
-                             ? static_cast<const mtime_target*> (group)
-                             : this);
+      const mtime_target& t (state_ == target_state::group
+                             ? static_cast<const mtime_target&> (*group)
+                             : *this);
 
-      if (load && t->mtime_ == timestamp_unknown)
-        t->mtime_ = t->load_mtime ();
+      if (load && t.mtime_ == timestamp_unknown)
+        t.mtime_ = t.load_mtime ();
 
-      return t->mtime_;
+      return t.mtime_;
     }
 
     // Note that while we can cache the mtime at any time, it may be ignored
     // if the target state is group (see the mtime() accessor).
     //
     void
-    mtime (timestamp mt)
+    mtime (timestamp mt) const
     {
       mtime_ = mt;
     }
@@ -1150,7 +1158,7 @@ namespace build2
     // Return true if this target is newer than the specified timestamp.
     //
     bool
-    newer (timestamp mt)
+    newer (timestamp mt) const
     {
       timestamp mp (mtime ());
 

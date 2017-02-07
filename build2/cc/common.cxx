@@ -49,14 +49,14 @@ namespace build2
       const scope& top_bs,
       lorder top_lo,
       const dir_paths& top_sysd,
-      file& l,
+      const file& l,
       bool la,
-      const function<bool (file&,
+      const function<bool (const file&,
                            bool la)>& proc_impl, // Implementation?
-      const function<void (file*,                // Can be NULL.
+      const function<void (const file*,          // Can be NULL.
                            const string& path,   // Library path.
                            bool sys)>& proc_lib, // True if system library.
-      const function<void (file&,
+      const function<void (const file&,
                            const string& type,   // cc.type
                            bool com,             // cc. or x.
                            bool exp)>& proc_opt, // *.export.
@@ -213,10 +213,10 @@ namespace build2
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
-        for (target* p: l.prerequisite_targets)
+        for (const target* p: l.prerequisite_targets)
         {
           bool a;
-          file* f;
+          const file* f;
 
           if ((a = (f = p->is_a<liba> ()) != nullptr)
               ||   (f = p->is_a<libs> ()) != nullptr)
@@ -287,7 +287,7 @@ namespace build2
             if (sysd == nullptr) find_sysd ();
             if (!lo) find_lo ();
 
-            file& t (resolve_library (bs, n, *lo, *sysd, usrd));
+            const file& t (resolve_library (bs, n, *lo, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -385,7 +385,7 @@ namespace build2
     // will select exactly the same target as the library's matched rule and
     // that's the only way to guarantee it will be up-to-date.
     //
-    file& common::
+    const file& common::
     resolve_library (const scope& s,
                      name n,
                      lorder lo,
@@ -395,7 +395,7 @@ namespace build2
       if (n.type != "lib" && n.type != "liba" && n.type != "libs")
         fail << "target name " << n << " is not a library";
 
-      target* xt (nullptr);
+      const target* xt (nullptr);
 
       if (n.dir.absolute () && !n.qualified ())
       {
@@ -422,12 +422,12 @@ namespace build2
         //
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
-        xt = search_library (sysd, usrd, pk);
+        xt = search_library (sysd, usrd, pk); //@@ TM const
 
         if (xt == nullptr)
         {
           if (n.qualified ())
-            xt = &import (pk);
+            xt = &import (pk); //@@ TM const
           else
             fail << "unable to find library " << pk;
         }
@@ -435,10 +435,10 @@ namespace build2
 
       // If this is lib{}, pick appropriate member.
       //
-      if (lib* l = xt->is_a<lib> ())
+      if (const lib* l = xt->is_a<lib> ())
         xt = &link_member (*l, lo); // Pick liba{} or libs{}.
 
-      return static_cast<file&> (*xt);
+      return static_cast<const file&> (*xt);
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute). If

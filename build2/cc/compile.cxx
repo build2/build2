@@ -78,10 +78,11 @@ namespace build2
     void compile::
     append_lib_options (const scope& bs,
                         cstrings& args,
-                        target& t,
+                        const target& t,
                         lorder lo) const
     {
-      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
+      auto opt = [&args, this] (
+        const file& l, const string& t, bool com, bool exp)
       {
         // Note that in our model *.export.poptions are always "interface",
         // even if set on liba{}/libs{}, unlike loptions.
@@ -98,31 +99,35 @@ namespace build2
 
       // In case we don't have the "small function object" optimization.
       //
-      const function<void (file&, const string&, bool, bool)> optf (opt);
+      const function<void (const file&, const string&, bool, bool)> optf (opt);
 
       // Note that here we don't need to see group members (see apply()).
       //
-      for (prerequisite& p: group_prerequisites (t))
+      for (const prerequisite& p: const_group_prerequisites (t))
       {
-        target* pt (p.target); // Already searched and matched.
+        const target* pt (p.target); // Already searched and matched.
 
         bool a;
 
-        if (lib* l = pt->is_a<lib> ())
+        if (const lib* l = pt->is_a<lib> ())
           a = (pt = &link_member (*l, lo))->is_a<liba> ();
         else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<file&> (*pt), a,
+                           static_cast<const file&> (*pt), a,
                            nullptr, nullptr, optf);
       }
     }
 
     void compile::
-    hash_lib_options (const scope& bs, sha256& cs, target& t, lorder lo) const
+    hash_lib_options (const scope& bs,
+                      sha256& cs,
+                      const target& t,
+                      lorder lo) const
     {
-      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
+      auto opt = [&cs, this] (
+        const file& l, const string& t, bool com, bool exp)
       {
         assert (exp);
 
@@ -136,21 +141,21 @@ namespace build2
 
       // In case we don't have the "small function object" optimization.
       //
-      const function<void (file&, const string&, bool, bool)> optf (opt);
+      const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (prerequisite& p: group_prerequisites (t))
+      for (const prerequisite& p: const_group_prerequisites (t))
       {
-        target* pt (p.target); // Already searched and matched.
+        const target* pt (p.target); // Already searched and matched.
 
         bool a;
 
-        if (lib* l = pt->is_a<lib> ())
+        if (const lib* l = pt->is_a<lib> ())
           a = (pt = &link_member (*l, lo))->is_a<liba> ();
         else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<file&> (*pt), a,
+                           static_cast<const file&> (*pt), a,
                            nullptr, nullptr, optf);
       }
     }
@@ -164,7 +169,8 @@ namespace build2
                          target& t,
                          lorder lo) const
     {
-      auto opt = [&m, this] (file& l, const string& t, bool com, bool exp)
+      auto opt = [&m, this] (
+        const file& l, const string& t, bool com, bool exp)
       {
         assert (exp);
 
@@ -178,7 +184,7 @@ namespace build2
 
       // In case we don't have the "small function object" optimization.
       //
-      const function<void (file&, const string&, bool, bool)> optf (opt);
+      const function<void (const file&, const string&, bool, bool)> optf (opt);
 
       for (prerequisite& p: group_prerequisites (t))
       {
@@ -192,7 +198,7 @@ namespace build2
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<file&> (*pt), a,
+                           static_cast<const file&> (*pt), a,
                            nullptr, nullptr, optf);
       }
     }
@@ -399,12 +405,15 @@ namespace build2
 
       switch (a)
       {
-      case perform_update_id:
-        return [this] (action a, target& t) {return perform_update (a, t);};
-      case perform_clean_id:
-        return [this] (action a, target& t) {return perform_clean (a, t);};
-      default:
-        return noop_recipe; // Configure update.
+      case perform_update_id: return [this] (action a, const target& t)
+        {
+          return perform_update (a, t);
+        };
+      case perform_clean_id: return [this] (action a, const target& t)
+        {
+          return perform_clean (a, t);
+        };
+      default: return noop_recipe; // Configure update.
       }
     }
 
@@ -440,7 +449,7 @@ namespace build2
     }
 
     void compile::
-    append_prefixes (prefix_map& m, target& t, const variable& var) const
+    append_prefixes (prefix_map& m, const target& t, const variable& var) const
     {
       tracer trace (x, "append_prefixes");
 
@@ -1394,15 +1403,15 @@ namespace build2
     msvc_filter_cl (ifdstream&, const path& src);
 
     target_state compile::
-    perform_update (action a, target& xt) const
+    perform_update (action a, const target& xt) const
     {
-      file& t (static_cast<file&> (xt));
+      const file& t (static_cast<const file&> (xt));
 
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites
       // as potentially affecting the result (for simplicity/performance).
       //
-      file* s;
+      const file* s;
       {
         auto p (execute_prerequisites<file> (x_src, a, t, t.mtime ()));
 
@@ -1621,9 +1630,9 @@ namespace build2
     }
 
     target_state compile::
-    perform_clean (action a, target& xt) const
+    perform_clean (action a, const target& xt) const
     {
-      file& t (static_cast<file&> (xt));
+      const file& t (static_cast<const file&> (xt));
 
       if (cid == "msvc")
         return clean_extra (a, t, {".d", ".idb", ".pdb"});

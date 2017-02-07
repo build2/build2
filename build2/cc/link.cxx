@@ -266,7 +266,6 @@ namespace build2
       // Now determine the paths.
       //
       path lk, so, in;
-      const path* re (nullptr);
 
       // We start with the basic path.
       //
@@ -310,7 +309,7 @@ namespace build2
       if (!v.empty ())
         b += v;
 
-      re = &ls.derive_path (move (b));
+      const path& re (ls.derive_path (move (b)));
 
       return libs_paths {move (lk), move (so), move (in), re};
     }
@@ -318,6 +317,9 @@ namespace build2
     recipe link::
     apply (slock& ml, action a, target& xt) const
     {
+      static_assert (sizeof (link::libs_paths) <= target::data_size,
+                     "insufficient space");
+
       tracer trace (x, "link::apply");
 
       file& t (static_cast<file&> (xt));
@@ -388,7 +390,7 @@ namespace build2
             if (tclass == "windows")
               add_adhoc (t, "libi");
 
-            derive_libs_paths (t);
+            t.data (derive_libs_paths (t)); // Cache in target.
             break;
           }
         }
@@ -645,18 +647,21 @@ namespace build2
 
       switch (a)
       {
-      case perform_update_id:
-        return [this] (action a, target& t) {return perform_update (a, t);};
-      case perform_clean_id:
-        return [this] (action a, target& t) {return perform_clean (a, t);};
-      default:
-        return noop_recipe; // Configure update.
+      case perform_update_id: return [this] (action a, const target& t)
+        {
+          return perform_update (a, t);
+        };
+      case perform_clean_id: return [this] (action a, const target& t)
+        {
+          return perform_clean (a, t);
+        };
+      default: return noop_recipe; // Configure update.
       }
     }
 
     void link::
     append_libraries (strings& args,
-                      file& l, bool la,
+                      const file& l, bool la,
                       const scope& bs, lorder lo) const
     {
       // Note: lack of the "small function object" optimization will really
@@ -664,9 +669,9 @@ namespace build2
       //
       bool win (tclass == "windows");
 
-      auto imp = [] (file&, bool la) {return la;};
+      auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&args, win] (file* f, const string& p, bool)
+      auto lib = [&args, win] (const file* f, const string& p, bool)
       {
         if (f != nullptr)
         {
@@ -675,7 +680,7 @@ namespace build2
           // (see search_library() for details).
           //
           if (win && f->member != nullptr && f->is_a<libs> ())
-            f = static_cast<file*> (f->member);
+            f = static_cast<const file*> (f->member.get ());
 
           args.push_back (relative (f->path ()).string ());
         }
@@ -683,11 +688,12 @@ namespace build2
           args.push_back (p);
       };
 
-      auto opt = [&args, this] (file& l, const string& t, bool com, bool exp)
+      auto opt = [&args, this] (
+        const file& l, const string& t, bool com, bool exp)
       {
         // If we need an interface value, then use the group (lib{}).
         //
-        if (target* g = exp && l.is_a<libs> () ? l.group : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
           const variable& var (
             com
@@ -705,16 +711,14 @@ namespace build2
 
     void link::
     hash_libraries (sha256& cs,
-                    file& l,
-                    bool la,
-                    const scope& bs,
-                    lorder lo) const
+                    const file& l, bool la,
+                    const scope& bs, lorder lo) const
     {
       bool win (tclass == "windows");
 
-      auto imp = [] (file&, bool la) {return la;};
+      auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&cs, win] (file* f, const string& p, bool)
+      auto lib = [&cs, win] (const file* f, const string& p, bool)
       {
         if (f != nullptr)
         {
@@ -723,7 +727,7 @@ namespace build2
           // (see search_library() for details).
           //
           if (win && f->member != nullptr && f->is_a<libs> ())
-            f = static_cast<file*> (f->member);
+            f = static_cast<const file*> (f->member.get ());
 
           cs.append (f->path ().string ());
         }
@@ -731,9 +735,10 @@ namespace build2
           cs.append (p);
       };
 
-      auto opt = [&cs, this] (file& l, const string& t, bool com, bool exp)
+      auto opt = [&cs, this] (
+        const file& l, const string& t, bool com, bool exp)
       {
-        if (target* g = exp && l.is_a<libs> () ? l.group : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
           const variable& var (
             com
@@ -751,7 +756,7 @@ namespace build2
 
     void link::
     rpath_libraries (strings& args,
-                     target& t,
+                     const target& t,
                      const scope& bs,
                      lorder lo,
                      bool for_install) const
@@ -765,7 +770,7 @@ namespace build2
           return;
       }
 
-      auto imp = [for_install] (file&, bool la)
+      auto imp = [for_install] (const file&, bool la)
       {
         // If we are not installing, then we only need to rpath interface
         // libraries (they will include rpath's for their implementations).
@@ -791,7 +796,7 @@ namespace build2
         bool for_install;
       } d {args, for_install};
 
-      auto lib = [&d, this] (file* l, const string& f, bool sys)
+      auto lib = [&d, this] (const file* l, const string& f, bool sys)
       {
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on an napkin somewhere...
@@ -845,13 +850,13 @@ namespace build2
 
       // In case we don't have the "small function object" optimization.
       //
-      const function<bool (file&, bool)> impf (imp);
-      const function<void (file*, const string&, bool)> libf (lib);
+      const function<bool (const file&, bool)> impf (imp);
+      const function<void (const file*, const string&, bool)> libf (lib);
 
-      for (target* pt: t.prerequisite_targets)
+      for (const target* pt: t.prerequisite_targets)
       {
-        file* f;
-        liba* a;
+        const file* f;
+        const liba* a;
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
@@ -884,14 +889,14 @@ namespace build2
     msvc_machine (const string& cpu); // msvc.cxx
 
     target_state link::
-    perform_update (action a, target& xt) const
+    perform_update (action a, const target& xt) const
     {
       tracer trace (x, "link::perform_update");
 
       auto oop (a.outer_operation ());
       bool for_install (oop == install_id || oop == uninstall_id);
 
-      file& t (static_cast<file&> (xt));
+      const file& t (static_cast<const file&> (xt));
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -1071,10 +1076,6 @@ namespace build2
       //
       cstrings args {nullptr}; // Reserve one for config.bin.ar/config.x.
 
-      libs_paths paths;
-      if (lt == otype::s)
-        paths = derive_libs_paths (t);
-
       // Storage.
       //
       string soname1, soname2;
@@ -1127,6 +1128,7 @@ namespace build2
           //
           if (lt == otype::s)
           {
+            const libs_paths& paths (t.data<libs_paths> ());
             const string& leaf (paths.effect_soname ().leaf ().string ());
 
             if (tclass == "macosx")
@@ -1195,11 +1197,11 @@ namespace build2
       {
         sha256 cs;
 
-        for (target* pt: t.prerequisite_targets)
+        for (const target* pt: t.prerequisite_targets)
         {
-          file* f;
-          liba* a (nullptr);
-          libs* s (nullptr);
+          const file* f;
+          const liba* a (nullptr);
+          const libs* s (nullptr);
 
           if ((f = pt->is_a<obje> ()) ||
               (f = pt->is_a<obja> ()) ||
@@ -1367,8 +1369,8 @@ namespace build2
               // derived from the import library by changing the extension.
               // Lucky for us -- there is no option to name it.
               //
-              auto imp (static_cast<file*> (t.member));
-              out2 = "/IMPLIB:" + relative (imp->path ()).string ();
+              auto& imp (static_cast<const file&> (*t.member));
+              out2 = "/IMPLIB:" + relative (imp.path ()).string ();
               args.push_back (out2.c_str ());
             }
 
@@ -1377,9 +1379,10 @@ namespace build2
             //
             if (find_option ("/DEBUG", args, true))
             {
-              auto pdb (static_cast<file*> (
-                          lt == otype::e ? t.member : t.member->member));
-              out1 = "/PDB:" + relative (pdb->path ()).string ();
+              auto& pdb (
+                static_cast<const file&> (
+                  lt == otype::e ? *t.member : *t.member->member));
+              out1 = "/PDB:" + relative (pdb.path ()).string ();
               args.push_back (out1.c_str ());
             }
 
@@ -1412,8 +1415,8 @@ namespace build2
                 // On Windows libs{} is the DLL and its first ad hoc group
                 // member is the import library.
                 //
-                auto imp (static_cast<file*> (t.member));
-                out = "-Wl,--out-implib=" + relative (imp->path ()).string ();
+                auto& imp (static_cast<const file&> (*t.member));
+                out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
                 args.push_back (out.c_str ());
               }
             }
@@ -1428,11 +1431,11 @@ namespace build2
 
       args[0] = ld->recall_string ();
 
-      for (target* pt: t.prerequisite_targets)
+      for (const target* pt: t.prerequisite_targets)
       {
-        file* f;
-        liba* a (nullptr);
-        libs* s (nullptr);
+        const file* f;
+        const liba* a (nullptr);
+        const libs* s (nullptr);
 
         if ((f = pt->is_a<obje> ()) ||
             (f = pt->is_a<obja> ()) ||
@@ -1600,11 +1603,13 @@ namespace build2
           }
         };
 
+        const libs_paths& paths (t.data<libs_paths> ());
+
         const path& lk (paths.link);
         const path& so (paths.soname);
         const path& in (paths.interm);
 
-        const path* f (paths.real);
+        const path* f (&paths.real);
 
         if (!in.empty ()) {ln (f->leaf (), in); f = &in;}
         if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
@@ -1622,11 +1627,9 @@ namespace build2
     }
 
     target_state link::
-    perform_clean (action a, target& xt) const
+    perform_clean (action a, const target& xt) const
     {
-      file& t (static_cast<file&> (xt));
-
-      libs_paths paths;
+      const file& t (static_cast<const file&> (xt));
 
       switch (link_type (t))
       {
@@ -1666,7 +1669,8 @@ namespace build2
             // Here we can have a bunch of symlinks that we need to remove. If
             // the paths are empty, then they will be ignored.
             //
-            paths = derive_libs_paths (t);
+            const libs_paths& paths (t.data<libs_paths> ());
+
             return clean_extra (a, t, {".d",
                                        paths.link.string ().c_str (),
                                        paths.soname.string ().c_str (),

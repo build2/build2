@@ -71,7 +71,7 @@ namespace build2
   // Note that currently we return NULL for project-qualified names and
   // unknown target types.
   //
-  target*
+  const target*
   search_existing (const name&,
                    const scope&,
                    const dir_path& out = dir_path ());
@@ -152,7 +152,7 @@ namespace build2
   // executor implementation. Decrements the dependents count.
   //
   target_state
-  execute (action, target&);
+  execute (action, const target&);
 
   // Execute the recipe obtained with match_delegate(). Note that
   // the target's state is neither checked nor updated by this
@@ -161,7 +161,7 @@ namespace build2
   // state into the one returned.
   //
   target_state
-  execute_delegate (const recipe&, action, target&);
+  execute_delegate (const recipe&, action, const target&);
 
   // A special version of the above that should be used for "direct"
   // and "now" execution, that is, side-stepping the normal target-
@@ -171,7 +171,7 @@ namespace build2
   // is busy.
   //
   target_state
-  execute_direct (action, target&);
+  execute_direct (action, const target&);
 
   // The default prerequisite execute implementation. It calls execute()
   // on each non-ignored (non-NULL) prerequisite target in a loop. If this
@@ -181,12 +181,12 @@ namespace build2
   // function can be used as a recipe.
   //
   target_state
-  execute_prerequisites (action, target&);
+  execute_prerequisites (action, const target&);
 
   // As above but iterates over the prerequisites in reverse.
   //
   target_state
-  reverse_execute_prerequisites (action, target&);
+  reverse_execute_prerequisites (action, const target&);
 
   // A version of the above that also determines whether the action needs to
   // be executed on the target based on the passed timestamp and filter.
@@ -207,10 +207,10 @@ namespace build2
   // Note that because we use mtime, this function should normally only be
   // used in the perform_update action.
   //
-  using prerequisite_filter = function<bool (target&)>;
+  using prerequisite_filter = function<bool (const target&)>;
 
   pair<bool, target_state>
-  execute_prerequisites (action, target&,
+  execute_prerequisites (action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
@@ -222,45 +222,45 @@ namespace build2
   // prerequisites of the same type may get injected).
   //
   template <typename T>
-  pair<T*, target_state>
-  execute_prerequisites (action, target&,
+  pair<const T*, target_state>
+  execute_prerequisites (action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
-  pair<target*, target_state>
+  pair<const target*, target_state>
   execute_prerequisites (const target_type&,
-                         action, target&,
+                         action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
   template <typename T>
-  pair<T*, target_state>
+  pair<const T*, target_state>
   execute_prerequisites (const target_type&,
-                         action, target&,
+                         action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
   // Return noop_recipe instead of using this function directly.
   //
   target_state
-  noop_action (action, target&);
+  noop_action (action, const target&);
 
   // Default action implementation which forwards to the prerequisites.
   // Use default_recipe instead of using this function directly.
   //
   target_state
-  default_action (action, target&);
+  default_action (action, const target&);
 
   // Standard perform(clean) action implementation for the file target
   // (or derived).
   //
   target_state
-  perform_clean (action, target&);
+  perform_clean (action, const target&);
 
   // As above, but also removes the auxiliary dependency database (.d file).
   //
   target_state
-  perform_clean_depdb (action, target&);
+  perform_clean_depdb (action, const target&);
 
   // Helper for custom perform(clean) implementations that cleans extra files
   // and directories (recursively) specified as a list of either absolute
@@ -281,11 +281,11 @@ namespace build2
   // You can also clean extra files derived from adhoc group members.
   //
   target_state
-  clean_extra (action, file&,
+  clean_extra (action, const file&,
                initializer_list<initializer_list<const char*>> extra);
 
   inline target_state
-  clean_extra (action a, file& f, initializer_list<const char*> extra)
+  clean_extra (action a, const file& f, initializer_list<const char*> extra)
   {
     return clean_extra (a, f, {extra});
   }

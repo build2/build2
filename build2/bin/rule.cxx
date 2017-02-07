@@ -124,9 +124,9 @@ namespace build2
     }
 
     target_state lib_rule::
-    perform (action act, target& xt)
+    perform (action act, const target& xt)
     {
-      lib& t (static_cast<lib&> (xt));
+      const lib& t (static_cast<const lib&> (xt));
 
       const match_data& md (t.data<match_data> ());
       const string& type (md.type);

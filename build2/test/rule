@@ -24,7 +24,7 @@ namespace build2
       match (slock&, action, target&, const string&) const override;
 
       target_state
-      perform_script (action, target&) const;
+      perform_script (action, const target&) const;
     };
 
     class rule: public rule_common
@@ -34,7 +34,7 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       static target_state
-      perform_test (action, target&);
+      perform_test (action, const target&);
     };
 
     class alias_rule: public rule_common
@@ -44,7 +44,7 @@ namespace build2
       apply (slock&, action, target&) const override;
 
       target_state
-      perform_test (action, target&) const;
+      perform_test (action, const target&) const;
     };
   }
 }

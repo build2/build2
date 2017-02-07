@@ -22,10 +22,10 @@ namespace build2
     // Compile/link output type.
     //
     otype
-    compile_type (target&);
+    compile_type (const target&);
 
     otype
-    link_type (target&);
+    link_type (const target&);
 
     // Library link order.
     //
@@ -41,8 +41,13 @@ namespace build2
 
     // Given the link order return the library member (liba or libs) to link.
     //
+    // Note that the const version assumes you have already called non-const.
+    //
     target&
     link_member (bin::lib&, lorder);
+
+    const target&
+    link_member (const bin::lib&, lorder);
   }
 }
 
