@@ -48,7 +48,7 @@ namespace build2
     match_result lib_rule::
     match (slock& ml, action act, target& xt, const string&) const
     {
-      lib& t (static_cast<lib&> (xt));
+      lib& t (xt.as<lib> ());
 
       // @@ We have to re-query it on each match_only()!
 
@@ -104,7 +104,7 @@ namespace build2
     recipe lib_rule::
     apply (slock& ml, action act, target& xt) const
     {
-      lib& t (static_cast<lib&> (xt));
+      lib& t (xt.as<lib> ());
 
       const match_data& md (t.data<match_data> ());
       const string& type (md.type);
@@ -126,7 +126,7 @@ namespace build2
     target_state lib_rule::
     perform (action act, const target& xt)
     {
-      const lib& t (static_cast<const lib&> (xt));
+      const lib& t (xt.as<lib> ());
 
       const match_data& md (t.data<match_data> ());
       const string& type (md.type);

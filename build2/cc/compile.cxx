@@ -115,7 +115,7 @@ namespace build2
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<const file&> (*pt), a,
+                           pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
     }
@@ -155,7 +155,7 @@ namespace build2
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<const file&> (*pt), a,
+                           pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
     }
@@ -198,7 +198,7 @@ namespace build2
           continue;
 
         process_libraries (bs, lo, sys_lib_dirs,
-                           static_cast<const file&> (*pt), a,
+                           pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
     }
@@ -208,7 +208,7 @@ namespace build2
     {
       tracer trace (x, "compile::apply");
 
-      file& t (static_cast<file&> (xt));
+      file& t (xt.as<file> ());
       const match_data& md (t.data<match_data> ());
 
       const scope& bs (t.base_scope ());
@@ -1405,7 +1405,7 @@ namespace build2
     target_state compile::
     perform_update (action a, const target& xt) const
     {
-      const file& t (static_cast<const file&> (xt));
+      const file& t (xt.as<file> ());
 
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites
@@ -1632,7 +1632,7 @@ namespace build2
     target_state compile::
     perform_clean (action a, const target& xt) const
     {
-      const file& t (static_cast<const file&> (xt));
+      const file& t (xt.as<file> ());
 
       if (cid == "msvc")
         return clean_extra (a, t, {".d", ".idb", ".pdb"});

@@ -112,8 +112,6 @@ namespace build2
     optional<string>* ext_; // Reference to value in target_key.
 
   public:
-    using action_type = build2::action;
-
     // For targets that are in the src tree of a project we also keep the
     // corresponding out directory. As a result we may end up with multiple
     // targets for the same file if we are building multiple configurations of
@@ -240,6 +238,8 @@ namespace build2
     }
 
   public:
+    using action_type = build2::action;
+
     // Reset the target before matching it to a rule. The default
     // implementation clears the auxilary data and prerequisite_targets.
     //
@@ -540,9 +540,12 @@ namespace build2
   private:
     recipe_type recipe_;
 
-    // Target type info.
+    // Target type info and casting.
     //
   public:
+    bool
+    is_a (const target_type& tt) const {return type ().is_a (tt);}
+
     template <typename T>
     T*
     is_a () {return dynamic_cast<T*> (this);}
@@ -551,8 +554,15 @@ namespace build2
     const T*
     is_a () const {return dynamic_cast<const T*> (this);}
 
-    bool
-    is_a (const target_type& tt) const {return type ().is_a (tt);}
+    // Unchecked cast.
+    //
+    template <typename T>
+    T&
+    as () {return static_cast<T&> (*this);}
+
+    template <typename T>
+    const T&
+    as () const {return static_cast<const T&> (*this);}
 
     // Dynamic derivation to support define.
     //
@@ -1074,14 +1084,13 @@ namespace build2
             optional<string> ext,
             tracer& t)
     {
-      return static_cast<T&> (
-        insert (tt,
-                move (dir),
-                move (out),
-                move (name),
-                move (ext),
-                true,
-                t).first);
+      return insert (tt,
+                     move (dir),
+                     move (out),
+                     move (name),
+                     move (ext),
+                     true,
+                     t).first.template as<T> ();
     }
 
     template <typename T>
@@ -1092,8 +1101,7 @@ namespace build2
             const optional<string>& ext,
             tracer& t)
     {
-      return static_cast<T&> (
-        insert (T::static_type, dir, out, name, ext, true, t).first);
+      return insert<T> (T::static_type, dir, out, name, ext, t);
     }
 
     template <typename T>
@@ -1103,8 +1111,7 @@ namespace build2
             const string& name,
             tracer& t)
     {
-      return static_cast<T&> (
-        insert (T::static_type, dir, out, name, nullopt, true, t).first);
+      return insert<T> (dir, out, name, nullopt, t);
     }
 
     // Note: not MT-safe so can only be used during serial execution.
@@ -1149,7 +1156,7 @@ namespace build2
     mtime (bool load = true) const
     {
       const mtime_target& t (state_ == target_state::group
-                             ? static_cast<const mtime_target&> (*group)
+                             ? group->as<mtime_target> ()
                              : *this);
 
       if (load && t.mtime_ == timestamp_unknown)

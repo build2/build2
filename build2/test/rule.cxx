@@ -640,7 +640,7 @@ namespace build2
       auto& pts (tt.prerequisite_targets);
       if (pts.size () != 0 && pts[0] != nullptr)
       {
-        const file& it (static_cast<const file&> (*pts[0]));
+        const file& it (pts[0]->as<file> ());
         assert (!it.path ().empty ()); // Should have been assigned by update.
         args.push_back (it.path ().string ().c_str ());
       }
@@ -660,7 +660,7 @@ namespace build2
       process_path dpp;
       if (pts.size () != 0 && pts[1] != nullptr)
       {
-        const file& ot (static_cast<const file&> (*pts[1]));
+        const file& ot (pts[1]->as<file> ());
         assert (!ot.path ().empty ()); // Should have been assigned by update.
 
         dpp = run_search (dp, true);

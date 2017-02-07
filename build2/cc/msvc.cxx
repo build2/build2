@@ -69,7 +69,7 @@ namespace build2
         //
         if (lt == otype::s && l.compare (0, 3, "   ") == 0)
         {
-          path imp (static_cast<const file&> (*t.member).path ().leaf ());
+          path imp (t.member->as<file> ().path ().leaf ());
 
           if (l.find (imp.string ()) != string::npos &&
               l.find (imp.base ().string () + ".exp") != string::npos)
@@ -276,7 +276,7 @@ namespace build2
                                 true, // Implied.
                                 trace));
         assert (!exist || !p.second);
-        T& t (static_cast<T&> (p.first));
+        T& t (p.first.template as<T> ());
 
         if (t.path ().empty ())
           t.path (move (f));
@@ -340,7 +340,7 @@ namespace build2
                                   true, // Implied.
                                   trace));
           assert (!exist || !p.second);
-          r = static_cast<libs*> (&p.first);
+          r = &p.first.as<libs> ();
 
           if (r->member == nullptr)
           {

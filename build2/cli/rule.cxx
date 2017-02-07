@@ -199,7 +199,7 @@ namespace build2
       }
       else
       {
-        cli_cxx& g (static_cast<cli_cxx&> (*xt.group));
+        cli_cxx& g (xt.group->as<cli_cxx> ());
         build2::match (ml, a, g);
         return group_recipe; // Execute the group's recipe.
       }
@@ -230,7 +230,7 @@ namespace build2
     target_state compile::
     perform_update (action a, const target& xt)
     {
-      const cli_cxx& t (static_cast<const cli_cxx&> (xt));
+      const cli_cxx& t (xt.as<cli_cxx> ());
 
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites
@@ -322,7 +322,7 @@ namespace build2
     target_state compile::
     perform_clean (action a, const target& xt)
     {
-      const cli_cxx& t (static_cast<const cli_cxx&> (xt));
+      const cli_cxx& t (xt.as<cli_cxx> ());
 
       // The reverse order of update: first delete the files, then clean
       // prerequisites. Also update timestamp in case there are operations

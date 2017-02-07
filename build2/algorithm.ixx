@@ -56,8 +56,8 @@ namespace build2
           const string* ext,
           const scope* scope)
   {
-    return static_cast<T&> (
-      search (T::static_type, dir, out, name, ext, scope));
+    return search (
+      T::static_type, dir, out, name, ext, scope).template as<T> ();
   }
 
   pair<const rule*, match_result>

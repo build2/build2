@@ -137,8 +137,7 @@ namespace build2
             //
             const string* pdb (
               l->member != nullptr && l->member->member != nullptr
-              ? &static_cast<const file&> (
-                  *l->member->member).path ().string ()
+              ? &l->member->member->as<file> ().path ().string ()
               : nullptr);
 
             r.insert (windows_dll {f, pdb, string ()});

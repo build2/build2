@@ -439,7 +439,7 @@ namespace build2
       if (const lib* l = xt->is_a<lib> ())
         xt = &link_member (*l, lo); // Pick liba{} or libs{}.
 
-      return static_cast<const file&> (*xt);
+      return xt->as<file> ();
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute). If
@@ -563,7 +563,7 @@ namespace build2
                                 trace));
 
         assert (!exist || !p.second);
-        r = static_cast<T*> (&p.first);
+        r = &p.first.template as<T> ();
       };
 
       auto search =[&a, &s,

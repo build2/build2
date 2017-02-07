@@ -614,7 +614,7 @@ namespace build2
     target_state file_rule::
     perform_install (action a, const target& xt) const
     {
-      const file& t (static_cast<const file&> (xt));
+      const file& t (xt.as<file> ());
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
       auto install_target = [this] (const file& t, const path& p, bool verbose)
@@ -663,7 +663,7 @@ namespace build2
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          install_target (static_cast<const file&> (*m), *p, false);
+          install_target (m->as<file> (), *p, false);
       }
 
       // Finally install the target itself (since we got here we know the
@@ -872,7 +872,7 @@ namespace build2
     target_state file_rule::
     perform_uninstall (action a, const target& xt) const
     {
-      const file& t (static_cast<const file&> (xt));
+      const file& t (xt.as<file> ());
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
       auto uninstall_target = [this] (
@@ -930,9 +930,8 @@ namespace build2
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          r |= uninstall_target (static_cast<const file&> (*m),
-                                 *p,
-                                 r != target_state::changed);
+          r |= uninstall_target (
+            m->as<file> (), *p, r != target_state::changed);
       }
 
       // Finally handle installable prerequisites.

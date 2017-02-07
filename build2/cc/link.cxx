@@ -297,7 +297,7 @@ namespace build2
         lk = b;
         append_ext (lk);
 
-        libi& li (static_cast<libi&> (*ls.member));
+        libi& li (ls.member->as<libi> ());
         lk = li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib");
       }
       else if (!v.empty ())
@@ -322,7 +322,7 @@ namespace build2
 
       tracer trace (x, "link::apply");
 
-      file& t (static_cast<file&> (xt));
+      file& t (xt.as<file> ());
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -341,7 +341,7 @@ namespace build2
         else
           t.member = &search (tt, t.dir, t.out, t.name, nullptr, nullptr);
 
-        file& r (static_cast<file&> (*t.member));
+        file& r (t.member->as<file> ());
         r.recipe (a, group_recipe);
         return r;
       };
@@ -541,7 +541,7 @@ namespace build2
         //
         if (group)
         {
-          obj& o (static_cast<obj&> (ot));
+          obj& o (ot.as<obj> ());
 
           switch (lt)
           {
@@ -680,7 +680,7 @@ namespace build2
           // (see search_library() for details).
           //
           if (win && f->member != nullptr && f->is_a<libs> ())
-            f = static_cast<const file*> (f->member.get ());
+            f = &f->member->as<file> ();
 
           args.push_back (relative (f->path ()).string ());
         }
@@ -727,7 +727,7 @@ namespace build2
           // (see search_library() for details).
           //
           if (win && f->member != nullptr && f->is_a<libs> ())
-            f = static_cast<const file*> (f->member.get ());
+            f = &f->member->as<file> ();
 
           cs.append (f->path ().string ());
         }
@@ -893,10 +893,10 @@ namespace build2
     {
       tracer trace (x, "link::perform_update");
 
+      const file& t (xt.as<file> ());
+
       auto oop (a.outer_operation ());
       bool for_install (oop == install_id || oop == uninstall_id);
-
-      const file& t (static_cast<const file&> (xt));
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -1369,7 +1369,7 @@ namespace build2
               // derived from the import library by changing the extension.
               // Lucky for us -- there is no option to name it.
               //
-              auto& imp (static_cast<const file&> (*t.member));
+              auto& imp (t.member->as<file> ());
               out2 = "/IMPLIB:" + relative (imp.path ()).string ();
               args.push_back (out2.c_str ());
             }
@@ -1379,9 +1379,9 @@ namespace build2
             //
             if (find_option ("/DEBUG", args, true))
             {
+
               auto& pdb (
-                static_cast<const file&> (
-                  lt == otype::e ? *t.member : *t.member->member));
+                (lt == otype::e ? t.member : t.member->member)->as<file> ());
               out1 = "/PDB:" + relative (pdb.path ()).string ();
               args.push_back (out1.c_str ());
             }
@@ -1415,7 +1415,7 @@ namespace build2
                 // On Windows libs{} is the DLL and its first ad hoc group
                 // member is the import library.
                 //
-                auto& imp (static_cast<const file&> (*t.member));
+                auto& imp (t.member->as<file> ());
                 out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
                 args.push_back (out.c_str ());
               }
@@ -1629,7 +1629,7 @@ namespace build2
     target_state link::
     perform_clean (action a, const target& xt) const
     {
-      const file& t (static_cast<const file&> (xt));
+      const file& t (xt.as<file> ());
 
       switch (link_type (t))
       {
