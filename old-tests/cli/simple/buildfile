@@ -4,7 +4,7 @@ hxx{*}: extension =
 cxx{*}: extension = cpp
 ixx{*}: extension = ipp
 
-cxx.poptions += -I$out_root
+cxx.poptions += "-I$out_root"
 
 using cli
 

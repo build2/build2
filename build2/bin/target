@@ -51,9 +51,11 @@ namespace build2
     public:
       using target::target;
 
-      obje* e {nullptr};
-      obja* a {nullptr};
-      objs* s {nullptr};
+      // Group members.
+      //
+      const_ptr<obje> e = nullptr;
+      const_ptr<obja> a = nullptr;
+      const_ptr<objs> s = nullptr;
 
     public:
       static const target_type static_type;
@@ -87,8 +89,10 @@ namespace build2
     public:
       using target::target;
 
-      liba* a {nullptr};
-      libs* s {nullptr};
+      // Group members.
+      //
+      const_ptr<liba> a = nullptr;
+      const_ptr<libs> s = nullptr;
 
       virtual void
       reset (action_type) override;

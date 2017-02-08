@@ -207,7 +207,7 @@ namespace build2
 
     static void
     append_extension (cstrings& args,
-                      path_target& t,
+                      const path_target& t,
                       const char* option,
                       const char* default_extension)
     {

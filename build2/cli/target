@@ -26,37 +26,22 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class cli_cxx: public mtime_target
+    // Standard layout type compatible with target*[3].
+    //
+    struct cli_cxx_members
+    {
+      const_ptr<cxx::hxx> h = nullptr;
+      const_ptr<cxx::cxx> c = nullptr;
+      const_ptr<cxx::ixx> i = nullptr;
+    };
+
+    class cli_cxx: public mtime_target, public cli_cxx_members
     {
     public:
-      union
-      {
-        // It is theoretically possible that the compiler will add
-        // padding between the members of this struct. This would
-        // mean that the optimal alignment for a pointer is greater
-        // than its size (and that an array of pointers is sub-
-        // optimally aligned). We will deal with such a beast of
-        // an architecture when we see it.
-        //
-        struct
-        {
-          cxx::hxx* h;
-          cxx::cxx* c;
-          cxx::ixx* i;
-        };
-        target* m[3] /*= {nullptr, nullptr, nullptr}*/; // @@ GCC 4.8
-      };
-
-      //using mtime_target::mtime_target; // @@ GCC 4.8
-
-      cli_cxx (dir_path d, dir_path o, string n)
-          : mtime_target (move (d), move (o), move (n))
-      {
-        m[0] = m[1] = m[2] = nullptr;
-      }
+      using mtime_target::mtime_target;
 
       virtual group_view
-      group_members (action_type) const;
+      group_members (action_type);
 
       virtual timestamp
       load_mtime () const;

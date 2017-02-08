@@ -32,10 +32,15 @@ namespace build2
     // cli.cxx
     //
     group_view cli_cxx::
-    group_members (action_type) const
+    group_members (action_type)
     {
+      static_assert (offsetof (cli_cxx_members, i) -
+                     offsetof (cli_cxx_members, h) == sizeof (target*) * 2,
+                     "member layout incompatible with array");
+
       return h != nullptr
-        ? group_view {m, (i != nullptr ? 3U : 2U)}
+        ? group_view {reinterpret_cast<target* const*> (&h),
+                      (i != nullptr ? 3U : 2U)}
         : group_view {nullptr, 0};
     }
 

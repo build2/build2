@@ -13,8 +13,8 @@ extra/:
     --cli-namespace test::extra::cli
 }
 
-cxx.poptions += -I$out_root -I$src_root
-lib{test}: cxx.export.poptions = -I$out_root -I$src_root
+cxx.poptions += "-I$out_root" "-I$src_root"
+lib{test}: cxx.export.poptions = "-I$out_root" "-I$src_root"
 
 cli.options += --include-prefix test --guard-prefix TEST \
 --cli-namespace test::cli

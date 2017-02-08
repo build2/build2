@@ -62,10 +62,8 @@ namespace build2
         }
       }
 
-      target* r (ls ? static_cast<target*> (l.s) : l.a);
-
+      const target* r (ls ? static_cast<const target*> (l.s) : l.a);
       assert (r != nullptr);
-
       return *r;
     }
 

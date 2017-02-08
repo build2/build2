@@ -250,7 +250,7 @@ namespace build2
     // resolve_group_members() from <build2/algorithm>.
     //
     virtual group_view
-    group_members (action_type) const;
+    group_members (action_type);
 
     // Note that the returned key "tracks" the target (except for the
     // extension).
@@ -475,9 +475,11 @@ namespace build2
     //
     // Currenly the data is not destroyed until the next match.
     //
-    static constexpr size_t               data_size = sizeof (string) * 4;
-    std::aligned_storage<data_size>::type data_pad;
-    void (*data_dtor) (void*) = nullptr;
+    // Note that the recipe may modify (mutable) the data.
+    //
+    static constexpr size_t data_size = sizeof (string) * 4;
+    mutable std::aligned_storage<data_size>::type data_pad;
+    mutable void (*data_dtor) (void*) = nullptr;
 
     template <typename R,
               typename T = typename std::remove_cv<
@@ -503,14 +505,10 @@ namespace build2
 
     template <typename T>
     T&
-    data () {return *reinterpret_cast<T*> (&data_pad);}
-
-    template <typename T>
-    const T&
-    data () const {return *reinterpret_cast<const T*> (&data_pad);}
+    data () const {return *reinterpret_cast<T*> (&data_pad);}
 
     void
-    clear_data ()
+    clear_data () const
     {
       if (data_dtor != nullptr)
       {
