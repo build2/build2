@@ -63,12 +63,14 @@ namespace build2
 
   // Recipe.
   //
-  // The returned target state should be changed, unchanged, or postponed,
-  // though you shouldn't be returning postponed directly. If there is an
-  // error, then the recipe should throw rather than returning failed.
+  // The returned target state is normally changed or unchanged. If there is
+  // an error, then the recipe should throw rather than returning failed.
   //
   // The return value of the recipe is used to update the target state. If it
   // is target_state::group then the target's state is the group's state.
+  //
+  // The recipe can also return postponed. In this case the target state is
+  // set to unknown but the postponed state is propagated to the caller.
   //
   // Note that max size for the "small capture optimization" in std::function
   // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
@@ -410,8 +412,7 @@ namespace build2
     // subset of the target's state as well as the number of its sub-tasks
     // (execution of prerequisites).
     //
-    // The count starts unexecuted and can then transition to postponed or
-    // executing. Postponed can transition to executing. And executing
+    // The count starts unexecuted then transitions executing. Executing
     // transitions (via a decrement) to executed. Once it is executed, then
     // state_ becomes immutable.
     //
@@ -422,9 +423,8 @@ namespace build2
     // case) its state, mtime, etc.
     //
     static const size_t count_unexecuted = 0;
-    static const size_t count_postponed  = 1;
-    static const size_t count_executed   = 2;
-    static const size_t count_executing  = 3;
+    static const size_t count_executed   = 1;
+    static const size_t count_executing  = 2;
 
     mutable atomic_count task_count;
 

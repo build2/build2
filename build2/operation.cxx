@@ -168,10 +168,10 @@ namespace build2
         }
       case target_state::changed:
         break;
-      case target_state::postponed:
-        assert (false);
       case target_state::failed:
         //@@ MT: This could probably happen in a parallel build.
+        //       Or does state() throw? Do we want to print?
+        break;
       default:
         assert (false);
       }

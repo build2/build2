@@ -405,14 +405,22 @@ namespace build2
         }));
 
     target_state ts (t.recipe (a) (a, t));
-    assert (ts != target_state::unknown && ts != target_state::failed);
 
-    t.state_ = ts;
-    if (ts == target_state::group)
-      ts = t.group->state_;
+    // The the recipe documentation for details on what's going on here.
+    //
+    switch (t.state_ = ts)
+    {
+    case target_state::changed:
+    case target_state::unchanged:                                   break;
+    case target_state::postponed: t.state_ = target_state::unknown; break;
+    case target_state::group:     ts = t.group->state_;             break;
+    default:                      assert (false);
+    }
 
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.
+    //
+    // @@ MT: not happenning in case of an exception!
     //
     size_t tc (t.task_count--);
     assert (tc == target::count_executing);
@@ -445,65 +453,50 @@ namespace build2
 
     // Handle the "last" execution mode.
     //
-    // This gets interesting when we consider interaction with
-    // groups. It seem to make sense to treat group members as
-    // dependents of the group, so, for example, if we try to
-    // clean the group via three of its members, only the last
-    // attempt will actually execute the clean. This means that
-    // when we match a group member, inside we should also match
-    // the group in order to increment the dependents count. This
-    // seems to be a natural requirement: if we are delegating to
-    // the group, we need to find a recipe for it, just like we
-    // would for a prerequisite.
+    // This gets interesting when we consider interaction with groups. It seem
+    // to make sense to treat group members as dependents of the group, so,
+    // for example, if we try to clean the group via three of its members,
+    // only the last attempt will actually execute the clean. This means that
+    // when we match a group member, inside we should also match the group in
+    // order to increment the dependents count. This seems to be a natural
+    // requirement: if we are delegating to the group, we need to find a
+    // recipe for it, just like we would for a prerequisite.
     //
-    // Note that below we are going to change the group state
-    // to postponed. This is not a mistake: until we execute
-    // the recipe, we want to keep returning postponed. And
-    // once the recipe is executed, it will reset the state
-    // to group (see group_action()). To put it another way,
-    // the execution of this member is postponed, not of the
-    // group.
+    // Note that below we are going to treat the group state to postponed.
+    // This is not a mistake: until we execute the recipe, we want to keep
+    // returning postponed. And once the recipe is executed, it will reset the
+    // state to group (see group_action()). To put it another way, the
+    // execution of this member is postponed, not of the group.
     //
-    // One important invariant to keep in mind: the return
-    // value from execute() should always be the same as what
-    // would get returned by a subsequent call to state().
+    // Note also that the target execution is postponed with regards to this
+    // thread. For other threads the state will still be unknown (until they
+    // try to execute it).
+    //
+    if (current_mode == execution_mode::last && d != 0)
+      return target_state::postponed;
+
+    // Try to atomically change unexecuted to executing.
     //
     size_t tc (target::count_unexecuted);
-    if (current_mode == execution_mode::last && d != 0)
+    if (t.task_count.compare_exchange_strong (tc, target::count_executing))
     {
-      // Try to atomically change unexecuted to postponed.
-      //
-      if (t.task_count.compare_exchange_strong (tc, target::count_postponed))
-        tc = target::count_postponed;
-    }
-    else
-    {
-      // Try to atomically change unexecuted to executing. But it can also be
-      // postponed to executing.
-      //
-      if (t.task_count.compare_exchange_strong (tc, target::count_executing) ||
-          (tc == target::count_postponed &&
-           t.task_count.compare_exchange_strong (tc, target::count_executing)))
-      {
-        if (task_count == nullptr)
-          return execute_impl (a, t);
+      if (task_count == nullptr)
+        return execute_impl (a, t);
 
-        sched.async (start_count,
-                     *task_count,
-                     [a] (target& t)
-                     {
-                       execute_impl (a, t); // @@ MT exception handling.
-                     },
-                     ref (t));
+      sched.async (start_count,
+                   *task_count,
+                   [a] (target& t)
+                   {
+                     execute_impl (a, t); // @@ MT exception handling.
+                   },
+                   ref (t));
 
-        return target_state::unknown;
-      }
+      return target_state::unknown;
     }
 
     switch (tc)
     {
     case target::count_unexecuted: assert (false);
-    case target::count_postponed:  return target_state::postponed;
     case target::count_executed:   return t.synchronized_state ();
     default:                       return target_state::busy;
     }
@@ -522,8 +515,7 @@ namespace build2
     //
     switch (tc)
     {
-    case target::count_unexecuted:
-    case target::count_postponed:  assert (false);
+    case target::count_unexecuted: assert (false);
     case target::count_executed:   break;
     default:                       sched.wait (target::count_executed,
                                                t.task_count);

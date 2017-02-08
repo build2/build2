@@ -31,7 +31,6 @@ namespace build2
     switch (task_count)
     {
     case target::count_unexecuted: return target_state::unknown;
-    case target::count_postponed:  return target_state::postponed;
     case target::count_executed:   return synchronized_state ();
     default:                       return target_state::busy;
     }

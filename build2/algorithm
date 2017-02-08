@@ -172,9 +172,9 @@ namespace build2
   execute_delegate (const recipe&, action, const target&);
 
   // A special version of the above that should be used for "direct" and "now"
-  // execution, that is, side-stepping the normal target- prerequisite
+  // execution, that is, side-stepping the normal target-prerequisite
   // relationship (so no dependents count is decremented) and execution order
-  // (so this function will never return postponed target state). It will also
+  // (so this function never returns the postponed target state). It will also
   // wait for the completion if the target is busy.
   //
   target_state
