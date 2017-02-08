@@ -7,7 +7,7 @@
 namespace build2
 {
   template <typename F, typename... A>
-  void scheduler::
+  bool scheduler::
   async (size_t start_count, atomic_count& task_count, F&& f, A&&... a)
   {
     using task = task_type<F, A...>;
@@ -56,7 +56,7 @@ namespace build2
     if (td == nullptr)
     {
       forward<F> (f) (forward<A> (a)...);
-      return;
+      return false;
     }
 
     // Increment the task count.
@@ -70,6 +70,8 @@ namespace build2
     //
     if (active_ < max_active_)
       activate_helper (l);
+
+    return true;
   }
 
   template <typename F, typename... A>

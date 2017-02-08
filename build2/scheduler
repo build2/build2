@@ -67,17 +67,20 @@ namespace build2
     // subtlety can become important when passing shared locks; you would
     // only want it to be copied if the task is queued).
     //
+    // Return true if the task was queued and false if it was executed
+    // synchronously.
+    //
     // If the scheduler is shutdown, throw system_error(ECANCELED).
     //
     template <typename F, typename... A>
-    void
+    bool
     async (size_t start_count, atomic_count& task_count, F&&, A&&...);
 
     template <typename F, typename... A>
-    void
+    bool
     async (atomic_count& task_count, F&& f, A&&... a)
     {
-      async (0, task_count, forward<F> (f), forward<A> (a)...);
+      return async (0, task_count, forward<F> (f), forward<A> (a)...);
     }
 
     // Wait until the task count reaches the start count. If the scheduler is
