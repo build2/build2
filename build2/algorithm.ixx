@@ -194,7 +194,7 @@ namespace build2
   }
 
   inline target_state
-  execute_prerequisites (action a, const target& t)
+  straight_execute_prerequisites (action a, const target& t)
   {
     auto& p (t.prerequisite_targets);
     return straight_execute_members (a, t, p.data (), p.size ());
@@ -205,6 +205,13 @@ namespace build2
   {
     auto& p (t.prerequisite_targets);
     return reverse_execute_members (a, t, p.data (), p.size ());
+  }
+
+  inline target_state
+  execute_prerequisites (action a, const target& t)
+  {
+    auto& p (t.prerequisite_targets);
+    return execute_members (a, t, p.data (), p.size ());
   }
 
   // If the first argument is NULL, then the result is treated as a boolean

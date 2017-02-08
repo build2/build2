@@ -190,12 +190,17 @@ namespace build2
   // Note that this function can be used as a recipe.
   //
   target_state
-  execute_prerequisites (action, const target&);
+  straight_execute_prerequisites (action, const target&);
 
   // As above but iterates over the prerequisites in reverse.
   //
   target_state
   reverse_execute_prerequisites (action, const target&);
+
+  // Call straight or reverse depending on the current mode.
+  //
+  target_state
+  execute_prerequisites (action, const target&);
 
   // A version of the above that also determines whether the action needs to
   // be executed on the target based on the passed timestamp and filter.
@@ -214,7 +219,7 @@ namespace build2
   // recursively linking liba{} prerequisites).
   //
   // Note that because we use mtime, this function should normally only be
-  // used in the perform_update action.
+  // used in the perform_update action (which is straight).
   //
   using prerequisite_filter = function<bool (const target&)>;
 

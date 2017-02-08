@@ -167,11 +167,11 @@ namespace build2
   {
     target_state ts (target_state::unchanged);
 
-    // First update prerequisites (e.g. create parent directories)
-    // then create this directory.
+    // First update prerequisites (e.g. create parent directories) then create
+    // this directory.
     //
     if (!t.prerequisite_targets.empty ())
-      ts = execute_prerequisites (a, t);
+      ts = straight_execute_prerequisites (a, t);
 
     const dir_path& d (t.dir); // Everything is in t.dir.
 

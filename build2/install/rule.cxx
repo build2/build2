@@ -231,7 +231,7 @@ namespace build2
           // Swap our prerequisite targets back in and execute.
           //
           t.prerequisite_targets.swap (pt);
-          r |= execute_prerequisites (a, t);
+          r |= straight_execute_prerequisites (a, t);
           pt.swap (t.prerequisite_targets); // In case we get re-executed.
 
           return r;
@@ -656,7 +656,7 @@ namespace build2
 
       // First handle installable prerequisites.
       //
-      target_state r (execute_prerequisites (a, t));
+      target_state r (straight_execute_prerequisites (a, t));
 
       // Then installable ad hoc group members, if any.
       //

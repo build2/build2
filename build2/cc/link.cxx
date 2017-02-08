@@ -909,7 +909,7 @@ namespace build2
       //
       bool update (false);
       timestamp mt (t.mtime ());
-      target_state ts (execute_prerequisites (a, t));
+      target_state ts (straight_execute_prerequisites (a, t));
 
       // If targeting Windows, take care of the manifest.
       //

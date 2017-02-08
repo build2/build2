@@ -669,6 +669,8 @@ namespace build2
                          action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
+    assert (current_mode == execution_mode::first);
+
     // Pretty much as straight_execute_members() but hairier.
     //
     target_state rs (target_state::unchanged);
@@ -766,9 +768,7 @@ namespace build2
   target_state
   default_action (action a, const target& t)
   {
-    return current_mode == execution_mode::first
-      ? execute_prerequisites (a, t)
-      : reverse_execute_prerequisites (a, t);
+    return execute_prerequisites (a, t);
   }
 
   target_state

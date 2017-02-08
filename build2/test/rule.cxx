@@ -696,7 +696,7 @@ namespace build2
     {
       // Run the alias recipe first then the test.
       //
-      target_state r (execute_prerequisites (a, t));
+      target_state r (straight_execute_prerequisites (a, t));
 
       // Note that we reuse the prerequisite_targets prepared by the standard
       // search and match.
