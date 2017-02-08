@@ -124,60 +124,41 @@ namespace build2
   }
 
   void
-  execute (action a, const action_targets& ts, bool quiet)
+  execute (action a, action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
 
+    // Reverse the order of targets if the execution mode is 'last'.
+    //
+    if (current_mode == execution_mode::last)
+      reverse (ts.begin (), ts.end ());
+
     phase_guard pg (run_phase::execute);
 
-    // Execute collecting postponed targets (to be re-examined later).
-    // Do it in reverse order if the execution mode is 'last'.
+    // Similar logic to execute_members(): first start asynchronous execution
+    // of all the top-level targets.
     //
-    vector<reference_wrapper<const target>> psp;
-
-    auto body = [a, quiet, &psp, &trace] (const void* v)
+    atomic_count task_count (0);
+    for (const void* v: ts)
     {
       const target& t (*static_cast<const target*> (v));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
-      switch (execute (a, t))
-      {
-      case target_state::unchanged:
-        {
-          if (!quiet)
-            info << diag_done (a, t);
-          break;
-        }
-      case target_state::postponed:
-        psp.push_back (t);
-        break;
-      case target_state::changed:
-        break;
-      case target_state::failed:
-        //@@ This could probably happen in a parallel build.
-      default:
-        assert (false);
-      }
-    };
+      execute_async (a, t, 0, task_count);
+    }
+    sched.wait (task_count);
 
-    if (current_mode == execution_mode::first)
-      for (const void* v: ts) body (v);
-    else
-      for (const void* v: reverse_iterate (ts)) body (v);
-
-    // We should have executed every target that we matched.
+    // We are now running serially and we should have executed every target
+    // that we matched.
     //
     assert (dependency_count == 0);
 
-    // Re-examine postponed targets. This is the only reliable way to
-    // find out whether the target has changed.
-    //
-    // Note: must be serial.
-    //
-    for (const target& t: psp)
+    for (const void* v: ts)
     {
-      switch (execute (a, t))
+      const target& t (*static_cast<const target*> (v));
+
+      switch (t.synchronized_state ())
       {
       case target_state::unchanged:
         {
@@ -190,7 +171,7 @@ namespace build2
       case target_state::postponed:
         assert (false);
       case target_state::failed:
-        //@@ This could probably happen in a parallel build.
+        //@@ MT: This could probably happen in a parallel build.
       default:
         assert (false);
       }

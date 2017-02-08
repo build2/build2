@@ -422,18 +422,19 @@ namespace build2
   }
 
   target_state
-  execute (action a, const target& ct)
+  execute (action a,
+           const target& ct,
+           size_t start_count,
+           atomic_count* task_count)
   {
     target& t (const_cast<target&> (ct)); // MT-aware.
 
     // text << "E " << t << ": " << t.dependents << " " << dependency_count;
 
-    size_t d (0);
-    if (dependency_count != 0) // Re-examination of a postponed target?
+    // Update dependency counts and make sure they are not skew.
+    //
+    size_t d;
     {
-      // Note that re-examination only happens during serial execution so
-      // dependency_count can only become 0 if we have skew counts.
-      //
       // Note: memory order can probably be relaxed.
       //
       size_t g (dependency_count--);
@@ -483,14 +484,27 @@ namespace build2
       if (t.task_count.compare_exchange_strong (tc, target::count_executing) ||
           (tc == target::count_postponed &&
            t.task_count.compare_exchange_strong (tc, target::count_executing)))
-        return execute_impl (a, t);
+      {
+        if (task_count == nullptr)
+          return execute_impl (a, t);
+
+        sched.async (start_count,
+                     *task_count,
+                     [a] (target& t)
+                     {
+                       execute_impl (a, t); // @@ MT exception handling.
+                     },
+                     ref (t));
+
+        return target_state::unknown;
+      }
     }
 
     switch (tc)
     {
     case target::count_unexecuted: assert (false);
     case target::count_postponed:  return target_state::postponed;
-    case target::count_executed:   return t.state ();
+    case target::count_executed:   return t.synchronized_state ();
     default:                       return target_state::busy;
     }
   }
@@ -515,36 +529,136 @@ namespace build2
                                                t.task_count);
     }
 
-    return t.state ();
+    return t.synchronized_state ();
+  }
+
+  // We use the last bit of a pointer to target in prerequisite_targets as a
+  // flag to indicate whether the target was already busy. Probably not worth
+  // it (we are saving an atomic load), but what the hell.
+  //
+  // VC15 doesn't like if we use (abstract) target here.
+  //
+  static_assert (alignof (file) % 2 == 0, "unexpected target alignment");
+
+  static inline void
+  set_busy (const target*& p)
+  {
+    uintptr_t i (reinterpret_cast<uintptr_t> (p));
+    i |= 0x01;
+    p = reinterpret_cast<const target*> (i);
+  }
+
+  static inline bool
+  get_busy (const target*& p)
+  {
+    uintptr_t i (reinterpret_cast<uintptr_t> (p));
+
+    if ((i & 0x01) != 0)
+    {
+      i &= ~uintptr_t (0x01);
+      p = reinterpret_cast<const target*> (i);
+      return true;
+    }
+
+    return false;
   }
 
   target_state
-  execute_prerequisites (action a, const target& t)
+  straight_execute_members (action a,
+                            const target& t,
+                            const target* ts[],
+                            size_t n)
   {
     target_state r (target_state::unchanged);
 
-    for (const target* pt: t.prerequisite_targets)
+    // Start asynchronous execution of prerequisites.
+    //
+    for (size_t i (0); i != n; ++i)
     {
-      if (pt == nullptr) // Skipped.
+      const target*& mt (ts[i]);
+
+      if (mt == nullptr) // Skipped.
         continue;
 
-      r |= execute (a, *pt);
+      target_state s (
+        execute_async (
+          a, *mt, target::count_executing, t.task_count));
+
+      if (s == target_state::postponed)
+      {
+        r |= s;
+        mt = nullptr;
+      }
+      else if (s == target_state::busy)
+        set_busy (mt);
+    }
+    sched.wait (target::count_executing, t.task_count);
+
+    // Now all the targets in prerequisite_targets must be executed and
+    // synchronized (and we have blanked out all the postponed ones).
+    //
+    for (size_t i (0); i != n; ++i)
+    {
+      const target*& mt (ts[i]);
+
+      if (mt == nullptr)
+        continue;
+
+      // If the target was already busy, wait for its completion.
+      //
+      if (get_busy (mt))
+        sched.wait (target::count_executed, mt->task_count);
+
+      r |= mt->synchronized_state ();
     }
 
     return r;
   }
 
   target_state
-  reverse_execute_prerequisites (action a, const target& t)
+  reverse_execute_members (action a,
+                           const target& t,
+                           const target* ts[],
+                           size_t n)
   {
+    // Pretty much as straight_execute_members() but in reverse order.
+    //
     target_state r (target_state::unchanged);
 
-    for (const target* pt: reverse_iterate (t.prerequisite_targets))
+    for (size_t i (n); i != 0; --i)
     {
-      if (pt == nullptr) // Skipped.
+      const target*& mt (ts[i - 1]);
+
+      if (mt == nullptr)
         continue;
 
-      r |= execute (a, *pt);
+      target_state s (
+        execute_async (
+          a, *mt, target::count_executing, t.task_count));
+
+      if (s == target_state::postponed)
+      {
+        r |= s;
+        mt = nullptr;
+      }
+      else if (s == target_state::busy)
+        set_busy (mt);
+    }
+    sched.wait (target::count_executing, t.task_count);
+
+    for (size_t i (n); i != 0; --i)
+    {
+      const target*& mt (ts[i - 1]);
+
+      if (mt == nullptr)
+        continue;
+
+      // If the target was already busy, wait for its completion.
+      //
+      if (get_busy (mt))
+        sched.wait (target::count_executed, mt->task_count);
+
+      r |= mt->synchronized_state ();
     }
 
     return r;
@@ -555,18 +669,44 @@ namespace build2
                          action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
-    bool e (mt == timestamp_nonexistent);
-
-    const target* rt (tt != nullptr ? nullptr : &t);
+    // Pretty much as straight_execute_members() but hairier.
+    //
     target_state rs (target_state::unchanged);
 
-    for (const target* pt: t.prerequisite_targets)
+    for (const target*& pt: t.prerequisite_targets)
     {
-      if (pt == nullptr) // Skip ignored.
+      if (pt == nullptr) // Skipped.
         continue;
 
-      target_state ts (execute (a, *pt));
-      rs |= ts;
+      target_state s (
+        execute_async (
+          a, *pt, target::count_executing, t.task_count));
+
+      if (s == target_state::postponed)
+      {
+        rs |= s;
+        pt = nullptr;
+      }
+      else if (s == target_state::busy)
+        set_busy (pt);
+    }
+    sched.wait (target::count_executing, t.task_count);
+
+    bool e (mt == timestamp_nonexistent);
+    const target* rt (tt != nullptr ? nullptr : &t);
+
+    for (const target*& pt: t.prerequisite_targets)
+    {
+      if (pt == nullptr)
+        continue;
+
+      // If the target was already busy, wait for its completion.
+      //
+      if (get_busy (pt))
+        sched.wait (target::count_executed, pt->task_count);
+
+      target_state s (pt->synchronized_state ());
+      rs |= s;
 
       // Should we compare the timestamp to this target's?
       //
@@ -581,14 +721,14 @@ namespace build2
           // The same logic as in mtime_target::newer() (but avoids a call to
           // state()).
           //
-          if (mt < mp || (mt == mp && ts == target_state::changed))
+          if (mt < mp || (mt == mp && s == target_state::changed))
             e = true;
         }
         else
         {
           // Otherwise we assume the prerequisite is newer if it was changed.
           //
-          if (ts == target_state::changed)
+          if (s == target_state::changed)
             e = true;
         }
       }

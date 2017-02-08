@@ -134,21 +134,8 @@ namespace build2
       bool a (type == "static" || type == "both");
       bool s (type == "shared" || type == "both");
 
-      target* m1 (a ? t.a : nullptr);
-      target* m2 (s ? t.s : nullptr);
-
-      if (current_mode == execution_mode::last)
-        swap (m1, m2);
-
-      target_state r (target_state::unchanged);
-
-      if (m1 != nullptr)
-        r |= execute (act, *m1);
-
-      if (m2 != nullptr)
-        r |= execute (act, *m2);
-
-      return r;
+      const target* m[] = {a ? t.a : nullptr, s ? t.s : nullptr};
+      return execute_members (act, t, m);
     }
   }
 }

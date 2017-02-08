@@ -55,7 +55,7 @@ namespace build2
     }
 
     static void
-    dist_execute (action, const action_targets& ts, bool)
+    dist_execute (action, action_targets& ts, bool)
     {
       tracer trace ("dist_execute");
 

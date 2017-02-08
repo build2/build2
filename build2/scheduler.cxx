@@ -84,11 +84,11 @@ namespace build2
       //
       s.tcount = &tc;
 
-      // Since we use a mutex for synchronization, we can relax the atomic
-      // access.
+      // We could probably relax the atomic access since we use a mutex for
+      // synchronization though this has a different tradeoff (calling wait
+      // because we don't see the count).
       //
-      while (!(s.shutdown ||
-               tc.load (std::memory_order_relaxed) <= start_count))
+      while (!(s.shutdown || tc <= start_count))
         s.condv.wait (l);
 
       s.waiters--;

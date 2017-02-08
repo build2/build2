@@ -410,40 +410,35 @@ namespace build2
     // subset of the target's state as well as the number of its sub-tasks
     // (execution of prerequisites).
     //
-    // The task starts unexecuted and can then transition to postponed or
+    // The count starts unexecuted and can then transition to postponed or
     // executing. Postponed can transition to executing. And executing
     // transitions (via a decrement) to executed. Once it is executed, then
     // state_ becomes immutable.
+    //
+    // The target is said to be synchronized (in this thread) if we have
+    // either observed the task count to reach count_executed or we have
+    // successfully changed it (via compare_exchange) to count_executing.
+    // If the target is synchronized, then we can access and modify (second
+    // case) its state, mtime, etc.
     //
     static const size_t count_unexecuted = 0;
     static const size_t count_postponed  = 1;
     static const size_t count_executed   = 2;
     static const size_t count_executing  = 3;
 
-    atomic_count task_count;
+    mutable atomic_count task_count;
 
-    // @@ MT TODO: when can be called.
+    // Return the "stapshot" of the target state. That is, unless the target
+    // has been executed, its state can change asynchronously.
     //
     target_state
-    state () const
-    {
-      // We go an extra step and short-circuit to the target state even if the
-      // raw state is not group provided the recipe is group_recipe.
+    atomic_state () const;
 
-      if (state_ == target_state::group)
-        return group->state_;
-
-      if (group == nullptr)
-        return state_;
-
-      if (recipe_function* const* f = recipe_.target<recipe_function*> ())
-      {
-        if (*f == &group_action)
-          return group->state_;
-      }
-
-      return state_;
-    }
+    // During execution this function can only be called if we have observed
+    // (synchronization-wise) that this target has been executed.
+    //
+    target_state
+    synchronized_state () const;
 
     // Number of direct targets that depend on this target in the current
     // action. It is incremented during the match phase and then decremented
@@ -1176,6 +1171,8 @@ namespace build2
 
     // Return true if this target is newer than the specified timestamp.
     //
+    // Note: can only be called on a synchronized target.
+    //
     bool
     newer (timestamp mt) const
     {
@@ -1186,7 +1183,8 @@ namespace build2
       // much we can do here except detect the case where the target was
       // changed on this run.
       //
-      return mt < mp || (mt == mp && state () == target_state::changed);
+      return mt < mp || (mt == mp &&
+                         synchronized_state () == target_state::changed);
     }
 
   protected:

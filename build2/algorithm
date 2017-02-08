@@ -147,38 +147,47 @@ namespace build2
   fsdir*
   inject_fsdir (slock&, action, target&, bool parent = true);
 
-  // Execute the action on target, assuming a rule has been matched
-  // and the recipe for this action has been set. This is the default
-  // executor implementation. Decrements the dependents count.
+  // Execute the action on target, assuming a rule has been matched and the
+  // recipe for this action has been set. This is the synchrounous executor
+  // implementation (but may still return target_state::busy is the target
+  // is already being executed). Decrements the dependents count.
   //
   target_state
   execute (action, const target&);
 
-  // Execute the recipe obtained with match_delegate(). Note that
-  // the target's state is neither checked nor updated by this
-  // function. In other words, the appropriate usage is to call
-  // this function from another recipe and to factor the obtained
-  // state into the one returned.
+  // As above but start asynchronous execution. Return target_state::unknown
+  // if the asynchrounous execution has been started and target_state::busy if
+  // the target has already been busy.
+  //
+  target_state
+  execute_async (action, const target&,
+                 size_t start_count, atomic_count& task_count);
+
+  // Execute the recipe obtained with match_delegate(). Note that the target's
+  // state is neither checked nor updated by this function. In other words,
+  // the appropriate usage is to call this function from another recipe and to
+  // factor the obtained state into the one returned.
   //
   target_state
   execute_delegate (const recipe&, action, const target&);
 
-  // A special version of the above that should be used for "direct"
-  // and "now" execution, that is, side-stepping the normal target-
-  // prerequisite relationship (so no dependents count is decremented)
-  // and execution order (so this function will never return postponed
-  // target state). It will also wait for the completion if the target
-  // is busy.
+  // A special version of the above that should be used for "direct" and "now"
+  // execution, that is, side-stepping the normal target- prerequisite
+  // relationship (so no dependents count is decremented) and execution order
+  // (so this function will never return postponed target state). It will also
+  // wait for the completion if the target is busy.
   //
   target_state
   execute_direct (action, const target&);
 
-  // The default prerequisite execute implementation. It calls execute()
-  // on each non-ignored (non-NULL) prerequisite target in a loop. If this
-  // target is a member of a group, then it first does this to the group's
-  // prerequisites. Returns target_state::changed if any of them were
-  // changed and target_state::unchanged otherwise. Note that this
-  // function can be used as a recipe.
+  // The default prerequisite execute implementation. Call execute_async() on
+  // each non-ignored (non-NULL) prerequisite target in a loop and then wait
+  // for their completion. Return target_state::changed if any of them were
+  // changed and target_state::unchanged otherwise. If a prerequisite's
+  // execution is postponed, then set its pointer in prerequisite_targets to
+  // NULL (since its state cannot be queried MT-safely).
+  //
+  // Note that this function can be used as a recipe.
   //
   target_state
   execute_prerequisites (action, const target&);
@@ -239,6 +248,41 @@ namespace build2
                          action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
+
+  // Execute members of a group or similar prerequisite-like dependencies.
+  // Similar in semantics to execute_prerequisites().
+  //
+  target_state
+  straight_execute_members (action, const target&, const target*[], size_t);
+
+  target_state
+  reverse_execute_members (action, const target&, const target*[], size_t);
+
+  // Call straight or reverse depending on the current mode.
+  //
+  target_state
+  execute_members (action, const target&, const target*[], size_t);
+
+  template <size_t N>
+  inline target_state
+  straight_execute_members (action a, const target& t, const target* (&ts)[N])
+  {
+    return straight_execute_members (a, t, ts, N);
+  }
+
+  template <size_t N>
+  inline target_state
+  reverse_execute_members (action a, const target& t, const target* (&ts)[N])
+  {
+    return reverse_execute_members (a, t, ts, N);
+  }
+
+  template <size_t N>
+  inline target_state
+  execute_members (action a, const target& t, const target* (&ts)[N])
+  {
+    return execute_members (a, t, ts, N);
+  }
 
   // Return noop_recipe instead of using this function directly.
   //

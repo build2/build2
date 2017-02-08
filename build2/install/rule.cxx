@@ -181,7 +181,7 @@ namespace build2
         // will help a lot in case of any static installable content
         // (headers, documentation, etc).
         //
-        if (pt->state () != target_state::unchanged)
+        if (pt->synchronized_state () != target_state::unchanged) //@@ MT?
           t.prerequisite_targets.push_back (pt);
         else
           unmatch (a, *pt); // No intent to execute.

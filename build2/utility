@@ -11,6 +11,7 @@
 #include <utility>    // move(), forward(), declval(), make_pair()
 #include <cassert>    // assert()
 #include <iterator>   // make_move_iterator()
+#include <algorithm>  // *
 #include <functional> // ref(), cref()
 
 #include <butl/ft/lang>

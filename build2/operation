@@ -211,7 +211,7 @@ namespace build2
 
     void (*match) (action, action_targets&);
 
-    void (*execute) (action, const action_targets&, bool quiet);
+    void (*execute) (action, action_targets&, bool quiet);
 
     void (*operation_post) (operation_id); // End of operation batch.
     void (*meta_operation_post) (); // End of meta-operation batch.

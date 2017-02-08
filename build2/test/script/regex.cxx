@@ -17,13 +17,13 @@ namespace build2
       namespace regex
       {
         static_assert (alignof (char_string) % 4 == 0,
-                       "inappropriate allignment for char_string");
+                       "unexpected char_string alignment");
 
         static_assert (alignof (char_regex) % 4 == 0,
-                       "inappropriate allignment for char_regex");
+                       "unexpected char_regex alignment");
 
         static_assert (sizeof (uintptr_t) > sizeof (int16_t),
-                       "inappropriate uintptr_t size");
+                       "unexpected uintptr_t size");
 
         const line_char line_char::nul (0);
         const line_char line_char::eof (-1);

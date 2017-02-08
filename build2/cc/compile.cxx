@@ -891,14 +891,17 @@ namespace build2
       //
       auto update = [&trace, a] (path_target& pt, timestamp ts) -> bool
       {
-        if (pt.state () != target_state::unchanged)
+        //@@ MT extenal modification sync.
+
+        target_state os (pt.atomic_state ()); //@@ MT: do we need atomic?
+
+        if (os != target_state::unchanged)
         {
           // We only want to restart if our call to execute() actually
           // caused an update. In particular, the target could already
           // have been in target_state::changed because of a dependency
           // extraction run for some other source file.
           //
-          target_state os (pt.state ());
           target_state ns (execute_direct (a, pt));
 
           if (ns != os && ns != target_state::unchanged)

@@ -25,6 +25,39 @@ namespace build2
       e != nullptr ? optional<string> (*e) : nullopt};
   }
 
+  inline target_state target::
+  atomic_state () const
+  {
+    switch (task_count)
+    {
+    case target::count_unexecuted: return target_state::unknown;
+    case target::count_postponed:  return target_state::postponed;
+    case target::count_executed:   return synchronized_state ();
+    default:                       return target_state::busy;
+    }
+  }
+
+  inline target_state target::
+  synchronized_state () const
+  {
+    // We go an extra step and short-circuit to the target state even if the
+    // raw state is not group provided the recipe is group_recipe.
+
+    if (state_ == target_state::group)
+      return group->state_;
+
+    if (group == nullptr)
+      return state_;
+
+    if (recipe_function* const* f = recipe_.target<recipe_function*> ())
+    {
+      if (*f == &group_action)
+        return group->state_;
+    }
+
+    return state_;
+  }
+
   // prerequisite_member
   //
   inline prerequisite prerequisite_member::

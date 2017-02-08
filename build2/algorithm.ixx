@@ -172,10 +172,39 @@ namespace build2
     search_and_match_prerequisite_members (ml, a, t, &s);
   }
 
+  target_state
+  execute (action, const target&, size_t, atomic_count*);
+
+  inline target_state
+  execute (action a, const target& t)
+  {
+    return execute (a, t, 0, nullptr);
+  }
+
+  inline target_state
+  execute_async (action a, const target& t, size_t sc, atomic_count& tc)
+  {
+    return execute (a, t, sc, &tc);
+  }
+
   inline target_state
   execute_delegate (const recipe& r, action a, const target& t)
   {
     return r (a, t);
+  }
+
+  inline target_state
+  execute_prerequisites (action a, const target& t)
+  {
+    auto& p (t.prerequisite_targets);
+    return straight_execute_members (a, t, p.data (), p.size ());
+  }
+
+  inline target_state
+  reverse_execute_prerequisites (action a, const target& t)
+  {
+    auto& p (t.prerequisite_targets);
+    return reverse_execute_members (a, t, p.data (), p.size ());
   }
 
   // If the first argument is NULL, then the result is treated as a boolean
@@ -219,5 +248,13 @@ namespace build2
   {
     auto p (execute_prerequisites (tt, a, t, mt, pf));
     return make_pair (static_cast<const T*> (p.first), p.second);
+  }
+
+  inline target_state
+  execute_members (action a, const target& t, const target* ts[], size_t n)
+  {
+    return current_mode == execution_mode::first
+      ? straight_execute_members (a, t, ts, n)
+      : reverse_execute_members (a, t, ts, n);
   }
 }

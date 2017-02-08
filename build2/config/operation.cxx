@@ -353,7 +353,7 @@ namespace build2
     }
 
     static void
-    configure_execute (action a, const action_targets& ts, bool)
+    configure_execute (action a, action_targets& ts, bool)
     {
       // Match rules to configure every operation supported by each
       // project. Note that we are not calling operation_pre/post()
@@ -589,7 +589,7 @@ namespace build2
     }
 
     static void
-    disfigure_execute (action a, const action_targets& ts, bool quiet)
+    disfigure_execute (action a, action_targets& ts, bool quiet)
     {
       tracer trace ("disfigure_execute");
 

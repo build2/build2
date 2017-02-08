@@ -291,7 +291,7 @@ namespace build2
           {
             build2::match (ml, a, *it);
 
-            if (it->state () == target_state::unchanged)
+            if (it->synchronized_state () == target_state::unchanged) //@@ TM?
             {
               unmatch (a, *it);
               it = nullptr;
@@ -304,7 +304,7 @@ namespace build2
             {
               build2::match (ml, a, *ot);
 
-              if (ot->state () == target_state::unchanged)
+              if (ot->synchronized_state () == target_state::unchanged) //@@ MT?
               {
                 unmatch (a, *ot);
                 ot = nullptr;
@@ -337,13 +337,8 @@ namespace build2
             //
             target_state r (execute_delegate (dr, a, t));
 
-            if (it != nullptr)
-              r |= execute (a, *it);
-
-            if (ot != nullptr)
-              r |= execute (a, *ot);
-
-            return r;
+            const target* ts[] = {it, ot};
+            return r |= straight_execute_members (a, t, ts);
           };
         }
         else
