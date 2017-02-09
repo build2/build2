@@ -431,8 +431,7 @@ namespace build2
             //
             // test/1/stdout.regex~di
             //
-            if (rd.type == redirect_type::here_doc_regex &&
-                !rl.flags.empty ())
+            if (rd.type == redirect_type::here_doc_regex && !rl.flags.empty ())
               rp += "~" + rl.flags;
 
             // Note that if would be more efficient to directly write chunks
@@ -441,10 +440,11 @@ namespace build2
             // already failed.
             //
             string s;
-            for (const auto& l: rl.lines)
+            for (auto b (rl.lines.cbegin ()), i (b), e (rl.lines.cend ());
+                 i != e; ++i)
             {
-              if (!s.empty ()) s += '\n';
-              s += line (l);
+              if (i != b) s += '\n';
+              s += line (*i);
             }
 
             save (rp, s, ll);

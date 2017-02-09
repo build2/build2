@@ -32,10 +32,18 @@
     : Note that old versions of libc++ (for example 1.1) do not detect some
     : regex errors. For example '*' is parsed successfully.
     :
-    $c <'$* -o foo >~/foo[/';
-    $b 2>>~/EOE/ != 0
-    /testscript:1:13: error: invalid stdout regex redirect.*/
+    $c <'cat <foo >~/foo[/' && $b 2>>~/EOE/ != 0
+    /testscript:1:12: error: invalid stdout regex redirect.*/
       info: regex: '/foo[/'
+    EOE
+
+    : no-match
+    :
+    $c <'cat <foo >~/bar/' && $b 2>>/EOE != 0
+    testscript:1:1: error: cat stdout doesn't match the regex
+      info: stdout: test/1/stdout
+      info: stdout regex: test/1/stdout.regex
+      info: stdin: test/1/stdin
     EOE
   }
 
@@ -114,36 +122,54 @@
     : invalid-syntax-char
     :
     $c <<EOI && $b 2>>EOE != 0
-    $* -o foo >>~/EOO/
-      /x
-      EOO
+    cat <foo >>~/EOO/
+    /x
+    EOO
     EOI
-    testscript:2:3: error: invalid syntax character 'x' in stdout regex redirect
+    testscript:2:1: error: invalid syntax character 'x' in stdout regex redirect
       info: regex line: '/x'
     EOE
 
     : invalid-char-regex
     :
     $c <<EOI && $b 2>>~/EOE/ != 0
-    $* -o foo >>~/EOO/
-      /foo[/
-      EOO
+    cat <foo >>~/EOO/
+    /foo[/
+    EOO
     EOI
-    /testscript:2:3: error: invalid char-regex in stdout regex redirect.*/
+    /testscript:2:1: error: invalid char-regex in stdout regex redirect.*/
       info: regex line: '/foo[/'
     EOE
 
     : invalid-line-regex
     :
     $c <<EOI && $b 2>>/~%EOE% != 0
-    $* -o foo >>~/EOO/
-      a
-      /{
-      EOO
+    cat <foo >>~/EOO/
+    a
+    /{
+    EOO
     EOI
-    %testscript:4:3: error: invalid stdout regex redirect.*%
+    %testscript:4:1: error: invalid stdout regex redirect.*%
       info: stdout regex: test/1/stdout.regex
     EOE
+
+    : no-match
+    :
+    {
+      : leading-blank
+      :
+      $c <<EOI && $b 2>>/EOE != 0
+      cat <foo >>~/EOO/
+
+      foo
+      EOO
+      EOI
+      testscript:1:1: error: cat stdout doesn't match the regex
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+        info: stdin: test/1/stdin
+      EOE
+    }
   }
 }
 
