@@ -98,13 +98,20 @@ namespace build2
     // count starts before/during async() calls, then it must be "gated" with
     // an alternative (lower) start count.
     //
+    // Finally, if waiting on someone else's start count, it is most likely
+    // unsafe (from the deadlock's point of view) to continue working through
+    // our own queue (i.e., we may block waiting on a task that has been
+    // queued before us which in turn may end up waiting on "us").
+    //
     void
-    wait (size_t start_count, const atomic_count& task_count);
+    wait (size_t start_count,
+          const atomic_count& task_count,
+          bool work_queue = true);
 
     void
-    wait (const atomic_count& task_count)
+    wait (const atomic_count& task_count, bool work_queue = true)
     {
-      wait (0, task_count);
+      wait (0, task_count, work_queue);
     }
 
     // Resume threads waiting on this task count.
@@ -160,6 +167,11 @@ namespace build2
     //
     void
     tune (size_t max_active);
+
+    // Return true if the scheduler is running serial.
+    //
+    bool
+    serial () const {return max_active_ == 1;}
 
     // Wait for all the helper threads to terminate. Throw system_error on
     // failure. Note that the initially active threads are not waited for.
@@ -338,8 +350,7 @@ namespace build2
     //
     // Each queue has its own mutex. If the task_ flag above is true then
     // there *might* be a task in one of the queues. If it is false, then
-    // it means there are either no tasks or someone is busy working on
-    // them.
+    // it means there are definitely no tasks.
     //
     // For now we only support trivially-destructible tasks.
     //
@@ -378,7 +389,7 @@ namespace build2
       std::mutex mutex;
       bool shutdown = false;
 
-      size_t stat_full = 0; // Number of times pop() returned NULL.
+      size_t stat_full = 0; // Number of times push() returned NULL.
 
       // Our task queue is circular with head being the index of the first
       // element and tail -- of the last. Since this makes the empty and one
