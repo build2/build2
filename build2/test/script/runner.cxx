@@ -672,12 +672,14 @@ namespace build2
             continue;
 
           const path& p (c.path);
+          const path& l (p.leaf ());
+          const string& ls (l.string ());
 
           // Remove the directory recursively if not current. Fail otherwise.
           // Recursive removal of non-existing directory is not an error for
           // 'maybe' cleanup type.
           //
-          if (p.leaf ().string () == "***")
+          if (ls == "***")
           {
             // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
             //
@@ -695,6 +697,56 @@ namespace build2
                       << (r == rmdir_status::not_empty
                           ? " matches the current directory"
                           : " doesn't match a directory");
+          }
+
+          // Remove files or directories using wildcard. Removal of sub-entries
+          // of non-existing directory is not an error for 'maybe' cleanup
+          // type.
+          //
+          // Note that only the leaf part of the cleanup wildcard is a pattern
+          // in terms of libbutl::path_search().
+          //
+          if (ls == "*" || ls == "**")
+          {
+            dir_path d (p.directory ());
+
+            if (t == cleanup_type::always && !dir_exists (d))
+              fail (ll) << "registered for cleanup wildcard " << p
+                        << " doesn't match a directory";
+
+            if (l.to_directory ())
+            {
+              auto rm = [&p, &d, &ll] (path&& de) -> bool
+              {
+                dir_path sd (path_cast<dir_path> (d / de));
+
+                // We can get not_exist here due to racing conditions, but
+                // that's ok if somebody did our job.
+                //
+                rmdir_status r (rmdir (sd, 2));
+
+                if (r != rmdir_status::not_empty)
+                  return true;
+
+                fail (ll) << "registered for cleanup directory " << sd
+                          << " is not empty" <<
+                  info << "wildcard: '" << p << "'" << endf;
+              };
+
+              path_search (l, rm, d);
+            }
+            else
+            {
+              auto rm = [&d] (path&& p) -> bool
+              {
+                rmfile (d / p, 2); // That's ok if not exists.
+                return true;
+              };
+
+              path_search (l, rm, d);
+            }
+
+            continue;
           }
 
           // Remove the directory if exists and empty. Fail otherwise. Removal
@@ -770,7 +822,8 @@ namespace build2
           const path& p (cl.path);
           path np (normalize (p, sp, ll));
 
-          bool wc (np.leaf ().string () == "***");
+          const string& ls (np.leaf ().string ());
+          bool wc (ls == "*" || ls == "**" || ls == "***");
           const path& cp (wc ? np.directory () : np);
           const dir_path& wd (sp.root->wd_path);
 

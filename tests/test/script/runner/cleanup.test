@@ -144,47 +144,116 @@ b += --no-column
 : wildcard
 :
 {
-  : always
+  : self
   :
-  $c <'$* -d a/b -f a/b/c &a/***' && $b
+  {
+    : always
+    :
+    $c <'$* -d a/b -f a/b/c &a/***' && $b
 
-  : maybe
-  :
-  $c <'$* &?a/***' && $b
+    : maybe
+    :
+    $c <'$* &?a/***' && $b
 
-  : not-exists
-  :
-  : Test cleanup of a wildcard not matching any directory.
-  :
-  $c <'$* &a/***' && $b 2>>/EOE != 0
-  testscript:1: error: registered for cleanup wildcard test/1/a/*** doesn't match a directory
-  EOE
+    : not-exists
+    :
+    : Test cleanup of a wildcard not matching any directory.
+    :
+    $c <'$* &a/***' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup wildcard test/1/a/*** doesn't match a directory
+    EOE
 
-  : out-wd
-  :
-  : Test cleanup of a wildcard out of the testscript working directory.
-  :
-  $c <'$* &../../a/***' && $b 2>>/EOE != 0
-  testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
-  EOE
+    : out-wd
+    :
+    : Test cleanup of a wildcard out of the testscript working directory.
+    :
+    $c <'$* &../../a/***' && $b 2>>/EOE != 0
+    testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+    EOE
 
-  : in-wd
-  :
-  : Test cleanup registration of a wildcard matching the directory that being
-  : outside the test working directory is inside the testscript working
-  : directory.
-  :
-  $c <'$* &../a/***' && $b 2>>/EOE != 0
-  testscript:1: error: registered for cleanup wildcard test/a/*** doesn't match a directory
-  EOE
+    : in-wd
+    :
+    : Test cleanup registration of a wildcard matching the directory that being
+    : outside the test working directory is inside the testscript working
+    : directory.
+    :
+    $c <'$* &../a/***' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup wildcard test/a/*** doesn't match a directory
+    EOE
 
-  : not-dir
+    : not-dir
+    :
+    : Test cleanup of a file as a wildcard.
+    :
+    $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
+    %error: unable to remove directory test/1/a/: .+%
+    EOE
+  }
+
+  : dir
   :
-  : Test cleanup of a file as a wildcard.
+  {
+    : always
+    :
+    {
+      : immediate
+      :
+      $c <'$* -d a/b &a/ &a/*/' && $b
+
+      : recursive
+      :
+      $c <'$* -d a/b/c &a/ &a/**/' && $b
+    }
+
+    : maybe
+    :
+    $c <'$* &?a/**/' && $b
+
+    : not-exists
+    :
+    : Test cleanup of a wildcard that doesn't match any directory.
+    :
+    $c <'$* &a/**/' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match a directory
+    EOE
+
+    : not-dir
+    :
+    : Test cleanup of a file as a directory wildcard.
+    :
+    $c <'$* -f a &a/**/' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match a directory
+    EOE
+
+    : not-empty
+    :
+    : Test cleanup of a non-empty directory as a wildcard.
+    :
+    $c <'$* -d a/b/c -f a/b/d &a/**/' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup directory test/1/a/b/ is not empty
+      info: wildcard: 'test/1/a/**/'
+    EOE
+  }
+
+  : file
   :
-  $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
-  %error: unable to remove directory test/1/a/: .+%
-  EOE
+  {
+    : always
+    :
+    {
+      : immediate
+      :
+      $c <'$* -d a -f a/c &a/ &a/*' && $b
+
+      : recursive
+      :
+      $c <'$* -d a/b -f a/c -f a/b/e &a/ &a/b/ &a/**' && $b
+    }
+
+    : maybe
+    :
+    $c <'$* &?a/**' && $b
+  }
 }
 
 : order

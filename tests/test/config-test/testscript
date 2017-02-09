@@ -7,8 +7,7 @@
 
 test.options   = --jobs 1 --quiet
 test.arguments = 'test(../proj/@./)' # Test out-of-src (for parallel).
-#test.cleanups  = &**/                # Cleanup out directory structure.
-test.cleanups  = &!./ #@@ TMP
+test.cleanups  = &**/                # Cleanup out directory structure.
 
 +mkdir proj
 +mkdir proj/build
@@ -192,9 +191,3 @@ EOO
 $* config.test=tests/@{basics/baz/bar} >>EOO
 tests/script/basics/baz/bar
 EOO
-
-# @@ TMP HACK
-#
--rm -r all/ alias-pass/ alias-test/ alias-pass-test/ alias-pass-id-only/ \
-  target-simple/ target-script/ id/ target-id/ target-ids/ id-group/ \
-  id-in-group/
