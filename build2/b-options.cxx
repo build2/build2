@@ -576,6 +576,7 @@ namespace build2
     verbose_specified_ (false),
     jobs_ (),
     jobs_specified_ (false),
+    serial_stop_ (),
     no_column_ (),
     no_line_ (),
     buildfile_ ("buildfile"),
@@ -696,6 +697,11 @@ namespace build2
        << "                     threads is used." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
+       << "                     useful to investigate build failured that are caused by" << ::std::endl
+       << "                     build system errors rather than compilation errors." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
 
     os << std::endl
@@ -777,6 +783,10 @@ namespace build2
       _cli_options_map_["-j"] = 
       &::build2::cl::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;
+      _cli_options_map_["--serial-stop"] = 
+      &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      _cli_options_map_["-s"] = 
+      &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["--no-column"] = 
       &::build2::cl::thunk< options, bool, &options::no_column_ >;
       _cli_options_map_["--no-line"] = 

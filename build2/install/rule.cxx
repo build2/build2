@@ -181,10 +181,10 @@ namespace build2
         // will help a lot in case of any static installable content
         // (headers, documentation, etc).
         //
-        if (pt->synchronized_state () != target_state::unchanged) //@@ MT?
-          t.prerequisite_targets.push_back (pt);
-        else
+        if (pt->unchanged ()) //@@ MT?
           unmatch (a, *pt); // No intent to execute.
+        else
+          t.prerequisite_targets.push_back (pt);
 
         // Skip members of ad hoc groups. We handle them explicitly below.
         //

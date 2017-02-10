@@ -135,47 +135,90 @@ namespace build2
 
     phase_guard pg (run_phase::execute);
 
+    // Tune the scheduler.
+    //
+    switch (current_inner_oif->concurrency)
+    {
+    case 0: sched.tune (1); break;          // Run serially.
+    case 1:                 break;          // Run as is.
+    default:                assert (false); // Not yet supported.
+    }
+
     // Similar logic to execute_members(): first start asynchronous execution
     // of all the top-level targets.
     //
     atomic_count task_count (0);
-    for (const void* v: ts)
+
+    size_t n (ts.size ());
+    for (size_t i (0); i != n; ++i)
     {
-      const target& t (*static_cast<const target*> (v));
+      const target& t (*static_cast<const target*> (ts[i]));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
-      execute_async (a, t, 0, task_count);
+      target_state s (execute_async (a, t, 0, task_count));
+
+      if (s == target_state::failed && !keep_going)
+        break;
     }
     sched.wait (task_count);
+    sched.tune (0); // Restore original scheduler settings.
 
-    // We are now running serially and we should have executed every target
-    // that we matched.
+    // We are now running serially. Re-examine them all.
     //
-    assert (dependency_count == 0);
-
-    for (const void* v: ts)
+    bool fail (false);
+    for (size_t i (0); i != n; ++i)
     {
-      const target& t (*static_cast<const target*> (v));
+      const target& t (*static_cast<const target*> (ts[i]));
 
-      switch (t.synchronized_state ())
+      switch (t.synchronized_state (false))
       {
+      case target_state::unknown:
+        {
+          // We bailed before executing it.
+          //
+          if (!quiet)
+            info << "not " << diag_did (a, t);
+
+          break;
+        }
       case target_state::unchanged:
         {
+          // Nothing had to be done.
+          //
           if (!quiet)
             info << diag_done (a, t);
+
           break;
         }
       case target_state::changed:
-        break;
+        {
+          // Something has been done.
+          //
+          break;
+        }
       case target_state::failed:
-        //@@ MT: This could probably happen in a parallel build.
-        //       Or does state() throw? Do we want to print?
-        break;
+        {
+          // Things didn't go well for this target.
+          //
+          if (!quiet)
+            info << "failed to " << diag_do (a, t);
+
+          fail = true;
+          break;
+        }
       default:
         assert (false);
       }
     }
+
+    if (fail)
+      throw failed ();
+
+    // We should have executed every target that we matched, provided we
+    // haven't failed (in which case we could have bailed out early).
+    //
+    assert (dependency_count == 0);
   }
 
   const meta_operation_info noop {
@@ -183,6 +226,7 @@ namespace build2
     "noop",
     "",      // Presumably we will never need these since we are not going
     "",      // to do anything.
+    "",
     "",
     nullptr, // meta-operation pre
     nullptr, // operation pre
@@ -197,6 +241,7 @@ namespace build2
   const meta_operation_info perform {
     perform_id,
     "perform",
+    "",
     "",
     "",
     "",
@@ -218,7 +263,9 @@ namespace build2
     "",
     "",
     "",
+    "",
     execution_mode::first,
+    1,
     nullptr,
     nullptr
   };
@@ -228,8 +275,10 @@ namespace build2
     "update",
     "update",
     "updating",
+    "updated",
     "is up to date",
     execution_mode::first,
+    1,
     nullptr,
     nullptr
   };
@@ -239,8 +288,10 @@ namespace build2
     "clean",
     "clean",
     "cleaning",
+    "cleaned",
     "is clean",
     execution_mode::last,
+    1,
     nullptr,
     nullptr
   };

@@ -128,7 +128,7 @@ namespace build2
     // if we are merely overriding with a "stronger" recipe.
     //
     if (!override)
-      dependents = 0;
+      dependents = 0; //@@ MT: either relax or use as match flag?
   }
 
   void target::

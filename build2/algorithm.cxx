@@ -387,40 +387,52 @@ namespace build2
     return r;
   }
 
-  inline target_state
-  execute_impl (action a, target& t)
+  target_state
+  execute_impl (action a, target& t) noexcept
   {
     // Task count should be count_executing.
     //
     assert (t.state_ == target_state::unknown);
 
-    auto g (
-      make_exception_guard (
-        [a, &t]()
-        {
-          t.state_ = target_state::failed;
+    target_state ts;
 
-          if (verb != 0)
-            info << "while " << diag_doing (a, t);
-        }));
-
-    target_state ts (t.recipe (a) (a, t));
-
-    // The the recipe documentation for details on what's going on here.
-    //
-    switch (t.state_ = ts)
+    try
     {
-    case target_state::changed:
-    case target_state::unchanged:                                   break;
-    case target_state::postponed: t.state_ = target_state::unknown; break;
-    case target_state::group:     ts = t.group->state_;             break;
-    default:                      assert (false);
+      ts = t.recipe (a) (a, t);
+
+      // See the recipe documentation for details on what's going on here.
+      // Note that if the result is group, then the group's state can be
+      // failed.
+      //
+      switch (t.state_ = ts)
+      {
+      case target_state::changed:
+      case target_state::unchanged:
+        break;
+      case target_state::postponed:
+        ts = t.state_ = target_state::unchanged;
+        break;
+      case target_state::group:
+        ts = t.group->state_;
+        break;
+      default:
+        assert (false);
+      }
+    }
+    catch (const failed&)
+    {
+      // The "how we got here" stack trace is useful but only during serial
+      // execution in the "stop going" mode. Otherwise, you not only get
+      // things interleaved, you may also get a whole bunch of such stacks.
+      //
+      if (verb != 0 && sched.serial () && !keep_going)
+        info << "while " << diag_doing (a, t);
+
+      ts = t.state_ = target_state::failed;
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.
-    //
-    // @@ MT: not happenning in case of an exception!
     //
     size_t tc (t.task_count--);
     assert (tc == target::count_executing);
@@ -441,15 +453,14 @@ namespace build2
 
     // Update dependency counts and make sure they are not skew.
     //
-    size_t d;
-    {
-      // Note: memory order can probably be relaxed.
-      //
-      size_t g (dependency_count--);
-      d = t.dependents--;
-      assert (g != 0 && d != 0);
-      d--;
-    }
+    size_t td (t.dependents--);
+#ifndef NDEBUG
+    size_t gd (dependency_count--);
+    assert (td != 0 && gd != 0);
+#else
+    dependency_count.fetch_sub (1, std::memory_order_release);
+#endif
+    td--;
 
     // Handle the "last" execution mode.
     //
@@ -472,7 +483,7 @@ namespace build2
     // thread. For other threads the state will still be unknown (until they
     // try to execute it).
     //
-    if (current_mode == execution_mode::last && d != 0)
+    if (current_mode == execution_mode::last && td != 0)
       return target_state::postponed;
 
     // Try to atomically change unexecuted to executing.
@@ -483,23 +494,31 @@ namespace build2
       if (task_count == nullptr)
         return execute_impl (a, t);
 
-      sched.async (start_count,
-                   *task_count,
-                   [a] (target& t)
-                   {
-                     execute_impl (a, t); // @@ MT exception handling.
-                   },
-                   ref (t));
+      //text << this_thread::get_id () << " async " << t;
 
-      return target_state::unknown;
+      if (sched.async (start_count,
+                       *task_count,
+                       [a] (target& t)
+                       {
+                         //text << this_thread::get_id () << " deque " << t;
+                         execute_impl (a, t); // Note: noexcept.
+                       },
+                       ref (t)))
+        return target_state::unknown; // Queued.
+
+      // Executed synchronously, fall through.
     }
-
-    switch (tc)
+    else
     {
-    case target::count_unexecuted: assert (false);
-    case target::count_executed:   return t.synchronized_state ();
-    default:                       return target_state::busy;
+      switch (tc)
+      {
+      case target::count_unexecuted: assert (false);
+      case target::count_executed:   break;
+      default:                       return target_state::busy;
+      }
     }
+
+    return t.synchronized_state (false);
   }
 
   target_state
@@ -509,16 +528,19 @@ namespace build2
 
     size_t tc (target::count_unexecuted);
     if (t.task_count.compare_exchange_strong (tc, target::count_executing))
-      return execute_impl (a, t);
-
-    // If the target is busy, wait for it.
-    //
-    switch (tc)
     {
-    case target::count_unexecuted: assert (false);
-    case target::count_executed:   break;
-    default:                       sched.wait (target::count_executed,
-                                               t.task_count);
+      execute_impl (a, t);
+    }
+    else
+    {
+      // If the target is busy, wait for it.
+      //
+      switch (tc)
+      {
+      case target::count_unexecuted: assert (false);
+      case target::count_executed: break;
+      default: sched.wait (target::count_executed, t.task_count, false);
+      }
     }
 
     return t.synchronized_state ();
@@ -563,9 +585,11 @@ namespace build2
   {
     target_state r (target_state::unchanged);
 
-    // Start asynchronous execution of prerequisites.
+    // Start asynchronous execution of prerequisites keeping track of how many
+    // we have handled.
     //
-    for (size_t i (0); i != n; ++i)
+    size_t i (0);
+    for (; i != n; ++i)
     {
       const target*& mt (ts[i]);
 
@@ -583,15 +607,24 @@ namespace build2
       }
       else if (s == target_state::busy)
         set_busy (mt);
+      //
+      // Bail out if the target has failed and we weren't instructed to
+      // keep going.
+      //
+      else if (s == target_state::failed && !keep_going)
+      {
+        ++i;
+        break;
+      }
     }
     sched.wait (target::count_executing, t.task_count);
 
     // Now all the targets in prerequisite_targets must be executed and
     // synchronized (and we have blanked out all the postponed ones).
     //
-    for (size_t i (0); i != n; ++i)
+    for (size_t j (0); j != i; ++j)
     {
-      const target*& mt (ts[i]);
+      const target*& mt (ts[j]);
 
       if (mt == nullptr)
         continue;
@@ -599,10 +632,13 @@ namespace build2
       // If the target was already busy, wait for its completion.
       //
       if (get_busy (mt))
-        sched.wait (target::count_executed, mt->task_count);
+        sched.wait (target::count_executed, mt->task_count, false);
 
-      r |= mt->synchronized_state ();
+      r |= mt->synchronized_state (false);
     }
+
+    if (r == target_state::failed)
+      throw failed ();
 
     return r;
   }
@@ -617,7 +653,8 @@ namespace build2
     //
     target_state r (target_state::unchanged);
 
-    for (size_t i (n); i != 0; --i)
+    size_t i (n);
+    for (; i != 0; --i)
     {
       const target*& mt (ts[i - 1]);
 
@@ -635,23 +672,29 @@ namespace build2
       }
       else if (s == target_state::busy)
         set_busy (mt);
+      else if (s == target_state::failed && !keep_going)
+      {
+        --i;
+        break;
+      }
     }
     sched.wait (target::count_executing, t.task_count);
 
-    for (size_t i (n); i != 0; --i)
+    for (size_t j (n); j != i; --j)
     {
-      const target*& mt (ts[i - 1]);
+      const target*& mt (ts[j - 1]);
 
       if (mt == nullptr)
         continue;
 
-      // If the target was already busy, wait for its completion.
-      //
       if (get_busy (mt))
-        sched.wait (target::count_executed, mt->task_count);
+        sched.wait (target::count_executed, mt->task_count, false);
 
-      r |= mt->synchronized_state ();
+      r |= mt->synchronized_state (false);
     }
+
+    if (r == target_state::failed)
+      throw failed ();
 
     return r;
   }
@@ -667,8 +710,11 @@ namespace build2
     //
     target_state rs (target_state::unchanged);
 
-    for (const target*& pt: t.prerequisite_targets)
+    size_t i (0);
+    for (size_t n (t.prerequisite_targets.size ()); i != n; ++i)
     {
+      const target*& pt (t.prerequisite_targets[i]);
+
       if (pt == nullptr) // Skipped.
         continue;
 
@@ -683,24 +729,36 @@ namespace build2
       }
       else if (s == target_state::busy)
         set_busy (pt);
+      else if (s == target_state::failed && !keep_going)
+      {
+        ++i;
+        break;
+      }
     }
     sched.wait (target::count_executing, t.task_count);
 
     bool e (mt == timestamp_nonexistent);
     const target* rt (tt != nullptr ? nullptr : &t);
 
-    for (const target*& pt: t.prerequisite_targets)
+    for (size_t j (0); j != i; ++j)
     {
+      const target*& pt (t.prerequisite_targets[j]);
+
       if (pt == nullptr)
         continue;
 
       // If the target was already busy, wait for its completion.
       //
       if (get_busy (pt))
-        sched.wait (target::count_executed, pt->task_count);
+        sched.wait (target::count_executed, pt->task_count, false);
 
-      target_state s (pt->synchronized_state ());
+      target_state s (pt->synchronized_state (false));
       rs |= s;
+
+      // Don't bother with the rest if we are failing.
+      //
+      if (rs == target_state::failed)
+        continue;
 
       // Should we compare the timestamp to this target's?
       //
@@ -731,6 +789,9 @@ namespace build2
         rt = pt;
     }
 
+    if (rs == target_state::failed)
+      throw failed ();
+
     assert (rt != nullptr);
     return make_pair (e ? rt : nullptr, rs);
   }
@@ -750,9 +811,10 @@ namespace build2
     //
     const target& g (*t.group);
     if (execute (a, g) == target_state::busy)
-      sched.wait (target::count_executed, g.task_count);
+      sched.wait (target::count_executed, g.task_count, false);
 
-    // Indicate to execute() that this target's state comes from the group.
+    // Indicate to execute() that this target's state comes from the group
+    // (which, BTW, can be failed).
     //
     return target_state::group;
   }

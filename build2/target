@@ -64,13 +64,16 @@ namespace build2
   // Recipe.
   //
   // The returned target state is normally changed or unchanged. If there is
-  // an error, then the recipe should throw rather than returning failed.
+  // an error, then the recipe should throw failed rather than returning (this
+  // is the only exception that a recipe can throw).
   //
   // The return value of the recipe is used to update the target state. If it
   // is target_state::group then the target's state is the group's state.
   //
-  // The recipe can also return postponed. In this case the target state is
-  // set to unknown but the postponed state is propagated to the caller.
+  // The recipe may also return postponed in which case the target state is
+  // assumed to be unchanged (normally this means a prerequisite was postponed
+  // and while the prerequisite will be re-examined via another dependency,
+  // this target is done).
   //
   // Note that max size for the "small capture optimization" in std::function
   // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
@@ -401,13 +404,7 @@ namespace build2
 
     // Target state.
     //
-  protected:
-    friend target_state execute_impl (action, target&);
-
-    target_state state_;
-
   public:
-
     // Atomic task count that is used during execution to (atomically) track a
     // subset of the target's state as well as the number of its sub-tasks
     // (execution of prerequisites).
@@ -429,16 +426,17 @@ namespace build2
     mutable atomic_count task_count;
 
     // Return the "stapshot" of the target state. That is, unless the target
-    // has been executed, its state can change asynchronously.
+    // has been executed, its state can change asynchronously. If fail is
+    // true then translate target_state::failed to the failed exception.
     //
     target_state
-    atomic_state () const;
+    atomic_state (bool fail = true) const;
 
     // During execution this function can only be called if we have observed
     // (synchronization-wise) that this target has been executed.
     //
     target_state
-    synchronized_state () const;
+    synchronized_state (bool fail = true) const;
 
     // Number of direct targets that depend on this target in the current
     // action. It is incremented during the match phase and then decremented
@@ -454,6 +452,17 @@ namespace build2
     // action execution.
     //
     atomic_count dependents;
+
+  protected:
+    friend target_state execute_impl (action, target&) noexcept;
+
+    target_state state_;
+
+    // Return fail-untranslated (but group-translated) state assuming the
+    // target is synchronized.
+    //
+    target_state
+    state () const;
 
     // Auxilary data storage.
     //
@@ -529,6 +538,13 @@ namespace build2
 
     void
     recipe (action_type, recipe_type);
+
+    // After the recipe has been set (and target synchronized), check if the
+    // target is known to be unchanged. Used for various optimizations during
+    // search & match.
+    //
+    bool
+    unchanged () {return state () == target_state::unchanged;}
 
   private:
     recipe_type recipe_;
@@ -1181,8 +1197,7 @@ namespace build2
       // much we can do here except detect the case where the target was
       // changed on this run.
       //
-      return mt < mp || (mt == mp &&
-                         synchronized_state () == target_state::changed);
+      return mt < mp || (mt == mp && state () == target_state::changed);
     }
 
   protected:

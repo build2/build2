@@ -149,8 +149,10 @@ namespace build2
 
   // Execute the action on target, assuming a rule has been matched and the
   // recipe for this action has been set. This is the synchrounous executor
-  // implementation (but may still return target_state::busy is the target
+  // implementation (but may still return target_state::busy if the target
   // is already being executed). Decrements the dependents count.
+  //
+  // Note: does not translate target_state::failed to the failed exception.
   //
   target_state
   execute (action, const target&);
@@ -158,6 +160,8 @@ namespace build2
   // As above but start asynchronous execution. Return target_state::unknown
   // if the asynchrounous execution has been started and target_state::busy if
   // the target has already been busy.
+  //
+  // Note: does not translate target_state::failed to the failed exception.
   //
   target_state
   execute_async (action, const target&,
@@ -174,8 +178,10 @@ namespace build2
   // A special version of the above that should be used for "direct" and "now"
   // execution, that is, side-stepping the normal target-prerequisite
   // relationship (so no dependents count is decremented) and execution order
-  // (so this function never returns the postponed target state). It will also
-  // wait for the completion if the target is busy.
+  // (so this function never returns the postponed target state).
+  //
+  // Note: waits for the completion if the target is busy and translates
+  // target_state::failed to the failed exception.
   //
   target_state
   execute_direct (action, const target&);

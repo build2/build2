@@ -402,6 +402,7 @@ namespace build2
       "configure",
       "configure",
       "configuring",
+      "configured",
       "is configured",
       nullptr, // meta-operation pre
       &configure_operation_pre,
@@ -627,6 +628,7 @@ namespace build2
       "disfigure",
       "disfigure",
       "disfiguring",
+      "disfigured",
       "is disfigured",
       nullptr, // meta-operation pre
       &disfigure_operation_pre,

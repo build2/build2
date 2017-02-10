@@ -251,6 +251,13 @@ namespace build2
        is used."
     }
 
+    bool --serial-stop|-s
+    {
+      "Run serially and stop at the first error. This mode is useful to
+       investigate build failured that are caused by build system errors
+       rather than compilation errors."
+    }
+
     bool --no-column
     {
       "Don't print column numbers in diagnostics."

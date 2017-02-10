@@ -42,7 +42,7 @@ namespace build2
 
   // Diagnostics verbosity level.
   //
-  uint16_t verb;
+  uint16_t verb = 0; // Keep disabled until set from options.
 
   // Diagnostic facility, project specifics.
   //

@@ -259,6 +259,12 @@ namespace build2
   }
 
   inline const bool& options::
+  serial_stop () const
+  {
+    return this->serial_stop_;
+  }
+
+  inline const bool& options::
   no_column () const
   {
     return this->no_column_;

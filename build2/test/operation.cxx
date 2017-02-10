@@ -24,8 +24,10 @@ namespace build2
       "test",
       "test",
       "testing",
+      "tested",
       "has nothing to test", // We cannot "be tested".
       execution_mode::first,
+      1,
       &test_pre,
       nullptr
     };

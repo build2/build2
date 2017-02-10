@@ -417,6 +417,9 @@ namespace build2
     jobs_specified () const;
 
     const bool&
+    serial_stop () const;
+
+    const bool&
     no_column () const;
 
     const bool&
@@ -484,6 +487,7 @@ namespace build2
     bool verbose_specified_;
     size_t jobs_;
     bool jobs_specified_;
+    bool serial_stop_;
     bool no_column_;
     bool no_line_;
     path buildfile_;

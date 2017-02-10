@@ -185,6 +185,7 @@ namespace build2
     //
     const string name_do;           // E.g., [to] 'configure'.
     const string name_doing;        // E.g., [while] 'configuring'.
+    const string name_did;          // E.g., 'configured'.
     const string name_done;         // E.g., 'is configured'.
 
     // If operation_pre() is not NULL, then it may translate default_id
@@ -269,9 +270,15 @@ namespace build2
     //
     const string name_do;           // E.g., [to] 'update'.
     const string name_doing;        // E.g., [while] 'updating'.
+    const string name_did;          // E.g., [not] 'updated'.
     const string name_done;         // E.g., 'is up to date'.
 
     const execution_mode mode;
+
+    // This is the operation's concurrency multiplier. 0 means run serially,
+    // 1 means run at hardware concurrency (unless overridden by the user).
+    //
+    const size_t concurrency;
 
     // If the returned operation_id's are not 0, then they are injected
     // as pre/post operations for this operation. Can be NULL if unused.

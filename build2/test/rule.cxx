@@ -291,7 +291,7 @@ namespace build2
           {
             build2::match (ml, a, *it);
 
-            if (it->synchronized_state () == target_state::unchanged) //@@ TM?
+            if (it->unchanged ()) //@@ TM?
             {
               unmatch (a, *it);
               it = nullptr;
@@ -304,7 +304,7 @@ namespace build2
             {
               build2::match (ml, a, *ot);
 
-              if (ot->synchronized_state () == target_state::unchanged) //@@ MT?
+              if (ot->unchanged ()) //@@ MT?
               {
                 unmatch (a, *ot);
                 ot = nullptr;

@@ -891,9 +891,7 @@ namespace build2
       //
       auto update = [&trace, a] (path_target& pt, timestamp ts) -> bool
       {
-        //@@ MT extenal modification sync.
-
-        target_state os (pt.atomic_state ()); //@@ MT: do we need atomic?
+        target_state os (pt.synchronized_state ()); //@@ MT? matched?
 
         if (os != target_state::unchanged)
         {
@@ -902,7 +900,7 @@ namespace build2
           // have been in target_state::changed because of a dependency
           // extraction run for some other source file.
           //
-          target_state ns (execute_direct (a, pt));
+          target_state ns (execute_direct (a, pt)); //@@ MT extenal modification sync.
 
           if (ns != os && ns != target_state::unchanged)
           {

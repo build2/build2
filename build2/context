@@ -111,7 +111,7 @@ namespace build2
   //   }
   // }
   //
-  // sched.wait ();                       // (3)
+  // sched.wait (task_count);             // (3)
   //
   // Here is what's going on here:
   //
@@ -237,6 +237,14 @@ namespace build2
     current_mode = inner_oif.mode;
   }
 
+  // Keep going flag.
+  //
+  // Note that setting it to false is not of much help unless we are running
+  // serially. In parallel we queue most of the things up before we see any
+  // failures.
+  //
+  extern bool keep_going;
+
   // Total number of dependency relationships in the current action.
   // Together with the target::dependents count it is incremented
   // during the rule search & match phase and is decremented during
@@ -318,6 +326,15 @@ namespace build2
   diag_doing (const action& a, const target& t)
   {
     return diag_phrase {a, t, &diag_doing};
+  }
+
+  void
+  diag_did (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_did (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_did};
   }
 
   void

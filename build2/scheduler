@@ -155,6 +155,14 @@ namespace build2
              size_t max_threads = 0,
              size_t queue_depth = 0);
 
+    // Return true if the scheduler was started up.
+    //
+    // Note: can only be called from threads that have observed creation,
+    // startup, or shutdown.
+    //
+    bool
+    started () const {return !shutdown_;}
+
     // Tune a started up scheduler.
     //
     // Currently one cannot increase the number of max_active. Pass 0 to
@@ -169,6 +177,8 @@ namespace build2
     tune (size_t max_active);
 
     // Return true if the scheduler is running serial.
+    //
+    // Note: can only be called from threads that have observed startup.
     //
     bool
     serial () const {return max_active_ == 1;}

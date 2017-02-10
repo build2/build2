@@ -19,13 +19,21 @@ namespace build2
       return mo != disfigure_id ? update_id : 0;
     }
 
+    // Note that we run both install and uninstall serially. The reason for
+    // this is all the fuzzy things we are trying to do like removing empty
+    // outer directories if they are empty. If we do this in parallel, then
+    // those things get racy. Also, since all we do here is creating/removing
+    // files, there is not going to be much speedup from doing it in parallel.
+
     const operation_info install {
       install_id,
       "install",
       "install",
       "installing",
+      "installed",
       "has nothing to install", // We cannot "be installed".
       execution_mode::first,
+      0,
       &install_pre,
       nullptr
     };
@@ -44,8 +52,10 @@ namespace build2
       "uninstall",
       "uninstall",
       "uninstalling",
+      "uninstalled",
       "is not installed",
       execution_mode::last,
+      0,
       &install_pre,
       nullptr
     };

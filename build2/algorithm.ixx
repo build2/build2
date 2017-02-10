@@ -71,10 +71,8 @@ namespace build2
     if (!t.recipe (a))
       match_impl (ml, a, t, true);
 
-    //@@ MT
-    //
-    t.dependents++;
-    dependency_count++;
+    t.dependents.fetch_add (1, std::memory_order_release);
+    dependency_count.fetch_add (1, std::memory_order_release);
 
     // text << "M " << t << ": " << t.dependents << " " << dependency_count;
   }
@@ -86,11 +84,14 @@ namespace build2
 
     assert (phase == run_phase::search_match);
 
-    //@@ MT
-    //
-    assert (t.dependents != 0 && dependency_count != 0);
-    t.dependents--;
-    dependency_count--;
+#ifndef NDEBUG
+    size_t td (t.dependents--);
+    size_t gd (dependency_count--);
+    assert (td != 0 && gd != 0);
+#else
+    t.dependents.fetch_sub (1, std::memory_order_release);
+    dependency_count.fetch_sub (1, std::memory_order_release);
+#endif
   }
 
   inline void

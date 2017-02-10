@@ -161,11 +161,7 @@ namespace build2
         //
       public:
         void
-        execute (script& s, runner& r)
-        {
-          if (!s.empty ())
-            execute (s, s, r);
-        }
+        execute (script& s, runner& r);
 
         void
         execute (scope&, script&, runner&);

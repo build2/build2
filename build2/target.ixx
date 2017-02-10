@@ -26,18 +26,7 @@ namespace build2
   }
 
   inline target_state target::
-  atomic_state () const
-  {
-    switch (task_count)
-    {
-    case target::count_unexecuted: return target_state::unknown;
-    case target::count_executed:   return synchronized_state ();
-    default:                       return target_state::busy;
-    }
-  }
-
-  inline target_state target::
-  synchronized_state () const
+  state () const
   {
     // We go an extra step and short-circuit to the target state even if the
     // raw state is not group provided the recipe is group_recipe.
@@ -55,6 +44,28 @@ namespace build2
     }
 
     return state_;
+  }
+
+  inline target_state target::
+  synchronized_state (bool fail) const
+  {
+    target_state r (state ());
+
+    if (fail && r == target_state::failed)
+      throw failed ();
+
+    return r;
+  }
+
+  inline target_state target::
+  atomic_state (bool fail) const
+  {
+    switch (task_count)
+    {
+    case target::count_unexecuted: return target_state::unknown;
+    case target::count_executed:   return synchronized_state (fail);
+    default:                       return target_state::busy;
+    }
   }
 
   // prerequisite_member

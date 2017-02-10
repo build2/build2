@@ -67,6 +67,10 @@ main (int argc, char* argv[])
 int build2::
 main (int argc, char* argv[])
 {
+  tracer trace ("main");
+
+  int r (0);
+
   // This is a little hack to make out baseutils for Windows work when called
   // with absolute path. In a nutshell, MSYS2's exec*p() doesn't search in the
   // parent's executable directory, only in PATH. And since we are running
@@ -93,8 +97,6 @@ main (int argc, char* argv[])
 
   try
   {
-    tracer trace ("main");
-
     // On POSIX ignore SIGPIPE which is signaled to a pipe-writing process if
     // the pipe reading end is closed. Note that by default this signal
     // terminates a process. Also note that there is no way to disable this
@@ -225,8 +227,7 @@ main (int argc, char* argv[])
       //
       catch (const system_error& e)
       {
-        error << "pager failed: " << e;
-        return 1;
+        fail << "pager failed: " << e;
       }
     }
 
@@ -270,12 +271,16 @@ main (int argc, char* argv[])
       bm["cli"] = mf {nullptr, &cli::init};
     }
 
+    keep_going = !ops.serial_stop ();
+
     // Start up the scheduler.
     //
     size_t jobs (0);
 
     if (ops.jobs_specified ())
       jobs = ops.jobs ();
+    else if (ops.serial_stop ())
+      jobs = 1;
 
     if (jobs == 0)
       jobs = scheduler::hardware_concurrency ();
@@ -1097,32 +1102,32 @@ main (int argc, char* argv[])
       if (lifted == nullptr && skip == 0)
         ++mit;
     } // meta-operation
-
-    // Shutdown the scheduler.
-    //
-    scheduler::stat st (sched.shutdown ());
-
-    if (verb >= (jobs > 1 ? 3 : 4))
-    {
-      info << "scheduler statistics:" << '\n'
-           << "  thread_max_active      " << st.thread_max_active     << '\n'
-           << "  thread_max_total       " << st.thread_max_total      << '\n'
-           << "  thread_helpers         " << st.thread_helpers        << '\n'
-           << "  thread_max_waiting     " << st.thread_max_waiting    << '\n'
-           << '\n'
-           << "  task_queue_depth       " << st.task_queue_depth      << '\n'
-           << "  task_queue_full        " << st.task_queue_full       << '\n'
-           << '\n'
-           << "  wait_queue_slots       " << st.wait_queue_slots      << '\n'
-           << "  wait_queue_collisions  " << st.wait_queue_collisions << '\n';
-    }
-
-    return 0;
   }
   catch (const failed&)
   {
     // Diagnostics has already been issued.
+    //
+    r = 1;
   }
 
-  return 1;
+  // Shutdown the scheduler and print statistics.
+  //
+  scheduler::stat st (sched.shutdown ());
+
+  if (verb >= (st.thread_max_active > 1 ? 3 : 4))
+  {
+    info << "scheduler statistics:" << "\n\n"
+         << "  thread_max_active      " << st.thread_max_active     << '\n'
+         << "  thread_max_total       " << st.thread_max_total      << '\n'
+         << "  thread_helpers         " << st.thread_helpers        << '\n'
+         << "  thread_max_waiting     " << st.thread_max_waiting    << '\n'
+         << '\n'
+         << "  task_queue_depth       " << st.task_queue_depth      << '\n'
+         << "  task_queue_full        " << st.task_queue_full       << '\n'
+         << '\n'
+         << "  wait_queue_slots       " << st.wait_queue_slots      << '\n'
+         << "  wait_queue_collisions  " << st.wait_queue_collisions << '\n';
+  }
+
+  return r;
 }

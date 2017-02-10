@@ -477,6 +477,7 @@ namespace build2
       "dist",
       "distribute",
       "distributing",
+      "distributed",
       "has nothing to distribute", // We cannot "be distributed".
       nullptr, // meta-operation pre
       &dist_operation_pre,

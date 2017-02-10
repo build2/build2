@@ -6,6 +6,7 @@
 
 #include <sstream>
 
+#include <build2/context>   // keep_going
 #include <build2/scheduler>
 
 #include <build2/test/script/lexer>
@@ -2789,6 +2790,21 @@ namespace build2
       //
 
       void parser::
+      execute (script& s, runner& r)
+      {
+        assert (s.state == scope_state::unknown);
+
+        auto g (
+          make_exception_guard (
+            [&s] () {s.state = scope_state::failed;}));
+
+        if (!s.empty ())
+          execute (s, s, r);
+
+        s.state = scope_state::passed;
+      }
+
+      void parser::
       execute (scope& sc, script& s, runner& r)
       {
         path_ = nullptr; // Set by replays.
@@ -2824,13 +2840,19 @@ namespace build2
 
           scheduler::atomic_count task_count (0);
 
-          for (unique_ptr<scope>& chain: g->scopes)
+          // Start asynchronous execution of inner scopes keeping track of how
+          // many we have handled.
+          //
+          auto i (g->scopes.begin ());
+          for (auto e (g->scopes.end ()); i != e; ++i)
           {
+            unique_ptr<scope>& chain (*i);
+
             // Check if this scope is ignored (e.g., via config.test).
             //
             if (!runner_->test (*chain))
             {
-              chain.reset ();
+              chain = nullptr;
               continue;
             }
 
@@ -2909,43 +2931,47 @@ namespace build2
               // scope_ = chain.get ();
               // exec_scope_body ();
               // scope_ = os;
+
+              // If the scope was executed synchronously, check the status and
+              // bail out if we weren't asked to keep going.
               //
-              sched.async (task_count,
-                           [] (scope& s, script& scr, runner& r)
-                           {
-                             try
-                             {
-                               parser p;
-                               p.execute (s, scr, r);
-                               s.state = scope_state::passed;
-                             }
-                             catch (const failed&)
-                             {
-                               s.state = scope_state::failed;
-                             }
-                           },
-                           ref (*chain),
-                           ref (*script_),
-                           ref (*runner_));
+              if (!sched.async (task_count,
+                                [] (scope& s, script& scr, runner& r)
+                                {
+                                  try
+                                  {
+                                    parser p;
+                                    p.execute (s, scr, r);
+                                    s.state = scope_state::passed;
+                                  }
+                                  catch (const failed&)
+                                  {
+                                    s.state = scope_state::failed;
+                                  }
+                                },
+                                ref (*chain),
+                                ref (*script_),
+                                ref (*runner_)))
+              {
+                if (chain->state == scope_state::failed && !keep_going)
+                {
+                  ++i;
+                  break;
+                }
+              }
             }
           }
-
           sched.wait (task_count);
 
-          for (unique_ptr<scope>& chain: g->scopes)
+          // Re-examine the scopes we have executed collecting their state.
+          //
+          for (auto j (g->scopes.begin ()); j != i; ++j)
           {
+            const unique_ptr<scope>& chain (*j);
+
             if (chain == nullptr)
               continue;
 
-            // @@ Currently we simply re-throw though the default mode should
-            //    probably be "keep going". While we could already do it at
-            //    the testscript level, there is no support for continuing
-            //    testing targets at the build2 level. This will probably all
-            //    fall into place when we add support for parallel builds.
-            //
-            //    At that stage we should also probably think about the "stop
-            //    on first error" mode (which is what we have now).
-            //
             switch (chain->state)
             {
             case scope_state::passed: break;

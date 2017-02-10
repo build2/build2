@@ -56,6 +56,8 @@ namespace build2
 
   execution_mode current_mode;
 
+  bool keep_going = false;
+
   atomic_count dependency_count;
 
   variable_override_cache var_override_cache;
@@ -461,6 +463,35 @@ namespace build2
   }
 
   void
+  diag_did (ostream& os, const action&, const target& t)
+  {
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
+
+    // perform(update(x))   -> "updated x"
+    // configure(update(x)) -> "configured updating x"
+    //
+    if (!m.name_did.empty ())
+    {
+      os << m.name_did << ' ';
+
+      if (!io.name_doing.empty ())
+        os << io.name_doing << ' ';
+    }
+    else
+    {
+      if (!io.name_did.empty ())
+        os << io.name_did << ' ';
+    }
+
+    if (oo != nullptr)
+      os << "(for " << oo->name << ") ";
+
+    os << t;
+  }
+
+  void
   diag_done (ostream& os, const action&, const target& t)
   {
     const meta_operation_info& m (*current_mif);
@@ -475,10 +506,10 @@ namespace build2
       os << t;
 
       if (!io.name_done.empty ())
-        os << " " << io.name_done;
+        os << ' ' << io.name_done;
 
       if (oo != nullptr)
-        os << "(for " << oo->name << ") ";
+        os << " (for " << oo->name << ')';
     }
     else
     {
@@ -488,7 +519,7 @@ namespace build2
       if (oo != nullptr)
         os << "(for " << oo->name << ") ";
 
-      os << t << " " << m.name_done;
+      os << t << ' ' << m.name_done;
     }
   }
 }
