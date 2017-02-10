@@ -282,7 +282,6 @@ namespace build2
     std::mutex mutex_;
 
     bool shutdown_ = true;  // Shutdown flag.
-    bool task_     = false; // Task queued flag (see below).
 
     // The constraints that we must maintain:
     //
@@ -348,10 +347,12 @@ namespace build2
 
     // Task queue.
     //
-    // Each queue has its own mutex. If the task_ flag above is true then
-    // there *might* be a task in one of the queues. If it is false, then
-    // it means there are definitely no tasks.
+    // Each queue has its own mutex plus we have an atomic total count of the
+    // queued tasks. Note that it should only be modified while holding one
+    // of the queue lock.
     //
+    atomic_count queued_task_count_;
+
     // For now we only support trivially-destructible tasks.
     //
     struct task_data
@@ -427,6 +428,7 @@ namespace build2
         //                                         |       |    |
         t = s != 0 ? (t != task_queue_depth_ - 1 ? t + 1 : 0) : t;
         s++;
+        queued_task_count_.fetch_add (1, std::memory_order_release);
         return &tq.data[t];
       }
 
@@ -452,6 +454,8 @@ namespace build2
 
       if (--s == 0 || a)
         m = h; // Reset or adjust the mark.
+
+      queued_task_count_.fetch_sub (1, std::memory_order_release);
 
       // The thunk moves the task data to its stack, releases the lock,
       // and continues to execute the task.
@@ -487,6 +491,8 @@ namespace build2
       //                     |       |                        |
       t = s != 1 ? (t != 0 ? t - 1 : task_queue_depth_ - 1) : t;
       --s;
+
+      queued_task_count_.fetch_sub (1, std::memory_order_release);
 
       td.thunk (*this, ql, &td.data);
       ql.lock ();

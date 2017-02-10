@@ -46,7 +46,7 @@ namespace build2
   suspend (size_t start_count, const atomic_count& tc)
   {
     wait_slot& s (
-      wait_queue_[std::hash<const atomic_count*> () (&tc) % wait_queue_size_]);
+      wait_queue_[hash<const atomic_count*> () (&tc) % wait_queue_size_]);
 
     // This thread is no longer active.
     //
@@ -64,7 +64,7 @@ namespace build2
       //
       if (ready_ != 0)
         ready_condv_.notify_one ();
-      else if (task_)
+      else if (queued_task_count_ != 0)
         activate_helper (l);
     }
 
@@ -132,7 +132,7 @@ namespace build2
       return;
 
     wait_slot& s (
-      wait_queue_[std::hash<const atomic_count*> () (&tc) % wait_queue_size_]);
+      wait_queue_[hash<const atomic_count*> () (&tc) % wait_queue_size_]);
 
     // See suspend() for why we must hold the lock.
     //
@@ -184,6 +184,8 @@ namespace build2
 
     if (max_active != 1)
       task_queues_.reserve (max_threads_);
+
+    queued_task_count_.store (0, memory_order_relaxed);
 
     // Pick a nice prime for common max_threads/2 numbers. Experience shows
     // that we want something close to 2x for small numbers, then reduce to
@@ -237,11 +239,10 @@ namespace build2
     stat_max_waiters_     = 0;
     stat_wait_collisions_ = 0;
 
-    task_ = false;
-    shutdown_ = false;
-
     for (size_t i (0); i != wait_queue_size_; ++i)
       wait_queue_[i].shutdown = false;
+
+    shutdown_ = false;
   }
 
   void scheduler::
@@ -406,50 +407,25 @@ namespace build2
       {
         s.active_++;
 
-        while (s.task_) // There might be a task.
+        while (s.queued_task_count_ != 0)
         {
-          // The tricky part here is to clear the task_ flag with confidence.
-          // So we quickly scan the queues for any tasks while holding the
-          // scheduler lock. If all of them are empty, then we can clear the
-          // task_ flag.
+          // Queues are never removed and there shouldn't be any reallocations
+          // since we reserve maximum possible size upfront. Which means we
+          // can get the current number of queues and release the main lock
+          // while examining each of them.
           //
-          bool empty (true);
+          size_t n (s.task_queues_.size ());
+          l.unlock ();
 
-          for (size_t i (0), n (s.task_queues_.size ()); i != n; ++i)
+          for (size_t i (0); i != n; ++i)
           {
             task_queue& tq (*s.task_queues_[i]);
 
-            lock ql (tq.mutex); // Lock the queue.
-
-            if (tq.shutdown)
-              break;
-
-            if (!s.empty_front (tq))
-            {
-              if (empty)
-              {
-                empty = false;
-                l.unlock (); // Release scheduler lock.
-              }
-
-              // Work on this queue for as long as we can then continue with
-              // the rest (in which case empty will be false and scheduler
-              // lock is already released).
-              //
-              // Note that the queues are never removed and there shouldn't be
-              // any reallocations since we reserve the maximum possible size
-              // upfront.
-              //
-              do
-                s.pop_front (tq, ql);
-              while (!tq.shutdown && !s.empty_front (tq));
-            }
+            for (lock ql (tq.mutex); !tq.shutdown && !s.empty_front (tq); )
+              s.pop_front (tq, ql);
           }
 
-          if (empty)
-            s.task_ = false; // Scheduler still locked.
-          else
-            l.lock (); // Relock and rescan.
+          l.lock ();
         }
 
         s.active_--;

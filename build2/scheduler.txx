@@ -36,7 +36,7 @@ namespace build2
 
       if ((td = push (*tq)) != nullptr)
       {
-        // Package the task.
+        // Package the task (under lock).
         //
         new (&td->data) task {
           &task_count,
@@ -63,13 +63,16 @@ namespace build2
     //
     task_count.fetch_add (1, std::memory_order_release);
 
-    lock l (mutex_);
-    task_ = true;
-
-    // If there is a spare active thread, wake up (or create) the helper.
+    // If there is a spare active thread, wake up (or create) the helper
+    // (unless someone already snatched it).
     //
-    if (active_ < max_active_)
-      activate_helper (l);
+    if (queued_task_count_ != 0)
+    {
+      lock l (mutex_);
+
+      if (active_ < max_active_)
+        activate_helper (l);
+    }
 
     return true;
   }
