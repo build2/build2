@@ -1047,7 +1047,8 @@ namespace build2
     {
       using value::value;
 
-      size_t generation; // load_generation of this value (global only).
+      size_t version = 0; // Incremented on each modification (override cache).
+      size_t generation;  // load_generation of this value (global state only).
     };
 
     using map_type = butl::prefix_map<reference_wrapper<const variable>,
@@ -1107,7 +1108,20 @@ namespace build2
     find (const variable&, bool typed = true) const;
 
     value_data*
-    find (const variable&, bool typed = true);
+    find_to_modify (const variable&, bool typed = true);
+
+    // Convert a lookup pointing to a value belonging to this variable map
+    // to its non-const version. Note that this is only safe on the original
+    // values (see find_original()).
+    //
+    value&
+    modify (const lookup& l)
+    {
+      assert (l.vars == this);
+      value& r (const_cast<value&> (*l.value));
+      static_cast<value_data&> (r).version++;
+      return r;
+    }
 
     // Return a value suitable for assignment. See scope for details.
     //

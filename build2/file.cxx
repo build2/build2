@@ -339,7 +339,7 @@ namespace build2
       temp_scope tmp (s.global ());
       p.parse_variable (lex, tmp, var, tt);
 
-      value* v (tmp.vars.find (var));
+      value* v (tmp.vars.find_to_modify (var));
       assert (v != nullptr);
 
       // Steal the value, the scope is going away.

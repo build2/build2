@@ -1146,6 +1146,8 @@ namespace build2
             load_generation == 0 ||
             v.generation == load_generation);
 
+    // We assume typification is not modification.
+    //
     build2::typify (v, *var.type, &var);
   }
 
@@ -1169,22 +1171,14 @@ namespace build2
   }
 
   auto variable_map::
-  find (const variable& var, bool typed) -> value_data*
+  find_to_modify (const variable& var, bool typed) -> value_data*
   {
-    auto i (m_.find (var));
-    value_data* r (i != m_.end () ? &i->second : nullptr);
+    auto* r (const_cast<value_data*> (find (var, typed)));
 
-    // First access after being assigned a type?
-    //
-    if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
-    {
-      // All values shall be typed during load.
-      //
-      assert (!global_ || phase == run_phase::load);
-      typify (*r, var);
-    }
+    if (r != nullptr)
+      r->version++;
 
-    return  r;
+    return r;
   }
 
   pair<reference_wrapper<value>, bool> variable_map::
@@ -1204,6 +1198,8 @@ namespace build2
       if (typed && var.type != nullptr && r.type != var.type)
         typify (r, var);
     }
+
+    r.version++;
 
     return make_pair (reference_wrapper<value> (r), p.second);
   }

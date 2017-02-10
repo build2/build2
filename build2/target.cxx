@@ -223,7 +223,7 @@ namespace build2
     lookup l (find_original (var).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
-      return const_cast<value&> (*l); // Ok since this is original.
+      return vars.modify (l); // Ok since this is original.
 
     value& r (assign (var)); // NULL.
 

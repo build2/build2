@@ -659,7 +659,7 @@ namespace build2
         lookup l (find (var));
 
         if (l.defined () && l.belongs (*this)) // Existing var in this scope.
-          return const_cast<value&> (*l);
+          return vars.modify (l);
 
         value& r (assign (var)); // NULL.
 
