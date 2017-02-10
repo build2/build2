@@ -1218,13 +1218,13 @@ namespace build2
 
     // In many places we assume that we can store a reference to the returned
     // variable value (e.g., install::lookup_install()). As a result, in case
-    // of append/prepent where we calculate the value dynamically, we have to
-    // cache it.
+    // of append/prepend where we calculate the value dynamically, we have to
+    // cache it (note, however, that if the value becomes stale, there is no
+    // guarantee the references remain valid).
     //
-    // The key is the combination of the "original value idenity" (as a
+    // The key is the combination of the "original value identity" (as a
     // pointer to the value in variable_pattern_map) and the "target identity"
-    // (as target type and target name). The target name, unfortunately, has
-    // to be stored by value (maybe will pool them at some point).
+    // (as target type and target name).
     //
     // @@ MT
     //
