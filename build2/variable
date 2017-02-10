@@ -330,7 +330,7 @@ namespace build2
     using value_type = build2::value;
 
     const value_type* value;  // NULL if undefined.
-    const variable_map* vars;
+    const variable_map* vars; // value is variable_map::value_data if not NULL.
 
     bool
     defined () const {return value != nullptr;}
@@ -355,11 +355,11 @@ namespace build2
     template <typename T>
     lookup (const value_type& v, const T& x): lookup (&v, &x.vars) {}
 
-    lookup (const value_type& v, const variable_map& vs)
-        : value (&v), vars (&vs) {}
+    lookup (const value_type& v, const variable_map& vm)
+        : value (&v), vars (&vm) {}
 
-    lookup (const value_type* v, const variable_map* vs)
-        : value (v), vars (v != nullptr ? vs : nullptr) {}
+    lookup (const value_type* v, const variable_map* vm)
+        : value (v), vars (v != nullptr ? vm : nullptr) {}
   };
 
   // Two lookups are equal if they point to the same variable.
@@ -757,18 +757,6 @@ namespace build2
     static const value_type_ex value_type;
   };
 
-  // Variable override cache.
-  //
-  struct variable_override_value
-  {
-    build2::value value;
-    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
-  };
-
-  using variable_override_cache = std::map<pair<const variable_map*,
-                                                const variable*>,
-                                           variable_override_value>;
-
   // Project-wide (as opposed to global) variable overrides. Returned by
   // context.cxx:reset().
   //
@@ -1046,6 +1034,7 @@ namespace build2
     struct value_data: value
     {
       using value::value;
+      using value::operator=;
 
       size_t version = 0; // Incremented on each modification (override cache).
       size_t generation;  // load_generation of this value (global state only).
@@ -1223,9 +1212,9 @@ namespace build2
       return map_.emplace (t, variable_pattern_map (global_)).first->second;
     }
 
-    const_iterator begin ()                    const {return map_.begin ();}
-    const_iterator end ()                      const {return map_.end ();}
-    bool           empty ()                    const {return map_.empty ();}
+    const_iterator begin () const {return map_.begin ();}
+    const_iterator end ()   const {return map_.end ();}
+    bool           empty () const {return map_.empty ();}
 
     lookup
     find (const target_type&, const string& tname, const variable&) const;
@@ -1237,18 +1226,32 @@ namespace build2
     // guarantee the references remain valid).
     //
     // The key is the combination of the "original value identity" (as a
-    // pointer to the value in variable_pattern_map) and the "target identity"
-    // (as target type and target name).
+    // pointer to the value in one of the variable_pattern_map's) and the
+    // "target identity" (as target type and target name). Note that while at
+    // first it may seem like we don't need the target identity, we actually
+    // do since the stem may itself be target-type/pattern-specific.
     //
     // @@ MT
     //
-    mutable
-    std::map<tuple<const value*, const target_type*, string>, value> cache;
+    mutable std::map<tuple<const value*, const target_type*, string>,
+                     variable_map::value_data> cache;
 
   private:
     bool global_;
     map_type map_;
   };
+
+  // Variable override cache.
+  //
+  struct variable_override_value
+  {
+    variable_map::value_data value;
+    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
+  };
+
+  using variable_override_cache = std::map<pair<const variable_map*,
+                                                const variable*>,
+                                           variable_override_value>;
 }
 
 #include <build2/variable.ixx>

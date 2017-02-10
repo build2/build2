@@ -53,7 +53,8 @@ namespace build2
       //
       // @@ MT
       //
-      value& cache (s->target_vars.cache[make_tuple (&v, tt, *tn)]);
+      variable_map::value_data& cache (
+        s->target_vars.cache[make_tuple (&v, tt, *tn)]);
 
       // Un-typify the cache. This can be necessary, for example, if we are
       // changing from one value-typed stem to another.
@@ -185,7 +186,7 @@ namespace build2
     //
     // We also keep track of the root scope of the project from which this
     // innermost value comes. This is used to decide whether a non-recursive
-    // project-wise override applies.
+    // project-wise override applies. And also where our variable cache is.
     //
     const variable_map* inner_vars (nullptr);
     const scope* inner_proj (nullptr);
@@ -303,7 +304,7 @@ namespace build2
           if (inner_vars == nullptr)
           {
             inner_vars = l.vars;
-            inner_proj = s->root_scope (); // Not actually used.
+            inner_proj = s->root_scope ();
           }
 
           apply = true;
@@ -321,6 +322,12 @@ namespace build2
       return original;
 
     assert (inner_vars != nullptr);
+
+    // If for some reason we are not in a project, use the cache from the
+    // global scope.
+    //
+    if (inner_proj == nullptr)
+      inner_proj = global_scope;
 
     // Implementing proper caching is tricky so for now we are going to re-
     // calculate the value every time. Later, the plan is to use value
