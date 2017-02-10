@@ -1003,7 +1003,14 @@ namespace build2
       if (o == nullptr)
         o = &*p.overridable;
       else if (p.match)
-        assert (*o == *p.overridable);
+      {
+        // Allow the pattern to restrict but not relax.
+        //
+        if (*o)
+          o = &*p.overridable;
+        else
+          assert (*o == *p.overridable);
+      }
     }
   }
 
@@ -1046,9 +1053,8 @@ namespace build2
     {
       if (t != nullptr || v != nullptr || o != nullptr)
         update (r, t, v, o); // Not changing the key.
-      else
-        if (r.override != nullptr)
-          fail << "variable " << r.name << " cannot be overridden";
+      else if (r.override != nullptr)
+        fail << "variable " << r.name << " cannot be overridden";
     }
 
     return r;

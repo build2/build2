@@ -458,7 +458,8 @@ namespace build2
 
             const variable& var (
               var_pool.rw (*scope_).insert (
-                parse_variable_name (move (pns), ploc)));
+                parse_variable_name (move (pns), ploc),
+                true)); // Allow overrides.
 
             // Apply variable attributes.
             //
@@ -727,7 +728,8 @@ namespace build2
       {
         const variable& var (
           var_pool.rw (*scope_).insert (
-            parse_variable_name (move (ns), nloc)));
+            parse_variable_name (move (ns), nloc),
+            true)); // Allow overrides.
 
         // Apply variable attributes.
         //
@@ -1054,7 +1056,7 @@ namespace build2
       auto& vp (var_pool.rw (*scope_));
 
       if (p != string::npos)
-        var = &vp.insert (split (p));
+        var = &vp.insert (split (p), true); // Allow overrides.
       //
       // This could still be the 'foo =...' case.
       //
@@ -1069,7 +1071,7 @@ namespace build2
             (v[p = 0] == '=' ||
              (n > 1 && v[0] == '+' && v[p = 1] == '=')))
         {
-          var = &vp.insert (move (t.value));
+          var = &vp.insert (move (t.value), true); // Allow overrides.
           next (t, tt); // Get the peeked token.
           split (p);    // Returned name should be empty.
         }
@@ -1593,7 +1595,10 @@ namespace build2
     if (type != nullptr)
     {
       if (var.type == nullptr)
-        var_pool.update (const_cast<variable&> (var), type);
+      {
+        const bool o (true); // Allow overrides.
+        var_pool.update (const_cast<variable&> (var), type, nullptr, &o);
+      }
       else if (var.type != type)
         fail (l) << "changing variable " << var << " type from "
                  << var.type->name << " to " << type->name;
@@ -3502,7 +3507,7 @@ namespace build2
 
     // Lookup.
     //
-    const auto& var (var_pool.rw (*scope_).insert (move (name)));
+    const auto& var (var_pool.rw (*scope_).insert (move (name), true));
     return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
 
     // Undefined/NULL namespace variables are not allowed.

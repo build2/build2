@@ -179,7 +179,7 @@ namespace build2
                              c == '%' ? variable_visibility::project :
                              variable_visibility::normal);
 
-      const variable& var (vp.insert (n));
+      const variable& var (vp.insert (n, true)); // Allow overrides.
       const char* k (tt == token_type::assign ? ".__override" :
                      tt == token_type::append ? ".__suffix" : ".__prefix");
 
