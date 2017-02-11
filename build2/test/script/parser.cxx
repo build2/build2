@@ -2499,7 +2499,11 @@ namespace build2
         // enter: first token on first line
         // leave: newline (after end marker)
 
-        string rs; // String literal.
+        // String literal. Note that when decide if to terminate the previously
+        // added line with a newline, we need to distinguish a yet empty result
+        // and the one that has a single blank line added.
+        //
+        optional<string> rs;
 
         regex_lines rre;
 
@@ -2604,10 +2608,13 @@ namespace build2
             {
               // Add newline after previous line.
               //
-              if (!rs.empty ())
-                rs += '\n';
-
-              rs += s;
+              if (rs)
+              {
+                *rs += '\n';
+                *rs += s;
+              }
+              else
+                rs = move (s);
             }
             else
             {
@@ -2753,8 +2760,10 @@ namespace build2
               // expect any diagnostics to refer this line.
               //
               rre.lines.emplace_back (l.line, l.column, string (), false);
+            else if (rs)
+              *rs += '\n';
             else
-              rs += '\n';
+              rs = "\n";
           }
 
           // Finalize regex lines.
@@ -2772,7 +2781,7 @@ namespace build2
 
         return re
           ? parsed_doc (move (rre), l.line, l.column)
-          : parsed_doc (move (rs), l.line, l.column);
+          : parsed_doc (rs ? move (*rs) : string (), l.line, l.column);
       }
 
       //

@@ -176,6 +176,7 @@
 :
 $* <<EOI >>EOO
 cmd <<EOF
+
 foo
 
 bar
@@ -183,6 +184,7 @@ bar
 EOF
 EOI
 cmd <<EOF
+
 foo
 
 bar
