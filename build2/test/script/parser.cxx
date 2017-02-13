@@ -3278,7 +3278,7 @@ namespace build2
       }
 
       parser::parsed_doc::
-      parsed_doc (regex_lines r, uint64_t l, uint64_t c)
+      parsed_doc (regex_lines&& r, uint64_t l, uint64_t c)
           : regex (move (r)), re (true), end_line (l), end_column (c)
       {
       }

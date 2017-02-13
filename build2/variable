@@ -1211,6 +1211,18 @@ namespace build2
       //
       const variable_map* stem_vars = nullptr;
       size_t              stem_version = 0;
+
+      // For GCC 4.9.
+      //
+      entry_type () = default;
+      entry_type (variable_map::value_data val,
+                  size_t ver,
+                  const variable_map* svars,
+                  size_t sver)
+          : value (move (val)),
+            version (ver),
+            stem_vars (svars),
+            stem_version (sver) {}
     };
 
     using map_type = std::map<K, entry_type>;
