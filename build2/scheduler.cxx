@@ -148,6 +148,55 @@ namespace build2
     try { shutdown (); } catch (system_error&) {}
   }
 
+  size_t scheduler::
+  shard_size (size_t mul, size_t div) const
+  {
+    size_t n (max_threads_ == 1 ? 0 : max_threads_ * mul / div / 2);
+
+    // Experience shows that we want something close to 2x for small numbers,
+    // then reduce to 1.5x in-between, and 1x for large ones.
+    //
+    // Note that Intel Xeons are all over the map when it comes to cores (6,
+    // 8, 10, 12, 14, 16, 18, 20, 22).
+    //
+    return              // HW threads x arch-bits (see max_threads below)
+      n ==   0 ?    1 : // serial
+      //
+      // 2x
+      //
+      n ==   1 ?    3 :
+      n ==   2 ?    5 :
+      n ==   4 ?   11 :
+      n ==   6 ?   13 :
+      n ==   8 ?   17 : // 2 x 4
+      n ==  16 ?   31 : // 4 x 4, 2 x 8
+      //
+      // 1.5x
+      //
+      n ==  32 ?   47 : // 4 x 8
+      n ==  48 ?   53 : // 6 x 8
+      n ==  64 ?   67 : // 8 x 8
+      n ==  80 ?   89 : // 10 x 8
+      //
+      // 1x
+      //
+      n ==  96 ?  101 : // 12 x 8
+      n == 112 ?  127 : // 14 x 8
+      n == 128 ?  131 : // 16 x 8
+      n == 144 ?  139 : // 18 x 8
+      n == 160 ?  157 : // 20 x 8
+      n == 176 ?  173 : // 22 x 8
+      n == 192 ?  191 : // 24 x 8
+      n == 224 ?  223 : // 28 x 8
+      n == 256 ?  251 : // 32 x 8
+      n == 288 ?  271 : // 36 x 8
+      n == 320 ?  313 : // 40 x 8
+      n == 352 ?  331 : // 44 x 8
+      n == 384 ?  367 : // 48 x 8
+      n == 512 ?  499 : // 64 x 8
+      n - 1;            // Assume it is even.
+  }
+
   void scheduler::
   startup (size_t max_active,
            size_t init_active,
@@ -187,51 +236,7 @@ namespace build2
 
     queued_task_count_.store (0, memory_order_relaxed);
 
-    // Pick a nice prime for common max_threads/2 numbers. Experience shows
-    // that we want something close to 2x for small numbers, then reduce to
-    // 1.5x in-between, and 1x for large ones.
-    //
-    // Note that Intel Xeons are all over the map when it comes to cores (6,
-    // 8, 10, 12, 14, 16, 18, 20, 22).
-    //
-    {
-      size_t n (max_threads / 2);
-
-      wait_queue_size_ =            // HW threads x bits
-        n == 0  ?     0 : // serial
-        //
-        // 2x
-        //
-        n ==   8 ?   17 : // 2 x 4
-        n ==  16 ?   31 : // 4 x 4, 2 x 8
-        //
-        // 1.5x
-        //
-        n ==  32 ?   47 : // 4 x 8
-        n ==  48 ?   53 : // 6 x 8
-        n ==  64 ?   67 : // 8 x 8
-        n ==  80 ?   89 : // 10 x 8
-        //
-        // 1x
-        //
-        n ==  96 ?  101 : // 12 x 8
-        n == 112 ?  127 : // 14 x 8
-        n == 128 ?  131 : // 16 x 8
-        n == 144 ?  139 : // 18 x 8
-        n == 160 ?  157 : // 20 x 8
-        n == 176 ?  173 : // 22 x 8
-        n == 192 ?  191 : // 24 x 8
-        n == 224 ?  223 : // 28 x 8
-        n == 256 ?  251 : // 32 x 8
-        n == 288 ?  271 : // 36 x 8
-        n == 320 ?  313 : // 40 x 8
-        n == 352 ?  331 : // 44 x 8
-        n == 384 ?  367 : // 48 x 8
-        n == 512 ?  499 : // 64 x 8
-        n - 1;            // Assume it is even.
-    }
-
-    if (wait_queue_size_ != 0)
+    if ((wait_queue_size_ = max_threads == 1 ? 0 : shard_size ()) != 0)
       wait_queue_.reset (new wait_slot[wait_queue_size_]);
 
     // Reset stats counters.

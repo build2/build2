@@ -241,6 +241,16 @@ namespace build2
       return std::thread::hardware_concurrency ();
     }
 
+    // Return a prime number that can be used as a lock shard size that's
+    // appropriate for the scheduler's concurrency. Use power of two values
+    // for mul for higher-contention shards and for div for lower-contention
+    // ones. Always return 1 for serial execution.
+    //
+    // Note: can only be called from threads that have observed startup.
+    //
+    size_t
+    shard_size (size_t mul = 1, size_t div = 1) const;
+
   private:
     using lock = std::unique_lock<std::mutex>;
 
@@ -352,7 +362,7 @@ namespace build2
       bool shutdown = true;
     };
 
-    size_t wait_queue_size_; // Multiple of max_threads.
+    size_t wait_queue_size_; // Proportional to max_threads.
     unique_ptr<wait_slot[]> wait_queue_;
 
     // Task queue.
