@@ -1,0 +1,78 @@
+# file      : tests/variable/override/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: cache-invalidation
+:
+{
+  : value-version
+  :
+  $* x+=01 y+=01 <<EOI >>EOO
+  x = [string] 0
+  print $x
+
+  x = [uint64] 1
+  print $x
+
+  y = 0
+  print $y
+
+  [uint64] y = [null]
+  print $y
+  EOI
+  001
+  2
+  0 01
+  1
+  EOO
+
+  : value-position
+  :
+  $* x+=01 <<EOI >>EOO
+  x = [string] 0
+
+  print $x
+  dir/:
+  {
+    print $x
+  }
+
+  dir/: x = [uint64] 1
+
+  print $x
+  dir/:
+  {
+    print $x
+  }
+
+  EOI
+  001
+  001
+  001
+  2
+  EOO
+}
+
+: override-cached
+: Test overriding cached target type/pattern-specific prepend/append
+:
+{
+  $* x+=X <<EOI >>EOO
+  x = 0
+  file{*}: x += a
+
+  print $(file{foo}:x)
+
+  x = 1                 # Should invalidate both caches.
+  print $(file{foo}:x)
+
+  file{*}: x += b       # Should invalidate both caches.
+  print $(file{foo}:x)
+  EOI
+  0 a X
+  1 a X
+  1 a b X
+  EOO
+}

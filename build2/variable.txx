@@ -557,13 +557,14 @@ namespace build2
   //
   template <typename K>
   pair<value&, ulock> variable_cache<K>::
-  insert (K k, const lookup& stem)
+  insert (K k, const lookup& stem, size_t ver)
   {
-    const variable_map* vars (stem.vars); // NULL if undefined.
-    size_t ver (
-      stem.defined ()
-      ? static_cast<const variable_map::value_data*> (stem.value)->version
-      : 0);
+    using value_data = variable_map::value_data;
+
+    const variable_map* svars (stem.vars); // NULL if undefined.
+    size_t sver (stem.defined ()
+                 ? static_cast<const value_data*> (stem.value)->version
+                 : 0);
 
     shared_mutex& m (
       variable_cache_mutex_shard[
@@ -576,9 +577,10 @@ namespace build2
 
     // Cache hit.
     //
-    if (i != m_.end ()              &&
-        i->second.stem_vars == vars &&
-        i->second.stem_version == ver)
+    if (i != m_.end ()               &&
+        i->second.version == ver     &&
+        i->second.stem_vars == svars &&
+        i->second.stem_version == sver)
       return pair<value&, ulock> (i->second.value, move (ul));
 
     // Relock for exclusive access. Note that it is entirely possible
@@ -593,30 +595,38 @@ namespace build2
     pair<typename map_type::iterator, bool> p (i, i == m_.end ());
 
     if (p.second)
-      p = m_.emplace (move (k), entry_type {value (nullptr), vars, ver});
+      p = m_.emplace (move (k),
+                      entry_type {value_data (nullptr), ver, svars, sver});
 
     entry_type& e (p.first->second);
 
-    // Cache miss.
-    //
     if (p.second)
-      ;
-    //
-    // Cache invalidation.
-    //
-    else if (e.stem_vars != vars || e.stem_version != ver)
     {
-      if (e.stem_vars != vars)
-        e.stem_vars = vars;
-      else
-        assert (e.stem_version <= ver);
-
-      e.stem_version = ver;
+      // Cache miss.
+      //
+      e.value.version++; // New value.
     }
-    //
-    // Cache hit.
-    //
+    else if (e.version != ver     ||
+             e.stem_vars != svars ||
+             e.stem_version != sver)
+    {
+      // Cache invalidation.
+      //
+      assert (e.version <= ver);
+      e.version = ver;
+
+      if (e.stem_vars != svars)
+        e.stem_vars = svars;
+      else
+        assert (e.stem_version <= sver);
+
+      e.stem_version = sver;
+
+      e.value.version++; // Value changed.
+    }
     else
+      // Cache hit.
+      //
       ul.unlock ();
 
     return pair<value&, ulock> (e.value, move (ul));

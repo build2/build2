@@ -3,5 +3,5 @@
 # license   : MIT; see accompanying LICENSE file
 
 ./: directive/ eval/ expansion/ function/ search/ test/ value/ \
-file{common.test}
+variable/ file{common.test}
 

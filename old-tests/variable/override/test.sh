@@ -301,12 +301,3 @@ p     : PxsS
 p/d   : PxssS
 p/d/t : PxsssS
 EOF
-
-# Cache overwrite.
-#
-test --buildfile cache x+=01 y+=01 <<EOF
-001
-2
-0 01
-1
-EOF

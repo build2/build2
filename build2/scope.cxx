@@ -44,52 +44,58 @@ namespace build2
       //
       lookup stem (s->find_original (var, tt, tn, gt, gn, 2).first);
 
-      // Implementing proper caching is tricky so for now we are going to re-
-      // calculate the value every time. This is the same issue and the same
-      // planned solution as for the override cache (see below).
+      // Check the cache.
       //
-      // Note: very similar logic as in the override cache population code
-      // below.
-      //
-      // @@ MT
-      //
-      variable_map::value_data& cache (
-        s->target_vars.cache[make_tuple (&v, tt, *tn)]);
+      pair<value&, ulock> entry (
+        s->target_vars.cache.insert (
+          make_tuple (&v, tt, *tn),
+          stem,
+          static_cast<const variable_map::value_data&> (v).version));
 
-      // Un-typify the cache. This can be necessary, for example, if we are
-      // changing from one value-typed stem to another.
+      value& cv (entry.first);
+
+      // If cache miss/invalidation, update the value.
       //
-      if (!stem.defined () || cache.type != stem->type)
+      if (entry.second.owns_lock ())
       {
-        cache = nullptr;
-        cache.type = nullptr; // Un-typify.
-      }
+        // Un-typify the cache. This can be necessary, for example, if we are
+        // changing from one value-typed stem to another.
+        //
+        // Note: very similar logic as in the override cache population code
+        // below.
+        //
+        if (!stem.defined () || cv.type != stem->type)
+        {
+          cv = nullptr;
+          cv.type = nullptr; // Un-typify.
+        }
 
-      // Copy the stem.
-      //
-      if (stem.defined ())
-        cache = *stem;
+        // Copy the stem.
+        //
+        if (stem.defined ())
+          cv = *stem;
 
-      // Typify the cache value in case there is no stem (we still want to
-      // prepend/append things in type-aware way).
-      //
-      if (cache.type == nullptr && var.type != nullptr)
-        typify (cache, *var.type, &var);
+        // Typify the cache value in case there is no stem (we still want to
+        // prepend/append things in type-aware way).
+        //
+        if (cv.type == nullptr && var.type != nullptr)
+          typify (cv, *var.type, &var);
 
-      // Now prepend/append the value, unless it is NULL.
-      //
-      if (v)
-      {
-        if (v.extra == 1)
-          cache.prepend (names (cast<names> (v)), &var);
-        else
-          cache.append (names (cast<names> (v)), &var);
+        // Now prepend/append the value, unless it is NULL.
+        //
+        if (v)
+        {
+          if (v.extra == 1)
+            cv.prepend (names (cast<names> (v)), &var);
+          else
+            cv.append (names (cast<names> (v)), &var);
+        }
       }
 
       // Return cache as the resulting value but retain l.vars, so it looks as
       // if the value came from s->target_vars.
       //
-      l.value = &cache;
+      l.value = &cv;
     };
 
     for (const scope* s (this); s != nullptr; )
@@ -394,12 +400,14 @@ namespace build2
 
     // Check the cache.
     //
-    pair<value&, ulock> cache (
+    pair<value&, ulock> entry (
       inner_proj->override_cache.insert (
-        make_pair (&var, inner_vars), stem));
+        make_pair (&var, inner_vars),
+        stem,
+        0)); // Overrides are immutable.
 
-    value& cv (cache.first);
-    bool cl (cache.second.owns_lock ());
+    value& cv (entry.first);
+    bool cl (entry.second.owns_lock ());
 
     // If cache miss/invalidation, update the value.
     //
