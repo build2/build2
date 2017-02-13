@@ -316,7 +316,7 @@ namespace build2
   {
   public:
     // Note that we assume the first insertion into the map is always the
-    // global scope.
+    // global scope with empty key.
     //
     iterator
     insert (const dir_path&, bool root);
