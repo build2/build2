@@ -253,10 +253,6 @@ namespace build2
   //
   extern atomic_count dependency_count;
 
-  // Variable override value cache.
-  //
-  extern variable_override_cache var_override_cache;
-
   // Reset the build state. In particular, this removes all the targets,
   // scopes, and variables.
   //

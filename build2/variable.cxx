@@ -1283,4 +1283,7 @@ namespace build2
 
     return lookup ();
   }
+
+  size_t variable_cache_mutex_shard_size;
+  unique_ptr<shared_mutex[]> variable_cache_mutex_shard;
 }

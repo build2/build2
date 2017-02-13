@@ -177,6 +177,18 @@ namespace build2
     //
     variable_type_map target_vars;
 
+    // Variable override cache (project root and global scope only).
+    //
+    // The key is the variable plus the innermost (scope-wise) variable map to
+    // which this override applies. See find_override() for details.
+    //
+    // Note: since it can be modified on any lookup (including during the
+    // execute phase), the cache is protected by its own mutex shard.
+    //
+    mutable
+    variable_cache<pair<const variable*, const variable_map*>>
+    override_cache;
+
     // Meta/operations supported by this project (set on the root
     // scope only).
     //

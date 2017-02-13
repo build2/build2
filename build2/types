@@ -15,7 +15,7 @@
 #include <cstdint>          // uint{8,16,32,64}_t, *_MIN, *_MAX
 #include <istream>
 #include <ostream>
-#include <functional>       // function, reference_wrapper
+#include <functional>       // hash, function, reference_wrapper
 #include <initializer_list>
 
 #include <mutex>
@@ -61,6 +61,8 @@ namespace build2
   using std::function;
   using std::reference_wrapper;
 
+  using std::hash;
+
   using std::initializer_list;
 
   using std::unique_ptr;
@@ -100,6 +102,9 @@ namespace build2
   using ulock        = std::unique_lock<shared_mutex>;
   using slock        = ulock;
 #endif
+
+  using std::defer_lock;
+  using std::adopt_lock;
 
   // Exceptions.
   //

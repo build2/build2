@@ -1219,11 +1219,7 @@ namespace build2
     lookup
     find (const target_type&, const string& tname, const variable&) const;
 
-    // In many places we assume that we can store a reference to the returned
-    // variable value (e.g., install::lookup_install()). As a result, in case
-    // of append/prepend where we calculate the value dynamically, we have to
-    // cache it (note, however, that if the value becomes stale, there is no
-    // guarantee the references remain valid).
+
     //
     // The key is the combination of the "original value identity" (as a
     // pointer to the value in one of the variable_pattern_map's) and the
@@ -1241,17 +1237,47 @@ namespace build2
     map_type map_;
   };
 
-  // Variable override cache.
+  // Value caching. Used for overrides as well as target type/pattern-specific
+  // append/prepend.
   //
-  struct variable_override_value
+  // In many places we assume that we can store a reference to the returned
+  // variable value (e.g., install::lookup_install()). As a result, in these
+  // cases where we calculate the value dynamically, we have to cache it
+  // (note, however, that if the value becomes stale, there is no guarantee
+  // the references remain valid).
+  //
+  template <typename K>
+  class variable_cache
   {
-    variable_map::value_data value;
-    const variable_map* stem_vars = nullptr; // NULL means there is no stem.
+  public:
+    // If the returned unique lock is locked, then the value has been
+    // invalidated.
+    //
+    pair<value&, ulock>
+    insert (K, const lookup& stem);
+
+  private:
+    struct entry_type
+    {
+      build2::value value;
+
+      // Location of the stem as well as the version on which this cache
+      // value is based. Used to track the location and value of the stem
+      // for cache invalidation. NULL/0 means there is no stem.
+      //
+      const variable_map* stem_vars = nullptr;
+      size_t              stem_version = 0;
+    };
+
+    using map_type = std::map<K, entry_type>;
+
+    map_type m_;
   };
 
-  using variable_override_cache = std::map<pair<const variable_map*,
-                                                const variable*>,
-                                           variable_override_value>;
+  // Allocated in main().
+  //
+  extern size_t variable_cache_mutex_shard_size;
+  extern unique_ptr<shared_mutex[]> variable_cache_mutex_shard;
 }
 
 #include <build2/variable.ixx>

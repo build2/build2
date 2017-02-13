@@ -60,8 +60,6 @@ namespace build2
 
   atomic_count dependency_count;
 
-  variable_override_cache var_override_cache;
-
   variable_overrides
   reset (const strings& cmd_vars)
   {
@@ -76,8 +74,6 @@ namespace build2
     auto& sm (scope_map::instance);
 
     variable_overrides vos;
-
-    var_override_cache.clear ();
 
     targets.clear ();
     sm.clear ();

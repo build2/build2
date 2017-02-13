@@ -273,7 +273,7 @@ main (int argc, char* argv[])
 
     keep_going = !ops.serial_stop ();
 
-    // Start up the scheduler.
+    // Start up the scheduler and allocate lock shards.
     //
     size_t jobs (0);
 
@@ -295,6 +295,10 @@ main (int argc, char* argv[])
     }
 
     sched.startup (jobs);
+
+    variable_cache_mutex_shard_size = sched.shard_size ();
+    variable_cache_mutex_shard.reset (
+      new shared_mutex[variable_cache_mutex_shard_size]);
 
     // Trace some overall environment information.
     //

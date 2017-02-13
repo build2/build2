@@ -552,4 +552,73 @@ namespace build2
     &map_compare<K, V>,
     &default_empty<map<K, V>>
   };
+
+  // variable_cache
+  //
+  template <typename K>
+  pair<value&, ulock> variable_cache<K>::
+  insert (K k, const lookup& stem)
+  {
+    const variable_map* vars (stem.vars); // NULL if undefined.
+    size_t ver (
+      stem.defined ()
+      ? static_cast<const variable_map::value_data*> (stem.value)->version
+      : 0);
+
+    shared_mutex& m (
+      variable_cache_mutex_shard[
+        hash<variable_cache*> () (this) % variable_cache_mutex_shard_size]);
+
+    slock sl (m);
+    ulock ul (m, defer_lock);
+
+    auto i (m_.find (k));
+
+    // Cache hit.
+    //
+    if (i != m_.end ()              &&
+        i->second.stem_vars == vars &&
+        i->second.stem_version == ver)
+      return pair<value&, ulock> (i->second.value, move (ul));
+
+    // Relock for exclusive access. Note that it is entirely possible
+    // that between unlock and lock someone else has updated the entry.
+    //
+    sl.unlock ();
+    ul.lock ();
+
+    // Note that the cache entries are never removed so we can reuse the
+    // iterator.
+    //
+    pair<typename map_type::iterator, bool> p (i, i == m_.end ());
+
+    if (p.second)
+      p = m_.emplace (move (k), entry_type {value (nullptr), vars, ver});
+
+    entry_type& e (p.first->second);
+
+    // Cache miss.
+    //
+    if (p.second)
+      ;
+    //
+    // Cache invalidation.
+    //
+    else if (e.stem_vars != vars || e.stem_version != ver)
+    {
+      if (e.stem_vars != vars)
+        e.stem_vars = vars;
+      else
+        assert (e.stem_version <= ver);
+
+      e.stem_version = ver;
+    }
+    //
+    // Cache hit.
+    //
+    else
+      ul.unlock ();
+
+    return pair<value&, ulock> (e.value, move (ul));
+  }
 }

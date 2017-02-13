@@ -329,19 +329,7 @@ namespace build2
     if (inner_proj == nullptr)
       inner_proj = global_scope;
 
-    // Implementing proper caching is tricky so for now we are going to re-
-    // calculate the value every time. Later, the plan is to use value
-    // versioning (incremented on every update) to detect stem value changes.
-    // We also need to watch out for the change of the stem itself in addition
-    // to its value (think of a new variable set since last lookup which is
-    // now a new stem). Thus stem_vars in variable_override_value.
-    //
-    // @@ MT
-    //
-    variable_override_value& cache (
-      var_override_cache[make_pair (inner_vars, &var)]);
-
-    // Now find our "stem", that is the value to which we will be appending
+    // Now find our "stem", that is, the value to which we will be appending
     // suffixes and prepending prefixes. This is either the original or the
     // __override, provided it applies. We may also not have either.
     //
@@ -404,41 +392,51 @@ namespace build2
         break;
     }
 
-    // If there is a stem, set it as the initial value of the cache.
-    // Otherwise, start with a NULL value.
+    // Check the cache.
     //
-    // Note: very similar logic as in the target type/pattern specific cache
-    // population code above.
-    //
+    pair<value&, ulock> cache (
+      inner_proj->override_cache.insert (
+        make_pair (&var, inner_vars), stem));
 
-    // Un-typify the cache. This can be necessary, for example, if we are
-    // changing from one value-typed stem to another.
+    value& cv (cache.first);
+    bool cl (cache.second.owns_lock ());
+
+    // If cache miss/invalidation, update the value.
     //
-    if (!stem.defined () || cache.value.type != stem->type)
+    if (cl)
     {
-      cache.value = nullptr;
-      cache.value.type = nullptr; // Un-typify.
+      // Note: very similar logic as in the target type/pattern specific cache
+      // population code above.
+      //
+
+      // Un-typify the cache. This can be necessary, for example, if we are
+      // changing from one value-typed stem to another.
+      //
+      if (!stem.defined () || cv.type != stem->type)
+      {
+        cv = nullptr;
+        cv.type = nullptr; // Un-typify.
+      }
+
+      if (stem.defined ())
+        cv = *stem;
+
+      // Typify the cache value. If the stem is the original, then the type
+      // would get propagated automatically. But the stem could also be the
+      // override, which is kept untyped. Or the stem might not be there at
+      // all while we still need to apply prefixes/suffixes in the type-aware
+      // way.
+      //
+      if (cv.type == nullptr && var.type != nullptr)
+        typify (cv, *var.type, &var);
     }
 
-    if (stem.defined ())
-    {
-      cache.value = *stem;
-      cache.stem_vars = stem.vars;
-    }
-    else
-      cache.stem_vars = nullptr; // No stem.
-
-    // Typify the cache value. If the stem is the original, then the type
-    // would get propagated automatically. But the stem could also be the
-    // override, which is kept untyped. Or the stem might not be there at all
-    // while we still need to apply prefixes/suffixes in the type-aware way.
+    // Now apply override prefixes and suffixes (if updating the cache). Also
+    // calculate the vars and depth of the result, which will be those of the
+    // stem or prefix/suffix that applies, whichever is the innermost.
     //
-    if (cache.value.type == nullptr && var.type != nullptr)
-      typify (cache.value, *var.type, &var);
-
-    // Now apply override prefixes and suffixes. Also calculate the vars and
-    // depth of the result, which will be those of the stem or prefix/suffix
-    // that applies, whichever is the innermost.
+    // Note: we could probably cache this information instead of recalculating
+    // it every time.
     //
     size_t depth (stem_depth);
     const variable_map* vars (stem.vars);
@@ -468,13 +466,16 @@ namespace build2
         //
         auto l (find (o, ".__prefix"));
 
-        if (l) // No sense to prepend/append if NULL.
+        if (cl)
         {
-          cache.value.prepend (names (cast<names> (l)), &var);
-        }
-        else if ((l = find (o, ".__suffix")))
-        {
-          cache.value.append (names (cast<names> (l)), &var);
+          if (l) // No sense to prepend/append if NULL.
+          {
+            cv.prepend (names (cast<names> (l)), &var);
+          }
+          else if ((l = find (o, ".__suffix")))
+          {
+            cv.append (names (cast<names> (l)), &var);
+          }
         }
 
         if (l.defined ())
@@ -502,7 +503,7 @@ namespace build2
     // Use the location of the innermost value that contributed as the
     // location of the result.
     //
-    return make_pair (lookup (&cache.value, vars), depth);
+    return make_pair (lookup (&cv, vars), depth);
   }
 
   value& scope::
