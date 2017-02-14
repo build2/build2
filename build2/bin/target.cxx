@@ -201,15 +201,6 @@ namespace build2
 
     // lib
     //
-    void lib::
-    reset (action_type)
-    {
-      clear_data ();
-
-      // Don't clear prerequisite_targets since it is "given" to our
-      // members to implement "library meta-information protocol".
-    }
-
     static pair<target*, optional<string>>
     lib_factory (const target_type&,
                  dir_path d,

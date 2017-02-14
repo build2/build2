@@ -94,9 +94,6 @@ namespace build2
       const_ptr<liba> a = nullptr;
       const_ptr<libs> s = nullptr;
 
-      virtual void
-      reset (action_type) override;
-
     public:
       static const target_type static_type;
 

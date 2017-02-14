@@ -86,7 +86,9 @@ namespace build2
   match (slock&, action, target&);
 
   // Note that calling this function only makes sense if the target itself
-  // doesn't have its own dependents.
+  // doesn't have its own dependents (since they will not be unmatched) or
+  // if you know for sure that someone else will match and execute this
+  // target for real.
   //
   void
   unmatch (action, target&);
@@ -98,7 +100,7 @@ namespace build2
   match_only (slock&, action, target&);
 
   // Match a "delegate rule" from withing another rules' apply() function
-  // skipping recursive matches (thus the third argument). Return recipe and
+  // avoiding recursive matches (thus the third argument). Return recipe and
   // recipe action (if any). Note that unlike match(), this call doesn't
   // increment the dependents count. See also the companion
   // execute_delegate().

@@ -126,7 +126,7 @@ namespace build2
 
       // Set the library type.
       //
-      t.vars.assign (c_type) = string (x);
+      t.vars.assign (c_type) = string (x); //@@ move to apply()?
 
       // If we have any prerequisite libraries, search/import and pre-match
       // them to implement the "library meta-information protocol". Don't do
@@ -140,8 +140,8 @@ namespace build2
           op != install_id   && oop != install_id &&
           op != uninstall_id && oop != uninstall_id)
       {
-        if (t.group != nullptr)
-          t.group->prerequisite_targets.clear (); // lib{}'s
+        const scope& bs (t.base_scope ());
+        lorder lo (link_order (bs, lt));
 
         optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
@@ -159,14 +159,12 @@ namespace build2
             if (pt == nullptr)
             {
               pt = &p.search ();
+
+              if (lib* l = pt->is_a<lib> ())
+                pt = &link_member (*l, lo);
+
               match_only (ml, a, *pt);
             }
-
-            // If the prerequisite came from the lib{} group, then also
-            // add it to lib's prerequisite_targets.
-            //
-            if (!p.prerequisite.belongs (t))
-              t.group->prerequisite_targets.push_back (pt);
 
             t.prerequisite_targets.push_back (pt);
           }
@@ -486,8 +484,10 @@ namespace build2
         // altogether. So we are going to use the target's project.
         //
 
-        // @@ Why are we creating the obj{} group if the source came from a
-        //    group?
+        // If the source came from the lib{} group, then create the obj{}
+        // group and add the source as a prerequisite of the obj{} group,
+        // not the obj?{} member. This way we only need one prerequisite
+        // for, say, both liba{} and libs{}.
         //
         bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
 

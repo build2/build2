@@ -213,7 +213,9 @@ namespace build2
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
+
       otype ct (compile_type (t));
+      lorder lo (link_order (bs, ct));
 
       // Derive file name from target name.
       //
@@ -286,16 +288,24 @@ namespace build2
         {
           if (a.operation () == update_id)
           {
-            // Handle imported libraries. We know that for such libraries
-            // we don't need to do match() in order to get options (if
-            // any, they would be set by search_library()).
+            // Handle imported libraries. We know that for such libraries we
+            // don't need to do match() in order to get options (if any, they
+            // would be set by search_library()).
             //
-            if (!p.proj () ||
-                search_library (
-                  sys_lib_dirs, usr_lib_dirs, p.prerequisite) == nullptr)
+            if (p.proj ())
             {
-              match_only (ml, a, p.search ());
+              if (search_library (sys_lib_dirs,
+                                  usr_lib_dirs,
+                                  p.prerequisite) != nullptr)
+                continue;
             }
+
+            target* pt (&p.search ());
+
+            if (lib* l = pt->is_a<lib> ())
+              pt = &link_member (*l, lo);
+
+            match_only (ml, a, *pt);
           }
 
           continue;
@@ -316,8 +326,6 @@ namespace build2
       //
       if (a == perform_update_id)
       {
-        lorder lo (link_order (bs, ct));
-
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
         // above.

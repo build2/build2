@@ -46,7 +46,7 @@ namespace build2
                    "insufficient space");
 
     match_result lib_rule::
-    match (slock& ml, action act, target& xt, const string&) const
+    match (slock&, action act, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
@@ -63,30 +63,6 @@ namespace build2
       if (!a && !s)
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
-
-      // Search and pre-match the members. The pre-match here is part
-      // of the "library meta-information protocol" that could be used
-      // by the module that actually builds the members. The idea is
-      // that pre-matching members may populate our prerequisite_targets
-      // with prerequisite libraries from which others can extract the
-      // meta-information about the library, such as the options to use
-      // when linking it, etc.
-      //
-      if (a)
-      {
-        if (t.a == nullptr)
-          t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
-
-        match_only (ml, act, *t.a);
-      }
-
-      if (s)
-      {
-        if (t.s == nullptr)
-          t.s = &search<libs> (t.dir, t.out, t.name, nullptr, nullptr);
-
-        match_only (ml, act, *t.s);
-      }
 
       t.data (match_data {type}); // Save in the target's auxilary storage.
 
@@ -112,13 +88,21 @@ namespace build2
       bool a (type == "static" || type == "both");
       bool s (type == "shared" || type == "both");
 
-      // Now we do full match.
-      //
       if (a)
+      {
+        if (t.a == nullptr)
+          t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
+
         build2::match (ml, act, *t.a);
+      }
 
       if (s)
+      {
+        if (t.s == nullptr)
+          t.s = &search<libs> (t.dir, t.out, t.name, nullptr, nullptr);
+
         build2::match (ml, act, *t.s);
+      }
 
       return &perform;
     }

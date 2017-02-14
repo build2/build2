@@ -131,13 +131,6 @@ namespace build2
       dependents = 0; //@@ MT: either relax or use as match flag?
   }
 
-  void target::
-  reset (action_type)
-  {
-    clear_data ();
-    prerequisite_targets.clear ();
-  }
-
   group_view target::
   group_members (action_type)
   {

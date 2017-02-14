@@ -245,12 +245,6 @@ namespace build2
   public:
     using action_type = build2::action;
 
-    // Reset the target before matching it to a rule. The default
-    // implementation clears the auxilary data and prerequisite_targets.
-    //
-    virtual void
-    reset (action_type);
-
     // You should not call this function directly; rather use
     // resolve_group_members() from <build2/algorithm>.
     //
