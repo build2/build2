@@ -2181,6 +2181,73 @@ Read files in order and write their contents to \c{stdout}. Read from
 \c{stdin} if no file is specified or \c{-} is specified as a file name.
 
 
+\h#builtins-cp|\c{cp}|
+
+\
+cp        <src-file>     <dst-file>
+cp -R|-r  <src-dir>      <dst-dir>
+cp        <src-file>...  <dst-dir>/
+cp -R|-r  <src-path>...  <dst-dir>/
+\
+
+Copy files and/or directories.
+
+If only two arguments are specified and the \c{-R} or \c{-r} option is
+not present, then the first synopsis is assumed where \c{cp} copies
+\i{src-file} to \i{dst-file} failing if either filesystem entry is
+a directory or the \i{src-file} entry does not exist.
+
+If only two arguments are specified, the \c{-R} or \c{-r} option is
+present, and the second argument does not end with a directory
+separator, then the second synopsis is assumed where \c{cp} copies
+\i{src-dir} as \i{dst-dir} failing if \i{src-dir} filesystem entry
+does not exist or is not a directory or if a \i{dst-dir} filesystem
+entry already exists.
+
+If more than two arguments are specified and the \c{-R} or \c{-r} option
+is not present, then the third synopsis is assumed where \c{cp} copies
+two or more \i{src-file} files into the \i{dst-dir} directory as if
+by executing the following command for each file:
+
+\
+cp src-file dst-dir/src-name
+\
+
+Where \i{src-name} is the last path component in \i{src-file}.
+
+In this synopsis \c{cp} fails if a filesystem entry for any of the
+\i{src-file} files does not exist or is a directory or if a \i{dst-dir}
+filesystem entry does not exist or is not a directory. Note also that
+the last argument must end with a directory separator.
+
+Finally, if more than two arguments are specified and the \c{-R} or
+\c{-r} option is present, then the fourth synopsis is assumed where
+\c{cp} copies two or more \i{src-path} files or directories into the
+\i{dst-dir} directory as if by executing the following command for
+each file:
+
+\
+cp src-path dst-dir/src-name
+\
+
+And the following command for each directory (\i{src-path} that ends with
+a directory separator):
+
+\
+cp -R src-path dst-dir/src-name
+\
+
+Where \i{src-name} is the last path component in \i{src-path}.
+
+In this synopsis \c{cp} fails if a corresponding filesystem entry for
+any of the \i{src-path} files and directories does not exist or is
+of a wrong type or if a \i{dst-dir} filesystem entry does not exist
+or is not a directory. Note also that the last argument must end with
+a directory separator.
+
+Newly created files and directories that are inside the script working
+directory are automatically registered for cleanup.
+
 \h#builtins-diff|\c{diff}|
 
 \
@@ -2230,8 +2297,8 @@ directories must exist and the directory itself must not exist.
   Create missing leading directories and ignore directories that already
   exist.||
 
-Created directories (including the leading ones) that are inside the script
-working directory are automatically registered for cleanup.
+Newly created directories (including the leading ones) that are inside the
+script working directory are automatically registered for cleanup.
 
 
 \h#builtins-rm|\c{rm}|
@@ -2390,8 +2457,8 @@ Change file access and modification times to the current time. Create files
 that do not exist. Fail if a filesystem entry other than the file exists for
 the specified name.
 
-Created files that are inside the script working directory are automatically
-registered for cleanup.
+Newly created files that are inside the script working directory are
+automatically registered for cleanup.
 
 \h#builtins-true|\c{true}|
 
