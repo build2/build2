@@ -456,7 +456,7 @@ namespace build2
   protected:
     friend target_state execute_impl (action, target&) noexcept;
 
-    target_state state_;
+    target_state state_ = target_state::unknown;
 
     // Return fail-untranslated (but group-translated) state assuming the
     // target is synchronized.
