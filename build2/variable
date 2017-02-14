@@ -7,7 +7,6 @@
 
 #include <map>
 #include <set>
-#include <functional>    // hash
 #include <type_traits>   // aligned_storage
 #include <unordered_map>
 

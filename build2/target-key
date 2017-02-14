@@ -6,7 +6,6 @@
 #define BUILD2_TARGET_KEY
 
 #include <map>
-#include <functional> // hash
 
 #include <butl/utility> // compare_c_string
 

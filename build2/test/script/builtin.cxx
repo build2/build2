@@ -149,9 +149,9 @@ namespace build2
       // cat <file>...
       //
       // Read files in sequence and write their contents to STDOUT in the same
-      // sequence. Read from STDIN if no argumements provided or '-' is
-      // specified as a file path. STDIN, STDOUT and file streams are set to
-      // binary mode prior to I/O operations.
+      // sequence. Read from STDIN if no arguments provided or '-' is specified
+      // as a file path. STDIN, STDOUT and file streams are set to binary mode
+      // prior to I/O operations.
       //
       // Note that POSIX doesn't specify if after I/O operation failure the
       // command should proceed with the rest of the arguments. The current
@@ -252,6 +252,213 @@ namespace build2
           error (false) << "invalid path '" << e.path << "'";
         }
         // Can be thrown while creating/closing cin, cout or writing to cerr.
+        //
+        catch (const io_error& e)
+        {
+          error (false) << e;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
+      // Make a copy of a file at the specified path, preserving permissions,
+      // and registering a cleanup for a newly created file. The file paths
+      // must be absolute. Fail if an exception is thrown by the underlying
+      // copy operation.
+      //
+      static void
+      cpfile (scope& sp,
+              const path& from, const path& to,
+              const function<error_record()>& fail)
+      {
+        try
+        {
+          bool exists (file_exists (to));
+
+          cpfile (from, to,
+                  cpflags::overwrite_permissions | cpflags::overwrite_content);
+
+          if (!exists)
+            sp.clean ({cleanup_type::always, to}, true);
+        }
+        catch (const system_error& e)
+        {
+          fail () << "unable to copy file '" << from << "' to '" << to
+                  << "': " << e;
+        }
+      }
+
+      // Make a copy of a directory at the specified path, registering a
+      // cleanup for the created directory. The directory paths must be
+      // absolute. Fail if the destination directory already exists or
+      // an exception is thrown by the underlying copy operation.
+      //
+      static void
+      cpdir (scope& sp,
+             const dir_path& from, const dir_path& to,
+             const function<error_record()>& fail)
+      {
+        try
+        {
+          if (try_mkdir (to) == mkdir_status::already_exists)
+            throw system_error (EEXIST, system_category ());
+
+          sp.clean ({cleanup_type::always, to}, true);
+
+          for (const auto& de: dir_iterator (from)) // Can throw.
+          {
+            path f (from / de.path ());
+            path t (to / de.path ());
+
+            if (de.type () == entry_type::directory)
+              cpdir (sp,
+                     path_cast<dir_path> (move (f)),
+                     path_cast<dir_path> (move (t)),
+                     fail);
+            else
+              cpfile (sp, f, t, fail);
+          }
+        }
+        catch (const system_error& e)
+        {
+          fail () << "unable to copy directory '" << from << "' to '" << to
+                  << "': " << e;
+        }
+      }
+
+      // cp        <src-file>     <dst-file>
+      // cp -R|-r  <src-dir>      <dst-dir>
+      // cp        <src-file>...  <dst-dir>/
+      // cp -R|-r  <src-path>...  <dst-dir>/
+      //
+      // Copy files and/or directories. The first two forms make a copy of a
+      // single entity at the specified path. The last two copy one or more
+      // entities into the specified directory.
+      //
+      // For details read the builtin description in the manual.
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      cp (scope& sp,
+          const strings& args,
+          auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "cp");
+        };
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool recursive (false);
+          for (; i != e; ++i)
+          {
+            if (*i == "-R" || *i == "-r")
+              recursive = true;
+            else
+            {
+              if (*i == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          // Copy files or directories.
+          //
+          if (i == e)
+            error () << "missing arguments";
+
+          const dir_path& wd (sp.wd_path);
+
+          auto j (args.rbegin ());
+          path dst (parse_path (*j++, wd));
+          e = j.base ();
+
+          if (i == e)
+            error () << "missing source path";
+
+          auto fail = [&error] () {return error (true);};
+
+          // If destination is not a directory path (no trailing separator)
+          // then make a copy of the filesystem entry at the specified path
+          // (the only source path is allowed in such a case). Otherwise copy
+          // the source filesystem entries into the destination directory.
+          //
+          if (!dst.to_directory ())
+          {
+            path src (parse_path (*i++, wd));
+
+            // If there are multiple sources but no trailing separator for the
+            // destination, then, most likelly, it is missing.
+            //
+            if (i != e)
+              error () << "multiple source paths without trailing separator "
+                       << "for destination directory";
+
+            if (!recursive)
+              // Synopsis 1: make a file copy at the specified path.
+              //
+              cpfile (sp, src, dst, fail);
+            else
+              // Synopsis 2: make a directory copy at the specified path.
+              //
+              cpdir (sp,
+                     path_cast<dir_path> (src), path_cast<dir_path> (dst),
+                     fail);
+          }
+          else
+          {
+            for (; i != e; ++i)
+            {
+              path src (parse_path (*i, wd));
+
+              if (recursive && dir_exists (src))
+                // Synopsis 4: copy a filesystem entry into the specified
+                // directory. Note that we handle only source directories here.
+                // Source files are handled below.
+                //
+                cpdir (sp,
+                       path_cast<dir_path> (src),
+                       path_cast<dir_path> (dst / src.leaf ()),
+                       fail);
+              else
+                // Synopsis 3: copy a file into the specified directory. Also,
+                // here we cover synopsis 4 for the source path being a file.
+                //
+                cpfile (sp, src, dst / src.leaf (), fail);
+            }
+          }
+
+          r = 0;
+        }
+        catch (const invalid_path& e)
+        {
+          error (false) << "invalid path '" << e.path << "'";
+        }
+        // Can be thrown while closing in, out or writing to cerr.
         //
         catch (const io_error& e)
         {
@@ -377,11 +584,12 @@ namespace build2
           out.close ();
 
           auto i (args.begin ());
+          auto e (args.end ());
 
           // Process options.
           //
           bool parent (false);
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             if (*i == "-p")
               parent = true;
@@ -396,10 +604,10 @@ namespace build2
 
           // Create directories.
           //
-          if (i == args.end ())
+          if (i == e)
             error () << "missing directory";
 
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             dir_path p (path_cast<dir_path> (parse_path (*i, sp.wd_path)));
 
@@ -487,12 +695,13 @@ namespace build2
           out.close ();
 
           auto i (args.begin ());
+          auto e (args.end ());
 
           // Process options.
           //
           bool dir (false);
           bool force (false);
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             if (*i == "-r")
               dir = true;
@@ -509,13 +718,13 @@ namespace build2
 
           // Remove entries.
           //
-          if (i == args.end () && !force)
+          if (i == e && !force)
             error () << "missing file";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
 
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             path p (parse_path (*i, wd));
 
@@ -607,11 +816,12 @@ namespace build2
           out.close ();
 
           auto i (args.begin ());
+          auto e (args.end ());
 
           // Process options.
           //
           bool force (false);
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             if (*i == "-f")
               force = true;
@@ -626,13 +836,13 @@ namespace build2
 
           // Remove directories.
           //
-          if (i == args.end () && !force)
+          if (i == e && !force)
             error () << "missing directory";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
 
-          for (; i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             dir_path p (path_cast<dir_path> (parse_path (*i, wd)));
 
@@ -1178,6 +1388,7 @@ namespace build2
       const builtin_map builtins
       {
         {"cat",   &async_impl<&cat>},
+        {"cp",    &sync_impl<&cp>},
         {"echo",  &async_impl<&echo>},
         {"false", &false_},
         {"mkdir", &sync_impl<&mkdir>},
