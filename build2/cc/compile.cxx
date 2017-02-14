@@ -278,11 +278,8 @@ namespace build2
       for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
         // A dependency on a library is there so that we can get its
-        // *.export.poptions. In particular, making sure it is executed before
-        // us will only restrict parallelism. But we do need to pre-match it
-        // in order to get its imports resolved and prerequisite_targets
-        // populated. This is the "library meta-information protocol". See
-        // also append_lib_options().
+        // *.export.poptions. This is the "library meta-information
+        // protocol". See also append_lib_options().
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
@@ -305,7 +302,17 @@ namespace build2
             if (lib* l = pt->is_a<lib> ())
               pt = &link_member (*l, lo);
 
-            match_only (ml, a, *pt);
+            // Making sure it is executed before us will only restrict
+            // parallelism. But we do need to match it in order to get its
+            // imports resolved and prerequisite_targets populated. So we
+            // match it but then unmatch if it is safe. And thanks to the
+            // two-pass prerequisite search & match in link::apply() it will
+            // be safe unless someone is building an obj?{} target directory.
+            //
+            if (build2::match (ml, a, *pt))
+              unmatch (a, *pt);
+            else
+              t.prerequisite_targets.push_back (pt);
           }
 
           continue;

@@ -63,7 +63,7 @@ namespace build2
   pair<const rule*, match_result>
   match_impl (slock&, action, target&, bool apply, const rule* skip = nullptr);
 
-  inline void
+  inline bool
   match (slock& ml, action a, target& t)
   {
     assert (phase == run_phase::search_match);
@@ -71,10 +71,12 @@ namespace build2
     if (!t.recipe (a))
       match_impl (ml, a, t, true);
 
-    t.dependents.fetch_add (1, std::memory_order_release);
     dependency_count.fetch_add (1, std::memory_order_release);
+    bool r (t.dependents++ != 0); // Safe if someone else is also a dependent.
 
     // text << "M " << t << ": " << t.dependents << " " << dependency_count;
+
+    return r;
   }
 
   inline void
@@ -92,15 +94,6 @@ namespace build2
     t.dependents.fetch_sub (1, std::memory_order_release);
     dependency_count.fetch_sub (1, std::memory_order_release);
 #endif
-  }
-
-  inline void
-  match_only (slock& ml, action a, target& t)
-  {
-    assert (phase == run_phase::search_match);
-
-    if (!t.recipe (a))
-      match_impl (ml, a, t, false);
   }
 
   inline pair<recipe, action>

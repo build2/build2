@@ -50,8 +50,6 @@ namespace build2
     {
       lib& t (xt.as<lib> ());
 
-      // @@ We have to re-query it on each match_only()!
-
       // Get the library type to build. If not set for a target, this
       // should be configured at the project scope by init().
       //

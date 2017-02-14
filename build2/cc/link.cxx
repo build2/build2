@@ -124,53 +124,6 @@ namespace build2
         return false;
       }
 
-      // Set the library type.
-      //
-      t.vars.assign (c_type) = string (x); //@@ move to apply()?
-
-      // If we have any prerequisite libraries, search/import and pre-match
-      // them to implement the "library meta-information protocol". Don't do
-      // this if we are called from the install rule just to check if we would
-      // match.
-      //
-      auto op (a.operation ());
-      auto oop (a.outer_operation ());
-
-      if (seen_lib && lt != otype::e &&
-          op != install_id   && oop != install_id &&
-          op != uninstall_id && oop != uninstall_id)
-      {
-        const scope& bs (t.base_scope ());
-        lorder lo (link_order (bs, lt));
-
-        optional<dir_paths> usr_lib_dirs; // Extract lazily.
-
-        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
-        {
-          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-          {
-            target* pt (nullptr);
-
-            // Handle imported libraries.
-            //
-            if (p.proj ())
-              pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
-
-            if (pt == nullptr)
-            {
-              pt = &p.search ();
-
-              if (lib* l = pt->is_a<lib> ())
-                pt = &link_member (*l, lo);
-
-              match_only (ml, a, *pt);
-            }
-
-            t.prerequisite_targets.push_back (pt);
-          }
-        }
-      }
-
       return true;
     }
 
@@ -328,6 +281,11 @@ namespace build2
       otype lt (link_type (t));
       lorder lo (link_order (bs, lt));
 
+      // Set the library type (C, C++, etc).
+      //
+      if (lt != otype::e)
+        t.vars.assign (c_type) = string (x);
+
       // Derive file name(s) and add ad hoc group members.
       //
       auto add_adhoc = [a, &bs] (target& t, const char* type) -> file&
@@ -411,29 +369,35 @@ namespace build2
         pdb.derive_path (t.path (), "pdb");
       }
 
-      t.prerequisite_targets.clear (); // See lib pre-match in match() above.
-
       // Inject dependency on the output directory.
       //
       inject_fsdir (ml, a, t);
 
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
-      // Process prerequisites: do rule chaining for C and X source files as
-      // well as search and match.
+      // Process prerequisites, pass 1: search and match prerequisite
+      // libraries.
       //
-      // When cleaning, ignore prerequisites that are not in the same or a
+      // We do it first in order to indicate that we will execute these
+      // targets before matching any of the obj?{}. This makes it safe for
+      // compiler::apply() to unmatch them and therefore not to hinder
+      // parallelism.
+      //
+      // When cleaning, we ignore prerequisites that are not in the same or a
       // subdirectory of our project root.
       //
-      const target_type& ott (lt == otype::e ? obje::static_type :
-                              lt == otype::a ? obja::static_type :
-                              objs::static_type);
-
+      size_t slot (t.prerequisite_targets.size ()); // Start.
       for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
+        // We pre-allocate a NULL slot for each (potential; see clean)
+        // prerequisite target.
+        //
+        t.prerequisite_targets.push_back (nullptr);
+        const target*& cpt (t.prerequisite_targets.back ());
+
         target* pt (nullptr);
 
-        if (!p.is_a (x_src) && !p.is_a<c> ())
+        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
           // Handle imported libraries.
           //
@@ -451,8 +415,41 @@ namespace build2
           if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue; // Skip.
 
-          // If this is the obj{} or lib{} target group, then pick the
-          // appropriate member and make sure it is searched and matched.
+          // If this is the lib{} target group, then pick the appropriate
+          // member.
+          //
+          if (lib* l = pt->is_a<lib> ())
+            pt = &link_member (*l, lo);
+
+          build2::match (ml, a, *pt);
+          cpt = pt;
+        }
+      }
+
+      // Process prerequisites, pass 2: search and match obj{} amd do rule
+      // chaining for C and X source files.
+      //
+      const target_type& ott (lt == otype::e ? obje::static_type :
+                              lt == otype::a ? obja::static_type :
+                              objs::static_type);
+
+      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+      {
+        const target*& cpt (t.prerequisite_targets[slot++]);
+        target* pt (nullptr);
+
+        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+          continue; // Handled on pass 1.
+
+        if (!p.is_a (x_src) && !p.is_a<c> ())
+        {
+          pt = &p.search ();
+
+          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+            continue; // Skip.
+
+          // If this is the obj{} target group, then pick the appropriate
+          // member.
           //
           if (obj* o = pt->is_a<obj> ())
           {
@@ -466,13 +463,9 @@ namespace build2
             if (pt == nullptr)
               pt = &search (ott, p.key ());
           }
-          else if (lib* l = pt->is_a<lib> ())
-          {
-            pt = &link_member (*l, lo);
-          }
 
           build2::match (ml, a, *pt);
-          t.prerequisite_targets.push_back (pt);
+          cpt = pt;
           continue;
         }
 
@@ -642,7 +635,7 @@ namespace build2
           build2::match (ml, a, *pt);
         }
 
-        t.prerequisite_targets.push_back (pt);
+        cpt = pt;
       }
 
       switch (a)

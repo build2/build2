@@ -78,26 +78,22 @@ namespace build2
 
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call
-  // this function with the intent to also call execute(). In case of
-  // optimizations that would avoid calling execute(), call unmatch() to
-  // indicate this.
+  // this function with the intent to also call execute().
   //
-  void
+  // In case of optimizations that would avoid calling execute(), call
+  // unmatch() to indicate this. This is only allowed in the following
+  // cases:
+  //
+  // - target::unchanged() returns true
+  // - match() returns true
+  //
+  // Note that match() does not check unchanged().
+  //
+  bool
   match (slock&, action, target&);
 
-  // Note that calling this function only makes sense if the target itself
-  // doesn't have its own dependents (since they will not be unmatched) or
-  // if you know for sure that someone else will match and execute this
-  // target for real.
-  //
   void
   unmatch (action, target&);
-
-  // Match (but do not apply) a rule to the action/target with ambiguity
-  // detection. Note that this function does not touch the dependents count.
-  //
-  void
-  match_only (slock&, action, target&);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Return recipe and
