@@ -2243,8 +2243,9 @@ determination of whether \i{src-path} is a file or directory is done by
 querying the filesystem entry type.
 
 In this case \c{cp} fails if a filesystem entry for any of the \i{src-path}
-files/directories does not exist or is of a wrong type or if the \i{dst-dir}
-filesystem entry does not exist or is not a directory.
+files/directories does not exist or if the \i{dst-dir} filesystem entry does
+not exist or is not a directory. For a \i{src-path} directory \c{cp} also fails
+if the \i{dst-dir/src-name} filesystem entry already exists.
 
 Newly created files and directories that are inside the script working
 directory are automatically registered for cleanup.
