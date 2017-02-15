@@ -368,11 +368,9 @@ namespace build2
       // target-specific. However, inside match(), things can proceed in
       // parallel.
       //
-      model_slock ml;
-
-      for (void* v: ts)
+      for (const void* v: ts)
       {
-        target& t (*static_cast<target*> (v));
+        const target& t (*static_cast<const target*> (v));
         const scope* rs (t.base_scope ().root_scope ());
 
         if (rs == nullptr)
@@ -387,10 +385,9 @@ namespace build2
             continue;
 
           set_current_oif (*oif);
-          dependency_count = 0;
 
-          phase_guard pg (run_phase::search_match);
-          match (ml, action (configure_id, id), t);
+          phase_lock pl (run_phase::match);
+          match (action (configure_id, id), t);
         }
 
         configure_project (a, *rs, projects);
@@ -488,7 +485,7 @@ namespace build2
     {
       tracer trace ("disfigure_search");
       l6 ([&]{trace << "collecting " << root.out_path ();});
-      ts.push_back (const_cast<scope*> (&root)); //@@ MT TMP action_targets
+      ts.push_back (&root);
     }
 
     static void
@@ -599,7 +596,7 @@ namespace build2
       // Note: doing everything in the load phase (disfigure_project () does
       // modify the model).
       //
-      for (void* v: ts)
+      for (const void* v: ts)
       {
         const scope& root (*static_cast<const scope*> (v));
 
@@ -617,7 +614,7 @@ namespace build2
                             true,       // Implied.
                             trace).first);
 
-          if (!quiet)
+          if (verb != 0 && !quiet)
             info << diag_done (a, t);
         }
       }

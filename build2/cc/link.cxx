@@ -41,7 +41,7 @@ namespace build2
     }
 
     match_result link::
-    match (slock& ml, action a, target& t, const string& hint) const
+    match (action act, target& t, const string& hint) const
     {
       tracer trace (x, "link::match");
 
@@ -59,12 +59,21 @@ namespace build2
 
       otype lt (link_type (t));
 
+      // If this is a library, link-up to our group (this is the lib{} target
+      // group protocol which means this can be done whether we match or not).
+      //
+      if (lt == otype::a || lt == otype::s)
+      {
+        if (t.group == nullptr)
+          t.group = targets.find<lib> (t.dir, t.out, t.name);
+      }
+
       // Scan prerequisites and see if we can work with what we've got. Note
       // that X could be C. We handle this by always checking for X first.
       //
       bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
-      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
         if (p.is_a (x_src))
         {
@@ -248,7 +257,7 @@ namespace build2
         lk = b;
         append_ext (lk);
 
-        libi& li (ls.member->as<libi> ());
+        libi& li (ls.member->as<libi> ()); // Note: libi is locked.
         lk = li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib");
       }
       else if (!v.empty ())
@@ -266,7 +275,7 @@ namespace build2
     }
 
     recipe link::
-    apply (slock& ml, action a, target& xt) const
+    apply (action act, target& xt) const
     {
       static_assert (sizeof (link::libs_paths) <= target::data_size,
                      "insufficient space");
@@ -288,21 +297,31 @@ namespace build2
 
       // Derive file name(s) and add ad hoc group members.
       //
-      auto add_adhoc = [a, &bs] (target& t, const char* type) -> file&
+
+      // Add if necessary and lock an ad hoc group member.
+      //
+      auto add_adhoc = [act, &bs] (target& t, const char* type) -> target_lock
       {
         const target_type& tt (*bs.find_target_type (type));
 
-        if (t.member != nullptr) // Might already be there.
-          assert (t.member->type () == tt);
-        else
-          t.member = &search (tt, t.dir, t.out, t.name, nullptr, nullptr);
+        const target& m (t.member != nullptr // Might already be there.
+                         ? *t.member
+                         : search (tt, t.dir, t.out, t.name));
 
-        file& r (t.member->as<file> ());
-        r.recipe (a, group_recipe);
-        return r;
+        target_lock l (lock (act, m));
+        assert (l.target != nullptr); // Someone messing with adhoc members?
+
+        if (t.member == nullptr)
+          t.member = l.target;
+        else
+          assert (t.member->type () == tt);
+
+        return l;
       };
 
       {
+        target_lock libi; // Have to hold until after PDB member addition.
+
         const char* e (nullptr); // Extension.
         const char* p (nullptr); // Prefix.
         const char* s (nullptr); // Suffix.
@@ -344,34 +363,41 @@ namespace build2
             // DLL and we add libi{} import library as its member.
             //
             if (tclass == "windows")
-              add_adhoc (t, "libi");
+              libi = add_adhoc (t, "libi");
 
             t.data (derive_libs_paths (t)); // Cache in target.
+
+            if (libi)
+              match_recipe (libi, group_recipe); // Set recipe and unlock.
+
             break;
           }
         }
-      }
 
-      // PDB
-      //
-      if (lt != otype::a &&
-          cid == "msvc" &&
-          (find_option ("/DEBUG", t, c_loptions, true) ||
-           find_option ("/DEBUG", t, x_loptions, true)))
-      {
-        // Add after the import library if any.
+        // PDB
         //
-        file& pdb (add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
+        if (lt != otype::a &&
+            cid == "msvc" &&
+            (find_option ("/DEBUG", t, c_loptions, true) ||
+             find_option ("/DEBUG", t, x_loptions, true)))
+        {
+          // Add after the import library if any.
+          //
+          target_lock pdb (
+            add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
 
-        // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
-        // can have both foo.exe and foo.dll in the same directory.
-        //
-        pdb.derive_path (t.path (), "pdb");
+          // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
+          // can have both foo.exe and foo.dll in the same directory.
+          //
+          pdb.target->as<file> ().derive_path (t.path (), "pdb");
+
+          match_recipe (pdb, group_recipe); // Set recipe and unlock.
+        }
       }
 
       // Inject dependency on the output directory.
       //
-      inject_fsdir (ml, a, t);
+      inject_fsdir (act, t);
 
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
@@ -380,22 +406,23 @@ namespace build2
       //
       // We do it first in order to indicate that we will execute these
       // targets before matching any of the obj?{}. This makes it safe for
-      // compiler::apply() to unmatch them and therefore not to hinder
+      // compile::apply() to unmatch them and therefore not to hinder
       // parallelism.
       //
       // When cleaning, we ignore prerequisites that are not in the same or a
       // subdirectory of our project root.
       //
-      size_t slot (t.prerequisite_targets.size ()); // Start.
-      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+      size_t start (t.prerequisite_targets.size ());
+
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
         // We pre-allocate a NULL slot for each (potential; see clean)
         // prerequisite target.
         //
         t.prerequisite_targets.push_back (nullptr);
-        const target*& cpt (t.prerequisite_targets.back ());
+        const target*& rpt (t.prerequisite_targets.back ());
 
-        target* pt (nullptr);
+        const target* pt (nullptr);
 
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
@@ -405,26 +432,30 @@ namespace build2
           // target in the prerequisite.
           //
           if (p.proj ())
-            pt = search_library (sys_lib_dirs, usr_lib_dirs, p.prerequisite);
+            pt = search_library (
+              act, sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
           // The rest is the same basic logic as in search_and_match().
           //
           if (pt == nullptr)
             pt = &p.search ();
 
-          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+          if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue; // Skip.
 
           // If this is the lib{} target group, then pick the appropriate
           // member.
           //
-          if (lib* l = pt->is_a<lib> ())
-            pt = &link_member (*l, lo);
+          if (const lib* l = pt->is_a<lib> ())
+            pt = &link_member (*l, act, lo);
 
-          build2::match (ml, a, *pt);
-          cpt = pt;
+          rpt = pt;
         }
       }
+
+      // Match in parallel and wait for completion.
+      //
+      match_members (act, t, t.prerequisite_targets, start);
 
       // Process prerequisites, pass 2: search and match obj{} amd do rule
       // chaining for C and X source files.
@@ -433,212 +464,256 @@ namespace build2
                               lt == otype::a ? obja::static_type :
                               objs::static_type);
 
-      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
       {
-        const target*& cpt (t.prerequisite_targets[slot++]);
-        target* pt (nullptr);
+        // Wait with unlocked phase to allow phase switching.
+        //
+        wait_guard wg (target::count_busy (), t.task_count, true);
 
-        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-          continue; // Handled on pass 1.
+        size_t i (start); // Parallel prerequisite_targets loop.
 
-        if (!p.is_a (x_src) && !p.is_a<c> ())
+        for (prerequisite_member p: group_prerequisite_members (act, t))
         {
-          pt = &p.search ();
+          const target*& rpt (t.prerequisite_targets[i++]);
+          const target* pt (nullptr);
 
-          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
-            continue; // Skip.
+          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+            continue; // Taken care of on pass 1.
 
-          // If this is the obj{} target group, then pick the appropriate
-          // member.
-          //
-          if (obj* o = pt->is_a<obj> ())
+          uint8_t pm (1); // Completion (1) and verfication (2) mark.
+
+          if (!p.is_a (x_src) && !p.is_a<c> ())
           {
-            switch (lt)
-            {
-            case otype::e: pt = o->e; break;
-            case otype::a: pt = o->a; break;
-            case otype::s: pt = o->s; break;
-            }
+            // If this is the obj{} target group, then pick the appropriate
+            // member.
+            //
+            pt = p.is_a<obj> () ? &search (ott, p.key ()) : &p.search ();
 
-            if (pt == nullptr)
-              pt = &search (ott, p.key ());
+            if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+              continue; // Skip.
+
+            // Fall through.
           }
-
-          build2::match (ml, a, *pt);
-          cpt = pt;
-          continue;
-        }
-
-        // The rest is rule chaining.
-        //
-
-        // Which scope shall we use to resolve the root? Unlikely, but
-        // possible, the prerequisite is from a different project
-        // altogether. So we are going to use the target's project.
-        //
-
-        // If the source came from the lib{} group, then create the obj{}
-        // group and add the source as a prerequisite of the obj{} group,
-        // not the obj?{} member. This way we only need one prerequisite
-        // for, say, both liba{} and libs{}.
-        //
-        bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-
-        const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
-        const target_type& tt (group ? obj::static_type : ott);
-
-        // Come up with the obj*{} target. The source prerequisite directory
-        // can be relative (to the scope) or absolute. If it is relative, then
-        // use it as is. If absolute, then translate it to the corresponding
-        // directory under out_root. While the source directory is most likely
-        // under src_root, it is also possible it is under out_root (e.g.,
-        // generated source).
-        //
-        dir_path d;
-        {
-          const dir_path& cpd (*cp.tk.dir);
-
-          if (cpd.relative () || cpd.sub (rs.out_path ()))
-            d = cpd;
           else
           {
-            if (!cpd.sub (rs.src_path ()))
-              fail << "out of project prerequisite " << cp <<
-                info << "specify corresponding " << tt.name << "{} "
-                   << "target explicitly";
+            // The rest is rule chaining.
+            //
+            // Which scope shall we use to resolve the root? Unlikely, but
+            // possible, the prerequisite is from a different project
+            // altogether. So we are going to use the target's project.
+            //
 
-            d = rs.out_path () / cpd.leaf (rs.src_path ());
-          }
-        }
+            // If the source came from the lib{} group, then create the obj{}
+            // group and add the source as a prerequisite of the obj{} group,
+            // not the obj?{} member. This way we only need one prerequisite
+            // for, say, both liba{} and libs{}.
+            //
+            bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+            const target_type& tt (group ? obj::static_type : ott);
 
-        // obj*{} is always in the out tree.
-        //
-        target& ot (
-          search (tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+            const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
 
-        // If we are cleaning, check that this target is in the same or
-        // a subdirectory of our project root.
-        //
-        if (a.operation () == clean_id && !ot.dir.sub (rs.out_path ()))
-        {
-          // If we shouldn't clean obj{}, then it is fair to assume we
-          // shouldn't clean the source either (generated source will be in
-          // the same directory as obj{} and if not, well, go find yourself
-          // another build system ;-)).
-          //
-          continue; // Skip.
-        }
-
-        // If we have created the obj{} target group, pick one of its members;
-        // the rest would be primarily concerned with it.
-        //
-        if (group)
-        {
-          obj& o (ot.as<obj> ());
-
-          switch (lt)
-          {
-          case otype::e: pt = o.e; break;
-          case otype::a: pt = o.a; break;
-          case otype::s: pt = o.s; break;
-          }
-
-          if (pt == nullptr)
-            pt = &search (ott, o.dir, o.out, o.name, o.ext (), nullptr);
-        }
-        else
-          pt = &ot;
-
-        // If this obj*{} target already exists, then it needs to be
-        // "compatible" with what we are doing here.
-        //
-        // This gets a bit tricky. We need to make sure the source files
-        // are the same which we can only do by comparing the targets to
-        // which they resolve. But we cannot search the ot's prerequisites
-        // -- only the rule that matches can. Note, however, that if all
-        // this works out, then our next step is to match the obj*{}
-        // target. If things don't work out, then we fail, in which case
-        // searching and matching speculatively doesn't really hurt.
-        //
-        bool found (false);
-        for (prerequisite_member p1:
-               reverse_group_prerequisite_members (ml, a, *pt))
-        {
-          // Most of the time we will have just a single source so fast-path
-          // that case.
-          //
-          if (p1.is_a (x_src) || p1.is_a<c> ())
-          {
-            if (!found)
+            // Come up with the obj*{} target. The source prerequisite
+            // directory can be relative (to the scope) or absolute. If it is
+            // relative, then use it as is. If absolute, then translate it to
+            // the corresponding directory under out_root. While the source
+            // directory is most likely under src_root, it is also possible it
+            // is under out_root (e.g., generated source).
+            //
+            dir_path d;
             {
-              build2::match (ml, a, *pt); // Now p1 should be resolved.
+              const dir_path& cpd (*cp.tk.dir);
 
-              // Searching our own prerequisite is ok.
-              //
-              if (&p.search () != &p1.search ())
-                fail << "synthesized target for prerequisite " << cp << " "
-                     << "would be incompatible with existing target " << *pt <<
-                  info << "existing prerequisite " << p1 << " does not match "
-                     << cp <<
-                  info << "specify corresponding " << tt.name << "{} target "
-                     << "explicitly";
+              if (cpd.relative () || cpd.sub (rs.out_path ()))
+                d = cpd;
+              else
+              {
+                if (!cpd.sub (rs.src_path ()))
+                  fail << "out of project prerequisite " << cp <<
+                    info << "specify corresponding " << tt.name << "{} "
+                       << "target explicitly";
 
-              found = true;
+                d = rs.out_path () / cpd.leaf (rs.src_path ());
+              }
             }
 
-            continue; // Check the rest of the prerequisites.
+            // obj*{} is always in the out tree.
+            //
+            const target& ot (
+              search (tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+
+            // If we are cleaning, check that this target is in the same or a
+            // subdirectory of our project root.
+            //
+            if (act.operation () == clean_id && !ot.dir.sub (rs.out_path ()))
+            {
+              // If we shouldn't clean obj{}, then it is fair to assume we
+              // shouldn't clean the source either (generated source will be
+              // in the same directory as obj{} and if not, well, go find
+              // yourself another build system ;-)).
+              //
+              continue; // Skip.
+            }
+
+            // If we have created the obj{} target group, pick one of its
+            // members; the rest would be primarily concerned with it.
+            //
+            pt = group ? &search (ott, ot.dir, ot.out, ot.name) : &ot;
+
+            // If this obj*{} already has prerequisites, then verify they are
+            // "compatible" with what we are doing here. Otherwise, synthesize
+            // the dependency. Note that we may also end up synthesizing with
+            // someone beating up to it. In this case also verify.
+            //
+            bool verify (true);
+
+            if (!pt->has_prerequisites ())
+            {
+              prerequisites ps;
+              ps.push_back (p.as_prerequisite ()); // Source.
+
+              // Add our lib*{} prerequisites (see the export.* machinery for
+              // details).
+              //
+              // Note that we don't resolve lib{} to liba{}/libs{} here
+              // instead leaving it to whoever (e.g., the compile rule) will
+              // be needing *.export.*. One reason for doing it there is that
+              // the object target might be specified explicitly by the user
+              // in which case they will have to specify the set of lib{}
+              // prerequisites and it's much cleaner to do as lib{} rather
+              // than liba{}/libs{}.
+              //
+              // Initially, we were only adding imported libraries, but there
+              // is a problem with this approach: the non-imported library
+              // might depend on the imported one(s) which we will never "see"
+              // unless we start with this library.
+              //
+              for (const prerequisite& p: group_prerequisites (t))
+              {
+                if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+                  ps.emplace_back (p);
+              }
+
+              // Note: add to the group, not the member.
+              //
+              verify = !ot.prerequisites (move (ps));
+            }
+
+            if (verify)
+            {
+              // This gets a bit tricky. We need to make sure the source files
+              // are the same which we can only do by comparing the targets to
+              // which they resolve. But we cannot search ot's prerequisites
+              // -- only the rule that matches can. Note, however, that if all
+              // this works out, then our next step is to match the obj*{}
+              // target. If things don't work out, then we fail, in which case
+              // searching and matching speculatively doesn't really hurt. So
+              // we start the async match here and finish this verification in
+              // the "harvest" loop below.
+              //
+              bool src (false);
+              for (prerequisite_member p1:
+                     group_prerequisite_members (act, *pt))
+              {
+                // Most of the time we will have just a single source so
+                // fast-path that case.
+                //
+                if (p1.is_a (x_src) || p1.is_a<c> ())
+                {
+                  src = true;
+                  continue; // Check the rest of the prerequisites.
+                }
+
+                // Ignore some known target types (fsdir, headers, libraries).
+                //
+                if (p1.is_a<fsdir> () ||
+                    p1.is_a<lib>  ()  ||
+                    p1.is_a<liba> ()  ||
+                    p1.is_a<libs> ()  ||
+                    (p.is_a (x_src) && x_header (p1)) ||
+                    (p.is_a<c> () && p1.is_a<h> ()))
+                  continue;
+
+                fail << "synthesized dependency for prerequisite " << p
+                     << " would be incompatible with existing target " << *pt <<
+                  info << "unexpected existing prerequisite type " << p1 <<
+                  info << "specify corresponding " << tt.name << "{} "
+                     << "dependency explicitly";
+              }
+
+              if (!src)
+                fail << "synthesized dependency for prerequisite " << p
+                     << " would be incompatible with existing target " << *pt <<
+                  info << "no existing c/" << x_name << " source prerequisite" <<
+                  info << "specify corresponding " << tt.name << "{} "
+                     << "dependency explicitly";
+
+              pm = 2; // Needs completion and verification.
+            }
           }
 
-          // Ignore some known target types (fsdir, headers, libraries).
-          //
-          if (p1.is_a<fsdir> () ||
-              p1.is_a<lib>  ()  ||
-              p1.is_a<liba> ()  ||
-              p1.is_a<libs> ()  ||
-              (p.is_a (x_src) && x_header (p1)) ||
-              (p.is_a<c> () && p1.is_a<h> ()))
-            continue;
-
-          fail << "synthesized target for prerequisite " << cp
-               << " would be incompatible with existing target " << *pt <<
-            info << "unexpected existing prerequisite type " << p1 <<
-            info << "specify corresponding obj{} target explicitly";
+          match_async (act, *pt, target::count_busy (), t.task_count);
+          rpt = pt;
+          mark (rpt, pm); // Mark for completion/verification.
         }
 
-        if (!found)
-        {
-          // Note: add the source to the group, not the member.
-          //
-          ot.prerequisites.push_back (p.as_prerequisite ());
-
-          // Add our lib*{} prerequisites to the object file (see the export.*
-          // machinery for details).
-          //
-          // Note that we don't resolve lib{} to liba{}/libs{} here instead
-          // leaving it to whoever (e.g., the compile rule) will be needing
-          // *.export.*. One reason for doing it there is that the object
-          // target might be specified explicitly by the user in which case
-          // they will have to specify the set of lib{} prerequisites and it's
-          // much cleaner to do as lib{} rather than liba{}/libs{}.
-          //
-          // Initially, we were only adding imported libraries, but there is a
-          // problem with this approach: the non-imported library might depend
-          // on the imported one(s) which we will never "see" unless we start
-          // with this library.
-          //
-          for (prerequisite& p: group_prerequisites (t))
-          {
-            if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-              ot.prerequisites.emplace_back (p);
-          }
-
-          build2::match (ml, a, *pt);
-        }
-
-        cpt = pt;
+        wg.wait ();
       }
 
-      switch (a)
+      // The "harvest" loop: finish matching the targets we have started. Note
+      // that we may have bailed out early (thus the parallel i/n for-loop).
+      //
+      {
+        size_t i (start), n (t.prerequisite_targets.size ());
+
+        for (prerequisite_member p: group_prerequisite_members (act, t))
+        {
+          if (i == n)
+            break;
+
+          const target*& pt (t.prerequisite_targets[i++]);
+
+          uint8_t m;
+
+          // Skipped or not marked for completion (pass 1).
+          //
+          if (pt == nullptr || (m = unmark (pt)) == 0)
+            continue;
+
+          build2::match (act, *pt);
+
+          // Nothing else to do if not marked for verification.
+          //
+          if (m == 1)
+            continue;
+
+          // Finish verifying the existing dependency (which is now matched)
+          // compared to what we would have synthesized.
+          //
+          bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+          const target_type& tt (group ? obj::static_type : ott);
+
+          for (prerequisite_member p1: group_prerequisite_members (act, *pt))
+          {
+            if (p1.is_a (x_src) || p1.is_a<c> ())
+            {
+              // Searching our own prerequisite is ok, p1 must already be
+              // resolved.
+              //
+              if (&p.search () != &p1.search ())
+                fail << "synthesized dependency for prerequisite " << p << " "
+                     << "would be incompatible with existing target " << *pt <<
+                  info << "existing prerequisite " << p1 << " does not match "
+                     << p <<
+                  info << "specify corresponding " << tt.name << "{} "
+                     << "dependency explicitly";
+
+              break;
+            }
+          }
+        }
+      }
+
+      switch (act)
       {
       case perform_update_id: return [this] (action a, const target& t)
         {
@@ -655,7 +730,7 @@ namespace build2
     void link::
     append_libraries (strings& args,
                       const file& l, bool la,
-                      const scope& bs, lorder lo) const
+                      const scope& bs, action act, lorder lo) const
     {
       // Note: lack of the "small function object" optimization will really
       // kill us here since we are called in a loop.
@@ -686,7 +761,7 @@ namespace build2
       {
         // If we need an interface value, then use the group (lib{}).
         //
-        if (const target* g = exp && l.is_a<libs> () ? l.group.get () : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
           const variable& var (
             com
@@ -699,13 +774,14 @@ namespace build2
         }
       };
 
-      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
+      process_libraries (
+        act, bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
     hash_libraries (sha256& cs,
                     const file& l, bool la,
-                    const scope& bs, lorder lo) const
+                    const scope& bs, action act, lorder lo) const
     {
       bool win (tclass == "windows");
 
@@ -731,7 +807,7 @@ namespace build2
       auto opt = [&cs, this] (
         const file& l, const string& t, bool com, bool exp)
       {
-        if (const target* g = exp && l.is_a<libs> () ? l.group.get () : &l)
+        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
           const variable& var (
             com
@@ -744,13 +820,15 @@ namespace build2
         }
       };
 
-      process_libraries (bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
+      process_libraries (
+        act, bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
     rpath_libraries (strings& args,
                      const target& t,
                      const scope& bs,
+                     action act,
                      lorder lo,
                      bool for_install) const
     {
@@ -864,7 +942,7 @@ namespace build2
                 "-Wl,-rpath," + f->path ().directory ().string ());
           }
 
-          process_libraries (bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, lo, sys_lib_dirs,
                              *f, a != nullptr,
                              impf, libf, nullptr);
         }
@@ -882,13 +960,14 @@ namespace build2
     msvc_machine (const string& cpu); // msvc.cxx
 
     target_state link::
-    perform_update (action a, const target& xt) const
+    perform_update (action act, const target& xt) const
     {
       tracer trace (x, "link::perform_update");
 
       const file& t (xt.as<file> ());
+      const path& tp (t.path ());
 
-      auto oop (a.outer_operation ());
+      auto oop (act.outer_operation ());
       bool for_install (oop == install_id || oop == uninstall_id);
 
       const scope& bs (t.base_scope ());
@@ -901,8 +980,8 @@ namespace build2
       // out-of-date manually below.
       //
       bool update (false);
-      timestamp mt (t.mtime ());
-      target_state ts (straight_execute_prerequisites (a, t));
+      timestamp mt (t.load_mtime ());
+      target_state ts (straight_execute_prerequisites (act, t));
 
       // If targeting Windows, take care of the manifest.
       //
@@ -916,7 +995,7 @@ namespace build2
         // it if we are updating for install.
         //
         if (!for_install)
-          rpath_timestamp = windows_rpath_timestamp (t, bs, lo);
+          rpath_timestamp = windows_rpath_timestamp (t, bs, act, lo);
 
         path mf (
           windows_manifest (
@@ -1015,7 +1094,7 @@ namespace build2
 
       // Check/update the dependency database.
       //
-      depdb dd (t.path () + ".d");
+      depdb dd (tp + ".d");
 
       // First should come the rule name/version.
       //
@@ -1157,7 +1236,7 @@ namespace build2
           // rpath of the imported libraries (i.e., we assume they are also
           // installed). But we add -rpath-link for some platforms.
           //
-          rpath_libraries (sargs, t, bs, lo, for_install);
+          rpath_libraries (sargs, t, bs, act, lo, for_install);
 
           if (auto l = t["bin.rpath"])
             for (const dir_path& p: cast<dir_paths> (l))
@@ -1207,7 +1286,7 @@ namespace build2
             // and implementation (static), recursively.
             //
             if (a != nullptr || s != nullptr)
-              hash_libraries (cs, *f, a != nullptr, bs, lo);
+              hash_libraries (cs, *f, a != nullptr, bs, act, lo);
             else
               cs.append (f->path ().string ());
           }
@@ -1260,7 +1339,7 @@ namespace build2
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
       //
-      path relt (relative (t.path ()));
+      path relt (relative (tp));
 
       const process_path* ld (nullptr);
       switch (lt)
@@ -1372,7 +1451,6 @@ namespace build2
             //
             if (find_option ("/DEBUG", args, true))
             {
-
               auto& pdb (
                 (lt == otype::e ? t.member : t.member->member)->as<file> ());
               out1 = "/PDB:" + relative (pdb.path ()).string ();
@@ -1441,7 +1519,7 @@ namespace build2
           // and implementation (static), recursively.
           //
           if (a != nullptr || s != nullptr)
-            append_libraries (sargs, *f, a != nullptr, bs, lo);
+            append_libraries (sargs, *f, a != nullptr, bs, act, lo);
           else
             sargs.push_back (relative (f->path ()).string ()); // string()&&
         }
@@ -1566,7 +1644,7 @@ namespace build2
         // install).
         //
         if (lt == otype::e && !for_install)
-          windows_rpath_assembly (t, bs, lo,
+          windows_rpath_assembly (t, bs, act, lo,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);
@@ -1620,7 +1698,7 @@ namespace build2
     }
 
     target_state link::
-    perform_clean (action a, const target& xt) const
+    perform_clean (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
 
@@ -1634,13 +1712,13 @@ namespace build2
           {
             if (tsys == "mingw32")
               return clean_extra (
-                a, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
+                act, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
             else
               // Assuming it's VC or alike. Clean up .ilk in case the user
               // enabled incremental linking (note that .ilk replaces .exe).
               //
               return clean_extra (
-                a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
+                act, t, {".d", ".dlls/", ".manifest", "-.ilk"});
           }
 
           break;
@@ -1655,7 +1733,7 @@ namespace build2
             // versioning their bases may not be the same.
             //
             if (tsys != "mingw32")
-              return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
+              return clean_extra (act, t, {{".d", "-.ilk"}, {"-.exp"}});
           }
           else
           {
@@ -1664,7 +1742,7 @@ namespace build2
             //
             const libs_paths& paths (t.data<libs_paths> ());
 
-            return clean_extra (a, t, {".d",
+            return clean_extra (act, t, {".d",
                                        paths.link.string ().c_str (),
                                        paths.soname.string ().c_str (),
                                        paths.interm.string ().c_str ()});
@@ -1674,7 +1752,7 @@ namespace build2
         }
       }
 
-      return clean_extra (a, t, {".d"});
+      return clean_extra (act, t, {".d"});
     }
   }
 }

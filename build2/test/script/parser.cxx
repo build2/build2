@@ -6,8 +6,7 @@
 
 #include <sstream>
 
-#include <build2/context>   // keep_going
-#include <build2/scheduler>
+#include <build2/context> // sched, keep_going
 
 #include <build2/test/script/lexer>
 #include <build2/test/script/runner>
@@ -2838,16 +2837,14 @@ namespace build2
         {
           exec_lines (g->setup_.begin (), g->setup_.end (), li, false);
 
-          scheduler::atomic_count task_count (0);
+          atomic_count task_count (0);
+          wait_guard wg (task_count);
 
           // Start asynchronous execution of inner scopes keeping track of how
           // many we have handled.
           //
-          auto i (g->scopes.begin ());
-          for (auto e (g->scopes.end ()); i != e; ++i)
+          for (unique_ptr<scope>& chain: g->scopes)
           {
-            unique_ptr<scope>& chain (*i);
-
             // Check if this scope is ignored (e.g., via config.test).
             //
             if (!runner_->test (*chain))
@@ -2932,12 +2929,18 @@ namespace build2
               // exec_scope_body ();
               // scope_ = os;
 
+              // Pass our diagnostics stack (this is safe since we are going
+              // to wait for completion before unwinding the diag stack).
+              //
               // If the scope was executed synchronously, check the status and
               // bail out if we weren't asked to keep going.
               //
               if (!sched.async (task_count,
-                                [] (scope& s, script& scr, runner& r)
+                                [] (scope& s, script& scr, runner& r,
+                                    const diag_frame* ds)
                                 {
+                                  diag_frame df (ds);
+
                                   try
                                   {
                                     parser p;
@@ -2951,24 +2954,24 @@ namespace build2
                                 },
                                 ref (*chain),
                                 ref (*script_),
-                                ref (*runner_)))
+                                ref (*runner_),
+                                diag_frame::stack))
               {
+                // Bail out if the scope has failed and we weren't instructed
+                // to keep going.
+                //
                 if (chain->state == scope_state::failed && !keep_going)
-                {
-                  ++i;
-                  break;
-                }
+                  throw failed ();
               }
             }
           }
-          sched.wait (task_count);
+
+          wg.wait ();
 
           // Re-examine the scopes we have executed collecting their state.
           //
-          for (auto j (g->scopes.begin ()); j != i; ++j)
+          for (const unique_ptr<scope>& chain: g->scopes)
           {
-            const unique_ptr<scope>& chain (*j);
-
             if (chain == nullptr)
               continue;
 

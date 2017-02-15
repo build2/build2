@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cstring> // memcpy()
+
 namespace build2
 {
   // target
@@ -25,29 +27,81 @@ namespace build2
       e != nullptr ? optional<string> (*e) : nullopt};
   }
 
+  inline auto target::
+  prerequisites () const -> const prerequisites_type&
+  {
+    return prerequisites_state_.load (memory_order_acquire) == 2
+      ? prerequisites_
+      : empty_prerequisites_;
+  }
+
+  inline bool target::
+  prerequisites (prerequisites_type&& p) const
+  {
+    target& x (const_cast<target&> (*this)); // MT-aware.
+
+    uint8_t e (0);
+    if (x.prerequisites_state_.compare_exchange_strong (
+          e,
+          1,
+          memory_order_acq_rel,
+          memory_order_acquire))
+    {
+      x.prerequisites_ = move (p);
+      x.prerequisites_state_.fetch_add (1, memory_order_release);
+      return true;
+    }
+    else
+    {
+      // Spin the transition out so that prerequisites() doesn't return empty.
+      //
+      for (; e == 1; e = prerequisites_state_.load (memory_order_acquire))
+        /*this_thread::yield ()*/ ;
+
+      return false;
+    }
+  }
+
   inline target_state target::
   state () const
+  {
+    assert (phase == run_phase::execute);
+    return group_state () ? group->state_ : state_;
+  }
+
+  inline bool target::
+  group_state () const
   {
     // We go an extra step and short-circuit to the target state even if the
     // raw state is not group provided the recipe is group_recipe.
 
     if (state_ == target_state::group)
-      return group->state_;
+      return true;
 
-    if (group == nullptr)
-      return state_;
-
-    if (recipe_function* const* f = recipe_.target<recipe_function*> ())
+    if (group != nullptr)
     {
-      if (*f == &group_action)
-        return group->state_;
+      if (recipe_function* const* f = recipe_.target<recipe_function*> ())
+        return *f == &group_action;
     }
 
-    return state_;
+    return false;
   }
 
   inline target_state target::
-  synchronized_state (bool fail) const
+  matched_state (action_type a, bool fail) const
+  {
+    // Note that the target could be being asynchronously re-matched.
+    //
+    target_state r (state (a));
+
+    if (fail && r == target_state::failed)
+      throw failed ();
+
+    return r;
+  }
+
+  inline target_state target::
+  executed_state (bool fail) const
   {
     target_state r (state ());
 
@@ -57,15 +111,51 @@ namespace build2
     return r;
   }
 
-  inline target_state target::
-  atomic_state (bool fail) const
+  inline void target::
+  recipe (recipe_type r)
   {
-    switch (task_count)
+    recipe_ = move (r);
+
+    // If this is a noop recipe, then mark the target unchanged to allow for
+    // some optimizations.
+    //
+    state_ = target_state::unknown;
+
+    if (recipe_function** f = recipe_.target<recipe_function*> ())
     {
-    case target::count_unexecuted: return target_state::unknown;
-    case target::count_executed:   return synchronized_state (fail);
-    default:                       return target_state::busy;
+      if (*f == &noop_action)
+        state_ = target_state::unchanged;
     }
+  }
+
+  // mark()/unmark()
+  //
+
+  // VC15 doesn't like if we use (abstract) target here.
+  //
+  static_assert (alignof (file) % 4 == 0, "unexpected target alignment");
+
+  inline void
+  mark (const target*& p, uint8_t m)
+  {
+    uintptr_t i (reinterpret_cast<uintptr_t> (p));
+    i |= m & 0x03;
+    p = reinterpret_cast<const target*> (i);
+  }
+
+  inline uint8_t
+  unmark (const target*& p)
+  {
+    uintptr_t i (reinterpret_cast<uintptr_t> (p));
+    uint8_t m (i & 0x03);
+
+    if (m != 0)
+    {
+      i &= ~uintptr_t (0x03);
+      p = reinterpret_cast<const target*> (i);
+    }
+
+    return m;
   }
 
   // prerequisite_member
@@ -87,7 +177,7 @@ namespace build2
   // prerequisite_members
   //
   group_view
-  resolve_group_members (slock&, action, target&); // <build2/algorithm>
+  resolve_group_members (action, const target&); // <build2/algorithm>
 
   template <typename T>
   inline auto prerequisite_members_range<T>::iterator::
@@ -100,9 +190,11 @@ namespace build2
       // Get the target if one has been resolved and see if it's an ad hoc
       // group. If so, switch to the ad hoc mode.
       //
-      target* t (g_.count != 0
-                 ? j_ != 0 ? g_.members[j_ - 1] : nullptr // enter_group()
-                 : i_->target);
+      const target* t (
+        g_.count != 0
+        ? j_ != 0 ? g_.members[j_ - 1] : nullptr // enter_group()
+        : i_->target.load (memory_order_consume));
+
       if (t != nullptr && t->member != nullptr)
         k_ = t->member;
     }
@@ -132,9 +224,9 @@ namespace build2
     // First see if we are about to enter an ad hoc group (the same code as in
     // operator++() above).
     //
-    target* t (g_.count != 0
-               ? j_ != 0 ? g_.members[j_ - 1] : nullptr
-               : i_->target);
+    const target* t (g_.count != 0
+                     ? j_ != 0 ? g_.members[j_ - 1] : nullptr
+                     : i_->target.load (memory_order_consume));
 
     if (t != nullptr && t->member != nullptr)
       k_ = t->member;
@@ -142,7 +234,7 @@ namespace build2
     {
       // Otherwise assume it is a normal group.
       //
-      g_ = resolve_group_members (r_->l_, r_->a_, search (*i_));
+      g_ = resolve_group_members (r_->a_, search (*i_));
 
       if (g_.members == nullptr) // Members are not know.
       {
@@ -167,9 +259,9 @@ namespace build2
     //
     if (k_ == nullptr)
     {
-      target* t (g_.count != 0
-                 ? j_ != 0 ? g_.members[j_ - 1] : nullptr
-                 : i_->target);
+      const target* t (g_.count != 0
+                       ? j_ != 0 ? g_.members[j_ - 1] : nullptr
+                       : i_->target.load (memory_order_consume));
       if (t != nullptr && t->member != nullptr)
         k_ = t->member;
     }
@@ -188,5 +280,79 @@ namespace build2
       g_.count = 1;
       g_.members = nullptr; // Ugly "special case signal" for operator++.
     }
+  }
+
+  // mtime_target
+  //
+  inline void mtime_target::
+  mtime (timestamp mt) const
+  {
+    mtime_.store (mt.time_since_epoch ().count (), memory_order_release);
+  }
+
+  inline timestamp mtime_target::
+  load_mtime (const path& p) const
+  {
+    assert (phase == run_phase::execute && !group_state ());
+
+    duration::rep r (mtime_.load (memory_order_consume));
+    if (r == timestamp_unknown_rep)
+    {
+      assert (!p.empty ());
+
+      r = file_mtime (p).time_since_epoch ().count ();
+      mtime_.store (r, memory_order_release);
+    }
+
+    return timestamp (duration (r));
+  }
+
+  inline bool mtime_target::
+  newer (timestamp mt) const
+  {
+    assert (phase == run_phase::execute);
+
+    timestamp mp (mtime ());
+
+    // What do we do if timestamps are equal? This can happen, for example,
+    // on filesystems that don't have subsecond resolution. There is not
+    // much we can do here except detect the case where the target was
+    // changed on this run.
+    //
+    return mt < mp || (mt == mp && state () == target_state::changed);
+  }
+
+  // path_target
+  //
+  inline const path& path_target::
+  path () const
+  {
+    return path_state_.load (memory_order_acquire) == 2 ? path_ : empty_path;
+  }
+
+  inline const path& path_target::
+  path (path_type p) const
+  {
+    uint8_t e (0);
+    if (path_state_.compare_exchange_strong (
+          e,
+          1,
+          memory_order_acq_rel,
+          memory_order_acquire))
+    {
+      path_ = move (p);
+      path_state_.fetch_add (1, memory_order_release);
+    }
+    else
+    {
+      // Spin the transition out.
+      //
+      for (; e == 1; e = path_state_.load (memory_order_acquire))
+        /*this_thread::yield ()*/ ;
+
+      assert (path_ == p);
+    }
+
+    return path_;
   }
 }

@@ -5,6 +5,7 @@
 #ifndef BUILD2_SCHEDULER
 #define BUILD2_SCHEDULER
 
+#include <list>
 #include <mutex>
 #include <tuple>
 #include <atomic>
@@ -83,8 +84,10 @@ namespace build2
       return async (0, task_count, forward<F> (f), forward<A> (a)...);
     }
 
-    // Wait until the task count reaches the start count. If the scheduler is
-    // shutdown while waiting, throw system_error(ECANCELED).
+    // Wait until the task count reaches the start count or less. If the
+    // scheduler is shutdown while waiting, throw system_error(ECANCELED).
+    // Return the value of task count. Note that this is a synchronizaiton
+    // point (i.e., the task count is checked with memory_order_acquire).
     //
     // Note that it is valid to wait on another thread's task count (that is,
     // without making any async() calls in this thread). However, if the start
@@ -98,26 +101,44 @@ namespace build2
     // count starts before/during async() calls, then it must be "gated" with
     // an alternative (lower) start count.
     //
-    // Finally, if waiting on someone else's start count, it is most likely
-    // unsafe (from the deadlock's point of view) to continue working through
-    // our own queue (i.e., we may block waiting on a task that has been
-    // queued before us which in turn may end up waiting on "us").
+    // Finally, if waiting on someone else's start count, it may be unsafe
+    // (from the deadlock's point of view) to continue working through our own
+    // queue (i.e., we may block waiting on a task that has been queued before
+    // us which in turn may end up waiting on "us").
     //
-    void
+    enum work_queue
+    {
+      work_none, // Don't work own queue.
+      work_one,  // Work own queue rechecking the task count after every task.
+      work_all   // Work own queue before rechecking the task count.
+    };
+
+    size_t
     wait (size_t start_count,
           const atomic_count& task_count,
-          bool work_queue = true);
+          work_queue = work_all);
 
-    void
-    wait (const atomic_count& task_count, bool work_queue = true)
+    size_t
+    wait (const atomic_count& task_count, work_queue wq = work_all)
     {
-      wait (0, task_count, work_queue);
+      return wait (0, task_count, wq);
     }
 
     // Resume threads waiting on this task count.
     //
     void
     resume (const atomic_count& task_count);
+
+    // An active thread that is about to wait for potentially significant time
+    // on something other than task_count (e.g., mutex, condition variable)
+    // should deactivate itself with the scheduler and then reactivate once
+    // done waiting.
+    //
+    void
+    deactivate ();
+
+    void
+    activate (bool collision = false);
 
     // Startup and shutdown.
     //
@@ -196,6 +217,7 @@ namespace build2
 
       size_t task_queue_depth      = 0; // # of entries in a queue (capacity).
       size_t task_queue_full       = 0; // # of times task queue was full.
+      size_t task_queue_remain     = 0; // # of tasks remaining in queue.
 
       size_t wait_queue_slots      = 0; // # of wait slots (buckets).
       size_t wait_queue_collisions = 0; // # of times slot had been occupied.
@@ -266,7 +288,7 @@ namespace build2
     static void
     helper (void*);
 
-    void
+    size_t
     suspend (size_t start_count, const atomic_count& task_count);
 
     // Task encapsulation.
@@ -306,7 +328,7 @@ namespace build2
     // The constraints that we must maintain:
     //
     //                  active <= max_active
-    // (init_active + helpers) <= max_threads
+    // (init_active + helpers) <= max_threads (soft; see activate_helper())
     //
     // Note that the first three are immutable between startup() and
     // shutdown() so can be accessed without a lock (but see join()).
@@ -358,7 +380,7 @@ namespace build2
       std::mutex mutex;
       std::condition_variable condv;
       size_t waiters = 0;
-      const atomic_count* tcount;
+      const atomic_count* task_count;
       bool shutdown = true;
     };
 
@@ -542,11 +564,9 @@ namespace build2
         m = om;
     }
 
-    // Each thread has its own queue. Instead of allocating all max_threads of
-    // them up front, we will reserve the space but will only construct queues
-    // on demand.
+    // Each thread has its own queue which are stored in this list.
     //
-    vector<unique_ptr<task_queue>> task_queues_;
+    std::list<task_queue> task_queues_;
 
     // TLS cache of thread's task queue.
     //
@@ -561,10 +581,6 @@ namespace build2
     task_queue&
     create_queue ();
   };
-
-  // Main (and only) scheduler. Started up and shut down in main().
-  //
-  extern scheduler sched;
 }
 
 #include <build2/scheduler.txx>

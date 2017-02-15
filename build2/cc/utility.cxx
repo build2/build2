@@ -39,11 +39,14 @@ namespace build2
     }
 
     const target&
-    link_member (const bin::lib& l, lorder lo)
+    link_member (const bin::lib& l, action a, lorder lo)
     {
-      bool ls (true);
-      const string& at (cast<string> (l["bin.lib"])); // Available members.
+      // Make sure group members are resolved.
+      //
+      group_view gv (resolve_group_members (a, l));
+      assert (gv.members != nullptr);
 
+      bool ls (true);
       switch (lo)
       {
       case lorder::a:
@@ -52,36 +55,7 @@ namespace build2
       case lorder::s:
       case lorder::s_a:
         {
-          if (ls ? at == "static" : at == "shared")
-          {
-            if (lo == lorder::a_s || lo == lorder::s_a)
-              ls = !ls;
-            else
-              assert (false);
-          }
-        }
-      }
-
-      const target* r (ls ? static_cast<const target*> (l.s) : l.a);
-      assert (r != nullptr);
-      return *r;
-    }
-
-    target&
-    link_member (bin::lib& l, lorder lo)
-    {
-      bool ls (true);
-      const string& at (cast<string> (l["bin.lib"])); // Available members.
-
-      switch (lo)
-      {
-      case lorder::a:
-      case lorder::a_s:
-        ls = false; // Fall through.
-      case lorder::s:
-      case lorder::s_a:
-        {
-          if (ls ? at == "static" : at == "shared")
+          if (ls ? l.s == nullptr : l.a == nullptr)
           {
             if (lo == lorder::a_s || lo == lorder::s_a)
               ls = !ls;
@@ -92,13 +66,7 @@ namespace build2
         }
       }
 
-      target* r (ls ? static_cast<target*> (l.s) : l.a);
-
-      if (r == nullptr)
-        r = &search (ls ? libs::static_type : liba::static_type,
-                     prerequisite_key {nullopt, l.key (), nullptr});
-
-      return *r;
+      return *(ls ? static_cast<const target*> (l.s) : l.a);
     }
   }
 }

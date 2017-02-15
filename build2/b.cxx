@@ -32,7 +32,6 @@
 #include <build2/diagnostics>
 #include <build2/context>
 #include <build2/variable>
-#include <build2/scheduler>
 
 #include <build2/parser>
 
@@ -294,7 +293,17 @@ main (int argc, char* argv[])
       jobs = 1;
     }
 
-    sched.startup (jobs);
+    size_t max_jobs (0);
+
+    if (ops.max_jobs_specified ())
+    {
+      max_jobs = ops.max_jobs ();
+
+      if (max_jobs != 0 && max_jobs < jobs)
+        fail << "invalid --max-jobs|-J value";
+    }
+
+    sched.startup (jobs, 1, max_jobs);
 
     variable_cache_mutex_shard_size = sched.shard_size ();
     variable_cache_mutex_shard.reset (
@@ -1042,7 +1051,6 @@ main (int argc, char* argv[])
             mif->operation_pre (pre_oid); // Cannot be translated.
 
           set_current_oif (*pre_oif, oif);
-          dependency_count = 0;
 
           action a (mid, pre_oid, oid);
 
@@ -1057,7 +1065,6 @@ main (int argc, char* argv[])
         }
 
         set_current_oif (*oif);
-        dependency_count = 0;
 
         action a (mid, oid, 0);
 
@@ -1073,7 +1080,6 @@ main (int argc, char* argv[])
             mif->operation_pre (post_oid); // Cannot be translated.
 
           set_current_oif (*post_oif, oif);
-          dependency_count = 0;
 
           action a (mid, post_oid, oid);
 
@@ -1117,6 +1123,11 @@ main (int argc, char* argv[])
   // Shutdown the scheduler and print statistics.
   //
   scheduler::stat st (sched.shutdown ());
+
+  // In our world we wait for all the tasks to complete, even in case of a
+  // failure (see, for example, wait_guard).
+  //
+  assert (st.task_queue_remain == 0);
 
   if (verb >= (st.thread_max_active > 1 ? 3 : 4))
   {

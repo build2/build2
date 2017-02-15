@@ -27,10 +27,10 @@ namespace build2
       compile (data&&);
 
       virtual match_result
-      match (slock&, action, target&, const string& hint) const override;
+      match (action, target&, const string&) const override;
 
       virtual recipe
-      apply (slock&, action, target&) const override;
+      apply (action, target&) const override;
 
       target_state
       perform_update (action, const target&) const;
@@ -43,13 +43,13 @@ namespace build2
       append_lib_options (const scope&,
                           cstrings&,
                           const target&,
-                          lorder) const;
+                          action, lorder) const;
 
       void
       hash_lib_options (const scope&,
                         sha256&,
                         const target&,
-                        lorder) const;
+                        action, lorder) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -67,10 +67,13 @@ namespace build2
       append_prefixes (prefix_map&, const target&, const variable&) const;
 
       void
-      append_lib_prefixes (const scope&, prefix_map&, target&, lorder) const;
+      append_lib_prefixes (const scope&,
+                           prefix_map&,
+                           target&,
+                           action, lorder) const;
 
       prefix_map
-      build_prefix_map (const scope&, target&, lorder) const;
+      build_prefix_map (const scope&, target&, action, lorder) const;
 
       // Reverse-lookup target type from extension.
       //
@@ -80,7 +83,7 @@ namespace build2
       // Header dependency injection.
       //
       void
-      inject (slock&, action, target&, lorder, file&, depdb&) const;
+      inject (action, target&, lorder, const file&, depdb&) const;
 
     private:
       const string rule_id;

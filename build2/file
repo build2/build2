@@ -170,7 +170,7 @@ namespace build2
   names
   import (scope& base, name, const location&);
 
-  target&
+  const target&
   import (const prerequisite_key&);
 
   // As above but only imports as an already existing target. Unlike the above

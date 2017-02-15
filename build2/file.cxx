@@ -1142,7 +1142,7 @@ namespace build2
     return names (); // Never reached.
   }
 
-  target*
+  const target*
   import (const prerequisite_key& pk, bool existing)
   {
     tracer trace ("import");
@@ -1174,7 +1174,7 @@ namespace build2
         path& p (pp.effect);
         assert (!p.empty ()); // We searched for a simple name.
 
-        exe* t (
+        const exe* t (
           !existing
           ? &targets.insert<exe> (tt,
                                   p.directory (),
@@ -1191,7 +1191,7 @@ namespace build2
 
         if (t != nullptr)
         {
-          if (t->path ().empty () && !existing)
+          if (!existing)
             t->path (move (p));
           else
             assert (t->path () == p);

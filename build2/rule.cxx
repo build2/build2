@@ -26,7 +26,7 @@ namespace build2
   // use it as a guide to implement your own, normal, rules.
   //
   match_result file_rule::
-  match (slock&, action a, target& t, const string&) const
+  match (action a, target& t, const string&) const
   {
     tracer trace ("file_rule::match");
 
@@ -42,29 +42,37 @@ namespace build2
     {
     case perform_update_id:
       {
-        path_target& pt (dynamic_cast<path_target&> (t));
+        // While normally we shouldn't do any of this in match(), no other
+        // rule should ever be ambiguous with the fallback one and path/mtime
+        // access is atomic. In other words, we know what we are doing but
+        // don't do this in normal rules.
 
-        // First check the timestamp. This allows for the special "trust me,
-        // this file exists" situations (used, for example, for installed
+        path_target& pt (t.as<path_target> ());
+
+        // First check the timestamp. This takes care of the special "trust
+        // me, this file exists" situations (used, for example, for installed
         // stuff where we know it's there, just not exactly where).
         //
         timestamp ts (pt.mtime ());
 
         if (ts == timestamp_unknown)
         {
-          // Assign the path. While normally we shouldn't do this in match(),
-          // no other rule should ever be ambiguous with the fallback one.
+          const path* p (&pt.path ());
+
+          // Assign the path.
           //
-          if (pt.path ().empty ())
+          if (p->empty ())
           {
             // Since we cannot come up with an extension, ask the target's
             // derivation function to treat this as prerequisite (just like
             // in search_existing_file()).
             //
             pt.derive_extension (nullptr, true);
-            pt.derive_path ();
-            ts = pt.mtime ();
+            p = &pt.derive_path ();
           }
+
+          ts = file_mtime (*p);
+          pt.mtime (ts);
         }
 
         if (ts != timestamp_unknown && ts != timestamp_nonexistent)
@@ -79,7 +87,7 @@ namespace build2
   }
 
   recipe file_rule::
-  apply (slock& ml, action a, target& t) const
+  apply (action a, target& t) const
   {
     // Update triggers the update of this target's prerequisites so it would
     // seem natural that we should also trigger their cleanup. However, this
@@ -97,9 +105,9 @@ namespace build2
     if (!t.has_prerequisites ())
       return noop_recipe;
 
-    // Search and match all the prerequisites.
+    // Match all the prerequisites.
     //
-    search_and_match_prerequisites (ml, a, t);
+    match_prerequisites (a, t);
 
     // Note that we used to provide perform_update() which checked that this
     // target is not older than any of its prerequisites. However, later we
@@ -115,20 +123,20 @@ namespace build2
   // alias_rule
   //
   match_result alias_rule::
-  match (slock&, action, target&, const string&) const
+  match (action, target&, const string&) const
   {
     return true;
   }
 
   recipe alias_rule::
-  apply (slock& ml, action a, target& t) const
+  apply (action a, target& t) const
   {
     // Inject dependency on our directory (note: not parent) so that it is
     // automatically created on update and removed on clean.
     //
-    inject_fsdir (ml, a, t, false);
+    inject_fsdir (a, t, false);
 
-    search_and_match_prerequisites (ml, a, t);
+    match_prerequisites (a, t);
     return default_recipe;
   }
 
@@ -137,22 +145,22 @@ namespace build2
   // fsdir_rule
   //
   match_result fsdir_rule::
-  match (slock&, action, target&, const string&) const
+  match (action, target&, const string&) const
   {
     return true;
   }
 
   recipe fsdir_rule::
-  apply (slock& ml, action a, target& t) const
+  apply (action a, target& t) const
   {
     // Inject dependency on the parent directory. Note that we don't do it for
     // clean since we shouldn't (and can't possibly, since it's our parent) be
-    // removing it.
+    // removing it. It also must be first (see perform_update_direct()).
     //
     if (a.operation () != clean_id)
-      inject_fsdir (ml, a, t);
+      inject_fsdir (a, t);
 
-    search_and_match_prerequisites (ml, a, t);
+    match_prerequisites (a, t);
 
     switch (a)
     {
@@ -173,6 +181,8 @@ namespace build2
     if (!t.prerequisite_targets.empty ())
       ts = straight_execute_prerequisites (a, t);
 
+    // The same code as in perform_update_direct() below.
+    //
     const dir_path& d (t.dir); // Everything is in t.dir.
 
     // Generally, it is probably correct to assume that in the majority
@@ -200,6 +210,40 @@ namespace build2
     }
 
     return ts;
+  }
+
+  void fsdir_rule::
+  perform_update_direct (action a, const target& t)
+  {
+    // First create the parent directory. If present, it is always first.
+    //
+    const target* p (t.prerequisite_targets.empty ()
+                     ? nullptr
+                     : t.prerequisite_targets[0]);
+
+    if (p != nullptr && p->is_a<fsdir> ())
+      perform_update_direct (a, *p);
+
+    // The same code as in perform_update() above.
+    //
+    const dir_path& d (t.dir);
+
+    if (!exists (d))
+    {
+      if (verb >= 2)
+        text << "mkdir " << d;
+      else if (verb)
+        text << "mkdir " << t;
+
+      try
+      {
+        try_mkdir (d);
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to create directory " << d << ": " << e;
+      }
+    }
   }
 
   target_state fsdir_rule::

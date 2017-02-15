@@ -576,6 +576,8 @@ namespace build2
     verbose_specified_ (false),
     jobs_ (),
     jobs_specified_ (false),
+    max_jobs_ (),
+    max_jobs_specified_ (false),
     serial_stop_ (),
     no_column_ (),
     no_line_ (),
@@ -689,12 +691,18 @@ namespace build2
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of jobs to perform in parallel. This includes both" << ::std::endl
-       << "                     the number of active threads inside the build system as" << ::std::endl
-       << "                     well as the number of external commands (compilers," << ::std::endl
-       << "                     linkers, etc) started but not yet finished. If this option" << ::std::endl
-       << "                     is not specified, then the number of available hardware" << ::std::endl
-       << "                     threads is used." << ::std::endl;
+       << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of active jobs to perform in parallel. This" << ::std::endl
+       << "                     includes both the number of active threads inside the" << ::std::endl
+       << "                     build system as well as the number of external commands" << ::std::endl
+       << "                     (compilers, linkers, etc) started but not yet finished. If" << ::std::endl
+       << "                     this option is not specified, then the number of available" << ::std::endl
+       << "                     hardware threads is used." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m    Maximum number of jobs (threads) to create. The default is" << ::std::endl
+       << "                     16x the number of active jobs (--jobs|j\033[0m) on 32-bit" << ::std::endl
+       << "                     architectures and 32x on 64-bit. See the build system" << ::std::endl
+       << "                     scheduler implementation for details." << ::std::endl;
 
     os << std::endl
        << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
@@ -783,6 +791,12 @@ namespace build2
       _cli_options_map_["-j"] = 
       &::build2::cl::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;
+      _cli_options_map_["--max-jobs"] = 
+      &::build2::cl::thunk< options, size_t, &options::max_jobs_,
+        &options::max_jobs_specified_ >;
+      _cli_options_map_["-J"] = 
+      &::build2::cl::thunk< options, size_t, &options::max_jobs_,
+        &options::max_jobs_specified_ >;
       _cli_options_map_["--serial-stop"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 

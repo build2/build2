@@ -35,7 +35,7 @@ namespace build2
                    "insufficient space");
 
     match_result rule_common::
-    match (slock& ml, action a, target& t, const string&) const
+    match (action a, target& t, const string&) const
     {
       // The (admittedly twisted) logic of this rule tries to achieve the
       // following: If the target is testable, then we want both first update
@@ -63,7 +63,7 @@ namespace build2
         // If we have any prerequisites of the test{} type, then this is the
         // testscript case.
         //
-        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (p.is_a<testscript> ())
           {
@@ -155,7 +155,7 @@ namespace build2
     }
 
     recipe alias_rule::
-    apply (slock& ml, action a, target& t) const
+    apply (action a, target& t) const
     {
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule also uses aux storage.
@@ -171,7 +171,7 @@ namespace build2
       // standard alias rule.
       //
       if (a.operation () == update_id)
-        return match_delegate (ml, a, t, *this).first;
+        return match_delegate (a, t, *this).first;
 
       // For the test operation we have to implement our own search and match
       // because we need to ignore prerequisites that are outside of our
@@ -181,7 +181,7 @@ namespace build2
       // not ours seems right. Note that we still want to make sure they are
       // up to date (via the above delegate) since our tests might use them.
       //
-      search_and_match_prerequisites (ml, a, t, t.root_scope ());
+      match_prerequisites (a, t, t.root_scope ());
 
       // If not a test then also redirect to the alias rule.
       //
@@ -191,7 +191,7 @@ namespace build2
     }
 
     recipe rule::
-    apply (slock& ml, action a, target& t) const
+    apply (action a, target& t) const
     {
       tracer trace ("test::rule::apply");
 
@@ -208,11 +208,11 @@ namespace build2
       if (md.script)
       {
         if (a.operation () == update_id)
-          return match_delegate (ml, a, t, *this).first;
+          return match_delegate (a, t, *this).first;
 
         // Collect all the testscript targets in prerequisite_targets.
         //
-        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (p.is_a<testscript> ())
             t.prerequisite_targets.push_back (&p.search ());
@@ -277,10 +277,10 @@ namespace build2
 
         // @@ OUT: what if this is a @-qualified pair or names?
         //
-        target* it (in != nullptr ? &search (*in, bs) : nullptr);
-        target* ot (on != nullptr
-                    ? in == on ? it : &search (*on, bs)
-                    : nullptr);
+        const target* it (in != nullptr ? &search (*in, bs) : nullptr);
+        const target* ot (on != nullptr
+                          ? in == on ? it : &search (*on, bs)
+                          : nullptr);
 
         if (a.operation () == update_id)
         {
@@ -289,26 +289,16 @@ namespace build2
           //
           if (it != nullptr)
           {
-            build2::match (ml, a, *it);
-
-            if (it->unchanged ()) //@@ TM?
-            {
-              unmatch (a, *it);
+            if (build2::match (a, *it, unmatch::unchanged))
               it = nullptr;
-            }
           }
 
           if (ot != nullptr)
           {
             if (in != on)
             {
-              build2::match (ml, a, *ot);
-
-              if (ot->unchanged ()) //@@ MT?
-              {
-                unmatch (a, *ot);
+              if (build2::match (a, *ot, unmatch::unchanged))
                 ot = nullptr;
-              }
             }
             else
               ot = it;
@@ -318,7 +308,7 @@ namespace build2
           // been found if we signalled that we do not match from match()
           // above.
           //
-          recipe d (match_delegate (ml, a, t, *this).first);
+          recipe d (match_delegate (a, t, *this).first);
 
           // If we have no input/output that needs updating, then simply
           // redirect to it.
@@ -636,8 +626,9 @@ namespace build2
       if (pts.size () != 0 && pts[0] != nullptr)
       {
         const file& it (pts[0]->as<file> ());
-        assert (!it.path ().empty ()); // Should have been assigned by update.
-        args.push_back (it.path ().string ().c_str ());
+        const path& ip (it.path ());
+        assert (!ip.empty ()); // Should have been assigned by update.
+        args.push_back (ip.string ().c_str ());
       }
       // Maybe arguments then?
       //
@@ -656,7 +647,8 @@ namespace build2
       if (pts.size () != 0 && pts[1] != nullptr)
       {
         const file& ot (pts[1]->as<file> ());
-        assert (!ot.path ().empty ()); // Should have been assigned by update.
+        const path& op (ot.path ());
+        assert (!op.empty ()); // Should have been assigned by update.
 
         dpp = run_search (dp, true);
 
@@ -668,7 +660,7 @@ namespace build2
         if (cast<target_triplet> (tt["test.target"]).class_ == "windows")
           args.push_back ("--strip-trailing-cr");
 
-        args.push_back (ot.path ().string ().c_str ());
+        args.push_back (op.string ().c_str ());
         args.push_back ("-");
         args.push_back (nullptr);
       }

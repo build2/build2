@@ -660,7 +660,8 @@ namespace build2
               if (default_target_ == nullptr)
                 default_target_ = target_;
 
-              target_->prerequisites.reserve (pns.size ());
+              target_->prerequisites_state_.store (2, memory_order_relaxed);
+              target_->prerequisites_.reserve (pns.size ());
               tgs.push_back (*target_);
             }
 
@@ -703,7 +704,10 @@ namespace build2
                 // one).
                 //
                 target& t (*i);
-                t.prerequisites.push_back (++i == e ? move (p) : p);
+                t.prerequisites_.push_back (
+                  ++i == e
+                  ? move (p)
+                  : prerequisite (p, memory_order_relaxed)); // Serial
               }
             }
           }
@@ -3573,7 +3577,9 @@ namespace build2
                       false,
                       trace).first);
 
-    ct.prerequisites.emplace_back (prerequisite (dt));
+
+    ct.prerequisites_state_.store (2, memory_order_relaxed);
+    ct.prerequisites_.emplace_back (prerequisite (dt));
   }
 
   void parser::

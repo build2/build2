@@ -20,7 +20,7 @@ namespace build2
     // obj
     //
     match_result obj_rule::
-    match (slock&, action a, target& t, const string&) const
+    match (action a, target& t, const string&) const
     {
       fail << diag_doing (a, t) << " target group" <<
         info << "explicitly select obje{}, obja{}, or objs{} member";
@@ -29,29 +29,20 @@ namespace build2
     }
 
     recipe obj_rule::
-    apply (slock&, action, target&) const {return empty_recipe;}
+    apply (action, target&) const {return empty_recipe;}
 
     // lib
     //
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
     //
-
-    struct match_data
-    {
-      const string& type;
-    };
-
-    static_assert (sizeof (match_data) <= target::data_size,
-                   "insufficient space");
-
     match_result lib_rule::
-    match (slock&, action act, target& xt, const string&) const
+    match (action act, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
-      // Get the library type to build. If not set for a target, this
-      // should be configured at the project scope by init().
+      // Get the library type to build. If not set for a target, this should
+      // be configured at the project scope by init().
       //
       const string& type (cast<string> (t["bin.lib"]));
 
@@ -62,7 +53,8 @@ namespace build2
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
-      t.data (match_data {type}); // Save in the target's auxilary storage.
+      t.a = a ? &search<liba> (t.dir, t.out, t.name) : nullptr;
+      t.s = s ? &search<libs> (t.dir, t.out, t.name) : nullptr;
 
       match_result mr (true);
 
@@ -76,31 +68,12 @@ namespace build2
     }
 
     recipe lib_rule::
-    apply (slock& ml, action act, target& xt) const
+    apply (action act, target& xt) const
     {
       lib& t (xt.as<lib> ());
 
-      const match_data& md (t.data<match_data> ());
-      const string& type (md.type);
-
-      bool a (type == "static" || type == "both");
-      bool s (type == "shared" || type == "both");
-
-      if (a)
-      {
-        if (t.a == nullptr)
-          t.a = &search<liba> (t.dir, t.out, t.name, nullptr, nullptr);
-
-        build2::match (ml, act, *t.a);
-      }
-
-      if (s)
-      {
-        if (t.s == nullptr)
-          t.s = &search<libs> (t.dir, t.out, t.name, nullptr, nullptr);
-
-        build2::match (ml, act, *t.s);
-      }
+      const target* m[] = {t.a, t.s};
+      match_members (act, t, m);
 
       return &perform;
     }
@@ -110,13 +83,7 @@ namespace build2
     {
       const lib& t (xt.as<lib> ());
 
-      const match_data& md (t.data<match_data> ());
-      const string& type (md.type);
-
-      bool a (type == "static" || type == "both");
-      bool s (type == "shared" || type == "both");
-
-      const target* m[] = {a ? t.a : nullptr, s ? t.s : nullptr};
+      const target* m[] = {t.a, t.s};
       return execute_members (act, t, m);
     }
   }

@@ -11,35 +11,33 @@
 #include <build2/scope>
 #include <build2/variable>
 #include <build2/operation>
+#include <build2/scheduler>
 
 namespace build2
 {
+  // Main (and only) scheduler. Started up and shut down in main().
+  //
+  extern scheduler sched;
+
   // In order to perform each operation the build system goes through the
   // following phases:
   //
-  // load           - load the buildfiles
-  // search & match - search prerequisites and match rules
-  // execute        - execute the matched rule
-  //
-  // The phase can only be changed during serial or exclusive execution
-  // (see below).
-  //
-  extern run_phase phase;
-
-  // The build system model (internal state) is protected at the top level by
-  // the model mutex. During serial execution the model mutex is unlocked.
-  //
-  extern shared_mutex model_mutex;
-
-  // Parallel execution always starts with acquiring a shared model lock (by
-  // creating model_slock; see below). Pointers to these locks are cached in
-  // the model_lock TLS variable (which is NULL during serial execution).
+  // load     - load the buildfiles
+  // match    - search prerequisites and match rules
+  // execute  - execute the matched rule
   //
   // The build system starts with a "serial load" phase and then continues
-  // with parallel search & match and execute. Search & match, however, can be
-  // interrupted with an "exclusive load" by re-locking the shared lock as
-  // exclusive (using model_rlock below), changing the phase, and loading
-  // additional buildfiles.
+  // with parallel search and execute. Match, however, can be interrupted
+  // both with load and execute.
+  //
+  // Match can be interrupted with "exclusive load" in order to load
+  // additional buildfiles. Similarly, it can be interrupted with (parallel)
+  // execute in order to build targetd required to complete the match (for
+  // example, generated source code or source code generators themselves.
+  //
+  // Such interruptions are performed by phase change that is protected by
+  // phase_mutex (which is also used to synchronize the state changes between
+  // phases).
   //
   // Serial load can perform arbitrary changes to the model. Exclusive load,
   // however, can only perform "island appends". That is, it can create new
@@ -47,150 +45,198 @@ namespace build2
   // invalidate any references to such (the idea here is that one should be
   // able to load additional buildfiles as long as they don't interfere with
   // the existing build state). The "islands" are identified by the
-  // load_generation number (0 for serial load). It is incremented/restored by
-  // phase_guard and is stored in various "nodes" (variables, etc) to allow
-  // modifications "within the islands".
+  // load_generation number (0 for initial/serial load). It is incremented in
+  // case of a phase switch and is stored in various "nodes" (variables, etc)
+  // to allow modifications "within the islands".
   //
-  // @@ MT: do we really have to hold shared lock during execute?
-  // @@ MT: we can also interrupt load s&m with execute -- neither handled
-  //        nor documented.
-  //
-  extern
-#ifdef __cpp_thread_local
-  thread_local
-#else
-  __thread
-#endif
-  slock* model_lock;
-
+  extern run_phase phase;
   extern size_t load_generation;
 
-  struct phase_guard
+  // A "tri-mutex" that keeps all the threads in one of the three phases. When
+  // a thread wants to switch a phase, it has to wait for all the other
+  // threads to do the same (or release their phase locks). The load phase is
+  // exclusive.
+  //
+  // The interleaving match and execute is interesting: during match we read
+  // the "external state" (e.g., filesystem entries, modifications times, etc)
+  // and capture it in the "internal state" (our dependency graph). During
+  // execute we are modifying the external state with controlled modifications
+  // of the internal state to reflect the changes (e.g., update mtimes). If
+  // you think about it, it's pretty clear that we cannot safely perform both
+  // of these actions simultaneously. A good example would be running a code
+  // generator and header dependency extraction simultaneously: the extraction
+  // process may pick up headers as they are being generated. As a result, we
+  // either have everyone treat the external state as read-only or write-only.
+  //
+  class phase_mutex
   {
-    explicit
-    phase_guard (run_phase p)
-        : o (phase)
-    {
-      phase = p;
+  public:
+    // Acquire a phase lock potentially blocking (unless already in the
+    // desired phase) until switching to the desired phase is possible.
+    //
+    void
+    lock (run_phase);
 
-      if (phase == run_phase::load)
-        ++load_generation;
-    }
+    // Release the phase lock potentially allowing (unless there are other
+    // locks on this phase) switching to a different phase.
+    //
+    void
+    unlock (run_phase);
 
-    ~phase_guard ()
-    {
-      if (phase == run_phase::load)
-        --load_generation;
+    // Switch from one phase to another. Semantically, just unlock() followed
+    // by lock() but more efficient.
+    //
+    void
+    relock (run_phase unlock, run_phase lock);
 
-      phase = o;
-    }
-    run_phase o;
+  private:
+    friend struct phase_lock;
+    friend struct phase_unlock;
+    friend struct phase_switch;
+
+    phase_mutex (): lc_ (0), mc_ (0), ec_ (0) {phase = run_phase::load;}
+
+    static phase_mutex instance;
+
+  private:
+    // We have a counter for each phase which represents the number of threads
+    // in or waiting for this phase.
+    //
+    // We use condition variables to wait for a phase switch. The load phase
+    // is exclusive so we have a separate mutex to serialize it (think of it
+    // as a second level locking).
+    //
+    // When the mutex is unlocked (all three counters become zero, the phase
+    // is always changed to load (this is also the initial state).
+    //
+    mutex m_;
+    size_t lc_;
+    size_t mc_;
+    size_t ec_;
+
+    condition_variable lv_;
+    condition_variable mv_;
+    condition_variable ev_;
+
+    mutex lm_;
   };
 
-  // A shared model lock. If there is already an instance of model_slock in
-  // this thread, then the new instance simply references it (asserting that
-  // it is locked).
+  // Grab a new phase lock releasing it on destruction. The lock can be
+  // "owning" or "referencing" (recursive).
+  //
+  // On the referencing semantics: If there is already an instance of
+  // phase_lock in this thread, then the new instance simply references it.
   //
   // The reason for this semantics is to support the following scheduling
-  // pattern:
+  // pattern (in actual code we use wait_guard to RAII it):
   //
-  // scheduler::atomic_count task_count (0);
+  // atomic_count task_count (0);
   //
   // {
-  //   model_slock ml;                    // (1)
+  //   phase_lock l (run_phase::match);                    // (1)
   //
   //   for (...)
   //   {
   //     sched.async (task_count,
   //                  [] (...)
   //                  {
-  //                    model_slock ml;   // (2)
+  //                    phase_lock pl (run_phase::match);  // (2)
   //                    ...
   //                  },
   //                  ...);
   //   }
   // }
   //
-  // sched.wait (task_count);             // (3)
+  // sched.wait (task_count);                              // (3)
   //
   // Here is what's going on here:
   //
-  // 1. We first get a shared lock "for ourselves" since after the first
+  // 1. We first get a phase lock "for ourselves" since after the first
   //    iteration of the loop, things may become asynchronous (including
-  //    attempts to relock for exclusive access and change the structure we
-  //    are iteration upon).
+  //    attempts to switch the phase and modify the structure we are iteration
+  //    upon).
   //
   // 2. The task can be queued or it can be executed synchronously inside
   //    async() (refer to the scheduler class for details on this semantics).
   //
   //    If this is an async()-synchronous execution, then the task will create
-  //    a referencing model_slock. If, however, this is a queued execution
+  //    a referencing phase_lock. If, however, this is a queued execution
   //    (including wait()-synchronous), then the task will create a top-level
-  //    model_slock.
+  //    phase_lock.
   //
   //    Note that we only acquire the lock once the task starts executing
   //    (there is no reason to hold the lock while the task is sitting in the
   //    queue). This optimization assumes that whatever else we pass to the
-  //    task (for example, a reference to a target) is immutable (so such a
-  //    reference cannot become invalid).
+  //    task (for example, a reference to a target) is stable (in other words,
+  //    such a reference cannot become invalid).
   //
-  // 3. Before calling wait(), we release our shared lock to allow re-locking
-  //    for exclusive access. And once wait() returns we are again running
-  //    serially.
+  // 3. Before calling wait(), we release our phase lock to allow switching
+  //    the phase.
   //
-  struct model_slock
+  struct phase_lock
   {
-    model_slock ()
-    {
-      if (slock* l = model_lock)
-        assert (l->owns_lock ());
-      else
-        model_lock = &(l_ = slock (model_mutex));
-    }
+    explicit phase_lock (run_phase);
+    ~phase_lock ();
 
-    ~model_slock ()
-    {
-      if (&l_ == model_lock)
-        model_lock = nullptr;
-    }
+    phase_lock (phase_lock&&) = delete;
+    phase_lock (const phase_lock&) = delete;
 
-    operator slock& () {return *model_lock;}
-    operator const slock& () const {return *model_lock;}
+    phase_lock& operator= (phase_lock&&) = delete;
+    phase_lock& operator= (const phase_lock&) = delete;
 
-  private:
-    slock l_;
+    run_phase p;
+
+    static
+#ifdef __cpp_thread_local
+    thread_local
+#else
+    __thread
+#endif
+    phase_lock* instance;
   };
 
-  // Re-lock shared to exclusive for the lifetime or rlock.
+  // Assuming we have a lock on the current phase, temporarily release it
+  // and reacquire on destruction.
   //
-  struct model_rlock
+  struct phase_unlock
   {
-    model_rlock ()
-        : sl_ (model_lock)
-    {
-      if (sl_ != nullptr)
-      {
-        sl_->unlock ();
-        ul_ = ulock (*sl_->mutex ());
-      }
-    }
+    phase_unlock (bool unlock = true);
+    ~phase_unlock ();
 
-    ~model_rlock ()
-    {
-      if (sl_ != nullptr)
-      {
-        ul_.unlock ();
-        sl_->lock ();
-      }
-    }
+    phase_lock* l;
+  };
 
-    // Can be treated as const ulock.
-    //
-    operator const ulock& () const {return ul_;}
+  // Assuming we have a lock on the current phase, temporarily switch to a
+  // new phase and switch back on destruction.
+  //
+  struct phase_switch
+  {
+    explicit phase_switch (run_phase);
+    ~phase_switch ();
 
-  private:
-    slock* sl_;
-    ulock ul_;
+    run_phase o, n;
+  };
+
+  // Wait for a task count optionally and temporarily unlocking the phase.
+  //
+  struct wait_guard
+  {
+    ~wait_guard () noexcept (false);
+
+    explicit
+    wait_guard (atomic_count& task_count,
+                bool phase = false);
+
+    wait_guard (size_t start_count,
+                atomic_count& task_count,
+                bool phase = false);
+
+    void
+    wait ();
+
+    size_t start_count;
+    atomic_count* task_count;
+    bool phase;
   };
 
   // Cached variables.
@@ -218,23 +264,36 @@ namespace build2
   extern const meta_operation_info* current_mif;
   extern const operation_info* current_inner_oif;
   extern const operation_info* current_outer_oif;
+  extern size_t current_on; // Current operation number (1-based) in the
+                            // meta-operation batch.
+
   extern execution_mode current_mode;
+
+  // Total number of dependency relationships in the current action. Together
+  // with the target::dependents count it is incremented during the rule
+  // search & match phase and is decremented during execution with the
+  // expectation of it reaching 0. Used as a sanity check.
+  //
+  extern atomic_count dependency_count;
 
   inline void
   set_current_mif (const meta_operation_info& mif)
   {
-    current_mif = &mif;
     current_mname = &mif.name;
+    current_mif = &mif;
+    current_on = 0; // Reset.
   }
 
   inline void
   set_current_oif (const operation_info& inner_oif,
                    const operation_info* outer_oif = nullptr)
   {
+    current_oname = &(outer_oif == nullptr ? inner_oif : *outer_oif).name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
-    current_oname = &(outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    current_on++;
     current_mode = inner_oif.mode;
+    dependency_count.store (0, memory_order_relaxed); // Serial.
   }
 
   // Keep going flag.
@@ -244,14 +303,6 @@ namespace build2
   // failures.
   //
   extern bool keep_going;
-
-  // Total number of dependency relationships in the current action.
-  // Together with the target::dependents count it is incremented
-  // during the rule search & match phase and is decremented during
-  // execution with the expectation of it reaching 0. Used as a sanity
-  // check.
-  //
-  extern atomic_count dependency_count;
 
   // Reset the build state. In particular, this removes all the targets,
   // scopes, and variables.
@@ -342,5 +393,7 @@ namespace build2
     return diag_phrase {a, t, &diag_done};
   }
 }
+
+#include <build2/context.ixx>
 
 #endif // BUILD2_CONTEXT

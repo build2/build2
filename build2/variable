@@ -898,10 +898,14 @@ namespace build2
 
     variable_pool (): variable_pool (false) {}
 
-    // Proof of lock for RW access.
+    // RW access.
     //
     variable_pool&
-    rw (const ulock&) const {return const_cast<variable_pool&> (*this);}
+    rw () const
+    {
+      assert (phase == run_phase::load);
+      return const_cast<variable_pool&> (*this);
+    }
 
     variable_pool&
     rw (scope&) const {return const_cast<variable_pool&> (*this);}

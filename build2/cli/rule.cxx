@@ -44,7 +44,7 @@ namespace build2
     }
 
     match_result compile::
-    match (slock& ml, action a, target& xt, const string&) const
+    match (action a, target& xt, const string&) const
     {
       tracer trace ("cli::compile::match");
 
@@ -57,7 +57,7 @@ namespace build2
         // See if we have a .cli source file.
         //
         bool r (false);
-        for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+        for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (p.is_a<cli> ())
           {
@@ -81,25 +81,16 @@ namespace build2
           return r;
         }
 
-        // If we still haven't figured out the member list, we can do
-        // that now. Specifically, at this stage, no further changes to
-        // cli.options are possible and we can determine whether the
-        // --suppress-inline option is present.
+        // Figure out the member list.
         //
-        if (t.h == nullptr)
-        {
-          t.h = &search<cxx::hxx> (t.dir, t.out, t.name, nullptr, nullptr);
-          t.h->group = &t;
-
-          t.c = &search<cxx::cxx> (t.dir, t.out, t.name, nullptr, nullptr);
-          t.c->group = &t;
-
-          if (!find_option ("--suppress-inline", t, "cli.options"))
-          {
-            t.i = &search<cxx::ixx> (t.dir, t.out, t.name, nullptr, nullptr);
-            t.i->group = &t;
-          }
-        }
+        // At this stage, no further changes to cli.options are possible and
+        // we can determine whether the --suppress-inline option is present.
+        //
+        t.h = &search<cxx::hxx> (t.dir, t.out, t.name);
+        t.c = &search<cxx::cxx> (t.dir, t.out, t.name);
+        t.i = find_option ("--suppress-inline", t, "cli.options")
+          ? nullptr
+          : &search<cxx::ixx> (t.dir, t.out, t.name);
 
         return r;
       }
@@ -109,23 +100,17 @@ namespace build2
         //
         target& t (xt);
 
-        // First see if we are already linked-up to the cli.cxx{} group. If
-        // it is some other group, then we are definitely not a match.
-        //
-        if (t.group != nullptr)
-          return t.group->is_a<cli_cxx> () != nullptr;
-
         // Check if there is a corresponding cli.cxx{} group.
         //
-        cli_cxx* g (targets.find<cli_cxx> (t.dir, t.out, t.name));
+        const cli_cxx* g (targets.find<cli_cxx> (t.dir, t.out, t.name));
 
         // If not or if it has no prerequisites (happens when we use it to
         // set cli.options) and this target has a cli{} prerequisite, then
-        // synthesize the group.
+        // synthesize the dependency.
         //
         if (g == nullptr || !g->has_prerequisites ())
         {
-          for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+          for (prerequisite_member p: prerequisite_members (a, t))
           {
             if (p.is_a<cli> ())
             {
@@ -136,7 +121,7 @@ namespace build2
                 if (g == nullptr)
                   g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
-                g->prerequisites.push_back (p.as_prerequisite ());
+                g->prerequisites (prerequisites {p.as_prerequisite ()});
               }
               else
                 l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
@@ -146,30 +131,23 @@ namespace build2
           }
         }
 
-        if (g != nullptr)
-        {
-          // Resolve the group's members. This should link us up to the
-          // group.
-          //
-          resolve_group_members (ml, a, *g);
+        if (g == nullptr)
+          return false;
 
-          // For ixx{}, verify it is part of the group.
-          //
-          if (t.is_a<cxx::ixx> () && g->i == nullptr)
-          {
-            l4 ([&]{trace << "generation of inline file " << t
-                          << " is disabled with --suppress-inline";});
-            g = nullptr;
-          }
-        }
+        // For ixx{}, verify it is part of the group (i.e., not disabled
+        // via --suppress-inline).
+        //
+        if (t.is_a<cxx::ixx> () &&
+            find_option ("--suppress-inline", *g, "cli.options"))
+          return false;
 
-        assert (t.group == g);
-        return g != nullptr;
+        t.group = g;
+        return true;
       }
     }
 
     recipe compile::
-    apply (slock& ml, action a, target& xt) const
+    apply (action a, target& xt) const
     {
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
@@ -184,11 +162,11 @@ namespace build2
 
         // Inject dependency on the output directory.
         //
-        inject_fsdir (ml, a, t);
+        inject_fsdir (a, t);
 
-        // Search and match prerequisite members.
+        // Match prerequisite members.
         //
-        search_and_match_prerequisite_members (ml, a, t);
+        match_prerequisite_members (a, t);
 
         switch (a)
         {
@@ -199,8 +177,8 @@ namespace build2
       }
       else
       {
-        cli_cxx& g (xt.group->as<cli_cxx> ());
-        build2::match (ml, a, g);
+        const cli_cxx& g (xt.group->as<cli_cxx> ());
+        build2::match (a, g);
         return group_recipe; // Execute the group's recipe.
       }
     }
@@ -239,7 +217,12 @@ namespace build2
       //
       const cli* s;
       {
-        auto p (execute_prerequisites<cli> (a, t, t.mtime ()));
+        // The rule has been matched which means the members should be
+        // resolved and paths assigned.
+        //
+        auto p (
+          execute_prerequisites<cli> (
+            a, t, t.load_mtime (t.h->path ())));
 
         if ((s = p.first) == nullptr)
           return p.second;

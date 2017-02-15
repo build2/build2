@@ -57,7 +57,7 @@ namespace build2
   }
 
   prerequisite::
-  prerequisite (target_type& t)
+  prerequisite (const target_type& t)
       : proj (nullopt),
         type (t.type ()),
         dir (t.dir),
@@ -72,7 +72,7 @@ namespace build2
   bool prerequisite::
   belongs (const target_type& t) const
   {
-    const auto& p (t.prerequisites);
+    const auto& p (t.prerequisites ());
     return !(p.empty () || this < &p.front () || this > &p.back ());
   }
 }

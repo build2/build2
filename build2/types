@@ -21,6 +21,8 @@
 #include <mutex>
 #include <atomic>
 #include <future>
+#include <thread>
+#include <condition_variable>
 
 #include <butl/ft/shared_mutex>
 #if defined(__cpp_lib_shared_mutex) || defined(__cpp_lib_shared_timed_mutex)
@@ -82,9 +84,21 @@ namespace build2
 
   // Concurrency.
   //
-  using atomic_count = std::atomic<size_t>; // Matches scheduler::atomic_count.
+  using std::atomic;
+  using std::memory_order;
+  using std::memory_order_relaxed;
+  using std::memory_order_consume;
+  using std::memory_order_acquire;
+  using std::memory_order_release;
+  using std::memory_order_acq_rel;
+  using std::memory_order_seq_cst;
 
-  using std::future;
+  using atomic_count = atomic<size_t>; // Matches scheduler::atomic_count.
+
+  using std::mutex;
+  using mlock = std::unique_lock<mutex>;
+
+  using std::condition_variable;
 
 #if   defined(__cpp_lib_shared_mutex)
   using shared_mutex = std::shared_mutex;
@@ -98,13 +112,24 @@ namespace build2
   // Because we have this fallback, we need to be careful not to create
   // multiple shared locks in the same thread.
   //
-  using shared_mutex = std::mutex;
+  struct shared_mutex: mutex
+  {
+    using mutex::mutex;
+
+    void lock_shared     () { lock ();     }
+    void try_lock_shared () { try_lock (); }
+    void unlock_shared   () { unlock ();   }
+  };
+
   using ulock        = std::unique_lock<shared_mutex>;
   using slock        = ulock;
 #endif
 
   using std::defer_lock;
   using std::adopt_lock;
+
+  using std::future;
+  namespace this_thread = std::this_thread;
 
   // Exceptions.
   //
@@ -162,6 +187,7 @@ namespace build2
   using butl::timestamp;
   using butl::duration;
   using butl::timestamp_unknown;
+  using butl::timestamp_unknown_rep;
   using butl::timestamp_nonexistent;
   using butl::operator<<;
 
@@ -186,7 +212,12 @@ namespace build2
 
   // See context.
   //
-  enum class run_phase {load, search_match, execute};
+  enum class run_phase {load, match, execute};
+
+  ostream&
+  operator<< (ostream&, run_phase); // utility.cxx
+
+  extern run_phase phase;
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in

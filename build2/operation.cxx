@@ -9,7 +9,6 @@
 #include <build2/scope>
 #include <build2/target>
 #include <build2/algorithm>
-#include <build2/scheduler>
 #include <build2/diagnostics>
 
 using namespace std;
@@ -74,9 +73,9 @@ namespace build2
   {
     tracer trace ("search");
 
-    phase_guard pg (run_phase::search_match);
+    phase_lock pl (run_phase::match); // Never switched.
 
-    if (target* t = targets.find (tk, trace))
+    if (const target* t = targets.find (tk, trace))
       ts.push_back (t);
     else
       fail (l) << "unknown target " << tk;
@@ -88,39 +87,89 @@ namespace build2
     tracer trace ("match");
 
     if (verb >= 6)
-      dump (a);
+      dump ();
 
     {
-      phase_guard pg (run_phase::search_match);
+      phase_lock l (run_phase::match);
 
-      if (ts.size () > 1)
-        sched.tune (1); //@@ MT TMP run serially.
+      // Start asynchronous matching of prerequisites keeping track of how
+      // many we have started. Wait with unlocked phase to allow phase
+      // switching.
+      //
+      atomic_count task_count (0);
+      wait_guard wg (task_count, true);
 
-      scheduler::atomic_count task_count (0);
+      size_t i (0), n (ts.size ());
+      for (; i != n; ++i)
       {
-        model_slock ml;
+        const target& t (*static_cast<const target*> (ts[i]));
+        l5 ([&]{trace << diag_doing (a, t);});
 
-        for (void* vt: ts)
+        target_state s (match_async (a, t, 0, task_count, false));
+
+        // Bail out if the target has failed and we weren't instructed to
+        // keep going.
+        //
+        if (s == target_state::failed && !keep_going)
         {
-          target& t (*static_cast<target*> (vt));
-          l5 ([&]{trace << "matching " << t;});
-
-          sched.async (task_count,
-                       [a] (target& t)
-                       {
-                         model_slock ml;
-                         match (ml, a, t); // @@ MT exception handling.
-                       },
-                       ref (t));
+          ++i;
+          break;
         }
       }
-      sched.wait (task_count);
 
-      sched.tune (0); //@@ MT TMP run serially restore.
+      wg.wait ();
+
+      // We are now running serially. Re-examine targets that we have matched.
+      //
+      bool fail (false);
+      for (size_t j (0); j != n; ++j)
+      {
+        const target& t (*static_cast<const target*> (ts[j]));
+
+        target_state s (j < i
+                        ? match (a, t, false)
+                        : target_state::postponed);
+        switch (s)
+        {
+        case target_state::postponed:
+          {
+            // We bailed before matching it.
+            //
+            if (verb != 0)
+              info << "not " << diag_did (a, t);
+
+            break;
+          }
+        case target_state::unknown:
+        case target_state::unchanged:
+          {
+            break; // Matched successfully.
+          }
+        case target_state::failed:
+          {
+            // Things didn't go well for this target.
+            //
+            if (verb != 0)
+              info << "failed to " << diag_do (a, t);
+
+            fail = true;
+            break;
+          }
+        default:
+          assert (false);
+        }
+      }
+
+      if (fail)
+        throw failed ();
     }
 
+    // Phase restored to load.
+    //
+    assert (phase == run_phase::load);
+
     if (verb >= 6)
-      dump (a);
+      dump ();
   }
 
   void
@@ -133,8 +182,6 @@ namespace build2
     if (current_mode == execution_mode::last)
       reverse (ts.begin (), ts.end ());
 
-    phase_guard pg (run_phase::execute);
-
     // Tune the scheduler.
     //
     switch (current_inner_oif->concurrency)
@@ -144,40 +191,46 @@ namespace build2
     default:                assert (false); // Not yet supported.
     }
 
+    phase_lock pl (run_phase::execute); // Never switched.
+
     // Similar logic to execute_members(): first start asynchronous execution
     // of all the top-level targets.
     //
     atomic_count task_count (0);
+    wait_guard wg (task_count);
 
-    size_t n (ts.size ());
-    for (size_t i (0); i != n; ++i)
+    for (const void* vt: ts)
     {
-      const target& t (*static_cast<const target*> (ts[i]));
+      const target& t (*static_cast<const target*> (vt));
 
       l5 ([&]{trace << diag_doing (a, t);});
 
-      target_state s (execute_async (a, t, 0, task_count));
+      target_state s (execute_async (a, t, 0, task_count, false));
 
+      // Bail out if the target has failed and we weren't instructed to keep
+      // going.
+      //
       if (s == target_state::failed && !keep_going)
         break;
     }
-    sched.wait (task_count);
+
+    wg.wait ();
     sched.tune (0); // Restore original scheduler settings.
 
     // We are now running serially. Re-examine them all.
     //
     bool fail (false);
-    for (size_t i (0); i != n; ++i)
+    for (const void* vt: ts)
     {
-      const target& t (*static_cast<const target*> (ts[i]));
+      const target& t (*static_cast<const target*> (vt));
 
-      switch (t.synchronized_state (false))
+      switch (t.executed_state (false))
       {
       case target_state::unknown:
         {
           // We bailed before executing it.
           //
-          if (!quiet)
+          if (verb != 0 && !quiet)
             info << "not " << diag_did (a, t);
 
           break;
@@ -186,7 +239,7 @@ namespace build2
         {
           // Nothing had to be done.
           //
-          if (!quiet)
+          if (verb != 0 && !quiet)
             info << diag_done (a, t);
 
           break;
@@ -201,7 +254,7 @@ namespace build2
         {
           // Things didn't go well for this target.
           //
-          if (!quiet)
+          if (verb != 0 && !quiet)
             info << "failed to " << diag_do (a, t);
 
           fail = true;
@@ -218,7 +271,7 @@ namespace build2
     // We should have executed every target that we matched, provided we
     // haven't failed (in which case we could have bailed out early).
     //
-    assert (dependency_count == 0);
+    assert (dependency_count.load (memory_order_relaxed) == 0);
   }
 
   const meta_operation_info noop {

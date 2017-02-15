@@ -185,6 +185,7 @@ namespace build2
     public:
       void
       process_libraries (
+        action,
         const scope&,
         lorder,
         const dir_paths&,
@@ -195,44 +196,70 @@ namespace build2
         const function<void (const file&, const string&, bool, bool)>&,
         bool = false) const;
 
-      target*
-      search_library (const dir_paths& sysd,
+      const target*
+      search_library (action act,
+                      const dir_paths& sysd,
                       optional<dir_paths>& usrd,
-                      prerequisite& p) const
+                      const prerequisite& p) const
       {
-        if (p.target == nullptr) // First check the cache.
-          p.target = search_library (sysd, usrd, p.key ());
+        const target* r (p.target.load (memory_order_consume));
 
-        return p.target;
+        if (r == nullptr)
+        {
+          if ((r = search_library (act, sysd, usrd, p.key ())) != nullptr)
+          {
+            const target* e (nullptr);
+            if (!p.target.compare_exchange_strong (
+                  e, r,
+                  memory_order_release,
+                  memory_order_consume))
+              assert (e == r);
+          }
+        }
+
+        return r;
       }
 
-    private:
+    public:
       const file&
-      resolve_library (const scope&,
+      resolve_library (action,
+                       const scope&,
                        name,
                        lorder,
                        const dir_paths&,
                        optional<dir_paths>&) const;
 
+      template <typename T>
+      static ulock
+      insert_library (T*&,
+                      const string&,
+                      const dir_path&,
+                      optional<string>,
+                      bool,
+                      tracer&);
+
       target*
-      search_library (const dir_paths&,
+      search_library (action,
+                      const dir_paths&,
                       optional<dir_paths>&,
                       const prerequisite_key&,
                       bool existing = false) const;
 
       const target*
-      search_library_existing (const dir_paths& sysd,
+      search_library_existing (action act,
+                               const dir_paths& sysd,
                                optional<dir_paths>& usrd,
                                const prerequisite_key& pk) const
       {
-        return search_library (sysd, usrd, pk, true);
+        return search_library (act, sysd, usrd, pk, true);
       }
 
       dir_paths
       extract_library_dirs (const scope&) const;
 
       bool
-      pkgconfig_extract (const scope&,
+      pkgconfig_extract (action,
+                         const scope&,
                          bin::lib&,
                          bin::liba*,
                          bin::libs*,

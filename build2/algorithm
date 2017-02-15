@@ -21,48 +21,53 @@ namespace build2
   // target-type-specific search function. If that doesn't yeld anything,
   // it creates a new target.
   //
-  target&
-  search (prerequisite&);
+  const target&
+  search (const prerequisite&);
 
   // As above but specify the prerequisite to search as a key.
   //
-  target&
+  const target&
   search (const prerequisite_key&);
+
+  // Uniform search interface for prerequisite/prerequisite_member.
+  //
+  inline const target&
+  search (const prerequisite_member& p) {return p.search ();}
 
   // As above but override the target type. Useful for searching for
   // target group members where we need to search for a different
   // target type.
   //
-  target&
+  const target&
   search (const target_type&, const prerequisite_key&);
 
   // As above but specify the prerequisite to search as individual key
   // components. Scope can be NULL if the directory is absolute.
   //
-  target&
+  const target&
   search (const target_type& type,
           const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const string* ext,  // NULL means unspecified.
-          const scope*,
+          const string* ext = nullptr,  // NULL means unspecified.
+          const scope* = nullptr,       // NULL means dir is absolute.
           const optional<string>& proj = nullopt);
 
   // As above but specify the target type as template argument.
   //
   template <typename T>
-  T&
+  const T&
   search (const dir_path& dir,
           const dir_path& out,
           const string& name,
-          const string* ext,
-          const scope*);
+          const string* ext = nullptr,
+          const scope* = nullptr);
 
   // Search for a target identified by the name. The semantics is "as if" we
   // first created a prerequisite based on this name in exactly the same way
   // as the parser would and then searched based on this prerequisite.
   //
-  target&
+  const target&
   search (name, const scope&);
 
   // As above but only search for an already existing target. Unlike the
@@ -76,24 +81,84 @@ namespace build2
                    const scope&,
                    const dir_path& out = dir_path ());
 
+  // Target match lock: a non-const target reference as well as the
+  // target::offset_* state that has already been "achieved".
+  //
+  struct target_lock
+  {
+    using target_type = build2::target;
+
+    target_type* target = nullptr;
+    size_t offset = 0;
+
+    explicit operator bool () const {return target != nullptr;}
+
+    void unlock ();
+    target_type* release ();
+
+    target_lock () = default;
+
+    target_lock (target_lock&&);
+    target_lock& operator= (target_lock&&);
+
+    // Implementation details.
+    //
+    target_lock (const target_lock&) = delete;
+    target_lock& operator= (const target_lock&) = delete;
+
+    target_lock (target_type* t, size_t o): target (t), offset (o) {}
+    ~target_lock ();
+  };
+
+  // If the target is already applied (for this action ) or executed, then no
+  // lock is acquired. Otherwise, the target must not yet be matched for this
+  // action.
+  //
+  // @@ MT fuzzy: what if it is already in the desired state, why assert?
+  //    Currently we only use it with match_recipe().
+  //
+  target_lock
+  lock (action, const target&);
+
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call
-  // this function with the intent to also call execute().
+  // this function with the intent to also call execute(). Return the target
+  // state translating target_state::failed to the failed exception unless
+  // instructed otherwise.
   //
-  // In case of optimizations that would avoid calling execute(), call
-  // unmatch() to indicate this. This is only allowed in the following
-  // cases:
+  // The unmatch argument allows optimizations that avoid calling execute().
+  // If it is unmatch::unchanged then only unmatch the target if it is known
+  // to be unchanged after match. If it is unmatch::safe, then unmatch the
+  // target if it is safe (this includes unchanged or if we know that someone
+  // else will execute this target). Return true if unmatch succeeded. Always
+  // throw if failed.
   //
-  // - target::unchanged() returns true
-  // - match() returns true
-  //
-  // Note that match() does not check unchanged().
-  //
-  bool
-  match (slock&, action, target&);
+  enum class unmatch {none, unchanged, safe};
 
+  target_state
+  match (action, const target&, bool fail = true);
+
+  bool
+  match (action, const target&, unmatch);
+
+  // Start asynchronous match. Return target_state::postponed if the
+  // asynchrounous operation has been started and target_state::busy if the
+  // target has already been busy. Regardless of the result, match() must be
+  // called in order to complete the operation (except target_state::failed).
+  //
+  // If fail is false, then return target_state::failed if the target match
+  // failed. Otherwise, throw the failed exception if keep_going is false and
+  // return target_state::failed otherwise.
+  //
+  target_state
+  match_async (action, const target&,
+               size_t start_count, atomic_count& task_count,
+               bool fail = true);
+
+  // Match by specifying the recipe directly. The target must be locked.
+  //
   void
-  unmatch (action, target&);
+  match_recipe (target_lock&, recipe);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Return recipe and
@@ -102,7 +167,7 @@ namespace build2
   // execute_delegate().
   //
   pair<recipe, action>
-  match_delegate (slock&, action, target&, const rule&);
+  match_delegate (action, target&, const rule&);
 
   // The standard prerequisite search and match implementations. They call
   // search() and then match() for each prerequisite in a loop omitting out of
@@ -110,22 +175,40 @@ namespace build2
   // of a group, then they first do this to the group's prerequisites.
   //
   void
-  search_and_match_prerequisites (slock&, action, target&);
+  match_prerequisites (action, target&);
 
   // If we are cleaning, this function doesn't go into group members,
   // as an optimization (the group should clean everything up).
   //
   void
-  search_and_match_prerequisite_members (slock&, action, target&);
+  match_prerequisite_members (action, target&);
 
   // As above but omit prerequisites that are not in the specified scope.
   //
   void
-  search_and_match_prerequisites (slock&, action, target&, const scope&);
+  match_prerequisites (action, target&, const scope&);
 
   void
-  search_and_match_prerequisite_members (
-    slock&, action, target&, const scope&);
+  match_prerequisite_members (action, target&, const scope&);
+
+  // Match (already searched) members of a group or similar prerequisite-like
+  // dependencies. Similar in semantics to match_prerequisites().
+  //
+  void
+  match_members (action, target&, const target*[], size_t);
+
+  template <size_t N>
+  inline void
+  match_members (action a, target& t, const target* (&ts)[N])
+  {
+    match_members (a, t, ts, N);
+  }
+
+  inline void
+  match_members (action a, target& t, vector<const target*>& ts, size_t start)
+  {
+    match_members (a, t, ts.data () + start, ts.size () - start);
+  }
 
   // Unless already available, match, and, if necessary, execute the group
   // in order to obtain its members list. Note that even after that the
@@ -133,7 +216,7 @@ namespace build2
   // fallback rule matched).
   //
   group_view
-  resolve_group_members (slock&, action, target&);
+  resolve_group_members (action, const target&);
 
   // Inject dependency on the target's directory fsdir{}, unless it is in the
   // src tree or is outside of any project (say, for example, an installation
@@ -142,8 +225,8 @@ namespace build2
   // the injected target or NULL. Normally this function is called from the
   // rule's apply() function.
   //
-  fsdir*
-  inject_fsdir (slock&, action, target&, bool parent = true);
+  const fsdir*
+  inject_fsdir (action, target&, bool parent = true);
 
   // Execute the action on target, assuming a rule has been matched and the
   // recipe for this action has been set. This is the synchrounous executor
@@ -159,11 +242,14 @@ namespace build2
   // if the asynchrounous execution has been started and target_state::busy if
   // the target has already been busy.
   //
-  // Note: does not translate target_state::failed to the failed exception.
+  // If fail is false, then return target_state::failed if the target match
+  // failed. Otherwise, throw the failed exception if keep_going is false and
+  // return target_state::failed otherwise.
   //
   target_state
   execute_async (action, const target&,
-                 size_t start_count, atomic_count& task_count);
+                 size_t start_count, atomic_count& task_count,
+                 bool fail = true);
 
   // Execute the recipe obtained with match_delegate(). Note that the target's
   // state is neither checked nor updated by this function. In other words,

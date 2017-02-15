@@ -184,11 +184,7 @@ namespace build2
   }
 
   static void
-  dump_target (ostream& os,
-               string& ind,
-               action a,
-               const target& t,
-               const scope& s)
+  dump_target (ostream& os, string& ind, const target& t, const scope& s)
   {
     // Print the target and its prerequisites relative to the scope. To achieve
     // this we are going to temporarily lower the stream verbosity to level 1.
@@ -206,14 +202,14 @@ namespace build2
 
     os << ':';
 
-    for (const prerequisite& p: t.prerequisites)
+    for (const prerequisite& p: t.prerequisites ())
     {
       os << ' ';
 
       // Print it as target if one has been cached.
       //
-      if (p.target != nullptr)
-        os << *p.target;
+      if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
+        os << *t;
       else
         os << p;
     }
@@ -221,16 +217,20 @@ namespace build2
     // If the target has been matched to a rule, also print resolved
     // prerequisite targets.
     //
-    if (t.recipe (a))
     {
-      bool first (true);
-      for (const target* pt: t.prerequisite_targets)
-      {
-        if (pt == nullptr) // Skipped.
-          continue;
+      size_t c (t.task_count.load (memory_order_relaxed)); // Running serial.
 
-        os << (first ? " | " : " ") << *pt;
-        first = false;
+      if (c == target::count_applied () || c == target::count_executed ())
+      {
+        bool first (true);
+        for (const target* pt: t.prerequisite_targets)
+        {
+          if (pt == nullptr) // Skipped.
+            continue;
+
+          os << (first ? " | " : " ") << *pt;
+          first = false;
+        }
       }
     }
 
@@ -251,10 +251,7 @@ namespace build2
   }
 
   static void
-  dump_scope (ostream& os,
-              string& ind,
-              action a,
-              scope_map::const_iterator& i)
+  dump_scope (ostream& os, string& ind, scope_map::const_iterator& i)
   {
     const scope& p (i->second);
     const dir_path& d (i->first);
@@ -312,7 +309,7 @@ namespace build2
         os << endl; // Extra newline between scope blocks.
 
       os << endl;
-      dump_scope (os, ind, a, i);
+      dump_scope (os, ind, i);
       sb = true;
     }
 
@@ -332,7 +329,7 @@ namespace build2
       }
 
       os << endl;
-      dump_target (os, ind, a, t, p);
+      dump_target (os, ind, t, p);
     }
 
     ind.resize (ind.size () - 2);
@@ -343,14 +340,14 @@ namespace build2
   }
 
   void
-  dump (action a)
+  dump ()
   {
     auto i (scopes.cbegin ());
     assert (&i->second == global_scope);
 
     string ind;
     ostream& os (*diag_stream);
-    dump_scope (os, ind, a, i);
+    dump_scope (os, ind, i);
     os << endl;
   }
 }

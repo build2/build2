@@ -258,6 +258,18 @@ namespace build2
     return this->jobs_specified_;
   }
 
+  inline const size_t& options::
+  max_jobs () const
+  {
+    return this->max_jobs_;
+  }
+
+  inline bool options::
+  max_jobs_specified () const
+  {
+    return this->max_jobs_specified_;
+  }
+
   inline const bool& options::
   serial_stop () const
   {

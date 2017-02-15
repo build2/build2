@@ -64,9 +64,8 @@ namespace build2
     operation_id
     outer_operation () const {return outer_id & 0xF;}
 
-    // Implicit conversion operator to action_id for the switch()
-    // statement, etc. Most places will only care about the inner
-    // operation.
+    // Implicit conversion operator to action_id for the switch() statement,
+    // etc. Most places only care about the inner operation.
     //
     operator action_id () const {return inner_id;}
 
@@ -74,10 +73,10 @@ namespace build2
     action_id outer_id;
   };
 
-  // This is an "overrides" comparison, i.e., it returns true
-  // if the recipe for x overrides recipe for y. The idea is
-  // that for the same inner operation, action with an outer
-  // operation is "weaker" than the one without.
+  // This is an "overrides" comparison, i.e., it returns true if the recipe
+  // for x overrides recipe for y. The idea is that for the same inner
+  // operation, action with an outer operation is "weaker" than the one
+  // without.
   //
   inline bool
   operator> (action x, action y)
@@ -86,10 +85,11 @@ namespace build2
       (x.outer_id != y.outer_id && y.outer_id != 0);
   }
 
-  // Note that these ignore the outer operation.
-  //
   inline bool
-  operator== (action x, action y) {return x.inner_id == y.inner_id;}
+  operator== (action x, action y)
+  {
+    return x.inner_id == y.inner_id && x.outer_id == y.outer_id;
+  }
 
   inline bool
   operator!= (action x, action y) {return !(x == y);}
@@ -170,10 +170,10 @@ namespace build2
   // Meta-operation info.
   //
 
-  // Normally a list of resolved and matched targets to execute. But
-  // can be something else, depending on the meta-operation.
+  // Normally a list of resolved and matched targets to execute. But can be
+  // something else, depending on the meta-operation.
   //
-  typedef vector<void*> action_targets; //@@ MT TMP: make const void*
+  typedef vector<const void*> action_targets;
 
   struct meta_operation_info
   {

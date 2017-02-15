@@ -12,10 +12,10 @@
 
 namespace build2
 {
-  // Dump the state pertaining to the specified action.
+  // Dump the state pertaining to the current action.
   //
   void
-  dump (action);
+  dump ();
 }
 
 #endif // BUILD2_DUMP

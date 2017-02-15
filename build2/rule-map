@@ -18,10 +18,10 @@ namespace build2
 {
   class rule;
 
-  using target_type_rule_map = std::map<
-    const target_type*,
-    butl::prefix_map<string, // Rule hint.
-                     reference_wrapper<const rule>, '.'>>;
+  using hint_rule_map =
+    butl::prefix_map<string, reference_wrapper<const rule>, '.'>;
+
+  using target_type_rule_map = std::map<const target_type*, hint_rule_map>;
 
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.

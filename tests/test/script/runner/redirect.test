@@ -16,7 +16,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   cat <<EOI >=buildfile;
   test{testscript}: $target
   EOI
-  $0 --jobs 1 --quiet test <foo >foo 2>bar
+  $0 --serial-stop --quiet test <foo >foo 2>bar
 }
 
 : null

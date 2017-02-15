@@ -15,7 +15,7 @@ namespace build2
 
   // Search for an existing target in this prerequisite's scope.
   //
-  target*
+  const target*
   search_existing_target (const prerequisite_key&);
 
   // Search for an existing file in the scope's src directory. Prerequisite
@@ -24,12 +24,12 @@ namespace build2
   // Originally the plan was to have a target-type specific variable that
   // contains the search paths. But there wasn't any need for this yet.
   //
-  target*
+  const target*
   search_existing_file (const prerequisite_key&);
 
   // Create a new target in this prerequisite's scope.
   //
-  target&
+  const target&
   create_new_target (const prerequisite_key&);
 }
 

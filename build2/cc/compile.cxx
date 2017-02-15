@@ -38,13 +38,14 @@ namespace build2
     struct match_data
     {
       prerequisite_member src;
+      timestamp dd_mtime; // depdb mtime, timestamp_nonexistent if outdated.
     };
 
     static_assert (sizeof (match_data) <= target::data_size,
                    "insufficient space");
 
     match_result compile::
-    match (slock& ml, action a, target& t, const string&) const
+    match (action act, target& t, const string&) const
     {
       tracer trace (x, "compile::match");
 
@@ -54,16 +55,23 @@ namespace build2
       // - if path already assigned, verify extension?
       //
 
+      // Link-up to our group (this is the obj{} target group protocol which
+      // means this can be done whether we match or not).
+      //
+      if (t.group == nullptr)
+        t.group = targets.find<obj> (t.dir, t.out, t.name);
+
       // See if we have a source file. Iterate in reverse so that a source
       // file specified for an obj*{} member overrides the one specified for
       // the group. Also "see through" groups.
       //
-      for (prerequisite_member p:
-             reverse_group_prerequisite_members (ml, a, t))
+      for (prerequisite_member p: reverse_group_prerequisite_members (act, t))
       {
         if (p.is_a (x_src))
         {
-          t.data (match_data {p}); // Save in the target's auxilary storage.
+          // Save in the target's auxilary storage.
+          //
+          t.data (match_data {p, timestamp_nonexistent});
           return true;
         }
       }
@@ -79,6 +87,7 @@ namespace build2
     append_lib_options (const scope& bs,
                         cstrings& args,
                         const target& t,
+                        action act,
                         lorder lo) const
     {
       auto opt = [&args, this] (
@@ -103,18 +112,20 @@ namespace build2
 
       // Note that here we don't need to see group members (see apply()).
       //
-      for (const prerequisite& p: const_group_prerequisites (t))
+      for (const prerequisite& p: group_prerequisites (t))
       {
-        const target* pt (p.target); // Already searched and matched.
+        // Should be already searched and matched.
+        //
+        const target* pt (p.target.load (memory_order_consume));
 
         bool a;
 
         if (const lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
         else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
           continue;
 
-        process_libraries (bs, lo, sys_lib_dirs,
+        process_libraries (act, bs, lo, sys_lib_dirs,
                            pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
@@ -124,6 +135,7 @@ namespace build2
     hash_lib_options (const scope& bs,
                       sha256& cs,
                       const target& t,
+                      action act,
                       lorder lo) const
     {
       auto opt = [&cs, this] (
@@ -143,18 +155,20 @@ namespace build2
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (const prerequisite& p: const_group_prerequisites (t))
+      for (const prerequisite& p: group_prerequisites (t))
       {
-        const target* pt (p.target); // Already searched and matched.
+        // Should be already searched and matched.
+        //
+        const target* pt (p.target.load (memory_order_consume));
 
         bool a;
 
         if (const lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
         else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
           continue;
 
-        process_libraries (bs, lo, sys_lib_dirs,
+        process_libraries (act, bs, lo, sys_lib_dirs,
                            pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
@@ -167,6 +181,7 @@ namespace build2
     append_lib_prefixes (const scope& bs,
                          prefix_map& m,
                          target& t,
+                         action act,
                          lorder lo) const
     {
       auto opt = [&m, this] (
@@ -186,30 +201,32 @@ namespace build2
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (prerequisite& p: group_prerequisites (t))
+      for (const prerequisite& p: group_prerequisites (t))
       {
-        target* pt (p.target); // Already searched and matched.
+        // Should be already searched and matched.
+        //
+        const target* pt (p.target.load (memory_order_consume));
 
         bool a;
 
-        if (lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, lo))->is_a<liba> ();
+        if (const lib* l = pt->is_a<lib> ())
+          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
         else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
           continue;
 
-        process_libraries (bs, lo, sys_lib_dirs,
+        process_libraries (act, bs, lo, sys_lib_dirs,
                            pt->as<file> (), a,
                            nullptr, nullptr, optf);
       }
     }
 
     recipe compile::
-    apply (slock& ml, action a, target& xt) const
+    apply (action act, target& xt) const
     {
       tracer trace (x, "compile::apply");
 
       file& t (xt.as<file> ());
-      const match_data& md (t.data<match_data> ());
+      match_data& md (t.data<match_data> ());
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -219,71 +236,77 @@ namespace build2
 
       // Derive file name from target name.
       //
-      if (t.path ().empty ())
+      const char* e (nullptr);
+
+      if (tsys == "win32-msvc")
       {
-        const char* e (nullptr);
-
-        if (tsys == "win32-msvc")
+        switch (ct)
         {
-          switch (ct)
-          {
-          case otype::e: e = "exe.obj"; break;
-          case otype::a: e = "lib.obj"; break;
-          case otype::s: e = "dll.obj"; break;
-          }
+        case otype::e: e = "exe.obj"; break;
+        case otype::a: e = "lib.obj"; break;
+        case otype::s: e = "dll.obj"; break;
         }
-        else if (tsys == "mingw32")
-        {
-          switch (ct)
-          {
-          case otype::e: e = "exe.o"; break;
-          case otype::a: e = "a.o";   break;
-          case otype::s: e = "dll.o"; break;
-          }
-        }
-        else if (tsys == "darwin")
-        {
-          switch (ct)
-          {
-          case otype::e: e = "o";       break;
-          case otype::a: e = "a.o";     break;
-          case otype::s: e = "dylib.o"; break;
-          }
-        }
-        else
-        {
-          switch (ct)
-          {
-          case otype::e: e = "o"; break;
-          case otype::a: e = "a.o"; break;
-          case otype::s: e = "so.o"; break;
-          }
-        }
-
-        t.derive_path (e);
       }
+      else if (tsys == "mingw32")
+      {
+        switch (ct)
+        {
+        case otype::e: e = "exe.o"; break;
+        case otype::a: e = "a.o";   break;
+        case otype::s: e = "dll.o"; break;
+        }
+      }
+      else if (tsys == "darwin")
+      {
+        switch (ct)
+        {
+        case otype::e: e = "o";       break;
+        case otype::a: e = "a.o";     break;
+        case otype::s: e = "dylib.o"; break;
+        }
+      }
+      else
+      {
+        switch (ct)
+        {
+        case otype::e: e = "o"; break;
+        case otype::a: e = "a.o"; break;
+        case otype::s: e = "so.o"; break;
+        }
+      }
+
+      const path& tp (t.derive_path (e));
 
       // Inject dependency on the output directory.
       //
-      fsdir* dir (inject_fsdir (ml, a, t));
+      const fsdir* dir (inject_fsdir (act, t));
 
-      // Search and match all the existing prerequisites. The injection code
-      // takes care of the ones it is adding.
+      // Match all the existing prerequisites. The injection code takes care
+      // of the ones it is adding.
       //
       // When cleaning, ignore prerequisites that are not in the same or a
       // subdirectory of our project root.
       //
+      auto& pts (t.prerequisite_targets);
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
-      for (prerequisite_member p: group_prerequisite_members (ml, a, t))
+      // Start asynchronous matching of prerequisites. Wait with unlocked
+      // phase to allow phase switching.
+      //
+      wait_guard wg (target::count_busy (), t.task_count, true);
+
+      size_t start (pts.size ()); // Index of the first to be added.
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
+        const target* pt (nullptr);
+
         // A dependency on a library is there so that we can get its
         // *.export.poptions. This is the "library meta-information
         // protocol". See also append_lib_options().
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
-          if (a.operation () == update_id)
+          if (act.operation () == update_id)
           {
             // Handle imported libraries. We know that for such libraries we
             // don't need to do match() in order to get options (if any, they
@@ -291,53 +314,68 @@ namespace build2
             //
             if (p.proj ())
             {
-              if (search_library (sys_lib_dirs,
+              if (search_library (act,
+                                  sys_lib_dirs,
                                   usr_lib_dirs,
                                   p.prerequisite) != nullptr)
                 continue;
             }
 
-            target* pt (&p.search ());
+            pt = &p.search ();
 
-            if (lib* l = pt->is_a<lib> ())
-              pt = &link_member (*l, lo);
-
-            // Making sure it is executed before us will only restrict
-            // parallelism. But we do need to match it in order to get its
-            // imports resolved and prerequisite_targets populated. So we
-            // match it but then unmatch if it is safe. And thanks to the
-            // two-pass prerequisite search & match in link::apply() it will
-            // be safe unless someone is building an obj?{} target directory.
-            //
-            if (build2::match (ml, a, *pt))
-              unmatch (a, *pt);
-            else
-              t.prerequisite_targets.push_back (pt);
+            if (const lib* l = pt->is_a<lib> ())
+              pt = &link_member (*l, act, lo);
           }
 
           continue;
         }
+        else
+        {
+          pt = &p.search ();
 
-        target& pt (p.search ());
+          if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+            continue;
+        }
 
-        if (a.operation () == clean_id && !pt.dir.sub (rs.out_path ()))
-          continue;
+        match_async (act, *pt, target::count_busy (), t.task_count);
+        pts.push_back (pt);
+      }
 
-        build2::match (ml, a, pt);
-        t.prerequisite_targets.push_back (&pt);
+      wg.wait ();
+
+      // Finish matching all the targets that we have started.
+      //
+      for (size_t i (start), n (pts.size ()); i != n; ++i)
+      {
+        const target*& pt (pts[i]);
+
+        // Making sure a library is updated before us will only restrict
+        // parallelism. But we do need to match it in order to get its imports
+        // resolved and prerequisite_targets populated. So we match it but
+        // then unmatch if it is safe. And thanks to the two-pass prerequisite
+        // match in link::apply() it will be safe unless someone is building
+        // an obj?{} target directory.
+        //
+        if (build2::match (act,
+                           *pt,
+                           pt->is_a<liba> () || pt->is_a<libs> ()
+                           ? unmatch::safe
+                           : unmatch::none))
+          pt = nullptr; // Ignore in execute.
+
       }
 
       // Inject additional prerequisites. We only do it when performing update
       // since chances are we will have to update some of our prerequisites in
       // the process (auto-generated source code).
       //
-      if (a == perform_update_id)
+      if (act == perform_update_id)
       {
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
         // above.
         //
-        file& src (*md.src.search ().is_a<file> ());
+        const file& src (*md.src.search ().is_a<file> ());
 
         // Make sure the output directory exists.
         //
@@ -351,9 +389,21 @@ namespace build2
         // things.
         //
         if (dir != nullptr)
-          execute_direct (a, *dir);
+        {
+          // We can do it properly by using execute_direct(). But this means
+          // we will be switching to the execute phase with all the associated
+          // overheads. At the same time, in case of update, creation of a
+          // directory is not going to change the external state in any way
+          // that would affect any parallel efforts in building the internal
+          // state. So we are just going to create the directory directly.
+          // Note, however, that we cannot modify the fsdir{} target since
+          // this can very well be happening in parallel. But that's not a
+          // problem since fsdir{}'s update is idempotent.
+          //
+          fsdir_rule::perform_update_direct (act, t);
+        }
 
-        depdb dd (t.path () + ".d");
+        depdb dd (tp + ".d");
 
         // First should come the rule name/version.
         //
@@ -379,7 +429,7 @@ namespace build2
 
         // Hash *.export.poptions from prerequisite libraries.
         //
-        hash_lib_options (bs, cs, t, lo);
+        hash_lib_options (bs, cs, t, act, lo);
 
         // Extra system header dirs (last).
         //
@@ -410,15 +460,13 @@ namespace build2
         // compiler, options, or source file), or if the database is newer
         // than the target (interrupted update) then force the target update.
         //
-        if (dd.writing () || dd.mtime () > t.mtime ())
-          t.mtime (timestamp_nonexistent);
+        md.dd_mtime = dd.writing () ? timestamp_nonexistent : dd.mtime ();
 
-        inject (ml, a, t, lo, src, dd);
-
+        inject (act, t, lo, src, dd);
         dd.close ();
       }
 
-      switch (a)
+      switch (act)
       {
       case perform_update_id: return [this] (action a, const target& t)
         {
@@ -466,7 +514,7 @@ namespace build2
     void compile::
     append_prefixes (prefix_map& m, const target& t, const variable& var) const
     {
-      tracer trace (x, "append_prefixes");
+      tracer trace (x, "compile::append_prefixes");
 
       // If this target does not belong to any project (e.g, an
       // "imported as installed" library), then it can't possibly
@@ -558,7 +606,7 @@ namespace build2
     auto compile::
     build_prefix_map (const scope& bs,
                       target& t,
-                      lorder lo) const -> prefix_map
+                      action act, lorder lo) const -> prefix_map
     {
       prefix_map m;
 
@@ -569,7 +617,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (bs, m, t, lo);
+      append_lib_prefixes (bs, m, t, act, lo);
 
       return m;
     }
@@ -748,12 +796,7 @@ namespace build2
     }
 
     void compile::
-    inject (slock& ml,
-            action a,
-            target& t,
-            lorder lo,
-            file& src,
-            depdb& dd) const
+    inject (action act, target& t, lorder lo, const file& src, depdb& dd) const
     {
       tracer trace (x, "compile::inject");
 
@@ -762,12 +805,12 @@ namespace build2
       // If things go wrong (and they often do in this area), give the user a
       // bit extra context.
       //
-      auto g (
-        make_exception_guard (
-          [&src]()
-          {
-            info << "while extracting header dependencies from " << src;
-          }));
+      auto df = make_diag_frame (
+        [&src](const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info << "while extracting header dependencies from " << src;
+        });
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -777,14 +820,14 @@ namespace build2
       const process_path* xc (nullptr);
       cstrings args;
 
-      auto init_args = [&ml, &t, lo, &src, &rs, &bs, &xc, &args, this] ()
+      auto init_args = [&t, act, lo, &src, &rs, &bs, &xc, &args, this] ()
       {
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (bs, args, t, lo);
+        append_lib_options (bs, args, t, act, lo);
 
         append_options (args, t, c_poptions);
         append_options (args, t, x_poptions);
@@ -904,18 +947,35 @@ namespace build2
       // (which causes the target state to be automatically set to unchanged)
       // if the file is known to be up to date.
       //
-      auto update = [&trace, a] (path_target& pt, timestamp ts) -> bool
+      auto update = [&trace, act] (const path_target& pt, timestamp ts) -> bool
       {
-        target_state os (pt.synchronized_state ()); //@@ MT? matched?
+        target_state os (pt.matched_state (act));
 
-        if (os != target_state::unchanged)
+        if (os == target_state::unchanged)
         {
-          // We only want to restart if our call to execute() actually
-          // caused an update. In particular, the target could already
-          // have been in target_state::changed because of a dependency
-          // extraction run for some other source file.
+          if (ts == timestamp_unknown)
+            return false;
+          else
+          {
+            // We expect the timestamp to be known (i.e., existing file).
+            //
+            timestamp mt (pt.mtime ()); // @@ MT perf: know target state.
+            assert (mt != timestamp_unknown);
+            return mt > ts;
+          }
+        }
+        else
+        {
+          // We only want to restart if our call to execute() actually caused
+          // an update. In particular, the target could already have been in
+          // target_state::changed because of a dependency extraction run for
+          // some other source file.
           //
-          target_state ns (execute_direct (a, pt)); //@@ MT extenal modification sync.
+          // @@ MT perf: so we are going to switch the phase and execute for
+          //    any generated header.
+          //
+          phase_switch ps (run_phase::execute);
+          target_state ns (execute_direct (act, pt));
 
           if (ns != os && ns != target_state::unchanged)
           {
@@ -924,9 +984,9 @@ namespace build2
                           << "; new state " << ns;});
             return true;
           }
+          else
+            return ts != timestamp_unknown ? pt.newer (ts) : false;
         }
-
-        return ts != timestamp_unknown ? pt.newer (ts) : false;
       };
 
       // Update and add a header file to the list of prerequisite targets.
@@ -934,12 +994,13 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &ml, &update, &pm, a, &t, lo, &dd, &bs, this]
+      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
         //
-        auto find = [&trace, this] (const path& f, bool insert) -> path_target*
+        auto find = [&trace, this] (
+          const path& f, bool insert) -> const path_target*
         {
           // Split the name into its directory part, the name part, and
           // extension. Here we can assume the name part is a valid filesystem
@@ -997,7 +1058,7 @@ namespace build2
           //
           // @@ OPT: move d, out, n
           //
-          target* r;
+          const target* r;
           if (insert)
             r = &search (*tt, d, out, n, &e, nullptr);
           else
@@ -1009,10 +1070,10 @@ namespace build2
             r = targets.find (*tt, d, out, n, e, trace);
           }
 
-          return static_cast<path_target*> (r);
+          return static_cast<const path_target*> (r);
         };
 
-        path_target* pt (nullptr);
+        const path_target* pt (nullptr);
 
         // If it's not absolute then it does not exist.
         //
@@ -1029,7 +1090,7 @@ namespace build2
           // then we would have failed below.
           //
           if (pm.empty ())
-            pm = build_prefix_map (bs, t, lo);
+            pm = build_prefix_map (bs, t, act, lo);
 
           // First try the whole file. Then just the directory.
           //
@@ -1097,16 +1158,13 @@ namespace build2
           pt = find (f, true);
         }
 
-        // Assign path.
+        // Cache the path.
         //
-        if (pt->path ().empty ())
-          pt->path (move (f));
-        else
-          assert (pt->path () == f);
+        const path& pp (pt->path (move (f)));
 
         // Match to a rule.
         //
-        build2::match (ml, a, *pt);
+        build2::match (act, *pt);
 
         // Update.
         //
@@ -1121,7 +1179,7 @@ namespace build2
         // update).
         //
         if (!cache)
-          dd.expect (pt->path ());
+          dd.expect (pp);
 
         // Add to our prerequisite target list.
         //
@@ -1419,9 +1477,11 @@ namespace build2
     msvc_filter_cl (ifdstream&, const path& src);
 
     target_state compile::
-    perform_update (action a, const target& xt) const
+    perform_update (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
+      const path& tp (t.path ());
+      const match_data& md (t.data<match_data> ());
 
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites
@@ -1429,7 +1489,16 @@ namespace build2
       //
       const file* s;
       {
-        auto p (execute_prerequisites<file> (x_src, a, t, t.mtime ()));
+        timestamp mt;
+
+        // If the depdb was overwritten or it's newer than the target, then
+        // do unconditional update.
+        //
+        if (md.dd_mtime == timestamp_nonexistent ||
+            md.dd_mtime > (mt = t.load_mtime ()))
+          mt = timestamp_nonexistent;
+
+        auto p (execute_prerequisites<file> (x_src, act, t, mt));
 
         if ((s = p.first) == nullptr)
           return p.second;
@@ -1447,7 +1516,7 @@ namespace build2
       // Translate paths to relative (to working directory) ones. This
       // results in easier to read diagnostics.
       //
-      path relo (relative (t.path ()));
+      path relo (relative (tp));
       path rels (relative (s->path ()));
 
       append_options (args, t, c_poptions);
@@ -1455,7 +1524,7 @@ namespace build2
 
       // Add *.export.poptions from prerequisite libraries.
       //
-      append_lib_options (bs, args, t, lo);
+      append_lib_options (bs, args, t, act, lo);
 
       // Extra system header dirs (last).
       //
@@ -1646,14 +1715,14 @@ namespace build2
     }
 
     target_state compile::
-    perform_clean (action a, const target& xt) const
+    perform_clean (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
 
       if (cid == "msvc")
-        return clean_extra (a, t, {".d", ".idb", ".pdb"});
+        return clean_extra (act, t, {".d", ".idb", ".pdb"});
       else
-        return clean_extra (a, t, {".d"});
+        return clean_extra (act, t, {".d"});
     }
   }
 }

@@ -22,7 +22,6 @@ EOI
 $* <'./: foo/' 2>>/EOE != 0
 error: no explicit target for prerequisite ../:dir{foo/}
   info: did you forget to include the corresponding buildfile?
-info: while applying rule alias to update dir{../}
 EOE
 
 : basic

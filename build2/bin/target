@@ -51,12 +51,6 @@ namespace build2
     public:
       using target::target;
 
-      // Group members.
-      //
-      const_ptr<obje> e = nullptr;
-      const_ptr<obja> a = nullptr;
-      const_ptr<objs> s = nullptr;
-
     public:
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
@@ -81,26 +75,32 @@ namespace build2
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
+
+      virtual const target_type&
+      dynamic_type () const override {return static_type;}
     };
 
-    class lib: public target
+    // Standard layout type compatible with group_view's const target*[2].
+    //
+    struct lib_members
+    {
+      const liba* a = nullptr;
+      const libs* s = nullptr;
+    };
+
+    class lib: public target, public lib_members
     {
     public:
       using target::target;
 
-      // Group members.
-      //
-      const_ptr<liba> a = nullptr;
-      const_ptr<libs> s = nullptr;
+      virtual group_view
+      group_members (action_type) const override;
 
     public:
       static const target_type static_type;
 
-      virtual const target_type& dynamic_type () const override
-      {
-        return static_type;
-      }
+      virtual const target_type&
+      dynamic_type () const override {return static_type;}
     };
 
     // Windows import library.

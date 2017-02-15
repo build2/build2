@@ -11,7 +11,7 @@ project = test
 amalgamation =
 EOI
 
-test.options += --jobs 1 --quiet --buildfile -
+test.options += --serial-stop --quiet --buildfile -
 
 # By default just load the buildfile.
 #

@@ -39,19 +39,19 @@ namespace build2
     // alias_rule
     //
     match_result alias_rule::
-    match (slock&, action, target&, const string&) const
+    match (action, target&, const string&) const
     {
       return true;
     }
 
     recipe alias_rule::
-    apply (slock& ml, action a, target& t) const
+    apply (action a, target& t) const
     {
       tracer trace ("install::alias_rule::apply");
 
-      for (prerequisite& p: group_prerequisites (t))
+      for (const prerequisite& p: group_prerequisites (t))
       {
-        target& pt (search (p));
+        const target& pt (search (p));
 
         // Check if this prerequisite is explicitly "not installable",
         // that is, there is the 'install' variable and its value is
@@ -73,7 +73,7 @@ namespace build2
           continue;
         }
 
-        build2::match (ml, a, pt);
+        build2::match (a, pt);
         t.prerequisite_targets.push_back (&pt);
       }
 
@@ -91,7 +91,7 @@ namespace build2
                    "insufficient space");
 
     match_result file_rule::
-    match (slock&, action a, target& t, const string&) const
+    match (action a, target& t, const string&) const
     {
       // First determine if this target should be installed (called
       // "installable" for short).
@@ -118,15 +118,15 @@ namespace build2
       return mr;
     }
 
-    target* file_rule::
-    filter (slock&, action, target& t, prerequisite_member p) const
+    const target* file_rule::
+    filter (action, const target& t, prerequisite_member p) const
     {
-      target& pt (p.search ());
+      const target& pt (p.search ());
       return pt.in (t.root_scope ()) ? &pt : nullptr;
     }
 
     recipe file_rule::
-    apply (slock& ml, action a, target& t) const
+    apply (action a, target& t) const
     {
       match_data md (move (t.data<match_data> ()));
       t.clear_data (); // In case delegated-to rule (or the rule that overrides
@@ -150,7 +150,7 @@ namespace build2
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
-      auto r (group_prerequisite_members (ml, a, t));
+      auto r (group_prerequisite_members (a, t));
       for (auto i (r.begin ()); i != r.end (); ++i)
       {
         prerequisite_member p (*i);
@@ -163,7 +163,7 @@ namespace build2
 
         // Let a customized rule have its say.
         //
-        target* pt (filter (ml, a, t, p));
+        const target* pt (filter (a, t, p));
         if (pt == nullptr)
           continue;
 
@@ -173,17 +173,13 @@ namespace build2
         if (l && cast<path> (l).string () == "false")
           continue;
 
-        build2::match (ml, a, *pt);
-
         // If the matched rule returned noop_recipe, then the target
         // state will be set to unchanged as an optimization. Use this
         // knowledge to optimize things on our side as well since this
         // will help a lot in case of any static installable content
         // (headers, documentation, etc).
         //
-        if (pt->unchanged ()) //@@ MT?
-          unmatch (a, *pt); // No intent to execute.
-        else
+        if (!build2::match (a, *pt, unmatch::unchanged))
           t.prerequisite_targets.push_back (pt);
 
         // Skip members of ad hoc groups. We handle them explicitly below.
@@ -210,7 +206,7 @@ namespace build2
         // have been found if we signalled that we do not match from
         // match() above.
         //
-        recipe d (match_delegate (ml, a, t, *this).first);
+        recipe d (match_delegate (a, t, *this).first);
 
         // If we have no installable prerequisites, then simply redirect
         // to it.

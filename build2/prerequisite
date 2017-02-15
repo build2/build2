@@ -45,6 +45,8 @@ namespace build2
   ostream&
   operator<< (ostream&, const prerequisite_key&);
 
+  // Note that every data member except for the target is immutable (const).
+  //
   class prerequisite
   {
   public:
@@ -71,9 +73,15 @@ namespace build2
     const optional<string> ext; // Absent if unspecified.
     const scope_type& scope;
 
-    const_ptr<target_type> target; // NULL if not yet resolved. Note that this
-                                   // should always be the "primary target",
-                                   // not a member of a target group.
+    // NULL if not yet resolved. Note that this should always be the "primary
+    // target", not a member of a target group.
+    //
+    // While normally only a matching rule should change this, if the
+    // prerequisite comes from the group, then it's possible that several
+    // rules will try to update it simultaneously. Thus the atomic.
+    //
+    mutable atomic<const target_type*> target {nullptr};
+
   public:
     prerequisite (optional<string> p,
                   const target_type_type& t,
@@ -88,13 +96,12 @@ namespace build2
           out (move (o)),
           name (move (n)),
           ext (move (e)),
-          scope (s),
-          target (nullptr) {}
+          scope (s) {}
 
     // Make a prerequisite from a target.
     //
     explicit
-    prerequisite (target_type&);
+    prerequisite (const target_type&);
 
     // Note that the returned key "tracks" the prerequisite; that is, any
     // updates to the prerequisite's members will be reflected in the key.
@@ -124,6 +131,27 @@ namespace build2
 
     bool
     is_a (const target_type_type& tt) const {return type.is_a (tt);}
+
+  public:
+    prerequisite (prerequisite&& x)
+        : proj (move (x.proj)),
+          type (move (x.type)),
+          dir (move (x.dir)),
+          out (move (x.out)),
+          name (move (x.name)),
+          ext (move (x.ext)),
+          scope (move (x.scope)),
+          target (x.target.load (memory_order_relaxed)) {}
+
+    prerequisite (const prerequisite& x, memory_order o = memory_order_consume)
+        : proj (x.proj),
+          type (x.type),
+          dir (x.dir),
+          out (x.out),
+          name (x.name),
+          ext (x.ext),
+          scope (x.scope),
+          target (x.target.load (o)) {}
   };
 
   inline ostream&
@@ -131,6 +159,8 @@ namespace build2
   {
     return os << p.key ();
   }
+
+  using prerequisites = vector<prerequisite>;
 }
 
 #endif // BUILD2_PREREQUISITE

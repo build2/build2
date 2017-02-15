@@ -219,18 +219,17 @@ namespace build2
 
     template <typename T>
     static T*
-    msvc_search_library (const char* mod,
-                         const process_path& ld,
+    msvc_search_library (const process_path& ld,
                          const dir_path& d,
                          const prerequisite_key& p,
                          otype lt,
                          const char* pfx,
                          const char* sfx,
-                         bool exist)
+                         bool exist,
+                         tracer& trace)
     {
       // Pretty similar logic to search_library().
       //
-      tracer trace (mod, "msvc_search_library");
 
       const optional<string>& ext (p.tk.ext);
       const string& name (*p.tk.name);
@@ -268,21 +267,13 @@ namespace build2
       {
         // Enter the target.
         //
-        auto p (targets.insert (T::static_type,
-                                d,
-                                dir_path (),
-                                name,
-                                e,
-                                true, // Implied.
-                                trace));
-        assert (!exist || !p.second);
-        T& t (p.first.template as<T> ());
+        T* t;
+        common::insert_library (t, name, d, e, exist, trace);
 
-        if (t.path ().empty ())
-          t.path (move (f));
+        t->mtime (mt);
+        t->path (move (f));
 
-        t.mtime (mt);
-        return &t;
+        return t;
       }
 
       return nullptr;
@@ -294,12 +285,15 @@ namespace build2
                         const prerequisite_key& p,
                         bool exist) const
     {
+      tracer trace (x, "msvc_search_static");
+
       liba* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p, exist, this] (
+      auto search = [&r, &ld, &d, &p, exist, &trace, this] (
         const char* pf, const char* sf) -> bool
       {
-        r = msvc_search_library<liba> (x, ld, d, p, otype::a, pf, sf, exist);
+        r = msvc_search_library<liba> (
+          ld, d, p, otype::a, pf, sf, exist, trace);
         return r != nullptr;
       };
 
@@ -324,32 +318,33 @@ namespace build2
     {
       tracer trace (x, "msvc_search_shared");
 
-      libs* r (nullptr);
+      libs* s (nullptr);
 
-      auto search = [&r, &ld, &d, &pk, &trace, exist, this] (
+      auto search = [&s, &ld, &d, &pk, exist, &trace, this] (
         const char* pf, const char* sf) -> bool
       {
-        if (libi* i =
-            msvc_search_library<libi> (x, ld, d, pk, otype::s, pf, sf, exist))
+        if (libi* i = msvc_search_library<libi> (
+              ld, d, pk, otype::s, pf, sf, exist, trace))
         {
-          auto p (targets.insert (libs::static_type,
-                                  d,
-                                  dir_path (),
-                                  *pk.tk.name,
-                                  nullopt,
-                                  true, // Implied.
-                                  trace));
-          assert (!exist || !p.second);
-          r = &p.first.as<libs> ();
+          ulock l (insert_library (s, *pk.tk.name, d, nullopt, exist, trace));
 
-          if (r->member == nullptr)
+          if (!exist)
           {
-            r->mtime (i->mtime ());
-            r->member = i;
+            if (l.owns_lock ())
+              s->member = i;
+            else
+              assert (s->member == i);
+
+            l.unlock ();
+
+            // Presumably there is a DLL somewhere, we just don't know where.
+            //
+            s->mtime (i->mtime ());
+            s->path (path ());
           }
         }
 
-        return r != nullptr;
+        return s != nullptr;
       };
 
       // Try:
@@ -360,7 +355,7 @@ namespace build2
       return
         search ("",    "")    ||
         search ("lib", "")    ||
-        search ("",    "dll") ? r : nullptr;
+        search ("",    "dll") ? s : nullptr;
     }
   }
 }

@@ -17,7 +17,18 @@ namespace build2
   {
   public:
     bool result;
-    action recipe_action = action (); // Used as recipe's action if set.
+
+    // If set, then this is a recipe's action. It must override the original
+    // action. Normally it is "unconditional inner operation". Only
+    // noop_recipe can be overridden.
+    //
+    // It is passed to rule::apply() so that prerequisites are matched for
+    // this action. It is also passed to target::recipe() so that if someone
+    // is matching this target for this action, we won't end-up re-matching
+    // it. However, the recipe itself is executed with the original action
+    // so that it can adjust its logic, if necessary.
+    //
+    action recipe_action = action ();
 
     explicit
     operator bool () const {return result;}
@@ -33,14 +44,21 @@ namespace build2
   // you need to modify some state (e.g., counters or some such), then make
   // sure it is MT-safe.
   //
+  // Note that match() may not be followed by apply() or be called several
+  // times before the following apply() (see resolve_group_members()) which
+  // means that it should be idempotent. The target_data object in the call
+  // to match() may not be the same as target.
+  //
+  // match() can also be called by another rules (see cc/install).
+  //
   class rule
   {
   public:
     virtual match_result
-    match (slock&, action, target&, const string& hint) const = 0;
+    match (action, target&, const string& hint) const = 0;
 
     virtual recipe
-    apply (slock&, action, target&) const = 0;
+    apply (action, target&) const = 0;
   };
 
   // Fallback rule that only matches if the file exists.
@@ -51,10 +69,10 @@ namespace build2
     file_rule () {}
 
     virtual match_result
-    match (slock&, action, target&, const string&) const override;
+    match (action, target&, const string&) const override;
 
     virtual recipe
-    apply (slock&, action, target&) const override;
+    apply (action, target&) const override;
 
     static const file_rule instance;
   };
@@ -65,10 +83,10 @@ namespace build2
     alias_rule () {}
 
     virtual match_result
-    match (slock&, action, target&, const string&) const override;
+    match (action, target&, const string&) const override;
 
     virtual recipe
-    apply (slock&, action, target&) const override;
+    apply (action, target&) const override;
 
     static const alias_rule instance;
   };
@@ -79,16 +97,22 @@ namespace build2
     fsdir_rule () {}
 
     virtual match_result
-    match (slock&, action, target&, const string&) const override;
+    match (action, target&, const string&) const override;
 
     virtual recipe
-    apply (slock&, action, target&) const override;
+    apply (action, target&) const override;
 
     static target_state
     perform_update (action, const target&);
 
     static target_state
     perform_clean (action, const target&);
+
+    // Sometimes, as an optimization, we want to emulate execute_direct()
+    // of fsdir{} without the overhead of switching to the execute phase.
+    //
+    static void
+    perform_update_direct (action, const target&);
 
     static const fsdir_rule instance;
   };
@@ -101,13 +125,13 @@ namespace build2
     fallback_rule () {}
 
     virtual match_result
-    match (slock&, action, target&, const string&) const override
+    match (action, target&, const string&) const override
     {
       return true;
     }
 
     virtual recipe
-    apply (slock&, action, target&) const override {return noop_recipe;}
+    apply (action, target&) const override {return noop_recipe;}
 
     static const fallback_rule instance;
   };

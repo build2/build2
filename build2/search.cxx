@@ -17,7 +17,7 @@ using namespace butl;
 
 namespace build2
 {
-  target*
+  const target*
   search_existing_target (const prerequisite_key& pk)
   {
     tracer trace ("search_existing_target");
@@ -71,16 +71,16 @@ namespace build2
         o.clear ();
     }
 
-    target* t (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
+    const target* t (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
 
     if (t != nullptr)
-      l5 ([&]{trace << "existing target " << t
+      l5 ([&]{trace << "existing target " << *t
                     << " for prerequisite " << pk;});
 
     return t;
   }
 
-  target*
+  const target*
   search_existing_file (const prerequisite_key& cpk)
   {
     tracer trace ("search_existing_file");
@@ -177,19 +177,18 @@ namespace build2
 
     // Has to be a file_target.
     //
-    file& t (dynamic_cast<file&> (r.first));
+    const file& t (dynamic_cast<const file&> (r.first));
 
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
                   << " for prerequisite " << cpk;});
 
-    if (t.path ().empty ())
-      t.path (move (f));
-
     t.mtime (mt);
+    t.path (move (f));
+
     return &t;
   }
 
-  target&
+  const target&
   create_new_target (const prerequisite_key& pk)
   {
     tracer trace ("create_new_target");
@@ -219,11 +218,10 @@ namespace build2
     auto r (
       targets.insert (
         *tk.type, move (d), *tk.out, *tk.name, tk.ext, true, trace));
-    assert (r.second);
 
-    target& t (r.first);
-
-    l5 ([&]{trace << "new target " << t << " for prerequisite " << pk;});
+    const target& t (r.first);
+    l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
+                  << " for prerequisite " << pk;});
     return t;
   }
 }

@@ -41,14 +41,8 @@ namespace build2
 
     // Given the link order return the library member (liba or libs) to link.
     //
-    // Note that the const version assumes you have already called non-const
-    // (which does the search, if necessary).
-    //
-    target&
-    link_member (bin::lib&, lorder);
-
     const target&
-    link_member (const bin::lib&, lorder);
+    link_member (const bin::lib&, action, lorder);
   }
 }
 

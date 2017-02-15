@@ -21,7 +21,7 @@ namespace build2
     {
     public:
       virtual match_result
-      match (slock&, action, target&, const string&) const override;
+      match (action, target&, const string&) const override;
 
       target_state
       perform_script (action, const target&) const;
@@ -31,7 +31,7 @@ namespace build2
     {
     public:
       virtual recipe
-      apply (slock&, action, target&) const override;
+      apply (action, target&) const override;
 
       static target_state
       perform_test (action, const target&);
@@ -41,7 +41,7 @@ namespace build2
     {
     public:
       virtual recipe
-      apply (slock&, action, target&) const override;
+      apply (action, target&) const override;
 
       target_state
       perform_test (action, const target&) const;

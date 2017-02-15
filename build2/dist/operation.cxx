@@ -10,7 +10,6 @@
 #include <build2/target>
 #include <build2/context>
 #include <build2/algorithm>
-#include <build2/scheduler>
 #include <build2/filesystem>
 #include <build2/diagnostics>
 
@@ -29,7 +28,7 @@ namespace build2
     // install <file> <dir>
     //
     static void
-    install (const process_path& cmd, file&, const dir_path&);
+    install (const process_path& cmd, const file&, const dir_path&);
 
     // cd <root> && tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
@@ -61,7 +60,7 @@ namespace build2
 
       // For now we assume all the targets are from the same project.
       //
-      target& t (*static_cast<target*> (ts[0]));
+      const target& t (*static_cast<const target*> (ts[0]));
       const scope* rs (t.base_scope ().root_scope ());
 
       if (rs == nullptr)
@@ -98,63 +97,34 @@ namespace build2
       const string& dist_package (cast<string> (l));
       const process_path& dist_cmd (cast<process_path> (rs->vars["dist.cmd"]));
 
+      // Verify all the targets are from the same project.
+      //
+      for (const void* v: ts)
+      {
+        const target& t (*static_cast<const target*> (v));
+
+        if (rs != t.base_scope ().root_scope ())
+          fail << "target " << t << " is from a different project" <<
+            info << "one dist() meta-operation can handle one project" <<
+            info << "consider using several dist() meta-operations";
+      }
+
       // Match a rule for every operation supported by this project. Skip
       // default_id.
       //
-      auto match = [&trace, &rs, &ts] (const operation_info& o)
-      {
-        // Note that we are not calling operation_pre/post() callbacks
-        // here since the meta operation is dist and we know what we
-        // are doing.
-        //
-        set_current_oif (o);
-        dependency_count = 0;
-
-        action a (dist_id, o.id);
-
-        if (verb >= 6)
-          dump (a);
-
-        {
-          phase_guard pg (run_phase::search_match);
-
-          scheduler::atomic_count task_count (0);
-          {
-            model_slock ml;
-
-            for (void* v: ts)
-            {
-              target& t (*static_cast<target*> (v));
-
-              if (rs != t.base_scope ().root_scope ())
-                fail << "target " << t << " is from a different project" <<
-                  info << "one dist() meta-operation can handle one project" <<
-                  info << "consider using several dist() meta-operations";
-
-              l5 ([&]{trace << diag_doing (a, t);});
-
-              sched.async (task_count,
-                           [a] (target& t)
-                           {
-                             model_slock ml;
-                             build2::match (ml, a, t); // @@ MT exception.
-                           },
-                           ref (t));
-            }
-          }
-          sched.wait (task_count);
-        }
-
-        if (verb >= 6)
-          dump (a);
-      };
-
       for (operations::size_type id (default_id + 1);
            id < rs->operations.size ();
            ++id)
       {
         if (const operation_info* oif = rs->operations[id])
-          match (*oif);
+        {
+          // Note that we are not calling operation_pre/post() callbacks here
+          // since the meta operation is dist and we know what we are doing.
+          //
+          set_current_oif (*oif);
+
+          match (action (dist_id, oif->id), ts); // Standard (perform) match.
+        }
       }
 
       // Add buildfiles that are not normally loaded as part of the
@@ -256,13 +226,20 @@ namespace build2
         if (perform.meta_operation_pre != nullptr)
           perform.meta_operation_pre ();
 
+        // This is a hack since according to the rules we need to completely
+        // reset the state. We could have done that (i.e., saved target names
+        // and then re-searched them in the new tree) but that would just slow
+        // things down while this little cheat seems harmless (i.e., assume
+        // the dist mete-opreation is "compatible" with perform).
+        //
+        size_t on (current_on);
         set_current_mif (perform);
+        current_on = on + 1;
 
         if (perform.operation_pre != nullptr)
           perform.operation_pre (update_id);
 
         set_current_oif (update);
-        dependency_count = 0;
 
         action a (perform_id, update_id);
 
@@ -289,9 +266,9 @@ namespace build2
 
       // Copy over all the files.
       //
-      for (void* v: files)
+      for (const void* v: files)
       {
-        file& t (*static_cast<file*> (v));
+        const file& t (*static_cast<const file*> (v));
 
         // Figure out where this file is inside the target directory.
         //
@@ -369,7 +346,7 @@ namespace build2
     // install <file> <dir>
     //
     static void
-    install (const process_path& cmd, file& t, const dir_path& d)
+    install (const process_path& cmd, const file& t, const dir_path& d)
     {
       dir_path reld (relative (d));
       path relf (relative (t.path ()));

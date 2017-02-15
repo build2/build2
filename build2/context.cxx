@@ -23,18 +23,157 @@ using namespace butl;
 
 namespace build2
 {
-  run_phase phase = run_phase::load;
+  scheduler sched;
 
-  shared_mutex model_mutex;
+  run_phase phase;
+  phase_mutex phase_mutex::instance;
+
+  size_t load_generation;
 
 #ifdef __cpp_thread_local
   thread_local
 #else
   __thread
 #endif
-  slock* model_lock;
+  phase_lock* phase_lock::instance;
 
-  size_t load_generation;
+  void phase_mutex::
+  lock (run_phase p)
+  {
+    {
+      mlock l (m_);
+      bool u (lc_ == 0 && mc_ == 0 && ec_ == 0); // Unlocked.
+
+      // Increment the counter.
+      //
+      condition_variable* v (nullptr);
+      switch (p)
+      {
+      case run_phase::load:    lc_++; v = &lv_; break;
+      case run_phase::match:   mc_++; v = &mv_; break;
+      case run_phase::execute: ec_++; v = &ev_; break;
+      }
+
+      // If unlocked, switch directly to the new phase. Otherwise wait for the
+      // phase switch. Note that in the unlocked case we don't need to notify
+      // since there is nobody waiting (all counters are zero).
+      //
+      if (u)
+        phase = p;
+      else if (phase != p)
+      {
+        sched.deactivate ();
+        for (; phase != p; v->wait (l)) ;
+        l.unlock (); // Important: activate() can block.
+        sched.activate ();
+      }
+    }
+
+    // In case of load, acquire the exclusive access mutex.
+    //
+    if (p == run_phase::load)
+      lm_.lock ();
+  }
+
+  void phase_mutex::
+  unlock (run_phase p)
+  {
+    // In case of load, release the exclusive access mutex.
+    //
+    if (p == run_phase::load)
+      lm_.unlock ();
+
+    {
+      mlock l (m_);
+
+      // Decrement the counter and see if this phase has become unlocked.
+      //
+      bool u (false);
+      switch (p)
+      {
+      case run_phase::load:    u = (--lc_ == 0); break;
+      case run_phase::match:   u = (--mc_ == 0); break;
+      case run_phase::execute: u = (--ec_ == 0); break;
+      }
+
+      // If the phase is unlocked, pick a new phase and notify the waiters.
+      // Note that we notify all load waiters so that they can all serialize
+      // behind the second-level mutex.
+      //
+      if (u)
+      {
+        condition_variable* v;
+
+        if      (lc_ != 0) {phase = run_phase::load;    v = &lv_;}
+        else if (mc_ != 0) {phase = run_phase::match;   v = &mv_;}
+        else if (ec_ != 0) {phase = run_phase::execute; v = &ev_;}
+        else               {phase = run_phase::load;    v = nullptr;}
+
+        if (v != nullptr)
+        {
+          l.unlock ();
+          v->notify_all ();
+        }
+      }
+    }
+  }
+
+  void phase_mutex::
+  relock (run_phase o, run_phase n)
+  {
+    // Pretty much a fused unlock/lock implementation except that we always
+    // switch into the new phase.
+    //
+    assert (o != n);
+
+    if (o == run_phase::load)
+      lm_.unlock ();
+
+    {
+      mlock l (m_);
+      bool u (false);
+
+      switch (o)
+      {
+      case run_phase::load:    u = (--lc_ == 0); break;
+      case run_phase::match:   u = (--mc_ == 0); break;
+      case run_phase::execute: u = (--ec_ == 0); break;
+      }
+
+      // Set if will be waiting or notifying others.
+      //
+      condition_variable* v (nullptr);
+      switch (n)
+      {
+      case run_phase::load:    v = lc_++ != 0 || !u ? &lv_ : nullptr; break;
+      case run_phase::match:   v = mc_++ != 0 || !u ? &mv_ : nullptr; break;
+      case run_phase::execute: v = ec_++ != 0 || !u ? &ev_ : nullptr; break;
+      }
+
+      if (u)
+      {
+        phase = n;
+
+        // Notify others that could be waiting for this phase.
+        //
+        if (v != nullptr)
+        {
+          l.unlock ();
+          v->notify_all ();
+        }
+      }
+      else // phase != n
+      {
+        sched.deactivate ();
+        for (; phase != n; v->wait (l)) ;
+        l.unlock (); // Important: activate() can block.
+        sched.activate ();
+      }
+    }
+
+    if (n == run_phase::load)
+      lm_.lock ();
+  }
 
   const variable* var_src_root;
   const variable* var_out_root;
@@ -53,12 +192,12 @@ namespace build2
   const meta_operation_info* current_mif;
   const operation_info* current_inner_oif;
   const operation_info* current_outer_oif;
-
+  size_t current_on;
   execution_mode current_mode;
 
-  bool keep_going = false;
-
   atomic_count dependency_count;
+
+  bool keep_going = false;
 
   variable_overrides
   reset (const strings& cmd_vars)

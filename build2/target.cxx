@@ -57,6 +57,7 @@ namespace build2
 
   // target
   //
+  const target::prerequisites_type target::empty_prerequisites_;
 
   target::
   ~target ()
@@ -89,50 +90,8 @@ namespace build2
     return *e;
   }
 
-  void target::
-  recipe (action_type a, recipe_type r)
-  {
-    assert (a > action || !recipe_);
-
-    bool override (a == action && recipe_); // See action::operator<.
-
-    // Only noop_recipe can be overridden.
-    //
-    if (override)
-    {
-      recipe_function** f (recipe_.target<recipe_function*> ());
-      assert (f != nullptr && *f == &noop_action);
-    }
-
-    action = a;
-    recipe_ = move (r);
-
-    state_ = target_state::unknown;
-
-    // If this is a noop recipe, then mark the target unchanged so that we
-    // don't waste time executing the recipe.
-    //
-    if (recipe_function** f = recipe_.target<recipe_function*> ())
-    {
-      if (*f == &noop_action)
-        state_ = target_state::unchanged;
-    }
-
-    //@@ MT can this be a relaxed save?
-    //
-    task_count = state_ == target_state::unknown
-      ? count_unexecuted
-      : count_executed;
-
-    // This one is tricky: we don't want to reset the dependents count
-    // if we are merely overriding with a "stronger" recipe.
-    //
-    if (!override)
-      dependents = 0; //@@ MT: either relax or use as match flag?
-  }
-
   group_view target::
-  group_members (action_type)
+  group_members (action_type) const
   {
     assert (false); // Not a group or doesn't expose its members.
     return group_view {nullptr, 0};
@@ -155,6 +114,78 @@ namespace build2
     const scope* r (base_scope ().root_scope ());
     assert (r != nullptr);
     return *r;
+  }
+
+  target_state target::
+  state (action_type a) const
+  {
+    assert (phase == run_phase::match);
+
+    // The tricky aspect here is that we my be re-matching the target for
+    // another (overriding action). Since it is only valid to call this
+    // function after the target has been matched (for this action), we assume
+    // that if the target is busy, then it is being overriden (note that it
+    // cannot be being executed since we are in the match phase).
+    //
+    // But that's not the end of it: in case of a re-match the task count
+    // might have been reset to, say, applied. The only way to know for sure
+    // that there isn't another match "underneath" is to compare actions. But
+    // that can only be done safely if we lock the target. At least we will be
+    // quick (and we don't need to wait since if it's busy, we know it is a
+    // re-match). This logic is similar to lock_impl().
+    //
+    size_t b (target::count_base ());
+    size_t e (task_count.load (memory_order_acquire));
+
+    size_t exec (b + target::offset_executed);
+    size_t lock (b + target::offset_locked);
+    size_t busy (b + target::offset_busy);
+
+    for (;;)
+    {
+      for (; e == lock; e = task_count.load (memory_order_acquire))
+        this_thread::yield ();
+
+      if (e >= busy)
+        return target_state::unchanged; // Override in progress.
+
+      if (e == exec)
+      {
+        // Sanity check: we better not be overriding a recipe for an already
+        // executed target.
+        //
+        assert (action == a);
+
+        return group_state () ? group->state_ : state_;
+      }
+
+      // Try to grab the spin-lock.
+      //
+      if (task_count.compare_exchange_strong (
+            e,
+            lock,
+            memory_order_acq_rel,  // Synchronize on success.
+            memory_order_acquire)) // Synchronize on failure.
+      {
+        break;
+      }
+
+      // Task count changed, try again.
+    }
+
+    // We have the spin-lock. Quickly get the matched action and unlock.
+    //
+    action_type ma (action);
+    task_count.store (e, memory_order_release);
+
+    if (ma > a)
+      return target_state::unchanged; // Overriden.
+
+    // Otherwise we should have a matched target.
+    //
+    assert (ma == a && (e == b + target::offset_applied || e == exec));
+
+    return group_state () ? group->state_ : state_;
   }
 
   pair<lookup, size_t> target::
@@ -230,7 +261,7 @@ namespace build2
   //
   target_set targets;
 
-  target* target_set::
+  const target* target_set::
   find (const target_key& k, tracer& trace) const
   {
     slock sl (mutex_);
@@ -239,7 +270,7 @@ namespace build2
     if (i == map_.end ())
       return nullptr;
 
-    target& t (*i->second);
+    const target& t (*i->second);
     optional<string>& ext (i->first.ext);
 
     if (ext != k.ext)
@@ -283,17 +314,17 @@ namespace build2
     return &t;
   }
 
-  pair<target&, bool> target_set::
-  insert (const target_type& tt,
-          dir_path dir,
-          dir_path out,
-          string name,
-          optional<string> ext,
-          bool implied,
-          tracer& trace)
+  pair<target&, ulock> target_set::
+  insert_locked (const target_type& tt,
+                 dir_path dir,
+                 dir_path out,
+                 string name,
+                 optional<string> ext,
+                 bool implied,
+                 tracer& trace)
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
-    target* t (find (tk, trace));
+    target* t (const_cast<target*> (find (tk, trace)));
 
     if (t == nullptr)
     {
@@ -326,7 +357,7 @@ namespace build2
       {
         t->ext_ = &i->first.ext;
         t->implied = implied;
-        return pair<target&, bool> (*t, true);
+        return pair<target&, ulock> (*t, move (ul));
       }
 
       // The "tail" of find().
@@ -369,7 +400,7 @@ namespace build2
         t->implied = false;
     }
 
-    return pair<target&, bool> (*t, false);
+    return pair<target&, ulock> (*t, ulock ());
   }
 
   ostream&
@@ -449,6 +480,50 @@ namespace build2
     return os;
   }
 
+  // mtime_target
+  //
+  timestamp mtime_target::
+  mtime () const
+  {
+    // Figure out from which target we should get the value.
+    //
+    const mtime_target* t (this);
+
+    switch (phase)
+    {
+    case run_phase::load: break;
+    case run_phase::match:
+      {
+        // Similar logic to state(action) except here we don't distinguish
+        // between original/overridden actions (an overridable action is by
+        // definition a noop and should never need to query the mtime).
+        //
+        size_t c (task_count.load (memory_order_acquire)); // For group_state()
+
+        // Wait out the spin lock to get the meaningful count.
+        //
+        for (size_t lock (target::count_locked ());
+             c == lock;
+             c = task_count.load (memory_order_acquire))
+          this_thread::yield ();
+
+        if (c != target::count_applied () && c != target::count_executed ())
+          break;
+
+        // Fall through.
+      }
+    case run_phase::execute:
+      {
+        if (group_state ())
+          t = &group->as<mtime_target> ();
+
+        break;
+      }
+    }
+
+    return timestamp (duration (t->mtime_.load (memory_order_consume)));
+  }
+
   // path_target
   //
   const string& path_target::
@@ -521,31 +596,14 @@ namespace build2
       }
     }
 
-    const path_type& ep (path ());
-
-    if (ep.empty ())
-      path (move (p));
-    else if (p != ep)
-      fail << "path mismatch for target " << *this <<
-        info << "existing '" << ep << "'" <<
-        info << "derived  '" << p << "'";
-
-    return path ();
-  }
-
-  // file_target
-  //
-  timestamp file::
-  load_mtime () const
-  {
-    const path_type& f (path ());
-    return f.empty () ? timestamp_unknown : file_mtime (f);
+    path (move (p));
+    return path_;
   }
 
   // Search functions.
   //
 
-  target*
+  const target*
   search_target (const prerequisite_key& pk)
   {
     // The default behavior is to look for an existing target in the
@@ -554,12 +612,12 @@ namespace build2
     return search_existing_target (pk);
   }
 
-  target*
+  const target*
   search_file (const prerequisite_key& pk)
   {
     // First see if there is an existing target.
     //
-    if (target* t = search_existing_target (pk))
+    if (const target* t = search_existing_target (pk))
       return t;
 
     // Then look for an existing file in the src tree.
@@ -664,13 +722,13 @@ namespace build2
     false
   };
 
-  static target*
+  static const target*
   search_alias (const prerequisite_key& pk)
   {
     // For an alias we don't want to silently create a target since it will do
     // nothing and it most likely not what the user intended.
     //
-    target* t (search_existing_target (pk));
+    const target* t (search_existing_target (pk));
 
     if (t == nullptr || t->implied)
       fail << "no explicit target for prerequisite " << pk;
@@ -689,14 +747,14 @@ namespace build2
     false
   };
 
-  static target*
+  static const target*
   search_dir (const prerequisite_key& pk)
   {
     tracer trace ("search_dir");
 
     // The first step is like in search_alias(): looks for an existing target.
     //
-    target* t (search_existing_target (pk));
+    const target* t (search_existing_target (pk));
 
     if (t != nullptr && !t->implied)
       return t;
@@ -734,14 +792,15 @@ namespace build2
       // is so. And so it is.
       //
       bool retest (false);
+
+      assert (phase == run_phase::match);
       {
-        // Relock for exclusive access and change to the load phase.
+        // Switch the phase to load.
         //
-        model_rlock rl;
-        phase_guard pg (run_phase::load);
+        phase_switch ps (run_phase::load);
 
         pair<scope&, scope*> sp (
-          switch_scope (*s.rw (rl).root_scope (), out_base));
+          switch_scope (*s.rw ().root_scope (), out_base));
 
         if (sp.second != nullptr) // Ignore scopes out of any project.
         {
@@ -757,6 +816,7 @@ namespace build2
           }
         }
       }
+      assert (phase == run_phase::match);
 
       // If we loaded the buildfile, examine the target again.
       //

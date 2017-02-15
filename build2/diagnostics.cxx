@@ -44,6 +44,15 @@ namespace build2
   //
   uint16_t verb = 0; // Keep disabled until set from options.
 
+  // Diagnostics stack.
+  //
+#ifdef __cpp_thread_local
+  thread_local
+#else
+  __thread
+#endif
+  const diag_frame* diag_frame::stack;
+
   // Diagnostic facility, project specifics.
   //
 
@@ -96,7 +105,7 @@ namespace build2
   const basic_mark error ("error");
   const basic_mark warn  ("warning");
   const basic_mark info  ("info");
-  const basic_mark text  (nullptr);
+  const basic_mark text  (nullptr, nullptr); // No type/frame.
   const fail_mark  fail  ("error");
   const fail_end   endf;
 }

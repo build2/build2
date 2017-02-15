@@ -567,17 +567,17 @@ namespace build2
           //
           if (t != nullptr)
           {
-            if (auto* p = t->is_a<path_target> ())
+            if (auto* pt = t->is_a<path_target> ())
             {
               // Do some sanity checks: the target better be up-to-date with
               // an assigned path.
               //
-              if (p->path ().empty ())
-                fail << "target " << *p << " specified in the test variable "
+              v = pt->path ();
+
+              if (v.empty ())
+                fail << "target " << *pt << " specified in the test variable "
                      << "is out of date" <<
                   info << "consider specifying it as a prerequisite of " << tt;
-
-              v = p->path ();
             }
             else if (t->is_a<alias> ())
               v = path (t->dir);

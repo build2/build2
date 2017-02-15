@@ -18,6 +18,16 @@ using namespace std;
 //
 // <build2/types>
 //
+namespace build2
+{
+  static const char* const run_phase_[] = {"load", "match", "execute"};
+
+  ostream&
+  operator<< (ostream& os, run_phase p)
+  {
+    return os << run_phase_[static_cast<uint8_t> (p)];
+  }
+}
 
 namespace std
 {

@@ -246,10 +246,14 @@ namespace build2
     loaded_module_map modules; // Only on root scope.
 
   public:
-    // Proof of lock for RW access.
+    // RW access.
     //
     scope&
-    rw (const ulock&) const {return const_cast<scope&> (*this);}
+    rw () const
+    {
+      assert (phase == run_phase::load);
+      return const_cast<scope&> (*this);
+    }
 
     // RW access to global scope (RO via global global_scope below).
     //
@@ -340,11 +344,15 @@ namespace build2
       return find (path_cast<dir_path> (p));
     }
 
-    // Proof of lock for RW access.
+    // RW access.
     //
   public:
     scope_map&
-    rw (ulock&) const {return const_cast<scope_map&> (*this);}
+    rw () const
+    {
+      assert (phase == run_phase::load);
+      return const_cast<scope_map&> (*this);
+    }
 
     scope_map&
     rw (scope&) const {return const_cast<scope_map&> (*this);}

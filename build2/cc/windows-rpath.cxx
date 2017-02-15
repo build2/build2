@@ -46,7 +46,10 @@ namespace build2
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
     timestamp link::
-    windows_rpath_timestamp (const file& t, const scope& bs, lorder lo) const
+    windows_rpath_timestamp (const file& t,
+                             const scope& bs,
+                             action act,
+                             lorder lo) const
     {
       timestamp r (timestamp_nonexistent);
 
@@ -91,7 +94,9 @@ namespace build2
 
         // Ok, this is a DLL.
         //
-        timestamp t (l != nullptr ? l->mtime () : file_mtime (f.c_str ()));
+        timestamp t (l != nullptr
+                     ? l->load_mtime ()
+                     : file_mtime (f.c_str ()));
 
         if (t > r)
           r = t;
@@ -104,7 +109,7 @@ namespace build2
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
-          process_libraries (bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, lo, sys_lib_dirs,
                              *f, a != nullptr,
                              imp, lib, nullptr, true);
       }
@@ -118,6 +123,7 @@ namespace build2
     auto link::
     windows_rpath_dlls (const file& t,
                         const scope& bs,
+                        action act,
                         lorder lo) const -> windows_dlls
     {
       windows_dlls r;
@@ -185,7 +191,7 @@ namespace build2
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
-          process_libraries (bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, lo, sys_lib_dirs,
                              *f, a != nullptr,
                              imp, lib, nullptr, true);
       }
@@ -207,6 +213,7 @@ namespace build2
     void link::
     windows_rpath_assembly (const file& t,
                             const scope& bs,
+                            action act,
                             lorder lo,
                             const string& tcpu,
                             timestamp ts,
@@ -244,7 +251,7 @@ namespace build2
 
       windows_dlls dlls;
       if (!empty)
-        dlls = windows_rpath_dlls (t, bs, lo);
+        dlls = windows_rpath_dlls (t, bs, act, lo);
 
       // Clean the assembly directory and make sure it exists. Maybe it would
       // have been faster to overwrite the existing manifest rather than

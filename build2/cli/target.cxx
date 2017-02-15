@@ -4,8 +4,6 @@
 
 #include <build2/cli/target>
 
-#include <build2/filesystem> // file_mtime()
-
 using namespace std;
 using namespace butl;
 
@@ -32,25 +30,15 @@ namespace build2
     // cli.cxx
     //
     group_view cli_cxx::
-    group_members (action_type)
+    group_members (action_type) const
     {
-      static_assert (offsetof (cli_cxx_members, i) -
-                     offsetof (cli_cxx_members, h) == sizeof (target*) * 2,
+      static_assert (sizeof (cli_cxx_members) == sizeof (const target*) * 3,
                      "member layout incompatible with array");
 
       return h != nullptr
-        ? group_view {reinterpret_cast<target* const*> (&h),
+        ? group_view {reinterpret_cast<const target* const*> (&h),
                       (i != nullptr ? 3U : 2U)}
         : group_view {nullptr, 0};
-    }
-
-    timestamp cli_cxx::
-    load_mtime () const
-    {
-      // The rule has been matched which means the members should
-      // be resolved and paths assigned.
-      //
-      return file_mtime (h->path ());
     }
 
     static pair<target*, optional<string>>

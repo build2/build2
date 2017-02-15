@@ -32,5 +32,5 @@ end
 # automatically becoming dir{./}'s prerequisite.
 #
 c = cat >=testscript
-b = $0 --jobs 1 --quiet --buildfile - test <"'test{testscript}: \$target'" \
+b = $0 --serial-stop --quiet --buildfile - test <"'test{testscript}: \$target'" \
 &?test/***

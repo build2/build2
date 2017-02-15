@@ -22,8 +22,8 @@ namespace build2
     install::
     install (data&& d, const link& l): common (move (d)), link_ (l) {}
 
-    target* install::
-    filter (slock& ml, action a, target& t, prerequisite_member p) const
+    const target* install::
+    filter (action a, const target& t, prerequisite_member p) const
     {
       if (t.is_a<exe> ())
       {
@@ -42,37 +42,38 @@ namespace build2
       if ((t.is_a<exe> () || t.is_a<libs> ()) &&
           (p.is_a<lib> () || p.is_a<libs> ()))
       {
-        target* pt (&p.search ());
+        const target* pt (&p.search ());
 
         // If this is the lib{} group, pick a member which we would link.
         //
-        if (lib* l = pt->is_a<lib> ())
-          pt = &link_member (*l, link_order (t.base_scope (), link_type (t)));
+        if (const lib* l = pt->is_a<lib> ())
+          pt = &link_member (
+            *l, a, link_order (t.base_scope (), link_type (t)));
 
         if (pt->is_a<libs> ()) // Can be liba{}.
           return pt->in (t.weak_scope ()) ? pt : nullptr;
       }
 
-      return file_rule::filter (ml, a, t, p);
+      return file_rule::filter (a, t, p);
     }
 
     match_result install::
-    match (slock& ml, action a, target& t, const string& hint) const
+    match (action a, target& t, const string& hint) const
     {
       // @@ How do we split the hint between the two?
       //
 
-      // We only want to handle installation if we are also the
-      // ones building this target. So first run link's match().
+      // We only want to handle installation if we are also the ones building
+      // this target. So first run link's match().
       //
-      match_result r (link_.match (ml, a, t, hint));
-      return r ? file_rule::match (ml, a, t, "") : r;
+      match_result r (link_.match (a, t, hint));
+      return r ? file_rule::match (a, t, "") : r;
     }
 
     recipe install::
-    apply (slock& s, action a, target& t) const
+    apply (action a, target& t) const
     {
-      recipe r (file_rule::apply (s, a, t));
+      recipe r (file_rule::apply (a, t));
 
       // Derive shared library paths and cache them in the target's aux
       // storage if we are (un)installing (used in *_extra() functions below).

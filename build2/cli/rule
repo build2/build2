@@ -22,10 +22,10 @@ namespace build2
       compile () {}
 
       virtual match_result
-      match (slock&, action, target&, const string& hint) const override;
+      match (action, target&, const string&) const override;
 
       virtual recipe
-      apply (slock&, action, target&) const override;
+      apply (action, target&) const override;
 
       static target_state
       perform_update (action, const target&);

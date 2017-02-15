@@ -41,7 +41,7 @@ namespace build2
     path link::
     windows_manifest (const file& t, bool rpath_assembly) const
     {
-      tracer trace (x, "windows_manifest");
+      tracer trace (x, "link::windows_manifest");
 
       const scope& rs (t.root_scope ());
 

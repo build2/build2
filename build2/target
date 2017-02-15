@@ -23,11 +23,14 @@
 
 namespace build2
 {
+  class rule;
   class scope;
   class target;
 
-  target&
-  search (prerequisite&); // From <build2/algorithm>.
+  extern size_t current_on; // From <build/context>.
+
+  const target&
+  search (const prerequisite&); // From <build2/algorithm>.
 
   // Target state.
   //
@@ -106,7 +109,7 @@ namespace build2
   //
   struct group_view
   {
-    target* const* members; // NULL means not yet known.
+    const target* const* members; // NULL means not yet known.
     size_t count;
   };
 
@@ -182,7 +185,7 @@ namespace build2
     // special target_state::group state. You would normally also use the
     // group_recipe for group members.
     //
-    const_ptr<target> group = nullptr;
+    const target* group = nullptr;
 
 
     // What has been described above is a "normal" group. That is, there is
@@ -249,7 +252,7 @@ namespace build2
     // resolve_group_members() from <build2/algorithm>.
     //
     virtual group_view
-    group_members (action_type);
+    group_members (action_type) const;
 
     // Note that the returned key "tracks" the target (except for the
     // extension).
@@ -293,34 +296,46 @@ namespace build2
 
     // Prerequisites.
     //
+    // We use an atomic-empty semantics that allows one to "swap in" a set of
+    // prerequisites if none were specified. This is used to implement
+    // "synthesized" dependencies.
+    //
   public:
-    using prerequisites_type = small_vector<prerequisite, 4>;
-    prerequisites_type prerequisites;
+    using prerequisites_type = build2::prerequisites;
 
-    // Targets to which prerequisites resolve for this recipe. Note
-    // that unlike prerequisite::target, these can be resolved to
-    // group members. NULL means the target should be skipped (or
-    // the rule may simply not add such a target to the list).
-    //
-    // Note also that it is possible the target can vary from
-    // action to action, just like recipes. We don't need to keep
-    // track of the action here since the targets will be updated
-    // if the recipe is updated, normally as part of rule::apply().
-    //
-    // Note that the recipe may modify (mutable) this list.
-    //
-    using prerequisite_targets_type = vector<const target*>;
-    mutable prerequisite_targets_type prerequisite_targets;
+    const prerequisites_type&
+    prerequisites () const;
 
-    // Check if there are any prerequisites, taking into account
-    // group prerequisites.
+    // Swap-in a list of prerequisites. Return false if unsuccessful (i.e.,
+    // some beat us to it). Note that it can be called on const target.
+    //
+    bool
+    prerequisites (prerequisites_type&&) const;
+
+    // Check if there are any prerequisites, taking into account group
+    // prerequisites.
     //
     bool
     has_prerequisites () const
     {
-      return !prerequisites.empty () ||
-        (group != nullptr && !group->prerequisites.empty ());
+      return !prerequisites ().empty () ||
+        (group != nullptr && !group->prerequisites ().empty ());
     }
+
+  private:
+    friend class parser;
+
+    // Note that the state is also used to synchronize the prerequisites
+    // value so we use the release-acquire ordering.
+    //
+    // 0 - absent
+    // 1 - being set
+    // 2 - present
+    //
+    atomic<uint8_t> prerequisites_state_ {0};
+    prerequisites_type prerequisites_;
+
+    static const prerequisites_type empty_prerequisites_;
 
     // Target-specific variables.
     //
@@ -391,7 +406,7 @@ namespace build2
     // variable assignment, dependency extraction, etc) is called implied.
     //
     // The implied flag should only be cleared during the load phase via the
-    // target_set::insert().
+    // MT-safe target_set::insert().
     //
   public:
     bool implied;
@@ -399,68 +414,136 @@ namespace build2
     // Target state.
     //
   public:
-    // Atomic task count that is used during execution to (atomically) track a
-    // subset of the target's state as well as the number of its sub-tasks
-    // (execution of prerequisites).
+    // Atomic task count that is used during match and execution to track the
+    // target's "meta-state" as well as the number of its sub-tasks (e.g.,
+    // busy+1, busy+2, and so on, for instance, number of prerequisites
+    // being matched or executed).
     //
-    // The count starts unexecuted then transitions executing. Executing
-    // transitions (via a decrement) to executed. Once it is executed, then
-    // state_ becomes immutable.
+    // For each operation in a meta-operation batch (current_on) we have a
+    // "band" of counts, [touched, executed], that represent the target
+    // meta-state. Once the next operation is started, this band "moves" thus
+    // automatically resetting the target to "not yet touched" state for this
+    // operation.
+    //
+    // For match we have a further complication in that we may re-match the
+    // target and override with a "stronger" recipe thus re-setting the state
+    // from, say, applied back to touched.
     //
     // The target is said to be synchronized (in this thread) if we have
-    // either observed the task count to reach count_executed or we have
-    // successfully changed it (via compare_exchange) to count_executing.
-    // If the target is synchronized, then we can access and modify (second
-    // case) its state, mtime, etc.
+    // either observed the task count to reach applied or executed or we have
+    // successfully changed it (via compare_exchange) to locked or busy. If
+    // the target is synchronized, then we can access and modify (second case)
+    // its state etc.
     //
-    static const size_t count_unexecuted = 0;
-    static const size_t count_executed   = 1;
-    static const size_t count_executing  = 2;
+    static const size_t offset_touched  = 1; // Has been locked.
+    static const size_t offset_matched  = 2; // Rule has been matched.
+    static const size_t offset_applied  = 3; // Rule has been applied.
+    static const size_t offset_executed = 4; // Recipe has been executed.
+    static const size_t offset_locked   = 5; // Fast (spin) lock.
+    static const size_t offset_busy     = 6; // Slow (wait) lock.
 
-    mutable atomic_count task_count;
+    static size_t count_base     () {return 4 * (current_on - 1);}
 
-    // Return the "stapshot" of the target state. That is, unless the target
-    // has been executed, its state can change asynchronously. If fail is
-    // true then translate target_state::failed to the failed exception.
+    static size_t count_touched  () {return offset_touched  + count_base ();}
+    static size_t count_matched  () {return offset_matched  + count_base ();}
+    static size_t count_applied  () {return offset_applied  + count_base ();}
+    static size_t count_executed () {return offset_executed + count_base ();}
+    static size_t count_locked   () {return offset_locked   + count_base ();}
+    static size_t count_busy     () {return offset_busy     + count_base ();}
+
+    mutable atomic_count task_count {0}; // Start offset_touched - 1.
+
+    // This function can only be called during match if we have observed
+    // (synchronization-wise) that the this target has been matched (i.e.,
+    // the rule has been applied).
     //
     target_state
-    atomic_state (bool fail = true) const;
+    matched_state (action a, bool fail = true) const;
 
-    // During execution this function can only be called if we have observed
+    // This function can only be called during execution if we have observed
     // (synchronization-wise) that this target has been executed.
     //
     target_state
-    synchronized_state (bool fail = true) const;
+    executed_state (bool fail = true) const;
 
     // Number of direct targets that depend on this target in the current
-    // action. It is incremented during the match phase and then decremented
-    // during execution, before running the recipe. As a result, the recipe
-    // can detect the last chance (i.e., last dependent) to execute the
-    // command (see also the first/last execution modes in <operation>).
+    // operation. It is incremented during match and then decremented during
+    // execution, before running the recipe. As a result, the recipe can
+    // detect the last chance (i.e., last dependent) to execute the command
+    // (see also the first/last execution modes in <operation>).
     //
-    // Note that setting a new recipe (which happens when we match the rule
-    // and which in turn is triggered by the first dependent) clears this
-    // counter. However, if the previous action was the same as the current,
-    // then the existing recipe is reused. In this case, however, the counter
-    // should have been decremented to 0 naturally, as part of the previous
-    // action execution.
-    //
-    atomic_count dependents;
+    mutable atomic_count dependents;
 
   protected:
-    friend target_state execute_impl (action, target&) noexcept;
-
-    target_state state_ = target_state::unknown;
-
     // Return fail-untranslated (but group-translated) state assuming the
-    // target is synchronized.
+    // target is executed and synchronized.
     //
     target_state
     state () const;
 
-    // Auxilary data storage.
+    // Version that should be used during search & match after the target has
+    // been matched for this action (see the recipe override).
+    //
+    target_state
+    state (action a) const;
+
+    // Return true if the state comes from the group. Target must be at least
+    // matched.
+    //
+    bool
+    group_state () const;
+
+  public:
+    target_state state_; // Raw state, normally not accessed directly.
+
+    // Recipe.
     //
   public:
+    using recipe_type = build2::recipe;
+    using rule_type = build2::rule;
+
+    action_type action; // Action the rule/recipe is for.
+
+    // Matched rule (pointer to hint_rule_map element). Note that in case of a
+    // direct recipe assignment we may not have a rule.
+    //
+    const pair<const string, reference_wrapper<const rule_type>>* rule;
+
+    // Applied recipe.
+    //
+    recipe_type recipe_;
+
+    // Note that the target must be locked in order to set the recipe.
+    //
+    void
+    recipe (recipe_type);
+
+    // After the target has been matched and synchronized, check if the target
+    // is known to be unchanged. Used for optimizations during search & match.
+    //
+    bool
+    unchanged (action_type a) const
+    {
+      return state (a) == target_state::unchanged;
+    }
+
+    // Targets to which prerequisites resolve for this recipe. Note that
+    // unlike prerequisite::target, these can be resolved to group members.
+    // NULL means the target should be skipped (or the rule may simply not add
+    // such a target to the list).
+    //
+    // Note also that it is possible the target can vary from action to
+    // action, just like recipes. We don't need to keep track of the action
+    // here since the targets will be updated if the recipe is updated,
+    // normally as part of rule::apply().
+    //
+    // Note that the recipe may modify this list.
+    //
+    using prerequisite_targets_type = vector<const target*>;
+    mutable prerequisite_targets_type prerequisite_targets;
+
+    // Auxilary data storage.
+    //
     // A rule that matches (i.e., returns true from its match() function) may
     // use this pad to pass data between its match and apply functions as well
     // as the recipe. After the recipe is executed, the data is destroyed by
@@ -478,17 +561,18 @@ namespace build2
     //
     // Currenly the data is not destroyed until the next match.
     //
-    // Note that the recipe may modify (mutable) the data.
+    // Note that the recipe may modify the data.
     //
     static constexpr size_t data_size = sizeof (string) * 8;
     mutable std::aligned_storage<data_size>::type data_pad;
-    mutable void (*data_dtor) (void*) = nullptr;
+
+    mutable void (*data_dtor) (void*)                = nullptr;
 
     template <typename R,
               typename T = typename std::remove_cv<
                 typename std::remove_reference<R>::type>::type>
     typename std::enable_if<std::is_trivially_destructible<T>::value,T&>::type
-    data (R&& d)
+    data (R&& d) const
     {
       assert (sizeof (T) <= data_size && data_dtor == nullptr);
       return *new (&data_pad) T (forward<R> (d));
@@ -498,7 +582,7 @@ namespace build2
               typename T = typename std::remove_cv<
                 typename std::remove_reference<R>::type>::type>
     typename std::enable_if<!std::is_trivially_destructible<T>::value,T&>::type
-    data (R&& d)
+    data (R&& d) const
     {
       assert (sizeof (T) <= data_size && data_dtor == nullptr);
       T& r (*new (&data_pad) T (forward<R> (d)));
@@ -519,29 +603,6 @@ namespace build2
         data_dtor = nullptr;
       }
     }
-
-    // Recipe.
-    //
-  public:
-    using recipe_type = build2::recipe;
-
-    action_type action; // Action this recipe is for.
-
-    const recipe_type&
-    recipe (action_type a) const {return a > action ? empty_recipe : recipe_;}
-
-    void
-    recipe (action_type, recipe_type);
-
-    // After the recipe has been set (and target synchronized), check if the
-    // target is known to be unchanged. Used for various optimizations during
-    // search & match.
-    //
-    bool
-    unchanged () {return state () == target_state::unchanged;}
-
-  private:
-    recipe_type recipe_;
 
     // Target type info and casting.
     //
@@ -609,6 +670,17 @@ namespace build2
   inline ostream&
   operator<< (ostream& os, const target& t) {return os << t.key ();}
 
+  // Sometimes it is handy to "mark" a pointer to a target (for example, in
+  // prerequisite_targets). We use the last 2 bits in a pointer for that (aka
+  // the "bit stealing" technique). Note that the pointer needs to be unmarked
+  // before it can be usable so care must be taken in the face of exceptions,
+  // etc.
+  //
+  void
+  mark (const target*&, uint8_t = 1);
+
+  uint8_t
+  unmark (const target*&);
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as
@@ -626,35 +698,40 @@ namespace build2
   //
   // For constant iteration use const_group_prerequisites().
   //
-  template <typename T, typename P, typename I>
-  class group_prerequisites_impl
+  class group_prerequisites
   {
   public:
     explicit
-    group_prerequisites_impl (T& t)
+    group_prerequisites (const target& t)
         : t_ (t),
-          g_ (t_.group == nullptr              ||
-              t_.group->member != nullptr      || // Ad hoc group member.
-              t_.group->prerequisites.empty ()
+          g_ (t_.group == nullptr                 ||
+              t_.group->member != nullptr         || // Ad hoc group member.
+              t_.group->prerequisites ().empty ()
               ? nullptr : t_.group) {}
+
+    using prerequisites_type = target::prerequisites_type;
+    using base_iterator      = prerequisites_type::const_iterator;
 
     struct iterator
     {
-      using value_type        = typename I::value_type;
-      using pointer           = typename I::pointer;
-      using reference         = typename I::reference;
-      using difference_type   = typename I::difference_type;
+      using value_type        = base_iterator::value_type;
+      using pointer           = base_iterator::pointer;
+      using reference         = base_iterator::reference;
+      using difference_type   = base_iterator::difference_type;
       using iterator_category = std::bidirectional_iterator_tag;
 
       iterator () {}
-      iterator (T* t, T* g, P* c, I i): t_ (t), g_ (g), c_ (c), i_ (i) {}
+      iterator (const target* t,
+                const target* g,
+                const prerequisites_type* c,
+                base_iterator i): t_ (t), g_ (g), c_ (c), i_ (i) {}
 
       iterator&
       operator++ ()
       {
-        if (++i_ == c_->end () && c_ != &t_->prerequisites)
+        if (++i_ == c_->end () && c_ != &t_->prerequisites ())
         {
-          c_ = &t_->prerequisites;
+          c_ = &t_->prerequisites ();
           i_ = c_->begin ();
         }
         return *this;
@@ -666,9 +743,9 @@ namespace build2
       iterator&
       operator-- ()
       {
-        if (i_ == c_->begin () && c_ == &t_->prerequisites)
+        if (i_ == c_->begin () && c_ == &t_->prerequisites ())
         {
-          c_ = &g_->prerequisites;
+          c_ = &g_->prerequisites ();
           i_ = c_->end ();
         }
 
@@ -692,10 +769,10 @@ namespace build2
       operator!= (const iterator& x, const iterator& y) {return !(x == y);}
 
     private:
-      T* t_ = nullptr;
-      T* g_ = nullptr;
-      P* c_ = nullptr;
-      I  i_;
+      const target*             t_ = nullptr;
+      const target*             g_ = nullptr;
+      const prerequisites_type* c_ = nullptr;
+      base_iterator             i_;
     };
 
     using reverse_iterator = std::reverse_iterator<iterator>;
@@ -703,14 +780,14 @@ namespace build2
     iterator
     begin () const
     {
-      P& c ((g_ != nullptr ? *g_ : t_).prerequisites);
+      auto& c ((g_ != nullptr ? *g_ : t_).prerequisites ());
       return iterator (&t_, g_, &c, c.begin ());
     }
 
     iterator
     end () const
     {
-      P& c (t_.prerequisites);
+      auto& c (t_.prerequisites ());
       return iterator (&t_, g_, &c, c.end ());
     }
 
@@ -723,24 +800,14 @@ namespace build2
     size_t
     size () const
     {
-      return t_.prerequisites.size () +
-        (g_ != nullptr ? g_->prerequisites.size () : 0);
+      return t_.prerequisites ().size () +
+        (g_ != nullptr ? g_->prerequisites ().size () : 0);
     }
 
   private:
-    T& t_;
-    T* g_;
+    const target& t_;
+    const target* g_;
   };
-
-  using group_prerequisites = group_prerequisites_impl<
-    target,
-    target::prerequisites_type,
-    target::prerequisites_type::iterator>;
-
-  using const_group_prerequisites = group_prerequisites_impl<
-    const target,
-    const target::prerequisites_type,
-    target::prerequisites_type::const_iterator>;
 
   // A member of a prerequisite. If 'target' is NULL, then this is the
   // prerequisite itself. Otherwise, it is its member. In this case
@@ -752,8 +819,8 @@ namespace build2
     using prerequisite_type = build2::prerequisite;
     using target_type_type = build2::target_type;
 
-    prerequisite_type& prerequisite;
-    target_type* target;
+    const prerequisite_type& prerequisite;
+    const target_type* target;
 
     template <typename T>
     bool
@@ -800,7 +867,7 @@ namespace build2
         : prerequisite.proj;
     }
 
-    target_type&
+    const target_type&
     search () const
     {
       return target != nullptr ? *target : build2::search (prerequisite);
@@ -848,32 +915,32 @@ namespace build2
   // group_prerequisite_members (a, t)
   // reverse_group_prerequisite_members (a, t)
   //
-  template <typename T>
+  template <typename R>
   class prerequisite_members_range;
 
-  template <typename T>
-  inline prerequisite_members_range<T>
-  prerequisite_members (slock& ml, action a, T&& x, bool members = true)
+  template <typename R>
+  inline prerequisite_members_range<R>
+  prerequisite_members (action a, R&& r, bool members = true)
   {
-    return prerequisite_members_range<T> (ml, a, forward<T> (x), members);
+    return prerequisite_members_range<R> (a, forward<R> (r), members);
   }
 
-  template <typename T>
+  template <typename R>
   class prerequisite_members_range
   {
   public:
-    prerequisite_members_range (slock& l, action a, T&& r, bool m)
-        : l_ (l), a_ (a), members_ (m), r_ (forward<T> (r)), e_ (r_.end ()) {}
+    prerequisite_members_range (action a, R&& r, bool m)
+        : a_ (a), members_ (m), r_ (forward<R> (r)), e_ (r_.end ()) {}
 
-    using base_iterator = decltype (declval<T> ().begin ());
+    using base_iterator = decltype (declval<R> ().begin ());
 
     struct iterator
     {
-      typedef prerequisite_member value_type;
-      typedef const value_type* pointer;
-      typedef const value_type& reference;
-      typedef typename base_iterator::difference_type difference_type;
-      typedef std::forward_iterator_tag iterator_category;
+      using value_type        = prerequisite_member;
+      using pointer           = const value_type*;
+      using reference         = const value_type&;
+      using difference_type   = typename base_iterator::difference_type;
+      using iterator_category = std::forward_iterator_tag;
 
       iterator (): r_ (nullptr) {}
       iterator (const prerequisite_members_range* r, const base_iterator& i)
@@ -904,8 +971,8 @@ namespace build2
 
       value_type operator* () const
       {
-        target* t (k_ != nullptr ? k_:
-                   g_.count != 0 ? g_.members[j_ - 1] : nullptr);
+        const target* t (k_ != nullptr ? k_:
+                         g_.count != 0 ? g_.members[j_ - 1] : nullptr);
 
         return value_type {*i_, t};
       }
@@ -913,11 +980,11 @@ namespace build2
       pointer operator-> () const
       {
         static_assert (
-          std::is_trivially_destructible<prerequisite_member>::value,
+          std::is_trivially_destructible<value_type>::value,
           "prerequisite_member is not trivially destructible");
 
-        target* t (k_ != nullptr ? k_:
-                   g_.count != 0 ? g_.members[j_ - 1] : nullptr);
+        const target* t (k_ != nullptr ? k_:
+                         g_.count != 0 ? g_.members[j_ - 1] : nullptr);
 
         return new (&m_) value_type {*i_, t};
       }
@@ -955,10 +1022,10 @@ namespace build2
       const prerequisite_members_range* r_;
       base_iterator i_;
       group_view g_;
-      size_t j_; // 1-based index, to support enter_group().
-      target* k_; // Current member of ad hoc group or NULL.
-      mutable std::aligned_storage<sizeof (prerequisite_member),
-                                   alignof (prerequisite_member)>::type m_;
+      size_t j_;        // 1-based index, to support enter_group().
+      const target* k_; // Current member of ad hoc group or NULL.
+      mutable typename std::aligned_storage<sizeof (value_type),
+                                            alignof (value_type)>::type m_;
     };
 
     iterator
@@ -968,48 +1035,68 @@ namespace build2
     end () const {return iterator (this, e_);}
 
   private:
-    slock& l_;
     action a_;
     bool members_; // Go into group members by default?
-    T r_;
+    R r_;
     base_iterator e_;
   };
 
   // prerequisite_members(t.prerequisites)
   //
   inline auto
-  prerequisite_members (slock& ml, action a, target& t, bool members = true)
+  prerequisite_members (action a, target& t, bool members = true)
   {
-    return prerequisite_members (ml, a, t.prerequisites, members);
+    return prerequisite_members (a, t.prerequisites (), members);
+  }
+
+  inline auto
+  prerequisite_members (action a, const target& t, bool members = true)
+  {
+    return prerequisite_members (a, t.prerequisites (), members);
   }
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
   //
   inline auto
-  reverse_prerequisite_members (
-    slock& ml, action a, target& t, bool members = true)
+  reverse_prerequisite_members (action a, target& t, bool m = true)
   {
-    return prerequisite_members (
-      ml, a, reverse_iterate (t.prerequisites), members);
+    return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
+  }
+
+  inline auto
+  reverse_prerequisite_members (action a, const target& t, bool m = true)
+  {
+    return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
   }
 
   // prerequisite_members(group_prerequisites (t))
   //
   inline auto
-  group_prerequisite_members (
-    slock& ml, action a, target& t, bool members = true)
+  group_prerequisite_members (action a, target& t, bool m = true)
   {
-    return prerequisite_members (ml, a, group_prerequisites (t), members);
+    return prerequisite_members (a, group_prerequisites (t), m);
+  }
+
+  inline auto
+  group_prerequisite_members (action a, const target& t, bool m = true)
+  {
+    return prerequisite_members (a, group_prerequisites (t), m);
   }
 
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
   //
   inline auto
-  reverse_group_prerequisite_members (
-    slock& ml, action a, target& t, bool members = true)
+  reverse_group_prerequisite_members (action a, target& t, bool m = true)
   {
     return prerequisite_members (
-      ml, a, reverse_iterate (group_prerequisites (t)), members);
+      a, reverse_iterate (group_prerequisites (t)), m);
+  }
+
+  inline auto
+  reverse_group_prerequisite_members (action a, const target& t, bool m = true)
+  {
+    return prerequisite_members (
+      a, reverse_iterate (group_prerequisites (t)), m);
   }
 
   // A target with an unspecified extension is considered equal to the one
@@ -1028,10 +1115,10 @@ namespace build2
 
     // Return existing target or NULL.
     //
-    target*
+    const target*
     find (const target_key& k, tracer& trace) const;
 
-    target*
+    const target*
     find (const target_type& type,
           const dir_path& dir,
           const dir_path& out,
@@ -1043,7 +1130,7 @@ namespace build2
     }
 
     template <typename T>
-    T*
+    const T*
     find (const target_type& type,
           const dir_path& dir,
           const dir_path& out,
@@ -1051,30 +1138,58 @@ namespace build2
           const optional<string>& ext,
           tracer& trace) const
     {
-      return static_cast<T*> (find (type, dir, out, name, ext, trace));
+      return static_cast<const T*> (find (type, dir, out, name, ext, trace));
     }
 
     // As above but ignore the extension.
     //
     template <typename T>
-    T*
+    const T*
     find (const dir_path& dir, const dir_path& out, const string& name) const
     {
       slock l (mutex_);
+
       auto i (
         map_.find (
           target_key {&T::static_type, &dir, &out, &name, nullopt}));
-      return i != map_.end () ? static_cast<T*> (i->second.get ()) : nullptr;
+
+      return i != map_.end ()
+        ? static_cast<const T*> (i->second.get ())
+        : nullptr;
     }
 
+    // If the target was inserted, keep the map exclusive-locked and return
+    // the lock. In this case, the target is effectively still being created
+    // since nobody can see it until the lock is released.
+    //
+    pair<target&, ulock>
+    insert_locked (const target_type&,
+                   dir_path dir,
+                   dir_path out,
+                   string name,
+                   optional<string> ext,
+                   bool implied,
+                   tracer&);
+
     pair<target&, bool>
-    insert (const target_type&,
+    insert (const target_type& tt,
             dir_path dir,
             dir_path out,
             string name,
             optional<string> ext,
             bool implied,
-            tracer&);
+            tracer& t)
+    {
+      auto p (insert_locked (tt,
+                             move (dir),
+                             move (out),
+                             move (name),
+                             move (ext),
+                             implied,
+                             t));
+
+      return pair<target&, bool> (p.first, p.second.owns_lock ());
+    }
 
     // Note that the following versions always enter implied targets.
     //
@@ -1144,67 +1259,65 @@ namespace build2
   public:
     using target::target;
 
-    // Generally, modification time for a target can only be queried after a
-    // rule has been matched since that's where the path is normally gets
-    // assigned (if the path was not assigned and no timestamp was set
-    // manually, this function will return timestamp_unknown). Normally,
-    // however, it would make sense to first execute the rule to get the
-    // "updated" timestamp.
+    // Modification time is an "atomic cash". That is, it can be set at any
+    // time and we assume everything will be ok regardless of the order in
+    // which racing updates happen because we do not modify the external state
+    // (which is the source of timestemps) while updating the internal.
     //
-    // The rule for groups that utilize the group state is as follows:
-    // if it has any members that are mtime_targets, then the group
-    // should be mtime_target and the members get the mtime from it.
+    // The rule for groups that utilize target_state::group is as follows: if
+    // it has any members that are mtime_targets, then the group should be
+    // mtime_target and the members get the mtime from it.
+    //
+    // Note that this function can be called before the target is matched in
+    // which case the value always comes from the target itself. In other
+    // words, that group logic only kicks in once the target is matched.
     //
     timestamp
-    mtime (bool load = true) const
-    {
-      const mtime_target& t (state_ == target_state::group
-                             ? group->as<mtime_target> ()
-                             : *this);
+    mtime () const;
 
-      if (load && t.mtime_ == timestamp_unknown)
-        t.mtime_ = t.load_mtime ();
-
-      return t.mtime_;
-    }
-
-    // Note that while we can cache the mtime at any time, it may be ignored
-    // if the target state is group (see the mtime() accessor).
+    // Note also that while we can cache the mtime, it may be ignored if the
+    // target state is set to group (see above).
     //
     void
-    mtime (timestamp mt) const
-    {
-      mtime_ = mt;
-    }
+    mtime (timestamp) const;
+
+    // If the mtime is unknown, then load it from the filesystem also caching
+    // the result.
+    //
+    // Note: can only be called during executing and must not be used if the
+    // target state is group.
+    //
+    timestamp
+    load_mtime (const path&) const;
 
     // Return true if this target is newer than the specified timestamp.
     //
-    // Note: can only be called on a synchronized target.
+    // Note: can only be called during execute on a synchronized target.
     //
     bool
-    newer (timestamp mt) const
-    {
-      timestamp mp (mtime ());
-
-      // What do we do if timestamps are equal? This can happen, for example,
-      // on filesystems that don't have subsecond resolution. There is not
-      // much we can do here except detect the case where the target was
-      // changed on this run.
-      //
-      return mt < mp || (mt == mp && state () == target_state::changed);
-    }
-
-  protected:
-    // Return timestamp_unknown if the mtime cannot be loaded.
-    //
-    virtual timestamp
-    load_mtime () const = 0;
+    newer (timestamp) const;
 
   public:
     static const target_type static_type;
 
-  private:
-    mutable timestamp mtime_ {timestamp_unknown};
+  protected:
+    // C++17:
+    //
+    // static_assert (atomic<timestamp::rep>::is_always_lock_free,
+    //               "timestamp is not lock-free on this architecture");
+
+#if !defined(ATOMIC_LLONG_LOCK_FREE) || ATOMIC_LLONG_LOCK_FREE != 2
+#  error timestamp is not lock-free on this architecture
+#endif
+
+    // Note that the value is not used to synchronize any other state so we
+    // use the release-consume ordering (i.e., we are only interested in the
+    // mtime value being synchronized).
+    //
+    // Store it as an underlying representation (normally int64_t) since
+    // timestamp is not usable with atomic (non-noexcept default ctor).
+    //
+    mutable atomic<timestamp::rep> mtime_ {timestamp_unknown_rep};
   };
 
   // Filesystem path-based target.
@@ -1216,11 +1329,27 @@ namespace build2
 
     typedef build2::path path_type;
 
+    // Target path is an "atomic consistent cash". That is, it can be set at
+    // any time but any subsequent updates must set the same path. Or, in
+    // other words, once the path is set, it never changes.
+    //
+    // A set empty path may signify special unknown/undetermined location (for
+    // example an installed import library -- we know it's there, just not
+    // exactly where). In this case you would also normally set its mtime. We
+    // used to return a pointer to properly distinguish between not set and
+    // empty but that proved too tedious. Note that this means there could be
+    // a race between path and mtime (unless you lock the target in some other
+    // way; see file_rule) so for this case it makes sense to set the
+    // timestamp first.
+    //
     const path_type&
-    path () const {return path_;}
+    path () const;
 
-    void
-    path (path_type p) {assert (path_.empty ()); path_ = move (p);}
+    const path_type&
+    path (path_type) const;
+
+    timestamp
+    load_mtime () const {return mtime_target::load_mtime (path ());}
 
     // Derive a path from target's dir, name, and, if set, ext. If ext is not
     // set, try to derive it using the target type extension function and
@@ -1254,11 +1383,30 @@ namespace build2
     const string&
     derive_extension (const char* default_ext = nullptr, bool search = false);
 
+    // Const versions of the above that can be used on unlocked targets. Note
+    // that here we don't allow providing any defaults since you probably
+    // should only use this version if everything comes from the target itself
+    // (and is therefore atomic).
+    //
+    const path_type&
+    derive_path () const
+    {
+      return const_cast<path_target*> (this)->derive_path (); // MT-aware.
+    }
+
   public:
     static const target_type static_type;
 
   private:
-    path_type path_;
+    // Note that the state is also used to synchronize the path value so
+    // we use the release-acquire ordering.
+    //
+    // 0 - absent
+    // 1 - being set
+    // 2 - present
+    //
+    mutable atomic<uint8_t> path_state_ {0};
+    mutable path_type path_;
   };
 
   // File target.
@@ -1267,13 +1415,6 @@ namespace build2
   {
   public:
     using path_target::path_target;
-
-  protected:
-    // Note that it is final in order to be consistent with file_rule,
-    // search_existing_file().
-    //
-    virtual timestamp
-    load_mtime () const final;
 
   public:
     static const target_type static_type;
@@ -1469,13 +1610,13 @@ namespace build2
   // The default behavior, that is, look for an existing target in the
   // prerequisite's directory scope.
   //
-  target*
+  const target*
   search_target (const prerequisite_key&);
 
   // First look for an existing target as above. If not found, then look
   // for an existing file in the target-type-specific list of paths.
   //
-  target*
+  const target*
   search_file (const prerequisite_key&);
 }
 

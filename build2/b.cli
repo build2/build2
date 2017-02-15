@@ -244,11 +244,19 @@ namespace build2
     size_t --jobs|-j
     {
       "<num>",
-      "Number of jobs to perform in parallel. This includes both the number of
-       active threads inside the build system as well as the number of external
-       commands (compilers, linkers, etc) started but not yet finished. If this
-       option is not specified, then the number of available hardware threads
-       is used."
+      "Number of active jobs to perform in parallel. This includes both the
+       number of active threads inside the build system as well as the number
+       of external commands (compilers, linkers, etc) started but not yet
+       finished. If this option is not specified, then the number of available
+       hardware threads is used."
+    }
+
+    size_t --max-jobs|-J
+    {
+      "<num>",
+      "Maximum number of jobs (threads) to create. The default is 16x the
+       number of active jobs (\c{--jobs|j}) on 32-bit architectures and 32x
+       on 64-bit. See the build system scheduler implementation for details."
     }
 
     bool --serial-stop|-s

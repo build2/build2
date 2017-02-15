@@ -639,8 +639,6 @@ namespace build2
 
   // variable_map::iterator_adapter
   //
-  extern run_phase phase; // context
-
   template <typename I>
   inline typename I::reference variable_map::iterator_adapter<I>::
   operator* () const

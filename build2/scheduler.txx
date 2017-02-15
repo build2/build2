@@ -66,7 +66,7 @@ namespace build2
     // If there is a spare active thread, wake up (or create) the helper
     // (unless someone already snatched it).
     //
-    if (queued_task_count_ != 0)
+    if (queued_task_count_.load (std::memory_order_consume) != 0)
     {
       lock l (mutex_);
 
@@ -91,7 +91,7 @@ namespace build2
     t.thunk (std::index_sequence_for<A...> ());
 
     atomic_count& tc (*t.task_count);
-    if (--tc <= t.start_count)
-      s.resume (tc); // Resume a waiter, if any.
+    if (tc.fetch_sub (1, memory_order_release) - 1 <= t.start_count)
+      s.resume (tc); // Resume waiters, if any.
   }
 }

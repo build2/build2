@@ -37,7 +37,8 @@ namespace build2
     // search_library() POV.
     //
     bool common::
-    pkgconfig_extract (const scope& s,
+    pkgconfig_extract (action act,
+                       const scope& s,
                        lib& lt,
                        liba* at,
                        libs* st,
@@ -256,7 +257,7 @@ namespace build2
 
       // Now parse --libs into loptions/libs (interface and implementation).
       //
-      auto parse_libs = [&s, &f, sysd, &next, this] (
+      auto parse_libs = [act, &s, &f, sysd, &next, this] (
         const string& lstr, target& t)
       {
         strings lops;
@@ -421,7 +422,8 @@ namespace build2
           prerequisite_key pk {
             nullopt, {&lib::static_type, &out, &out, &name, nullopt}, &s};
 
-          if (lib* lt = static_cast<lib*> (search_library (sysd, usrd, pk)))
+          if (lib* lt = static_cast<lib*> (
+                search_library (act, sysd, usrd, pk)))
           {
             // We used to pick a member but that doesn't seem right since the
             // same target could be used with different link orders.

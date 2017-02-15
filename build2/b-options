@@ -416,6 +416,12 @@ namespace build2
     bool
     jobs_specified () const;
 
+    const size_t&
+    max_jobs () const;
+
+    bool
+    max_jobs_specified () const;
+
     const bool&
     serial_stop () const;
 
@@ -487,6 +493,8 @@ namespace build2
     bool verbose_specified_;
     size_t jobs_;
     bool jobs_specified_;
+    size_t max_jobs_;
+    bool max_jobs_specified_;
     bool serial_stop_;
     bool no_column_;
     bool no_line_;

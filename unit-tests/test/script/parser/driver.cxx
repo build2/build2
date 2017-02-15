@@ -182,8 +182,6 @@ namespace build2
           // be absolute. However, the testscript implementation doesn't
           // really care.
           //
-          ulock ml (model_mutex);
-
           file& tt (
             targets.insert<file> (work,
                                   dir_path (),
@@ -193,7 +191,7 @@ namespace build2
 
           value& v (
             tt.assign (
-              var_pool.rw (ml).insert<target_triplet> (
+              var_pool.rw ().insert<target_triplet> (
                 "test.target", variable_visibility::project)));
 
           v = cast<target_triplet> ((*global_scope)["build.host"]);
@@ -204,8 +202,6 @@ namespace build2
                                         name.leaf ().base ().string (),
                                         name.leaf ().extension (),
                                         trace));
-
-          ml.unlock ();
 
           tt.path (path ("driver"));
           st.path (name);
