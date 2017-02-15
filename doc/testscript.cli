@@ -1169,8 +1169,8 @@ the line is examined in the \c{first_token} mode (see below). If the first
 token is an unquoted word, then the second token of the line is examined in
 the \c{second_token} mode (see below). If it is a variable assignment (either
 \c{+=}, \c{=+}, or \c{=}), then the line type is a variable line. Otherwise,
-it is a test command line. Note that computed variable names are not
-supported.
+it is a test command line. Note that variables with computed names can only
+be set using the \l{#builtins-set \c{set} builtin}.
 
 The Testscript language defines the following distinct lexing modes (or
 contexts):
@@ -2426,6 +2426,46 @@ are supported.
 
   Note that unlike POSIX semantics, just \c{&} does not have a special meaning
   in \i{replacement}.||
+
+
+\h#builtins-set|\c{set}|
+
+\
+set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
+\
+
+Set variable from the \c{stdin} input.
+
+Unless the \c{-e|--exact} option is specified, a single final newline is
+ignored in the input.
+
+If the \c{-n|--newline} option is specified, then the input is split into a
+list of elements at newlines, including a final blank element in case of
+\c{-e|--exact}. Multiple consecutive newlines are not collapsed.
+
+If the \c{-w|--whitespace} option is specified, then the input is split into a
+list of elements at whitespaces, including a final blank element in case of
+\c{-e|--exact}. Multiple consecutive whitespaces (including newlines) are
+collapsed.
+
+If neither \c{-n|--newline} nor \c{-w|--whitespace} is specified, then the
+entire input is used as a single element, including a final newline in case
+of \c{-e|--exact}.
+
+If the \i{attr} argument is specified, then it must contain a list of value
+attributes enclosed in \c{[]}, for example:
+
+\
+sed -s '/foo/bar/' input | set [string] x
+\
+
+Note that this is also the only way to set a variable with a computed name,
+for example:
+
+\
+foo = FOO
+set [null] $foo <-
+\
 
 
 \h#builtins-test|\c{test}|
