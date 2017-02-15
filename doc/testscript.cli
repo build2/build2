@@ -2190,24 +2190,28 @@ cp        <src-file>...  <dst-dir>/
 cp -R|-r  <src-path>...  <dst-dir>/
 \
 
-Copy files and/or directories.
+Copy files and/or directories. The first two forms make a copy of a single
+entity at the specified path. The last two copy one or more entities into the
+specified directory.
 
-If only two arguments are specified and the \c{-R} or \c{-r} option is
-not present, then the first synopsis is assumed where \c{cp} copies
-\i{src-file} to \i{dst-file} failing if either filesystem entry is
-a directory or the \i{src-file} entry does not exist.
+If the last argument does not end with a directory separator and the \c{-R} or
+\c{-r} option is not specified, then the first synopsis is assumed where
+\c{cp} copies \i{src-file} as \i{dst-file} failing if the \i{src-file}
+filesystem entry does not exist or if either filesystem entry is a directory.
 
-If only two arguments are specified, the \c{-R} or \c{-r} option is
-present, and the second argument does not end with a directory
-separator, then the second synopsis is assumed where \c{cp} copies
-\i{src-dir} as \i{dst-dir} failing if \i{src-dir} filesystem entry
-does not exist or is not a directory or if a \i{dst-dir} filesystem
-entry already exists.
+If the last argument does not end with a directory separator and the \c{-R} or
+\c{-r} option is specified, then the second synopsis is assumed where \c{cp}
+copies \i{src-dir} as \i{dst-dir} failing if the \i{src-dir} filesystem entry
+does not exist or is not a directory or if the \i{dst-dir} filesystem entry
+already exists.
 
-If more than two arguments are specified and the \c{-R} or \c{-r} option
-is not present, then the third synopsis is assumed where \c{cp} copies
-two or more \i{src-file} files into the \i{dst-dir} directory as if
-by executing the following command for each file:
+In both these cases \c{cp} also fails if more than two arguments are
+specified.
+
+If the last argument ends with a directory separator and the \c{-R} or \c{-r}
+option is not specified, then the third synopsis is assumed where \c{cp}
+copies one or more \i{src-file} files into the \i{dst-dir} directory as if by
+executing the following command for each file:
 
 \
 cp src-file dst-dir/src-name
@@ -2215,38 +2219,36 @@ cp src-file dst-dir/src-name
 
 Where \i{src-name} is the last path component in \i{src-file}.
 
-In this synopsis \c{cp} fails if a filesystem entry for any of the
-\i{src-file} files does not exist or is a directory or if a \i{dst-dir}
-filesystem entry does not exist or is not a directory. Note also that
-the last argument must end with a directory separator.
+In this case \c{cp} fails if a filesystem entry for any of the \i{src-file}
+files does not exist or is a directory or if the \i{dst-dir} filesystem entry
+does not exist or is not a directory.
 
-Finally, if more than two arguments are specified and the \c{-R} or
-\c{-r} option is present, then the fourth synopsis is assumed where
-\c{cp} copies two or more \i{src-path} files or directories into the
-\i{dst-dir} directory as if by executing the following command for
-each file:
+Finally, if the last argument ends with a directory separator and the \c{-R}
+or \c{-r} option is specified, then the last synopsis is assumed where \c{cp}
+copies one or more \i{src-path} files or directories into the \i{dst-dir}
+directory as if by executing the following command for each file:
 
 \
 cp src-path dst-dir/src-name
 \
 
-And the following command for each directory (\i{src-path} that ends with
-a directory separator):
+And the following command for each directory:
 
 \
 cp -R src-path dst-dir/src-name
 \
 
-Where \i{src-name} is the last path component in \i{src-path}.
+Where \i{src-name} is the last path component in \i{src-path}. The
+determination of whether \i{src-path} is a file or directory is done by
+querying the filesystem entry type.
 
-In this synopsis \c{cp} fails if a corresponding filesystem entry for
-any of the \i{src-path} files and directories does not exist or is
-of a wrong type or if a \i{dst-dir} filesystem entry does not exist
-or is not a directory. Note also that the last argument must end with
-a directory separator.
+In this case \c{cp} fails if a filesystem entry for any of the \i{src-path}
+files/directories does not exist or is of a wrong type or if the \i{dst-dir}
+filesystem entry does not exist or is not a directory.
 
 Newly created files and directories that are inside the script working
 directory are automatically registered for cleanup.
+
 
 \h#builtins-diff|\c{diff}|
 
