@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: test{cleanup expr if pipe redirect regex status} exe{driver} $b
+./: test{cleanup expr if pipe redirect regex set status} exe{driver} $b
 
 test{*}: target = exe{driver}
 

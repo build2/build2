@@ -2457,8 +2457,9 @@ list of elements at newlines, including a final blank element in case of
 
 If the \c{-w|--whitespace} option is specified, then the input is split into a
 list of elements at whitespaces, including a final blank element in case of
-\c{-e|--exact}. Multiple consecutive whitespaces (including newlines) are
-collapsed.
+\c{-e|--exact}. In this mode if \c{-e|--exact} is not specified, then all (and
+not just newline) trailing whitespaces are ignored. Multiple consecutive
+whitespaces (including newlines) are collapsed.
 
 If neither \c{-n|--newline} nor \c{-w|--whitespace} is specified, then the
 entire input is used as a single element, including a final newline in case

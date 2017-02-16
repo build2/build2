@@ -10,11 +10,13 @@
 #include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
 
 #include <build2/regex>
+#include <build2/variable>
 #include <build2/filesystem>
 
 #include <build2/test/common>
 
 #include <build2/test/script/regex>
+#include <build2/test/script/parser>
 #include <build2/test/script/builtin>
 
 using namespace std;
@@ -792,6 +794,203 @@ namespace build2
                             : sp.wd_path.directory ());
       }
 
+      // The set pseudo-builtin: set variable from the stdin input.
+      //
+      // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
+      //
+      // -e|--exact
+      //    Unless the option is specified, a single final newline is ignored
+      //    in the input.
+      //
+      // -n|--newline
+      //    Split the input into a list of elements at newlines, including a
+      //    final blank element in case of -e. Multiple consecutive newlines
+      //    are not collapsed.
+      //
+      // -w|--whitespace
+      //    Split the input into a list of elements at whitespaces, including a
+      //    final blank element in case of -e. Multiple consecutive whitespaces
+      //    (including newlines) are collapsed.
+      //
+      // If the attr argument is specified, then it must contain a list of
+      // value attributes enclosed in [].
+      //
+      static void
+      set_builtin (scope& sp,
+                   const strings& args,
+                   auto_fd in,
+                   const location& ll)
+      {
+        try
+        {
+          // Do not throw when eofbit is set (end of stream reached), and
+          // when failbit is set (read operation failed to extract any
+          // character).
+          //
+          ifdstream cin  (move (in), ifdstream::badbit);
+
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool exact (false);
+          bool newline (false);
+          bool whitespace (false);
+
+          for (; i != e; ++i)
+          {
+            const string& o (*i);
+
+            if (o == "-e" || o == "--exact")
+              exact = true;
+            else if (o == "-n" || o == "--newline")
+              newline = true;
+            else if (o == "-w" || o == "--whitespace")
+              whitespace = true;
+            else
+            {
+              if (*i == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          // Process arguments.
+          //
+          if (i == e)
+            fail (ll) << "missing variable name";
+
+          const string& a (*i++); // Either attributes or variable name.
+          const string* ats (i == e ? nullptr : &a);
+          const string& vname (i == e ? a : *i++);
+
+          if (i != e)
+	    fail (ll) << "unexpected argument";
+
+          if (ats != nullptr && ats->empty ())
+	    fail (ll) << "empty variable attributes";
+
+          if (vname.empty ())
+	    fail (ll) << "empty variable name";
+
+          // Read the input.
+          //
+          cin.peek (); // Sets eofbit for an empty stream.
+
+          names ns;
+          while (!cin.eof ())
+          {
+            // Read next element that depends on the whitespace mode being
+            // enabled or not. For the later case it also make sense to strip
+            // the trailing CRs that can appear while cross-testing Windows
+            // target or as a part of msvcrt junk production (see above).
+            //
+            string s;
+            if (whitespace)
+              cin >> s;
+            else
+            {
+              getline (cin, s);
+
+              while (!s.empty () && s.back () == '\r')
+                s.pop_back ();
+            }
+
+            // If failbit is set then we read nothing into the string as eof is
+            // reached. That in particular means that the stream has trailing
+            // whitespaces (possibly including newlines) if the whitespace mode
+            // is enabled, or the trailing newline otherwise. If so then
+            // we append the "blank" to the variable value in the exact mode
+            // prior to bailing out.
+            //
+            if (cin.fail ())
+            {
+              if (exact)
+              {
+                if (whitespace || newline)
+                  ns.emplace_back (move (s)); // Reuse empty string.
+                else if (ns.empty ())
+                  ns.emplace_back ("\n");
+                else
+                  ns[0].value += '\n';
+              }
+
+              break;
+            }
+
+            if (whitespace || newline || ns.empty ())
+              ns.emplace_back (move (s));
+            else
+            {
+              ns[0].value += '\n';
+              ns[0].value += s;
+            }
+          }
+
+          cin.close ();
+
+          // Set the variable value and attributes. Note that we need to aquire
+          // unique lock before potentially changing the script's variable
+          // pool. The obtained variable reference can safelly be used with no
+          // locking as the variable pool is an associative container
+          // (underneath) and we are only adding new variables into it.
+          //
+          ulock ul (sp.root->var_pool_mutex);
+          const variable& var (sp.root->var_pool.insert (move (vname)));
+          ul.unlock ();
+
+          value& lhs (sp.assign (var));
+
+          // If there are no attributes specified then the variable assignment
+          // is straightforward. Otherwise we will use the build2 parser helper
+          // function.
+          //
+          if (ats == nullptr)
+            lhs.assign (move (ns), &var);
+          else
+          {
+            // Come up with a "path" that contains both the expression line
+            // location as well as the attributes string. The resulting
+            // diagnostics will look like this:
+            //
+            // testscript:10:1: ([x]):1:1: error: unknown value attribute x
+            //
+            path name;
+            {
+              string n (ll.file->string ());
+              n += ':';
+
+              if (!ops.no_line ())
+              {
+                n += to_string (ll.line);
+                n += ':';
+
+                if (!ops.no_column ())
+                {
+                  n += to_string (ll.column);
+                  n += ':';
+                }
+              }
+
+              n += " (";
+              n += *ats;
+              n += ')';
+              name = path (move (n));
+            }
+
+            parser p;
+            p.apply_value_attributes(
+              &var, lhs, value (move (ns)), *ats, token_type::assign, name);
+          }
+        }
+        catch (const io_error& e)
+        {
+          fail (ll) << "set: " << e;
+        }
+      }
+
       static bool
       run_pipe (scope& sp,
                 command_pipe::const_iterator bc,
@@ -864,11 +1063,14 @@ namespace build2
           return normalize (move (p), sp, ll);
         };
 
+        const redirect& in  (c.in.effective ());
+        const redirect& out (c.out.effective ());
+        const redirect& err (c.err.effective ());
+
         // If stdin file descriptor is not open then this is the first pipeline
         // command. Open stdin descriptor according to the redirect specified.
         //
         path isp;
-        const redirect& in (c.in.effective ());
 
         if (ifd.get () != -1)
           assert (in.type == redirect_type::none); // No redirect expected.
@@ -971,6 +1173,40 @@ namespace build2
           case redirect_type::here_doc_regex:
           case redirect_type::here_doc_ref:   assert (false); break;
           }
+        }
+
+        assert (ifd.get () != -1);
+
+        command_pipe::const_iterator nc (bc + 1);
+        bool last (nc == ec);
+
+        // Prior to follow up with opening file descriptors for command
+        // outputs redirects let's check if the command is the set builtin.
+        // Being a builtin syntactically it differs from the regular ones in a
+        // number of ways. It either succeeds or terminates abnormally, so
+        // redirecting stderr is meaningless. It also never produces any output
+        // and may appear only as a terminal command in a pipeline. That means
+        // we can short-circuit here calling the builtin and returning right
+        // after that. Checking that the user didn't specify any meaningless
+        // redirects or exit code check sounds as a right thing to do.
+        //
+        if (c.program.string () == "set")
+        {
+          if (!last)
+            fail (ll) << "set builtin must be the last command in a pipe";
+
+          if (out.type != redirect_type::none)
+            fail (ll) << "set builtin stdout must not be redirected";
+
+          if (err.type != redirect_type::none)
+            fail (ll) << "set builtin stderr must not be redirected";
+
+          if ((c.exit.comparison == exit_comparison::eq) !=
+              (c.exit.status == 0))
+            fail (ll) << "set builtin exit status must not be other than zero";
+
+          set_builtin (sp, c.arguments, move (ifd), ll);
+          return true;
         }
 
         // Open a file for command output redirect if requested explicitly
@@ -1079,7 +1315,6 @@ namespace build2
         };
 
         path osp;
-        const redirect& out (c.out.effective ());
         auto_fd ofd;
 
         // If this is the last command in the pipeline than redirect the
@@ -1096,9 +1331,6 @@ namespace build2
         //    test failures investigation and for tests "tightening".
         //
         fdpipe p;
-        command_pipe::const_iterator nc (bc + 1);
-        bool last (nc == ec);
-
         if (last)
           ofd = open (out, 1, osp);
         else
@@ -1118,7 +1350,6 @@ namespace build2
         }
 
         path esp;
-        const redirect& err (c.err.effective ());
         auto_fd efd (open (err, 2, esp));
 
         // Merge standard streams.
@@ -1143,7 +1374,7 @@ namespace build2
 
         // All descriptors should be open to the date.
         //
-        assert (ifd.get () != -1 && ofd.get () != -1 && efd.get () != -1);
+        assert (ofd.get () != -1 && efd.get () != -1);
 
         optional<process_exit> exit;
         builtin* b (builtins.find (c.program.string ()));

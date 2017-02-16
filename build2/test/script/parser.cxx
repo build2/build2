@@ -3034,7 +3034,8 @@ namespace build2
                           ? scope_->assign (var)
                           : scope_->append (var));
 
-              apply_value_attributes (&var, lhs, move (rhs), kind);
+              build2::parser::apply_value_attributes (
+                &var, lhs, move (rhs), kind);
 
               // If we changes any of the test.* values, then reset the $*,
               // $N special aliases.
@@ -3203,13 +3204,23 @@ namespace build2
         // only look for buildfile variables.
         //
         // Otherwise, every variable that is ever set in a script has been
-        // pre-entered during pre-parse. Which means that if one is not found
-        // in the script pool then it can only possibly be set in the
-        // buildfile.
+        // pre-entered during pre-parse or introduced with the set builtin
+        // during test execution. Which means that if one is not found in the
+        // script pool then it can only possibly be set in the buildfile.
         //
-        const variable* pvar (scope_ != nullptr
-                              ? script_->var_pool.find (name)
-                              : nullptr);
+        // Note that we need to acquire the variable pool lock. The pool can
+        // be changed from multiple threads by the set builtin. The obtained
+        // variable pointer can safelly be used with no locking as the variable
+        // pool is an associative container (underneath) and we are only adding
+        // new variables into it.
+        //
+        const variable* pvar (nullptr);
+
+        if (scope_ != nullptr)
+        {
+          slock sl (script_->var_pool_mutex);
+          pvar = script_->var_pool.find (name);
+        }
 
         return pvar != nullptr
           ? scope_->find (*pvar)
@@ -3267,6 +3278,35 @@ namespace build2
       {
         lexer_ = l;
         base_parser::lexer_ = l;
+      }
+
+      void parser::
+      apply_value_attributes (const variable* var,
+                              value& lhs,
+                              value&& rhs,
+                              const string& attributes,
+                              token_type kind,
+                              const path& name)
+      {
+        path_ = &name;
+
+        istringstream is (attributes);
+        lexer l (is, name, lexer_mode::attribute);
+        set_lexer (&l);
+
+        token t;
+        type tt;
+        next (t, tt);
+
+        if (tt != type::lsbrace && tt != type::eos)
+          fail (t) << "expected '[' instead of " << t;
+
+        attributes_push (t, tt, true);
+
+        if (tt != type::eos)
+          fail (t) << "trailing junk after ']'";
+
+        build2::parser::apply_value_attributes (var, lhs, move (rhs), kind);
       }
 
       // parser::parsed_doc

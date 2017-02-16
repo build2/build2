@@ -108,7 +108,7 @@ namespace build2
     apply_value_attributes (const variable*, // Optional.
                             value& lhs,
                             value&& rhs,
-                            token_type kind);
+                            token_type assign_kind);
 
     // Return the value pack (values can be NULL/typed). Note that for an
     // empty eval context ('()' potentially with whitespaces in between) the

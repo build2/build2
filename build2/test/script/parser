@@ -34,6 +34,19 @@ namespace build2
         void
         pre_parse (istream&, script&);
 
+        // Helpers.
+        //
+        // Parse attribute string and perform attribute-guided assignment.
+        // Issue diagnostics and throw failed in case of an error.
+        //
+        void
+        apply_value_attributes (const variable*, // Optional.
+                                value& lhs,
+                                value&& rhs,
+                                const string& attributes,
+                                token_type assign_kind,
+                                const path& name); // For diagnostics.
+
         // Recursive descent parser.
         //
         // Usually (but not always) parse functions receive the token/type
