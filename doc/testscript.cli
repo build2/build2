@@ -1170,7 +1170,7 @@ token is an unquoted word, then the second token of the line is examined in
 the \c{second_token} mode (see below). If it is a variable assignment (either
 \c{+=}, \c{=+}, or \c{=}), then the line type is a variable line. Otherwise,
 it is a test command line. Note that variables with computed names can only
-be set using the \l{#builtins-set \c{set} builtin}.
+be set using the \l{#builtins-set \c{set} pseudo-builtin}.
 
 The Testscript language defines the following distinct lexing modes (or
 contexts):
@@ -2435,6 +2435,10 @@ set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
 \
 
 Set variable from the \c{stdin} input.
+
+Note that \c{set} is a \i{pseudo-builtin}. In particular, it must be the last
+command in the pipe expression, it either succeeds or terminates abnormally,
+and its \c{stderr} cannot be redirected.
 
 Unless the \c{-e|--exact} option is specified, a single final newline is
 ignored in the input.
