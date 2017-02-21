@@ -2438,7 +2438,15 @@ Set variable from the \c{stdin} input.
 
 Note that \c{set} is a \i{pseudo-builtin}. In particular, it must be the last
 command in the pipe expression, it either succeeds or terminates abnormally,
-and its \c{stderr} cannot be redirected.
+and its \c{stderr} cannot be redirected. Note also that all the variables on
+the command line are expanded before any \c{set} commands are executed, for
+example:
+
+\
+foo = foo
+echo 'bar' | set foo && echo $foo  # foo
+echo $foo                          # bar
+\
 
 Unless the \c{-e|--exact} option is specified, a single final newline is
 ignored in the input.
