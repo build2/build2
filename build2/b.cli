@@ -247,8 +247,8 @@ namespace build2
       "Number of active jobs to perform in parallel. This includes both the
        number of active threads inside the build system as well as the number
        of external commands (compilers, linkers, etc) started but not yet
-       finished. If this option is not specified, then the number of available
-       hardware threads is used."
+       finished. If this option is not specified or specified with the \c{0}
+       value, then the number of available hardware threads is used."
     }
 
     size_t --max-jobs|-J
@@ -262,8 +262,10 @@ namespace build2
     bool --serial-stop|-s
     {
       "Run serially and stop at the first error. This mode is useful to
-       investigate build failured that are caused by build system errors
-       rather than compilation errors."
+       investigate build failures that are caused by build system errors
+       rather than compilation errors. Note that if you don't want to keep
+       going but still want parallel execution, add \c{--jobs|-j} (for example
+       \c{-j 0} for default concurrency)."
     }
 
     bool --no-column

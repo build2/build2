@@ -695,8 +695,9 @@ namespace build2
        << "                     includes both the number of active threads inside the" << ::std::endl
        << "                     build system as well as the number of external commands" << ::std::endl
        << "                     (compilers, linkers, etc) started but not yet finished. If" << ::std::endl
-       << "                     this option is not specified, then the number of available" << ::std::endl
-       << "                     hardware threads is used." << ::std::endl;
+       << "                     this option is not specified or specified with the 0\033[0m" << ::std::endl
+       << "                     value, then the number of available hardware threads is" << ::std::endl
+       << "                     used." << ::std::endl;
 
     os << std::endl
        << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m    Maximum number of jobs (threads) to create. The default is" << ::std::endl
@@ -706,8 +707,11 @@ namespace build2
 
     os << std::endl
        << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
-       << "                     useful to investigate build failured that are caused by" << ::std::endl
-       << "                     build system errors rather than compilation errors." << ::std::endl;
+       << "                     useful to investigate build failures that are caused by" << ::std::endl
+       << "                     build system errors rather than compilation errors. Note" << ::std::endl
+       << "                     that if you don't want to keep going but still want" << ::std::endl
+       << "                     parallel execution, add --jobs|-j\033[0m (for example -j 0\033[0m for" << ::std::endl
+       << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
        << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
