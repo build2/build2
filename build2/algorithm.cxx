@@ -693,22 +693,26 @@ namespace build2
   {
     tracer trace ("inject_fsdir");
 
-    const scope& bs (t.base_scope ());
-    const scope* rs (bs.root_scope ());
-
-    // Handle the outside of any project case. Note that we also used to bail
-    // our of this is the root of the project. But that proved not to be such
-    // a great idea in case of subprojects (e.g., tests/).
-    //
-    if (rs == nullptr)
-      return nullptr;
-
     // If t is a directory (name is empty), say foo/bar/, then t is bar and
     // its parent directory is foo/.
     //
     const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    // Handle the src = out.
+    const scope& bs (scopes.find (d));
+    const scope* rs (bs.root_scope ());
+
+    // If root scope is NULL, then this can mean that we are out of any
+    // project or if the directory is in src_root. In both cases we don't
+    // inject anything.
+    //
+    // Note that we also used to bail out if this is the root of the
+    // project. But that proved not to be such a great idea in case of
+    // subprojects (e.g., tests/).
+    //
+    if (rs == nullptr)
+      return nullptr;
+
+    // Handle the src_root = out_root.
     //
     if (d.sub (rs->src_path ()))
       return nullptr;

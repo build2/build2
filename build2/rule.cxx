@@ -153,12 +153,10 @@ namespace build2
   recipe fsdir_rule::
   apply (action a, target& t) const
   {
-    // Inject dependency on the parent directory. Note that we don't do it for
-    // clean since we shouldn't (and can't possibly, since it's our parent) be
-    // removing it. It also must be first (see perform_update_direct()).
+    // Inject dependency on the parent directory. Note that it must be first
+    // (see perform_update_direct()).
     //
-    if (a.operation () != clean_id)
-      inject_fsdir (a, t);
+    inject_fsdir (a, t);
 
     match_prerequisites (a, t);
 
