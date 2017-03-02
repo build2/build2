@@ -516,9 +516,9 @@ namespace build2
     {
       tracer trace (x, "compile::append_prefixes");
 
-      // If this target does not belong to any project (e.g, an
-      // "imported as installed" library), then it can't possibly
-      // generate any headers for us.
+      // If this target does not belong to any project (e.g, an "imported as
+      // installed" library), then it can't possibly generate any headers for
+      // us.
       //
       const scope* rs (t.base_scope ().root_scope ());
       if (rs == nullptr)
@@ -554,8 +554,7 @@ namespace build2
 
           l6 ([&]{trace << "-I '" << d << "'";});
 
-          // If we are relative or not inside our project root, then
-          // ignore.
+          // If we are relative or not inside our project root, then ignore.
           //
           if (d.relative () || !d.sub (out_root))
             continue;

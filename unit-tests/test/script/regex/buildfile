@@ -7,6 +7,6 @@
 import libs = libbutl%lib{butl}
 src = test/script/regex
 
-exe{driver}: cxx{driver} ../../../../build2/cxx{$src} $libs
+exe{driver}: cxx{driver} ../../../../build2/cxx{$src} ../../../../build2/liba{b} $libs
 
 include ../../../../build2/

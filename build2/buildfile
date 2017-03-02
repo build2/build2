@@ -93,7 +93,13 @@ test/script/{hxx ixx     cxx}{ regex                    } \
 test/script/{hxx         cxx}{ runner                   } \
 test/script/{hxx ixx     cxx}{ script                   } \
 test/script/{hxx         cxx}{ token                    } \
-                               $libs
+                               liba{b} $libs
+
+# Fake utility library (without it code generation does not work).
+#
+liba{b}: {cxx}{ dummy }
+liba{b}: cxx.export.poptions = "-I$out_root" "-I$src_root"
+liba{b}: install = false
 
 # Pass our compiler target to be used as build2 host.
 #
