@@ -209,14 +209,8 @@ namespace build2
       // Load bin.*.config for bin.* modules we may need (see core_init()
       // below).
       //
-      if (auto l = rs["config.bin.lib"])
-      {
-        if (cast<string> (l) != "shared")
-        {
-          if (!cast_false<bool> (rs["bin.ar.config.loaded"]))
-            load_module (rs, rs, "bin.ar.config", loc);
-        }
-      }
+      if (!cast_false<bool> (rs["bin.ar.config.loaded"]))
+        load_module (rs, rs, "bin.ar.config", loc);
 
       if (cid == "msvc")
       {
@@ -281,17 +275,10 @@ namespace build2
       const string& cid (cast<string> (rs["cc.id"]));
       const string& tsys (cast<string> (rs["cc.target.system"]));
 
-      // Load the bin.ar module unless we were asked to only build shared
-      // libraries.
+      // Load the bin.ar module.
       //
-      if (auto l = rs["config.bin.lib"])
-      {
-        if (cast<string> (l) != "shared")
-        {
-          if (!cast_false<bool> (rs["bin.ar.loaded"]))
-            load_module (rs, rs, "bin.ar", loc);
-        }
-      }
+      if (!cast_false<bool> (rs["bin.ar.loaded"]))
+        load_module (rs, rs, "bin.ar", loc);
 
       // In the VC world you link things directly with link.exe so load the
       // bin.ld module.

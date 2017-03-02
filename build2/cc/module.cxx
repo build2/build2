@@ -380,22 +380,16 @@ namespace build2
         r.insert<exe>  (perform_install_id,   x_install, ir);
         r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
 
-        // Only register static object/library rules if the bin.ar module is
-        // loaded (by us or by the user).
-        //
-        if (cast_false<bool> (rs["bin.ar.loaded"]))
-        {
-          r.insert<obja> (perform_update_id,    x_compile, cr);
-          r.insert<obja> (perform_clean_id,     x_compile, cr);
-          r.insert<obja> (configure_update_id,  x_compile, cr);
+        r.insert<obja> (perform_update_id,    x_compile, cr);
+        r.insert<obja> (perform_clean_id,     x_compile, cr);
+        r.insert<obja> (configure_update_id,  x_compile, cr);
 
-          r.insert<liba> (perform_update_id,    x_link, lr);
-          r.insert<liba> (perform_clean_id,     x_link, lr);
-          r.insert<liba> (configure_update_id,  x_link, lr);
+        r.insert<liba> (perform_update_id,    x_link, lr);
+        r.insert<liba> (perform_clean_id,     x_link, lr);
+        r.insert<liba> (configure_update_id,  x_link, lr);
 
-          r.insert<liba> (perform_install_id,   x_install, ir);
-          r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
-        }
+        r.insert<liba> (perform_install_id,   x_install, ir);
+        r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
 
         r.insert<objs> (perform_update_id,   x_compile, cr);
         r.insert<objs> (perform_clean_id,    x_compile, cr);
