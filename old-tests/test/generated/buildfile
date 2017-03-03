@@ -4,6 +4,7 @@ using cxx
 
 exe{utility}: cxx{utility}
 exe{driver}: cxx{driver}
-exe{driver}: test.input = exe{utility}
+exe{driver}: test.input = exe{utility}    # Update test.
+exe{driver}: test.output = file{test.out} # Dist test.
 
 ./: exe{driver}

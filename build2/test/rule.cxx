@@ -140,11 +140,14 @@ namespace build2
       // for (update, test), and not simply "guide" (update, 0) as to which
       // targets need updating. For how exactly we are going to do it, see
       // apply() below.
-      //
+
       // Change the recipe action to (update, 0) (i.e., "unconditional
-      // update") to make sure we won't match any prerequisites.
+      // update") for "leaf" tests to make sure we won't match any
+      // prerequisites. Note that this doesn't cover the case where an alias
+      // is both a test and a pass for a test prerequisite with generated
+      // input/output.
       //
-      if (a.operation () == update_id && (md.pass || md.test))
+      if (a.operation () == update_id && md.test)
         mr.recipe_action = action (a.meta_operation (), update_id);
 
       // Note that we match even if this target is not testable so that we can

@@ -112,20 +112,33 @@ namespace build2
       // Match a rule for every operation supported by this project. Skip
       // default_id.
       //
+      // Note that we are not calling operation_pre/post() callbacks here
+      // since the meta operation is dist and we know what we are doing.
+      //
       for (operations::size_type id (default_id + 1);
            id < rs->operations.size ();
            ++id)
       {
         if (const operation_info* oif = rs->operations[id])
         {
-          // Note that we are not calling operation_pre/post() callbacks here
-          // since the meta operation is dist and we know what we are doing.
-          //
-          set_current_oif (*oif);
-
           // Use standard (perform) match.
           //
+          if (oif->pre != nullptr)
+          {
+            const operation_info* poif (rs->operations[oif->pre (dist_id)]);
+            set_current_oif (*poif, oif);
+            match (action (dist_id, poif->id, oif->id), ts);
+          }
+
+          set_current_oif (*oif);
           match (action (dist_id, oif->id), ts);
+
+          if (oif->post != nullptr)
+          {
+            const operation_info* poif (rs->operations[oif->post (dist_id)]);
+            set_current_oif (*poif, oif);
+            match (action (dist_id, poif->id, oif->id), ts);
+          }
         }
       }
 

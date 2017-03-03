@@ -20,5 +20,7 @@ main (int argc, char* argv[])
   if (ifs.tellg () == 0)
     cerr << argv[1] << " is empty" << endl;
 
+  cout << "output" << endl;
+
   return 0;
 }
