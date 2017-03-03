@@ -502,11 +502,18 @@ namespace build2
     // to continue as soon as the lock is available in order not to nest
     // things unnecessarily.
     //
+    // That's what we used to do but that proved to be too deadlock-prone. For
+    // example, we may end up popping the last task which needs a lock that we
+    // are already holding. A fuzzy feeling is that we need to look for tasks
+    // (compare their task_counts?) that we can safely work on (though we will
+    // need to watch out for indirections). So perhaps it's just better to keep
+    // it simple and create a few extra threads.
+    //
     target_lock l (
       lock_impl (a,
                  ct,
                  task_count == nullptr
-                 ? optional<scheduler::work_queue> (scheduler::work_one)
+                 ? optional<scheduler::work_queue> (scheduler::work_none)
                  : nullopt));
 
     if (l.target == nullptr)
