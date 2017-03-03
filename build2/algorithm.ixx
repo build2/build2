@@ -129,8 +129,8 @@ namespace build2
     return r;
   }
 
-  pair<const pair<const string, reference_wrapper<const rule>>&, action>
-  match_impl (action, target&, const rule* skip);
+  pair<const pair<const string, reference_wrapper<const rule>>*, action>
+  match_impl (action, target&, const rule* skip, bool fail = true);
 
   recipe
   apply_impl (target&,
@@ -220,11 +220,14 @@ namespace build2
   }
 
   inline pair<recipe, action>
-  match_delegate (action a, target& t, const rule& r)
+  match_delegate (action a, target& t, const rule& r, bool fail)
   {
     assert (phase == run_phase::match);
-    auto mr (match_impl (a, t, &r));
-    return make_pair (apply_impl (t, mr.first, mr.second), mr.second);
+    auto mr (match_impl (a, t, &r, fail));
+    return make_pair (mr.first != nullptr
+                      ? apply_impl (t, *mr.first, mr.second)
+                      : empty_recipe,
+                      mr.second);
   }
 
   group_view

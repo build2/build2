@@ -123,7 +123,9 @@ namespace build2
           //
           set_current_oif (*oif);
 
-          match (action (dist_id, oif->id), ts); // Standard (perform) match.
+          // Use standard (perform) match.
+          //
+          match (action (dist_id, oif->id), ts);
         }
       }
 

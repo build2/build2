@@ -245,8 +245,8 @@ namespace build2
 
   // Return the matching rule and the recipe action.
   //
-  pair<const pair<const string, reference_wrapper<const rule>>&, action>
-  match_impl (action a, target& t, const rule* skip)
+  pair<const pair<const string, reference_wrapper<const rule>>*, action>
+  match_impl (action a, target& t, const rule* skip, bool f)
   {
     // Clear the resolved targets list before calling match(). The rule is
     // free to modify this list in match() (provided that it matches) in order
@@ -393,9 +393,7 @@ namespace build2
               }
 
               if (!ambig)
-                return pair<
-                  const pair<const string, reference_wrapper<const rule>>&,
-                  action> {r, m.recipe_action};
+                return  make_pair (&r, m.recipe_action);
               else
                 dr << info << "use rule hint to disambiguate this match";
             }
@@ -404,13 +402,17 @@ namespace build2
       }
     }
 
-    diag_record dr;
-    dr << fail << "no rule to " << diag_do (a, t);
+    if (f)
+    {
+      diag_record dr;
+      dr << fail << "no rule to " << diag_do (a, t);
 
-    if (verb < 4)
-      dr << info << "re-run with --verbose 4 for more information";
+      if (verb < 4)
+        dr << info << "re-run with --verbose 4 for more information";
+    }
 
-    dr << endf;
+    return pair<const pair<const string, reference_wrapper<const rule>>*,
+                action> {nullptr, a};
   }
 
   recipe
@@ -451,7 +453,7 @@ namespace build2
           // Match.
           //
           auto mr (match_impl (a, t, nullptr));
-          t.rule = &mr.first;
+          t.rule = mr.first;
           t.action = mr.second; // In case overriden.
           l.offset = target::offset_matched;
 

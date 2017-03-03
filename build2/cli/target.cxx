@@ -50,10 +50,9 @@ namespace build2
     {
       tracer trace ("cli::cli_cxx_factory");
 
-      // Pre-enter (potential) members as targets. The main purpose
-      // of doing this is to avoid searching for existing files in
-      // src_base if the buildfile mentions some of them explicitly
-      // as prerequisites.
+      // Pre-enter (potential) members as targets. The main purpose of doing
+      // this is to avoid searching for existing files in src_base if the
+      // buildfile mentions some of them explicitly as prerequisites.
       //
       targets.insert<cxx::hxx> (d, o, n, trace);
       targets.insert<cxx::cxx> (d, o, n, trace);

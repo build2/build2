@@ -84,9 +84,8 @@ namespace build2
 
       assert (config_hints.empty ()); // We don't known any hints.
 
-      // Register our wildcard rule. Do it explicitly for the alias
-      // to prevent something like insert<target>(dist_id, test_id)
-      // taking precedence.
+      // Register our wildcard rule. Do it explicitly for the alias to prevent
+      // something like insert<target>(dist_id, test_id) taking precedence.
       //
       rs.rules.insert<target> (dist_id, 0, "dist", rule_);
       rs.rules.insert<alias> (dist_id, 0, "dist.alias", rule_);

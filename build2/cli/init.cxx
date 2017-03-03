@@ -300,23 +300,23 @@ namespace build2
       {
         auto& r (bs.rules);
 
-        r.insert<cli_cxx> (perform_update_id, "cli.compile", compile_);
-        r.insert<cli_cxx> (perform_clean_id, "cli.compile", compile_);
+        auto reg = [&r] (meta_operation_id mid, operation_id oid)
+        {
+          r.insert<cli_cxx>  (mid, oid, "cli.compile", compile_);
+          r.insert<cxx::hxx> (mid, oid, "cli.compile", compile_);
+          r.insert<cxx::cxx> (mid, oid, "cli.compile", compile_);
+          r.insert<cxx::ixx> (mid, oid, "cli.compile", compile_);
+        };
 
-        r.insert<cxx::hxx> (perform_update_id, "cli.compile", compile_);
-        r.insert<cxx::hxx> (perform_clean_id, "cli.compile", compile_);
+        reg (perform_id, update_id);
+        reg (perform_id, clean_id);
 
-        r.insert<cxx::cxx> (perform_update_id, "cli.compile", compile_);
-        r.insert<cxx::cxx> (perform_clean_id, "cli.compile", compile_);
-
-        r.insert<cxx::ixx> (perform_update_id, "cli.compile", compile_);
-        r.insert<cxx::ixx> (perform_clean_id, "cli.compile", compile_);
-
-        // Other rules (e.g., cxx::compile) may need to have the group
-        // members resolved. Looks like a general pattern: groups should
-        // resolve on configure(update).
+        // Other rules (e.g., cxx::compile) may need to have the group members
+        // resolved/linked up. Looks like a general pattern: groups should
+        // resolve on *(update).
         //
-        r.insert<cli_cxx> (configure_update_id, "cli.compile", compile_);
+        reg (configure_id, update_id);
+        reg (dist_id, update_id);
       }
 
       return true;
