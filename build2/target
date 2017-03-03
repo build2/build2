@@ -453,18 +453,25 @@ namespace build2
 
     mutable atomic_count task_count {0}; // Start offset_touched - 1.
 
-    // This function can only be called during match if we have observed
+    // This function should only be called during match if we have observed
     // (synchronization-wise) that the this target has been matched (i.e.,
-    // the rule has been applied).
+    // the rule has been applied) for this action.
     //
     target_state
     matched_state (action a, bool fail = true) const;
 
-    // This function can only be called during execution if we have observed
-    // (synchronization-wise) that this target has been executed.
+    // This function should only be called during execution if we have
+    // observed (synchronization-wise) that this target has been executed.
     //
     target_state
     executed_state (bool fail = true) const;
+
+    // This function should only be called between match and execute while
+    // running serially. It returns the group state for the "final" action
+    // that has been matched (and that will be executed).
+    //
+    target_state
+    serial_state (bool fail = true) const;
 
     // Number of direct targets that depend on this target in the current
     // operation. It is incremented during match and then decremented during
@@ -481,8 +488,8 @@ namespace build2
     target_state
     state () const;
 
-    // Version that should be used during search & match after the target has
-    // been matched for this action (see the recipe override).
+    // Version that should be used during match after the target has been
+    // matched for this action (see the recipe override).
     //
     target_state
     state (action a) const;

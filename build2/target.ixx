@@ -111,6 +111,19 @@ namespace build2
     return r;
   }
 
+  inline target_state target::
+  serial_state (bool fail) const
+  {
+    //assert (sched.serial ());
+
+    target_state r (group_state () ? group->state_ : state_);
+
+    if (fail && r == target_state::failed)
+      throw failed ();
+
+    return r;
+  }
+
   inline void target::
   recipe (recipe_type r)
   {

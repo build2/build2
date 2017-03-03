@@ -126,9 +126,20 @@ namespace build2
       {
         const target& t (*static_cast<const target*> (ts[j]));
 
-        target_state s (j < i
-                        ? match (a, t, false)
-                        : target_state::postponed);
+        // Finish matching targets that we have started. Note that we use the
+        // state for the "final" action that will be executed and not our
+        // action. Failed that, we may fail to find a match for a "stronger"
+        // action but will still get unchanged for the original one.
+        //
+        target_state s;
+        if (j < i)
+        {
+          match (a, t, false);
+          s = t.serial_state (false);
+        }
+        else
+          s = target_state::postponed;
+
         switch (s)
         {
         case target_state::postponed:
