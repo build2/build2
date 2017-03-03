@@ -16,16 +16,10 @@ cxx.poptions =+ "-I$out_root" "-I$src_root"
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.
 # This is also the reason why we need to explicitly spell out individual
-# source files instead of using the cli.cxx{} group (it won't be there
-# unless the module is configured).
+# source file prerequisites instead of using the cli.cxx{} group (it won't
+# be there unless the module is configured).
 #
 using? cli
-
-if! $cli.configured
-{
-  define cli: file
-  cli{*}: extension = cli
-}
 
 # All exe{} in unit-tests/ are, well, tests.
 #
