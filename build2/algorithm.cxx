@@ -834,46 +834,65 @@ namespace build2
     // Try to atomically change applied to busy. Note that we are in the
     // execution phase so the target shall not be spin-locked.
     //
-    size_t tc (target::count_applied ());
-    if (t.task_count.compare_exchange_strong (
-          tc,
-          target::count_busy (),
-          memory_order_acq_rel,  // Synchronize on success.
-          memory_order_acquire)) // Synchronize on failure.
+    size_t matc (target::count_matched ());
+    size_t exec (target::count_executed ());
+    size_t busy (target::count_busy ());
+
+    for (size_t tc (target::count_applied ());;)
     {
-      if (t.state_ != target_state::unchanged) // Noop recipe.
+      if (t.task_count.compare_exchange_strong (
+            tc,
+            busy,
+            memory_order_acq_rel,  // Synchronize on success.
+            memory_order_acquire)) // Synchronize on failure.
       {
-        if (task_count == nullptr)
-          return execute_impl (a, t);
-
-        // Pass our diagnostics stack (this is safe since we expect the caller
-        // to wait for completion before unwinding its diag stack).
+        // Overriden match-only or noop recipe.
         //
-        if (sched.async (start_count,
-                         *task_count,
-                         [a] (target& t, const diag_frame* ds)
-                         {
-                           diag_frame df (ds);
-                           execute_impl (a, t); // Note: noexcept.
-                         },
-                         ref (t),
-                         diag_frame::stack))
-          return target_state::unknown; // Queued.
+        if (tc == matc || t.state_ == target_state::unchanged)
+        {
+          t.state_ = target_state::unchanged;
+          t.task_count.store (exec, memory_order_release);
+          sched.resume (t.task_count);
+        }
+        else
+        {
+          if (task_count == nullptr)
+            return execute_impl (a, t);
 
-        // Executed synchronously, fall through.
+          // Pass our diagnostics stack (this is safe since we expect the
+          // caller to wait for completion before unwinding its diag stack).
+          //
+          if (sched.async (start_count,
+                           *task_count,
+                           [a] (target& t, const diag_frame* ds)
+                           {
+                             diag_frame df (ds);
+                             execute_impl (a, t); // Note: noexcept.
+                           },
+                           ref (t),
+                           diag_frame::stack))
+            return target_state::unknown; // Queued.
+
+          // Executed synchronously, fall through.
+        }
       }
       else
       {
-        t.task_count.store (target::count_executed (), memory_order_release);
-        sched.resume (t.task_count);
+        // Normally either busy or already executed.
+        //
+        if (tc >= busy) return target_state::busy;
+        else if (tc != exec)
+        {
+          // This can happen is we matched (a noop) recipe which then got
+          // overridden as part of group resolution but not all the way to
+          // applied. In this case we treat it as noop.
+          //
+          assert (tc == matc && t.action > a);
+          continue;
+        }
       }
-    }
-    else
-    {
-      // Should be either busy or already executed.
-      //
-      if (tc >= target::count_busy ()) return target_state::busy;
-      else assert (tc == target::count_executed ());
+
+      break;
     }
 
     return t.executed_state (false);
@@ -884,32 +903,42 @@ namespace build2
   {
     target& t (const_cast<target&> (ct)); // MT-aware.
 
-    size_t busy (target::count_busy ());
+    // Similar logic to match() above.
+    //
+    size_t matc (target::count_matched ());
     size_t exec (target::count_executed ());
+    size_t busy (target::count_busy ());
 
-    size_t tc (target::count_applied ());
-    if (t.task_count.compare_exchange_strong (
-          tc,
-          busy,
-          memory_order_acq_rel,  // Synchronize on success.
-          memory_order_acquire)) // Synchronize on failure.
+    for (size_t tc (target::count_applied ());;)
     {
-      if (t.state_ != target_state::unchanged) // Noop recipe.
-        execute_impl (a, t);
+      if (t.task_count.compare_exchange_strong (
+            tc,
+            busy,
+            memory_order_acq_rel,  // Synchronize on success.
+            memory_order_acquire)) // Synchronize on failure.
+      {
+        if (tc == matc || t.state_ == target_state::unchanged)
+        {
+          t.state_ = target_state::unchanged;
+          t.task_count.store (exec, memory_order_release);
+          sched.resume (t.task_count);
+        }
+        else
+          execute_impl (a, t);
+      }
       else
       {
-        t.task_count.store (exec, memory_order_release);
-        sched.resume (t.task_count);
+        // If the target is busy, wait for it.
+        //
+        if (tc >= busy) sched.wait (exec, t.task_count, scheduler::work_none);
+        else if (tc != exec)
+        {
+          assert (tc == matc && t.action > a);
+          continue;
+        }
       }
-    }
-    else
-    {
-      // If the target is busy, wait for it.
-      //
-      if (tc >= busy)
-        sched.wait (exec, t.task_count, scheduler::work_none);
-      else
-        assert (tc == exec);
+
+      break;
     }
 
     return t.executed_state ();
