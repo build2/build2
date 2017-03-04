@@ -585,7 +585,7 @@ namespace build2
 
             if (t == nullptr)
               fail << "invalid test executable override: unknown target: '"
-                   << n << "'";
+                   << *n << "'";
           }
         }
         else

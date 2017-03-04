@@ -552,7 +552,7 @@ namespace build2
               t = search_existing (*n, tt.base_scope ());
 
               if (t == nullptr)
-                fail << "unknown target '" << n << "' in test variable";
+                fail << "unknown target '" << *n << "' in test variable";
             }
           }
           else
