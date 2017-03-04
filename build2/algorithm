@@ -70,10 +70,8 @@ namespace build2
   const target&
   search (name, const scope&);
 
-  // As above but only search for an already existing target. Unlike the
-  // above version, this one can be called during the execute phase.
-  //
-  // Note that currently we return NULL for project-qualified names and
+  // As above but only search for an already existing target. Unlike the above
+  // version, this one can be called during the execute phase. Return NULL for
   // unknown target types.
   //
   const target*

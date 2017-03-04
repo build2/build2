@@ -67,11 +67,6 @@ namespace build2
   {
     assert (phase == run_phase::match || phase == run_phase::execute);
 
-    // We don't handle this for now.
-    //
-    if (cn.qualified ())
-      return nullptr;
-
     name n (cn);
     optional<string> ext;
     const target_type* tt (s.find_target_type (n, ext));
@@ -85,11 +80,15 @@ namespace build2
     if (!n.dir.empty ())
       n.dir.normalize (false, true); // Current dir collapses to an empty one.
 
+    bool q (cn.qualified ());
+
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
     //
-    return search_existing_target (
-      prerequisite_key {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s});
+    prerequisite_key pk {
+      n.proj, {tt, &n.dir, q ? &empty_dir_path : &out, &n.value, ext}, &s};
+
+    return q ? import_existing (pk) : search_existing_target (pk);
   }
 
   // If the work_queue is not present, then we don't wait.
