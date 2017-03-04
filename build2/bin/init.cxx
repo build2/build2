@@ -328,8 +328,8 @@ namespace build2
     }
 
     bool
-    init (scope& r,
-          scope& b,
+    init (scope& rs,
+          scope& bs,
           const location& loc,
           unique_ptr<module_base>&,
           bool,
@@ -337,23 +337,25 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("bin::init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Load bin.config.
       //
-      if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module (r, b, "bin.config", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.config.loaded"]))
+        load_module (rs, bs, "bin.config", loc, false, hints);
 
       // Cache some config values we will be needing below.
       //
-      const string& tclass (cast<string> (r["bin.target.class"]));
+      const string& tclass (cast<string> (rs["bin.target.class"]));
 
       // Register target types and configure their default "installability".
       //
-      using namespace install;
+      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
 
       {
-        auto& t (b.target_types);
+        using namespace install;
+
+        auto& t (bs.target_types);
 
         t.insert<obj>  ();
         t.insert<obje> ();
@@ -364,8 +366,11 @@ namespace build2
         t.insert<liba> ();
         t.insert<libs> ();
 
-        install_path<liba> (b, dir_path ("lib")); // Install into install.lib.
-        install_mode<liba> (b, "644");
+        if (install_loaded)
+        {
+          install_path<liba> (bs, dir_path ("lib")); // Install in install.lib.
+          install_mode<liba> (bs, "644");
+        }
 
         // Should shared libraries have the executable bit? That depends on
         // who you ask. In Debian, for example, it should not unless, it
@@ -386,7 +391,9 @@ namespace build2
         // Everyone is happy then? On Windows libs{} is the DLL and goes to
         // bin/, not lib/.
         //
-        install_path<libs> (b, dir_path (tclass == "windows" ? "bin" : "lib"));
+        if (install_loaded)
+          install_path<libs> (bs,
+                              dir_path (tclass == "windows" ? "bin" : "lib"));
 
         // Create additional target types for certain targets.
         //
@@ -395,15 +402,19 @@ namespace build2
           // Import library.
           //
           t.insert<libi> ();
-          install_path<libi> (b, dir_path ("lib"));
-          install_mode<libi> (b, "644");
+
+          if (install_loaded)
+          {
+            install_path<libi> (bs, dir_path ("lib"));
+            install_mode<libi> (bs, "644");
+          }
         }
       }
 
       // Register rules.
       //
       {
-        auto& r (b.rules);
+        auto& r (bs.rules);
 
         r.insert<obj> (perform_update_id, "bin.obj", obj_);
         r.insert<obj> (perform_clean_id, "bin.obj", obj_);
@@ -415,15 +426,11 @@ namespace build2
         //
         r.insert<lib> (configure_update_id, "bin.lib", lib_);
 
-        //@@ Should we check if the install module was loaded
-        //   (by checking if install operation is registered
-        //   for this project)? If we do that, then install
-        //   will have to be loaded before bin. Perhaps we
-        //   should enforce loading of all operation-defining
-        //   modules before all others?
-        //
-        r.insert<lib> (perform_install_id, "bin.lib", lib_);
-        r.insert<lib> (perform_uninstall_id, "bin.lib", lib_);
+        if (install_loaded)
+        {
+          r.insert<lib> (perform_install_id, "bin.lib", lib_);
+          r.insert<lib> (perform_uninstall_id, "bin.lib", lib_);
+        }
       }
 
       return true;

@@ -337,6 +337,8 @@ namespace build2
 
       // Register target types and configure their "installability".
       //
+      bool install_loaded (cast_false<bool> (rs["install.loaded"]));
+
       {
         using namespace install;
 
@@ -344,12 +346,14 @@ namespace build2
 
         t.insert (x_src);
 
-        // Install headers into install.include.
-        //
         for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
         {
           t.insert (**ht);
-          install_path (rs, **ht, dir_path ("include"));
+
+          // Install headers into install.include.
+          //
+          if (install_loaded)
+            install_path (rs, **ht, dir_path ("include"));
         }
       }
 
@@ -363,11 +367,8 @@ namespace build2
         // We register for configure so that we detect unresolved imports
         // during configuration rather that later, e.g., during update.
         //
-        // @@ Should we check if install module was loaded (see bin)?
-        //
         const compile& cr (*this);
         const link&    lr (*this);
-        const install& ir (*this);
 
         r.insert<obje> (perform_update_id,    x_compile, cr);
         r.insert<obje> (perform_clean_id,     x_compile, cr);
@@ -377,9 +378,6 @@ namespace build2
         r.insert<exe>  (perform_clean_id,     x_link, lr);
         r.insert<exe>  (configure_update_id,  x_link, lr);
 
-        r.insert<exe>  (perform_install_id,   x_install, ir);
-        r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
-
         r.insert<obja> (perform_update_id,    x_compile, cr);
         r.insert<obja> (perform_clean_id,     x_compile, cr);
         r.insert<obja> (configure_update_id,  x_compile, cr);
@@ -387,9 +385,6 @@ namespace build2
         r.insert<liba> (perform_update_id,    x_link, lr);
         r.insert<liba> (perform_clean_id,     x_link, lr);
         r.insert<liba> (configure_update_id,  x_link, lr);
-
-        r.insert<liba> (perform_install_id,   x_install, ir);
-        r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
 
         r.insert<objs> (perform_update_id,   x_compile, cr);
         r.insert<objs> (perform_clean_id,    x_compile, cr);
@@ -399,8 +394,19 @@ namespace build2
         r.insert<libs> (perform_clean_id,    x_link, lr);
         r.insert<libs> (configure_update_id, x_link, lr);
 
-        r.insert<libs> (perform_install_id,   x_install, ir);
-        r.insert<libs> (perform_uninstall_id, x_uninstall, ir);
+        if (install_loaded)
+        {
+          const install& ir (*this);
+
+          r.insert<exe>  (perform_install_id,   x_install, ir);
+          r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
+
+          r.insert<liba> (perform_install_id,   x_install, ir);
+          r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
+
+          r.insert<libs> (perform_install_id,   x_install, ir);
+          r.insert<libs> (perform_uninstall_id, x_uninstall, ir);
+        }
       }
     }
   }
