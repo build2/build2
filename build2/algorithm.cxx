@@ -104,7 +104,6 @@ namespace build2
     size_t b (target::count_base ());
     size_t e (b + target::offset_touched - 1);
 
-    size_t exec (b + target::offset_executed);
     size_t lock (b + target::offset_locked);
     size_t busy (b + target::offset_busy);
 
@@ -147,18 +146,6 @@ namespace build2
         for (; e == lock; e = ct.task_count.load (memory_order_acquire))
           this_thread::yield ();
       }
-
-      // We don't lock already executed targets.
-      //
-      if (e == exec)
-      {
-        // Sanity check: we better not be overriding a recipe for an already
-        // executed target.
-        //
-        assert (ct.action == a);
-
-        return target_lock {nullptr, target::offset_executed};
-      }
     }
 
     // We now have the sping lock. Analyze the old value and decide what to
@@ -181,6 +168,20 @@ namespace build2
 
       switch (offset)
       {
+      case target::offset_executed:
+        {
+          if (a == t.action)
+          {
+            // We don't lock already executed targets.
+            //
+            t.task_count.store (e, memory_order_release);
+            return target_lock {nullptr, target::offset_executed};
+          }
+
+          // Override, fall through.
+          //
+          assert (a > t.action);
+        }
       case target::offset_touched:
       case target::offset_matched:
       case target::offset_applied:

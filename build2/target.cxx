@@ -149,15 +149,12 @@ namespace build2
       if (e >= busy)
         return target_state::unchanged; // Override in progress.
 
+      // Unlike lock_impl(), we are only called after being matched for this
+      // action so if we see executed, then it means executed for this action
+      // (or noop).
+      //
       if (e == exec)
-      {
-        // Sanity check: we better not be overriding a recipe for an already
-        // executed target.
-        //
-        assert (action == a);
-
         return group_state () ? group->state_ : state_;
-      }
 
       // Try to grab the spin-lock.
       //
