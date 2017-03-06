@@ -229,6 +229,10 @@ namespace build2
               info << what << ": " << op;
 
             input_info (d);
+
+            // Print cached output.
+            //
+            print_file (d, op, ll);
           }
 
           // Fall through (to return false).
@@ -615,6 +619,10 @@ namespace build2
             output_info (d, op);
             output_info (d, rp, "", " regex");
             input_info  (d);
+
+            // Print cached output.
+            //
+            print_file (d, op, ll);
           }
 
           // Fall through (to return false).

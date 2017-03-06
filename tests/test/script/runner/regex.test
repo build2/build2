@@ -44,6 +44,7 @@
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
       info: stdin: test/1/stdin
+    foo
     EOE
   }
 
@@ -168,6 +169,7 @@
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
+      foo
       EOE
     }
   }

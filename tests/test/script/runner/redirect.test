@@ -112,6 +112,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
+    fooo
     EOE
 
     : portable-path-failure
@@ -127,6 +128,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
+      foo
       EOE
       cat test/1/stdout.regex >"%bar$psr%"
 
@@ -137,6 +139,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
+      foo
       EOE
       cat test/1/stdout.regex >:"%bar$psr%"
     }
@@ -392,6 +395,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
+    foo
     EOE
 
     : mismatch-icase
@@ -404,6 +408,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex~i
+    foo
     EOE
   }
 }
