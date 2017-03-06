@@ -2793,7 +2793,10 @@ namespace build2
           //
           tt = peek ();
 
-          if (tt == type::lparen)
+          // Note that we require function call opening paren to be
+          // unseparated; consider: $x ($x == 'foo' ? 'FOO' : 'BAR').
+          //
+          if (tt == type::lparen && !peeked ().separated)
           {
             // Function call.
             //
