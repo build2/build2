@@ -925,19 +925,29 @@ namespace build2
   template <typename R>
   class prerequisite_members_range;
 
+  // See-through/ad hoc group members iteration mode. Unless the mode is never,
+  // ad hoc members are always iterated over.
+  //
+  enum class members_mode
+  {
+    always, // Iterate over members, assert if not resolvable.
+    maybe,  // Iterate over members if resolvable, group otherwise.
+    never   // Iterate over group (can still use enter_group()).
+  };
+
   template <typename R>
   inline prerequisite_members_range<R>
-  prerequisite_members (action a, R&& r, bool members = true)
+  prerequisite_members (action a, R&& r, members_mode m = members_mode::always)
   {
-    return prerequisite_members_range<R> (a, forward<R> (r), members);
+    return prerequisite_members_range<R> (a, forward<R> (r), m);
   }
 
   template <typename R>
   class prerequisite_members_range
   {
   public:
-    prerequisite_members_range (action a, R&& r, bool m)
-        : a_ (a), members_ (m), r_ (forward<R> (r)), e_ (r_.end ()) {}
+    prerequisite_members_range (action a, R&& r, members_mode m)
+        : a_ (a), mode_ (m), r_ (forward<R> (r)), e_ (r_.end ()) {}
 
     using base_iterator = decltype (declval<R> ().begin ());
 
@@ -953,7 +963,9 @@ namespace build2
       iterator (const prerequisite_members_range* r, const base_iterator& i)
           : r_ (r), i_ (i), g_ {nullptr, 0}, k_ (nullptr)
       {
-        if (r_->members_ && i_ != r_->e_ && i_->type.see_through)
+        if (r_->mode_ != members_mode::never &&
+            i_ != r_->e_                     &&
+            i_->type.see_through)
           switch_mode ();
       }
 
@@ -971,7 +983,7 @@ namespace build2
       // information is not available. Similar to leave_group(), you should
       // increment the iterator after calling this function (provided it
       // returned true). Note that it cannot be used on ad hoc groups (which
-      // will be always be entered).
+      // will be always entered).
       //
       bool
       enter_group ();
@@ -1043,7 +1055,7 @@ namespace build2
 
   private:
     action a_;
-    bool members_; // Go into group members by default?
+    members_mode mode_;
     R r_;
     base_iterator e_;
   };
@@ -1051,27 +1063,31 @@ namespace build2
   // prerequisite_members(t.prerequisites)
   //
   inline auto
-  prerequisite_members (action a, target& t, bool members = true)
+  prerequisite_members (action a, target& t,
+                        members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, t.prerequisites (), members);
+    return prerequisite_members (a, t.prerequisites (), m);
   }
 
   inline auto
-  prerequisite_members (action a, const target& t, bool members = true)
+  prerequisite_members (action a, const target& t,
+                        members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, t.prerequisites (), members);
+    return prerequisite_members (a, t.prerequisites (), m);
   }
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
   //
   inline auto
-  reverse_prerequisite_members (action a, target& t, bool m = true)
+  reverse_prerequisite_members (action a, target& t,
+                                members_mode m = members_mode::always)
   {
     return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
   }
 
   inline auto
-  reverse_prerequisite_members (action a, const target& t, bool m = true)
+  reverse_prerequisite_members (action a, const target& t,
+                                members_mode m = members_mode::always)
   {
     return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
   }
@@ -1079,13 +1095,15 @@ namespace build2
   // prerequisite_members(group_prerequisites (t))
   //
   inline auto
-  group_prerequisite_members (action a, target& t, bool m = true)
+  group_prerequisite_members (action a, target& t,
+                              members_mode m = members_mode::always)
   {
     return prerequisite_members (a, group_prerequisites (t), m);
   }
 
   inline auto
-  group_prerequisite_members (action a, const target& t, bool m = true)
+  group_prerequisite_members (action a, const target& t,
+                              members_mode m = members_mode::always)
   {
     return prerequisite_members (a, group_prerequisites (t), m);
   }
@@ -1093,14 +1111,16 @@ namespace build2
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
   //
   inline auto
-  reverse_group_prerequisite_members (action a, target& t, bool m = true)
+  reverse_group_prerequisite_members (action a, target& t,
+                                      members_mode m = members_mode::always)
   {
     return prerequisite_members (
       a, reverse_iterate (group_prerequisites (t)), m);
   }
 
   inline auto
-  reverse_group_prerequisite_members (action a, const target& t, bool m = true)
+  reverse_group_prerequisite_members (action a, const target& t,
+                                      members_mode m = members_mode::always)
   {
     return prerequisite_members (
       a, reverse_iterate (group_prerequisites (t)), m);

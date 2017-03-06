@@ -198,7 +198,7 @@ namespace build2
   {
     if (k_ != nullptr) // Iterating over an ad hoc group.
       k_ = k_->member;
-    else if (r_->members_)
+    else if (r_->mode_ != members_mode::never)
     {
       // Get the target if one has been resolved and see if it's an ad hoc
       // group. If so, switch to the ad hoc mode.
@@ -223,7 +223,9 @@ namespace build2
     {
       ++i_;
 
-      if (r_->members_ && i_ != r_->e_ && i_->type.see_through)
+      if (r_->mode_ != members_mode::never &&
+          i_ != r_->e_                     &&
+          i_->type.see_through)
         switch_mode ();
     }
 

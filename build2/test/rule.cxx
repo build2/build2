@@ -63,7 +63,15 @@ namespace build2
         // If we have any prerequisites of the test{} type, then this is the
         // testscript case.
         //
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        // If we can, go inside see-through groups. Normally groups won't be
+        // resolvable for this action but then normally they won't contain any
+        // testscripts either. In other words, if there is a group that
+        // contains testscripts as members then it will need to arrange for
+        // the members to be resolvable (e.g., by registering an appropriate
+        // rule for the test operation).
+        //
+        for (prerequisite_member p:
+               group_prerequisite_members (a, t, members_mode::maybe))
         {
           if (p.is_a<testscript> ())
           {
@@ -215,7 +223,8 @@ namespace build2
 
         // Collect all the testscript targets in prerequisite_targets.
         //
-        for (prerequisite_member p: group_prerequisite_members (a, t))
+        for (prerequisite_member p:
+               group_prerequisite_members (a, t, members_mode::maybe))
         {
           if (p.is_a<testscript> ())
             t.prerequisite_targets.push_back (&p.search ());

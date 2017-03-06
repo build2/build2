@@ -26,21 +26,14 @@ namespace build2
     {
       const dir_path& out_root (t.root_scope ().out_path ());
 
-      auto r (group_prerequisite_members (a, t, false));
-      for (auto i (r.begin ()); i != r.end (); ++i)
+      // If we can, go inside see-through groups.
+      //
+      for (prerequisite_member p:
+             group_prerequisite_members (a, t, members_mode::maybe))
       {
-        prerequisite_member p (*i);
-
         // Skip prerequisites imported from other projects.
         //
         if (p.proj ())
-          continue;
-
-        // If we can, go inside see-through groups. Note that here we are
-        // not going into ad hoc groups but maybe we should (which would
-        // have to be done after match()).
-        //
-        if (p.type ().see_through && i.enter_group ())
           continue;
 
         const target& pt (p.search ());
