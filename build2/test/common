@@ -14,8 +14,16 @@ namespace build2
 {
   namespace test
   {
+    enum class output_before {fail, warn, clean};
+    enum class output_after {clean, keep};
+
     struct common
     {
+      // The config.test.output values.
+      //
+      output_before before;
+      output_after after;
+
       // The config.test query interface.
       //
       const names* test_ = nullptr; // The config.test value if any.

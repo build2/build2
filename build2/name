@@ -147,6 +147,10 @@ namespace build2
 
   inline ostream&
   operator<< (ostream& os, const names& ns) {return os << names_view (ns);}
+
+  // Pair of names.
+  //
+  using name_pair = pair<name, name>;
 }
 
 #include <build2/name.ixx>

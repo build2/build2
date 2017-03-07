@@ -1047,6 +1047,35 @@ $ b test config.test=basics/foo                  # Only foo
 $ b test 'config.test=basics/foo basics/fox/bar' # Only foo and bar
 \
 
+The script working directory may exist before the execution (for example,
+because of a failed previous run) or it may be desirable not to clean it up
+after the execution (for example, to examine test setup, output, etc). Before
+the execution the default behavior is to warn and then automatically remove
+the working directory if it exists. After the execution the default behavior
+is to perform all the cleanups and teardowns and then remove the working
+directory failing if it is not empty. This default behaviors can, however, be
+overridden with the \c{config.test.output} variable.
+
+The \c{config.test.output} variable contains a pair of values with the first
+signifying the \i{before} behavior and the second \- \i{after}. The valid
+\i{before} values are \c{fail} (fail if the directory exists), \c{warn}
+(warn if the directory exists then remove), \c{clean} (silently remove
+the existing directory). The valid \i{after} values are \c{clean} (remove
+the directory failing if it is not empty) and \c{keep} (do not run cleanups
+and teardowns and do not remove the working directory). The default behavior
+is thus equivalent to specifying the \c{warn@clean} pair.
+
+If only a single value is specified in \c{config.test.output} then it is
+assumed to be the \i{after} value and the \i{before} value is assumed to
+be \c{clean}. In other words:
+
+\
+$ b test config.test.output=clean # config.test.output=clean@clean
+$ b test config.test.output=keep  # config.test.output=clean@keep
+\
+
+Note also that selecting the \c{keep} behavior may result in some test
+failures due to unexpected output to go undetected.
 
 \h1#lexical|Lexical Structure|
 

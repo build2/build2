@@ -490,10 +490,26 @@ namespace build2
       new (&v.data_) name (move (x));
   }
 
-  inline int value_traits<name>::
-  compare (const name& l, const name& r)
+  // name_pair value
+  //
+  inline void value_traits<name_pair>::
+  assign (value& v, name_pair&& x)
   {
-    return l.compare (r);
+    if (v)
+      v.as<name_pair> () = move (x);
+    else
+      new (&v.data_) name_pair (move (x));
+  }
+
+  inline int value_traits<name_pair>::
+  compare (const name_pair& x, const name_pair& y)
+  {
+    int r (x.first.compare (y.first));
+
+    if (r == 0)
+      r = x.second.compare (y.second);
+
+    return r;
   }
 
   // process_path value

@@ -48,6 +48,11 @@ namespace build2
       //
       vp.insert ("config.test", true);
 
+      // Test working directory before/after cleanup (see Testscript spec for
+      // semantics).
+      //
+      vp.insert<name_pair> ("config.test.output", true);
+
       // Note: none are overridable.
       //
       // The test variable is a name which can be a path (with the
@@ -128,6 +133,36 @@ namespace build2
 
         m.test_ = &cast<names> (l);
         m.root_ = s;
+      }
+
+      // config.test.output
+      //
+      if (lookup l = config::omitted (rs, "config.test.output").first)
+      {
+        const name_pair& p (cast<name_pair> (l));
+
+        // If second half is empty, then first is the after value.
+        //
+        const name& a (p.second.empty () ? p.first  : p.second); // after
+        const name& b (p.second.empty () ? p.second : p.first);  // before
+
+        // Parse and validate.
+        //
+        if (!b.simple ())
+          fail << "invalid config.test.output before value '" << b << "'";
+
+        if (!a.simple ())
+          fail << "invalid config.test.output after value '" << a << "'";
+
+        if      (a.value == "clean") m.after = output_after::clean;
+        else if (a.value == "keep")  m.after = output_after::keep;
+        else fail << "invalid config.test.output after value '" << a << "'";
+
+        if      (b.value == "fail")  m.before = output_before::fail;
+        else if (b.value == "warn")  m.before = output_before::warn;
+        else if (b.value == "clean") m.before = output_before::clean;
+        else if (b.value == "")      m.before = output_before::clean;
+        else fail << "invalid config.test.output before value '" << b << "'";
       }
 
       //@@ TODO: Need ability to specify extra diff options (e.g.,

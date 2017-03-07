@@ -723,6 +723,84 @@ namespace build2
     &default_empty<name>
   };
 
+  // name_pair
+  //
+  name_pair value_traits<name_pair>::
+  convert (name&& n, name* r)
+  {
+    n.pair = '\0'; // Keep "unpaired" in case r is empty.
+    return name_pair (move (n), r != nullptr ? move (*r) : name ());
+  }
+
+  void
+  name_pair_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<name_pair>;
+
+    size_t n (ns.size ());
+
+    if (n <= 2)
+    {
+      try
+      {
+        traits::assign (
+          v,
+          (n == 0
+           ? name_pair ()
+           : traits::convert (move (ns[0]), n == 2 ? &ns[1] : nullptr)));
+        return;
+      }
+      catch (const invalid_argument&) {} // Fall through.
+    }
+
+    diag_record dr (fail);
+    dr << "invalid name_pair value '" << ns << "'";
+
+    if (var != nullptr)
+      dr << " in variable " << var->name;
+  }
+
+  static names_view
+  name_pair_reverse (const value& v, names& ns)
+  {
+    const name_pair& p (v.as<name_pair> ());
+    const name& f (p.first);
+    const name& s (p.second);
+
+    if (f.empty () && s.empty ())
+      return names_view (nullptr, 0);
+
+    if (f.empty ())
+      return names_view (&s, 1);
+
+    if (s.empty ())
+      return names_view (&f, 1);
+
+    ns.push_back (f);
+    ns.back ().pair = '@';
+    ns.push_back (s);
+    return ns;
+  }
+
+  const char* const value_traits<name_pair>::type_name = "name_pair";
+
+  const value_type value_traits<name_pair>::value_type
+  {
+    type_name,
+    sizeof (name_pair),
+    nullptr,                         // No base.
+    &default_dtor<name_pair>,
+    &default_copy_ctor<name_pair>,
+    &default_copy_assign<name_pair>,
+    &name_pair_assign,
+    nullptr,                         // Append not supported.
+    nullptr,                         // Prepend not supported.
+    &name_pair_reverse,
+    nullptr,                         // No cast (cast data_ directly).
+    &simple_compare<name_pair>,
+    &default_empty<name_pair>
+  };
+
   // process_path value
   //
   process_path value_traits<process_path>::

@@ -233,13 +233,7 @@ namespace build2
     // specialization below). Types that don't fit will have to be handled
     // with an extra dynamic allocation.
     //
-    // std::max() is not constexpr on GCC 4.9.
-    //
-    static constexpr size_t size_ =
-      sizeof (names) > sizeof (target_triplet)
-      ? sizeof (names)
-      : sizeof (target_triplet);
-
+    static constexpr size_t           size_ = sizeof (name_pair);
     std::aligned_storage<size_>::type data_;
 
     // Make sure we have sufficient storage for untyped values.
@@ -653,8 +647,31 @@ namespace build2
     static name convert (name&&, name*);
     static void assign (value&, name&&);
     static name reverse (const name& x) {return x;}
-    static int compare (const name&, const name&);
+    static int compare (const name& l, const name& r) {return l.compare (r);}
     static bool empty (const name& x) {return x.empty ();}
+
+    static const bool empty_value = true;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  // name_pair
+  //
+  // An empty first or second half of a pair is treated as unspecified (this
+  // way it can be usage-specific whether a single value is first or second
+  // half of a pair). If both are empty then this is an empty value (and not a
+  // pair of two empties).
+  //
+  template <>
+  struct value_traits<name_pair>
+  {
+    static_assert (sizeof (name_pair) <= value::size_, "insufficient space");
+
+    static name_pair convert (name&&, name*);
+    static void assign (value&, name_pair&&);
+    static int compare (const name_pair&, const name_pair&);
+    static bool empty (const name_pair& x) {
+      return x.first.empty () && x.second.empty ();}
 
     static const bool empty_value = true;
     static const char* const type_name;

@@ -1556,6 +1556,7 @@ namespace build2
       n == "paths"          ? ptr (value_traits<paths>::value_type)          :
       n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
       n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
+      n == "name_pair"      ? ptr (value_traits<name_pair>::value_type)      :
       nullptr;
   }
 
