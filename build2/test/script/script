@@ -313,6 +313,13 @@ namespace build2
       ostream&
       operator<< (ostream&, const command_expr&);
 
+      // command_type
+      //
+      enum class command_type {test, setup, teardown};
+
+      ostream&
+      operator<< (ostream&, command_type);
+
       // description
       //
       struct description

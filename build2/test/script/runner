@@ -42,7 +42,10 @@ namespace build2
         // testscript. It can be used in diagnostics.
         //
         virtual void
-        run (scope&, const command_expr&, size_t index, const location&) = 0;
+        run (scope&,
+             const command_expr&, command_type,
+             size_t index,
+             const location&) = 0;
 
         virtual bool
         run_if (scope&, const command_expr&, size_t, const location&) = 0;
@@ -66,7 +69,10 @@ namespace build2
         enter (scope&, const location&) override;
 
         virtual void
-        run (scope&, const command_expr&, size_t, const location&) override;
+        run (scope&,
+             const command_expr&, command_type,
+             size_t,
+             const location&) override;
 
         virtual bool
         run_if (scope&, const command_expr&, size_t, const location&) override;

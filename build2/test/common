@@ -21,8 +21,8 @@ namespace build2
     {
       // The config.test.output values.
       //
-      output_before before;
-      output_after after;
+      output_before before = output_before::warn;
+      output_after after = output_after::clean;
 
       // The config.test query interface.
       //

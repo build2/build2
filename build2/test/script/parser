@@ -184,7 +184,7 @@ namespace build2
         exec_scope_body ();
 
         void
-        exec_lines (lines::iterator, lines::iterator, size_t&, bool);
+        exec_lines (lines::iterator, lines::iterator, size_t&, command_type);
 
         // Customization hooks.
         //

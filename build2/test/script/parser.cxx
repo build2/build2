@@ -2866,11 +2866,13 @@ namespace build2
 
         if (test* t = dynamic_cast<test*> (scope_))
         {
-          exec_lines (t->tests_.begin (), t->tests_.end (), li, true);
+          exec_lines (
+            t->tests_.begin (), t->tests_.end (), li, command_type::test);
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
-          exec_lines (g->setup_.begin (), g->setup_.end (), li, false);
+          exec_lines (
+            g->setup_.begin (), g->setup_.end (), li, command_type::setup);
 
           atomic_count task_count (0);
           wait_guard wg (task_count);
@@ -3017,7 +3019,8 @@ namespace build2
             }
           }
 
-          exec_lines (g->tdown_.begin (), g->tdown_.end (), li, false);
+          exec_lines (
+            g->tdown_.begin (), g->tdown_.end (), li, command_type::teardown);
         }
         else
           assert (false);
@@ -3028,7 +3031,9 @@ namespace build2
       }
 
       void parser::
-      exec_lines (lines::iterator i, lines::iterator e, size_t& li, bool test)
+      exec_lines (lines::iterator i, lines::iterator e,
+                  size_t& li,
+                  command_type ct)
       {
         token t;
         type tt;
@@ -3096,7 +3101,7 @@ namespace build2
               // We use the 0 index to signal that this is the only command.
               // Note that we only do this for test commands.
               //
-              if (test && li == 0)
+              if (ct == command_type::test && li == 0)
               {
                 lines::iterator j (i);
                 for (++j; j != e && j->type == line_type::var; ++j) ;
@@ -3108,7 +3113,7 @@ namespace build2
                 ++li;
 
               command_expr ce (parse_command_line (t, tt));
-              runner_->run (*scope_, ce, li, ll);
+              runner_->run (*scope_, ce, ct, li, ll);
 
               replay_stop ();
               break;
@@ -3207,7 +3212,7 @@ namespace build2
               if (take)
               {
                 lines::iterator j (next (i, false, false)); // Next if-else.
-                exec_lines (i + 1, j, li, test);
+                exec_lines (i + 1, j, li, ct);
                 i = j->type == line_type::cmd_end ? j : next (j, true, true);
               }
               else

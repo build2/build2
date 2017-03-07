@@ -422,9 +422,16 @@ namespace build2
 
       if (exists (wd))
       {
-        warn << "working directory " << wd << " exists "
-             << (empty (wd) ? "" : "and is not empty ") << "at the beginning "
-             << "of the test";
+        if (before != output_before::clean)
+        {
+          bool fail (before == output_before::fail);
+
+          (fail ? error : warn) << "working directory " << wd << " exists "
+                                << (empty (wd) ? "" : "and is not empty ")
+                                << "at the beginning of the test";
+          if (fail)
+            throw failed ();
+        }
 
         // Remove the directory itself not to confuse the runner which tries
         // to detect when tests stomp on each others feet.
@@ -533,7 +540,7 @@ namespace build2
 
       // Cleanup.
       //
-      if (!one && !mk)
+      if (!one && !mk && after == output_after::clean)
       {
         if (!empty (wd))
           fail << "working directory " << wd << " is not empty at the "

@@ -667,136 +667,144 @@ namespace build2
       void default_runner::
       leave (scope& sp, const location& ll)
       {
-        // Remove files and directories in the order opposite to the order of
-        // cleanup registration.
+        // Perform registered cleanups if requested.
         //
-        // Note that we operate with normalized paths here.
-        //
-        for (const auto& c: reverse_iterate (sp.cleanups))
+        if (common_.after == output_after::clean)
         {
-          cleanup_type t (c.type);
-
-          // Skip whenever the path exists or not.
+          // Remove files and directories in the order opposite to the order of
+          // cleanup registration.
           //
-          if (t == cleanup_type::never)
-            continue;
-
-          const path& p (c.path);
-          const path& l (p.leaf ());
-          const string& ls (l.string ());
-
-          // Remove the directory recursively if not current. Fail otherwise.
-          // Recursive removal of non-existing directory is not an error for
-          // 'maybe' cleanup type.
+          // Note that we operate with normalized paths here.
           //
-          if (ls == "***")
+          for (const auto& c: reverse_iterate (sp.cleanups))
           {
-            // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
-            //
-            rmdir_status r (
-              rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
+            cleanup_type t (c.type);
 
-            if (r == rmdir_status::success ||
-                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+            // Skip whenever the path exists or not.
+            //
+            if (t == cleanup_type::never)
               continue;
 
-            // The directory is unlikely to be current but let's keep for
-            // completeness.
+            const path& p (c.path);
+            const path& l (p.leaf ());
+            const string& ls (l.string ());
+
+            // Remove the directory recursively if not current. Fail otherwise.
+            // Recursive removal of non-existing directory is not an error for
+            // 'maybe' cleanup type.
             //
-            fail (ll) << "registered for cleanup wildcard " << p
-                      << (r == rmdir_status::not_empty
-                          ? " matches the current directory"
-                          : " doesn't match a directory");
-          }
-
-          // Remove files or directories using wildcard. Removal of sub-entries
-          // of non-existing directory is not an error for 'maybe' cleanup
-          // type.
-          //
-          // Note that only the leaf part of the cleanup wildcard is a pattern
-          // in terms of libbutl::path_search().
-          //
-          if (ls == "*" || ls == "**")
-          {
-            dir_path d (p.directory ());
-
-            if (t == cleanup_type::always && !dir_exists (d))
-              fail (ll) << "registered for cleanup wildcard " << p
-                        << " doesn't match a directory";
-
-            if (l.to_directory ())
+            if (ls == "***")
             {
-              auto rm =
-                [&p, &d, &ll] (path&& de, const string&, bool interm) -> bool
+              // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
+              //
+              rmdir_status r (
+                rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
+
+              if (r == rmdir_status::success ||
+                  (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+                continue;
+
+              // The directory is unlikely to be current but let's keep for
+              // completeness.
+              //
+              fail (ll) << "registered for cleanup wildcard " << p
+                        << (r == rmdir_status::not_empty
+                            ? " matches the current directory"
+                            : " doesn't match a directory");
+            }
+
+            // Remove files or directories using wildcard. Removal of
+            // sub-entries of non-existing directory is not an error for
+            // 'maybe' cleanup type.
+            //
+            // Note that only the leaf part of the cleanup wildcard is a
+            // pattern in terms of libbutl::path_search().
+            //
+            if (ls == "*" || ls == "**")
+            {
+              dir_path d (p.directory ());
+
+              if (t == cleanup_type::always && !dir_exists (d))
+                fail (ll) << "registered for cleanup wildcard " << p
+                          << " doesn't match a directory";
+
+              if (l.to_directory ())
               {
-                if (!interm)
+                auto rm =
+                  [&p, &d, &ll] (path&& de, const string&, bool interm) -> bool
                 {
-                  dir_path sd (path_cast<dir_path> (d / de));
+                  if (!interm)
+                  {
+                    dir_path sd (path_cast<dir_path> (d / de));
 
-                  // We can get not_exist here due to racing conditions, but
-                  // that's ok if somebody did our job.
-                  //
-                  rmdir_status r (rmdir (sd, 2));
+                    // We can get not_exist here due to racing conditions, but
+                    // that's ok if somebody did our job.
+                    //
+                    rmdir_status r (rmdir (sd, 2));
 
-                  if (r == rmdir_status::not_empty)
+                    if (r != rmdir_status::not_empty)
+                      return true;
+
                     fail (ll) << "registered for cleanup directory " << sd
                               << " is not empty" <<
                       info << "wildcard: '" << p << "'";
-                }
+                  }
 
-                return true;
-              };
+                  return true;
+                };
 
-              path_search (l, rm, d);
-            }
-            else
-            {
-              auto rm = [&d] (path&& p, const string&, bool interm) -> bool
+                path_search (l, rm, d);
+              }
+              else
               {
-                if (!interm)
-                  rmfile (d / p, 2); // That's ok if not exists.
+                auto rm = [&d] (path&& p, const string&, bool interm) -> bool
+                {
+                  if (!interm)
+                    rmfile (d / p, 2); // That's ok if not exists.
 
-                return true;
-              };
+                  return true;
+                };
 
-              path_search (l, rm, d);
+                path_search (l, rm, d);
+              }
+
+              continue;
             }
 
-            continue;
-          }
-
-          // Remove the directory if exists and empty. Fail otherwise. Removal
-          // of non-existing directory is not an error for 'maybe' cleanup
-          // type.
-          //
-          if (p.to_directory ())
-          {
-            dir_path d (path_cast<dir_path> (p));
-
-            // @@ If 'd' is a file then will fail with a diagnostics having no
-            //    location info. Probably need to add an optional location
-            //    parameter to rmdir() function. The same problem exists for a
-            //    file cleanup when try to rmfile() directory instead of file.
+            // Remove the directory if exists and empty. Fail otherwise.
+            // Removal of non-existing directory is not an error for 'maybe'
+            // cleanup type.
             //
-            rmdir_status r (rmdir (d, 2));
+            if (p.to_directory ())
+            {
+              dir_path d (path_cast<dir_path> (p));
 
-            if (r == rmdir_status::success ||
-                (r == rmdir_status::not_exist && t == cleanup_type::maybe))
-              continue;
+              // @@ If 'd' is a file then will fail with a diagnostics having
+              //    no location info. Probably need to add an optional location
+              //    parameter to rmdir() function. The same problem exists for
+              //    a file cleanup when try to rmfile() directory instead of
+              //    file.
+              //
+              rmdir_status r (rmdir (d, 2));
 
-            fail (ll) << "registered for cleanup directory " << d
-                      << (r == rmdir_status::not_empty
-                          ? " is not empty"
-                          : " does not exist");
+              if (r == rmdir_status::success ||
+                  (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+                continue;
+
+              fail (ll) << "registered for cleanup directory " << d
+                        << (r == rmdir_status::not_empty
+                            ? " is not empty"
+                            : " does not exist");
+            }
+
+            // Remove the file if exists. Fail otherwise. Removal of
+            // non-existing file is not an error for 'maybe' cleanup type.
+            //
+            if (rmfile (p, 2) == rmfile_status::not_exist &&
+                t == cleanup_type::always)
+              fail (ll) << "registered for cleanup file " << p
+                        << " does not exist";
           }
-
-          // Remove the file if exists. Fail otherwise. Removal of non-existing
-          // file is not an error for 'maybe' cleanup type.
-          //
-          if (rmfile (p, 2) == rmfile_status::not_exist &&
-              t == cleanup_type::always)
-            fail (ll) << "registered for cleanup file " << p
-                      << " does not exist";
         }
 
         // Return to the parent scope directory or to the out_base one for the
@@ -1609,10 +1617,19 @@ namespace build2
       }
 
       void default_runner::
-      run (scope& sp, const command_expr& expr, size_t li, const location& ll)
+      run (scope& sp,
+           const command_expr& expr, command_type ct,
+           size_t li,
+           const location& ll)
       {
+        // Noop for teardown commands if keeping tests output is requested.
+        //
+        if (ct == command_type::teardown &&
+            common_.after == output_after::keep)
+          return;
+
         if (verb >= 3)
-          text << expr;
+          text << ct << expr;
 
         if (!run_expr (sp, expr, li, ll, true))
           throw failed (); // Assume diagnostics is already printed.

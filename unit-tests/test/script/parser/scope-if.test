@@ -489,7 +489,7 @@ else
 -tdown          # 8
 EOI
 {
-  setup # 1
+  +setup # 1
   ? false one # 2
   ? false two # 3
   ? true # 4
@@ -501,7 +501,7 @@ EOI
   {
     cmd2 # 0
   }
-  tdown # 8
+  -tdown # 8
 }
 EOO
 

@@ -305,6 +305,23 @@ namespace build2
         }
       }
 
+      // command_type
+      //
+      ostream&
+      operator<< (ostream& o, command_type ct)
+      {
+        const char* s (nullptr);
+
+        switch (ct)
+        {
+        case command_type::test:     s = "";  break;
+        case command_type::setup:    s = "+"; break;
+        case command_type::teardown: s = "-"; break;
+        }
+
+        return o << s;
+      }
+
       // redirect
       //
       redirect::

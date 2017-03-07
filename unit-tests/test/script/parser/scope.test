@@ -115,7 +115,7 @@ $* foo.test <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?%"
     EOI
     {
       { # 1
-        setup
+        +setup
         { # 1/4
           cmd abc
         }

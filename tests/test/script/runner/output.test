@@ -1,0 +1,87 @@
+# file      : tests/test/script/runner/output.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Some of the tests below (*/script-wd, before/*) are probably more appropriate
+# for tests/test/script/script-integration/testscript. Nevertheless let's not
+# spread the feature tests among several places.
+#
+
+.include ../common.test
+
+: after
+:
+{
+  : keep
+  :
+  {
+    : cleanup
+    :
+    $c <'touch a' && $b config.test.output=keep;
+    test -f test/1/a
+
+    : teardown
+    :
+    $c <<EOI && $b config.test.output=keep;
+      +touch a &!a
+      -rm a
+      EOI
+    test -f test/a
+
+    : script-wd
+    :
+    : There is no working directory created for a empty script, so add a dummy
+    : assignment here.
+    :
+    $c <'a=b' && $b config.test.output=keep;
+    test -d test
+  }
+
+  : clean
+  :
+  {
+    : cleanup
+    :
+    $c <'touch a' && $b config.test.output=clean;
+    test -f test/1/a == 1
+
+    : teardown
+    :
+    $c <<EOI && $b config.test.output=clean;
+      +touch a &!a
+      -rm a
+      EOI
+    test -f test/a == 1
+
+    : script-wd
+    :
+    : There is no working directory created for a empty script, so add a dummy
+    : assignment here.
+    :
+    $c <'a=b' && $b config.test.output=clean;
+    test -d test == 1
+  }
+}
+
+: before
+:
+{
+  : fail
+  :
+  mkdir test &!test/;
+  $c <'true' && $b config.test.output=fail@clean 2>>/EOE != 0
+    error: working directory test/ exists at the beginning of the test
+    EOE
+
+  : warn
+  :
+  mkdir test &!test/;
+  $c <'true' && $b config.test.output=warn@clean 2>>/EOE
+    warning: working directory test/ exists at the beginning of the test
+    EOE
+
+  : clean
+  :
+  mkdir test &!test/;
+  $c <'true' && $b config.test.output=clean@clean
+}

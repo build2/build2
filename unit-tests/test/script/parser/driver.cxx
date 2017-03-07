@@ -90,11 +90,11 @@ namespace build2
 
         virtual void
         run (scope&,
-             const command_expr& e,
+             const command_expr& e, command_type t,
              size_t i,
              const location&) override
         {
-          cout << ind_ << e;
+          cout << ind_ << t << e;
 
           if (line_)
             cout << " # " << i;
