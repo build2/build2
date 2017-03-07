@@ -16,7 +16,7 @@
 
 This is the preface.
 
-\h1#name-pattern|Name Pattern|
+\h1#name-patterns|Name Patterns|
 
 For convenience, in certain contexts, names can be generated with shell-like
 wildcard patterns. A name is a \i{name pattern} if its value contains one or
@@ -87,6 +87,20 @@ to find other, non-generated source files:
 exe{hello}: {hxx cxx}{* -options} {hxx cxx}{options}
 \
 
+If the name pattern includes an absolute directory, then the pattern match is
+performed in that directory and the generated names include absolute
+directories as well. Otherwise, the pattern match is performed in the
+\i{pattern base} directory. In buildfiles this is \c{src_base} while on the
+command line \- the current working directory (@@ TODO: spec for testscript,
+other contexts). In this case the generated names are relative to the base
+directory. For example, assuming we have the \c{foo.cxx} and \c{b/bar.cxx}
+source files:
+
+\
+exe{hello}: $src_base/cxx{**} # $src_base/cxx{foo} $src_base/b/cxx{bar}
+exe{hello}:           cxx{**} #           cxx{foo}           b/cxx{bar}
+\
+
 Pattern matching as well as inclusion/exclusion logic is target
 type-specific. If the name pattern does not contain a type, then the
 \c{dir{\}} type is assumed if the pattern ends with a directory separator and
@@ -117,26 +131,12 @@ cxx{*}: extension = cxx
 And the following in our \c{buildfile}:
 
 \
-exe{hello}: {cxx}{* -foo -bar.cpp}
+exe{hello}: {cxx}{* -foo -bar.cxx}
 \
 
 The pattern match will first search for all the files matching the \c{*.cxx}
 pattern in \c{src_base} and then exclude \c{foo.cxx} and \c{bar.cpp} from the
 result.
-
-If the name pattern includes an absolute directory, then the pattern match is
-performed in that directory and the generated names include absolute
-directories as well. Otherwise, the pattern match is performed in the
-\i{pattern base} directory. In buildfiles this is \c{src_base} while on the
-command line \- the current working directory (@@ TODO: spec for testscript,
-other contexts). In this case the generated names are relative to the base
-directory. For example, assuming we have the \c{foo.cxx} and \c{b/bar.cxx}
-source files:
-
-\
-exe{hello}: $src_base/cxx{**} # $src_base/cxx{foo} $src_base/b/cxx{bar}
-exe{hello}:           cxx{**} #           cxx{foo}           b/cxx{bar}
-\
 
 If the name generation cannot be performed because the base directory is
 unknown, target type is unknown, or the target type is not directory or
