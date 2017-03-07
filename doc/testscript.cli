@@ -1075,7 +1075,7 @@ $ b test config.test.output=keep  # config.test.output=clean@keep
 \
 
 Note also that selecting the \c{keep} behavior may result in some test
-failures due to unexpected output to go undetected.
+failures (due to unexpected output) to go undetected.
 
 \h1#lexical|Lexical Structure|
 
