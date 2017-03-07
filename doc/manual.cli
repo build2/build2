@@ -61,7 +61,7 @@ itself. For example:
 exe{hello}: cxx{**} # All C++ source files, including in subdirectories.
 \
 
-A \c{{\}}-enclosed pattern value may be following by inclusion/exclusion
+A \c{{\}}-enclosed pattern value may be followed by inclusion/exclusion
 patterns/matches. A subsequent value is treated as an inclusion if it starts
 with a plus sign (\c{+}) and as an exclusion if it starts with a minus
 (\c{-}). A subsequent value that does not start with either of these signs is
