@@ -2392,12 +2392,14 @@ working directory unless the \c{-f} option is specified.
 \h#builtins-sed|\c{sed}|
 
 \
-sed [-n] -e <script> [<file>]
+sed [-n] [-i] -e <script> [<file>]
 \
 
 Read text from \i{file}, make editing changes according to \i{script}, and
 write the result to \c{stdout}. If \i{file} is not specified or is \c{-}, read
-from \c{stdin}.
+from \c{stdin}. If both \i{file} and the \c{-i} option are specified then edit
+the \i{file} in place. Specifying \c{-i} when reading from \c{stdin} is
+illegal.
 
 Note that this builtin implementation deviates significantly from POSIX
 \c{sed} (as described next). Most significantly, the regular expression flavor
@@ -2410,6 +2412,10 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
   Suppress automatic printing of the pattern space at the end of the script
   execution.|
 
+\li|\n\c{-i}
+
+  Edit \i{file} in place.|
+
 \li|\n\c{-e <script>}\n
 
   Editing commands to be executed (required).||
@@ -2417,8 +2423,7 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 To perform the transformation \c{sed} reads each line of input (without the
 newline) into the pattern space. It then executes the script commands on the
 pattern space. At the end of the script execution, unless the \c{-n} option is
-specified, \c{sed} writes the pattern space to \c{stdout} followed by a
-newline.
+specified, \c{sed} writes the pattern space to output followed by a newline.
 
 Currently, only single-command scripts using the following editing commands
 are supported.

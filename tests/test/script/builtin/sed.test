@@ -104,7 +104,6 @@
     info: stderr: test/1/stderr
   sed: unexpected argument
   EOE
-
 }
 
 : command
@@ -297,6 +296,26 @@
       EOI
     }
   }
+}
+
+: in-place
+:
+{
+  : no-file
+  :
+  $c <"sed -i -e 's/a/b/'" && $b 2>>/EOE != 0
+  testscript:1:1: error: sed exit status 1 != 0
+    info: stderr: test/1/stderr
+  sed: -i option specified while reading from stdin
+  EOE
+
+  : edit
+  :
+  $c <<EOI && $b
+  cat <'foo' >=f;
+  sed -i -e 's/foo/bar/' f;
+  cat f >'bar'
+  EOI
 }
 
 : big

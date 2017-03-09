@@ -148,11 +148,6 @@ namespace build2
 
       // cat <file>...
       //
-      // Read files in sequence and write their contents to STDOUT in the same
-      // sequence. Read from STDIN if no arguments provided or '-' is specified
-      // as a file path. STDIN, STDOUT and file streams are set to binary mode
-      // prior to I/O operations.
-      //
       // Note that POSIX doesn't specify if after I/O operation failure the
       // command should proceed with the rest of the arguments. The current
       // implementation exits immediatelly in such a case.
@@ -340,12 +335,6 @@ namespace build2
       // cp        <src-file>...  <dst-dir>/
       // cp -R|-r  <src-path>...  <dst-dir>/
       //
-      // Copy files and/or directories. The first two forms make a copy of a
-      // single entity at the specified path. The last two copy one or more
-      // entities into the specified directory.
-      //
-      // For details read the builtin description in the manual.
-      //
       // Note: can be executed synchronously.
       //
       static uint8_t
@@ -517,7 +506,9 @@ namespace build2
 
       // false
       //
-      // Return 1. Failure to close the file descriptors is silently ignored.
+      // Failure to close the file descriptors is silently ignored.
+      //
+      // Note: can be executed synchronously.
       //
       static future<uint8_t>
       false_ (scope&, const strings&, auto_fd, auto_fd, auto_fd)
@@ -527,7 +518,9 @@ namespace build2
 
       // true
       //
-      // Return 0. Failure to close the file descriptors is silently ignored.
+      // Failure to close the file descriptors is silently ignored.
+      //
+      // Note: can be executed synchronously.
       //
       static future<uint8_t>
       true_ (scope&, const strings&, auto_fd, auto_fd, auto_fd)
@@ -553,10 +546,6 @@ namespace build2
       }
 
       // mkdir [-p] <dir>...
-      //
-      // -p
-      //    Create any missing intermediate pathname components. Each argument
-      //    that names an existing directory must be ignored without error.
       //
       // Note that POSIX doesn't specify if after a directory creation failure
       // the command should proceed with the rest of the arguments. The current
@@ -652,19 +641,6 @@ namespace build2
       }
 
       // rm [-r] [-f] <path>...
-      //
-      // Remove a file or directory. A path must not be the test working
-      // directory or its parent directory. It also must not be outside the
-      // testscript working directory unless the -f option is specified. Note
-      // that directories are not removed by default.
-      //
-      // -r
-      //    Remove directories recursively. Must be specified to remove even an
-      //    empty directory.
-      //
-      // -f
-      //    Do not fail if path doesn't exist or no paths specified. Removing
-      //    paths outside the testscript working directory is not an error.
       //
       // The implementation deviates from POSIX in a number of ways. It doesn't
       // interact with a user and fails immediatelly if unable to process an
@@ -786,14 +762,6 @@ namespace build2
 
       // rmdir [-f] <path>...
       //
-      // Remove a directory. The directory must be empty and not be the test
-      // working directory or its parent directory. It also must not be outside
-      // the testscript working directory unless the -f option is specified.
-      //
-      // -f
-      //    Do not fail if no directory is specified, the directory does not
-      //    exist, or is outside the script working directory.
-      //
       // Note: can be executed synchronously.
       //
       static uint8_t
@@ -894,34 +862,7 @@ namespace build2
         return 1;
       }
 
-      // sed [-n] -e <script> [<file>]
-      //
-      // Read text from file, make editing changes according to script, and
-      // write the result to stdout. If file is not specified or is '-', read
-      // from stdin.
-      //
-      // -n
-      //    Suppress automatic printing of the pattern space at the end of the
-      //    script execution.
-      //
-      // -e <script>
-      //    Editing commands to be executed (required).
-      //
-      //  Currently, only single-command scripts using the following editing
-      //  commands are supported.
-      //
-      //  s/<regex>/<replacement>/<flags>
-      //    The supported flags are 'i' (case-insensitive search), 'g'
-      //    (substitute globally), 'p' (print if a replacement was made). If
-      //    regex starts with ^, then it only matches at the beginning of the
-      //    pattern space. Similarly, if it ends with $, then it only matches
-      //    at the end of the pattern space.
-      //
-      //    In replacement, besides the standard ECMAScript escape sequences a
-      //    subset of Perl-specific ones is recognized.
-      //
-      //  For more details read the builtin description in 'The build2
-      //  Testscript Language'.
+      // sed [-n] [-i] -e <script> [<file>]
       //
       // Note: must be executed asynchronously.
       //
@@ -941,6 +882,11 @@ namespace build2
 
         try
         {
+          // Automatically remove a temporary file (used for in place editing)
+          // on failure.
+          //
+          auto_rmfile rm;
+
           // Do not throw when failbit is set (getline() failed to extract any
           // character).
           //
@@ -953,6 +899,7 @@ namespace build2
           // Process options.
           //
           bool auto_prn (true);
+          bool in_place (false);
 
           struct substitute
           {
@@ -966,9 +913,13 @@ namespace build2
 
           for (; i != e; ++i)
           {
-            if (*i == "-n")
+            const string& o (*i);
+
+            if (o == "-n")
               auto_prn = false;
-            else if (*i == "-e")
+            else if (o == "-i")
+              in_place = true;
+            else if (o == "-e")
             {
               // Only a single script is supported.
 	      //
@@ -1034,7 +985,7 @@ namespace build2
             }
             else
             {
-              if (*i == "--")
+              if (o == "--")
                 ++i;
 
               break;
@@ -1057,6 +1008,43 @@ namespace build2
 
           if (i != e)
 	    error () << "unexpected argument";
+
+          // If we edit file in place make sure that the file path is specified
+          // and obtain a temporary file path. We will be writing to the
+          // temporary file (rather than to stdout) and will move it to the
+          // original file path afterwards.
+          //
+          path tp;
+          if (in_place)
+          {
+            if (p.empty ())
+              error () << "-i option specified while reading from stdin";
+
+            try
+            {
+              tp = path::temp_path ("build2-sed");
+
+              cout.close ();  // Flush and close.
+
+              cout.open (
+                fdopen (tp,
+                        fdopen_mode::out | fdopen_mode::truncate |
+                        fdopen_mode::create,
+                        path_permissions (p)));
+            }
+            catch (const io_error& e)
+            {
+              error_record d (error ());
+              d << "unable to open '" << tp << "': " << e;
+            }
+            catch (const system_error& e)
+            {
+              error_record d (error ());
+              d << "unable to obtain temporary file: " << e;
+            }
+
+            rm = auto_rmfile (tp);
+          }
 
           // Note that ECMAScript is implied if no grammar flag is specified.
           //
@@ -1096,6 +1084,16 @@ namespace build2
 
             cin.close ();
             cout.close ();
+
+            if (in_place)
+            {
+              mvfile (
+                tp, p,
+                cpflags::overwrite_content | cpflags::overwrite_permissions);
+
+              rm.cancel ();
+            }
+
             r = 0;
           }
           catch (const io_error& e)
@@ -1127,6 +1125,10 @@ namespace build2
         {
           error (false) << e;
         }
+        catch (const system_error& e)
+        {
+          error (false) << e;
+        }
         catch (const failed&)
         {
           // Diagnostics has already been issued.
@@ -1141,19 +1143,6 @@ namespace build2
       }
 
       // test -f|-d <path>
-      //
-      // Test the specified path according to one of the following options.
-      // Succeed (0 exit code) if the test passes and fail (1 exit code)
-      // otherwise. In case of an error exit with code 2. Providing no
-      // arguments is an error (unlike POSIX).
-      //
-      // -f
-      //    Path exists and is to a regular file.
-      //
-      // -d
-      //    Path exists and is to a directory.
-      //
-      // Note that tests dereference symbolic links.
       //
       // Note: can be executed synchronously.
       //
@@ -1222,10 +1211,6 @@ namespace build2
       }
 
       // touch <file>...
-      //
-      // Change file access and modification times to the current time. Create
-      // a file if doesn't exist. Fail if a file system entry other than file
-      // exists for the name specified.
       //
       // Note that POSIX doesn't specify the behavior for touching an entry
       // other than file.
