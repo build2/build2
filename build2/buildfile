@@ -4,6 +4,7 @@
 
 import libs = libbutl%lib{butl}
 
+#\
 exe{b}:                                                   \
             {hxx ixx     cxx}{ algorithm                } \
             {            cxx}{ b                        } \
@@ -94,6 +95,18 @@ test/script/{hxx         cxx}{ runner                   } \
 test/script/{hxx ixx     cxx}{ script                   } \
 test/script/{hxx         cxx}{ token                    } \
                                liba{b} $libs
+#\
+
+#exe{b}: {hxx ixx txx cxx}{** -b-options -dummy} \
+#        {hxx ixx cxx}{ b-options } \
+#        liba{b} $libs
+
+exe{b}: hxx{** -b-options -dummy} \
+        ixx{** -b-options -dummy} \
+        txx{** -b-options -dummy} \
+        cxx{** -b-options -dummy} \
+        {hxx ixx cxx}{b-options}  \
+        liba{b} $libs
 
 # Fake utility library (without it code generation does not work).
 #
