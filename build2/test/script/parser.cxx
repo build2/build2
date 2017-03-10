@@ -73,6 +73,8 @@ namespace build2
         include_set_ = &ins;
         scope_ = nullptr;
 
+        //@@ PAT TODO: set pbase_?
+
         // Start location of the implied script group is the beginning of
         // the file. End location -- end of the file.
         //
@@ -968,7 +970,11 @@ namespace build2
         if (tt != type::newline)
         {
           pre_parse_ = false;
-          args = parse_names (t, tt, false, "directive argument", nullptr);
+          args = parse_names (t, tt,
+                              pattern_mode::expand,
+                              false,
+                              "directive argument",
+                              nullptr);
           pre_parse_ = true;
         }
 
@@ -1275,8 +1281,15 @@ namespace build2
         //
         attributes_push (t, tt, true);
 
+        // @@ PAT: Should we expand patterns? Note that it will only be
+        // simple ones since we have disabled {}. Also, what would be the
+        // pattern base directory?
+        //
         return tt != type::newline && tt != type::semi
-          ? parse_value (t, tt, "variable value", nullptr)
+          ? parse_value (t, tt,
+                         pattern_mode::ignore,
+                         "variable value",
+                         nullptr)
           : value (names ());
       }
 
@@ -2165,8 +2178,17 @@ namespace build2
               // Note that we do it in the chunking mode to detect whether
               // anything in each chunk is quoted.
               //
+              // @@ PAT: should we support pattern expansion? This is even
+              // fuzzier than the variable case above. Though this is the
+              // shell semantics. Think what happens when we do rm *.txt?
+              //
               reset_quoted (t);
-              parse_names (t, tt, ns, true, "command line", nullptr);
+              parse_names (t, tt,
+                           ns,
+                           pattern_mode::ignore,
+                           true,
+                           "command line",
+                           nullptr);
 
               if (pre_parse_) // Nothing else to do if we are pre-parsing.
                 break;
@@ -2404,7 +2426,11 @@ namespace build2
         //
         next (t, tt);
         location l (get_location (t));
-        names ns (parse_names (t, tt, true, "exit status", nullptr));
+        names ns (parse_names (t, tt,
+                               pattern_mode::ignore,
+                               true,
+                               "exit status",
+                               nullptr));
         unsigned long es (256);
 
         if (!pre_parse_)
@@ -2570,8 +2596,15 @@ namespace build2
 
           // Expand the line (can be blank).
           //
+          // @@ PAT: one could argue that if we do it in variables, then we
+          // should do it here as well. Though feels bizarre.
+          //
           names ns (tt != type::newline
-                    ? parse_names (t, tt, false, "here-document line", nullptr)
+                    ? parse_names (t, tt,
+                                   pattern_mode::ignore,
+                                   false,
+                                   "here-document line",
+                                   nullptr)
                     : names ());
 
           if (!pre_parse_)
@@ -2818,6 +2851,8 @@ namespace build2
         id_map_ = nullptr;
         include_set_ = nullptr;
         scope_ = &sc;
+
+        //@@ PAT TODO: set pbase_?
 
         exec_scope_body ();
       }

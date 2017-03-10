@@ -17,6 +17,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
+      nullptr,
       &search_target,
       false
     };
@@ -30,6 +31,7 @@ namespace build2
       &file::static_type,
       &target_factory<h>,
       &target_extension_var<ext_var, h_ext_def>,
+      &target_pattern_var<ext_var, h_ext_def>,
       nullptr,
       &search_file,
       false
@@ -42,6 +44,7 @@ namespace build2
       &cc::static_type,
       &target_factory<c>,
       &target_extension_var<ext_var, c_ext_def>,
+      &target_pattern_var<ext_var, c_ext_def>,
       nullptr,
       &search_file,
       false

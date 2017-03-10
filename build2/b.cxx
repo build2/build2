@@ -321,6 +321,11 @@ main (int argc, char* argv[])
       trace << "jobs: " << jobs;
     }
 
+    // Set the build state before parsing the buildspec since it relies on
+    // global scope being setup.
+    //
+    variable_overrides var_ovs (reset (cmd_vars));
+
     // Parse the buildspec.
     //
     buildspec bspec;
@@ -349,8 +354,7 @@ main (int argc, char* argv[])
     //
     opspec* lifted (nullptr);
     size_t skip (0);
-    bool dirty (true);
-    variable_overrides var_ovs;
+    bool dirty (false); // We already (re)set for the first run.
 
     for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {

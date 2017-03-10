@@ -22,6 +22,7 @@ namespace build2
       &file::static_type,
       &target_factory<cli>,
       &target_extension_var<cli_ext_var, cli_ext_def>,
+      &target_pattern_var<cli_ext_var, cli_ext_def>,
       nullptr,
       &search_file,
       false
@@ -66,6 +67,7 @@ namespace build2
       "cli.cxx",
       &mtime_target::static_type,
       &cli_cxx_factory,
+      nullptr,
       nullptr,
       nullptr,
       &search_target,

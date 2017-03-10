@@ -41,6 +41,7 @@ namespace build2
       &file::static_type,
       &objx_factory<obje>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
@@ -52,6 +53,7 @@ namespace build2
       &file::static_type,
       &objx_factory<obja>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
@@ -63,6 +65,7 @@ namespace build2
       &file::static_type,
       &objx_factory<objs>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_target, // Note: not _file(); don't look for an existing file.
       false
@@ -103,6 +106,7 @@ namespace build2
       &obj_factory,
       nullptr,
       nullptr,
+      nullptr,
       &search_target,
       false
     };
@@ -139,6 +143,7 @@ namespace build2
       &file::static_type,
       &libx_factory<liba>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false
@@ -150,6 +155,7 @@ namespace build2
       &file::static_type,
       &libx_factory<libs>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false
@@ -199,6 +205,7 @@ namespace build2
       &lib_factory,
       nullptr,
       nullptr,
+      nullptr,
       &search_target,
       false
     };
@@ -211,6 +218,7 @@ namespace build2
       &file::static_type,
       &target_factory<libi>,
       &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
       nullptr,
       &search_file,
       false

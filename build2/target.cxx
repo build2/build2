@@ -659,6 +659,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
     &search_target,
     false
   };
@@ -670,6 +671,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
     &search_target,
     false
   };
@@ -678,6 +680,7 @@ namespace build2
   {
     "path_target",
     &mtime_target::static_type,
+    nullptr,
     nullptr,
     nullptr,
     nullptr,
@@ -714,6 +717,7 @@ namespace build2
     &path_target::static_type,
     &file_factory<file, file_ext_def>,
     &target_extension_var<file_ext_var, file_ext_def>,
+    &target_pattern_var<file_ext_var, file_ext_def>,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
     false
@@ -740,14 +744,15 @@ namespace build2
     &target_factory<alias>,
     nullptr, // Extension not used.
     nullptr,
+    nullptr,
     &search_alias,
     false
   };
 
   static const target*
-  search_dir (const prerequisite_key& pk)
+  dir_target_search (const prerequisite_key& pk)
   {
-    tracer trace ("search_dir");
+    tracer trace ("dir_target_search");
 
     // The first step is like in search_alias(): looks for an existing target.
     //
@@ -831,14 +836,36 @@ namespace build2
       info << "did you forget to include the corresponding buildfile?" << endf;
   }
 
+  static bool
+  dir_target_pattern (const target_type&, const scope&, string& v, bool r)
+  {
+    // Add/strip trailing directory separator unless already there.
+    //
+    bool d (path::traits::is_separator (v.back ()));
+
+    if (r)
+    {
+      assert (d);
+      v.resize (v.size () - 1);
+    }
+    else if (!d)
+    {
+      v += path::traits::directory_separator;
+      return true;
+    }
+
+    return false;
+  }
+
   const target_type dir::static_type
   {
     "dir",
     &alias::static_type,
     &target_factory<dir>,
-    nullptr, // Extension not used.
+    nullptr,              // Extension not used.
+    &dir_target_pattern,
     nullptr,
-    &search_dir,
+    &dir_target_search,
     false
   };
 
@@ -847,14 +874,15 @@ namespace build2
     "fsdir",
     &target::static_type,
     &target_factory<fsdir>,
-    nullptr, // Extension not used.
+    nullptr,              // Extension not used.
+    &dir_target_pattern,
     nullptr,
     &search_target,
     false
   };
 
   static optional<string>
-  exe_extension (const target_key&, const scope&, bool search)
+  exe_target_extension (const target_key&, const scope&, bool search)
   {
     // If we are searching for an executable that is not a target, then
     // use the build machine executable extension. Otherwise, if this is
@@ -871,12 +899,38 @@ namespace build2
       : nullopt;
   }
 
+#ifdef _WIN32
+  static bool
+  exe_target_pattern (const target_type&, const scope&, string& v, bool r)
+  {
+    size_t p (path::traits::find_extension (v));
+
+    if (r)
+    {
+      assert (p != string::npos);
+      v.resize (p);
+    }
+    else if (p == string::npos)
+    {
+      v += ".exe";
+      return true;
+    }
+
+    return false;
+  }
+#endif
+
   const target_type exe::static_type
   {
     "exe",
     &file::static_type,
     &target_factory<exe>,
-    &exe_extension,
+    &exe_target_extension,
+#ifdef _WIN32
+    &exe_target_pattern,
+#else
+    nullptr,
+#endif
     nullptr,
     &search_file,
     false
@@ -904,12 +958,35 @@ namespace build2
     return *tk.name == "buildfile" ? string () : "build";
   }
 
+  static bool
+  buildfile_target_pattern (const target_type&,
+                            const scope&,
+                            string& v,
+                            bool r)
+  {
+    size_t p (path::traits::find_extension (v));
+
+    if (r)
+    {
+      assert (p != string::npos);
+      v.resize (p);
+    }
+    else if (p == string::npos && v != "buildfile")
+    {
+      v += ".build";
+      return true;
+    }
+
+    return false;
+  }
+
   const target_type buildfile::static_type
   {
     "build",
     &file::static_type,
     &buildfile_factory,
     &buildfile_target_extension,
+    &buildfile_target_pattern,
     nullptr,
     &search_file,
     false
@@ -921,6 +998,7 @@ namespace build2
     &file::static_type,
     &file_factory<doc, file_ext_def>, // No extension by default.
     &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
+    &target_pattern_var<file_ext_var, file_ext_def>,   // Same as file.
     &target_print_1_ext_verb, // Same as file.
     &search_file,
     false
@@ -945,6 +1023,7 @@ namespace build2
     &doc::static_type,
     &man_factory,
     &target_extension_null, // Should be specified explicitly (see factory).
+    nullptr,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &search_file,
     false
@@ -958,6 +1037,7 @@ namespace build2
     &man::static_type,
     &file_factory<man1, man1_ext>,
     &target_extension_fix<man1_ext>,
+    &target_pattern_fix<man1_ext>,
     &target_print_0_ext_verb, // Fixed extension, no use printing.
     &search_file,
     false

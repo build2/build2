@@ -36,6 +36,10 @@ namespace build2
   // (called for a target with the last argument false); see their
   // implementations for details.
   //
+  // If the pattern function is not NULL, then it is used to amend a pattern
+  // or match (reverse is false) and then, if the amendment call returned
+  // true, to reverse it in the resulting matches.
+  //
   struct target_type
   {
     const char* name;
@@ -52,6 +56,8 @@ namespace build2
     optional<string> (*extension) (const target_key&,
                                    const scope&,
                                    bool search);
+
+    bool (*pattern) (const target_type&, const scope&, string&, bool reverse);
 
     void (*print) (ostream&, const target_key&);
 

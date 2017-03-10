@@ -6,6 +6,8 @@
 
 #include <iostream> // cout
 
+#include <butl/filesystem> // path_search(), path_match()
+
 #include <build2/version>
 
 #include <build2/file>
@@ -27,9 +29,10 @@ namespace build2
   class parser::enter_scope
   {
   public:
-    enter_scope (): p_ (nullptr), r_ (nullptr), s_ (nullptr) {}
+    enter_scope (): p_ (nullptr), r_ (nullptr), s_ (nullptr), b_ (nullptr) {}
 
-    enter_scope (parser& p, dir_path&& d): p_ (&p), r_ (p.root_), s_ (p.scope_)
+    enter_scope (parser& p, dir_path&& d)
+        : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
     {
       // Try hard not to call normalize(). Most of the time we will go just
       // one level deeper.
@@ -61,14 +64,25 @@ namespace build2
       {
         p_->scope_ = s_;
         p_->root_ = r_;
+        p_->pbase_ = b_;
       }
     }
 
     // Note: move-assignable to empty only.
     //
     enter_scope (enter_scope&& x) {*this = move (x);}
-    enter_scope& operator= (enter_scope&& x) {
-      p_ = x.p_; r_ = x.r_; s_ = x.s_; x.p_ = nullptr; return *this;}
+    enter_scope& operator= (enter_scope&& x)
+    {
+      if (this != &x)
+      {
+        p_ = x.p_;
+        r_ = x.r_;
+        s_ = x.s_;
+        b_ = x.b_;
+        x.p_ = nullptr;
+      }
+      return *this;
+    }
 
     enter_scope (const enter_scope&) = delete;
     enter_scope& operator= (const enter_scope&) = delete;
@@ -77,6 +91,7 @@ namespace build2
     parser* p_;
     scope* r_;
     scope* s_;
+    const dir_path* b_; // Pattern base.
   };
 
   class parser::enter_target
@@ -167,9 +182,10 @@ namespace build2
 
     lexer l (is, *path_);
     lexer_ = &l;
-    target_ = nullptr;
-    scope_ = &base;
     root_ = &root;
+    scope_ = &base;
+    pbase_ = scope_->src_path_;
+    target_ = nullptr;
     default_target_ = nullptr;
 
     enter_buildfile (p); // Needs scope_.
@@ -193,6 +209,7 @@ namespace build2
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &s;
+    pbase_ = scope_->src_path_; // Normally NULL.
 
     token t;
     type tt;
@@ -201,12 +218,16 @@ namespace build2
   }
 
   pair<value, token> parser::
-  parse_variable_value (lexer& l, scope& s, const variable& var)
+  parse_variable_value (lexer& l,
+                        scope& s,
+                        const dir_path* b,
+                        const variable& var)
   {
     path_ = &l.name ();
     lexer_ = &l;
     target_ = nullptr;
     scope_ = &s;
+    pbase_ = b;
 
     token t;
     type tt;
@@ -331,14 +352,8 @@ namespace build2
         }
       }
 
-      // ': foo' is equvalent to '{}: foo' and to 'dir{}: foo'.
-      //
-      // @@ I think we should make ': foo' invalid.
-      //
       const location nloc (get_location (t));
-      names ns (tt != type::colon
-                ? parse_names (t, tt)
-                : names ({name ("dir", string ())}));
+      names ns (parse_names (t, tt, pattern_mode::ignore));
 
       if (tt == type::colon)
       {
@@ -444,9 +459,11 @@ namespace build2
             tt == type::newline ||
             tt == type::eos)
         {
+          // @@ PAT: currently we pattern-expand scope/target-specific vars.
+          //
           const location ploc (get_location (t));
           names pns (tt != type::newline && tt != type::eos
-                     ? parse_names (t, tt)
+                     ? parse_names (t, tt, pattern_mode::expand)
                      : names ());
 
           // Scope/target-specific variable assignment.
@@ -785,7 +802,11 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, false, "path", nullptr)
+              ? parse_names (t, tt,
+                             pattern_mode::expand,
+                             false,
+                             "path",
+                             nullptr)
               : names ());
 
     for (name& n: ns)
@@ -861,7 +882,11 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, false, "path", nullptr)
+              ? parse_names (t, tt,
+                             pattern_mode::expand,
+                             false,
+                             "path",
+                             nullptr)
               : names ());
 
     for (name& n: ns)
@@ -918,6 +943,7 @@ namespace build2
       //
       scope* ors (root_);
       scope* ocs (scope_);
+      const dir_path* opb (pbase_);
       switch_scope (out_base);
 
       // Use the new scope's src_base to get absolute buildfile path
@@ -931,6 +957,7 @@ namespace build2
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
         l5 ([&]{trace (l) << "skipping already included " << p;});
+        pbase_ = opb;
         scope_ = ocs;
         root_ = ors;
         continue;
@@ -975,6 +1002,7 @@ namespace build2
         fail (l) << "unable to read buildfile " << p << ": " << e;
       }
 
+      pbase_ = opb;
       scope_ = ocs;
       root_ = ors;
     }
@@ -1100,12 +1128,13 @@ namespace build2
         attributes_pop ();
     }
 
-    // The rest should be a list of projects and/or targets. Parse
-    // them as names to get variable expansion and directory prefixes.
+    // The rest should be a list of projects and/or targets. Parse them as
+    // names to get variable expansion and directory prefixes. Note: doesn't
+    // make sense to expand patterns (what's the base directory?)
     //
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt)
+              ? parse_names (t, tt, pattern_mode::ignore)
               : names ());
 
     for (name& n: ns)
@@ -1197,7 +1226,11 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, false, "module", nullptr)
+              ? parse_names (t, tt,
+                             pattern_mode::ignore,
+                             false,
+                             "module",
+                             nullptr)
               : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
@@ -1332,7 +1365,9 @@ namespace build2
           if (tt == type::newline || tt == type::eos)
             fail (t) << "expected " << k << "-expression instead of " << t;
 
-          // Parse as names to get variable expansion, evaluation, etc.
+          // Parse as names to get variable expansion, evaluation, etc. Note
+          // that we also expand patterns (could be used in nested contexts,
+          // etc; e.g., "if pattern expansion is empty" condition).
           //
           const location l (get_location (t));
 
@@ -1342,7 +1377,10 @@ namespace build2
             //
             bool e (
               convert<bool> (
-                parse_value (t, tt, "expression", nullptr)));
+                parse_value (t, tt,
+                             pattern_mode::expand,
+                             "expression",
+                             nullptr)));
 
             take = (k.back () == '!' ? !e : e);
           }
@@ -1437,7 +1475,11 @@ namespace build2
       //
       bool e (
         convert<bool> (
-          parse_value (t, tt, "expression", nullptr, true)));
+          parse_value (t, tt,
+                       pattern_mode::expand,
+                       "expression",
+                       nullptr,
+                       true)));
       e = (neg ? !e : e);
 
       if (e)
@@ -1456,7 +1498,11 @@ namespace build2
     // any, with expansion. Then fail.
     //
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, false, "description", nullptr)
+              ? parse_names (t, tt,
+                             pattern_mode::ignore,
+                             false,
+                             "description",
+                             nullptr)
               : names ());
 
     diag_record dr (fail (al));
@@ -1534,7 +1580,7 @@ namespace build2
     attributes_push (t, tt, true);
 
     return tt != type::newline && tt != type::eos
-      ? parse_value (t, tt)
+      ? parse_value (t, tt, pattern_mode::expand)
       : value (names ());
   }
 
@@ -1751,7 +1797,7 @@ namespace build2
   }
 
   values parser::
-  parse_eval (token& t, type& tt)
+  parse_eval (token& t, type& tt, pattern_mode pmode)
   {
     // enter: lparen
     // leave: rparen
@@ -1762,7 +1808,7 @@ namespace build2
     if (tt == type::rparen)
       return values ();
 
-    values r (parse_eval_comma (t, tt, true));
+    values r (parse_eval_comma (t, tt, pmode, true));
 
     if (tt != type::rparen)
       fail (t) << "unexpected " << t; // E.g., stray ':'.
@@ -1771,7 +1817,7 @@ namespace build2
   }
 
   values parser::
-  parse_eval_comma (token& t, type& tt, bool first)
+  parse_eval_comma (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of LHS
     // leave: next token after last RHS
@@ -1779,7 +1825,7 @@ namespace build2
     // Left-associative: parse in a loop for as long as we can.
     //
     values r;
-    value lhs (parse_eval_ternary (t, tt, first));
+    value lhs (parse_eval_ternary (t, tt, pmode, first));
 
     if (!pre_parse_)
       r.push_back (move (lhs));
@@ -1787,7 +1833,7 @@ namespace build2
     while (tt == type::comma)
     {
       next (t, tt);
-      value rhs (parse_eval_ternary (t, tt));
+      value rhs (parse_eval_ternary (t, tt, pmode));
 
       if (!pre_parse_)
         r.push_back (move (rhs));
@@ -1797,7 +1843,7 @@ namespace build2
   }
 
   value parser::
-  parse_eval_ternary (token& t, type& tt, bool first)
+  parse_eval_ternary (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of LHS
     // leave: next token after last RHS
@@ -1813,7 +1859,7 @@ namespace build2
     // a ? (x ? y : z) : (b ? c : d)
     //
     location l (get_location (t));
-    value lhs (parse_eval_or (t, tt, first));
+    value lhs (parse_eval_or (t, tt, pmode, first));
 
     if (tt != type::question)
       return lhs;
@@ -1833,7 +1879,7 @@ namespace build2
       pre_parse_ = !q; // Short-circuit middle?
 
     next (t, tt);
-    value mhs (parse_eval_ternary (t, tt));
+    value mhs (parse_eval_ternary (t, tt, pmode));
 
     if (tt != type::colon)
       fail (t) << "expected ':' instead of " << t;
@@ -1842,14 +1888,14 @@ namespace build2
       pre_parse_ = q; // Short-circuit right?
 
     next (t, tt);
-    value rhs (parse_eval_ternary (t, tt));
+    value rhs (parse_eval_ternary (t, tt, pmode));
 
     pre_parse_ = pp;
     return q ? move (mhs) : move (rhs);
   }
 
   value parser::
-  parse_eval_or (token& t, type& tt, bool first)
+  parse_eval_or (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of LHS
     // leave: next token after last RHS
@@ -1857,7 +1903,7 @@ namespace build2
     // Left-associative: parse in a loop for as long as we can.
     //
     location l (get_location (t));
-    value lhs (parse_eval_and (t, tt, first));
+    value lhs (parse_eval_and (t, tt, pmode, first));
 
     // Use the pre-parse mechanism to implement short-circuit.
     //
@@ -1872,7 +1918,7 @@ namespace build2
 
         next (t, tt);
         l = get_location (t);
-        value rhs (parse_eval_and (t, tt));
+        value rhs (parse_eval_and (t, tt, pmode));
 
         if (pre_parse_)
           continue;
@@ -1889,7 +1935,7 @@ namespace build2
   }
 
   value parser::
-  parse_eval_and (token& t, type& tt, bool first)
+  parse_eval_and (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of LHS
     // leave: next token after last RHS
@@ -1897,7 +1943,7 @@ namespace build2
     // Left-associative: parse in a loop for as long as we can.
     //
     location l (get_location (t));
-    value lhs (parse_eval_comp (t, tt, first));
+    value lhs (parse_eval_comp (t, tt, pmode, first));
 
     // Use the pre-parse mechanism to implement short-circuit.
     //
@@ -1912,7 +1958,7 @@ namespace build2
 
         next (t, tt);
         l = get_location (t);
-        value rhs (parse_eval_comp (t, tt));
+        value rhs (parse_eval_comp (t, tt, pmode));
 
         if (pre_parse_)
           continue;
@@ -1929,14 +1975,14 @@ namespace build2
   }
 
   value parser::
-  parse_eval_comp (token& t, type& tt, bool first)
+  parse_eval_comp (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of LHS
     // leave: next token after last RHS
 
     // Left-associative: parse in a loop for as long as we can.
     //
-    value lhs (parse_eval_value (t, tt, first));
+    value lhs (parse_eval_value (t, tt, pmode, first));
 
     while (tt == type::equal      ||
            tt == type::not_equal  ||
@@ -1949,7 +1995,7 @@ namespace build2
       location l (get_location (t));
 
       next (t, tt);
-      value rhs (parse_eval_value (t, tt));
+      value rhs (parse_eval_value (t, tt, pmode));
 
       if (pre_parse_)
         continue;
@@ -2005,7 +2051,7 @@ namespace build2
   }
 
   value parser::
-  parse_eval_value (token& t, type& tt, bool first)
+  parse_eval_value (token& t, type& tt, pattern_mode pmode, bool first)
   {
     // enter: first token of value
     // leave: next token after value
@@ -2023,7 +2069,7 @@ namespace build2
     case type::log_not:
       {
         next (t, tt);
-        v = parse_eval_value (t, tt);
+        v = parse_eval_value (t, tt, pmode);
 
         if (pre_parse_)
           break;
@@ -2058,7 +2104,7 @@ namespace build2
              tt != type::log_or        &&
              tt != type::log_and
 
-             ? parse_value (t, tt)
+             ? parse_value (t, tt, pmode)
              : value (names ()));
       }
     }
@@ -2075,7 +2121,7 @@ namespace build2
 
       const location nl (get_location (t));
       next (t, tt);
-      value n (parse_value (t, tt));
+      value n (parse_value (t, tt, pattern_mode::ignore));
 
       if (tt != type::rparen)
         fail (t) << "expected ')' after variable name";
@@ -2133,7 +2179,9 @@ namespace build2
 
     if (tt != type::rsbrace)
     {
-      names ns (parse_names (t, tt, false, "attribute", nullptr));
+      names ns (
+        parse_names (
+          t, tt, pattern_mode::ignore, false, "attribute", nullptr));
 
       if (!pre_parse_)
       {
@@ -2183,12 +2231,363 @@ namespace build2
     return make_pair (true, l);
   }
 
+  // Splice names from the name view into the destination name list while
+  // doing sensible things with pairs, types, etc. Return the number of
+  // the names added.
+  //
+  // If nv points to nv_storage then the names can be moved.
+  //
+  size_t parser::
+  splice_names (const location& loc,
+                const names_view& nv,
+                names&& nv_storage,
+                names& ns,
+                const char* what,
+                size_t pairn,
+                const optional<string>& pp,
+                const dir_path* dp,
+                const string* tp)
+  {
+    // We could be asked to splice 0 elements (see the name pattern
+    // expansion). In this case may need to pop the first half of the
+    // pair.
+    //
+    if (nv.size () == 0)
+    {
+      if (pairn != 0)
+        ns.pop_back ();
+
+      return 0;
+    }
+
+    size_t start (ns.size ());
+
+    // Move if nv points to nv_storage,
+    //
+    bool m (nv.data () == nv_storage.data ());
+
+    for (const name& cn: nv)
+    {
+      name* n (m ? const_cast<name*> (&cn) : nullptr);
+
+      // Project.
+      //
+      optional<string> p;
+      if (cn.proj)
+      {
+        if (pp)
+          fail (loc) << "nested project name " << *cn.proj << " in " << what;
+
+        p = m ? move (n->proj) : cn.proj;
+      }
+      else if (pp)
+        p = pp;
+
+      // Directory.
+      //
+      dir_path d;
+      if (!cn.dir.empty ())
+      {
+        if (dp != nullptr)
+        {
+          if (cn.dir.absolute ())
+            fail (loc) << "nested absolute directory " << cn.dir << " in "
+                       << what;
+
+          d = *dp / cn.dir;
+        }
+        else
+          d = m ? move (n->dir) : cn.dir;
+      }
+      else if (dp != nullptr)
+        d = *dp;
+
+      // Type.
+      //
+      string t;
+      if (!cn.type.empty ())
+      {
+        if (tp != nullptr)
+          fail (loc) << "nested type name " << cn.type << " in " << what;
+
+        t = m ? move (n->type) : cn.type;
+      }
+      else if (tp != nullptr)
+        t = *tp;
+
+      // Value.
+      //
+      string v (m ? move (n->value) : cn.value);
+
+      // If we are a second half of a pair.
+      //
+      if (pairn != 0)
+      {
+        // Check that there are no nested pairs.
+        //
+        if (cn.pair)
+          fail (loc) << "nested pair in " << what;
+
+        // And add another first half unless this is the first instance.
+        //
+        if (pairn != ns.size ())
+          ns.push_back (ns[pairn - 1]);
+      }
+
+      ns.emplace_back (move (p), move (d), move (t), move (v));
+      ns.back ().pair = cn.pair;
+    }
+
+    return ns.size () - start;
+  }
+
+  // Expand a name pattern. Note that the result can empty (as in "no
+  // elements").
+  //
+  size_t parser::
+  expand_name_pattern (const location& l,
+                       names&& pat,
+                       names& ns,
+                       const char* what,
+                       size_t pairn,
+                       const dir_path* dp,
+                       const string* tp,
+                       const target_type* tt)
+  {
+    assert (!pat.empty () && (tp == nullptr || tt != nullptr));
+
+    // We are going to accumulate the result in a vector which can result in
+    // quite a few linear searches. However, thanks to a few optimizations,
+    // this shouldn't be an issue for the common cases (e.g., a pattern plus
+    // a few exclusions).
+    //
+    names r;
+    bool dir (false);
+
+    // Compare string to name as paths and according to dir.
+    //
+    auto equal = [&dir] (const string& v, const name& n) -> bool
+    {
+      // Use path comparison (which may be slash/case-insensitive).
+      //
+      return path::traits::compare (
+        v, dir ? n.dir.representation () : n.value) == 0;
+    };
+
+    // Compare name to pattern as paths and according to dir.
+    //
+    auto match = [&dir] (const string& p, const name& n) -> bool
+    {
+      // Currently exclusions only match the last component to a pattern.
+      //
+      string c (dir
+                ? n.dir.leaf ().representation ()
+                : string (n.value, path::traits::find_leaf (n.value)));
+
+      return butl::path_match (p, c);
+    };
+
+    // Append string to result according to dir. Store an indication of
+    // whether it was amended in the pair flag.
+    //
+    auto append = [&r, &dir] (string&& v, bool a)
+    {
+      r.push_back (dir ? name (dir_path (move (v))) : name (move (v)));
+      r.back ().pair = a ? 'a' : '\0';
+    };
+
+    auto include_match = [&r, &equal, &append] (string&& m, bool a)
+    {
+      auto i (find_if (
+                r.begin (),
+                r.end (),
+                [&m, &equal] (const name& n) {return equal (m, n);}));
+
+      if (i == r.end ())
+        append (move (m), a);
+    };
+
+    auto include_pattern = [&r, &append, &include_match, dp, this]
+      (string&& p, bool a)
+    {
+      // If we don't already have any matches and our pattern doesn't contain
+      // multiple recursive wildcards, then the result will be unique and we
+      // can skip checking for duplicated. This should help quite a bit in the
+      // common cases where we have a pattern plus maybe a few exclusions.
+      //
+      bool unique (false);
+      if (r.empty ())
+      {
+        size_t i (p.find ("**"));
+        unique = (i == string::npos || p.find ("**", i + 2) == string::npos);
+      }
+
+      //@@ PAT TODO: weed out starting with dot (unless pattern starts
+      //   with dot; last component? intermediate components?).
+      //
+      function<bool (path&&)> func;
+      if (unique)
+        func = [a, &append] (path&& m)
+          {
+            append (move (m).representation (), a);
+            return true;
+          };
+      else
+        func = [a, &include_match] (path&& m)
+          {
+            include_match (move (m).representation (), a);
+            return true;
+          };
+
+      // Figure out the start directory.
+      //
+      const dir_path* sp;
+      dir_path s;
+      if (dp != nullptr)
+      {
+        if (dp->absolute ())
+          sp = dp;
+        else
+        {
+          s = *pbase_ / *dp;
+          sp = &s;
+        }
+      }
+      else
+        sp = pbase_;
+
+      butl::path_search (path (move (p)), func, *sp);
+    };
+
+    auto exclude_match = [&r, &equal] (const string& m)
+    {
+      // We know there can only be one element so we use find_if() instead of
+      // remove_if() for efficiency.
+      //
+      auto i (find_if (
+                r.begin (),
+                r.end (),
+                [&m, &equal] (const name& n) {return equal (m, n);}));
+
+      if (i != r.end ())
+        r.erase (i);
+    };
+
+    auto exclude_pattern = [&r, &match] (const string& p)
+    {
+      for (auto i (r.begin ()); i != r.end (); )
+      {
+        if (match (p, *i))
+          i = r.erase (i);
+        else
+          ++i;
+      }
+    };
+
+    // Process the pattern and inclusions/exclusions.
+    //
+    for (auto b (pat.begin ()), i (b), e (pat.end ()); i != e; ++i)
+    {
+      name& n (*i);
+      bool first (i == b);
+
+      if (n.empty () || !(n.simple () || n.directory ()))
+        fail (l) << "invalid '" << n << "' in " << what << " pattern";
+
+      string v (n.simple () ? move (n.value) : move (n.dir).representation ());
+
+      // Figure out if this is inclusion or exclusion.
+      //
+      char s; // +/-
+      if (first)
+        s = '+'; // Treat as inclusion.
+      else
+      {
+        s = v[0];
+
+        if (s != '-' && s != '+')
+          fail (l) << "missing leading +/- in '" << v << "' " << what
+                   << " pattern";
+
+        v.erase (0, 1);
+
+        if (v.empty ())
+          fail (l) << "empty " << what << " pattern";
+      }
+
+      // Amend the pattern or match in a target type-specific manner.
+      //
+      bool a (tt != nullptr &&
+              tt->pattern != nullptr &&
+              tt->pattern (*tt, *scope_, v, false));
+
+      // Figure out if this is a pattern.
+      //
+      bool p (v.find_first_of ("*?") != string::npos);
+      assert (p || !first); // First must be a pattern.
+
+      // Based on the first pattern figure out if the result is a directory or
+      // a file. For inclusions/exclusions verify it is consistent.
+      //
+      {
+        bool d (path::traits::is_separator (v.back ()));
+
+        if (first)
+          dir = d;
+        else if (d != dir)
+          fail (l) << "inconsistent file/directory result in " << what
+                   << " pattern";
+      }
+
+      if (s == '+')
+      {
+        if (p)
+          include_pattern (move (v), a);
+        else
+          include_match (move (v), a);
+      }
+      else
+      {
+        if (p)
+          exclude_pattern (v);
+        else
+          exclude_match (v);
+      }
+    }
+
+    // Reverse target type-specific pattern/match amendments from the result.
+    // Essentially: cxx{*} -> *.cxx -> foo.cxx -> cxx{foo}.
+    //
+    if (tt != nullptr && tt->pattern != nullptr)
+    {
+      for (name& n: r)
+      {
+        if (n.pair)
+        {
+          string v (dir ? move (n.dir).representation () : move (n.value));
+          tt->pattern (*tt, *scope_, v, true);
+
+          if (dir)
+            n.dir = dir_path (move (v));
+          else
+            n.value = move (v);
+
+          n.pair = '\0';
+        }
+      }
+    }
+
+    return splice_names (
+      l, names_view (r), move (r), ns, what, pairn, nullopt, dp, tp);
+  }
+
   // Parse names inside {} and handle the following "crosses" (i.e.,
   // {a b}{x y}) if any. Return the number of names added to the list.
   //
   size_t parser::
   parse_names_trailer (token& t, type& tt,
                        names& ns,
+                       pattern_mode pmode,
                        const char* what,
                        const string* separators,
                        size_t pairn,
@@ -2198,22 +2597,66 @@ namespace build2
   {
     assert (!pre_parse_);
 
+    if (pp)
+      pmode = pattern_mode::ignore;
+
     next (t, tt); // Get what's after '{'.
 
-    size_t count (ns.size ());
-    parse_names (t, tt,
-                 ns,
-                 false,
-                 what,
-                 separators,
-                 (pairn != 0
-                  ? pairn
-                  : (ns.empty () || ns.back ().pair ? ns.size () : 0)),
-                 pp, dp, tp);
-    count = ns.size () - count;
+    size_t start (ns.size ());
+
+    if (pairn == 0 && start != 0 && ns.back ().pair)
+      pairn = start;
+
+    // This can be an ordinary name group or a pattern (with inclusions and
+    // exclusions). We want to detect which one it is since for patterns we
+    // want just the list of simple names without pair/dir/type added (those
+    // are added after the pattern expansion in parse_names_pattern()).
+    //
+    // Detecting which one it is is tricky. We cannot just peek at the token
+    // and look for some wildcards since the pattern can be the result of an
+    // expansion (or, worse, concatenation). Thus pattern_mode::detect: we are
+    // going to ask parse_names() to detect for us if the first name is a
+    // pattern. And if it is, to refrain from adding pair/dir/type. On our
+    // side we will also have to move the pattern names out of the result.
+    //
+    const location loc (get_location (t));
+
+    optional<const target_type*> pat_tt (
+      parse_names (
+        t, tt,
+        ns,
+        pmode == pattern_mode::expand ? pattern_mode::detect : pmode,
+        false,
+        what,
+        separators,
+        pairn,
+        pp, dp, tp).pattern);
 
     if (tt != type::rcbrace)
       fail (t) << "expected } instead of " << t;
+
+    size_t count;
+
+    // See if this is a pattern.
+    //
+    if (pat_tt)
+    {
+      // Move the pattern names our of the result.
+      //
+      names ps;
+      if (start == 0)
+        ps = move (ns);
+      else
+        ps.insert (ps.end (),
+                   make_move_iterator (ns.begin () + start),
+                   make_move_iterator (ns.end ()));
+      ns.resize (start);
+
+      count = expand_name_pattern (
+        loc, move (ps), ns, what, pairn, dp, tp, *pat_tt);
+    }
+    else
+      count = ns.size () - start;
 
     // See if we have a cross. See tests/names.
     //
@@ -2224,9 +2667,13 @@ namespace build2
 
       names x; // Parse into a separate list of names.
       parse_names_trailer (
-        t, tt, x, what, separators, 0, nullopt, nullptr, nullptr);
+        t, tt, x, pmode, what, separators, 0, nullopt, nullptr, nullptr);
 
-      if (size_t n = x.size ())
+      size_t n (x.size ());
+
+      // If LHS or RHS are empty, then the result is empty as well.
+      //
+      if (count != 0 && n != 0)
       {
         // Now cross the last 'count' names in 'ns' with 'x'. First we will
         // allocate n - 1 additional sets of last 'count' names in 'ns'.
@@ -2296,6 +2743,11 @@ namespace build2
 
         count *= n;
       }
+      else if (count != 0)
+      {
+        ns.resize (start); // Drop LHS.
+        count = 0;
+      }
     }
 
     return count;
@@ -2307,31 +2759,36 @@ namespace build2
   const string parser::name_separators (
     string (path::traits::directory_separators) + '%');
 
-  pair<bool, const value_type*> parser::
+  auto parser::
   parse_names (token& t, type& tt,
                names& ns,
+               pattern_mode pmode,
                bool chunk,
                const char* what,
                const string* separators,
                size_t pairn,
                const optional<string>& pp,
                const dir_path* dp,
-               const string* tp)
+               const string* tp) -> parse_names_result
   {
     // Note that support for pre-parsing is partial, it does not handle
     // groups ({}).
+    //
+    // If pairn is not 0, then it is an index + 1 of the first half of the
+    // pair for which we are parsing the second halves, for example:
+    //
+    // a@{b c d{e f} {}}
 
     tracer trace ("parser::parse_names", &path_);
 
-    // Returned value NULL/type (see below).
+    if (pp)
+      pmode = pattern_mode::ignore;
+
+    // Returned value NULL/type and pattern (see below).
     //
     bool vnull (false);
     const value_type* vtype (nullptr);
-
-    // If pair is not 0, then it is an index + 1 of the first half of
-    // the pair for which we are parsing the second halves, e.g.,
-    // a@{b c d{e f} {}}.
-    //
+    optional<const target_type*> rpat;
 
     // Buffer that is used to collect the complete name in case of an
     // unseparated variable expansion or eval context, e.g., foo$bar($baz)fox.
@@ -2342,6 +2799,7 @@ namespace build2
     // simple (i.e., just a string).
     //
     bool concat (false);
+    bool concat_quoted (false);
     name concat_data;
 
     auto concat_typed = [&vnull, &vtype, &concat, &concat_data, this]
@@ -2420,6 +2878,12 @@ namespace build2
       // Note that here we assume that, except for the first iterartion,
       // tt contains the type of the peeked token.
 
+      // Automatically reset the detect pattern mode to expand after the
+      // first element.
+      //
+      if (pmode == pattern_mode::detect && start != ns.size ())
+        pmode = pattern_mode::expand;
+
       // Return true if the next token which should be peeked at won't be part
       // of the name.
       //
@@ -2461,7 +2925,11 @@ namespace build2
         // parsing.
         //
         assert (!pre_parse_);
+
+        bool quoted (concat_quoted);
+
         concat = false;
+        concat_quoted = false;
 
         // If this is a result of typed concatenation, then don't inject. For
         // one we don't want any of the "interpretations" performed in the
@@ -2514,13 +2982,17 @@ namespace build2
           }
         }
 
-        // Replace the current token with our injection (after handling it
-        // we will peek at the current token again).
+        // Replace the current token with our injection (after handling it we
+        // will peek at the current token again).
+        //
+        // We don't know what exactly was quoted so approximating as partially
+        // mixed quoted.
         //
         tt = type::word;
         t = token (move (concat_data.value),
                    true,
-                   quote_type::unquoted, false, // @@ Not quite true.
+                   quoted ? quote_type::mixed : quote_type::unquoted,
+                   false,
                    t.line, t.column);
       }
       else if (!first)
@@ -2574,6 +3046,7 @@ namespace build2
           }
 
           concat = true;
+          concat_quoted = t.qtype != quote_type::unquoted || concat_quoted;
           continue;
         }
 
@@ -2659,9 +3132,54 @@ namespace build2
           }
 
           count = parse_names_trailer (
-            t, tt, ns, what, separators, pairn, *pp1, dp1, tp1);
+            t, tt, ns, pmode, what, separators, pairn, *pp1, dp1, tp1);
           tt = peek ();
           continue;
+        }
+
+        // See if this is a wildcard pattern.
+        //
+        if (pmode != pattern_mode::ignore   &&
+            !*pp1                           && // Cannot be project-qualified.
+            t.qtype == quote_type::unquoted && // Cannot be quoted.
+            ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
+            val.find_first_of ("*?") != string::npos)
+        {
+          // Resolve the target if there is one. If we fail, then this is not
+          // a pattern.
+          //
+          const target_type* tt (tp != nullptr && scope_ != nullptr
+                                 ? scope_->find_target_type (*tp)
+                                 : nullptr);
+
+          if (tp == nullptr || tt != nullptr)
+          {
+            if (pmode == pattern_mode::expand)
+            {
+              count = expand_name_pattern (get_location (t),
+                                           names {name (move (val))},
+                                           ns,
+                                           what,
+                                           pairn,
+                                           dp, tp, tt);
+              continue;
+            }
+
+            // The goal of the detect mode is to assemble the "raw" list (the
+            // pattern itself plus inclusions/exclusions) that will be passed
+            // to parse_names_pattern(). So clear pair, directory, and type
+            // (they will be added during pattern expansion) and change the
+            // mode to ignore (to prevent any expansions in
+            // inclusions/exclusions).
+            //
+            pairn = 0;
+            dp = nullptr;
+            tp = nullptr;
+            pmode = pattern_mode::ignore;
+            rpat = tt;
+
+            // Fall through.
+          }
         }
 
         // If we are a second half of a pair, add another first half
@@ -2745,7 +3263,7 @@ namespace build2
           else if (tt == type::lparen)
           {
             expire_mode ();
-            values vs (parse_eval (t, tt)); //@@ OUT will parse @-pair and do well?
+            values vs (parse_eval (t, tt, pmode)); //@@ OUT will parse @-pair and do well?
 
             if (!pre_parse_)
             {
@@ -2807,7 +3325,7 @@ namespace build2
             // @@ Should we use (target/scope) qualification (of name) as the
             // context in which to call the function?
             //
-            values args (parse_eval (t, tt));
+            values args (parse_eval (t, tt, pmode));
             tt = peek ();
 
             if (pre_parse_)
@@ -2840,7 +3358,7 @@ namespace build2
           //
 
           loc = get_location (t);
-          values vs (parse_eval (t, tt));
+          values vs (parse_eval (t, tt, pmode));
           tt = peek ();
 
           if (pre_parse_)
@@ -2860,11 +3378,11 @@ namespace build2
         //
         assert (!pre_parse_);
 
-        // Should we accumulate? If the buffer is not empty, then
-        // we continue accumulating (the case where we are separated
-        // should have been handled by the injection code above). If
-        // the next token is a word or var expansion and it is not
-        // separated, then we need to start accumulating.
+        // Should we accumulate? If the buffer is not empty, then we continue
+        // accumulating (the case where we are separated should have been
+        // handled by the injection code above). If the next token is a word
+        // or var expansion and it is not separated, then we need to start
+        // accumulating.
         //
         if (concat        || // Continue.
             !last_concat ()) // Start.
@@ -2984,12 +3502,13 @@ namespace build2
           }
 
           concat = true;
+          concat_quoted = quoted || concat_quoted;
         }
         else
         {
           // See if we should propagate the value NULL/type. We only do this
           // if this is the only expansion, that is, it is the first and the
-          // text token is not part of the name.
+          // next token is not part of the name.
           //
           if (first && last_token ())
           {
@@ -3002,82 +3521,13 @@ namespace build2
           if (result->null || result->empty ())
             continue;
 
-          // @@ Could move if lv is lv_storage (or even result_data; see
-          //    untypify()).
+          // @@ Could move if nv is result_data; see untypify().
           //
-          names lv_storage;
-          names_view lv (reverse (*result, lv_storage));
+          names nv_storage;
+          names_view nv (reverse (*result, nv_storage));
 
-          // Copy the names from the variable into the resulting name list
-          // while doing sensible things with the types and directories.
-          //
-          for (const name& n: lv)
-          {
-            const optional<string>* pp1 (&pp);
-            const dir_path* dp1 (dp);
-            const string* tp1 (tp);
-
-            optional<string> p1;
-            if (n.proj)
-            {
-              if (!pp)
-              {
-                p1 = n.proj;
-                pp1 = &p1;
-              }
-              else
-                fail (loc) << "nested project name " << *n.proj << " in "
-                           << what;
-            }
-
-            dir_path d1;
-            if (!n.dir.empty ())
-            {
-              if (dp != nullptr)
-              {
-                if (n.dir.absolute ())
-                  fail (loc) << "nested absolute directory " << n.dir
-                             << " in " << what;
-
-                d1 = *dp / n.dir;
-                dp1 = &d1;
-              }
-              else
-                dp1 = &n.dir;
-            }
-
-            if (!n.type.empty ())
-            {
-              if (tp == nullptr)
-                tp1 = &n.type;
-              else
-                fail (loc) << "nested type name " << n.type << " in " << what;
-            }
-
-            // If we are a second half of a pair.
-            //
-            if (pairn != 0)
-            {
-              // Check that there are no nested pairs.
-              //
-              if (n.pair)
-                fail (loc) << "nested pair in " << what;
-
-              // And add another first half unless this is the first instance.
-              //
-              if (pairn != ns.size ())
-                ns.push_back (ns[pairn - 1]);
-            }
-
-            ns.emplace_back (*pp1,
-                             (dp1 != nullptr ? *dp1 : dir_path ()),
-                             (tp1 != nullptr ? *tp1 : string ()),
-                             n.value);
-
-            ns.back ().pair = n.pair;
-          }
-
-          count = lv.size ();
+          count = splice_names (
+            loc, nv, move (nv_storage), ns, what, pairn, pp, dp, tp);
         }
 
         continue;
@@ -3088,7 +3538,7 @@ namespace build2
       if (tt == type::lcbrace)
       {
         count = parse_names_trailer (
-          t, tt, ns, what, separators, pairn, pp, dp, tp);
+          t, tt, ns, pmode, what, separators, pairn, pp, dp, tp);
         tt = peek ();
         continue;
       }
@@ -3180,7 +3630,7 @@ namespace build2
                        string ());
     }
 
-    return make_pair (!vnull, vtype);
+    return parse_names_result {!vnull, vtype, rpat};
   }
 
   void parser::
@@ -3294,6 +3744,7 @@ namespace build2
     lexer_ = &l;
     target_ = nullptr;
     scope_ = root_ = scope::global_;
+    pbase_ = &work; // Use current working directory.
 
     // Turn on the value mode/pairs recognition with '@' as the pair separator
     // (e.g., src_root/@out_root/exe{foo bar}).
@@ -3346,10 +3797,13 @@ namespace build2
 
       const location l (get_location (t)); // Start of names.
 
-      // This call will parse the next chunk of output and produce
-      // zero or more names.
+      // This call will parse the next chunk of output and produce zero or
+      // more names.
       //
-      names ns (parse_names (t, tt, true));
+      names ns (parse_names (t, tt, pattern_mode::expand, true));
+
+      if (ns.empty ()) // Can happen if pattern expansion.
+        fail (l) << "operation or target expected";
 
       // What these names mean depends on what's next. If it is an
       // opening paren, then they are operation/meta-operation names.
@@ -3536,6 +3990,7 @@ namespace build2
 
     auto p (build2::switch_scope (*root_, d));
     scope_ = &p.first;
+    pbase_ = scope_->src_path_;
 
     if (p.second != nullptr && p.second != root_)
     {

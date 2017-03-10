@@ -34,12 +34,35 @@ namespace build2
       return *tk.name == "testscript" ? string () : "test";
     }
 
+    static bool
+    testscript_target_pattern (const target_type&,
+                               const scope&,
+                               string& v,
+                               bool r)
+    {
+      size_t p (path::traits::find_extension (v));
+
+      if (r)
+      {
+        assert (p != string::npos);
+        v.resize (p);
+      }
+      else if (p == string::npos && v != "testscript")
+      {
+        v += ".test";
+        return true;
+      }
+
+      return false;
+    }
+
     const target_type testscript::static_type
     {
       "test",
       &file::static_type,
       &testscript_factory,
       &testscript_target_extension,
+      &testscript_target_pattern,
       nullptr,
       &search_file,
       false

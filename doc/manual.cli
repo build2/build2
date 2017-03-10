@@ -28,15 +28,23 @@ exe{hello}: {hxx cxx}{**}  # All C++ header/source files.
 pattern = '*.txt'          # Literal '*.txt'.
 \
 
-Pattern-based name generation is only performed in certain contexts.
-Specifically, it is performed in prerequisite names and variable assignments
-but not in target names (where it may be interpreted as a pattern at a high
-level), for example (@@ TODO: clarify after implemented):
+Pattern-based name generation is not performed in certain contexts.
+Specifically, it is not performed in target names where it is interpreted
+as a pattern for target type/pattern-specific variable assignments. For
+example.
 
 \
-s = *.txt             # Variable assignment.
-./: cxx{*}            # Prerequisite names.
-cxx{*}: dist = false  # Target pattern.
+s = *.txt             # Variable assignment (performed).
+./: cxx{*}            # Prerequisite names (performed).
+cxx{*}: dist = false  # Target pattern (not performed).
+\
+
+In contexts where it is performed, it can be inhibited with quoting, for
+example:
+
+\
+pat = 'foo*bar'
+./: cxx{'foo*bar'}
 \
 
 The following characters are wildcards:
@@ -58,20 +66,33 @@ it is matched just like \c{*} but in all the subdirectories, recursively. The
 itself. For example:
 
 \
-exe{hello}: cxx{**} # All C++ source files, including in subdirectories.
+exe{hello}: cxx{**}  # All C++ source files recursively.
 \
 
-A \c{{\}}-enclosed pattern value may be followed by inclusion/exclusion
-patterns/matches. A subsequent value is treated as an inclusion if it starts
-with a plus sign (\c{+}) and as an exclusion if it starts with a minus
-(\c{-}). A subsequent value that does not start with either of these signs is
-illegal. For example:
+A group-enclosed (\c{{\}}) pattern value may be followed by
+inclusion/exclusion patterns/matches. A subsequent value is treated as an
+inclusion if it starts with a plus sign (\c{+}) and as an exclusion if it
+starts with a minus (\c{-}). A subsequent value that does not start with
+either of these signs is illegal. For example:
 
 \
-exe{hello}: cxx{f* -foo}          # Exclude foo if present.
-exe{hello}: cxx{f* +foo}          # Include foo if not present.
-exe{hello}: cxx{f* -fo?}          # Exclude foo and fox if present.
-exe{hello}: cxx{f* +b* -foo -bar} # Exclude foo and bar if present.
+exe{hello}: cxx{f* -foo}           # Exclude foo if present.
+exe{hello}: cxx{f* +foo}           # Include foo if not present.
+exe{hello}: cxx{f* -fo?}           # Exclude foo and fox if present.
+exe{hello}: cxx{f* +b* -foo -bar}  # Exclude foo and bar if present.
+\
+
+Inclusion and exclusion are applied in the order specified and only to the
+result produced up to that point. The order of names in the result is
+unspecified, however, it is guaranteed not to contain duplicates. The
+pattern and the following inclusions/exclusions must be consistent with
+regards to the type of filesystem entry they match. That is, they should
+all match either files or directories. For example:
+
+\
+exe{hello}: cxx{f* -foo +*oo}  # Exclusion has no effect.
+exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
+./: {*/ -build}                # Error: exclusion must match a directory.
 \
 
 One common situation that calls for exclusions is auto-generated source
@@ -91,14 +112,13 @@ If the name pattern includes an absolute directory, then the pattern match is
 performed in that directory and the generated names include absolute
 directories as well. Otherwise, the pattern match is performed in the
 \i{pattern base} directory. In buildfiles this is \c{src_base} while on the
-command line \- the current working directory (@@ TODO: spec for testscript,
-other contexts). In this case the generated names are relative to the base
-directory. For example, assuming we have the \c{foo.cxx} and \c{b/bar.cxx}
-source files:
+command line \- the current working directory. In this case the generated
+names are relative to the base directory. For example, assuming we have the
+\c{foo.cxx} and \c{b/bar.cxx} source files:
 
 \
-exe{hello}: $src_base/cxx{**} # $src_base/cxx{foo} $src_base/b/cxx{bar}
-exe{hello}:           cxx{**} #           cxx{foo}           b/cxx{bar}
+exe{hello}: $src_base/cxx{**}  # $src_base/cxx{foo} $src_base/b/cxx{bar}
+exe{hello}:           cxx{**}  #           cxx{foo}           b/cxx{bar}
 \
 
 Pattern matching as well as inclusion/exclusion logic is target
@@ -112,7 +132,7 @@ already end with one. Then the filesystem search is performed for matching
 directories. For example:
 
 \
-./: dir{* -build} # Search for */, exclude build/.
+./: dir{* -build}  # Search for */, exclude build/.
 \
 
 For the \c{file{\}} and \c{file{\}}-based target types the default extension
@@ -135,13 +155,15 @@ exe{hello}: {cxx}{* -foo -bar.cxx}
 \
 
 The pattern match will first search for all the files matching the \c{*.cxx}
-pattern in \c{src_base} and then exclude \c{foo.cxx} and \c{bar.cpp} from the
-result.
+pattern in \c{src_base} and then exclude \c{foo.cxx} and \c{bar.cxx} from the
+result. Note also that target type-specific decorations are removed from the
+result. So in the above example if the pattern match produces \c{baz.cxx},
+then the prerequisite name is \c{cxx{baz\}}, not \c{cxx{baz.cxx\}}.
 
 If the name generation cannot be performed because the base directory is
 unknown, target type is unknown, or the target type is not directory or
 file-based, then the name pattern is returned as is (that is, as an ordinary
-name).
+name). Project-qualified names are never considered to be patterns.
 
 \h1#grammar|Grammar|
 

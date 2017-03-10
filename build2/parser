@@ -41,7 +41,7 @@ namespace build2
     parse_variable (lexer&, scope&, const variable&, token_type kind);
 
     pair<value, token>
-    parse_variable_value (lexer&, scope&, const variable&);
+    parse_variable_value (lexer&, scope&, const dir_path*, const variable&);
 
     names
     parse_export_stub (istream& is, const path& p, scope& r, scope& b)
@@ -53,6 +53,16 @@ namespace build2
     // Recursive descent parser.
     //
   protected:
+
+    // Pattern expansion mode.
+    //
+    enum class pattern_mode
+    {
+      ignore, // Treat as ordinary names.
+      detect, // Ignore pair/dir/type if the first name is a pattern.
+      expand  // Expand to ordinary names.
+    };
+
     // If one is true then parse a single (logical) line (logical means it
     // can actually be several lines, e.g., an if-block). Return false if
     // nothing has been parsed (i.e., we are on the same token).
@@ -115,25 +125,25 @@ namespace build2
     // result is an empty pack, not a pack of one empty.
     //
     values
-    parse_eval (token&, token_type&);
+    parse_eval (token&, token_type&, pattern_mode);
 
     values
-    parse_eval_comma (token&, token_type&, bool = false);
+    parse_eval_comma (token&, token_type&, pattern_mode, bool = false);
 
     value
-    parse_eval_ternary (token&, token_type&, bool = false);
+    parse_eval_ternary (token&, token_type&, pattern_mode, bool = false);
 
     value
-    parse_eval_or (token&, token_type&, bool = false);
+    parse_eval_or (token&, token_type&, pattern_mode, bool = false);
 
     value
-    parse_eval_and (token&, token_type&, bool = false);
+    parse_eval_and (token&, token_type&, pattern_mode, bool = false);
 
     value
-    parse_eval_comp (token&, token_type&, bool = false);
+    parse_eval_comp (token&, token_type&, pattern_mode, bool = false);
 
     value
-    parse_eval_value (token&, token_type&, bool = false);
+    parse_eval_value (token&, token_type&, pattern_mode, bool = false);
 
     // Attributes stack. We can have nested attributes, for example:
     //
@@ -189,17 +199,25 @@ namespace build2
     // project separator. Note that even if it is NULL, the result may still
     // contain non-simple names due to variable expansions.
     //
+
     static const string name_separators;
 
     names
     parse_names (token& t, token_type& tt,
+                 pattern_mode pmode,
                  bool chunk = false,
                  const char* what = "name",
                  const string* separators = &name_separators)
     {
       names ns;
-      parse_names (
-        t, tt, ns, chunk, what, separators, 0, nullopt, nullptr, nullptr);
+      parse_names (t, tt,
+                   ns,
+                   pmode,
+                   chunk,
+                   what,
+                   separators,
+                   0,
+                   nullopt, nullptr, nullptr);
       return ns;
     }
 
@@ -207,28 +225,35 @@ namespace build2
     //
     value
     parse_value (token& t, token_type& tt,
+                 pattern_mode pmode,
                  const char* what = "name",
                  const string* separators = &name_separators,
                  bool chunk = false)
     {
       names ns;
-      pair<bool, const value_type*> p (
-        parse_names (
-          t, tt, ns, chunk, what, separators, 0, nullopt, nullptr, nullptr));
+      auto r (parse_names (t, tt,
+                           ns,
+                           pmode,
+                           chunk,
+                           what,
+                           separators,
+                           0,
+                           nullopt, nullptr, nullptr));
 
-      value r (p.second); // Potentially typed NULL value.
+      value v (r.type); // Potentially typed NULL value.
 
       // This should not fail since we are typing the result of reversal from
       // the typed value.
       //
-      if (p.first) // Not NULL.
-        r.assign (move (ns), nullptr);
+      if (r.not_null)
+        v.assign (move (ns), nullptr);
 
-      return r;
+      return v;
     }
 
-    // Append names and return the indication if the parsed value is NOT NULL
-    // (first) and whether it is typed (second).
+    // Append names and return the indication if the parsed value is not NULL
+    // and whether it is typed (and whether it is a pattern if pattern_mode is
+    // detect).
     //
     // You may have noticed that what we return here is essentially a value
     // and doing it this way (i.e., reversing it to untyped names and
@@ -243,13 +268,21 @@ namespace build2
     // it is the result of a sole, unquoted variable expansion, function call,
     // or context evaluation.
     //
-    pair<bool, const value_type*>
+    struct parse_names_result
+    {
+      bool not_null;
+      const value_type* type;
+      optional<const target_type*> pattern;
+    };
+
+    parse_names_result
     parse_names (token&, token_type&,
                  names&,
+                 pattern_mode,
                  bool chunk = false,
                  const char* what = "name",
                  const string* separators = &name_separators,
-                 size_t pair = 0,
+                 size_t pairn = 0,
                  const optional<string>& prj = nullopt,
                  const dir_path* dir = nullptr,
                  const string* type = nullptr);
@@ -257,12 +290,34 @@ namespace build2
     size_t
     parse_names_trailer (token&, token_type&,
                          names&,
+                         pattern_mode,
                          const char* what,
                          const string* separators,
-                         size_t pair,
+                         size_t pairn,
                          const optional<string>& prj,
                          const dir_path* dir,
                          const string* type);
+
+    size_t
+    expand_name_pattern (const location&,
+                         names&&,
+                         names&,
+                         const char* what,
+                         size_t pairn,
+                         const dir_path* dir,
+                         const string* type,
+                         const target_type*);
+
+    size_t
+    splice_names (const location&,
+                  const names_view&,
+                  names&&,
+                  names&,
+                  const char* what,
+                  size_t pairn,
+                  const optional<string>& prj,
+                  const dir_path* dir,
+                  const string* type);
 
     // Skip until newline or eos.
     //
@@ -528,6 +583,8 @@ namespace build2
     target* target_; // Current target, if any.
     scope* scope_;   // Current base scope (out_base).
     scope* root_;    // Current root scope (out_root).
+
+    const dir_path* pbase_ = nullptr; // Current pattern base directory.
 
     std::stack<attributes> attributes_;
 

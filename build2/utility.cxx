@@ -533,7 +533,15 @@ namespace build2
 
     // Figure out work and home directories.
     //
-    work = dir_path::current_directory ();
+    try
+    {
+      work = dir_path::current_directory ();
+    }
+    catch (const system_error& e)
+    {
+      fail << "invalid current working directory: " << e;
+    }
+
     home = dir_path::home_directory ();
   }
 }

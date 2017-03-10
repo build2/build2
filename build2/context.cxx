@@ -250,165 +250,9 @@ namespace build2
 
     scope& gs (make_global_scope ());
 
-    // Parse and enter the command line variables. We do it before entering
-    // any other variables so that all the variables that are overriden are
-    // marked as such first. Then, as we enter variables, we can verify that
-    // the override is alowed.
+    // Setup the global scope before parsing any variable overrides since they
+    // may reference these things.
     //
-    for (const string& s: cmd_vars)
-    {
-      istringstream is (s);
-      is.exceptions (istringstream::failbit | istringstream::badbit);
-
-      // Similar to buildspec we do "effective escaping" and only for ['"\$(]
-      // (basically what's necessary inside a double-quoted literal plus the
-      // single quote).
-      //
-      lexer l (is, path ("<cmdline>"), "\'\"\\$(");
-
-      // The first token should be a word, either the variable name or the
-      // scope qualification.
-      //
-      token t (l.next ());
-      token_type tt (l.next ().type);
-
-      dir_path dir;
-      if (t.type == token_type::word && tt == token_type::colon)
-      {
-        if (!path::traits::is_separator (t.value.back ()))
-          fail << "expected directory (with trailing slash) instead of "
-               << "'" << t.value << "'";
-
-        dir = dir_path (move (t.value));
-
-        if (dir.relative ())
-          dir.complete ();
-
-        dir.normalize ();
-
-        t = l.next ();
-        tt = l.next ().type;
-      }
-
-      // This should be the variable name followed by =, +=, or =+.
-      //
-      if (t.type != token_type::word || t.value.empty () ||
-          (tt != token_type::assign &&
-           tt != token_type::prepend &&
-           tt != token_type::append))
-      {
-        fail << "expected variable assignment instead of '" << s << "'" <<
-          info << "use double '--' to treat this argument as buildspec";
-      }
-
-      // Take care of the visibility. Note that here we rely on the fact that
-      // none of these characters are lexer's name separators.
-      //
-      char c (t.value[0]);
-      string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
-
-      if (c == '!' && !dir.empty ())
-        fail << "scope-qualified global override of variable " << n;
-
-      variable_visibility v (c == '/' ? variable_visibility::scope   :
-                             c == '%' ? variable_visibility::project :
-                             variable_visibility::normal);
-
-      const variable& var (vp.insert (n, true)); // Allow overrides.
-      const char* k (tt == token_type::assign ? ".__override" :
-                     tt == token_type::append ? ".__suffix" : ".__prefix");
-
-      // We might already have a variable for this kind of override.
-      //
-      const variable* o (&var); // Step behind.
-      for (; o->override != nullptr; o = o->override.get ())
-      {
-        if (o->override->visibility == v &&
-            o->override->name.rfind (k) != string::npos)
-          break;
-      }
-
-      // Add it if not found.
-      //
-      if (o->override == nullptr)
-        const_cast<variable*> (o)->override.reset (
-          new variable {n + k, nullptr, nullptr, v, 0});
-
-      o = o->override.get ();
-
-      // Currently we expand project overrides in the global scope to keep
-      // things simple. Pass original variable for diagnostics.
-      //
-      parser p;
-      pair<value, token> r (p.parse_variable_value (l, gs, var));
-
-      if (r.second.type != token_type::eos)
-        fail << "unexpected " << r.second << " in variable assignment "
-             << "'" << s << "'";
-
-      // Make sure the value is not typed.
-      //
-      if (r.first.type != nullptr)
-        fail << "typed override of variable " << n;
-
-      // Global and scope overrides we can enter directly. Project ones will
-      // be entered by the caller for for each amalgamation/project.
-      //
-      if (c == '!' || !dir.empty ())
-      {
-        scope& s (c == '!' ? gs : sm.insert (dir, false)->second);
-        auto p (s.vars.insert (*o));
-
-        if (!p.second)
-        {
-          if (c == '!')
-            fail << "multiple global overrides of variable " << n;
-          else
-            fail << "multiple overrides of variable " << n
-                 << " in scope " << dir;
-        }
-
-        value& v (p.first);
-        v = move (r.first);
-      }
-      else
-        vos.emplace_back (variable_override {var, *o, move (r.first)});
-    }
-
-    // Enter builtin variables and patterns.
-    //
-
-    // All config. variables are by default overridable.
-    //
-    vp.insert_pattern ("config.**", nullopt, true, nullopt, true, false);
-
-    // file.cxx:import() (note that order is important; see insert_pattern()).
-    //
-    vp.insert_pattern<abs_dir_path> (
-      "config.import.*", true, variable_visibility::normal, true);
-    vp.insert_pattern<path> (
-      "config.import.**", true, variable_visibility::normal, true);
-
-    // module.cxx:load_module().
-    //
-    vp.insert_pattern<bool> (
-      "**.loaded", false, variable_visibility::project);
-    vp.insert_pattern<bool> (
-      "**.configured", false, variable_visibility::project);
-
-    var_src_root = &vp.insert<dir_path> ("src_root");
-    var_out_root = &vp.insert<dir_path> ("out_root");
-    var_src_base = &vp.insert<dir_path> ("src_base");
-    var_out_base = &vp.insert<dir_path> ("out_base");
-
-    // Note that subprojects is not typed since the value requires
-    // pre-processing (see file.cxx).
-    //
-    var_project      = &vp.insert<string>   ("project");
-    var_amalgamation = &vp.insert<dir_path> ("amalgamation");
-    var_subprojects  = &vp.insert           ("subprojects");
-
-    var_import_target = &vp.insert<name> ("import.target");
 
     // Target extension.
     //
@@ -499,6 +343,167 @@ namespace build2
       t.insert<man>   ();
       t.insert<man1>  ();
     }
+
+    // Parse and enter the command line variables. We do it before entering
+    // any other variables so that all the variables that are overriden are
+    // marked as such first. Then, as we enter variables, we can verify that
+    // the override is alowed.
+    //
+    for (const string& s: cmd_vars)
+    {
+      istringstream is (s);
+      is.exceptions (istringstream::failbit | istringstream::badbit);
+
+      // Similar to buildspec we do "effective escaping" and only for ['"\$(]
+      // (basically what's necessary inside a double-quoted literal plus the
+      // single quote).
+      //
+      lexer l (is, path ("<cmdline>"), "\'\"\\$(");
+
+      // The first token should be a word, either the variable name or the
+      // scope qualification.
+      //
+      token t (l.next ());
+      token_type tt (l.next ().type);
+
+      dir_path dir;
+      if (t.type == token_type::word && tt == token_type::colon)
+      {
+        if (!path::traits::is_separator (t.value.back ()))
+          fail << "expected directory (with trailing slash) instead of "
+               << "'" << t.value << "'";
+
+        dir = dir_path (move (t.value));
+
+        if (dir.relative ())
+          dir.complete ();
+
+        dir.normalize ();
+
+        t = l.next ();
+        tt = l.next ().type;
+      }
+
+      // This should be the variable name followed by =, +=, or =+.
+      //
+      if (t.type != token_type::word || t.value.empty () ||
+          (tt != token_type::assign &&
+           tt != token_type::prepend &&
+           tt != token_type::append))
+      {
+        fail << "expected variable assignment instead of '" << s << "'" <<
+          info << "use double '--' to treat this argument as buildspec";
+      }
+
+      // Take care of the visibility. Note that here we rely on the fact that
+      // none of these characters are lexer's name separators.
+      //
+      char c (t.value[0]);
+      string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
+
+      if (c == '!' && !dir.empty ())
+        fail << "scope-qualified global override of variable " << n;
+
+      variable_visibility v (c == '/' ? variable_visibility::scope   :
+                             c == '%' ? variable_visibility::project :
+                             variable_visibility::normal);
+
+      const variable& var (vp.insert (n, true)); // Allow overrides.
+      const char* k (tt == token_type::assign ? ".__override" :
+                     tt == token_type::append ? ".__suffix" : ".__prefix");
+
+      // We might already have a variable for this kind of override.
+      //
+      const variable* o (&var); // Step behind.
+      for (; o->override != nullptr; o = o->override.get ())
+      {
+        if (o->override->visibility == v &&
+            o->override->name.rfind (k) != string::npos)
+          break;
+      }
+
+      // Add it if not found.
+      //
+      if (o->override == nullptr)
+        const_cast<variable*> (o)->override.reset (
+          new variable {n + k, nullptr, nullptr, v, 0});
+
+      o = o->override.get ();
+
+      // Currently we expand project overrides in the global scope to keep
+      // things simple. Pass original variable for diagnostics. Use current
+      // working directory as pattern base.
+      //
+      parser p;
+      pair<value, token> r (p.parse_variable_value (l, gs, &work, var));
+
+      if (r.second.type != token_type::eos)
+        fail << "unexpected " << r.second << " in variable assignment "
+             << "'" << s << "'";
+
+      // Make sure the value is not typed.
+      //
+      if (r.first.type != nullptr)
+        fail << "typed override of variable " << n;
+
+      // Global and scope overrides we can enter directly. Project ones will
+      // be entered by the caller for for each amalgamation/project.
+      //
+      if (c == '!' || !dir.empty ())
+      {
+        scope& s (c == '!' ? gs : sm.insert (dir, false)->second);
+        auto p (s.vars.insert (*o));
+
+        if (!p.second)
+        {
+          if (c == '!')
+            fail << "multiple global overrides of variable " << n;
+          else
+            fail << "multiple overrides of variable " << n
+                 << " in scope " << dir;
+        }
+
+        value& v (p.first);
+        v = move (r.first);
+      }
+      else
+        vos.emplace_back (variable_override {var, *o, move (r.first)});
+    }
+
+    // Enter builtin variables and patterns.
+    //
+
+    // All config. variables are by default overridable.
+    //
+    vp.insert_pattern ("config.**", nullopt, true, nullopt, true, false);
+
+    // file.cxx:import() (note that order is important; see insert_pattern()).
+    //
+    vp.insert_pattern<abs_dir_path> (
+      "config.import.*", true, variable_visibility::normal, true);
+    vp.insert_pattern<path> (
+      "config.import.**", true, variable_visibility::normal, true);
+
+    // module.cxx:load_module().
+    //
+    vp.insert_pattern<bool> (
+      "**.loaded", false, variable_visibility::project);
+    vp.insert_pattern<bool> (
+      "**.configured", false, variable_visibility::project);
+
+    var_src_root = &vp.insert<dir_path> ("src_root");
+    var_out_root = &vp.insert<dir_path> ("out_root");
+    var_src_base = &vp.insert<dir_path> ("src_base");
+    var_out_base = &vp.insert<dir_path> ("out_base");
+
+    // Note that subprojects is not typed since the value requires
+    // pre-processing (see file.cxx).
+    //
+    var_project      = &vp.insert<string>   ("project");
+    var_amalgamation = &vp.insert<dir_path> ("amalgamation");
+    var_subprojects  = &vp.insert           ("subprojects");
+
+    var_import_target = &vp.insert<name> ("import.target");
 
     // Register builtin rules.
     //
