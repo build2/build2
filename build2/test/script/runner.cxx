@@ -718,30 +718,36 @@ namespace build2
 
             if (l.to_directory ())
             {
-              auto rm = [&p, &d, &ll] (path&& de) -> bool
+              auto rm =
+                [&p, &d, &ll] (path&& de, const string&, bool interm) -> bool
               {
-                dir_path sd (path_cast<dir_path> (d / de));
+                if (!interm)
+                {
+                  dir_path sd (path_cast<dir_path> (d / de));
 
-                // We can get not_exist here due to racing conditions, but
-                // that's ok if somebody did our job.
-                //
-                rmdir_status r (rmdir (sd, 2));
+                  // We can get not_exist here due to racing conditions, but
+                  // that's ok if somebody did our job.
+                  //
+                  rmdir_status r (rmdir (sd, 2));
 
-                if (r != rmdir_status::not_empty)
-                  return true;
+                  if (r == rmdir_status::not_empty)
+                    fail (ll) << "registered for cleanup directory " << sd
+                              << " is not empty" <<
+                      info << "wildcard: '" << p << "'";
+                }
 
-                fail (ll) << "registered for cleanup directory " << sd
-                          << " is not empty" <<
-                  info << "wildcard: '" << p << "'" << endf;
+                return true;
               };
 
               path_search (l, rm, d);
             }
             else
             {
-              auto rm = [&d] (path&& p) -> bool
+              auto rm = [&d] (path&& p, const string&, bool interm) -> bool
               {
-                rmfile (d / p, 2); // That's ok if not exists.
+                if (!interm)
+                  rmfile (d / p, 2); // That's ok if not exists.
+
                 return true;
               };
 

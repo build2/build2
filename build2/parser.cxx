@@ -2425,17 +2425,19 @@ namespace build2
       //@@ PAT TODO: weed out starting with dot (unless pattern starts
       //   with dot; last component? intermediate components?).
       //
-      function<bool (path&&)> func;
+      function<bool (path&&, const string&, bool)> func;
       if (unique)
-        func = [a, &append] (path&& m)
+        func = [a, &append] (path&& m, const string&, bool interm)
           {
-            append (move (m).representation (), a);
+            if (!interm)
+              append (move (m).representation (), a);
             return true;
           };
       else
-        func = [a, &include_match] (path&& m)
+        func = [a, &include_match] (path&& m, const string&, bool interm)
           {
-            include_match (move (m).representation (), a);
+            if (!interm)
+              include_match (move (m).representation (), a);
             return true;
           };
 
