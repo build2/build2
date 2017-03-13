@@ -2422,22 +2422,32 @@ namespace build2
         unique = (i == string::npos || p.find ("**", i + 2) == string::npos);
       }
 
-      //@@ PAT TODO: weed out starting with dot (unless pattern starts
-      //   with dot; last component? intermediate components?).
-      //
       function<bool (path&&, const string&, bool)> func;
       if (unique)
-        func = [a, &append] (path&& m, const string&, bool interm)
+        func = [a, &append] (path&& m, const string& p, bool interm)
           {
+            // Ignore entries that start with a dot unless the pattern that
+            // matched them also starts with a dot.
+            //
+            const string& s (m.string ());
+            if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
+              return !interm;
+
             if (!interm)
               append (move (m).representation (), a);
+
             return true;
           };
       else
-        func = [a, &include_match] (path&& m, const string&, bool interm)
+        func = [a, &include_match] (path&& m, const string& p, bool interm)
           {
+            const string& s (m.string ());
+            if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
+              return !interm;
+
             if (!interm)
               include_match (move (m).representation (), a);
+
             return true;
           };
 

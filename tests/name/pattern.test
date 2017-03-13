@@ -133,6 +133,30 @@ EOI
   $* <'print dir{*/ -bar/}' >/'dir{foo/}'
 }
 
+: dot
+:
+: Test filtering of hidden files/directories.
+{
+  touch foo.txt .foo.txt;
+  $* <'print *.txt' >'foo.txt'                       : file-excl
+
+  touch foo.txt .foo.txt;
+  $* <'print .*.txt' >'.foo.txt'                     : file-incl
+
+  mkdir dir .dir;
+  $* <'print */' >/'dir/'                            : dir-excl
+
+  mkdir dir .dir;
+  $* <'print .*/' >/'.dir/'                          : dir-incl
+
+  mkdir dir .dir && touch dir/foo.txt .dir/foo.txt;
+  $* <'print */*.txt' >/'dir/foo.txt';
+  $* <'print **.txt'  >/'dir/foo.txt'                : dir-interm-excl
+
+  mkdir dir .dir && touch dir/foo.txt .dir/foo.txt;
+  $* <'print .*/*.txt' >/'.dir/foo.txt'              : dir-interm-incl
+}
+
 : expansion
 :
 : Test interaction with expansion/concatenation/re-parse.
