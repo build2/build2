@@ -285,7 +285,8 @@ namespace build2
                  size_t pairn = 0,
                  const optional<string>& prj = nullopt,
                  const dir_path* dir = nullptr,
-                 const string* type = nullptr);
+                 const string* type = nullptr,
+                 bool cross = true);
 
     size_t
     parse_names_trailer (token&, token_type&,
@@ -296,7 +297,8 @@ namespace build2
                          size_t pairn,
                          const optional<string>& prj,
                          const dir_path* dir,
-                         const string* type);
+                         const string* type,
+                         bool cross);
 
     size_t
     expand_name_pattern (const location&,

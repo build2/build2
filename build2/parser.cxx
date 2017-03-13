@@ -2593,163 +2593,152 @@ namespace build2
                        size_t pairn,
                        const optional<string>& pp,
                        const dir_path* dp,
-                       const string* tp)
+                       const string* tp,
+                       bool cross)
   {
     assert (!pre_parse_);
 
     if (pp)
       pmode = pattern_mode::ignore;
 
-    next (t, tt); // Get what's after '{'.
+    next (t, tt);                          // Get what's after '{'.
+    const location loc (get_location (t)); // Start of names.
 
     size_t start (ns.size ());
 
     if (pairn == 0 && start != 0 && ns.back ().pair)
       pairn = start;
 
-    // This can be an ordinary name group or a pattern (with inclusions and
-    // exclusions). We want to detect which one it is since for patterns we
-    // want just the list of simple names without pair/dir/type added (those
-    // are added after the pattern expansion in parse_names_pattern()).
+    names r;
+
+    // Parse names until closing '}' expanding patterns.
     //
-    // Detecting which one it is is tricky. We cannot just peek at the token
-    // and look for some wildcards since the pattern can be the result of an
-    // expansion (or, worse, concatenation). Thus pattern_mode::detect: we are
-    // going to ask parse_names() to detect for us if the first name is a
-    // pattern. And if it is, to refrain from adding pair/dir/type. On our
-    // side we will also have to move the pattern names out of the result.
-    //
-    const location loc (get_location (t));
-
-    optional<const target_type*> pat_tt (
-      parse_names (
-        t, tt,
-        ns,
-        pmode == pattern_mode::expand ? pattern_mode::detect : pmode,
-        false,
-        what,
-        separators,
-        pairn,
-        pp, dp, tp).pattern);
-
-    if (tt != type::rcbrace)
-      fail (t) << "expected } instead of " << t;
-
-    size_t count;
-
-    // See if this is a pattern.
-    //
-    if (pat_tt)
+    auto parse = [&r, &t, &tt, pmode, what, separators, this] (
+      const optional<string>& pp,
+      const dir_path* dp,
+      const string* tp)
     {
-      // Move the pattern names our of the result.
-      //
-      names ps;
-      if (start == 0)
-        ps = move (ns);
-      else
-        ps.insert (ps.end (),
-                   make_move_iterator (ns.begin () + start),
-                   make_move_iterator (ns.end ()));
-      ns.resize (start);
-
-      count = expand_name_pattern (
-        loc, move (ps), ns, what, pairn, dp, tp, *pat_tt);
-    }
-    else
-      count = ns.size () - start;
-
-    // See if we have a cross. See tests/names.
-    //
-    if (peek () == type::lcbrace && !peeked ().separated)
-    {
-      next (t, tt); // Get '{'.
       const location loc (get_location (t));
 
-      names x; // Parse into a separate list of names.
-      parse_names_trailer (
-        t, tt, x, pmode, what, separators, 0, nullopt, nullptr, nullptr);
+      size_t start (r.size ());
 
-      size_t n (x.size ());
-
-      // If LHS or RHS are empty, then the result is empty as well.
+      // This can be an ordinary name group or a pattern (with inclusions and
+      // exclusions). We want to detect which one it is since for patterns we
+      // want just the list of simple names without pair/dir/type added (those
+      // are added after the pattern expansion in parse_names_pattern()).
       //
-      if (count != 0 && n != 0)
+      // Detecting which one it is is tricky. We cannot just peek at the token
+      // and look for some wildcards since the pattern can be the result of an
+      // expansion (or, worse, concatenation). Thus pattern_mode::detect: we
+      // are going to ask parse_names() to detect for us if the first name is
+      // a pattern. And if it is, to refrain from adding pair/dir/type.
+      //
+      optional<const target_type*> pat_tt (
+        parse_names (
+          t, tt,
+          r,
+          pmode == pattern_mode::expand ? pattern_mode::detect : pmode,
+          false,
+          what,
+          separators,
+          0,                    // Handled by the splice_names() call below.
+          pp, dp, tp, false).pattern);
+
+      if (tt != type::rcbrace)
+        fail (t) << "expected '}' instead of " << t;
+
+      // See if this is a pattern.
+      //
+      if (pat_tt)
       {
-        // Now cross the last 'count' names in 'ns' with 'x'. First we will
-        // allocate n - 1 additional sets of last 'count' names in 'ns'.
+        // Move the pattern names our of the result.
         //
-        ns.reserve (ns.size () + count * (n - 1));
-        for (size_t i (0); i != n - 1; ++i)
-          for (size_t j (0); j != count; ++j)
-            ns.push_back (ns[start + j]);
+        names ps;
+        if (start == 0)
+          ps = move (r);
+        else
+          ps.insert (ps.end (),
+                     make_move_iterator (r.begin () + start),
+                     make_move_iterator (r.end ()));
+        r.resize (start);
 
-        // Now cross each name, this time including the first set.
+        expand_name_pattern (loc, move (ps), r, what, 0, dp, tp, *pat_tt);
+      }
+    };
+
+    // Parse and expand the first group.
+    //
+    parse (pp, dp, tp);
+
+    // Handle crosses. The overall plan is to take what's in r, cross each
+    // element with the next group using the re-parse machinery, and store the
+    // result back to r.
+    //
+    while (cross && peek () == type::lcbrace && !peeked ().separated)
+    {
+      next (t, tt); // Get '{'.
+
+      names ln (move (r));
+      r.clear ();
+
+      // Cross with empty LHS/RHS is empty. Handle the LHS case now by parsing
+      // and discaring RHS (empty RHS is handled "naturally" below).
+      //
+      if (ln.size () == 0)
+      {
+        parse (nullopt, nullptr, nullptr);
+        r.clear ();
+        continue;
+      }
+
+      replay_guard rg (*this, ln.size () > 1);
+      for (auto i (ln.begin ()), e (ln.end ()); i != e; )
+      {
+        next (t, tt); // Get what's after '{'.
+        const location loc (get_location (t));
+
+        name& l (*i);
+
+        // "Promote" the lhs value to type.
         //
-        for (size_t i (0); i != n; ++i)
+        if (!l.value.empty ())
         {
-          for (size_t j (0); j != count; ++j)
-          {
-            name& l (ns[start + i * count + j]);
-            const name& r (x[i]);
+          if (!l.type.empty ())
+            fail (loc) << "nested type name " << l.value;
 
-            // Move the project names.
-            //
-            if (r.proj)
-            {
-              if (l.proj)
-                fail (loc) << "nested project name " << *r.proj;
-
-              l.proj = move (r.proj);
-            }
-
-            // Merge directories.
-            //
-            if (!r.dir.empty ())
-            {
-              if (l.dir.empty ())
-                l.dir = move (r.dir);
-              else
-                l.dir /= r.dir;
-            }
-
-            // Figure out the type. As a first step, "promote" the lhs value
-            // to type.
-            //
-            if (!l.value.empty ())
-            {
-              if (!l.type.empty ())
-                fail (loc) << "nested type name " << l.value;
-
-              l.type.swap (l.value);
-            }
-
-            if (!r.type.empty ())
-            {
-              if (!l.type.empty ())
-                fail (loc) << "nested type name " << r.type;
-
-              l.type = move (r.type);
-            }
-
-            l.value = move (r.value);
-
-            // @@ TODO: need to handle pairs on lhs. I think all that needs
-            //    to be done is skip pair's first elements. Maybe also check
-            //    that there are no pairs on the rhs. There is just no easy
-            //    way to enable the value mode to test it, yet.
-          }
+          l.type.swap (l.value);
         }
 
-        count *= n;
-      }
-      else if (count != 0)
-      {
-        ns.resize (start); // Drop LHS.
-        count = 0;
+        parse (l.proj,
+               l.dir.empty () ? nullptr : &l.dir,
+               l.type.empty () ? nullptr : &l.type);
+
+        if (++i != e)
+          rg.play (); // Replay.
       }
     }
 
-    return count;
+    // Splice the names into the result. Note that we have already handled
+    // project/dir/type qualification but may still have a pair. Fast-path
+    // common cases.
+    //
+    if (pairn == 0)
+    {
+      if (start == 0)
+        ns = move (r);
+      else
+        ns.insert (ns.end (),
+                   make_move_iterator (r.begin ()),
+                   make_move_iterator (r.end ()));
+    }
+    else
+      splice_names (loc,
+                    names_view (r), move (r),
+                    ns, what,
+                    pairn,
+                    nullopt, nullptr, nullptr);
+
+    return ns.size () - start;
   }
 
   // Slashe(s) plus '%'. Note that here we assume '/' is there since that's
@@ -2768,7 +2757,8 @@ namespace build2
                size_t pairn,
                const optional<string>& pp,
                const dir_path* dp,
-               const string* tp) -> parse_names_result
+               const string* tp,
+               bool cross) -> parse_names_result
   {
     // Note that support for pre-parsing is partial, it does not handle
     // groups ({}).
@@ -3131,7 +3121,7 @@ namespace build2
           }
 
           count = parse_names_trailer (
-            t, tt, ns, pmode, what, separators, pairn, *pp1, dp1, tp1);
+            t, tt, ns, pmode, what, separators, pairn, *pp1, dp1, tp1, cross);
           tt = peek ();
           continue;
         }
@@ -3537,7 +3527,7 @@ namespace build2
       if (tt == type::lcbrace)
       {
         count = parse_names_trailer (
-          t, tt, ns, pmode, what, separators, pairn, pp, dp, tp);
+          t, tt, ns, pmode, what, separators, pairn, pp, dp, tp, cross);
         tt = peek ();
         continue;
       }

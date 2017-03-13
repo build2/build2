@@ -51,4 +51,12 @@ print {dir/}{foo{bar}}
 #print {dir/foo{fox}}{bar} # nested type name
 #print {dir/foo}{fox{bar}} # nested type name
 
+# Nested replay.
+#
+#file{foo} file{bar}: x = {foo fox}{bar baz}
+
+# Pair.
+#
+print x@{dir/ dor/}{foo fox}{bar baz}
+
 ./:
