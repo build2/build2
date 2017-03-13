@@ -440,7 +440,7 @@ namespace build2
       //
       // The mark is an index somewhere between (figuratively speaking) head
       // and tail, if enabled. If the mark is hit, then it is disabled until
-      // the queue becomes empty.
+      // the queue becomes empty or it is reset by a push.
       //
       size_t head = 0;
       size_t mark = 0;
@@ -554,8 +554,8 @@ namespace build2
         //
         // To put it another way, the understanding here is that after the
         // task returns we will either have an empty queue or there will still
-        // be tasks between the old mark and and the current tail, something
-        // along these lines:
+        // be tasks between the old mark and the current tail, something along
+        // these lines:
         //
         // OOOOOXXXXOOO
         //   |  |  |
