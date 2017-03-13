@@ -2678,11 +2678,10 @@ namespace build2
         // Now cross the last 'count' names in 'ns' with 'x'. First we will
         // allocate n - 1 additional sets of last 'count' names in 'ns'.
         //
-        size_t b (ns.size () - count); // Start of 'count' names.
         ns.reserve (ns.size () + count * (n - 1));
         for (size_t i (0); i != n - 1; ++i)
           for (size_t j (0); j != count; ++j)
-            ns.push_back (ns[b + j]);
+            ns.push_back (ns[start + j]);
 
         // Now cross each name, this time including the first set.
         //
@@ -2690,7 +2689,7 @@ namespace build2
         {
           for (size_t j (0); j != count; ++j)
           {
-            name& l (ns[b + i * count + j]);
+            name& l (ns[start + i * count + j]);
             const name& r (x[i]);
 
             // Move the project names.
