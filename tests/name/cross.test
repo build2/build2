@@ -1,0 +1,109 @@
+# file      : tests/name/cross.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.test
+
++cat <<EOI >=build/root.build
+define foo: file
+define bar: file
+
+foo{*}: extension = foo
+bar{*}: extension = bar
+EOI
+
+: separation
+:
+{
+  $* <'print fox/ {bar baz}'    >'fox/ bar baz'    : dir
+  $* <'print foo {bar baz}'     >'foo bar baz'     : type
+  $* <'print fox/foo {bar baz}' >'fox/foo bar baz' : dir-type
+}
+
+: type
+:
+{
+  $* <'print {}{bar}'            >'bar'
+  $* <'print {foo}{}'            >'foo{}'
+  $* <'print {foo}{bar}'         >'foo{bar}'
+  $* <'print {foo}{bar baz}'     >'foo{bar} foo{baz}'
+  $* <'print {foo fox}{bar}'     >'foo{bar} fox{bar}'
+  $* <'print {foo fox}{bar baz}' >'foo{bar} foo{baz} fox{bar} fox{baz}'
+}
+
+: dir
+:
+{
+  $* <'print dir/{}{bar}'            >'dir/bar'
+  $* <'print dir/{foo}{}'            >'foo{dir/}'
+  $* <'print dir/{foo}{bar}'         >'dir/foo{bar}'
+  $* <'print dir/{foo}{bar baz}'     >'dir/foo{bar} dir/foo{baz}'
+  $* <'print dir/{foo fox}{bar}'     >'dir/foo{bar} dir/fox{bar}'
+  $* <'print dir/{foo fox}{bar baz}' >'dir/foo{bar} dir/foo{baz} dir/fox{bar} dir/fox{baz}'
+
+  $* <'print {dir/}{bar}'                >'dir/bar'
+  $* <'print {dir/}{bar baz}'            >'dir/bar dir/baz'
+  $* <'print {dir/ dor/}{bar}'           >'dir/bar dor/bar'
+  $* <'print {dir/ dor/}{bar baz}'       >'dir/bar dir/baz dor/bar dor/baz'
+}
+
+: dir-type
+:
+{
+  $* <'print {dir/foo}{bar}'             >'dir/foo{bar}'
+  $* <'print {dir/foo}{bar baz}'         >'dir/foo{bar} dir/foo{baz}'
+  $* <'print {dir/foo dor/fox}{bar}'     >'dir/foo{bar} dor/fox{bar}'
+  $* <'print {dir/foo dor/fox}{bar baz}' >'dir/foo{bar} dir/foo{baz} dor/fox{bar} dor/fox{baz}'
+
+  $* <'print {dir/}{foo}{bar}'              >'dir/foo{bar}'
+  $* <'print {dir/}{foo}{bar baz}'          >'dir/foo{bar} dir/foo{baz}'
+  $* <'print {dir/ dor/}{foo}{bar}'         >'dir/foo{bar} dor/foo{bar}'
+  $* <'print {dir/ dor/}{foo fox}{bar baz}' >'dir/foo{bar} dir/foo{baz} dir/fox{bar} dir/fox{baz} dor/foo{bar} dor/foo{baz} dor/fox{bar} dor/fox{baz}'
+}
+
+: proj
+:
+{
+  $* <'print {prj%foo}{bar baz}' >'prj%foo{bar} prj%foo{baz}'
+  $* <'print {foo}{bar prj%baz}' >'foo{bar} prj%foo{baz}'
+
+  $* <'print {prj%foo}{bar prk%baz}' 2>>EOE != 0
+  <stdin>:1:21: error: nested project name prk
+  EOE
+}
+
+: merge
+:
+{
+  $* <'print {foo}{bar dir/{baz}}'     >'foo{bar} dir/foo{baz}'
+  $* <'print dir/{foo}{bar dor/{baz}}' >'dir/foo{bar} dir/dor/foo{baz}'
+
+  $* <'print {dir/foo{}}{bar}' >'dir/foo{bar}'
+  $* <'print {dir/{foo}}{bar}' >'dir/foo{bar}'
+  $* <'print {dir/}{foo{bar}}' >'dir/foo{bar}'
+
+  $* <'print {dir/foo{fox}}{bar}' 2>>EOE != 0
+  <stdin>:1:22: error: nested type name fox
+  EOE
+
+  $* <'print {dir/foo}{fox{bar}}' 2>>EOE != 0
+  <stdin>:1:20: error: nested type name fox
+  EOE
+}
+
+: pair
+:
+{
+  $* <'print x@{dir/ dor/}{foo fox}{bar baz}' >'x@dir/foo{bar} x@dir/foo{baz} x@dir/fox{bar} x@dir/fox{baz} x@dor/foo{bar} x@dor/foo{baz} x@dor/fox{bar} x@dor/fox{baz}'
+}
+
+: pattern
+:
+{
+  touch x.foo y.bar;
+  $* <'print {foo bar}{*}' >'foo{x} bar{y}'
+}
+
+# @@ TODO: nested replay.
+#
+#file{foo} file{bar}: x = {foo fox}{bar baz}
