@@ -2,6 +2,5 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: directive/ eval/ expansion/ function/ name/ search/ test/ value/ \
-variable/ file{common.test}
+./: {*/ -build/} file{common.test}
 
