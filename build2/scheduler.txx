@@ -18,23 +18,29 @@ namespace build2
     static_assert (std::is_trivially_destructible<task>::value,
                    "not trivially destructible");
 
-    // Push into the queue unless we are running serially or the queue is
-    // full.
+    // If running serially, then run the task synchronously. In this case
+    // there is no need to mess with task count.
     //
-    task_data* td (nullptr);
-
-    if (max_active_ != 1)
+    if (max_active_ == 1)
     {
-      task_queue* tq (task_queue_); // Single load.
-      if (tq == nullptr)
-        tq = &create_queue ();
+      forward<F> (f) (forward<A> (a)...);
+      return false;
+    }
 
+    // Try to push the task into the queue falling back to running serially
+    // if the queue is full.
+    //
+    task_queue* tq (task_queue_); // Single load.
+    if (tq == nullptr)
+      tq = &create_queue ();
+
+    {
       lock ql (tq->mutex);
 
       if (tq->shutdown)
         throw system_error (ECANCELED, std::system_category ());
 
-      if ((td = push (*tq)) != nullptr)
+      if (task_data* td = push (*tq))
       {
         // Package the task (under lock).
         //
@@ -47,16 +53,33 @@ namespace build2
         td->thunk = &task_thunk<F, A...>;
       }
       else
+      {
         tq->stat_full++;
-    }
 
-    // If serial/full, then run the task synchronously. In this case there is
-    // no need to mess with task count.
-    //
-    if (td == nullptr)
-    {
-      forward<F> (f) (forward<A> (a)...);
-      return false;
+        // We have to perform the same mark adjust/restore as in pop_back()
+        // since the task we are about to execute synchronously may try to
+        // work the queue.
+        //
+        // It would have been cleaner to package all this logic into push()
+        // but that would require dragging function/argument types into it.
+        //
+        size_t& s (tq->size);
+        size_t& t (tq->tail);
+        size_t& m (tq->mark);
+
+        size_t om (m);
+        m = task_queue_depth_;
+
+        {
+          ql.unlock ();
+          forward<F> (f) (forward<A> (a)...); // Should not throw.
+          ql.lock ();
+        }
+
+        m = s == 0 ? t : om;
+
+        return false;
+      }
     }
 
     // Increment the task count.

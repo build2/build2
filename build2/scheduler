@@ -463,6 +463,7 @@ namespace build2
     {
       size_t& s (tq.size);
       size_t& t (tq.tail);
+      size_t& m (tq.mark);
 
       if (s != task_queue_depth_)
       {
@@ -470,6 +471,10 @@ namespace build2
         //                                         |       |    |
         t = s != 0 ? (t != task_queue_depth_ - 1 ? t + 1 : 0) : t;
         s++;
+
+        if (m == task_queue_depth_) // Enable the mark if first push.
+          m = t;
+
         queued_task_count_.fetch_add (1, std::memory_order_release);
         return &tq.data[t];
       }
@@ -523,11 +528,11 @@ namespace build2
 
       task_data& td (tq.data[t]);
 
-      // Save the old queue mark and set the new one in case the task we are
-      // about to run adds sub-tasks.
+      // Save the old queue mark and disable it in case the task we are about
+      // to run adds sub-tasks. The first push(), if any, will reset it.
       //
       size_t om (m);
-      m = t; // Where next push() will go.
+      m = task_queue_depth_;
 
       //                     normal  wrap                     empty
       //                     |       |                        |
