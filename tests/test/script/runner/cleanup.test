@@ -128,9 +128,25 @@ b += --no-column
   :
   : Test cleanup of a non-empty directory.
   :
-  $c <'$* -d a -f a/b &a/' && $b 2>>/EOE != 0
-  testscript:1: error: registered for cleanup directory test/1/a/ is not empty
-  EOE
+  {
+    : files
+    :
+    $c <<EOI && $b 2>>/~%EOE% != 0
+    $* -d a -f a/0 -f a/1 -f a/2 -f a/3 -f a/4 -f a/5 -f a/6 -f a/7 -f a/8 \
+            -f a/9 -f a/a -f a/b &a/
+    EOI
+    testscript:2: error: registered for cleanup directory test/1/a/ is not empty
+    %.%{10}
+    and 2 more file(s)
+    EOE
+
+    : dir
+    :
+    $c <'$* -d a/b' && $b 2>>/EOE != 0
+    testscript:1: error: registered for cleanup directory test/1/ is not empty
+    a/
+    EOE
+  }
 
   : not-dir
   :
@@ -231,6 +247,7 @@ b += --no-column
     :
     $c <'$* -d a/b/c -f a/b/d &a/**/' && $b 2>>/EOE != 0
     testscript:1: error: registered for cleanup directory test/1/a/b/ is not empty
+    d
       info: wildcard: 'test/1/a/**/'
     EOE
   }
@@ -268,6 +285,7 @@ $c <'$* -d a/b &a/ &a/b/' && $b
 :
 $c <'$* -o foo >=a &!a' && $b 2>>/EOE != 0
 testscript:1: error: registered for cleanup directory test/1/ is not empty
+a
 EOE
 
 : explicit-overwrite
@@ -279,4 +297,5 @@ $* &!a;
 $* -o foo >=a
 EOO
 testscript:2: error: registered for cleanup directory test/1/ is not empty
+a
 EOE

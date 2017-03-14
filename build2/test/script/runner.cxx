@@ -112,7 +112,7 @@ namespace build2
                 if (buf[n - 1] == '\n')
                   buf[n - 1] = '\0';
 
-                d << "\n" << buf;
+                d << '\n' << buf;
               }
             }
           }
@@ -120,6 +120,32 @@ namespace build2
           {
             fail (ll) << "unable to read " << p << ": " << e;
           }
+        }
+      }
+
+      // Print first 10 directory sub-entries to the diag record. The directory
+      // must exist.
+      //
+      static void
+      print_dir (diag_record& d, const dir_path& p, const location& ll)
+      {
+        try
+        {
+          size_t n (0);
+          for (const dir_entry& de: dir_iterator (p))
+          {
+            if (n++ < 10)
+              d << '\n' << (de.ltype () == entry_type::directory
+                            ? path_cast<dir_path> (de.path ())
+                            : de.path ());
+          }
+
+          if (n > 10)
+            d << "\nand " << n - 10 << " more file(s)";
+        }
+        catch (const system_error& e)
+        {
+          fail (ll) << "unable to iterate over " << p << ": " << e;
         }
       }
 
@@ -745,9 +771,12 @@ namespace build2
                     if (r != rmdir_status::not_empty)
                       return true;
 
-                    fail (ll) << "registered for cleanup directory " << sd
-                              << " is not empty" <<
-                      info << "wildcard: '" << p << "'";
+                    diag_record dr (fail (ll));
+                    dr << "registered for cleanup directory " << sd
+                       << " is not empty";
+
+                    print_dir (dr, sd, ll);
+                    dr << info << "wildcard: '" << p << "'";
                   }
 
                   return true;
@@ -791,10 +820,14 @@ namespace build2
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
                 continue;
 
-              fail (ll) << "registered for cleanup directory " << d
-                        << (r == rmdir_status::not_empty
-                            ? " is not empty"
-                            : " does not exist");
+              diag_record dr (fail (ll));
+              dr << "registered for cleanup directory " << d
+                 << (r == rmdir_status::not_empty
+                     ? " is not empty"
+                     : " does not exist");
+
+              if (r == rmdir_status::not_empty)
+                print_dir (dr, d, ll);
             }
 
             // Remove the file if exists. Fail otherwise. Removal of
