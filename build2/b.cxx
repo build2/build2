@@ -911,16 +911,31 @@ main (int argc, char* argv[])
               trace << "  amalgamat: " << cast<dir_path> (l);
           }
 
+          path bf;
           const path& bfn (ops.buildfile ());
-          path bf (bfn.string () != "-" ? src_base / bfn : bfn);
 
-          // If we were guessing src_base, check that the buildfile
-          // exists and if not, issue more detailed diagnostics.
-          //
-          if (guessing && bf.string () != "-" && !exists (bf))
-            fail << bf << " does not exist"
-                 << info << "consider explicitly specifying src_base "
-                 << "for " << tn;
+          if (bfn.string () != "-")
+          {
+            bf = src_base / bfn;
+
+            if (!exists (bf))
+            {
+              // If we were guessing src_base then don't try any implied
+              // buildfile tricks.
+              //
+              if (guessing)
+                fail << bf << " does not exist" <<
+                  info << "consider explicitly specifying src_base for " << tn;
+
+              // If the target is a directory and src_base exists, then assume
+              // implied buildfile; see dir::search_implied().
+              //
+              if ((tn.directory () || tn.type == "dir") && exists (src_base))
+                bf.clear ();
+            }
+          }
+          else
+            bf = bfn;
 
           // Enter project-wide (as opposed to global) variable overrides.
           //
@@ -1040,7 +1055,10 @@ main (int argc, char* argv[])
                           ? out_src (d, rs)
                           : dir_path ());
 
-            mif->search (rs, target_key {ti, &d, &out, &tn.value, e}, l, tgs);
+            mif->search (rs, bs,
+                         target_key {ti, &d, &out, &tn.value, e},
+                         l,
+                         tgs);
           }
         } // target
 

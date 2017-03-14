@@ -14,6 +14,7 @@
 #include <build2/diagnostics>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -732,7 +733,7 @@ namespace build2
     const target* t (search_existing_target (pk));
 
     if (t == nullptr || t->implied)
-      fail << "no explicit target for prerequisite " << pk;
+      fail << "no explicit target for " << pk;
 
     return t;
   }
@@ -762,7 +763,10 @@ namespace build2
       return t;
 
     // If not found (or is implied), then try to load the corresponding
-    // buildfile which would normally define this target.
+    // buildfile (which would normally define this target). Failed that, see
+    // if we can assume an implied buildfile which would be equivalent to:
+    //
+    // ./: */
     //
     const dir_path& d (*pk.tk.dir);
 
@@ -809,18 +813,25 @@ namespace build2
           scope& base (sp.first);
           scope& root (*sp.second);
 
-          path bf (base.src_path () / "buildfile");
+          const dir_path& src_base (base.src_path ());
+
+          path bf (src_base / "buildfile");
 
           if (exists (bf))
           {
             l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
             retest = source_once (root, base, bf, root);
           }
+          else if (exists (src_base))
+          {
+            t = dir::search_implied (base, pk, trace);
+            retest = (t != nullptr);
+          }
         }
       }
       assert (phase == run_phase::match);
 
-      // If we loaded the buildfile, examine the target again.
+      // If we loaded/implied the buildfile, examine the target again.
       //
       if (retest)
       {
@@ -832,8 +843,7 @@ namespace build2
       }
     }
 
-    fail << "no explicit target for prerequisite " << pk <<
-      info << "did you forget to include the corresponding buildfile?" << endf;
+    fail << "no explicit target for " << pk << endf;
   }
 
   static bool

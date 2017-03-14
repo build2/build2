@@ -20,8 +20,7 @@ EOI
 : no-buildfile
 :
 $* <'./: foo/' 2>>/EOE != 0
-error: no explicit target for prerequisite ../:dir{foo/}
-  info: did you forget to include the corresponding buildfile?
+error: no explicit target for ../:dir{foo/}
 EOE
 
 : basic

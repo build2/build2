@@ -60,25 +60,32 @@ namespace build2
     auto i (scopes.rw (root).insert (out_base, false));
     scope& base (setup_base (i, out_base, src_base));
 
-    // Load the buildfile unless it has already been loaded.
+    // Load the buildfile unless it is implied.
     //
-    source_once (root, base, bf, root);
+    if (!bf.empty ())
+      source_once (root, base, bf, root);
   }
 
   void
   search (const scope&,
+          const scope& bs,
           const target_key& tk,
           const location& l,
           action_targets& ts)
   {
     tracer trace ("search");
 
-    phase_lock pl (run_phase::match); // Never switched.
+    phase_lock pl (run_phase::match);
 
-    if (const target* t = targets.find (tk, trace))
-      ts.push_back (t);
-    else
+    const target* t (targets.find (tk, trace));
+
+    if (t == nullptr && tk.is_a<dir> ())
+      t = dir::search_implied (bs, tk, trace);
+
+    if (t == nullptr)
       fail (l) << "unknown target " << tk;
+
+    ts.push_back (t);
   }
 
   void

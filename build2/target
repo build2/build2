@@ -307,7 +307,7 @@ namespace build2
     prerequisites () const;
 
     // Swap-in a list of prerequisites. Return false if unsuccessful (i.e.,
-    // some beat us to it). Note that it can be called on const target.
+    // someone beat us to it). Note that it can be called on const target.
     //
     bool
     prerequisites (prerequisites_type&&) const;
@@ -1473,6 +1473,11 @@ namespace build2
   public:
     static const target_type static_type;
     virtual const target_type& dynamic_type () const {return static_type;}
+
+  public:
+    template <typename K>
+    static const target*
+    search_implied (const scope&, const K&, tracer&);
   };
 
   // While a filesystem directory is mtime-based, the semantics is

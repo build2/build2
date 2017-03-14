@@ -206,6 +206,7 @@ namespace build2
                   const location&);
 
     void (*search) (const scope& root,
+                    const scope& base,
                     const target_key&,
                     const location&,
                     action_targets&);
@@ -230,17 +231,21 @@ namespace build2
   // scope.
   //
   void
-  load (scope& root,
-        const path& buildfile,
-        const dir_path& out_base,
-        const dir_path& src_base,
+  load (scope&,
+        const path&,
+        const dir_path&,
+        const dir_path&,
         const location&);
 
   // Search and match the target. This is the default implementation
   // that does just that and adds a pointer to the target to the list.
   //
   void
-  search (const scope&, const target_key&, const location&, action_targets&);
+  search (const scope&,
+          const scope&,
+          const target_key&,
+          const location&,
+          action_targets&);
 
   void
   match (action, action_targets&);

@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <butl/filesystem> // dir_iterator
+
 #include <build2/scope>
 #include <build2/diagnostics>
 #include <build2/prerequisite>
@@ -134,5 +136,49 @@ namespace build2
     }
 
     return false;
+  }
+
+  // dir
+  //
+  template <typename K>
+  const target* dir::
+  search_implied (const scope& base, const K& k, tracer& trace)
+  {
+    using namespace butl;
+
+    // See if we have any subdirectories.
+    //
+    prerequisites_type ps;
+
+    for (const dir_entry& e: dir_iterator (base.src_path ()))
+    {
+      if (e.type () == entry_type::directory)
+        ps.push_back (
+          prerequisite (nullopt,
+                        dir::static_type,
+                        dir_path (e.path ().representation ()),
+                        dir_path (), // In the out tree.
+                        string (),
+                        nullopt,
+                        base));
+    }
+
+    if (ps.empty ())
+      return nullptr;
+
+    l5 ([&]{trace << "implying buildfile for " << k;});
+
+    // We behave as if this target was explicitly mentioned in the (implied)
+    // buildfile. Thus not implied.
+    //
+    target& t (targets.insert (dir::static_type,
+                               base.out_path (),
+                               dir_path (),
+                               string (),
+                               nullopt,
+                               false,
+                               trace).first);
+    t.prerequisites (move (ps));
+    return &t;
   }
 }

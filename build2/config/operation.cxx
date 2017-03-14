@@ -479,6 +479,7 @@ namespace build2
 
     static void
     disfigure_search (const scope& root,
+                      const scope&,
                       const target_key&,
                       const location&,
                       action_targets& ts)
