@@ -129,15 +129,22 @@ namespace build2
   {
     recipe_ = move (r);
 
-    // If this is a noop recipe, then mark the target unchanged to allow for
-    // some optimizations.
+    // Do not clear the failed target state in case of an override (and we
+    // should never see the failed state from the previous operation since we
+    // should abort the execution in this case).
     //
-    state_ = target_state::unknown;
-
-    if (recipe_function** f = recipe_.target<recipe_function*> ())
+    if (state_ != target_state::failed)
     {
-      if (*f == &noop_action)
-        state_ = target_state::unchanged;
+      // If this is a noop recipe, then mark the target unchanged to allow for
+      // some optimizations.
+      //
+      state_ = target_state::unknown;
+
+      if (recipe_function** f = recipe_.target<recipe_function*> ())
+      {
+        if (*f == &noop_action)
+          state_ = target_state::unchanged;
+      }
     }
   }
 

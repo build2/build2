@@ -174,10 +174,11 @@ namespace build2
     // We have the spin-lock. Quickly get the matched action and unlock.
     //
     action_type ma (action);
+    bool failed (state_ == target_state::failed);
     task_count.store (e, memory_order_release);
 
-    if (ma > a)
-      return target_state::unchanged; // Overriden.
+    if (ma > a) // Overriden.
+      return failed ? target_state::failed: target_state::unchanged;
 
     // Otherwise we should have a matched target.
     //

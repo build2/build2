@@ -500,8 +500,10 @@ namespace build2
     bool
     group_state () const;
 
+    // Raw state, normally not accessed directly.
+    //
   public:
-    target_state state_; // Raw state, normally not accessed directly.
+    target_state state_ = target_state::unknown;
 
     // Recipe.
     //
