@@ -1524,6 +1524,7 @@ in-redirect:  '<-'|\
 
 out-redirect: '>-'|\
               '>|'|\
+              '>!'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
@@ -1882,6 +1883,7 @@ for details.
 \
 out-redirect: '>-'|\
               '>|'|\
+              '>!'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
@@ -1898,6 +1900,11 @@ and a redirect is an error. A test that tries to write to an un-redirected
 stream (either \c{stdout} or \c{stderr}) is considered to have failed
 (unexpected output). To allow writing to the default \c{stdout} or \c{stderr}
 (for instance, if the test is really an example), the \c{>|} redirect is used.
+
+The \c{>!} redirect acts like \c{>-} if the build system verbosity level is
+below 2 and as \c{>|} otherwise. It is normally used to ignore diagnostics (as
+opposed to data) during normal operation but to still be able to examine it,
+for example, when debugging a failing test.
 
 It is also possible to merge \c{stderr} to \c{stdout} or vice versa with a
 merge redirect (\c{>&}). In this case the left-hand-side descriptor (implied
