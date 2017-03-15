@@ -268,6 +268,10 @@ namespace build2
                     path (argv0.recall_string ()),
                     path (argv0.effect));
 
+    // Build system verbosity level.
+    //
+    gs.assign<uint64_t> ("build.verbosity") = verb;
+
     // Build system version.
     //
     {
