@@ -370,6 +370,7 @@ namespace build2
       // which case it should be the only one.
       //
       bool one;
+      size_t count (0);
       {
         optional<bool> o;
         for (const target* pt: t.prerequisite_targets)
@@ -378,6 +379,8 @@ namespace build2
           //
           if (const testscript* ts = pt->is_a<testscript> ())
           {
+            count++;
+
             bool r (ts->name == "testscript");
 
             if ((r && o) || (!r && o && *o))
@@ -434,14 +437,23 @@ namespace build2
       //
       bool mk (!one);
 
-      // Run all the testscripts.
+      // Start asynchronous execution of the testscripts.
       //
+      wait_guard wg (target::count_busy (), t.task_count);
+
+      // Result vector.
+      //
+      using script::scope_state;
+
+      vector<scope_state> result;
+      result.reserve (count); // Make sure there are no reallocations.
+
       for (const target* pt: t.prerequisite_targets)
       {
         if (const testscript* ts = pt->is_a<testscript> ())
         {
-          // If this is just the testscript, then its id path is empty (and
-          // it can only be ignored by ignoring the test target, which makes
+          // If this is just the testscript, then its id path is empty (and it
+          // can only be ignored by ignoring the test target, which makes
           // sense since it's the only testscript file).
           //
           if (one || test (t, path (ts->name)))
@@ -458,13 +470,64 @@ namespace build2
               text << "test " << t << " with " << *ts << " on " << tt;
             }
 
-            script::parser p;
-            script::script s (t, *ts, wd);
-            p.pre_parse (s);
+            result.push_back (scope_state::unknown);
+            scope_state& r (result.back ());
 
-            script::default_runner r (*this);
-            p.execute (s, r);
+            if (!sched.async (target::count_busy (),
+                              t.task_count,
+                              [this] (scope_state& r,
+                                      const target& t,
+                                      const testscript& ts,
+                                      const dir_path& wd,
+                                      const diag_frame* ds) noexcept
+                              {
+                                diag_frame df (ds);
+                                try
+                                {
+                                  script::script s (t, ts, wd);
+
+                                  {
+                                    script::parser p;
+                                    p.pre_parse (s);
+
+                                    script::default_runner r (*this);
+                                    p.execute (s, r);
+                                  }
+
+                                  r = s.state;
+                                }
+                                catch (const failed&)
+                                {
+                                  r = scope_state::failed;
+                                }
+                              },
+                              ref (r),
+                              cref (t),
+                              cref (*ts),
+                              cref (wd),
+                              diag_frame::stack))
+            {
+              // Executed synchronously. If failed and we were not asked to
+              // keep going, bail out.
+              //
+              if (r == scope_state::failed && !keep_going)
+                throw failed ();
+            }
           }
+        }
+      }
+
+      wg.wait ();
+
+      // Re-examine.
+      //
+      for (scope_state r: result)
+      {
+        switch (r)
+        {
+        case scope_state::passed:  break;
+        case scope_state::failed:  throw failed ();
+        case scope_state::unknown: assert (false);
         }
       }
 

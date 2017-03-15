@@ -2832,8 +2832,8 @@ namespace build2
 
         if (!s.empty ())
           execute (s, s, r);
-
-        s.state = scope_state::passed;
+        else
+          s.state = scope_state::passed;
       }
 
       void parser::
@@ -2972,7 +2972,7 @@ namespace build2
               //
               if (!sched.async (task_count,
                                 [] (scope& s, script& scr, runner& r,
-                                    const diag_frame* ds)
+                                    const diag_frame* ds) noexcept
                                 {
                                   diag_frame df (ds);
 
@@ -2980,7 +2980,6 @@ namespace build2
                                   {
                                     parser p;
                                     p.execute (s, scr, r);
-                                    s.state = scope_state::passed;
                                   }
                                   catch (const failed&)
                                   {
@@ -3024,6 +3023,8 @@ namespace build2
           assert (false);
 
         runner_->leave (*scope_, scope_->end_loc_);
+
+        scope_->state = scope_state::passed;
       }
 
       void parser::

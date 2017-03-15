@@ -399,7 +399,7 @@ namespace build2
     //
     struct task_data
     {
-      std::aligned_storage<sizeof (void*) * 7>::type data;
+      std::aligned_storage<sizeof (void*) * 8>::type data;
       void (*thunk) (scheduler&, lock&, void*);
     };
 
