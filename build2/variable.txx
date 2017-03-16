@@ -44,7 +44,7 @@ namespace build2
       return move (v).as<T> ();
 
     throw invalid_argument (
-      string ("invalid ") + value_traits<T>::type_name +
+      string ("invalid ") + value_traits<T>::value_type.name +
       " value: conversion from " + v.type->name);
   }
 

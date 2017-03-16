@@ -106,7 +106,8 @@ namespace build2
   const meta_operation_id perform_id   = 2;
   const meta_operation_id configure_id = 3;
   const meta_operation_id disfigure_id = 4;
-  const meta_operation_id dist_id      = 5;
+  const meta_operation_id create_id    = 5;
+  const meta_operation_id dist_id      = 6;
 
   // The default operation is a special marker that can be used to indicate
   // that no operation was explicitly specified by the user. If adding
@@ -356,7 +357,8 @@ namespace build2
     // If lifted is true then the operation name in opspec is bogus (has
     // been lifted) and the default/empty name should be assumed instead.
     //
-    using process_func = const string& (values&,
+    using process_func = const string& (const variable_overrides&,
+                                        values&,
                                         vector_view<opspec>&,
                                         bool lifted,
                                         const location&);

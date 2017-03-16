@@ -37,30 +37,32 @@ namespace build2
   // let's not put this "extended" description into usage.
   //
   {
-    "<meta-operation> <operation> <target> <src-base>",
+    "<meta-operation> <operation> <target> <parameters> <src-base>",
     "",
 
     "The buildspec has the following form:
 
-     \c{<meta-operation>(<operation>...(<target>...))...}
+     \c{<meta-operation>(<operation>...(<target>...[,<parameters>]))...}
 
-     All three components can be omitted. If <meta-operation> is omitted, then
-     it defaults to \cb{perform}. If <operation> is omitted, then it defaults
-     to the default operation for this meta-operation. For \cb{perform} it is
-     \cb{update}. Finally, if <target> is omitted, then it defaults to the
-     current directory. For example:
+     All components in the buildspec can be omitted. If <meta-operation> is
+     omitted, then it defaults to \cb{perform}. If <operation> is omitted,
+     then it defaults to the default operation for this meta-operation. For
+     \cb{perform} it is \cb{update}. Finally, if <target> is omitted, then it
+     defaults to the current working directory. Some operations and
+     meta-operations may take additional <parameters>. For example:
 
      \
-     b                    # perform(update(./))
-     b foo/               # perform(update(foo/))
-     b foo/ bar/          # perform(update(foo/ bar/))
-     b update             # perform(update(./))
-     b 'clean(../)'       # perform(clean(../))
-     b perform            # perform(update(./))
-     b configure          # configure(?(./))
-     b 'configure(../)'   # configure(?(../))
-     b clean update       # perform(clean(./) update(./))
-     b configure update   # configure(?(./)) perform(update(./))
+     b                       # perform(update(./))
+     b foo/                  # perform(update(foo/))
+     b foo/ bar/             # perform(update(foo/ bar/))
+     b update                # perform(update(./))
+     b 'clean(../)'          # perform(clean(../))
+     b perform               # perform(update(./))
+     b configure             # configure(?(./))
+     b 'configure(../)'      # configure(?(../))
+     b clean update          # perform(clean(./) update(./))
+     b configure update      # configure(?(./)) perform(update(./))
+     b 'create(conf/, cxx)'  # create(?(conf/), cxx)
      \
 
      Notice the question mark used to show the (imaginary) default operation
@@ -97,13 +99,24 @@ namespace build2
      b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
      \
 
+     An exception to this requirement is a directory target in which case,
+     provided the directory has subdirectories, an \i{implied} \cb{buildfile}
+     with the following content is assumed:
+
+     \
+     # Implied directory buildfile: build all subdirectories.
+     #
+     ./: */
+     \
+
      In the above example, we assumed that the \cb{build2} driver was able to
-     determine the association between \cb{out_base} and \cb{src_base}. This is
+     determine the association between \cb{out_base} and \cb{src_base}. In
+     case \cb{src_base} and \cb{out_base} are not the same directotry, this is
      achieved in one of two ways: the \cb{config} module (which implements the
-     \cb{configure} and \cb{disfigure} meta-operations) saves this association
-     as part of the configuration process. If, however, the association hasn't
-     been saved, then we have to specify \cb{src_base} explicitly using the
-     following extended <target> syntax:
+     \cb{configure}, \cb{disfigure}, and \cb{create} meta-operations) saves
+     this association as part of the configuration process. If, however, the
+     association hasn't been saved, then we have to specify \cb{src_base}
+     explicitly using the following extended <target> syntax:
 
      \c{<src-base>/@<target>}
 
@@ -122,6 +135,13 @@ namespace build2
      b 'clean(foo-out/exe{foo})'   # no need to specify src_base
      \
 
+     The ability to specify \cb{build2} variables as part of the command line
+     is normally used to pass configuration values, for example:
+
+     \
+     b config.cxx=clang++ config.cxx.coptions=-O3
+     \
+
      The build system has the following built-in and pre-defined
      meta-operations:
 
@@ -134,14 +154,95 @@ namespace build2
      \li|\cb{configure}
 
          Configure all operations supported by a project and save the result
-         in the project's \cb{build2/config.build} file. Implemented by the
-         \cb{config} module.|
+         in the project's \cb{build/config.build} file. Implemented by the
+         \cb{config} module. For example:
+
+         \
+         b config.cxx=clang++ config.cxx.coptions=-O3 \
+           config.install.root=/usr/local config.install.root.sudo=sudo \
+           configure
+         \
+
+         |
 
      \li|\cb{disfigure}
 
          Disfigure all operations supported by a project and remove the
-         project's \cb{build2/config.build} file. Implemented by the
+         project's \cb{build/config.build} file. Implemented by the
          \cb{config} module.|
+
+     \li|\cb{create}
+
+         Create and configure a \i{configuration} project. Implemented by the
+         \cb{config} module.
+
+         Normally a \cb{build2} project is created manually by writing the
+         \cb{bootstrap.build} and \cb{config.build} files, adding source
+         files, and so on. However, a special kind of project, which we call
+         \i{configuration}, is often useful. Such a project doesn't have any
+         source files of its own. Instead, it serves as an amalgamation for
+         building other projects as part of it. Doing it this way has two
+         major benefits: sub-projects automatically resolve their imports
+         to other projects in the amalgamation and sub-projects inherits their
+         configuration from the amalgamation (which means if we want to change
+         something, we only need to do it in one place).
+
+         As an example, let's assume we have two C++ projects: the
+         \cb{libhello} library in \cb{libhello/} and the \cb{hello} executable
+         that imports it in \cb{hello/}. And we want to build \cb{hello} with
+         \cb{clang++}.
+
+         One way to do it would be to configure and build each project in its
+         own directory, for example:
+
+         \
+         b 'configure(libhello/@libhello-clang/)' config.cxx=clang++
+         b 'configure(hello/@hello-clang/)' config.cxx=clang++ \
+           config.import.libhello=libhello-clang/
+         \
+
+         The two drawbacks, as mentioned above, are the need to explicitly
+         resolve the import and having to make changes in multiple places
+         should, for example, we want to switch from \cb{clang++} to \cb{g++}.
+
+         We can, however, achieve the same end result but without any of the
+         drawbacks using the configuration project:
+
+         \
+         b 'create(clang, cxx)' config.cxx=clang++ # Creates clang/.
+         b 'configure(libhello/@clang/libhello/)'
+         b 'configure(hello/@clang/hello/)'
+         \
+
+         The targets passed to the \cb{create} meta-operation must be
+         directories which should either not exist or be empty. For each
+         such directory \cb{create} first initializes a project as described
+         below and then configures it by executing the \cb{configure}
+         meta-operation.
+
+         The first optional parameter to \cb{create} is the list of modules to
+         load in \cb{root.build}. By default, \cb{create} appends \cb{.config}
+         to the names of these modules so that only their configurations are
+         loaded. You can override this behavior by specifying the period
+         (\cb{.})  after the module name. You can also instruct \cb{create} to
+         use the optional module load by prefixing the module name with the
+         question mark (\cb{?}).
+
+         The second optional parameter is the list of modules to load in
+         \cb{bootstrap.build}. If not specified, then the \cb{test} and
+         \cb{install} modules are loaded by default. The \cb{config} module
+         is always loaded first.
+
+         Besides creating project's \cb{bootstrap.build} and \cb{root.build},
+         \cb{create} also writes the root \cb{buildfile} with the following
+         contents:
+
+         \
+         ./: {*/ -build/}
+         \
+
+         If used, this \cb{buildfile} will build all the sub-projects
+         currently present in the configuration.|
 
      \li|\cb{dist}
 
@@ -170,16 +271,7 @@ namespace build2
          Install a target. Performs \cb{update} as a pre-operation. Implemented
          by the \cb{install} module.||
 
-     The ability to specify \cb{build2} variables as part of the command line
-     is normally used to pass configuration values, for example:
-
-     \
-     b config.cxx=clang++ config.cxx.coptions=-O3 \
-       config.install.root=/usr/local config.install.root.sudo=sudo \
-       configure
-     \
-
-     Note also that buildspec and command line variable values are treated as
+     Note that buildspec and command line variable values are treated as
      \cb{buildfile} fragments and so can use quoting and escaping as well as
      contain variable expansions and evaluation contexts. However, to be more
      usable on various platforms, escaping in these two situations is limited

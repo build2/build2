@@ -67,7 +67,7 @@ exe{b}:                                                   \
         cli/{hxx         cxx}{ rule                     } \
         cli/{hxx         cxx}{ target                   } \
      config/{hxx         cxx}{ init                     } \
-     config/{hxx            }{ module                   } \
+     config/{hxx         cxx}{ module                   } \
      config/{hxx         cxx}{ operation                } \
      config/{hxx     txx cxx}{ utility                  } \
         cxx/{hxx         cxx}{ init                     } \

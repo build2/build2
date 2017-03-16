@@ -18,6 +18,8 @@
 #include <build2/lexer>
 #include <build2/parser>
 
+#include <build2/config/operation> // config::preprocess_create().
+
 using namespace std;
 using namespace butl;
 
@@ -226,6 +228,8 @@ namespace build2
     meta_operation_table.insert ("perform");
     meta_operation_table.insert ("configure");
     meta_operation_table.insert ("disfigure");
+    meta_operation_table.insert (
+      meta_operation_data ("create", &config::preprocess_create));
     meta_operation_table.insert ("dist");
 
     operation_table.clear ();
@@ -451,7 +455,7 @@ namespace build2
         fail << "typed override of variable " << n;
 
       // Global and scope overrides we can enter directly. Project ones will
-      // be entered by the caller for for each amalgamation/project.
+      // be entered by the caller for each amalgamation/project.
       //
       if (c == '!' || !dir.empty ())
       {

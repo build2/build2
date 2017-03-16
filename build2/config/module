@@ -79,8 +79,14 @@ namespace build2
     {
       config::saved_modules saved_modules;
 
-      static const string name; // init.cxx
-      static const uint64_t version; // init.cxx
+      void
+      save_variable (const variable&, uint64_t flags = 0);
+
+      void
+      save_module (const char* name, int prio = 0);
+
+      static const string name;
+      static const uint64_t version;
     };
   }
 }

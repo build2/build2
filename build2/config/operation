@@ -16,6 +16,13 @@ namespace build2
   {
     extern const meta_operation_info configure;
     extern const meta_operation_info disfigure;
+
+    const string&
+    preprocess_create (const variable_overrides&,
+                       values&,
+                       vector_view<opspec>&,
+                       bool,
+                       const location&);
   }
 }
 

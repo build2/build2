@@ -260,13 +260,8 @@ namespace build2
     scope&
     global () {return *global_;}
 
-  private:
-    static scope* global_;
-
-    // Entities that can access bypassing the lock proof.
-    //
-    friend int main (int, char*[]);
-    friend variable_overrides reset (const strings&);
+  public:
+    static scope* global_; // Normally not accessed directly.
 
   private:
     friend class parser;

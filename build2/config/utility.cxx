@@ -139,47 +139,7 @@ namespace build2
       // could we be configuring it? Good question.
       //
       if (module* m = r.modules.lookup<module> (module::name))
-      {
-        const string& n (var.name);
-
-        // First try to find the module with the name that is the longest
-        // prefix of this variable name.
-        //
-        saved_modules& sm (m->saved_modules);
-        auto i (sm.end ());
-
-        if (!sm.empty ())
-        {
-          i = sm.upper_bound (n);
-
-          // Get the greatest less than, if any. We might still not be a
-          // suffix. And we still have to check the last element if
-          // upper_bound() returned end().
-          //
-          if (i == sm.begin () || !sm.key_comp ().prefix ((--i)->first, n))
-            i = sm.end ();
-        }
-
-        // If no module matched, then create one based on the variable name.
-        //
-        if (i == sm.end ())
-        {
-          // @@ For now with 'config.' prefix.
-          //
-          i = sm.insert (string (n, 0, n.find ('.', 7)));
-        }
-
-        // Don't insert duplicates. The config.import vars are particularly
-        // susceptible to duplication.
-        //
-        saved_variables& sv (i->second);
-        auto j (sv.find (var));
-
-        if (j == sv.end ())
-          sv.push_back (saved_variable {var, flags});
-        else
-          assert (j->flags == flags);
-      }
+        m->save_variable (var, flags);
     }
 
     void
@@ -189,7 +149,7 @@ namespace build2
         return;
 
       if (module* m = r.modules.lookup<module> (module::name))
-        m->saved_modules.insert (string ("config.") += name, prio);
+        m->save_module (name, prio);
     }
   }
 }

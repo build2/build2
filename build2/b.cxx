@@ -423,7 +423,8 @@ main (int argc, char* argv[])
             // Can modify params, opspec, change meta-operation name.
             //
             if (auto f = meta_operation_table[m].process)
-              current_mname = &f (mparams, opspecs, lifted != nullptr, l);
+              current_mname = &f (
+                var_ovs, mparams, opspecs, lifted != nullptr, l);
           }
         }
       }
@@ -508,9 +509,9 @@ main (int argc, char* argv[])
           {
             const string& v (tn.value);
 
-            // Handle a few common cases as special: empty name, '.',
-            // '..', as well as dir{foo/bar} (without trailing '/').
-            // This code must be consistent with find_target_type().
+            // Handle a few common cases as special: empty name, '.', '..', as
+            // well as dir{foo/bar} (without trailing '/'). This code must be
+            // consistent with find_target_type() and other places.
             //
             if (v.empty () || v == "." || v == ".." || tn.type == "dir")
               out_base = dir_path (v);

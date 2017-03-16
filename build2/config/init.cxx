@@ -22,18 +22,36 @@ namespace build2
 {
   namespace config
   {
-    const string module::name ("config");
-    const uint64_t module::version (1);
-
     void
-    boot (scope& rs, const location& loc, unique_ptr<module_base>&)
+    boot (scope& rs, const location& loc, unique_ptr<module_base>& mod)
     {
       tracer trace ("config::boot");
 
       const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
-      // Register meta-operations.
+      const string& mname (*current_mname);
+      const string& oname (*current_oname);
+
+      // Only create the module if we are configuring or creating. This is a
+      // bit tricky since the build2 core may not yet know if this is the
+      // case. But we know.
+      //
+      if ((                   mname == "configure" || mname == "create") ||
+          (mname.empty () && (oname == "configure" || oname == "create")))
+      {
+        unique_ptr<module> m (new module);
+
+        // Adjust priority for the import pseudo-module so that
+        // config.import.* values come first in config.build.
+        //
+        m->save_module ("import", INT32_MIN);
+
+        mod = move (m);
+      }
+
+      // Register meta-operations. Note that we don't register create_id
+      // since it will be pre-processed into configure.
       //
       rs.meta_operations.insert (configure_id, configure);
       rs.meta_operations.insert (disfigure_id, disfigure);
@@ -54,11 +72,10 @@ namespace build2
       //
       const variable& c_v (vp.insert<uint64_t> ("config.version", false));
 
-      // Don't load it if we are disfiguring. This is a bit tricky since the
-      // build2 core may not yet know it is disfiguring. But we know.
+      // Don't load it if we are disfiguring. The same situation as with
+      // module loading above.
       //
-      if (*current_mname != disfigure.name &&
-          (!current_mname->empty () || *current_oname != disfigure.name))
+      if (mname != "disfigure" && (!mname.empty () || oname != "disfigure"))
       {
         path f (out_root / config_file);
 
@@ -96,7 +113,7 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>& mod,
+          unique_ptr<module_base>&,
           bool first,
           bool,
           const variable_map& config_hints)
@@ -112,16 +129,6 @@ namespace build2
       l5 ([&]{trace << "for " << rs.out_path ();});
 
       assert (config_hints.empty ()); // We don't known any hints.
-
-      // Only create the module if we are configuring.
-      //
-      if (current_mif->id == configure_id)
-        mod.reset (new module);
-
-      // Adjust priority for the import pseudo-module so that config.import.*
-      // values come first in config.build.
-      //
-      config::save_module (rs, "import", INT32_MIN);
 
       // Register alias and fallback rule for the configure meta-operation.
       //
