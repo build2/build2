@@ -42,6 +42,7 @@ namespace build2
 
           out_pass,                     // >|
           out_null,                     // >-
+          out_trace,                    // >!
           out_merge,                    // >&
           out_str,                      // >{:~}   (modifiers in value)
           out_doc,                      // >>{:~}  (modifiers in value)

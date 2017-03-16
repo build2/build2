@@ -68,6 +68,24 @@ test.arguments = command-expansion
   EOO
 }
 
+: trace-redirect
+:
+{
+  : out
+  :
+  $* <:"1>!" >>EOO
+  '1'
+  >!
+  EOO
+
+  : arg-out
+  :
+  $* <:"1 >!" >>EOO
+  '1 '
+  >!
+  EOO
+}
+
 : merge-redirect
 :
 {

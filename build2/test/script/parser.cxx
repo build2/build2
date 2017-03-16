@@ -1702,6 +1702,7 @@ namespace build2
             }
           case type::out_pass:
           case type::out_null:
+          case type::out_trace:
           case type::out_merge:
           case type::out_str:
           case type::out_doc:
@@ -1726,6 +1727,8 @@ namespace build2
 
           case type::in_null:
           case type::out_null:  rt = redirect_type::null;  break;
+
+          case type::out_trace: rt = redirect_type::trace; break;
 
           case type::out_merge: rt = redirect_type::merge; break;
 
@@ -1774,6 +1777,7 @@ namespace build2
           case redirect_type::none:
           case redirect_type::pass:
           case redirect_type::null:
+          case redirect_type::trace:
             break;
           case redirect_type::merge:
             switch (fd)
@@ -1902,6 +1906,8 @@ namespace build2
 
           case type::in_null:
           case type::out_null:
+
+          case type::out_trace:
 
           case type::out_merge:
 
@@ -2074,6 +2080,8 @@ namespace build2
 
               case type::in_null:
               case type::out_null:
+
+              case type::out_trace:
 
               case type::out_merge:
 
@@ -2355,6 +2363,8 @@ namespace build2
 
                     case type::in_null:
                     case type::out_null:
+
+                    case type::out_trace:
 
                     case type::out_merge:
 

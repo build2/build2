@@ -82,6 +82,7 @@ namespace build2
           case redirect_type::none:  assert (false);   break;
           case redirect_type::pass:  o << '|';         break;
           case redirect_type::null:  o << '-';         break;
+          case redirect_type::trace: o << '!';         break;
           case redirect_type::merge: o << '&' << r.fd; break;
 
           case redirect_type::here_str_literal:
@@ -333,6 +334,7 @@ namespace build2
         case redirect_type::none:
         case redirect_type::pass:
         case redirect_type::null:
+        case redirect_type::trace:
         case redirect_type::merge: break;
 
         case redirect_type::here_str_literal:
@@ -363,7 +365,8 @@ namespace build2
         {
         case redirect_type::none:
         case redirect_type::pass:
-        case redirect_type::null: break;
+        case redirect_type::null:
+        case redirect_type::trace: break;
 
         case redirect_type::merge: fd = r.fd; break;
 
@@ -400,6 +403,7 @@ namespace build2
         case redirect_type::none:
         case redirect_type::pass:
         case redirect_type::null:
+        case redirect_type::trace:
         case redirect_type::merge: break;
 
         case redirect_type::here_str_literal:

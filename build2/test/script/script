@@ -69,6 +69,7 @@ namespace build2
         none,
         pass,
         null,
+        trace,
         merge,
         here_str_literal,
         here_str_regex,

@@ -26,6 +26,53 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
   $c <'$* -e foo 2>-' && $b : err
 }
 
+: trace
+:
+{
+  : default
+  :
+  $c <'$* -o foo -e bar >! 2>!' && $b
+
+  : verbose
+  :
+  {
+    b += -v
+
+    : out
+    :
+    $c <'$* -o foo >!' && $b >foo 2>>/~%EOE%
+    %test .+ with .+ on .+%
+    mkdir test/
+    cd test/
+    mkdir test/1/
+    cd test/1/
+    %.*/driver(.exe)? -o foo%
+    rm test/1/stderr
+    rm test/1/
+    cd test/
+    rm test/
+    cd ./
+    EOE
+
+    : err
+    :
+    $c <'$* -e foo 2>!' && $b 2>>/~%EOE%
+    %test .+ with .+ on .+%
+    mkdir test/
+    cd test/
+    mkdir test/1/
+    cd test/1/
+    %.*/driver(.exe)? -e foo%
+    foo
+    rm test/1/stdout
+    rm test/1/
+    cd test/
+    rm test/
+    cd ./
+    EOE
+  }
+}
+
 : str
 :
 {

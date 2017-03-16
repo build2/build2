@@ -2,9 +2,16 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-# @@ Add tests for redirects other than file and merge.
+# @@ Add tests for redirects other than trace, here-*, file and merge.
 # @@ Does it make sense to split into separate files - one per redirect type?
 #
+
+: trace
+:
+{
+  $* <'cmd >!'  >'cmd >!'  : out
+  $* <'cmd 2>!' >'cmd 2>!' : err
+}
 
 : str
 :

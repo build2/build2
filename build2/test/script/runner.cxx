@@ -853,23 +853,6 @@ namespace build2
       //
       // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
       //
-      // -e|--exact
-      //    Unless the option is specified, a single final newline is ignored
-      //    in the input.
-      //
-      // -n|--newline
-      //    Split the input into a list of elements at newlines, including a
-      //    final blank element in case of -e. Multiple consecutive newlines
-      //    are not collapsed.
-      //
-      // -w|--whitespace
-      //    Split the input into a list of elements at whitespaces, including a
-      //    final blank element in case of -e. Multiple consecutive whitespaces
-      //    (including newlines) are collapsed.
-      //
-      // If the attr argument is specified, then it must contain a list of
-      // value attributes enclosed in [].
-      //
       static void
       set_builtin (scope& sp,
                    const strings& args,
@@ -1223,6 +1206,7 @@ namespace build2
               break;
             }
 
+          case redirect_type::trace:
           case redirect_type::merge:
           case redirect_type::here_str_regex:
           case redirect_type::here_doc_regex:
@@ -1267,9 +1251,11 @@ namespace build2
         // Open a file for command output redirect if requested explicitly
         // (file overwrite/append redirects) or for the purpose of the output
         // validation (none, here_*, file comparison redirects), register the
-        // file for cleanup, return the file descriptor. Return nullfd,
-        // standard stream descriptor duplicate or null-device descriptor for
-        // merge, pass or null redirects respectively (not opening any file).
+        // file for cleanup, return the file descriptor. Interpret trace
+        // redirect according to the verbosity level (as null if below 2, as
+        // pass otherwise). Return nullfd, standard stream descriptor duplicate
+        // or null-device descriptor for merge, pass or null redirects
+        // respectively (not opening any file).
         //
         auto open = [&sp, &ll, &std_path] (const redirect& r,
                                            int dfd,
@@ -1281,7 +1267,12 @@ namespace build2
           fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
 
           auto_fd fd;
-          switch (r.type)
+          redirect_type rt (r.type != redirect_type::trace
+                            ? r.type
+                            : verb < 2
+                              ? redirect_type::null
+                              : redirect_type::pass);
+          switch (rt)
           {
           case redirect_type::pass:
             {
@@ -1351,6 +1342,7 @@ namespace build2
               break;
             }
 
+          case redirect_type::trace:
           case redirect_type::here_doc_ref: assert (false); break;
           }
 

@@ -395,7 +395,7 @@ namespace build2
               type r (type::out_str);
               xchar p (peek ());
 
-              if (p == '|' || p == '-' || p == '&' ||
+              if (p == '|' || p == '-' || p == '!' || p == '&' ||
                   p == '=' || p == '+' || p == '>')
               {
                 get ();
@@ -404,6 +404,7 @@ namespace build2
                 {
                 case '|': return make_token (type::out_pass);
                 case '-': return make_token (type::out_null);
+                case '!': return make_token (type::out_trace);
                 case '&': return make_token (type::out_merge);
                 case '=': return make_token (type::out_file_ovr);
                 case '+': return make_token (type::out_file_app);

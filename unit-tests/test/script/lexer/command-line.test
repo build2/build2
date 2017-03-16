@@ -82,6 +82,15 @@ test.arguments = command-line
   <newline>
   EOO
 
+  : trace
+  :
+  $* <"cmd 1>!" >>EOO
+  'cmd'
+  '1'
+  >!
+  <newline>
+  EOO
+
   : merge
   :
   $* <"cmd 1>&2" >>EOO
