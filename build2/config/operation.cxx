@@ -26,15 +26,6 @@ namespace build2
   {
     // configure
     //
-    static operation_id
-    configure_operation_pre (operation_id o)
-    {
-      // Don't translate default to update. In our case unspecified
-      // means configure everything.
-      //
-      return o;
-    }
-
     static void
     save_src_root (const dir_path& out_root, const dir_path& src_root)
     {
@@ -346,14 +337,23 @@ namespace build2
       }
     }
 
+    static operation_id
+    configure_operation_pre (const values&, operation_id o)
+    {
+      // Don't translate default to update. In our case unspecified
+      // means configure everything.
+      //
+      return o;
+    }
+
     static void
-    configure_match (action, action_targets&)
+    configure_match (const values&, action, action_targets&)
     {
       // Don't match anything -- see execute ().
     }
 
     static void
-    configure_execute (action a, action_targets& ts, bool)
+    configure_execute (const values&, action a, action_targets& ts, bool)
     {
       // Match rules to configure every operation supported by each
       // project. Note that we are not calling operation_pre/post()
@@ -413,14 +413,6 @@ namespace build2
 
     // disfigure
     //
-    static operation_id
-    disfigure_operation_pre (operation_id o)
-    {
-      // Don't translate default to update. In our case unspecified
-      // means disfigure everything.
-      //
-      return o;
-    }
 
     static void
     load_project (scope& root)
@@ -460,8 +452,18 @@ namespace build2
       }
     }
 
+    static operation_id
+    disfigure_operation_pre (const values&, operation_id o)
+    {
+      // Don't translate default to update. In our case unspecified
+      // means disfigure everything.
+      //
+      return o;
+    }
+
     static void
-    disfigure_load (scope& root,
+    disfigure_load (const values&,
+                    scope& root,
                     const path& bf,
                     const dir_path&,
                     const dir_path&,
@@ -478,7 +480,8 @@ namespace build2
     }
 
     static void
-    disfigure_search (const scope& root,
+    disfigure_search (const values&,
+                      const scope& root,
                       const scope&,
                       const target_key&,
                       const location&,
@@ -490,7 +493,7 @@ namespace build2
     }
 
     static void
-    disfigure_match (action, action_targets&)
+    disfigure_match (const values&, action, action_targets&)
     {
     }
 
@@ -588,7 +591,7 @@ namespace build2
     }
 
     static void
-    disfigure_execute (action a, action_targets& ts, bool quiet)
+    disfigure_execute (const values&, action a, action_targets& ts, bool quiet)
     {
       tracer trace ("disfigure_execute");
 

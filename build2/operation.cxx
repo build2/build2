@@ -44,7 +44,8 @@ namespace build2
   // perform
   //
   void
-  load (scope& root,
+  load (const values&,
+        scope& root,
         const path& bf,
         const dir_path& out_base,
         const dir_path& src_base,
@@ -67,7 +68,8 @@ namespace build2
   }
 
   void
-  search (const scope&,
+  search (const values&,
+          const scope&,
           const scope& bs,
           const target_key& tk,
           const location& l,
@@ -89,7 +91,7 @@ namespace build2
   }
 
   void
-  match (action a, action_targets& ts)
+  match (const values&, action a, action_targets& ts)
   {
     tracer trace ("match");
 
@@ -191,7 +193,7 @@ namespace build2
   }
 
   void
-  execute (action a, action_targets& ts, bool quiet)
+  execute (const values&, action a, action_targets& ts, bool quiet)
   {
     tracer trace ("execute");
 

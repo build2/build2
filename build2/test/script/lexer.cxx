@@ -139,7 +139,7 @@ namespace build2
       }
 
       token lexer::
-      next_impl ()
+      next ()
       {
         token r;
 
@@ -158,7 +158,7 @@ namespace build2
           r = next_description ();
           break;
         default:
-          r = base_lexer::next_impl ();
+          r = base_lexer::next ();
           break;
         }
 

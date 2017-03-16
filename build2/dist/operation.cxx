@@ -39,22 +39,22 @@ namespace build2
              const string& ext);
 
     static operation_id
-    dist_operation_pre (operation_id o)
+    dist_operation_pre (const values&, operation_id o)
     {
       if (o != default_id)
-        fail << "explicit operation specified for dist meta-operation";
+        fail << "explicit operation specified for meta-operation dist";
 
       return o;
     }
 
     static void
-    dist_match (action, action_targets&)
+    dist_match (const values&, action, action_targets&)
     {
       // Don't match anything -- see execute ().
     }
 
     static void
-    dist_execute (action, action_targets& ts, bool)
+    dist_execute (const values&, action, action_targets& ts, bool)
     {
       tracer trace ("dist_execute");
 
@@ -115,6 +115,11 @@ namespace build2
       // Note that we are not calling operation_pre/post() callbacks here
       // since the meta operation is dist and we know what we are doing.
       //
+
+      values params;
+      const path locf ("<dist>");
+      const location loc (&locf); // Dummy location.
+
       for (operations::size_type id (default_id + 1);
            id < rs->operations.size ();
            ++id)
@@ -125,19 +130,21 @@ namespace build2
           //
           if (oif->pre != nullptr)
           {
-            const operation_info* poif (rs->operations[oif->pre (dist_id)]);
+            const operation_info* poif (
+              rs->operations[oif->pre (params, dist_id, loc)]);
             set_current_oif (*poif, oif);
-            match (action (dist_id, poif->id, oif->id), ts);
+            match (params, action (dist_id, poif->id, oif->id), ts);
           }
 
           set_current_oif (*oif);
-          match (action (dist_id, oif->id), ts);
+          match (params, action (dist_id, oif->id), ts);
 
           if (oif->post != nullptr)
           {
-            const operation_info* poif (rs->operations[oif->post (dist_id)]);
+            const operation_info* poif (
+              rs->operations[oif->post (params, dist_id)]);
             set_current_oif (*poif, oif);
-            match (action (dist_id, poif->id, oif->id), ts);
+            match (params, action (dist_id, poif->id, oif->id), ts);
           }
         }
       }
@@ -239,7 +246,7 @@ namespace build2
       //
       {
         if (perform.meta_operation_pre != nullptr)
-          perform.meta_operation_pre ();
+          perform.meta_operation_pre (params, loc);
 
         // This is a hack since according to the rules we need to completely
         // reset the state. We could have done that (i.e., saved target names
@@ -252,20 +259,20 @@ namespace build2
         current_on = on + 1;
 
         if (perform.operation_pre != nullptr)
-          perform.operation_pre (update_id);
+          perform.operation_pre (params, update_id);
 
         set_current_oif (update);
 
         action a (perform_id, update_id);
 
-        perform.match (a, files);
-        perform.execute (a, files, true); // Run quiet.
+        perform.match (params, a, files);
+        perform.execute (params, a, files, true); // Run quiet.
 
         if (perform.operation_post != nullptr)
-          perform.operation_post (update_id);
+          perform.operation_post (params, update_id);
 
         if (perform.meta_operation_post != nullptr)
-          perform.meta_operation_post ();
+          perform.meta_operation_post (params);
       }
 
       dir_path td (dist_root / dir_path (dist_package));

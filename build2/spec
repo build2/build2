@@ -8,6 +8,8 @@
 #include <build2/types>
 #include <build2/utility>
 
+#include <build2/variable>
+
 namespace build2
 {
   class scope;
@@ -37,6 +39,7 @@ namespace build2
     opspec (string n): name (move (n)) {}
 
     string name;
+    values params;
   };
 
   struct metaopspec: vector<opspec>
@@ -45,6 +48,7 @@ namespace build2
     metaopspec (string n): name (move (n)) {}
 
     string name;
+    values params;
   };
 
   typedef vector<metaopspec> buildspec;

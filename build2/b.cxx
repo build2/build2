@@ -359,7 +359,10 @@ main (int argc, char* argv[])
     for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {
       vector_view<opspec> opspecs;
+
       const string& mname (lifted == nullptr ? mit->name : lifted->name);
+      const values& mparams (lifted == nullptr ? mit->params : lifted->params);
+
       current_mname = &mname;
 
       if (lifted == nullptr)
@@ -409,6 +412,8 @@ main (int argc, char* argv[])
         // A lifted meta-operation will always have default operation.
         //
         const string& oname (lifted == nullptr ? os.name : string ());
+        const values& oparams (lifted == nullptr ? os.params : values ());
+
         current_oname = &oname;
 
         if (lifted != nullptr)
@@ -735,25 +740,6 @@ main (int argc, char* argv[])
                 skip = lifted - mit->data () + 1;
                 break; // Out of targetspec loop.
               }
-              else
-              {
-                o = operation_table.find (oname);
-
-                if (o == 0)
-                {
-                  diag_record dr;
-                  dr << fail (l) << "unknown operation " << oname;
-
-                  // If we guessed src_root and didn't load anything during
-                  // bootstrap, then this is probably a meta-operation that
-                  // would have been added by the module if src_root was
-                  // correct.
-                  //
-                  if (guessing && !bootstrapped)
-                    dr << info << "consider explicitly specifying src_base "
-                       << "for " << tn;
-                }
-              }
             }
 
             if (!mname.empty ())
@@ -766,6 +752,26 @@ main (int argc, char* argv[])
                 dr << fail (l) << "unknown meta-operation " << mname;
 
                 // Same idea as for the operation case above.
+                //
+                if (guessing && !bootstrapped)
+                  dr << info << "consider explicitly specifying src_base "
+                     << "for " << tn;
+              }
+            }
+
+            if (!oname.empty ())
+            {
+              o = operation_table.find (oname);
+
+              if (o == 0)
+              {
+                diag_record dr;
+                dr << fail (l) << "unknown operation " << oname;
+
+                // If we guessed src_root and didn't load anything during
+                // bootstrap, then this is probably a meta-operation that
+                // would have been added by the module if src_root was
+                // correct.
                 //
                 if (guessing && !bootstrapped)
                   dr << info << "consider explicitly specifying src_base "
@@ -795,7 +801,10 @@ main (int argc, char* argv[])
                             << ", id " << static_cast<uint16_t> (mid);});
 
               if (mif->meta_operation_pre != nullptr)
-                mif->meta_operation_pre ();
+                mif->meta_operation_pre (mparams, l);
+              else if (!mparams.empty ())
+                fail (l) << "unexpected parameters for meta-operation "
+                         << mif->name;
 
               set_current_mif (*mif);
               dirty = true;
@@ -844,7 +853,7 @@ main (int argc, char* argv[])
               // Allow the meta-operation to translate the operation.
               //
               if (mif->operation_pre != nullptr)
-                oid = mif->operation_pre (o);
+                oid = mif->operation_pre (mparams, o);
               else // Otherwise translate default to update.
                 oid = (o == default_id ? update_id : o);
 
@@ -857,16 +866,25 @@ main (int argc, char* argv[])
 
               // Handle pre/post operations.
               //
-              if (oif->pre != nullptr && (pre_oid = oif->pre (mid)) != 0)
+              if (oif->pre != nullptr)
               {
-                assert (pre_oid != default_id);
-                pre_oif = lookup (pre_oid);
+                if ((pre_oid = oif->pre (oparams, mid, l)) != 0)
+                {
+                  assert (pre_oid != default_id);
+                  pre_oif = lookup (pre_oid);
+                }
               }
+              else if (!oparams.empty ())
+                fail (l) << "unexpected parameters for operation "
+                         << oif->name;
 
-              if (oif->post != nullptr && (post_oid = oif->post (mid)) != 0)
+              if (oif->post != nullptr)
               {
-                assert (post_oid != default_id);
-                post_oif = lookup (post_oid);
+                if ((post_oid = oif->post (oparams, mid)) != 0)
+                {
+                  assert (post_oid != default_id);
+                  post_oif = lookup (post_oid);
+                }
               }
             }
             //
@@ -1021,7 +1039,7 @@ main (int argc, char* argv[])
 
           // Load the buildfile.
           //
-          mif->load (rs, ts.buildfile, ts.out_base, ts.src_base, l);
+          mif->load (mparams, rs, ts.buildfile, ts.out_base, ts.src_base, l);
 
           // Next search and match the targets. We don't want to start
           // building before we know how to for all the targets in this
@@ -1055,7 +1073,8 @@ main (int argc, char* argv[])
                           ? out_src (d, rs)
                           : dir_path ());
 
-            mif->search (rs, bs,
+            mif->search (mparams,
+                         rs, bs,
                          target_key {ti, &d, &out, &tn.value, e},
                          l,
                          tgs);
@@ -1070,17 +1089,19 @@ main (int argc, char* argv[])
                         << ", id " << static_cast<uint16_t> (pre_oid);});
 
           if (mif->operation_pre != nullptr)
-            mif->operation_pre (pre_oid); // Cannot be translated.
+            mif->operation_pre (mparams, pre_oid); // Cannot be translated.
 
           set_current_oif (*pre_oif, oif);
 
           action a (mid, pre_oid, oid);
 
-          mif->match (a, tgs);
-          mif->execute (a, tgs, true); // Run quiet.
+          // Run quiet.
+          //
+          if (mif->match != nullptr)   mif->match (mparams, a, tgs);
+          if (mif->execute != nullptr) mif->execute (mparams, a, tgs, true);
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (pre_oid);
+            mif->operation_post (mparams, pre_oid);
 
           l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
                         << ", id " << static_cast<uint16_t> (pre_oid);});
@@ -1090,8 +1111,8 @@ main (int argc, char* argv[])
 
         action a (mid, oid, 0);
 
-        if (mif->match != nullptr)   mif->match (a, tgs);
-        if (mif->execute != nullptr) mif->execute (a, tgs, verb == 0);
+        if (mif->match != nullptr)   mif->match (mparams, a, tgs);
+        if (mif->execute != nullptr) mif->execute (mparams, a, tgs, verb == 0);
 
         if (post_oid != 0)
         {
@@ -1099,24 +1120,26 @@ main (int argc, char* argv[])
                         << ", id " << static_cast<uint16_t> (post_oid);});
 
           if (mif->operation_pre != nullptr)
-            mif->operation_pre (post_oid); // Cannot be translated.
+            mif->operation_pre (mparams, post_oid); // Cannot be translated.
 
           set_current_oif (*post_oif, oif);
 
           action a (mid, post_oid, oid);
 
-          mif->match (a, tgs);
-          mif->execute (a, tgs, true); // Run quiet.
+          // Run quiet.
+          //
+          if (mif->match != nullptr)   mif->match (mparams, a, tgs);
+          if (mif->execute != nullptr) mif->execute (mparams, a, tgs, true);
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (post_oid);
+            mif->operation_post (mparams, post_oid);
 
           l5 ([&]{trace << "end post-operation batch " << post_oif->name
                         << ", id " << static_cast<uint16_t> (post_oid);});
         }
 
         if (mif->operation_post != nullptr)
-          mif->operation_post (oid);
+          mif->operation_post (mparams, oid);
 
         l5 ([&]{trace << "end operation batch " << oif->name
                       << ", id " << static_cast<uint16_t> (oid);});
@@ -1125,7 +1148,7 @@ main (int argc, char* argv[])
       if (mid != 0)
       {
         if (mif->meta_operation_post != nullptr)
-          mif->meta_operation_post ();
+          mif->meta_operation_post (mparams);
 
         l5 ([&]{trace << "end meta-operation batch " << mif->name
                       << ", id " << static_cast<uint16_t> (mid);});

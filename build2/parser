@@ -339,7 +339,7 @@ namespace build2
     // Buildspec.
     //
     buildspec
-    parse_buildspec_clause (token&, token_type&, token_type end);
+    parse_buildspec_clause (token&, token_type&, size_t);
 
     // Customization hooks.
     //

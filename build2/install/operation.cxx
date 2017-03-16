@@ -12,8 +12,11 @@ namespace build2
   namespace install
   {
     static operation_id
-    install_pre (meta_operation_id mo)
+    install_pre (const values& params, meta_operation_id mo, const location& l)
     {
+      if (!params.empty ())
+        fail (l) << "unexpected parameters for operation install";
+
       // Run update as a pre-operation, unless we are disfiguring.
       //
       return mo != disfigure_id ? update_id : 0;

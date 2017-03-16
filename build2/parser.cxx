@@ -3712,27 +3712,27 @@ namespace build2
   // parse_names() to parse names, get variable expansion/function calls,
   // quoting, etc. We just need to disable the eval context. The way this is
   // done has two parts: Firstly, we parse names in chunks and detect and
-  // handle the opening paren. In other words, a buildspec like 'clean (./)'
-  // is "chunked" as 'clean', '(', etc. While this is fairly straightforward,
-  // there is one snag: concatenating eval contexts, as in
-  // 'clean(./)'. Normally, this will be treated as a single chunk and we
-  // don't want that. So here comes the trick (or hack, if you like): we will
-  // make every opening paren token "separated" (i.e., as if it was proceeded
-  // by a space). This will disable concatenating eval. In fact, we will even
-  // go a step further and only do this if we are in the original value
-  // mode. This will allow us to still use eval contexts in buildspec,
-  // provided that we quote it: '"cle(an)"'. Note also that function calls
-  // still work as usual: '$filter (clean test)'.  To disable a function call
-  // and make it instead a var that is expanded into operation name(s), we can
-  // use quoting: '"$ops"(./)'.
+  // handle the opening paren ourselves. In other words, a buildspec like
+  // 'clean (./)' is "chunked" as 'clean', '(', etc. While this is fairly
+  // straightforward, there is one snag: concatenating eval contexts, as in
+  // 'clean(./)'.  Normally, this will be treated as a single chunk and we
+  // don't want that. So here comes the trick (or hack, if you like): the
+  // buildspec lexer mode makes every opening paren token "separated" (i.e.,
+  // as if it was preceeded by a space). This will disable concatenating
+  // eval.
   //
-  static void
-  paren_processor (token& t, const lexer& l)
-  {
-    if (t.type == type::lparen && l.mode () == lexer_mode::value)
-      t.separated = true;
-  }
-
+  // In fact, because this is only done in the buildspec mode, we can still
+  // use eval contexts provided that we quote them: '"cle(an)"'. Note that
+  // function calls also need quoting (since a separated '(' is not treated as
+  // function call): '"$identity(update)"'.
+  //
+  // This poses a problem, though: if it's quoted then it is a concatenated
+  // expansion and therefore cannot contain multiple values, for example,
+  // $identity(foo/ bar/). So what we do is disable this chunking/separation
+  // after both meta-operation and operation were specified. So if we specify
+  // both explicitly, then we can use eval context, function calls, etc.,
+  // normally: perform(update($identity(foo/ bar/))).
+  //
   buildspec parser::
   parse_buildspec (istream& is, const path& name)
   {
@@ -3741,22 +3741,29 @@ namespace build2
     // We do "effective escaping" and only for ['"\$(] (basically what's
     // necessary inside a double-quoted literal plus the single quote).
     //
-    lexer l (is, *path_, "\'\"\\$(", &paren_processor);
+    lexer l (is, *path_, "\'\"\\$(");
     lexer_ = &l;
     target_ = nullptr;
     scope_ = root_ = scope::global_;
     pbase_ = &work; // Use current working directory.
 
-    // Turn on the value mode/pairs recognition with '@' as the pair separator
-    // (e.g., src_root/@out_root/exe{foo bar}).
+    // Turn on the buildspec mode/pairs recognition with '@' as the pair
+    // separator (e.g., src_root/@out_root/exe{foo bar}).
     //
-    mode (lexer_mode::value, '@');
+    mode (lexer_mode::buildspec, '@');
 
     token t;
     type tt;
     next (t, tt);
 
-    return parse_buildspec_clause (t, tt, type::eos);
+    buildspec r (tt != type::eos
+                 ? parse_buildspec_clause (t, tt, 0)
+                 : buildspec ());
+
+    if (tt != type::eos)
+      fail (t) << "operation or target expected instead of " << t;
+
+    return r;
   }
 
   static bool
@@ -3780,11 +3787,11 @@ namespace build2
   }
 
   buildspec parser::
-  parse_buildspec_clause (token& t, type& tt, type tt_end)
+  parse_buildspec_clause (token& t, type& tt, size_t depth)
   {
     buildspec bs;
 
-    while (tt != tt_end)
+    for (bool first (true);; first = false)
     {
       // We always start with one or more names. Eval context (lparen) only
       // allowed if quoted.
@@ -3794,23 +3801,28 @@ namespace build2
           tt != type::dollar  &&      // Variable expansion: '$foo ...'
           !(tt == type::lparen && mode () == lexer_mode::double_quoted) &&
           tt != type::pair_separator) // Empty pair LHS: '@foo ...'
-        fail (t) << "operation or target expected instead of " << t;
+      {
+        if (first)
+          fail (t) << "operation or target expected instead of " << t;
+
+        break;
+      }
 
       const location l (get_location (t)); // Start of names.
 
       // This call will parse the next chunk of output and produce zero or
       // more names.
       //
-      names ns (parse_names (t, tt, pattern_mode::expand, true));
+      names ns (parse_names (t, tt, pattern_mode::expand, depth < 2));
 
       if (ns.empty ()) // Can happen if pattern expansion.
         fail (l) << "operation or target expected";
 
-      // What these names mean depends on what's next. If it is an
-      // opening paren, then they are operation/meta-operation names.
-      // Otherwise they are targets.
+      // What these names mean depends on what's next. If it is an opening
+      // paren, then they are operation/meta-operation names. Otherwise they
+      // are targets.
       //
-      if (tt == type::lparen) // Peeked into by parse_names().
+      if (tt == type::lparen) // Got by parse_names().
       {
         if (ns.empty ())
           fail (t) << "operation name expected before '('";
@@ -3819,15 +3831,40 @@ namespace build2
           if (!opname (n))
             fail (l) << "operation name expected instead of '" << n << "'";
 
-        // Inside '(' and ')' we have another, nested, buildspec.
+        // Inside '(' and ')' we have another, nested, buildspec. Push another
+        // mode to keep track of the depth (used in the lexer implementation
+        // to decide when to stop separating '(').
         //
-        next (t, tt);
-        const location l (get_location (t)); // Start of nested names.
-        buildspec nbs (parse_buildspec_clause (t, tt, type::rparen));
+        mode (lexer_mode::buildspec, '@');
 
-        // Merge the nested buildspec into ours. But first determine
-        // if we are an operation or meta-operation and do some sanity
-        // checks.
+        next (t, tt); // Get what's after '('.
+        const location l (get_location (t)); // Start of nested names.
+        buildspec nbs (parse_buildspec_clause (t, tt, depth + 1));
+
+        // Parse additional operation/meta-operation parameters.
+        //
+        values params;
+        while (tt == type::comma)
+        {
+          next (t, tt);
+
+          // Note that for now we don't expand patterns. If it turns out we
+          // need this, then will probably have to be (meta-) operation-
+          // specific (via pre-parse or some such).
+          //
+          params.push_back (tt != type::rparen
+                            ? parse_value (t, tt, pattern_mode::ignore)
+                            : value (names ()));
+        }
+
+        if (tt != type::rparen)
+          fail (t) << "')' expected instead of " << t;
+
+        expire_mode ();
+        next (t, tt); // Get what's after ')'.
+
+        // Merge the nested buildspec into ours. But first determine if we are
+        // an operation or meta-operation and do some sanity checks.
         //
         bool meta (false);
         for (const metaopspec& nms: nbs)
@@ -3839,8 +3876,8 @@ namespace build2
 
           if (!meta)
           {
-            // If we have any operations in the nested spec, then this
-            // mean that our names are meta-operation names.
+            // If we have any operations in the nested spec, then this mean
+            // that our names are meta-operation names.
             //
             for (const opspec& nos: nms)
             {
@@ -3865,12 +3902,13 @@ namespace build2
           {
             bs.push_back (nmo);
             bs.back ().name = move (n.value);
+            bs.back ().params = params;
           }
         }
         else
         {
-          // Since we are not a meta-operation, the nested buildspec
-          // should be just a bunch of targets.
+          // Since we are not a meta-operation, the nested buildspec should be
+          // just a bunch of targets.
           //
           assert (nmo.size () == 1);
           const opspec& nos (nmo.back ());
@@ -3882,10 +3920,9 @@ namespace build2
           {
             bs.back ().push_back (nos);
             bs.back ().back ().name = move (n.value);
+            bs.back ().back ().params = params;
           }
         }
-
-        next (t, tt); // Done with '('.
       }
       else if (!ns.empty ())
       {

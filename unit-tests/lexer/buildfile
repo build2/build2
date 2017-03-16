@@ -12,6 +12,6 @@ functions-target-triplet algorithm search dump filesystem scheduler \
 config/{utility init operation}
 
 exe{driver}: cxx{driver} ../../build2/cxx{$src} ../../build2/liba{b} $libs \
-test{comment eval quoting}
+test{*}
 
 include ../../build2/

@@ -36,6 +36,7 @@ namespace build2
         else if (a == "value")     m = lexer_mode::value;
         else if (a == "attribute") m = lexer_mode::attribute;
         else if (a == "eval")      m = lexer_mode::eval;
+        else if (a == "buildspec") m = lexer_mode::buildspec;
         else                       assert (false);
         break;
       }
@@ -56,6 +57,9 @@ namespace build2
       //
       for (token t (l.next ()); t.type != token_type::eos; t = l.next ())
       {
+        if (t.separated && t.type != token_type::newline)
+          cout << ' ';
+
         // Print each token on a separate line without quoting operators.
         //
         t.printer (cout, t, false);

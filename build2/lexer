@@ -56,6 +56,7 @@ namespace build2
       eval,
       single_quoted,
       double_quoted,
+      buildspec,
 
       value_next
     };
@@ -72,11 +73,8 @@ namespace build2
     // this string are considered "effective escapes" with all others passed
     // through as is. Note that the escape string is not copied.
     //
-    lexer (istream& is,
-           const path& name,
-           const char* escapes = nullptr,
-           void (*processor) (token&, const lexer&) = nullptr)
-        : lexer (is, name, escapes, processor, true) {}
+    lexer (istream& is, const path& name, const char* escapes = nullptr)
+        : lexer (is, name, escapes, true) {}
 
     const path&
     name () const {return name_;}
@@ -104,7 +102,10 @@ namespace build2
 
     // Scanner. Note that it is ok to call next() again after getting eos.
     //
-    token
+    // If you extend the lexer and add a custom lexer mode, then you must
+    // override next() and handle the custom mode there.
+    //
+    virtual token
     next ();
 
     // Peek at the first character of the next token. Return the character
@@ -135,12 +136,6 @@ namespace build2
       const char* sep_second;
     };
 
-    // If you extend the lexer and add a custom lexer mode, then you must
-    // override next_impl() and handle the custom mode there.
-    //
-    virtual token
-    next_impl ();
-
     token
     next_eval ();
 
@@ -168,24 +163,14 @@ namespace build2
     // Lexer state.
     //
   protected:
-    lexer (istream& is,
-           const path& n,
-           const char* e,
-           void (*p) (token&, const lexer&),
-           bool sm)
-        : char_scanner (is),
-          fail ("error", &name_),
-          name_ (n),
-          processor_ (p),
-          sep_ (false)
+    lexer (istream& is, const path& n, const char* e, bool sm)
+        : char_scanner (is), fail ("error", &name_), name_ (n), sep_ (false)
     {
       if (sm)
         mode (lexer_mode::normal, '@', e);
     }
 
     const path name_;
-    void (*processor_) (token&, const lexer&);
-
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().

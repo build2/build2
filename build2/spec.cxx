@@ -40,7 +40,6 @@ namespace build2
     bool hn (!s.name.empty ());
     bool ht (!s.empty ());
 
-    //os << s.name;
     os << (hn ? "\"" : "") << s.name << (hn ? "\"" : "");
 
     if (hn && ht)
@@ -48,6 +47,19 @@ namespace build2
 
     for (auto b (s.begin ()), i (b); i != s.end (); ++i)
       os << (i != b ? " " : "") << *i;
+
+    for (const value& v: s.params)
+    {
+      os << ", ";
+
+      if (v)
+      {
+        names storage;
+        os << reverse (v, storage);
+      }
+      else
+        os << "[null]";
+    }
 
     if (hn && ht)
       os << ')';
@@ -61,7 +73,6 @@ namespace build2
     bool hn (!s.name.empty ());
     bool ho (!s.empty ());
 
-    //os << s.name;
     os << (hn ? "\'" : "") << s.name << (hn ? "\'" : "");
 
     if (hn && ho)
@@ -69,6 +80,19 @@ namespace build2
 
     for (auto b (s.begin ()), i (b); i != s.end (); ++i)
       os << (i != b ? " " : "") << *i;
+
+    for (const value& v: s.params)
+    {
+      os << ", ";
+
+      if (v)
+      {
+        names storage;
+        os << reverse (v, storage);
+      }
+      else
+        os << "[null]";
+    }
 
     if (hn && ho)
       os << ')';

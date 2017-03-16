@@ -12,15 +12,6 @@ namespace build2
 {
   using type = token_type;
 
-  token lexer::
-  next ()
-  {
-    token t (next_impl ());
-    if (processor_ != nullptr)
-      processor_ (t, *this);
-    return t;
-  }
-
   pair<char, bool> lexer::
   peek_char ()
   {
@@ -69,6 +60,20 @@ namespace build2
         s2 = "   = &|             ";
         break;
       }
+    case lexer_mode::buildspec:
+      {
+        // Like the value mode with these differences:
+        //
+        // 1. Returns '(' as a separated token provided the state stack depth
+        //    is less than or equal to 3 (initial state plus two buildspec)
+        //    (see parse_buildspec() for details).
+        //
+        // 2. Recognizes comma.
+        //
+        s1 = " $(){}[],\t\n";
+        s2 = "           ";
+        break;
+      }
     case lexer_mode::single_quoted:
     case lexer_mode::double_quoted:
       s = false;
@@ -86,7 +91,7 @@ namespace build2
   }
 
   token lexer::
-  next_impl ()
+  next ()
   {
     const state& st (state_.top ());
     lexer_mode m (st.mode);
@@ -98,7 +103,8 @@ namespace build2
     case lexer_mode::normal:
     case lexer_mode::value:
     case lexer_mode::attribute:
-    case lexer_mode::variable:      break;
+    case lexer_mode::variable:
+    case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
     case lexer_mode::double_quoted: return next_quoted ();
     default:                        assert (false); // Unhandled custom mode.
@@ -150,14 +156,21 @@ namespace build2
         return make_token (type::rsbrace);
       }
     case '$': return make_token (type::dollar);
-    case '(': return make_token (type::lparen);
     case ')': return make_token (type::rparen);
+    case '(':
+      {
+        // Left paren is always separated in the buildspec mode.
+        //
+        if (m == lexer_mode::buildspec && state_.size () <= 3)
+          sep = true;
+
+        return make_token (type::lparen);
+      }
     }
 
-    // The following characters are not treated as special in the value and
-    // attribute modes.
+    // The following characters are special in the normal and variable modes.
     //
-    if (m != lexer_mode::value && m != lexer_mode::attribute)
+    if (m == lexer_mode::normal || m == lexer_mode::variable)
     {
       switch (c)
       {
@@ -183,6 +196,16 @@ namespace build2
             return make_token (type::append);
           }
         }
+      }
+    }
+
+    // The following characters are special in the buildspec mode.
+    //
+    if (m == lexer_mode::buildspec)
+    {
+      switch (c)
+      {
+      case ',': return make_token (type::comma);
       }
     }
 

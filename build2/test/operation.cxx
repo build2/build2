@@ -12,8 +12,11 @@ namespace build2
   namespace test
   {
     static operation_id
-    test_pre (meta_operation_id mo)
+    test_pre (const values& params, meta_operation_id mo, const location& l)
     {
+      if (!params.empty ())
+        fail (l) << "unexpected parameters for operation test";
+
       // Run update as a pre-operation, unless we are disfiguring.
       //
       return mo != disfigure_id ? update_id : 0;
