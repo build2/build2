@@ -10,7 +10,7 @@ scope prerequisite file module operation rule b-options algorithm search \
 filesystem function functions-builtin functions-path functions-process-path \
 functions-string functions-target-triplet config/{utility init operation} \
 dump types-parsers test/{target script/{token lexer parser regex script}} \
-scheduler
+scheduler spec
 
 exe{driver}: cxx{driver} ../../../../build2/cxx{$src} ../../../../build2/liba{b} $libs \
 test{cleanup command-if command-re-parse description directive exit \

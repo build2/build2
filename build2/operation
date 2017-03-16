@@ -17,6 +17,7 @@ namespace build2
   class location;
   class scope;
   class target_key;
+  struct opspec;
 
   // While we are using uint8_t for the meta/operation ids, we assume
   // that each is limited to 4 bits (max 128 entries) so that we can
@@ -343,7 +344,33 @@ namespace build2
   // its semantics. It would be strange to have an operation called
   // test that does two very different things in different projects.
   //
-  extern butl::string_table<meta_operation_id> meta_operation_table;
+  // A built-in/pre-defined meta-operation can also provide a pre-processor
+  // callback that will be called for operation-specs before any project
+  // discovery/bootstrap is performed.
+  //
+  struct meta_operation_data
+  {
+    // The processor may modify the parameters, opspec, and change the
+    // meta-operation by returning a different name.
+    //
+    // If lifted is true then the operation name in opspec is bogus (has
+    // been lifted) and the default/empty name should be assumed instead.
+    //
+    using process_func = const string& (values&,
+                                        vector_view<opspec>&,
+                                        bool lifted,
+                                        const location&);
+
+    meta_operation_data () = default;
+    meta_operation_data (const char* n, process_func p = nullptr)
+        : name (n), process (p) {}
+
+    string name;
+    process_func* process;
+  };
+
+  extern butl::string_table<meta_operation_id,
+                            meta_operation_data> meta_operation_table;
   extern butl::string_table<operation_id> operation_table;
 
   // These are "sparse" in the sense that we may have "holes" that
@@ -391,6 +418,16 @@ namespace build2
 
   using meta_operations = sparse_vector<const meta_operation_info>;
   using operations = sparse_vector<const operation_info>;
+}
+
+namespace butl
+{
+  template <>
+  struct string_table_traits<build2::meta_operation_data>
+  {
+    static const std::string&
+    key (const build2::meta_operation_data& d) {return d.name;}
+  };
 }
 
 #endif // BUILD2_OPERATION

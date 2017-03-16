@@ -371,6 +371,6 @@ namespace build2
 
   // Tables.
   //
-  string_table<meta_operation_id> meta_operation_table;
+  string_table<meta_operation_id, meta_operation_data> meta_operation_table;
   string_table<operation_id> operation_table;
 }

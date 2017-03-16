@@ -349,21 +349,19 @@ main (int argc, char* argv[])
 
     // If not NULL, then lifted points to the operation that has been "lifted"
     // to the meta-operaion (see the logic below for details). Skip is the
-    // position of the next operation. Dirty indicated whether we managed to
-    // execute anything before lifting an operation.
+    // position of the next operation.
     //
     opspec* lifted (nullptr);
     size_t skip (0);
-    bool dirty (false); // We already (re)set for the first run.
+
+    // The dirty flag indicated whether we managed to execute anything before
+    // lifting an operation.
+    //
+    bool dirty (false); // Already (re)set for the first run.
 
     for (auto mit (bspec.begin ()); mit != bspec.end (); )
     {
       vector_view<opspec> opspecs;
-
-      const string& mname (lifted == nullptr ? mit->name : lifted->name);
-      const values& mparams (lifted == nullptr ? mit->params : lifted->params);
-
-      current_mname = &mname;
 
       if (lifted == nullptr)
       {
@@ -402,8 +400,35 @@ main (int argc, char* argv[])
         dirty = false;
       }
 
+      const path p ("<buildspec>");
+      const location l (&p, 0, 0); //@@ TODO
+
       meta_operation_id mid (0); // Not yet translated.
       const meta_operation_info* mif (nullptr);
+
+      // See if this meta-operation wants to pre-process the opspecs. Note
+      // that this functionality can only be used for build-in meta-operations
+      // that were explicitly specified on the command line (so cannot be used
+      // for perform) and that will be lifted early (see below).
+      //
+      values& mparams (lifted == nullptr ? mit->params : lifted->params);
+      {
+        const string& mname (lifted == nullptr ? mit->name : lifted->name);
+        current_mname = &mname;
+
+        if (!mname.empty ())
+        {
+          if (meta_operation_id m = meta_operation_table.find (mname))
+          {
+            // Can modify params, opspec, change meta-operation name.
+            //
+            if (auto f = meta_operation_table[m].process)
+              current_mname = &f (mparams, opspecs, lifted != nullptr, l);
+          }
+        }
+      }
+
+      const string& mname (*current_mname);
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -422,9 +447,6 @@ main (int argc, char* argv[])
         if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", string ())));
 
-        const path p ("<buildspec>");
-        const location l (&p, 0, 0); //@@ TODO
-
         operation_id oid (0); // Not yet translated.
         const operation_info* oif (nullptr);
 
@@ -434,14 +456,42 @@ main (int argc, char* argv[])
         operation_id post_oid (0);
         const operation_info* post_oif (nullptr);
 
+        // Return true if this operation is lifted.
+        //
+        auto lift = [&oname, &mname, &os, &mit, &lifted, &skip, &l, &trace] ()
+        {
+          meta_operation_id m (meta_operation_table.find (oname));
+
+          if (m != 0)
+          {
+            if (!mname.empty ())
+              fail (l) << "nested meta-operation " << mname << '(' << oname << ')';
+
+            l5 ([&]{trace << "lifting operation " << oname
+                          << ", id " << uint16_t (m);});
+
+            lifted = &os;
+            skip = lifted - mit->data () + 1;
+          }
+
+          return m != 0;
+        };
+
         // We do meta-operation and operation batches sequentially (no
         // parallelism). But multiple targets in an operation batch can be
         // done in parallel.
 
-        // First bootstrap projects for all the target so that all the
-        // variable overrides are set (if we also load/search/match in the
-        // same loop then we may end up loading a project (via import) before
-        // this happends.
+        // First see if we can lift this operation early by checking if it
+        // is one of the built-in meta-operations. This is important to make
+        // sure we pre-process the opspec before loading anything.
+        //
+        if (!oname.empty () && lift ())
+          break;
+
+        // Next bootstrap projects for all the target so that all the variable
+        // overrides are set (if we also load/search/match in the same loop
+        // then we may end up loading a project (via import) before this
+        // happends.
         //
         for (targetspec& ts: os)
         {
@@ -720,27 +770,11 @@ main (int argc, char* argv[])
           // known.
           //
           {
+            if (!oname.empty () && lift ())
+              break; // Out of targetspec loop.
+
             meta_operation_id m (0);
             operation_id o (0);
-
-            if (!oname.empty ())
-            {
-              m = meta_operation_table.find (oname);
-
-              if (m != 0)
-              {
-                if (!mname.empty ())
-                  fail (l) << "nested meta-operation " << mname
-                           << '(' << oname << ')';
-
-                l5 ([&]{trace << "lifting operation " << oname
-                              << ", id " << uint16_t (m);});
-
-                lifted = &os;
-                skip = lifted - mit->data () + 1;
-                break; // Out of targetspec loop.
-              }
-            }
 
             if (!mname.empty ())
             {
@@ -779,14 +813,14 @@ main (int argc, char* argv[])
               }
             }
 
-            // The default meta-operation is perform. The default
-            // operation is assigned by the meta-operation below.
+            // The default meta-operation is perform. The default operation is
+            // assigned by the meta-operation below.
             //
             if (m == 0)
               m = perform_id;
 
-            // If this is the first target in the meta-operation batch,
-            // then set the batch meta-operation id.
+            // If this is the first target in the meta-operation batch, then
+            // set the batch meta-operation id.
             //
             if (mid == 0)
             {
@@ -795,7 +829,7 @@ main (int argc, char* argv[])
 
               if (mif == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << meta_operation_table[m];
+                         << "operation " << meta_operation_table[m].name;
 
               l5 ([&]{trace << "start meta-operation batch " << mif->name
                             << ", id " << static_cast<uint16_t> (mid);});
@@ -819,7 +853,7 @@ main (int argc, char* argv[])
 
               if (mi == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << meta_operation_table[mid];
+                         << "operation " << meta_operation_table[mid].name;
 
               if (mi != mif)
                 fail (l) << "different implementations of meta-operation "
