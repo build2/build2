@@ -2867,6 +2867,26 @@ namespace build2
         exec_scope_body ();
       }
 
+      static void
+      execute_impl (scope& s, script& scr, runner& r) noexcept
+      {
+        try
+        {
+          parser p;
+          p.execute (s, scr, r);
+        }
+        catch (const failed&)
+        {
+          s.state = scope_state::failed;
+        }
+        catch (const std::exception& e)
+        {
+          *diag_stream << "unhandled exception: " << e;
+          assert (false);
+          abort ();
+        }
+      }
+
       void parser::
       exec_scope_body ()
       {
@@ -2983,20 +3003,13 @@ namespace build2
               // bail out if we weren't asked to keep going.
               //
               if (!sched.async (task_count,
-                                [] (scope& s, script& scr, runner& r,
+                                [] (scope& s,
+                                    script& scr,
+                                    runner& r,
                                     const diag_frame* ds) noexcept
                                 {
                                   diag_frame df (ds);
-
-                                  try
-                                  {
-                                    parser p;
-                                    p.execute (s, scr, r);
-                                  }
-                                  catch (const failed&)
-                                  {
-                                    s.state = scope_state::failed;
-                                  }
+                                  execute_impl (s, scr, r);
                                 },
                                 ref (*chain),
                                 ref (*script_),

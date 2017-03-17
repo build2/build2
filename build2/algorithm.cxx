@@ -485,6 +485,12 @@ namespace build2
       t.state_ = target_state::failed;
       l.offset = target::offset_applied;
     }
+    catch (const std::exception& e)
+    {
+      *diag_stream << "unhandled exception: " << e;
+      assert (false);
+      abort ();
+    }
 
     return t.state_;
   }
@@ -537,7 +543,9 @@ namespace build2
       //
       if (sched.async (start_count,
                        *task_count,
-                       [a] (target& t, size_t offset, const diag_frame* ds)
+                       [a] (target& t,
+                            size_t offset,
+                            const diag_frame* ds) noexcept
                        {
                          diag_frame df (ds);
                          phase_lock pl (run_phase::match);
@@ -779,6 +787,12 @@ namespace build2
     {
       ts = t.state_ = target_state::failed;
     }
+    catch (const std::exception& e)
+    {
+      *diag_stream << "unhandled exception: " << e;
+      assert (false);
+      abort ();
+    }
 
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.
@@ -864,10 +878,10 @@ namespace build2
           //
           if (sched.async (start_count,
                            *task_count,
-                           [a] (target& t, const diag_frame* ds)
+                           [a] (target& t, const diag_frame* ds) noexcept
                            {
                              diag_frame df (ds);
-                             execute_impl (a, t); // Note: noexcept.
+                             execute_impl (a, t);
                            },
                            ref (t),
                            diag_frame::stack))

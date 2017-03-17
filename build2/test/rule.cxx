@@ -397,6 +397,12 @@ namespace build2
       {
         r = scope_state::failed;
       }
+      catch (const std::exception& e)
+      {
+        *diag_stream << "unhandled exception: " << e;
+        assert (false);
+        abort ();
+      }
 
       return r;
     }

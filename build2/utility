@@ -10,6 +10,7 @@
 #include <string>     // to_string()
 #include <utility>    // move(), forward(), declval(), make_pair()
 #include <cassert>    // assert()
+#include <cstdlib>    // abort()
 #include <iterator>   // make_move_iterator()
 #include <algorithm>  // *
 #include <functional> // ref(), cref()
