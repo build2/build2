@@ -363,6 +363,44 @@ namespace build2
       }
     }
 
+    static script::scope_state
+    perform_script_impl (const target& t,
+                         const testscript& ts,
+                         const dir_path& wd,
+                         const common& c) noexcept
+    {
+      using namespace script;
+
+      scope_state r;
+
+      try
+      {
+        if (verb)
+        {
+          const auto& tt (cast<target_triplet> (t["test.target"]));
+          text << "test " << t << " with " << ts << " on " << tt;
+        }
+
+        script::script s (t, ts, wd);
+
+        {
+          parser p;
+          p.pre_parse (s);
+
+          default_runner r (c);
+          p.execute (s, r);
+        }
+
+        r = s.state;
+      }
+      catch (const failed&)
+      {
+        r = scope_state::failed;
+      }
+
+      return r;
+    }
+
     target_state rule_common::
     perform_script (action, const target& t) const
     {
@@ -471,12 +509,6 @@ namespace build2
               mk = false;
             }
 
-            if (verb)
-            {
-              const auto& tt (cast<target_triplet> (t["test.target"]));
-              text << "test " << t << " with " << *ts << " on " << tt;
-            }
-
             result.push_back (scope_state::unknown);
             scope_state& r (result.back ());
 
@@ -489,24 +521,7 @@ namespace build2
                                       const diag_frame* ds) noexcept
                               {
                                 diag_frame df (ds);
-                                try
-                                {
-                                  script::script s (t, ts, wd);
-
-                                  {
-                                    script::parser p;
-                                    p.pre_parse (s);
-
-                                    script::default_runner r (*this);
-                                    p.execute (s, r);
-                                  }
-
-                                  r = s.state;
-                                }
-                                catch (const failed&)
-                                {
-                                  r = scope_state::failed;
-                                }
+                                r = perform_script_impl (t, ts, wd, *this);
                               },
                               ref (r),
                               cref (t),
