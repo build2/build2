@@ -2341,7 +2341,7 @@ namespace build2
     return ns.size () - start;
   }
 
-  // Expand a name pattern. Note that the result can empty (as in "no
+  // Expand a name pattern. Note that the result can be empty (as in "no
   // elements").
   //
   size_t parser::
