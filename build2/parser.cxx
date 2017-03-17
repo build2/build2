@@ -2503,6 +2503,18 @@ namespace build2
       name& n (*i);
       bool first (i == b);
 
+      char s ('\0'); // Inclusion/exclusion sign (+/-).
+
+      // Reduce inclusions/exclusions group (-/+{foo bar}) to simple name/dir.
+      //
+      if (!first && n.typed () && n.type.size () == 1)
+      {
+        s = n.type[0];
+
+        if (s == '-' || s == '+')
+          n.type.clear ();
+      }
+
       if (n.empty () || !(n.simple () || n.directory ()))
         fail (l) << "invalid '" << n << "' in " << what << " pattern";
 
@@ -2510,10 +2522,9 @@ namespace build2
 
       // Figure out if this is inclusion or exclusion.
       //
-      char s; // +/-
       if (first)
         s = '+'; // Treat as inclusion.
-      else
+      else if (s == '\0')
       {
         s = v[0];
 

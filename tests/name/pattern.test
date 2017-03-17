@@ -66,46 +66,52 @@ EOI
 :
 {
   touch foo.txt;
-  $* <'print *.txt' >'foo.txt'                   : simple-file
+  $* <'print *.txt' >'foo.txt'                     : simple-file
 
   mkdir foo;
-  $* <'print */' >/'foo/'                        : simple-dir
+  $* <'print */' >/'foo/'                          : simple-dir
 
   touch foo.txt;
-  $* <'print {*.txt}' >'foo.txt'                 : group
+  $* <'print {*.txt}' >'foo.txt'                   : group
 
   mkdir dir && touch dir/foo.txt;
-  $* <'print dir/{*.txt}' >'dir/foo.txt'         : dir
+  $* <'print dir/{*.txt}' >'dir/foo.txt'           : dir
 
   touch foo.txt;
-  $* <'print file{*.txt}' >'file{foo.txt}'       : type
+  $* <'print file{*.txt}' >'file{foo.txt}'         : type
 
   touch foo.txt;
-  $* <'print x@{*.txt}' >'x@foo.txt'             : pair
+  $* <'print x@{*.txt}' >'x@foo.txt'               : pair
 
   touch bar.txt;
-  $* <'print x@dir/file{f*.txt}' >''             : empty
+  $* <'print x@dir/file{f*.txt}' >''               : empty
 
   mkdir dir && touch dir/foo.txt;
-  $* <'print **.txt' >/'dir/foo.txt'             : recursive
+  $* <'print **.txt' >/'dir/foo.txt'               : recursive
 
   mkdir dir && touch dir/foo.txt;
-  $* <'print d*/*.txt' >/'dir/foo.txt'           : multi-pattern
+  $* <'print d*/*.txt' >/'dir/foo.txt'             : multi-pattern
 
   touch foo.txt bar.txt;
-  $* <'print {*.txt -bar.txt}' >'foo.txt'        : exclude-match
+  $* <'print {*.txt -bar.txt}' >'foo.txt'          : exclude-match
 
   touch foo.txt bar.txt;
-  $* <'print {*.txt -b*.txt}' >'foo.txt'         : exclude-pattern
+  $* <'print {*.txt -b*.txt}' >'foo.txt'           : exclude-pattern
+
+  touch foo.txt bar.txt baz.txt;
+  $* <'print {*.txt -{*z.txt bar.txt}}' >'foo.txt' : exclude-group
 
   touch bar.txt;
-  $* <'print {f*.txt +bar.txt}' >'bar.txt'       : include-match
+  $* <'print {f*.txt +bar.txt}' >'bar.txt'         : include-match
 
   touch bar.txt;
-  $* <'print {f*.txt +b*.txt}' >'bar.txt'        : include-pattern
+  $* <'print {f*.txt +b*.txt}' >'bar.txt'          : include-pattern
+
+  mkdir bar;
+  $* <'print {f*/ +{b*/}}' >/'bar/'                : include-group
 
   touch foo.txt fox.txt;
-  $* <'print {*.txt -f*.txt +*x.txt}' >'fox.txt' : include-exclude-order
+  $* <'print {*.txt -f*.txt +*x.txt}' >'fox.txt'   : include-exclude-order
 }
 
 : target-type

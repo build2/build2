@@ -95,6 +95,23 @@ exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
 ./: {*/ -build}                # Error: exclusion must match a directory.
 \
 
+If many inclusions or exclusions need to be specified, then an
+inclusion/exclusion group can be used. For example:
+
+\
+exe{hello}: cxx{f* -{foo bar}}  # Exclude foo and bar if present.
+\
+
+This is particularly useful if you would like to list the names to exclude
+in a variable. For example, this is how we can exclude certain files from
+compilation but still include them as ordinary file prerequisites (so that
+they are still included into the distribution):
+
+\
+exc = foo.cxx bar.cxx
+exe{hello}: cxx{f* -{$exc}} file{$exc}
+\
+
 One common situation that calls for exclusions is auto-generated source
 code. Let's say we have auto-generated command line parser in \c{options.hxx}
 and \c{options.cxx}. Because of the in-tree builds, our name pattern may or
