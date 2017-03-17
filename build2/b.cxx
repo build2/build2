@@ -117,6 +117,9 @@ main (int argc, char* argv[])
     {
       cl::argv_scanner scan (argc, argv);
 
+      size_t argn (0);       // Argument count.
+      bool shortcut (false); // True if the shortcut syntax is used.
+
       for (bool opt (true), var (true); scan.more (); )
       {
         if (opt)
@@ -159,10 +162,41 @@ main (int argc, char* argv[])
             continue;
           }
 
-          if (strchr (s, '=') != nullptr) // Covers =, +=, and =+.
+          if (const char* p = strchr (s, '=')) // Covers =, +=, and =+.
           {
+            // Diagnose the empty variable name situation. Note that we don't
+            // allow "partially broken down" assignments (as in foo =bar)
+            // since foo= bar would be ambigous.
+            //
+            if (p == s || (p == s + 1 && *s == '+'))
+              fail << "missing variable name in '" << s << "'";
+
             cmd_vars.push_back (s);
             continue;
+          }
+
+          // Handle the "broken down" variable assignments (i.e., foo = bar
+          // instead of foo=bar).
+          //
+          if (scan.more ())
+          {
+            const char* a (scan.peek ());
+
+            if (strcmp (a, "=" ) == 0 ||
+                strcmp (a, "+=") == 0 ||
+                strcmp (a, "=+") == 0)
+            {
+              string v (s);
+              v += a;
+
+              scan.next ();
+
+              if (scan.more ())
+                v += scan.next ();
+
+              cmd_vars.push_back (move (v));
+              continue;
+            }
           }
 
           // Fall through.
@@ -174,10 +208,34 @@ main (int argc, char* argv[])
         // diagnostics (i.e., we could have used <buildspec-1>, <buildspec-2>
         // to give the idea about which argument is invalid).
         //
-        if (!args.empty ())
+        // Or we could separate arguments with newlines so that a line number
+        // signifies the argument number.
+        //
+        if (argn != 0)
           args += ' ';
 
         args += s;
+
+        // See if we are using the shortcut syntax.
+        //
+        if (argn == 0 && args.back () == ':')
+        {
+          args.back () = '(';
+          shortcut = true;
+        }
+
+        argn++;
+      }
+
+      // Add the closing parenthesis unless there wasn't anything in between
+      // in which case pop the opening one.
+      //
+      if (shortcut)
+      {
+        if (argn == 1)
+          args.pop_back ();
+        else
+          args += ')';
       }
     }
     catch (const cl::exception& e)

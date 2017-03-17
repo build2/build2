@@ -87,6 +87,26 @@ namespace build2
      b '{clean disfigure}(...)'     # similar to distclean
      \
 
+     In POSIX shells parenthesis are special characters and must be quoted
+     when used in a buildspec. Besides being an inconvenience in itself,
+     quoting also inhibits path auto-completion. To help with this situation a
+     shortcut syntax is available for executing a single operation or
+     meta-operation, for example:
+
+     \
+     b clean: foo/ bar/                # clean(foo/ bar/)
+     b configure: src/@out/            # configure(src/@out/)
+     b create: conf/, cxx              # create(conf/, cxx)
+     b configure: config.cxx=g++ src/  # configure(src/) config.cxx=g++
+     \
+
+     To activate the shortcut syntax the first buildspec argument must start
+     with an operation or meta-operation name and end with a colon (\cb{:}).
+     To transform the shortcut syntax to the normal buildspec syntax the colon
+     is replaced with the opening parenthesis (\cb{(}), the rest of the
+     buildspec arguments are treated as is, and the final closing parenthesis
+     (\cb{)}) is added.
+
      For each <target> the driver expects to find \cb{buildfile} either in the
      target's directory or, if the directory is part of the \cb{out} tree
      (\cb{out_base}), in the corresponding \cb{src} directory (\cb{src_base}).
@@ -140,6 +160,15 @@ namespace build2
 
      \
      b config.cxx=clang++ config.cxx.coptions=-O3
+     \
+
+     Similar to buildspec, POSIX shells often inhibit path auto-completion on
+     the right hand side of a variable assignment. To help with this situation
+     the assignment can be broken down into three separate command line
+     arguments, for example:
+
+     \
+     b config.import.libhello = ../libhello/
      \
 
      The build system has the following built-in and pre-defined
