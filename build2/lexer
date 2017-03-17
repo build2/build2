@@ -121,7 +121,8 @@ namespace build2
       lexer_mode mode;
 
       char sep_pair;
-      bool sep_space; // Are whitespaces separators (see skip_spaces())?
+      bool sep_space;   // Are whitespaces separators (see skip_spaces())?
+      bool sep_newline; // Is newline special (see skip_spaces())?
       bool quotes;    // Recognize quoted fragments.
 
       const char* escapes; // Effective escape sequences to recognize.

@@ -22,6 +22,7 @@ namespace build2
         const char* s1 (nullptr);
         const char* s2 (nullptr);
         bool s (true);
+        bool n (true);
         bool q (true);
 
         if (!esc)
@@ -135,7 +136,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, ps, s, q, *esc, s1, s2});
+        state_.push (state {m, ps, s, n, q, *esc, s1, s2});
       }
 
       token lexer::

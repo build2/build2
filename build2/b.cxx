@@ -203,16 +203,11 @@ main (int argc, char* argv[])
         }
 
         // Merge all the individual buildspec arguments into a single string.
-        // Instead, we could also parse them individually (and merge the
-        // result). The benefit of doing it this way is potentially better
-        // diagnostics (i.e., we could have used <buildspec-1>, <buildspec-2>
-        // to give the idea about which argument is invalid).
-        //
-        // Or we could separate arguments with newlines so that a line number
-        // signifies the argument number.
+        // We wse newlines to separate arguments so that line numbers in
+        // diagnostics signify argument numbers. Clever, huh?
         //
         if (argn != 0)
-          args += ' ';
+          args += '\n';
 
         args += s;
 

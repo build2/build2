@@ -26,6 +26,7 @@ namespace build2
     const char* s1 (nullptr);
     const char* s2 (nullptr);
     bool s (true);
+    bool n (true);
     bool q (true);
 
     if (!esc)
@@ -70,8 +71,11 @@ namespace build2
         //
         // 2. Recognizes comma.
         //
+        // 3. Treat newline as an ordinary space.
+        //
         s1 = " $(){}[],\t\n";
         s2 = "           ";
+        n = false;
         break;
       }
     case lexer_mode::single_quoted:
@@ -87,7 +91,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, ps, s, q, *esc, s1, s2});
+    state_.push (state {m, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::
@@ -585,9 +589,11 @@ namespace build2
     bool r (sep_);
     sep_ = false;
 
+    const state& s (state_.top ());
+
     // In some special modes we don't skip spaces.
     //
-    if (!state_.top ().sep_space)
+    if (!s.sep_space)
       return r;
 
     xchar c (peek ());
@@ -605,6 +611,14 @@ namespace build2
         }
       case '\n':
         {
+          // In some modes we treat newlines as ordinary spaces.
+          //
+          if (!s.sep_newline)
+          {
+            r = true;
+            break;
+          }
+
           // Skip empty lines.
           //
           if (start)
