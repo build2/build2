@@ -255,12 +255,17 @@ namespace build2
     max_threads_ = max_threads;
 
     // This value should be proportional to the amount of hardware concurrency
-    // we have (no use queing things if helpers cannot keep up). Note that the
-    // queue entry is quite sizable.
+    // we have (no use queing things up if helpers cannot keep up). Note that
+    // the queue entry is quite sizable.
+    //
+    // The relationship is as follows: we want to have a deeper queue if the
+    // tasks take long (e.g., compilation) and shorter if they are quick (e.g,
+    // test execution). If the tasks are quick then the synchronization
+    // overhead required for queuing/dequeuing things starts to dominate.
     //
     task_queue_depth_ = queue_depth != 0
       ? queue_depth
-      : max_active * sizeof (void*) * 4;
+      : max_active * 4;
 
     queued_task_count_.store (0, memory_order_relaxed);
 

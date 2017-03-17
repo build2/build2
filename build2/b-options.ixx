@@ -270,6 +270,18 @@ namespace build2
     return this->max_jobs_specified_;
   }
 
+  inline const size_t& options::
+  queue_depth () const
+  {
+    return this->queue_depth_;
+  }
+
+  inline bool options::
+  queue_depth_specified () const
+  {
+    return this->queue_depth_specified_;
+  }
+
   inline const bool& options::
   serial_stop () const
   {

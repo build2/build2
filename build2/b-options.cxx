@@ -578,6 +578,8 @@ namespace build2
     jobs_specified_ (false),
     max_jobs_ (),
     max_jobs_specified_ (false),
+    queue_depth_ (4),
+    queue_depth_specified_ (false),
     serial_stop_ (),
     no_column_ (),
     no_line_ (),
@@ -706,6 +708,13 @@ namespace build2
        << "                     scheduler implementation for details." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--queue-depth\033[0m|\033[1m-Q\033[0m \033[4mnum\033[0m The queue depth as a multiplier over the number of active" << ::std::endl
+       << "                     jobs. Normally we want a deeper queue if the jobs take" << ::std::endl
+       << "                     long (for example, compilation) and shorter if they are" << ::std::endl
+       << "                     quick (for example, simple tests). The default is 4. See" << ::std::endl
+       << "                     the build system scheduler implementation for details." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
        << "                     useful to investigate build failures that are caused by" << ::std::endl
        << "                     build system errors rather than compilation errors. Note" << ::std::endl
@@ -801,6 +810,12 @@ namespace build2
       _cli_options_map_["-J"] = 
       &::build2::cl::thunk< options, size_t, &options::max_jobs_,
         &options::max_jobs_specified_ >;
+      _cli_options_map_["--queue-depth"] = 
+      &::build2::cl::thunk< options, size_t, &options::queue_depth_,
+        &options::queue_depth_specified_ >;
+      _cli_options_map_["-Q"] = 
+      &::build2::cl::thunk< options, size_t, &options::queue_depth_,
+        &options::queue_depth_specified_ >;
       _cli_options_map_["--serial-stop"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 

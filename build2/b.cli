@@ -380,6 +380,16 @@ namespace build2
        on 64-bit. See the build system scheduler implementation for details."
     }
 
+    size_t --queue-depth|-Q = 4
+    {
+      "<num>",
+      "The queue depth as a multiplier over the number of active jobs.
+       Normally we want a deeper queue if the jobs take long (for example,
+       compilation) and shorter if they are quick (for example, simple tests).
+       The default is 4. See the build system scheduler implementation for
+       details."
+    }
+
     bool --serial-stop|-s
     {
       "Run serially and stop at the first error. This mode is useful to
