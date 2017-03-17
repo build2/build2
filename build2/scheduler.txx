@@ -70,13 +70,14 @@ namespace build2
         size_t om (m);
         m = task_queue_depth_;
 
-        {
-          ql.unlock ();
-          forward<F> (f) (forward<A> (a)...); // Should not throw.
-          ql.lock ();
-        }
+        ql.unlock ();
+        forward<F> (f) (forward<A> (a)...); // Should not throw.
 
-        m = s == 0 ? t : om;
+        if (om != task_queue_depth_)
+        {
+          ql.lock ();
+          m = s == 0 ? t : om;
+        }
 
         return false;
       }
