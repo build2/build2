@@ -381,7 +381,7 @@ namespace build2
           text << "test " << t << " with " << ts << " on " << tt;
         }
 
-        script::script s (t, ts, wd);
+        build2::test::script::script s (t, ts, wd);
 
         {
           parser p;
