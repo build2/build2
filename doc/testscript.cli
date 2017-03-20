@@ -2220,10 +2220,10 @@ Read files in order and write their contents to \c{stdout}. Read from
 \h#builtins-cp|\c{cp}|
 
 \
-cp        <src-file>     <dst-file>
-cp -R|-r  <src-dir>      <dst-dir>
-cp        <src-file>...  <dst-dir>/
-cp -R|-r  <src-path>...  <dst-dir>/
+cp [--no-cleanup]        <src-file>     <dst-file>
+cp [--no-cleanup] -R|-r  <src-dir>      <dst-dir>
+cp [--no-cleanup]        <src-file>...  <dst-dir>/
+cp [--no-cleanup] -R|-r  <src-path>...  <dst-dir>/
 \
 
 Copy files and/or directories. The first two forms make a copy of a single
@@ -2283,8 +2283,9 @@ files/directories does not exist or if the \i{dst-dir} filesystem entry does
 not exist or is not a directory. For a \i{src-path} directory \c{cp} also fails
 if the \i{dst-dir/src-name} filesystem entry already exists.
 
-Newly created files and directories that are inside the script working
-directory are automatically registered for cleanup.
+Unless the --no-cleanup option is specified, newly created files and
+directories that are inside the script working directory are automatically
+registered for cleanup.
 
 
 \h#builtins-diff|\c{diff}|
@@ -2323,7 +2324,7 @@ Do nothing and terminate normally with the 1 exit code (indicating failure).
 \h#builtins-mkdir|\c{mkdir}|
 
 \
-mkdir [-p] <dir>...
+mkdir [--no-cleanup] [-p] <dir>...
 \
 
 Create directories. Unless the \c{-p} option is specified, all the leading
@@ -2336,8 +2337,9 @@ directories must exist and the directory itself must not exist.
   Create missing leading directories and ignore directories that already
   exist.||
 
-Newly created directories (including the leading ones) that are inside the
-script working directory are automatically registered for cleanup.
+Unless the --no-cleanup option is specified, newly created directories
+(including the leading ones) that are inside the script working directory are
+automatically registered for cleanup.
 
 
 \h#builtins-rm|\c{rm}|
@@ -2547,15 +2549,15 @@ Note that tests dereference symbolic links.
 \h#builtins-touch|\c{touch}|
 
 \
-touch <file>...
+touch [--no-cleanup] <file>...
 \
 
 Change file access and modification times to the current time. Create files
 that do not exist. Fail if a filesystem entry other than the file exists for
 the specified name.
 
-Newly created files that are inside the script working directory are
-automatically registered for cleanup.
+Unless the --no-cleanup option is specified, newly created files that are
+inside the script working directory are automatically registered for cleanup.
 
 \h#builtins-true|\c{true}|
 

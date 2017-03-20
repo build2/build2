@@ -273,6 +273,7 @@ namespace build2
       static void
       cpfile (scope& sp,
               const path& from, const path& to,
+              bool cleanup,
               const function<error_record()>& fail)
       {
         try
@@ -282,7 +283,7 @@ namespace build2
           cpfile (from, to,
                   cpflags::overwrite_permissions | cpflags::overwrite_content);
 
-          if (!exists)
+          if (!exists && cleanup)
             sp.clean ({cleanup_type::always, to}, true);
         }
         catch (const system_error& e)
@@ -300,6 +301,7 @@ namespace build2
       static void
       cpdir (scope& sp,
              const dir_path& from, const dir_path& to,
+             bool cleanup,
              const function<error_record()>& fail)
       {
         try
@@ -307,7 +309,8 @@ namespace build2
           if (try_mkdir (to) == mkdir_status::already_exists)
             throw system_error (EEXIST, system_category ());
 
-          sp.clean ({cleanup_type::always, to}, true);
+          if (cleanup)
+            sp.clean ({cleanup_type::always, to}, true);
 
           for (const auto& de: dir_iterator (from)) // Can throw.
           {
@@ -318,9 +321,10 @@ namespace build2
               cpdir (sp,
                      path_cast<dir_path> (move (f)),
                      path_cast<dir_path> (move (t)),
+                     cleanup,
                      fail);
             else
-              cpfile (sp, f, t, fail);
+              cpfile (sp, f, t, cleanup, fail);
           }
         }
         catch (const system_error& e)
@@ -330,10 +334,10 @@ namespace build2
         }
       }
 
-      // cp        <src-file>     <dst-file>
-      // cp -R|-r  <src-dir>      <dst-dir>
-      // cp        <src-file>...  <dst-dir>/
-      // cp -R|-r  <src-path>...  <dst-dir>/
+      // cp [--no-cleanup]        <src-file>     <dst-file>
+      // cp [--no-cleanup] -R|-r  <src-dir>      <dst-dir>
+      // cp [--no-cleanup]        <src-file>...  <dst-dir>/
+      // cp [--no-cleanup] -R|-r  <src-path>...  <dst-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -362,13 +366,18 @@ namespace build2
           // Process options.
           //
           bool recursive (false);
+          bool cleanup (true);
           for (; i != e; ++i)
           {
-            if (*i == "-R" || *i == "-r")
+            const string& o (*i);
+
+            if (o == "-R" || o == "-r")
               recursive = true;
+            else if (o == "--no-cleanup")
+              cleanup = false;
             else
             {
-              if (*i == "--")
+              if (o == "--")
                 ++i;
 
               break;
@@ -410,12 +419,13 @@ namespace build2
             if (!recursive)
               // Synopsis 1: make a file copy at the specified path.
               //
-              cpfile (sp, src, dst, fail);
+              cpfile (sp, src, dst, cleanup, fail);
             else
               // Synopsis 2: make a directory copy at the specified path.
               //
               cpdir (sp,
                      path_cast<dir_path> (src), path_cast<dir_path> (dst),
+                     cleanup,
                      fail);
           }
           else
@@ -432,12 +442,13 @@ namespace build2
                 cpdir (sp,
                        path_cast<dir_path> (src),
                        path_cast<dir_path> (dst / src.leaf ()),
+                       cleanup,
                        fail);
               else
                 // Synopsis 3: copy a file into the specified directory. Also,
                 // here we cover synopsis 4 for the source path being a file.
                 //
-                cpfile (sp, src, dst / src.leaf (), fail);
+                cpfile (sp, src, dst / src.leaf (), cleanup, fail);
             }
           }
 
@@ -533,19 +544,21 @@ namespace build2
       // directories for cleanup. The directory path must be absolute.
       //
       static void
-      mkdir_p (scope& sp, const dir_path& p)
+      mkdir_p (scope& sp, const dir_path& p, bool cleanup)
       {
         if (!dir_exists (p))
         {
           if (!p.root ())
-            mkdir_p (sp, p.directory ());
+            mkdir_p (sp, p.directory (), cleanup);
 
           try_mkdir (p); // Returns success or throws.
-          sp.clean ({cleanup_type::always, p}, true);
+
+          if (cleanup)
+            sp.clean ({cleanup_type::always, p}, true);
         }
       }
 
-      // mkdir [-p] <dir>...
+      // mkdir [--no-cleanup] [-p] <dir>...
       //
       // Note that POSIX doesn't specify if after a directory creation failure
       // the command should proceed with the rest of the arguments. The current
@@ -578,10 +591,15 @@ namespace build2
           // Process options.
           //
           bool parent (false);
+          bool cleanup (true);
           for (; i != e; ++i)
           {
-            if (*i == "-p")
+            const string& o (*i);
+
+            if (o == "-p")
               parent = true;
+            else if (o == "--no-cleanup")
+              cleanup = false;
             else
             {
               if (*i == "--")
@@ -603,9 +621,12 @@ namespace build2
             try
             {
               if (parent)
-                mkdir_p (sp, p);
+                mkdir_p (sp, p, cleanup);
               else if (try_mkdir (p) == mkdir_status::success)
-                sp.clean ({cleanup_type::always, p}, true);
+              {
+                if (cleanup)
+                  sp.clean ({cleanup_type::always, p}, true);
+              }
               else //                == mkdir_status::already_exists
                 throw system_error (EEXIST, system_category ());
             }
@@ -1210,7 +1231,7 @@ namespace build2
         return 2;
       }
 
-      // touch <file>...
+      // touch [--no-cleanup] <file>...
       //
       // Note that POSIX doesn't specify the behavior for touching an entry
       // other than file.
@@ -1243,9 +1264,30 @@ namespace build2
           if (args.empty ())
             error () << "missing file";
 
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool cleanup (true);
+          for (; i != e; ++i)
+          {
+            const string& o (*i);
+
+            if (o == "--no-cleanup")
+              cleanup = false;
+            else
+            {
+              if (o == "--")
+                ++i;
+
+              break;
+            }
+          }
+
           // Create files.
           //
-          for (auto i (args.begin ()); i != args.end (); ++i)
+          for (; i != e; ++i)
           {
             path p (parse_path (*i, sp.wd_path));
 
@@ -1278,7 +1320,8 @@ namespace build2
                   error () << "cannot create file '" << p << "': " << e;
                 }
 
-                sp.clean ({cleanup_type::always, p}, true);
+                if (cleanup)
+                  sp.clean ({cleanup_type::always, p}, true);
               }
               else
                 error () << "'" << p << "' exists and is not a file";
