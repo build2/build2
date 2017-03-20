@@ -104,10 +104,10 @@ EOI
   $* <'print {foo bar}{*}' >'foo{x} bar{y}'
 
   mkdir dir && touch dir/x.foo;
-  $* <'print {*/}{*.foo}' >'dir/x.foo'
+  $* <'print {*/}{*.foo}' >/'dir/x.foo'
 
   mkdir dir && touch dir/x.foo;
-  $* <'print {*/}{foo}{*}' >'dir/foo{x}'
+  $* <'print {*/}{foo}{*}' >/'dir/foo{x}'
 }
 
 # @@ TODO: nested replay.
