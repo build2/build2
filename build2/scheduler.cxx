@@ -100,7 +100,7 @@ namespace build2
     ready_--;
 
     if (shutdown_)
-      throw system_error (ECANCELED, system_category ());
+      throw_generic_error (ECANCELED);
 
     active_++;
   }

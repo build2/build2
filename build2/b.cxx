@@ -104,7 +104,7 @@ main (int argc, char* argv[])
 #ifndef _WIN32
     if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
       fail << "unable to ignore broken pipe (SIGPIPE) signal: "
-           << system_error (errno, system_category ()); // Sanitize.
+           << system_error (errno, generic_category ()); // Sanitize.
 #endif
 
     // Parse the command line. We want to be able to specify options, vars,

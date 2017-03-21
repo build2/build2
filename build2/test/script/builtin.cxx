@@ -307,7 +307,7 @@ namespace build2
         try
         {
           if (try_mkdir (to) == mkdir_status::already_exists)
-            throw system_error (EEXIST, system_category ());
+            throw_generic_error (EEXIST);
 
           if (cleanup)
             sp.clean ({cleanup_type::always, to}, true);
@@ -628,7 +628,7 @@ namespace build2
                   sp.clean ({cleanup_type::always, p}, true);
               }
               else //                == mkdir_status::already_exists
-                throw system_error (EEXIST, system_category ());
+                throw_generic_error (EEXIST);
             }
             catch (const system_error& e)
             {
@@ -748,7 +748,7 @@ namespace build2
                 try_rmdir_r (d);
               }
               else if (try_rmfile (p) == rmfile_status::not_exist && !force)
-                throw system_error (ENOENT, system_category ());
+                throw_generic_error (ENOENT);
             }
             catch (const system_error& e)
             {
@@ -848,9 +848,9 @@ namespace build2
               rmdir_status s (try_rmdir (p));
 
               if (s == rmdir_status::not_empty)
-                throw system_error (ENOTEMPTY, system_category ());
+                throw_generic_error (ENOTEMPTY);
               else if (s == rmdir_status::not_exist && !force)
-                throw system_error (ENOENT, system_category ());
+                throw_generic_error (ENOENT);
             }
             catch (const system_error& e)
             {
@@ -1304,7 +1304,7 @@ namespace build2
 #else
                 if (_utime (p.string ().c_str (), nullptr) == -1)
 #endif
-                  throw system_error (errno, system_category ());
+                  throw_generic_error (errno);
               }
               else if (!entry_exists (p))
               {

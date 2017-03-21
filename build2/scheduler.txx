@@ -38,7 +38,7 @@ namespace build2
       lock ql (tq->mutex);
 
       if (tq->shutdown)
-        throw system_error (ECANCELED, std::system_category ());
+        throw_generic_error (ECANCELED);
 
       if (task_data* td = push (*tq))
       {

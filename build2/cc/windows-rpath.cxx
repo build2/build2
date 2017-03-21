@@ -315,6 +315,10 @@ namespace build2
           }
           catch (const system_error& e)
           {
+            // Make sure that the error denotes errno portable code.
+            //
+            assert (e.code ().category () == generic_category ());
+
             int c (e.code ().value ());
 
             if (c != EPERM && c != ENOSYS)
@@ -330,6 +334,10 @@ namespace build2
             }
             catch (const system_error& e)
             {
+              // Make sure the error reflects errno portable code.
+              //
+              assert (e.code ().category () == generic_category ());
+
               int c (e.code ().value ());
 
               if (c != EPERM && c != ENOSYS)

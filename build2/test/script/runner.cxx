@@ -1171,7 +1171,7 @@ namespace build2
 
                 if (ifd.get () == -1) // @@ TMP
                   throw io_error (
-                    error_code (errno, system_category ()).message ());
+                    error_code (errno, generic_category ()).message ());
               }
               catch (const io_error& e)
               {
@@ -1296,7 +1296,7 @@ namespace build2
 
                 if (fd.get () == -1) // @@ TMP
                   throw io_error (
-                    error_code (errno, system_category ()).message ());
+                    error_code (errno, generic_category ()).message ());
               }
               catch (const io_error& e)
               {
