@@ -1362,13 +1362,22 @@ namespace build2
                     scope& sp,
                     const strings& args,
                     auto_fd in, auto_fd out, auto_fd err,
-                    promise<uint8_t> p)
+                    promise<uint8_t> p) noexcept
       {
-        // The use of set_value_at_thread_exit() would be more appropriate but
-        // the function is not supported by old versions of g++ (e.g., not in
-        // 4.9). There could also be overhead associated with it.
-        //
-        p.set_value (fn (sp, args, move (in), move (out), move (err)));
+        try
+        {
+          // The use of set_value_at_thread_exit() would be more appropriate
+          // but the function is not supported by old versions of g++ (e.g.,
+          // not in 4.9). There could also be overhead associated with it.
+          //
+          p.set_value (fn (sp, args, move (in), move (out), move (err)));
+        }
+        catch (const std::exception& e)
+        {
+          *diag_stream << "unhandled exception: " << e;
+          assert (false);
+          abort ();
+        }
       }
 
       // Run builtin implementation asynchronously.
