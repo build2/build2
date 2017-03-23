@@ -1424,7 +1424,7 @@ namespace build2
         assert (ofd.get () != -1 && efd.get () != -1);
 
         optional<process_exit> exit;
-        builtin* b (builtins.find (c.program.string ()));
+        builtin_func* bf (builtins.find (c.program.string ()));
 
         bool success;
 
@@ -1439,7 +1439,7 @@ namespace build2
           return args;
         };
 
-        if (b != nullptr)
+        if (bf != nullptr)
         {
           // Execute the builtin.
           //
@@ -1448,12 +1448,13 @@ namespace build2
 
           try
           {
-            future<uint8_t> f (
-              (*b) (sp, c.arguments, move (ifd), move (ofd), move (efd)));
+            uint8_t r; // Storage.
+            builtin b (
+              bf (sp, r, c.arguments, move (ifd), move (ofd), move (efd)));
 
             success = run_pipe (sp, nc, ec, move (p.in), ci + 1, li, ll, diag);
 
-            exit = process_exit (f.get ());
+            exit = process_exit (b.wait ());
           }
           catch (const system_error& e)
           {

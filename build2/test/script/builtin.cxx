@@ -11,7 +11,6 @@
 #endif
 
 #include <locale>
-#include <thread>
 #include <ostream>
 #include <sstream>
 
@@ -43,14 +42,6 @@ namespace build2
       using builtin_impl = uint8_t (scope&,
                                     const strings& args,
                                     auto_fd in, auto_fd out, auto_fd err);
-      static future<uint8_t>
-      to_future (uint8_t status)
-      {
-        promise<uint8_t> p;
-        future<uint8_t> f (p.get_future ());
-        p.set_value (status);
-        return f;
-      }
 
       // Operation failed, diagnostics has already been issued.
       //
@@ -521,10 +512,10 @@ namespace build2
       //
       // Note: can be executed synchronously.
       //
-      static future<uint8_t>
-      false_ (scope&, const strings&, auto_fd, auto_fd, auto_fd)
+      static builtin
+      false_ (scope&, uint8_t& r, const strings&, auto_fd, auto_fd, auto_fd)
       {
-        return to_future (1);
+        return builtin (r = 1);
       }
 
       // true
@@ -533,10 +524,10 @@ namespace build2
       //
       // Note: can be executed synchronously.
       //
-      static future<uint8_t>
-      true_ (scope&, const strings&, auto_fd, auto_fd, auto_fd)
+      static builtin
+      true_ (scope&, uint8_t& r, const strings&, auto_fd, auto_fd, auto_fd)
       {
-        return to_future (0);
+        return builtin (r = 0);
       }
 
       // Create a directory if not exist and its parent directories if
@@ -1362,15 +1353,11 @@ namespace build2
                     scope& sp,
                     const strings& args,
                     auto_fd in, auto_fd out, auto_fd err,
-                    promise<uint8_t> p) noexcept
+                    uint8_t& r) noexcept
       {
         try
         {
-          // The use of set_value_at_thread_exit() would be more appropriate
-          // but the function is not supported by old versions of g++ (e.g.,
-          // not in 4.9). There could also be overhead associated with it.
-          //
-          p.set_value (fn (sp, args, move (in), move (out), move (err)));
+          r = fn (sp, args, move (in), move (out), move (err));
         }
         catch (const std::exception& e)
         {
@@ -1382,44 +1369,43 @@ namespace build2
 
       // Run builtin implementation asynchronously.
       //
-      static future<uint8_t>
+      static builtin
       async_impl (builtin_impl fn,
                   scope& sp,
+                  uint8_t& r,
                   const strings& args,
                   auto_fd in, auto_fd out, auto_fd err)
       {
-        promise<uint8_t> p;
-        future<uint8_t> f (p.get_future ());
-
-        thread t (thread_thunk,
-                  fn,
-                  ref (sp),
-                  cref (args),
-                  move (in), move (out), move (err),
-                  move (p));
-
-        t.detach ();
-        return f;
+        return builtin (r,
+                        thread (thread_thunk,
+                                fn,
+                                ref (sp),
+                                cref (args),
+                                move (in), move (out), move (err),
+                                ref (r)));
       }
 
       template <builtin_impl fn>
-      static future<uint8_t>
+      static builtin
       async_impl (scope& sp,
+                  uint8_t& r,
                   const strings& args,
                   auto_fd in, auto_fd out, auto_fd err)
       {
-        return async_impl (fn, sp, args, move (in), move (out), move (err));
+        return async_impl (fn, sp, r, args, move (in), move (out), move (err));
       }
 
       // Run builtin implementation synchronously.
       //
       template <builtin_impl fn>
-      static future<uint8_t>
+      static builtin
       sync_impl (scope& sp,
+                 uint8_t& r,
                  const strings& args,
                  auto_fd in, auto_fd out, auto_fd err)
       {
-        return to_future (fn (sp, args, move (in), move (out), move (err)));
+        r = fn (sp, args, move (in), move (out), move (err));
+        return builtin (r, thread ());
       }
 
       const builtin_map builtins
