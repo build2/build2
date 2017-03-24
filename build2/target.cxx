@@ -298,7 +298,9 @@ namespace build2
       l5 ([&]{
           diag_record r (trace);
           r << "assuming target ";
-          to_stream (r.os, t.key (), 0); // Don't print the extension.
+          to_stream (r.os,
+                     target_key {&t.type (), &t.dir, &t.out, &t.name, nullopt},
+                     0); // Don't print the extension.
           r << " is the same as the one with ";
 
           if (!k.ext)
@@ -372,7 +374,10 @@ namespace build2
         l5 ([&]{
             diag_record r (trace);
             r << "assuming target ";
-            to_stream (r.os, t->key (), 0); // Don't print the extension.
+            to_stream (
+              r.os,
+              target_key {&t->type (), &t->dir, &t->out, &t->name, nullopt},
+              0); // Don't print the extension.
             r << " is the same as the one with ";
 
             if (!te.second)
