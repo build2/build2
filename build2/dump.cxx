@@ -345,6 +345,9 @@ namespace build2
     auto i (scopes.cbegin ());
     assert (&i->second == global_scope);
 
+    // We don't lock diag_stream here as dump() is supposed to be called from
+    // the main thread prior to any other threads being spawned.
+    //
     string ind;
     ostream& os (*diag_stream);
     dump_scope (os, ind, i);

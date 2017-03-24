@@ -399,7 +399,8 @@ namespace build2
       }
       catch (const std::exception& e)
       {
-        *diag_stream << "unhandled exception: " << e;
+        diag_lock l;
+        *diag_stream << "unhandled exception: " << e << endl;
         assert (false);
         abort ();
       }
