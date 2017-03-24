@@ -131,7 +131,7 @@ namespace build2
 
      In the above example, we assumed that the \cb{build2} driver was able to
      determine the association between \cb{out_base} and \cb{src_base}. In
-     case \cb{src_base} and \cb{out_base} are not the same directotry, this is
+     case \cb{src_base} and \cb{out_base} are not the same directory, this is
      achieved in one of two ways: the \cb{config} module (which implements the
      \cb{configure}, \cb{disfigure}, and \cb{create} meta-operations) saves
      this association as part of the configuration process. If, however, the
@@ -238,7 +238,7 @@ namespace build2
          drawbacks using the configuration project:
 
          \
-         b 'create(clang, cxx)' config.cxx=clang++ # Creates clang/.
+         b 'create(clang/, cxx)' config.cxx=clang++ # Creates clang/.
          b 'configure(libhello/@clang/libhello/)'
          b 'configure(hello/@clang/hello/)'
          \
