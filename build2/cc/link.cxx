@@ -152,7 +152,7 @@ namespace build2
 
         ext = "dll";
       }
-      else if (tclass == "macosx")
+      else if (tclass == "macos")
       {
         pfx = "lib";
         ext = "dylib";
@@ -1203,7 +1203,7 @@ namespace build2
             const libs_paths& paths (t.data<libs_paths> ());
             const string& leaf (paths.effect_soname ().leaf ().string ());
 
-            if (tclass == "macosx")
+            if (tclass == "macos")
             {
               // With Mac OS 10.5 (Leopard) Apple finally caved in and gave us
               // a way to emulate vanilla -rpath.
@@ -1476,7 +1476,7 @@ namespace build2
             //
             if (lt == otype::s)
             {
-              if (tclass == "macosx")
+              if (tclass == "macos")
                 args.push_back ("-dynamiclib");
               else
                 args.push_back ("-shared");

@@ -376,7 +376,7 @@ namespace build2
                 l == "-lgcc")
             continue;
           }
-          else if (tclass == "macosx")
+          else if (tclass == "macos")
           {
             if (l == "-lSystem")
               continue;
