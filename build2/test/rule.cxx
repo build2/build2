@@ -367,7 +367,7 @@ namespace build2
     perform_script_impl (const target& t,
                          const testscript& ts,
                          const dir_path& wd,
-                         const common& c) noexcept
+                         const common& c)
     {
       using namespace script;
 
@@ -396,13 +396,6 @@ namespace build2
       catch (const failed&)
       {
         r = scope_state::failed;
-      }
-      catch (const std::exception& e)
-      {
-        diag_lock l;
-        *diag_stream << "unhandled exception: " << e << endl;
-        assert (false);
-        abort ();
       }
 
       return r;
@@ -525,7 +518,7 @@ namespace build2
                                       const target& t,
                                       const testscript& ts,
                                       const dir_path& wd,
-                                      const diag_frame* ds) noexcept
+                                      const diag_frame* ds)
                               {
                                 diag_frame df (ds);
                                 r = perform_script_impl (t, ts, wd, *this);

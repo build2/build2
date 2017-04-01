@@ -1355,17 +1355,7 @@ namespace build2
                     auto_fd in, auto_fd out, auto_fd err,
                     uint8_t& r) noexcept
       {
-        try
-        {
-          r = fn (sp, args, move (in), move (out), move (err));
-        }
-        catch (const std::exception& e)
-        {
-          diag_lock l;
-          *diag_stream << "unhandled exception: " << e << endl;
-          assert (false);
-          abort ();
-        }
+        r = fn (sp, args, move (in), move (out), move (err));
       }
 
       // Run builtin implementation asynchronously.

@@ -138,7 +138,7 @@ namespace build2
   //   for (...)
   //   {
   //     sched.async (task_count,
-  //                  [] (...) noexcept
+  //                  [] (...)
   //                  {
   //                    phase_lock pl (run_phase::match);  // (2)
   //                    ...

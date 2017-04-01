@@ -2868,7 +2868,7 @@ namespace build2
       }
 
       static void
-      execute_impl (scope& s, script& scr, runner& r) noexcept
+      execute_impl (scope& s, script& scr, runner& r)
       {
         try
         {
@@ -2878,13 +2878,6 @@ namespace build2
         catch (const failed&)
         {
           s.state = scope_state::failed;
-        }
-        catch (const std::exception& e)
-        {
-          diag_lock l;
-          *diag_stream << "unhandled exception: " << e << endl;
-          assert (false);
-          abort ();
         }
       }
 
@@ -3007,7 +3000,7 @@ namespace build2
                                 [] (scope& s,
                                     script& scr,
                                     runner& r,
-                                    const diag_frame* ds) noexcept
+                                    const diag_frame* ds)
                                 {
                                   diag_frame df (ds);
                                   execute_impl (s, scr, r);

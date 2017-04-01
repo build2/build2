@@ -437,7 +437,7 @@ namespace build2
   // If step is true then perform only one step of the match/apply sequence.
   //
   static target_state
-  match_impl (action a, target_lock& l, bool step = false) noexcept
+  match_impl (action a, target_lock& l, bool step = false)
   {
     assert (l.target != nullptr);
     target& t (*l.target);
@@ -484,13 +484,6 @@ namespace build2
 
       t.state_ = target_state::failed;
       l.offset = target::offset_applied;
-    }
-    catch (const std::exception& e)
-    {
-      diag_lock l;
-      *diag_stream << "unhandled exception: " << e << endl;
-      assert (false);
-      abort ();
     }
 
     return t.state_;
@@ -546,7 +539,7 @@ namespace build2
                        *task_count,
                        [a] (target& t,
                             size_t offset,
-                            const diag_frame* ds) noexcept
+                            const diag_frame* ds)
                        {
                          diag_frame df (ds);
                          phase_lock pl (run_phase::match);
@@ -747,7 +740,7 @@ namespace build2
   }
 
   static target_state
-  execute_impl (action a, target& t) noexcept
+  execute_impl (action a, target& t)
   {
     assert (t.task_count.load (memory_order_consume) == target::count_busy ()
             && t.state_ == target_state::unknown);
@@ -787,13 +780,6 @@ namespace build2
     catch (const failed&)
     {
       ts = t.state_ = target_state::failed;
-    }
-    catch (const std::exception& e)
-    {
-      diag_lock l;
-      *diag_stream << "unhandled exception: " << e << endl;
-      assert (false);
-      abort ();
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
@@ -880,7 +866,7 @@ namespace build2
           //
           if (sched.async (start_count,
                            *task_count,
-                           [a] (target& t, const diag_frame* ds) noexcept
+                           [a] (target& t, const diag_frame* ds)
                            {
                              diag_frame df (ds);
                              execute_impl (a, t);

@@ -306,7 +306,7 @@ namespace build2
 
       template <size_t... i>
       void
-      thunk (std::index_sequence<i...>)
+      thunk (std::index_sequence<i...>) noexcept
       {
         move (func) (std::get<i> (move (args))...);
       }
