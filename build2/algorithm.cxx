@@ -836,6 +836,7 @@ namespace build2
     // Try to atomically change applied to busy. Note that we are in the
     // execution phase so the target shall not be spin-locked.
     //
+    size_t touc (target::count_touched ());
     size_t matc (target::count_matched ());
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
@@ -848,9 +849,9 @@ namespace build2
             memory_order_acq_rel,  // Synchronize on success.
             memory_order_acquire)) // Synchronize on failure.
       {
-        // Overriden match-only or noop recipe.
+        // Overriden touch/match-only or noop recipe.
         //
-        if (tc == matc || t.state_ == target_state::unchanged)
+        if (tc == touc || tc == matc || t.state_ == target_state::unchanged)
         {
           t.state_ = target_state::unchanged;
           t.task_count.store (exec, memory_order_release);
@@ -885,11 +886,11 @@ namespace build2
         if (tc >= busy) return target_state::busy;
         else if (tc != exec)
         {
-          // This can happen is we matched (a noop) recipe which then got
-          // overridden as part of group resolution but not all the way to
+          // This can happen if we touched/matched (a noop) recipe which then
+          // got overridden as part of group resolution but not all the way to
           // applied. In this case we treat it as noop.
           //
-          assert (tc == matc && t.action > a);
+          assert ((tc == touc || tc == matc) && t.action > a);
           continue;
         }
       }
@@ -907,6 +908,7 @@ namespace build2
 
     // Similar logic to match() above.
     //
+    size_t touc (target::count_touched ());
     size_t matc (target::count_matched ());
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
@@ -919,7 +921,7 @@ namespace build2
             memory_order_acq_rel,  // Synchronize on success.
             memory_order_acquire)) // Synchronize on failure.
       {
-        if (tc == matc || t.state_ == target_state::unchanged)
+        if (tc == touc || tc == matc || t.state_ == target_state::unchanged)
         {
           t.state_ = target_state::unchanged;
           t.task_count.store (exec, memory_order_release);
@@ -935,7 +937,7 @@ namespace build2
         if (tc >= busy) sched.wait (exec, t.task_count, scheduler::work_none);
         else if (tc != exec)
         {
-          assert (tc == matc && t.action > a);
+          assert ((tc == touc || tc == matc) && t.action > a);
           continue;
         }
       }
