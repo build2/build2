@@ -485,7 +485,7 @@ namespace build2
       {
         error << "unable to execute " << args[0] << ": " << e;
 
-        if (e.child ())
+        if (e.child)
           exit (1);
 
         throw failed ();
@@ -551,7 +551,7 @@ namespace build2
       {
         error << "unable to execute " << args[0] << ": " << e;
 
-        if (e.child ())
+        if (e.child)
           exit (1);
 
         throw failed ();
@@ -600,7 +600,7 @@ namespace build2
       {
         error << "unable to execute " << args[0] << ": " << e;
 
-        if (e.child ())
+        if (e.child)
           exit (1);
 
         throw failed ();
@@ -756,7 +756,7 @@ namespace build2
           {
             error << "unable to execute " << args[0] << ": " << e;
 
-            if (e.child ())
+            if (e.child)
               exit (1);
 
             throw failed ();
@@ -855,7 +855,7 @@ namespace build2
         {
           error << "unable to execute " << args[0] << ": " << e;
 
-          if (e.child ())
+          if (e.child)
             exit (1);
 
           throw failed ();

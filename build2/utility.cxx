@@ -198,7 +198,7 @@ namespace build2
     }
     catch (const process_error& e)
     {
-      if (e.child ())
+      if (e.child)
       {
         // Note: run_finish() expects this exact message.
         //

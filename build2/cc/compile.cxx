@@ -1461,7 +1461,7 @@ namespace build2
             // it is unwise to try to do any kind of cleanup (like unwinding
             // the stack and running destructors).
             //
-            if (e.child ())
+            if (e.child)
               exit (1);
 
             throw failed ();
@@ -1706,7 +1706,7 @@ namespace build2
         // it is unwise to try to do any kind of cleanup (like unwinding
         // the stack and running destructors).
         //
-        if (e.child ())
+        if (e.child)
           exit (1);
 
         throw failed ();

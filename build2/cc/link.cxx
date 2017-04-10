@@ -1074,7 +1074,7 @@ namespace build2
             {
               error << "unable to execute " << args[0] << ": " << e;
 
-              if (e.child ())
+              if (e.child)
                 exit (1);
 
               throw failed ();
@@ -1597,7 +1597,7 @@ namespace build2
         // it is unwise to try to do any kind of cleanup (like unwinding
         // the stack and running destructors).
         //
-        if (e.child ())
+        if (e.child)
           exit (1);
 
         throw failed ();
@@ -1631,7 +1631,7 @@ namespace build2
         {
           error << "unable to execute " << args[0] << ": " << e;
 
-          if (e.child ())
+          if (e.child)
             exit (1);
 
           throw failed ();

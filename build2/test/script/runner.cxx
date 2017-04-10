@@ -356,7 +356,7 @@ namespace build2
           {
             error (ll) << "unable to execute " << pp << ": " << e;
 
-            if (e.child ())
+            if (e.child)
               exit (1);
 
             throw failed ();
@@ -1494,7 +1494,7 @@ namespace build2
           {
             error (ll) << "unable to execute " << args[0] << ": " << e;
 
-            if (e.child ())
+            if (e.child)
               std::exit (1);
 
             throw failed ();
