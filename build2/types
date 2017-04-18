@@ -220,7 +220,7 @@ namespace build2
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in
-// butl::. The latter is bad idea since libbutl includes the default
+// butl::. The latter is a bad idea since libbutl includes the default
 // implementation. They are defined in utility.cxx.
 //
 namespace std

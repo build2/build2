@@ -93,6 +93,27 @@ namespace build2
       return r;
     };
 
+    // representation
+    //
+    f["representation"] = [](path p)     {return move (p).representation ();};
+    f["representation"] = [](dir_path p) {return move (p).representation ();};
+
+    f["representation"] = [](paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (move (p).representation ());
+      return r;
+    };
+
+    f["representation"] = [](dir_paths v)
+    {
+      strings r;
+      for (auto& p: v)
+        r.push_back (move (p).representation ());
+      return r;
+    };
+
     // canonicalize
     //
     f["canonicalize"] = [](path p) {p.canonicalize (); return p;};
