@@ -6,6 +6,8 @@
 
 #include <cstring>  // strchr()
 
+#include <butl/process-io>
+
 using namespace std;
 
 namespace build2
@@ -21,23 +23,10 @@ namespace build2
     print_process (r, args, n);
   }
 
-  struct process_args
-  {
-    const char* const* a;
-    size_t n;
-  };
-
-  inline static ostream&
-  operator<< (ostream& o, const process_args& p)
-  {
-    process::print (o, p.a, p.n);
-    return o;
-  }
-
   void
   print_process (diag_record& r, const char* const* args, size_t n)
   {
-    r << process_args {args, n};
+    r << butl::process_args {args, n};
   }
 
   // Diagnostics verbosity level.
