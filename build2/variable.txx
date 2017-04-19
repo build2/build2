@@ -557,7 +557,7 @@ namespace build2
   //
   template <typename K>
   pair<value&, ulock> variable_cache<K>::
-  insert (K k, const lookup& stem, size_t ver)
+  insert (K k, const lookup& stem, size_t ver, const variable& var)
   {
     using value_data = variable_map::value_data;
 
@@ -580,7 +580,8 @@ namespace build2
     if (i != m_.end ()               &&
         i->second.version == ver     &&
         i->second.stem_vars == svars &&
-        i->second.stem_version == sver)
+        i->second.stem_version == sver &&
+        (var.type == nullptr || i->second.value.type == var.type))
       return pair<value&, ulock> (i->second.value, move (ul));
 
     // Relock for exclusive access. Note that it is entirely possible
@@ -625,9 +626,14 @@ namespace build2
       e.value.version++; // Value changed.
     }
     else
+    {
       // Cache hit.
       //
+      if (var.type != nullptr && e.value.type != var.type)
+        typify (e.value, *var.type, &var);
+
       ul.unlock ();
+    }
 
     return pair<value&, ulock> (e.value, move (ul));
   }

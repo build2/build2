@@ -50,7 +50,8 @@ namespace build2
         s->target_vars.cache.insert (
           make_tuple (&v, tt, *tn),
           stem,
-          static_cast<const variable_map::value_data&> (v).version));
+          static_cast<const variable_map::value_data&> (v).version,
+          var));
 
       value& cv (entry.first);
 
@@ -404,7 +405,8 @@ namespace build2
       inner_proj->override_cache.insert (
         make_pair (&var, inner_vars),
         stem,
-        0)); // Overrides are immutable.
+        0, // Overrides are immutable.
+        var));
 
     value& cv (entry.first);
     bool cl (entry.second.owns_lock ());

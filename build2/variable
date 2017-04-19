@@ -1208,10 +1208,11 @@ namespace build2
   {
   public:
     // If the returned unique lock is locked, then the value has been
-    // invalidated.
+    // invalidated. If the variable type does not match the value type,
+    // then typify the cached value.
     //
     pair<value&, ulock>
-    insert (K, const lookup& stem, size_t version);
+    insert (K, const lookup& stem, size_t version, const variable&);
 
   private:
     struct entry_type
