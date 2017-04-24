@@ -1534,10 +1534,8 @@ namespace build2
             d << pr << " terminated abnormally" <<
               info << exit->description ();
 
-#ifndef _WIN32
             if (exit->core ())
               d << " (core dumped)";
-#endif
           }
           else
           {
