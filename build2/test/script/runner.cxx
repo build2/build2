@@ -1167,11 +1167,7 @@ namespace build2
             {
               try
               {
-                ifd.reset (fdnull ()); // @@ Eventually will be throwing.
-
-                if (ifd.get () == -1) // @@ TMP
-                  throw io_error (
-                    error_code (errno, generic_category ()).message ());
+                ifd = fdnull ();
               }
               catch (const io_error& e)
               {
@@ -1292,11 +1288,7 @@ namespace build2
             {
               try
               {
-                fd.reset (fdnull ()); // @@ Eventully will be throwing.
-
-                if (fd.get () == -1) // @@ TMP
-                  throw io_error (
-                    error_code (errno, generic_category ()).message ());
+                fd = fdnull ();
               }
               catch (const io_error& e)
               {
