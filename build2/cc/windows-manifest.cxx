@@ -36,9 +36,10 @@ namespace build2
     }
 
     // Generate a Windows manifest and if necessary create/update the manifest
-    // file corresponding to the exe{} target. Return the manifest file path.
+    // file corresponding to the exe{} target. Return the manifest file path
+    // as well as whether it was changed.
     //
-    path link::
+    pair<path, bool> link::
     windows_manifest (const file& t, bool rpath_assembly) const
     {
       tracer trace (x, "link::windows_manifest");
@@ -108,11 +109,11 @@ namespace build2
           getline (ifs, s, '\0');
 
           if (s == m)
-            return mf;
+            return make_pair (move (mf), false);
         }
         catch (const io_error&)
         {
-          // Whatever the reason we failed for , let's rewrite the file.
+          // Whatever the reason we failed for, let's rewrite the file.
         }
       }
 
@@ -130,7 +131,7 @@ namespace build2
         fail << "unable to write to " << m << ": " << e;
       }
 
-      return mf;
+      return make_pair (move (mf), true);
     }
   }
 }

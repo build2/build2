@@ -997,10 +997,12 @@ namespace build2
         if (!for_install)
           rpath_timestamp = windows_rpath_timestamp (t, bs, act, lo);
 
-        path mf (
-          windows_manifest (
-            t,
-            rpath_timestamp != timestamp_nonexistent));
+        pair<path, bool> p (
+          windows_manifest (t,
+                            rpath_timestamp != timestamp_nonexistent));
+
+        path& mf (p.first);
+        bool mf_cf (p.second); // Changed flag (timestamp resolution).
 
         timestamp mf_mt (file_mtime (mf));
 
@@ -1012,7 +1014,7 @@ namespace build2
           //
           manifest = mf + ".o";
 
-          if (mf_mt > file_mtime (manifest))
+          if (mf_mt > file_mtime (manifest) || mf_cf)
           {
             path of (relative (manifest));
 
@@ -1087,7 +1089,7 @@ namespace build2
         {
           manifest = move (mf); // Save for link.exe's /MANIFESTINPUT.
 
-          if (mf_mt > mt)
+          if (mf_mt > mt || mf_cf)
             update = true; // Manifest changed, force update.
         }
       }

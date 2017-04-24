@@ -112,7 +112,7 @@ namespace build2
 
       // Windows-specific (windows-manifest.cxx).
       //
-      path
+      pair<path, bool>
       windows_manifest (const file&, bool rpath_assembly) const;
 
     private:
