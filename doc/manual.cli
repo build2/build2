@@ -246,4 +246,192 @@ A directory target without an explicit target type (for example, \c{foo/}) is
 treated specially. It enables all the tests at and under its directory. This
 special treatment can be inhibited by specifying the target type explicitly
 (for example, \c{dir{foo/\}}).
+
+
+\h1#module-version|Version Module|
+
+A project can use any version format as long as it meets the package version
+requirements. The \c{build2} toolchain also provides additional functionality
+for managing projects that conform to the \i{standard version} format. If you
+are starting a new project that uses \c{build2}, you are strongly encouraged
+to use this versioning scheme since it is based on much thought and
+experience. If you decide not to follow this advice, you are essentially on
+your own when version management is concerned.
+
+The \c{build2} standard project version conforms to \l{http://semver.org
+Semantic Versioning} and has the following form:
+
+\
+<major>.<minor>.<patch>[-<prerel>]
+\
+
+For example:
+
+\
+1.2.3
+1.2.3-a.1
+1.2.3-b.2
+\
+
+The \c{build2} package version that uses the standard project version will
+then have the following form (\i{epoch} is the versioning scheme version
+and \i{revision} is the package revision):
+
+\
+[<epoch>~]<major>.<minor>.<patch>[-<prerel>][+<revision>]
+\
+
+For example:
+
+\
+1.2.3
+1.2.3+1
+1~1.2.3-a.1+2
+\
+
+The \i{major}, \i{minor}, and \i{patch} should be numeric values between 0 and
+999 and all three cannot be zero at the same time. For initial development it
+is recommended to use 0 for \i{major}, start with version \c{0.1.0}, and change
+to \c{1.0.0} once things stabilize.
+
+In the context of C and C++ (or other compiled languages), you should
+increment \i{patch} when making binary-compatible changes, \i{minor} when
+making source-compatible changes, and \i{major} when making breaking changes.
+While the binary compatibility must be set in stone, the source compatibility
+rules can sometimes be bent. For example, you may decide to make a breaking
+change in a rarely used interface as part of a minor release. Note also that
+in the context of C++ deciding whether a change is binary-compatible is a
+non-trivial task. There are resources that list the rules but no automatic
+tooling yet. If unsure, increment \i{minor}.
+
+If present, the \i{prerel} component signifies a pre-release. Two types of
+pre-releases are supported by the standard versioning scheme: \i{final} and
+\i{snapshot} (non-pre-release versions are naturally always final). For final
+pre-releases the \i{prerel} component has the following form:
+
+\
+(a|b).<num>
+\
+
+For example:
+
+\
+1.2.3-a.1
+1.2.3-b.2
+\
+
+The letter '\c{a}' signifies an alpha release and '\c{b}' \- beta. The
+alpha/beta numbers (\i{num}) should be between 1 and 499.
+
+Note that there is no support for release candidates. Instead, it is
+recommended that you use later-stage beta releases for this purpose (and, if
+you wish, call them \"release candidates\" in announcements, etc).
+
+What version should we use during development? The common approach is to
+increment to the next version and use that until the release. This has one
+major drawback: if we publish intermediate snapshots (for example, for
+testing) they will all be indistinguishable both between each other and, even
+worse, from the final release. One way to remedy this is to increment the
+pre-release number before each publications. However, unless automated, this
+will be burdensome and error prone. Also, there is a real possibility of
+running out of version numbers if, for example, we do continuous integration
+by testing (and therefore publishing) each commit.
+
+To address this, the standard versioning scheme supports \i{snapshot
+pre-releases} with the \i{prerel} component having the following form:
+
+\
+(a|b).<num>.<snapsn>[.<snapid>]
+\
+
+For example:
+
+\
+1.2.3-a.1.1422564055.340c0a26a5efed1f
+\
+
+In essence, a snapshot pre-release is after the previous final release but
+before the next (\c{a.1} and, perhaps, \c{a.2} in the above example) and
+is uniquely identified by the snapshot sequence number (\i{snapsn}) and
+snapshot id (\i{snapid}).
+
+The \i{num} component have the same semantics as in the final pre-releases
+except that it can be 0. The \i{snapsn} component should be either the
+special value '\c{z}' or a numeric, non-zero value that increases for
+each subsequent snapshot. The \i{snapid} component, if present, should
+be an alpha-numeric value that uniquely identifies the snapshot. It is
+not required for version comparison (\i{snapsn} should be sufficient)
+and is included for reference.
+
+Where do the snapshot sn and id come from? Normally from the version control
+system. For example, for \c{git}, \i{snapsn} is the commit date (as UNIX
+timestamp) and \i{snapid} is a 16-character abbreviated commit id. As
+discussed below, the \c{build2} \c{version} module extracts all this
+data automatically.
+
+The special '\c{z}' \i{snapsn} value identifies a latest or uncommitted
+snapshot. It is chosen to be greater than any other possible \i{snapsn}
+value and its use is discussed below.
+
+As an illustration of this approach, let's examine how versions change
+during the lifetime of a project:
+
+\
+0.1.0-a.0.z     # development after a.0
+0.1.0-a.1       # pre-release
+0.1.0-a.1.z     # development after a.1
+0.1.0-a.2       # pre-release
+0.1.0-a.2.z     # development after a.2
+0.1.0-b.1       # pre-release
+0.1.0-b.1.z     # development after b.1
+0.1.0           # release
+0.1.1-b.0.z     # development after b.0 (bugfix)
+0.2.0-a.0.z     # development after a.0
+0.1.1           # release (bugfix)
+1.0.0           # release (jumped straight to 1.0.0)
+...
+\
+
+As shown in the above example, there is nothing wrong with \"jumping\" to a
+further version (for example, from alpha to beta, or from beta to release, or
+even from alpha to release). We cannot, however, jump backwards (for example,
+from beta back to alpha). As a result, a sensible strategy is to start with
+\c{a.0} since it can always be upgraded (but not downgrade) at a later stage.
+
+In terms of the version control system, the recommended workflow is as
+follows: The change to the final version should be the last commit in the
+(pre-)release. It is also a good idea to tag this commit with the version. A
+commit immediately after that should change the version to snapshot
+essentially \"opening\" the repository for development.
+
+The project version without the snapshot part can be represented as a 64-bit
+decimal value comparable as integers (for example, in preprocessor
+directives). The integer representation has the following form:
+
+\
+AAABBBCCCDDDE
+
+AAA - major
+BBB - minor
+CCC - patch
+DDD - alpha / beta (DDD + 500)
+E   - final (0) / snapshot (1)
+\
+
+If the \i{DDD} digits are not zero, then they signify a pre-release. In this
+case one is subtracted from the \i{AAABBBCCC} value. An alpha number is stored
+as is while beta \- incremented by 500. If \i{E} is 1, then this is a snapshot
+after \i{DDD}.
+
+For example:
+
+\
+             AAABBBCCCDDDE
+0.1.0        0000010000000
+0.1.2        0000010010000
+1.2.3        0010020030000
+2.2.0-a.1    0020019990010
+3.0.0-b.2    0029999995020
+2.2.0-a.1.z  0020019990011
+\
 "
