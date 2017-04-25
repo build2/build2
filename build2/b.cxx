@@ -17,7 +17,6 @@
 
 #include <build2/types>
 #include <build2/utility>
-#include <build2/version>
 
 #include <build2/spec>
 #include <build2/operation>

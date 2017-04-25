@@ -8,8 +8,6 @@
 
 #include <butl/filesystem> // path_search(), path_match()
 
-#include <build2/version>
-
 #include <build2/file>
 #include <build2/scope>
 #include <build2/module>

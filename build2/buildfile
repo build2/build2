@@ -41,7 +41,7 @@ exe{b}:                                                   \
             {hxx         cxx}{ types-parsers            } \
             {hxx ixx txx cxx}{ utility                  } \
             {hxx ixx txx cxx}{ variable                 } \
-            {hxx            }{ version                  } \
+            {hxx            }{ version-impl             } \
         bin/{hxx         cxx}{ guess                    } \
         bin/{hxx         cxx}{ init                     } \
         bin/{hxx         cxx}{ rule                     } \

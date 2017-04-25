@@ -9,7 +9,6 @@
 #include <build2/rule>
 #include <build2/scope>
 #include <build2/target>
-#include <build2/version>
 #include <build2/diagnostics>
 
 // For command line variable parsing.
