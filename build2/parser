@@ -395,7 +395,7 @@ namespace build2
       //
       if (peeked_)
       {
-        assert (peek_.mode == m && peek_.pair_separator == ps);
+        assert (peek_.mode == m);
         return peek_.token.type;
       }
 
@@ -433,18 +433,6 @@ namespace build2
       {
         assert (replay_i_ != replay_data_.size ());
         return replay_data_[replay_i_].mode;
-      }
-    }
-
-    char
-    pair_separator () const
-    {
-      if (replay_ != replay::play)
-        return lexer_->pair_separator ();
-      else
-      {
-        assert (replay_i_ != replay_data_.size ());
-        return replay_data_[replay_i_].pair_separator;
       }
     }
 
@@ -552,8 +540,7 @@ namespace build2
     lexer_next ()
     {
       lexer_mode m (lexer_->mode ()); // Get it first since it may expire.
-      char ps (lexer_->pair_separator ());
-      return replay_token {lexer_->next (), path_, m, ps};
+      return replay_token {lexer_->next (), path_, m};
     }
 
     const replay_token&

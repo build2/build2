@@ -37,4 +37,7 @@ print foo@{bar BAR} # foo@bar foo@BAR
 
 #print @@           # error: double pair separator
 
+v=foo
+print @"$v"
+
 ./:

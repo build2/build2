@@ -19,7 +19,7 @@ namespace build2
     {
     case token_type::eos:            os << "<end of file>"; break;
     case token_type::newline:        os << "<newline>"; break;
-    case token_type::pair_separator: os << "<pair separator>"; break;
+    case token_type::pair_separator: os << "<pair separator " << t.value[0] << ">"; break;
     case token_type::word:           os << '\'' << t.value << '\''; break;
 
     case token_type::colon:          os << q << ':'  << q; break;

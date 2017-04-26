@@ -119,9 +119,11 @@ namespace build2
     xchar c (get ());
     uint64_t ln (c.line), cn (c.column);
 
-    auto make_token = [&sep, ln, cn] (type t)
+    auto make_token = [&sep, ln, cn] (type t, string v = string ())
     {
-      return token (t, sep, ln, cn, token_printer);
+      return token (t, move (v),
+                    sep, quote_type::unquoted, false,
+                    ln, cn, token_printer);
     };
 
     if (eos (c))
@@ -130,7 +132,7 @@ namespace build2
     // Handle pair separator.
     //
     if (c == st.sep_pair)
-      return make_token (type::pair_separator);
+      return make_token (type::pair_separator, string (1, c));
 
     switch (c)
     {
@@ -232,9 +234,11 @@ namespace build2
 
     uint64_t ln (c.line), cn (c.column);
 
-    auto make_token = [sep, ln, cn] (type t)
+    auto make_token = [sep, ln, cn] (type t, string v = string ())
     {
-      return token (t, sep, ln, cn, token_printer);
+      return token (t, move (v),
+                    sep, quote_type::unquoted, false,
+                    ln, cn, token_printer);
     };
 
     // This mode is quite a bit like the value mode when it comes to special
@@ -244,7 +248,7 @@ namespace build2
     // Handle pair separator.
     //
     if (c == st.sep_pair)
-      return make_token (type::pair_separator);
+      return make_token (type::pair_separator, string (1, c));
 
     // Note: we don't treat [ and ] as special here. Maybe can use them for
     // something later.

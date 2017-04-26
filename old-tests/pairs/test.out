@@ -25,3 +25,4 @@ foo@{}
 {}@bar {}@BAR
 {}@bar {}@BAR
 foo@bar foo@BAR
+{}@foo

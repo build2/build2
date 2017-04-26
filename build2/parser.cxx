@@ -3585,7 +3585,7 @@ namespace build2
             fail (t) << "multiple " << what << "s on the left hand side "
                      << "of a pair";
 
-          ns.back ().pair = pair_separator ();
+          ns.back ().pair = t.value[0];
 
           // If the next token is separated, then we have an empty RHS. Note
           // that the case where it is not a name/group (e.g., a newline/eos)
