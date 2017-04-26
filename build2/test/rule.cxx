@@ -589,7 +589,8 @@ namespace build2
       // Redirect stdout to a pipe unless we are last.
       //
       int out (*next != nullptr ? -1 : 1);
-      bool pr, wr;
+      bool pr;
+      process_exit pe;
 
       try
       {
@@ -599,7 +600,10 @@ namespace build2
           //
           process p (args, 0, out);
           pr = *next == nullptr || run_test (t, dr, next, &p);
-          wr = p.wait ();
+          p.wait ();
+
+          assert (p.exit);
+          pe = *p.exit;
         }
         else
         {
@@ -607,7 +611,10 @@ namespace build2
           //
           process p (args, *prev, out);
           pr = *next == nullptr || run_test (t, dr, next, &p);
-          wr = p.wait ();
+          p.wait ();
+
+          assert (p.exit);
+          pe = *p.exit;
         }
       }
       catch (const process_error& e)
@@ -620,13 +627,28 @@ namespace build2
         throw failed ();
       }
 
+      bool wr (pe.normal () && pe.code () == 0);
+
       if (!wr)
       {
         if (pr) // First failure?
           dr << fail << "test " << t << " failed"; // Multi test: test 1.
 
-        dr << error << "non-zero exit status: ";
-        print_process (dr, args);
+        if (!pe.normal ())
+        {
+          dr << error << "terminated abnormally: ";
+          print_process (dr, args);
+
+          dr << info << pe.description ();
+          if (pe.core ())
+            dr << " (core dumped)";
+        }
+        else
+        {
+          dr << error << "exit status " << static_cast<uint16_t> (pe.code ())
+             << ": ";
+          print_process (dr, args);
+        }
       }
 
       return pr && wr;
