@@ -634,21 +634,18 @@ namespace build2
         if (pr) // First failure?
           dr << fail << "test " << t << " failed"; // Multi test: test 1.
 
+        dr << error;
+        print_process (dr, args);
+
         if (!pe.normal ())
         {
-          dr << error;
-          print_process (dr, args);
           dr << " terminated abnormally: " << pe.description ();
 
           if (pe.core ())
             dr << " (core dumped)";
         }
         else
-        {
-          dr << error;
-          print_process (dr, args);
           dr << " exited with code " << static_cast<uint16_t> (pe.code ());
-        }
       }
 
       return pr && wr;

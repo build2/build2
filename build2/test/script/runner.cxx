@@ -342,22 +342,19 @@ namespace build2
             //
             if (!pe.normal () || pe.code () > 1)
             {
-              diag_record dr (fail (ll));
+              diag_record d (fail (ll));
+              print_process (d, args);
 
               if (!pe.normal ())
               {
-                print_process (dr, args);
-                dr << " terminated abnormally: " << pe.description ();
+                d << " terminated abnormally: " << pe.description ();
 
                 if (pe.core ())
-                  dr << " (core dumped)";
+                  d << " (core dumped)";
               }
               else
-              {
-                print_process (dr, args);
-                dr << " exited with code "
-                   << static_cast<uint16_t> (pe.code ());
-              }
+                d << " exited with code "
+                  << static_cast<uint16_t> (pe.code ());
             }
 
             // Output doesn't match the expected result.
