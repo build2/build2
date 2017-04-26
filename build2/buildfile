@@ -73,6 +73,7 @@ exe{b}:                                                   \
         cxx/{hxx         cxx}{ init                     } \
         cxx/{hxx         cxx}{ target                   } \
        dist/{hxx         cxx}{ init                     } \
+       dist/{hxx         cxx}{ module                   } \
        dist/{hxx         cxx}{ operation                } \
        dist/{hxx         cxx}{ rule                     } \
   pkgconfig/{hxx         cxx}{ init                     } \
@@ -93,6 +94,11 @@ test/script/{hxx ixx     cxx}{ regex                    } \
 test/script/{hxx         cxx}{ runner                   } \
 test/script/{hxx ixx     cxx}{ script                   } \
 test/script/{hxx         cxx}{ token                    } \
+    version/{hxx         cxx}{ init                     } \
+    version/{hxx         cxx}{ module                   } \
+    version/{hxx         cxx}{ rule                     } \
+    version/{hxx         cxx}{ snapshot                 } \
+    version/{            cxx}{ snapshot-git             } \
                                liba{b} $libs
 
 #\

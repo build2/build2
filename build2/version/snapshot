@@ -1,0 +1,33 @@
+// file      : build2/version/snapshot -*- C++ -*-
+// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_VERSION_SNAPSHOT
+#define BUILD2_VERSION_SNAPSHOT
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <build2/scope>
+
+namespace build2
+{
+  namespace version
+  {
+    struct snapshot
+    {
+      uint64_t sn = 0;
+      string id;
+
+      bool
+      empty () const {return sn == 0;}
+    };
+
+    // Return empty snapshot if unknown scm or uncommitted.
+    //
+    snapshot
+    extract_snapshot (const scope& rs);
+  }
+}
+
+#endif // BUILD2_VERSION_SNAPSHOT

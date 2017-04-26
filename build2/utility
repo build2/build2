@@ -173,80 +173,83 @@ namespace build2
   // is false and the program exits with the non-zero status, then an empty T
   // instance is returned).
   //
-  // If checksum is not NULL, then feed it the content of each line.
+  // If checksum is not NULL, then feed it the content of each tripped line
+  // (including those that come after the callback returns non-empty object).
   //
-  template <typename T>
+  template <typename T, typename F>
   T
   run (const process_path&,
        const char* args[],
-       T (*) (string&),
+       F&&,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr);
 
-  template <typename T>
+  template <typename T, typename F>
   inline T
   run (const char* args[],
-       T (*f) (string&),
+       F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
-    return run<T> (run_search (args[0]), args, f, error, ignore_exit, checksum);
+    return run<T> (
+      run_search (
+        args[0]), args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // run <prog>
   //
-  template <typename T>
+  template <typename T, typename F>
   inline T
   run (const path& prog,
-       T (*f) (string&),
+       F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), nullptr};
-    return run<T> (args, f, error, ignore_exit, checksum);
+    return run<T> (args, forward<F> (f), error, ignore_exit, checksum);
   }
 
-  template <typename T>
+  template <typename T, typename F>
   inline T
   run (const process_path& pp,
-       T (*f) (string&),
+       F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     const char* args[] = {pp.recall_string (), nullptr};
-    return run<T> (pp, args, f, error, ignore_exit, checksum);
+    return run<T> (pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // run <prog> <arg>
   //
-  template <typename T>
+  template <typename T, typename F>
   inline T
   run (const path& prog,
        const char* arg,
-       T (*f) (string&),
+       F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), arg, nullptr};
-    return run<T> (args, f, error, ignore_exit, checksum);
+    return run<T> (args, forward<F> (f), error, ignore_exit, checksum);
   }
 
-  template <typename T>
+  template <typename T, typename F>
   inline T
   run (const process_path& pp,
        const char* arg,
-       T (*f) (string&),
+       F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
     const char* args[] = {pp.recall_string (), arg, nullptr};
-    return run<T> (pp, args, f, error, ignore_exit, checksum);
+    return run<T> (pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // Empty string and path.

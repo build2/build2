@@ -29,11 +29,11 @@ namespace build2
     return p;
   }
 
-  template <typename T>
+  template <typename T, typename F>
   T
   run (const process_path& pp,
        const char* args[],
-       T (*f) (string&),
+       F&& f,
        bool err,
        bool ignore_exit,
        sha256* checksum)
@@ -45,7 +45,7 @@ namespace build2
 
     try
     {
-      ifdstream is (move (pr.in_ofd));
+      ifdstream is (move (pr.in_ofd), butl::fdstream_mode::skip);
 
       while (is.peek () != ifdstream::traits_type::eof () && // Keep last line.
              getline (is, l))
@@ -56,8 +56,15 @@ namespace build2
           checksum->append (l);
 
         if (r.empty ())
+        {
           r = f (l);
+
+          if (!r.empty () && checksum == nullptr)
+            break;
+        }
       }
+
+      is.close ();
     }
     catch (const io_error&)
     {

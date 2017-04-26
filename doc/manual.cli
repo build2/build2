@@ -251,14 +251,14 @@ special treatment can be inhibited by specifying the target type explicitly
 \h1#module-version|Version Module|
 
 A project can use any version format as long as it meets the package version
-requirements. The \c{build2} toolchain also provides additional functionality
-for managing projects that conform to the \i{standard version} format. If you
-are starting a new project that uses \c{build2}, you are strongly encouraged
-to use this versioning scheme since it is based on much thought and
-experience. If you decide not to follow this advice, you are essentially on
-your own when version management is concerned.
+requirements. The toolchain also provides additional functionality for
+managing projects that conform to the \c{build2} \i{standard version}
+format. If you are starting a new project that uses \c{build2}, you are
+strongly encouraged to use this versioning scheme. It is based on much thought
+and, often painful, experience. If you decide not to follow this advice, you
+are essentially on your own when version management is concerned.
 
-The \c{build2} standard project version conforms to \l{http://semver.org
+The standard \c{build2} project version conforms to \l{http://semver.org
 Semantic Versioning} and has the following form:
 
 \
@@ -301,7 +301,7 @@ While the binary compatibility must be set in stone, the source compatibility
 rules can sometimes be bent. For example, you may decide to make a breaking
 change in a rarely used interface as part of a minor release. Note also that
 in the context of C++ deciding whether a change is binary-compatible is a
-non-trivial task. There are resources that list the rules but no automatic
+non-trivial task. There are resources that list the rules but no automated
 tooling yet. If unsure, increment \i{minor}.
 
 If present, the \i{prerel} component signifies a pre-release. Two types of
@@ -327,13 +327,13 @@ Note that there is no support for release candidates. Instead, it is
 recommended that you use later-stage beta releases for this purpose (and, if
 you wish, call them \"release candidates\" in announcements, etc).
 
-What version should we use during development? The common approach is to
+What version should be used during development? The common approach is to
 increment to the next version and use that until the release. This has one
 major drawback: if we publish intermediate snapshots (for example, for
 testing) they will all be indistinguishable both between each other and, even
 worse, from the final release. One way to remedy this is to increment the
-pre-release number before each publications. However, unless automated, this
-will be burdensome and error prone. Also, there is a real possibility of
+pre-release number before each publication. However, unless automated, this
+will be burdensome and error-prone. Also, there is a real possibility of
 running out of version numbers if, for example, we do continuous integration
 by testing (and therefore publishing) each commit.
 
@@ -355,23 +355,24 @@ before the next (\c{a.1} and, perhaps, \c{a.2} in the above example) and
 is uniquely identified by the snapshot sequence number (\i{snapsn}) and
 snapshot id (\i{snapid}).
 
-The \i{num} component have the same semantics as in the final pre-releases
-except that it can be 0. The \i{snapsn} component should be either the
-special value '\c{z}' or a numeric, non-zero value that increases for
-each subsequent snapshot. The \i{snapid} component, if present, should
-be an alpha-numeric value that uniquely identifies the snapshot. It is
-not required for version comparison (\i{snapsn} should be sufficient)
-and is included for reference.
+The \i{num} component has the same semantics as in the final pre-releases
+except that it can be 0. The \i{snapsn} component should be either the special
+value '\c{z}' or a numeric, non-zero value that increases for each subsequent
+snapshot. It must fit into an unsigned 64-bit integer. The \i{snapid}
+component, if present, should be an alpha-numeric value that uniquely
+identifies the snapshot. It is not required for version comparison (\i{snapsn}
+should be sufficient) and is included for reference. It must not be longer
+than 16 characters.
 
 Where do the snapshot sn and id come from? Normally from the version control
 system. For example, for \c{git}, \i{snapsn} is the commit date (as UNIX
-timestamp) and \i{snapid} is a 16-character abbreviated commit id. As
-discussed below, the \c{build2} \c{version} module extracts all this
-data automatically.
+timestamp in the UTC timezone) and \i{snapid} is a 16-character abbreviated
+commit id. As discussed below, the \c{build2} \c{version} module extracts
+and manages all this information automatically.
 
-The special '\c{z}' \i{snapsn} value identifies a latest or uncommitted
-snapshot. It is chosen to be greater than any other possible \i{snapsn}
-value and its use is discussed below.
+The special '\c{z}' \i{snapsn} value identifies the \i{latest} or
+\i{uncommitted} snapshot. It is chosen to be greater than any other possible
+\i{snapsn} value and its use is discussed further below.
 
 As an illustration of this approach, let's examine how versions change
 during the lifetime of a project:
@@ -398,11 +399,11 @@ even from alpha to release). We cannot, however, jump backwards (for example,
 from beta back to alpha). As a result, a sensible strategy is to start with
 \c{a.0} since it can always be upgraded (but not downgrade) at a later stage.
 
-In terms of the version control system, the recommended workflow is as
+When it comes to the version control systems, the recommended workflow is as
 follows: The change to the final version should be the last commit in the
-(pre-)release. It is also a good idea to tag this commit with the version. A
-commit immediately after that should change the version to snapshot
-essentially \"opening\" the repository for development.
+(pre-)release. It is also a good idea to tag this commit with the project
+version. A commit immediately after that should change the version to a
+snapshot essentially \"opening\" the repository for development.
 
 The project version without the snapshot part can be represented as a 64-bit
 decimal value comparable as integers (for example, in preprocessor
@@ -434,4 +435,61 @@ For example:
 3.0.0-b.2    0029999995020
 2.2.0-a.1.z  0020019990011
 \
+
+A project that uses standard versioning can rely on the \c{build2} \c{version}
+module to simplify and automate version managements. The \c{version} module
+has two primary functions: eliminate the need to change the version anywhere
+except in the project's manifest file and automatically extract and propagate
+the snapshot information (serial number and id).
+
+The \c{version} module must be loaded in the project's \c{bootstrap.build}.
+While being loaded, it reads the project's manifest and extracts its version
+(which must be in the standard form). The version is then parsed and presented
+as the following build system variables (which can be used in the buildfiles):
+
+\
+[string] version                     # 2~1.2.3-b.4.1234567.deadbeef+3
+
+[string] version.project             # 1.2.3-b.4.1234567.deadbeef
+[uint64] version.project_number      # 0010020025041
+[string] version.project_id          # 1.2.3-b.4.deadbeef
+
+[uint64] version.epoch               # 2
+
+[uint64] version.major               # 1
+[uint64] version.minor               # 2
+[uint64] version.patch               # 3
+
+[bool]   version.alpha               # false
+[bool]   version.beta                # true
+[bool]   version.pre_release         # true
+[string] version.pre_release_string  # b.4
+[uint64] version.pre_release_number  # 4
+
+[bool]   version.snapshot            # true
+[uint64] version.snapshot_sn         # 1234567
+[string] version.snapshot_id         # deadbeef
+[string] version.snapshot_string     # 1234567.deadbeef
+
+[uint64] version.revision            # 3
+\
+
+If the version is the latest snapshot (that is, it's in the \c{.z} form), then
+the \c{version} module extracts the snapshot information from the version
+control system used by the project. Currently only \c{git} is supported with
+the following semantics.
+
+If the project's source directory (\c{src_root}) is clean (that is, it does
+not have any changed or untracked files), then the \c{HEAD} commit date and
+id are used as the snapshot sn and id, respectively. Otherwise, the snapshot
+is left in the \c{.z} form (which signals the latest/uncommitted
+snapshot). While we can work with such a \c{.z} snapshot locally, preparing a
+distribution of such an uncommitted snapshot is an error.
+
+When we prepare a distribution of a snapshot, the \c{version} module
+automatically adjusts the package name to include the snapshot information as
+well as patches the manifest file in the distribution with the snapshot sn and
+id (that is, replacing \c{.z} in the version value with the actual snapshot
+information). The result is a package that is specific to this commit.
+
 "

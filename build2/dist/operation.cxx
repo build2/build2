@@ -4,6 +4,8 @@
 
 #include <build2/dist/operation>
 
+#include <butl/filesystem> // path_match()
+
 #include <build2/file>
 #include <build2/dump>
 #include <build2/scope>
@@ -12,6 +14,8 @@
 #include <build2/algorithm>
 #include <build2/filesystem>
 #include <build2/diagnostics>
+
+#include <build2/dist/module>
 
 using namespace std;
 using namespace butl;
@@ -27,7 +31,9 @@ namespace build2
 
     // install <file> <dir>
     //
-    static void
+    // Return the destination file path.
+    //
+    static path
     install (const process_path& cmd, const file&, const dir_path&);
 
     // cd <root> && tar|zip ... <dir>/<pkg>.<ext> <pkg>
@@ -286,23 +292,49 @@ namespace build2
 
       install (dist_cmd, td);
 
-      // Copy over all the files.
+      // Copy over all the files. Apply post-processing callbacks.
       //
+      module& mod (*rs->modules.lookup<module> (module::name));
+
       for (const void* v: files)
       {
         const file& t (*static_cast<const file*> (v));
 
         // Figure out where this file is inside the target directory.
         //
+        bool src (t.dir.sub (src_root));
+
         dir_path d (td);
-        d /= t.dir.sub (src_root)
+        d /= src
           ? t.dir.leaf (src_root)
           : t.dir.leaf (out_root);
 
         if (!exists (d))
           install (dist_cmd, d);
 
-        install (dist_cmd, t, d);
+        path r (install (dist_cmd, t, d));
+
+        for (module::callback cb: mod.callbacks_)
+        {
+          const path& pat (cb.pattern);
+
+          // If we have a directory, then it should be relative to the project
+          // root.
+          //
+          if (!pat.simple ())
+          {
+            assert (pat.relative ());
+
+            dir_path d ((src ? src_root : out_root) / pat.directory ());
+            d.normalize ();
+
+            if (d != t.dir)
+              continue;
+          }
+
+          if (path_match (pat.leaf ().string (), t.path ().leaf ().string ()))
+            cb.function (r, *rs, cb.data);
+        }
       }
 
       // Archive if requested.
@@ -367,7 +399,7 @@ namespace build2
 
     // install <file> <dir>
     //
-    static void
+    static path
     install (const process_path& cmd, const file& t, const dir_path& d)
     {
       dir_path reld (relative (d));
@@ -417,6 +449,8 @@ namespace build2
 
         throw failed ();
       }
+
+      return d / relf.leaf ();
     }
 
     static void

@@ -11,6 +11,7 @@
 #include <build2/config/utility>
 
 #include <build2/dist/rule>
+#include <build2/dist/module>
 #include <build2/dist/operation>
 
 using namespace std;
@@ -23,7 +24,7 @@ namespace build2
     static const rule rule_;
 
     void
-    boot (scope& rs, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
     {
       tracer trace ("dist::boot");
 
@@ -36,30 +37,33 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build (which is customary for, e.g., dist.package).
       //
-      {
-        auto& v (var_pool.rw (rs));
+      auto& vp (var_pool.rw (rs));
 
-        // Note: some overridable, some not.
-        //
-        // config.dist.archives is a list of archive extensions that can be
-        // optionally prefixed with a directory. If it is relative, then it is
-        // prefixed with config.dist.root. Otherwise, the archive is written
-        // to the absolute location.
-        //
-        v.insert<abs_dir_path> ("config.dist.root",     true);
-        v.insert<paths>        ("config.dist.archives", true);
-        v.insert<path>         ("config.dist.cmd",      true);
+      // Note: some overridable, some not.
+      //
+      // config.dist.archives is a list of archive extensions that can be
+      // optionally prefixed with a directory. If it is relative, then it is
+      // prefixed with config.dist.root. Otherwise, the archive is written
+      // to the absolute location.
+      //
+      vp.insert<abs_dir_path> ("config.dist.root",     true);
+      vp.insert<paths>        ("config.dist.archives", true);
+      vp.insert<path>         ("config.dist.cmd",      true);
 
-        v.insert<dir_path>     ("dist.root");
-        v.insert<process_path> ("dist.cmd");
-        v.insert<paths>        ("dist.archives");
+      vp.insert<dir_path>     ("dist.root");
+      vp.insert<process_path> ("dist.cmd");
+      vp.insert<paths>        ("dist.archives");
 
-        v.insert<bool> ("dist", variable_visibility::target); // Flag.
+      vp.insert<bool> ("dist", variable_visibility::target); // Flag.
 
-        // Project's package name.
-        //
-        v.insert<string> ("dist.package", variable_visibility::project);
-      }
+      // Project's package name.
+      //
+      auto& v_d_p (
+        vp.insert<string> ("dist.package", variable_visibility::project));
+
+      // Create the module.
+      //
+      mod.reset (new module (v_d_p));
     }
 
     bool

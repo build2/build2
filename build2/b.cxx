@@ -49,6 +49,7 @@ using namespace std;
 #include <build2/test/init>
 #include <build2/install/init>
 #include <build2/pkgconfig/init>
+#include <build2/version/init>
 
 namespace build2
 {
@@ -292,6 +293,7 @@ main (int argc, char* argv[])
       bm["dist"]    = mf {&dist::boot, &dist::init};
       bm["test"]    = mf {&test::boot, &test::init};
       bm["install"] = mf {&install::boot, &install::init};
+      bm["version"] = mf {&version::boot, &version::init};
 
       bm["bin.vars"] = mf {nullptr, &bin::vars_init};
       bm["bin.config"] = mf {nullptr, &bin::config_init};

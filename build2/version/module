@@ -1,0 +1,32 @@
+// file      : build2/version/module -*- C++ -*-
+// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BUILD2_VERSION_MODULE
+#define BUILD2_VERSION_MODULE
+
+#include <build2/types>
+#include <build2/utility>
+
+#include <butl/standard-version>
+
+#include <build2/module>
+
+namespace build2
+{
+  namespace version
+  {
+    struct module: module_base
+    {
+      static const string name;
+
+      butl::standard_version version;
+      bool version_patched;           // True if snapshot was patched in.
+
+      module (butl::standard_version v, bool vp)
+          : version (move (v)), version_patched (vp) {}
+    };
+  }
+}
+
+#endif // BUILD2_VERSION_MODULE
