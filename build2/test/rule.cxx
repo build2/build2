@@ -636,18 +636,18 @@ namespace build2
 
         if (!pe.normal ())
         {
-          dr << error << "terminated abnormally: ";
+          dr << error;
           print_process (dr, args);
+          dr << " terminated abnormally: " << pe.description ();
 
-          dr << info << pe.description ();
           if (pe.core ())
             dr << " (core dumped)";
         }
         else
         {
-          dr << error << "exit status " << static_cast<uint16_t> (pe.code ())
-             << ": ";
+          dr << error;
           print_process (dr, args);
+          dr << " exited with code " << static_cast<uint16_t> (pe.code ());
         }
       }
 

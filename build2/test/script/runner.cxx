@@ -337,28 +337,26 @@ namespace build2
             assert (p.exit);
             const process_exit& pe (*p.exit);
 
-            // Note that both POSIX and GNU diff utilities report error
-            // exiting with the code > 1.
+            // Note that both POSIX and GNU diff report error by exiting with
+            // the code > 1.
             //
             if (!pe.normal () || pe.code () > 1)
             {
-              diag_record d (fail (ll));
+              diag_record dr (fail (ll));
 
               if (!pe.normal ())
               {
-                d << pp << " terminated abnormally: ";
-                print_process (d, args);
+                print_process (dr, args);
+                dr << " terminated abnormally: " << pe.description ();
 
-                d << info << pe.description ();
                 if (pe.core ())
-                  d << " (core dumped)";
+                  dr << " (core dumped)";
               }
               else
               {
-                d << pp << " exit status "
-                  << static_cast<uint16_t> (pe.code ()) << ": ";
-
-                print_process (d, args);
+                print_process (dr, args);
+                dr << " exited with code "
+                   << static_cast<uint16_t> (pe.code ());
               }
             }
 
