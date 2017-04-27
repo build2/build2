@@ -53,8 +53,8 @@ namespace build2
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
-      t.a = a ? &search<liba> (t.dir, t.out, t.name) : nullptr;
-      t.s = s ? &search<libs> (t.dir, t.out, t.name) : nullptr;
+      t.a = a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
+      t.s = s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
 
       match_result mr (true);
 

@@ -18,7 +18,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
-      &search_target,
+      &target_search,
       false
     };
 
@@ -33,7 +33,7 @@ namespace build2
       &target_extension_var<ext_var, h_ext_def>,
       &target_pattern_var<ext_var, h_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -46,7 +46,7 @@ namespace build2
       &target_extension_var<ext_var, c_ext_def>,
       &target_pattern_var<ext_var, c_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
   }

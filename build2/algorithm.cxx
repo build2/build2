@@ -20,7 +20,7 @@ using namespace butl;
 namespace build2
 {
   const target&
-  search (const prerequisite_key& pk)
+  search (const target& t, const prerequisite_key& pk)
   {
     assert (phase == run_phase::match);
 
@@ -30,14 +30,14 @@ namespace build2
     if (pk.proj)
       return import (pk);
 
-    if (const target* t = pk.tk.type->search (pk))
-      return *t;
+    if (const target* pt = pk.tk.type->search (t, pk))
+      return *pt;
 
     return create_new_target (pk);
   }
 
   const target&
-  search (name n, const scope& s)
+  search (const target& t, name n, const scope& s)
   {
     assert (phase == run_phase::match);
 
@@ -53,7 +53,8 @@ namespace build2
     // @@ OUT: for now we assume the prerequisite's out is undetermined.
     //         Would need to pass a pair of names.
     //
-    return search (*tt,
+    return search (t,
+                   *tt,
                    n.dir,
                    dir_path (),
                    n.value,
@@ -634,7 +635,7 @@ namespace build2
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
     {
-      const target& pt (search (p));
+      const target& pt (search (t, p));
 
       if (s != nullptr && !pt.in (*s))
         continue;
@@ -733,7 +734,7 @@ namespace build2
     // Target is in the out tree, so out directory is empty.
     //
     const fsdir* r (
-      &search<fsdir> (d, dir_path (), string (), nullptr, nullptr));
+      &search<fsdir> (t, d, dir_path (), string (), nullptr, nullptr));
     match (a, *r);
     t.prerequisite_targets.emplace_back (r);
     return r;

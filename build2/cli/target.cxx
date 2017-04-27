@@ -24,7 +24,7 @@ namespace build2
       &target_extension_var<cli_ext_var, cli_ext_def>,
       &target_pattern_var<cli_ext_var, cli_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -70,7 +70,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
-      &search_target,
+      &target_search,
       true // "See through" default iteration mode.
     };
   }

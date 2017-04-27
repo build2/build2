@@ -608,7 +608,7 @@ namespace build2
   //
 
   const target*
-  search_target (const prerequisite_key& pk)
+  target_search (const target&, const prerequisite_key& pk)
   {
     // The default behavior is to look for an existing target in the
     // prerequisite's directory scope.
@@ -617,7 +617,7 @@ namespace build2
   }
 
   const target*
-  search_file (const prerequisite_key& pk)
+  file_search (const target&, const prerequisite_key& pk)
   {
     // First see if there is an existing target.
     //
@@ -667,7 +667,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
-    &search_target,
+    &target_search,
     false
   };
 
@@ -679,7 +679,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
-    &search_target,
+    &target_search,
     false
   };
 
@@ -691,7 +691,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
-    &search_target,
+    &target_search,
     false
   };
 
@@ -726,12 +726,12 @@ namespace build2
     &target_extension_var<file_ext_var, file_ext_def>,
     &target_pattern_var<file_ext_var, file_ext_def>,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
-    &search_file,
+    &file_search,
     false
   };
 
   static const target*
-  search_alias (const prerequisite_key& pk)
+  alias_search (const target&, const prerequisite_key& pk)
   {
     // For an alias we don't want to silently create a target since it will do
     // nothing and it most likely not what the user intended.
@@ -752,14 +752,14 @@ namespace build2
     nullptr, // Extension not used.
     nullptr,
     nullptr,
-    &search_alias,
+    &alias_search,
     false
   };
 
   static const target*
-  dir_target_search (const prerequisite_key& pk)
+  dir_search (const target&, const prerequisite_key& pk)
   {
-    tracer trace ("dir_target_search");
+    tracer trace ("dir_search");
 
     // The first step is like in search_alias(): looks for an existing target.
     //
@@ -853,7 +853,7 @@ namespace build2
   }
 
   static bool
-  dir_target_pattern (const target_type&, const scope&, string& v, bool r)
+  dir_pattern (const target_type&, const scope&, string& v, bool r)
   {
     // Add/strip trailing directory separator unless already there.
     //
@@ -879,9 +879,9 @@ namespace build2
     &alias::static_type,
     &target_factory<dir>,
     nullptr,              // Extension not used.
-    &dir_target_pattern,
+    &dir_pattern,
     nullptr,
-    &dir_target_search,
+    &dir_search,
     false
   };
 
@@ -891,9 +891,9 @@ namespace build2
     &target::static_type,
     &target_factory<fsdir>,
     nullptr,              // Extension not used.
-    &dir_target_pattern,
+    &dir_pattern,
     nullptr,
-    &search_target,
+    &target_search,
     false
   };
 
@@ -948,7 +948,7 @@ namespace build2
     nullptr,
 #endif
     nullptr,
-    &search_file,
+    &file_search,
     false
   };
 
@@ -1004,7 +1004,7 @@ namespace build2
     &buildfile_target_extension,
     &buildfile_target_pattern,
     nullptr,
-    &search_file,
+    &file_search,
     false
   };
 
@@ -1016,7 +1016,7 @@ namespace build2
     &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
     &target_pattern_var<file_ext_var, file_ext_def>,   // Same as file.
     &target_print_1_ext_verb, // Same as file.
-    &search_file,
+    &file_search,
     false
   };
 
@@ -1041,7 +1041,7 @@ namespace build2
     &target_extension_null, // Should be specified explicitly (see factory).
     nullptr,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
-    &search_file,
+    &file_search,
     false
   };
 
@@ -1055,7 +1055,7 @@ namespace build2
     &target_extension_fix<man1_ext>,
     &target_pattern_fix<man1_ext>,
     &target_print_0_ext_verb, // Fixed extension, no use printing.
-    &search_file,
+    &file_search,
     false
   };
 }

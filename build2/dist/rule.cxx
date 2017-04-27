@@ -36,7 +36,7 @@ namespace build2
         if (p.proj ())
           continue;
 
-        const target& pt (p.search ());
+        const target& pt (p.search (t));
 
         // Don't match targets that are outside of our project.
         //

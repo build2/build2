@@ -30,7 +30,7 @@ namespace build2
   extern size_t current_on; // From <build/context>.
 
   const target&
-  search (const prerequisite&); // From <build2/algorithm>.
+  search (const target&, const prerequisite&); // From <build2/algorithm>.
 
   // Target state.
   //
@@ -877,9 +877,9 @@ namespace build2
     }
 
     const target_type&
-    search () const
+    search (const target_type& t) const
     {
-      return target != nullptr ? *target : build2::search (prerequisite);
+      return target != nullptr ? *target : build2::search (t, prerequisite);
     }
 
     // Return as a new prerequisite instance.
@@ -939,17 +939,21 @@ namespace build2
 
   template <typename R>
   inline prerequisite_members_range<R>
-  prerequisite_members (action a, R&& r, members_mode m = members_mode::always)
+  prerequisite_members (action a, const target& t,
+                        R&& r,
+                        members_mode m = members_mode::always)
   {
-    return prerequisite_members_range<R> (a, forward<R> (r), m);
+    return prerequisite_members_range<R> (a, t, forward<R> (r), m);
   }
 
   template <typename R>
   class prerequisite_members_range
   {
   public:
-    prerequisite_members_range (action a, R&& r, members_mode m)
-        : a_ (a), mode_ (m), r_ (forward<R> (r)), e_ (r_.end ()) {}
+    prerequisite_members_range (action a, const target& t,
+                                R&& r,
+                                members_mode m)
+        : a_ (a), t_ (t), mode_ (m), r_ (forward<R> (r)), e_ (r_.end ()) {}
 
     using base_iterator = decltype (declval<R> ().begin ());
 
@@ -1057,6 +1061,7 @@ namespace build2
 
   private:
     action a_;
+    const target& t_;
     members_mode mode_;
     R r_;
     base_iterator e_;
@@ -1068,14 +1073,14 @@ namespace build2
   prerequisite_members (action a, target& t,
                         members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, t.prerequisites (), m);
+    return prerequisite_members (a, t, t.prerequisites (), m);
   }
 
   inline auto
   prerequisite_members (action a, const target& t,
                         members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, t.prerequisites (), m);
+    return prerequisite_members (a, t, t.prerequisites (), m);
   }
 
   // prerequisite_members(reverse_iterate(t.prerequisites))
@@ -1084,14 +1089,14 @@ namespace build2
   reverse_prerequisite_members (action a, target& t,
                                 members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
+    return prerequisite_members (a, t, reverse_iterate (t.prerequisites ()), m);
   }
 
   inline auto
   reverse_prerequisite_members (action a, const target& t,
                                 members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, reverse_iterate (t.prerequisites ()), m);
+    return prerequisite_members (a, t, reverse_iterate (t.prerequisites ()), m);
   }
 
   // prerequisite_members(group_prerequisites (t))
@@ -1100,14 +1105,14 @@ namespace build2
   group_prerequisite_members (action a, target& t,
                               members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, group_prerequisites (t), m);
+    return prerequisite_members (a, t, group_prerequisites (t), m);
   }
 
   inline auto
   group_prerequisite_members (action a, const target& t,
                               members_mode m = members_mode::always)
   {
-    return prerequisite_members (a, group_prerequisites (t), m);
+    return prerequisite_members (a, t, group_prerequisites (t), m);
   }
 
   // prerequisite_members(reverse_iterate (group_prerequisites (t)))
@@ -1117,7 +1122,7 @@ namespace build2
                                       members_mode m = members_mode::always)
   {
     return prerequisite_members (
-      a, reverse_iterate (group_prerequisites (t)), m);
+      a, t, reverse_iterate (group_prerequisites (t)), m);
   }
 
   inline auto
@@ -1125,7 +1130,7 @@ namespace build2
                                       members_mode m = members_mode::always)
   {
     return prerequisite_members (
-      a, reverse_iterate (group_prerequisites (t)), m);
+      a, t, reverse_iterate (group_prerequisites (t)), m);
   }
 
   // A target with an unspecified extension is considered equal to the one
@@ -1653,13 +1658,13 @@ namespace build2
   // prerequisite's directory scope.
   //
   const target*
-  search_target (const prerequisite_key&);
+  target_search (const target&, const prerequisite_key&);
 
   // First look for an existing target as above. If not found, then look
   // for an existing file in the target-type-specific list of paths.
   //
   const target*
-  search_file (const prerequisite_key&);
+  file_search (const target&, const prerequisite_key&);
 }
 
 #include <build2/target.ixx>

@@ -8,7 +8,7 @@
 namespace build2
 {
   inline const target&
-  search (const prerequisite& p)
+  search (const target& t, const prerequisite& p)
   {
     assert (phase == run_phase::match);
 
@@ -16,7 +16,7 @@ namespace build2
 
     if (r == nullptr)
     {
-      r = &search (p.key ());
+      r = &search (t, p.key ());
 
       const target* e (nullptr);
       if (!p.target.compare_exchange_strong (
@@ -30,15 +30,17 @@ namespace build2
   }
 
   inline const target&
-  search (const target_type& t, const prerequisite_key& k)
+  search (const target& t, const target_type& tt, const prerequisite_key& k)
   {
     return search (
+      t,
       prerequisite_key {
-        k.proj, {&t, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
+        k.proj, {&tt, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
   }
 
   inline const target&
-  search (const target_type& type,
+  search (const target& t,
+          const target_type& type,
           const dir_path& dir,
           const dir_path& out,
           const string& name,
@@ -47,6 +49,7 @@ namespace build2
           const optional<string>& proj)
   {
     return search (
+      t,
       prerequisite_key {
         proj,
         {
@@ -61,14 +64,15 @@ namespace build2
 
   template <typename T>
   inline const T&
-  search (const dir_path& dir,
+  search (const target& t,
+          const dir_path& dir,
           const dir_path& out,
           const string& name,
           const string* ext,
           const scope* scope)
   {
     return search (
-      T::static_type, dir, out, name, ext, scope).template as<T> ();
+      t, T::static_type, dir, out, name, ext, scope).template as<T> ();
   }
 
   target_lock

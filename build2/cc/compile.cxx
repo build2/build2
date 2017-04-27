@@ -321,7 +321,7 @@ namespace build2
                 continue;
             }
 
-            pt = &p.search ();
+            pt = &p.search (t);
 
             if (const lib* l = pt->is_a<lib> ())
               pt = &link_member (*l, act, lo);
@@ -331,7 +331,7 @@ namespace build2
         }
         else
         {
-          pt = &p.search ();
+          pt = &p.search (t);
 
           if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue;
@@ -375,7 +375,7 @@ namespace build2
         // t.prerequisite_targets since we used standard search() and match()
         // above.
         //
-        const file& src (*md.src.search ().is_a<file> ());
+        const file& src (*md.src.search (t).is_a<file> ());
 
         // Make sure the output directory exists.
         //
@@ -993,12 +993,12 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, this]
+      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, &t, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
         //
-        auto find = [&trace, this] (
+        auto find = [&trace, &t, this] (
           const path& f, bool insert) -> const path_target*
         {
           // Split the name into its directory part, the name part, and
@@ -1059,7 +1059,7 @@ namespace build2
           //
           const target* r;
           if (insert)
-            r = &search (*tt, d, out, n, &e, nullptr);
+            r = &search (t, *tt, d, out, n, &e, nullptr);
           else
           {
             // Note that we skip any target type-specific searches (like for

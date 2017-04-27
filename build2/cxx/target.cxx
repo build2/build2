@@ -21,7 +21,7 @@ namespace build2
       &target_extension_var<ext_var, hxx_ext_def>,
       &target_pattern_var<ext_var, hxx_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -34,7 +34,7 @@ namespace build2
       &target_extension_var<ext_var, ixx_ext_def>,
       &target_pattern_var<ext_var, ixx_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -47,7 +47,7 @@ namespace build2
       &target_extension_var<ext_var, txx_ext_def>,
       &target_pattern_var<ext_var, txx_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -60,7 +60,7 @@ namespace build2
       &target_extension_var<ext_var, cxx_ext_def>,
       &target_pattern_var<ext_var, cxx_ext_def>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
   }

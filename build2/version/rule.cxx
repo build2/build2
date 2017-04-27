@@ -44,7 +44,7 @@ namespace build2
         if (!p.is_a<file> ())
           continue;
 
-        const target& pt (p.search ());
+        const target& pt (p.search (t));
 
         if (pt.name != "manifest")
           continue;

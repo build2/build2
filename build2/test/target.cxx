@@ -64,7 +64,7 @@ namespace build2
       &testscript_target_extension,
       &testscript_target_pattern,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
   }

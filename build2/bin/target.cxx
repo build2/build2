@@ -43,7 +43,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_target, // Note: not _file(); don't look for an existing file.
+      &target_search, // Note: not _file(); don't look for an existing file.
       false
     };
 
@@ -55,7 +55,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_target, // Note: not _file(); don't look for an existing file.
+      &target_search, // Note: not _file(); don't look for an existing file.
       false
     };
 
@@ -67,7 +67,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_target, // Note: not _file(); don't look for an existing file.
+      &target_search, // Note: not _file(); don't look for an existing file.
       false
     };
 
@@ -107,7 +107,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
-      &search_target,
+      &target_search,
       false
     };
 
@@ -145,7 +145,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -157,7 +157,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
 
@@ -206,7 +206,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
-      &search_target,
+      &target_search,
       false
     };
 
@@ -220,7 +220,7 @@ namespace build2
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
-      &search_file,
+      &file_search,
       false
     };
   }

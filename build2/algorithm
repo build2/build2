@@ -18,34 +18,35 @@ namespace build2
   class prerequisite_key;
 
   // The default prerequisite search implementation. It first calls the
-  // target-type-specific search function. If that doesn't yeld anything,
-  // it creates a new target.
+  // prerequisite-type-specific search function. If that doesn't yeld
+  // anything, it creates a new target.
   //
   const target&
-  search (const prerequisite&);
+  search (const target&, const prerequisite&);
 
   // As above but specify the prerequisite to search as a key.
   //
   const target&
-  search (const prerequisite_key&);
+  search (const target&, const prerequisite_key&);
 
   // Uniform search interface for prerequisite/prerequisite_member.
   //
   inline const target&
-  search (const prerequisite_member& p) {return p.search ();}
+  search (const target& t, const prerequisite_member& p) {return p.search (t);}
 
   // As above but override the target type. Useful for searching for
   // target group members where we need to search for a different
   // target type.
   //
   const target&
-  search (const target_type&, const prerequisite_key&);
+  search (const target&, const target_type&, const prerequisite_key&);
 
   // As above but specify the prerequisite to search as individual key
   // components. Scope can be NULL if the directory is absolute.
   //
   const target&
-  search (const target_type& type,
+  search (const target&,
+          const target_type& type,
           const dir_path& dir,
           const dir_path& out,
           const string& name,
@@ -57,7 +58,8 @@ namespace build2
   //
   template <typename T>
   const T&
-  search (const dir_path& dir,
+  search (const target&,
+          const dir_path& dir,
           const dir_path& out,
           const string& name,
           const string* ext = nullptr,
@@ -68,7 +70,7 @@ namespace build2
   // as the parser would and then searched based on this prerequisite.
   //
   const target&
-  search (name, const scope&);
+  search (const target&, name, const scope&);
 
   // As above but only search for an already existing target. Unlike the above
   // version, this one can be called during the execute phase. Return NULL for

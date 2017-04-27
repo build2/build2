@@ -306,7 +306,7 @@ namespace build2
 
         const target& m (t.member != nullptr // Might already be there.
                          ? *t.member
-                         : search (tt, t.dir, t.out, t.name));
+                         : search (t, tt, t.dir, t.out, t.name));
 
         target_lock l (lock (act, m));
         assert (l.target != nullptr); // Someone messing with adhoc members?
@@ -438,7 +438,7 @@ namespace build2
           // The rest is the same basic logic as in search_and_match().
           //
           if (pt == nullptr)
-            pt = &p.search ();
+            pt = &p.search (t);
 
           if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue; // Skip.
@@ -486,7 +486,7 @@ namespace build2
             // If this is the obj{} target group, then pick the appropriate
             // member.
             //
-            pt = p.is_a<obj> () ? &search (ott, p.key ()) : &p.search ();
+            pt = p.is_a<obj> () ? &search (t, ott, p.key ()) : &p.search (t);
 
             if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
               continue; // Skip.
@@ -539,7 +539,7 @@ namespace build2
             // obj*{} is always in the out tree.
             //
             const target& ot (
-              search (tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+              search (t, tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
             // If we are cleaning, check that this target is in the same or a
             // subdirectory of our project root.
@@ -557,7 +557,7 @@ namespace build2
             // If we have created the obj{} target group, pick one of its
             // members; the rest would be primarily concerned with it.
             //
-            pt = group ? &search (ott, ot.dir, ot.out, ot.name) : &ot;
+            pt = group ? &search (t, ott, ot.dir, ot.out, ot.name) : &ot;
 
             // If this obj*{} already has prerequisites, then verify they are
             // "compatible" with what we are doing here. Otherwise, synthesize
@@ -699,7 +699,7 @@ namespace build2
               // Searching our own prerequisite is ok, p1 must already be
               // resolved.
               //
-              if (&p.search () != &p1.search ())
+              if (&p.search (t) != &p1.search (*pt))
                 fail << "synthesized dependency for prerequisite " << p << " "
                      << "would be incompatible with existing target " << *pt <<
                   info << "existing prerequisite " << p1 << " does not match "

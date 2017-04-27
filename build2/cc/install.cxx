@@ -42,7 +42,7 @@ namespace build2
       if ((t.is_a<exe> () || t.is_a<libs> ()) &&
           (p.is_a<lib> () || p.is_a<libs> ()))
       {
-        const target* pt (&p.search ());
+        const target* pt (&p.search (t));
 
         // If this is the lib{} group, pick a member which we would link.
         //

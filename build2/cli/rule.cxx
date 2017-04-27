@@ -86,11 +86,14 @@ namespace build2
         // At this stage, no further changes to cli.options are possible and
         // we can determine whether the --suppress-inline option is present.
         //
-        t.h = &search<cxx::hxx> (t.dir, t.out, t.name);
-        t.c = &search<cxx::cxx> (t.dir, t.out, t.name);
+        // Passing the group as a "reference target" is a bit iffy,
+        // conceptually.
+        //
+        t.h = &search<cxx::hxx> (t, t.dir, t.out, t.name);
+        t.c = &search<cxx::cxx> (t, t.dir, t.out, t.name);
         t.i = find_option ("--suppress-inline", t, "cli.options")
           ? nullptr
-          : &search<cxx::ixx> (t.dir, t.out, t.name);
+          : &search<cxx::ixx> (t, t.dir, t.out, t.name);
 
         return r;
       }

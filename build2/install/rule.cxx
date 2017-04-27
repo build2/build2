@@ -51,7 +51,7 @@ namespace build2
 
       for (const prerequisite& p: group_prerequisites (t))
       {
-        const target& pt (search (p));
+        const target& pt (search (t, p));
 
         // Check if this prerequisite is explicitly "not installable",
         // that is, there is the 'install' variable and its value is
@@ -121,7 +121,7 @@ namespace build2
     const target* file_rule::
     filter (action, const target& t, prerequisite_member p) const
     {
-      const target& pt (p.search ());
+      const target& pt (p.search (t));
       return pt.in (t.root_scope ()) ? &pt : nullptr;
     }
 

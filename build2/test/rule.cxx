@@ -227,7 +227,7 @@ namespace build2
                group_prerequisite_members (a, t, members_mode::maybe))
         {
           if (p.is_a<testscript> ())
-            t.prerequisite_targets.push_back (&p.search ());
+            t.prerequisite_targets.push_back (&p.search (t));
         }
 
         return [this] (action a, const target& t)
@@ -289,9 +289,9 @@ namespace build2
 
         // @@ OUT: what if this is a @-qualified pair or names?
         //
-        const target* it (in != nullptr ? &search (*in, bs) : nullptr);
+        const target* it (in != nullptr ? &search (t, *in, bs) : nullptr);
         const target* ot (on != nullptr
-                          ? in == on ? it : &search (*on, bs)
+                          ? in == on ? it : &search (t, *on, bs)
                           : nullptr);
 
         if (a.operation () == update_id)
