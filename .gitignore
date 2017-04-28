@@ -13,3 +13,7 @@
 *.exe.manifest
 
 INSTALL
+
+# Generated version.
+#
+version

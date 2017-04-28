@@ -1,6 +1,6 @@
 : 1
 name: build2
-version: 0.5.0-a1
+version: 0.5.0-b.0.z
 summary: build2 build system
 license: MIT
 tags: build2, c++, build, system
@@ -10,8 +10,8 @@ url: https://build2.org
 email: users@build2.org
 build-email: builds@build2.org
 requires: c++14
-depends: * build2 >= 0.4.0
-depends: * bpkg >= 0.4.0
+depends: * build2 >= 0.5.0-
+depends: * bpkg >= 0.5.0-
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
-depends: libbutl == 0.5.0-a1
+depends: libbutl [0.5.0-b.0.1 0.5.0-b.1)

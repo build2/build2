@@ -107,6 +107,9 @@ exe{b}: {hxx ixx txx cxx}{** -b-options -dummy} \
         liba{b} $libs
 #\
 
+hxx{version-impl}: in{version-impl} $src_root/file{manifest}
+hxx{version-impl}: dist = true
+
 # Fake utility library (without it code generation does not work).
 #
 liba{b}: {cxx}{ dummy }
