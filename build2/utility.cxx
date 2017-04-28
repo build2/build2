@@ -109,7 +109,18 @@ namespace build2
 
   options ops;
   process_path argv0;
+
   standard_version build_version (BUILD2_VERSION_STR);
+
+  void
+  check_build_version (const standard_version_constraint& c, const location& l)
+  {
+    if (!c.satisfies (build_version))
+      fail (l) << "incompatible build2 version" <<
+        info << "running " << build_version.string () <<
+        info << "required " << c.string ();
+  }
+
   dir_path work;
   dir_path home;
   const dir_path* relative_base = &work;
@@ -434,87 +445,6 @@ namespace build2
     string r (*p, 0, i++);
     r.append (s);
     r.append (*p, i, p->size () - i);
-    return r;
-  }
-
-  unsigned int
-  to_version (const string& s)
-  {
-    // See tests/version.
-    //
-
-    auto parse = [&s] (size_t& p, const char* m, long min = 0, long max = 99)
-      -> unsigned int
-    {
-      if (s[p] == '-' || s[p] == '+') // stoi() allows these.
-        throw invalid_argument (m);
-
-      const char* b (s.c_str () + p);
-      char* e;
-      long r (strtol (b, &e, 10));
-
-      if (b == e || r < min || r > max)
-        throw invalid_argument (m);
-
-      p = e - s.c_str ();
-      return static_cast<unsigned int> (r);
-    };
-
-    auto bail = [] (const char* m) {throw invalid_argument (m);};
-
-    unsigned int ma, mi, bf, ab (0);
-
-    size_t p (0), n (s.size ());
-    ma = parse (p, "invalid major version");
-
-    if (p >= n || s[p] != '.')
-      bail ("'.' expected after major version");
-
-    mi = parse (++p, "invalid minor version");
-
-    if (p >= n || s[p] != '.')
-      bail ("'.' expected after minor version");
-
-    bf = parse (++p, "invalid bugfix version");
-
-    if (p < n)
-    {
-      if (s[p] != '-')
-        bail ("'-' expected after bugfix version");
-
-      char k (s[++p]);
-
-      if (k != '\0')
-      {
-        if (k != 'a' && k != 'b')
-          bail ("'a' or 'b' expected in release component");
-
-        ab = parse (++p, "invalid release component", 1, 49);
-
-        if (p != n)
-          bail ("junk after release component");
-
-        if (k == 'b')
-          ab += 50;
-      }
-      else
-        ab = 1;
-    }
-
-    //                  AABBCCDD
-    unsigned int r (ma * 1000000U +
-                    mi *   10000U +
-                    bf *     100U);
-
-    if (ab != 0)
-    {
-      if (r == 0)
-        bail ("0.0.0 version with release component");
-
-      r -= 100;
-      r += ab;
-    }
-
     return r;
   }
 

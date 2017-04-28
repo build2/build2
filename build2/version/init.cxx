@@ -119,12 +119,7 @@ namespace build2
                 if (n == "build2" && !c.empty ())
                 try
                 {
-                    standard_version_constraint vc (c);
-
-                    if (!vc.satisfies (build_version))
-                      fail (l) << "incompatible build2 version" <<
-                        info << "running " << build_version.string () <<
-                        info << "required " << vc.string ();
+                  check_build_version (standard_version_constraint (c), l);
                 }
                 catch (const invalid_argument& e)
                 {

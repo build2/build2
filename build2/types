@@ -43,6 +43,7 @@
 #include <butl/vector-view>
 #include <butl/small-vector>
 #include <butl/target-triplet>
+#include <butl/standard-version>
 
 namespace build2
 {
@@ -208,6 +209,11 @@ namespace build2
   // <butl/target-triplet>
   //
   using butl::target_triplet;
+
+  // <butl/standard-version>
+  //
+  using butl::standard_version;
+  using butl::standard_version_constraint;
 
   // See context.
   //

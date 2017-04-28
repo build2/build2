@@ -10,8 +10,6 @@
 #include <build2/types>
 #include <build2/utility>
 
-#include <butl/standard-version>
-
 #include <build2/module>
 
 namespace build2

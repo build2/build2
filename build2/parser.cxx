@@ -1233,7 +1233,8 @@ namespace build2
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
-      string n, v;
+      string n;
+      standard_version v;
 
       if (!i->simple ())
         fail (l) << "module name expected instead of " << *i;
@@ -1241,34 +1242,30 @@ namespace build2
       n = move (i->value);
 
       if (i->pair)
+      try
       {
         if (i->pair != '@')
-          fail << "unexpected pair style in using directive";
+          fail (l) << "unexpected pair style in using directive";
 
         ++i;
         if (!i->simple ())
           fail (l) << "module version expected instead of " << *i;
 
-        v = move (i->value);
+        v = standard_version (i->value, true); // Allow earliest.
+      }
+      catch (const invalid_argument& e)
+      {
+        fail (l) << "invalid module version '" << i->value << "': " << e;
       }
 
       // Handle the special 'build' module.
       //
       if (n == "build")
       {
-        if (!v.empty ())
-        {
-          unsigned int iv;
-          try {iv = to_version (v);}
-          catch (const invalid_argument& e)
-          {
-            fail (l) << "invalid version '" << v << "': " << e << endf;
-          }
+        standard_version_constraint c (move (v), false, nullopt, true); // >=
 
-          if (iv > BUILD2_VERSION)
-            fail (l) << "build2 " << v << " required" <<
-              info << "running build2 " << BUILD2_VERSION_STR;
-        }
+        if (!v.empty ())
+          check_build_version (c, l);
       }
       else
       {
