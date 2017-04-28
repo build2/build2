@@ -7,7 +7,8 @@
 // This is a "fake" version used to bootstrap from the repository (we include
 // a pre-generated version in distributions).
 //
-#define BUILD2_VERSION       9999999990000ULL
-#define BUILD2_VERSION_STR   "999.999.999"
+#define BUILD2_VERSION      9999999990000ULL
+#define BUILD2_VERSION_STR  "999.999.999"
+#define LIBBUTL_VERSION_STR "999.999.999"
 
 #endif // BUILD2_VERSION
