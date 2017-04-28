@@ -419,10 +419,10 @@ DDD - alpha / beta (DDD + 500)
 E   - final (0) / snapshot (1)
 \
 
-If the \i{DDD} digits are not zero, then they signify a pre-release. In this
+If the \i{DDDE} value is not zero, then it signifies a pre-release. In this
 case one is subtracted from the \i{AAABBBCCC} value. An alpha number is stored
-as is while beta \- incremented by 500. If \i{E} is 1, then this is a snapshot
-after \i{DDD}.
+in \i{DDD} as is while beta \- incremented by 500. If \i{E} is 1, then this is
+a snapshot after \i{DDD}.
 
 For example:
 
