@@ -811,6 +811,18 @@ namespace build2
         //
         phase_switch ps (run_phase::load);
 
+        // This is subtle: while we were fussing around another thread may
+        // have loaded the buildfile. So re-test now that we are in exclusive
+        // phase.
+        //
+        if (t == nullptr)
+          t = search_existing_target (pk);
+
+        if (t != nullptr && !t->implied)
+          return t;
+
+        // Ok, no luck, switch the scope.
+        //
         pair<scope&, scope*> sp (
           switch_scope (*s.rw ().root_scope (), out_base));
 
