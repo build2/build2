@@ -1566,6 +1566,7 @@ namespace build2
         const path& p (paths.clean);
 
         if (!p.empty ())
+        try
         {
           if (verb >= 3)
             text << "rm " << p;
@@ -1588,14 +1589,15 @@ namespace build2
                   test (paths.soname) &&
                   test (paths.link))
               {
-                try_rmfile (m, true); // Ignore errors.
+                try_rmfile (m);
               }
             }
             return true;
           };
 
-          path_search (p, rm);
+          path_search (p, rm, dir_path (), false); // Don't follow symlinks.
         }
+        catch (const system_error&) {} // Ignore errors.
       }
 
       if (verb >= 2)
