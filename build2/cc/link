@@ -60,6 +60,12 @@ namespace build2
 
         inline const path&
         effect_soname () const {return soname.empty () ? real : soname;}
+
+        // Cleanup pattern used to remove previous versions. If empty, no
+        // cleanup is performed. The above (current) names are automatically
+        // filtered out.
+        //
+        const path clean;
       };
 
       libs_paths

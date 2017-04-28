@@ -230,18 +230,30 @@ namespace build2
       // We start with the basic path.
       //
       path b (ls.dir);
+      path cp; // Clean pattern.
       {
         if (pfx == nullptr)
+        {
           b /= ls.name;
+        }
         else
         {
           b /= pfx;
           b += ls.name;
         }
 
+        cp = b;
+        cp += "?*"; // Don't match empty (like the libfoo.so symlink).
+
         if (sfx != nullptr)
+        {
           b += sfx;
+          cp += sfx;
+        }
       }
+
+      append_ext (cp);
+      cp += "*"; // For .d, .pdb, etc. A bit dangerous though.
 
       // On Windows the real path is to libs{} and the link path is to the
       // import library.
@@ -271,7 +283,7 @@ namespace build2
 
       const path& re (ls.derive_path (move (b)));
 
-      return libs_paths {move (lk), move (so), move (in), re};
+      return libs_paths {move (lk), move (so), move (in), re, move (cp)};
     }
 
     recipe link::
@@ -1546,6 +1558,46 @@ namespace build2
 
       args.push_back (nullptr);
 
+      // Cleanup old (versioned) libraries.
+      //
+      if (lt == otype::s)
+      {
+        const libs_paths& paths (t.data<libs_paths> ());
+        const path& p (paths.clean);
+
+        if (!p.empty ())
+        {
+          if (verb >= 3)
+            text << "rm " << p;
+
+          auto rm = [&paths] (path&& m, const string&, bool interm)
+          {
+            if (!interm)
+            {
+              // Filter out paths that have one of the current paths as a
+              // prefix.
+              //
+              auto test = [&m] (const path& p)
+              {
+                const string& s (p.string ());
+                return s.empty () || m.string ().compare (0, s.size (), s) != 0;
+              };
+
+              if (test (paths.real)   &&
+                  test (paths.interm) &&
+                  test (paths.soname) &&
+                  test (paths.link))
+              {
+                try_rmfile (m, true); // Ignore errors.
+              }
+            }
+            return true;
+          };
+
+          path_search (p, rm);
+        }
+      }
+
       if (verb >= 2)
         print_process (args);
       else if (verb)
@@ -1657,9 +1709,6 @@ namespace build2
         //
         auto ln = [] (const path& f, const path& l)
         {
-          // Note that we don't bother making the paths relative since they
-          // will only be seen at verbosity level 3.
-          //
           if (verb >= 3)
             text << "ln -sf " << f << ' ' << l;
 
