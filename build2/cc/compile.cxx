@@ -993,7 +993,7 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, &t, this]
+      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
@@ -1486,22 +1486,21 @@ namespace build2
       // out-of-date. Note that currently we treat all the prerequisites
       // as potentially affecting the result (for simplicity/performance).
       //
-      const file* s;
-      {
-        timestamp mt;
+      timestamp mt;
 
-        // If the depdb was overwritten or it's newer than the target, then
-        // do unconditional update.
-        //
-        if (md.dd_mtime == timestamp_nonexistent ||
-            md.dd_mtime > (mt = t.load_mtime ()))
-          mt = timestamp_nonexistent;
+      // If the depdb was overwritten or it's newer than the target, then
+      // do unconditional update.
+      //
+      if (md.dd_mtime == timestamp_nonexistent ||
+          md.dd_mtime > (mt = t.load_mtime ()))
+        mt = timestamp_nonexistent;
 
-        auto p (execute_prerequisites<file> (x_src, act, t, mt));
+      auto pr (execute_prerequisites<file> (x_src, act, t, mt));
 
-        if ((s = p.first) == nullptr)
-          return p.second;
-      }
+      if (pr.first)
+        return *pr.first;
+
+      const file& s (pr.second);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -1516,7 +1515,7 @@ namespace build2
       // results in easier to read diagnostics.
       //
       path relo (relative (tp));
-      path rels (relative (s->path ()));
+      path rels (relative (s.path ()));
 
       append_options (args, t, c_poptions);
       append_options (args, t, x_poptions);
@@ -1649,7 +1648,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << x_name << ' ' << *s;
+        text << x_name << ' ' << s;
 
       try
       {

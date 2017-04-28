@@ -28,6 +28,7 @@ namespace build2
     static const path manifest ("manifest");
 
     static const version_doc version_doc_;
+    static const version_in version_in_;
 
     void
     boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
@@ -38,6 +39,7 @@ namespace build2
       // Extract the version from the manifest file.
       //
       standard_version v;
+      dependency_constraints ds;
       {
         path f (rs.src_path () / manifest);
 
@@ -65,7 +67,73 @@ namespace build2
               {
                 fail << "invalid standard version '" << nv.value << "': " << e;
               }
-              break;
+            }
+            else if (nv.name == "depends")
+            {
+              // According to the package manifest spec, the format of the
+              // 'depends' value is as follows:
+              //
+              // depends: [?][*] <alternatives> [; <comment>]
+              //
+              // <alternatives> := <dependency> [ '|' <dependency>]*
+              // <dependency>   := <name> [<constraint>]
+              // <constraint>   := <comparison> | <range>
+              // <comparison>   := ('==' | '>' | '<' | '>=' | '<=') <version>
+              // <range>        := ('(' | '[') <version> <version> (')' | ']')
+              //
+              // Note that we don't do exhaustive validation here leaving it
+              // to the package manager.
+              //
+              string v (move (nv.value));
+
+              size_t p;
+
+              // Get rid of the comment.
+              //
+              if ((p = v.find (';')) != string::npos)
+                v.resize (p);
+
+              // Get rid of conditional/runtime markers. Note that enither of
+              // them is valid in the rest of the value.
+              //
+              if ((p = v.find_last_of ("?*")) != string::npos)
+                v.erase (0, p + 1);
+
+              // Parse as |-separated "words".
+              //
+              for (size_t b (0), e (0); next_word (v, b, e, '|'); )
+              {
+                string d (v, b, e - b);
+                trim (d);
+
+                p = d.find_first_of (" \t=<>[(");
+                string n (d, 0, p);
+                string c (p != string::npos ? string (d, p) : string ());
+
+                trim (n);
+                trim (c);
+
+                // If this is a dependency on the build system itself, check
+                // it (so there is no need for explicit using build@X.Y.Z).
+                //
+                if (n == "build2" && !c.empty ())
+                try
+                {
+                    standard_version_constraint vc (c);
+
+                    if (!vc.satisfies (build_version))
+                      fail (l) << "incompatible build2 version" <<
+                        info << "running " << build_version.string () <<
+                        info << "required " << vc.string ();
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (l) << "invalid version constraint for dependency "
+                           << b << ": " << e;
+                }
+
+                ds.emplace (move (n), move (c));
+              }
             }
           }
         }
@@ -91,7 +159,6 @@ namespace build2
       // snapshot sn and id (e.g., commit date and id from git). If there is
       // uncommitted stuff, then leave it as .z.
       //
-      bool patched (false);
       if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
       {
         snapshot ss (extract_snapshot (rs));
@@ -100,7 +167,6 @@ namespace build2
         {
           v.snapshot_sn = ss.sn;
           v.snapshot_id = move (ss.id);
-          patched = true;
         }
       }
 
@@ -155,7 +221,7 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (move (v), patched));
+      mod.reset (new module (move (v), move (ds)));
     }
 
     static void
@@ -211,6 +277,10 @@ namespace build2
         r.insert<doc> (perform_update_id,   "version.doc", version_doc_);
         r.insert<doc> (perform_clean_id,    "version.doc", version_doc_);
         r.insert<doc> (configure_update_id, "version.doc", version_doc_);
+
+        r.insert<file> (perform_update_id,   "version.in", version_in_);
+        r.insert<file> (perform_clean_id,    "version.in", version_in_);
+        r.insert<file> (configure_update_id, "version.in", version_in_);
       }
 
       return true;

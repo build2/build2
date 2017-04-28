@@ -5,6 +5,8 @@
 #ifndef BUILD2_VERSION_MODULE
 #define BUILD2_VERSION_MODULE
 
+#include <map>
+
 #include <build2/types>
 #include <build2/utility>
 
@@ -16,15 +18,19 @@ namespace build2
 {
   namespace version
   {
+    // The 'depends' values from manifest.
+    //
+    using dependency_constraints = std::map<string, string>;
+
     struct module: module_base
     {
       static const string name;
 
       butl::standard_version version;
-      bool version_patched;           // True if snapshot was patched in.
+      dependency_constraints dependencies;
 
-      module (butl::standard_version v, bool vp)
-          : version (move (v)), version_patched (vp) {}
+      module (butl::standard_version v, dependency_constraints d)
+          : version (move (v)), dependencies (move (d)) {}
     };
   }
 }

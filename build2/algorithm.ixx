@@ -361,44 +361,46 @@ namespace build2
   // If the first argument is NULL, then the result is treated as a boolean
   // value.
   //
-  pair<const target*, target_state>
+  pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type*,
                          action, const target&,
                          const timestamp&, const prerequisite_filter&);
 
-  inline pair<bool, target_state>
+  inline optional<target_state>
   execute_prerequisites (action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
-    auto p (execute_prerequisites (nullptr, a, t, mt, pf));
-    return make_pair (p.first != nullptr, p.second);
+    return execute_prerequisites (nullptr, a, t, mt, pf).first;
   }
 
   template <typename T>
-  inline pair<const T*, target_state>
+  inline pair<optional<target_state>, const T&>
   execute_prerequisites (action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     auto p (execute_prerequisites (T::static_type, a, t, mt, pf));
-    return make_pair (static_cast<const T*> (p.first), p.second);
+    return pair<optional<target_state>, const T&> (
+      p.first, static_cast<const T&> (p.second));
   }
 
-  inline pair<const target*, target_state>
+  inline pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
-    return execute_prerequisites (&tt, a, t, mt, pf);
+    auto p (execute_prerequisites (&tt, a, t, mt, pf));
+    return pair<optional<target_state>, const target&> (p.first, *p.second);
   }
 
   template <typename T>
-  inline pair<const T*, target_state>
+  inline pair<optional<target_state>, const T&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
   {
     auto p (execute_prerequisites (tt, a, t, mt, pf));
-    return make_pair (static_cast<const T*> (p.first), p.second);
+    return pair<optional<target_state>, const T&> (
+      p.first, static_cast<const T&> (p.second));
   }
 
   inline target_state

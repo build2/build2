@@ -30,6 +30,23 @@ namespace build2
       static target_state
       perform_update (action, const target&);
     };
+
+    // Preprocess an .in file.
+    //
+    class version_in: public rule
+    {
+    public:
+      version_in () {}
+
+      virtual match_result
+      match (action, target&, const string&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
+
+      static target_state
+      perform_update (action, const target&);
+    };
   }
 }
 

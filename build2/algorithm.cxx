@@ -1059,7 +1059,7 @@ namespace build2
     return r;
   }
 
-  pair<const target*, target_state>
+  pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,
                          action a, const target& t,
                          const timestamp& mt, const prerequisite_filter& pf)
@@ -1141,7 +1141,10 @@ namespace build2
     }
 
     assert (rt != nullptr);
-    return make_pair (e ? rt : nullptr, rs);
+
+    return pair<optional<target_state>, const target*> (
+      e ? optional<target_state> () : rs,
+      tt != nullptr ? rt : nullptr);
   }
 
   target_state

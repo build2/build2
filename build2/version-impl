@@ -23,7 +23,7 @@
 // 3.0.0-b2    02999952
 //
 #define BUILD2_VERSION 49901
-#define BUILD2_VERSION_STR "0.5.0-a1"
+#define BUILD2_VERSION_STR "0.5.0-a.1"
 
 // Generally, we expect minor versions to be source code backwards-
 // compatible, thought we might have a minimum version requirement.

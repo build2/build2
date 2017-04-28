@@ -218,24 +218,24 @@ namespace build2
       // as potentially affecting the result (think prologues/epilogues,
       // etc).
       //
-      const cli* s;
-      {
-        // The rule has been matched which means the members should be
-        // resolved and paths assigned.
-        //
-        auto p (
-          execute_prerequisites<cli> (
-            a, t, t.load_mtime (t.h->path ())));
 
-        if ((s = p.first) == nullptr)
-          return p.second;
-      }
+      // The rule has been matched which means the members should be resolved
+      // and paths assigned.
+      //
+      auto pr (
+        execute_prerequisites<cli> (
+          a, t, t.load_mtime (t.h->path ())));
+
+      if (pr.first)
+        return *pr.first;
+
+      const cli& s (pr.second);
 
       // Translate paths to relative (to working directory). This
       // results in easier to read diagnostics.
       //
       path relo (relative (t.dir));
-      path rels (relative (s->path ()));
+      path rels (relative (s.path ()));
 
       const scope& rs (t.root_scope ());
 
@@ -246,7 +246,7 @@ namespace build2
       // See if we need to pass --output-{prefix,suffix}
       //
       string prefix, suffix;
-      match_stem (t.name, s->name, &prefix, &suffix);
+      match_stem (t.name, s.name, &prefix, &suffix);
 
       if (!prefix.empty ())
       {
@@ -281,7 +281,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << "cli " << *s;
+        text << "cli " << s;
 
       try
       {

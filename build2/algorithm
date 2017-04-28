@@ -300,46 +300,47 @@ namespace build2
   // which ones should be used for timestamp comparison. If the filter is
   // NULL, then all the prerequisites are used.
   //
-  // Note that the return value is a pair with the second half indicating
-  // whether any prerequisites were updated. This is used to handle the
-  // situation where some prerequisites were updated but no update of the
-  // target is necessary. In this case we still signal that the target was
-  // (conceptually, but not physically) changed. This is important both to
-  // propagate the fact that some work has been done and to also allow our
-  // dependents to detect this case if they are up to something tricky (like
-  // recursively linking liba{} prerequisites).
+  // Note that the return value is an optional target state. If the target
+  // needs updating, then the value absent. Otherwise it is the state that
+  // should be returned. This is used to handle the situation where some
+  // prerequisites were updated but no update of the target is necessary. In
+  // this case we still signal that the target was (conceptually, but not
+  // physically) changed. This is important both to propagate the fact that
+  // some work has been done and to also allow our dependents to detect this
+  // case if they are up to something tricky (like recursively linking liba{}
+  // prerequisites).
   //
   // Note that because we use mtime, this function should normally only be
   // used in the perform_update action (which is straight).
   //
   using prerequisite_filter = function<bool (const target&)>;
 
-  pair<bool, target_state>
+  optional<target_state>
   execute_prerequisites (action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
   // Another version of the above that does two extra things for the caller:
   // it determines whether the action needs to be executed on the target based
-  // on the passed timestamp and, if so, finds a prerequisite of the specified
-  // type (e.g., a source file). If there are multiple prerequisites of this
-  // type, then the first is returned (this can become important if additional
+  // on the passed timestamp and finds a prerequisite of the specified type
+  // (e.g., a source file). If there are multiple prerequisites of this type,
+  // then the first is returned (this can become important if additional
   // prerequisites of the same type may get injected).
   //
   template <typename T>
-  pair<const T*, target_state>
+  pair<optional<target_state>, const T&>
   execute_prerequisites (action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
-  pair<const target*, target_state>
+  pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,
                          const prerequisite_filter& = nullptr);
 
   template <typename T>
-  pair<const T*, target_state>
+  pair<optional<target_state>, const T&>
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,

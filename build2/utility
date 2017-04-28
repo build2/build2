@@ -16,8 +16,8 @@
 
 #include <butl/ft/lang>
 
-#include <butl/utility> // combine_hash(), reverse_iterate(), casecmp(),
-                        // lcase(), etc
+#include <butl/utility> // combine_hash(), reverse_iterate(), case*(), etc
+#include <butl/standard-version>
 
 #include <unordered_set>
 
@@ -103,6 +103,10 @@ namespace build2
   // Build system driver process path (argv0.initial is argv[0]).
   //
   extern process_path argv0;
+
+  // Build system driver version.
+  //
+  extern butl::standard_version build_version;
 
   // Work/home directories (must be initialized in main()) and relative path
   // calculation.
