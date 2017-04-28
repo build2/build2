@@ -275,23 +275,37 @@ namespace build2
     //
     gs.assign<uint64_t> ("build.verbosity") = verb;
 
-    // Build system version.
+    // Build system version (similar to what we do in the version module
+    // except here we don't include package epoch/revision).
     //
     {
-      gs.assign<uint64_t> ("build.version") = uint64_t (BUILD2_VERSION);
-      gs.assign<string>   ("build.version.string") = BUILD2_VERSION_STR;
+      const standard_version& v (build_version);
 
-      // AABBCCDD
-      //
-      auto comp = [] (unsigned int d) -> uint64_t
+      auto set = [&vp, &gs] (const char* var, auto val)
       {
-        return (BUILD2_VERSION / d) % 100;
+        using T = decltype (val);
+        gs.assign (vp.insert<T> (var)) = move (val);
       };
 
-      gs.assign<uint64_t> ("build.version.release") = comp (1);
-      gs.assign<uint64_t> ("build.version.patch")   = comp (100);
-      gs.assign<uint64_t> ("build.version.minor")   = comp (10000);
-      gs.assign<uint64_t> ("build.version.major")   = comp (1000000);
+      set ("build.version", v.string_project ());
+
+      set ("build.version.number", v.version);
+      set ("build.version.id",     v.string_project_id ());
+
+      set ("build.version.major", uint64_t (v.major ()));
+      set ("build.version.minor", uint64_t (v.minor ()));
+      set ("build.version.patch", uint64_t (v.patch ()));
+
+      set ("build.version.alpha",              v.alpha ()); // bool
+      set ("build.version.beta",               v.beta ());  // bool
+      set ("build.version.pre_release",        v.alpha () || v.beta ());
+      set ("build.version.pre_release_string", v.string_pre_release ());
+      set ("build.version.pre_release_number", uint64_t (v.pre_release ()));
+
+      set ("build.version.snapshot",        v.snapshot ()); // bool
+      set ("build.version.snapshot_sn",     v.snapshot_sn); // uint64
+      set ("build.version.snapshot_id",     v.snapshot_id); // string
+      set ("build.version.snapshot_string", v.string_snapshot ());
     }
 
     // Enter the host information. Rather than jumping through hoops like

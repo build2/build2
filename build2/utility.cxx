@@ -110,7 +110,7 @@ namespace build2
   options ops;
   process_path argv0;
 
-  standard_version build_version (BUILD2_VERSION_STR);
+  const standard_version build_version (BUILD2_VERSION_STR);
 
   void
   check_build_version (const standard_version_constraint& c, const location& l)

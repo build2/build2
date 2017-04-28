@@ -105,7 +105,7 @@ namespace build2
 
   // Build system driver version and check.
   //
-  extern standard_version build_version;
+  extern const standard_version build_version;
 
   class location;
 

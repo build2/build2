@@ -176,24 +176,15 @@ namespace build2
         rs.assign (v) = move (val);
       };
 
-      // Enough of project version for unique identification (can be used in
-      // places like soname, etc).
-      //
-      string id (v.string_version ());
-      if (v.snapshot ()) // Trailing dot already in id.
-      {
-        id += (v.snapshot_sn == standard_version::latest_sn
-               ? "z"
-               : (v.snapshot_id.empty ()
-                  ? to_string (v.snapshot_sn):
-                  v.snapshot_id));
-      }
-
       set ("version", v.string ());         // Package version.
 
       set ("version.project",        v.string_project ());
       set ("version.project_number", v.version);
-      set ("version.project_id",     move (id));
+
+      // Enough of project version for unique identification (can be used in
+      // places like soname, etc).
+      //
+      set ("version.project_id",     v.string_project_id ());
 
       set ("version.epoch", uint64_t (v.epoch));
 
