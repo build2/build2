@@ -453,9 +453,16 @@ namespace build2
 
           string r;
 
-          r += "#if !(" + cond () + ")\n";
-          r += "#  error incompatible " + n + " version, ";
-          r +=     n + ' ' + c.string () + " is required\n";
+          // This is tricky: if the version header hasn't been generated yet,
+          // then the check will fail. Maybe a better solution is to disable
+          // diagnostics and ignore (some) errors during dependency
+          // extraction.
+          //
+          r += "#ifdef " + vm + "\n";
+          r += "#  if !(" + cond () + ")\n";
+          r += "#    error incompatible " + n + " version, ";
+          r +=       n + ' ' + c.string () + " is required\n";
+          r += "#  endif\n";
           r += "#endif";
 
           return r;
