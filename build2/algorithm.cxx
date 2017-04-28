@@ -171,7 +171,7 @@ namespace build2
       {
       case target::offset_executed:
         {
-          if (a == t.action)
+          if (t.action == a || t.action > a)
           {
             // We don't lock already executed targets.
             //
