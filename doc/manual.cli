@@ -368,7 +368,8 @@ Where do the snapshot sn and id come from? Normally from the version control
 system. For example, for \c{git}, \i{snapsn} is the commit date (as UNIX
 timestamp in the UTC timezone) and \i{snapid} is a 16-character abbreviated
 commit id. As discussed below, the \c{build2} \c{version} module extracts
-and manages all this information automatically.
+and manages all this information automatically (the use of \c{git} commit
+dates is not without limitations; see below for details).
 
 The special '\c{z}' \i{snapsn} value identifies the \i{latest} or
 \i{uncommitted} snapshot. It is chosen to be greater than any other possible
@@ -485,6 +486,16 @@ id are used as the snapshot sn and id, respectively. Otherwise, the snapshot
 is left in the \c{.z} form (which signals the latest/uncommitted
 snapshot). While we can work with such a \c{.z} snapshot locally, preparing a
 distribution of such an uncommitted snapshot is an error.
+
+The use of \c{git} commit dates for snapshot ordering has its limitations:
+they have one second resolution which means it is possible to create two
+commits with the same date (but not the same commit id and thus snapshot
+id). We also need all the committers to have a reasonably accurate
+clock. Note, however, that in case of a commit date clash/ordering issue, we
+still end up with distinct versions (because of the commit id) \- they are
+just not ordered correctly. As a result, we feel that the risks are justified
+when the only alternative is manual version management (which is always an
+option, nevertheless).
 
 When we prepare a distribution of a snapshot, the \c{version} module
 automatically adjusts the package name to include the snapshot information as
