@@ -190,6 +190,8 @@ namespace build2
       //
       set ("version.project_id",     v.string_project_id ());
 
+      set ("version.stub", v.stub ()); // bool
+
       set ("version.epoch", uint64_t (v.epoch));
 
       set ("version.major", uint64_t (v.major ()));

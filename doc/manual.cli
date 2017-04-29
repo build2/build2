@@ -455,6 +455,8 @@ as the following build system variables (which can be used in the buildfiles):
 [uint64] version.project_number      # 0010020025041
 [string] version.project_id          # 1.2.3-b.4.deadbeef
 
+[bool]   version.stub                # false (true for 0[+<revision>])
+
 [uint64] version.epoch               # 2
 
 [uint64] version.major               # 1
