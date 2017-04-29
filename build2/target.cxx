@@ -819,31 +819,33 @@ namespace build2
           t = search_existing_target (pk);
 
         if (t != nullptr && !t->implied)
-          return t;
-
-        // Ok, no luck, switch the scope.
-        //
-        pair<scope&, scope*> sp (
-          switch_scope (*s.rw ().root_scope (), out_base));
-
-        if (sp.second != nullptr) // Ignore scopes out of any project.
+          retest = true;
+        else
         {
-          scope& base (sp.first);
-          scope& root (*sp.second);
+          // Ok, no luck, switch the scope.
+          //
+          pair<scope&, scope*> sp (
+            switch_scope (*s.rw ().root_scope (), out_base));
 
-          const dir_path& src_base (base.src_path ());
-
-          path bf (src_base / "buildfile");
-
-          if (exists (bf))
+          if (sp.second != nullptr) // Ignore scopes out of any project.
           {
-            l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
-            retest = source_once (root, base, bf, root);
-          }
-          else if (exists (src_base))
-          {
-            t = dir::search_implied (base, pk, trace);
-            retest = (t != nullptr);
+            scope& base (sp.first);
+            scope& root (*sp.second);
+
+            const dir_path& src_base (base.src_path ());
+
+            path bf (src_base / "buildfile");
+
+            if (exists (bf))
+            {
+              l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
+              retest = source_once (root, base, bf, root);
+            }
+            else if (exists (src_base))
+            {
+              t = dir::search_implied (base, pk, trace);
+              retest = (t != nullptr);
+            }
           }
         }
       }

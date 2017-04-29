@@ -4055,34 +4055,46 @@ namespace build2
     // target via an alias. If there are no targets in this buildfile,
     // then we don't do anything.
     //
-    if (default_target_ == nullptr ||      // No targets in this buildfile.
+    if (default_target_ == nullptr) // No targets in this buildfile.
+      return;
+
+    target& dt (*default_target_);
+
+    target* ct (
+      const_cast<target*> (                // Ok (serial execution).
         targets.find (dir::static_type,    // Explicit current dir target.
                       scope_->out_path (),
                       dir_path (),         // Out tree target.
                       string (),
                       nullopt,
-                      trace) != nullptr)
-      return;
+                      trace)));
 
-    target& dt (*default_target_);
+    if (ct == nullptr)
+    {
+      l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
 
-    l5 ([&]{trace (t) << "creating current directory alias for " << dt;});
+      // While this target is not explicitly mentioned in the buildfile, we
+      // say that we behave as if it were. Thus not implied.
+      //
+      ct = &targets.insert (dir::static_type,
+                            scope_->out_path (),
+                            dir_path (),
+                            string (),
+                            nullopt,
+                            false,
+                            trace).first;
+      // Fall through.
+    }
+    else if (ct->implied)
+    {
+      ct->implied = false;
+      // Fall through.
+    }
+    else
+      return; // Existing and not implied.
 
-    // While this target is not explicitly mentioned in the buildfile, we say
-    // that we behave as if it were. Thus not implied.
-    //
-    target& ct (
-      targets.insert (dir::static_type,
-                      scope_->out_path (),
-                      dir_path (),
-                      string (),
-                      nullopt,
-                      false,
-                      trace).first);
-
-
-    ct.prerequisites_state_.store (2, memory_order_relaxed);
-    ct.prerequisites_.emplace_back (prerequisite (dt));
+    ct->prerequisites_state_.store (2, memory_order_relaxed);
+    ct->prerequisites_.emplace_back (prerequisite (dt));
   }
 
   void parser::
