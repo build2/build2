@@ -1251,7 +1251,7 @@ namespace build2
         if (!i->simple ())
           fail (l) << "module version expected instead of " << *i;
 
-        v = standard_version (i->value, true); // Allow earliest.
+        v = standard_version (i->value, standard_version::allow_earliest);
       }
       catch (const invalid_argument& e)
       {

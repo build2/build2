@@ -474,7 +474,7 @@ namespace build2
       if (verb >= 2)
         text << "ver -o " << tp << ' ' << ip;
       else if (verb)
-        text << "ver " << tp;
+        text << "ver " << ip;
 
       // Read and process the file, one line at a time.
       //

@@ -61,7 +61,11 @@ namespace build2
             {
               try
               {
-                v = standard_version (nv.value);
+                // Allow the package stub versions in the 0+<revision> form.
+                // While not standard, we want to use the version module for
+                // packaging stubs.
+                //
+                v = standard_version (nv.value, standard_version::allow_stub);
               }
               catch (const invalid_argument& e)
               {
@@ -276,7 +280,7 @@ namespace build2
     dist_callback (const path& f, const scope& rs, void* data)
     {
       module& m (*static_cast<module*> (data));
-      const standard_version v (m.version);
+      const standard_version& v (m.version);
 
       // Complain if this is an uncommitted snapshot.
       //
