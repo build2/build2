@@ -96,7 +96,7 @@ rem
 rem Note that echo does not override errorlevel.
 rem
 echo on
-%cxx% -I%libbutl% -I. -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src%
+%cxx% -I%libbutl% -I. -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src% -lpsapi
 @echo off
 if errorlevel 1 goto error
 

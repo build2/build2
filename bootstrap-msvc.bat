@@ -138,7 +138,7 @@ for %%d in (%src%) do (
 
 rem Link.
 rem
-call :link /Fe: build2\b-boot.exe %obj% shell32.lib
+call :link /Fe: build2\b-boot.exe %obj% shell32.lib psapi.lib
 
 rem Clean up.
 rem
