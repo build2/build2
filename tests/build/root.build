@@ -6,7 +6,7 @@ cxx.std = latest
 
 using cxx
 
-hxx{*}: extension =
+hxx{*}: extension = hxx
 cxx{*}: extension = cxx
 
 # Setup the build system driver that we are testing (which may not be the same

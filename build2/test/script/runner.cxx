@@ -2,22 +2,22 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/script/runner>
+#include <build2/test/script/runner.hxx>
 
 #include <set>
 #include <ios> // streamsize
 
-#include <butl/fdstream> // fdopen_mode, fdnull(), fddup()
+#include <libbutl/fdstream.hxx> // fdopen_mode, fdnull(), fddup()
 
-#include <build2/regex>
-#include <build2/variable>
-#include <build2/filesystem>
+#include <build2/regex.hxx>
+#include <build2/variable.hxx>
+#include <build2/filesystem.hxx>
 
-#include <build2/test/common>
+#include <build2/test/common.hxx>
 
-#include <build2/test/script/regex>
-#include <build2/test/script/parser>
-#include <build2/test/script/builtin>
+#include <build2/test/script/regex.hxx>
+#include <build2/test/script/parser.hxx>
+#include <build2/test/script/builtin.hxx>
 
 using namespace std;
 using namespace butl;

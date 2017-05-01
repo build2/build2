@@ -2,11 +2,11 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/guess>
+#include <build2/cc/guess.hxx>
 
 #include <cstring>  // strlen(), strchr()
 
-#include <build2/diagnostics>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 
@@ -946,8 +946,9 @@ namespace build2
 
       // Now we need to map x86, x64, and ARM to the target triplets. The
       // problem is, there aren't any established ones so we got to invent
-      // them ourselves. Based on the discussion in <butl/target-triplet>,
-      // we need something in the CPU-VENDOR-OS-ABI form.
+      // them ourselves. Based on the discussion in
+      // <libbutl/target-triplet.hxx>, we need something in the
+      // CPU-VENDOR-OS-ABI form.
       //
       // The CPU part is fairly straightforward with x86 mapped to 'i386' (or
       // maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also

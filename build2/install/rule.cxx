@@ -2,15 +2,15 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/install/rule>
+#include <build2/install/rule.hxx>
 
-#include <butl/filesystem> // dir_exists(), file_exists()
+#include <libbutl/filesystem.hxx> // dir_exists(), file_exists()
 
-#include <build2/scope>
-#include <build2/target>
-#include <build2/algorithm>
-#include <build2/filesystem>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 using namespace butl;

@@ -2,8 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/context>     // work
-#include <build2/diagnostics>
+#include <build2/context.hxx>     // work
+#include <build2/diagnostics.hxx>
 
 namespace build2
 {

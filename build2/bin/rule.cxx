@@ -2,14 +2,14 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bin/rule>
+#include <build2/bin/rule.hxx>
 
-#include <build2/scope>
-#include <build2/target>
-#include <build2/algorithm>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/bin/target>
+#include <build2/bin/target.hxx>
 
 using namespace std;
 

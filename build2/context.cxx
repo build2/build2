@@ -2,22 +2,22 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/context>
+#include <build2/context.hxx>
 
 #include <sstream>
 
-#include <build2/rule>
-#include <build2/scope>
-#include <build2/target>
-#include <build2/diagnostics>
+#include <build2/rule.hxx>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/diagnostics.hxx>
 
 // For command line variable parsing.
 //
-#include <build2/token>
-#include <build2/lexer>
-#include <build2/parser>
+#include <build2/token.hxx>
+#include <build2/lexer.hxx>
+#include <build2/parser.hxx>
 
-#include <build2/config/operation> // config::preprocess_create().
+#include <build2/config/operation.hxx> // config::preprocess_create().
 
 using namespace std;
 using namespace butl;
@@ -220,7 +220,7 @@ namespace build2
     vp.clear ();
 
     // Reset meta/operation tables. Note that the order should match the id
-    // constants in <build2/operation>.
+    // constants in <build2/operation.hxx>.
     //
     meta_operation_table.clear ();
     meta_operation_table.insert ("noop");
@@ -240,7 +240,7 @@ namespace build2
     operation_table.insert ("uninstall");
 
     // Create global scope. Note that the empty path is a prefix for any other
-    // path. See the comment in <butl/prefix-map> for details.
+    // path. See the comment in <libbutl/prefix-map.hxx> for details.
     //
     auto make_global_scope = [&sm] () -> scope&
     {

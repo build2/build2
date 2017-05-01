@@ -11,10 +11,10 @@
 #include <iostream>
 #include <exception>
 
-#include <butl/path>
-#include <butl/optional>
-#include <butl/fdstream>
-#include <butl/filesystem>
+#include <libbutl/path.hxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/fdstream.hxx>
+#include <libbutl/filesystem.hxx>
 
 using namespace std;
 using namespace butl;

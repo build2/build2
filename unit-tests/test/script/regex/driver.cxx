@@ -5,7 +5,7 @@
 #include <regex>
 #include <type_traits> // is_pod, is_array
 
-#include <build2/test/script/regex>
+#include <build2/test/script/regex.hxx>
 
 using namespace std;
 using namespace build2::test::script::regex;

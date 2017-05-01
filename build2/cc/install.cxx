@@ -2,14 +2,14 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/install>
+#include <build2/cc/install.hxx>
 
-#include <build2/algorithm>
+#include <build2/algorithm.hxx>
 
-#include <build2/bin/target>
+#include <build2/bin/target.hxx>
 
-#include <build2/cc/link>    // match()
-#include <build2/cc/utility>
+#include <build2/cc/link.hxx>    // match()
+#include <build2/cc/utility.hxx>
 
 using namespace std;
 

@@ -10,7 +10,7 @@ Alternatively, if you have already cloned without --recursive, run:
 
 git submodule update --init
 
-The checked out build2/version-impl will be overwritten during the build
-process but these changes should be ignored. To do this automatically, run:
+The checked out build2/version.hxx will be overwritten during the build process
+but these changes should be ignored. To do this automatically, run:
 
-git update-index --assume-unchanged build2/version-impl
+git update-index --assume-unchanged build2/version.hxx

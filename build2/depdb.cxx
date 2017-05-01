@@ -2,9 +2,9 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/depdb>
+#include <build2/depdb.hxx>
 
-#include <butl/filesystem> // file_mtime()
+#include <libbutl/filesystem.hxx> // file_mtime()
 
 using namespace std;
 using namespace butl;

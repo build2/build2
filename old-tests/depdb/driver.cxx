@@ -4,12 +4,12 @@
 
 #include <iostream>
 
-#include <butl/filesystem>
+#include <libbutl/filesystem.hxx>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/depdb>
+#include <build2/depdb.hxx>
 
 using namespace std;
 using namespace build2;

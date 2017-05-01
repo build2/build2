@@ -2,11 +2,11 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/diagnostics>
+#include <build2/diagnostics.hxx>
 
 #include <cstring>  // strchr()
 
-#include <butl/process-io>
+#include <libbutl/process-io.hxx>
 
 using namespace std;
 

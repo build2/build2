@@ -1,1 +1,6 @@
 driver
+
+# The immediate test/ sub-directory shouldn't be ignored.
+#
+*/test/
+test-*/

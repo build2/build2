@@ -2,13 +2,13 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/dump>
+#include <build2/dump.hxx>
 
-#include <build2/scope>
-#include <build2/target>
-#include <build2/variable>
-#include <build2/context>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/variable.hxx>
+#include <build2/context.hxx>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 

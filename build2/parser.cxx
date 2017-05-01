@@ -2,21 +2,21 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/parser>
+#include <build2/parser.hxx>
 
 #include <iostream> // cout
 
-#include <butl/filesystem> // path_search(), path_match()
+#include <libbutl/filesystem.hxx> // path_search(), path_match()
 
-#include <build2/file>
-#include <build2/scope>
-#include <build2/module>
-#include <build2/target>
-#include <build2/context>
-#include <build2/function>
-#include <build2/variable>
-#include <build2/diagnostics>
-#include <build2/prerequisite>
+#include <build2/file.hxx>
+#include <build2/scope.hxx>
+#include <build2/module.hxx>
+#include <build2/target.hxx>
+#include <build2/context.hxx>
+#include <build2/function.hxx>
+#include <build2/variable.hxx>
+#include <build2/diagnostics.hxx>
+#include <build2/prerequisite.hxx>
 
 using namespace std;
 

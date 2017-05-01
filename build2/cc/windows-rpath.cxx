@@ -4,15 +4,15 @@
 
 #include <errno.h> // E*
 
-#include <build2/scope>
-#include <build2/context>
-#include <build2/variable>
-#include <build2/filesystem>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/context.hxx>
+#include <build2/variable.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/bin/target>
+#include <build2/bin/target.hxx>
 
-#include <build2/cc/link>
+#include <build2/cc/link.hxx>
 
 using namespace std;
 using namespace butl;

@@ -2,18 +2,18 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/config/init>
+#include <build2/config/init.hxx>
 
-#include <build2/file>
-#include <build2/rule>
-#include <build2/scope>
-#include <build2/context>
-#include <build2/filesystem>  // exists()
-#include <build2/diagnostics>
+#include <build2/file.hxx>
+#include <build2/rule.hxx>
+#include <build2/scope.hxx>
+#include <build2/context.hxx>
+#include <build2/filesystem.hxx>  // exists()
+#include <build2/diagnostics.hxx>
 
-#include <build2/config/module>
-#include <build2/config/utility>
-#include <build2/config/operation>
+#include <build2/config/module.hxx>
+#include <build2/config/utility.hxx>
+#include <build2/config/operation.hxx>
 
 using namespace std;
 using namespace butl;

@@ -5,11 +5,11 @@
 #include <cassert>
 #include <iostream>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/token>
-#include <build2/lexer>
+#include <build2/token.hxx>
+#include <build2/lexer.hxx>
 
 using namespace std;
 

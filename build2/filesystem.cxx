@@ -2,9 +2,9 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/filesystem>
+#include <build2/filesystem.hxx>
 
-#include <build2/diagnostics>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 using namespace butl;

@@ -2,10 +2,10 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/common>
+#include <build2/test/common.hxx>
 
-#include <build2/target>
-#include <build2/algorithm>
+#include <build2/target.hxx>
+#include <build2/algorithm.hxx>
 
 using namespace std;
 

@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/script/builtin>
+#include <build2/test/script/builtin.hxx>
 
 #ifndef _WIN32
 #  include <utime.h>
@@ -14,13 +14,13 @@
 #include <ostream>
 #include <sstream>
 
-#include <butl/path-io>    // use default operator<< implementation
-#include <butl/fdstream>   // fdopen_mode, fdstream_mode
-#include <butl/filesystem> // mkdir_status
+#include <libbutl/path-io.hxx>    // use default operator<< implementation
+#include <libbutl/fdstream.hxx>   // fdopen_mode, fdstream_mode
+#include <libbutl/filesystem.hxx> // mkdir_status
 
-#include <build2/regex>
+#include <build2/regex.hxx>
 
-#include <build2/test/script/script>
+#include <build2/test/script/script.hxx>
 
 // Strictly speaking a builtin which reads/writes from/to standard streams
 // must be asynchronous so that the caller can communicate with it through

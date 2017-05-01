@@ -2,27 +2,27 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/link>
+#include <build2/cc/link.hxx>
 
 #include <map>
 #include <cstdlib>  // exit()
 #include <iostream> // cerr
 
-#include <butl/path-map>
-#include <butl/filesystem> // file_exists()
+#include <libbutl/path-map.hxx>
+#include <libbutl/filesystem.hxx> // file_exists()
 
-#include <build2/depdb>
-#include <build2/scope>
-#include <build2/context>
-#include <build2/variable>
-#include <build2/algorithm>
-#include <build2/filesystem>
-#include <build2/diagnostics>
+#include <build2/depdb.hxx>
+#include <build2/scope.hxx>
+#include <build2/context.hxx>
+#include <build2/variable.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/bin/target>
+#include <build2/bin/target.hxx>
 
-#include <build2/cc/target>  // c
-#include <build2/cc/utility>
+#include <build2/cc/target.hxx>  // c
+#include <build2/cc/utility.hxx>
 
 using namespace std;
 using namespace butl;

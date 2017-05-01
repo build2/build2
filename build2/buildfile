@@ -41,7 +41,7 @@ exe{b}:                                                   \
             {hxx         cxx}{ types-parsers            } \
             {hxx ixx txx cxx}{ utility                  } \
             {hxx ixx txx cxx}{ variable                 } \
-            {hxx            }{ version-impl             } \
+            {hxx            }{ version                  } \
         bin/{hxx         cxx}{ guess                    } \
         bin/{hxx         cxx}{ init                     } \
         bin/{hxx         cxx}{ rule                     } \
@@ -107,8 +107,8 @@ exe{b}: {hxx ixx txx cxx}{** -b-options -dummy} \
         liba{b} $libs
 #\
 
-hxx{version-impl}: in{version-impl} $src_root/file{manifest}
-hxx{version-impl}: dist = true
+hxx{version}: in{version} $src_root/file{manifest}
+hxx{version}: dist = true
 
 # Fake utility library (without it code generation does not work).
 #
@@ -130,8 +130,8 @@ if $cli.configured
   cli.cxx{b-options}: cli{b}
 
   cli.options += -I $src_root --include-with-brackets --include-prefix build2 \
---guard-prefix BUILD2 --cxx-prologue "#include <build2/types-parsers>" \
---cli-namespace build2::cl --generate-file-scanner --generate-parse \
+--guard-prefix BUILD2 --cxx-prologue "#include <build2/types-parsers.hxx>"    \
+--cli-namespace build2::cl --generate-file-scanner --generate-parse           \
 --generate-specifier
 
   # Usage options.

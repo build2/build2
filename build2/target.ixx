@@ -197,7 +197,7 @@ namespace build2
   // prerequisite_members
   //
   group_view
-  resolve_group_members (action, const target&); // <build2/algorithm>
+  resolve_group_members (action, const target&); // <build2/algorithm.hxx>
 
   template <typename T>
   inline auto prerequisite_members_range<T>::iterator::

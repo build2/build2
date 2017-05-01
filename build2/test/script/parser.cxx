@@ -2,14 +2,14 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/script/parser>
+#include <build2/test/script/parser.hxx>
 
 #include <sstream>
 
-#include <build2/context> // sched, keep_going
+#include <build2/context.hxx> // sched, keep_going
 
-#include <build2/test/script/lexer>
-#include <build2/test/script/runner>
+#include <build2/test/script/lexer.hxx>
+#include <build2/test/script/runner.hxx>
 
 using namespace std;
 

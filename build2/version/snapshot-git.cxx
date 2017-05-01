@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/version/snapshot>
+#include <build2/version/snapshot.hxx>
 
 using namespace std;
 

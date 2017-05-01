@@ -2,13 +2,13 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/types> // Note: not <build2/names>
+#include <build2/types.hxx> // Note: not <build2/names>
 
 #include <string.h> // strchr()
 
 #include <sstream>
 
-#include <build2/diagnostics>
+#include <build2/diagnostics.hxx>
 
 namespace build2
 {

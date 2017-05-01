@@ -2,21 +2,21 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/version/init>
+#include <build2/version/init.hxx>
 
-#include <butl/manifest-parser>
-#include <butl/manifest-serializer>
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
 
-#include <build2/scope>
-#include <build2/context>
-#include <build2/variable>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/context.hxx>
+#include <build2/variable.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/dist/module>
+#include <build2/dist/module.hxx>
 
-#include <build2/version/rule>
-#include <build2/version/module>
-#include <build2/version/snapshot>
+#include <build2/version/rule.hxx>
+#include <build2/version/module.hxx>
+#include <build2/version/snapshot.hxx>
 
 using namespace std;
 using namespace butl;

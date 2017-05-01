@@ -6,11 +6,11 @@
 
 // Begin prologue.
 //
-#include <build2/types-parsers>
+#include <build2/types-parsers.hxx>
 //
 // End prologue.
 
-#include <build2/b-options>
+#include <build2/b-options.hxx>
 
 #include <map>
 #include <set>

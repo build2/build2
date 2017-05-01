@@ -13,43 +13,43 @@
 #include <typeinfo>
 #include <iostream>    // cout
 
-#include <butl/pager>
+#include <libbutl/pager.hxx>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/spec>
-#include <build2/operation>
-#include <build2/scope>
-#include <build2/target>
-#include <build2/prerequisite>
-#include <build2/rule>
-#include <build2/file>
-#include <build2/module>
-#include <build2/algorithm>
-#include <build2/filesystem>
-#include <build2/diagnostics>
-#include <build2/context>
-#include <build2/variable>
+#include <build2/spec.hxx>
+#include <build2/operation.hxx>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/prerequisite.hxx>
+#include <build2/rule.hxx>
+#include <build2/file.hxx>
+#include <build2/module.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
+#include <build2/context.hxx>
+#include <build2/variable.hxx>
 
-#include <build2/parser>
+#include <build2/parser.hxx>
 
-#include <build2/b-options>
+#include <build2/b-options.hxx>
 
 using namespace butl;
 using namespace std;
 
-#include <build2/config/init>
-#include <build2/dist/init>
-#include <build2/bin/init>
-#include <build2/c/init>
-#include <build2/cc/init>
-#include <build2/cxx/init>
-#include <build2/cli/init>
-#include <build2/test/init>
-#include <build2/install/init>
-#include <build2/pkgconfig/init>
-#include <build2/version/init>
+#include <build2/config/init.hxx>
+#include <build2/dist/init.hxx>
+#include <build2/bin/init.hxx>
+#include <build2/c/init.hxx>
+#include <build2/cc/init.hxx>
+#include <build2/cxx/init.hxx>
+#include <build2/cli/init.hxx>
+#include <build2/test/init.hxx>
+#include <build2/install/init.hxx>
+#include <build2/pkgconfig/init.hxx>
+#include <build2/version/init.hxx>
 
 namespace build2
 {

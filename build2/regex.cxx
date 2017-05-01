@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/regex>
+#include <build2/regex.hxx>
 
 #if defined(_MSC_VER) && _MSC_VER <= 1910
 #  include <cstring> // strstr()

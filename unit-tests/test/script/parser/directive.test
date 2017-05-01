@@ -46,11 +46,11 @@ EOI
 
 : var-expansion
 :
-cat <<EOI >="foo-$(build.version).test";
+cat <<EOI >="foo-$(build.verson.project).test";
 cmd
 EOI
 $* <<EOI >>EOO
-.include "foo-$(build.version).test"
+.include "foo-$(build.verson.project).test"
 EOI
 cmd
 EOO

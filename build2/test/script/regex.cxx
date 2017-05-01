@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/script/regex>
+#include <build2/test/script/regex.hxx>
 
 #include <algorithm> // copy(), copy_backward()
 

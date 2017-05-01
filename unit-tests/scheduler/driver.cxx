@@ -8,10 +8,10 @@
 #include <cassert>
 #include <iostream>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/scheduler>
+#include <build2/scheduler.hxx>
 
 using namespace std;
 

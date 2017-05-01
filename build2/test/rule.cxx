@@ -2,19 +2,19 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/test/rule>
+#include <build2/test/rule.hxx>
 
-#include <build2/scope>
-#include <build2/target>
-#include <build2/algorithm>
-#include <build2/filesystem>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/target.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/test/target>
+#include <build2/test/target.hxx>
 
-#include <build2/test/script/parser>
-#include <build2/test/script/runner>
-#include <build2/test/script/script>
+#include <build2/test/script/parser.hxx>
+#include <build2/test/script/runner.hxx>
+#include <build2/test/script/script.hxx>
 
 using namespace std;
 using namespace butl;

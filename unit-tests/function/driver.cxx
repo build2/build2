@@ -4,14 +4,14 @@
 
 #include <iostream>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/parser>
-#include <build2/context>
-#include <build2/function>
-#include <build2/variable>
-#include <build2/diagnostics>
+#include <build2/parser.hxx>
+#include <build2/context.hxx>
+#include <build2/function.hxx>
+#include <build2/variable.hxx>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 

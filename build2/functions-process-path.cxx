@@ -2,8 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/function>
-#include <build2/variable>
+#include <build2/function.hxx>
+#include <build2/variable.hxx>
 
 using namespace std;
 

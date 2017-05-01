@@ -2,15 +2,15 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/init>
+#include <build2/cc/init.hxx>
 
-#include <build2/scope>
-#include <build2/context>
-#include <build2/diagnostics>
+#include <build2/scope.hxx>
+#include <build2/context.hxx>
+#include <build2/diagnostics.hxx>
 
-#include <build2/config/utility>
+#include <build2/config/utility.hxx>
 
-#include <build2/cc/target>
+#include <build2/cc/target.hxx>
 
 using namespace std;
 using namespace butl;

@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/utility>
+#include <build2/utility.hxx>
 
 #include <time.h>   // tzset()
 
@@ -10,14 +10,14 @@
 #include <cstdlib>  // strtol()
 #include <iostream> // cerr
 
-#include <build2/variable>
-#include <build2/diagnostics>
+#include <build2/variable.hxx>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 using namespace butl;
 
 //
-// <build2/types>
+// <build2/types.hxx>
 //
 namespace build2
 {
@@ -67,7 +67,7 @@ namespace std
 namespace build2
 {
   //
-  // <build2/utility>
+  // <build2/utility.hxx>
   //
 
   string&

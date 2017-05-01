@@ -2,9 +2,9 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/types-parsers>
+#include <build2/types-parsers.hxx>
 
-#include <build2/b-options> // build2::cl namespace
+#include <build2/b-options.hxx> // build2::cl namespace
 
 namespace build2
 {

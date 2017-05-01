@@ -2,12 +2,12 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/utility>
+#include <build2/cc/utility.hxx>
 
-#include <build2/variable>
-#include <build2/algorithm> // search()
+#include <build2/variable.hxx>
+#include <build2/algorithm.hxx> // search()
 
-#include <build2/bin/target>
+#include <build2/bin/target.hxx>
 
 using namespace std;
 

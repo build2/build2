@@ -2,11 +2,11 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/config/utility>
+#include <build2/config/utility.hxx>
 
-#include <build2/context>
+#include <build2/context.hxx>
 
-#include <build2/config/module>
+#include <build2/config/module.hxx>
 
 using namespace std;
 

@@ -5,18 +5,18 @@
 #include <cassert>
 #include <iostream>
 
-#include <build2/types>
-#include <build2/utility>
+#include <build2/types.hxx>
+#include <build2/utility.hxx>
 
-#include <build2/target>
-#include <build2/context>   // reset()
-#include <build2/scheduler>
+#include <build2/target.hxx>
+#include <build2/context.hxx>   // reset()
+#include <build2/scheduler.hxx>
 
-#include <build2/test/target>
+#include <build2/test/target.hxx>
 
-#include <build2/test/script/token>
-#include <build2/test/script/parser>
-#include <build2/test/script/runner>
+#include <build2/test/script/token.hxx>
+#include <build2/test/script/parser.hxx>
+#include <build2/test/script/runner.hxx>
 
 using namespace std;
 
