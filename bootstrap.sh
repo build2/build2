@@ -129,7 +129,7 @@ src="$src build2/test/script/*.cxx"
 src="$src build2/version/*.cxx"
 src="$src build2/install/*.cxx"
 src="$src build2/pkgconfig/*.cxx"
-src="$src $libbutl/butl/*.cxx"
+src="$src $libbutl/libbutl/*.cxx"
 
 # Note that for as long as we support GCC 4.9 we have to compile in the C++14
 # mode since 4.9 doesn't recognize c++1z.
