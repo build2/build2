@@ -40,7 +40,7 @@
     : no-match
     :
     $c <'cat <foo >~/bar/' && $b 2>>/EOE != 0
-    testscript:1:1: error: cat stdout doesn't match the regex
+    testscript:1:1: error: cat stdout doesn't match regex
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
       info: stdin: test/1/stdin
@@ -165,7 +165,7 @@
       foo
       EOO
       EOI
-      testscript:1:1: error: cat stdout doesn't match the regex
+      testscript:1:1: error: cat stdout doesn't match regex
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
@@ -200,7 +200,7 @@
       : Syntax dot becomes escaped dot and matches only '.' and so we fail.
       :
       $c <'cat <fio >~/f.o/d' && $b 2>>~/EOE/ != 0
-      testscript:1:1: error: cat stdout doesn't match the regex
+      testscript:1:1: error: cat stdout doesn't match regex
       /.+
       EOE
     }
@@ -237,7 +237,7 @@
       /f.o/d
       EOO
       EOI
-      testscript:1:1: error: cat stdout doesn't match the regex
+      testscript:1:1: error: cat stdout doesn't match regex
       /.+
       EOE
     }
@@ -271,7 +271,7 @@
         /f.o/
         EOO
         EOI
-        testscript:1:1: error: cat stdout doesn't match the regex
+        testscript:1:1: error: cat stdout doesn't match regex
         /.+
         EOE
       }

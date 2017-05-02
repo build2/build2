@@ -362,7 +362,7 @@ namespace build2
             if (diag)
             {
               diag_record d (error (ll));
-              d << pr << " " << what << " doesn't match the expected output";
+              d << pr << " " << what << " doesn't match expected";
 
               output_info (d, op);
               output_info (d, eop, "expected ");
@@ -484,10 +484,10 @@ namespace build2
             // name suffix. For example if icase and idot flags are specified
             // the name will look like:
             //
-            // test/1/stdout.regex~di
+            // test/1/stdout.regex-di
             //
             if (rd.type == redirect_type::here_doc_regex && !rl.flags.empty ())
-              rp += "~" + rl.flags;
+              rp += '-' + rl.flags;
 
             // Note that if would be more efficient to directly write chunks
             // to file rather than to compose a string first. Hower we don't
@@ -663,7 +663,7 @@ namespace build2
           if (diag)
           {
             diag_record d (error (ll));
-            d << pr << " " << what << " doesn't match the regex";
+            d << pr << " " << what << " doesn't match regex";
 
             output_info (d, op);
             output_info (d, rp, "", " regex");
@@ -747,7 +747,7 @@ namespace build2
               // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
               //
               rmdir_status r (
-                rmdir_r (p.directory (), true, static_cast<uint16_t> (2)));
+                rmdir_r (p.directory (), true, static_cast<uint16_t> (3)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -789,7 +789,7 @@ namespace build2
                     // We can get not_exist here due to racing conditions, but
                     // that's ok if somebody did our job.
                     //
-                    rmdir_status r (rmdir (sd, 2));
+                    rmdir_status r (rmdir (sd, 3));
 
                     if (r != rmdir_status::not_empty)
                       return true;
@@ -812,7 +812,7 @@ namespace build2
                 auto rm = [&d] (path&& p, const string&, bool interm) -> bool
                 {
                   if (!interm)
-                    rmfile (d / p, 2); // That's ok if not exists.
+                    rmfile (d / p, 3); // That's ok if not exists.
 
                   return true;
                 };
@@ -837,7 +837,7 @@ namespace build2
               //    a file cleanup when try to rmfile() directory instead of
               //    file.
               //
-              rmdir_status r (rmdir (d, 2));
+              rmdir_status r (rmdir (d, 3));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -856,7 +856,7 @@ namespace build2
             // Remove the file if exists. Fail otherwise. Removal of
             // non-existing file is not an error for 'maybe' cleanup type.
             //
-            if (rmfile (p, 2) == rmfile_status::not_exist &&
+            if (rmfile (p, 3) == rmfile_status::not_exist &&
                 t == cleanup_type::always)
               fail (ll) << "registered for cleanup file " << p
                         << " does not exist";
@@ -1251,17 +1251,16 @@ namespace build2
         if (c.program.string () == "set")
         {
           if (!last)
-            fail (ll) << "set builtin must be the last command in a pipe";
+            fail (ll) << "set builtin must be the last pipe command";
 
           if (out.type != redirect_type::none)
-            fail (ll) << "set builtin stdout must not be redirected";
+            fail (ll) << "set builtin stdout cannot be redirected";
 
           if (err.type != redirect_type::none)
-            fail (ll) << "set builtin stderr must not be redirected";
+            fail (ll) << "set builtin stderr cannot be redirected";
 
-          if ((c.exit.comparison == exit_comparison::eq) !=
-              (c.exit.status == 0))
-            fail (ll) << "set builtin exit status must not be other than zero";
+          if ((c.exit.comparison == exit_comparison::eq) != (c.exit.code == 0))
+            fail (ll) << "set builtin exit code cannot be non-zero";
 
           set_builtin (sp, c.arguments, move (ifd), ll);
           return true;
@@ -1543,7 +1542,7 @@ namespace build2
 #endif
 
         bool eq (c.exit.comparison == exit_comparison::eq);
-        success = valid && eq == (exit->code () == c.exit.status);
+        success = valid && eq == (exit->code () == c.exit.code);
 
         if (!valid || (!success && diag))
         {
@@ -1554,8 +1553,7 @@ namespace build2
 
           if (!exit->normal ())
           {
-            d << pr << " terminated abnormally" <<
-              info << exit->description ();
+            d << pr << " terminated abnormally: " << exit->description ();
 
             if (exit->core ())
               d << " (core dumped)";
@@ -1565,13 +1563,12 @@ namespace build2
             uint16_t ec (exit->code ()); // Make sure is printed as integer.
 
             if (!valid)
-              d << pr << " exit status " << ec << " is invalid" <<
-                info << "must be an unsigned integer < 256";
+              d << pr << " exit code " << ec << " out of 0-255 range";
             else if (!success)
             {
               if (diag)
-                d << pr << " exit status " << ec << (eq ? " != " : " == ")
-                  << static_cast<uint16_t> (c.exit.status);
+                d << pr << " exit code " << ec << (eq ? " != " : " == ")
+                  << static_cast<uint16_t> (c.exit.code);
             }
             else
               assert (false);

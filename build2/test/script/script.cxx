@@ -228,7 +228,7 @@ namespace build2
             print_path (p.path);
           }
 
-          if (c.exit.comparison != exit_comparison::eq || c.exit.status != 0)
+          if (c.exit.comparison != exit_comparison::eq || c.exit.code != 0)
           {
             switch (c.exit.comparison)
             {
@@ -236,7 +236,7 @@ namespace build2
             case exit_comparison::ne: o << " != "; break;
             }
 
-            o << static_cast<uint16_t> (c.exit.status);
+            o << static_cast<uint16_t> (c.exit.code);
           }
         }
 

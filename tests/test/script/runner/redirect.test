@@ -41,33 +41,27 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : out
     :
     $c <'$* -o foo >!' && $b >foo 2>>/~%EOE%
-    %test .+ with .+ on .+%
+    %test .+%
     mkdir test/
     cd test/
     mkdir test/1/
     cd test/1/
     %.*/driver(.exe)? -o foo%
-    rm test/1/stderr
-    rm test/1/
     cd test/
-    rm test/
     cd ./
     EOE
 
     : err
     :
     $c <'$* -e foo 2>!' && $b 2>>/~%EOE%
-    %test .+ with .+ on .+%
+    %test .+%
     mkdir test/
     cd test/
     mkdir test/1/
     cd test/1/
     %.*/driver(.exe)? -e foo%
     foo
-    rm test/1/stdout
-    rm test/1/
     cd test/
-    rm test/
     cd ./
     EOE
   }
@@ -87,7 +81,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : inout-fail
     :
     $c <'$* -i 1 <foo >bar' && $b 2>>/~%EOE%d != 0
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match expected%
       info: stdout: test/1/stdout
       info: expected stdout: test/1/stdout.orig
       info: stdout diff: test/1/stdout.diff
@@ -108,7 +102,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : no-newline-fail1
     :
     $c <'$* -i 1 <:"foo" >"foo"' && $b 2>>~/EOE/ != 0
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     +foo
@@ -118,7 +112,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : no-newline-fail2
     :
     $c <'$* -i 1 <"foo" >:"foo"' && $b 2>>~/EOE/ != 0
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     \ No newline at end of file
@@ -156,7 +150,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     : mismatch
     :
     $c <'$* -o fooo >~/Foo?/i' && $b 2>>/~%EOE%d != 0
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
     fooo
@@ -171,7 +165,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : newline
       :
       $c <"\$* -i 1 <'foo' >/~%bar/%" && $b 2>>/~%EOE%d != 0;
-      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match the regex%
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
@@ -182,7 +176,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       : no-newline
       :
       $c <"\$* -i 1 <'foo' >:/~%bar/%" && $b 2>>/~%EOE%d != 0;
-      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match the regex%
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
         info: stdout: test/1/stdout
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
@@ -296,7 +290,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     foo
     EOO
     EOI
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     +foo
@@ -312,7 +306,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     foo
     EOO
     EOI
-    /testscript:1: error: .+driver(\.exe)? stdout doesn't match the expected output/
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
     /.{7}
     -foo
     \ No newline at end of file
@@ -364,7 +358,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     x$s
     EOO
     EOI
-    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match expected%
       info: stdout: test/1/stdout
       info: expected stdout: test/1/stdout.orig
       info: stdout diff: test/1/stdout.diff
@@ -439,7 +433,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     bar
     EOO
     EOI
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
     foo
@@ -452,9 +446,9 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     bar
     EOO
     EOI
-    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match the regex%
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
       info: stdout: test/1/stdout
-      info: stdout regex: test/1/stdout.regex~i
+      info: stdout regex: test/1/stdout.regex-i
     foo
     EOE
   }
@@ -490,7 +484,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     $* -o foo >=out;
     $* -o bar >>>out
     EOI
-    %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match the expected output%
+    %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match expected%
       info: stdout: test/1/stdout-2
       info: expected stdout: test/1/out
       info: stdout diff: test/1/stdout-2.diff

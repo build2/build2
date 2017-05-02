@@ -254,7 +254,7 @@ namespace build2
         // Codes With Special Meanings" in the Advanced Bash-Scripting Guide).
         //
         exit_comparison comparison;
-        uint8_t status;
+        uint8_t code;
       };
 
       // command

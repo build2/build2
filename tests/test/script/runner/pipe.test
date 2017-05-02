@@ -17,14 +17,14 @@ $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
   : exit-code
   :
   $c <'$* -o foo -s 1 | $* -i 1 >foo -s 2' && $b 2>>/~%EOE% != 0
-  %testscript:1:1: error: .+ exit status 2 != 0%
+  %testscript:1:1: error: .+ exit code 2 != 0%
     info: stdout: test/1/stdout-2
   EOE
 
   : stderr
   :
   $c <'$* -o foo -e foo 2>bar | $* -i 2 2>baz' && $b 2>>/~%EOE% != 0
-  %testscript:1:1: error: .+ stderr doesn't match the expected output%
+  %testscript:1:1: error: .+ stderr doesn't match expected%
     info: stderr: test/1/stderr-2
     info: expected stderr: test/1/stderr-2.orig
     info: stderr diff: test/1/stderr-2.diff

@@ -377,8 +377,11 @@ namespace build2
       {
         if (verb)
         {
-          const auto& tt (cast<target_triplet> (t["test.target"]));
-          text << "test " << t << " with " << ts << " on " << tt;
+          diag_record dr (text);
+          dr << "test " << ts;
+
+          if (!t.is_a<alias> ())
+            dr << ' ' << t;
         }
 
         build2::test::script::script s (t, ts, wd);

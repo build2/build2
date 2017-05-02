@@ -10,7 +10,7 @@
   : pipelining
   :
   $c <'set foo | cat >bar' && $b 2>>EOE != 0
-  testscript:1:1: error: set builtin must be the last command in a pipe
+  testscript:1:1: error: set builtin must be the last pipe command
   EOE
 
   : redirecting
@@ -19,20 +19,20 @@
     : stdout
     :
     $c <'set foo >bar' && $b 2>>EOE != 0
-    testscript:1:1: error: set builtin stdout must not be redirected
+    testscript:1:1: error: set builtin stdout cannot be redirected
     EOE
 
     : stderr
     :
     $c <'set foo 2>bar' && $b 2>>EOE != 0
-    testscript:1:1: error: set builtin stderr must not be redirected
+    testscript:1:1: error: set builtin stderr cannot be redirected
     EOE
   }
 
   : status
   :
   $c <'set foo == 1' && $b 2>>EOE != 0
-  testscript:1:1: error: set builtin exit status must not be other than zero
+  testscript:1:1: error: set builtin exit code cannot be non-zero
   EOE
 }
 
