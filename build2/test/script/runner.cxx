@@ -831,13 +831,17 @@ namespace build2
             {
               dir_path d (path_cast<dir_path> (p));
 
+              // Trace the scope working directory removal with the verbosity
+              // level 2 (that was used for its creation). For other
+              // directories use level 3 (as for other cleanups).
+              //
               // @@ If 'd' is a file then will fail with a diagnostics having
               //    no location info. Probably need to add an optional location
               //    parameter to rmdir() function. The same problem exists for
               //    a file cleanup when try to rmfile() directory instead of
               //    file.
               //
-              rmdir_status r (rmdir (d, 3));
+              rmdir_status r (rmdir (d, d == sp.wd_path ? 2 : 3));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
