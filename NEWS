@@ -1,3 +1,72 @@
+Version 0.5.0
+
+  * Parallel build system execution, including header dependency extraction
+    and compilation.
+
+  * Support for Testscript, a shell-like language for portable and parallel
+    execution of tests. See the Testscript manual for details.
+
+  * Support for name generation with wildcard patterns. For example:
+
+    exe{hello}: cxx{*}
+
+    Or:
+
+    ./: {*/ -build/}
+
+    See the build system manual for details.
+
+  * New module, version, automates project version management. See the build
+    system manual for details.
+
+  * Support for VC15, C++ standard selection in VC14U3 and up.
+
+  * New meta-operation, create, allows the creation and configuration of an
+    amalgamation project. See b(1) for details.
+
+  * Alternative, shell-friendly command line buildspec and variable assignment
+    syntax. For example:
+
+    b test: foo/ bar/
+    b config.import.libhello = ../libhello/
+
+    See b(1) for details.
+
+  * Automatic loading of directory buildfiles, implied directory buildfiles.
+    Now instead of explicitly writing:
+
+    d = foo/ bar/
+    ./: $d doc{README}
+    include $d
+
+    We can just write:
+
+    ./: foo/ bar/ doc{README}
+
+    And if our buildfile simply builds all the subdirectories:
+
+    ./: */
+
+    Then it can be omitted altogether.
+
+  * Support of the PATH-based search as a fallback import mechanism for exe{}
+    targets.
+
+  * Support for the 'latest' value in the cxx.std variable which can be used
+    to request the latest C++ standard available in the compiler.
+
+  * Ternary and logical operators support in eval contexts.
+
+  * Initial support for build system functions. See build2/function*.?xx for
+    early details.
+
+  * Assert directive. The grammar is as follows:
+
+    assert <expression> [<description>]
+    assert! <expression> [<description>]
+
+    The expression must evaluate to 'true' or 'false', just like in if-else.
+
 Version 0.4.0
 
   * Support for Windows.
