@@ -180,11 +180,10 @@ it a go:
 
 \
 $ b test
-testscript:1:1: error: stderr doesn't match expected output
-  info: produced stderr: test-hello/1/stderr
+testscript:1:1: error: hello stderr doesn't match expected
+  info: stderr: test-hello/1/stderr
   info: expected stderr: test-hello/1/stderr.orig
-  info: stderr diff (test-hello/1/stderr.diff):
-
+  info: stderr diff: test-hello/1/stderr.diff
 --- test-hello/1/stderr.orig
 +++ test-hello/1/stderr
 @@ -1,2 +1,2 @@
