@@ -13,12 +13,13 @@ below we only show commands for UNIX-like operating systems. For other
 operating systems and for more details on each step, refer to the
 \c{build2-toolchain} documentation.
 
-\c{build2} requires a C++14 compiler. GCC 4.8 or later and Clang 3.4 or later
-are known to work. The build system is self-hosted, which means that unless
-you have obtained a pre-built binary from somewhere else, you will need to
-bootstrap it. To accomplish this, we use the \c{bootstrap.sh} shell script (or
-equivalent batch files for Windows) found in the root directory of the
-\c{build2} distribution. The following is the recommended sequence of steps:
+\c{build2} requires a C++14 compiler. GCC 4.9, Clang 3.4, and MSVC 14 (2015)
+Update 3 or any later versions of these compilers are known to work. The build
+system is self-hosted, which means that unless you have obtained a pre-built
+binary from somewhere else, you will need to bootstrap it. To accomplish this,
+we use the \c{bootstrap.sh} shell script (or equivalent batch files for
+Windows) found in the root directory of the \c{build2} distribution. The
+following is the recommended sequence of steps:
 
 
 \dl|
