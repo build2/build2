@@ -42,7 +42,7 @@ namespace build2
 
     "The buildspec has the following form:
 
-     \c{<meta-operation>(<operation>...(<target>...[,<parameters>]))...}
+     \c{<meta-operation>(<operation>(<target>...[,<parameters>])...)...}
 
      All components in the buildspec can be omitted. If <meta-operation> is
      omitted, then it defaults to \cb{perform}. If <operation> is omitted,
