@@ -130,7 +130,7 @@ namespace build2
     s.wait (task_count);
     assert (task_count == 0);
 
-    size_t n (0);
+    uint64_t n (0);
     for (uint64_t v: r)
       n += v;
 

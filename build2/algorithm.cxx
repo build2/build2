@@ -292,7 +292,7 @@ namespace build2
           // First try the map for the actual operation. If that doesn't yeld
           // anything, try the wildcard map.
           //
-          for (size_t oi (o), oip (o); oip != 0; oip = oi, oi = 0)
+          for (operation_id oi (o), oip (o); oip != 0; oip = oi, oi = 0)
           {
             const target_type_rule_map* ttm ((*om)[oi]);
 

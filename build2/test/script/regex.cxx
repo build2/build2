@@ -405,6 +405,6 @@ namespace std
 
     const char digits[] = "0123456789ABCDEF";
     const char* d (string::traits_type::find (digits, radix, c.special ()));
-    return d != nullptr ? d - digits : -1;
+    return d != nullptr ? static_cast<int> (d - digits) : -1;
   }
 }

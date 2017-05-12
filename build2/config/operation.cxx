@@ -377,7 +377,7 @@ namespace build2
         if (rs == nullptr)
           fail << "out of project target " << t;
 
-        for (operations::size_type id (default_id + 1); // Skip default_id
+        for (operation_id id (default_id + 1); // Skip default_id
              id < rs->operations.size ();
              ++id)
         {

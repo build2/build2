@@ -4,7 +4,7 @@
 
 #include <build2/utility.hxx>
 
-#include <time.h>   // tzset()
+#include <time.h>   // tzset() (POSIX), _tzset() (Windows)
 
 #include <cstring>  // strlen(), str[n]cmp()
 #include <cstdlib>  // strtol()
@@ -461,7 +461,11 @@ namespace build2
 
     // Initialize time conversion data that is used by localtime_r().
     //
+#ifndef _WIN32
     tzset ();
+#else
+    _tzset ();
+#endif
 
     // Figure out work and home directories.
     //

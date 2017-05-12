@@ -434,7 +434,7 @@ namespace build2
         if (de.type () != entry_type::directory)
           continue;
       }
-      catch (const system_error& e)
+      catch (const system_error&)
       {
         continue;
       }
