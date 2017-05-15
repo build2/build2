@@ -106,13 +106,16 @@ namespace build2
     // won't be because of eof.
     //
     bool
-    more () {return state_ == state::read;}
+    more () const {return state_ == state::read;}
 
     bool
-    reading () {return state_ != state::write;}
+    reading () const {return state_ != state::write;}
 
     bool
-    writing () {return state_ == state::write;}
+    writing () const {return state_ == state::write;}
+
+    bool
+    touched () const {return touch_;}
 
     // Write the next line. Note that this switches the database into the
     // write mode and no further reading will be possible.

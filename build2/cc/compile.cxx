@@ -38,7 +38,7 @@ namespace build2
     struct match_data
     {
       prerequisite_member src;
-      timestamp dd_mtime; // depdb mtime, timestamp_nonexistent if outdated.
+      timestamp mt;
     };
 
     static_assert (sizeof (match_data) <= target::data_size,
@@ -71,7 +71,7 @@ namespace build2
         {
           // Save in the target's auxilary storage.
           //
-          t.data (match_data {p, timestamp_nonexistent});
+          t.data (match_data {p, timestamp_unknown});
           return true;
         }
       }
@@ -220,6 +220,69 @@ namespace build2
       }
     }
 
+    // Update the target during the match phase. Return true if it has changed
+    // or if the passed timestamp is not timestamp_unknown and is older than
+    // the target.
+    //
+    // This function is used to make sure header dependencies are up to date.
+    //
+    // There would normally be a lot of headers for every source file (think
+    // all the system headers) and just calling execute_direct() on all of
+    // them can get expensive. At the same time, most of these headers are
+    // existing files that we will never be updating (again, system headers,
+    // for example) and the rule that will match them is the fallback
+    // file_rule. That rule has an optimization: it returns noop_recipe (which
+    // causes the target state to be automatically set to unchanged) if the
+    // file is known to be up to date. So we do the update "smartly".
+    //
+    static bool
+    update (tracer& trace, action act, const target& t, timestamp ts)
+    {
+      const path_target* pt (t.is_a<path_target> ());
+
+      if (pt == nullptr)
+        ts = timestamp_unknown;
+
+      target_state os (t.matched_state (act));
+
+      if (os == target_state::unchanged)
+      {
+        if (ts == timestamp_unknown)
+          return false;
+        else
+        {
+          // We expect the timestamp to be known (i.e., existing file).
+          //
+          timestamp mt (pt->mtime ()); // @@ MT perf: know target state.
+          assert (mt != timestamp_unknown);
+          return mt > ts;
+        }
+      }
+      else
+      {
+        // We only want to return true if our call to execute() actually
+        // caused an update. In particular, the target could already have been
+        // in target_state::changed because of a dependency extraction run for
+        // some other source file.
+        //
+        // @@ MT perf: so we are going to switch the phase and execute for
+        //    any generated header.
+        //
+        phase_switch ps (run_phase::execute);
+        target_state ns (execute_direct (act, t));
+
+        if (ns != os && ns != target_state::unchanged)
+        {
+          l6 ([&]{trace << "updated " << t
+                        << "; old state " << os
+                        << "; new state " << ns;});
+          return true;
+        }
+        else
+          return ts != timestamp_unknown ? pt->newer (ts) : false;
+      }
+    }
+
     recipe compile::
     apply (action act, target& xt) const
     {
@@ -362,7 +425,6 @@ namespace build2
                            ? unmatch::safe
                            : unmatch::none))
           pt = nullptr; // Ignore in execute.
-
       }
 
       // Inject additional prerequisites. We only do it when performing update
@@ -457,13 +519,50 @@ namespace build2
           l4 ([&]{trace << "source file mismatch forcing update of " << t;});
 
         // If any of the above checks resulted in a mismatch (different
-        // compiler, options, or source file), or if the database is newer
-        // than the target (interrupted update) then force the target update.
+        // compiler, options, or source file) or if the depdb is newer than
+        // the target, then do unconditional update.
         //
-        md.dd_mtime = dd.writing () ? timestamp_nonexistent : dd.mtime ();
+        timestamp mt;
+        bool u (dd.writing () || dd.mtime () > (mt = file_mtime (tp)));
 
-        inject (act, t, lo, src, dd);
+        // Update prerequisite targets (normally just the source file).
+        //
+        // This is an unusual place and time to do it. But we have to do it
+        // before extracting dependencies. The reasoning for source file is
+        // pretty clear. What other prerequisites could we have? While
+        // normally they will be some other sources (as in, static content
+        // from project's src_root), its possible they are some auto-generated
+        // stuff. And it's possible they affect the preprocessor result. Say
+        // some ad hoc/out-of-band compiler input file that is passed via the
+        // command line. So, to be safe, we make everything is up to date.
+        //
+        for (const target* pt: pts)
+        {
+          if (pt == nullptr || pt == dir)
+            continue;
+
+          if (update (trace, act, *pt, u ? timestamp_unknown : mt))
+          {
+            // If the file got updated or is newer than the database, then we
+            // cannot rely on the cache any further. However, the cached data
+            // could actually still be valid so the compiler run in inject()
+            // will validate it.
+            //
+            // We do need to update the database timestamp, however. Failed
+            // that, we will keep re-validating the cached data over and over
+            // again.
+            //
+            if (dd.reading ())
+              dd.touch ();
+
+            u = true;
+          }
+        }
+
+        u = inject (act, t, lo, src, dd) || u;
         dd.close ();
+
+        md.mt = u ? timestamp_nonexistent : mt;
       }
 
       switch (act)
@@ -794,7 +893,7 @@ namespace build2
       }
     }
 
-    void compile::
+    bool compile::
     inject (action act, target& t, lorder lo, const file& src, depdb& dd) const
     {
       tracer trace (x, "compile::inject");
@@ -932,68 +1031,14 @@ namespace build2
       // date then we use the same restart and skip logic to switch to the
       // compiler run.
       //
-
-      // Update the target "smartly". Return true if it has changed or if the
-      // passed timestamp is not timestamp_unknown and is older than the
-      // target.
-      //
-      // There would normally be a lot of headers for every source file (think
-      // all the system headers) and just calling execute_direct() on all of
-      // them can get expensive. At the same time, most of these headers are
-      // existing files that we will never be updating (again, system headers,
-      // for example) and the rule that will match them is the fallback
-      // file_rule. That rule has an optimization: it returns noop_recipe
-      // (which causes the target state to be automatically set to unchanged)
-      // if the file is known to be up to date.
-      //
-      auto update = [&trace, act] (const path_target& pt, timestamp ts) -> bool
-      {
-        target_state os (pt.matched_state (act));
-
-        if (os == target_state::unchanged)
-        {
-          if (ts == timestamp_unknown)
-            return false;
-          else
-          {
-            // We expect the timestamp to be known (i.e., existing file).
-            //
-            timestamp mt (pt.mtime ()); // @@ MT perf: know target state.
-            assert (mt != timestamp_unknown);
-            return mt > ts;
-          }
-        }
-        else
-        {
-          // We only want to restart if our call to execute() actually caused
-          // an update. In particular, the target could already have been in
-          // target_state::changed because of a dependency extraction run for
-          // some other source file.
-          //
-          // @@ MT perf: so we are going to switch the phase and execute for
-          //    any generated header.
-          //
-          phase_switch ps (run_phase::execute);
-          target_state ns (execute_direct (act, pt));
-
-          if (ns != os && ns != target_state::unchanged)
-          {
-            l6 ([&]{trace << "updated " << pt
-                          << "; old state " << os
-                          << "; new state " << ns;});
-            return true;
-          }
-          else
-            return ts != timestamp_unknown ? pt.newer (ts) : false;
-        }
-      };
+      bool u (false); // Updated flag (result).
 
       // Update and add a header file to the list of prerequisite targets.
       // Depending on the cache flag, the file is assumed to either have come
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &update, &pm, act, &t, lo, &dd, &bs, this]
+      auto add = [&trace, &pm, act, &t, lo, &dd, &bs, &u, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
@@ -1171,7 +1216,11 @@ namespace build2
         // the db itself (if it has changed since the db was written, then
         // chances are the cached data is stale).
         //
-        bool restart (update (*pt, cache ? dd.mtime () : timestamp_unknown));
+        bool restart (
+          update (
+            trace, act, *pt, cache ? dd.mtime () : timestamp_unknown));
+
+        u = u || restart;
 
         // Verify/add it to the dependency database. We do it after update in
         // order not to add bogus files (non-existent and without a way to
@@ -1187,29 +1236,10 @@ namespace build2
         return restart;
       };
 
-      // If nothing so far has invalidated the dependency database, then
-      // try the cached data before running the compiler.
+      // If nothing so far has invalidated the dependency database, then try
+      // the cached data before running the compiler.
       //
-      bool cache (dd.reading ());
-
-      // But, before we do all that, make sure the source file itself if up to
-      // date.
-      //
-      if (update (src, dd.mtime ()))
-      {
-        // If the file got updated or is newer than the database, then we
-        // cannot rely on the cache any further. However, the cached data
-        // could actually still be valid so the compiler run will validate it.
-        //
-        // We do need to update the database timestamp, however. Failed that,
-        // we will keep re-validating the cached data over and over again.
-        //
-        if (cache)
-        {
-          cache = false;
-          dd.touch ();
-        }
-      }
+      bool cache (dd.reading () && !dd.touched ());
 
       size_t skip_count (0);
       for (bool restart (true); restart; cache = false)
@@ -1468,6 +1498,8 @@ namespace build2
           }
         }
       }
+
+      return u;
     }
 
     // Filter cl.exe noise (msvc.cxx).
@@ -1482,23 +1514,16 @@ namespace build2
       const path& tp (t.path ());
       const match_data& md (t.data<match_data> ());
 
-      // Update prerequisites and determine if any relevant ones render us
-      // out-of-date. Note that currently we treat all the prerequisites
-      // as potentially affecting the result (for simplicity/performance).
+      // While all our prerequisites are already up-to-date, we still have
+      // to execute them to keep the dependency counts straight.
       //
-      timestamp mt;
-
-      // If the depdb was overwritten or it's newer than the target, then
-      // do unconditional update.
-      //
-      if (md.dd_mtime == timestamp_nonexistent ||
-          md.dd_mtime > (mt = t.load_mtime ()))
-        mt = timestamp_nonexistent;
-
-      auto pr (execute_prerequisites<file> (x_src, act, t, mt));
+      auto pr (execute_prerequisites<file> (x_src, act, t, md.mt));
 
       if (pr.first)
+      {
+        t.mtime (md.mt);
         return *pr.first;
+      }
 
       const file& s (pr.second);
 
