@@ -83,7 +83,7 @@ namespace build2
       // Header dependency injection. Return true if any were updated.
       //
       bool
-      inject (action, target&, lorder, const file&, depdb&) const;
+      inject (action, file&, lorder, const file&, depdb&) const;
 
     private:
       const string rule_id;

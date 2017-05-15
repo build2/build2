@@ -894,7 +894,7 @@ namespace build2
     }
 
     bool compile::
-    inject (action act, target& t, lorder lo, const file& src, depdb& dd) const
+    inject (action act, file& t, lorder lo, const file& src, depdb& dd) const
     {
       tracer trace (x, "compile::inject");
 
@@ -918,7 +918,13 @@ namespace build2
       const process_path* xc (nullptr);
       cstrings args;
 
-      auto init_args = [&t, act, lo, &src, &rs, &bs, &xc, &args, this] ()
+      // Some compilers in certain modes (e.g., when also producing the
+      // preprocessed output) are incapable of writing the dependecy
+      // information to stdout. In this case we use a temporary file.
+      //
+      auto_rmfile drm;
+
+      auto init_args = [&t, act, lo, &src, &rs, &bs, &xc, &args, &drm, this] ()
       {
         xc = &cast<process_path> (rs[x_path]);
         args.push_back (xc->recall_string ());
@@ -982,6 +988,18 @@ namespace build2
           //
           args.push_back ("-MQ"); // Quoted target name.
           args.push_back ("^");   // Old versions can't do empty target name.
+
+          // @@ TMP
+          //
+          if (cid == "gcc")
+          {
+            // Use the .t extension (for "temporary"; .d is taken).
+            //
+            drm = auto_rmfile (t.path () + ".t");
+
+            args.push_back ("-MF");
+            args.push_back (drm.path ().string ().c_str ());
+          }
         }
 
         // We are using absolute source file path in order to get absolute
@@ -1284,6 +1302,8 @@ namespace build2
             if (args.empty ())
               init_args ();
 
+            const path& d (drm.path ());
+
             if (verb >= 3)
               print_process (args);
 
@@ -1293,11 +1313,19 @@ namespace build2
             process pr (*xc,
                         args.data (),
                         0,
-                        cid == "msvc" ? -2 : -1,
+                        cid == "msvc" ? -2 : d.empty () ? -1 : 2,
                         cid == "msvc" ? -1 : 2);
 
             try
             {
+              // Reduce the temporary file case to stdout.
+              //
+              if (!d.empty ())
+              {
+                pr.wait ();
+                pr.in_ofd = fdopen (d, fdopen_mode::in);
+              }
+
               // We may not read all the output (e.g., due to a restart).
               // Before we used to just close the file descriptor to signal to
               // the other end that we are not interested in the rest. This
@@ -1309,10 +1337,10 @@ namespace build2
                             fdstream_mode::text | fdstream_mode::skip,
                             ifdstream::badbit);
 
-              // In some cases we may need to ignore the error return
-              // status. The good_error flag keeps track of that. Similarly
-              // we sometimes expect the error return status based on the
-              // output we see. The bad_error flag is for that.
+              // In some cases we may need to ignore the error return status.
+              // The good_error flag keeps track of that. Similarly we
+              // sometimes expect the error return status based on the output
+              // we see. The bad_error flag is for that.
               //
               bool good_error (false), bad_error (false);
 
@@ -1492,7 +1520,10 @@ namespace build2
             // the stack and running destructors).
             //
             if (e.child)
+            {
+              drm.cancel ();
               exit (1);
+            }
 
             throw failed ();
           }
@@ -1744,6 +1775,8 @@ namespace build2
 
       if (cid == "msvc")
         return clean_extra (act, t, {".d", ".idb", ".pdb"});
+      else if (cid == "gcc")
+        return clean_extra (act, t, {".d", ".t"});
       else
         return clean_extra (act, t, {".d"});
     }
