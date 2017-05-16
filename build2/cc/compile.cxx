@@ -37,8 +37,13 @@ namespace build2
 
     struct match_data
     {
+      explicit
+      match_data (const prerequisite_member& s)
+          : src (s), mt (timestamp_unknown) {}
+
       prerequisite_member src;
-      timestamp mt;
+      auto_rmfile psrc;        // Preprocessed source, if any.
+      timestamp mt;            // Target timestamp.
     };
 
     static_assert (sizeof (match_data) <= target::data_size,
@@ -71,7 +76,7 @@ namespace build2
         {
           // Save in the target's auxilary storage.
           //
-          t.data (match_data {p, timestamp_unknown});
+          t.data (match_data (p));
           return true;
         }
       }
@@ -559,7 +564,7 @@ namespace build2
           }
         }
 
-        u = inject (act, t, lo, src, dd) || u;
+        inject (act, t, lo, src, dd, md.psrc, u);
         dd.close ();
 
         md.mt = u ? timestamp_nonexistent : mt;
@@ -893,8 +898,14 @@ namespace build2
       }
     }
 
-    bool compile::
-    inject (action act, file& t, lorder lo, const file& src, depdb& dd) const
+    void compile::
+    inject (action act,
+            file& t,
+            lorder lo,
+            const file& src,
+            depdb& dd,
+            auto_rmfile& psrc,
+            bool& updating) const
     {
       tracer trace (x, "compile::inject");
 
@@ -913,10 +924,21 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
+      // Preprocess mode that preserves as much information as possible while
+      // still performing inclusions. Also serves as a flag indicating whether
+      // this compiler uses the separate preprocess and compile setup.
+      //
+      const char* pp (
+        cid == "msvc"                          ? "/C" :
+        cid == "gcc"                           ? "-fdirectives-only"  :
+        cid == "clang" || cid == "clang-apple" ? "-frewrite-includes" :
+        nullptr);
+
       // Initialize lazily, only if required.
       //
       const process_path* xc (nullptr);
       cstrings args;
+      path rels;
 
       // Some compilers in certain modes (e.g., when also producing the
       // preprocessed output) are incapable of writing the dependecy
@@ -924,93 +946,217 @@ namespace build2
       //
       auto_rmfile drm;
 
-      auto init_args = [&t, act, lo, &src, &rs, &bs, &xc, &args, &drm, this] ()
+      // Here is the problem: neither GCC nor Clang allow -MG (treat missing
+      // header as generated) when we produce any kind of other output (-MD).
+      // And that's probably for the best since otherwise the semantics gets
+      // pretty hairy (e.g., what is the exit code and state of the output)?
+      //
+      // One thing to note about generated headers: if we detect one, then,
+      // after generating it, we re-run the compiler since we need to get
+      // this header's dependencies.
+      //
+      // So this is how we are going to work around this problem: we first run
+      // with -E but without -MG. If there are any errors (maybe because of
+      // generated headers maybe not), we restart with -MG and without -E. If
+      // this fixes the error (so it was a generate header issue), then we
+      // have to restart at which point we go back to -E and no -MG. And we
+      // keep yo-yoing like this. Missing generated headers will probably be
+      // fairly rare occurrence so this shouldn't be too expensive.
+      //
+      // Note that in GCC -M implies -w (disable warnings) but not in Clang.
+      //
+      bool args_gen; // Current state of args.
+      size_t args_i; // Start of the -M/-MD "tail".
+
+      // The gen argument to init_args() is in/out. The caller signals whether
+      // to force the generated header support and on return it signals
+      // whether this support is enabled. The first call to init_args is
+      // expected to have gen false.
+      //
+      // Return NULL if the dependency information goes to stdout and a
+      // pointer to the temporary file path otherwise.
+      //
+      auto init_args = [&t, act, lo,
+                        &src, &rels, &psrc,
+                        &rs, &bs,
+                        pp, &xc, &args, &args_gen, &args_i, &drm, this]
+        (bool& gen) -> const path*
       {
-        xc = &cast<process_path> (rs[x_path]);
-        args.push_back (xc->recall_string ());
+        const path* r (nullptr);
 
-        // Add *.export.poptions from prerequisite libraries.
-        //
-        append_lib_options (bs, args, t, act, lo);
-
-        append_options (args, t, c_poptions);
-        append_options (args, t, x_poptions);
-
-        // Extra system header dirs (last).
-        //
-        for (const dir_path& d: sys_inc_dirs)
+        if (args.empty ())
         {
-          args.push_back ("-I");
-          args.push_back (d.string ().c_str ());
-        }
+          assert (!gen);
 
-        // Some compile options (e.g., -std, -m) affect the preprocessor.
-        //
-        append_options (args, t, c_coptions);
-        append_options (args, t, x_coptions);
-
-        append_std (args);
-
-        if (t.is_a<objs> ())
-        {
-          // On Darwin, Win32 -fPIC is the default.
+          // We use absolute/relative paths in the dependency output to
+          // distinguish existing headers from (missing) generated. Which
+          // means we have to (a) use absolute paths in -I and (b) pass
+          // absolute source path (for ""-includes). That (b) is a problem:
+          // if we use an absolute path, then all the #line directives will be
+          // absolute and all the diagnostics will have long, noisy paths.
           //
-          if (tclass == "linux" || tclass == "bsd")
-            args.push_back ("-fPIC");
-        }
-
-        if (cid == "msvc")
-        {
-          args.push_back ("/nologo");
-
-          // See perform_update() for details on overriding the default
-          // exceptions and runtime.
+          // To work around this we are going to pass a relative path to the
+          // source file and then check every relative path in the dependency
+          // output for existence in the source file's directory. This is not
+          // without issues: it is theoretically possible for a generated
+          // header that is <>-included and found via -I to exist in the
+          // source file's directory. Note, however, that this is a lot more
+          // likely to happen with prefix-less inclusion (e.g., <foo>) and in
+          // this case we assume the file is in the project anyway. And if
+          // there is a conflict with a prefixed include (e.g., <bar/foo>),
+          // then, well, we will just have to get rid of quoted includes
+          // (which are generally a bad idea, anyway).
           //
-          if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
-            args.push_back ("/EHsc");
+          // @@ Detect/handle relative paths in -I and error out?
+          //
+          rels = relative (src.path ());
 
-          if (!find_option_prefixes ({"/MD", "/MT"}, args))
-            args.push_back ("/MD");
+          xc = &cast<process_path> (rs[x_path]);
+          args.push_back (xc->recall_string ());
 
-          args.push_back ("/EP");           // Preprocess to stdout.
-          args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
-          args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
+          // Add *.export.poptions from prerequisite libraries.
+          //
+          append_lib_options (bs, args, t, act, lo);
+
+          append_options (args, t, c_poptions);
+          append_options (args, t, x_poptions);
+
+          // Extra system header dirs (last).
+          //
+          for (const dir_path& d: sys_inc_dirs)
+          {
+            args.push_back ("-I");
+            args.push_back (d.string ().c_str ());
+          }
+
+          // Some compile options (e.g., -std, -m) affect the preprocessor.
+          //
+          append_options (args, t, c_coptions);
+          append_options (args, t, x_coptions);
+
+          append_std (args);
+
+          if (t.is_a<objs> ())
+          {
+            // On Darwin, Win32 -fPIC is the default.
+            //
+            if (tclass == "linux" || tclass == "bsd")
+              args.push_back ("-fPIC");
+          }
+
+          if (cid == "msvc")
+          {
+            args.push_back ("/nologo");
+
+            // See perform_update() for details on overriding the default
+            // exceptions and runtime.
+            //
+            if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+              args.push_back ("/EHsc");
+
+            if (!find_option_prefixes ({"/MD", "/MT"}, args))
+              args.push_back ("/MD");
+
+            args.push_back ("/EP");           // Preprocess to stdout.
+            args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
+            args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
+
+            gen = args_gen = true;
+          }
+          else
+          {
+            // Depending on the compiler, decide whether (and how) we can
+            // produce preprocessed output as a side effect of dependency
+            // extraction.
+            //
+            // Note: -MM -MG skips missing <>-included.
+            //
+
+            // Previously we used '*' as a target name but it gets expanded to
+            // the current directory file names by GCC (4.9) that comes with
+            // MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC being
+            // executed in the shell with -MQ '*' option and not just -MQ *.
+            //
+            args.push_back ("-MQ"); // Quoted target name.
+            args.push_back ("^");   // Old versions can't do empty target name.
+
+            if (pp != nullptr)
+            {
+              // Note that the options are carefully laid out to be easy to
+              // override (see below).
+              //
+              args_i = args.size ();
+
+              args.push_back ("-MD");
+              args.push_back ("-E");
+              args.push_back (pp);
+
+              // Dependency output.
+              //
+              args.push_back ("-MF");
+
+              // GCC is not capable of writing the dependency info to stdout.
+              //
+              if (cid == "gcc")
+              {
+                // Use the .t extension (for "temporary"; .d is taken).
+                //
+                r = &(drm = auto_rmfile (t.path () + ".t")).path ();
+                args.push_back (drm.path ().string ().c_str ());
+              }
+              else
+                args.push_back ("-");
+
+              // Preprocessor output.
+              //
+              psrc = auto_rmfile (t.path () + x_pext);
+              args.push_back ("-o");
+              args.push_back (psrc.path ().string ().c_str ());
+            }
+            else
+            {
+              args.push_back ("-M");
+              args.push_back ("-MG"); // Treat missing headers as generated.
+            }
+
+            gen = args_gen = (pp == nullptr);
+          }
+
+          args.push_back (rels.string ().c_str ());
+          args.push_back (nullptr);
         }
         else
         {
-          args.push_back ("-M");  // Note: -MM -MG skips missing <>-included.
-          args.push_back ("-MG"); // Treat missing headers as generated.
+          assert (gen != args_gen);
 
-          // Previously we used '*' as a target name but it gets expanded to
-          // the current directory file names by GCC (4.9) that comes with
-          // MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC being
-          // executed in the shell with -MQ '*' option and not just -MQ *.
-          //
-          args.push_back ("-MQ"); // Quoted target name.
-          args.push_back ("^");   // Old versions can't do empty target name.
+          size_t i (args_i);
 
-          // @@ TMP
-          //
-          if (cid == "gcc")
+          if (gen)
           {
-            // Use the .t extension (for "temporary"; .d is taken).
+            // Overwrite.
             //
-            drm = auto_rmfile (t.path () + ".t");
-
-            args.push_back ("-MF");
-            args.push_back (drm.path ().string ().c_str ());
+            args[i]     = "-M";
+            args[i + 1] = "-MG";
+            args[i + 2] = src.path ().string ().c_str ();
+            args[i + 3] = nullptr;
           }
+          else
+          {
+            // Restore.
+            //
+            args[i]     = "-MD";
+            args[i + 1] = "-E";
+            args[i + 2] = pp;
+            args[i + 3] = "-MF";
+
+            if (!drm.path ().empty ())
+              r = &drm.path ();
+          }
+
+          args_gen = gen;
         }
 
-        // We are using absolute source file path in order to get absolute
-        // paths in the result. Any relative paths in the result are non-
-        // existent, potentially auto-generated headers.
-        //
-        // @@ We will also have to use absolute -I paths to guarantee
-        // that. Or just detect relative paths and error out?
-        //
-        args.push_back (src.path ().string ().c_str ());
-        args.push_back (nullptr);
+        return r;
       };
 
       // Build the prefix map lazily only if we have non-existent files.
@@ -1049,14 +1195,13 @@ namespace build2
       // date then we use the same restart and skip logic to switch to the
       // compiler run.
       //
-      bool u (false); // Updated flag (result).
 
       // Update and add a header file to the list of prerequisite targets.
       // Depending on the cache flag, the file is assumed to either have come
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &pm, act, &t, lo, &dd, &bs, &u, this]
+      auto add = [&trace, &pm, act, &t, lo, &dd, &updating, &bs, &rels, this]
         (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
@@ -1137,9 +1282,21 @@ namespace build2
 
         const path_target* pt (nullptr);
 
-        // If it's not absolute then it does not exist.
+        // If it's not absolute then it either does not (yet) exist or is
+        // a relative ""-include (see init_args() for details). Check the
+        // second case first.
         //
-        if (!f.absolute ())
+        if (f.relative () && rels.relative ())
+        {
+          path t (work / f); // The rels path is relative to work.
+
+          if (exists (t))
+            f = move (t);
+        }
+
+        // If still relative then it does not exist.
+        //
+        if (f.relative ())
         {
           f.normalize ();
 
@@ -1238,7 +1395,7 @@ namespace build2
           update (
             trace, act, *pt, cache ? dd.mtime () : timestamp_unknown));
 
-        u = u || restart;
+        updating = updating || restart;
 
         // Verify/add it to the dependency database. We do it after update in
         // order not to add bogus files (non-existent and without a way to
@@ -1257,12 +1414,25 @@ namespace build2
       // If nothing so far has invalidated the dependency database, then try
       // the cached data before running the compiler.
       //
-      bool cache (dd.reading () && !dd.touched ());
+      // Also force the compiler run if the separate preprocess and compile
+      // setup is used and we need to update the target. This is a degenerate
+      // case of re-running the compiler after an error without changing
+      // anything.
+      //
+      bool cache (dd.reading () && !dd.touched () &&
+                  (!updating || pp == nullptr));
+
+      // See init_args() above for details on generated header support.
+      //
+      bool force_gen (false);
+
+      const path* drmp (nullptr); // Points to drm.path () if active.
 
       size_t skip_count (0);
       for (bool restart (true); restart; cache = false)
       {
         restart = false;
+        bool gen (force_gen); // Cleared below.
 
         if (cache)
         {
@@ -1285,7 +1455,7 @@ namespace build2
             restart = add (path (move (*l)), true);
             skip_count++;
 
-            // The same idea as in the source file update above.
+            // The same idea as in the source file update.
             //
             if (restart)
             {
@@ -1299,31 +1469,33 @@ namespace build2
         {
           try
           {
-            if (args.empty ())
-              init_args ();
-
-            const path& d (drm.path ());
+            if (args.empty () || args_gen != gen)
+              drmp = init_args (gen);
 
             if (verb >= 3)
-              print_process (args);
+              print_process (args.data ()); // Disable pipe mode.
 
             // For VC with /EP we need a pipe to stderr and stdout should go
             // to /dev/null.
             //
+            // If we have no generated header support, then suppress all
+            // diagnostics (if things go badly we will restart with this
+            // support).
+            //
             process pr (*xc,
                         args.data (),
                         0,
-                        cid == "msvc" ? -2 : d.empty () ? -1 : 2,
-                        cid == "msvc" ? -1 : 2);
+                        cid == "msvc" ? -2 : drmp == nullptr ? -1 : 2,
+                        cid == "msvc" ? -1 : (gen ? 2 : -2));
 
             try
             {
               // Reduce the temporary file case to stdout.
               //
-              if (!d.empty ())
+              if (drmp != nullptr)
               {
                 pr.wait ();
-                pr.in_ofd = fdopen (d, fdopen_mode::in);
+                pr.in_ofd = fdopen (*drmp, fdopen_mode::in);
               }
 
               // We may not read all the output (e.g., due to a restart).
@@ -1493,23 +1665,64 @@ namespace build2
 
               is.close ();
 
-              // We assume the child process issued some diagnostics.
+              // This is tricky: it is possible that in parallel someone has
+              // generated all our missing headers and we wouldn't restart
+              // normally.
               //
-              if (!pr.wait ())
+              if (force_gen)
               {
-                if (!good_error) // Ignore expected errors (restart).
-                  throw failed ();
+                force_gen = false;
+                restart = true;
               }
-              else if (bad_error)
+
+              if (pr.wait ())
+              {
+                if (!bad_error)
+                  continue;
+
                 fail << "expected error exist status from " << x_lang
                      << " compiler";
+              }
+              else if (pr.exit->normal ())
+              {
+                if (good_error) // Ignore expected errors (restart).
+                  continue;
+              }
+
+              // Fall through.
             }
             catch (const io_error&)
             {
-              pr.wait ();
-              fail << "unable to read " << x_lang << " compiler header "
-                   << "dependency output";
+              if (pr.wait ())
+                fail << "unable to read " << x_lang << " compiler header "
+                     << "dependency output";
+
+              // Fall through.
             }
+
+            assert (pr.exit && !*pr.exit);
+            const process_exit& e (*pr.exit);
+
+            // For normal exit we assume the child process issued some
+            // diagnostics.
+            //
+            if (e.normal ())
+            {
+              // If this run was without the generated header support, force
+              // it and restart.
+              //
+              if (!gen)
+              {
+                restart = true;
+                force_gen = true;
+                l6 ([&]{trace << "restarting with forced generated headers";});
+                continue;
+              }
+
+              throw failed ();
+            }
+            else
+              fail << args[0] << " terminated abnormally: " << e.description ();
           }
           catch (const process_error& e)
           {
@@ -1529,8 +1742,6 @@ namespace build2
           }
         }
       }
-
-      return u;
     }
 
     // Filter cl.exe noise (msvc.cxx).
@@ -1543,7 +1754,7 @@ namespace build2
     {
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
-      const match_data& md (t.data<match_data> ());
+      match_data md (move (t.data<match_data> ()));
 
       // While all our prerequisites are already up-to-date, we still have
       // to execute them to keep the dependency counts straight.
@@ -1567,8 +1778,8 @@ namespace build2
       const process_path& xc (cast<process_path> (rs[x_path]));
       cstrings args {xc.recall_string ()};
 
-      // Translate paths to relative (to working directory) ones. This
-      // results in easier to read diagnostics.
+      // Translate paths to relative (to working directory) ones. This results
+      // in easier to read diagnostics.
       //
       path relo (relative (tp));
       path rels (relative (s.path ()));
@@ -1680,7 +1891,7 @@ namespace build2
 
         args.push_back ("/c");                              // Compile only.
         args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
-        args.push_back (rels.string ().c_str ());
+        args.push_back (rels.string ().c_str ()); // Note: rely on being last.
       }
       else
       {
@@ -1696,15 +1907,61 @@ namespace build2
         args.push_back (relo.string ().c_str ());
 
         args.push_back ("-c");
-        args.push_back (rels.string ().c_str ());
+        args.push_back (rels.string ().c_str ()); // Note: rely on being last.
       }
 
       args.push_back (nullptr);
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb)
+      // With verbosity level 2 print the command line as if we are compiling
+      // the source file, not its preprocessed version (so that it's easy to
+      // copy and re-run, etc). Only at level 3 and above print the real deal.
+      //
+      if (verb == 1)
         text << x_name << ' ' << s;
+      else if (verb == 2)
+        print_process (args);
+
+      // If we have the preprocessed output, switch to that.
+      //
+      bool psrc (!md.psrc.path ().empty ());
+      if (psrc)
+      {
+        args.pop_back ();
+        args.pop_back ();
+
+        rels = relative (md.psrc.path ());
+
+        // This should match with how we setup preprocessing.
+        //
+        if (cid == "gcc")
+        {
+          // The -fpreprocessed in implied by .i/.ii.
+          //
+          args.push_back ("-fdirectives-only");
+        }
+        else if (cid == "clang" || cid == "clang-apple")
+        {
+          // Without this Clang will treat .i/.ii as fully preprocessed.
+          //
+          args.push_back ("-x");
+          args.push_back (x_name);
+        }
+        else
+          assert (false);
+
+        args.push_back (rels.string ().c_str ());
+        args.push_back (nullptr);
+
+        // Let's keep the preprocessed file in case of an error but only at
+        // verbosity level 3 and up (when one actually sees it mentioned on
+        // the command line). We also have to re-arm on success (see below).
+        //
+        if (verb >= 3)
+          md.psrc.cancel ();
+      }
+
+      if (verb >= 3)
+        print_process (args);
 
       try
       {
@@ -1745,6 +2002,9 @@ namespace build2
         if (!pr.wait ())
           throw failed ();
 
+        if (psrc && verb >= 3)
+          md.psrc = auto_rmfile (move (rels));
+
         // Should we go to the filesystem and get the new mtime? We
         // know the file has been modified, so instead just use the
         // current clock time. It has the advantage of having the
@@ -1773,10 +2033,14 @@ namespace build2
     {
       const file& t (xt.as<file> ());
 
+      //@@ Redo as bunch of vars.
+      //
       if (cid == "msvc")
         return clean_extra (act, t, {".d", ".idb", ".pdb"});
       else if (cid == "gcc")
-        return clean_extra (act, t, {".d", ".t"});
+        return clean_extra (act, t, {".d", x_pext, ".t"});
+      else if (cid == "clang" || cid == "clang-apple")
+        return clean_extra (act, t, {".d", x_pext});
       else
         return clean_extra (act, t, {".d"});
     }

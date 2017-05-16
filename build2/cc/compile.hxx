@@ -11,6 +11,7 @@
 #include <build2/utility.hxx>
 
 #include <build2/rule.hxx>
+#include <build2/filesystem.hxx> // auto_rmfile
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/common.hxx>
@@ -82,8 +83,14 @@ namespace build2
 
       // Header dependency injection. Return true if any were updated.
       //
-      bool
-      inject (action, file&, lorder, const file&, depdb&) const;
+      void
+      inject (action,
+              file&,
+              lorder,
+              const file&,
+              depdb&,
+              auto_rmfile&,
+              bool&) const;
 
     private:
       const string rule_id;

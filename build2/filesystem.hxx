@@ -14,6 +14,9 @@
 //
 namespace build2
 {
+  using butl::auto_rmfile;
+  using butl::auto_rmdir;
+
   // The dual interface wrapper for the {mk,rm}{file,dir}() functions
   // below that allows you to use it as a true/false return or a more
   // detailed enum from <libbutl/filesystem.hxx>

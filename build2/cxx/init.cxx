@@ -187,6 +187,7 @@ namespace build2
         "cxx",
         "c++",
         "g++",
+        ".ii",
 
         // Note: some overridable, some not.
         //

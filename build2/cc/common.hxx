@@ -29,8 +29,9 @@ namespace build2
       lang x_lang;
 
       const char* x;         // Module name ("c", "cxx").
-      const char* x_name;    // Compiler name ("c", "c++").
+      const char* x_name;    // Compiler name ("c", "c++"; also used in -x).
       const char* x_default; // Compiler default ("gcc", "g++").
+      const char* x_pext;    // Preprocessed source extension (".i", ".ii").
 
       const variable& config_x;
       const variable& config_x_poptions;

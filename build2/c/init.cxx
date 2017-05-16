@@ -124,6 +124,7 @@ namespace build2
         "c",
         "c",
         "gcc",
+        ".i",
 
         // Note: some overridable, some not.
         //
