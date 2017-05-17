@@ -805,9 +805,9 @@ namespace build2
       //
       assert (!good_error);
 
-      // VC /showIncludes output. The first line is the file being
-      // compiled. Then we have the list of headers, one per line, in this
-      // form (text can presumably be translated):
+      // VC /showIncludes output. The first line is the file being compiled
+      // (handled by our caller). Then we have the list of headers, one per
+      // line, in this form (text can presumably be translated):
       //
       // Note: including file: C:\Program Files (x86)\[...]\iostream
       //
@@ -848,8 +848,12 @@ namespace build2
 
       if (p == string::npos)
       {
-        // Include note. We assume the path is always at the end but
-        // need to handle both absolute Windows and POSIX ones.
+        // Include note. We assume the path is always at the end but need to
+        // handle both absolute Windows and POSIX ones.
+        //
+        // Note that VC appears to always write the absolute path to the
+        // included file even if it is ""-included and the source path is
+        // relative. Aren't we lucky today?
         //
         size_t p (l.rfind (':'));
 
@@ -950,6 +954,7 @@ namespace build2
       //
       const process_path* xc (nullptr);
       cstrings args;
+      string out; // Storage.
       path rels;
 
       // Some compilers in certain modes (e.g., when also producing the
@@ -1007,7 +1012,20 @@ namespace build2
       // equivalent and we handle generated headers by analyzing the
       // diagnostics. This means that unlike in the above two cases, the
       // preprocessor warnings are shown during dependency extraction, not
-      // compilation. Not ideal but that's the best we can do.
+      // compilation. Not ideal but that's the best we can do. Or is it -- we
+      // could implement ad hoc diagnostics sensing... It appears warnings are
+      // in the C4000-C4999 code range though there can also be note lines
+      // which don't have any C-code.
+      //
+      // BTW, triggering a warning in the VC preprocessor is not easy; there
+      // is no #warning and pragmas are passed through to the compiler. One
+      // way to do it is to redefine a macro, for example:
+      //
+      // hello.cxx(4): warning C4005: 'FOO': macro redefinition
+      // hello.cxx(3): note: see previous definition of 'FOO'
+      //
+      // So seeing that it is hard to trigger a legitimate VC preprocessor
+      // warning, for now, we will just treat them as errors by adding /WX.
       //
       // Note: diagnostics sensing is currently only supported if dependency
       // info is written to a file (see above).
@@ -1025,7 +1043,7 @@ namespace build2
       auto init_args = [&t, act, lo,
                         &src, &rels, &psrc, &sense_diag,
                         &rs, &bs,
-                        pp, &xc, &args, &args_gen, &args_i, &drm, this]
+                        pp, &xc, &args, &args_gen, &args_i, &out, &drm, this]
         (bool& gen) -> const path*
       {
         const path* r (nullptr);
@@ -1092,6 +1110,8 @@ namespace build2
 
           if (cid == "msvc")
           {
+            assert (pp != nullptr);
+
             args.push_back ("/nologo");
 
             // See perform_update() for details on overriding the default
@@ -1103,8 +1123,24 @@ namespace build2
             if (!find_option_prefixes ({"/MD", "/MT"}, args))
               args.push_back ("/MD");
 
-            args.push_back ("/EP");           // Preprocess to stdout.
-            args.push_back ("/showIncludes"); // Goes to sterr becasue of /EP.
+            args.push_back ("/P");            // Preprocess to file.
+            args.push_back ("/showIncludes"); // Goes to stdout (with diag).
+            args.push_back (pp);              // /C (preserve comments).
+            args.push_back ("/WX");           // Warning as error (see above).
+
+            psrc = auto_rmfile (t.path () + x_pext);
+
+            if (cast<uint64_t> (rs[x_version_major]) >= 18)
+            {
+              args.push_back ("/Fi:");
+              args.push_back (psrc.path ().string ().c_str ());
+            }
+            else
+            {
+              out = "/Fi" + psrc.path ().string ();
+              args.push_back (out.c_str ());
+            }
+
             args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
 
             gen = args_gen = true;
@@ -1502,7 +1538,8 @@ namespace build2
 
       // See init_args() above for details on generated header support.
       //
-      bool force_gen (false);
+      bool gen (false);
+      optional<bool> force_gen;
 
       const path* drmp (nullptr); // Points to drm.path () if active.
 
@@ -1510,7 +1547,6 @@ namespace build2
       for (bool restart (true); restart; cache = false)
       {
         restart = false;
-        bool gen (force_gen); // Cleared below.
 
         if (cache)
         {
@@ -1547,7 +1583,10 @@ namespace build2
         {
           try
           {
-            if (args.empty () || args_gen != gen)
+            if (force_gen)
+              gen = *force_gen;
+
+            if (args.empty () || gen != args_gen)
               drmp = init_args (gen);
 
             if (verb >= 3)
@@ -1572,14 +1611,14 @@ namespace build2
                 //
                 assert (!sense_diag);
 
-                // For VC with /EP we need a pipe to stderr and stdout should
-                // go to /dev/null.
+                // For VC with /P the dependency info and diagnostics all go
+                // to stdout.
                 //
                 pr = process (*xc,
                               args.data (),
                               0,
-                              cid == "msvc" ? -2 : -1,
-                              cid == "msvc" ? -1 : (gen ? 2 : -2));
+                              -1,
+                              gen ? 2 : -2);
               }
               else
               {
@@ -1614,7 +1653,7 @@ namespace build2
               // complains, loudly (broken pipe). So now we are going to skip
               // until the end.
               //
-              ifdstream is (move (cid == "msvc" ? pr.in_efd : pr.in_ofd),
+              ifdstream is (move (pr.in_ofd),
                             fdstream_mode::text | fdstream_mode::skip,
                             ifdstream::badbit);
 
@@ -1688,9 +1727,14 @@ namespace build2
                     restart = add (path (move (f)), false);
                     skip_count++;
 
-                    // If the header does not exist, we better restart.
+                    // If the header does not exist (good_error) then restart
+                    // must be true. Except that it is possible that someone
+                    // running in parallel has already updated it. In this
+                    // case we must force a restart since we haven't yet seen
+                    // what's after this at-that-time-non-existent header.
                     //
-                    assert (!good_error || restart);
+                    if (good_error)
+                      restart = true;
 
                     if (restart)
                       l6 ([&]{trace << "restarting";});
@@ -1778,10 +1822,10 @@ namespace build2
               // generated all our missing headers and we wouldn't restart
               // normally.
               //
-              if (force_gen)
+              if (force_gen && *force_gen)
               {
-                force_gen = false;
                 restart = true;
+                force_gen = false;
               }
 
               if (pr.wait ())
@@ -2057,7 +2101,7 @@ namespace build2
           args.push_back ("-x");
           args.push_back (x_name);
         }
-        else
+        else if (cid != "msvc") // Nothing to do (/TP or /TC already there).
           assert (false);
 
         args.push_back (rels.string ().c_str ());
@@ -2144,10 +2188,8 @@ namespace build2
     {
       const file& t (xt.as<file> ());
 
-      //@@ Redo as bunch of vars.
-      //
       if (cid == "msvc")
-        return clean_extra (act, t, {".d", ".idb", ".pdb"});
+        return clean_extra (act, t, {".d", x_pext, ".idb", ".pdb"});
       else if (cid == "gcc")
         return clean_extra (act, t, {".d", x_pext, ".t"});
       else if (cid == "clang" || cid == "clang-apple")
