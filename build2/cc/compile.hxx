@@ -81,16 +81,8 @@ namespace build2
       const target_type*
       map_extension (const scope&, const string&, const string&) const;
 
-      // Header dependency injection. Return true if any were updated.
-      //
-      void
-      inject (action,
-              file&,
-              lorder,
-              const file&,
-              depdb&,
-              auto_rmfile&,
-              bool&) const;
+      pair<auto_rmfile, bool>
+      inject (action, file&, lorder, const file&, depdb&, bool&) const;
 
     private:
       const string rule_id;

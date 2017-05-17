@@ -564,8 +564,14 @@ namespace build2
           }
         }
 
-        inject (act, t, lo, src, dd, md.psrc, u);
+        pair<auto_rmfile, bool> p (inject (act, t, lo, src, dd, u));
         dd.close ();
+
+        // If the preprocessed output is suitable for compilation, pass it
+        // along.
+        //
+        if (p.second)
+          md.psrc = move (p.first);
 
         md.mt = u ? timestamp_nonexistent : mt;
       }
@@ -898,18 +904,24 @@ namespace build2
       }
     }
 
-    void compile::
+    // Header dependency injection. Return the preprocessed source file as
+    // well as an indication if it is usable for compilation (see below for
+    // details).
+    //
+    pair<auto_rmfile, bool> compile::
     inject (action act,
             file& t,
             lorder lo,
             const file& src,
             depdb& dd,
-            auto_rmfile& psrc,
             bool& updating) const
     {
       tracer trace (x, "compile::inject");
 
       l6 ([&]{trace << "target: " << t;});
+
+      auto_rmfile psrc;
+      bool puse (true);
 
       // If things go wrong (and they often do in this area), give the user a
       // bit extra context.
@@ -958,15 +970,49 @@ namespace build2
       // So this is how we are going to work around this problem: we first run
       // with -E but without -MG. If there are any errors (maybe because of
       // generated headers maybe not), we restart with -MG and without -E. If
-      // this fixes the error (so it was a generate header issue), then we
+      // this fixes the error (so it was a generate header after all), then we
       // have to restart at which point we go back to -E and no -MG. And we
       // keep yo-yoing like this. Missing generated headers will probably be
       // fairly rare occurrence so this shouldn't be too expensive.
       //
-      // Note that in GCC -M implies -w (disable warnings) but not in Clang.
-      //
       bool args_gen; // Current state of args.
       size_t args_i; // Start of the -M/-MD "tail".
+
+      // Ok, all good then? Not so fast, the rabbit hole is deeper than it
+      // seems: When we run with -E we have to discard diagnostics. This is
+      // not a problem for errors since they will be shown on the re-run but
+      // it is for (preprocessor) warnings.
+      //
+      // Clang's -frewrite-includes is nice in that it preserves the warnings
+      // so they will be shown during the compilation of the preprocessed
+      // source. They are also shown during -E but that we discard. And unlike
+      // GCC, in Clang -M does not imply -w (disable warnings) so it would
+      // have been shown in -M -MG re-runs but we suppress that with explicit
+      // -w. All is good in the Clang land then (even -Werror works nicely).
+      //
+      // GCC's -fdirective-only, on the other hand, processes all the
+      // directives so they are gone from the preprocessed source. Here is
+      // what we are going to do to work around this: we will detect if any
+      // diagnostics has been written to stderr on the -E run. If that's the
+      // case (but the compiler indicated success) then we assume they are
+      // warnings and disable the use of the preprocessed output for
+      // compilation. This in turn will result in compilation from source
+      // which will display the warnings. Note that we may still use the
+      // preprocessed output for other things (e.g., C++ module dependency
+      // discovery). BTW, another option would be to collect all the
+      // diagnostics and then dump it if the run is successful, similar to
+      // the VC semantics (and drawbacks) described below.
+      //
+      // Finally, for VC, things are completely different: there is no -MG
+      // equivalent and we handle generated headers by analyzing the
+      // diagnostics. This means that unlike in the above two cases, the
+      // preprocessor warnings are shown during dependency extraction, not
+      // compilation. Not ideal but that's the best we can do.
+      //
+      // Note: diagnostics sensing is currently only supported if dependency
+      // info is written to a file (see above).
+      //
+      bool sense_diag (false);
 
       // The gen argument to init_args() is in/out. The caller signals whether
       // to force the generated header support and on return it signals
@@ -977,7 +1023,7 @@ namespace build2
       // pointer to the temporary file path otherwise.
       //
       auto init_args = [&t, act, lo,
-                        &src, &rels, &psrc,
+                        &src, &rels, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &xc, &args, &args_gen, &args_i, &drm, this]
         (bool& gen) -> const path*
@@ -1070,7 +1116,12 @@ namespace build2
             // extraction.
             //
             // Note: -MM -MG skips missing <>-included.
+
+            // Clang's -M does not imply -w (disable warnings). We also don't
+            // need them in the -MD case (see above) so disable for both.
             //
+            if (cid == "clang" || cid == "clang-apple")
+              args.push_back ("-w");
 
             // Previously we used '*' as a target name but it gets expanded to
             // the current directory file names by GCC (4.9) that comes with
@@ -1096,6 +1147,7 @@ namespace build2
               args.push_back ("-MF");
 
               // GCC is not capable of writing the dependency info to stdout.
+              // We also need to sense the diagnostics on the -E runs.
               //
               if (cid == "gcc")
               {
@@ -1103,6 +1155,8 @@ namespace build2
                 //
                 r = &(drm = auto_rmfile (t.path () + ".t")).path ();
                 args.push_back (drm.path ().string ().c_str ());
+
+                sense_diag = true;
               }
               else
                 args.push_back ("-");
@@ -1139,6 +1193,11 @@ namespace build2
             args[i + 1] = "-MG";
             args[i + 2] = src.path ().string ().c_str ();
             args[i + 3] = nullptr;
+
+            if (cid == "gcc")
+            {
+              sense_diag = false;
+            }
           }
           else
           {
@@ -1149,8 +1208,11 @@ namespace build2
             args[i + 2] = pp;
             args[i + 3] = "-MF";
 
-            if (!drm.path ().empty ())
+            if (cid == "gcc")
+            {
               r = &drm.path ();
+              sense_diag = true;
+            }
           }
 
           args_gen = gen;
@@ -1491,25 +1553,56 @@ namespace build2
             if (verb >= 3)
               print_process (args.data ()); // Disable pipe mode.
 
-            // For VC with /EP we need a pipe to stderr and stdout should go
-            // to /dev/null.
-            //
-            // If we have no generated header support, then suppress all
-            // diagnostics (if things go badly we will restart with this
-            // support).
-            //
-            process pr (*xc,
-                        args.data (),
-                        0,
-                        cid == "msvc" ? -2 : drmp == nullptr ? -1 : 2,
-                        cid == "msvc" ? -1 : (gen ? 2 : -2));
+            process pr;
 
             try
             {
-              // Reduce the temporary file case to stdout.
+              // Assume the preprocessed output (if produced) is usable
+              // until proven otherwise.
               //
-              if (drmp != nullptr)
+              puse = true;
+
+              // If we have no generated header support, then suppress all
+              // diagnostics (if things go badly we will restart with this
+              // support).
+              //
+              if (drmp == nullptr)
               {
+                // Dependency info goes to stdout.
+                //
+                assert (!sense_diag);
+
+                // For VC with /EP we need a pipe to stderr and stdout should
+                // go to /dev/null.
+                //
+                pr = process (*xc,
+                              args.data (),
+                              0,
+                              cid == "msvc" ? -2 : -1,
+                              cid == "msvc" ? -1 : (gen ? 2 : -2));
+              }
+              else
+              {
+                // Dependency info goes to a temporary file.
+                //
+                pr = process (*xc,
+                              args.data (),
+                              0,
+                              2, // Send stdout to stderr.
+                              gen ? 2 : sense_diag ? -1 : -2);
+
+                // If requested, monitor for diagnostics and if detected, mark
+                // the preprocessed output as unusable for compilation.
+                //
+                if (sense_diag)
+                {
+                  ifdstream is (move (pr.in_efd), fdstream_mode::skip);
+                  puse = puse && (is.peek () == ifdstream::traits_type::eof ());
+                  is.close ();
+                }
+
+                // The idea is to reduce it to the stdout case.
+                //
                 pr.wait ();
                 pr.in_ofd = fdopen (*drmp, fdopen_mode::in);
               }
@@ -1758,6 +1851,8 @@ namespace build2
           }
         }
       }
+
+      return make_pair (move (psrc), puse);
     }
 
     // Filter cl.exe noise (msvc.cxx).
