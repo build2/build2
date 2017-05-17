@@ -1236,7 +1236,7 @@ namespace build2
             //
             args[i]     = "-M";
             args[i + 1] = "-MG";
-            args[i + 2] = src.path ().string ().c_str ();
+            args[i + 2] = rels.string ().c_str ();
             args[i + 3] = nullptr;
 
             if (cid == "gcc")
@@ -1621,13 +1621,13 @@ namespace build2
                 assert (!sense_diag);
 
                 // For VC with /P the dependency info and diagnostics all go
-                // to stdout.
+                // to stderr so redirect it to stdout.
                 //
                 pr = process (*xc,
                               args.data (),
                               0,
                               -1,
-                              gen ? 2 : -2);
+                              cid == "msvc" ? 1 : gen ? 2 : -2);
               }
               else
               {
@@ -1674,8 +1674,7 @@ namespace build2
               bool good_error (false), bad_error (false);
 
               size_t skip (skip_count);
-              for (bool first (true), second (false);
-                   !(restart || is.eof ()); )
+              for (bool first (true), second (false); !(restart || is.eof ());)
               {
                 string l;
                 getline (is, l);
@@ -1702,7 +1701,7 @@ namespace build2
                     // this case the first line (and everything after it) is
                     // presumably diagnostics.
                     //
-                    if (l != src.path ().leaf ().string ())
+                    if (l != rels.leaf ().string ())
                     {
                       text << l;
                       bad_error = true;
