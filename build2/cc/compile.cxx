@@ -1283,15 +1283,31 @@ namespace build2
         const path_target* pt (nullptr);
 
         // If it's not absolute then it either does not (yet) exist or is
-        // a relative ""-include (see init_args() for details). Check the
-        // second case first.
+        // a relative ""-include (see init_args() for details). Reduce the
+        // second case to absolute.
         //
         if (f.relative () && rels.relative ())
         {
-          path t (work / f); // The rels path is relative to work.
+          // If the relative source path has a directory component, make sure
+          // it matches since ""-include will always start with that (none of
+          // the compilers we support try to normalize this path). Failed that
+          // we may end up searching for a generated header in a random
+          // (working) directory.
+          //
+          const string& fs (f.string ());
+          const string& ss (rels.string ());
 
-          if (exists (t))
-            f = move (t);
+          size_t p (path::traits::rfind_separator (ss));
+
+          if (p == string::npos || // No directory.
+              (fs.size () > p + 1 &&
+               path::traits::compare (fs.c_str (), p, ss.c_str (), p) == 0))
+          {
+            path t (work / f); // The rels path is relative to work.
+
+            if (exists (t))
+              f = move (t);
+          }
         }
 
         // If still relative then it does not exist.
