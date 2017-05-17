@@ -664,9 +664,14 @@ namespace build2
 
           l6 ([&]{trace << "-I '" << d << "'";});
 
-          // If we are relative or not inside our project root, then ignore.
+          if (d.relative ())
+            fail << "relative -I directory " << d
+                 << " in variable " << var.name
+                 << " for target " << t;
+
+          // If we are not inside our project root, then ignore.
           //
-          if (d.relative () || !d.sub (out_root))
+          if (!d.sub (out_root))
             continue;
 
           // If the target directory is a sub-directory of the include
@@ -1071,7 +1076,8 @@ namespace build2
           // then, well, we will just have to get rid of quoted includes
           // (which are generally a bad idea, anyway).
           //
-          // @@ Detect/handle relative paths in -I and error out?
+          // Note that we detect and diagnose relative -I directories lazily
+          // when building the include prefix map.
           //
           rels = relative (src.path ());
 
