@@ -78,6 +78,11 @@ namespace build2
       //
       v.insert<bool> ("cc.system");
 
+      // Ability to disable using preprocessed output for compilation.
+      //
+      v.insert<bool> ("config.cc.reprocess", true);
+      v.insert<bool> ("cc.reprocess");
+
       return true;
     }
 
@@ -165,6 +170,9 @@ namespace build2
 
       rs.assign ("cc.libs") += cast_null<strings> (
         config::optional (rs, "config.cc.libs"));
+
+      if (lookup l = config::omitted (rs, "config.cc.reprocess").first)
+        rs.assign ("cc.reprocess") = *l;
 
       // Load the bin.config module.
       //

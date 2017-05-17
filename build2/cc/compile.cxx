@@ -567,11 +567,14 @@ namespace build2
         pair<auto_rmfile, bool> p (inject (act, t, lo, src, dd, u));
         dd.close ();
 
-        // If the preprocessed output is suitable for compilation, pass it
-        // along.
+        // If the preprocessed output is suitable for compilation and is not
+        // disabled, pass it along.
         //
-        if (p.second)
-          md.psrc = move (p.first);
+        if (!p.first.path ().empty () && p.second)
+        {
+          if (!cast_false<bool> (t[c_reprocess]))
+            md.psrc = move (p.first);
+        }
 
         md.mt = u ? timestamp_nonexistent : mt;
       }

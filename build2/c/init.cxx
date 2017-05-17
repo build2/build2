@@ -143,23 +143,24 @@ namespace build2
         v.insert<strings>      ("c.loptions"),
         v.insert<strings>      ("c.libs"),
 
-        v.insert ("cc.poptions"),
-        v.insert ("cc.coptions"),
-        v.insert ("cc.loptions"),
-        v.insert ("cc.libs"),
+        v["cc.poptions"],
+        v["cc.coptions"],
+        v["cc.loptions"],
+        v["cc.libs"],
 
         v.insert<strings>      ("c.export.poptions"),
         v.insert<strings>      ("c.export.coptions"),
         v.insert<strings>      ("c.export.loptions"),
         v.insert<vector<name>> ("c.export.libs"),
 
-        v.insert ("cc.export.poptions"),
-        v.insert ("cc.export.coptions"),
-        v.insert ("cc.export.loptions"),
-        v.insert ("cc.export.libs"),
+        v["cc.export.poptions"],
+        v["cc.export.coptions"],
+        v["cc.export.loptions"],
+        v["cc.export.libs"],
 
-        v.insert ("cc.type"),
-        v.insert ("cc.system"),
+        v["cc.type"],
+        v["cc.system"],
+        v["cc.reprocess"],
 
         v.insert<string>   ("c.std", variable_visibility::project),
 
