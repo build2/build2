@@ -952,11 +952,32 @@ namespace build2
       // still performing inclusions. Also serves as a flag indicating whether
       // this compiler uses the separate preprocess and compile setup.
       //
-      const char* pp (
-        cid == "msvc"                          ? "/C" :
-        cid == "gcc"                           ? "-fdirectives-only"  :
-        cid == "clang" || cid == "clang-apple" ? "-frewrite-includes" :
-        nullptr);
+      const char* pp (nullptr);
+
+      if      (cid == "msvc") pp = "/C";
+      else if (cid == "gcc")
+      {
+        // -fdirectives-only is available since GCC 4.3.0.
+        //
+        if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
+          pp = "-fdirectives-only";
+      }
+      else if (cid == "clang")
+      {
+        // -frewrite-includes is available since Clang 3.2.0.
+        //
+        if (cmaj > 3 || (cmaj == 3 && cmin >= 2))
+          pp = "-frewrite-includes";
+      }
+      else if (cid == "clang-apple")
+      {
+        // Apple Clang 5.0 is based on LLVM 3.3svn so it should have this
+        // option (4.2 is based on 3.2svc so it may or may not have it and,
+        // no, we are not going to try to find out).
+        //
+        if (cmaj >= 5)
+          pp = "-frewrite-includes";
+      }
 
       // Initialize lazily, only if required.
       //

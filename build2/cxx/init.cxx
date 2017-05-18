@@ -309,6 +309,8 @@ namespace build2
         "cxx.uninstall",
 
         cast<string>         (rs[cm.x_id]),
+        cast<uint64_t>       (rs[cm.x_version_major]),
+        cast<uint64_t>       (rs[cm.x_version_minor]),
         cast<target_triplet> (rs[cm.x_target]),
 
         cm.tstd,
