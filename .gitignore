@@ -1,6 +1,7 @@
 # Compiler/linker output.
 #
 *.d
+*.ii
 *.o
 *.obj
 *.so
