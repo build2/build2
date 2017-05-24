@@ -1,0 +1,38 @@
+# file      : unit-tests/cc/lexer/preprocessor.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test preprocessor lines.
+#
+
+: normal
+:
+$* <<EOI
+#pragma message("abc")
+EOI
+
+: multiline
+:
+$* <<EOI
+#pragma message \
+( \
+"abc" \
+)
+EOI
+
+: comment
+:
+$* <<EOI
+#pragma foo /*
+bar
+baz
+*/
+#pragma foo // bar baz
+EOI
+
+: line
+:
+$* <<EOI
+# 1 "test.cxx" 2
+#line 8 "z:\\tmp\\test.hxx"
+EOI

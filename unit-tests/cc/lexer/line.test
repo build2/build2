@@ -1,0 +1,67 @@
+# file      : unit-tests/cc/lexer/line.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test line continuations.
+#
+
+: identifier
+:
+$* <<EOI >"'foo123'"
+fo\
+o\
+1\
+2\
+3
+EOI
+
+: punctuation
+:
+$* <<EOI >'<punctuation>'
+.\
+.\
+.
+EOI
+
+: c-comment
+:
+$* <<EOI
+/\
+*
+comment
+*\
+/\
+
+EOI
+
+: cxx-comment
+:
+$* <<EOI
+/\
+/ comment\
+more\
+more
+EOI
+
+: other
+:
+$* <<EOI >>EOO
+\abc
+EOI
+<punctuation>
+'abc'
+EOO
+
+: multiple
+:
+$* <<EOI >>EOO
+\\
+EOI
+<punctuation>
+EOO
+
+: unterminated
+:
+$* <<:EOI >'<punctuation>'
+\
+EOI

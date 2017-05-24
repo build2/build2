@@ -54,6 +54,7 @@ exe{b}:                                                   \
          cc/{hxx         cxx}{ guess                    } \
          cc/{hxx         cxx}{ init                     } \
          cc/{hxx         cxx}{ install                  } \
+         cc/{hxx         cxx}{ lexer                    } \
          cc/{hxx         cxx}{ link                     } \
          cc/{hxx         cxx}{ module                   } \
          cc/{            cxx}{ msvc                     } \
