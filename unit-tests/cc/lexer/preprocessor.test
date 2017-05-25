@@ -36,3 +36,12 @@ $* <<EOI
 # 1 "test.cxx" 2
 #line 8 "z:\\tmp\\test.hxx"
 EOI
+
+: nested
+:
+$* <<EOI >>EOO
+#define FOO(x) #y
+;
+EOI
+';'
+EOO

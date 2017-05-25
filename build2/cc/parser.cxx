@@ -28,17 +28,21 @@ namespace build2
 
       // If the source has errors then we want the compiler to issues the
       // diagnostics. However, the errors could as likely be because we are
-      // mis-parsing things. As a middle ground, we are going to issue
-      // warnings.
+      // mis-parsing things. Initially, as a middle ground, we were going to
+      // issue warnings. But the problem with this approach is that they are
+      // easy to miss. So for now we fail.
       //
       size_t bb (0);     // {}-balance.
       bool   ex (false); // True if inside top-level export{} block.
 
       token t;
-      while (l_->next (t) != type::eos)
+      for (bool n (true); (n ? l_->next (t) : t.type) != type::eos; )
       {
-        // Break to stop, continue to continue.
+        // Break to stop, continue to continue, set n to false if the
+        // next token already extracted.
         //
+        n = true;
+
         switch (t.type)
         {
         case type::lcbrace:
@@ -89,16 +93,20 @@ namespace build2
                       parse_module (t, true);
                     else if (id == "import")
                       parse_import (t);
-
-                    // Something else, for example, export namespace.
+                    else
+                      n = false; // Something else (e.g., export namespace).
 
                     break;
                   }
-                default: break;
+                default: n = false; break;
                 }
               }
               else if (id == "extern")
-                l_->next (t); // Skip to make sure not recognized as module.
+              {
+                // Skip to make sure not recognized as module.
+                //
+                n = l_->next (t) == type::identifier && t.value == "module";
+              }
             }
             else if (ex && bb == 1)
             {
@@ -116,7 +124,7 @@ namespace build2
       }
 
       if (bb != 0)
-        warn (t) << "{}-imbalance detected";
+        /*warn*/ fail (t) << "{}-imbalance detected";
 
       return u;
     }
@@ -130,6 +138,8 @@ namespace build2
       l_->next (t); // Start of name.
       string n (parse_module_name (t));
 
+      // Should be {}-balanced.
+      //
       for (; t.type != type::eos && t.type != type::semi; l_->next (t)) ;
 
       if (t.type != type::semi)
@@ -153,6 +163,8 @@ namespace build2
       l_->next (t); // Start of name.
       string n (parse_module_name (t));
 
+      // Should be {}-balanced.
+      //
       for (; t.type != type::eos && t.type != type::semi; l_->next (t)) ;
 
       if (t.type != type::semi)

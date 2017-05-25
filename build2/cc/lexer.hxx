@@ -85,7 +85,7 @@ namespace build2
       next ()
       {
         token t;
-        next (t, skip_spaces ());
+        next (t, skip_spaces (), true);
         return t;
       }
 
@@ -98,13 +98,13 @@ namespace build2
       token_type
       next (token& t)
       {
-        next (t, skip_spaces ());
+        next (t, skip_spaces (), true);
         return t.type;
       }
 
     private:
       void
-      next (token&, xchar);
+      next (token&, xchar, bool);
 
       void
       number_literal (token&, xchar);

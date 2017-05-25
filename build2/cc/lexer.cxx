@@ -76,7 +76,7 @@ namespace build2
     using type = token_type;
 
     void lexer::
-    next (token& t, xchar c)
+    next (token& t, xchar c, bool ignore_pp)
     {
       for (;; c = skip_spaces ())
       {
@@ -101,18 +101,27 @@ namespace build2
             // that we assume there cannot be #include directives.
             //
             // This may not work for things like #error that can contain
-            // pretty much anything.
+            // pretty much anything. Also note that lines that start with
+            // # can contain # further down.
             //
-            for (;;)
+            if (ignore_pp)
             {
-              c = skip_spaces (false); // Stop at newline.
+              for (;;)
+              {
+                c = skip_spaces (false); // Stop at newline.
 
-              if (eos (c) || c == '\n')
-                break;
+                if (eos (c) || c == '\n')
+                  break;
 
-              next (t, c); // Keep using the passed token for buffers.
+                next (t, c, false); // Keep using the passed token for buffers.
+              }
+              break;
             }
-            break;
+            else
+            {
+              t.type = type::punctuation;
+              return;
+            }
           }
           // Single-letter punctuation.
           //
