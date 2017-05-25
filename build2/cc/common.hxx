@@ -13,6 +13,7 @@
 #include <build2/bin/target.hxx>
 
 #include <build2/cc/types.hxx>
+#include <build2/cc/guess.hxx> // compiler_id
 
 namespace build2
 {
@@ -99,15 +100,17 @@ namespace build2
 
       // Cached values for some commonly-used variables/values.
       //
-      const string& cid;         // x.id
-      uint64_t cmaj;             // x.version.major
-      uint64_t cmin;             // x.version.minor
 
-      const target_triplet& ctg; // x.target
-      const string& tsys;        // x.target.system
-      const string& tclass;      // x.target.class
+      compiler_id::value_type cid; // x.id (no variant)
+      const string& cvar;          // x.id.variant
+      uint64_t cmaj;               // x.version.major
+      uint64_t cmin;               // x.version.minor
 
-      const string& tstd;        // Translated x_std value (can be empty).
+      const target_triplet& ctg;   // x.target
+      const string& tsys;          // x.target.system
+      const string& tclass;        // x.target.class
+
+      const string& tstd;          // Translated x_std value (can be empty).
 
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
@@ -144,7 +147,7 @@ namespace build2
             const char* link,
             const char* install,
             const char* uninstall,
-            const string& id,
+            compiler_id::value_type id, const string& var,
             uint64_t mj, uint64_t mi,
             const target_triplet& tg,
             const string& std,
@@ -159,7 +162,7 @@ namespace build2
             x_link (link),
             x_install (install),
             x_uninstall (uninstall),
-            cid (id), cmaj (mj), cmin (mi),
+            cid (id), cvar (var), cmaj (mj), cmin (mi),
             ctg (tg), tsys (ctg.system), tclass (ctg.class_),
             tstd (std),
             pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),

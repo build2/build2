@@ -40,6 +40,8 @@ namespace build2
 
       string tstd;
 
+      compiler_id::value_type cid;
+
     private:
       dir_paths
       gcc_library_search_paths (process_path&, scope&) const; // gcc.cxx

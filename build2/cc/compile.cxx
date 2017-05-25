@@ -954,29 +954,38 @@ namespace build2
       //
       const char* pp (nullptr);
 
-      if      (cid == "msvc") pp = "/C";
-      else if (cid == "gcc")
+      switch (cid)
       {
-        // -fdirectives-only is available since GCC 4.3.0.
-        //
-        if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
-          pp = "-fdirectives-only";
-      }
-      else if (cid == "clang")
-      {
-        // -frewrite-includes is available since Clang 3.2.0.
-        //
-        if (cmaj > 3 || (cmaj == 3 && cmin >= 2))
-          pp = "-frewrite-includes";
-      }
-      else if (cid == "clang-apple")
-      {
-        // Apple Clang 5.0 is based on LLVM 3.3svn so it should have this
-        // option (4.2 is based on 3.2svc so it may or may not have it and,
-        // no, we are not going to try to find out).
-        //
-        if (cmaj >= 5)
-          pp = "-frewrite-includes";
+      case compiler_id::gcc:
+        {
+          // -fdirectives-only is available since GCC 4.3.0.
+          //
+          if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
+            pp = "-fdirectives-only";
+
+          break;
+        }
+      case compiler_id::clang:
+        {
+          // -frewrite-includes is available since vanilla Clang 3.2.0.
+          //
+          // Apple Clang 5.0 is based on LLVM 3.3svn so it should have this
+          // option (4.2 is based on 3.2svc so it may or may not have it and,
+          // no, we are not going to try to find out).
+          //
+          if (cvar == ""      ? (cmaj > 3 || (cmaj == 3 && cmin >= 2)) :
+              cvar == "apple" ? (cmaj >= 5) : false)
+            pp = "-frewrite-includes";
+
+          break;
+        }
+      case compiler_id::msvc:
+        {
+          pp = "/C";
+          break;
+        }
+      case compiler_id::icc:
+        break;
       }
 
       // Initialize lazily, only if required.
@@ -1138,7 +1147,7 @@ namespace build2
               args.push_back ("-fPIC");
           }
 
-          if (cid == "msvc")
+          if (cid == compiler_id::msvc)
           {
             assert (pp != nullptr);
 
@@ -1186,7 +1195,7 @@ namespace build2
             // Clang's -M does not imply -w (disable warnings). We also don't
             // need them in the -MD case (see above) so disable for both.
             //
-            if (cid == "clang" || cid == "clang-apple")
+            if (cid == compiler_id::clang)
               args.push_back ("-w");
 
             // Previously we used '*' as a target name but it gets expanded to
@@ -1215,7 +1224,7 @@ namespace build2
               // GCC is not capable of writing the dependency info to stdout.
               // We also need to sense the diagnostics on the -E runs.
               //
-              if (cid == "gcc")
+              if (cid == compiler_id::gcc)
               {
                 // Use the .t extension (for "temporary"; .d is taken).
                 //
@@ -1260,7 +1269,7 @@ namespace build2
             args[i + 2] = rels.string ().c_str ();
             args[i + 3] = nullptr;
 
-            if (cid == "gcc")
+            if (cid == compiler_id::gcc)
             {
               sense_diag = false;
             }
@@ -1274,7 +1283,7 @@ namespace build2
             args[i + 2] = pp;
             args[i + 3] = "-MF";
 
-            if (cid == "gcc")
+            if (cid == compiler_id::gcc)
             {
               r = &drm.path ();
               sense_diag = true;
@@ -1648,7 +1657,7 @@ namespace build2
                               args.data (),
                               0,
                               -1,
-                              cid == "msvc" ? 1 : gen ? 2 : -2);
+                              cid == compiler_id::msvc ? 1 : gen ? 2 : -2);
               }
               else
               {
@@ -1712,7 +1721,7 @@ namespace build2
 
                 // Parse different dependency output formats.
                 //
-                if (cid == "msvc")
+                if (cid == compiler_id::msvc)
                 {
                   if (first)
                   {
@@ -1840,9 +1849,9 @@ namespace build2
               // eof, this and all subsequent writes to cerr will fail (and
               // you won't see a thing).
               //
-              if (is.peek () != ifdstream::traits_type::eof () &&
-                  cid == "msvc" &&
-                  bad_error)
+              if (bad_error                                 &&
+                  cid == compiler_id::msvc                  &&
+                  is.peek () != ifdstream::traits_type::eof ())
                 cerr << is.rdbuf ();
 
               is.close ();
@@ -1990,7 +1999,7 @@ namespace build2
 
       append_std (args);
 
-      if (cid == "msvc")
+      if (cid == compiler_id::msvc)
       {
         // The /F*: option variants with separate names only became available
         // in VS2013/12.0. Why do we bother? Because the command line suddenly
@@ -2117,21 +2126,32 @@ namespace build2
 
         // This should match with how we setup preprocessing.
         //
-        if (cid == "gcc")
+        switch (cid)
         {
-          // The -fpreprocessed in implied by .i/.ii.
-          //
-          args.push_back ("-fdirectives-only");
-        }
-        else if (cid == "clang" || cid == "clang-apple")
-        {
-          // Without this Clang will treat .i/.ii as fully preprocessed.
-          //
-          args.push_back ("-x");
-          args.push_back (x_name);
-        }
-        else if (cid != "msvc") // Nothing to do (/TP or /TC already there).
+        case compiler_id::gcc:
+          {
+            // The -fpreprocessed in implied by .i/.ii.
+            //
+            args.push_back ("-fdirectives-only");
+            break;
+          }
+        case compiler_id::clang:
+          {
+            // Without this Clang will treat .i/.ii as fully preprocessed.
+            //
+            args.push_back ("-x");
+            args.push_back (x_name);
+            break;
+          }
+        case compiler_id::msvc:
+          {
+            // Nothing to do (/TP or /TC already there).
+            //
+            break;
+          }
+        case compiler_id::icc:
           assert (false);
+        }
 
         args.push_back (rels.string ().c_str ());
         args.push_back (nullptr);
@@ -2157,7 +2177,7 @@ namespace build2
         // tries to pull off something similar. For sane compilers this should
         // be harmless.
         //
-        bool filter (cid == "msvc");
+        bool filter (cid == compiler_id::msvc);
 
         process pr (xc, args.data (), 0, (filter ? -1 : 2));
 
@@ -2213,18 +2233,22 @@ namespace build2
     }
 
     target_state compile::
-    perform_clean (action act, const target& xt) const
+    perform_clean (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
 
-      if (cid == "msvc")
-        return clean_extra (act, t, {".d", x_pext, ".idb", ".pdb"});
-      else if (cid == "gcc")
-        return clean_extra (act, t, {".d", x_pext, ".t"});
-      else if (cid == "clang" || cid == "clang-apple")
-        return clean_extra (act, t, {".d", x_pext});
-      else
-        return clean_extra (act, t, {".d"});
+      using id = compiler_id;
+
+      switch (cid)
+      {
+      case id::gcc:   return clean_extra (a, t, {".d", x_pext, ".t"});
+      case id::clang: return clean_extra (a, t, {".d", x_pext});
+      case id::msvc:  return clean_extra (a, t, {".d", x_pext, ".idb", ".pdb"});
+      case id::icc:   return clean_extra (a, t, {".d"});
+      }
+
+      assert (false);
+      return target_state::unchanged;
     }
   }
 }

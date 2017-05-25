@@ -14,6 +14,18 @@ namespace build2
 {
   namespace cc
   {
+    auto compiler_id::
+    value () const -> value_type
+    {
+      if (type == "gcc")   return gcc;
+      if (type == "clang") return clang;
+      if (type == "msvc")  return msvc;
+      if (type == "icc")   return icc;
+
+      assert (false);
+      return gcc;
+    }
+
     // Pre-guess the compiler type based on the compiler executable name.
     // Return empty string if can't make a guess (for example, because the
     // compiler name is a generic 'c++'). Note that it only guesses the type,

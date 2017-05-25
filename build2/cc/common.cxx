@@ -515,7 +515,7 @@ namespace build2
         //
         const char* e ("");
 
-        if (cid == "msvc")
+        if (cid == compiler_id::msvc)
         {
           an = path (name);
           e = "lib";
@@ -543,7 +543,7 @@ namespace build2
       {
         const char* e ("");
 
-        if (cid == "msvc")
+        if (cid == compiler_id::msvc)
         {
           sn = path (name);
           e = "dll.lib";
@@ -661,7 +661,7 @@ namespace build2
         //
         // If we didn't find .dll.lib then we cannot assume .lib is static.
         //
-        if (!an.empty () && (s != nullptr || cid != "msvc"))
+        if (!an.empty () && (s != nullptr || cid != compiler_id::msvc))
         {
           f = d;
           f /= an;
@@ -682,7 +682,7 @@ namespace build2
 
         // Alternative search for VC.
         //
-        if (cid == "msvc")
+        if (cid == compiler_id::msvc)
         {
           const scope& rs (*p.scope->root_scope ());
           const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
@@ -879,7 +879,7 @@ namespace build2
 
           dir_path d;
 
-          if (cid == "msvc")
+          if (cid == compiler_id::msvc)
           {
             // /LIBPATH:<dir> (case-insensitive).
             //

@@ -238,7 +238,8 @@ namespace build2
         "c.install",
         "c.uninstall",
 
-        cast<string>         (rs[cm.x_id]),
+        cm.cid,
+        cast<string>         (rs[cm.x_id_variant]),
         cast<uint64_t>       (rs[cm.x_version_major]),
         cast<uint64_t>       (rs[cm.x_version_minor]),
         cast<target_triplet> (rs[cm.x_target]),

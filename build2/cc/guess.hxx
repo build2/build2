@@ -23,8 +23,8 @@ namespace build2
     // gcc          GCC gcc/g++
     // clang        Vanilla Clang clang/clang++
     // clang-apple  Apple Clang clang/clang++ and the gcc/g++ "alias"
-    // icc          Intel icc/icpc
     // msvc         Microsoft cl.exe
+    // icc          Intel icc/icpc
     //
     struct compiler_id
     {
@@ -36,6 +36,19 @@ namespace build2
 
       std::string
       string () const {return variant.empty () ? type : type + "-" + variant;}
+
+      // Note: does not include variant.
+      //
+      enum value_type
+      {
+        gcc,
+        clang,
+        msvc,
+        icc
+      };
+
+      value_type
+      value () const;
     };
 
     inline ostream&

@@ -219,6 +219,7 @@ namespace build2
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs);
 
+      cid = ci.id.value ();
       rs.assign (x_id) = ci.id.string ();
       rs.assign (x_id_type) = move (ci.id.type);
       rs.assign (x_id_variant) = move (ci.id.variant);

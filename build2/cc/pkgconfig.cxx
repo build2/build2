@@ -446,7 +446,7 @@ namespace build2
 
         if (!lops.empty ())
         {
-          if (cid == "msvc")
+          if (cid == compiler_id::msvc)
           {
             // Translate -L to /LIBPATH.
             //

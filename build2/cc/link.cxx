@@ -355,7 +355,7 @@ namespace build2
           }
         case otype::a:
           {
-            if (cid == "msvc")
+            if (cid == compiler_id::msvc)
               e = "lib";
             else
             {
@@ -388,8 +388,8 @@ namespace build2
 
         // PDB
         //
-        if (lt != otype::a &&
-            cid == "msvc" &&
+        if (lt != otype::a                               &&
+            cid == compiler_id::msvc                     &&
             (find_option ("/DEBUG", t, c_loptions, true) ||
              find_option ("/DEBUG", t, x_loptions, true)))
         {
@@ -1140,7 +1140,9 @@ namespace build2
         //
         const string& cs (
           cast<string> (
-            rs[cid == "msvc" ? var_pool["bin.ld.checksum"] : x_checksum]));
+            rs[cid == compiler_id::msvc
+               ? var_pool["bin.ld.checksum"]
+               : x_checksum]));
 
         if (dd.expect (cs) != nullptr)
           l4 ([&]{trace << "linker mismatch forcing update of " << t;});
@@ -1169,7 +1171,7 @@ namespace build2
 
       if (lt == otype::a)
       {
-        if (cid == "msvc") ;
+        if (cid == compiler_id::msvc) ;
         else
         {
           // If the user asked for ranlib, don't try to do its function with
@@ -1181,7 +1183,7 @@ namespace build2
       }
       else
       {
-        if (cid == "msvc")
+        if (cid == compiler_id::msvc)
         {
           // We are using link.exe directly so don't pass the compiler
           // options.
@@ -1362,7 +1364,7 @@ namespace build2
         {
           ld = &cast<process_path> (rs["bin.ar.path"]);
 
-          if (cid == "msvc")
+          if (cid == compiler_id::msvc)
           {
             // lib.exe has /LIBPATH but it's not clear/documented what it's
             // used for. Perhaps for link-time code generation (/LTCG)? If
@@ -1387,7 +1389,7 @@ namespace build2
       case otype::e:
       case otype::s:
         {
-          if (cid == "msvc")
+          if (cid == compiler_id::msvc)
           {
             // Using link.exe directly.
             //
@@ -1616,7 +1618,7 @@ namespace build2
         // something like this) we are going to redirect stdout to stderr. For
         // sane compilers this should be harmless.
         //
-        bool filter (cid == "msvc" && lt != otype::a);
+        bool filter (cid == compiler_id::msvc && lt != otype::a);
 
         process pr (*ld, args.data (), 0, (filter ? -1 : 2));
 
