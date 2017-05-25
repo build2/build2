@@ -58,6 +58,7 @@ exe{b}:                                                   \
          cc/{hxx         cxx}{ link                     } \
          cc/{hxx         cxx}{ module                   } \
          cc/{            cxx}{ msvc                     } \
+         cc/{hxx         cxx}{ parser                   } \
          cc/{            cxx}{ pkgconfig                } \
          cc/{hxx         cxx}{ target                   } \
          cc/{hxx            }{ types                    } \

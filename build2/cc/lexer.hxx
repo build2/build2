@@ -141,7 +141,7 @@ namespace build2
 
     private:
       const path name_;
-      fail_mark fail;
+      const fail_mark fail;
     };
 
     // Diagnostics plumbing. We assume that any diag stream for which we can

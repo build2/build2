@@ -94,7 +94,7 @@ namespace build2
   const basic_mark error ("error");
   const basic_mark warn  ("warning");
   const basic_mark info  ("info");
-  const basic_mark text  (nullptr, nullptr); // No type/frame.
+  const basic_mark text  (nullptr, nullptr, nullptr); // No type/data/frame.
   const fail_mark  fail  ("error");
   const fail_end   endf;
 }

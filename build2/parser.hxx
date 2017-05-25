@@ -27,6 +27,7 @@ namespace build2
     // If boot is true, then we are parsing bootstrap.build and modules
     // should only be bootstrapped.
     //
+    explicit
     parser (bool boot = false): fail ("error", &path_), boot_ (boot) {}
 
     // Issue diagnostics and throw failed in case of an error.

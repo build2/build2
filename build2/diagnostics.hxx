@@ -244,11 +244,11 @@ namespace build2
 
     explicit
     basic_mark_base (const char* type,
+                     const void* data = nullptr,
                      diag_epilogue* epilogue = &diag_frame::apply,
                      uint16_t (*sverb) () = &stream_verb_map,
                      const char* mod = nullptr,
-                     const char* name = nullptr,
-                     const void* data = nullptr)
+                     const char* name = nullptr)
         : sverb_ (sverb),
           type_ (type), mod_ (mod), name_ (name), data_ (data),
           epilogue_ (epilogue) {}
@@ -300,11 +300,11 @@ namespace build2
                      const char* name,
                      const void* data = nullptr)
         : basic_mark_base ("trace",
+                           data,
                            nullptr, // No diag stack.
                            []() {return stream_verb_max;},
                            mod,
-                           name,
-                           data) {}
+                           name) {}
   };
   using trace_mark = butl::diag_mark<trace_mark_base>;
   using tracer = trace_mark;
@@ -317,6 +317,7 @@ namespace build2
     fail_mark_base (const char* type,
                     const void* data = nullptr)
         : basic_mark_base (type,
+                           data,
                            [](const diag_record& r)
                            {
                              diag_frame::apply (r);
@@ -325,8 +326,7 @@ namespace build2
                            },
                            &stream_verb_map,
                            nullptr,
-                           nullptr,
-                           data) {}
+                           nullptr) {}
   };
   using fail_mark = butl::diag_mark<fail_mark_base>;
 

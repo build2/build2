@@ -1,0 +1,147 @@
+# file      : unit-tests/cc/parser/module.test
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test C++ module constructs.
+#
+
+: import
+:
+$* <<EOI >>EOI
+import foo;
+import foo.bar;
+import foo.bar.baz;
+EOI
+
+: module-implementation
+:
+$* <<EOI >>EOI
+module foo;
+EOI
+
+: module-interface
+:
+$* <<EOI >>EOI
+export module foo;
+EOI
+
+: export-imported
+:
+$* <<EOI >>EOO
+export import foo;
+EOI
+import foo;
+EOO
+
+: export-imported-block
+:
+$* <<EOI >>EOO
+export {import foo;}
+
+export
+{
+  namespace foo
+  {
+    class c {};
+  }
+
+  template <typename T> int f ();
+
+  import bar;
+}
+EOI
+import foo;
+import bar;
+EOO
+
+: non-module
+:
+$* <<EOI
+#pragma import module foo;
+#pragma export module foo;
+#pragma module foo;
+extern module foo: int foo ();
+export namespace bar {int fox ();}
+EOI
+
+: attribute
+:
+$* <<EOI >>EOO
+import foo [[export({import})]];
+module bar [[module({module})]];
+EOI
+import foo;
+module bar;
+EOO
+
+: import-duplicate
+:
+$* <<EOI >>EOO
+import foo;
+import bar.baz;
+import foo;
+import bar . baz;
+EOI
+import foo;
+import bar.baz;
+EOO
+
+: brace-missing
+:
+$* <<EOI 2>>EOE
+export
+{
+  class foo
+  {
+  //};
+  module foo;
+}
+EOI
+stdin:8:1: warning: {}-imbalance detected
+EOE
+
+: brace-stray
+:
+$* <<EOI 2>>EOE
+export
+{
+  class foo
+  {
+  };}
+}
+module foo;
+EOI
+stdin:6:1: warning: {}-imbalance detected
+EOE
+
+: import-missing-name
+:
+$* <<EOI 2>>EOE != 0
+import ;
+EOI
+stdin:1:8: error: module name expected instead of ';'
+EOE
+
+: module-missing-name
+:
+$* <<EOI 2>>EOE != 0
+module ;
+EOI
+stdin:1:8: error: module name expected instead of ';'
+EOE
+
+: import-missing-semi
+:
+$* <<EOI 2>>EOE != 0
+import foo
+EOI
+stdin:2:1: error: ';' expected instead of <end of file>
+EOE
+
+: module-missing-semi
+:
+$* <<EOI 2>>EOE != 0
+export module foo
+EOI
+stdin:2:1: error: ';' expected instead of <end of file>
+EOE
