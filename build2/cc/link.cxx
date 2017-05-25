@@ -1485,7 +1485,7 @@ namespace build2
           }
           else
           {
-            ld = &cast<process_path> (rs[x_path]);
+            ld = &cpath;
 
             // Add the option that triggers building a shared library and take
             // care of any extras (e.g., import library).

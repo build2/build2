@@ -105,6 +105,7 @@ namespace build2
       const string& cvar;          // x.id.variant
       uint64_t cmaj;               // x.version.major
       uint64_t cmin;               // x.version.minor
+      const process_path& cpath;   // x.path
 
       const target_triplet& ctg;   // x.target
       const string& tsys;          // x.target.system
@@ -149,6 +150,7 @@ namespace build2
             const char* uninstall,
             compiler_id::value_type id, const string& var,
             uint64_t mj, uint64_t mi,
+            const process_path& path,
             const target_triplet& tg,
             const string& std,
             const process_path* pkgc,
@@ -162,7 +164,7 @@ namespace build2
             x_link (link),
             x_install (install),
             x_uninstall (uninstall),
-            cid (id), cvar (var), cmaj (mj), cmin (mi),
+            cid (id), cvar (var), cmaj (mj), cmin (mi), cpath (path),
             ctg (tg), tsys (ctg.system), tclass (ctg.class_),
             tstd (std),
             pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),

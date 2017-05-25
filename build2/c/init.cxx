@@ -242,6 +242,7 @@ namespace build2
         cast<string>         (rs[cm.x_id_variant]),
         cast<uint64_t>       (rs[cm.x_version_major]),
         cast<uint64_t>       (rs[cm.x_version_minor]),
+        cast<process_path>   (rs[cm.x_path]),
         cast<target_triplet> (rs[cm.x_target]),
 
         cm.tstd,

@@ -82,7 +82,13 @@ namespace build2
       map_extension (const scope&, const string&, const string&) const;
 
       pair<auto_rmfile, bool>
-      inject (action, file&, lorder, const file&, depdb&, bool&) const;
+      extract_headers (action, file&, lorder,
+                       const file&,
+                       depdb&, bool&) const;
+      void
+      extract_modules (action, file&, lorder,
+                       const file&, auto_rmfile&,
+                       depdb&, bool&) const;
 
     private:
       const string rule_id;

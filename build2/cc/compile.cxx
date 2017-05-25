@@ -16,6 +16,7 @@
 
 #include <build2/bin/target.hxx>
 
+#include <build2/cc/parser.hxx>
 #include <build2/cc/target.hxx>  // h
 #include <build2/cc/utility.hxx>
 
@@ -550,8 +551,8 @@ namespace build2
           {
             // If the file got updated or is newer than the database, then we
             // cannot rely on the cache any further. However, the cached data
-            // could actually still be valid so the compiler run in inject()
-            // will validate it.
+            // could actually still be valid so the compiler run in
+            // extract_headers() will validate it.
             //
             // We do need to update the database timestamp, however. Failed
             // that, we will keep re-validating the cached data over and over
@@ -564,15 +565,23 @@ namespace build2
           }
         }
 
-        pair<auto_rmfile, bool> p (inject (act, t, lo, src, dd, u));
+        pair<auto_rmfile, bool> p (extract_headers (act, t, lo, src, dd, u));
         dd.close ();
 
-        // If the preprocessed output is suitable for compilation and is not
-        // disabled, pass it along.
+        // Do we have preprocessed output?
         //
-        if (!p.first.path ().empty () && p.second)
+        if (!p.first.path ().empty ())
         {
-          if (!cast_false<bool> (t[c_reprocess]))
+          // If C++ modules support is enabled then we need to extract the
+          // module dependency information in addition to header dependencie
+          // above.
+          //
+          extract_modules (act, t, lo, src, p.first, dd, u);
+
+          // If the preprocessed output is suitable for compilation and is not
+          // disabled, pass it along.
+          //
+          if (p.second && !cast_false<bool> (t[c_reprocess]))
             md.psrc = move (p.first);
         }
 
@@ -916,19 +925,19 @@ namespace build2
       }
     }
 
-    // Header dependency injection. Return the preprocessed source file as
-    // well as an indication if it is usable for compilation (see below for
-    // details).
+    // Extract and inject header dependencies. Return the preprocessed source
+    // file as well as an indication if it is usable for compilation (see
+    // below for details).
     //
     pair<auto_rmfile, bool> compile::
-    inject (action act,
-            file& t,
-            lorder lo,
-            const file& src,
-            depdb& dd,
-            bool& updating) const
+    extract_headers (action act,
+                     file& t,
+                     lorder lo,
+                     const file& src,
+                     depdb& dd,
+                     bool& updating) const
     {
-      tracer trace (x, "compile::inject");
+      tracer trace (x, "compile::extract_headers");
 
       l6 ([&]{trace << "target: " << t;});
 
@@ -990,7 +999,6 @@ namespace build2
 
       // Initialize lazily, only if required.
       //
-      const process_path* xc (nullptr);
       cstrings args;
       string out; // Storage.
       path rels;
@@ -1081,7 +1089,7 @@ namespace build2
       auto init_args = [&t, act, lo,
                         &src, &rels, &psrc, &sense_diag,
                         &rs, &bs,
-                        pp, &xc, &args, &args_gen, &args_i, &out, &drm, this]
+                        pp, &args, &args_gen, &args_i, &out, &drm, this]
         (bool& gen) -> const path*
       {
         const path* r (nullptr);
@@ -1114,8 +1122,7 @@ namespace build2
           //
           rels = relative (src.path ());
 
-          xc = &cast<process_path> (rs[x_path]);
-          args.push_back (xc->recall_string ());
+          args.push_back (cpath.recall_string ());
 
           // Add *.export.poptions from prerequisite libraries.
           //
@@ -1653,7 +1660,7 @@ namespace build2
                 // For VC with /P the dependency info and diagnostics all go
                 // to stderr so redirect it to stdout.
                 //
-                pr = process (*xc,
+                pr = process (cpath,
                               args.data (),
                               0,
                               -1,
@@ -1663,7 +1670,7 @@ namespace build2
               {
                 // Dependency info goes to a temporary file.
                 //
-                pr = process (*xc,
+                pr = process (cpath,
                               args.data (),
                               0,
                               2, // Send stdout to stderr.
@@ -1937,6 +1944,195 @@ namespace build2
       return make_pair (move (psrc), puse);
     }
 
+    // Extract and inject module dependencies.
+    //
+    void compile::
+    extract_modules (action act,
+                     file& t,
+                     lorder lo,
+                     const file& src,
+                     auto_rmfile& psrc,
+                     depdb& /*dd*/,
+                     bool& /*updating*/) const
+    {
+      tracer trace (x, "compile::extract_modules");
+
+      l6 ([&]{trace << "target: " << t;});
+
+      // If things go wrong (and they often do in this area), give the user a
+      // bit extra context.
+      //
+      auto df = make_diag_frame (
+        [&src](const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info << "while extracting module dependencies from " << src;
+        });
+
+      // For some compilers (GCC, Clang) the preporcessed output is only
+      // partially preprocessed. For others (VC), it is already fully
+      // preprocessed (well, almost: it still has comments but we can handle
+      // that).
+      //
+      // So the plan is to start the compiler process that writes the fully
+      // preprocessed output to stdout and reduce the already preprocessed
+      // case to it.
+      //
+      cstrings args;
+
+      path rels (relative (psrc.path ()));
+
+      // This should match with how we setup preprocessing and is pretty
+      // similar to init_args() from extract_headers().
+      //
+      switch (cid)
+      {
+      case compiler_id::gcc:
+      case compiler_id::clang:
+        {
+          const scope& bs (t.base_scope ());
+
+          args.push_back (cpath.recall_string ());
+
+          // Add *.export.poptions from prerequisite libraries.
+          //
+          append_lib_options (bs, args, t, act, lo);
+
+          append_options (args, t, c_poptions);
+          append_options (args, t, x_poptions);
+
+          // Extra system header dirs (last).
+          //
+          for (const dir_path& d: sys_inc_dirs)
+          {
+            args.push_back ("-I");
+            args.push_back (d.string ().c_str ());
+          }
+
+          // Some compile options (e.g., -std, -m) affect the preprocessor.
+          //
+          append_options (args, t, c_coptions);
+          append_options (args, t, x_coptions);
+
+          append_std (args);
+
+          if (t.is_a<objs> ())
+          {
+            // On Darwin, Win32 -fPIC is the default.
+            //
+            if (tclass == "linux" || tclass == "bsd")
+              args.push_back ("-fPIC");
+          }
+
+          // Options that trigger preprocessing of partially preprocessed
+          // output are a bit of a compiler-specific voodoo.
+          //
+          args.push_back ("-E");
+          args.push_back ("-x");
+          args.push_back (x_name);
+
+          if (cid == compiler_id::gcc)
+          {
+            args.push_back ("-fpreprocessed");
+            args.push_back ("-fdirectives-only");
+          }
+
+          args.push_back (rels.string ().c_str ());
+          args.push_back (nullptr);
+          break;
+        }
+      case compiler_id::msvc:
+        break; // Already fully preprocessed.
+      case compiler_id::icc:
+        assert (false);
+      }
+
+      // Preprocess and parse.
+      //
+      translation_unit tu;
+
+      for (;;) // Breakout loop.
+      try
+      {
+        // Disarm the removal of the preprocessed file in case of an error.
+        // We re-arm it below.
+        //
+        psrc.cancel ();
+
+        if (verb >= 3)
+          print_process (args);
+
+        process pr;
+
+        try
+        {
+          if (args.empty ())
+          {
+            pr = process (process_exit (0)); // Successfully exited.
+            pr.in_ofd = fdopen (rels, fdopen_mode::in);
+          }
+          else
+          {
+            // We don't want to see warnings multiple times so ignore all
+            // diagnostics.
+            //
+            pr = process (cpath, args.data (), 0, -1, -2);
+          }
+
+          ifdstream is (move (pr.in_ofd),
+                        fdstream_mode::text | fdstream_mode::skip);
+
+          parser p;
+          tu = p.parse (is, rels);
+
+          is.close ();
+
+          if (pr.wait ())
+          {
+            psrc = auto_rmfile (move (rels)); // Re-arm.
+            break;
+          }
+
+          // Fall through.
+        }
+        catch (const io_error&)
+        {
+          if (pr.wait ())
+            fail << "unable to read " << x_lang << " preprocessor output";
+
+          // Fall through.
+        }
+
+        assert (pr.exit && !*pr.exit);
+        const process_exit& e (*pr.exit);
+
+        // What should we do with a normal error exit? Remember we suppressed
+        // the compiler's diagnostics. Let's issue a warning and continue with
+        // the assumption that the compilation step fails with diagnostics.
+        //
+        if (e.normal ())
+        {
+          warn << "unable to extract module dependency information from "
+               << src;
+          return;
+        }
+        else
+          fail << args[0] << " terminated abnormally: " << e.description ();
+      }
+      catch (const process_error& e)
+      {
+        error << "unable to execute " << args[0] << ": " << e;
+
+        if (e.child)
+          exit (1);
+
+        throw failed ();
+      }
+
+      if (!tu.module_name.empty () || !tu.module_imports.empty ())
+        fail << "module support not yet implemented";
+    }
+
     // Filter cl.exe noise (msvc.cxx).
     //
     void
@@ -1968,8 +2164,7 @@ namespace build2
       otype ct (compile_type (t));
       lorder lo (link_order (bs, ct));
 
-      const process_path& xc (cast<process_path> (rs[x_path]));
-      cstrings args {xc.recall_string ()};
+      cstrings args {cpath.recall_string ()};
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -2179,7 +2374,7 @@ namespace build2
         //
         bool filter (cid == compiler_id::msvc);
 
-        process pr (xc, args.data (), 0, (filter ? -1 : 2));
+        process pr (cpath, args.data (), 0, (filter ? -1 : 2));
 
         if (filter)
         {
