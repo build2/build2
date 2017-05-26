@@ -547,25 +547,22 @@ namespace build2
           if (pt == nullptr || pt == dir)
             continue;
 
-          if (update (trace, act, *pt, u ? timestamp_unknown : mt))
-          {
-            // If the file got updated or is newer than the database, then we
-            // cannot rely on the cache any further. However, the cached data
-            // could actually still be valid so the compiler run in
-            // extract_headers() will validate it.
-            //
-            // We do need to update the database timestamp, however. Failed
-            // that, we will keep re-validating the cached data over and over
-            // again.
-            //
-            if (dd.reading ())
-              dd.touch ();
-
-            u = true;
-          }
+          u = update (trace, act, *pt, u ? timestamp_unknown : mt) || u;
         }
 
         pair<auto_rmfile, bool> p (extract_headers (act, t, lo, src, dd, u));
+
+        // If anything got updated, then we didn't rely on the cache. However,
+        // the cached data could actually have been valid and the compiler run
+        // in extract_headers() merely validated it.
+        //
+        // We do need to update the database timestamp, however. Failed
+        // that, we will keep re-validating the cached data over and over
+        // again.
+        //
+        if (u && dd.reading ())
+          dd.touch ();
+
         dd.close ();
 
         // Do we have preprocessed output?
@@ -1574,13 +1571,7 @@ namespace build2
       // If nothing so far has invalidated the dependency database, then try
       // the cached data before running the compiler.
       //
-      // Also force the compiler run if the separate preprocess and compile
-      // setup is used and we need to update the target. This is a degenerate
-      // case of re-running the compiler after an error without changing
-      // anything.
-      //
-      bool cache (dd.reading () && !dd.touched () &&
-                  (!updating || pp == nullptr));
+      bool cache (!updating);
 
       // See init_args() above for details on generated header support.
       //
@@ -1615,12 +1606,9 @@ namespace build2
             restart = add (path (move (*l)), true);
             skip_count++;
 
-            // The same idea as in the source file update.
-            //
             if (restart)
             {
               l6 ([&]{trace << "restarting";});
-              dd.touch ();
               break;
             }
           }
@@ -1778,8 +1766,11 @@ namespace build2
                     // case we must force a restart since we haven't yet seen
                     // what's after this at-that-time-non-existent header.
                     //
+                    // We also need to force the target update (normally done
+                    // by add()).
+                    //
                     if (good_error)
-                      restart = true;
+                      restart = updating = true;
 
                     if (restart)
                       l6 ([&]{trace << "restarting";});
@@ -1867,9 +1858,12 @@ namespace build2
               // generated all our missing headers and we wouldn't restart
               // normally.
               //
+              // In this case we also need to force the target update
+              // (normally done by add()).
+              //
               if (force_gen && *force_gen)
               {
-                restart = true;
+                restart = updating = true;
                 force_gen = false;
               }
 
