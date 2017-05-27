@@ -22,8 +22,10 @@ namespace build2
     //
     // The input is a (partially-)preprocessed translation unit that may still
     // contain comments, line continuations, and preprocessor directives such
-    // as #line, #pragma, etc. Currently all preprocessor directives are
-    // discarded and no values are saved for literals.
+    // as #line, #pragma, etc., but not #include's. Currently all preprocessor
+    // directives except #line are ignored and no values are saved from
+    // literals. The #line directive (and its shorthand notation) is
+    // recognized to provide the logical token location.
     //
     enum class token_type
     {
@@ -51,6 +53,7 @@ namespace build2
       token_type type;
       string     value;
 
+      path     file;
       uint64_t line;
       uint64_t column;
 
@@ -74,7 +77,10 @@ namespace build2
     {
     public:
       lexer (istream& is, const path& name)
-          : char_scanner (is, false), name_ (name), fail ("error", &name_) {}
+          : char_scanner (is, false),
+            name_ (name),
+            fail ("error", &name_),
+            log_file_ (name) {}
 
       const path&
       name () const {return name_;}
@@ -121,6 +127,9 @@ namespace build2
       void
       literal_suffix (xchar);
 
+      void
+      line_directive (token&, xchar);
+
       xchar
       skip_spaces (bool newline = true);
 
@@ -134,7 +143,7 @@ namespace build2
       get (bool escape = true);
 
       void
-      get (const xchar& peeked) {base::get (peeked);}
+      get (const xchar& peeked);
 
       xchar
       peek (bool escape = true);
@@ -142,23 +151,20 @@ namespace build2
     private:
       const path name_;
       const fail_mark fail;
+
+      // Logical file and line as set by the #line directives. Note that the
+      // lexer diagnostics still uses the physical file/lines.
+      //
+      path               log_file_;
+      optional<uint64_t> log_line_;
     };
 
-    // Diagnostics plumbing. We assume that any diag stream for which we can
-    // use token as location has its aux data pointing to pointer to path.
+    // Diagnostics plumbing.
     //
     inline location
-    get_location (const token& t, const path& p)
+    get_location (const token& t, const void*)
     {
-      return location (&p, t.line, t.column);
-    }
-
-    inline location
-    get_location (const token& t, const void* data)
-    {
-      assert (data != nullptr); // E.g., must be &parser::path_.
-      const path* p (*static_cast<const path* const*> (data));
-      return get_location (t, *p);
+      return location (&t.file, t.line, t.column);
     }
   }
 }

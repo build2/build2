@@ -62,29 +62,29 @@ EOO
 : invalid-no-paren
 :
 $* <'R"a"' 2>>EOE != 0
-stdin:1:2: error: invalid raw literal
+stdin:1:2: error: invalid raw string literal
 EOE
 
 : invalid-paren
 :
 $* <'R")()("' 2>>EOE != 0
-stdin:1:2: error: invalid raw literal
+stdin:1:2: error: invalid raw string literal
 EOE
 
 : invalid-unterminated-paren
 :
 $* <'R"(abc"' 2>>EOE != 0
-stdin:1:2: error: invalid raw literal
+stdin:1:2: error: invalid raw string literal
 EOE
 
 : invalid-unterminated-delimiter
 :
 $* <'R"X(abc)"' 2>>EOE != 0
-stdin:1:2: error: invalid raw literal
+stdin:1:2: error: invalid raw string literal
 EOE
 
 : invalid-unterminated-quote
 :
 $* <'R"X(abc)X' 2>>EOE != 0
-stdin:1:2: error: invalid raw literal
+stdin:1:2: error: invalid raw string literal
 EOE

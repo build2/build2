@@ -61,5 +61,5 @@ EOO
 : unterminated
 :
 $* <'"ab' 2>>EOE != 0
-stdin:1:1: error: unterminated literal
+stdin:1:1: error: unterminated string literal
 EOE

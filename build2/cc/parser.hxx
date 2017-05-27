@@ -30,8 +30,6 @@ namespace build2
     class parser
     {
     public:
-      parser (): fail ("error", &name_), warn ("warning", &name_) {}
-
       translation_unit
       parse (istream&, const path& name);
 
@@ -46,11 +44,6 @@ namespace build2
       parse_module_name (token&);
 
     private:
-      const path* name_;
-
-      const fail_mark  fail;
-      const basic_mark warn;
-
       lexer* l_;
       translation_unit* u_;
     };

@@ -32,10 +32,28 @@ EOI
 
 : line
 :
-$* <<EOI
+$* -l <<EOI >>EOO
+;
 # 1 "test.cxx" 2
+;
+  ;
+# 4
+;
 #line 8 "z:\\tmp\\test.hxx"
+;
+#line 10
+;
+# 5 "test.cxx"
+;
 EOI
+';' stdin:1:1
+';' test.cxx:1:1
+';' test.cxx:2:3
+';' test.cxx:4:1
+';' z:\tmp\test.hxx:8:1
+';' z:\tmp\test.hxx:10:1
+';' test.cxx:5:1
+EOO
 
 : nested
 :

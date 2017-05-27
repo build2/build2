@@ -25,6 +25,18 @@ namespace build2
 {
   namespace cc
   {
+    inline void lexer::
+    get (const xchar& c)
+    {
+      // Increment the logical line similar to how base will increment the
+      // physical (the column counts are the same).
+      //
+      if (log_line_ && c == '\n' && !unget_ && !unpeek_)
+        ++*log_line_;
+
+      base::get (c);
+    }
+
     inline auto lexer::
     get (bool e) -> xchar
     {
@@ -36,7 +48,7 @@ namespace build2
       else
       {
         xchar c (peek (e));
-        base::get (c);
+        get (c);
         return c;
       }
     }
@@ -54,12 +66,12 @@ namespace build2
 
       if (e && c == '\\')
       {
-        base::get (c);
+        get (c);
         xchar p (base::peek ());
 
         if (p == '\n')
         {
-          base::get (p);
+          get (p);
           return peek (e); // Recurse.
         }
 
@@ -80,7 +92,8 @@ namespace build2
     {
       for (;; c = skip_spaces ())
       {
-        t.line = c.line;
+        t.file = log_file_;
+        t.line = log_line_ ? * log_line_ : c.line;
         t.column = c.column;
 
         if (eos (c))
@@ -101,19 +114,52 @@ namespace build2
             // that we assume there cannot be #include directives.
             //
             // This may not work for things like #error that can contain
-            // pretty much anything. Also note that lines that start with
-            // # can contain # further down.
+            // pretty much anything. Also note that lines that start with #
+            // can contain # further down.
+            //
+            // Finally, to support diagnostics properly we need to recognize
+            // #line directives.
             //
             if (ignore_pp)
             {
-              for (;;)
+              for (bool first (true);;)
               {
+                // Note that we keep using the passed token for buffers.
+                //
                 c = skip_spaces (false); // Stop at newline.
 
                 if (eos (c) || c == '\n')
                   break;
 
-                next (t, c, false); // Keep using the passed token for buffers.
+                if (first)
+                {
+                  first = false;
+
+                  // Recognize #line and its shorthand version:
+                  //
+                  // #line <integer> [<string literal>] ...
+                  // #     <integer> [<string literal>] ...
+                  //
+                  if (!(c >= '0' && c <= '9'))
+                  {
+                    next (t, c, false);
+
+                    if (t.type != type::identifier || t.value != "line")
+                      continue;
+
+                    c = skip_spaces (false);
+
+                    if (!(c >= '0' && c <= '9'))
+                      fail (c) << "line number expected after #line directive";
+                  }
+
+                  // Ok, this is #line and next comes the line number.
+                  //
+                  line_directive (t, c);
+                  continue; // Parse the tail, if any.
+                }
+
+                next (t, c, false);
               }
               break;
             }
@@ -356,9 +402,6 @@ namespace build2
     void lexer::
     number_literal (token& t, xchar c)
     {
-      t.line = c.line;
-      t.column = c.column;
-
       // A number (integer or floating point literal) can:
       //
       // 1. Start with a dot (which must be followed by a digit, e.g., .123).
@@ -462,17 +505,15 @@ namespace build2
     void lexer::
     char_literal (token& t, xchar c)
     {
-      t.line = c.line;
-      t.column = c.column;
+      uint64_t ln (c.line);
+      uint64_t cn (c.column);
 
-      char p (c); // Previous character (see below).
-
-      for (;;)
+      for (char p (c);;) // Previous character (see below).
       {
         c = get ();
 
-        if (eos (c))
-          fail (location (&name_, t.line, t.column)) << "unterminated literal";
+        if (eos (c) || c == '\n')
+          fail (location (&name_, ln, cn)) << "unterminated character literal";
 
         if (c == '\'' && p != '\\')
           break;
@@ -494,17 +535,15 @@ namespace build2
     void lexer::
     string_literal (token& t, xchar c)
     {
-      t.line = c.line;
-      t.column = c.column;
+      uint64_t ln (c.line);
+      uint64_t cn (c.column);
 
-      char p (c); // Previous character (see below).
-
-      for (;;)
+      for (char p (c);;) // Previous character (see below).
       {
         c = get ();
 
-        if (eos (c))
-          fail (location (&name_, t.line, t.column)) << "unterminated literal";
+        if (eos (c) || c == '\n')
+          fail (location (&name_, ln, cn)) << "unterminated string literal";
 
         if (c == '\"' && p != '\\')
           break;
@@ -526,9 +565,6 @@ namespace build2
     void lexer::
     raw_string_literal (token& t, xchar c)
     {
-      t.line = c.line;
-      t.column = c.column;
-
       // The overall form is:
       //
       // R"<delimiter>(<raw_characters>)<delimiter>"
@@ -540,6 +576,8 @@ namespace build2
       // Note that the <raw_characters> are not processed in any way, not even
       // for line continuations.
       //
+      uint64_t ln (c.line);
+      uint64_t cn (c.column);
 
       // As a first step, parse the delimiter (including the openning paren).
       //
@@ -550,7 +588,7 @@ namespace build2
         c = get ();
 
         if (eos (c) || c == '\"' || c == ')' || c == '\\' || c == ' ')
-          fail (location (&name_, t.line, t.column)) << "invalid raw literal";
+          fail (location (&name_, ln, cn)) << "invalid raw string literal";
 
         if (c == '(')
           break;
@@ -567,8 +605,8 @@ namespace build2
       {
         c = get (false); // No newline escaping.
 
-        if (eos (c))
-          fail (location (&name_, t.line, t.column)) << "invalid raw literal";
+        if (eos (c)) // Note: newline is ok.
+          fail (location (&name_, ln, cn)) << "invalid raw string literal";
 
         if (c != d[i] && i != 0) // Restart from the beginning.
           i = 0;
@@ -594,6 +632,86 @@ namespace build2
       // Parse a user-defined literal suffix identifier.
       //
       for (get (c); (c = peek ()) == '_' || alnum (c); get (c)) ;
+    }
+
+    void lexer::
+    line_directive (token& t, xchar c)
+    {
+      // enter: first digit of the line number
+      // leave: last character of the line number or file string
+
+      // If our number and string tokens contained the literal values, then we
+      // could have used that. However, we ignore the value (along with escape
+      // processing, etc), for performance. Let's keep it that way and instead
+      // handle it ourselves.
+      //
+      {
+        string& s (t.value);
+
+        for (s = c; (c = peek ()) >= '0' && c <= '9'; get (c))
+          s += c;
+
+        // The newline that ends the directive will increment the logical line
+        // so subtract one to compensate. Note: can't be 0 and shouldn't throw
+        // for valid lines.
+        //
+        log_line_ = stoull (s.c_str ()) - 1;
+      }
+
+      // See if we have the file.
+      //
+      c = skip_spaces (false);
+
+      if (c == '\"')
+      {
+        string s (move (log_file_).string ()); // Move string rep out.
+        s.clear ();
+
+        uint64_t ln (c.line);
+        uint64_t cn (c.column);
+
+        for (char p ('\0'); p != '\"'; ) // Previous character.
+        {
+          c = get ();
+
+          if (eos (c) || c == '\n')
+            fail (location (&name_, ln, cn)) << "unterminated string literal";
+
+          // Handle escapes.
+          //
+          if (p == '\\')
+          {
+            p = '\0'; // Clear so we don't confuse \" and \\".
+
+            // We only handle what can reasonably be expected in a file name.
+            //
+            switch (c)
+            {
+            case '\\':
+            case '\'':
+            case '\"': break; // Add as is.
+            default:
+              fail (c) << "unsupported escape sequence in #line directive";
+            }
+          }
+          else
+          {
+            p = c;
+
+            switch (c)
+            {
+            case '\\':
+            case '\"': continue;
+            }
+          }
+
+          s += c;
+        }
+
+        log_file_ = path (move (s)); // Move back in.
+      }
+      else
+        unget (c);
     }
 
     auto lexer::

@@ -18,9 +18,7 @@ namespace build2
     translation_unit parser::
     parse (istream& is, const path& name)
     {
-      name_ = &name;
-
-      lexer l (is, *name_);
+      lexer l (is, name);
       l_ = &l;
 
       translation_unit u;
