@@ -936,7 +936,7 @@ namespace build2
     {
       tracer trace (x, "compile::extract_headers");
 
-      l6 ([&]{trace << "target: " << t;});
+      l5 ([&]{trace << "target: " << t;});
 
       auto_rmfile psrc;
       bool puse (true);
@@ -1951,7 +1951,7 @@ namespace build2
     {
       tracer trace (x, "compile::extract_modules");
 
-      l6 ([&]{trace << "target: " << t;});
+      l5 ([&]{trace << "target: " << t;});
 
       // If things go wrong (and they often do in this area), give the user a
       // bit extra context.
@@ -2053,9 +2053,6 @@ namespace build2
         //
         psrc.cancel ();
 
-        if (verb >= 3)
-          print_process (args);
-
         process pr;
 
         try
@@ -2067,6 +2064,9 @@ namespace build2
           }
           else
           {
+            if (verb >= 3)
+              print_process (args);
+
             // We don't want to see warnings multiple times so ignore all
             // diagnostics.
             //
