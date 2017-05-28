@@ -22,10 +22,10 @@ namespace build2
     //
     // The input is a (partially-)preprocessed translation unit that may still
     // contain comments, line continuations, and preprocessor directives such
-    // as #line, #pragma, etc., but not #include's. Currently all preprocessor
-    // directives except #line are ignored and no values are saved from
-    // literals. The #line directive (and its shorthand notation) is
-    // recognized to provide the logical token location.
+    // as #line, #pragma, but not #include (which is diagnosed). Currently,
+    // all preprocessor directives except #line are ignored and no values are
+    // saved from literals. The #line directive (and its shorthand notation)
+    // is recognized to provide the logical token location.
     //
     enum class token_type
     {

@@ -55,6 +55,14 @@ EOI
 ';' test.cxx:5:1
 EOO
 
+: include
+:
+$* <<EOI 2>>EOE != 0
+#include <foo/bar>
+EOI
+stdin:1:1: error: unexpected #include directive
+EOE
+
 : nested
 :
 $* <<EOI >>EOO

@@ -102,6 +102,8 @@ namespace build2
           return;
         }
 
+        const location l (&name_, c.line, c.column);
+
         switch (c)
         {
           // Preprocessor lines.
@@ -110,12 +112,12 @@ namespace build2
           {
             // It is tempting to simply scan until the newline ignoring
             // anything in between. However, these lines can start a
-            // multi-line C-style comment. So we have to tokenize it. Note
-            // that we assume there cannot be #include directives.
+            // multi-line C-style comment. So we have to tokenize them.
             //
-            // This may not work for things like #error that can contain
-            // pretty much anything. Also note that lines that start with #
-            // can contain # further down.
+            // Note that this may not work for things like #error that can
+            // contain pretty much anything. Also note that lines that start
+            // with '#' can contain '#' further down. In this case we need to
+            // be careful not to recurse (and consume multiple newlines).
             //
             // Finally, to support diagnostics properly we need to recognize
             // #line directives.
@@ -140,9 +142,21 @@ namespace build2
                   // #line <integer> [<string literal>] ...
                   // #     <integer> [<string literal>] ...
                   //
+                  // Also diagnose #include while at it.
+                  //
                   if (!(c >= '0' && c <= '9'))
                   {
                     next (t, c, false);
+
+                    if (t.type == type::identifier)
+                    {
+                      if (t.value == "include")
+                        fail (l) << "unexpected #include directive";
+                      else if (t.value != "line")
+                        continue;
+                    }
+                    else
+                      continue;
 
                     if (t.type != type::identifier || t.value != "line")
                       continue;
@@ -505,15 +519,14 @@ namespace build2
     void lexer::
     char_literal (token& t, xchar c)
     {
-      uint64_t ln (c.line);
-      uint64_t cn (c.column);
+      const location l (&name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
         c = get ();
 
         if (eos (c) || c == '\n')
-          fail (location (&name_, ln, cn)) << "unterminated character literal";
+          fail (l) << "unterminated character literal";
 
         if (c == '\'' && p != '\\')
           break;
@@ -535,15 +548,14 @@ namespace build2
     void lexer::
     string_literal (token& t, xchar c)
     {
-      uint64_t ln (c.line);
-      uint64_t cn (c.column);
+      const location l (&name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
         c = get ();
 
         if (eos (c) || c == '\n')
-          fail (location (&name_, ln, cn)) << "unterminated string literal";
+          fail (l) << "unterminated string literal";
 
         if (c == '\"' && p != '\\')
           break;
@@ -576,8 +588,7 @@ namespace build2
       // Note that the <raw_characters> are not processed in any way, not even
       // for line continuations.
       //
-      uint64_t ln (c.line);
-      uint64_t cn (c.column);
+      const location l (&name_, c.line, c.column);
 
       // As a first step, parse the delimiter (including the openning paren).
       //
@@ -588,7 +599,7 @@ namespace build2
         c = get ();
 
         if (eos (c) || c == '\"' || c == ')' || c == '\\' || c == ' ')
-          fail (location (&name_, ln, cn)) << "invalid raw string literal";
+          fail (l) << "invalid raw string literal";
 
         if (c == '(')
           break;
@@ -606,7 +617,7 @@ namespace build2
         c = get (false); // No newline escaping.
 
         if (eos (c)) // Note: newline is ok.
-          fail (location (&name_, ln, cn)) << "invalid raw string literal";
+          fail (l) << "invalid raw string literal";
 
         if (c != d[i] && i != 0) // Restart from the beginning.
           i = 0;
@@ -664,18 +675,17 @@ namespace build2
 
       if (c == '\"')
       {
+        const location l (&name_, c.line, c.column);
+
         string s (move (log_file_).string ()); // Move string rep out.
         s.clear ();
-
-        uint64_t ln (c.line);
-        uint64_t cn (c.column);
 
         for (char p ('\0'); p != '\"'; ) // Previous character.
         {
           c = get ();
 
           if (eos (c) || c == '\n')
-            fail (location (&name_, ln, cn)) << "unterminated string literal";
+            fail (l) << "unterminated string literal";
 
           // Handle escapes.
           //
