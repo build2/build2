@@ -1320,6 +1320,17 @@ args = \'&foo\'  # '&foo'
 echo $args       # echo &foo
 \
 
+To make sure that a string is passed as is through both expansions use the
+\i{doubled single-quoting} idiom, for example:
+
+\
+filter = sed -e \''s/foo (bar|baz)/$&/'\'
+$* <<EOI | $filter >>EOO
+...
+EOI
+...
+EOO
+\
 
 \h1#syntax|Syntax and Semantics|
 
