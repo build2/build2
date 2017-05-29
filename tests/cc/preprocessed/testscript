@@ -100,7 +100,7 @@ $* <<EOI 2>>EOE != 0 ;#@@ &test*
   EOI
   error: module support not yet implemented
   EOE
-rm -f test.o.d test.exe.obj.d #@@ TMP
+rm -f test.o.d test.exe.o.d test.exe.obj.d #@@ TMP
 
 : all
 :
