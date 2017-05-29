@@ -161,6 +161,7 @@ namespace build2
         v["cc.type"],
         v["cc.system"],
         v["cc.reprocess"],
+        v["cc.preprocessed"],
 
         v.insert<string>   ("c.std", variable_visibility::project),
 

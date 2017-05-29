@@ -83,6 +83,17 @@ namespace build2
       v.insert<bool> ("config.cc.reprocess", true);
       v.insert<bool> ("cc.reprocess");
 
+      // Ability to indicate that source is already (partially) preprocessed.
+      // Valid values are 'none' (not preprocessed), 'includes' (no #include
+      // directives in source), 'modules' (as above plus no module declaration
+      // depends on preprocessor, e.g., #ifdef, etc), and 'all' (the source is
+      // fully preprocessed). Note that for 'all' the source can still contain
+      // comments and line continuations. Note also that for some compilers
+      // (e.g., VC) there is no way to signal that the source is already
+      // preprocessed.
+      //
+      v.insert<string> ("cc.preprocessed");
+
       return true;
     }
 

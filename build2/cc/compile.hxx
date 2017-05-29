@@ -22,6 +22,11 @@ namespace build2
 
   namespace cc
   {
+    // The order is arranged so that their integral values indicate whether
+    // one is a "stronger" than another.
+    //
+    enum class preprocessed: uint8_t {none, includes, modules, all};
+
     class compile: public rule, virtual common
     {
     public:
@@ -87,7 +92,7 @@ namespace build2
                        depdb&, bool&) const;
       void
       extract_modules (action, file&, lorder,
-                       const file&, auto_rmfile&,
+                       const file&, auto_rmfile&, preprocessed,
                        depdb&, bool&) const;
 
     private:

@@ -30,7 +30,7 @@ namespace build2
       lang x_lang;
 
       const char* x;         // Module name ("c", "cxx").
-      const char* x_name;    // Compiler name ("c", "c++"; also used in -x).
+      const char* x_name;    // Compiler name ("c", "c++").
       const char* x_default; // Compiler default ("gcc", "g++").
       const char* x_pext;    // Preprocessed source extension (".i", ".ii").
 
@@ -64,9 +64,10 @@ namespace build2
       const variable& c_export_loptions;
       const variable& c_export_libs;
 
-      const variable& c_type;       // cc.type
-      const variable& c_system;     // cc.system
-      const variable& c_reprocess;  // cc.reprocess
+      const variable& c_type;         // cc.type
+      const variable& c_system;       // cc.system
+      const variable& c_reprocess;    // cc.reprocess
+      const variable& c_preprocessed; // cc.preprocessed
 
       const variable& x_std;
 

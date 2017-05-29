@@ -29,6 +29,22 @@ namespace build2
   {
     using namespace bin;
 
+    inline bool
+    operator< (preprocessed l, preprocessed r)
+    {
+      return static_cast<uint8_t> (l) < static_cast<uint8_t> (r);
+    }
+
+    preprocessed
+    to_preprocessed (const string& s)
+    {
+      if (s == "none")     return preprocessed::none;
+      if (s == "includes") return preprocessed::includes;
+      if (s == "modules")  return preprocessed::modules;
+      if (s == "all")      return preprocessed::all;
+      throw invalid_argument ("invalid preprocessed value '" + s + "'");
+    }
+
     compile::
     compile (data&& d)
         : common (move (d)),
@@ -40,11 +56,12 @@ namespace build2
     {
       explicit
       match_data (const prerequisite_member& s)
-          : src (s), mt (timestamp_unknown) {}
+          : src (s), pp (preprocessed::none), mt (timestamp_unknown) {}
 
       prerequisite_member src;
-      auto_rmfile psrc;        // Preprocessed source, if any.
-      timestamp mt;            // Target timestamp.
+      preprocessed pp;
+      auto_rmfile psrc;          // Preprocessed source, if any.
+      timestamp mt;              // Target timestamp.
     };
 
     static_assert (sizeof (match_data) <= target::data_size,
@@ -492,17 +509,24 @@ namespace build2
         //
         sha256 cs;
 
-        hash_options (cs, t, c_poptions);
-        hash_options (cs, t, x_poptions);
-
-        // Hash *.export.poptions from prerequisite libraries.
+        // This affects how we compile the source so factor it in.
         //
-        hash_lib_options (bs, cs, t, act, lo);
+        cs.append (&md.pp, sizeof (md.pp));
 
-        // Extra system header dirs (last).
-        //
-        for (const dir_path& d: sys_inc_dirs)
-          cs.append (d.string ());
+        if (md.pp != preprocessed::all)
+        {
+          hash_options (cs, t, c_poptions);
+          hash_options (cs, t, x_poptions);
+
+          // Hash *.export.poptions from prerequisite libraries.
+          //
+          hash_lib_options (bs, cs, t, act, lo);
+
+          // Extra system header dirs (last).
+          //
+          for (const dir_path& d: sys_inc_dirs)
+            cs.append (d.string ());
+        }
 
         hash_options (cs, t, c_coptions);
         hash_options (cs, t, x_coptions);
@@ -550,7 +574,27 @@ namespace build2
           u = update (trace, act, *pt, u ? timestamp_unknown : mt) || u;
         }
 
-        pair<auto_rmfile, bool> p (extract_headers (act, t, lo, src, dd, u));
+        // Check if the source is already preprocessed to a certain degree.
+        // This determines which of the following steps we perform and on
+        // what source (original or preprocessed).
+        //
+        if (const string* v = cast_null<string> (t[c_preprocessed]))
+        try
+        {
+          md.pp = to_preprocessed (*v);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "invalid " << c_preprocessed.name << " variable value "
+               << "for target " << t << ": " << e;
+        }
+
+        // If we have no #include directives, then skip header dependency
+        // extraction.
+        //
+        pair<auto_rmfile, bool> p (auto_rmfile (), false);
+        if (md.pp < preprocessed::includes)
+          p = extract_headers (act, t, lo, src, dd, u);
 
         // If anything got updated, then we didn't rely on the cache. However,
         // the cached data could actually have been valid and the compiler run
@@ -565,22 +609,20 @@ namespace build2
 
         dd.close ();
 
-        // Do we have preprocessed output?
+        // If C++ modules support is enabled then we need to extract the
+        // module dependency information in addition to header dependencies
+        // above.
         //
-        if (!p.first.path ().empty ())
+        if (u) // @@ TMP (depdb validation similar to extract_headers()).
         {
-          // If C++ modules support is enabled then we need to extract the
-          // module dependency information in addition to header dependencie
-          // above.
-          //
-          extract_modules (act, t, lo, src, p.first, dd, u);
-
-          // If the preprocessed output is suitable for compilation and is not
-          // disabled, pass it along.
-          //
-          if (p.second && !cast_false<bool> (t[c_reprocess]))
-            md.psrc = move (p.first);
+          extract_modules (act, t, lo, src, p.first, md.pp, dd, u);
         }
+
+        // If the preprocessed output is suitable for compilation and is not
+        // disabled, then pass it along.
+        //
+        if (p.second && !cast_false<bool> (t[c_reprocess]))
+          md.psrc = move (p.first);
 
         md.mt = u ? timestamp_nonexistent : mt;
       }
@@ -1143,14 +1185,6 @@ namespace build2
 
           append_std (args);
 
-          if (t.is_a<objs> ())
-          {
-            // On Darwin, Win32 -fPIC is the default.
-            //
-            if (tclass == "linux" || tclass == "bsd")
-              args.push_back ("-fPIC");
-          }
-
           if (cid == compiler_id::msvc)
           {
             assert (pp != nullptr);
@@ -1190,6 +1224,14 @@ namespace build2
           }
           else
           {
+            if (t.is_a<objs> ())
+            {
+              // On Darwin, Win32 -fPIC is the default.
+              //
+              if (tclass == "linux" || tclass == "bsd")
+                args.push_back ("-fPIC");
+            }
+
             // Depending on the compiler, decide whether (and how) we can
             // produce preprocessed output as a side effect of dependency
             // extraction.
@@ -1935,6 +1977,7 @@ namespace build2
         }
       }
 
+      puse = puse && !psrc.path ().empty ();
       return make_pair (move (psrc), puse);
     }
 
@@ -1946,6 +1989,7 @@ namespace build2
                      lorder lo,
                      const file& src,
                      auto_rmfile& psrc,
+                     preprocessed pp,
                      depdb& /*dd*/,
                      bool& /*updating*/) const
     {
@@ -1966,24 +2010,29 @@ namespace build2
       // For some compilers (GCC, Clang) the preporcessed output is only
       // partially preprocessed. For others (VC), it is already fully
       // preprocessed (well, almost: it still has comments but we can handle
-      // that).
+      // that). Plus, the source file might already be (sufficiently)
+      // preprocessed.
       //
       // So the plan is to start the compiler process that writes the fully
       // preprocessed output to stdout and reduce the already preprocessed
       // case to it.
       //
       cstrings args;
+      path rels;
 
-      path rels (relative (psrc.path ()));
-
-      // This should match with how we setup preprocessing and is pretty
-      // similar to init_args() from extract_headers().
-      //
-      switch (cid)
+      bool ps; // True if extracting from psrc.
+      if (pp < preprocessed::modules)
       {
-      case compiler_id::gcc:
-      case compiler_id::clang:
+        ps = !psrc.path ().empty ();
+        rels = relative (ps ? psrc.path () : src.path ());
+
+        // VC's preprocessed output, if present, is fully preprocessed.
+        //
+        if (cid != compiler_id::msvc || !ps)
         {
+          // This should match with how we setup preprocessing and is pretty
+          // similar to init_args() from extract_headers().
+          //
           const scope& bs (t.base_scope ());
 
           args.push_back (cpath.recall_string ());
@@ -2010,35 +2059,68 @@ namespace build2
 
           append_std (args);
 
-          if (t.is_a<objs> ())
+          if (cid == compiler_id::msvc)
           {
-            // On Darwin, Win32 -fPIC is the default.
+            args.push_back ("/nologo");
+
+            // See perform_update() for details on overriding the default
+            // exceptions and runtime.
             //
-            if (tclass == "linux" || tclass == "bsd")
-              args.push_back ("-fPIC");
+            if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+              args.push_back ("/EHsc");
+
+            if (!find_option_prefixes ({"/MD", "/MT"}, args))
+              args.push_back ("/MD");
+
+            args.push_back ("/E");
+            args.push_back ("/C");
+            args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
           }
-
-          // Options that trigger preprocessing of partially preprocessed
-          // output are a bit of a compiler-specific voodoo.
-          //
-          args.push_back ("-E");
-          args.push_back ("-x");
-          args.push_back (x_name);
-
-          if (cid == compiler_id::gcc)
+          else
           {
-            args.push_back ("-fpreprocessed");
-            args.push_back ("-fdirectives-only");
+            if (t.is_a<objs> ())
+            {
+              // On Darwin, Win32 -fPIC is the default.
+              //
+              if (tclass == "linux" || tclass == "bsd")
+                args.push_back ("-fPIC");
+            }
+
+            // Options that trigger preprocessing of partially preprocessed
+            // output are a bit of a compiler-specific voodoo.
+            //
+            args.push_back ("-E");
+
+            if (ps)
+            {
+              const char* l (nullptr);
+              switch (x_lang)
+              {
+              case lang::c:   l = "c";
+              case lang::cxx: l = "c++";
+              }
+
+              args.push_back ("-x");
+              args.push_back (l);
+
+              if (cid == compiler_id::gcc)
+              {
+                args.push_back ("-fpreprocessed");
+                args.push_back ("-fdirectives-only");
+              }
+            }
           }
 
           args.push_back (rels.string ().c_str ());
           args.push_back (nullptr);
-          break;
         }
-      case compiler_id::msvc:
-        break; // Already fully preprocessed.
-      case compiler_id::icc:
-        assert (false);
+      }
+      else
+      {
+        // Extracting directly from source.
+        //
+        ps = false;
+        rels = relative (src.path ());
       }
 
       // Preprocess and parse.
@@ -2051,7 +2133,8 @@ namespace build2
         // Disarm the removal of the preprocessed file in case of an error.
         // We re-arm it below.
         //
-        psrc.cancel ();
+        if (ps)
+          psrc.cancel ();
 
         process pr;
 
@@ -2083,7 +2166,9 @@ namespace build2
 
           if (pr.wait ())
           {
-            psrc = auto_rmfile (move (rels)); // Re-arm.
+            if (ps)
+              psrc = auto_rmfile (move (rels)); // Re-arm.
+
             break;
           }
 
@@ -2166,19 +2251,22 @@ namespace build2
       path relo (relative (tp));
       path rels (relative (s.path ()));
 
-      append_options (args, t, c_poptions);
-      append_options (args, t, x_poptions);
-
-      // Add *.export.poptions from prerequisite libraries.
-      //
-      append_lib_options (bs, args, t, act, lo);
-
-      // Extra system header dirs (last).
-      //
-      for (const dir_path& d: sys_inc_dirs)
+      if (md.pp != preprocessed::all)
       {
-        args.push_back ("-I");
-        args.push_back (d.string ().c_str ());
+        append_options (args, t, c_poptions);
+        append_options (args, t, x_poptions);
+
+        // Add *.export.poptions from prerequisite libraries.
+        //
+        append_lib_options (bs, args, t, act, lo);
+
+        // Extra system header dirs (last).
+        //
+        for (const dir_path& d: sys_inc_dirs)
+        {
+          args.push_back ("-I");
+          args.push_back (d.string ().c_str ());
+        }
       }
 
       append_options (args, t, c_coptions);
@@ -2271,6 +2359,8 @@ namespace build2
           args.push_back (out.c_str ());
         }
 
+        // Note: no way to indicate that the source if already preprocessed.
+
         args.push_back ("/c");                              // Compile only.
         args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
         args.push_back (rels.string ().c_str ()); // Note: rely on being last.
@@ -2289,6 +2379,48 @@ namespace build2
         args.push_back (relo.string ().c_str ());
 
         args.push_back ("-c");
+
+        if (md.pp == preprocessed::all)
+        {
+          // Note that the mode we select must still handle comments and line
+          // continuations. So some more compiler-specific voodoo.
+          //
+          switch (cid)
+          {
+          case compiler_id::gcc:
+            {
+              // -fdirectives-only is available since GCC 4.3.0.
+              //
+              if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
+              {
+                args.push_back ("-fpreprocessed");
+                args.push_back ("-fdirectives-only");
+              }
+              break;
+            }
+          case compiler_id::clang:
+            {
+              // Clang handles comments and line continuations in the
+              // preprocessed source (it does not have -fpreprocessed).
+              //
+              const char* l (nullptr);
+              switch (x_lang)
+              {
+              case lang::c:   l = "cpp-output";
+              case lang::cxx: l = "c++-cpp-output";
+              }
+
+              args.push_back ("-x");
+              args.push_back (l);
+              break;
+            }
+          case compiler_id::icc:
+            break; // Compile as normal source for now.
+          case compiler_id::msvc:
+            assert (false);
+          }
+        }
+
         args.push_back (rels.string ().c_str ()); // Note: rely on being last.
       }
 
@@ -2303,13 +2435,13 @@ namespace build2
       else if (verb == 2)
         print_process (args);
 
-      // If we have the preprocessed output, switch to that.
+      // If we have the (partially) preprocessed output, switch to that.
       //
       bool psrc (!md.psrc.path ().empty ());
       if (psrc)
       {
-        args.pop_back ();
-        args.pop_back ();
+        args.pop_back (); // nullptr
+        args.pop_back (); // rels
 
         rels = relative (md.psrc.path ());
 
@@ -2319,7 +2451,7 @@ namespace build2
         {
         case compiler_id::gcc:
           {
-            // The -fpreprocessed in implied by .i/.ii.
+            // The -fpreprocessed is implied by .i/.ii.
             //
             args.push_back ("-fdirectives-only");
             break;
@@ -2328,8 +2460,15 @@ namespace build2
           {
             // Without this Clang will treat .i/.ii as fully preprocessed.
             //
+            const char* l (nullptr);
+            switch (x_lang)
+            {
+            case lang::c:   l = "c";
+            case lang::cxx: l = "c++";
+            }
+
             args.push_back ("-x");
-            args.push_back (x_name);
+            args.push_back (l);
             break;
           }
         case compiler_id::msvc:
