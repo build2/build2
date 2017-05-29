@@ -29,8 +29,9 @@ namespace build2
   {
     using namespace bin;
 
+    template <typename T>
     inline bool
-    operator< (preprocessed l, preprocessed r)
+    operator< (preprocessed l, T r) // Template because of VC14 bug.
     {
       return static_cast<uint8_t> (l) < static_cast<uint8_t> (r);
     }
