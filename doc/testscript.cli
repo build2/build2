@@ -2146,15 +2146,24 @@ the file/directory is removed if it exists. Finally, \c{&!} is a \i{never}
 cleanup: it disables a previously registered cleanup for this file/directory
 (primarily used to disable automatic cleanups registered by builtins).
 
-The last component in the path may contain a wildcard with the following
-semantics:
+The path components may contain the \c{*} and \c{?} wildcard characters
+with the following semantics:
 
 \
-dir/*   - all immediate files
-dir/*/  - all immediate sub-directories (which must be empty)
-dir/**  - all files recursively
-dir/**/ - all sub-directories recursively (which must be empty)
-dir/*** - all files and sub-directories recursively and dir/
+?   - any single character
+*   - all immediate files
+*/  - all immediate sub-directories (which must be empty)
+**  - all files recursively
+**/ - all sub-directories recursively (which must be empty)
+*** - all files and sub-directories recursively as well as the start
+      directory itself
+\
+
+For example, the following cleanup will remove \c{dir/} and its content
+recursively.
+
+\
+$* &dir/***
 \
 
 Registering a path for cleanup that is outside the script working directory is
