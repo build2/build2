@@ -38,7 +38,7 @@ namespace build2
       args.push_back (xc.recall_string ());
       append_options (args, rs, c_coptions);
       append_options (args, rs, x_coptions);
-      if (!tstd.empty ()) args.push_back (tstd.c_str ());
+      append_options (args, tstd);
       append_options (args, rs, c_loptions);
       append_options (args, rs, x_loptions);
       args.push_back ("-print-search-dirs");

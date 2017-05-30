@@ -32,13 +32,14 @@ namespace build2
       void
       init (scope&, const location&, const variable_map&);
 
-      // Translate the x.std value to the standard-selecting option if there
-      // is any.
+      // Translate the x.std value (if any) to the standard-selecting
+      // option(s) (if any). May also check/set x.features.* variables on the
+      // root scope.
       //
-      virtual string
-      translate_std (const compiler_info&, scope&, const string&) const = 0;
+      virtual strings
+      translate_std (const compiler_info&, scope&, const string*) const = 0;
 
-      string tstd;
+      strings tstd;
 
       compiler_id::value_type cid;
 

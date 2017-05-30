@@ -20,6 +20,7 @@ namespace build2
 {
   namespace cxx
   {
+    using cc::compiler_id;
     using cc::compiler_info;
 
     class config_module: public cc::config_module
@@ -29,127 +30,165 @@ namespace build2
       config_module (config_data&& d)
           : config_data (move (d)), cc::config_module (move (d)) {}
 
-      string
+      strings
       translate_std (const compiler_info&,
                      scope&,
-                     const string&) const override;
+                     const string*) const override;
     };
 
     using cc::module;
 
-    string config_module::
-    translate_std (const compiler_info& ci, scope& rs, const string& v) const
+    strings config_module::
+    translate_std (const compiler_info& ci, scope& rs, const string* v) const
     {
-      string r;
+      strings r;
 
-      const string& t (ci.id.type);
+      auto id (ci.id.value ());
       uint64_t mj (ci.version.major);
       uint64_t mi (ci.version.minor);
       uint64_t p (ci.version.patch);
 
       // Translate "latest" to the compiler/version-appropriate option.
       //
-      if (v == "latest")
+      if (v != nullptr && *v == "latest")
       {
-        if (t == "msvc")
+        const char* o (nullptr);
+
+        switch (id)
         {
-          // VC14u3 and later has /std:c++latest.
-          //
-          if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
-            r = "/std:c++latest";
+        case compiler_id::msvc:
+          {
+            // VC14u3 and later has /std:c++latest.
+            //
+            if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+              o = "/std:c++latest";
+
+            break;
+          }
+        case compiler_id::gcc:
+          {
+            if      (mj >= 5)            o = "-std=c++1z"; // 17
+            else if (mj == 4 && mi >= 8) o = "-std=c++1y"; // 14
+            else if (mj == 4 && mi >= 4) o = "-std=c++0x"; // 11
+
+            break;
+          }
+        case compiler_id::clang:
+          {
+            // Re-map Apple versions to vanilla Clang based on the following
+            // release point:
+            //
+            // 5.1 -> 3.4
+            // 6.0 -> 3.5
+            //
+            if (ci.id.variant == "apple")
+            {
+              if      (mj >= 6)            {mj = 3; mi = 5;}
+              else if (mj == 5 && mi >= 1) {mj = 3; mi = 4;}
+              else                         {mj = 3; mi = 0;}
+            }
+
+            if       (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z"; // 17
+            else if  (mj == 3 && mi >= 4)              o = "-std=c++1y"; // 14
+            else     /* ??? */                         o = "-std=c++0x"; // 11
+
+            break;
+          }
+        case compiler_id::icc:
+          {
+            if      (mj >= 17)                         o = "-std=c++1z"; // 17
+            else if (mj >  15 || (mj == 15 && p >= 3)) o = "-std=c++1y"; // 14
+            else    /* ??? */                          o = "-std=c++0x"; // 11
+
+            break;
+          }
         }
-        else if (t == "gcc")
-        {
-          if      (mj >= 5)            r = "-std=c++1z"; // 17
-          else if (mj == 4 && mi >= 8) r = "-std=c++1y"; // 14
-          else if (mj == 4 && mi >= 4) r = "-std=c++0x"; // 11
-        }
-        else if (t == "clang")
-        {
-          if       (mj >  3 || (mj == 3 && mi >= 5)) r = "-std=c++1z"; // 17
-          else if  (mj == 3 && mi >= 4)              r = "-std=c++1y"; // 14
-          else    /* ??? */                          r = "-std=c++0x"; // 11
-        }
-        else if (t == "icc")
-        {
-          if      (mj >= 17)                         r = "-std=c++1z"; // 17
-          else if (mj >  15 || (mj == 15 && p >= 3)) r = "-std=c++1y"; // 14
-          else    /* ??? */                          r = "-std=c++0x"; // 11
-        }
-        else
-          assert (false);
+
+        if (o != nullptr)
+          r.push_back (o);
 
         return r;
       }
 
       // Otherwise translate the standard value.
       //
-      if (t == "msvc")
+      switch (id)
       {
-        // C++ standard-wise, with VC you got what you got up until 14u2.
-        // Starting with 14u3 there is now the /std: switch which defaults
-        // to c++14 but can be set to c++latest.
-        //
-        // The question is also whether we should verify that the requested
-        // standard is provided by this VC version. And if so, from which
-        // version should we say VC supports 11, 14, and 17? We should
-        // probably be as loose as possible here since the author will always
-        // be able to tighten (but not loosen) this in the buildfile (i.e.,
-        // detect unsupported versions).
-        //
-        // For now we are not going to bother doing this for C++03.
-        //
-        if (v != "98" && v != "03")
+      case compiler_id::msvc:
         {
-          bool sup (false);
-
-          if      (v == "11") // C++11 since VS2010/10.0.
-          {
-            sup = mj >= 16;
-          }
-          else if (v == "14") // C++14 since VS2015/14.0.
-          {
-            sup = mj >= 19;
-          }
-          else if (v == "17") // C++17 since VS2015/14.0u2.
-          {
-            // Note: the VC15 compiler version is 19.10.
-            //
-            sup = mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918)));
-          }
-
-          if (!sup)
-            fail << "C++" << v << " is not supported by " << ci.signature <<
-              info << "required by " << project (rs) << '@' << rs.out_path ();
-
-          // VC14u3 and later has /std:
+          // C++ standard-wise, with VC you got what you got up until 14u2.
+          // Starting with 14u3 there is now the /std: switch which defaults
+          // to c++14 but can be set to c++latest.
           //
-          if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+          // The question is also whether we should verify that the requested
+          // standard is provided by this VC version. And if so, from which
+          // version should we say VC supports 11, 14, and 17? We should
+          // probably be as loose as possible here since the author will
+          // always be able to tighten (but not loosen) this in the buildfile
+          // (i.e., detect unsupported versions).
+          //
+          // For now we are not going to bother doing this for C++03.
+          //
+          if (v == nullptr)
+            ;
+          else if (*v != "98" && *v != "03")
           {
-            if (v == "17")
-              r = "/std:c++latest";
-          }
-        }
-      }
-      else
-      {
-        // Translate 11 to 0x, 14 to 1y, and 17 to 1z for compatibility with
-        // older versions of the compilers.
-        //
-        r = "-std=";
+            bool sup (false);
 
-        if (v == "98")
-          r += "c++98";
-        else if (v == "03")
-          r += "c++03";
-        else if (v == "11")
-          r += "c++0x";
-        else if (v == "14")
-          r += "c++1y";
-        else if (v == "17")
-          r += "c++1z";
-        else
-          r += v; // In case the user specifies something like 'gnu++17'.
+            if      (*v == "11") // C++11 since VS2010/10.0.
+            {
+              sup = mj >= 16;
+            }
+            else if (*v == "14") // C++14 since VS2015/14.0.
+            {
+              sup = mj >= 19;
+            }
+            else if (*v == "17") // C++17 since VS2015/14.0u2.
+            {
+              // Note: the VC15 compiler version is 19.10.
+              //
+              sup = (mj > 19 ||
+                     (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918))));
+            }
+
+            if (!sup)
+              fail << "C++" << *v << " is not supported by " << ci.signature <<
+                info << "required by " << project (rs) << '@' << rs.out_path ();
+
+            // VC14u3 and later has /std:
+            //
+            if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+            {
+              if (*v == "17")
+                r.push_back ("/std:c++latest");
+            }
+          }
+          break;
+        }
+      case compiler_id::gcc:
+      case compiler_id::clang:
+      case compiler_id::icc:
+        {
+          // Translate 11 to 0x, 14 to 1y, and 17 to 1z for compatibility with
+          // older versions of the compilers.
+          //
+          if (v == nullptr)
+            ;
+          else
+          {
+            string o ("-std=");
+
+            if      (*v == "98") o += "c++98";
+            else if (*v == "03") o += "c++03";
+            else if (*v == "11") o += "c++0x";
+            else if (*v == "14") o += "c++1y";
+            else if (*v == "17") o += "c++1z";
+            else o += *v; // In case the user specifies e.g., 'gnu++17'.
+
+            r.push_back (move (o));
+          }
+          break;
+        }
       }
 
       return r;

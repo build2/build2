@@ -118,10 +118,9 @@ namespace build2
         }
       }
 
-      // Translate x_std value (if any) to the compiler option (if any).
+      // Translate x_std value (if any) to the compiler option(s) (if any).
       //
-      if (auto l = rs[x_std])
-        tstd = translate_std (ci, rs, cast<string> (*l));
+      tstd = translate_std (ci, rs, cast_null<string> (rs[x_std]));
 
       // Extract system library search paths from the compiler and determine
       // additional system include search paths.
@@ -129,7 +128,7 @@ namespace build2
       dir_paths lib_dirs;
       dir_paths inc_dirs;
 
-      if (ci.id.type == "msvc")
+      if (ci.id.value () == compiler_id::msvc)
         lib_dirs = msvc_library_search_paths (ci.path, rs);
       else
       {
@@ -188,7 +187,9 @@ namespace build2
 
         if (!tstd.empty ())
         {
-          dr << "  std        " << tstd << '\n';
+          dr << "  std       "; // One less space.
+          for (const string& o: tstd) dr << ' ' << o;
+          dr << '\n';
         }
 
         if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin

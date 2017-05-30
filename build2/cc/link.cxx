@@ -1192,7 +1192,7 @@ namespace build2
         {
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-          append_std (args);
+          append_options (args, tstd);
         }
 
         append_options (args, t, c_loptions);

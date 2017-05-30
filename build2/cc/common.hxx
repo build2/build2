@@ -112,7 +112,7 @@ namespace build2
       const string& tsys;          // x.target.system
       const string& tclass;        // x.target.class
 
-      const string& tstd;          // Translated x_std value (can be empty).
+      const strings& tstd;         // Translated x_std value (options).
 
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
@@ -153,7 +153,7 @@ namespace build2
             uint64_t mj, uint64_t mi,
             const process_path& path,
             const target_triplet& tg,
-            const string& std,
+            const strings& std,
             const process_path* pkgc,
             const dir_paths& sld,
             const dir_paths& sid,
@@ -176,22 +176,6 @@ namespace build2
     {
     public:
       common (data&& d): data (move (d)) {}
-
-      // Language standard (x.std) mapping.
-      //
-      void
-      append_std (cstrings& args) const
-      {
-        if (!tstd.empty ())
-          args.push_back (tstd.c_str ());
-      }
-
-      void
-      hash_std (sha256& cs) const
-      {
-        if (!tstd.empty ())
-          cs.append (tstd);
-      }
 
       // Library handling.
       //

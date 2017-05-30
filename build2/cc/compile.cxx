@@ -531,7 +531,7 @@ namespace build2
 
         hash_options (cs, t, c_coptions);
         hash_options (cs, t, x_coptions);
-        hash_std (cs);
+        hash_options (cs, tstd);
 
         if (ct == otype::s)
         {
@@ -1183,8 +1183,7 @@ namespace build2
           //
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-
-          append_std (args);
+          append_options (args, tstd);
 
           if (cid == compiler_id::msvc)
           {
@@ -2057,8 +2056,7 @@ namespace build2
           //
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-
-          append_std (args);
+          append_options (args, tstd);
 
           if (cid == compiler_id::msvc)
           {
@@ -2272,10 +2270,9 @@ namespace build2
 
       append_options (args, t, c_coptions);
       append_options (args, t, x_coptions);
+      append_options (args, tstd);
 
       string out, out1; // Storage.
-
-      append_std (args);
 
       if (cid == compiler_id::msvc)
       {

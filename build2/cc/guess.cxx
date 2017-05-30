@@ -1096,28 +1096,33 @@ namespace build2
       compiler_info r;
       const compiler_id& id (gr.id);
 
-      if (id.type == "gcc")
+      switch (id.value ())
       {
-        assert (id.variant.empty ());
-        r = guess_gcc (xl, xc, c_coptions, x_coptions, move (gr));
+      case compiler_id::gcc:
+        {
+          assert (id.variant.empty ());
+          r = guess_gcc (xl, xc, c_coptions, x_coptions, move (gr));
+          break;
+        }
+      case compiler_id::clang:
+        {
+          assert (id.variant.empty () || id.variant == "apple");
+          r = guess_clang (xl, xc, c_coptions, x_coptions, move (gr));
+          break;
+        }
+      case compiler_id::msvc:
+        {
+          assert (id.variant.empty ());
+          r = guess_msvc (xl, xc, c_coptions, x_coptions, move (gr));
+          break;
+        }
+      case compiler_id::icc:
+        {
+          assert (id.variant.empty ());
+          r = guess_icc (xl, xc, c_coptions, x_coptions, move (gr));
+          break;
+        }
       }
-      else if (id.type == "clang")
-      {
-        assert (id.variant.empty () || id.variant == "apple");
-        r = guess_clang (xl, xc, c_coptions, x_coptions, move (gr));
-      }
-      else if (id.type == "icc")
-      {
-        assert (id.variant.empty ());
-        r = guess_icc (xl, xc, c_coptions, x_coptions, move (gr));
-      }
-      else if (id.type == "msvc")
-      {
-        assert (id.variant.empty ());
-        r = guess_msvc (xl, xc, c_coptions, x_coptions, move (gr));
-      }
-      else
-        assert (false);
 
       // Derive binutils pattern unless this has already been done by the
       // compiler-specific code.
