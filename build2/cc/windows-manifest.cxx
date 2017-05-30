@@ -105,10 +105,7 @@ namespace build2
         try
         {
           ifdstream ifs (mf);
-          string s;
-          getline (ifs, s, '\0');
-
-          if (s == m)
+          if (ifs.read_text () == m)
             return make_pair (move (mf), false);
         }
         catch (const io_error&)
