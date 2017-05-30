@@ -202,8 +202,8 @@ namespace build2
       };
 
       assert (mod == nullptr);
-      config_module* m;
-      mod.reset (m = new config_module (move (d)));
+      config_module* m (new config_module (move (d)));
+      mod.reset (m);
       m->init (rs, loc, hints);
       return true;
     }
