@@ -433,6 +433,8 @@ namespace build2
 
         cm.tstd,
 
+        cast<bool> (rs["cxx.features.modules"]),
+
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_inc_dirs]),

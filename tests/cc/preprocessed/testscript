@@ -98,7 +98,7 @@ $* <<EOI 2>>EOE != 0 ;#@@ &test*
   cc.preprocessed = modules
   exe{test}: cxx{test}
   EOI
-  error: module support not yet implemented
+  error: modules support not enabled or unavailable
   EOE
 rm -f test.o.d test.exe.o.d test.exe.obj.d #@@ TMP
 

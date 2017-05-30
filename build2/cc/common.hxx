@@ -114,6 +114,8 @@ namespace build2
 
       const strings& tstd;         // Translated x_std value (options).
 
+      bool modules;                // x.feaures.modules
+
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
@@ -154,6 +156,7 @@ namespace build2
             const process_path& path,
             const target_triplet& tg,
             const strings& std,
+            bool mod,
             const process_path* pkgc,
             const dir_paths& sld,
             const dir_paths& sid,
@@ -168,6 +171,7 @@ namespace build2
             cid (id), cvar (var), cmaj (mj), cmin (mi), cpath (path),
             ctg (tg), tsys (ctg.system), tclass (ctg.class_),
             tstd (std),
+            modules (mod),
             pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),
             x_src (src), x_hdr (hdr), x_inc (inc) {}
     };

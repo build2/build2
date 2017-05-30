@@ -262,6 +262,8 @@ namespace build2
 
         cm.tstd,
 
+        false, // No C modules for now.
+
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths>         (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths>         (rs[cm.x_sys_inc_dirs]),

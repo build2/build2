@@ -610,9 +610,8 @@ namespace build2
 
         dd.close ();
 
-        // If C++ modules support is enabled then we need to extract the
-        // module dependency information in addition to header dependencies
-        // above.
+        // Extract the module dependency information in addition to header
+        // dependencies above.
         //
         if (u) // @@ TMP (depdb validation similar to extract_headers()).
         {
@@ -2207,8 +2206,16 @@ namespace build2
         throw failed ();
       }
 
-      if (!tu.module_name.empty () || !tu.module_imports.empty ())
-        fail << "module support not yet implemented";
+      //@@ TODO: if bmi{}, make sure module_name is not empty.
+
+      if (tu.module_name.empty () && tu.module_imports.empty ())
+        return;
+
+      // Modules are used by this translation unit. Make sure module support
+      // is enabled.
+      //
+      if (!modules)
+        fail << "modules support not enabled or unavailable";
     }
 
     // Filter cl.exe noise (msvc.cxx).
