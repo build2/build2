@@ -17,7 +17,7 @@
 # but rather the one doing the cross-compilation.
 #
 if ($null($crosstest))
-  crosstest = false
+  crosstest = true
 end
 
 if (!$crosstest && $test.target != $build.host)
