@@ -282,7 +282,7 @@ namespace build2
           {
             eop = path (op + ".orig");
             save (eop, transform (rd.str, false, rd.modifiers, *sp.root), ll);
-            sp.clean ({cleanup_type::always, eop}, true);
+            sp.clean_special (eop);
           }
 
           // Use diff utility for the comparison.
@@ -317,7 +317,7 @@ namespace build2
             try
             {
               efd = fdopen (ep, fdopen_mode::out | fdopen_mode::create);
-              sp.clean ({cleanup_type::always, ep}, true);
+              sp.clean_special (ep);
             }
             catch (const io_error& e)
             {
@@ -720,10 +720,22 @@ namespace build2
         //
         if (common_.after == output_after::clean)
         {
+          // Note that we operate with normalized paths here.
+          //
+          // Remove special files. The order is not important as we don't
+          // expect directories here.
+          //
+          for (const auto& p: sp.special_cleanups)
+          {
+            // Remove the file if exists. Fail otherwise.
+            //
+            if (rmfile (p, 3) == rmfile_status::not_exist)
+              fail (ll) << "registered for cleanup special file " << p
+                        << " does not exist";
+          }
+
           // Remove files and directories in the order opposite to the order of
           // cleanup registration.
-          //
-          // Note that we operate with normalized paths here.
           //
           for (const auto& c: reverse_iterate (sp.cleanups))
           {
@@ -746,8 +758,14 @@ namespace build2
             {
               // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
               //
+
+              dir_path d (p.directory ());
+
+              // Don't remove the working directory (it will be removed by the
+              // dedicated cleanup).
+              //
               rmdir_status r (
-                rmdir_r (p.directory (), true, static_cast<uint16_t> (3)));
+                rmdir_r (d, d != sp.wd_path, static_cast<uint16_t> (3)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -1223,7 +1241,7 @@ namespace build2
               save (
                 isp, transform (in.str, false, in.modifiers, *sp.root), ll);
 
-              sp.clean ({cleanup_type::always, isp}, true);
+              sp.clean_special (isp);
 
               open_stdin ();
               break;
@@ -1369,7 +1387,12 @@ namespace build2
             fd = fdopen (p, m);
 
             if ((m & fdopen_mode::at_end) != fdopen_mode::at_end)
-              sp.clean ({cleanup_type::always, p}, true);
+            {
+              if (rt == redirect_type::file)
+                sp.clean ({cleanup_type::always, p}, true);
+              else
+                sp.clean_special (p);
+            }
           }
           catch (const io_error& e)
           {

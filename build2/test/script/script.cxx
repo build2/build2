@@ -489,6 +489,12 @@ namespace build2
           i->type = c.type;
       }
 
+      void scope::
+      clean_special (path p)
+      {
+        special_cleanups.emplace_back (move (p));
+      }
+
       // script_base
       //
       script_base::

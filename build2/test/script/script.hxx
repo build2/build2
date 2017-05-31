@@ -364,6 +364,7 @@ namespace build2
 
         scope_state state = scope_state::unknown;
         test::script::cleanups cleanups;
+        paths special_cleanups;
 
         // Variables.
         //
@@ -413,6 +414,13 @@ namespace build2
         //
         void
         clean (cleanup, bool implicit);
+
+        // Register cleanup of a special file. Such files are created to
+        // maintain testscript machinery and must be removed first, not to
+        // interfere with the user-defined wildcard cleanups.
+        //
+        void
+        clean_special (path p);
 
       public:
         virtual

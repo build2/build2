@@ -279,6 +279,25 @@ b += --no-column
 :
 $c <'$* -d a/b &a/ &a/b/' && $b
 
+: special-order
+:
+: Test that special files are cleaned before others, and there is no attempt
+: to remove them twice (normally and with wildcard cleanup).
+:
+$c <<EOI && $b
+$* -o foo >'foo';
+true &*
+EOI
+
+: wd-wildcard
+:
+: Test that there is no attempt to remove working directory twice (normally and
+: with wildcard cleanup).
+:
+$c <<EOI && $b
+true &***
+EOI
+
 : implicit-overwrite
 :
 : Test an implicit cleanup being overwritten with the explicit one,
