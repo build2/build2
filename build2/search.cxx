@@ -105,7 +105,7 @@ namespace build2
         // (of course, if the user specified the extension explicitly, we will
         // still do so).
         //
-        l4 ([&]{trace << "no existing file for prerequisite " << cpk;});
+        l4 ([&]{trace << "no default extension for prerequisite " << cpk;});
         return nullptr;
       }
     }

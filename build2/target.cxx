@@ -530,8 +530,8 @@ namespace build2
 
   // path_target
   //
-  const string& path_target::
-  derive_extension (const char* de, bool search)
+  const string* path_target::
+  derive_extension (bool search, const char* de)
   {
     // See also search_existing_file() if updating anything here.
     //
@@ -541,7 +541,7 @@ namespace build2
       // Note that returning by reference is now MT-safe since once the
       // extension is specified, it is immutable.
       //
-      return *p;
+      return p;
     else
     {
       optional<string> e;
@@ -559,10 +559,15 @@ namespace build2
         if (de != nullptr)
           e = de;
         else
+        {
+          if (search)
+            return nullptr;
+
           fail << "no default extension for target " << *this;
+        }
       }
 
-      return ext (move (*e));
+      return &ext (move (*e));
     }
   }
 

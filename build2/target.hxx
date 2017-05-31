@@ -1190,19 +1190,22 @@ namespace build2
 
     // As above but ignore the extension.
     //
+    const target*
+    find (const target_type& type,
+          const dir_path& dir,
+          const dir_path& out,
+          const string& name) const
+    {
+      slock l (mutex_);
+      auto i (map_.find (target_key {&type, &dir, &out, &name, nullopt}));
+      return i != map_.end () ? i->second.get () : nullptr;
+    }
+
     template <typename T>
     const T*
     find (const dir_path& dir, const dir_path& out, const string& name) const
     {
-      slock l (mutex_);
-
-      auto i (
-        map_.find (
-          target_key {&T::static_type, &dir, &out, &name, nullopt}));
-
-      return i != map_.end ()
-        ? static_cast<const T*> (i->second.get ())
-        : nullptr;
+      return static_cast<const T*> (find (T::static_type, dir, out, name));
     }
 
     // If the target was inserted, keep the map exclusive-locked and return
@@ -1424,11 +1427,20 @@ namespace build2
     derive_path (path_type base, const char* default_ext = nullptr);
 
     // As above but only derives (and returns) the extension (empty means no
-    // extension used). If search is true then look for the extension as if
-    // it was a prerequisite, not a target.
+    // extension used).
     //
     const string&
-    derive_extension (const char* default_ext = nullptr, bool search = false);
+    derive_extension (const char* default_ext = nullptr)
+    {
+      return *derive_extension (false, default_ext);
+    }
+
+    // As above but if search is true then look for the extension as if it was
+    // a prerequisite, not a target. In this case, if no extension can be
+    // derived, return NULL instead of failing (like search_existing_file()).
+    //
+    const string*
+    derive_extension (bool search, const char* default_ext = nullptr);
 
     // Const versions of the above that can be used on unlocked targets. Note
     // that here we don't allow providing any defaults since you probably

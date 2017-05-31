@@ -67,7 +67,12 @@ namespace build2
             // derivation function to treat this as prerequisite (just like
             // in search_existing_file()).
             //
-            pt.derive_extension (nullptr, true);
+            if (pt.derive_extension (true) == nullptr)
+            {
+              l4 ([&]{trace << "no default extension for target " << pt;});
+              return false;
+            }
+
             p = &pt.derive_path ();
           }
 
