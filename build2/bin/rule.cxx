@@ -31,6 +31,20 @@ namespace build2
     recipe obj_rule::
     apply (action, target&) const {return empty_recipe;}
 
+    // bmi
+    //
+    match_result bmi_rule::
+    match (action a, target& t, const string&) const
+    {
+      fail << diag_doing (a, t) << " target group" <<
+        info << "explicitly select bmie{}, bmia{}, or bmis{} member";
+
+      return false;
+    }
+
+    recipe bmi_rule::
+    apply (action, target&) const {return empty_recipe;}
+
     // lib
     //
     // The whole logic is pretty much as if we had our two group members as

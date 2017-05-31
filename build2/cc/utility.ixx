@@ -7,20 +7,24 @@ namespace build2
   namespace cc
   {
     inline otype
-    compile_type (const target& t)
+    compile_type (const target& t, bool mod)
     {
+      using namespace bin;
+
       return
-        t.is_a<bin::obje> () ? otype::e :
-        t.is_a<bin::obja> () ? otype::a :
+        t.is_a (mod ? bmie::static_type : obje::static_type) ? otype::e :
+        t.is_a (mod ? bmia::static_type : obja::static_type) ? otype::a :
         otype::s;
     }
 
     inline otype
     link_type (const target& t)
     {
+      using namespace bin;
+
       return
-        t.is_a<exe> ()       ? otype::e :
-        t.is_a<bin::liba> () ? otype::a :
+        t.is_a<exe> ()  ? otype::e :
+        t.is_a<liba> () ? otype::a :
         otype::s;
     }
   }

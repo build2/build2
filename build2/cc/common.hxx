@@ -120,7 +120,8 @@ namespace build2
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
 
-      const target_type& x_src;  // Source target type (c{}, cxx{}).
+      const target_type& x_src; // Source target type (c{}, cxx{}).
+      const target_type* x_mod; // Module target type (mxx{}), if any.
 
       // Array of target types that are considered headers. Keep them in the
       // most likely to appear order and terminate with NULL.
@@ -156,11 +157,12 @@ namespace build2
             const process_path& path,
             const target_triplet& tg,
             const strings& std,
-            bool mod,
+            bool fm,
             const process_path* pkgc,
             const dir_paths& sld,
             const dir_paths& sid,
             const target_type& src,
+            const target_type* mod,
             const target_type* const* hdr,
             const target_type* const* inc)
           : config_data (cd),
@@ -171,9 +173,9 @@ namespace build2
             cid (id), cvar (var), cmaj (mj), cmin (mi), cpath (path),
             ctg (tg), tsys (ctg.system), tclass (ctg.class_),
             tstd (std),
-            modules (mod),
+            modules (fm),
             pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),
-            x_src (src), x_hdr (hdr), x_inc (inc) {}
+            x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
 
     class common: protected data

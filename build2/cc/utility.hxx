@@ -22,7 +22,7 @@ namespace build2
     // Compile/link output type.
     //
     otype
-    compile_type (const target&);
+    compile_type (const target&, bool module);
 
     otype
     link_type (const target&);

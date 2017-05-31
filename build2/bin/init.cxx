@@ -25,6 +25,7 @@ namespace build2
   namespace bin
   {
     static const obj_rule obj_;
+    static const bmi_rule bmi_;
     static const lib_rule lib_;
 
     // Default config.bin.*.lib values.
@@ -362,6 +363,11 @@ namespace build2
         t.insert<obja> ();
         t.insert<objs> ();
 
+        t.insert<bmi>  ();
+        t.insert<bmie> ();
+        t.insert<bmia> ();
+        t.insert<bmis> ();
+
         t.insert<lib>  ();
         t.insert<liba> ();
         t.insert<libs> ();
@@ -418,6 +424,9 @@ namespace build2
 
         r.insert<obj> (perform_update_id, "bin.obj", obj_);
         r.insert<obj> (perform_clean_id, "bin.obj", obj_);
+
+        r.insert<bmi> (perform_update_id, "bin.bmi", bmi_);
+        r.insert<bmi> (perform_clean_id, "bin.bmi", bmi_);
 
         r.insert<lib> (perform_update_id, "bin.lib", lib_);
         r.insert<lib> (perform_clean_id, "bin.lib", lib_);

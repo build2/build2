@@ -348,6 +348,8 @@ namespace build2
 
         t.insert (x_src);
 
+        // Note: module (x_mod) is in x_hdr.
+
         for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
         {
           t.insert (**ht);
@@ -376,21 +378,36 @@ namespace build2
         r.insert<obje> (perform_clean_id,     x_compile, cr);
         r.insert<obje> (configure_update_id,  x_compile, cr);
 
-        r.insert<exe>  (perform_update_id,    x_link, lr);
-        r.insert<exe>  (perform_clean_id,     x_link, lr);
-        r.insert<exe>  (configure_update_id,  x_link, lr);
-
         r.insert<obja> (perform_update_id,    x_compile, cr);
         r.insert<obja> (perform_clean_id,     x_compile, cr);
         r.insert<obja> (configure_update_id,  x_compile, cr);
 
-        r.insert<liba> (perform_update_id,    x_link, lr);
-        r.insert<liba> (perform_clean_id,     x_link, lr);
-        r.insert<liba> (configure_update_id,  x_link, lr);
-
         r.insert<objs> (perform_update_id,   x_compile, cr);
         r.insert<objs> (perform_clean_id,    x_compile, cr);
         r.insert<objs> (configure_update_id, x_compile, cr);
+
+        if (modules)
+        {
+          r.insert<bmie> (perform_update_id,    x_compile, cr);
+          r.insert<bmie> (perform_clean_id,     x_compile, cr);
+          r.insert<bmie> (configure_update_id,  x_compile, cr);
+
+          r.insert<bmia> (perform_update_id,    x_compile, cr);
+          r.insert<bmia> (perform_clean_id,     x_compile, cr);
+          r.insert<bmia> (configure_update_id,  x_compile, cr);
+
+          r.insert<bmis> (perform_update_id,   x_compile, cr);
+          r.insert<bmis> (perform_clean_id,    x_compile, cr);
+          r.insert<bmis> (configure_update_id, x_compile, cr);
+        }
+
+        r.insert<exe>  (perform_update_id,    x_link, lr);
+        r.insert<exe>  (perform_clean_id,     x_link, lr);
+        r.insert<exe>  (configure_update_id,  x_link, lr);
+
+        r.insert<liba> (perform_update_id,    x_link, lr);
+        r.insert<liba> (perform_clean_id,     x_link, lr);
+        r.insert<liba> (configure_update_id,  x_link, lr);
 
         r.insert<libs> (perform_update_id,   x_link, lr);
         r.insert<libs> (perform_clean_id,    x_link, lr);

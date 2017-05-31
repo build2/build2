@@ -262,13 +262,14 @@ namespace build2
 
         cm.tstd,
 
-        false, // No C modules for now.
+        false, // No C modules yet.
 
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths>         (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths>         (rs[cm.x_sys_inc_dirs]),
 
         c::static_type,
+        nullptr,        // No C modules yet.
         hdr,
         inc
       };

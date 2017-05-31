@@ -56,9 +56,13 @@ namespace build2
     struct match_data
     {
       explicit
-      match_data (const prerequisite_member& s)
-          : src (s), pp (preprocessed::none), mt (timestamp_unknown) {}
+      match_data (bool m, const prerequisite_member& s)
+          : mod (m),
+            src (s),
+            pp (preprocessed::none),
+            mt (timestamp_unknown) {}
 
+      bool mod;                  // Target is bmi*{} and src is x_mod.
       prerequisite_member src;
       preprocessed pp;
       auto_rmfile psrc;          // Preprocessed source, if any.
@@ -73,29 +77,28 @@ namespace build2
     {
       tracer trace (x, "compile::match");
 
-      // @@ TODO:
-      //
-      // - check prerequisites: single source file
-      // - if path already assigned, verify extension?
-      //
+      bool mod (t.is_a<bmie> () || t.is_a<bmia> () || t.is_a<bmis> ());
 
-      // Link-up to our group (this is the obj{} target group protocol which
-      // means this can be done whether we match or not).
+      // Link-up to our group (this is the obj/bmi{} target group protocol
+      // which means this can be done whether we match or not).
       //
       if (t.group == nullptr)
-        t.group = targets.find<obj> (t.dir, t.out, t.name);
+      {
+        const target_type& tt (mod ? bmi::static_type : obj::static_type);
+        t.group = targets.find (tt, t.dir, t.out, t.name);
+      }
 
       // See if we have a source file. Iterate in reverse so that a source
-      // file specified for an obj*{} member overrides the one specified for
-      // the group. Also "see through" groups.
+      // file specified for a member overrides the one specified for the
+      // group. Also "see through" groups.
       //
       for (prerequisite_member p: reverse_group_prerequisite_members (act, t))
       {
-        if (p.is_a (x_src))
+        if (p.is_a (mod ? *x_mod : x_src))
         {
           // Save in the target's auxilary storage.
           //
-          t.data (match_data (p));
+          t.data (match_data (mod, p));
           return true;
         }
       }
@@ -312,57 +315,82 @@ namespace build2
     {
       tracer trace (x, "compile::apply");
 
-      file& t (xt.as<file> ());
+      file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
+
       match_data& md (t.data<match_data> ());
+      bool mod (md.mod);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ct (compile_type (t));
+      otype ct (compile_type (t, mod));
       lorder lo (link_order (bs, ct));
 
       // Derive file name from target name.
       //
-      const char* e (nullptr);
+      string e; // In case of a module, this is the object file extension.
 
       if (tsys == "win32-msvc")
       {
         switch (ct)
         {
-        case otype::e: e = "exe.obj"; break;
-        case otype::a: e = "lib.obj"; break;
-        case otype::s: e = "dll.obj"; break;
+        case otype::e: e = "exe."; break;
+        case otype::a: e = "lib."; break;
+        case otype::s: e = "dll."; break;
         }
       }
       else if (tsys == "mingw32")
       {
         switch (ct)
         {
-        case otype::e: e = "exe.o"; break;
-        case otype::a: e = "a.o";   break;
-        case otype::s: e = "dll.o"; break;
+        case otype::e: e = "exe."; break;
+        case otype::a: e = "a.";   break;
+        case otype::s: e = "dll."; break;
         }
       }
       else if (tsys == "darwin")
       {
         switch (ct)
         {
-        case otype::e: e = "o";       break;
-        case otype::a: e = "a.o";     break;
-        case otype::s: e = "dylib.o"; break;
+        case otype::e: e = "";       break;
+        case otype::a: e = "a.";     break;
+        case otype::s: e = "dylib."; break;
         }
       }
       else
       {
         switch (ct)
         {
-        case otype::e: e = "o"; break;
-        case otype::a: e = "a.o"; break;
-        case otype::s: e = "so.o"; break;
+        case otype::e: e = "";    break;
+        case otype::a: e = "a.";  break;
+        case otype::s: e = "so."; break;
         }
       }
 
-      const path& tp (t.derive_path (e));
+      switch (cid)
+      {
+      case compiler_id::gcc:
+        {
+          if (mod) e += "nms.";
+          e += "o";
+          break;
+        }
+      case compiler_id::clang:
+        {
+          if (mod) e += "pcm.";
+          e += "o";
+          break;
+        }
+      case compiler_id::msvc:
+      case compiler_id::icc:
+        {
+          if (mod) e += "ifc.";
+          e += (tsys == "win32-msvc" ? "obj" : "o");
+          break;
+        }
+      }
+
+      const path& tp (t.derive_path (e.c_str ()));
 
       // Inject dependency on the output directory.
       //
@@ -2206,7 +2234,26 @@ namespace build2
         throw failed ();
       }
 
-      //@@ TODO: if bmi{}, make sure module_name is not empty.
+      // Sanity checks.
+      //
+      if (modules)
+      {
+        // If we are compiling a module interface unit, make sure it has the
+        // necessary declarations.
+        //
+        if (src.is_a (*x_mod))
+        {
+          // VC is not (yet) using the 'export module' syntax so use the
+          // preprequisite type to distinguish between interface and
+          // implementation units.
+          //
+          if (cid == compiler_id::msvc)
+            tu.module_interface = true;
+
+          if (tu.module_name.empty () || !tu.module_interface)
+            fail << src << " is not a module interface unit";
+        }
+      }
 
       if (tu.module_name.empty () && tu.module_imports.empty ())
         return;
@@ -2228,12 +2275,16 @@ namespace build2
     {
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
+
       match_data md (move (t.data<match_data> ()));
+      bool mod (md.mod);
 
       // While all our prerequisites are already up-to-date, we still have
       // to execute them to keep the dependency counts straight.
       //
-      auto pr (execute_prerequisites<file> (x_src, act, t, md.mt));
+      auto pr (
+        execute_prerequisites<file> (
+          (mod ? *x_mod : x_src), act, t, md.mt));
 
       if (pr.first)
       {
@@ -2246,7 +2297,7 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ct (compile_type (t));
+      otype ct (compile_type (t, mod));
       lorder lo (link_order (bs, ct));
 
       cstrings args {cpath.recall_string ()};

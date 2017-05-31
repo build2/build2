@@ -63,5 +63,18 @@ namespace build2
       &file_search,
       false
     };
+
+    extern const char mxx_ext_def[] = "mxx";
+    const target_type mxx::static_type
+    {
+      "mxx",
+      &cc::static_type,
+      &target_factory<mxx>,
+      &target_extension_var<ext_var, mxx_ext_def>,
+      &target_pattern_var<ext_var, mxx_ext_def>,
+      nullptr,
+      &file_search,
+      false
+    };
   }
 }

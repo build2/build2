@@ -375,19 +375,21 @@ namespace build2
     static const target_type* const hdr[] =
     {
       &hxx::static_type,
+      &h::static_type,
       &ixx::static_type,
       &txx::static_type,
-      &h::static_type,
+      &mxx::static_type,
       nullptr
     };
 
     static const target_type* const inc[] =
     {
       &hxx::static_type,
+      &h::static_type,
       &ixx::static_type,
       &txx::static_type,
+      &mxx::static_type,
       &cxx::static_type,
-      &h::static_type,
       &c::static_type,
       nullptr
     };
@@ -414,6 +416,8 @@ namespace build2
       if (!cast_false<bool> (rs["cxx.config.loaded"]))
         load_module (rs, rs, "cxx.config", loc, false, hints);
 
+      bool modules (cast<bool> (rs["cxx.features.modules"]));
+
       config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
 
       cc::data d {
@@ -433,13 +437,14 @@ namespace build2
 
         cm.tstd,
 
-        cast<bool> (rs["cxx.features.modules"]),
+        modules,
 
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
 
         cxx::static_type,
+        modules ? &mxx::static_type : nullptr,
         hdr,
         inc
       };

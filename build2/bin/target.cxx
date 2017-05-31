@@ -19,27 +19,41 @@ namespace build2
 
     extern const char ext_var[] = "extension"; // VC14 rejects constexpr.
 
-    template <typename T>
+    // obj*{} and bmi*{} member factory.
+    //
+    template <typename M, typename G>
     static pair<target*, optional<string>>
-    objx_factory (const target_type&,
-                  dir_path dir,
-                  dir_path out,
-                  string n,
-                  optional<string> ext)
+    m_factory (const target_type&,
+               dir_path dir,
+               dir_path out,
+               string n,
+               optional<string> ext)
     {
-      const obj* g (targets.find<obj> (dir, out, n));
+      const G* g (targets.find<G> (dir, out, n));
 
-      T* x (new T (move (dir), move (out), move (n)));
-      x->group = g;
+      M* m (new M (move (dir), move (out), move (n)));
+      m->group = g;
 
-      return make_pair (x, move (ext));
+      return make_pair (m, move (ext));
     }
 
     const target_type obje::static_type
     {
       "obje",
       &file::static_type,
-      &objx_factory<obje>,
+      &m_factory<obje, obj>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    const target_type bmie::static_type
+    {
+      "bmie",
+      &file::static_type,
+      &m_factory<bmie, bmi>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
@@ -51,7 +65,19 @@ namespace build2
     {
       "obja",
       &file::static_type,
-      &objx_factory<obja>,
+      &m_factory<obja, obj>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    const target_type bmia::static_type
+    {
+      "bmia",
+      &file::static_type,
+      &m_factory<bmia, bmi>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
@@ -63,7 +89,7 @@ namespace build2
     {
       "objs",
       &file::static_type,
-      &objx_factory<objs>,
+      &m_factory<objs, obj>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
@@ -71,39 +97,54 @@ namespace build2
       false
     };
 
+    const target_type bmis::static_type
+    {
+      "bmis",
+      &file::static_type,
+      &m_factory<bmis, bmi>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    // obj{} and bmi{} group factory.
+    //
+    template <typename G, typename E, typename A, typename S>
     static pair<target*, optional<string>>
-    obj_factory (const target_type&,
-                 dir_path dir,
-                 dir_path out,
-                 string n,
-                 optional<string> ext)
+    g_factory (const target_type&,
+               dir_path dir,
+               dir_path out,
+               string n,
+               optional<string> ext)
     {
       // Casts are MT-aware (during serial load).
       //
-      obje* e (phase == run_phase::load
-               ? const_cast<obje*> (targets.find<obje> (dir, out, n))
-               : nullptr);
-      obja* a (phase == run_phase::load
-               ? const_cast<obja*> (targets.find<obja> (dir, out, n))
-               : nullptr);
-      objs* s (phase == run_phase::load
-               ? const_cast<objs*> (targets.find<objs> (dir, out, n))
-               : nullptr);
+      E* e (phase == run_phase::load
+            ? const_cast<E*> (targets.find<E> (dir, out, n))
+            : nullptr);
+      A* a (phase == run_phase::load
+            ? const_cast<A*> (targets.find<A> (dir, out, n))
+            : nullptr);
+      S* s (phase == run_phase::load
+            ? const_cast<S*> (targets.find<S> (dir, out, n))
+            : nullptr);
 
-      obj* o (new obj (move (dir), move (out), move (n)));
+      G* g (new G (move (dir), move (out), move (n)));
 
-      if (e != nullptr) e->group = o;
-      if (a != nullptr) a->group = o;
-      if (s != nullptr) s->group = o;
+      if (e != nullptr) e->group = g;
+      if (a != nullptr) a->group = g;
+      if (s != nullptr) s->group = g;
 
-      return make_pair (o, move (ext));
+      return make_pair (g, move (ext));
     }
 
     const target_type obj::static_type
     {
       "obj",
       &target::static_type,
-      &obj_factory,
+      &g_factory<obj, obje, obja, objs>,
       nullptr,
       nullptr,
       nullptr,
@@ -111,21 +152,17 @@ namespace build2
       false
     };
 
-    template <typename T>
-    static pair<target*, optional<string>>
-    libx_factory (const target_type&,
-                  dir_path dir,
-                  dir_path out,
-                  string n,
-                  optional<string> ext)
+    const target_type bmi::static_type
     {
-      const lib* g (targets.find<lib> (dir, out, n));
-
-      T* x (new T (move (dir), move (out), move (n)));
-      x->group = g;
-
-      return make_pair (x, move (ext));
-    }
+      "bmi",
+      &target::static_type,
+      &g_factory<bmi, bmie, bmia, bmis>,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
 
     // What extensions should we use? At the outset, this is platform-
     // dependent. And if we consider cross-compilation, is it build or
@@ -141,7 +178,7 @@ namespace build2
     {
       "liba",
       &file::static_type,
-      &libx_factory<liba>,
+      &m_factory<liba, lib>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
@@ -153,7 +190,7 @@ namespace build2
     {
       "libs",
       &file::static_type,
-      &libx_factory<libs>,
+      &m_factory<libs, lib>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,

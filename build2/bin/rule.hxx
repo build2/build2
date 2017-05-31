@@ -26,6 +26,18 @@ namespace build2
       apply (action, target&) const override;
     };
 
+    class bmi_rule: public rule
+    {
+    public:
+      bmi_rule () {}
+
+      virtual match_result
+      match (action, target&, const string&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
+    };
+
     class lib_rule: public rule
     {
     public:

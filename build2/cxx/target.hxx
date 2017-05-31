@@ -57,6 +57,21 @@ namespace build2
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
+
+    // The module interface unit is both like a header (e.g., we need to
+    // install it) and like a source (we need to compile it). Plus, to
+    // support dual use (modules/headers) it could actually be #include'd
+    // (and in both cases).
+    //
+    class mxx: public cc::cc
+    {
+    public:
+      using cc::cc;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
   }
 }
 

@@ -641,7 +641,7 @@ namespace build2
                     p1.is_a<lib>  ()  ||
                     p1.is_a<liba> ()  ||
                     p1.is_a<libs> ()  ||
-                    (p.is_a (x_src) && x_header (p1)) ||
+                    (p.is_a (x_src) && x_header (p1)) || // Includes x_mod.
                     (p.is_a<c> () && p1.is_a<h> ()))
                   continue;
 
