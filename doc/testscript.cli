@@ -2150,17 +2150,19 @@ The path components may contain the \c{*} and \c{?} wildcard characters
 with the following semantics:
 
 \
-?   - any single character
-*   - all immediate files
-*/  - all immediate sub-directories (which must be empty)
-**  - all files recursively
-**/ - all sub-directories recursively (which must be empty)
-*** - all files and sub-directories recursively as well as the start
-      directory itself
+?    - any single character
+*    - all immediate files
+*/   - all immediate sub-directories (which must be empty)
+**   - all files recursively
+**/  - all sub-directories recursively (which must be empty)
+***/ - all sub-directories recursively (which must be empty)
+       as well as the start directory itself
 \
 
-For example, the following cleanup will remove \c{dir/} and its content
-recursively.
+In addition, if the last component in the path is \c{***} (without trailing
+directory separator), then it matches all files and sub-directories
+recursively as well as the start directory itself. For example, the following
+cleanup will remove \c{dir/} and its content recursively.
 
 \
 $* &dir/***
