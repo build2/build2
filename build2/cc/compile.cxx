@@ -2122,8 +2122,8 @@ namespace build2
               const char* l (nullptr);
               switch (x_lang)
               {
-              case lang::c:   l = "c";
-              case lang::cxx: l = "c++";
+              case lang::c:   l = "c";   break;
+              case lang::cxx: l = "c++"; break;
               }
 
               args.push_back ("-x");
@@ -2462,8 +2462,8 @@ namespace build2
               const char* l (nullptr);
               switch (x_lang)
               {
-              case lang::c:   l = "cpp-output";
-              case lang::cxx: l = "c++-cpp-output";
+              case lang::c:   l = "cpp-output";     break;
+              case lang::cxx: l = "c++-cpp-output"; break;
               }
 
               args.push_back ("-x");
@@ -2519,8 +2519,8 @@ namespace build2
             const char* l (nullptr);
             switch (x_lang)
             {
-            case lang::c:   l = "c";
-            case lang::cxx: l = "c++";
+            case lang::c:   l = "c";   break;
+            case lang::cxx: l = "c++"; break;
             }
 
             args.push_back ("-x");
