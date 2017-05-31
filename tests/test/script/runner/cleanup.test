@@ -163,47 +163,73 @@ b += --no-column
   : self
   :
   {
-    : always
+    : dirs
     :
-    $c <'$* -d a/b -f a/b/c &a/***' && $b
+    {
+      : always
+      :
+      $c <'$* -d a/b -d a/b/c &a/***/' && $b
 
-    : maybe
-    :
-    $c <'$* &?a/***' && $b
+      : maybe
+      :
+      $c <'$* &?a/***/' && $b
 
-    : not-exists
-    :
-    : Test cleanup of a wildcard not matching any directory.
-    :
-    $c <'$* &a/***' && $b 2>>/EOE != 0
-    testscript:1: error: registered for cleanup wildcard test/1/a/*** doesn't match a directory
-    EOE
+      : not-empty
+      :
+      $c <'$* -d a/b -d a/b/c -f a/c &a/***/' && $b 2>>/EOE != 0
+      testscript:1: error: registered for cleanup directory test/1/a/ is not empty
+      c
+        info: wildcard: 'test/1/a/***/'
+      EOE
+    }
 
-    : out-wd
+    : all-entries
     :
-    : Test cleanup of a wildcard out of the testscript working directory.
+    : Test the trailing triple-star special case.
     :
-    $c <'$* &../../a/***' && $b 2>>/EOE != 0
-    testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
-    EOE
+    {
+      : always
+      :
+      $c <'$* -d a1/b -f a1/b/c -d a2/b -f a2/b/c &a?/***' && $b
 
-    : in-wd
-    :
-    : Test cleanup registration of a wildcard matching the directory that being
-    : outside the test working directory is inside the testscript working
-    : directory.
-    :
-    $c <'$* &../a/***' && $b 2>>/EOE != 0
-    testscript:1: error: registered for cleanup wildcard test/a/*** doesn't match a directory
-    EOE
+      : maybe
+      :
+      $c <'$* &?a/***' && $b
 
-    : not-dir
-    :
-    : Test cleanup of a file as a wildcard.
-    :
-    $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
-    %error: unable to remove directory test/1/a/: .+%
-    EOE
+      : not-exists
+      :
+      : Test cleanup of a wildcard not matching any directory.
+      :
+      $c <'$* &a/***' && $b 2>>/EOE != 0
+      testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+      EOE
+
+      : out-wd
+      :
+      : Test cleanup of a wildcard out of the testscript working directory.
+      :
+      $c <'$* &../../a/***' && $b 2>>/EOE != 0
+      testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+      EOE
+
+      : in-wd
+      :
+      : Test cleanup registration of a wildcard matching the directory that being
+      : outside the test working directory is inside the testscript working
+      : directory.
+      :
+      $c <'$* &../a/***' && $b 2>>/EOE != 0
+      testscript:1: error: registered for cleanup directory test/a/ does not exist
+      EOE
+
+      : not-dir
+      :
+      : Test cleanup of a file as a wildcard.
+      :
+      $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
+      %error: unable to remove directory test/1/a/: .*%
+      EOE
+    }
   }
 
   : dir
@@ -214,11 +240,11 @@ b += --no-column
     {
       : immediate
       :
-      $c <'$* -d a/b &a/ &a/*/' && $b
+      $c <'$* -d aa/b &aa/ &a*/*/' && $b
 
       : recursive
       :
-      $c <'$* -d a/b/c &a/ &a/**/' && $b
+      $c <'$* -d aa/b/c &aa/ &a?/**/' && $b
     }
 
     : maybe
@@ -230,7 +256,7 @@ b += --no-column
     : Test cleanup of a wildcard that doesn't match any directory.
     :
     $c <'$* &a/**/' && $b 2>>/EOE != 0
-    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match a directory
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
     EOE
 
     : not-dir
@@ -238,7 +264,7 @@ b += --no-column
     : Test cleanup of a file as a directory wildcard.
     :
     $c <'$* -f a &a/**/' && $b 2>>/EOE != 0
-    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match a directory
+    testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
     EOE
 
     : not-empty
@@ -260,11 +286,11 @@ b += --no-column
     {
       : immediate
       :
-      $c <'$* -d a -f a/c &a/ &a/*' && $b
+      $c <'$* -d aa -f aa/c &aa/ &a?/*' && $b
 
       : recursive
       :
-      $c <'$* -d a/b -f a/c -f a/b/e &a/ &a/b/ &a/**' && $b
+      $c <'$* -d aa/b -f aa/c -f aa/b/e &aa/ &aa/b/ &a*/**' && $b
     }
 
     : maybe
@@ -286,7 +312,7 @@ $c <'$* -d a/b &a/ &a/b/' && $b
 :
 $c <<EOI && $b
 $* -o foo >'foo';
-true &*
+$* -f bar &*
 EOI
 
 : wd-wildcard

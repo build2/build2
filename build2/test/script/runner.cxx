@@ -746,99 +746,108 @@ namespace build2
             if (t == cleanup_type::never)
               continue;
 
-            const path& p (c.path);
-            const path& l (p.leaf ());
-            const string& ls (l.string ());
+            const path& cp (c.path);
 
-            // Remove the directory recursively if not current. Fail otherwise.
-            // Recursive removal of non-existing directory is not an error for
-            // 'maybe' cleanup type.
+            // Wildcard with the last component being '***' (without trailing
+            // separator) matches all files and sub-directories recursively as
+            // well as the start directories itself. So we will recursively
+            // remove the directories that match the parent (for the original
+            // path) directory wildcard.
             //
-            if (ls == "***")
+            bool recursive (cp.leaf ().representation () == "***");
+            const path& p (!recursive ? cp : cp.directory ());
+
+            // Remove files or directories using wildcard.
+            //
+            if (p.string ().find_first_of ("?*") != string::npos)
             {
-              // Cast to uint16_t to avoid ambiguity with libbutl::rmdir_r().
+              bool removed (false);
+
+              auto rm = [&cp, recursive, &removed, &sp, &ll] (path&& pe,
+                                                              const string&,
+                                                              bool interm)
+              {
+                if (!interm)
+                {
+                  // While removing the entry we can get not_exist due to
+                  // racing conditions, but that's ok if somebody did our job.
+                  // Note that we still set the removed flag to true in this
+                  // case.
+                  //
+                  removed = true; // Will be meaningless on failure.
+
+                  if (pe.to_directory ())
+                  {
+                    dir_path d (path_cast<dir_path> (pe));
+
+                    if (!recursive)
+                    {
+                      rmdir_status r (rmdir (d, 3));
+
+                      if (r != rmdir_status::not_empty)
+                        return true;
+
+                      diag_record dr (fail (ll));
+                      dr << "registered for cleanup directory " << d
+                         << " is not empty";
+
+                      print_dir (dr, d, ll);
+                      dr << info << "wildcard: '" << cp << "'";
+                    }
+                    else
+                    {
+                      // Don't remove the working directory (it will be removed
+                      // by the dedicated cleanup).
+                      //
+                      // Cast to uint16_t to avoid ambiguity with
+                      // libbutl::rmdir_r().
+                      //
+                      rmdir_status r (rmdir_r (d,
+                                               d != sp.wd_path,
+                                               static_cast<uint16_t> (3)));
+
+                      if (r != rmdir_status::not_empty)
+                        return true;
+
+                      // The directory is unlikely to be current but let's keep
+                      // for completeness.
+                      //
+                      fail (ll) << "registered for cleanup wildcard " << cp
+                                << " matches the current directory";
+                    }
+                  }
+                  else
+                    rmfile (pe, 3);
+                }
+
+                return true;
+              };
+
+              // Note that here we rely on the fact that recursive iterating
+              // goes depth-first (which make sense for the cleanup).
               //
+              try
+              {
+                path_search (p, rm);
+              }
+              catch (const system_error& e)
+              {
+                fail (ll) << "unable to cleanup wildcard " << cp << ": " << e;
+              }
 
-              dir_path d (p.directory ());
-
-              // Don't remove the working directory (it will be removed by the
-              // dedicated cleanup).
+              // Removal of no filesystem entries is not an error for 'maybe'
+              // cleanup type.
               //
-              rmdir_status r (
-                rmdir_r (d, d != sp.wd_path, static_cast<uint16_t> (3)));
-
-              if (r == rmdir_status::success ||
-                  (r == rmdir_status::not_exist && t == cleanup_type::maybe))
+              if (removed || t == cleanup_type::maybe)
                 continue;
 
-              // The directory is unlikely to be current but let's keep for
-              // completeness.
-              //
-              fail (ll) << "registered for cleanup wildcard " << p
-                        << (r == rmdir_status::not_empty
-                            ? " matches the current directory"
-                            : " doesn't match a directory");
-            }
-
-            // Remove files or directories using wildcard. Removal of
-            // sub-entries of non-existing directory is not an error for
-            // 'maybe' cleanup type.
-            //
-            // Note that only the leaf part of the cleanup wildcard is a
-            // pattern in terms of libbutl::path_search().
-            //
-            if (ls == "*" || ls == "**")
-            {
-              dir_path d (p.directory ());
-
-              if (t == cleanup_type::always && !dir_exists (d))
-                fail (ll) << "registered for cleanup wildcard " << p
-                          << " doesn't match a directory";
-
-              if (l.to_directory ())
-              {
-                auto rm =
-                  [&p, &d, &ll] (path&& de, const string&, bool interm) -> bool
-                {
-                  if (!interm)
-                  {
-                    dir_path sd (path_cast<dir_path> (d / de));
-
-                    // We can get not_exist here due to racing conditions, but
-                    // that's ok if somebody did our job.
-                    //
-                    rmdir_status r (rmdir (sd, 3));
-
-                    if (r != rmdir_status::not_empty)
-                      return true;
-
-                    diag_record dr (fail (ll));
-                    dr << "registered for cleanup directory " << sd
-                       << " is not empty";
-
-                    print_dir (dr, sd, ll);
-                    dr << info << "wildcard: '" << p << "'";
-                  }
-
-                  return true;
-                };
-
-                path_search (l, rm, d);
-              }
-              else
-              {
-                auto rm = [&d] (path&& p, const string&, bool interm) -> bool
-                {
-                  if (!interm)
-                    rmfile (d / p, 3); // That's ok if not exists.
-
-                  return true;
-                };
-
-                path_search (l, rm, d);
-              }
-
-              continue;
+              fail (ll) << "registered for cleanup wildcard " << cp
+                        << " doesn't match any "
+                        << (recursive
+                            ? "path"
+                            : p.to_directory ()
+                              ? "directory"
+                              : "file");
             }
 
             // Remove the directory if exists and empty. Fail otherwise.
@@ -853,13 +862,22 @@ namespace build2
               // level 2 (that was used for its creation). For other
               // directories use level 3 (as for other cleanups).
               //
+              int v (d == sp.wd_path ? 2 : 3);
+
+              // Don't remove the working directory for the recursive cleanup
+              // (it will be removed by the dedicated one).
+              //
               // @@ If 'd' is a file then will fail with a diagnostics having
               //    no location info. Probably need to add an optional location
               //    parameter to rmdir() function. The same problem exists for
               //    a file cleanup when try to rmfile() directory instead of
               //    file.
               //
-              rmdir_status r (rmdir (d, d == sp.wd_path ? 2 : 3));
+              rmdir_status r (!recursive
+                              ? rmdir (d, v)
+                              : rmdir_r (d,
+                                         d != sp.wd_path,
+                                         static_cast <uint16_t> (v)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -867,9 +885,11 @@ namespace build2
 
               diag_record dr (fail (ll));
               dr << "registered for cleanup directory " << d
-                 << (r == rmdir_status::not_empty
-                     ? " is not empty"
-                     : " does not exist");
+                 << (r == rmdir_status::not_exist
+                     ? " does not exist"
+                     : !recursive
+                       ? " is not empty"
+                       : " is current");
 
               if (r == rmdir_status::not_empty)
                 print_dir (dr, d, ll);

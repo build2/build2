@@ -7,7 +7,7 @@
 
 test.options   = --serial-stop --quiet
 test.arguments = 'test(../proj/@./)' # Test out-of-src (for parallel).
-test.cleanups  = &**/                # Cleanup out directory structure.
+test.cleanups  = &?**/               # Cleanup out directory structure.
 
 +mkdir proj
 +mkdir proj/build
