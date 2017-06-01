@@ -72,7 +72,7 @@ namespace build2
     }
 
     const char* compile::
-    lang (const match_data& md) const
+    langopt (const match_data& md) const
     {
       bool m (md.mod);
       preprocessed p (md.pp);
@@ -1311,7 +1311,7 @@ namespace build2
               args.push_back (out.c_str ());
             }
 
-            args.push_back (lang (md)); // Compile as.
+            args.push_back (langopt (md)); // Compile as.
             gen = args_gen = true;
           }
           else
@@ -1345,7 +1345,7 @@ namespace build2
             args.push_back ("^");   // Old versions can't do empty target name.
 
             args.push_back ("-x");
-            args.push_back (lang (md));
+            args.push_back (langopt (md));
 
             if (pp != nullptr)
             {
@@ -2168,7 +2168,7 @@ namespace build2
 
             args.push_back ("/E");
             args.push_back ("/C");
-            args.push_back (lang (md)); // Compile as.
+            args.push_back (langopt (md)); // Compile as.
           }
           else
           {
@@ -2188,7 +2188,7 @@ namespace build2
             if (ps)
             {
               args.push_back ("-x");
-              args.push_back (lang (md));
+              args.push_back (langopt (md));
 
               if (cid == compiler_id::gcc)
               {
@@ -2479,7 +2479,7 @@ namespace build2
         // Note: no way to indicate that the source if already preprocessed.
 
         args.push_back ("/c");                    // Compile only.
-        args.push_back (lang (md));               // Compile as.
+        args.push_back (langopt (md));            // Compile as.
         args.push_back (rels.string ().c_str ()); // Note: rely on being last.
       }
       else
@@ -2500,7 +2500,7 @@ namespace build2
         // Note: the order of the following options is relied upon below.
         //
         args.push_back ("-x");
-        args.push_back (lang (md));
+        args.push_back (langopt (md));
 
         if (md.pp == preprocessed::all)
         {

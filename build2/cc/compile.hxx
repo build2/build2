@@ -100,7 +100,7 @@ namespace build2
       // Language selection option (for VC) or the value for the -x option.
       //
       const char*
-      lang (const match_data&) const;
+      langopt (const match_data&) const;
 
     private:
       const string rule_id;
