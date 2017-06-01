@@ -120,6 +120,14 @@ namespace build2
   target_lock
   lock (action, const target&);
 
+  // Add an ad hoc member. If the suffix is specified, it is added (as an
+  // extension) to the member's target name. Return the locked member target.
+  //
+  target_lock
+  add_adhoc_member (action, target&,
+                    const target_type&,
+                    const char* suffix = nullptr);
+
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call
   // this function with the intent to also call execute(). Return the target

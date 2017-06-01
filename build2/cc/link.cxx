@@ -314,21 +314,7 @@ namespace build2
       //
       auto add_adhoc = [act, &bs] (target& t, const char* type) -> target_lock
       {
-        const target_type& tt (*bs.find_target_type (type));
-
-        const target& m (t.member != nullptr // Might already be there.
-                         ? *t.member
-                         : search (t, tt, t.dir, t.out, t.name));
-
-        target_lock l (lock (act, m));
-        assert (l.target != nullptr); // Someone messing with adhoc members?
-
-        if (t.member == nullptr)
-          t.member = l.target;
-        else
-          assert (t.member->type () == tt);
-
-        return l;
+        return add_adhoc_member (act, t, *bs.find_target_type (type));
       };
 
       {

@@ -228,6 +228,8 @@ namespace build2
     // - Member variable lookup skips the ad hoc group (since the group is
     //   the first member, this is normally what we want).
     //
+    // Use add_adhoc_member() from algorithms to add an ad hoc member.
+    //
     const_ptr<target> member = nullptr;
 
     bool

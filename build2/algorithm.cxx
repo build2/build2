@@ -244,6 +244,33 @@ namespace build2
     sched.resume (t.task_count);
   }
 
+  target_lock
+  add_adhoc_member (action a, target& t, const target_type& tt, const char* s)
+  {
+    string n (t.name);
+    if (s != nullptr)
+    {
+      n += '.';
+      n += s;
+    }
+
+    const target& m (t.member != nullptr // Might already be there.
+                     ? *t.member
+                     : search (t, tt, t.dir, t.out, n));
+
+    target_lock l (lock (a, m));
+    assert (l.target != nullptr); // Someone messing with ad hoc members?
+
+    if (t.member == nullptr)
+      t.member = l.target;
+    else
+      // Basic sanity check.
+      //
+      assert (t.member->type () == tt && t.member->name == n);
+
+    return l;
+  };
+
   // Return the matching rule and the recipe action.
   //
   pair<const pair<const string, reference_wrapper<const rule>>*, action>

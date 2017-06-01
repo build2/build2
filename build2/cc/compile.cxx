@@ -393,65 +393,89 @@ namespace build2
 
       // Derive file name from target name.
       //
-      string e; // In case of a module, this is the object file extension.
+      string e; // Primary target extension (module or object).
+      {
+        const char* o ("o"); // Object extension (.o or .obj).
 
-      if (tsys == "win32-msvc")
-      {
-        switch (ct)
+        if (tsys == "win32-msvc")
         {
-        case otype::e: e = "exe."; break;
-        case otype::a: e = "lib."; break;
-        case otype::s: e = "dll."; break;
+          switch (ct)
+          {
+          case otype::e: e = "exe."; break;
+          case otype::a: e = "lib."; break;
+          case otype::s: e = "dll."; break;
+          }
+          o = "obj";
         }
-      }
-      else if (tsys == "mingw32")
-      {
-        switch (ct)
+        else if (tsys == "mingw32")
         {
-        case otype::e: e = "exe."; break;
-        case otype::a: e = "a.";   break;
-        case otype::s: e = "dll."; break;
+          switch (ct)
+          {
+          case otype::e: e = "exe."; break;
+          case otype::a: e = "a.";   break;
+          case otype::s: e = "dll."; break;
+          }
         }
-      }
-      else if (tsys == "darwin")
-      {
-        switch (ct)
+        else if (tsys == "darwin")
         {
-        case otype::e: e = "";       break;
-        case otype::a: e = "a.";     break;
-        case otype::s: e = "dylib."; break;
+          switch (ct)
+          {
+          case otype::e: e = "";       break;
+          case otype::a: e = "a.";     break;
+          case otype::s: e = "dylib."; break;
+          }
         }
-      }
-      else
-      {
-        switch (ct)
+        else
         {
-        case otype::e: e = "";    break;
-        case otype::a: e = "a.";  break;
-        case otype::s: e = "so."; break;
+          switch (ct)
+          {
+          case otype::e: e = "";    break;
+          case otype::a: e = "a.";  break;
+          case otype::s: e = "so."; break;
+          }
         }
-      }
 
-      switch (cid)
-      {
-      case compiler_id::gcc:
+        switch (cid)
         {
-          if (mod) e += "nms.";
-          e += "o";
-          break;
+        case compiler_id::gcc:
+          {
+            e += mod ? "nms" : o;
+            break;
+          }
+        case compiler_id::clang:
+          {
+            e += mod ? "pcm" : o;
+            break;
+          }
+        case compiler_id::msvc:
+        case compiler_id::icc:
+          {
+            e += mod ? "ifc" : o;
+            break;
+          }
         }
-      case compiler_id::clang:
+
+        // If we are compiling a module, then the obj*{} is an ad hoc member
+        // of bmi*{}.
+        //
+        if (mod)
         {
-          if (mod) e += "pcm.";
-          e += "o";
-          break;
-        }
-      case compiler_id::msvc:
-      case compiler_id::icc:
-        {
-          if (mod) e += "ifc.";
-          e += (tsys == "win32-msvc" ? "obj" : "o");
-          break;
+          const target_type* tt (nullptr);
+
+          switch (ct)
+          {
+          case otype::e: tt = &obje::static_type; break;
+          case otype::a: tt = &obja::static_type; break;
+          case otype::s: tt = &objs::static_type; break;
+          }
+
+          // The module interface unit can be the same as an implementation
+          // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
+          // collide. So we add the module extension to the target name.
+          //
+          target_lock obj (add_adhoc_member (act, t, *tt, e.c_str ()));
+          obj.target->as<file> ().derive_path (o);
+          match_recipe (obj, group_recipe); // Set recipe and unlock.
         }
       }
 
@@ -2335,7 +2359,6 @@ namespace build2
     perform_update (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
-      const path& tp (t.path ());
 
       match_data md (move (t.data<match_data> ()));
       bool mod (md.mod);
@@ -2366,9 +2389,22 @@ namespace build2
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
       //
-      path relo (relative (tp));
       path rels (relative (s.path ()));
 
+      // If we are building a module, then the target is bmi*{} and its ad hoc
+      // member is obj*{}.
+      //
+      path relo, relm;
+      if (mod)
+      {
+        relm = relative (t.path ());
+        relo = relative (t.member->is_a<file> ()->path ());
+      }
+      else
+        relo = relative (t.path ());
+
+      // Build command line.
+      //
       if (md.pp != preprocessed::all)
       {
         append_options (args, t, c_poptions);
@@ -2392,6 +2428,7 @@ namespace build2
       append_options (args, tstd);
 
       string out, out1; // Storage.
+      size_t out_i (0); // Index of the -o option.
 
       if (cid == compiler_id::msvc)
       {
@@ -2476,6 +2513,13 @@ namespace build2
           args.push_back (out.c_str ());
         }
 
+        if (mod)
+        {
+          args.push_back ("/module:interface");
+          args.push_back ("/module:output");
+          args.push_back (relm.string ().c_str ());
+        }
+
         // Note: no way to indicate that the source if already preprocessed.
 
         args.push_back ("/c");                    // Compile only.
@@ -2492,13 +2536,46 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
-        args.push_back ("-o");
-        args.push_back (relo.string ().c_str ());
-
-        args.push_back ("-c");
-
         // Note: the order of the following options is relied upon below.
         //
+        out_i = args.size (); // Index of the -o option.
+
+        if (mod)
+        {
+          switch (cid)
+          {
+          case compiler_id::gcc:
+            {
+              args.push_back ("-o");
+              args.push_back (relo.string ().c_str ());
+              //@@ MOD: specify module output file.
+              args.push_back ("-c");
+              break;
+            }
+          case compiler_id::clang:
+            {
+              args.push_back ("-o");
+              args.push_back (relm.string ().c_str ());
+              args.push_back ("--precompile");
+
+              // These should become the default at some point.
+              //
+              args.push_back ("-Xclang"); args.push_back ("-fmodules-codegen");
+              args.push_back ("-Xclang"); args.push_back ("-fmodules-debuginfo");
+              break;
+            }
+          case compiler_id::msvc:
+          case compiler_id::icc:
+            assert (false);
+          }
+        }
+        else
+        {
+          args.push_back ("-o");
+          args.push_back (relo.string ().c_str ());
+          args.push_back ("-c");
+        }
+
         args.push_back ("-x");
         args.push_back (langopt (md));
 
@@ -2640,17 +2717,6 @@ namespace build2
 
         if (!pr.wait ())
           throw failed ();
-
-        if (psrc && verb >= 3)
-          md.psrc = auto_rmfile (move (rels));
-
-        // Should we go to the filesystem and get the new mtime? We
-        // know the file has been modified, so instead just use the
-        // current clock time. It has the advantage of having the
-        // subseconds precision.
-        //
-        t.mtime (system_clock::now ());
-        return target_state::changed;
       }
       catch (const process_error& e)
       {
@@ -2665,6 +2731,59 @@ namespace build2
 
         throw failed ();
       }
+
+      if (psrc && verb >= 3)
+        md.psrc = auto_rmfile (move (rels));
+
+      // Clang's module compilation requires two separate compiler
+      // invocations.
+      //
+      if (mod && cid == compiler_id::clang)
+      {
+        // Remove the target file if this fails. If we don't do that, we will
+        // end up with a broken build that is up-to-date.
+        //
+        auto_rmfile rm (relm);
+
+        // Adjust the command line. First discard everything after -o then
+        // build the new "tail".
+        //
+        args.resize (out_i + 1);
+        args.push_back (relo.string ().c_str ()); // Produce .o.
+        args.push_back ("-c");                    // By compiling .pcm.
+        args.push_back ("-Wno-unused-command-line-argument"); //@@ MOD (-I).
+        args.push_back (relm.string ().c_str ());
+        args.push_back (nullptr);
+
+        if (verb >= 2)
+          print_process (args);
+
+        try
+        {
+          process pr (cpath, args.data ());
+
+          if (!pr.wait ())
+            throw failed ();
+        }
+        catch (const process_error& e)
+        {
+          error << "unable to execute " << args[0] << ": " << e;
+
+          if (e.child)
+            exit (1);
+
+          throw failed ();
+        }
+
+        rm.cancel ();
+      }
+
+      // Should we go to the filesystem and get the new mtime? We know the
+      // file has been modified, so instead just use the current clock time.
+      // It has the advantage of having the subseconds precision.
+      //
+      t.mtime (system_clock::now ());
+      return target_state::changed;
     }
 
     target_state compile::
