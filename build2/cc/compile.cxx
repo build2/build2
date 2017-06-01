@@ -46,14 +46,7 @@ namespace build2
       throw invalid_argument ("invalid preprocessed value '" + s + "'");
     }
 
-    compile::
-    compile (data&& d)
-        : common (move (d)),
-          rule_id (string (x) += ".compile 1")
-    {
-    }
-
-    struct match_data
+    struct compile::match_data
     {
       explicit
       match_data (bool m, const prerequisite_member& s)
@@ -69,8 +62,80 @@ namespace build2
       timestamp mt;              // Target timestamp.
     };
 
-    static_assert (sizeof (match_data) <= target::data_size,
-                   "insufficient space");
+    compile::
+    compile (data&& d)
+        : common (move (d)),
+          rule_id (string (x) += ".compile 1")
+    {
+      static_assert (sizeof (compile::match_data) <= target::data_size,
+                     "insufficient space");
+    }
+
+    const char* compile::
+    lang (const match_data& md) const
+    {
+      bool m (md.mod);
+      preprocessed p (md.pp);
+
+      switch (cid)
+      {
+      case compiler_id::gcc:
+        {
+          // Ignore the preprocessed value since for GCC it is handled via
+          // -fpreprocessed -fdirectives-only.
+          //
+          switch (x_lang)
+          {
+          case lang::c:   return "c";
+          case lang::cxx: return "c++";
+          }
+        }
+      case compiler_id::clang:
+        {
+          switch (p)
+          {
+          case preprocessed::none:
+          case preprocessed::includes:
+          case preprocessed::modules:
+            {
+              switch (x_lang)
+              {
+              case lang::c:   return "c";
+              case lang::cxx: return m ? "c++-module" : "c++";
+              }
+            }
+          case preprocessed::all:
+            {
+              switch (x_lang)
+              {
+              case lang::c:   return "cpp-output";
+              case lang::cxx: return (m
+                                      ? "c++-module-cpp-output"
+                                      : "c++-cpp-output");
+              }
+            }
+          }
+        }
+      case compiler_id::msvc:
+        {
+          switch (x_lang)
+          {
+          case lang::c:   return "/TC";
+          case lang::cxx: return "/TP";
+          }
+        }
+      case compiler_id::icc:
+        {
+          switch (x_lang)
+          {
+          case lang::c:   return "c";
+          case lang::cxx: return "c++";
+          }
+        }
+      }
+
+      return nullptr;
+    }
 
     match_result compile::
     match (action act, target& t, const string&) const
@@ -623,7 +688,7 @@ namespace build2
         //
         pair<auto_rmfile, bool> p (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          p = extract_headers (act, t, lo, src, dd, u);
+          p = extract_headers (act, t, lo, src, md, dd, u);
 
         // If anything got updated, then we didn't rely on the cache. However,
         // the cached data could actually have been valid and the compiler run
@@ -643,7 +708,7 @@ namespace build2
         //
         if (u) // @@ TMP (depdb validation similar to extract_headers()).
         {
-          extract_modules (act, t, lo, src, p.first, md.pp, dd, u);
+          extract_modules (act, t, lo, src, p.first, md, dd, u);
         }
 
         // If the preprocessed output is suitable for compilation and is not
@@ -1001,6 +1066,7 @@ namespace build2
                      file& t,
                      lorder lo,
                      const file& src,
+                     const match_data& md,
                      depdb& dd,
                      bool& updating) const
     {
@@ -1154,7 +1220,7 @@ namespace build2
       // pointer to the temporary file path otherwise.
       //
       auto init_args = [&t, act, lo,
-                        &src, &rels, &psrc, &sense_diag,
+                        &src, &md, &rels, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &args, &args_gen, &args_i, &out, &drm, this]
         (bool& gen) -> const path*
@@ -1245,8 +1311,7 @@ namespace build2
               args.push_back (out.c_str ());
             }
 
-            args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
-
+            args.push_back (lang (md)); // Compile as.
             gen = args_gen = true;
           }
           else
@@ -1278,6 +1343,9 @@ namespace build2
             //
             args.push_back ("-MQ"); // Quoted target name.
             args.push_back ("^");   // Old versions can't do empty target name.
+
+            args.push_back ("-x");
+            args.push_back (lang (md));
 
             if (pp != nullptr)
             {
@@ -2016,7 +2084,7 @@ namespace build2
                      lorder lo,
                      const file& src,
                      auto_rmfile& psrc,
-                     preprocessed pp,
+                     const match_data& md,
                      depdb& /*dd*/,
                      bool& /*updating*/) const
     {
@@ -2048,7 +2116,7 @@ namespace build2
       path rels;
 
       bool ps; // True if extracting from psrc.
-      if (pp < preprocessed::modules)
+      if (md.pp < preprocessed::modules)
       {
         ps = !psrc.path ().empty ();
         rels = relative (ps ? psrc.path () : src.path ());
@@ -2100,7 +2168,7 @@ namespace build2
 
             args.push_back ("/E");
             args.push_back ("/C");
-            args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
+            args.push_back (lang (md)); // Compile as.
           }
           else
           {
@@ -2119,15 +2187,8 @@ namespace build2
 
             if (ps)
             {
-              const char* l (nullptr);
-              switch (x_lang)
-              {
-              case lang::c:   l = "c";   break;
-              case lang::cxx: l = "c++"; break;
-              }
-
               args.push_back ("-x");
-              args.push_back (l);
+              args.push_back (lang (md));
 
               if (cid == compiler_id::gcc)
               {
@@ -2417,8 +2478,8 @@ namespace build2
 
         // Note: no way to indicate that the source if already preprocessed.
 
-        args.push_back ("/c");                              // Compile only.
-        args.push_back (x_lang == lang::c ? "/TC" : "/TP"); // Compile as.
+        args.push_back ("/c");                    // Compile only.
+        args.push_back (lang (md));               // Compile as.
         args.push_back (rels.string ().c_str ()); // Note: rely on being last.
       }
       else
@@ -2435,6 +2496,11 @@ namespace build2
         args.push_back (relo.string ().c_str ());
 
         args.push_back ("-c");
+
+        // Note: the order of the following options is relied upon below.
+        //
+        args.push_back ("-x");
+        args.push_back (lang (md));
 
         if (md.pp == preprocessed::all)
         {
@@ -2459,15 +2525,6 @@ namespace build2
               // Clang handles comments and line continuations in the
               // preprocessed source (it does not have -fpreprocessed).
               //
-              const char* l (nullptr);
-              switch (x_lang)
-              {
-              case lang::c:   l = "cpp-output";     break;
-              case lang::cxx: l = "c++-cpp-output"; break;
-              }
-
-              args.push_back ("-x");
-              args.push_back (l);
               break;
             }
           case compiler_id::icc:
@@ -2477,7 +2534,7 @@ namespace build2
           }
         }
 
-        args.push_back (rels.string ().c_str ()); // Note: rely on being last.
+        args.push_back (rels.string ().c_str ());
       }
 
       args.push_back (nullptr);
@@ -2509,22 +2566,16 @@ namespace build2
           {
             // The -fpreprocessed is implied by .i/.ii.
             //
+            args.pop_back (); // lang()
+            args.pop_back (); // -x
             args.push_back ("-fdirectives-only");
             break;
           }
         case compiler_id::clang:
           {
-            // Without this Clang will treat .i/.ii as fully preprocessed.
+            // Note that without -x Clang will treat .i/.ii as fully
+            // preprocessed.
             //
-            const char* l (nullptr);
-            switch (x_lang)
-            {
-            case lang::c:   l = "c";   break;
-            case lang::cxx: l = "c++"; break;
-            }
-
-            args.push_back ("-x");
-            args.push_back (l);
             break;
           }
         case compiler_id::msvc:

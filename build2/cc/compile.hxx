@@ -45,6 +45,8 @@ namespace build2
       perform_clean (action, const target&) const;
 
     private:
+      struct match_data;
+
       void
       append_lib_options (const scope&,
                           cstrings&,
@@ -88,12 +90,17 @@ namespace build2
 
       pair<auto_rmfile, bool>
       extract_headers (action, file&, lorder,
-                       const file&,
+                       const file&, const match_data&,
                        depdb&, bool&) const;
       void
       extract_modules (action, file&, lorder,
-                       const file&, auto_rmfile&, preprocessed,
+                       const file&, auto_rmfile&, const match_data&,
                        depdb&, bool&) const;
+
+      // Language selection option (for VC) or the value for the -x option.
+      //
+      const char*
+      lang (const match_data&) const;
 
     private:
       const string rule_id;
