@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 crosstest = false
-test.arguments = config.cxx="$recall($cxx.path)" update clean #@@ TMP clean
+test.arguments = config.cxx="$recall($cxx.path)" update
 
 .include ../../common.test
 
@@ -32,10 +32,10 @@ EOI
 : defined (makes sure modules are extracted from preprocessed source).
 : Use the macro (makes sure compilation happens on preprocessed source).
 :
-cat <<EOI >=test.hxx;
+cat <<EOI >=test.hxx &!test.hxx;
   #define TEST_VALUE 0
   EOI
-cat <<EOI >=test.cxx;
+cat <<EOI >=test.cxx &!test.cxx;
   #include <none/test.hxx>
 
   #ifndef TEST_VALUE
@@ -44,7 +44,7 @@ cat <<EOI >=test.cxx;
 
   int main () {return TEST_VALUE;}
   EOI
-$* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
+$* --verbose 5 &test* <<EOI 2>&1 | $filter >>EOO
   exe{test}: cxx{test}
   EOI
   headers test
@@ -53,14 +53,14 @@ $* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
 
 : includes
 :
-cat <<EOI >=test.cxx;
+cat <<EOI >=test.cxx &!test.cxx;
   #ifndef TEST_VALUE
   import foo;
   #endif
 
   int main () {return TEST_VALUE;}
   EOI
-$* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
+$* --verbose 5 &test* <<EOI 2>&1 | $filter >>EOO
   cc.preprocessed = includes
   cc.poptions += -DTEST_VALUE=0
   exe{test}: cxx{test}
@@ -72,10 +72,10 @@ $* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
 :
 : Define and use macro to test that compilation inclused the preprocessor.
 :
-cat <<EOI >=test.cxx;
+cat <<EOI >=test.cxx &!test.cxx;
   int main () {return TEST_VALUE;}
   EOI
-$* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
+$* --verbose 5 &test* <<EOI 2>&1 | $filter >>EOO
   cc.preprocessed = modules
   cc.poptions += -DTEST_VALUE=0
   exe{test}: cxx{test}
@@ -88,26 +88,26 @@ $* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
 : Define macro that would have disabled the module import (makes sure
 : modules are extracted directly from source).
 :
-cat <<EOI >=test.cxx;
+cat <<EOI >=test.cxx &!test.cxx;
   #define TEST_VALUE
   #ifndef TEST_VALUE
   import foo;
   #endif
   EOI
-$* <<EOI 2>>EOE != 0 ;#@@ &test*
+$* &test* <<EOI 2>>EOE != 0
   cc.preprocessed = modules
   exe{test}: cxx{test}
   EOI
   error: modules support not enabled or unavailable
   EOE
-rm -f test.o.d test.exe.o.d test.exe.obj.d #@@ TMP
+
 
 : all
 :
 : Test handling of comments and line continuations. Define macro on the
 : command line that would have affected the result.
 :
-cat <<EOI >=test.cxx;
+cat <<EOI >=test.cxx &!test.cxx;
   // C++ comment
   /*
   C comment
@@ -116,7 +116,7 @@ cat <<EOI >=test.cxx;
   int ma\
   in () {}
   EOI
-$* --verbose 5 <<EOI 2>&1 | $filter >>EOO #@@ &test*
+$* --verbose &test* 5 <<EOI 2>&1 | $filter >>EOO
   cc.preprocessed = all
   cc.poptions += -Dmain=foo
   exe{test}: cxx{test}
