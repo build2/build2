@@ -82,9 +82,9 @@ exe{hello}: cxx{f* -fo?}           # Exclude foo and fox if present.
 exe{hello}: cxx{f* +b* -foo -bar}  # Exclude foo and bar if present.
 \
 
-Inclusion and exclusion are applied in the order specified and only to the
+Inclusions and exclusions are applied in the order specified and only to the
 result produced up to that point. The order of names in the result is
-unspecified, however, it is guaranteed not to contain duplicates. The
+unspecified. However, it is guaranteed not to contain duplicates. The
 pattern and the following inclusions/exclusions must be consistent with
 regards to the type of filesystem entry they match. That is, they should
 all match either files or directories. For example:
