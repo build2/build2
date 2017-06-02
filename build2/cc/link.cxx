@@ -71,11 +71,13 @@ namespace build2
       // Scan prerequisites and see if we can work with what we've got. Note
       // that X could be C. We handle this by always checking for X first.
       //
+      // Note also that we treat bmi{} as obj{}.
+      //
       bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
       for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        if (p.is_a (x_src))
+        if (p.is_a (x_src) || (x_mod != nullptr && p.is_a (*x_mod)))
         {
           seen_x = seen_x || true;
         }
@@ -83,28 +85,28 @@ namespace build2
         {
           seen_c = seen_c || true;
         }
-        else if (p.is_a<obj> ())
+        else if (p.is_a<obj> () || p.is_a<bmi> ())
         {
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<obje> ())
+        else if (p.is_a<obje> () || p.is_a<bmie> ())
         {
           if (lt != otype::e)
-            fail << "obje{} as prerequisite of " << t;
+            fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<obja> ())
+        else if (p.is_a<obja> () || p.is_a<bmia> ())
         {
           if (lt != otype::a)
-            fail << "obja{} as prerequisite of " << t;
+            fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<objs> ())
+        else if (p.is_a<objs> () || p.is_a<bmis> ())
         {
           if (lt != otype::s)
-            fail << "objs{} as prerequisite of " << t;
+            fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
@@ -403,7 +405,7 @@ namespace build2
       // libraries.
       //
       // We do it first in order to indicate that we will execute these
-      // targets before matching any of the obj?{}. This makes it safe for
+      // targets before matching any of the obj*{}. This makes it safe for
       // compile::apply() to unmatch them and therefore not to hinder
       // parallelism.
       //
@@ -455,12 +457,18 @@ namespace build2
       //
       match_members (act, t, t.prerequisite_targets, start);
 
-      // Process prerequisites, pass 2: search and match obj{} amd do rule
+      // Process prerequisites, pass 2: search and match obj{} and do rule
       // chaining for C and X source files.
       //
-      const target_type& ott (lt == otype::e ? obje::static_type :
-                              lt == otype::a ? obja::static_type :
-                              objs::static_type);
+      const target_type* ott (nullptr);
+      const target_type* mtt (nullptr);
+
+      switch (lt)
+      {
+      case otype::e: ott = &obje::static_type; mtt = &bmie::static_type; break;
+      case otype::a: ott = &obja::static_type; mtt = &bmia::static_type; break;
+      case otype::s: ott = &objs::static_type; mtt = &bmis::static_type; break;
+      }
 
       {
         // Wait with unlocked phase to allow phase switching.
@@ -479,12 +487,16 @@ namespace build2
 
           uint8_t pm (1); // Completion (1) and verfication (2) mark.
 
-          if (!p.is_a (x_src) && !p.is_a<c> ())
+          bool mod (x_mod != nullptr && p.is_a (*x_mod));
+
+          if (!mod && !p.is_a (x_src) && !p.is_a<c> ())
           {
-            // If this is the obj{} target group, then pick the appropriate
-            // member.
+            // If this is the obj{} or bmi{} target group, then pick the
+            // appropriate member.
             //
-            pt = p.is_a<obj> () ? &search (t, ott, p.key ()) : &p.search (t);
+            if      (p.is_a<obj> ()) pt = &search (t, *ott, p.key ());
+            else if (p.is_a<bmi> ()) pt = &search (t, *mtt, p.key ());
+            else                     pt = &p.search (t);
 
             if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
               continue; // Skip.
@@ -495,6 +507,7 @@ namespace build2
           {
             // The rest is rule chaining.
             //
+
             // Which scope shall we use to resolve the root? Unlikely, but
             // possible, the prerequisite is from a different project
             // altogether. So we are going to use the target's project.
@@ -502,15 +515,18 @@ namespace build2
 
             // If the source came from the lib{} group, then create the obj{}
             // group and add the source as a prerequisite of the obj{} group,
-            // not the obj?{} member. This way we only need one prerequisite
-            // for, say, both liba{} and libs{}.
+            // not the obj*{} member. This way we only need one prerequisite
+            // for, say, both liba{} and libs{}. The same goes for bmi{}.
             //
             bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-            const target_type& tt (group ? obj::static_type : ott);
+
+            const target_type& rtt (mod
+                                    ? (group ? bmi::static_type : *mtt)
+                                    : (group ? obj::static_type : *ott));
 
             const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
 
-            // Come up with the obj*{} target. The source prerequisite
+            // Come up with the obj*/bmi*{} target. The source prerequisite
             // directory can be relative (to the scope) or absolute. If it is
             // relative, then use it as is. If absolute, then translate it to
             // the corresponding directory under out_root. While the source
@@ -527,22 +543,22 @@ namespace build2
               {
                 if (!cpd.sub (rs.src_path ()))
                   fail << "out of project prerequisite " << cp <<
-                    info << "specify corresponding " << tt.name << "{} "
+                    info << "specify corresponding " << rtt.name << "{} "
                        << "target explicitly";
 
                 d = rs.out_path () / cpd.leaf (rs.src_path ());
               }
             }
 
-            // obj*{} is always in the out tree.
+            // obj*/bmi*{} is always in the out tree.
             //
-            const target& ot (
-              search (t, tt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+            const target& rt (
+              search (t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
             // If we are cleaning, check that this target is in the same or a
             // subdirectory of our project root.
             //
-            if (act.operation () == clean_id && !ot.dir.sub (rs.out_path ()))
+            if (act.operation () == clean_id && !rt.dir.sub (rs.out_path ()))
             {
               // If we shouldn't clean obj{}, then it is fair to assume we
               // shouldn't clean the source either (generated source will be
@@ -552,10 +568,12 @@ namespace build2
               continue; // Skip.
             }
 
-            // If we have created the obj{} target group, pick one of its
+            // If we have created the obj/bmi{} target group, pick one of its
             // members; the rest would be primarily concerned with it.
             //
-            pt = group ? &search (t, ott, ot.dir, ot.out, ot.name) : &ot;
+            pt = (group
+                  ? &search (t, (mod ? *mtt : *ott), rt.dir, rt.out, rt.name)
+                  : &rt);
 
             // If this obj*{} already has prerequisites, then verify they are
             // "compatible" with what we are doing here. Otherwise, synthesize
@@ -593,7 +611,7 @@ namespace build2
 
               // Note: add to the group, not the member.
               //
-              verify = !ot.prerequisites (move (ps));
+              verify = !rt.prerequisites (move (ps));
             }
 
             if (verify)
@@ -615,7 +633,7 @@ namespace build2
                 // Most of the time we will have just a single source so
                 // fast-path that case.
                 //
-                if (p1.is_a (x_src) || p1.is_a<c> ())
+                if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
                 {
                   src = true;
                   continue; // Check the rest of the prerequisites.
@@ -623,18 +641,18 @@ namespace build2
 
                 // Ignore some known target types (fsdir, headers, libraries).
                 //
-                if (p1.is_a<fsdir> () ||
-                    p1.is_a<lib>  ()  ||
-                    p1.is_a<liba> ()  ||
-                    p1.is_a<libs> ()  ||
-                    (p.is_a (x_src) && x_header (p1)) || // Includes x_mod.
+                if (p1.is_a<fsdir> ()                                ||
+                    p1.is_a<lib>  ()                                 ||
+                    p1.is_a<liba> ()                                 ||
+                    p1.is_a<libs> ()                                 ||
+                    (p.is_a (mod ? *x_mod : x_src) && x_header (p1)) ||
                     (p.is_a<c> () && p1.is_a<h> ()))
                   continue;
 
                 fail << "synthesized dependency for prerequisite " << p
                      << " would be incompatible with existing target " << *pt <<
                   info << "unexpected existing prerequisite type " << p1 <<
-                  info << "specify corresponding " << tt.name << "{} "
+                  info << "specify corresponding " << rtt.name << "{} "
                      << "dependency explicitly";
               }
 
@@ -642,7 +660,7 @@ namespace build2
                 fail << "synthesized dependency for prerequisite " << p
                      << " would be incompatible with existing target " << *pt <<
                   info << "no existing c/" << x_name << " source prerequisite" <<
-                  info << "specify corresponding " << tt.name << "{} "
+                  info << "specify corresponding " << rtt.name << "{} "
                      << "dependency explicitly";
 
               pm = 2; // Needs completion and verification.
@@ -687,12 +705,16 @@ namespace build2
           // Finish verifying the existing dependency (which is now matched)
           // compared to what we would have synthesized.
           //
+          bool mod (x_mod != nullptr && p.is_a (*x_mod));
           bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-          const target_type& tt (group ? obj::static_type : ott);
+
+          const target_type& rtt (mod
+                                  ? (group ? bmi::static_type : *mtt)
+                                  : (group ? obj::static_type : *ott));
 
           for (prerequisite_member p1: group_prerequisite_members (act, *pt))
           {
-            if (p1.is_a (x_src) || p1.is_a<c> ())
+            if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
             {
               // Searching our own prerequisite is ok, p1 must already be
               // resolved.
@@ -702,7 +724,7 @@ namespace build2
                      << "would be incompatible with existing target " << *pt <<
                   info << "existing prerequisite " << p1 << " does not match "
                      << p <<
-                  info << "specify corresponding " << tt.name << "{} "
+                  info << "specify corresponding " << rtt.name << "{} "
                      << "dependency explicitly";
 
               break;
@@ -1277,6 +1299,14 @@ namespace build2
           const liba* a (nullptr);
           const libs* s (nullptr);
 
+          // If this is bmi*{}, then obj*{} is its ad hoc member.
+          //
+          if (modules)
+          {
+            if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
+              pt = pt->member;
+          }
+
           if ((f = pt->is_a<obje> ()) ||
               (f = pt->is_a<obja> ()) ||
               (f = pt->is_a<objs> ()) ||
@@ -1504,11 +1534,19 @@ namespace build2
 
       args[0] = ld->recall_string ();
 
+      // The same logic as during hashing above.
+      //
       for (const target* pt: t.prerequisite_targets)
       {
         const file* f;
         const liba* a (nullptr);
         const libs* s (nullptr);
+
+        if (modules)
+        {
+          if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
+            pt = pt->member;
+        }
 
         if ((f = pt->is_a<obje> ()) ||
             (f = pt->is_a<obja> ()) ||
