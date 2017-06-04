@@ -75,7 +75,7 @@ namespace build2
     langopt (const match_data& md) const
     {
       bool m (md.mod);
-      preprocessed p (md.pp);
+      //preprocessed p (md.pp);
 
       switch (cid)
       {
@@ -92,28 +92,15 @@ namespace build2
         }
       case compiler_id::clang:
         {
-          switch (p)
+          // Clang has *-cpp-output (but not c++-module-cpp-output) and they
+          // handle comments and line continuations. However, currently this
+          // is only by accident since these modes are essentially equivalent
+          // to their cpp-output-less versions.
+          //
+          switch (x_lang)
           {
-          case preprocessed::none:
-          case preprocessed::includes:
-          case preprocessed::modules:
-            {
-              switch (x_lang)
-              {
-              case lang::c:   return "c";
-              case lang::cxx: return m ? "c++-module" : "c++";
-              }
-            }
-          case preprocessed::all:
-            {
-              switch (x_lang)
-              {
-              case lang::c:   return "cpp-output";
-              case lang::cxx: return (m
-                                      ? "c++-module-cpp-output"
-                                      : "c++-cpp-output");
-              }
-            }
+          case lang::c:   return "c";
+          case lang::cxx: return m ? "c++-module" : "c++";
           }
         }
       case compiler_id::msvc:
