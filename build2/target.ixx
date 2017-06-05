@@ -205,19 +205,6 @@ namespace build2
   {
     if (k_ != nullptr) // Iterating over an ad hoc group.
       k_ = k_->member;
-    else if (r_->mode_ != members_mode::never)
-    {
-      // Get the target if one has been resolved and see if it's an ad hoc
-      // group. If so, switch to the ad hoc mode.
-      //
-      const target* t (
-        g_.count != 0
-        ? j_ != 0 ? g_.members[j_ - 1] : nullptr // enter_group()
-        : i_->target.load (memory_order_consume));
-
-      if (t != nullptr && t->member != nullptr)
-        k_ = t->member;
-    }
 
     if (k_ == nullptr && g_.count != 0) // Iterating over a normal group.
     {
@@ -243,15 +230,16 @@ namespace build2
   inline bool prerequisite_members_range<T>::iterator::
   enter_group ()
   {
-    // First see if we are about to enter an ad hoc group (the same code as in
-    // operator++() above).
+    assert (k_ == nullptr); // No nested ad hoc group entering.
+
+    // First see if we are about to enter an ad hoc group.
     //
     const target* t (g_.count != 0
                      ? j_ != 0 ? g_.members[j_ - 1] : nullptr
                      : i_->target.load (memory_order_consume));
 
     if (t != nullptr && t->member != nullptr)
-      k_ = t->member;
+      k_ = t; // Increment that follows will make it t->member.
     else
     {
       // Otherwise assume it is a normal group.
@@ -268,7 +256,6 @@ namespace build2
         j_ = 0; // Account for the increment that will follow.
     }
 
-
     return true;
   }
 
@@ -276,18 +263,6 @@ namespace build2
   inline void prerequisite_members_range<T>::iterator::
   leave_group ()
   {
-    // First see if we are about to enter an ad hoc group (the same code as in
-    // operator++() above).
-    //
-    if (k_ == nullptr)
-    {
-      const target* t (g_.count != 0
-                       ? j_ != 0 ? g_.members[j_ - 1] : nullptr
-                       : i_->target.load (memory_order_consume));
-      if (t != nullptr && t->member != nullptr)
-        k_ = t->member;
-    }
-
     if (k_ != nullptr)
     {
       // Skip until the last element (next increment will reach the end).

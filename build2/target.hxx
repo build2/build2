@@ -222,8 +222,8 @@ namespace build2
     //
     // - Members don't have prerequisites.
     //
-    // - Ad hoc group cannot have sub group (of any kind) though an ad hoc
-    //   group can be a sub-group of a normal group.
+    // - Ad hoc group cannot have sub groups (of any kind) though an ad hoc
+    //   group can be a sub group of a normal group.
     //
     // - Member variable lookup skips the ad hoc group (since the group is
     //   the first member, this is normally what we want).
@@ -919,9 +919,10 @@ namespace build2
   // group_prerequisites()) as a sequence of prerequisite_member's. For each
   // group prerequisite you will "see" either the prerequisite itself or all
   // its members, depending on the default iteration mode of the target group
-  // type (ad hoc groups are always see through). You can skip the rest of the
-  // group members with leave_group() and you can force iteration over the
-  // members with enter_group(). Usage:
+  // type (ad hoc groups are never implicitly see through since one can only
+  // safely access members after a synchronous match). You can skip the
+  // rest of the group members with leave_group() and you can force iteration
+  // over the members with enter_group(). Usage:
   //
   // for (prerequisite_member pm: prerequisite_members (a, ...))
   //
@@ -942,8 +943,8 @@ namespace build2
   template <typename R>
   class prerequisite_members_range;
 
-  // See-through/ad hoc group members iteration mode. Unless the mode is never,
-  // ad hoc members are always iterated over.
+  // See-through group members iteration mode. Ad hoc members must always
+  // be entered explicitly.
   //
   enum class members_mode
   {
@@ -995,7 +996,7 @@ namespace build2
 
       // Skip iterating over the rest of this group's members, if any. Note
       // that the only valid operation after this call is to increment the
-      // iterator. Note that it can be used on ad hoc groups.
+      // iterator.
       //
       void
       leave_group ();
@@ -1003,8 +1004,7 @@ namespace build2
       // Iterate over this group's members. Return false if the member
       // information is not available. Similar to leave_group(), you should
       // increment the iterator after calling this function (provided it
-      // returned true). Note that it cannot be used on ad hoc groups (which
-      // will be always entered).
+      // returned true).
       //
       bool
       enter_group ();
@@ -1045,12 +1045,6 @@ namespace build2
       // no, I am not proud of it). The innermost mode is iteration over an ad
       // hoc group (k_). Then we have iteration over a normal group (g_ and
       // j_). Finally, at the outer level, we have the range itself (i_).
-      //
-      // The ad hoc iteration is peculiar in that we only switch to this mode
-      // once the caller tries to increment past the group itself (which is
-      // the primary/first member). The reason for this is that the members
-      // will normally only be known once the caller searched and matched
-      // the group.
       //
       // Also, the enter/leave group support is full of ugly, special cases.
       //

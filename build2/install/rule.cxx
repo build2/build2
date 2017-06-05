@@ -150,11 +150,8 @@ namespace build2
       // run standard search_and_match()? Will need an indicator
       // that it was forced (e.g., [install]) for filter() below.
       //
-      auto r (group_prerequisite_members (a, t));
-      for (auto i (r.begin ()); i != r.end (); ++i)
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        prerequisite_member p (*i);
-
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
@@ -181,11 +178,6 @@ namespace build2
         //
         if (!build2::match (a, *pt, unmatch::unchanged))
           t.prerequisite_targets.push_back (pt);
-
-        // Skip members of ad hoc groups. We handle them explicitly below.
-        //
-        if (pt->adhoc_group ())
-          i.leave_group ();
       }
 
       // This is where we diverge depending on the operation. In the

@@ -427,7 +427,7 @@ namespace build2
   // followed by the ad hoc group member, then target itself, and, finally,
   // the prerequisites in the reverse order.
   //
-  // You can also clean extra files derived from adhoc group members.
+  // You can also clean extra files derived from ad hoc group members.
   //
   target_state
   clean_extra (action, const file&,
