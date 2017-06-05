@@ -492,16 +492,18 @@ namespace build2
         const target* pt (nullptr);
 
         // A dependency on a library is there so that we can get its
-        // *.export.poptions. This is the "library meta-information
-        // protocol". See also append_lib_options().
+        // *.export.poptions, modules, etc. This is the "library
+        // meta-information protocol". See also append_lib_options().
         //
         if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
           if (act.operation () == update_id)
           {
-            // Handle imported libraries. We know that for such libraries we
-            // don't need to do match() in order to get options (if any, they
-            // would be set by search_library()).
+            // Handle (phase two) imported libraries. We know that for such
+            // libraries we don't need to do match() in order to get options
+            // (if any, they would be set by search_library()).
+            //
+            // @@ MOD: for now the same applies to modules?
             //
             if (p.proj ())
             {
@@ -517,8 +519,8 @@ namespace build2
             if (const lib* l = pt->is_a<lib> ())
               pt = &link_member (*l, act, lo);
           }
-
-          continue;
+          else
+            continue;
         }
         else
         {
