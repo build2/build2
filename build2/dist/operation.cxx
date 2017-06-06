@@ -489,7 +489,7 @@ namespace build2
 
         // Change child's working directory to dist_root.
         //
-        process pr (root.string ().c_str (), pp, args.data ());
+        process pr (pp, args.data (), 0, 1, 2, root.string ().c_str ());
 
         if (!pr.wait ())
           throw failed ();

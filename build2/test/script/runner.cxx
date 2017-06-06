@@ -1536,10 +1536,10 @@ namespace build2
             if (verb >= 2)
               print_process (args);
 
-            process pr (sp.wd_path.string ().c_str (),
-                        pp,
+            process pr (pp,
                         args.data (),
-                        ifd.get (), ofd.get (), efd.get ());
+                        ifd.get (), ofd.get (), efd.get (),
+                        sp.wd_path.string ().c_str ());
 
             ifd.reset ();
             ofd.reset ();
