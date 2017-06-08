@@ -27,5 +27,23 @@ namespace build2
         t.is_a<liba> () ? otype::a :
         otype::s;
     }
+
+    inline compile_target_types
+    compile_types (otype t)
+    {
+      using namespace bin;
+
+      const target_type* o (nullptr);
+      const target_type* m (nullptr);
+
+      switch (t)
+      {
+      case otype::e: o = &obje::static_type; m = &bmie::static_type; break;
+      case otype::a: o = &obja::static_type; m = &bmia::static_type; break;
+      case otype::s: o = &objs::static_type; m = &bmis::static_type; break;
+      }
+
+      return compile_target_types {*o, *m};
+    }
   }
 }

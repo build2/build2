@@ -164,6 +164,13 @@ namespace build2
   }
 
   inline uint8_t
+  marked (const target* p)
+  {
+    uintptr_t i (reinterpret_cast<uintptr_t> (p));
+    return uint8_t (i & 0x03);
+  }
+
+  inline uint8_t
   unmark (const target*& p)
   {
     uintptr_t i (reinterpret_cast<uintptr_t> (p));

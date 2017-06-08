@@ -189,7 +189,7 @@ namespace build2
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      // Note that here we don't need to see group members (see apply()).
+      // Note that here we don't need to see group members.
       //
       for (const prerequisite& p: group_prerequisites (t))
       {
@@ -377,6 +377,7 @@ namespace build2
 
       otype ct (compile_type (t, mod));
       lorder lo (link_order (bs, ct));
+      compile_target_types tt (compile_types (ct));
 
       // Derive file name from target name.
       //
@@ -447,20 +448,11 @@ namespace build2
         //
         if (mod)
         {
-          const target_type* tt (nullptr);
-
-          switch (ct)
-          {
-          case otype::e: tt = &obje::static_type; break;
-          case otype::a: tt = &obja::static_type; break;
-          case otype::s: tt = &objs::static_type; break;
-          }
-
           // The module interface unit can be the same as an implementation
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
           // collide. So we add the module extension to the target name.
           //
-          target_lock obj (add_adhoc_member (act, t, *tt, e.c_str ()));
+          target_lock obj (add_adhoc_member (act, t, tt.obj, e.c_str ()));
           obj.target->as<file> ().derive_path (o);
           match_recipe (obj, group_recipe); // Set recipe and unlock.
         }
@@ -503,8 +495,6 @@ namespace build2
             // libraries we don't need to do match() in order to get options
             // (if any, they would be set by search_library()).
             //
-            // @@ MOD: for now the same applies to modules?
-            //
             if (p.proj ())
             {
               if (search_library (act,
@@ -522,6 +512,14 @@ namespace build2
           else
             continue;
         }
+        //
+        // For modules we pick only what we import which is done below so
+        // skip it here. One corner case is clean: we assume that someone
+        // else (normally library/executable) also depends on it and will
+        // clean it up.
+        //
+        else if (p.is_a<bmi> () || p.is_a (tt.bmi))
+          continue;
         else
         {
           pt = &p.search (t);
@@ -668,10 +666,10 @@ namespace build2
         // before extracting dependencies. The reasoning for source file is
         // pretty clear. What other prerequisites could we have? While
         // normally they will be some other sources (as in, static content
-        // from project's src_root), its possible they are some auto-generated
-        // stuff. And it's possible they affect the preprocessor result. Say
-        // some ad hoc/out-of-band compiler input file that is passed via the
-        // command line. So, to be safe, we make everything is up to date.
+        // from src_root), it's possible they are some auto-generated stuff.
+        // And it's possible they affect the preprocessor result. Say some ad
+        // hoc/out-of-band compiler input file that is passed via the command
+        // line. So, to be safe, we make sure everything is up to date.
         //
         for (const target* pt: pts)
         {
@@ -722,6 +720,7 @@ namespace build2
         if (u) // @@ TMP (depdb validation similar to extract_headers()).
         {
           extract_modules (act, t, lo, src, p.first, md, dd, u);
+          search_modules (bs, act, t, lo, tt.bmi);
         }
 
         // If the preprocessed output is suitable for compilation and is not
@@ -2337,12 +2336,104 @@ namespace build2
       //
       if (!modules)
         fail << "modules support not enabled or unavailable";
+
+      // Set the cc.module_name variable if this is an interface unit. We set
+      // it on the bmi{} group so we have to lock it.
+      //
+      if (tu.module_interface)
+      {
+        target_lock l (lock (act, *t.group));
+        assert (l.target != nullptr);
+
+        if (value& v = l.target->vars.assign (c_module_name))
+          assert (cast<string> (v) == tu.module_name);
+        else
+          v = move (tu.module_name); // Note: move.
+      }
+    }
+
+    // Resolve imported modules to bmi*{} targets.
+    //
+    void compile::
+    search_modules (const scope& /*bs*/,
+                    action act,
+                    file& t,
+                    lorder /*lo*/,
+                    const target_type& mtt) const
+    {
+      auto& pts (t.prerequisite_targets);
+      size_t start (pts.size ());         // Index of the first to be added.
+
+      for (prerequisite_member p: group_prerequisite_members (act, t))
+      {
+        const target* pt (nullptr);
+
+        if (p.is_a<bmi> ())
+          pt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
+        else if (p.is_a (mtt))
+          pt = &p.search (t);
+
+        if (pt != nullptr)
+          pts.push_back (pt);
+      }
+
+      // Match in parallel and wait for completion.
+      //
+      match_members (act, t, pts, start);
     }
 
     // Filter cl.exe noise (msvc.cxx).
     //
     void
     msvc_filter_cl (ifdstream&, const path& src);
+
+    void compile::
+    append_modules (cstrings& args, strings& stor, const file& t) const
+    {
+      for (const target* pt: t.prerequisite_targets)
+      {
+        // Here we use whatever bmi type has been added.
+        //
+        const file* f;
+        if ((f = pt->is_a<bmie> ()) == nullptr &&
+            (f = pt->is_a<bmia> ()) == nullptr &&
+            (f = pt->is_a<bmis> ()) == nullptr)
+          continue;
+
+        string s (relative (f->path ()).string ());
+
+        switch (cid)
+        {
+        case compiler_id::gcc:
+          {
+            s.insert (0, 1, '=');
+            s.insert (0, cast<string> (f->group->vars[c_module_name]));
+            s.insert (0, "-fmodule-map=");
+            break;
+          }
+        case compiler_id::clang:
+          {
+            s.insert (0, "-fmodule-file=");
+            break;
+          }
+        case compiler_id::msvc:
+          {
+            stor.push_back ("/module:reference");
+            break;
+          }
+        case compiler_id::icc:
+          assert (false);
+        }
+
+        stor.push_back (move (s));
+      }
+
+      // Shallow-copy storage to args. Why not do it as we go along pushing
+      // into storage?  Because of potential reallocations.
+      //
+      for (const string& a: stor)
+        args.push_back (a.c_str ());
+    }
 
     target_state compile::
     perform_update (action act, const target& xt) const
@@ -2352,8 +2443,9 @@ namespace build2
       match_data md (move (t.data<match_data> ()));
       bool mod (md.mod);
 
-      // While all our prerequisites are already up-to-date, we still have
-      // to execute them to keep the dependency counts straight.
+      // While all our prerequisites are already up-to-date, we still have to
+      // execute them to keep the dependency counts straight. Actually, no, we
+      // may also have to update the modules.
       //
       auto pr (
         execute_prerequisites<file> (
@@ -2392,7 +2484,7 @@ namespace build2
       else
         relo = relative (t.path ());
 
-      // Build command line.
+      // Build the command line.
       //
       if (md.pp != preprocessed::all)
       {
@@ -2416,7 +2508,8 @@ namespace build2
       append_options (args, t, x_coptions);
       append_options (args, tstd);
 
-      string out, out1; // Storage.
+      string out, out1; // Output options storage.
+      strings mods;     // Module options storage.
       size_t out_i (0); // Index of the -o option.
 
       if (cid == compiler_id::msvc)
@@ -2462,6 +2555,9 @@ namespace build2
         //
         if (!find_option_prefixes ({"/MD", "/MT"}, args))
           args.push_back ("/MD");
+
+        if (modules)
+          append_modules (args, mods, t);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -2525,6 +2621,9 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
+        if (modules)
+          append_modules (args, mods, t);
+
         // Note: the order of the following options is relied upon below.
         //
         out_i = args.size (); // Index of the -o option.
@@ -2537,7 +2636,11 @@ namespace build2
             {
               args.push_back ("-o");
               args.push_back (relo.string ().c_str ());
-              //@@ MOD: specify module output file.
+
+              out = "-fmodule-output=";
+              out += relm.string ();
+              args.push_back (out.c_str ());
+
               args.push_back ("-c");
               break;
             }

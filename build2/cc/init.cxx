@@ -78,6 +78,11 @@ namespace build2
       //
       v.insert<bool> ("cc.system");
 
+      // C++ module name. Should be set on the bmi{} target by the matching
+      // rule.
+      //
+      v.insert<string> ("cc.module_name");
+
       // Ability to disable using preprocessed output for compilation.
       //
       v.insert<bool> ("config.cc.reprocess", true);

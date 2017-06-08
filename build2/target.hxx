@@ -691,6 +691,9 @@ namespace build2
   mark (const target*&, uint8_t = 1);
 
   uint8_t
+  marked (const target*); // Can be used as a predicate or to get the mark.
+
+  uint8_t
   unmark (const target*&);
 
   // A "range" that presents the prerequisites of a group and one of

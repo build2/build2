@@ -174,6 +174,7 @@ namespace build2
 
         v["cc.type"],
         v["cc.system"],
+        v["cc.module_name"],
         v["cc.reprocess"],
         v["cc.preprocessed"],
 

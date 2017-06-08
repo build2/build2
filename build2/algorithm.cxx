@@ -706,7 +706,7 @@ namespace build2
     {
       const target* m (ts[i]);
 
-      if (m == nullptr)
+      if (m == nullptr || marked (m))
         continue;
 
       match_async (a, *m, target::count_busy (), t.task_count);
@@ -720,7 +720,7 @@ namespace build2
     {
       const target* m (ts[i]);
 
-      if (m == nullptr)
+      if (m == nullptr || marked (m))
         continue;
 
       match (a, *m);

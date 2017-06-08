@@ -399,19 +399,37 @@ namespace build2
       //
       inject_fsdir (act, t);
 
-      optional<dir_paths> usr_lib_dirs; // Extract lazily.
-
       // Process prerequisites, pass 1: search and match prerequisite
-      // libraries.
+      // libraries, search obj/bmi{} targets, and search targets we do rule
+      // chaining for.
       //
-      // We do it first in order to indicate that we will execute these
-      // targets before matching any of the obj*{}. This makes it safe for
+      // We do libraries first in order to indicate that we will execute these
+      // targets before matching any of the obj/bmi{}. This makes it safe for
       // compile::apply() to unmatch them and therefore not to hinder
       // parallelism.
       //
-      // When cleaning, we ignore prerequisites that are not in the same or a
-      // subdirectory of our project root.
+      // We also create obj/bmi{} chain targets because we need to add
+      // (similar to lib{}) all the bmi{} as prerequisites to all the other
+      // obj/bmi{} that we are creating. Note that this doesn't mean that the
+      // compile rule will actually treat them all as prerequisite targets.
+      // Rather, they are used to resolve actual module imports. We don't
+      // really have to search obj{} targets here but it's the same code so we
+      // do it here to avoid duplication.
       //
+      // Also, when cleaning, we ignore prerequisites that are not in the same
+      // or a subdirectory of our project root.
+      //
+      optional<dir_paths> usr_lib_dirs; // Extract lazily.
+      compile_target_types tt (compile_types (lt));
+
+      auto skip = [&act, &rs] (const target*& pt)
+      {
+        if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+          pt = nullptr;
+
+        return pt == nullptr;
+      };
+
       size_t start (t.prerequisite_targets.size ());
 
       for (prerequisite_member p: group_prerequisite_members (act, t))
@@ -420,11 +438,75 @@ namespace build2
         // prerequisite target.
         //
         t.prerequisite_targets.push_back (nullptr);
-        const target*& rpt (t.prerequisite_targets.back ());
+        const target*& pt (t.prerequisite_targets.back ());
 
-        const target* pt (nullptr);
+        uint8_t m (0); // Mark: lib (0), src (1), mod (2), obj/bmi (3).
 
-        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+        bool mod (x_mod != nullptr && p.is_a (*x_mod));
+
+        if (mod || p.is_a (x_src) || p.is_a<c> ())
+        {
+          // Rule chaining, part 1.
+          //
+
+          // Which scope shall we use to resolve the root? Unlikely, but
+          // possible, the prerequisite is from a different project
+          // altogether. So we are going to use the target's project.
+          //
+
+          // If the source came from the lib{} group, then create the obj{}
+          // group and add the source as a prerequisite of the obj{} group,
+          // not the obj*{} member. This way we only need one prerequisite
+          // for, say, both liba{} and libs{}. The same goes for bmi{}.
+          //
+          bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
+
+          const target_type& rtt (mod
+                                  ? (group ? bmi::static_type : tt.bmi)
+                                  : (group ? obj::static_type : tt.obj));
+
+          const prerequisite_key& cp (p.key ()); // Source key.
+
+          // Come up with the obj*/bmi*{} target. The source prerequisite
+          // directory can be relative (to the scope) or absolute. If it is
+          // relative, then use it as is. If absolute, then translate it to
+          // the corresponding directory under out_root. While the source
+          // directory is most likely under src_root, it is also possible it
+          // is under out_root (e.g., generated source).
+          //
+          dir_path d;
+          {
+            const dir_path& cpd (*cp.tk.dir);
+
+            if (cpd.relative () || cpd.sub (rs.out_path ()))
+              d = cpd;
+            else
+            {
+              if (!cpd.sub (rs.src_path ()))
+                fail << "out of project prerequisite " << cp <<
+                  info << "specify corresponding " << rtt.name << "{} "
+                     << "target explicitly";
+
+              d = rs.out_path () / cpd.leaf (rs.src_path ());
+            }
+          }
+
+          // obj/bmi{} is always in the out tree. Note that currently it could
+          // be the group -- we will pick a member in part 2 below.
+          //
+          pt = &search (t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope);
+
+          // If we shouldn't clean obj{}, then it is fair to assume we
+          // shouldn't clean the source either (generated source will be in
+          // the same directory as obj{} and if not, well, go find yourself
+          // another build system ;-)).
+          //
+          if (skip (pt))
+            continue;
+
+          m = mod ? 2 : 1;
+        }
+        else if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
         {
           // Handle imported libraries.
           //
@@ -440,295 +522,263 @@ namespace build2
           if (pt == nullptr)
             pt = &p.search (t);
 
-          if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
-            continue; // Skip.
+          if (skip (pt))
+            continue;
 
           // If this is the lib{} target group, then pick the appropriate
           // member.
           //
           if (const lib* l = pt->is_a<lib> ())
             pt = &link_member (*l, act, lo);
-
-          rpt = pt;
         }
+        else
+        {
+          // If this is the obj{} or bmi{} target group, then pick the
+          // appropriate member.
+          //
+          if      (p.is_a<obj> ()) pt = &search (t, tt.obj, p.key ());
+          else if (p.is_a<bmi> ()) pt = &search (t, tt.bmi, p.key ());
+          else                     pt = &p.search (t);
+
+          if (skip (pt))
+            continue;
+
+          m = 3;
+        }
+
+        mark (pt, m);
       }
 
-      // Match in parallel and wait for completion.
+      // Match lib{} (the only unmarked) in parallel and wait for completion.
       //
       match_members (act, t, t.prerequisite_targets, start);
 
-      // Process prerequisites, pass 2: search and match obj{} and do rule
-      // chaining for C and X source files.
+      // Process prerequisites, pass 2: finish rule chaining but don't start
+      // matching anything yet since that may trigger recursive matching of
+      // bmi{} targets we haven't completed yet. Hairy, I know.
       //
-      const target_type* ott (nullptr);
-      const target_type* mtt (nullptr);
 
-      switch (lt)
+      // Parallel prerequisite_targets loop.
+      //
+      size_t i (start), n (t.prerequisite_targets.size ());
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-      case otype::e: ott = &obje::static_type; mtt = &bmie::static_type; break;
-      case otype::a: ott = &obja::static_type; mtt = &bmia::static_type; break;
-      case otype::s: ott = &objs::static_type; mtt = &bmis::static_type; break;
-      }
+        const target*& pt (t.prerequisite_targets[i++]);
 
-      {
-        // Wait with unlocked phase to allow phase switching.
-        //
-        wait_guard wg (target::count_busy (), t.task_count, true);
+        if (pt == nullptr)
+          continue;
 
-        size_t i (start); // Parallel prerequisite_targets loop.
+        uint8_t m (unmark (pt)); // New mark: completion (1), verfication (2).
 
-        for (prerequisite_member p: group_prerequisite_members (act, t))
+        if (m == 3)                // obj/bmi{}
+          m = 1;                   // Just completion.
+        else if (m == 1 || m == 2) // Source/module chain.
         {
-          const target*& rpt (t.prerequisite_targets[i++]);
-          const target* pt (nullptr);
+          bool mod (m == 2);
 
-          if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-            continue; // Taken care of on pass 1.
+          m = 1;
 
-          uint8_t pm (1); // Completion (1) and verfication (2) mark.
+          const target& rt (*pt);
+          bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
 
-          bool mod (x_mod != nullptr && p.is_a (*x_mod));
+          // If we have created a obj/bmi{} target group, pick one of its
+          // members; the rest would be primarily concerned with it.
+          //
+          pt =
+            group
+            ? &search (t, (mod ? tt.bmi : tt.obj), rt.dir, rt.out, rt.name)
+            : &rt;
 
-          if (!mod && !p.is_a (x_src) && !p.is_a<c> ())
+          // If this obj*{} already has prerequisites, then verify they are
+          // "compatible" with what we are doing here. Otherwise, synthesize
+          // the dependency. Note that we may also end up synthesizing with
+          // someone beating up to it. In this case also verify.
+          //
+          bool verify (true);
+
+          if (!pt->has_prerequisites ())
           {
-            // If this is the obj{} or bmi{} target group, then pick the
-            // appropriate member.
+            prerequisites ps;
+            ps.push_back (p.as_prerequisite ()); // Source.
+
+            // Add our lib*{} (see the export.* machinery for details) and
+            // bmi*{} (both original and chanined; see module search logic)
+            // prerequisites.
             //
-            if      (p.is_a<obj> ()) pt = &search (t, *ott, p.key ());
-            else if (p.is_a<bmi> ()) pt = &search (t, *mtt, p.key ());
-            else                     pt = &p.search (t);
-
-            if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
-              continue; // Skip.
-
-            // Fall through.
-          }
-          else
-          {
-            // The rest is rule chaining.
+            // Note that we don't resolve lib{} to liba{}/libs{} here
+            // instead leaving it to whomever (e.g., the compile rule) will
+            // be needing *.export.*. One reason for doing it there is that
+            // the object target might be specified explicitly by the user
+            // in which case they will have to specify the set of lib{}
+            // prerequisites and it's much cleaner to do as lib{} rather
+            // than liba{}/libs{}.
             //
-
-            // Which scope shall we use to resolve the root? Unlikely, but
-            // possible, the prerequisite is from a different project
-            // altogether. So we are going to use the target's project.
+            // Initially, we were only adding imported libraries, but there
+            // is a problem with this approach: the non-imported library
+            // might depend on the imported one(s) which we will never "see"
+            // unless we start with this library.
             //
-
-            // If the source came from the lib{} group, then create the obj{}
-            // group and add the source as a prerequisite of the obj{} group,
-            // not the obj*{} member. This way we only need one prerequisite
-            // for, say, both liba{} and libs{}. The same goes for bmi{}.
-            //
-            bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-
-            const target_type& rtt (mod
-                                    ? (group ? bmi::static_type : *mtt)
-                                    : (group ? obj::static_type : *ott));
-
-            const prerequisite_key& cp (p.key ()); // C-source (X or C) key.
-
-            // Come up with the obj*/bmi*{} target. The source prerequisite
-            // directory can be relative (to the scope) or absolute. If it is
-            // relative, then use it as is. If absolute, then translate it to
-            // the corresponding directory under out_root. While the source
-            // directory is most likely under src_root, it is also possible it
-            // is under out_root (e.g., generated source).
-            //
-            dir_path d;
+            size_t j (start);
+            for (prerequisite_member p: group_prerequisite_members (act, t))
             {
-              const dir_path& cpd (*cp.tk.dir);
+              const target* pt (t.prerequisite_targets[j++]);
 
-              if (cpd.relative () || cpd.sub (rs.out_path ()))
-                d = cpd;
-              else
+              if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> () ||
+                  p.is_a<bmi> () || p.is_a (tt.bmi))
               {
-                if (!cpd.sub (rs.src_path ()))
-                  fail << "out of project prerequisite " << cp <<
-                    info << "specify corresponding " << rtt.name << "{} "
-                       << "target explicitly";
-
-                d = rs.out_path () / cpd.leaf (rs.src_path ());
+                ps.emplace_back (p.as_prerequisite ());
               }
-            }
-
-            // obj*/bmi*{} is always in the out tree.
-            //
-            const target& rt (
-              search (t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
-
-            // If we are cleaning, check that this target is in the same or a
-            // subdirectory of our project root.
-            //
-            if (act.operation () == clean_id && !rt.dir.sub (rs.out_path ()))
-            {
-              // If we shouldn't clean obj{}, then it is fair to assume we
-              // shouldn't clean the source either (generated source will be
-              // in the same directory as obj{} and if not, well, go find
-              // yourself another build system ;-)).
-              //
-              continue; // Skip.
-            }
-
-            // If we have created the obj/bmi{} target group, pick one of its
-            // members; the rest would be primarily concerned with it.
-            //
-            pt = (group
-                  ? &search (t, (mod ? *mtt : *ott), rt.dir, rt.out, rt.name)
-                  : &rt);
-
-            // If this obj*{} already has prerequisites, then verify they are
-            // "compatible" with what we are doing here. Otherwise, synthesize
-            // the dependency. Note that we may also end up synthesizing with
-            // someone beating up to it. In this case also verify.
-            //
-            bool verify (true);
-
-            if (!pt->has_prerequisites ())
-            {
-              prerequisites ps;
-              ps.push_back (p.as_prerequisite ()); // Source.
-
-              // Add our lib*{} prerequisites (see the export.* machinery for
-              // details).
-              //
-              // Note that we don't resolve lib{} to liba{}/libs{} here
-              // instead leaving it to whoever (e.g., the compile rule) will
-              // be needing *.export.*. One reason for doing it there is that
-              // the object target might be specified explicitly by the user
-              // in which case they will have to specify the set of lib{}
-              // prerequisites and it's much cleaner to do as lib{} rather
-              // than liba{}/libs{}.
-              //
-              // Initially, we were only adding imported libraries, but there
-              // is a problem with this approach: the non-imported library
-              // might depend on the imported one(s) which we will never "see"
-              // unless we start with this library.
-              //
-              for (const prerequisite& p: group_prerequisites (t))
+              else if (x_mod != nullptr && p.is_a (*x_mod)) // Chained module.
               {
-                if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
-                  ps.emplace_back (p);
-              }
-
-              // Note: add to the group, not the member.
-              //
-              verify = !rt.prerequisites (move (ps));
-            }
-
-            if (verify)
-            {
-              // This gets a bit tricky. We need to make sure the source files
-              // are the same which we can only do by comparing the targets to
-              // which they resolve. But we cannot search ot's prerequisites
-              // -- only the rule that matches can. Note, however, that if all
-              // this works out, then our next step is to match the obj*{}
-              // target. If things don't work out, then we fail, in which case
-              // searching and matching speculatively doesn't really hurt. So
-              // we start the async match here and finish this verification in
-              // the "harvest" loop below.
-              //
-              bool src (false);
-              for (prerequisite_member p1:
-                     group_prerequisite_members (act, *pt))
-              {
-                // Most of the time we will have just a single source so
-                // fast-path that case.
+                // Searched during pass 1 but can be NULL or marked.
                 //
-                if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
+                if (pt != nullptr && i != j) // Don't add self (note: both +1).
                 {
-                  src = true;
-                  continue; // Check the rest of the prerequisites.
+                  unmark (pt);
+                  ps.emplace_back (prerequisite (*pt));
                 }
-
-                // Ignore some known target types (fsdir, headers, libraries).
-                //
-                if (p1.is_a<fsdir> ()                                ||
-                    p1.is_a<lib>  ()                                 ||
-                    p1.is_a<liba> ()                                 ||
-                    p1.is_a<libs> ()                                 ||
-                    (p.is_a (mod ? *x_mod : x_src) && x_header (p1)) ||
-                    (p.is_a<c> () && p1.is_a<h> ()))
-                  continue;
-
-                fail << "synthesized dependency for prerequisite " << p
-                     << " would be incompatible with existing target " << *pt <<
-                  info << "unexpected existing prerequisite type " << p1 <<
-                  info << "specify corresponding " << rtt.name << "{} "
-                     << "dependency explicitly";
               }
-
-              if (!src)
-                fail << "synthesized dependency for prerequisite " << p
-                     << " would be incompatible with existing target " << *pt <<
-                  info << "no existing c/" << x_name << " source prerequisite" <<
-                  info << "specify corresponding " << rtt.name << "{} "
-                     << "dependency explicitly";
-
-              pm = 2; // Needs completion and verification.
             }
+
+            // Note: add to the group, not the member.
+            //
+            verify = !rt.prerequisites (move (ps));
           }
 
-          match_async (act, *pt, target::count_busy (), t.task_count);
-          rpt = pt;
-          mark (rpt, pm); // Mark for completion/verification.
+          if (verify)
+          {
+            // This gets a bit tricky. We need to make sure the source files
+            // are the same which we can only do by comparing the targets to
+            // which they resolve. But we cannot search ot's prerequisites --
+            // only the rule that matches can. Note, however, that if all this
+            // works out, then our next step is to match the obj*{} target. If
+            // things don't work out, then we fail, in which case searching
+            // and matching speculatively doesn't really hurt. So we start the
+            // async match here and finish this verification in the "harvest"
+            // loop below.
+            //
+            const target_type& rtt (mod
+                                    ? (group ? bmi::static_type : tt.bmi)
+                                    : (group ? obj::static_type : tt.obj));
+
+            bool src (false);
+            for (prerequisite_member p1: group_prerequisite_members (act, *pt))
+            {
+              // Most of the time we will have just a single source so fast-
+              // path that case.
+              //
+              if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
+              {
+                src = true;
+                continue; // Check the rest of the prerequisites.
+              }
+
+              // Ignore some known target types (fsdir, headers, libraries,
+              // modules).
+              //
+              if (p1.is_a<fsdir> ()                                        ||
+                  p1.is_a<lib>  ()                                         ||
+                  p1.is_a<liba> () || p1.is_a<libs> ()                     ||
+                  p1.is_a<bmi>  ()                                         ||
+                  p1.is_a<bmie> () || p1.is_a<bmia> () || p1.is_a<bmis> () ||
+                  (p.is_a (mod ? *x_mod : x_src) && x_header (p1))         ||
+                  (p.is_a<c> () && p1.is_a<h> ()))
+                continue;
+
+              fail << "synthesized dependency for prerequisite " << p
+                   << " would be incompatible with existing target " << *pt <<
+                info << "unexpected existing prerequisite type " << p1 <<
+                info << "specify corresponding " << rtt.name << "{} "
+                   << "dependency explicitly";
+            }
+
+            if (!src)
+              fail << "synthesized dependency for prerequisite " << p
+                   << " would be incompatible with existing target " << *pt <<
+                info << "no existing c/" << x_name << " source prerequisite" <<
+                info << "specify corresponding " << rtt.name << "{} "
+                   << "dependency explicitly";
+
+            m = 2; // Needs verification.
+          }
         }
 
-        wg.wait ();
+        mark (pt, m);
       }
+
+      // Process prerequisites, pass 3: match everything and verify chains.
+      //
+
+      // Wait with unlocked phase to allow phase switching.
+      //
+      wait_guard wg (target::count_busy (), t.task_count, true);
+
+      for (i = start; i != n; ++i)
+      {
+        const target*& pt (t.prerequisite_targets[i]);
+
+        if (pt == nullptr)
+          continue;
+
+        if (uint8_t m = unmark (pt))
+        {
+          match_async (act, *pt, target::count_busy (), t.task_count);
+          mark (pt, m);
+        }
+      }
+
+      wg.wait ();
 
       // The "harvest" loop: finish matching the targets we have started. Note
       // that we may have bailed out early (thus the parallel i/n for-loop).
       //
+      i = start;
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        size_t i (start), n (t.prerequisite_targets.size ());
+        const target*& pt (t.prerequisite_targets[i++]);
 
-        for (prerequisite_member p: group_prerequisite_members (act, t))
+        // Skipped or not marked for completion.
+        //
+        uint8_t m;
+        if (pt == nullptr || (m = unmark (pt)) == 0)
+          continue;
+
+        build2::match (act, *pt);
+
+        // Nothing else to do if not marked for verification.
+        //
+        if (m == 1)
+          continue;
+
+        // Finish verifying the existing dependency (which is now matched)
+        // compared to what we would have synthesized.
+        //
+        bool mod (x_mod != nullptr && p.is_a (*x_mod));
+
+        for (prerequisite_member p1: group_prerequisite_members (act, *pt))
         {
-          if (i == n)
-            break;
-
-          const target*& pt (t.prerequisite_targets[i++]);
-
-          uint8_t m;
-
-          // Skipped or not marked for completion (pass 1).
-          //
-          if (pt == nullptr || (m = unmark (pt)) == 0)
-            continue;
-
-          build2::match (act, *pt);
-
-          // Nothing else to do if not marked for verification.
-          //
-          if (m == 1)
-            continue;
-
-          // Finish verifying the existing dependency (which is now matched)
-          // compared to what we would have synthesized.
-          //
-          bool mod (x_mod != nullptr && p.is_a (*x_mod));
-          bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
-
-          const target_type& rtt (mod
-                                  ? (group ? bmi::static_type : *mtt)
-                                  : (group ? obj::static_type : *ott));
-
-          for (prerequisite_member p1: group_prerequisite_members (act, *pt))
+          if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
           {
-            if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
+            // Searching our own prerequisite is ok, p1 must already be
+            // resolved.
+            //
+            if (&p.search (t) != &p1.search (*pt))
             {
-              // Searching our own prerequisite is ok, p1 must already be
-              // resolved.
-              //
-              if (&p.search (t) != &p1.search (*pt))
-                fail << "synthesized dependency for prerequisite " << p << " "
-                     << "would be incompatible with existing target " << *pt <<
-                  info << "existing prerequisite " << p1 << " does not match "
-                     << p <<
-                  info << "specify corresponding " << rtt.name << "{} "
-                     << "dependency explicitly";
+              bool group (!p.prerequisite.belongs (t));
 
-              break;
+              const target_type& rtt (mod
+                                      ? (group ? bmi::static_type : tt.bmi)
+                                      : (group ? obj::static_type : tt.obj));
+
+              fail << "synthesized dependency for prerequisite " << p << " "
+                   << "would be incompatible with existing target " << *pt <<
+                info << "existing prerequisite " << p1 << " does not match "
+                   << p <<
+                info << "specify corresponding " << rtt.name << "{} "
+                   << "dependency explicitly";
             }
+
+            break;
           }
         }
       }
@@ -1570,11 +1620,11 @@ namespace build2
       if (!manifest.empty () && tsys == "mingw32")
         sargs.push_back (relative (manifest).string ());
 
-      // Copy sargs to args. Why not do it as we go along pushing into sargs?
-      // Because of potential reallocations.
+      // Shallow-copy sargs to args. Why not do it as we go along pushing into
+      // sargs? Because of potential reallocations.
       //
-      for (size_t i (0); i != sargs.size (); ++i)
-        args.push_back (sargs[i].c_str ());
+      for (const string& a: sargs)
+        args.push_back (a.c_str ());
 
       if (lt != otype::a)
       {
@@ -1594,7 +1644,7 @@ namespace build2
         if (!p.empty ())
         try
         {
-          if (verb >= 3)
+          if (verb >= 4) // Seeing this with -V doesn't really add any value.
             text << "rm " << p;
 
           auto rm = [&paths] (path&& m, const string&, bool interm)

@@ -97,6 +97,14 @@ namespace build2
                        const file&, auto_rmfile&, const match_data&,
                        depdb&, bool&) const;
 
+      void
+      search_modules (const scope&,
+                      action, file&, lorder,
+                      const target_type&) const;
+
+      void
+      append_modules (cstrings&, strings&, const file&) const;
+
       // Language selection option (for VC) or the value for the -x option.
       //
       const char*

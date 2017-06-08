@@ -201,7 +201,8 @@ namespace build2
   match_prerequisite_members (action, target&, const scope&);
 
   // Match (already searched) members of a group or similar prerequisite-like
-  // dependencies. Similar in semantics to match_prerequisites().
+  // dependencies. Similar in semantics to match_prerequisites(). Any marked
+  // target pointers are skipped.
   //
   void
   match_members (action, target&, const target*[], size_t);
