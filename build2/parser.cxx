@@ -2359,6 +2359,23 @@ namespace build2
     names r;
     bool dir (false);
 
+    // Figure out the start directory.
+    //
+    const dir_path* sp;
+    dir_path s;
+    if (dp != nullptr)
+    {
+      if (dp->absolute ())
+        sp = dp;
+      else
+      {
+        s = *pbase_ / *dp;
+        sp = &s;
+      }
+    }
+    else
+      sp = pbase_;
+
     // Compare string to name as paths and according to dir.
     //
     auto equal = [&dir] (const string& v, const name& n) -> bool
@@ -2371,15 +2388,10 @@ namespace build2
 
     // Compare name to pattern as paths and according to dir.
     //
-    auto match = [&dir] (const string& p, const name& n) -> bool
+    auto match = [&dir, sp] (const path& pattern, const name& n) -> bool
     {
-      // Currently exclusions only match the last component to a pattern.
-      //
-      string c (dir
-                ? n.dir.leaf ().representation ()
-                : string (n.value, path::traits::find_leaf (n.value)));
-
-      return butl::path_match (p, c);
+      const path& p (dir ? path_cast<path> (n.dir) : path (n.value));
+      return butl::path_match (pattern, p, *sp);
     };
 
     // Append string to result according to dir. Store an indication of
@@ -2402,7 +2414,7 @@ namespace build2
         append (move (m), a);
     };
 
-    auto include_pattern = [&r, &append, &include_match, dp, this]
+    auto include_pattern = [&r, &append, &include_match, sp, this]
       (string&& p, bool a)
     {
       // If we don't already have any matches and our pattern doesn't contain
@@ -2446,23 +2458,6 @@ namespace build2
             return true;
           };
 
-      // Figure out the start directory.
-      //
-      const dir_path* sp;
-      dir_path s;
-      if (dp != nullptr)
-      {
-        if (dp->absolute ())
-          sp = dp;
-        else
-        {
-          s = *pbase_ / *dp;
-          sp = &s;
-        }
-      }
-      else
-        sp = pbase_;
-
       butl::path_search (path (move (p)), func, *sp);
     };
 
@@ -2480,11 +2475,13 @@ namespace build2
         r.erase (i);
     };
 
-    auto exclude_pattern = [&r, &match] (const string& p)
+    auto exclude_pattern = [&r, &match] (string&& p)
     {
+      path pattern (move (p));
+
       for (auto i (r.begin ()); i != r.end (); )
       {
-        if (match (p, *i))
+        if (match (pattern, *i))
           i = r.erase (i);
         else
           ++i;
@@ -2567,7 +2564,7 @@ namespace build2
       else
       {
         if (p)
-          exclude_pattern (v);
+          exclude_pattern (move (v));
         else
           exclude_match (v);
       }

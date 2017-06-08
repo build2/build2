@@ -95,8 +95,9 @@ EOI
   touch foo.txt bar.txt;
   $* <'print {*.txt -bar.txt}' >'foo.txt'          : exclude-match
 
-  touch foo.txt bar.txt;
-  $* <'print {*.txt -b*.txt}' >'foo.txt'           : exclude-pattern
+  mkdir baz;
+  touch foo.txt bar.txt baz/fox.txt baz/box.txt;
+  $* <'print {**.txt -b*.txt -b*/*}' >'foo.txt'    : exclude-pattern
 
   touch foo.txt bar.txt baz.txt;
   $* <'print {*.txt -{*z.txt bar.txt}}' >'foo.txt' : exclude-group
