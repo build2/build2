@@ -150,12 +150,13 @@ namespace build2
               }
             case compiler_id::gcc:
               {
-                // Enable starting with GCC 8.0.0.
+                // Enable starting with GCC 8.0.0 (currently the c++-modules
+                // branch).
                 //
-                if (mj >= 8)
+                if (mj >= 8 &&
+                    ci.version.build.find ("cxx-modules") != string::npos)
                 {
                   r.push_back ("-fmodules");
-                  //r.push_back ("-D__cpp_modules=201704"); // p0629r0
                   modules = true;
                 }
                 break;
