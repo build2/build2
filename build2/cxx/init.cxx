@@ -135,9 +135,12 @@ namespace build2
             {
             case compiler_id::msvc:
               {
-                // Enable starting with VC15 (19.10).
+                // While modules are supported in VC15u0 (19.10), there is a
+                // bug in separate interface/implementation unit support which
+                // makes them pretty much unusable. This has been fixed in
+                // VC15u3 (19.11)
                 //
-                if (mj > 19 || (mj == 19 && mi > 0))
+                if (mj > 19 || (mj == 19 && mi >= 11))
                 {
                   r.push_back ("/experimental:module");
                   r.push_back ("/D__cpp_modules=201703"); // n4647
