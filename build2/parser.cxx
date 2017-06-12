@@ -2415,7 +2415,7 @@ namespace build2
     };
 
     auto include_pattern =
-      [&r, &append, &include_match, sp] (string&& p, bool a)
+      [&r, &append, &include_match, sp, &l, this] (string&& p, bool a)
     {
       // If we don't already have any matches and our pattern doesn't contain
       // multiple recursive wildcards, then the result will be unique and we
@@ -2458,7 +2458,14 @@ namespace build2
             return true;
           };
 
-      butl::path_search (path (move (p)), func, *sp);
+      try
+      {
+        butl::path_search (path (move (p)), func, *sp);
+      }
+      catch (const system_error& e)
+      {
+        fail (l) << "unable to scan " << *sp << ": " << e;
+      }
     };
 
     auto exclude_match = [&r, &equal] (const string& m)
