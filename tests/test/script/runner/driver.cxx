@@ -32,6 +32,8 @@ stack_overflow (bool overflow)
 int
 main (int argc, char* argv[])
 {
+  using butl::optional;
+
   // Usage: driver [-i <int>] (-o <string>)* (-e <string>)* (-f <file>)*
   //        (-d <dir>)* [(-t (a|m|s|z)) | (-s <int>)]
   //
