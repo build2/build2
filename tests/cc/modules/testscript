@@ -13,7 +13,10 @@ EOI
 
 +cat <<EOI >=build/root.build
 cxx.std = experimental
-cxx.features.modules = true
+
+# Force modules except for VC where we need at least 15u3.
+#
+cxx.features.modules = ($cxx.id != "msvc")
 
 using cxx
 
