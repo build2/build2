@@ -142,8 +142,8 @@ namespace build2
                 //
                 if (mj > 19 || (mj == 19 && mi >= 11))
                 {
-                  r.push_back ("/experimental:module");
                   r.push_back ("/D__cpp_modules=201703"); // n4647
+                  r.push_back ("/experimental:module");
                   modules = true;
                 }
                 break;
@@ -168,10 +168,12 @@ namespace build2
                 // Note that we are using Apple to vanilla Clang version re-
                 // map from above so may need to update things there as well.
                 //
+                // Note: see Clang modules support hack in cc::compile.
+                //
                 if (mj >= 5)
                 {
-                  r.push_back ("-fmodules-ts");
                   r.push_back ("-D__cpp_modules=201704"); // p0629r0
+                  r.push_back ("-fmodules-ts");
                   modules = true;
                 }
                 break;

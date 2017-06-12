@@ -319,6 +319,15 @@ namespace build2
   void
   hash_options (sha256&, const strings&);
 
+  void
+  append_options (cstrings&, const strings&, size_t);
+
+  void
+  append_options (strings&, const strings&, size_t);
+
+  void
+  hash_options (sha256&, const strings&, size_t);
+
   // Check if a specified option is present in the variable or value. T is
   // either target or scope.
   //

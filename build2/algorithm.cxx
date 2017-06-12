@@ -126,12 +126,12 @@ namespace build2
         // Wait for the count to drop below busy if someone is already working
         // on this target.
         //
-        // We also unlock the phase for the duration of the wait. Why? Consider
-        // this scenario: we are trying to match a dir{} target whose buildfile
-        // still needs to be loaded. Let's say someone else started the match
-        // before us. So we wait for their completion and they wait to switch
-        // the phase to load. Which would result in a deadlock unless we release
-        // the phase.
+        // We also unlock the phase for the duration of the wait. Why?
+        // Consider this scenario: we are trying to match a dir{} target whose
+        // buildfile still needs to be loaded. Let's say someone else started
+        // the match before us. So we wait for their completion and they wait
+        // to switch the phase to load. Which would result in a deadlock
+        // unless we release the phase.
         //
         if (e >= busy)
         {

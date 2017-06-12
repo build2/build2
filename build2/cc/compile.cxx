@@ -1286,9 +1286,18 @@ namespace build2
 
           // Some compile options (e.g., -std, -m) affect the preprocessor.
           //
+          // Currently Clang supports importing "header modules" even when in
+          // the TS mode. And "header modules" support macros which means
+          // imports have to be resolved during preprocessing. Which poses a
+          // bit of a chicken and egg problem for us. For now, the workaround
+          // is to remove the -fmodules-ts option when preprocessing. Hopefully
+          // there will be a "pure modules" mode at some point.
+          //
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-          append_options (args, tstd);
+          append_options (args, tstd,
+                          tstd.size () -
+                          (modules && cid == compiler_id::clang ? 1 : 0));
 
           if (cid == compiler_id::msvc)
           {
@@ -2144,34 +2153,27 @@ namespace build2
 
           args.push_back (cpath.recall_string ());
 
-          // Add *.export.poptions from prerequisite libraries.
-          //
           append_lib_options (bs, args, t, act, lo);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
 
-          // Extra system header dirs (last).
-          //
           for (const dir_path& d: sys_inc_dirs)
           {
             args.push_back ("-I");
             args.push_back (d.string ().c_str ());
           }
 
-          // Some compile options (e.g., -std, -m) affect the preprocessor.
-          //
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-          append_options (args, tstd);
+          append_options (args, tstd,
+                          tstd.size () -
+                          (modules && cid == compiler_id::clang ? 1 : 0));
 
           if (cid == compiler_id::msvc)
           {
             args.push_back ("/nologo");
 
-            // See perform_update() for details on overriding the default
-            // exceptions and runtime.
-            //
             if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
               args.push_back ("/EHsc");
 
@@ -2186,8 +2188,6 @@ namespace build2
           {
             if (t.is_a<objs> ())
             {
-              // On Darwin, Win32 -fPIC is the default.
-              //
               if (tclass == "linux" || tclass == "bsd")
                 args.push_back ("-fPIC");
             }
@@ -2337,15 +2337,18 @@ namespace build2
       if (!modules)
         fail << "modules support not enabled or unavailable";
 
-      // Set the cc.module_name variable if this is an interface unit. We set
-      // it on the bmi{} group so we have to lock it.
+      // Set the cc.module_name variable if this is an interface unit. If we
+      // have the bmi{} group, set it there (in which case we have to lock).
       //
       if (tu.module_interface)
       {
-        target_lock l (lock (act, *t.group));
-        assert (l.target != nullptr);
+        target_lock l;
+        target* x (t.group == nullptr
+                   ? &t
+                   : (l = lock (act, *t.group)).target);
+        assert (x != nullptr); // Should be lockable.
 
-        if (value& v = l.target->vars.assign (c_module_name))
+        if (value& v = x->vars.assign (c_module_name))
           assert (cast<string> (v) == tu.module_name);
         else
           v = move (tu.module_name); // Note: move.

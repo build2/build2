@@ -277,34 +277,34 @@ namespace build2
   }
 
   void
-  append_options (cstrings& args, const strings& sv)
+  append_options (cstrings& args, const strings& sv, size_t n)
   {
-    if (!sv.empty ())
+    if (n != 0)
     {
-      args.reserve (args.size () + sv.size ());
+      args.reserve (args.size () + n);
 
-      for (const string& s: sv)
-        args.push_back (s.c_str ());
+      for (size_t i (0); i != n; ++i)
+        args.push_back (sv[i].c_str ());
     }
   }
 
   void
-  append_options (strings& args, const strings& sv)
+  append_options (strings& args, const strings& sv, size_t n)
   {
-    if (!sv.empty ())
+    if (n != 0)
     {
-      args.reserve (args.size () + sv.size ());
+      args.reserve (args.size () + n);
 
-      for (const string& s: sv)
-        args.push_back (s);
+      for (size_t i (0); i != n; ++i)
+        args.push_back (sv[i]);
     }
   }
 
   void
-  hash_options (sha256& csum, const strings& sv)
+  hash_options (sha256& csum, const strings& sv, size_t n)
   {
-    for (const string& s: sv)
-      csum.append (s);
+    for (size_t i (0); i != n; ++i)
+      csum.append (sv[i]);
   }
 
   bool
