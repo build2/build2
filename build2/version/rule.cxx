@@ -281,7 +281,7 @@ namespace build2
       // Perform substitutions for the project itself (normally the version.*
       // variables but we allow anything set on the root scope).
       //
-      auto subst_self = [&rs, &m] (const location& l, const string& s)
+      auto subst_self = [&rs] (const location& l, const string& s)
       {
         if (lookup x = rs.vars[s])
         {

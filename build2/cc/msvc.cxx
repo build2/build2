@@ -289,7 +289,7 @@ namespace build2
 
       liba* r (nullptr);
 
-      auto search = [&r, &ld, &d, &p, exist, &trace, this] (
+      auto search = [&r, &ld, &d, &p, exist, &trace] (
         const char* pf, const char* sf) -> bool
       {
         r = msvc_search_library<liba> (
@@ -320,7 +320,7 @@ namespace build2
 
       libs* s (nullptr);
 
-      auto search = [&s, &ld, &d, &pk, exist, &trace, this] (
+      auto search = [&s, &ld, &d, &pk, exist, &trace] (
         const char* pf, const char* sf) -> bool
       {
         if (libi* i = msvc_search_library<libi> (

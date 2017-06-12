@@ -97,7 +97,7 @@ namespace build2
         //
         auto& lp (t.data<link::libs_paths> ());
 
-        auto ln = [&id, this] (const path& f, const path& l)
+        auto ln = [&id] (const path& f, const path& l)
         {
           install_l (id, f.leaf (), l.leaf (), false);
         };
@@ -125,7 +125,7 @@ namespace build2
         //
         auto& lp (t.data<link::libs_paths> ());
 
-        auto rm = [&id, this] (const path& l)
+        auto rm = [&id] (const path& l)
         {
           return uninstall_f (id, nullptr, l.leaf (), false);
         };

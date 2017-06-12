@@ -2414,8 +2414,8 @@ namespace build2
         append (move (m), a);
     };
 
-    auto include_pattern = [&r, &append, &include_match, sp, this]
-      (string&& p, bool a)
+    auto include_pattern =
+      [&r, &append, &include_match, sp] (string&& p, bool a)
     {
       // If we don't already have any matches and our pattern doesn't contain
       // multiple recursive wildcards, then the result will be unique and we

@@ -204,7 +204,7 @@ namespace build2
                                  : var_pool[*t + ".sys_lib_dirs"]]);
       };
 
-      auto find_lo = [top_lo, t, cc, &bs, &l, &lo, this] ()
+      auto find_lo = [top_lo, t, cc, &bs, &l, &lo] ()
       {
         lo = (t == nullptr || cc) ? top_lo : link_order (bs, link_type (l));
       };
@@ -263,7 +263,7 @@ namespace build2
       auto proc_int = [&l,
                        &proc_impl, &proc_lib, &proc_opt,
                        &sysd, &usrd,
-                       &find_sysd, &find_lo, &sys, &sys_simple,
+                       &find_sysd, &find_lo, &sys_simple,
                        &bs, act, &lo, this] (const lookup& lu)
       {
         const vector<name>* ns (cast_null<vector<name>> (lu));

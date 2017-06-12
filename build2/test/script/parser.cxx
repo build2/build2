@@ -1477,7 +1477,7 @@ namespace build2
             r.str = move (w);
           };
 
-          auto add_here_str_regex = [&l, &check_regex_mod, this] (
+          auto add_here_str_regex = [&l, &check_regex_mod] (
             redirect& r, int fd, string&& w)
           {
             const char* what (nullptr);
