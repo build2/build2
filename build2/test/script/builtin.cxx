@@ -1348,32 +1348,24 @@ namespace build2
         return 1;
       }
 
-      static void
-      thread_thunk (builtin_impl* fn,
-                    scope& sp,
-                    const strings& args,
-                    auto_fd in, auto_fd out, auto_fd err,
-                    uint8_t& r) noexcept
-      {
-        r = fn (sp, args, move (in), move (out), move (err));
-      }
-
       // Run builtin implementation asynchronously.
       //
       static builtin
-      async_impl (builtin_impl fn,
+      async_impl (builtin_impl* fn,
                   scope& sp,
                   uint8_t& r,
                   const strings& args,
                   auto_fd in, auto_fd out, auto_fd err)
       {
-        return builtin (r,
-                        thread (thread_thunk,
-                                fn,
-                                ref (sp),
-                                cref (args),
-                                move (in), move (out), move (err),
-                                ref (r)));
+        return builtin (
+          r,
+          thread ([&fn, &sp, &r, &args,
+                   in  = move (in),
+                   out = move (out),
+                   err = move (err)] () mutable noexcept
+                  {
+                    r = fn (sp, args, move (in), move (out), move (err));
+                  }));
       }
 
       template <builtin_impl fn>
