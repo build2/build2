@@ -1359,7 +1359,7 @@ namespace build2
       {
         return builtin (
           r,
-          thread ([&fn, &sp, &r, &args,
+          thread ([fn, &sp, &r, &args,
                    in  = move (in),
                    out = move (out),
                    err = move (err)] () mutable noexcept

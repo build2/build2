@@ -2410,7 +2410,7 @@ namespace build2
         case compiler_id::gcc:
           {
             s.insert (0, 1, '=');
-            s.insert (0, cast<string> (f->group->vars[c_module_name]));
+            s.insert (0, cast<string> ((*f)[c_module_name]));
             s.insert (0, "-fmodule-map=");
             break;
           }
