@@ -92,7 +92,15 @@ all match either files or directories. For example:
 \
 exe{hello}: cxx{f* -foo +*oo}  # Exclusion has no effect.
 exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
-./: {*/ -build}                # Error: exclusion must match a directory.
+./: {*/ -build}                # Error: exclusion not a directory.
+\
+
+As a more realistic example, let's say we want to exclude source files that
+reside in the \c{test/} directories (and their subdirectories) anywhere in
+the tree. This can be achieved with the following pattern:
+
+\
+exe{hello}: cxx{** -***/test/**}
 \
 
 If many inclusions or exclusions need to be specified, then an
