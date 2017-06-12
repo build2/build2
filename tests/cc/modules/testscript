@@ -1,0 +1,107 @@
+# file      : tests/cc/modules/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+crosstest = false
+test.arguments = config.cxx="$recall($cxx.path)"
+
+.include ../../common.test
+
++cat <<EOI >+build/bootstrap.build
+using test
+EOI
+
++cat <<EOI >=build/root.build
+cxx.std = experimental
+cxx.features.modules = true
+
+using cxx
+
+hxx{*}: extension = hxx
+mxx{*}: extension = mxx
+cxx{*}: extension = cxx
+
+exe{*}: test = true
+EOI
+
+# Determine if we have module support.
+#
++$* noop <<EOI | set modules
+print $cxx.features.modules
+EOI
+
+: enabled
+:
+if $modules
+{
+
+# Common source files that are symlinked (@@ TODO: ln builtin) in the
+# test directories if used.
+#
++cat <<EOI >=test.mxx
+#if __cpp_modules >= 201704
+export
+#endif
+module foo.test;
+
+export int f (int);
+EOI
+
++cat <<EOI >=test.cxx
+module foo.test;
+int f (int i) {return i - 1;}
+EOI
+
++cat <<EOI >=driver.cxx
+import foo.test;
+int main (int argc, char*[]) {return f (argc);}
+EOI
+
+: bmi-combined
+:
+: Test combined interface/implementation unit specified as bmi{}.
+:
+if ($cxx.id != "gcc")
+cp ../test.mxx ./ && cat >+test.mxx <<EOI #;
+  int f (int i) {return i - 1;}
+  EOI
+cp ../driver.cxx ./ #;
+$* test clean <<EOI
+  exe{test}: cxx{driver} bmi{test}
+  bmi{test}: mxx{test}
+  EOI
+end
+
+: mxx-combined
+:
+: Test combined interface/implementation unit specified as mxx{}.
+:
+if ($cxx.id != "gcc")
+cp ../test.mxx ./ && cat >+test.mxx <<EOI #;
+  int f (int i) {return i - 1;}
+  EOI
+cp ../driver.cxx ./ #;
+$* test clean <<EOI
+  exe{test}: cxx{driver} mxx{test}
+  EOI
+end
+
+: bmi-separate
+:
+: Test separate interface/implementation unit specified as bmi{}.
+:
+cp ../test.mxx ../test.cxx ../driver.cxx ./;
+$* test clean <<EOI
+  exe{test}: cxx{driver} {bmi cxx}{test}
+  bmi{test}: mxx{test}
+  EOI
+
+: mxx-separate
+:
+: Test separate interface/implementation unit specified as mxx{}.
+:
+cp ../test.mxx ../test.cxx ../driver.cxx ./;
+$* test clean <<EOI
+  exe{test}: cxx{driver} {mxx cxx}{test}
+  EOI
+}
