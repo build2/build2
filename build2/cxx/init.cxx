@@ -126,7 +126,12 @@ namespace build2
 
         if (*v == "experimental")
         {
-          // Unless disabled by the user, try to enable C++ modules.
+          // Unless disabled by the user, try to enable C++ modules. Here
+          // we use a tri-state:
+          //
+          // - false        - disabled
+          // - unspecified  - enabled if practically usable
+          // - true         - enabled even if practically unusable
           //
           lookup l;
           if (!(l = rs[v_m]) || cast<bool> (l))
@@ -140,7 +145,7 @@ namespace build2
                 // makes them pretty much unusable. This has been fixed in
                 // VC15u3 (19.11)
                 //
-                if (mj > 19 || (mj == 19 && mi >= 11))
+                if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 11)))
                 {
                   r.push_back ("/D__cpp_modules=201703"); // n4647
                   r.push_back ("/experimental:module");
@@ -153,7 +158,8 @@ namespace build2
                 // Enable starting with GCC 8.0.0 (currently the c++-modules
                 // branch).
                 //
-                if (mj >= 8 &&
+                if (l && // Barely usable at the moment.
+                    mj >= 8 &&
                     ci.version.build.find ("cxx-modules") != string::npos)
                 {
                   r.push_back ("-fmodules");
@@ -168,7 +174,7 @@ namespace build2
                 // Note that we are using Apple to vanilla Clang version re-
                 // map from above so may need to update things there as well.
                 //
-                // Note: see Clang modules support hack in cc::compile.
+                // Also see Clang modules support hack in cc::compile.
                 //
                 if (mj >= 5)
                 {
