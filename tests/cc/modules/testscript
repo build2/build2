@@ -16,7 +16,8 @@ cxx.std = experimental
 
 # Force modules except for VC where we need at least 15u3.
 #
-cxx.features.modules = ($cxx.id != "msvc")
+if ($cxx.id != "msvc")
+  cxx.features.modules = true
 
 using cxx
 
