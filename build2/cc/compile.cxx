@@ -2366,10 +2366,10 @@ namespace build2
     // Resolve imported modules to bmi*{} targets.
     //
     modules_positions compile::
-    search_modules (const scope& bs,
+    search_modules (const scope& /*bs*/,
                     action act,
                     file& t,
-                    lorder lo,
+                    lorder /*lo*/,
                     const target_type& mtt,
                     module_imports&& imports) const
     {
