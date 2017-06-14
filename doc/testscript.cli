@@ -2342,6 +2342,45 @@ false
 
 Do nothing and terminate normally with the 1 exit code (indicating failure).
 
+
+\h#builtins-ln|\c{ln}|
+
+\
+ln [--no-cleanup] -s <target-path>    <link-path>
+ln [--no-cleanup] -s <target-path>... <dir>/
+\
+
+Create symbolic links to files and/or directories. The first form creates a
+single target link at the specified path. The second form creates links to one
+or more targets inside the specified directory.
+
+If the last argument does not end with a directory separator, then the first
+synopsis is assumed where \c{ln} creates the symbolic link to \i{target-path}
+at \i{link-path} failing if the \i{target-path} filesystem entry does not
+exist, \i{link-path} filesystem entry already exists or more than two arguments
+are specified.
+
+If the last argument ends with a directory separator, then the second synopsis
+is assumed where \c{ln} creates one or more symbolic links to \i{target-path}
+files or directories inside the \i{dir} directory as if by executing the
+following command for each target:
+
+\
+ln -s target-path dir/target-name
+\
+
+Where \i{target-name} is the last path component in \i{target-path}.
+
+For both cases \c{ln} falls back to creating a hard link if symbolic link
+creation is not supported. If hard link creation is not supported either,
+then \c{ln} falls back to copying the content, recursively in case of a
+directory target.
+
+Unless the --no-cleanup option is specified, created filesystem entries that
+are inside the script working directory are automatically registered for
+cleanup.
+
+
 \h#builtins-mkdir|\c{mkdir}|
 
 \

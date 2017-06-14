@@ -264,6 +264,7 @@ namespace build2
       static void
       cpfile (scope& sp,
               const path& from, const path& to,
+              bool overwrite,
               bool cleanup,
               const function<error_record()>& fail)
       {
@@ -272,7 +273,9 @@ namespace build2
           bool exists (file_exists (to));
 
           cpfile (from, to,
-                  cpflags::overwrite_permissions | cpflags::overwrite_content);
+                  overwrite
+                  ? cpflags::overwrite_permissions | cpflags::overwrite_content
+                  : cpflags::none);
 
           if (!exists && cleanup)
             sp.clean ({cleanup_type::always, to}, true);
@@ -315,7 +318,7 @@ namespace build2
                      cleanup,
                      fail);
             else
-              cpfile (sp, f, t, cleanup, fail);
+              cpfile (sp, f, t, false, cleanup, fail);
           }
         }
         catch (const system_error& e)
@@ -410,7 +413,7 @@ namespace build2
             if (!recursive)
               // Synopsis 1: make a file copy at the specified path.
               //
-              cpfile (sp, src, dst, cleanup, fail);
+              cpfile (sp, src, dst, true, cleanup, fail);
             else
               // Synopsis 2: make a directory copy at the specified path.
               //
@@ -439,7 +442,7 @@ namespace build2
                 // Synopsis 3: copy a file into the specified directory. Also,
                 // here we cover synopsis 4 for the source path being a file.
                 //
-                cpfile (sp, src, dst / src.leaf (), cleanup, fail);
+                cpfile (sp, src, dst / src.leaf (), true, cleanup, fail);
             }
           }
 
@@ -528,6 +531,225 @@ namespace build2
       true_ (scope&, uint8_t& r, const strings&, auto_fd, auto_fd, auto_fd)
       {
         return builtin (r = 0);
+      }
+
+      // Create a symlink to a file or directory at the specified path. The
+      // paths must be absolute. Fall back to creating a hardlink, if symlink
+      // creation is not supported for the link path. If hardlink creation is
+      // not supported either, then fall back to copies. If requested, created
+      // filesystem entries are registered for cleanup. Fail if the target
+      // filesystem entry doesn't exist or an exception is thrown by the
+      // underlying filesystem operation (specifically for an already existing
+      // filesystem entry at the link path).
+      //
+      // Note that supporting optional removal of an existing filesystem entry
+      // at the link path (the -f option) tends to get hairy. As soon as an
+      // existing and the resulting filesystem entries could be of different
+      // types, we would end up with canceling an old cleanup and registering
+      // the new one. Also removing non-empty directories doesn't look very
+      // natural, but would be required if we want the behavior on POSIX and
+      // Windows to be consistent.
+      //
+      static void
+      mksymlink (scope& sp,
+                 const path& target, const path& link,
+                 bool cleanup,
+                 const function<error_record()>& fail)
+      {
+        // Determine the target type, fail if the target doesn't exist.
+        //
+        bool dir (false);
+
+        try
+        {
+          pair<bool, entry_stat> pe (path_entry (target));
+
+          if (!pe.first)
+            fail () << "unable to create symlink to '" << target << "': "
+                    << "no such file or directory";
+
+          dir = pe.second.type == entry_type::directory;
+        }
+        catch (const system_error& e)
+        {
+          fail () << "unable to stat '" << target << "': " << e;
+        }
+
+        // First we try to create a symlink. If that fails (e.g., "Windows
+        // happens"), then we resort to hard links. If that doesn't work out
+        // either (e.g., not on the same filesystem), then we fall back to
+        // copies. So things are going to get a bit nested.
+        //
+        try
+        {
+          mksymlink (target, link, dir);
+
+          if (cleanup)
+            sp.clean ({cleanup_type::always, link}, true);
+        }
+        catch (const system_error& e)
+        {
+          // Note that we are not guaranteed (here and below) that the
+          // system_error exception is of the generic category.
+          //
+          int c (e.code ().value ());
+          if (!(e.code ().category () == generic_category () &&
+                (c == ENOSYS || // Not implemented.
+                 c == EPERM)))  // Not supported by the filesystem(s).
+            fail () << "unable to create symlink '" << link << "' to '"
+                    << target << "': " << e;
+
+          try
+          {
+            mkhardlink (target, link, dir);
+
+            if (cleanup)
+              sp.clean ({cleanup_type::always, link}, true);
+          }
+          catch (const system_error& e)
+          {
+            c = e.code ().value ();
+            if (!(e.code ().category () == generic_category () &&
+                  (c == ENOSYS || // Not implemented.
+                   c == EPERM  || // Not supported by the filesystem(s).
+                   c == EXDEV)))  // On different filesystems.
+              fail () << "unable to create hardlink '" << link << "' to '"
+                      << target << "': " << e;
+
+            if (dir)
+              cpdir (sp,
+                     path_cast<dir_path> (target), path_cast<dir_path> (link),
+                     cleanup,
+                     fail);
+            else
+              cpfile (sp, target, link, false, cleanup, fail);
+          }
+        }
+      }
+
+      // ln [--no-cleanup] -s <target-path>    <link-path>
+      // ln [--no-cleanup] -s <target-path>... <link-dir>/
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      ln (scope& sp,
+          const strings& args,
+          auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "ln");
+        };
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool cleanup (true);
+          bool symlink (false);
+
+          for (; i != e; ++i)
+          {
+            const string& o (*i);
+
+            if (o == "--no-cleanup")
+              cleanup = false;
+            else if (o == "-s")
+              symlink = true;
+            else
+            {
+              if (o == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          if (!symlink)
+            error () << "missing -s option";
+
+          // Create file or directory symlinks.
+          //
+          if (i == e)
+            error () << "missing arguments";
+
+          const dir_path& wd (sp.wd_path);
+
+          auto j (args.rbegin ());
+          path link (parse_path (*j++, wd));
+          e = j.base ();
+
+          if (i == e)
+            error () << "missing target path";
+
+          auto fail = [&error] () {return error (true);};
+
+          // If link is not a directory path (no trailing separator), then
+          // create a symlink to the target path at the specified link path
+          // (the only target path is allowed in such a case). Otherwise create
+          // links to the target paths inside the specified directory.
+          //
+          if (!link.to_directory ())
+          {
+            path target (parse_path (*i++, wd));
+
+            // If there are multiple targets but no trailing separator for the
+            // link, then, most likelly, it is missing.
+            //
+            if (i != e)
+              error () << "multiple target paths with non-directory link path";
+
+            // Synopsis 1: create a target path symlink at the specified path.
+            //
+            mksymlink (sp, target, link, cleanup, fail);
+          }
+          else
+          {
+            for (; i != e; ++i)
+            {
+              path target (parse_path (*i, wd));
+
+              // Synopsis 2: create a target path symlink in the specified
+              // directory.
+              //
+              mksymlink (sp, target, link / target.leaf (), cleanup, fail);
+            }
+          }
+
+          r = 0;
+        }
+        catch (const invalid_path& e)
+        {
+          error (false) << "invalid path '" << e.path << "'";
+        }
+        // Can be thrown while closing in, out or writing to cerr.
+        //
+        catch (const io_error& e)
+        {
+          error (false) << e;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
       }
 
       // Create a directory if not exist and its parent directories if
@@ -1397,6 +1619,7 @@ namespace build2
         {"cp",    &sync_impl<&cp>},
         {"echo",  &async_impl<&echo>},
         {"false", &false_},
+        {"ln",    &sync_impl<&ln>},
         {"mkdir", &sync_impl<&mkdir>},
         {"rm",    &sync_impl<&rm>},
         {"rmdir", &sync_impl<&rmdir>},

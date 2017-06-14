@@ -315,13 +315,13 @@ namespace build2
           }
           catch (const system_error& e)
           {
-            // Make sure that the error denotes errno portable code.
+            // Note that we are not guaranteed (here and below) that the
+            // system_error exception is of the generic category.
             //
-            assert (e.code ().category () == generic_category ());
-
             int c (e.code ().value ());
-
-            if (c != EPERM && c != ENOSYS)
+            if (!(e.code ().category () == generic_category () &&
+                  (c == ENOSYS || // Not implemented.
+                   c == EPERM)))  // Not supported by the filesystem(s).
             {
               print ("ln -s");
               fail << "unable to create symlink " << l << ": " << e;
@@ -334,13 +334,11 @@ namespace build2
             }
             catch (const system_error& e)
             {
-              // Make sure the error reflects errno portable code.
-              //
-              assert (e.code ().category () == generic_category ());
-
-              int c (e.code ().value ());
-
-              if (c != EPERM && c != ENOSYS)
+              c = e.code ().value ();
+              if (!(e.code ().category () == generic_category () &&
+                  (c == ENOSYS || // Not implemented.
+                   c == EPERM  || // Not supported by the filesystem(s).
+                   c == EXDEV)))  // On different filesystems.
               {
                 print ("ln");
                 fail << "unable to create hardlink " << l << ": " << e;
