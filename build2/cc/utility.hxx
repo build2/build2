@@ -24,14 +24,6 @@ namespace build2
     otype
     compile_type (const target&, bool module);
 
-    // Compile target types.
-    //
-    struct compile_target_types
-    {
-      const target_type& obj;
-      const target_type& bmi;
-    };
-
     compile_target_types
     compile_types (otype);
 

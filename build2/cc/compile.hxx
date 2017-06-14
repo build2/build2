@@ -27,6 +27,15 @@ namespace build2
     //
     enum class preprocessed: uint8_t {none, includes, modules, all};
 
+    // Positions of the re-exported bmi{}s. See search_modules() for
+    // details.
+    //
+    struct modules_positions
+    {
+      size_t ex_start;
+      size_t ex_tail;
+    };
+
     class compile: public rule, virtual common
     {
     public:
@@ -93,14 +102,14 @@ namespace build2
                        const file&, const match_data&,
                        depdb&, bool&) const;
       void
-      extract_modules (action, file&, lorder,
-                       const file&, auto_rmfile&, const match_data&,
+      extract_modules (action, file&, lorder, const compile_target_types&,
+                       const file&, auto_rmfile&, match_data&,
                        depdb&, bool&) const;
 
-      void
+      modules_positions
       search_modules (const scope&,
-                      action, file&, lorder,
-                      const target_type&) const;
+                      action, file&, lorder, const target_type&,
+                      module_imports&&) const;
 
       void
       append_modules (cstrings&, strings&, const file&) const;

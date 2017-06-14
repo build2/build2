@@ -10,20 +10,14 @@
 
 #include <build2/diagnostics.hxx>
 
+#include <build2/cc/types.hxx>
+
 namespace build2
 {
   namespace cc
   {
-    // Extract (currently module) information from a preprocessed C/C++
-    // source.
+    // Extract translation unit information from a preprocessed C/C++ source.
     //
-    struct translation_unit
-    {
-      string         module_name;      // If not empty, then a module unit.
-      bool           module_interface; // If true, then module interface unit.
-      vector<string> module_imports;   // Imported modules.
-    };
-
     struct token;
     class lexer;
 
@@ -35,7 +29,7 @@ namespace build2
 
     private:
       void
-      parse_import (token&);
+      parse_import (token&, bool);
 
       void
       parse_module (token&, bool);

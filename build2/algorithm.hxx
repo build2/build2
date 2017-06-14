@@ -307,7 +307,8 @@ namespace build2
   //
   // The filter is passed each prerequisite target and is expected to signal
   // which ones should be used for timestamp comparison. If the filter is
-  // NULL, then all the prerequisites are used.
+  // NULL, then all the prerequisites are used. If the count is not 0, then
+  // only the first count prerequisites are executed.
   //
   // Note that the return value is an optional target state. If the target
   // needs updating, then the value absent. Otherwise it is the state that
@@ -327,7 +328,8 @@ namespace build2
   optional<target_state>
   execute_prerequisites (action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr);
+                         const prerequisite_filter& = nullptr,
+                         size_t count = 0);
 
   // Another version of the above that does two extra things for the caller:
   // it determines whether the action needs to be executed on the target based
@@ -340,20 +342,23 @@ namespace build2
   pair<optional<target_state>, const T&>
   execute_prerequisites (action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr);
+                         const prerequisite_filter& = nullptr,
+                         size_t count = 0);
 
   pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr);
+                         const prerequisite_filter& = nullptr,
+                         size_t count = 0);
 
   template <typename T>
   pair<optional<target_state>, const T&>
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr);
+                         const prerequisite_filter& = nullptr,
+                         size_t count = 0);
 
   // Execute members of a group or similar prerequisite-like dependencies.
   // Similar in semantics to execute_prerequisites().

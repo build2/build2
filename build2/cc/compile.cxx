@@ -49,17 +49,14 @@ namespace build2
     struct compile::match_data
     {
       explicit
-      match_data (bool m, const prerequisite_member& s)
-          : mod (m),
-            src (s),
-            pp (preprocessed::none),
-            mt (timestamp_unknown) {}
+      match_data (bool m, const prerequisite_member& s): mod (m), src (s) {}
 
-      bool mod;                  // Target is bmi*{} and src is x_mod.
+      bool mod;                             // True if bmi*{} and src is x_mod.
       prerequisite_member src;
-      preprocessed pp;
-      auto_rmfile psrc;          // Preprocessed source, if any.
-      timestamp mt;              // Target timestamp.
+      preprocessed pp = preprocessed::none;
+      auto_rmfile psrc;                     // Preprocessed source, if any.
+      timestamp mt = timestamp_unknown;     // Target timestamp.
+      modules_positions mod_pos = {0, 0};   // 0 if not present.
     };
 
     compile::
@@ -717,10 +714,12 @@ namespace build2
         // Extract the module dependency information in addition to header
         // dependencies above.
         //
+        // NOTE: assumes that no further targets will be added into
+        //       t.prerequisite_targets!
+        //
         if (u) // @@ TMP (depdb validation similar to extract_headers()).
         {
-          extract_modules (act, t, lo, src, p.first, md, dd, u);
-          search_modules (bs, act, t, lo, tt.bmi);
+          extract_modules (act, t, lo, tt, src, p.first, md, dd, u);
         }
 
         // If the preprocessed output is suitable for compilation and is not
@@ -2103,9 +2102,10 @@ namespace build2
     extract_modules (action act,
                      file& t,
                      lorder lo,
+                     const compile_target_types& tt,
                      const file& src,
                      auto_rmfile& psrc,
-                     const match_data& md,
+                     match_data& md,
                      depdb& /*dd*/,
                      bool& /*updating*/) const
     {
@@ -2122,6 +2122,8 @@ namespace build2
           if (verb != 0)
             dr << info << "while extracting module dependencies from " << src;
         });
+
+      const scope& bs (t.base_scope ());
 
       // For some compilers (GCC, Clang) the preporcessed output is only
       // partially preprocessed. For others (VC), it is already fully
@@ -2149,8 +2151,6 @@ namespace build2
           // This should match with how we setup preprocessing and is pretty
           // similar to init_args() from extract_headers().
           //
-          const scope& bs (t.base_scope ());
-
           args.push_back (cpath.recall_string ());
 
           append_lib_options (bs, args, t, act, lo);
@@ -2337,18 +2337,26 @@ namespace build2
       if (!modules)
         fail << "modules support not enabled or unavailable";
 
-      // Set the cc.module_name variable if this is an interface unit. If we
-      // have the bmi{} group, set it there (in which case we have to lock).
+      // Search and match all the modules we depend on. If this is a module
+      // implementation unit, then treat the module itself as if it was
+      // imported.
+      //
+      if (!tu.module_interface && !tu.module_name.empty ())
+        tu.module_imports.push_back (
+          module_import {move (tu.module_name), false, 0});
+
+      if (!tu.module_imports.empty ())
+        md.mod_pos = search_modules (
+          bs, act, t, lo, tt.bmi, move (tu.module_imports));
+
+      // Set the cc.module_name variable if this is an interface unit. Note
+      // that it may seem like a good idea to set it on the bmi{} group to
+      // avoid duplication. We, however, cannot do it MT-safely since we don't
+      // match the group.
       //
       if (tu.module_interface)
       {
-        target_lock l;
-        target* x (t.group == nullptr
-                   ? &t
-                   : (l = lock (act, *t.group)).target);
-        assert (x != nullptr); // Should be lockable.
-
-        if (value& v = x->vars.assign (c_module_name))
+        if (value& v = t.vars.assign (c_module_name))
           assert (cast<string> (v) == tu.module_name);
         else
           v = move (tu.module_name); // Note: move.
@@ -2357,32 +2365,327 @@ namespace build2
 
     // Resolve imported modules to bmi*{} targets.
     //
-    void compile::
-    search_modules (const scope& /*bs*/,
+    modules_positions compile::
+    search_modules (const scope& bs,
                     action act,
                     file& t,
-                    lorder /*lo*/,
-                    const target_type& mtt) const
+                    lorder lo,
+                    const target_type& mtt,
+                    module_imports&& imports) const
     {
-      auto& pts (t.prerequisite_targets);
-      size_t start (pts.size ());         // Index of the first to be added.
+      // So we have a list of imports and a list of "potential" module
+      // prerequisites. They are potential in the sense that they may or may
+      // not be required by this translation unit. In other words, they are
+      // the pool where we can resolve actual imports.
+      //
+      // Because we may not need all of these prerequisites, we cannot just go
+      // ahead and match all of them (and they can even have cycles; see rule
+      // synthesis). This poses a bit of a problem: the only way to discover
+      // the module's actual name (see cc.module_name) is by matching it.
+      //
+      // One way to solve this would be to make the user specify the module
+      // name for each mxx{} explicitly. This will be a major pain, however.
+      // Another would be to require encoding of the module name in the
+      // interface unit file name. For example, hello.core -> hello-core.mxx.
+      // This is better but will still too restrictive: some will want to call
+      // it hello_core.mxx or HelloCore.mxx (because that's their file naming
+      // convention) or place it in a subdirectory, say, hello/core.mxx.
+      //
+      // In the above examples one common theme about all the file names is
+      // that they contain, in one form or another, the "tail" of the module
+      // name ('core'). So what we are going to do is require that the
+      // interface file names contain enough of the module name tail to
+      // unambiguously resolve all the module imports. On our side we are
+      // going to implement a "fuzzy" module name to file name match. This
+      // should be reliable enough since we will always verify our guesses
+      // once we match the target and extract the actual module name. Plus,
+      // the user will always have the option of resolving any impasses by
+      // specifying the module name explicitly.
+      //
+      // So, the fuzzy match: the idea is that each match gets a score, the
+      // number of characters in the module name that got matched. A match
+      // with the highest score is used.
+      //
+      auto match = [] (const string& f, const string& m) -> size_t
+      {
+        size_t fi (f.size ());
+        size_t mi (m.size ());
 
+        // Scan backwards for as long as we match. Keep track of the previous
+        // character for case change detection.
+        //
+        for (char fc, mc, fp ('\0'), mp ('\0');
+             fi != 0 && mi != 0;
+             fp = fc, mp = mc, --fi, --mi)
+        {
+          fc = f[fi - 1];
+          mc = m[mi - 1];
+
+          if (casecmp (fc, mc) == 0)
+            continue;
+
+          // We consider all separators equal and character case change being
+          // a separators. Some examples of the latter:
+          //
+          // foo.bar
+          //  fooBAR
+          //  FOObar
+          //
+          bool fs (fc == '_' || fc == '-' || fc == '.' ||
+                   path::traits::is_separator (fc));
+          bool ms (mc == '_' || mc == '.');
+
+          if (fs && ms)
+            continue;
+
+          // Only if one is a real separator do we consider case change.
+          //
+          if (fs || ms)
+          {
+            auto cc = [] (char c1, char c2) -> bool
+            {
+              return (alpha (c1) &&
+                      alpha (c2) &&
+                      (ucase (c1) == c1) != (ucase (c2) == c2));
+            };
+
+            bool fa (false), ma (false);
+            if ((fs || (fa = cc (fp, fc))) && (ms || (ma = cc (mp, mc))))
+            {
+              // Stay on this character if imaginary punctuation (note: cannot
+              // be both true).
+              //
+              if (fa) ++fi;
+              if (ma) ++mi;
+              continue;
+            }
+          }
+
+          break; // No match.
+        }
+
+        // Return the number of characters matched in the module name and not
+        // in the file (this may not be the same because of the imaginary
+        // separators).
+        //
+        return m.size () - mi;
+      };
+
+      auto& pts (t.prerequisite_targets);
+      size_t start (pts.size ()); // Index of the first to be added.
+
+      // We have two parallel vectors: module names/scores in imports and
+      // targets in prerequisite_targets (offset with start). Pre-allocate
+      // NULL entries in the latter.
+      //
+      size_t n (imports.size ());
+      pts.resize (start + n, nullptr);
+
+      // Oh, yes, there is one "minor" complication. It's the last one, I
+      // promise. It has to do with module re-exporting (export import M;).
+      // In this case (currently) all implementations simply treat it as a
+      // shallow (from the BMI's point of view) reference to the module (or an
+      // implicit import, if you will). Do you see where it's going? Nowever
+      // good, that's right. This shallow reference means that the compiler
+      // should be able to find BMIs for all the re-imported modules,
+      // recursive. The good news is we are actually in a pretty good shape to
+      // handle this: after match all our prerequisite BMIs will have their
+      // prerequisite BMIs known, recursively. The only bit that is missing is
+      // the re-export flag of some sorts. As well as deciding where to handle
+      // it: here or in append_modules(). After some meditation it became
+      // clear handling it here will be simpler: We need to weed out
+      // duplicates for which we can re-use the imports vector. And we may
+      // also need to save this "flattened" list of modules in depdb.
+      //
+      // Ok, so, here is the plan:
+      //
+      // 1. There is no good place in prerequisite_targets to store the
+      //    exported flag (no, using the marking facility across match/execute
+      //    is a bad idea). So what we are going to do is put re-exported
+      //    bmi{}s at the back and store (in the target's data pad) the start
+      //    position. One bad aspect about this part is that we assume those
+      //    bmi{}s have been matched by the same rule. But let's not kid
+      //    ourselves, there will be no other rule that matches bmi{}s.
+      //
+      // 2. Once we have matched all the bmi{}s we are importing directly
+      //    (with all the re-exported by us at the back), we will go over them
+      //    and copy all of their re-exported bmi{}s (using the position we
+      //    saved on step #1). The end result will be a recursively-explored
+      //    list of imported bmi{}s that append_modules() can simply convert
+      //    to the list of options.
+      //
+      //    One issue with this approach is that these copied targets will be
+      //    executed which means we need to adjust their dependent counts
+      //    (which is normally done by match). While this seems conceptually
+      //    correct (especially if you view re-exports as implicit imports),
+      //    it's just extra overhead (we know they will be updated). So what
+      //    we are going to do is save another position, that of the start of
+      //    these copied-over targets, and will only execute up to this point.
+      //
+      // As a first sub-step of step #1, move all the re-exported imports to
+      // the end of the vector. This will make sure they end up at the end
+      // of prerequisite_targets.
+      //
+      sort (imports.begin (), imports.end (),
+            [] (const module_import& x, const module_import& y)
+            {
+              return !x.exported && y.exported;
+            });
+
+      // Go over the prerequisites once checking if each (better) matches any
+      // of the imports.
+      //
       for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        const target* pt (nullptr);
+        const target* bt (nullptr);
 
+        // While it would have been even better not to search for a target, we
+        // need to get hold of the corresponding mxx{} (unlikely but possible
+        // for bmi{} to have a different name).
+        //
         if (p.is_a<bmi> ())
-          pt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
+          bt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
         else if (p.is_a (mtt))
-          pt = &p.search (t);
+          bt = &p.search (t);
 
-        if (pt != nullptr)
-          pts.push_back (pt);
+        if (bt == nullptr)
+          continue;
+
+        // Find the mxx{} prerequisite and extract its "file name" for the
+        // fuzzy match.
+        //
+        string f;
+        for (prerequisite_member p: group_prerequisite_members (act, *bt))
+        {
+          if (p.is_a (*x_mod))
+          {
+            //@@ MOD: TODO check if module name set? Won't we have to search
+            //   it for that? Search to existing only?
+
+            // Add the directory part if it is relative. The idea is to
+            // include it into the module match, say hello.core vs
+            // hello/mxx{core}. Why not for absolute? Good question. What
+            // if it contains special components, say, ../mxx{core}?
+            //
+            const dir_path& d (p.dir ());
+
+            if (!d.empty () && d.relative ())
+              f = d.representation (); // Includes trailing slash.
+
+            f += p.name ();
+            break;
+          }
+        }
+
+        if (f.empty ()) // bmi{} without mxx{}? Good luck with that.
+          continue;
+
+        // Check if it resolves any of our imports.
+        //
+        for (size_t i (0); i != n; ++i)
+        {
+          module_import& m (imports[i]);
+          size_t s (match (f, m.name));
+          if (s > m.score)
+          {
+            pts[start + i] = bt;
+            m.score = s;
+          }
+        }
+      }
+
+      // Diagnose unresolved modules.
+      //
+      for (size_t i (0); i != n; ++i)
+      {
+        if (pts[start + i] == nullptr)
+        {
+          // @@ MOD: keep import location for diagnostics?
+          //
+          fail << "unresolved import for module " << imports[i].name;
+        }
       }
 
       // Match in parallel and wait for completion.
       //
       match_members (act, t, pts, start);
+
+      // Post-process the list of our (direct) imports.
+      //
+      size_t ex_start (n);
+      size_t ex_tail (pts.size ());
+
+      for (size_t i (0); i != n; ++i)
+      {
+        const module_import& m (imports[i]);
+        const target& bt (*pts[start + i]);
+
+        // Verify our guesses against extracted module names.
+        //
+        const string& in (m.name);
+        const string& mn (cast<string> (bt.vars[c_module_name]));
+
+        if (in != mn)
+        {
+          for (prerequisite_member p: group_prerequisite_members (act, bt))
+          {
+            if (p.is_a (*x_mod)) // Got to be there.
+            {
+              fail << "failed to correctly guess module name from " << p <<
+                info << "guessed: " << in <<
+                info << "actual:  " << mn <<
+                info << "consider adjusting module interface file names or" <<
+                info << "consider explicitly specifying module name with @@ MOD";
+            }
+          }
+        }
+
+        // Determine the position of the first re-exported bmi{}.
+        //
+        if (m.exported && ex_start == n)
+          ex_start = i;
+
+        // Copy over re-exported bmi{} from our prerequisites weeding out
+        // duplicates.
+        //
+        if (size_t j = bt.data<match_data> ().mod_pos.ex_start)
+        {
+          // Hard to say whether we should reserve or not. We will probably
+          // get quite a bit of duplications.
+          //
+          for (size_t m (bt.prerequisite_targets.size ()); j != m; ++j)
+          {
+            const target* et (bt.prerequisite_targets[j]);
+            const string& mn (cast<string> (et->vars[c_module_name]));
+
+            if (find_if (imports.begin (), imports.end (),
+                         [&mn] (const module_import& i)
+                         {
+                           return i.name == mn;
+                         }) == imports.end ())
+            {
+              pts.push_back (et);
+
+              // Add to the list of imports for further duplicate suppression.
+              // We could have probably stored reference to the name (e.g., in
+              // score) but it's probably not worth it if we have a small
+              // string optimization.
+              //
+              imports.push_back (module_import {mn, true, 0});
+            }
+          }
+        }
+      }
+
+      if (ex_tail == pts.size ()) // No copied tail.
+        ex_tail = 0;
+
+      if (ex_start == n) // No (own) re-exported imports.
+        ex_start = ex_tail;
+      else
+        ex_start += start; // Rebase.
+
+      return modules_positions {ex_start, ex_tail};
     }
 
     // Filter cl.exe noise (msvc.cxx).
@@ -2410,7 +2713,7 @@ namespace build2
         case compiler_id::gcc:
           {
             s.insert (0, 1, '=');
-            s.insert (0, cast<string> ((*f)[c_module_name]));
+            s.insert (0, cast<string> (f->vars[c_module_name]));
             s.insert (0, "-fmodule-map=");
             break;
           }
@@ -2452,7 +2755,10 @@ namespace build2
       //
       auto pr (
         execute_prerequisites<file> (
-          (mod ? *x_mod : x_src), act, t, md.mt));
+          (mod ? *x_mod : x_src),
+          act, t,
+          md.mt, nullptr,
+          md.mod_pos.ex_tail)); // See search_modules() for details.
 
       if (pr.first)
       {

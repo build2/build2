@@ -1089,11 +1089,15 @@ namespace build2
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf)
+                         const timestamp& mt, const prerequisite_filter& pf,
+                         size_t n)
   {
     assert (current_mode == execution_mode::first);
 
     auto& pts (const_cast<target&> (t).prerequisite_targets); // MT-aware.
+
+    if (n == 0)
+      n = pts.size ();
 
     // Pretty much as straight_execute_members() but hairier.
     //
@@ -1101,8 +1105,10 @@ namespace build2
 
     wait_guard wg (target::count_busy (), t.task_count);
 
-    for (const target*& pt : pts)
+    for (size_t i (0); i != n; ++i)
     {
+      const target*& pt (pts[i]);
+
       if (pt == nullptr) // Skipped.
         continue;
 
@@ -1124,8 +1130,10 @@ namespace build2
     bool e (mt == timestamp_nonexistent);
     const target* rt (tt != nullptr ? nullptr : &t);
 
-    for (const target*& pt : pts)
+    for (size_t i (0); i != n; ++i)
     {
+      const target*& pt (pts[i]);
+
       if (pt == nullptr)
         continue;
 

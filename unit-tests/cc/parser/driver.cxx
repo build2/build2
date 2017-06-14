@@ -45,8 +45,9 @@ namespace build2
         parser p;
         translation_unit u (p.parse (*is, path (in)));
 
-        for (const string& n: u.module_imports)
-          cout << "import " << n << ';' << endl;
+        for (const module_import& m: u.module_imports)
+          cout << (m.exported ? "export " : "")
+               << "import " << m.name << ';' << endl;
 
         if (!u.module_name.empty ())
           cout << (u.module_interface ? "export " : "")

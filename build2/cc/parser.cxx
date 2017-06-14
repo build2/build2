@@ -74,7 +74,7 @@ namespace build2
             {
               if      (id == "import")
               {
-                parse_import (t);
+                parse_import (t, false);
               }
               else if (id == "module")
               {
@@ -90,7 +90,7 @@ namespace build2
                     if      (id == "module")
                       parse_module (t, true);
                     else if (id == "import")
-                      parse_import (t);
+                      parse_import (t, true);
                     else
                       n = false; // Something else (e.g., export namespace).
 
@@ -110,7 +110,7 @@ namespace build2
             {
               if (id == "import")
               {
-                parse_import (t);
+                parse_import (t, true);
               }
             }
             continue;
@@ -128,7 +128,7 @@ namespace build2
     }
 
     void parser::
-    parse_import (token& t)
+    parse_import (token& t, bool ex)
     {
       // enter: import keyword
       // leave: semi
@@ -143,13 +143,21 @@ namespace build2
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
 
-      // Ignore duplicate imports. We don't expect large numbers of imports
-      // so vector/linear search is probably more efficient than a set.
+      // Ignore duplicates. We don't expect a large numbers of imports so
+      // vector/linear search is probably more efficient than a set.
       //
       auto& is (u_->module_imports);
 
-      if (find (is.begin (), is.end (), n) == is.end ())
-        is.push_back (move (n));
+      auto i (find_if (is.begin (), is.end (),
+                       [&n] (const module_import& i)
+                       {
+                         return i.name == n;
+                       }));
+
+      if (i == is.end ())
+        is.push_back (module_import {move (n), ex, 0});
+      else
+        i->exported = i->exported || ex;
     }
 
     void parser::

@@ -41,22 +41,22 @@ if $modules
 # Common source files that are symlinked (@@ TODO: ln builtin) in the
 # test directories if used.
 #
-+cat <<EOI >=test.mxx
++cat <<EOI >=core.mxx
 #if __cpp_modules >= 201704
 export
 #endif
-module foo.test;
+module foo.core;
 
 export int f (int);
 EOI
 
-+cat <<EOI >=test.cxx
-module foo.test;
++cat <<EOI >=core.cxx
+module foo.core;
 int f (int i) {return i - 1;}
 EOI
 
 +cat <<EOI >=driver.cxx
-import foo.test;
+import foo.core;
 int main (int argc, char*[]) {return f (argc);}
 EOI
 
@@ -65,13 +65,13 @@ EOI
 : Test combined interface/implementation unit specified as bmi{}.
 :
 if ($cxx.id != "gcc")
-cp ../test.mxx ./ && cat >+test.mxx <<EOI #;
+cp ../core.mxx ./ && cat >+core.mxx <<EOI #;
   int f (int i) {return i - 1;}
   EOI
 cp ../driver.cxx ./ #;
 $* test clean <<EOI
-  exe{test}: cxx{driver} bmi{test}
-  bmi{test}: mxx{test}
+  exe{test}: cxx{driver} bmi{core}
+  bmi{core}: mxx{core}
   EOI
 end
 
@@ -80,12 +80,12 @@ end
 : Test combined interface/implementation unit specified as mxx{}.
 :
 if ($cxx.id != "gcc")
-cp ../test.mxx ./ && cat >+test.mxx <<EOI #;
+cp ../core.mxx ./ && cat >+core.mxx <<EOI #;
   int f (int i) {return i - 1;}
   EOI
 cp ../driver.cxx ./ #;
 $* test clean <<EOI
-  exe{test}: cxx{driver} mxx{test}
+  exe{test}: cxx{driver} mxx{core}
   EOI
 end
 
@@ -93,18 +93,142 @@ end
 :
 : Test separate interface/implementation unit specified as bmi{}.
 :
-cp ../test.mxx ../test.cxx ../driver.cxx ./;
+cp ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
-  exe{test}: cxx{driver} {bmi cxx}{test}
-  bmi{test}: mxx{test}
+  exe{test}: cxx{driver} {bmi cxx}{core}
+  bmi{core}: mxx{core}
   EOI
 
 : mxx-separate
 :
 : Test separate interface/implementation unit specified as mxx{}.
 :
-cp ../test.mxx ../test.cxx ../driver.cxx ./;
+cp ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
-  exe{test}: cxx{driver} {mxx cxx}{test}
+  exe{test}: cxx{driver} {mxx cxx}{core}
   EOI
+
+: name-match
+:
+: Test fuzzy match between module name and file name
+:
+{
+  # "Bad" match which we should better.
+  #
+  +cat <<EOI >=core.mxx
+    #if __cpp_modules >= 201704
+    export
+    #endif
+    module bar.core;
+    EOI
+
+  : separator
+  :
+  : Test separator equivalence.
+  :
+  cp ../../core.mxx foo-core.mxx;
+  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{core foo-core}'
+
+  : case
+  :
+  : Test case-insensitivity and case-change as a separator.
+  :
+  cp ../../core.mxx FooCore.mxx;
+  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{core FooCore}'
+
+  : dir
+  :
+  : Test subdirectory.
+  :
+  mkdir foo;
+  cp ../../core.mxx foo/core.mxx;
+  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{core} foo/mxx{core}'
+}
+
+: unresolved
+:
+cp ../driver.cxx ./;
+$* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
+  error: unresolved import for module foo.core
+  EOE
+
+: misguessed
+:
+cp ../core.mxx ./;
+cat <'import bar.core;' >=driver.cxx;
+$* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
+  error: failed to correctly guess module name from mxx{core}
+    info: guessed: bar.core
+    info: actual:  foo.core
+    info: consider adjusting module interface file names or
+    info: consider explicitly specifying module name with @@ MOD
+  EOE
+
+
+: re-export
+:
+: Test module re-exporting (export import M;)
+:
+if ($cxx.id.type != "clang")
+{
+  +cat <<EOI >=base.mxx
+    #if __cpp_modules >= 201704
+      export
+    #endif
+    module foo.base;
+    export import foo.core;
+    EOI
+
+  +cat <<EOI >=extra.mxx
+    #if __cpp_modules >= 201704
+      export
+    #endif
+    module foo.extra;
+    export import foo.base;
+    EOI
+
+  +cat <<EOI >=foo.mxx
+    #if __cpp_modules >= 201704
+      export
+    #endif
+    module foo;
+    export
+    {
+      import foo.core;
+      import foo.base;
+      import foo.extra;
+    }
+    EOI
+
+  : basic
+  :
+  cp ../base.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo.base;
+    int main (int argc, char*[]) {return f (argc);}
+    EOI
+  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base}'
+
+  : recursive
+  :
+  cp ../base.mxx ../extra.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo.extra;
+    int main (int argc, char*[]) {return f (argc);}
+    EOI
+  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base extra}'
+
+  : duplicate
+  :
+  cp ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo;
+    int main (int argc, char*[]) {return f (argc);}
+    EOI
+  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base extra foo}'
+}
+
 }

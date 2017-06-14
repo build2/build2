@@ -30,12 +30,14 @@ EOI
 $* <<EOI >>EOO
 export import foo;
 EOI
-import foo;
+export import foo;
 EOO
 
 : export-imported-block
 :
 $* <<EOI >>EOO
+import bar;
+
 export {import foo;}
 
 export
@@ -50,8 +52,8 @@ export
   import bar;
 }
 EOI
-import foo;
-import bar;
+export import bar;
+export import foo;
 EOO
 
 : non-module

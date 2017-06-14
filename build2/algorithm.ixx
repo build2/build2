@@ -364,21 +364,24 @@ namespace build2
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type*,
                          action, const target&,
-                         const timestamp&, const prerequisite_filter&);
+                         const timestamp&, const prerequisite_filter&,
+                         size_t);
 
   inline optional<target_state>
   execute_prerequisites (action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf)
+                         const timestamp& mt, const prerequisite_filter& pf,
+                         size_t n)
   {
-    return execute_prerequisites (nullptr, a, t, mt, pf).first;
+    return execute_prerequisites (nullptr, a, t, mt, pf, n).first;
   }
 
   template <typename T>
   inline pair<optional<target_state>, const T&>
   execute_prerequisites (action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf)
+                         const timestamp& mt, const prerequisite_filter& pf,
+                         size_t n)
   {
-    auto p (execute_prerequisites (T::static_type, a, t, mt, pf));
+    auto p (execute_prerequisites (T::static_type, a, t, mt, pf, n));
     return pair<optional<target_state>, const T&> (
       p.first, static_cast<const T&> (p.second));
   }
@@ -386,9 +389,10 @@ namespace build2
   inline pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf)
+                         const timestamp& mt, const prerequisite_filter& pf,
+                         size_t n)
   {
-    auto p (execute_prerequisites (&tt, a, t, mt, pf));
+    auto p (execute_prerequisites (&tt, a, t, mt, pf, n));
     return pair<optional<target_state>, const target&> (p.first, *p.second);
   }
 
@@ -396,9 +400,10 @@ namespace build2
   inline pair<optional<target_state>, const T&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf)
+                         const timestamp& mt, const prerequisite_filter& pf,
+                         size_t n)
   {
-    auto p (execute_prerequisites (tt, a, t, mt, pf));
+    auto p (execute_prerequisites (tt, a, t, mt, pf, n));
     return pair<optional<target_state>, const T&> (
       p.first, static_cast<const T&> (p.second));
   }
