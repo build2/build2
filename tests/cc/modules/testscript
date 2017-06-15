@@ -77,30 +77,26 @@ EOI
 :
 : Test combined interface/implementation unit specified as bmi{}.
 :
-if ($cxx.id != "gcc")
-cp ../core.mxx ./ && cat >+core.mxx <<EOI #;
+cp ../core.mxx ./ && cat >+core.mxx <<EOI;
   int f (int i) {return i - 1;}
   EOI
-cp ../driver.cxx ./ #;
+cp ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} bmi{core}
   bmi{core}: mxx{core}
   EOI
-end
 
 : mxx-combined
 :
 : Test combined interface/implementation unit specified as mxx{}.
 :
-if ($cxx.id != "gcc")
-cp ../core.mxx ./ && cat >+core.mxx <<EOI #;
+cp ../core.mxx ./ && cat >+core.mxx <<EOI;
   int f (int i) {return i - 1;}
   EOI
-cp ../driver.cxx ./ #;
+cp ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} mxx{core}
   EOI
-end
 
 : bmi-separate
 :
