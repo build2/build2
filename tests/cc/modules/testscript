@@ -14,12 +14,17 @@ EOI
 +cat <<EOI >=build/root.build
 cxx.std = experimental
 
-# Force modules except for VC where we need at least 15u3.
+# Force modules.
 #
-if ($cxx.id != 'msvc')
-  cxx.features.modules = true
+cxx.features.modules = true
 
 using cxx
+
+# We forced modules but for VC we need at least 15u3 (19.11). So "unforce"
+# them in this case.
+#
+if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 11)
+  cxx.features.modules = false
 
 hxx{*}: extension = hxx
 mxx{*}: extension = mxx
