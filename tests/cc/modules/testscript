@@ -16,7 +16,7 @@ cxx.std = experimental
 
 # Force modules except for VC where we need at least 15u3.
 #
-if ($cxx.id != "msvc")
+if ($cxx.id != 'msvc')
   cxx.features.modules = true
 
 using cxx
@@ -24,6 +24,9 @@ using cxx
 hxx{*}: extension = hxx
 mxx{*}: extension = mxx
 cxx{*}: extension = cxx
+
+if ($cxx.target.class == 'windows')
+  bmis{*}: cxx.poptions += '-DLIBFOO_EXPORT=__declspec(dllexport)'
 
 exe{*}: test = true
 EOI
@@ -43,12 +46,16 @@ if $modules
 # test directories if used.
 #
 +cat <<EOI >=core.mxx
+#ifndef LIBFOO_EXPORT
+#  define LIBFOO_EXPORT
+#endif
+
 #if __cpp_modules >= 201704
 export
 #endif
 module foo.core;
 
-export int f (int);
+export LIBFOO_EXPORT int f (int);
 EOI
 
 +cat <<EOI >=core.cxx
@@ -168,6 +175,15 @@ $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
     info: consider explicitly specifying module name with @@ MOD
   EOE
 
+: library
+:
+: Test importing a module from a library.
+:
+cp ../core.mxx ../core.cxx ../driver.cxx ./;
+$* test clean <<EOI
+  exe{test}: cxx{driver} lib{foo}
+  lib{foo}: {mxx cxx}{core}
+  EOI
 
 : re-export
 :
@@ -177,25 +193,39 @@ if ($cxx.id.type != "clang")
 {
   +cat <<EOI >=base.mxx
     #if __cpp_modules >= 201704
-      export
+    export
     #endif
     module foo.base;
+
     export import foo.core;
     EOI
 
   +cat <<EOI >=extra.mxx
+    #ifndef LIBFOO_EXPORT
+    #  define LIBFOO_EXPORT
+    #endif
+
     #if __cpp_modules >= 201704
-      export
+    export
     #endif
     module foo.extra;
-    export import foo.base;
+
+    export
+    {
+      import foo.base;
+
+      // VC appears to require dll-export of inline functions.
+      //
+      LIBFOO_EXPORT inline int g (int i) {return i != 0 ? i : -1;}
+    }
     EOI
 
   +cat <<EOI >=foo.mxx
     #if __cpp_modules >= 201704
-      export
+    export
     #endif
     module foo;
+
     export
     {
       import foo.core;
@@ -211,25 +241,37 @@ if ($cxx.id.type != "clang")
     import foo.base;
     int main (int argc, char*[]) {return f (argc);}
     EOI
-  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base}'
+  $* test clean <'exe{test}: cxx{driver core} mxx{core base}'
 
   : recursive
   :
   cp ../base.mxx ../extra.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo.extra;
-    int main (int argc, char*[]) {return f (argc);}
+    int main (int argc, char*[]) {return f (g (argc));}
     EOI
-  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base extra}'
+  $* test clean <'exe{test}: cxx{driver core} mxx{core base extra}'
 
   : duplicate
   :
   cp ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo;
-    int main (int argc, char*[]) {return f (argc);}
+    int main (int argc, char*[]) {return f (g (argc));}
     EOI
-  $* test clean <'exe{test}: cxx{driver core} {mxx}{core base extra foo}'
+  $* test clean <'exe{test}: cxx{driver core} mxx{core base extra foo}'
+
+  : library
+  :
+  cp ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo;
+    int main (int argc, char*[]) {return f (g (argc));}
+    EOI
+  $* test clean <<EOI
+    exe{test}: cxx{driver} mxx{foo} lib{foo}
+    lib{foo}: mxx{core base extra} cxx{core}
+    EOI
 }
 
 }

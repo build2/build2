@@ -900,6 +900,12 @@ namespace build2
       return target != nullptr ? *target : build2::search (t, prerequisite);
     }
 
+    const target_type*
+    load (memory_order mo = memory_order_consume)
+    {
+      return target != nullptr ? target : prerequisite.target.load (mo);
+    }
+
     // Return as a new prerequisite instance.
     //
     prerequisite_type

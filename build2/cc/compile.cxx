@@ -186,24 +186,23 @@ namespace build2
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      // Note that here we don't need to see group members.
-      //
-      for (const prerequisite& p: group_prerequisites (t))
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        // Should be already searched and matched.
+        // Should be already searched and matched for libraries.
         //
-        const target* pt (p.target.load (memory_order_consume));
+        if (const target* pt = p.load ())
+        {
+          bool a;
 
-        bool a;
+          if (const lib* l = pt->is_a<lib> ())
+            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
+          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+            continue;
 
-        if (const lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
-          continue;
-
-        process_libraries (act, bs, lo, sys_lib_dirs,
-                           pt->as<file> (), a,
-                           nullptr, nullptr, optf);
+          process_libraries (act, bs, lo, sys_lib_dirs,
+                             pt->as<file> (), a,
+                             nullptr, nullptr, optf);
+        }
       }
     }
 
@@ -227,26 +226,25 @@ namespace build2
         hash_options (cs, l, var);
       };
 
-      // In case we don't have the "small function object" optimization.
+      // The same logic as in append_lib_options().
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (const prerequisite& p: group_prerequisites (t))
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        // Should be already searched and matched.
-        //
-        const target* pt (p.target.load (memory_order_consume));
+        if (const target* pt = p.load ())
+        {
+          bool a;
 
-        bool a;
+          if (const lib* l = pt->is_a<lib> ())
+            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
+          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+            continue;
 
-        if (const lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
-          continue;
-
-        process_libraries (act, bs, lo, sys_lib_dirs,
-                           pt->as<file> (), a,
-                           nullptr, nullptr, optf);
+          process_libraries (act, bs, lo, sys_lib_dirs,
+                             pt->as<file> (), a,
+                             nullptr, nullptr, optf);
+        }
       }
     }
 
@@ -273,26 +271,25 @@ namespace build2
         append_prefixes (m, l, var);
       };
 
-      // In case we don't have the "small function object" optimization.
+      // The same logic as in append_lib_options().
       //
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (const prerequisite& p: group_prerequisites (t))
+      for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        // Should be already searched and matched.
-        //
-        const target* pt (p.target.load (memory_order_consume));
+        if (const target* pt = p.load ())
+        {
+          bool a;
 
-        bool a;
+          if (const lib* l = pt->is_a<lib> ())
+            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
+          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+            continue;
 
-        if (const lib* l = pt->is_a<lib> ())
-          a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-        else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
-          continue;
-
-        process_libraries (act, bs, lo, sys_lib_dirs,
-                           pt->as<file> (), a,
-                           nullptr, nullptr, optf);
+          process_libraries (act, bs, lo, sys_lib_dirs,
+                             pt->as<file> (), a,
+                             nullptr, nullptr, optf);
+        }
       }
     }
 
@@ -2366,10 +2363,10 @@ namespace build2
     // Resolve imported modules to bmi*{} targets.
     //
     modules_positions compile::
-    search_modules (const scope& /*bs*/,
+    search_modules (const scope& /*bs*/, //@@ MOD: no need?
                     action act,
                     file& t,
-                    lorder /*lo*/,
+                    lorder lo,
                     const target_type& mtt,
                     module_imports&& imports) const
     {
@@ -2404,7 +2401,8 @@ namespace build2
       //
       // So, the fuzzy match: the idea is that each match gets a score, the
       // number of characters in the module name that got matched. A match
-      // with the highest score is used.
+      // with the highest score is used. And we use the (length + 1) for a
+      // match against an actual module name.
       //
       auto match = [] (const string& f, const string& m) -> size_t
       {
@@ -2532,30 +2530,118 @@ namespace build2
               return !x.exported && y.exported;
             });
 
-      // Go over the prerequisites once checking if each (better) matches any
-      // of the imports.
+      // Go over the prerequisites once.
       //
+      // For (direct) library prerequisites, check their prerequisite bmi{}s
+      // (which should be searched and matched with module names discovered;
+      // see the library meta-information protocol for details).
+      //
+      // For our own bmi{} prerequisites, checking if each (better) matches
+      // any of the imports.
+
+      // Check if a "name" (better) resolves any of our imports and if so make
+      // it the new selection. If fuzzy is true, then it is a file name,
+      // otherwise it is the actual module name.
+      //
+      // Return true if all the imports have now been resolved to actual
+      // module names (which means we can stop searching). This will happens
+      // if all the modules come from libraries. Which will be fairly common
+      // (think of all the tests) so it's worth optimizing for.
+      //
+      auto check = [&imports, &pts, &match, start, n]
+        (const target* pt, const string& name, bool fuzzy) -> bool
+      {
+        bool done (true);
+
+        for (size_t i (0); i != n; ++i)
+        {
+          module_import& m (imports[i]);
+          size_t n (m.name.size ());
+
+          if (m.score > n) // Resolved to module name (no effect on done).
+            continue;
+
+          size_t s (fuzzy ?
+                    match (name, m.name) :
+                    (name == m.name ? n + 1 : 0));
+
+          if (s > m.score)
+          {
+            pts[start + i] = pt;
+            m.score = s;
+          }
+
+          done = done && s > n;
+        }
+
+        return done;
+      };
+
+      bool done (false);
       for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        const target* bt (nullptr);
+        const target* pt (p.load ()); // Should be cached for libraries.
+
+        if (pt != nullptr)
+        {
+          const target* lt (nullptr);
+
+          if (const lib* l = pt->is_a<lib> ())
+            lt = &link_member (*l, act, lo);
+          else if (pt->is_a<liba> () || pt->is_a<libs> ())
+            lt = pt;
+
+          // If this is a library, check its bmi{}s.
+          //
+          if (lt != nullptr)
+          {
+            for (const target* bt: lt->prerequisite_targets)
+            {
+              // Note that here we (try) to use whatever flavor of bmi*{} is
+              // available.
+              //
+              // @@ MOD: BMI compatibility check.
+              //
+              if (bt != nullptr &&
+                  (bt->is_a<bmis> () ||
+                   bt->is_a<bmia> () ||
+                   bt->is_a<bmie> ()))
+              {
+                const string& n (cast<string> (bt->vars[c_module_name]));
+
+                if ((done = check (bt, n, false)))
+                  break;
+              }
+            }
+
+            if (done)
+              break;
+
+            continue;
+          }
+
+          // Fall through.
+        }
 
         // While it would have been even better not to search for a target, we
         // need to get hold of the corresponding mxx{} (unlikely but possible
         // for bmi{} to have a different name).
         //
         if (p.is_a<bmi> ())
-          bt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
+          pt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
         else if (p.is_a (mtt))
-          bt = &p.search (t);
-
-        if (bt == nullptr)
+        {
+          if (pt == nullptr)
+            pt = &p.search (t);
+        }
+        else
           continue;
 
         // Find the mxx{} prerequisite and extract its "file name" for the
         // fuzzy match.
         //
         string f;
-        for (prerequisite_member p: group_prerequisite_members (act, *bt))
+        for (prerequisite_member p: group_prerequisite_members (act, *pt))
         {
           if (p.is_a (*x_mod))
           {
@@ -2582,27 +2668,22 @@ namespace build2
 
         // Check if it resolves any of our imports.
         //
-        for (size_t i (0); i != n; ++i)
-        {
-          module_import& m (imports[i]);
-          size_t s (match (f, m.name));
-          if (s > m.score)
-          {
-            pts[start + i] = bt;
-            m.score = s;
-          }
-        }
+        if ((done = check (pt, f, true)))
+          break;
       }
 
       // Diagnose unresolved modules.
       //
-      for (size_t i (0); i != n; ++i)
+      if (!done)
       {
-        if (pts[start + i] == nullptr)
+        for (size_t i (0); i != n; ++i)
         {
-          // @@ MOD: keep import location for diagnostics?
-          //
-          fail << "unresolved import for module " << imports[i].name;
+          if (pts[start + i] == nullptr)
+          {
+            // @@ MOD: keep import location for diagnostics?
+            //
+            fail << "unresolved import for module " << imports[i].name;
+          }
         }
       }
 
@@ -2620,22 +2701,27 @@ namespace build2
         const module_import& m (imports[i]);
         const target& bt (*pts[start + i]);
 
-        // Verify our guesses against extracted module names.
+        // Verify our guesses against extracted module names but don't waste
+        // time if it was a match against the actual module name.
         //
         const string& in (m.name);
-        const string& mn (cast<string> (bt.vars[c_module_name]));
 
-        if (in != mn)
+        if (m.score <= in.size ())
         {
-          for (prerequisite_member p: group_prerequisite_members (act, bt))
+          const string& mn (cast<string> (bt.vars[c_module_name]));
+
+          if (in != mn)
           {
-            if (p.is_a (*x_mod)) // Got to be there.
+            for (prerequisite_member p: group_prerequisite_members (act, bt))
             {
-              fail << "failed to correctly guess module name from " << p <<
-                info << "guessed: " << in <<
-                info << "actual:  " << mn <<
-                info << "consider adjusting module interface file names or" <<
-                info << "consider explicitly specifying module name with @@ MOD";
+              if (p.is_a (*x_mod)) // Got to be there.
+              {
+                fail << "failed to correctly guess module name from " << p <<
+                  info << "guessed: " << in <<
+                  info << "actual:  " << mn <<
+                  info << "consider adjusting module interface file names or" <<
+                  info << "consider explicitly specifying module name with @@ MOD";
+              }
             }
           }
         }
