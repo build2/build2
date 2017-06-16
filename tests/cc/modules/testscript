@@ -118,7 +118,7 @@ $* test clean <<EOI
 
 : name-match
 :
-: Test fuzzy match between module name and file name
+: Test fuzzy/explicit match between module name and file name.
 :
 {
   # "Bad" match which we should better.
@@ -154,6 +154,17 @@ $* test clean <<EOI
   ln -s ../../core.mxx foo/core.mxx;
   ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{core} foo/mxx{core}'
+
+  : explicit
+  :
+  : Explicit module name.
+  :
+  ln -s ../../core.mxx baz.mxx;
+  ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  $* test clean <<EOO
+    exe{test}: cxx{driver core} mxx{core baz}
+    mxx{baz}@./: cc.module_name = foo.core
+    EOO
 }
 
 : unresolved
@@ -172,7 +183,7 @@ $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
     info: guessed: bar.core
     info: actual:  foo.core
     info: consider adjusting module interface file names or
-    info: consider explicitly specifying module name with @@ MOD
+    info: consider specifying module name with cc.module_name
   EOE
 
 : library

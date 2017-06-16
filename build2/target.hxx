@@ -29,8 +29,10 @@ namespace build2
 
   extern size_t current_on; // From <build/context>.
 
-  const target&
-  search (const target&, const prerequisite&); // From <build2/algorithm.hxx>.
+  // From <build2/algorithm.hxx>.
+  //
+  const target& search (const target&, const prerequisite&);
+  const target* search_existing (const prerequisite&);
 
   // Target state.
   //
@@ -904,6 +906,14 @@ namespace build2
     load (memory_order mo = memory_order_consume)
     {
       return target != nullptr ? target : prerequisite.target.load (mo);
+    }
+
+    const target_type*
+    search_existing () const
+    {
+      return target != nullptr
+        ? target
+        : build2::search_existing (prerequisite);
     }
 
     // Return as a new prerequisite instance.

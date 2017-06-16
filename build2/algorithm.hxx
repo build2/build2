@@ -24,6 +24,11 @@ namespace build2
   const target&
   search (const target&, const prerequisite&);
 
+  // As above but only search for an already existing target.
+  //
+  const target*
+  search_existing (const target&, const prerequisite&);
+
   // As above but specify the prerequisite to search as a key.
   //
   const target&
@@ -72,9 +77,8 @@ namespace build2
   const target&
   search (const target&, name, const scope&);
 
-  // As above but only search for an already existing target. Unlike the above
-  // version, this one can be called during the execute phase. Return NULL for
-  // unknown target types.
+  // Unlike the above version, this one can be called during the execute
+  // phase. Return NULL for unknown target types.
   //
   const target*
   search_existing (const name&,

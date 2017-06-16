@@ -2780,37 +2780,48 @@ namespace build2
           continue;
 
         // Find the mxx{} prerequisite and extract its "file name" for the
-        // fuzzy match.
+        // fuzzy match unless the user specified the module name explicitly.
         //
-        string f;
         for (prerequisite_member p: group_prerequisite_members (act, *pt))
         {
           if (p.is_a (*x_mod))
           {
-            //@@ MOD: TODO check if module name set? Won't we have to search
-            //   it for that? Search to existing only?
-
-            // Add the directory part if it is relative. The idea is to
-            // include it into the module match, say hello.core vs
-            // hello/mxx{core}. Why not for absolute? Good question. What
-            // if it contains special components, say, ../mxx{core}?
+            // Check for an explicit module name. Only look for an existing
+            // target (which means the name can only be specified on the
+            // target itself, no target type/pattern-spec).
             //
-            const dir_path& d (p.dir ());
+            const target* t (p.search_existing ());
+            const string* n (t != nullptr
+                             ? cast_null<string> (t->vars[c_module_name])
+                             : nullptr);
+            if (n != nullptr)
+              done = check (pt, *n, false);
+            else
+            {
+              // Fuzzy match.
+              //
+              string f;
 
-            if (!d.empty () && d.relative ())
-              f = d.representation (); // Includes trailing slash.
+              // Add the directory part if it is relative. The idea is to
+              // include it into the module match, say hello.core vs
+              // hello/mxx{core}.
+              //
+              // @@ MOD: Why not for absolute? Good question. What if it
+              // contains special components, say, ../mxx{core}?
+              //
+              const dir_path& d (p.dir ());
 
-            f += p.name ();
+              if (!d.empty () && d.relative ())
+                f = d.representation (); // Includes trailing slash.
+
+              f += p.name ();
+              done = check (pt, f, true);
+            }
             break;
           }
         }
 
-        if (f.empty ()) // bmi{} without mxx{}? Good luck with that.
-          continue;
-
-        // Check if it resolves any of our imports.
-        //
-        if ((done = check (pt, f, true)))
+        if (done)
           break;
       }
 
@@ -2880,7 +2891,7 @@ namespace build2
                   info << "guessed: " << in <<
                   info << "actual:  " << mn <<
                   info << "consider adjusting module interface file names or" <<
-                  info << "consider explicitly specifying module name with @@ MOD";
+                  info << "consider specifying module name with cc.module_name";
               }
             }
           }
