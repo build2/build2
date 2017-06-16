@@ -135,6 +135,11 @@ namespace build2
   basic_path<char, K>
   relative (const basic_path<char, K>&);
 
+  class path_target;
+
+  path
+  relative (const path_target&);
+
   // In addition to calling relative(), this function also uses shorter
   // notations such as '~/'. For directories the result includes the trailing
   // slash. If the path is the same as base, returns "./" if current is true

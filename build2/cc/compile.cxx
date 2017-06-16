@@ -2451,7 +2451,7 @@ namespace build2
       if (!modules)
       {
         if (!mi.name.empty () || !mi.imports.empty ())
-          fail << "modules support not enabled or unavailable";
+          fail (relative (src)) << "modules support not enabled/available";
 
         return;
       }
@@ -2482,7 +2482,7 @@ namespace build2
 
       if (!mi.imports.empty ())
         md.mod_pos = search_modules (
-          act, t, lo, tt.bmi, move (mi.imports), cs);
+          act, t, lo, tt.bmi, src, move (mi.imports), cs);
 
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
@@ -2508,6 +2508,7 @@ namespace build2
                     file& t,
                     lorder lo,
                     const target_type& mtt,
+                    const file& src,
                     module_imports&& imports,
                     sha256& cs) const
     {
@@ -2769,7 +2770,7 @@ namespace build2
         // for bmi{} to have a different name).
         //
         if (p.is_a<bmi> ())
-          pt = &search (t, mtt, p.key ()); //@@ MOD: fuzzy...
+          pt = &search (t, mtt, p.key ()); // Same logic as in picking obj*{}.
         else if (p.is_a (mtt))
         {
           if (pt == nullptr)
@@ -2821,9 +2822,25 @@ namespace build2
         {
           if (pts[start + i] == nullptr)
           {
-            // @@ MOD: keep import location for diagnostics?
+            // It would have been nice to print the location of the import
+            // declaration. And we could save it during parsing at the expense
+            // of a few paths (that can be pooled). The question is what to do
+            // when we re-create this information from depdb? We could have
+            // saved the location information there but the relative paths
+            // (e.g., from the #line directives) could end up being wrong if
+            // the we re-run from a different working directory.
             //
-            fail << "unresolved import for module " << imports[i].name;
+            // It seems the only workable approach is to extract full location
+            // info during parse, not save it in depdb, when re-creating,
+            // fallback to just src path without any line/column information.
+            // This will probably cover the majority of case (most of the time
+            // it will be a misspelled module name, not a removal of module
+            // from buildfile).
+            //
+            // But at this stage this doesn't seem worth the trouble.
+            //
+            fail (relative (src)) << "unable to resolve module "
+                                  << imports[i].name;
           }
         }
       }
@@ -2858,7 +2875,8 @@ namespace build2
             {
               if (p.is_a (*x_mod)) // Got to be there.
               {
-                fail << "failed to correctly guess module name from " << p <<
+                fail (relative (src)) << "failed to correctly guess module "
+                                      << "name from " << p <<
                   info << "guessed: " << in <<
                   info << "actual:  " << mn <<
                   info << "consider adjusting module interface file names or" <<

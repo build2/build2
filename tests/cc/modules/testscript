@@ -160,7 +160,7 @@ $* test clean <<EOI
 :
 ln -s ../driver.cxx ./;
 $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
-  error: unresolved import for module foo.core
+  driver.cxx: error: unable to resolve module foo.core
   EOE
 
 : misguessed
@@ -168,7 +168,7 @@ $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
 ln -s ../core.mxx ./;
 cat <'import bar.core;' >=driver.cxx;
 $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
-  error: failed to correctly guess module name from mxx{core}
+  driver.cxx: error: failed to correctly guess module name from mxx{core}
     info: guessed: bar.core
     info: actual:  foo.core
     info: consider adjusting module interface file names or

@@ -98,7 +98,7 @@ $* &test* <<EOI 2>>EOE != 0
   cc.preprocessed = modules
   exe{test}: cxx{test}
   EOI
-  error: modules support not enabled or unavailable
+  test.cxx: error: modules support not enabled/available
   EOE
 
 : all

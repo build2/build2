@@ -224,7 +224,18 @@ namespace build2
                             const char* name,
                             const location& l,
                             uint16_t sverb)
-        : type_ (type), mod_ (mod), name_ (name), loc_ (l), sverb_ (sverb) {}
+        : type_ (type), mod_ (mod), name_ (name),
+          loc_ (l),
+          sverb_ (sverb) {}
+
+    location_prologue_base (const char* type,
+                            const char* mod,
+                            const char* name,
+                            path&& f,
+                            uint16_t sverb)
+        : type_ (type), mod_ (mod), name_ (name),
+          file_ (move (f)), loc_ (&file_),
+          sverb_ (sverb) {}
 
     void
     operator() (const diag_record& r) const;
@@ -233,6 +244,7 @@ namespace build2
     const char* type_;
     const char* mod_;
     const char* name_;
+    const path file_;
     const location loc_;
     const uint16_t sverb_;
   };
@@ -263,6 +275,15 @@ namespace build2
     operator() (const location& l) const
     {
       return location_prologue (epilogue_, type_, mod_, name_, l, sverb_ ());
+    }
+
+    // fail (relative (src)) << ...
+    //
+    location_prologue
+    operator() (path&& f) const
+    {
+      return location_prologue (
+        epilogue_, type_, mod_, name_, move (f), sverb_ ());
     }
 
     template <typename L>

@@ -10,6 +10,7 @@
 #include <cstdlib>  // strtol()
 #include <iostream> // cerr
 
+#include <build2/target.hxx>
 #include <build2/variable.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -124,6 +125,14 @@ namespace build2
   dir_path work;
   dir_path home;
   const dir_path* relative_base = &work;
+
+  path
+  relative (const path_target& t)
+  {
+    const path& p (t.path ());
+    assert (!p.empty ());
+    return relative (p);
+  }
 
   string
   diag_relative (const path& p, bool cur)

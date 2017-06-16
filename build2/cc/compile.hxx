@@ -113,7 +113,7 @@ namespace build2
 
       modules_positions
       search_modules (action, file&, lorder, const target_type&,
-                      module_imports&&, sha256&) const;
+                      const file&, module_imports&&, sha256&) const;
 
       void
       append_modules (cstrings&, strings&, const file&) const;
