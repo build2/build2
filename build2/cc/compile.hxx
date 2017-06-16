@@ -101,15 +101,19 @@ namespace build2
       extract_headers (action, file&, lorder,
                        const file&, const match_data&,
                        depdb&, bool&) const;
+
+      translation_unit
+      parse_unit (action, file&, lorder,
+                  const file&, auto_rmfile&, const match_data&) const;
+
       void
       extract_modules (action, file&, lorder, const compile_target_types&,
-                       const file&, auto_rmfile&, match_data&,
-                       depdb&, bool&) const;
+                       const file&, match_data&,
+                       module_info&&, depdb&, bool&) const;
 
       modules_positions
-      search_modules (const scope&,
-                      action, file&, lorder, const target_type&,
-                      module_imports&&) const;
+      search_modules (action, file&, lorder, const target_type&,
+                      module_imports&&, sha256&) const;
 
       void
       append_modules (cstrings&, strings&, const file&) const;

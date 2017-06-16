@@ -14,7 +14,7 @@ namespace build2
 {
   namespace cc
   {
-    // Translation unit information (currently modules).
+    // Translation unit information.
     //
     struct module_import
     {
@@ -25,11 +25,16 @@ namespace build2
 
     using module_imports = vector<module_import>;
 
+    struct module_info
+    {
+      string         name;    // Not empty if a module unit.
+      bool           iface;   // True if a module interface unit.
+      module_imports imports; // Imported modules.
+    };
+
     struct translation_unit
     {
-      string             module_name;      // Not empty if a module unit.
-      bool               module_interface; // True if a module interface unit.
-      cc::module_imports module_imports;   // Imported modules.
+      module_info mod;
     };
 
     // Compiler language.

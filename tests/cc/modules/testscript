@@ -275,4 +275,34 @@ if ($cxx.id.type != "clang")
     EOI
 }
 
+: resolve-change
+:
+: Test detection of module name to BMI resolution change.
+:
+cp ../core.mxx ../core.cxx ../driver.cxx ./;
+cat <<EOI >=foo-core.mxx;
+  #if __cpp_modules >= 201704
+  export
+  #endif
+  module foo.core;
+  export inline int f (int i) {return i - 2;}
+  EOI
+$* update <<EOI;
+  ./: exe{test} bmie{foo-core}
+  exe{test}: cxx{driver} {mxx cxx}{core}
+  bmie{foo-core}: mxx{foo-core}
+  EOI
+$* test --verbose 1 <<EOI 2>>EOE;
+  exe{test}: cxx{driver} {mxx}{foo-core}
+  exe{test}: test.arguments = two
+  EOI
+  c++ cxx{driver}
+  ld exe{test}
+  test exe{test}
+  EOE
+$* test clean <<EOI
+  ./: exe{test} bmie{foo-core}
+  exe{test}: cxx{driver} {mxx cxx}{core}
+  bmie{foo-core}: mxx{foo-core}
+  EOI
 }

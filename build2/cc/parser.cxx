@@ -21,7 +21,7 @@ namespace build2
       lexer l (is, name);
       l_ = &l;
 
-      translation_unit u {"", false, {}};
+      translation_unit u {{"", false, {}}};
       u_ = &u;
 
       // If the source has errors then we want the compiler to issues the
@@ -146,7 +146,7 @@ namespace build2
       // Ignore duplicates. We don't expect a large numbers of imports so
       // vector/linear search is probably more efficient than a set.
       //
-      auto& is (u_->module_imports);
+      auto& is (u_->mod.imports);
 
       auto i (find_if (is.begin (), is.end (),
                        [&n] (const module_import& i)
@@ -176,11 +176,11 @@ namespace build2
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
 
-      if (!u_->module_name.empty ())
+      if (!u_->mod.name.empty ())
         fail (t) << "multiple module declarations";
 
-      u_->module_name = move (n);
-      u_->module_interface = ex;
+      u_->mod.name = move (n);
+      u_->mod.iface = ex;
     }
 
     string parser::

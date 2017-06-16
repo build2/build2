@@ -9,7 +9,7 @@ test.arguments = config.cxx="$recall($cxx.path)" update
 
 # Trace filter.
 #
-# trace: cxx::compile::extract_(header|modules): target: .../obje{(test).o...}
+# trace: cxx::compile::extract_(headers|modules): target: .../obje{(test).o...}
 #
 filter = sed -n -e \
   \''s/^trace: cxx::compile::extract_([^:]+): target:[^{]+\{([^.]+).*/\1 \2/p'\'
@@ -100,7 +100,6 @@ $* &test* <<EOI 2>>EOE != 0
   EOI
   error: modules support not enabled or unavailable
   EOE
-
 
 : all
 :

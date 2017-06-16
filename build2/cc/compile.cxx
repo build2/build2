@@ -29,6 +29,81 @@ namespace build2
   {
     using namespace bin;
 
+    // module_info string serialization.
+    //
+    // The string representation is a space-separated list of module names
+    // with the following rules:
+    //
+    // 1. If this is a module interface unit, then the first name is the
+    //    module name intself following by either '!' for an interface unit or
+    //    by '+' for an implementation unit.
+    //
+    // 2. If an imported module is re-exported, then the module name is
+    //    followed by '*'.
+    //
+    // For example:
+    //
+    // foo! foo.core* foo.base* foo.impl
+    // foo.base+ foo.impl
+    // foo.base foo.impl
+    //
+    static string
+    to_string (const module_info& m)
+    {
+      string s;
+
+      if (!m.name.empty ())
+      {
+        s += m.name;
+        s += m.iface ? '!' : '+';
+      }
+
+      for (const module_import& i: m.imports)
+      {
+        if (!s.empty ())
+          s += ' ';
+
+        s += i.name;
+
+        if (i.exported)
+          s += '*';
+      }
+
+      return s;
+    }
+
+    static module_info
+    to_module_info (const string& s)
+    {
+      module_info m;
+
+      for (size_t b (0), e (0), n; (n = next_word (s, b, e, ' ')) != 0; )
+      {
+        char c (s[e - 1]);
+        switch (c)
+        {
+        case '!':
+        case '+':
+        case '*': break;
+        default:  c = '\0';
+        }
+
+        string w (s, b, n - (c == '\0' ? 0 : 1));
+
+        if (c == '!' || c == '+')
+        {
+          m.name = move (w);
+          m.iface = (c == '!');
+        }
+        else
+          m.imports.push_back (module_import {move (w), c == '*', 0});
+      }
+
+      return m;
+    }
+
+    // preprocessed
+    //
     template <typename T>
     inline bool
     operator< (preprocessed l, T r) // Template because of VC14 bug.
@@ -62,7 +137,7 @@ namespace build2
     compile::
     compile (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".compile 1")
+          rule_id (string (x) += ".compile 3")
     {
       static_assert (sizeof (compile::match_data) <= target::data_size,
                      "insufficient space");
@@ -608,7 +683,8 @@ namespace build2
         //
         sha256 cs;
 
-        // This affects how we compile the source so factor it in.
+        // This affects how we compile the source as well as the format of
+        // depdb so factor it in.
         //
         cs.append (&md.pp, sizeof (md.pp));
 
@@ -695,29 +771,65 @@ namespace build2
         if (md.pp < preprocessed::includes)
           p = extract_headers (act, t, lo, src, md, dd, u);
 
+        // Next we "obtain" the translation unit information. What exactly
+        // "obtain" entails is tricky: If things changed, then we re-parse the
+        // translation unit. Otherwise, we re-create this information from
+        // depdb. We, however, have to do it here and now in case the database
+        // is invalid and we still have to fallback to re-parse.
+        //
+        translation_unit tu;
+        for (bool f (true);; f = false)
+        {
+          if (u)
+            tu = parse_unit (act, t, lo, src, p.first, md);
+
+          if (modules)
+          {
+            if (u)
+            {
+              string s (to_string (tu.mod));
+
+              if (f)
+                dd.expect (s);
+              else
+                dd.write (s);
+            }
+            else
+            {
+              if (string* l = dd.read ())
+                tu.mod = to_module_info (*l);
+              else
+              {
+                // Database is invalid, re-parse.
+                //
+                u = true;
+                continue;
+              }
+            }
+          }
+
+          break;
+        }
+
+        // Extract the module dependency information in addition to header
+        // dependencies.
+        //
+        // NOTE: assumes that no further targets will be added into
+        //       t.prerequisite_targets!
+        //
+        extract_modules (act, t, lo, tt, src, md, move (tu.mod), dd, u);
+
         // If anything got updated, then we didn't rely on the cache. However,
         // the cached data could actually have been valid and the compiler run
         // in extract_headers() merely validated it.
         //
-        // We do need to update the database timestamp, however. Failed
-        // that, we will keep re-validating the cached data over and over
-        // again.
+        // We do need to update the database timestamp, however. Failed that,
+        // we will keep re-validating the cached data over and over again.
         //
         if (u && dd.reading ())
           dd.touch ();
 
         dd.close ();
-
-        // Extract the module dependency information in addition to header
-        // dependencies above.
-        //
-        // NOTE: assumes that no further targets will be added into
-        //       t.prerequisite_targets!
-        //
-        if (u) // @@ TMP (depdb validation similar to extract_headers()).
-        {
-          extract_modules (act, t, lo, tt, src, p.first, md, dd, u);
-        }
 
         // If the preprocessed output is suitable for compilation and is not
         // disabled, then pass it along.
@@ -1745,7 +1857,9 @@ namespace build2
           //
           assert (skip_count == 0);
 
-          while (dd.more ())
+          // We should always end with a blank line.
+          //
+          for (;;)
           {
             string* l (dd.read ());
 
@@ -1756,6 +1870,9 @@ namespace build2
               restart = true;
               break;
             }
+
+            if (l->empty ()) // Done, nothing changed, no preprocessed output.
+              return make_pair (auto_rmfile (), false);
 
             restart = add (path (move (*l)), true);
             skip_count++;
@@ -2089,38 +2206,32 @@ namespace build2
         }
       }
 
+      // Add the terminating blank line (we are updated depdb).
+      //
+      dd.expect ("");
+
       puse = puse && !psrc.path ().empty ();
       return make_pair (move (psrc), puse);
     }
 
-    // Extract and inject module dependencies.
-    //
-    void compile::
-    extract_modules (action act,
-                     file& t,
-                     lorder lo,
-                     const compile_target_types& tt,
-                     const file& src,
-                     auto_rmfile& psrc,
-                     match_data& md,
-                     depdb& /*dd*/,
-                     bool& /*updating*/) const
+    translation_unit compile::
+    parse_unit (action act,
+                file& t,
+                lorder lo,
+                const file& src,
+                auto_rmfile& psrc,
+                const match_data& md) const
     {
-      tracer trace (x, "compile::extract_modules");
+      tracer trace (x, "compile::parse_unit");
 
-      l5 ([&]{trace << "target: " << t;});
-
-      // If things go wrong (and they often do in this area), give the user a
-      // bit extra context.
+      // If things go wrong give the user a bit extra context.
       //
       auto df = make_diag_frame (
         [&src](const diag_record& dr)
         {
           if (verb != 0)
-            dr << info << "while extracting module dependencies from " << src;
+            dr << info << "while parsing " << src;
         });
-
-      const scope& bs (t.base_scope ());
 
       // For some compilers (GCC, Clang) the preporcessed output is only
       // partially preprocessed. For others (VC), it is already fully
@@ -2150,7 +2261,7 @@ namespace build2
           //
           args.push_back (cpath.recall_string ());
 
-          append_lib_options (bs, args, t, act, lo);
+          append_lib_options (t.base_scope (), args, t, act, lo);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
@@ -2221,8 +2332,6 @@ namespace build2
 
       // Preprocess and parse.
       //
-      translation_unit tu;
-
       for (;;) // Breakout loop.
       try
       {
@@ -2256,7 +2365,7 @@ namespace build2
                         fdstream_mode::text | fdstream_mode::skip);
 
           parser p;
-          tu = p.parse (is, rels);
+          translation_unit tu (p.parse (is, rels));
 
           is.close ();
 
@@ -2265,7 +2374,14 @@ namespace build2
             if (ps)
               psrc = auto_rmfile (move (rels)); // Re-arm.
 
-            break;
+            // VC15 is not (yet) using the 'export module' syntax so use the
+            // preprequisite type to distinguish between interface and
+            // implementation units.
+            //
+            if (cid == compiler_id::msvc && src.is_a (*x_mod))
+              tu.mod.iface = true;
+
+            return tu;
           }
 
           // Fall through.
@@ -2282,14 +2398,16 @@ namespace build2
         const process_exit& e (*pr.exit);
 
         // What should we do with a normal error exit? Remember we suppressed
-        // the compiler's diagnostics. Let's issue a warning and continue with
-        // the assumption that the compilation step fails with diagnostics.
+        // the compiler's diagnostics. We used to issue a warning and continue
+        // with the assumption that the compilation step will fail with
+        // diagnostics. The problem with this approach is that we may fail
+        // before that because the information we return (e.g., module name)
+        // is bogus. So looks like failing is the only option.
         //
         if (e.normal ())
         {
-          warn << "unable to extract module dependency information from "
-               << src;
-          return;
+          fail << "unable to preprocess " << src <<
+            info << "re-run with -s -V to display the failing command";
         }
         else
           fail << args[0] << " terminated abnormally: " << e.description ();
@@ -2300,75 +2418,98 @@ namespace build2
 
         if (e.child)
           exit (1);
+      }
 
-        throw failed ();
+      throw failed ();
+    }
+
+    // Extract and inject module dependencies.
+    //
+    void compile::
+    extract_modules (action act,
+                     file& t,
+                     lorder lo,
+                     const compile_target_types& tt,
+                     const file& src,
+                     match_data& md,
+                     module_info&& mi,
+                     depdb& dd,
+                     bool& updating) const
+    {
+      tracer trace (x, "compile::extract_modules");
+      l5 ([&]{trace << "target: " << t;});
+
+      // If things go wrong, give the user a bit extra context.
+      //
+      auto df = make_diag_frame (
+        [&src](const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info << "while extracting module dependencies from " << src;
+        });
+
+      if (!modules)
+      {
+        if (!mi.name.empty () || !mi.imports.empty ())
+          fail << "modules support not enabled or unavailable";
+
+        return;
       }
 
       // Sanity checks.
       //
-      if (modules)
-      {
-        // If we are compiling a module interface unit, make sure it has the
-        // necessary declarations.
-        //
-        if (src.is_a (*x_mod))
-        {
-          // VC is not (yet) using the 'export module' syntax so use the
-          // preprequisite type to distinguish between interface and
-          // implementation units.
-          //
-          if (cid == compiler_id::msvc)
-            tu.module_interface = true;
-
-          if (tu.module_name.empty () || !tu.module_interface)
-            fail << src << " is not a module interface unit";
-        }
-      }
-
-      if (tu.module_name.empty () && tu.module_imports.empty ())
-        return;
-
-      // Modules are used by this translation unit. Make sure module support
-      // is enabled.
+      // If we are compiling a module interface unit, make sure it has the
+      // necessary declarations.
       //
-      if (!modules)
-        fail << "modules support not enabled or unavailable";
+      if (src.is_a (*x_mod) && (mi.name.empty () || !mi.iface))
+        fail << src << " is not a module interface unit";
 
       // Search and match all the modules we depend on. If this is a module
       // implementation unit, then treat the module itself as if it was
-      // imported.
+      // imported. Note: move.
       //
-      if (!tu.module_interface && !tu.module_name.empty ())
-        tu.module_imports.push_back (
-          module_import {move (tu.module_name), false, 0});
+      if (!mi.iface && !mi.name.empty ())
+        mi.imports.push_back (module_import {move (mi.name), false, 0});
 
-      if (!tu.module_imports.empty ())
+      // The change to the set of imports would have required a change to
+      // source code (or options). Changes to the bmi{}s themselves will be
+      // detected via the normal prerequisite machinery. However, the same set
+      // of imports could be resolved to a different set of bmi{}s (in a sense
+      // similar to changing the source file). To detect this we calculate and
+      // store a hash of all (not just direct) bmi{}'s paths.
+      //
+      sha256 cs;
+
+      if (!mi.imports.empty ())
         md.mod_pos = search_modules (
-          bs, act, t, lo, tt.bmi, move (tu.module_imports));
+          act, t, lo, tt.bmi, move (mi.imports), cs);
+
+      if (dd.expect (cs.string ()) != nullptr)
+        updating = true;
 
       // Set the cc.module_name variable if this is an interface unit. Note
       // that it may seem like a good idea to set it on the bmi{} group to
       // avoid duplication. We, however, cannot do it MT-safely since we don't
       // match the group.
       //
-      if (tu.module_interface)
+      if (mi.iface)
       {
         if (value& v = t.vars.assign (c_module_name))
-          assert (cast<string> (v) == tu.module_name);
+          assert (cast<string> (v) == mi.name);
         else
-          v = move (tu.module_name); // Note: move.
+          v = move (mi.name); // Note: move.
       }
     }
 
     // Resolve imported modules to bmi*{} targets.
     //
     modules_positions compile::
-    search_modules (const scope& /*bs*/, //@@ MOD: no need?
-                    action act,
+    search_modules (action act,
                     file& t,
                     lorder lo,
                     const target_type& mtt,
-                    module_imports&& imports) const
+                    module_imports&& imports,
+                    sha256& cs) const
     {
       // So we have a list of imports and a list of "potential" module
       // prerequisites. They are potential in the sense that they may or may
@@ -2691,7 +2832,8 @@ namespace build2
       //
       match_members (act, t, pts, start);
 
-      // Post-process the list of our (direct) imports.
+      // Post-process the list of our (direct) imports. While at it, calculate
+      // the checksum of all (direct and indirect) bmi{} paths.
       //
       size_t ex_start (n);
       size_t ex_tail (pts.size ());
@@ -2731,6 +2873,10 @@ namespace build2
         if (m.exported && ex_start == n)
           ex_start = i;
 
+        // Hash (we know it's a file).
+        //
+        cs.append (static_cast<const file&> (bt).path ().string ());
+
         // Copy over re-exported bmi{} from our prerequisites weeding out
         // duplicates.
         //
@@ -2751,6 +2897,7 @@ namespace build2
                          }) == imports.end ())
             {
               pts.push_back (et);
+              cs.append (static_cast<const file&> (*et).path ().string ());
 
               // Add to the list of imports for further duplicate suppression.
               // We could have probably stored reference to the name (e.g., in
