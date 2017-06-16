@@ -19,6 +19,32 @@ using namespace butl;
 
 namespace build2
 {
+  const target*
+  search_existing (const prerequisite& p)
+  {
+    assert (phase == run_phase::match); // Could be relaxed.
+
+    const target* r (p.target.load (memory_order_consume));
+
+    if (r == nullptr)
+    {
+      const prerequisite_key& pk (p.key ());
+      r = pk.proj ? import_existing (pk) : search_existing_target (pk);
+
+      if (r != nullptr)
+      {
+        const target* e (nullptr);
+        if (!p.target.compare_exchange_strong (
+              e, r,
+              memory_order_release,
+              memory_order_consume))
+          assert (e == r);
+      }
+    }
+
+    return r;
+  }
+
   const target&
   search (const target& t, const prerequisite_key& pk)
   {
