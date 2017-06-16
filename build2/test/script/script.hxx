@@ -464,6 +464,7 @@ namespace build2
         empty () const override
         {
           return
+            !if_cond_ && // The condition expression can have side-effects.
             setup_.empty () &&
             tdown_.empty () &&
             find_if (scopes.begin (), scopes.end (),
