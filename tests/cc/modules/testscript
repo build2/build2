@@ -47,8 +47,7 @@ EOI
 if $modules
 {
 
-# Common source files that are symlinked (@@ TODO: ln builtin) in the
-# test directories if used.
+# Common source files that are symlinked in the test directories if used.
 #
 +cat <<EOI >=core.mxx
 #ifndef LIBFOO_EXPORT
@@ -80,7 +79,7 @@ EOI
 cp ../core.mxx ./ && cat >+core.mxx <<EOI;
   int f (int i) {return i - 1;}
   EOI
-cp ../driver.cxx ./;
+ln -s ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} bmi{core}
   bmi{core}: mxx{core}
@@ -93,7 +92,7 @@ $* test clean <<EOI
 cp ../core.mxx ./ && cat >+core.mxx <<EOI;
   int f (int i) {return i - 1;}
   EOI
-cp ../driver.cxx ./;
+ln -s ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} mxx{core}
   EOI
@@ -102,7 +101,7 @@ $* test clean <<EOI
 :
 : Test separate interface/implementation unit specified as bmi{}.
 :
-cp ../core.mxx ../core.cxx ../driver.cxx ./;
+ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} {bmi cxx}{core}
   bmi{core}: mxx{core}
@@ -112,7 +111,7 @@ $* test clean <<EOI
 :
 : Test separate interface/implementation unit specified as mxx{}.
 :
-cp ../core.mxx ../core.cxx ../driver.cxx ./;
+ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} {mxx cxx}{core}
   EOI
@@ -135,16 +134,16 @@ $* test clean <<EOI
   :
   : Test separator equivalence.
   :
-  cp ../../core.mxx foo-core.mxx;
-  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  ln -s ../../core.mxx foo-core.mxx;
+  ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{core foo-core}'
 
   : case
   :
   : Test case-insensitivity and case-change as a separator.
   :
-  cp ../../core.mxx FooCore.mxx;
-  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  ln -s ../../core.mxx FooCore.mxx;
+  ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{core FooCore}'
 
   : dir
@@ -152,21 +151,21 @@ $* test clean <<EOI
   : Test subdirectory.
   :
   mkdir foo;
-  cp ../../core.mxx foo/core.mxx;
-  cp ../core.mxx ../../core.cxx ../../driver.cxx ./;
+  ln -s ../../core.mxx foo/core.mxx;
+  ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{core} foo/mxx{core}'
 }
 
 : unresolved
 :
-cp ../driver.cxx ./;
+ln -s ../driver.cxx ./;
 $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
   error: unresolved import for module foo.core
   EOE
 
 : misguessed
 :
-cp ../core.mxx ./;
+ln -s ../core.mxx ./;
 cat <'import bar.core;' >=driver.cxx;
 $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
   error: failed to correctly guess module name from mxx{core}
@@ -180,7 +179,7 @@ $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
 :
 : Test importing a module from a library.
 :
-cp ../core.mxx ../core.cxx ../driver.cxx ./;
+ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
   exe{test}: cxx{driver} lib{foo}
   lib{foo}: {mxx cxx}{core}
@@ -237,7 +236,7 @@ if ($cxx.id.type != "clang")
 
   : basic
   :
-  cp ../base.mxx ../../core.mxx ../../core.cxx ./;
+  ln -s ../base.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo.base;
     int main (int argc, char*[]) {return f (argc);}
@@ -246,7 +245,7 @@ if ($cxx.id.type != "clang")
 
   : recursive
   :
-  cp ../base.mxx ../extra.mxx ../../core.mxx ../../core.cxx ./;
+  ln -s ../base.mxx ../extra.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo.extra;
     int main (int argc, char*[]) {return f (g (argc));}
@@ -255,7 +254,7 @@ if ($cxx.id.type != "clang")
 
   : duplicate
   :
-  cp ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
+  ln -s ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo;
     int main (int argc, char*[]) {return f (g (argc));}
@@ -264,7 +263,7 @@ if ($cxx.id.type != "clang")
 
   : library
   :
-  cp ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
+  ln -s ../base.mxx ../extra.mxx ../foo.mxx ../../core.mxx ../../core.cxx ./;
   cat <<EOI >=driver.cxx;
     import foo;
     int main (int argc, char*[]) {return f (g (argc));}
@@ -279,7 +278,7 @@ if ($cxx.id.type != "clang")
 :
 : Test detection of module name to BMI resolution change.
 :
-cp ../core.mxx ../core.cxx ../driver.cxx ./;
+ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 cat <<EOI >=foo-core.mxx;
   #if __cpp_modules >= 201704
   export
