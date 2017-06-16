@@ -20,6 +20,19 @@ namespace build2
 
     namespace script
     {
+      // An exception that can be thrown by a runner to exit the scope (for
+      // example, as a result of executing the exit builtin). The status
+      // indicates whether the scope should be considered to have succeeded
+      // or failed.
+      //
+      struct exit_scope
+      {
+        bool status;
+
+        explicit
+        exit_scope (bool s): status (s) {}
+      };
+
       class runner
       {
       public:

@@ -2895,144 +2895,168 @@ namespace build2
         }
         else if (group* g = dynamic_cast<group*> (scope_))
         {
-          exec_lines (
-            g->setup_.begin (), g->setup_.end (), li, command_type::setup);
+          bool exec_scope (
+            exec_lines (
+              g->setup_.begin (), g->setup_.end (), li, command_type::setup));
 
-          atomic_count task_count (0);
-          wait_guard wg (task_count);
-
-          // Start asynchronous execution of inner scopes keeping track of how
-          // many we have handled.
-          //
-          for (unique_ptr<scope>& chain: g->scopes)
+          if (exec_scope)
           {
-            // Check if this scope is ignored (e.g., via config.test).
+            atomic_count task_count (0);
+            wait_guard wg (task_count);
+
+            // Start asynchronous execution of inner scopes keeping track of
+            // how many we have handled.
             //
-            if (!runner_->test (*chain))
+            for (unique_ptr<scope>& chain: g->scopes)
             {
-              chain = nullptr;
-              continue;
+              // Check if this scope is ignored (e.g., via config.test).
+              //
+              if (!runner_->test (*chain) || !exec_scope)
+              {
+                chain = nullptr;
+                continue;
+              }
+
+              // Pick a scope from the if-else chain.
+              //
+              // In fact, we are going to drop all but the selected (if any)
+              // scope. This way we can re-examine the scope states later. It
+              // will also free some memory.
+              //
+              unique_ptr<scope>* ps;
+              for (ps = &chain; *ps != nullptr; ps = &ps->get ()->if_chain)
+              {
+                scope& s (**ps);
+
+                if (!s.if_cond_) // Unconditional.
+                {
+                  assert (s.if_chain == nullptr);
+                  break;
+                }
+
+                line l (move (*s.if_cond_));
+                line_type lt (l.type);
+
+                replay_data (move (l.tokens));
+
+                token t;
+                type tt;
+
+                next (t, tt);
+                const location ll (get_location (t));
+                next (t, tt); // Skip to start of command.
+
+                bool take;
+                if (lt != line_type::cmd_else)
+                {
+                  // Note: the line index count continues from setup.
+                  //
+                  command_expr ce (parse_command_line (t, tt));
+
+                  try
+                  {
+                    take = runner_->run_if (*scope_, ce, ++li, ll);
+                  }
+                  catch (const exit_scope& e)
+                  {
+                    // Bail out if the scope is exited with the failure status.
+                    // Otherwise leave the scope normally.
+                    //
+                    if (!e.status)
+                      throw failed ();
+
+                    // Stop iterating through if conditions, and stop executing
+                    // inner scopes.
+                    //
+                    exec_scope = false;
+                    replay_stop ();
+                    break;
+                  }
+
+                  if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
+                    take = !take;
+                }
+                else
+                {
+                  assert (tt == type::newline);
+                  take = true;
+                }
+
+                replay_stop ();
+
+                if (take)
+                {
+                  // Count the remaining conditions for the line index.
+                  //
+                  for (scope* r (s.if_chain.get ());
+                       r != nullptr &&
+                         r->if_cond_->type != line_type::cmd_else;
+                       r = r->if_chain.get ())
+                    ++li;
+
+                  s.if_chain.reset (); // Drop remaining scopes.
+                  break;
+                }
+              }
+
+              chain.reset (*ps == nullptr || (*ps)->empty () || !exec_scope
+                           ? nullptr
+                           : ps->release ());
+
+              if (chain != nullptr)
+              {
+                // Hand it off to a sub-parser potentially in another thread.
+                // But we could also have handled it serially in this parser:
+                //
+                // scope* os (scope_);
+                // scope_ = chain.get ();
+                // exec_scope_body ();
+                // scope_ = os;
+
+                // Pass our diagnostics stack (this is safe since we are going
+                // to wait for completion before unwinding the diag stack).
+                //
+                // If the scope was executed synchronously, check the status
+                // and bail out if we weren't asked to keep going.
+                //
+                if (!sched.async (task_count,
+                                  [] (scope& s,
+                                      script& scr,
+                                      runner& r,
+                                      const diag_frame* ds)
+                                  {
+                                    diag_frame df (ds);
+                                    execute_impl (s, scr, r);
+                                  },
+                                  ref (*chain),
+                                  ref (*script_),
+                                  ref (*runner_),
+                                  diag_frame::stack))
+                {
+                  // Bail out if the scope has failed and we weren't instructed
+                  // to keep going.
+                  //
+                  if (chain->state == scope_state::failed && !keep_going)
+                    throw failed ();
+                }
+              }
             }
 
-            // Pick a scope from the if-else chain.
+            wg.wait ();
+
+            // Re-examine the scopes we have executed collecting their state.
             //
-            // In fact, we are going to drop all but the selected (if any)
-            // scope. This way we can re-examine the scope states later. It
-            // will also free some memory.
-            //
-            unique_ptr<scope>* ps;
-            for (ps = &chain; *ps != nullptr; ps = &ps->get ()->if_chain)
+            for (const unique_ptr<scope>& chain: g->scopes)
             {
-              scope& s (**ps);
+              if (chain == nullptr)
+                continue;
 
-              if (!s.if_cond_) // Unconditional.
+              switch (chain->state)
               {
-                assert (s.if_chain == nullptr);
-                break;
+              case scope_state::passed: break;
+              case scope_state::failed: throw failed ();
+              default:                  assert (false);
               }
-
-              line l (move (*s.if_cond_));
-              line_type lt (l.type);
-
-              replay_data (move (l.tokens));
-
-              token t;
-              type tt;
-
-              next (t, tt);
-              const location ll (get_location (t));
-              next (t, tt); // Skip to start of command.
-
-              bool take;
-              if (lt != line_type::cmd_else)
-              {
-                // Note: the line index count continues from setup.
-                //
-                command_expr ce (parse_command_line (t, tt));
-                take = runner_->run_if (*scope_, ce, ++li, ll);
-
-                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                  take = !take;
-              }
-              else
-              {
-                assert (tt == type::newline);
-                take = true;
-              }
-
-              replay_stop ();
-
-              if (take)
-              {
-                // Count the remaining conditions for the line index.
-                //
-                for (scope* r (s.if_chain.get ());
-                     r != nullptr && r->if_cond_->type != line_type::cmd_else;
-                     r = r->if_chain.get ())
-                  ++li;
-
-                s.if_chain.reset (); // Drop remaining scopes.
-                break;
-              }
-            }
-
-            chain.reset (*ps == nullptr || (*ps)->empty ()
-                         ? nullptr
-                         : ps->release ());
-
-            if (chain != nullptr)
-            {
-              // Hand it off to a sub-parser potentially in another thread.
-              // But we could also have handled it serially in this parser:
-              //
-              // scope* os (scope_);
-              // scope_ = chain.get ();
-              // exec_scope_body ();
-              // scope_ = os;
-
-              // Pass our diagnostics stack (this is safe since we are going
-              // to wait for completion before unwinding the diag stack).
-              //
-              // If the scope was executed synchronously, check the status and
-              // bail out if we weren't asked to keep going.
-              //
-              if (!sched.async (task_count,
-                                [] (scope& s,
-                                    script& scr,
-                                    runner& r,
-                                    const diag_frame* ds)
-                                {
-                                  diag_frame df (ds);
-                                  execute_impl (s, scr, r);
-                                },
-                                ref (*chain),
-                                ref (*script_),
-                                ref (*runner_),
-                                diag_frame::stack))
-              {
-                // Bail out if the scope has failed and we weren't instructed
-                // to keep going.
-                //
-                if (chain->state == scope_state::failed && !keep_going)
-                  throw failed ();
-              }
-            }
-          }
-
-          wg.wait ();
-
-          // Re-examine the scopes we have executed collecting their state.
-          //
-          for (const unique_ptr<scope>& chain: g->scopes)
-          {
-            if (chain == nullptr)
-              continue;
-
-            switch (chain->state)
-            {
-            case scope_state::passed: break;
-            case scope_state::failed: throw failed ();
-            default:                  assert (false);
             }
           }
 
@@ -3047,205 +3071,231 @@ namespace build2
         scope_->state = scope_state::passed;
       }
 
-      void parser::
+      bool parser::
       exec_lines (lines::iterator i, lines::iterator e,
                   size_t& li,
                   command_type ct)
       {
-        token t;
-        type tt;
-
-        for (; i != e; ++i)
+        try
         {
-          line& ln (*i);
-          line_type lt (ln.type);
+          token t;
+          type tt;
 
-          assert (path_ == nullptr);
-          replay_data (move (ln.tokens)); // Set the tokens and start playing.
-
-          // We don't really need to change the mode since we already know
-          // the line type.
-          //
-          next (t, tt);
-          const location ll (get_location (t));
-
-          switch (lt)
+          for (; i != e; ++i)
           {
-          case line_type::var:
+            line& ln (*i);
+            line_type lt (ln.type);
+
+            assert (path_ == nullptr);
+
+            // Set the tokens and start playing.
+            //
+            replay_data (move (ln.tokens));
+
+            // We don't really need to change the mode since we already know
+            // the line type.
+            //
+            next (t, tt);
+            const location ll (get_location (t));
+
+            switch (lt)
             {
-              // Parse.
-              //
-              string name (move (t.value));
+            case line_type::var:
+              {
+                // Parse.
+                //
+                string name (move (t.value));
 
-              next (t, tt);
-              type kind (tt); // Assignment kind.
-
-              value rhs (parse_variable_line (t, tt));
-
-              if (tt == type::semi)
                 next (t, tt);
+                type kind (tt); // Assignment kind.
 
-              assert (tt == type::newline);
+                value rhs (parse_variable_line (t, tt));
 
-              // Assign.
-              //
-              const variable& var (*ln.var);
+                if (tt == type::semi)
+                  next (t, tt);
 
-              value& lhs (kind == type::assign
-                          ? scope_->assign (var)
-                          : scope_->append (var));
-
-              build2::parser::apply_value_attributes (
-                &var, lhs, move (rhs), kind);
-
-              // If we changes any of the test.* values, then reset the $*,
-              // $N special aliases.
-              //
-              if (var.name == script_->test_var.name      ||
-                  var.name == script_->options_var.name   ||
-                  var.name == script_->arguments_var.name ||
-                  var.name == script_->redirects_var.name ||
-                  var.name == script_->cleanups_var.name)
-              {
-                scope_->reset_special ();
-              }
-
-              replay_stop ();
-              break;
-            }
-          case line_type::cmd:
-            {
-              // We use the 0 index to signal that this is the only command.
-              // Note that we only do this for test commands.
-              //
-              if (ct == command_type::test && li == 0)
-              {
-                lines::iterator j (i);
-                for (++j; j != e && j->type == line_type::var; ++j) ;
-
-                if (j != e) // We have another command.
-                  ++li;
-              }
-              else
-                ++li;
-
-              command_expr ce (parse_command_line (t, tt));
-              runner_->run (*scope_, ce, ct, li, ll);
-
-              replay_stop ();
-              break;
-            }
-          case line_type::cmd_if:
-          case line_type::cmd_ifn:
-          case line_type::cmd_elif:
-          case line_type::cmd_elifn:
-          case line_type::cmd_else:
-            {
-              next (t, tt); // Skip to start of command.
-
-              bool take;
-              if (lt != line_type::cmd_else)
-              {
-                // Assume if-else always involves multiple commands.
-                //
-                command_expr ce (parse_command_line (t, tt));
-                take = runner_->run_if (*scope_, ce, ++li, ll);
-
-                if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
-                  take = !take;
-              }
-              else
-              {
                 assert (tt == type::newline);
-                take = true;
-              }
 
-              replay_stop ();
-
-              // If end is true, then find the 'end' line. Otherwise, find the
-              // next if-else line. If skip is true then increment the command
-              // line index.
-              //
-              auto next = [e, &li]
-                (lines::iterator j, bool end, bool skip) -> lines::iterator
-              {
-                // We need to be aware of nested if-else chains.
+                // Assign.
                 //
-                size_t n (0);
+                const variable& var (*ln.var);
 
-                for (++j; j != e; ++j)
+                value& lhs (kind == type::assign
+                            ? scope_->assign (var)
+                            : scope_->append (var));
+
+                build2::parser::apply_value_attributes (
+                  &var, lhs, move (rhs), kind);
+
+                // If we changes any of the test.* values, then reset the $*,
+                // $N special aliases.
+                //
+                if (var.name == script_->test_var.name      ||
+                    var.name == script_->options_var.name   ||
+                    var.name == script_->arguments_var.name ||
+                    var.name == script_->redirects_var.name ||
+                    var.name == script_->cleanups_var.name)
                 {
-                  line_type lt (j->type);
-
-                  if (lt == line_type::cmd_if ||
-                      lt == line_type::cmd_ifn)
-                    ++n;
-
-                  // If we are nested then we just wait until we get back to
-                  // the surface.
-                  //
-                  if (n == 0)
-                  {
-                    switch (lt)
-                    {
-                    case line_type::cmd_elif:
-                    case line_type::cmd_elifn:
-                    case line_type::cmd_else: if (end) break; // Fall through.
-                    case line_type::cmd_end:  return j;
-                    default: break;
-                    }
-                  }
-
-                  if (lt == line_type::cmd_end)
-                    --n;
-
-                  if (skip)
-                  {
-                    // Note that we don't count else and end as commands.
-                    //
-                    switch (lt)
-                    {
-                    case line_type::cmd:
-                    case line_type::cmd_if:
-                    case line_type::cmd_ifn:
-                    case line_type::cmd_elif:
-                    case line_type::cmd_elifn: ++li; break;
-                    default:                         break;
-                    }
-                  }
+                  scope_->reset_special ();
                 }
 
-                assert (false); // Missing end.
-                return e;
-              };
-
-              // If we are taking this branch then we need to parse all the
-              // lines until the next if-else line and then skip all the lines
-              // until the end (unless next is already end).
-              //
-              // Otherwise, we need to skip all the lines until the next
-              // if-else line and then continue parsing.
-              //
-              if (take)
-              {
-                lines::iterator j (next (i, false, false)); // Next if-else.
-                exec_lines (i + 1, j, li, ct);
-                i = j->type == line_type::cmd_end ? j : next (j, true, true);
+                replay_stop ();
+                break;
               }
-              else
+            case line_type::cmd:
               {
-                i = next (i, false, true);
-                if (i->type != line_type::cmd_end)
-                  --i; // Continue with this line (e.g., elif or else).
-              }
+                // We use the 0 index to signal that this is the only command.
+                // Note that we only do this for test commands.
+                //
+                if (ct == command_type::test && li == 0)
+                {
+                  lines::iterator j (i);
+                  for (++j; j != e && j->type == line_type::var; ++j) ;
 
-              break;
-            }
-          case line_type::cmd_end:
-            {
-              assert (false);
+                  if (j != e) // We have another command.
+                    ++li;
+                }
+                else
+                  ++li;
+
+                command_expr ce (parse_command_line (t, tt));
+                runner_->run (*scope_, ce, ct, li, ll);
+
+                replay_stop ();
+                break;
+              }
+            case line_type::cmd_if:
+            case line_type::cmd_ifn:
+            case line_type::cmd_elif:
+            case line_type::cmd_elifn:
+            case line_type::cmd_else:
+              {
+                next (t, tt); // Skip to start of command.
+
+                bool take;
+                if (lt != line_type::cmd_else)
+                {
+                  // Assume if-else always involves multiple commands.
+                  //
+                  command_expr ce (parse_command_line (t, tt));
+                  take = runner_->run_if (*scope_, ce, ++li, ll);
+
+                  if (lt == line_type::cmd_ifn || lt == line_type::cmd_elifn)
+                    take = !take;
+                }
+                else
+                {
+                  assert (tt == type::newline);
+                  take = true;
+                }
+
+                replay_stop ();
+
+                // If end is true, then find the 'end' line. Otherwise, find
+                // the next if-else line. If skip is true then increment the
+                // command line index.
+                //
+                auto next = [e, &li]
+                  (lines::iterator j, bool end, bool skip) -> lines::iterator
+                  {
+                    // We need to be aware of nested if-else chains.
+                    //
+                    size_t n (0);
+
+                    for (++j; j != e; ++j)
+                    {
+                      line_type lt (j->type);
+
+                      if (lt == line_type::cmd_if ||
+                          lt == line_type::cmd_ifn)
+                        ++n;
+
+                      // If we are nested then we just wait until we get back
+                      // to the surface.
+                      //
+                      if (n == 0)
+                      {
+                        switch (lt)
+                        {
+                        case line_type::cmd_elif:
+                        case line_type::cmd_elifn:
+                        case line_type::cmd_else:
+                          {
+                            if (end) break;
+
+                            // Fall through.
+                          }
+                        case line_type::cmd_end:  return j;
+                        default: break;
+                        }
+                      }
+
+                      if (lt == line_type::cmd_end)
+                        --n;
+
+                      if (skip)
+                      {
+                        // Note that we don't count else and end as commands.
+                        //
+                        switch (lt)
+                        {
+                        case line_type::cmd:
+                        case line_type::cmd_if:
+                        case line_type::cmd_ifn:
+                        case line_type::cmd_elif:
+                        case line_type::cmd_elifn: ++li; break;
+                        default:                         break;
+                        }
+                      }
+                    }
+
+                    assert (false); // Missing end.
+                    return e;
+                  };
+
+                // If we are taking this branch then we need to parse all the
+                // lines until the next if-else line and then skip all the
+                // lines until the end (unless next is already end).
+                //
+                // Otherwise, we need to skip all the lines until the next
+                // if-else line and then continue parsing.
+                //
+                if (take)
+                {
+                  lines::iterator j (next (i, false, false)); // Next if-else.
+                  if (!exec_lines (i + 1, j, li, ct))
+                    return false;
+
+                  i = j->type == line_type::cmd_end ? j : next (j, true, true);
+                }
+                else
+                {
+                  i = next (i, false, true);
+                  if (i->type != line_type::cmd_end)
+                    --i; // Continue with this line (e.g., elif or else).
+                }
+
+                break;
+              }
+            case line_type::cmd_end:
+              {
+                assert (false);
+              }
             }
           }
+
+          return true;
+        }
+        catch (const exit_scope& e)
+        {
+          // Bail out if the scope is exited with the failure status. Otherwise
+          // leave the scope normally.
+          //
+          if (!e.status)
+            throw failed ();
+
+          replay_stop ();
+          return false;
         }
       }
 

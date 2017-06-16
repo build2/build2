@@ -914,6 +914,35 @@ namespace build2
                             : sp.wd_path.directory ());
       }
 
+      // The exit pseudo-builtin: exit the current scope successfully, or
+      // print the diagnostics and exit the current scope and all the outer
+      // scopes unsuccessfully. Always throw exit_scope exception.
+      //
+      // exit [<diagnostics>]
+      //
+      [[noreturn]] static void
+      exit_builtin (const strings& args, const location& ll)
+      {
+        auto i (args.begin ());
+        auto e (args.end ());
+
+        // Process arguments.
+        //
+        // If no argument is specified, then exit successfully. Otherwise,
+        // print the diagnostics and exit unsuccessfully.
+        //
+        if (i == e)
+          throw exit_scope (true);
+
+        const string& s (*i++);
+
+        if (i != e)
+          fail (ll) << "unexpected argument";
+
+        error (ll) << s;
+        throw exit_scope (false);
+      }
+
       // The set pseudo-builtin: set variable from the stdin input.
       //
       // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
@@ -1141,6 +1170,63 @@ namespace build2
           sp.clean ({cl.type, move (np)}, false);
         }
 
+        const redirect& in  (c.in.effective ());
+        const redirect& out (c.out.effective ());
+        const redirect& err (c.err.effective ());
+        bool eq (c.exit.comparison == exit_comparison::eq);
+
+        // If stdin file descriptor is not open then this is the first pipeline
+        // command.
+        //
+        bool first (ifd.get () == -1);
+
+        command_pipe::const_iterator nc (bc + 1);
+        bool last (nc == ec);
+
+        // Prior to opening file descriptors for command input/output
+        // redirects let's check if the command is the exit builtin. Being a
+        // builtin syntactically it differs from the regular ones in a number
+        // of ways. It doesn't communicate with standard streams, so
+        // redirecting them is meaningless. It may appear only as a single
+        // command in a pipeline. It doesn't return any value and stops the
+        // scope execution, so checking its exit status is meaningless as
+        // well. That all means we can short-circuit here calling the builtin
+        // and bailing out right after that. Checking that the user didn't
+        // specify any redirects or exit code check sounds like a right thing
+        // to do.
+        //
+        if (c.program.string () == "exit")
+        {
+          // In case the builtin is erroneously pipelined from the other
+          // command, we will close stdin gracefully (reading out the stream
+          // content), to make sure that the command doesn't print any
+          // unwanted diagnostics about IO operation failure.
+          //
+          // Note that dtor will ignore any errors (which is what we want).
+          //
+          ifdstream is (move (ifd), fdstream_mode::skip);
+
+          if (!first || !last)
+            fail (ll) << "exit builtin must be the only pipe command";
+
+          if (in.type != redirect_type::none)
+            fail (ll) << "exit builtin stdin cannot be redirected";
+
+          if (out.type != redirect_type::none)
+            fail (ll) << "exit builtin stdout cannot be redirected";
+
+          if (err.type != redirect_type::none)
+            fail (ll) << "exit builtin stderr cannot be redirected";
+
+          // We can't make sure that there is not exit code check. Let's, at
+          // least, check that non-zero code is not expected.
+          //
+          if (eq != (c.exit.code == 0))
+            fail (ll) << "exit builtin exit code cannot be non-zero";
+
+          exit_builtin (c.arguments, ll); // Throws exit_scope exception.
+        }
+
         // Create a unique path for a command standard stream cache file.
         //
         auto std_path = [&sp, &ci, &li, &ll] (const char* n) -> path
@@ -1166,16 +1252,12 @@ namespace build2
           return normalize (move (p), sp, ll);
         };
 
-        const redirect& in  (c.in.effective ());
-        const redirect& out (c.out.effective ());
-        const redirect& err (c.err.effective ());
-
-        // If stdin file descriptor is not open then this is the first pipeline
-        // command. Open stdin descriptor according to the redirect specified.
+        // If this is the first pipeline command, then open stdin descriptor
+        // according to the redirect specified.
         //
         path isp;
 
-        if (ifd.get () != -1)
+        if (!first)
           assert (in.type == redirect_type::none); // No redirect expected.
         else
         {
@@ -1277,17 +1359,14 @@ namespace build2
 
         assert (ifd.get () != -1);
 
-        command_pipe::const_iterator nc (bc + 1);
-        bool last (nc == ec);
-
-        // Prior to follow up with opening file descriptors for command
-        // outputs redirects let's check if the command is the set builtin.
-        // Being a builtin syntactically it differs from the regular ones in a
-        // number of ways. It either succeeds or terminates abnormally, so
-        // redirecting stderr is meaningless. It also never produces any output
-        // and may appear only as a terminal command in a pipeline. That means
-        // we can short-circuit here calling the builtin and returning right
-        // after that. Checking that the user didn't specify any meaningless
+        // Prior to opening file descriptors for command outputs redirects
+        // let's check if the command is the set builtin. Being a builtin
+        // syntactically it differs from the regular ones in a number of ways.
+        // It either succeeds or terminates abnormally, so redirecting stderr
+        // is meaningless. It also never produces any output and may appear
+        // only as a terminal command in a pipeline. That means we can
+        // short-circuit here calling the builtin and returning right after
+        // that. Checking that the user didn't specify any meaningless
         // redirects or exit code check sounds as a right thing to do.
         //
         if (c.program.string () == "set")
@@ -1301,7 +1380,7 @@ namespace build2
           if (err.type != redirect_type::none)
             fail (ll) << "set builtin stderr cannot be redirected";
 
-          if ((c.exit.comparison == exit_comparison::eq) != (c.exit.code == 0))
+          if (eq != (c.exit.code == 0))
             fail (ll) << "set builtin exit code cannot be non-zero";
 
           set_builtin (sp, c.arguments, move (ifd), ll);
@@ -1588,7 +1667,6 @@ namespace build2
           valid = exit->code () < 256;
 #endif
 
-        bool eq (c.exit.comparison == exit_comparison::eq);
         success = valid && eq == (exit->code () == c.exit.code);
 
         if (!valid || (!success && diag))
@@ -1654,8 +1732,6 @@ namespace build2
                 size_t li, const location& ll,
                 bool diag)
       {
-        bool r (false);
-
         // Commands are numbered sequentially throughout the expression
         // starting with 1. Number 0 means the command is a single one.
         //
@@ -1677,7 +1753,9 @@ namespace build2
           trailing_ands = i.base ();
         }
 
+        bool r (false);
         bool print (false);
+
         for (auto b (expr.cbegin ()), i (b), e (expr.cend ()); i != e; ++i)
         {
           if (diag && i + 1 == trailing_ands)

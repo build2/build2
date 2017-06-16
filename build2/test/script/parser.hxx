@@ -183,7 +183,12 @@ namespace build2
         void
         exec_scope_body ();
 
-        void
+        // Return false if the execution of the scope should be terminated
+        // with the success status (e.g., as a result of encountering the exit
+        // builtin). For unsuccessful termination the failed exception should
+        // be thrown.
+        //
+        bool
         exec_lines (lines::iterator, lines::iterator, size_t&, command_type);
 
         // Customization hooks.
