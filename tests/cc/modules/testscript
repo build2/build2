@@ -42,10 +42,7 @@ EOI
 print $cxx.features.modules
 EOI
 
-: enabled
-:
-if $modules
-{
++$modules || exit
 
 # Common source files that are symlinked in the test directories if used.
 #
@@ -315,4 +312,3 @@ $* test clean <<EOI
   exe{test}: cxx{driver} {mxx cxx}{core}
   bmie{foo-core}: mxx{foo-core}
   EOI
-}
