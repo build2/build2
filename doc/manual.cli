@@ -103,6 +103,20 @@ the tree. This can be achieved with the following pattern:
 exe{hello}: cxx{** -***/test/**}
 \
 
+Similarly, if we wanted to exclude all source files that have the \c{-test}
+suffix:
+
+\
+exe{hello}: cxx{** -**-test}
+\
+
+In contrast, the following pattern only excludes such files from the top
+directory:
+
+\
+exe{hello}: cxx{** -*-test}
+\
+
 If many inclusions or exclusions need to be specified, then an
 inclusion/exclusion group can be used. For example:
 
