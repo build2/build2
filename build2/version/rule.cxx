@@ -564,7 +564,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to " << what << ' ' << whom << ": " << e;
+        fail << "unable to " << what << ' ' << *whom << ": " << e;
       }
 
       t.mtime (system_clock::now ());
