@@ -189,6 +189,7 @@ $* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
 :
 ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 $* test clean <<EOI
+  ./: lib{foo} exe{test} # Full build.
   exe{test}: cxx{driver} lib{foo}
   lib{foo}: {mxx cxx}{core}
   EOI
