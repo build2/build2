@@ -2674,6 +2674,19 @@ namespace build2
               return !x.exported && y.exported;
             });
 
+      // For std.* modules we only accept non-fuzzy matches (think std.core vs
+      // some core.mxx). And if such a module is unresolved, then we assume it
+      // is pre-built and will be found by some other means (e.g., VC's
+      // IFCPATH).
+      //
+      auto stdmod = [] (const string& m)
+      {
+        size_t n (m.size ());
+        return (n >= 3 &&
+                m[0] == 's' && m[1] == 't' && m[2] == 'd' &&
+                (n == 3 || m[3] == '.'));
+      };
+
       // Go over the prerequisites once.
       //
       // For (direct) library prerequisites, check their prerequisite bmi{}s
@@ -2692,7 +2705,7 @@ namespace build2
       // if all the modules come from libraries. Which will be fairly common
       // (think of all the tests) so it's worth optimizing for.
       //
-      auto check = [&trace, &imports, &pts, &match, start, n]
+      auto check = [&trace, &imports, &pts, &match, &stdmod, start, n]
         (const target* pt, const string& name, bool fuzzy) -> bool
       {
         bool done (true);
@@ -2700,6 +2713,13 @@ namespace build2
         for (size_t i (0); i != n; ++i)
         {
           module_import& m (imports[i]);
+
+          if (fuzzy && stdmod (m.name)) // No fuzzy std.* matches.
+          {
+            done = false;
+            continue;
+          }
+
           size_t n (m.name.size ());
 
           if (m.score > n) // Resolved to module name (no effect on done).
@@ -2835,7 +2855,7 @@ namespace build2
       {
         for (size_t i (0); i != n; ++i)
         {
-          if (pts[start + i] == nullptr)
+          if (pts[start + i] == nullptr && !stdmod (imports[i].name))
           {
             // It would have been nice to print the location of the import
             // declaration. And we could save it during parsing at the expense
@@ -2873,7 +2893,16 @@ namespace build2
       for (size_t i (0); i != n; ++i)
       {
         const module_import& m (imports[i]);
-        const target& bt (*pts[start + i]);
+
+        // Determine the position of the first re-exported bmi{}.
+        //
+        if (m.exported && ex_start == n)
+          ex_start = i;
+
+        const target* bt (pts[start + i]);
+
+        if (bt == nullptr)
+          continue; // Unresolved (std.*).
 
         // Verify our guesses against extracted module names but don't waste
         // time if it was a match against the actual module name.
@@ -2882,11 +2911,11 @@ namespace build2
 
         if (m.score <= in.size ())
         {
-          const string& mn (cast<string> (bt.vars[c_module_name]));
+          const string& mn (cast<string> (bt->vars[c_module_name]));
 
           if (in != mn)
           {
-            for (prerequisite_member p: group_prerequisite_members (act, bt))
+            for (prerequisite_member p: group_prerequisite_members (act, *bt))
             {
               if (p.is_a (*x_mod)) // Got to be there.
               {
@@ -2901,26 +2930,25 @@ namespace build2
           }
         }
 
-        // Determine the position of the first re-exported bmi{}.
-        //
-        if (m.exported && ex_start == n)
-          ex_start = i;
-
         // Hash (we know it's a file).
         //
-        cs.append (static_cast<const file&> (bt).path ().string ());
+        cs.append (static_cast<const file&> (*bt).path ().string ());
 
         // Copy over re-exported bmi{} from our prerequisites weeding out
         // duplicates.
         //
-        if (size_t j = bt.data<match_data> ().mod_pos.ex_start)
+        if (size_t j = bt->data<match_data> ().mod_pos.ex_start)
         {
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
           //
-          for (size_t m (bt.prerequisite_targets.size ()); j != m; ++j)
+          for (size_t m (bt->prerequisite_targets.size ()); j != m; ++j)
           {
-            const target* et (bt.prerequisite_targets[j]);
+            const target* et (bt->prerequisite_targets[j]);
+
+            if (et == nullptr)
+              continue; // Unresolved (std.*).
+
             const string& mn (cast<string> (et->vars[c_module_name]));
 
             if (find_if (imports.begin (), imports.end (),
@@ -2964,6 +2992,9 @@ namespace build2
     {
       for (const target* pt: t.prerequisite_targets)
       {
+        if (pt == nullptr)
+          continue;
+
         // Here we use whatever bmi type has been added.
         //
         const file* f;
