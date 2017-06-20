@@ -602,7 +602,7 @@ namespace build2
             ps.push_back (p.as_prerequisite ()); // Source.
 
             // Add our lib*{} (see the export.* machinery for details) and
-            // bmi*{} (both original and chanined; see module search logic)
+            // bmi*{} (both original and chained; see module search logic)
             // prerequisites.
             //
             // Note that we don't resolve lib{} to liba{}/libs{} here
@@ -634,8 +634,14 @@ namespace build2
                 //
                 if (pt != nullptr && i != j) // Don't add self (note: both +1).
                 {
+                  // This is sticky: pt might have come before us and if it
+                  // was a group, then we would have picked up a member. So
+                  // here we may have to "unpick" it.
+                  //
+                  bool group (j < i && !p.prerequisite.belongs (t));
+
                   unmark (pt);
-                  ps.emplace_back (prerequisite (*pt));
+                  ps.emplace_back (prerequisite (group ? *pt->group : *pt));
                 }
               }
             }
