@@ -2512,6 +2512,8 @@ namespace build2
                     module_imports&& imports,
                     sha256& cs) const
     {
+      tracer trace (x, "compile::search_modules");
+
       // So we have a list of imports and a list of "potential" module
       // prerequisites. They are potential in the sense that they may or may
       // not be required by this translation unit. In other words, they are
@@ -2690,7 +2692,7 @@ namespace build2
       // if all the modules come from libraries. Which will be fairly common
       // (think of all the tests) so it's worth optimizing for.
       //
-      auto check = [&imports, &pts, &match, start, n]
+      auto check = [&trace, &imports, &pts, &match, start, n]
         (const target* pt, const string& name, bool fuzzy) -> bool
       {
         bool done (true);
@@ -2706,6 +2708,8 @@ namespace build2
           size_t s (fuzzy ?
                     match (name, m.name) :
                     (name == m.name ? n + 1 : 0));
+
+          l5 ([&]{trace << name << " ~ " << m.name << ": " << s;});
 
           if (s > m.score)
           {
@@ -3220,6 +3224,13 @@ namespace build2
               args.push_back ("-o");
               args.push_back (relm.string ().c_str ());
               args.push_back ("--precompile");
+
+              // Without this option Clang's .pcm will reference source files.
+              // In our case this file may be transient (.ii). Plus, it won't
+              // play nice with distributed compilation.
+              //
+              args.push_back ("-Xclang");
+              args.push_back ("-fmodules-embed-all-files");
 
               // These should become the default at some point.
               //
