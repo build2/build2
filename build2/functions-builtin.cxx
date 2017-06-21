@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cstdlib> // getenv()
+
 #include <build2/function.hxx>
 #include <build2/variable.hxx>
 
@@ -9,6 +11,15 @@ using namespace std;
 
 namespace build2
 {
+  // Return NULL value if an environment variable is not set.
+  //
+  static inline value
+  getenv (const string& name)
+  {
+    const char* v (::getenv (name.c_str ()));
+    return v != nullptr ? value (v) : value ();
+  }
+
   void
   builtin_functions ()
   {
@@ -26,5 +37,26 @@ namespace build2
     f["string"] = [](bool b) {return b ? "true" : "false";};
     f["string"] = [](uint64_t i) {return to_string (i);};
     f["string"] = [](name n) {return to_string (n);};
+
+    // getenv
+    //
+    f["getenv"] = [](string name)
+    {
+      return getenv (name);
+    };
+
+    f["getenv"] = [](names name)
+    {
+      // Note that if the name size is greater than one, we will fail with the
+      // proper diagnostics.
+      //
+      assert (!name.empty ());
+
+      string n (name.size () == 1
+                ? convert<string> (move (name[0]))
+                : convert<string> (move (name)));
+
+      return getenv (n);
+    };
   }
 }

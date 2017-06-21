@@ -60,3 +60,64 @@
   $* <'print       $identity(abc)'             >'abc';
   $* <'print $type($identity(abc))'            >''         : untyped
 }
+
+: getenv
+:
+{
+  : set
+  :
+  : Here we rely on the facts that on POSIX PATH environment variable most
+  : likely is set at the time of login, and on Windows it is set by build2 on
+  : startup.
+  :
+  : @@ Use a custom variable, when an ability to set environment variables in
+  :    testscript is implemented.
+  :
+  {
+    : string
+    :
+    $* <'print $getenv([string] "PATH")' | set v;
+    ($v != '[null]') || exit "PATH environment variable is not set"
+
+    : untyped
+    :
+    $* <'print $getenv("PATH")' | set v;
+    ($v != '[null]') || exit "PATH environment variable is not set"
+
+    : path
+    :
+    $* <'print $getenv([path] a)' 2>>~/EOE/ != 0
+    <stdin>:1:8: error: unmatched call to getenv(path)
+    /((
+      info: candidate: getenv(<untyped>), qualified name builtin.getenv
+      info: candidate: getenv(string), qualified name builtin.getenv
+    /)|(
+      info: candidate: getenv(string), qualified name builtin.getenv
+      info: candidate: getenv(<untyped>), qualified name builtin.getenv
+    /))
+    EOE
+
+    : none
+    :
+    $* <'print $getenv()' 2>>~/EOE/ != 0
+    <stdin>:1:8: error: unmatched call to getenv()
+    /((
+      info: candidate: getenv(<untyped>), qualified name builtin.getenv
+      info: candidate: getenv(string), qualified name builtin.getenv
+    /)|(
+      info: candidate: getenv(string), qualified name builtin.getenv
+      info: candidate: getenv(<untyped>), qualified name builtin.getenv
+    /))
+    EOE
+
+    : names
+    :
+    $* <'print $getenv(a b)' 2>>EOE != 0
+    error: invalid argument: invalid string value: multiple names
+    EOE
+  }
+
+  : unset
+  :
+  $* <'print $getenv("non-existent-var-name")' >'[null]'
+}

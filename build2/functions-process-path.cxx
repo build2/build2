@@ -18,8 +18,8 @@ namespace build2
     //
     f["recall"] = &process_path::recall;
     f["effect"] = [](process_path p)
-      {
-        return move (p.effect.empty () ? p.recall : p.effect);
-      };
+    {
+      return move (p.effect.empty () ? p.recall : p.effect);
+    };
   }
 }
