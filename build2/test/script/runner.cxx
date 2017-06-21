@@ -7,9 +7,9 @@
 #include <set>
 #include <ios> // streamsize
 
+#include <libbutl/regex.hxx>
 #include <libbutl/fdstream.hxx> // fdopen_mode, fdnull(), fddup()
 
-#include <build2/regex.hxx>
 #include <build2/variable.hxx>
 #include <build2/filesystem.hxx>
 
