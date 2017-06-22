@@ -710,4 +710,506 @@ snapshot versions is guaranteed. For example:
 version: 2.0.0-b.1.z
 depends: libprint [3.0.0-b.2.1 3.0.0-b.3)
 \
+
+\h1#module-cc|C-Common Module|
+
+\h#cxx-modules|C++ Modules Support|
+
+\h2#cxx-modules-intro|C++ Modules Introduction|
+
+The goal of this section is to provide a practical introduction to C++ Modules
+and to establish key concepts and terminology.
+
+A pre-modules C++ program or library consists of one or more \i{translation
+units} which are customarily referred to as C++ source files. Translation
+units are compiled to \i{object files} which are then linked together to
+form a program or library.
+
+Let's also recap the difference between an \i{external name} and a \i{symbol}:
+External names refer to language entities, for example classes, functions, and
+so on. The \i{external} qualifier means they are visible across translation
+units.
+
+Symbols are external names translated for use inside object files. They are
+the cross-referencing mechanism for linking a program from multiple,
+separately-compiled translation units. Not all external names end up becoming
+symbols and symbols are often \i{decorated} with additional information, for
+example, a namespace. We often talk about a symbol having to be satisfied by
+linking an object file or a library that provides it.
+
+What is a C++ module? It is hard to give a single but intuitive answer to
+this question.  So we will try to answer it from three different perspective:
+that of a module consumer, a module producer, and a build system that tries
+to make the two play nice.
+
+But first, let's make this clear: modules are a language-level not a
+preprocessor-level mechanism; it is \c{import}, not \c{#import}.
+
+One may also wonder why C++ modules, what are the benefits? Modules offer
+isolation, both from preprocessor macros and other module's symbols. Unlike
+headers, modules require explicit exportation of entities that will be visible
+to the consumers. In this sense they are a \i{physical design mechanism} that
+forces us to think how we structure our code. Modules promise significant
+build speedups since importing a module, unlike including a header, should be
+essentially free. Modules are also a first step to not needed the preprocessor
+in most translation units. Finally, modules have a chance of bringing
+to mainstream reliable and easy to setup distributed C++ compilation since
+now build systems can make sure compilers on the local and remote hosts are
+provided with identical inputs.
+
+To refer to a module we use a \i{module name}, a sequence of dot-separated
+identifiers, for example \c{hello.core}. While the specification does not
+assign any hierarchical semantics to this sequence, it is customary to refer
+to \c{hello.core} as a submodule of \c{hello}. We discuss submodules and the
+module naming guidelines below.
+
+For a consumer, a module is a collection of external names, called
+\i{module interface}, that become \i{visible} once the module is
+imported:
+
+\
+import hello.core
+\
+
+What exactly does \i{visible} mean? To quote the standard: \i{An
+import-declaration makes exported declarations [...] visible to name lookup in
+the current translation unit, in the same namespaces and contexts [...]}. One
+intuitive way to think about this visibility is \i{as-if} there were only a
+single translation unit for the entire program that contained all the modules
+as well as all their consumers. In such a translation unit all the names would
+be visible to everyone in exactly the same way and no entity would be
+redeclared.
+
+This visibility semantics suggests that modules are not a name scoping
+mechanism and are orthogonal to namespaces. Specifically, a module can export
+names from any number of namespaces, including the global namespace. While
+the module name and its namespace names need not be related, it usually makes
+sense to have a parallel naming scheme, as discussed below.
+
+Note also that from the consumer's perspective a module does not provide
+any symbols, only C++ entity names. If we use a name from a module, then we
+may have to satisfy the corresponding symbol(s) using the usual mechanisms:
+link an object file or a library that provides them. In this respect, modules
+are similar to headers and as with headers module's use is not limited to
+libraries; they make perfect sense when structuring programs.
+
+The producer perspective on modules is predictably more complex. In
+pre-modules C++ we only had one kind of translation units (or source
+files). With modules there are three kinds: \i{module interface units},
+\i{module implementation units}, and the original kind which we will
+call \i{non-module translation units}.
+
+From the producer's perspective, a module is a collection of module translation
+units: one interface unit and zero or more implementation units. A simple
+module may consist of just the interface unit that includes implementations
+of all its functions (not necessarily inline). A more complex module may
+span multiple implementation units.
+
+A translation unit is a module interface unit if it contains an \i{exporting
+module declaration}:
+
+\
+export module hello.core;
+\
+
+A translation unit is a module implementation unit if it contains a
+\i{non-exporting module declaration}:
+
+\
+module hello.core;
+\
+
+While module interface units may use the same file extension as normal source
+files, we recommend that a different extension be used to distinguish them as
+such, similar to header files. While the compiler vendors suggest various
+extensions, our recommendation is \c{.mxx} for the \c{.hxx/.cxx} source file
+naming and \c{.mpp} for \c{.hpp/.cpp} (and if you are using some other naming
+scheme, then now is a good opportunity to switch to one of the above). Using
+the source file extension for module implementation units appears reasonable
+and that's our recommendation.
+
+A module declaration (exporting or non-exporting) starts a \i{module purview}
+that extends until the end of the module translation unit. Any name declared
+in a module's purview \i{belongs} to said module. For example:
+
+\
+#include <string>                // Not in purview.
+
+export module hello.core;
+
+void
+say_hello (const std::string&);  // In purview.
+\
+
+A name that belongs to a module is \i{invisible} to the module's consumers
+unless it is \i{exported}. A name can be declared exported only in a module
+interface unit, only in the module's purview, and there are several syntactic
+ways to accomplish this. We can start the declaration with the \c{export}
+specifier, for example:
+
+\
+export module hello.core;
+
+export enum class volume {quiet, normal, loud};
+
+export void
+say_hello (const char*, volume);
+\
+
+Alternatively, we can enclose one or more declarations into an \i{exported
+group}, for example:
+
+\
+export module hello.core;
+
+export
+{
+  enum class volume {quiet, normal, loud};
+
+  void
+  say_hello (const char*, volume);
+}
+\
+
+Finally, if a namespace definition is declared exported, then every name
+in its body is exported, for example:
+
+\
+export module hello.core;
+
+export namespace hello
+{
+  enum class volume {quiet, normal, loud};
+
+  void
+  say (const char*, volume);
+}
+
+namespace hello
+{
+  void
+  impl (const char*, volume); // Not exported.
+}
+\
+
+Up until now we've only been talking about module's names. What about module's
+symbols? For exported names, the resulting symbols would be the same as if
+those names were declared outside of a module's purview (or as if no modules
+were used at all). Non-exported names, on the other hand, have \i{module
+linkage}: their symbols can be resolved from this module's units but not from
+other translation units. They also cannot clash with symbols for identical
+names from other modules (and non-modules). This is usually achieved by
+decorating the non-exported symbols with a module name.
+
+This ownership model has one important backwards-compatibility implication: a
+library built with modules enabled can be linked to a program that still uses
+headers. And vice versa: we can build a module for a library that only uses
+headers. For example, if our compiler does not provide a module for the
+standard library, we should be able to build our own:
+
+\
+export module std.core;
+
+export
+{
+  #include <string>
+  //...
+}
+\
+
+What about the preprocessor? Modules do not export preprocessor macros,
+only C++ names. A macro defined in the module interface unit cannot affect
+the module's consumers. And macros defined by the module's consumers cannot
+affect the module interface they are importing. In other words, module
+producers and consumers are isolated from each other when the preprocessor
+is concerned. This is not to say that the preprocessor cannot be used by
+either, it just doesn't \"leak\" through the module interface. One practical
+implication of this model is the insignificance of the import order.
+
+If a module imports another module in its purview, the imported module's
+names are not made automatically visible to the consumers of the importing
+module. This is unlike headers and can be surprising. Consider this module
+interface as an example:
+
+\
+export module hello;
+
+import std.core;
+
+export void
+say_hello (const std::string&);
+\
+
+And this module consumer:
+
+\
+import hello;
+
+int
+main ()
+{
+  say_hello (\"World\");
+}
+\
+
+This example will result in a compile error and the diagnostics may
+confusingly indicate that there is no known conversion from a C string to
+\"something\" called \c{std::string}. But with the understanding of the
+difference between \c{import} and \c{#include} the reason should be clear:
+while the module interface \"sees\" \c{std::string} (because it imported
+its module), we do not (since we did not). So the fix is to explicitly
+import \c{std.core}:
+
+\
+import std.core;
+import hello;
+
+int
+main ()
+{
+  say_hello (\"World\");
+}
+\
+
+A module, however, can choose to re-export a module it imports. In this case,
+all the names from the imported module will also be visible to the importing
+module's consumers. For example, with this change to the module interface the
+first version of our consumer will compile without errors (note that whether
+this is a good design choice is debatable):
+
+\
+export module hello;
+
+export import std.core;
+
+export void
+say_hello (const std::string&);
+\
+
+One way to think of re-export is as if a module's import also injecting the
+imports of all the modules it re-exported, recursively. That's essentially how
+most compilers implement it.
+
+Module re-export is the mechanism of assembling bigger modules out of
+submodules. As an example, let's say we had the \c{hello.core},
+\c{hello.basic}, and \c{hello.extra} modules. To make life easier for users
+that want to import all of them we can create the \c{hello} module that
+re-exports the three:
+
+\
+export module hello;
+
+export
+{
+  import hello.core;
+  import hello.basic;
+  import hello.extra;
+}
+\
+
+The final perspective that we consider is that of the build system. From its
+point of view the central piece of the module infrastructure is the \i{binary
+module interface}: a binary file that is produced by compiling the module
+interface unit and that is required when compiling any translation unit that
+imports this module (as well as module's implementation units).
+
+So, in a nutshel, the main functionality of a build system when it comes to
+modules support is figuring out the order in which everything should be
+compiled and making sure that every compilation is able to find the binary
+module interfaces it needs.
+
+Predictably, the details are more complex. Compiling a module interface unit
+produces two outputs: the binary module interface and the object file. Most
+compilers currently implement module re-export as a shallow reference to the
+re-exported module name which means that their binary interfaces must be
+discoverable as well, recursively.
+
+While the implementations vary, the contents of the binary interfaces are
+sensible to the compiler options. If the options used to produce the binary
+interface (for example, when building a library) are sufficiently different
+compared to the ones used when compiling the module consumers, the binary
+interface may be unusable. So while a build system should strive to reuse
+existing binary interfaces, it should also be prepared to compile its own
+versions \"on the side\". This suggests that modules are not a distribution
+mechanism and binary module interfaces should probably not be installed (for
+example, into \c{/usr/include}), instead distributing and installing module
+interface units.
+
+\h2#cxx-modules-build|Building C++ Modules|
+
+Compiler support for C++ Modules is still experimental. As a result, it is
+currently only enabled if the C++ standard is set to \c{experimental}. After
+loading the \c{cxx} module we can check if modules are enabled using the
+\c{cxx.features.modules} boolean variable. This is what the corresponding
+\c{root.build} fragment could look like for a modularized project:
+
+\
+cxx.std = experimental
+
+using cxx
+
+assert $cxx.features.modules 'c++ compiler does not support modules'
+
+mxx{*}: extension = mxx
+cxx{*}: extension = cxx
+\
+
+To support C++ modules the \c{cxx} (build system) module defines several
+additional target types. The \c{mxx{\}} target is a module interface unit.
+As you can see from the above \c{root.build} fragment, in this project we
+are using the \c{.mxx} extension for our module interface files. While
+you can use the same extension as for \c{cxx{\}} (source files), this is
+not recommended since some functionality, such as wildcard patterns, will
+become unusable.
+
+The \c{bmi{\}} group and its \c{bmie{\}}, \c{bmia{\}}, and \c{bmis{\}}
+members are used for binary module interfaces targets. We normally do
+not need to mention them explicitly in our buildfiles except, perhaps,
+to specify additional, module interface-specific compile options. We
+will see some example of this below.
+
+To build a modularized executable or library we simply list the module
+interfaces as its prerequisites, just as we do source files. As an
+example, let's build the \c{hello} example that we have started in the
+introduction. Specifically, we assume our project contains the following
+files:
+
+\
+// file: hello.mxx (module interface)
+
+export module hello;
+
+import std.core;
+
+export void
+say_hello (const std::string&);
+\
+
+\
+// file: hello.cxx (module implementation)
+
+module hello;
+
+import std.io;
+
+using namespace std;
+
+void
+say_hello (const string& name)
+{
+  cout << \"Hello, \" << name << '!' << endl;
+}
+\
+
+\
+// file: driver.cxx
+
+import std.core;
+import hello;
+
+int
+main ()
+{
+  say_hello (\"World\");
+}
+\
+
+To build a \c{hello} executable from these files we can write the following
+\c{buildfile}:
+
+\
+exe{hello}: cxx{driver} {mxx cxx}{hello}
+\
+
+Or, if you prefere to use wildcard patterns:
+
+\
+exe{hello}: {mxx cxx}{*}
+\
+
+Alternatively, we can package the module into a library and then link the
+library to the executable:
+
+\
+exe{hello}: cxx{driver} lib{hello}
+lib{hello}: {mxx cxx}{hello}
+\
+
+As you might have surmised from the above, the modules support implementation
+automatically resolves imports to module interface units that are specified
+either as direct prerequisites or as prerequisites of library prerequisites.
+
+To perform this resolution without a significant overhead the implementation
+delays the extraction of the actual module name from module interface units
+(since not all available module interfaces are necessarily imported by all the
+translation units). Instead, the implementation tries to guess which interface
+unit implements each module being imported based on the interface file
+path. Or, more precisely, a two-step resolution process is performed: first a
+best match between the desired module name and the file path is sought and
+then the actual module name is extracted and the correctness of the inital
+guess is verified.
+
+The practical implication of this implementation detail is that our module
+interface files must embed a portion of a module name, or, more precisely, a
+sufficient amount of \"module name tail\" to unambigously resolve all the
+modules used in a project. Note also that this guesswork is only performed for
+direct module interface prerequisites; for those that come from libraries the
+module names are known and are therefore matched exactly.
+
+As an example, let's assume our \c{hello} project had two modules:
+\c{hello.core} and \c{hello.extra}. While we could call our interface files
+\c{hello.core.mxx} and \c{hello.extra.mxx}, respectively, this doesn't look
+particularly good and may be contrary to the file naming scheme used in our
+project. To resolve this issue the match of module names to file names is
+made \"fuzzy\": it is case-insensitive, it treats all separators (dots, dashes,
+underscores, etc) as equal, and it treats a case change as an imaginary
+separator. As a result, the following naming schemes will all match the
+\c{hello.core} module name:
+
+\
+hello-core.mxx
+hello_core.mxx
+HelloCore.mxx
+hello/core.mxx
+\
+
+We also don't have to embed the full module name. In our case, for example, it
+would be most natural to call the files \c{core.mxx} and \c{extra.mxx} since
+they are already in the project directory called \c{hello/}. This will work
+since our module names can still be guessed correctly and unambigously.
+
+If a guess turns out to be incorrect, the implementation issues diagnostics
+and exits with an error. To resolve this situation we can either adjust the
+interface file names or we can specify the module name explicitly with the
+\c{cc.module_name} variable. The latter approach can be used with interface
+file names that have nothing in common with module names, for example:
+
+\
+mxx{foobar}@./: cc.module_name = hello
+\
+
+Note also that standard library modules (\c{std} and \c{std.*}) are treated
+specially: they are not fuzzy-matched and they need not be resolvable to
+the corresponding \c{mxx{\}} or \c{bmi{\}} in which case it is assumed
+they will be resolved in an ad hoc way by the compiler. This means that if
+you want to build your own standard library module (for example, because
+your compiler doesn't yet ship one; note that this may not be supported
+by all compilers), then you have to specify the module name explicitly.
+For example:
+
+\
+exe{hello}: cxx{driver} {mxx cxx}{hello} mxx{std-core}
+
+mxx{std-core}@./: cc.module_name = std.core
+\
+
+Build-system:
+
+@@ ref mhello examples
+@@ symbol exporting (dllexport)
+
+Guidelines
+
+@@ One to have (multiple) implementation units.
+
 "
