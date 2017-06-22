@@ -196,6 +196,18 @@ namespace build2
       return nullptr;
     }
 
+    inline void compile::
+    append_symexport_options (cstrings& args, const target& t) const
+    {
+      // With VC if a BMI is compiled with dllexport, then when such BMI is
+      // imported, it is auto-magically treated as dllimport. Let's hope
+      // other compilers follow suit.
+      //
+      args.push_back (t.is_a<bmis> () && tclass == "windows"
+                      ? "-D__symexport=__declspec(dllexport)"
+                      : "-D__symexport=");
+    }
+
     match_result compile::
     match (action act, target& t, const string&) const
     {
@@ -683,10 +695,11 @@ namespace build2
         //
         sha256 cs;
 
-        // This affects how we compile the source as well as the format of
-        // depdb so factor it in.
+        // These flags affect how we compile the source and/or the format of
+        // depdb so factor them in.
         //
         cs.append (&md.pp, sizeof (md.pp));
+        cs.append (&symexport, sizeof (symexport));
 
         if (md.pp != preprocessed::all)
         {
@@ -1391,6 +1404,9 @@ namespace build2
             args.push_back ("-I");
             args.push_back (d.string ().c_str ());
           }
+
+          if (symexport && md.mod)
+            append_symexport_options (args, t);
 
           // Some compile options (e.g., -std, -m) affect the preprocessor.
           //
@@ -2272,6 +2288,9 @@ namespace build2
             args.push_back (d.string ().c_str ());
           }
 
+          if (symexport && md.mod)
+            append_symexport_options (args, t);
+
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
           append_options (args, tstd,
@@ -3108,6 +3127,9 @@ namespace build2
           args.push_back ("-I");
           args.push_back (d.string ().c_str ());
         }
+
+        if (symexport && md.mod)
+          append_symexport_options (args, t);
       }
 
       append_options (args, t, c_coptions);

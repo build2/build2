@@ -264,6 +264,7 @@ namespace build2
         cm.tstd,
 
         false, // No C modules yet.
+        false, // No __symexport support since no modules.
 
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths>         (rs[cm.x_sys_lib_dirs]),

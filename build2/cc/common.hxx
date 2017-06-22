@@ -115,7 +115,8 @@ namespace build2
 
       const strings& tstd;         // Translated x_std value (options).
 
-      bool modules;                // x.feaures.modules
+      bool modules;                // x.features.modules
+      bool symexport;              // x.features.symexport
 
       const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
@@ -159,6 +160,7 @@ namespace build2
             const target_triplet& tg,
             const strings& std,
             bool fm,
+            bool fs,
             const process_path* pkgc,
             const dir_paths& sld,
             const dir_paths& sid,
@@ -175,6 +177,7 @@ namespace build2
             ctg (tg), tsys (ctg.system), tclass (ctg.class_),
             tstd (std),
             modules (fm),
+            symexport (fs),
             pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };

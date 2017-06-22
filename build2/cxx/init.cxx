@@ -55,8 +55,8 @@ namespace build2
         return var_pool.rw (rs).insert<bool> (v, variable_visibility::project);
       };
 
-      bool modules (false); auto& v_m (enter ("cxx.features.modules"));
       //bool concepts (false); auto& v_c (enter ("cxx.features.concepts"));
+      bool modules (false); auto& v_m (enter ("cxx.features.modules"));
 
       // Translate "latest" and "experimental" to the compiler/version-
       // appropriate option(s).
@@ -429,7 +429,15 @@ namespace build2
       if (!cast_false<bool> (rs["cxx.config.loaded"]))
         load_module (rs, rs, "cxx.config", loc, false, hints);
 
+      auto& vp (var_pool.rw (rs));
+
       bool modules (cast<bool> (rs["cxx.features.modules"]));
+
+      bool symexport (
+        modules &&
+        cast_false<bool> (
+          rs[vp.insert<bool> ("cxx.features.symexport",
+                              variable_visibility::project)]));
 
       config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
 
@@ -451,6 +459,7 @@ namespace build2
         cm.tstd,
 
         modules,
+        symexport,
 
         cast_null<process_path> (rs["pkgconfig.path"]),
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),

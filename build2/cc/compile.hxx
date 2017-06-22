@@ -123,6 +123,9 @@ namespace build2
       const char*
       langopt (const match_data&) const;
 
+      void
+      append_symexport_options (cstrings&, const target&) const;
+
     private:
       const string rule_id;
     };

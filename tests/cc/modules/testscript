@@ -14,6 +14,8 @@ EOI
 +cat <<EOI >=build/root.build
 cxx.std = experimental
 
+cxx.features.symexport = true
+
 # Force modules.
 #
 cxx.features.modules = true
@@ -312,4 +314,34 @@ $* test clean <<EOI
   ./: exe{test} bmie{foo-core}
   exe{test}: cxx{driver} {mxx cxx}{core}
   bmie{foo-core}: mxx{foo-core}
+  EOI
+
+: symexport
+:
+: Test the __symexport feature.
+:
+cat <<EOI >=core.mxx;
+  #if __cpp_modules >= 201704
+  export
+  #endif
+  module foo.core;
+
+  export __symexport int f (int);
+
+  __symexport int g_impl (int i) {return i - 1;}
+  export __symexport inline int g (int i) {return g_impl (i);}
+  EOI
+ln -s ../core.cxx core-f.cxx;
+cat <<EOI >=core-g.cxx;
+  module foo.core;
+  int g_impl (int i) {return i - 1;}
+  EOI
+cat <<EOI >=driver.cxx;
+  import foo.core;
+  int main (int argc, char*[]) {return f (argc) + g (argc);}
+  EOI
+$* test clean <<EOI
+  ./: lib{foo} exe{test} # Full build.
+  exe{test}: cxx{driver} lib{foo}
+  lib{foo}: mxx{core} cxx{core-f} # core-g @@ VC
   EOI
