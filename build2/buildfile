@@ -16,6 +16,7 @@ exe{b}:                                                   \
             {hxx     txx cxx}{ filesystem               } \
             {hxx         cxx}{ function                 } \
             {            cxx}{ functions-builtin        } \
+            {            cxx}{ functions-filesystem     } \
             {            cxx}{ functions-path           } \
             {            cxx}{ functions-process-path   } \
             {            cxx}{ functions-string         } \

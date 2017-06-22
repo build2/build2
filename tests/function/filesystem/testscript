@@ -1,0 +1,155 @@
+# file      : tests/function/filesystem/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: path-search
+:
+{
+  +mkdir -p a/b
+
+  : pattern-path
+  :
+  : Test overloads for pattern being of the path type.
+  :
+  {
+    : start-abs-dir
+    :
+    $* <'print $path_search([path] "b**/", [dir_path] $src_base/../../a)' >/'b/'
+
+    : start-relative-dir
+    :
+    $* <'print $path_search([path] "b**/", [dir_path] ../../a)' 2>>~%EOE% != 0
+    %error: start directory '.+' is relative%
+    %  info: pattern '.+' is relative%
+    EOE
+
+    : start-untyped
+    :
+    $* <'print $path_search([path] "b**/", $src_base/../../a)' >/'b/'
+
+    : start-multiple-names
+    :
+    $* <'print $path_search([path] "b**/", a b)' 2>>EOE != 0
+    error: invalid argument: invalid dir_path value: multiple names
+    EOE
+  }
+
+  : pattern-untyped
+  :
+  : Test overloads for pattern being untyped.
+  :
+  {
+    : start-dir
+    :
+    $* <'print $path_search("b**/", [dir_path] $src_base/../../a)' >/'b/'
+
+    : start-untyped
+    :
+    $* <'print $path_search("b**/", $src_base/../../a)' >/'b/'
+
+    : abs-pattern
+    :
+    if ($test.target == $build.host)
+    {
+      touch b;
+      $* <'print $path_search("$src_base/b*")' >>/"EOO"
+      $out_base/test/$@/b
+      EOO
+    }
+  }
+
+  : pattern-multiple-names
+  :
+  {
+    : dir
+    :
+    touch b;
+    $* <'print $path_search(a b, $src_base)' 2>>EOE != 0
+    error: invalid argument: invalid path value: multiple names
+    EOE
+  }
+}
+
+: path-match
+:
+{
+  : string
+  :
+  : Test overloads for at least one of the first two arguments being of the
+  : string type.
+  :
+  {
+    : string-string
+    :
+    $* <'print $path_match([string] "b*", [string] "b")' >'true'
+
+    : string-untyped
+    :
+    $* <'print $path_match([string] "b*", "b")' >'true'
+
+    : untyped-string
+    :
+    $* <'print $path_match("b*", [string] "b")' >'true'
+
+    : string-path
+    :
+    $* <'print $path_match([string] "b*", [path] "b")' 2>>~/EOE/ != 0
+    <stdin>:1:8: error: unmatched call to path_match(string, path)
+    /.{11}
+    EOE
+  }
+
+  : path
+  :
+  : Test overloads for at least one of the first two arguments being of the
+  : path type.
+  :
+  {
+    : path-path
+    :
+    $* <'print $path_match([path] "b**", [path] "a/b")' >'true'
+
+    : path-path-untyped
+    :
+    $* <'print $path_match([path] "b**", [path] "a/b", "$src_base")' >'true'
+
+    : path-untyped
+    :
+    $* <'print $path_match([path] "b**", "a/b")' >'true'
+
+    : path-untyped-dir
+    :
+    $* <'print $path_match([path] "b**", "a/b", $src_base)' >'true'
+
+    : untyped-path
+    :
+    $* <'print $path_match("b**", [path] "a/b")' >'true'
+  }
+
+  : untyped
+  :
+  : Test overloads for the first two arguments being untyped.
+  :
+  {
+    : converted-to-strings
+    :
+    $* <'print $path_match("b**", "b")' >'true'
+
+    : converted-to-paths-due-to
+    {
+      : pattern
+      :
+      $* <'print $path_match("b**/", "a/b/")' >'true'
+
+      : entry
+      :
+      $* <'print $path_match("b**", "a/b")' >'true'
+
+      : start-dir
+      :
+      $* <'print $path_match("s***/", "", "$src_base")' >'true'
+    }
+  }
+}

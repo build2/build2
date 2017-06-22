@@ -301,9 +301,10 @@ namespace build2
   function_map functions;
 
   void builtin_functions ();        // functions-builtin.cxx
-  void string_functions ();         // functions-string.cxx
+  void filesystem_functions ();     // functions-filesystem.cxx
   void path_functions ();           // functions-path.cxx
   void process_path_functions ();   // functions-process-path.cxx
+  void string_functions ();         // functions-string.cxx
   void target_triplet_functions (); // functions-target-triplet.cxx
 
   struct functions_init
@@ -311,9 +312,10 @@ namespace build2
     functions_init ()
     {
       builtin_functions ();
-      string_functions ();
+      filesystem_functions ();
       path_functions ();
       process_path_functions ();
+      string_functions ();
       target_triplet_functions ();
     }
   };

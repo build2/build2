@@ -47,16 +47,7 @@ namespace build2
 
     f["getenv"] = [](names name)
     {
-      // Note that if the name size is greater than one, we will fail with the
-      // proper diagnostics.
-      //
-      assert (!name.empty ());
-
-      string n (name.size () == 1
-                ? convert<string> (move (name[0]))
-                : convert<string> (move (name)));
-
-      return getenv (n);
+      return getenv (convert<string> (move (name)));
     };
   }
 }

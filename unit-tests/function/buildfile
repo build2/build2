@@ -7,9 +7,9 @@
 import libs = libbutl%lib{butl}
 src = token lexer diagnostics utility variable name b-options types-parsers \
 context scope parser target operation rule prerequisite file module function \
-functions-builtin functions-path functions-process-path functions-string \
-functions-target-triplet algorithm search dump filesystem scheduler \
-config/{utility init operation module} spec
+functions-builtin functions-filesystem functions-path functions-process-path \
+functions-string functions-target-triplet algorithm search dump filesystem \
+scheduler config/{utility init operation module} spec
 
 exe{driver}: cxx{driver} ../../build2/cxx{$src} ../../build2/liba{b} $libs test{call syntax}
 
