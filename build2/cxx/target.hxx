@@ -61,12 +61,12 @@ namespace build2
     // The module interface unit is both like a header (e.g., we need to
     // install it) and like a source (we need to compile it). Plus, to
     // support dual use (modules/headers) it could actually be #include'd
-    // (and in both cases).
+    // (and even in both cases).
     //
-    class mxx: public cc::cc
+    class mxx: public file
     {
     public:
-      using cc::cc;
+      using file::file;
 
     public:
       static const target_type static_type;
