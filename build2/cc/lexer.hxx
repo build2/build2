@@ -50,22 +50,19 @@ namespace build2
 
     struct token
     {
-      token_type type;
+      token_type type = token_type::eos;
       string     value;
 
+      // Logical position.
+      //
       path     file;
-      uint64_t line;
-      uint64_t column;
+      uint64_t line   = 0;
+      uint64_t column = 0;
 
-    public:
-      token ()
-          : token (token_type::eos, 0, 0) {}
-
-      token (token_type t, uint64_t l, uint64_t c)
-          : token (t, string (), l, c) {}
-
-      token (token_type t, string v, uint64_t l, uint64_t c)
-          : type (t), value (move (v)), line (l), column (c) {}
+      // Physical position in the stream, currently only for identifiers and
+      // only if the stream is ifdstream.
+      //
+      uint64_t position = 0;
     };
 
     // Output the token value in a format suitable for diagnostics.

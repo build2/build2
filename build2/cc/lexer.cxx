@@ -330,6 +330,13 @@ namespace build2
 
             if (alpha (c) || c == '_')
             {
+              // This smells a little: we know skip_spaces() did not peek at
+              // the next character because this is not '/'. Which means the
+              // position in the stream must be of this character + 1.
+              //
+              if (buf_ != nullptr)
+                t.position = buf_->tellg () - 1;
+
               string& id (t.value);
               id.clear ();
 

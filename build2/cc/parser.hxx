@@ -37,6 +37,9 @@ namespace build2
       string
       parse_module_name (token&);
 
+    public:
+      uint64_t export_pos; // Temporary hack, see parse_unit().
+
     private:
       lexer* l_;
       translation_unit* u_;

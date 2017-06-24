@@ -345,3 +345,14 @@ $* test clean <<EOI
   exe{test}: cxx{driver} lib{foo}
   lib{foo}: mxx{core} cxx{core-f} # core-g @@ VC
   EOI
+
+: export-fixup
+:
+: Test removing the export keyword for VC compatibility.
+:
+ln -s ../core.cxx ../driver.cxx ./;
+cat <<EOI >=core.mxx;
+  export module foo.core;
+  export int f (int);
+  EOI
+$* test clean <'exe{test}: cxx{driver core} mxx{core}'
