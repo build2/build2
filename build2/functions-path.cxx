@@ -74,8 +74,7 @@ namespace build2
 
     // string
     //
-    f["string"] = [](path p)     {return move (p).string ();};
-    f["string"] = [](dir_path p) {return move (p).string ();};
+    f["string"] = [](path p) {return move (p).string ();};
 
     f["string"] = [](paths v)
     {
@@ -95,8 +94,7 @@ namespace build2
 
     // representation
     //
-    f["representation"] = [](path p)     {return move (p).representation ();};
-    f["representation"] = [](dir_path p) {return move (p).representation ();};
+    f["representation"] = [](path p) {return move (p).representation ();};
 
     f["representation"] = [](paths v)
     {
@@ -116,7 +114,7 @@ namespace build2
 
     // canonicalize
     //
-    f["canonicalize"] = [](path p) {p.canonicalize (); return p;};
+    f["canonicalize"] = [](path p)     {p.canonicalize (); return p;};
     f["canonicalize"] = [](dir_path p) {p.canonicalize (); return p;};
 
     f["canonicalize"] = [](paths v)

@@ -568,7 +568,12 @@ namespace build2
         {
           return path (move (n.value));
         }
-        catch (const invalid_path&) {} // Fall through.
+        catch (invalid_path& e)
+        {
+          n.value = move (e.path); // Restore the name object for diagnostics.
+
+          // Fall through.
+        }
       }
 
       // Fall through.
@@ -627,7 +632,7 @@ namespace build2
   {
     type_name,
     sizeof (dir_path),
-    nullptr,                        // No base, or should it be path?
+    &value_traits<path>::value_type, // Assume direct cast works for both.
     &default_dtor<dir_path>,
     &default_copy_ctor<dir_path>,
     &default_copy_assign<dir_path>,
