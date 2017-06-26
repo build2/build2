@@ -1203,13 +1203,124 @@ exe{hello}: cxx{driver} {mxx cxx}{hello} mxx{std-core}
 mxx{std-core}@./: cc.module_name = std.core
 \
 
+When C++ modules are enable and available, the build system makes sure the
+\c{__cpp_modules} feature test macro is defined. Currently, its value is
+201703 for VC and 201704 for GCC and Clang but this will most likely change in
+the future.
+
+One major difference between the current C++ modules implementation in VC and
+the other two compilers is the use of the \c{export module} syntax to identify
+the interface units. While both GCC and Clang have adopted this new syntax,
+VC is still using the old one without the \c{export} keyword. We can use the
+\c{__cpp_modules} macro to provide a portable declaration:
+
+\
+#if __cpp_modules >= 201704
+export
+#endif
+module hello;
+\
+
+Note, however, that the modules support in \c{build2} provides extra \"magic\"
+that allows us to use the new syntax even with VC.
+
+\h2#cxx-modules-symexport|Symbol Exporting|
+
+When building a shared library, some platforms (notably Windows) require that
+we explicitly export symbols that must be accessible to the library users.
+If you don't need to support such platforms, you can thank your lucky stars
+and skip this section.
+
+When using headers, the tradition way of achieving this is via an \"export
+macro\" that is used to mark exported APIs, for example:
+
+\
+LIBHELLO_EXPORT void
+say_hello (const string&);
+\
+
+This macro is then appropriately defined (often in a separate \"export
+header\") to export symbols when building the shared library and to import
+them when building the library's users.
+
+Introduction of modules changes this in a number of ways, at least as
+implemented by VC (hopefully other compilers will follow suit). While we
+still have to explicitly mark exported symbols in our module interface
+unit, there is no need (and, in fact, no way) to do the same when said
+module is imported. Instead, the compiler automatically treats its
+exported symbols as imported.
+
+One notable aspect of this new model is the locality of the export macro: it
+is only defined when compiling the module interface unit and is not visible to
+the consumers of the module. This is unlike headers where the macro has to
+be unique per-library (that \c{LIBHELLO_} prefix) since a header from one
+library can be included while building another library.
+
+We can continue using the same export macro and header with modules and, in
+fact, that's the recommended approach when maintaing dual, header/module
+arrangement for backwards compatibility (discussed below). However, for
+module-only codebases, we have an opportunity to improve the situation in two
+ways: we can use a single, keyword-like macro instead of a library-specific
+one and we can make the build system manage it for us thus getting rid of the
+export header.
+
+To enable this functionality in \c{build2} we must set the
+\c{cxx.features.symexport} boolean variable to \c{true} before loading the
+\c{cxx} module. For example:
+
+\
+cxx.std = experimental
+
+cxx.features.symexport = true
+
+using cxx
+
+...
+\
+
+Once enable, \c{build2} automatically defines the \c{__symexport} macro to the
+appropriate value depending on the platform and the type of library being
+built. As library authors all we have to do is use it in appropriate places in
+our module interface units, for example:
+
+\
+export module hello;
+
+import std.core;
+
+export __symexport void
+say_hello (const std::string&);
+\
+
+As an aside, you may be wondering why can't a module export automatically mean
+a symbol export? While you will normally want to export symbols of all your
+module-exported names, you may also need to do so for some non-module-exported
+ones. For example:
+
+\
+export module foo;
+
+__symexport void
+f_impl ();
+
+export __symexport inline void
+f ()
+{
+  f_impl ();
+}
+\
+
+Additionally, symbol exporting is a murky area with many limitations and
+pitfalls (such as auto-exporting of base classes). As a result, it would not
+be unreasonable to expect such an automatic module exporting to only to
+further complicate the matters.
+
 Build-system:
 
 @@ ref mhello examples
-@@ symbol exporting (dllexport)
 
 Guidelines
 
-@@ One to have (multiple) implementation units.
+@@ Why to have (multiple) implementation units.
 
 "
