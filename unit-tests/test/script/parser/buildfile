@@ -8,12 +8,14 @@ import libs = libbutl%lib{butl}
 src = token lexer parser diagnostics utility variable name context target \
 scope prerequisite file module operation rule b-options algorithm search  \
 filesystem function functions-builtin functions-filesystem functions-path \
-functions-process-path functions-string functions-target-triplet          \
-config/{utility init operation module} dump types-parsers                 \
-test/{target script/{token lexer parser regex script}} scheduler spec
+functions-process-path functions-regex functions-string                   \
+functions-target-triplet config/{utility init operation module} dump      \
+types-parsers test/{target script/{token lexer parser regex script}}      \
+scheduler spec
 
-exe{driver}: cxx{driver} ../../../../build2/cxx{$src} ../../../../build2/liba{b} $libs \
-test{cleanup command-if command-re-parse description directive exit \
+exe{driver}: cxx{driver} ../../../../build2/cxx{$src}                \
+../../../../build2/liba{b} $libs                                     \
+test{cleanup command-if command-re-parse description directive exit  \
      expansion here-document here-string include pipe-expr pre-parse \
      redirect regex scope scope-if setup-teardown}
 

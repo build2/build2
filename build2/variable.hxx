@@ -263,7 +263,7 @@ namespace build2
   bool operator>= (const value&, const value&);
 
   // Value cast. The first three expect the value to be not NULL. The cast
-  // from lookup expects the value to aslo be defined.
+  // from lookup expects the value to also be defined.
   //
   // Note that a cast to names expects the value to be untyped while a cast
   // to vector<names> -- typed.

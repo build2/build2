@@ -19,6 +19,7 @@ exe{b}:                                                   \
             {            cxx}{ functions-filesystem     } \
             {            cxx}{ functions-path           } \
             {            cxx}{ functions-process-path   } \
+            {            cxx}{ functions-regex          } \
             {            cxx}{ functions-string         } \
             {            cxx}{ functions-target-triplet } \
             {hxx         cxx}{ lexer                    } \

@@ -304,6 +304,7 @@ namespace build2
   void filesystem_functions ();     // functions-filesystem.cxx
   void path_functions ();           // functions-path.cxx
   void process_path_functions ();   // functions-process-path.cxx
+  void regex_functions ();          // functions-regex.cxx
   void string_functions ();         // functions-string.cxx
   void target_triplet_functions (); // functions-target-triplet.cxx
 
@@ -315,6 +316,7 @@ namespace build2
       filesystem_functions ();
       path_functions ();
       process_path_functions ();
+      regex_functions ();
       string_functions ();
       target_triplet_functions ();
     }

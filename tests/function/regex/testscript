@@ -1,0 +1,255 @@
+# file      : tests/function/regex/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: replace
+:
+{
+  : arg-types
+  :
+  {
+    : untyped-string-string
+    :
+    $* <<EOI >'foo.o'
+    print $regex.replace('foo.cxx', [string] '(^[^.]*).*', [string] '\1.o')
+    EOI
+
+    : string-untyped-string
+    :
+    $* <<EOI >'foo.o'
+    print $regex.replace([string] 'foo.cxx', '(^[^.]*).*', [string] '\1.o')
+    EOI
+
+    : bool-string-untyped
+    :
+    $* <<EOI >'true.o'
+    print $regex.replace('a' == "a", [string] '(^[^.]*).*', '\1.o')
+    EOI
+
+    : uint64-untyped-string
+    :
+    $* <<EOI >'1.o'
+    print $regex.replace([uint64] 01, '(^[^.]*).*', [string] '\1.o')
+    EOI
+
+    : path-untyped-untyped
+    :
+    $* <<EOI >'foo.o'
+    print $regex.replace([path] 'foo.cxx', '(^[^.]*).*', '\1.o')
+    EOI
+
+    : multiple-names
+    :
+    $* <<EOI 2>'error: invalid argument: invalid string value: multiple names' != 0
+    print $regex.replace(foo.cxx bar.cxx, '([^.]*)', '\1.o')
+    EOI
+
+    : null
+    :
+    $* <<EOI 2>'error: invalid argument: null value' != 0
+    print $regex.replace([null], '([^.]*)', '\1.o')
+    EOI
+
+    : null-regex
+    :
+    $* <<EOI 2>'error: invalid argument: null value' != 0
+    print $regex.replace(foo.cxx, [null], '\1.o')
+    EOI
+  }
+
+  : no-subs
+  :
+  $* <<EOI >'xbcxbc'
+  print $regex.replace('abcabc', 'a', 'x')
+  EOI
+
+  : no-match
+  :
+  $* <<EOI >'abcabc'
+  print $regex.replace('abcabc', 'd', 'x')
+  EOI
+
+  : flags
+  :
+  {
+    : icase
+    :
+    $* <<EOI >'Foo.o'
+    print $regex.replace("Foo.cxx", '(f[^.]*).*', '\1.o', icase)
+    EOI
+
+    : format_first-only
+    :
+    $* <<EOI >'foo.o'
+    print $regex.replace('foo.cxx', '([^.]*).*', '\1.o', format_first_only)
+    EOI
+
+    : format_no_copy
+    :
+    {
+      : all-matches
+      :
+      $* <<EOI >'xx'
+      print $regex.replace('abcabc', 'a', 'x', format_no_copy)
+      EOI
+
+      : first-only
+      :
+      $* <<EOI >'x'
+      print $regex.replace('abcabc', 'a', 'x', format_no_copy format_first_only)
+      EOI
+    }
+
+    : unknown
+    :
+    $* <<EOI 2>"error: invalid argument: invalid flag 'unknown'" != 0
+    print $regex.replace("foo.cxx", '(f[^.]*).*', '\1.o', unknown)
+    EOI
+  }
+
+  : invalid-regex
+  :
+  $* <'print $regex.replace(a, "[", b)' 2>>~/EOE/ != 0
+  /error: invalid argument: invalid regex '\['.*/
+  EOE
+}
+
+: match
+:
+{
+  : arg-types
+  :
+  {
+    : untyped-string
+    :
+    $* <<EOI >'true'
+    print $regex.match('foo.cxx', [string] '(^[^.]*).*')
+    EOI
+
+    : untyped-untyped
+    :
+    $* <<EOI >'true'
+    print $regex.match('foo.cxx', '(^[^.]*).*')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : none
+    :
+    $* <<EOI >'false'
+    print $regex.match("Foo.cxx", '(f[^.]*).*')
+    EOI
+
+    : icase
+    :
+    $* <<EOI >'true'
+    print $regex.match("Foo.cxx", '(f[^.]*).*', icase)
+    EOI
+
+    : return_subs
+    :
+    {
+      : success
+      :
+      $* <<EOI >'foo bar'
+      print $regex.match("foo   bar", '([^\s]*)\s+([^\s]*)', return_subs)
+      EOI
+
+      : no-subexpr
+      :
+      $* <<EOI >''
+      print $regex.match("foo   bar", '(?:[^\s]*)\s+(?:[^\s]*)', return_subs)
+      EOI
+
+      : failure
+      :
+      $* <<EOI >''
+      print $regex.match("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
+      EOI
+    }
+  }
+}
+
+: search
+:
+{
+  : arg-types
+  :
+  {
+    : untyped-string
+    :
+    $* <<EOI >'true'
+    print $regex.search('.foo.cxx', [string] '([^.]*)')
+    EOI
+
+    : untyped-untyped
+    :
+    $* <<EOI >'true'
+    print $regex.search('.foo.cxx', '([^.]*)')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : none
+    :
+    $* <<EOI >'false'
+    print $regex.match("Foo.cxx", '(f[^.]*).*')
+    EOI
+
+    : icase
+    :
+    $* <<EOI >'true'
+    print $regex.match("Foo.cxx", '(f[^.]*).*', icase)
+    EOI
+
+    : return_subs
+    :
+    {
+      : success
+      :
+      $* <<EOI >'foo bar'
+      print $regex.search(" foo  bar baz", '([^\s]+)\s+([^\s]+)', return_subs)
+      EOI
+
+      : no-subexpr
+      :
+      $* <<EOI >''
+      print $regex.search("foo bar ba", '(?:[^\s]+)\s+(?:[^\s]+)', return_subs)
+      EOI
+
+      : failure
+      :
+      $* <<EOI >''
+      print $regex.match("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
+      EOI
+    }
+
+    : return_match
+    :
+    {
+      : success
+      :
+      $* <<EOI >'foo  bar'
+      print $regex.search(" foo  bar baz", '([^\s]+)\s+([^\s]+)', return_match)
+      EOI
+
+      : subs
+      :
+      $* <<EOI >'foo  bar foo bar'
+      print $regex.search(" foo  bar baz", '([^\s]+)\s+([^\s]+)', return_match return_subs)
+      EOI
+
+      : failure
+      :
+      $* <<EOI >''
+      print $regex.search("   bar", '([^\s]+)\s+([^\s]+)', return_match)
+      EOI
+    }
+  }
+}
