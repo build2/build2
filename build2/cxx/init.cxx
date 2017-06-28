@@ -160,7 +160,7 @@ namespace build2
                 //
                 if (l && // Barely usable at the moment.
                     mj >= 8 &&
-                    ci.version.build.find ("cxx-modules") != string::npos)
+                    ci.version.build.find ("c++-modules") != string::npos)
                 {
                   r.push_back ("-fmodules");
                   modules = true;
