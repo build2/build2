@@ -285,6 +285,45 @@ if ($cxx.id.type != "clang")
     EOI
 }
 
+: import
+:
+: Test module import. Currently, all the implementation require access to the
+: entire, recursively-explored list of BMIs.
+:
+{
+  # Note: using VC export module fixup support.
+
+  +cat <<EOI >=base.mxx
+    export module foo.base;
+    import foo.core;
+    export int g (int i) {return f (i);}
+    EOI
+
+  +cat <<EOI >=extra.mxx
+    export module foo.extra;
+    import foo.base;
+    export int h (int i) {return g (i);}
+    EOI
+
+  : basic
+  :
+  ln -s ../base.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo.base;
+    int main (int argc, char*[]) {return g (argc);}
+    EOI
+  $* test clean <'exe{test}: cxx{driver core} mxx{core base}'
+
+  : recursive
+  :
+  ln -s ../base.mxx ../extra.mxx ../../core.mxx ../../core.cxx ./;
+  cat <<EOI >=driver.cxx;
+    import foo.extra;
+    int main (int argc, char*[]) {return h (argc);}
+    EOI
+  $* test clean <'exe{test}: cxx{driver core} mxx{core base extra}'
+}
+
 : resolve-change
 :
 : Test detection of module name to BMI resolution change.

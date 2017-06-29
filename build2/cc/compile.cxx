@@ -129,9 +129,9 @@ namespace build2
       bool mod;                             // True if bmi*{} and src is x_mod.
       prerequisite_member src;
       preprocessed pp = preprocessed::none;
-      auto_rmfile psrc;                     // Preprocessed source, if any.
-      timestamp mt = timestamp_unknown;     // Target timestamp.
-      modules_positions mod_pos = {0, 0};   // 0 if not present.
+      auto_rmfile psrc;                      // Preprocessed source, if any.
+      timestamp mt = timestamp_unknown;      // Target timestamp.
+      module_positions mod_pos = {0, 0, 0};
     };
 
     compile::
@@ -2552,7 +2552,7 @@ namespace build2
 
     // Resolve imported modules to bmi*{} targets.
     //
-    modules_positions compile::
+    module_positions compile::
     search_modules (action act,
                     file& t,
                     lorder lo,
@@ -2678,7 +2678,7 @@ namespace build2
       // shallow (from the BMI's point of view) reference to the module (or an
       // implicit import, if you will). Do you see where it's going? Nowever
       // good, that's right. This shallow reference means that the compiler
-      // should be able to find BMIs for all the re-imported modules,
+      // should be able to find BMIs for all the re-exported modules,
       // recursive. The good news is we are actually in a pretty good shape to
       // handle this: after match all our prerequisite BMIs will have their
       // prerequisite BMIs known, recursively. The only bit that is missing is
@@ -2712,6 +2712,17 @@ namespace build2
       //    it's just extra overhead (we know they will be updated). So what
       //    we are going to do is save another position, that of the start of
       //    these copied-over targets, and will only execute up to this point.
+      //
+      // And after implementing this came the reality check: all the current
+      // implementations require access to all the imported BMIs, not only
+      // re-exported. Some (like Clang) store references to imported BMI files
+      // so we actually don't need to pass any extra options but they still
+      // need access to the BMIs (and things will most likely have to be done
+      // differenly for distributed compilation).
+      //
+      // So the revised plan: on the off chance that some implementation will
+      // do it differently we will continue maintaing the imported/re-exported
+      // split and how much to copy-over can be made compiler specific.
       //
       // As a first sub-step of step #1, move all the re-exported imports to
       // the end of the vector. This will make sure they end up at the end
@@ -2936,8 +2947,8 @@ namespace build2
       // Post-process the list of our (direct) imports. While at it, calculate
       // the checksum of all (direct and indirect) bmi{} paths.
       //
-      size_t ex_start (n);
-      size_t ex_tail (pts.size ());
+      size_t exported (n);
+      size_t copied (pts.size ());
 
       for (size_t i (0); i != n; ++i)
       {
@@ -2945,8 +2956,8 @@ namespace build2
 
         // Determine the position of the first re-exported bmi{}.
         //
-        if (m.exported && ex_start == n)
-          ex_start = i;
+        if (m.exported && exported == n)
+          exported = i;
 
         const target* bt (pts[start + i]);
 
@@ -2983,10 +2994,9 @@ namespace build2
         //
         cs.append (static_cast<const file&> (*bt).path ().string ());
 
-        // Copy over re-exported bmi{} from our prerequisites weeding out
-        // duplicates.
+        // Copy over bmi{}s from our prerequisites weeding out duplicates.
         //
-        if (size_t j = bt->data<match_data> ().mod_pos.ex_start)
+        if (size_t j = bt->data<match_data> ().mod_pos.start)
         {
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
@@ -3020,15 +3030,15 @@ namespace build2
         }
       }
 
-      if (ex_tail == pts.size ()) // No copied tail.
-        ex_tail = 0;
+      if (copied == pts.size ()) // No copied tail.
+        copied = 0;
 
-      if (ex_start == n) // No (own) re-exported imports.
-        ex_start = ex_tail;
+      if (exported == n) // No (own) re-exported imports.
+        exported = copied;
       else
-        ex_start += start; // Rebase.
+        exported += start; // Rebase.
 
-      return modules_positions {ex_start, ex_tail};
+      return module_positions {start, exported, copied};
     }
 
     // Filter cl.exe noise (msvc.cxx).
@@ -3037,10 +3047,31 @@ namespace build2
     msvc_filter_cl (ifdstream&, const path& src);
 
     void compile::
-    append_modules (cstrings& args, strings& stor, const file& t) const
+    append_modules (cstrings& args,
+                    strings& stor,
+                    const file& t,
+                    const module_positions& mp) const
     {
-      for (const target* pt: t.prerequisite_targets)
+      size_t n (t.prerequisite_targets.size ());
+
+      // Clang embeds module file references so we only need to specify
+      // our direct imports.
+      //
+      // If/when we get the ability to specify the mapping in a file, we
+      // should probably pass the whole list.
+      //
+      switch (cid)
       {
+      case compiler_id::clang: n = mp.copied != 0 ? mp.copied : n; break;
+      case compiler_id::gcc:
+      case compiler_id::msvc: break; // All of them.
+      case compiler_id::icc:  assert (false);
+      }
+
+      for (size_t i (mp.start); i != n; ++i)
+      {
+        const target* pt (t.prerequisite_targets[i]);
+
         if (pt == nullptr)
           continue;
 
@@ -3104,7 +3135,7 @@ namespace build2
           (mod ? *x_mod : x_src),
           act, t,
           md.mt, nullptr,
-          md.mod_pos.ex_tail)); // See search_modules() for details.
+          md.mod_pos.copied)); // See search_modules() for details.
 
       if (pr.first)
       {
@@ -3214,8 +3245,8 @@ namespace build2
         if (!find_option_prefixes ({"/MD", "/MT"}, args))
           args.push_back ("/MD");
 
-        if (modules)
-          append_modules (args, mods, t);
+        if (md.mod_pos.start != 0)
+          append_modules (args, mods, t, md.mod_pos);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -3279,8 +3310,8 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
-        if (modules)
-          append_modules (args, mods, t);
+        if (md.mod_pos.start != 0)
+          append_modules (args, mods, t, md.mod_pos);
 
         // Note: the order of the following options is relied upon below.
         //

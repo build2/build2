@@ -30,10 +30,11 @@ namespace build2
     // Positions of the re-exported bmi{}s. See search_modules() for
     // details.
     //
-    struct modules_positions
+    struct module_positions
     {
-      size_t ex_start;
-      size_t ex_tail;
+      size_t start;    // First imported    bmi*{}, 0 if none.
+      size_t exported; // First re-exported bmi*{}, 0 if none.
+      size_t copied;   // First copied-over bmi*{}, 0 if none.
     };
 
     class compile: public rule, virtual common
@@ -111,12 +112,13 @@ namespace build2
                        const file&, match_data&,
                        module_info&&, depdb&, bool&) const;
 
-      modules_positions
+      module_positions
       search_modules (action, file&, lorder, const target_type&,
                       const file&, module_imports&&, sha256&) const;
 
       void
-      append_modules (cstrings&, strings&, const file&) const;
+      append_modules (cstrings&, strings&,
+                      const file&, const module_positions&) const;
 
       // Language selection option (for VC) or the value for the -x option.
       //
