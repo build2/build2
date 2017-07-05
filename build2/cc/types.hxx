@@ -32,9 +32,19 @@ namespace build2
       module_imports imports; // Imported modules.
     };
 
+    enum class translation_type {plain, module_iface, module_impl};
+
     struct translation_unit
     {
       module_info mod;
+
+      translation_type
+      type () const
+      {
+        return (mod.name.empty () ? translation_type::plain :
+                mod.iface         ? translation_type::module_iface
+                :                   translation_type::module_impl);
+      }
     };
 
     // Compiler language.

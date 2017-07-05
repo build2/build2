@@ -124,14 +124,15 @@ namespace build2
     struct compile::match_data
     {
       explicit
-      match_data (bool m, const prerequisite_member& s): mod (m), src (s) {}
+      match_data (translation_type t, const prerequisite_member& s)
+          : type (t), src (s) {}
 
-      bool mod;                             // True if bmi*{} and src is x_mod.
-      prerequisite_member src;
+      translation_type type;
       preprocessed pp = preprocessed::none;
+      prerequisite_member src;
       auto_rmfile psrc;                      // Preprocessed source, if any.
       timestamp mt = timestamp_unknown;      // Target timestamp.
-      module_positions mod_pos = {0, 0, 0};
+      module_positions mods = {0, 0, 0};
     };
 
     compile::
@@ -146,7 +147,7 @@ namespace build2
     const char* compile::
     langopt (const match_data& md) const
     {
-      bool m (md.mod);
+      bool m (md.type == translation_type::module_iface);
       //preprocessed p (md.pp);
 
       switch (cid)
@@ -232,9 +233,13 @@ namespace build2
       {
         if (p.is_a (mod ? *x_mod : x_src))
         {
-          // Save in the target's auxilary storage.
+          // Save in the target's auxiliary storage. Translation type will
+          // be refined in apply().
           //
-          t.data (match_data (mod, p));
+          t.data (match_data (mod
+                              ? translation_type::module_iface
+                              : translation_type::plain,
+                              p));
           return true;
         }
       }
@@ -451,7 +456,7 @@ namespace build2
       file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
 
       match_data& md (t.data<match_data> ());
-      bool mod (md.mod);
+      bool mod (md.type == translation_type::module_iface);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -823,6 +828,8 @@ namespace build2
 
           break;
         }
+
+        md.type = tu.type ();
 
         // Extract the module dependency information in addition to header
         // dependencies.
@@ -1405,7 +1412,7 @@ namespace build2
             args.push_back (d.string ().c_str ());
           }
 
-          if (symexport && md.mod)
+          if (symexport && md.type == translation_type::module_iface)
             append_symexport_options (args, t);
 
           // Some compile options (e.g., -std, -m) affect the preprocessor.
@@ -2288,7 +2295,7 @@ namespace build2
             args.push_back (d.string ().c_str ());
           }
 
-          if (symexport && md.mod)
+          if (symexport && md.type == translation_type::module_iface)
             append_symexport_options (args, t);
 
           append_options (args, t, c_coptions);
@@ -2515,10 +2522,13 @@ namespace build2
 
       // Search and match all the modules we depend on. If this is a module
       // implementation unit, then treat the module itself as if it was
-      // imported. Note: move.
+      // imported (we insert it first since for some compilers we have to
+      // differentiate between this special module and real imports). Note:
+      // move.
       //
       if (!mi.iface && !mi.name.empty ())
-        mi.imports.push_back (module_import {move (mi.name), false, 0});
+        mi.imports.insert (mi.imports.begin (),
+                           module_import {move (mi.name), false, 0});
 
       // The change to the set of imports would have required a change to
       // source code (or options). Changes to the bmi{}s themselves will be
@@ -2530,7 +2540,7 @@ namespace build2
       sha256 cs;
 
       if (!mi.imports.empty ())
-        md.mod_pos = search_modules (
+        md.mods = search_modules (
           act, t, lo, tt.bmi, src, move (mi.imports), cs);
 
       if (dd.expect (cs.string ()) != nullptr)
@@ -2726,7 +2736,8 @@ namespace build2
       //
       // As a first sub-step of step #1, move all the re-exported imports to
       // the end of the vector. This will make sure they end up at the end
-      // of prerequisite_targets.
+      // of prerequisite_targets. Note: the special first import, if any,
+      // should be unaffected.
       //
       sort (imports.begin (), imports.end (),
             [] (const module_import& x, const module_import& y)
@@ -2996,7 +3007,7 @@ namespace build2
 
         // Copy over bmi{}s from our prerequisites weeding out duplicates.
         //
-        if (size_t j = bt->data<match_data> ().mod_pos.start)
+        if (size_t j = bt->data<match_data> ().mods.start)
         {
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
@@ -3050,8 +3061,10 @@ namespace build2
     append_modules (cstrings& args,
                     strings& stor,
                     const file& t,
-                    const module_positions& mp) const
+                    const match_data& md) const
     {
+      const module_positions& ms (md.mods);
+
       size_t n (t.prerequisite_targets.size ());
 
       // Clang embeds module file references so we only need to specify
@@ -3062,41 +3075,47 @@ namespace build2
       //
       switch (cid)
       {
-      case compiler_id::clang: n = mp.copied != 0 ? mp.copied : n; break;
+      case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
       case compiler_id::gcc:
       case compiler_id::msvc: break; // All of them.
       case compiler_id::icc:  assert (false);
       }
 
-      for (size_t i (mp.start); i != n; ++i)
+      for (size_t i (ms.start); i != n; ++i)
       {
         const target* pt (t.prerequisite_targets[i]);
 
         if (pt == nullptr)
           continue;
 
-        // Here we use whatever bmi type has been added.
+        // Here we use whatever bmi type has been added. And we know all of
+        // these are bmi's.
         //
-        const file* f;
-        if ((f = pt->is_a<bmie> ()) == nullptr &&
-            (f = pt->is_a<bmia> ()) == nullptr &&
-            (f = pt->is_a<bmis> ()) == nullptr)
-          continue;
-
-        string s (relative (f->path ()).string ());
+        const file& f (pt->as<file> ());
+        string s (relative (f.path ()).string ());
 
         switch (cid)
         {
         case compiler_id::gcc:
           {
             s.insert (0, 1, '=');
-            s.insert (0, cast<string> (f->vars[c_module_name]));
+            s.insert (0, cast<string> (f.vars[c_module_name]));
             s.insert (0, "-fmodule-map=");
             break;
           }
         case compiler_id::clang:
           {
-            s.insert (0, "-fmodule-file=");
+            // In Clang the module implementation's unit .pcm is special and
+            // must be "loaded".
+            //
+            //if (md.type == translation_type::module_impl && i == ms.start)
+              s.insert (0, "-fmodule-file=");
+            //else
+            //{
+            //  s.insert (0, 1, '=');
+            //  s.insert (0, cast<string> (f.vars[c_module_name]));
+            //  s.insert (0, "-fmodule-file=");
+            //}
             break;
           }
         case compiler_id::msvc:
@@ -3124,7 +3143,7 @@ namespace build2
       const file& t (xt.as<file> ());
 
       match_data md (move (t.data<match_data> ()));
-      bool mod (md.mod);
+      bool mod (md.type == translation_type::module_iface);
 
       // While all our prerequisites are already up-to-date, we still have to
       // execute them to keep the dependency counts straight. Actually, no, we
@@ -3135,7 +3154,7 @@ namespace build2
           (mod ? *x_mod : x_src),
           act, t,
           md.mt, nullptr,
-          md.mod_pos.copied)); // See search_modules() for details.
+          md.mods.copied)); // See search_modules() for details.
 
       if (pr.first)
       {
@@ -3189,7 +3208,7 @@ namespace build2
           args.push_back (d.string ().c_str ());
         }
 
-        if (symexport && md.mod)
+        if (symexport && md.type == translation_type::module_iface)
           append_symexport_options (args, t);
       }
 
@@ -3245,8 +3264,8 @@ namespace build2
         if (!find_option_prefixes ({"/MD", "/MT"}, args))
           args.push_back ("/MD");
 
-        if (md.mod_pos.start != 0)
-          append_modules (args, mods, t, md.mod_pos);
+        if (md.mods.start != 0)
+          append_modules (args, mods, t, md);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -3310,8 +3329,8 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
-        if (md.mod_pos.start != 0)
-          append_modules (args, mods, t, md.mod_pos);
+        if (md.mods.start != 0)
+          append_modules (args, mods, t, md);
 
         // Note: the order of the following options is relied upon below.
         //

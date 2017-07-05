@@ -118,7 +118,7 @@ namespace build2
 
       void
       append_modules (cstrings&, strings&,
-                      const file&, const module_positions&) const;
+                      const file&, const match_data&) const;
 
       // Language selection option (for VC) or the value for the -x option.
       //
