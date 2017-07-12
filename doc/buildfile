@@ -8,19 +8,12 @@ css{*}: extension = css
 define xhtml: doc
 xhtml{*}: extension = xhtml
 
-./: {man1 xhtml}{b}                            \
-    css{common pre-box man} 	               \
-    file{man-prologue.1 man-epilogue.1         \
-         man-prologue.xhtml man-epilogue.xhtml}
+./: {man1 xhtml}{b}         \
+    css{common pre-box man} \
+    file{man-*}
 
-./: doc{build2-build-system-manual.xhtml        \
-        build2-build-system-manual-a4.pdf       \
-	build2-build-system-manual-a4.ps        \
-        build2-build-system-manual-letter.pdf   \
-	build2-build-system-manual-letter.ps}   \
-    css{code-box common doc pre-box toc} 	\
-    file{a4.html2ps letter.html2ps doc.html2ps} \
-    file{doc-prologue.xhtml doc-epilogue.xhtml  \
-         manual.cli}
+./: doc{build2-build-system-manual*}     \
+    css{code-box common doc pre-box toc} \
+    file{manual.cli doc-* *.html2ps}
 
 ./: file{cli.sh}

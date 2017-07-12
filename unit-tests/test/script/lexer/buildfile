@@ -12,9 +12,7 @@ functions-regex functions-string functions-target-triplet algorithm search   \
 dump filesystem scheduler config/{utility init operation module}             \
 test/script/{token lexer} spec
 
-exe{driver}: cxx{driver} ../../../../build2/cxx{$src}                      \
-../../../../build2/liba{b} $libs                                           \
-test{command-line first-token second-token command-expansion variable-line \
-     description-line variable}
+exe{driver}: cxx{*} ../../../../build2/cxx{$src} ../../../../build2/liba{b} \
+             $libs test{*}
 
 include ../../../../build2/

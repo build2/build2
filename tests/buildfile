@@ -3,4 +3,3 @@
 # license   : MIT; see accompanying LICENSE file
 
 ./: {*/ -build/} file{common.test}
-

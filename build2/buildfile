@@ -4,118 +4,16 @@
 
 import libs = libbutl%lib{butl}
 
-exe{b}:                                                   \
-            {hxx ixx     cxx}{ algorithm                } \
-            {            cxx}{ b                        } \
-            {hxx ixx     cxx}{ b-options                } \
-            {hxx ixx     cxx}{ context                  } \
-            {hxx         cxx}{ depdb                    } \
-            {hxx         cxx}{ diagnostics              } \
-            {hxx         cxx}{ dump                     } \
-            {hxx ixx     cxx}{ file                     } \
-            {hxx     txx cxx}{ filesystem               } \
-            {hxx         cxx}{ function                 } \
-            {            cxx}{ functions-builtin        } \
-            {            cxx}{ functions-filesystem     } \
-            {            cxx}{ functions-path           } \
-            {            cxx}{ functions-process-path   } \
-            {            cxx}{ functions-regex          } \
-            {            cxx}{ functions-string         } \
-            {            cxx}{ functions-target-triplet } \
-            {hxx         cxx}{ lexer                    } \
-            {hxx         cxx}{ module                   } \
-            {hxx ixx     cxx}{ name                     } \
-            {hxx         cxx}{ operation                } \
-            {hxx         cxx}{ parser                   } \
-            {hxx         cxx}{ prerequisite             } \
-            {hxx         cxx}{ rule                     } \
-            {hxx            }{ rule-map                 } \
-            {hxx     txx cxx}{ scheduler                } \
-            {hxx ixx     cxx}{ scope                    } \
-            {hxx         cxx}{ search                   } \
-            {hxx         cxx}{ spec                     } \
-            {hxx ixx txx cxx}{ target                   } \
-            {hxx            }{ target-key               } \
-            {hxx            }{ target-type              } \
-            {hxx         cxx}{ token                    } \
-            {hxx            }{ types                    } \
-            {hxx         cxx}{ types-parsers            } \
-            {hxx ixx txx cxx}{ utility                  } \
-            {hxx ixx txx cxx}{ variable                 } \
-            {hxx            }{ version                  } \
-        bin/{hxx         cxx}{ guess                    } \
-        bin/{hxx         cxx}{ init                     } \
-        bin/{hxx         cxx}{ rule                     } \
-        bin/{hxx         cxx}{ target                   } \
-          c/{hxx         cxx}{ init                     } \
-          c/{hxx            }{ target                   } \
-         cc/{hxx         cxx}{ common                   } \
-         cc/{hxx         cxx}{ compile                  } \
-         cc/{            cxx}{ gcc                      } \
-         cc/{hxx         cxx}{ guess                    } \
-         cc/{hxx         cxx}{ init                     } \
-         cc/{hxx         cxx}{ install                  } \
-         cc/{hxx         cxx}{ lexer                    } \
-         cc/{hxx         cxx}{ link                     } \
-         cc/{hxx         cxx}{ module                   } \
-         cc/{            cxx}{ msvc                     } \
-         cc/{hxx         cxx}{ parser                   } \
-         cc/{            cxx}{ pkgconfig                } \
-         cc/{hxx         cxx}{ target                   } \
-         cc/{hxx            }{ types                    } \
-         cc/{hxx ixx     cxx}{ utility                  } \
-         cc/{            cxx}{ windows-manifest         } \
-         cc/{            cxx}{ windows-rpath            } \
-        cli/{hxx         cxx}{ init                     } \
-        cli/{hxx         cxx}{ rule                     } \
-        cli/{hxx         cxx}{ target                   } \
-     config/{hxx         cxx}{ init                     } \
-     config/{hxx         cxx}{ module                   } \
-     config/{hxx         cxx}{ operation                } \
-     config/{hxx     txx cxx}{ utility                  } \
-        cxx/{hxx         cxx}{ init                     } \
-        cxx/{hxx         cxx}{ target                   } \
-       dist/{hxx         cxx}{ init                     } \
-       dist/{hxx         cxx}{ module                   } \
-       dist/{hxx         cxx}{ operation                } \
-       dist/{hxx         cxx}{ rule                     } \
-  pkgconfig/{hxx         cxx}{ init                     } \
-    install/{hxx         cxx}{ init                     } \
-    install/{hxx         cxx}{ operation                } \
-    install/{hxx         cxx}{ rule                     } \
-    install/{hxx            }{ utility                  } \
-       test/{hxx         cxx}{ common                   } \
-       test/{hxx         cxx}{ init                     } \
-       test/{hxx            }{ module                   } \
-       test/{hxx         cxx}{ operation                } \
-       test/{hxx         cxx}{ rule                     } \
-       test/{hxx         cxx}{ target                   } \
-test/script/{hxx         cxx}{ builtin                  } \
-test/script/{hxx         cxx}{ lexer                    } \
-test/script/{hxx         cxx}{ parser                   } \
-test/script/{hxx ixx     cxx}{ regex                    } \
-test/script/{hxx         cxx}{ runner                   } \
-test/script/{hxx ixx     cxx}{ script                   } \
-test/script/{hxx         cxx}{ token                    } \
-    version/{hxx         cxx}{ init                     } \
-    version/{hxx         cxx}{ module                   } \
-    version/{hxx         cxx}{ rule                     } \
-    version/{hxx         cxx}{ snapshot                 } \
-    version/{            cxx}{ snapshot-git             } \
-                               liba{b} $libs
-
-#\
-exe{b}: {hxx ixx txx cxx}{** -b-options -dummy} \
-        {hxx ixx cxx}{b-options}                \
+exe{b}: {hxx ixx txx cxx}{** -b-options -version -dummy} \
+        {hxx ixx cxx}{b-options} {hxx}{version}          \
         liba{b} $libs
-#\
 
 hxx{version}: in{version} $src_root/file{manifest}
 hxx{version}: dist = true
 
 # Fake utility library (without it code generation does not work).
 #
-liba{b}: {cxx}{ dummy }
+liba{b}: {cxx}{dummy}
 liba{b}: cxx.export.poptions = "-I$out_root" "-I$src_root"
 liba{b}: install = false
 
