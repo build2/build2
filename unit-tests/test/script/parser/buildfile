@@ -13,7 +13,7 @@ functions-target-triplet config/{utility init operation module} dump      \
 types-parsers test/{target script/{token lexer parser regex script}}      \
 scheduler spec
 
-exe{driver}: cxx{*} ../../../../build2/cxx{$src} ../../../../build2/liba{b} \
-             $libs test{*}
+exe{driver}: {hxx cxx}{*} ../../../../build2/cxx{$src} \
+             ../../../../build2/liba{b} $libs test{*}
 
 include ../../../../build2/

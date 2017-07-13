@@ -11,6 +11,7 @@ functions-builtin functions-filesystem functions-path functions-process-path \
 functions-regex functions-string functions-target-triplet algorithm search   \
 dump filesystem scheduler config/{utility init operation module} spec
 
-exe{driver}: cxx{*} ../../build2/cxx{$src} ../../build2/liba{b} $libs test{*}
+exe{driver}: {hxx cxx}{*} ../../build2/cxx{$src} ../../build2/liba{b} $libs \
+             test{*}
 
 include ../../build2/
