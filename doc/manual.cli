@@ -71,15 +71,18 @@ exe{hello}: cxx{**}  # All C++ source files recursively.
 
 A group-enclosed (\c{{\}}) pattern value may be followed by
 inclusion/exclusion patterns/matches. A subsequent value is treated as an
-inclusion if it starts with a plus sign (\c{+}) and as an exclusion if it
-starts with a minus (\c{-}). A subsequent value that does not start with
-either of these signs is illegal. For example:
+inclusion or exclusion if it starts with a literal, unquoted plus (\c{+}) or
+minus (\c{-}) sign, respectively. In this case the remaining group values, if
+any, must all be inclusions or exclusions. If the second value doesn't start
+with a plus or minus, then all the group values are considered independent
+with leading pluses and minuses not having any special meaning. For example:
 
 \
 exe{hello}: cxx{f* -foo}           # Exclude foo if present.
 exe{hello}: cxx{f* +foo}           # Include foo if not present.
 exe{hello}: cxx{f* -fo?}           # Exclude foo and fox if present.
 exe{hello}: cxx{f* +b* -foo -bar}  # Exclude foo and bar if present.
+exe{hello}: cxx{f* b* -z*}         # Names matching three patterns.
 \
 
 Inclusions and exclusions are applied in the order specified and only to the

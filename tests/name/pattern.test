@@ -28,6 +28,11 @@ EOI
   touch foo.txt;
   $* <'print {foo *.txt}' >'foo foo.txt'
 
+  : independent-patterns
+  :
+  touch foo.txt -bar;
+  $* <'print {*.txt foo* -b*}' >'foo.txt foo.txt -bar'
+
   : second-inclusion
   :
   touch foo.txt bar.txt;
@@ -39,14 +44,14 @@ EOI
 {
   : simple
   :
-  $* <'print {*.txt file{foo}}' 2>>EOE != 0
-  <stdin>:1:8: error: invalid 'file{foo}' in name pattern
+  $* <'print {*.txt +foo file{bar}}' 2>>EOE != 0
+  <stdin>:1:8: error: invalid 'file{bar}' in name pattern
   EOE
 
   : inclusion-exclusion-sign
   :
-  $* <'print {*.txt foo}' 2>>EOE != 0
-  <stdin>:1:8: error: missing leading +/- in 'foo' name pattern
+  $* <'print {*.txt -foo bar}' 2>>EOE != 0
+  <stdin>:1:8: error: missing leading +/- in 'bar' name pattern
   EOE
 
   : empty-inclusion-exclusion

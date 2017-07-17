@@ -3159,12 +3159,23 @@ namespace build2
           // Resolve the target if there is one. If we fail, then this is not
           // a pattern.
           //
-          const target_type* tt (tp != nullptr && scope_ != nullptr
-                                 ? scope_->find_target_type (*tp)
-                                 : nullptr);
+          const target_type* ttp (tp != nullptr && scope_ != nullptr
+                                  ? scope_->find_target_type (*tp)
+                                  : nullptr);
 
-          if (tp == nullptr || tt != nullptr)
+          if (tp == nullptr || ttp != nullptr)
           {
+            // Reset the detect pattern mode to expand if the pattern is not
+            // followed by the inclusion/exclusion pattern/match. Note that
+            // if it is '}' (i.e., the end of the group), then it is a single
+            // pattern and the expansion is what we want.
+            //
+            char c;
+            if (pmode == pattern_mode::detect &&
+                (tt != type::word ||
+                 ((c = peeked ().value[0]) != '+' && c != '-')))
+              pmode = pattern_mode::expand;
+
             if (pmode == pattern_mode::expand)
             {
               count = expand_name_pattern (get_location (t),
@@ -3172,7 +3183,7 @@ namespace build2
                                            ns,
                                            what,
                                            pairn,
-                                           dp, tp, tt);
+                                           dp, tp, ttp);
               continue;
             }
 
@@ -3187,7 +3198,7 @@ namespace build2
             dp = nullptr;
             tp = nullptr;
             pmode = pattern_mode::ignore;
-            rpat = tt;
+            rpat = ttp;
 
             // Fall through.
           }
