@@ -768,28 +768,46 @@ namespace build2
 
     // If root scope is NULL, then this can mean that we are out of any
     // project or if the directory is in src_root. In both cases we don't
-    // inject anything.
+    // inject anything unless explicitly requested.
     //
     // Note that we also used to bail out if this is the root of the
     // project. But that proved not to be such a great idea in case of
     // subprojects (e.g., tests/).
     //
-    if (rs == nullptr)
-      return nullptr;
+    const fsdir* r (nullptr);
+    if (rs != nullptr && !d.sub (rs->src_path ()))
+    {
+      l6 ([&]{trace << d << " for " << t;});
 
-    // Handle the src_root = out_root.
-    //
-    if (d.sub (rs->src_path ()))
-      return nullptr;
+      // Target is in the out tree, so out directory is empty.
+      //
+      r = &search<fsdir> (t, d, dir_path (), string (), nullptr, nullptr);
+    }
+    else
+    {
+      // See if one was mentioned explicitly.
+      //
+      for (const prerequisite& p: group_prerequisites (t))
+      {
+        if (p.is_a<fsdir> ())
+        {
+          const target& pt (search (t, p));
 
-    l6 ([&]{trace << d << " for " << t;});
+          if (pt.dir == d)
+          {
+            r = &pt.as<fsdir> ();
+            break;
+          }
+        }
+      }
+    }
 
-    // Target is in the out tree, so out directory is empty.
-    //
-    const fsdir* r (
-      &search<fsdir> (t, d, dir_path (), string (), nullptr, nullptr));
-    match (a, *r);
-    t.prerequisite_targets.emplace_back (r);
+    if (r != nullptr)
+    {
+      match (a, *r);
+      t.prerequisite_targets.emplace_back (r);
+    }
+
     return r;
   }
 

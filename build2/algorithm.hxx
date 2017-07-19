@@ -239,6 +239,11 @@ namespace build2
   // the injected target or NULL. Normally this function is called from the
   // rule's apply() function.
   //
+  // As an extension, this function will also search for an existing fsdir{}
+  // prerequisite for the directory and if one exists, return that (even if
+  // the target is in src tree). This can be used, for example, to place
+  // output into an otherwise non-existent directory.
+  //
   const fsdir*
   inject_fsdir (action, target&, bool parent = true);
 
