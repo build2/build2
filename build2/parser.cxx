@@ -295,9 +295,16 @@ namespace build2
         {
           f = &parser::parse_assert;
         }
-        else if (n == "print")
+        else if (n == "print") // Unlike text goes to stdout.
         {
           f = &parser::parse_print;
+        }
+        else if (n == "fail"  ||
+                 n == "warn"  ||
+                 n == "info"  ||
+                 n == "text")
+        {
+          f = &parser::parse_diag;
         }
         else if (n == "source")
         {
@@ -1524,6 +1531,38 @@ namespace build2
     }
     else
       cout << "[null]" << endl;
+
+    if (tt != type::eos)
+      next (t, tt); // Swallow newline.
+  }
+
+  void parser::
+  parse_diag (token& t, type& tt)
+  {
+    diag_record dr;
+    const location l (get_location (t));
+
+    switch (t.value[0])
+    {
+    case 'f': dr << fail (l); break;
+    case 'w': dr << warn (l); break;
+    case 'i': dr << info (l); break;
+    case 't': dr << text (l); break;
+    default: assert (false);
+    }
+
+    // Parse the rest as a variable value to get expansion, attributes, etc.
+    //
+    value rhs (parse_variable_value (t, tt));
+
+    value lhs;
+    apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
+
+    if (lhs)
+    {
+      names storage;
+      dr << reverse (lhs, storage);
+    }
 
     if (tt != type::eos)
       next (t, tt); // Swallow newline.

@@ -81,6 +81,9 @@ namespace build2
     parse_print (token&, token_type&);
 
     void
+    parse_diag (token&, token_type&);
+
+    void
     parse_source (token&, token_type&);
 
     void
