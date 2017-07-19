@@ -2560,6 +2560,15 @@ namespace build2
       }
     }
 
+    inline bool
+    std_module (const string& m)
+    {
+      size_t n (m.size ());
+      return (n >= 3 &&
+              m[0] == 's' && m[1] == 't' && m[2] == 'd' &&
+              (n == 3 || m[3] == '.'));
+    };
+
     // Resolve imported modules to bmi*{} targets.
     //
     module_positions compile::
@@ -2606,6 +2615,11 @@ namespace build2
       // number of characters in the module name that got matched. A match
       // with the highest score is used. And we use the (length + 1) for a
       // match against an actual module name.
+      //
+      // For std.* modules we only accept non-fuzzy matches (think std.core vs
+      // some core.mxx). And if such a module is unresolved, then we assume it
+      // is pre-built and will be found by some other means (e.g., VC's
+      // IFCPATH).
       //
       auto match = [] (const string& f, const string& m) -> size_t
       {
@@ -2745,18 +2759,6 @@ namespace build2
               return !x.exported && y.exported;
             });
 
-      // For std.* modules we only accept non-fuzzy matches (think std.core vs
-      // some core.mxx). And if such a module is unresolved, then we assume it
-      // is pre-built and will be found by some other means (e.g., VC's
-      // IFCPATH).
-      //
-      auto stdmod = [] (const string& m)
-      {
-        size_t n (m.size ());
-        return (n >= 3 &&
-                m[0] == 's' && m[1] == 't' && m[2] == 'd' &&
-                (n == 3 || m[3] == '.'));
-      };
 
       // Go over the prerequisites once.
       //
@@ -2776,7 +2778,7 @@ namespace build2
       // if all the modules come from libraries. Which will be fairly common
       // (think of all the tests) so it's worth optimizing for.
       //
-      auto check = [&trace, &imports, &pts, &match, &stdmod, start, n]
+      auto check = [&trace, &imports, &pts, &match, start, n]
         (const target* pt, const string& name, bool fuzzy) -> bool
       {
         bool done (true);
@@ -2785,7 +2787,7 @@ namespace build2
         {
           module_import& m (imports[i]);
 
-          if (fuzzy && stdmod (m.name)) // No fuzzy std.* matches.
+          if (fuzzy && std_module (m.name)) // No fuzzy std.* matches.
           {
             done = false;
             continue;
@@ -2926,7 +2928,7 @@ namespace build2
       {
         for (size_t i (0); i != n; ++i)
         {
-          if (pts[start + i] == nullptr && !stdmod (imports[i].name))
+          if (pts[start + i] == nullptr && !std_module (imports[i].name))
           {
             // It would have been nice to print the location of the import
             // declaration. And we could save it during parsing at the expense
@@ -3081,6 +3083,8 @@ namespace build2
       case compiler_id::icc:  assert (false);
       }
 
+      dir_path stdifc; // See the VC case below.
+
       for (size_t i (ms.start); i != n; ++i)
       {
         const target* pt (t.prerequisite_targets[i]);
@@ -3120,7 +3124,35 @@ namespace build2
           }
         case compiler_id::msvc:
           {
-            stor.push_back ("/module:reference");
+            // In VC std.* modules can only come from a single directory
+            // specified with the IFCPATH environment variable or the
+            // /module:stdIfcDir option.
+            //
+            if (std_module (cast<string> (f.vars[c_module_name])))
+            {
+              dir_path d (f.path ().directory ());
+
+              if (stdifc.empty ())
+              {
+                // Go one directory up since /module:stdIfcDir will look in
+                // either Release or Debug subdirectories. Keeping the result
+                // absolute feels right.
+                //
+                s = d.directory ().string ();
+                stor.push_back ("/module:stdIfcDir");
+                stdifc = move (d);
+              }
+              else
+              {
+                if (d != stdifc) // Absolute and normalized.
+                  fail << "multiple std.* modules in different directories";
+
+                continue; // Skip.
+              }
+            }
+            else
+              stor.push_back ("/module:reference");
+
             break;
           }
         case compiler_id::icc:
