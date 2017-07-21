@@ -177,7 +177,7 @@ $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
 :
 ln -s ../core.mxx ./;
 cat <'import bar.core;' >=driver.cxx;
-$* test &*.d <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
+$* test &*.d &*.ii <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
   driver.cxx: error: failed to correctly guess module name from mxx{core}
     info: guessed: bar.core
     info: actual:  foo.core
@@ -394,4 +394,6 @@ cat <<EOI >=core.mxx;
   export module foo.core;
   export int f (int);
   EOI
+$* test <'exe{test}: cxx{driver core} mxx{core}';
+touch core.mxx; # Test use of cached .ii's.
 $* test clean <'exe{test}: cxx{driver core} mxx{core}'
