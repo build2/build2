@@ -56,6 +56,7 @@ namespace build2
 
     private:
       struct match_data;
+      using environment = small_vector<const char*, 2>;
 
       void
       append_lib_options (const scope&,
@@ -117,7 +118,7 @@ namespace build2
                       const file&, module_imports&&, sha256&) const;
 
       void
-      append_modules (cstrings&, strings&,
+      append_modules (environment&, cstrings&, strings&,
                       const file&, const match_data&) const;
 
       // Language selection option (for VC) or the value for the -x option.

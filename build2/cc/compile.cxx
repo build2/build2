@@ -1291,6 +1291,7 @@ namespace build2
 
       // Initialize lazily, only if required.
       //
+      environment env;
       cstrings args;
       string out; // Storage.
       path rels;
@@ -1381,7 +1382,7 @@ namespace build2
       auto init_args = [&t, act, lo,
                         &src, &md, &rels, &psrc, &sense_diag,
                         &rs, &bs,
-                        pp, &args, &args_gen, &args_i, &out, &drm, this]
+                        pp, &env, &args, &args_gen, &args_i, &out, &drm, this]
         (bool& gen) -> const path*
       {
         const path* r (nullptr);
@@ -1565,6 +1566,11 @@ namespace build2
 
           args.push_back (rels.string ().c_str ());
           args.push_back (nullptr);
+
+          // Note: only doing it here.
+          //
+          if (!env.empty ())
+            env.push_back (nullptr);
         }
         else
         {
@@ -1972,7 +1978,9 @@ namespace build2
                               args.data (),
                               0,
                               -1,
-                              cid == compiler_id::msvc ? 1 : gen ? 2 : -2);
+                              cid == compiler_id::msvc ? 1 : gen ? 2 : -2,
+                              nullptr, // CWD
+                              env.empty () ? nullptr : env.data ());
               }
               else
               {
@@ -1982,7 +1990,9 @@ namespace build2
                               args.data (),
                               0,
                               2, // Send stdout to stderr.
-                              gen ? 2 : sense_diag ? -1 : -2);
+                              gen ? 2 : sense_diag ? -1 : -2,
+                              nullptr, // CWD
+                              env.empty () ? nullptr : env.data ());
 
                 // If requested, monitor for diagnostics and if detected, mark
                 // the preprocessed output as unusable for compilation.
@@ -2292,6 +2302,7 @@ namespace build2
       // preprocessed output to stdout and reduce the already preprocessed
       // case to it.
       //
+      environment env;
       cstrings args;
       path rels;
 
@@ -2373,6 +2384,9 @@ namespace build2
           args.push_back (rels.string ().c_str ());
           args.push_back (nullptr);
         }
+
+        if (!env.empty ())
+          env.push_back (nullptr);
       }
       else
       {
@@ -2410,7 +2424,11 @@ namespace build2
             // We don't want to see warnings multiple times so ignore all
             // diagnostics.
             //
-            pr = process (cpath, args.data (), 0, -1, -2);
+            pr = process (cpath,
+                          args.data (),
+                          0, -1, -2,
+                          nullptr, // CWD
+                          env.empty () ? nullptr : env.data ());
           }
 
           ifdstream is (move (pr.in_ofd),
@@ -3084,7 +3102,8 @@ namespace build2
     msvc_filter_cl (ifdstream&, const path& src);
 
     void compile::
-    append_modules (cstrings& args,
+    append_modules (environment& env,
+                    cstrings& args,
                     strings& stor,
                     const file& t,
                     const match_data& md) const
@@ -3191,6 +3210,12 @@ namespace build2
       //
       for (const string& a: stor)
         args.push_back (a.c_str ());
+
+      // VC's IFCPATH takes precedence over /module:stdIfcDir so unset it
+      // if we are using our own std modules.
+      //
+      if (!stdifc.empty ())
+        env.push_back ("IFCPATH");
     }
 
     target_state compile::
@@ -3226,6 +3251,7 @@ namespace build2
       otype ct (compile_type (t, mod));
       lorder lo (link_order (bs, ct));
 
+      environment env;
       cstrings args {cpath.recall_string ()};
 
       // Translate paths to relative (to working directory) ones. This results
@@ -3321,7 +3347,7 @@ namespace build2
           args.push_back ("/MD");
 
         if (md.mods.start != 0)
-          append_modules (args, mods, t, md);
+          append_modules (env, args, mods, t, md);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -3386,7 +3412,7 @@ namespace build2
         }
 
         if (md.mods.start != 0)
-          append_modules (args, mods, t, md);
+          append_modules (env, args, mods, t, md);
 
         // Note: the order of the following options is relied upon below.
         //
@@ -3479,6 +3505,9 @@ namespace build2
 
       args.push_back (nullptr);
 
+      if (!env.empty ())
+        env.push_back (nullptr);
+
       // With verbosity level 2 print the command line as if we are compiling
       // the source file, not its preprocessed version (so that it's easy to
       // copy and re-run, etc). Only at level 3 and above print the real deal.
@@ -3555,7 +3584,11 @@ namespace build2
         //
         bool filter (cid == compiler_id::msvc);
 
-        process pr (cpath, args.data (), 0, (filter ? -1 : 2));
+        process pr (cpath,
+                    args.data (),
+                    0, (filter ? -1 : 2), 2,
+                    nullptr, // CWD
+                    env.empty () ? nullptr : env.data ());
 
         if (filter)
         {
@@ -3624,7 +3657,11 @@ namespace build2
 
         try
         {
-          process pr (cpath, args.data ());
+          process pr (cpath,
+                      args.data (),
+                      0, 2, 2,
+                      nullptr, // CWD
+                      env.empty () ? nullptr : env.data ());
 
           if (!pr.wait ())
             throw failed ();
