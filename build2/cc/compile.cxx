@@ -3147,7 +3147,7 @@ namespace build2
           {
             s.insert (0, 1, '=');
             s.insert (0, cast<string> (f.vars[c_module_name]));
-            s.insert (0, "-fmodule-map=");
+            s.insert (0, "-fmodule-file=");
             break;
           }
         case compiler_id::clang:
