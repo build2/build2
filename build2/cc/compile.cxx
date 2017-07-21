@@ -785,9 +785,9 @@ namespace build2
         // If we have no #include directives, then skip header dependency
         // extraction.
         //
-        pair<auto_rmfile, bool> p (auto_rmfile (), false);
+        pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          p = extract_headers (act, t, lo, src, md, dd, u);
+          psrc = extract_headers (act, t, lo, src, md, dd, u);
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -799,7 +799,7 @@ namespace build2
         for (bool f (true);; f = false)
         {
           if (u)
-            tu = parse_unit (act, t, lo, src, p.first, md);
+            tu = parse_unit (act, t, lo, src, psrc.first, md);
 
           if (modules)
           {
@@ -854,8 +854,27 @@ namespace build2
         // If the preprocessed output is suitable for compilation and is not
         // disabled, then pass it along.
         //
-        if (p.second && !cast_false<bool> (t[c_reprocess]))
-          md.psrc = move (p.first);
+        if (psrc.second && !cast_false<bool> (t[c_reprocess]))
+        {
+          md.psrc = move (psrc.first);
+
+          // Without modules keeping the (partially) preprocessed output
+          // around doesn't buy us much: if the source/headers haven't changed
+          // then neither will the object file. Modules make things more
+          // interesting: now we may have to recompile an otherwise unchanged
+          // translation unit because a BMI it depends on has changed. In this
+          // case re-processing the translation unit would be a waste and
+          // compiling the original source would break distributed
+          // compilation.
+          //
+          // Note also that the long term trend will be for modularized
+          // projects to get rid of #include's which means the need for
+          // producing this partially preprocessed output will hopefully
+          // gradually disappear.
+          //
+          if (modules)
+            md.psrc.active = false; // Keep.
+        }
 
         md.mt = u ? timestamp_nonexistent : mt;
       }
@@ -1455,11 +1474,11 @@ namespace build2
             if (cast<uint64_t> (rs[x_version_major]) >= 18)
             {
               args.push_back ("/Fi:");
-              args.push_back (psrc.path ().string ().c_str ());
+              args.push_back (psrc.path.string ().c_str ());
             }
             else
             {
-              out = "/Fi" + psrc.path ().string ();
+              out = "/Fi" + psrc.path.string ();
               args.push_back (out.c_str ());
             }
 
@@ -1521,8 +1540,8 @@ namespace build2
               {
                 // Use the .t extension (for "temporary"; .d is taken).
                 //
-                r = &(drm = auto_rmfile (t.path () + ".t")).path ();
-                args.push_back (drm.path ().string ().c_str ());
+                r = &(drm = auto_rmfile (t.path () + ".t")).path;
+                args.push_back (r->string ().c_str ());
 
                 sense_diag = true;
               }
@@ -1533,7 +1552,7 @@ namespace build2
               //
               psrc = auto_rmfile (t.path () + x_pext);
               args.push_back ("-o");
-              args.push_back (psrc.path ().string ().c_str ());
+              args.push_back (psrc.path.string ().c_str ());
             }
             else
             {
@@ -1578,7 +1597,7 @@ namespace build2
 
             if (cid == compiler_id::gcc)
             {
-              r = &drm.path ();
+              r = &drm.path;
               sense_diag = true;
             }
           }
@@ -1894,8 +1913,15 @@ namespace build2
               break;
             }
 
-            if (l->empty ()) // Done, nothing changed, no preprocessed output.
-              return make_pair (auto_rmfile (), false);
+            if (l->empty ()) // Done, nothing changed.
+            {
+              // If modules are enabled, then we keep the preprocessed output
+              // around (see apply() for details).
+              //
+              return modules
+                ? make_pair (auto_rmfile (t.path () + x_pext, false), true)
+                : make_pair (auto_rmfile (), false);
+            }
 
             restart = add (path (move (*l)), true);
             skip_count++;
@@ -2233,7 +2259,7 @@ namespace build2
       //
       dd.expect ("");
 
-      puse = puse && !psrc.path ().empty ();
+      puse = puse && !psrc.path.empty ();
       return make_pair (move (psrc), puse);
     }
 
@@ -2272,8 +2298,8 @@ namespace build2
       bool ps; // True if extracting from psrc.
       if (md.pp < preprocessed::modules)
       {
-        ps = !psrc.path ().empty ();
-        rels = relative (ps ? psrc.path () : src.path ());
+        ps = !psrc.path.empty ();
+        rels = relative (ps ? psrc.path : src.path ());
 
         // VC's preprocessed output, if present, is fully preprocessed.
         //
@@ -2365,7 +2391,7 @@ namespace build2
         // We re-arm it below.
         //
         if (ps)
-          psrc.cancel ();
+          psrc.active = false;
 
         process pr;
 
@@ -2398,7 +2424,7 @@ namespace build2
           if (pr.wait ())
           {
             if (ps)
-              psrc = auto_rmfile (move (rels)); // Re-arm.
+              psrc.active = true; // Re-arm.
 
             // VC15 is not (yet) using the 'export module' syntax so use the
             // preprequisite type to distinguish between interface and
@@ -2423,9 +2449,7 @@ namespace build2
                 // std::fstream since our fdstream does not yet support
                 // seeking.
                 //
-                fstream os (psrc.path ().string (),
-                            fstream::out | fstream::in);
-
+                fstream os (psrc.path.string (), fstream::out | fstream::in);
                 auto pos (static_cast<fstream::pos_type> (p.export_pos));
 
                 if (!os.is_open ()  ||
@@ -3466,13 +3490,14 @@ namespace build2
 
       // If we have the (partially) preprocessed output, switch to that.
       //
-      bool psrc (!md.psrc.path ().empty ());
+      bool psrc (!md.psrc.path.empty ());
+      bool pact (md.psrc.active);
       if (psrc)
       {
         args.pop_back (); // nullptr
         args.pop_back (); // rels
 
-        rels = relative (md.psrc.path ());
+        rels = relative (md.psrc.path);
 
         // This should match with how we setup preprocessing.
         //
@@ -3511,8 +3536,8 @@ namespace build2
         // verbosity level 3 and up (when one actually sees it mentioned on
         // the command line). We also have to re-arm on success (see below).
         //
-        if (verb >= 3)
-          md.psrc.cancel ();
+        if (pact && verb >= 3)
+          md.psrc.active = false;
       }
 
       if (verb >= 3)
@@ -3571,8 +3596,8 @@ namespace build2
         throw failed ();
       }
 
-      if (psrc && verb >= 3)
-        md.psrc = auto_rmfile (move (rels));
+      if (pact && verb >= 3)
+        md.psrc.active = true;
 
       // Clang's module compilation requires two separate compiler
       // invocations.
