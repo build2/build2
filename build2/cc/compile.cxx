@@ -2431,8 +2431,9 @@ namespace build2
                           env.empty () ? nullptr : env.data ());
           }
 
-          ifdstream is (move (pr.in_ofd),
-                        fdstream_mode::text | fdstream_mode::skip);
+          // Use binary mode to obtain consistent positions.
+          //
+          ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
 
           parser p;
           translation_unit tu (p.parse (is, rels));
