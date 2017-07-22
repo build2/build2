@@ -60,8 +60,6 @@ EOI
 : Test touching an existing directory.
 :
 $c <<EOI && $b
-a = $~;
-a += "a";
 mkdir a;
-touch a 2>~"%touch: cannot create/update '$a': .+%" == 1
+touch a 2>~"%touch: cannot create/update .+: .+%" == 1
 EOI
