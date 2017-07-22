@@ -576,7 +576,7 @@ namespace build2
     //
     // Note that the recipe may modify the data.
     //
-    static constexpr size_t data_size = sizeof (string) * 10;
+    static constexpr size_t data_size = sizeof (string) * 12;
     mutable std::aligned_storage<data_size>::type data_pad;
 
     mutable void (*data_dtor) (void*)                = nullptr;

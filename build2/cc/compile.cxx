@@ -129,11 +129,11 @@ namespace build2
 
       translation_type type;
       preprocessed pp = preprocessed::none;
+      bool touch = false;                    // Target needs to be touched.
+      timestamp mt = timestamp_unknown;      // Target timestamp.
       prerequisite_member src;
       auto_rmfile psrc;                      // Preprocessed source, if any.
       path dd;                               // Dependency database path.
-      timestamp mt = timestamp_unknown;      // Target timestamp.
-      bool touch = false;                    // Target needs to be touched.
       module_positions mods = {0, 0, 0};
     };
 
