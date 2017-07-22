@@ -63,5 +63,5 @@ $c <<EOI && $b
 a = $~;
 a += "a";
 mkdir a;
-touch a 2>"touch: '$a' exists and is not a file" == 1
+touch a 2>~"%touch: cannot create/update '$a': .+%" == 1
 EOI
