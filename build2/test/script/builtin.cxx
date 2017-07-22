@@ -4,12 +4,6 @@
 
 #include <build2/test/script/builtin.hxx>
 
-#ifndef _WIN32
-#  include <utime.h>
-#else
-#  include <sys/utime.h>
-#endif
-
 #include <locale>
 #include <ostream>
 #include <sstream>
@@ -1505,38 +1499,11 @@ namespace build2
 
             try
             {
-              if (file_exists (p))
-              {
-                // Set the file access and modification times to the current
-                // time. Note that we don't register (implicit) cleanup for an
-                // existing path.
-                //
-#ifndef _WIN32
-                if (utime  (p.string ().c_str (), nullptr) == -1)
-#else
-                if (_utime (p.string ().c_str (), nullptr) == -1)
-#endif
-                  throw_generic_error (errno);
-              }
-              else if (!entry_exists (p))
-              {
-                // Create the file. Assume the file access and modification
-                // times are set to the current time automatically.
-                //
-                try
-                {
-                  fdopen (p, fdopen_mode::out | fdopen_mode::create);
-                }
-                catch (const io_error& e)
-                {
-                  error () << "cannot create file '" << p << "': " << e;
-                }
-
-                if (cleanup)
-                  sp.clean ({cleanup_type::always, p}, true);
-              }
-              else
-                error () << "'" << p << "' exists and is not a file";
+              // Note that we don't register (implicit) cleanup for an
+              // existing path.
+              //
+              if (touch_file (p) && cleanup)
+                sp.clean ({cleanup_type::always, p}, true);
             }
             catch (const system_error& e)
             {

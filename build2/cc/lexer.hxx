@@ -5,6 +5,7 @@
 #ifndef BUILD2_CC_LEXER_HXX
 #define BUILD2_CC_LEXER_HXX
 
+#include <libbutl/sha256.hxx>
 #include <libbutl/char-scanner.hxx>
 
 #include <build2/types.hxx>
@@ -26,6 +27,10 @@ namespace build2
     // all preprocessor directives except #line are ignored and no values are
     // saved from literals. The #line directive (and its shorthand notation)
     // is recognized to provide the logical token location.
+    //
+    // While at it we also calculate the checksum of the input ignoring
+    // comments, whitespaces, etc. This is used to detect changes that do not
+    // alter the resulting token stream.
     //
     enum class token_type
     {
@@ -82,6 +87,9 @@ namespace build2
       const path&
       name () const {return name_;}
 
+      string
+      checksum () const {return cs_.string ();}
+
       // Note that it is ok to call next() again after getting eos.
       //
       token
@@ -137,13 +145,21 @@ namespace build2
       using base = char_scanner;
 
       xchar
+      peek (bool escape = true);
+
+      xchar
       get (bool escape = true);
 
       void
       get (const xchar& peeked);
 
+      // Hashing versions.
+      //
       xchar
-      peek (bool escape = true);
+      geth (bool escape = true);
+
+      void
+      geth (const xchar& peeked);
 
     private:
       const path name_;
@@ -154,6 +170,8 @@ namespace build2
       //
       path               log_file_;
       optional<uint64_t> log_line_;
+
+      sha256 cs_;
     };
 
     // Diagnostics plumbing.

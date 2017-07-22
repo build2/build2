@@ -131,14 +131,16 @@ namespace build2
       preprocessed pp = preprocessed::none;
       prerequisite_member src;
       auto_rmfile psrc;                      // Preprocessed source, if any.
+      path dd;                               // Dependency database path.
       timestamp mt = timestamp_unknown;      // Target timestamp.
+      bool touch = false;                    // Target needs to be touched.
       module_positions mods = {0, 0, 0};
     };
 
     compile::
     compile (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".compile 3")
+          rule_id (string (x) += ".compile 4")
     {
       static_assert (sizeof (compile::match_data) <= target::data_size,
                      "insufficient space");
@@ -679,7 +681,8 @@ namespace build2
           fsdir_rule::perform_update_direct (act, t);
         }
 
-        depdb dd (tp + ".d");
+        md.dd = tp + ".d";
+        depdb dd (md.dd);
 
         // First should come the rule name/version.
         //
@@ -698,43 +701,45 @@ namespace build2
         // The idea is to keep them exactly as they are passed to the compiler
         // since the order may be significant.
         //
-        sha256 cs;
-
-        // These flags affect how we compile the source and/or the format of
-        // depdb so factor them in.
-        //
-        cs.append (&md.pp, sizeof (md.pp));
-        cs.append (&symexport, sizeof (symexport));
-
-        if (md.pp != preprocessed::all)
         {
-          hash_options (cs, t, c_poptions);
-          hash_options (cs, t, x_poptions);
+          sha256 cs;
 
-          // Hash *.export.poptions from prerequisite libraries.
+          // These flags affect how we compile the source and/or the format of
+          // depdb so factor them in.
           //
-          hash_lib_options (bs, cs, t, act, lo);
+          cs.append (&md.pp, sizeof (md.pp));
+          cs.append (&symexport, sizeof (symexport));
 
-          // Extra system header dirs (last).
-          //
-          for (const dir_path& d: sys_inc_dirs)
-            cs.append (d.string ());
+          if (md.pp != preprocessed::all)
+          {
+            hash_options (cs, t, c_poptions);
+            hash_options (cs, t, x_poptions);
+
+            // Hash *.export.poptions from prerequisite libraries.
+            //
+            hash_lib_options (bs, cs, t, act, lo);
+
+            // Extra system header dirs (last).
+            //
+            for (const dir_path& d: sys_inc_dirs)
+              cs.append (d.string ());
+          }
+
+          hash_options (cs, t, c_coptions);
+          hash_options (cs, t, x_coptions);
+          hash_options (cs, tstd);
+
+          if (ct == otype::s)
+          {
+            // On Darwin, Win32 -fPIC is the default.
+            //
+            if (tclass == "linux" || tclass == "bsd")
+              cs.append ("-fPIC");
+          }
+
+          if (dd.expect (cs.string ()) != nullptr)
+            l4 ([&]{trace << "options mismatch forcing update of " << t;});
         }
-
-        hash_options (cs, t, c_coptions);
-        hash_options (cs, t, x_coptions);
-        hash_options (cs, tstd);
-
-        if (ct == otype::s)
-        {
-          // On Darwin, Win32 -fPIC is the default.
-          //
-          if (tclass == "linux" || tclass == "bsd")
-            cs.append ("-fPIC");
-        }
-
-        if (dd.expect (cs.string ()) != nullptr)
-          l4 ([&]{trace << "options mismatch forcing update of " << t;});
 
         // Finally the source file.
         //
@@ -743,7 +748,7 @@ namespace build2
 
         // If any of the above checks resulted in a mismatch (different
         // compiler, options, or source file) or if the depdb is newer than
-        // the target, then do unconditional update.
+        // the target (interrupted update), then do unconditional update.
         //
         timestamp mt;
         bool u (dd.writing () || dd.mtime () > (mt = file_mtime (tp)));
@@ -787,7 +792,7 @@ namespace build2
         //
         pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          psrc = extract_headers (act, t, lo, src, md, dd, u);
+          psrc = extract_headers (act, t, lo, src, md, dd, u, mt);
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -795,53 +800,80 @@ namespace build2
         // depdb. We, however, have to do it here and now in case the database
         // is invalid and we still have to fallback to re-parse.
         //
-        translation_unit tu;
-        for (bool f (true);; f = false)
+        // Store a translation unit's checksum to detect ignorable changes
+        // (whitespaces, comments, etc).
+        //
         {
-          if (u)
-            tu = parse_unit (act, t, lo, src, psrc.first, md);
+          string cs;
+          if (string* l = dd.read ())
+            cs = move (*l);
+          else
+            u = true; // Database is invalid, force re-parse.
 
-          if (modules)
+          translation_unit tu;
+          for (bool f (true);; f = false)
           {
             if (u)
             {
-              string s (to_string (tu.mod));
+              auto p (parse_unit (act, t, lo, src, psrc.first, md));
 
-              if (f)
-                dd.expect (s);
-              else
-                dd.write (s);
+              if (cs != p.second)
+              {
+                assert (f); // Unchanged TU has a different checksum?
+                dd.write (p.second);
+              }
+              else if (f) // Don't clear if it was forced.
+              {
+                // Clear the update flag and set the touch flag. See also
+                // the md.mt logic below.
+                //
+                u = false;
+                md.touch = true;
+              }
+
+              tu = move (p.first);
             }
-            else
+
+            if (modules)
             {
-              if (string* l = dd.read ())
-                tu.mod = to_module_info (*l);
+              if (u || !f)
+              {
+                string s (to_string (tu.mod));
+
+                if (f)
+                  dd.expect (s);
+                else
+                  dd.write (s);
+              }
               else
               {
-                // Database is invalid, re-parse.
-                //
-                u = true;
-                continue;
+                if (string* l = dd.read ())
+                  tu.mod = to_module_info (*l);
+                else
+                {
+                  u = true; // Database is invalid, force re-parse.
+                  continue;
+                }
               }
             }
+
+            break;
           }
 
-          break;
+          md.type = tu.type ();
+
+          // Extract the module dependency information in addition to header
+          // dependencies.
+          //
+          // NOTE: assumes that no further targets will be added into
+          //       t.prerequisite_targets!
+          //
+          extract_modules (act, t, lo, tt, src, md, move (tu.mod), dd, u);
         }
-
-        md.type = tu.type ();
-
-        // Extract the module dependency information in addition to header
-        // dependencies.
-        //
-        // NOTE: assumes that no further targets will be added into
-        //       t.prerequisite_targets!
-        //
-        extract_modules (act, t, lo, tt, src, md, move (tu.mod), dd, u);
 
         // If anything got updated, then we didn't rely on the cache. However,
         // the cached data could actually have been valid and the compiler run
-        // in extract_headers() merely validated it.
+        // in extract_headers() as well as the code above merely validated it.
         //
         // We do need to update the database timestamp, however. Failed that,
         // we will keep re-validating the cached data over and over again.
@@ -867,16 +899,27 @@ namespace build2
           // compiling the original source would break distributed
           // compilation.
           //
-          // Note also that the long term trend will be for modularized
-          // projects to get rid of #include's which means the need for
-          // producing this partially preprocessed output will hopefully
-          // gradually disappear.
+          // Note also that the long term trend will (hopefully) be for
+          // modularized projects to get rid of #include's which means the
+          // need for producing this partially preprocessed output will
+          // (hopefully) gradually disappear.
           //
           if (modules)
             md.psrc.active = false; // Keep.
         }
 
-        md.mt = u ? timestamp_nonexistent : mt;
+        // Above we may have ignored changes to the translation unit. The
+        // problem is, unless we also update the target's timestamp, we will
+        // keep re-checking this on subsequent runs and it is not cheap.
+        // Updating the target's timestamp is not without problems either: it
+        // will cause a re-link on a subsequent run. So, essentially, we
+        // somehow need to remember two timestamps: one for checking
+        // "preprocessor prerequisites" above and one for checking other
+        // prerequisites (like modules) below. So what we are going to do is
+        // store the first in the target file (so we do touch it) and the
+        // second in depdb (which is never newer that the target).
+        //
+        md.mt = u ? timestamp_nonexistent : dd.mtime ();
       }
 
       switch (act)
@@ -1227,7 +1270,8 @@ namespace build2
                      const file& src,
                      const match_data& md,
                      depdb& dd,
-                     bool& updating) const
+                     bool& updating,
+                     timestamp mt) const
     {
       tracer trace (x, "compile::extract_headers");
 
@@ -1656,8 +1700,10 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &pm, act, &t, lo, &dd, &updating, &bs, &rels, this]
-        (path f, bool cache) -> bool
+      auto add = [&trace, &pm,
+                  act, &t, lo,
+                  &dd, &updating, mt,
+                  &bs, &rels, this] (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
         //
@@ -1859,12 +1905,11 @@ namespace build2
         // Update.
         //
         // If this header came from the depdb, make sure it is no older than
-        // the db itself (if it has changed since the db was written, then
-        // chances are the cached data is stale).
+        // the target (if it has changed since the target was updated, then
+        // the cached data is stale).
         //
         bool restart (
-          update (
-            trace, act, *pt, cache ? dd.mtime () : timestamp_unknown));
+          update (trace, act, *pt, cache ? mt : timestamp_unknown));
 
         updating = updating || restart;
 
@@ -2273,7 +2318,7 @@ namespace build2
       return make_pair (move (psrc), puse);
     }
 
-    translation_unit compile::
+    pair<translation_unit, string> compile::
     parse_unit (action act,
                 file& t,
                 lorder lo,
@@ -2433,7 +2478,8 @@ namespace build2
 
           // Use binary mode to obtain consistent positions.
           //
-          ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
+          ifdstream is (move (pr.in_ofd),
+                        fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
           translation_unit tu (p.parse (is, rels));
@@ -2480,7 +2526,7 @@ namespace build2
                 tu.mod.iface = true;
             }
 
-            return tu;
+            return pair<translation_unit, string> (move (tu), p.checksum);
           }
 
           // Fall through.
@@ -3223,6 +3269,7 @@ namespace build2
     perform_update (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
+      const path& tp (t.path ());
 
       match_data md (move (t.data<match_data> ()));
       bool mod (md.type == translation_type::module_iface);
@@ -3235,14 +3282,25 @@ namespace build2
         execute_prerequisites<file> (
           (mod ? *x_mod : x_src),
           act, t,
-          md.mt, nullptr,
+          md.mt,
+          [s = md.mods.start] (const target&, size_t i)
+          {
+            return s != 0 && i >= s; // Only compare timestamps for modules.
+          },
           md.mods.copied)); // See search_modules() for details.
 
       if (pr.first)
       {
+        if (md.touch)
+          touch (tp, false, 2);
+
         t.mtime (md.mt);
         return *pr.first;
       }
+
+      // Make sure depdb is no older than any of our prerequisites.
+      //
+      touch (md.dd, false, verb_never);
 
       const file& s (pr.second);
 
@@ -3266,11 +3324,11 @@ namespace build2
       path relo, relm;
       if (mod)
       {
-        relm = relative (t.path ());
+        relm = relative (tp);
         relo = relative (t.member->is_a<file> ()->path ());
       }
       else
-        relo = relative (t.path ());
+        relo = relative (tp);
 
       // Build the command line.
       //

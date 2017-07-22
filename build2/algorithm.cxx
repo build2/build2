@@ -1192,7 +1192,7 @@ namespace build2
 
       // Should we compare the timestamp to this target's?
       //
-      if (!e && (!pf || pf (*pt)))
+      if (!e && (!pf || pf (*pt, i)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //

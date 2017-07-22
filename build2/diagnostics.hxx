@@ -60,6 +60,7 @@ namespace build2
   // While uint8 is more than enough, use uint16 for the ease of printing.
   //
   extern uint16_t verb;
+  const  uint16_t verb_never = 7;
 
   template <typename F> inline void l1 (const F& f) {if (verb >= 1) f ();}
   template <typename F> inline void l2 (const F& f) {if (verb >= 2) f ();}

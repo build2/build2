@@ -129,6 +129,7 @@ namespace build2
       if (bb != 0)
         /*warn*/ fail (t) << "{}-imbalance detected";
 
+      checksum = l.checksum ();
       return u;
     }
 

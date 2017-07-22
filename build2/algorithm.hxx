@@ -332,7 +332,7 @@ namespace build2
   // Note that because we use mtime, this function should normally only be
   // used in the perform_update action (which is straight).
   //
-  using prerequisite_filter = function<bool (const target&)>;
+  using prerequisite_filter = function<bool (const target&, size_t pos)>;
 
   optional<target_state>
   execute_prerequisites (action, const target&,

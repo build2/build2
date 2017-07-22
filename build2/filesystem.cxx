@@ -11,6 +11,22 @@ using namespace butl;
 
 namespace build2
 {
+  bool
+  touch (const path& p, bool create, uint16_t v)
+  {
+    if (verb >= v)
+      text << "touch " << p;
+
+    try
+    {
+      return touch_file (p, create);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to touch file " << p << ": " << e << endf;
+    }
+  }
+
   fs_status<mkdir_status>
   mkdir (const dir_path& d, uint16_t v)
   {

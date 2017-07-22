@@ -30,6 +30,14 @@ namespace build2
     explicit operator bool () const {return v == T::success;}
   };
 
+  // Set the file access and modification times to the current time printing
+  // the standard diagnostics starting from the specified verbosity level. If
+  // the file does not exist and create is true, create it and fail otherwise.
+  // Return true if the file was created and false otherwise.
+  //
+  bool
+  touch (const path&, bool create, uint16_t verbosity = 1);
+
   // Create the directory and print the standard diagnostics starting from
   // the specified verbosity level.
   //

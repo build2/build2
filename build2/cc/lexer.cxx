@@ -25,34 +25,6 @@ namespace build2
 {
   namespace cc
   {
-    inline void lexer::
-    get (const xchar& c)
-    {
-      // Increment the logical line similar to how base will increment the
-      // physical (the column counts are the same).
-      //
-      if (log_line_ && c == '\n' && !unget_ && !unpeek_)
-        ++*log_line_;
-
-      base::get (c);
-    }
-
-    inline auto lexer::
-    get (bool e) -> xchar
-    {
-      if (unget_)
-      {
-        unget_ = false;
-        return ungetc_;
-      }
-      else
-      {
-        xchar c (peek (e));
-        get (c);
-        return c;
-      }
-    }
-
     auto lexer::
     peek (bool e) -> xchar
     {
@@ -85,6 +57,49 @@ namespace build2
       return c;
     }
 
+    inline auto lexer::
+    get (bool e) -> xchar
+    {
+      if (unget_)
+      {
+        unget_ = false;
+        return ungetc_;
+      }
+      else
+      {
+        xchar c (peek (e));
+        get (c);
+        return c;
+      }
+    }
+
+    inline void lexer::
+    get (const xchar& c)
+    {
+      // Increment the logical line similar to how base will increment the
+      // physical (the column counts are the same).
+      //
+      if (log_line_ && c == '\n' && !unget_ && !unpeek_)
+        ++*log_line_;
+
+      base::get (c);
+    }
+
+    inline auto lexer::
+    geth (bool e) -> xchar
+    {
+      xchar c (get (e));
+      cs_.append (c);
+      return c;
+    }
+
+    inline void lexer::
+    geth (const xchar& c)
+    {
+      get (c);
+      cs_.append (c);
+    }
+
     using type = token_type;
 
     void lexer::
@@ -93,7 +108,7 @@ namespace build2
       for (;; c = skip_spaces ())
       {
         t.file = log_file_;
-        t.line = log_line_ ? * log_line_ : c.line;
+        t.line = log_line_ ? *log_line_ : c.line;
         t.column = c.column;
 
         if (eos (c))
@@ -104,6 +119,23 @@ namespace build2
 
         const location l (&name_, c.line, c.column);
 
+        // Hash the token's line. The reason is debug info. In fact, doing
+        // this will make quite a few "noop" changes (like adding a newline
+        // anywhere in the source) cause the checksum change. But there
+        // doesn't seem to be any way around it: the case where we benefit
+        // from the precise change detection the most (development) is also
+        // where we will most likely have debug info enable.
+        //
+        // Note that in order not to make this completely useless we don't
+        // hash the column. Even if it is part of the debug info, having it a
+        // bit off shouldn't cause any significant mis-positioning. We also
+        // don't hash the file path for each token instead only hashing it
+        // when changed with the #line directive (as well as in the
+        // constructor for the initial path).
+        //
+        cs_.append (t.line);
+        cs_.append (c);
+
         switch (c)
         {
           // Preprocessor lines.
@@ -112,12 +144,14 @@ namespace build2
           {
             // It is tempting to simply scan until the newline ignoring
             // anything in between. However, these lines can start a
-            // multi-line C-style comment. So we have to tokenize them.
+            // multi-line C-style comment. So we have to tokenize them (and
+            // hash the data for each token).
             //
             // Note that this may not work for things like #error that can
             // contain pretty much anything. Also note that lines that start
             // with '#' can contain '#' further down. In this case we need to
-            // be careful not to recurse (and consume multiple newlines).
+            // be careful not to recurse (and consume multiple newlines). Thus
+            // the ignore_pp flag.
             //
             // Finally, to support diagnostics properly we need to recognize
             // #line directives.
@@ -206,7 +240,7 @@ namespace build2
 
             if (p == '*')
             {
-              get (p);
+              geth (p);
               t.type = type::punctuation;
               return;
             }
@@ -218,10 +252,13 @@ namespace build2
             else if (p == '.')
             {
               get (p);
+
               xchar q (peek ());
               if (q == '.')
               {
-                get (q);
+                cs_.append (p);
+
+                geth (q);
                 t.type = type::punctuation;
                 return;
               }
@@ -242,7 +279,7 @@ namespace build2
             xchar p (peek ());
 
             if (p == '=')
-              get (p);
+              geth (p);
 
             t.type = type::punctuation;
             return;
@@ -254,12 +291,12 @@ namespace build2
 
             if (p == c)
             {
-              get (p);
+              geth (p);
               if ((p = peek ()) == '=')
-                get (p);
+                geth (p);
             }
             else if (p == '=')
-              get (p);
+              geth (p);
 
             t.type = type::punctuation;
             return;
@@ -269,15 +306,13 @@ namespace build2
           {
             xchar p (peek ());
 
-            if (p == c)
-              get (p);
-            else if (p == '=')
-              get (p);
+            if (p == c || p == '=')
+              geth (p);
             else if (c == '-' && p == '>')
             {
-              get (p);
+              geth (p);
               if ((p = peek ()) == '*')
-                get (p);
+                geth (p);
             }
 
             t.type = type::punctuation;
@@ -288,10 +323,8 @@ namespace build2
           {
             xchar p (peek ());
 
-            if (p == c)
-              get (p);
-            else if (p == '=')
-              get (p);
+            if (p == c || p == '=')
+              geth (p);
 
             t.type = type::punctuation;
             return;
@@ -301,7 +334,7 @@ namespace build2
             xchar p (peek ());
 
             if (p == ':')
-              get (p);
+              geth (p);
 
             t.type = type::punctuation;
             return;
@@ -340,7 +373,7 @@ namespace build2
               string& id (t.value);
               id.clear ();
 
-              for (id += c; (c = peek ()) == '_' || alnum (c); get (c))
+              for (id += c; (c = peek ()) == '_' || alnum (c); geth (c))
                 id += c;
 
               // If the following character is a quote, see if the identifier
@@ -382,7 +415,7 @@ namespace build2
 
                 if (i == n) // All characters "consumed".
                 {
-                  get (c);
+                  geth (c);
                   id.clear ();
                 }
               }
@@ -423,6 +456,8 @@ namespace build2
     void lexer::
     number_literal (token& t, xchar c)
     {
+      // note: c is hashed
+
       // A number (integer or floating point literal) can:
       //
       // 1. Start with a dot (which must be followed by a digit, e.g., .123).
@@ -500,10 +535,10 @@ namespace build2
         case 'p':
         case 'P':
           {
-            get (c);
+            geth (c);
             c = peek ();
             if (c == '+' || c == '-')
-              get (c);
+              geth (c);
             continue;
           }
 
@@ -512,7 +547,7 @@ namespace build2
         case '\'':
         default: // Digits and letters.
           {
-            get (c);
+            geth (c);
             continue;
           }
         }
@@ -526,11 +561,13 @@ namespace build2
     void lexer::
     char_literal (token& t, xchar c)
     {
+      // note: c is hashed
+
       const location l (&name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
-        c = get ();
+        c = geth ();
 
         if (eos (c) || c == '\n')
           fail (l) << "unterminated character literal";
@@ -555,11 +592,13 @@ namespace build2
     void lexer::
     string_literal (token& t, xchar c)
     {
+      // note: c is hashed
+
       const location l (&name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
-        c = get ();
+        c = geth ();
 
         if (eos (c) || c == '\n')
           fail (l) << "unterminated string literal";
@@ -584,6 +623,8 @@ namespace build2
     void lexer::
     raw_string_literal (token& t, xchar c)
     {
+      // note: c is hashed
+
       // The overall form is:
       //
       // R"<delimiter>(<raw_characters>)<delimiter>"
@@ -603,7 +644,7 @@ namespace build2
 
       for (;;)
       {
-        c = get ();
+        c = geth ();
 
         if (eos (c) || c == '\"' || c == ')' || c == '\\' || c == ' ')
           fail (l) << "invalid raw string literal";
@@ -621,7 +662,7 @@ namespace build2
       //
       for (size_t i (0);;) // Position to match in d.
       {
-        c = get (false); // No newline escaping.
+        c = geth (false); // No newline escaping.
 
         if (eos (c)) // Note: newline is ok.
           fail (l) << "invalid raw string literal";
@@ -647,9 +688,11 @@ namespace build2
     void lexer::
     literal_suffix (xchar c)
     {
+      // note: c is unhashed
+
       // Parse a user-defined literal suffix identifier.
       //
-      for (get (c); (c = peek ()) == '_' || alnum (c); get (c)) ;
+      for (geth (c); (c = peek ()) == '_' || alnum (c); geth (c)) ;
     }
 
     void lexer::
@@ -657,11 +700,16 @@ namespace build2
     {
       // enter: first digit of the line number
       // leave: last character of the line number or file string
+      // note:  c is unhashed
 
       // If our number and string tokens contained the literal values, then we
       // could have used that. However, we ignore the value (along with escape
       // processing, etc), for performance. Let's keep it that way and instead
       // handle it ourselves.
+      //
+      // Note also that we are not hashing these at the character level
+      // instead hashing the switch to a new file path below and leaving the
+      // line number to the token line hashing.
       //
       {
         string& s (t.value);
@@ -726,6 +774,65 @@ namespace build2
         }
 
         log_file_ = path (move (s)); // Move back in.
+
+        // If the path is relative, then prefix it with the current working
+        // directory. Failed that, we will end up with different checksums for
+        // invocations from different directories.
+        //
+        // While this should work fine for normal cross-compilation, it's an
+        // entirely different story for the emulated case (e.g., msvc-linux
+        // where the preprocessed output contains absolute Windows paths). So
+        // we try to sense if things look fishy and leave the path alone.
+        //
+        // Also detect special names like <built-in> and <command-line>. Plus
+        // GCC sometimes adds what looks like working directory (has trailing
+        // slash). So ignore that as well.
+        //
+        if (!log_file_.to_directory ())
+        {
+          using tr = path::traits;
+          const string& f (log_file_.string ());
+
+          if (f.find (':') != string::npos            ||
+              (f.front () == '<' && f.back () == '>') ||
+              log_file_.absolute ())
+            cs_.append (f);
+          else
+          {
+            // This gets complicated and slow: the path may contain '..' and
+            // '.'  so strictly speaking we would need to normalize it.
+            // Instead, we are going to handle leading '..'s ourselves (the
+            // sane case) and ignore everything else (so if you have '..'  or
+            // '.' somewhere in the middle, then things might not work
+            // optimally for you).
+            //
+            const string& d (work.string ());
+
+            // Iterate over leading '..' in f "popping" the corresponding
+            // number of trailing components from d.
+            //
+            size_t fp (0);
+            size_t dp (d.size () - 1);
+
+            for (size_t p;; )
+            {
+              // Note that in file we recognize any directory separator, not
+              // just of this platform (see note about emulation above).
+              //
+              if (f.compare (fp, 2, "..") != 0  ||
+                  (f[fp + 2] != '/' && f[fp + 2] != '\\') || // Could be '\0'.
+                  (p = tr::rfind_separator (d, dp)) == string::npos)
+                break;
+
+              fp += 3;
+              dp = p - 1;
+            }
+
+            cs_.append (d.c_str (), dp + 1);
+            cs_.append (tr::directory_separator); // Canonical in work.
+            cs_.append (f.c_str () + fp);
+          }
+        }
       }
       else
         unget (c);

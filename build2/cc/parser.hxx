@@ -38,6 +38,7 @@ namespace build2
       parse_module_name (token&);
 
     public:
+      string checksum;     // Translation unit checksum.
       uint64_t export_pos; // Temporary hack, see parse_unit().
 
     private:

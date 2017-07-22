@@ -102,9 +102,9 @@ namespace build2
       pair<auto_rmfile, bool>
       extract_headers (action, file&, lorder,
                        const file&, const match_data&,
-                       depdb&, bool&) const;
+                       depdb&, bool&, timestamp) const;
 
-      translation_unit
+      pair<translation_unit, string>
       parse_unit (action, file&, lorder,
                   const file&, auto_rmfile&, const match_data&) const;
 
