@@ -433,7 +433,7 @@ namespace build2
 
                 size_t n (p - b);
                 id.append (b, n); cs_.append (b, n);
-                gptr_ = p; buf_->gbump (n); column += n;
+                gptr_ = p; buf_->gbump (static_cast<int> (n)); column += n;
               }
 
               // If the following character is a quote, see if the identifier
@@ -685,7 +685,7 @@ namespace build2
 
           size_t n (p - b);
           cs_.append (b, n);
-          gptr_ = p; buf_->gbump (n); column += n;
+          gptr_ = p; buf_->gbump (static_cast<int> (n)); column += n;
         }
       }
 
@@ -863,7 +863,7 @@ namespace build2
 
             size_t n (p - b);
             s.append (b, n);
-            gptr_ = p; buf_->gbump (n); column += n;
+            gptr_ = p; buf_->gbump (static_cast<int> (n)); column += n;
           }
         }
 
@@ -965,7 +965,7 @@ namespace build2
                  ++p) ;
 
             size_t n (p - b);
-            gptr_ = p; buf_->gbump (n); column += n;
+            gptr_ = p; buf_->gbump (static_cast<int> (n)); column += n;
 
             continue;
           }
@@ -996,7 +996,7 @@ namespace build2
                      ++p) ;
 
                 size_t n (p - b);
-                gptr_ = p; buf_->gbump (n); column += n;
+                gptr_ = p; buf_->gbump (static_cast<int> (n)); column += n;
               }
 
               if (!nl)
@@ -1044,7 +1044,7 @@ namespace build2
                     ++column;
                 }
 
-                gptr_ = p; buf_->gbump (p - b);
+                gptr_ = p; buf_->gbump (static_cast<int> (p - b));
               }
               continue;
             }
