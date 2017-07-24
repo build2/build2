@@ -48,23 +48,17 @@ namespace build2
   concat_dir_path_string (dir_path l, string sr)
   {
     if (path::traits::is_separator (sr[0])) // '\0' if empty.
-    {
       sr.erase (0, 1);
-      path pr (move (sr));
-      pr.canonicalize (); // Convert to canonical directory separators.
 
-      // If RHS is syntactically a directory (ends with a trailing slash),
-      // then return it as dir_path, not path.
-      //
-      if (pr.to_directory () || pr.empty ())
-        l /= path_cast<dir_path> (move (pr));
-      else
-        return value (path_cast<path> (move (l)) /= pr);
-    }
-    else
-      l += sr;
+    path pr (move (sr));
+    pr.canonicalize (); // Convert to canonical directory separators.
 
-    return value (move (l));
+    // If RHS is syntactically a directory (ends with a trailing slash), then
+    // return it as dir_path, not path.
+    //
+    return pr.to_directory () || pr.empty ()
+      ? value (move (l /= path_cast<dir_path> (move (pr))))
+      : value (path_cast<path> (move (l)) /= pr);
   }
 
   void
