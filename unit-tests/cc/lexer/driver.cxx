@@ -11,6 +11,7 @@
 #include <build2/cc/lexer.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -39,24 +40,16 @@ namespace build2
 
       try
       {
-        istream* is;
-
-        // Reading from file is several times faster.
-        //
-        ifdstream ifs;
+        ifdstream is;
         if (file != nullptr)
-        {
-          ifs.open (file);
-          is = &ifs;
-        }
+          is.open (file);
         else
         {
           file = "stdin";
-          cin.exceptions (istream::failbit | istream::badbit);
-          is = &cin;
+          is.open (fddup (stdin_fd ()));
         }
 
-        lexer l (*is, path (file));
+        lexer l (is, path (file));
 
         // No use printing eos since we will either get it or loop forever.
         //

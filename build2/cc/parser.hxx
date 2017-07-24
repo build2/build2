@@ -25,7 +25,7 @@ namespace build2
     {
     public:
       translation_unit
-      parse (istream&, const path& name);
+      parse (ifdstream&, const path& name);
 
     private:
       void

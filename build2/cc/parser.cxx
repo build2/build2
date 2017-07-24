@@ -16,7 +16,7 @@ namespace build2
     using type = token_type;
 
     translation_unit parser::
-    parse (istream& is, const path& name)
+    parse (ifdstream& is, const path& name)
     {
       lexer l (is, name);
       l_ = &l;

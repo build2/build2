@@ -64,8 +64,7 @@ namespace build2
       uint64_t line   = 0;
       uint64_t column = 0;
 
-      // Physical position in the stream, currently only for identifiers and
-      // only if the stream is ifdstream.
+      // Physical position in the stream, currently only for identifiers.
       //
       uint64_t position = 0;
     };
@@ -78,7 +77,7 @@ namespace build2
     class lexer: protected butl::char_scanner
     {
     public:
-      lexer (istream& is, const path& name)
+      lexer (ifdstream& is, const path& name)
           : char_scanner (is, false),
             name_ (name),
             fail ("error", &name_),

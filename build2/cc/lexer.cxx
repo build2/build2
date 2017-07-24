@@ -7,6 +7,27 @@
 using namespace std;
 using namespace butl;
 
+// bit 0 - identifier character (_0-9A-Ba-b).
+//
+static const uint8_t char_flags[256] =
+//0    1    2    3    4    5    6    7      8    9    A    B    C    D    E    F
+{
+  0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 0
+  0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 1
+  0,   0,   0,   0,   0,   0,   0,   0,     0,   0,   0,   0,   0,   0,   0,   0, // 2
+  1,   1,   1,   1,   1,   1,   1,   1,     1,   1,   0,   0,   0,   0,   0,   0, // 3
+  0,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   1,   1,   1,   1,   1, // 4
+  1,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   0,   0,   0,   0,   1, // 5
+  0,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   1,   1,   1,   1,   1, // 6
+  1,   1,   1,   1,   1,   1,   1,   1,     1,   1,   1,   0,   0,   0,   0,   0, // 7
+
+  // 128-255
+  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0
+};
+
 // Diagnostics plumbing.
 //
 namespace butl // ADL
@@ -361,20 +382,59 @@ namespace build2
           {
             bool raw (false); // Raw string literal.
 
-            if (alpha (c) || c == '_')
+            // Note: known not to be a digit (see above).
+            //
+            if (char_flags[static_cast<uint8_t> (c)] & 0x01)
             {
               // This smells a little: we know skip_spaces() did not peek at
               // the next character because this is not '/'. Which means the
               // position in the stream must be of this character + 1.
               //
-              if (buf_ != nullptr)
-                t.position = buf_->tellg () - 1;
+              t.position = buf_->tellg () - 1;
 
               string& id (t.value);
-              id.clear ();
+              id = c;
 
-              for (id += c; (c = peek ()) == '_' || alnum (c); geth (c))
+              while (char_flags[static_cast<uint8_t> (c = peek ())] & 0x01)
+              {
+                geth (c);
                 id += c;
+
+                // Direct buffer scan. Note that we always follow up with the
+                // normal peek() call which may load the next chunk, handle
+                // line continuations, etc. In other words, the end of the
+                // "raw" scan doesn't necessarily mean the end.
+                //
+                const char* b (gptr_);
+                const char* p (b);
+
+                for (const char* e (egptr_);
+                     p != e && char_flags[static_cast<uint8_t> (*p)] & 0x01;
+                     ++p) ;
+
+                // Unrolling this loop doesn't make a difference.
+                //
+                // for (const char* e (egptr_ - 4); p < e; p += 4)
+                // {
+                //   uint8_t c;
+                //
+                //  c = static_cast<uint8_t> (p[0]);
+                //  if (!(char_flags[c] & 0x01)) break;
+                //
+                //  c = static_cast<uint8_t> (p[1]);
+                //  if (!(char_flags[c] & 0x01)) {p += 1; break;}
+                //
+                //  c = static_cast<uint8_t> (p[2]);
+                //  if (!(char_flags[c] & 0x01)) {p += 2; break;}
+                //
+                //  c = static_cast<uint8_t> (p[3]);
+                //  if (!(char_flags[c] & 0x01)) {p += 3; break;}
+                // }
+
+                size_t n (p - b);
+                id.append (b, n); cs_.append (b, n);
+                gptr_ = p; buf_->gbump (n); column += n;
+              }
 
               // If the following character is a quote, see if the identifier
               // is one of the literal prefixes.
@@ -610,6 +670,23 @@ namespace build2
         // "\\".
         //
         p = (c == '\\' && p == '\\') ? '\0' : static_cast<char> (c);
+
+        // Direct buffer scan.
+        //
+        if (p != '\\')
+        {
+          const char* b (gptr_);
+          const char* e (egptr_);
+          const char* p (b);
+
+          for (char c;
+               p != e && (c = *p) != '\"' && c != '\\' && c != '\n';
+               ++p) ;
+
+          size_t n (p - b);
+          cs_.append (b, n);
+          gptr_ = p; buf_->gbump (n); column += n;
+        }
       }
 
       // See if we have a user-defined suffix (which is an identifier).
@@ -771,6 +848,23 @@ namespace build2
           }
 
           s += c;
+
+          // Direct buffer scan.
+          //
+          if (p != '\\')
+          {
+            const char* b (gptr_);
+            const char* e (egptr_);
+            const char* p (b);
+
+            for (char c;
+                 p != e && (c = *p) != '\"' && c != '\\' && c != '\n';
+                 ++p) ;
+
+            size_t n (p - b);
+            s.append (b, n);
+            gptr_ = p; buf_->gbump (n); column += n;
+          }
         }
 
         log_file_ = path (move (s)); // Move back in.
@@ -858,8 +952,23 @@ namespace build2
         case '\t':
         case '\r':
         case '\f':
-        case '\v': continue;
+        case '\v':
+          {
+            // Direct buffer scan.
+            //
+            const char* b (gptr_);
+            const char* e (egptr_);
+            const char* p (b);
 
+            for (char c;
+                 p != e && ((c = *p) == ' ' || c == '\t');
+                 ++p) ;
+
+            size_t n (p - b);
+            gptr_ = p; buf_->gbump (n); column += n;
+
+            continue;
+          }
         case '/':
           {
             xchar p (peek ());
@@ -869,7 +978,26 @@ namespace build2
             if (p == '/')
             {
               get (p);
-              do { c = get (); } while (!eos (c) && c != '\n');
+
+              for (;;)
+              {
+                c = get ();
+                if (c == '\n' || eos (c))
+                  break;
+
+                // Direct buffer scan.
+                //
+                const char* b (gptr_);
+                const char* e (egptr_);
+                const char* p (b);
+
+                for (char c;
+                     p != e && (c = *p) != '\n' && c != '\\';
+                     ++p) ;
+
+                size_t n (p - b);
+                gptr_ = p; buf_->gbump (n); column += n;
+              }
 
               if (!nl)
                 break;
@@ -895,6 +1023,28 @@ namespace build2
                   get (c);
                   break;
                 }
+
+                // Direct buffer scan.
+                //
+                const char* b (gptr_);
+                const char* e (egptr_);
+                const char* p (b);
+
+                for (char c;
+                     p != e && (c = *p) != '*' && c != '\\';
+                     ++p)
+                {
+                  if (c == '\n')
+                  {
+                    if (log_line_) ++*log_line_;
+                    ++line;
+                    column = 1;
+                  }
+                  else
+                    ++column;
+                }
+
+                gptr_ = p; buf_->gbump (p - b);
               }
               continue;
             }

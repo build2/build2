@@ -11,6 +11,7 @@
 #include <build2/cc/parser.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -23,27 +24,22 @@ namespace build2
     {
       try
       {
-        istream* is;
-        const char* in;
+        const char* file;
 
-        // Reading from file is several times faster.
-        //
-        ifdstream ifs;
+        ifdstream is;
         if (argc > 1)
         {
-          in = argv[1];
-          ifs.open (in);
-          is = &ifs;
+          file = argv[1];
+          is.open (file);
         }
         else
         {
-          in = "stdin";
-          cin.exceptions (istream::failbit | istream::badbit);
-          is = &cin;
+          file = "stdin";
+          is.open (fddup (stdin_fd ()));
         }
 
         parser p;
-        translation_unit u (p.parse (*is, path (in)));
+        translation_unit u (p.parse (is, path (file)));
 
         for (const module_import& m: u.mod.imports)
           cout << (m.exported ? "export " : "")
