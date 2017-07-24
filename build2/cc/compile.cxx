@@ -3289,10 +3289,20 @@ namespace build2
           },
           md.mods.copied)); // See search_modules() for details.
 
+      const file& s (pr.second);
+
       if (pr.first)
       {
         if (md.touch)
+        {
+          // Getting "everything up to date" after modifying a file can be
+          // unnerving. So calm the user down.
+          //
+          if (verb == 1)
+            text << "skip " << s;
+
           touch (tp, false, 2);
+        }
 
         t.mtime (md.mt);
         return *pr.first;
@@ -3301,8 +3311,6 @@ namespace build2
       // Make sure depdb is no older than any of our prerequisites.
       //
       touch (md.dd, false, verb_never);
-
-      const file& s (pr.second);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
