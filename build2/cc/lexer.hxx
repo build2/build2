@@ -170,6 +170,7 @@ namespace build2
       path               log_file_;
       optional<uint64_t> log_line_;
 
+      string tmp_file_;
       sha256 cs_;
     };
 

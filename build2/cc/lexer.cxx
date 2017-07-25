@@ -809,7 +809,12 @@ namespace build2
       {
         const location l (&name_, c.line, c.column);
 
-        string s (move (log_file_).string ()); // Move string rep out.
+        // It is common to have a large number of #line directives that don't
+        // change the file (they seem to be used to track macro locations or
+        // some such). So we are going to optimize for this by comparing the
+        // current path to what's in #line.
+        //
+        string& s (tmp_file_);
         s.clear ();
 
         for (char p ('\0'); p != '\"'; ) // Previous character.
@@ -867,7 +872,16 @@ namespace build2
           }
         }
 
-        log_file_ = path (move (s)); // Move back in.
+        if (log_file_.string () == s)
+          return;
+
+        // Swap the two string buffers.
+        //
+        {
+          string r (move (log_file_).string ()); // Move string rep out.
+          r.swap (s);
+          log_file_ = path (move (r)); // Move back in.
+        }
 
         // If the path is relative, then prefix it with the current working
         // directory. Failed that, we will end up with different checksums for
