@@ -1338,7 +1338,6 @@ namespace build2
       environment env;
       cstrings args;
       string out; // Storage.
-      path rels;
 
       // Some compilers in certain modes (e.g., when also producing the
       // preprocessed output) are incapable of writing the dependecy
@@ -1424,7 +1423,7 @@ namespace build2
       // pointer to the temporary file path otherwise.
       //
       auto init_args = [&t, act, lo,
-                        &src, &md, &rels, &psrc, &sense_diag,
+                        &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm, this]
         (bool& gen) -> const path*
@@ -1440,25 +1439,33 @@ namespace build2
           // means we have to (a) use absolute paths in -I and (b) pass
           // absolute source path (for ""-includes). That (b) is a problem:
           // if we use an absolute path, then all the #line directives will be
-          // absolute and all the diagnostics will have long, noisy paths.
+          // absolute and all the diagnostics will have long, noisy paths
+          // (actually, we will still have long paths for diagnostics in
+          // headers).
           //
-          // To work around this we are going to pass a relative path to the
-          // source file and then check every relative path in the dependency
-          // output for existence in the source file's directory. This is not
-          // without issues: it is theoretically possible for a generated
-          // header that is <>-included and found via -I to exist in the
-          // source file's directory. Note, however, that this is a lot more
-          // likely to happen with prefix-less inclusion (e.g., <foo>) and in
-          // this case we assume the file is in the project anyway. And if
-          // there is a conflict with a prefixed include (e.g., <bar/foo>),
-          // then, well, we will just have to get rid of quoted includes
-          // (which are generally a bad idea, anyway).
+          // To work around this we used to pass a relative path to the source
+          // file and then check every relative path in the dependency output
+          // for existence in the source file's directory. This is not without
+          // issues: it is theoretically possible for a generated header that
+          // is <>-included and found via -I to exist in the source file's
+          // directory. Note, however, that this is a lot more likely to
+          // happen with prefix-less inclusion (e.g., <foo>) and in this case
+          // we assume the file is in the project anyway. And if there is a
+          // conflict with a prefixed include (e.g., <bar/foo>), then, well,
+          // we will just have to get rid of quoted includes (which are
+          // generally a bad idea, anyway).
+          //
+          // But then this approach (relative path) fell apart further when we
+          // tried to implement precise changed detection: the preprocessed
+          // output would change depending from where it was compiled because
+          // of #line (which we could work around) and __FILE__/assert()
+          // (which we can't really do anything about). So it looks like using
+          // the absolute path is the lesser of all the evils (and there are
+          // many).
           //
           // Note that we detect and diagnose relative -I directories lazily
           // when building the include prefix map.
           //
-          rels = relative (src.path ());
-
           args.push_back (cpath.recall_string ());
 
           // Add *.export.poptions from prerequisite libraries.
@@ -1608,7 +1615,7 @@ namespace build2
             gen = args_gen = (pp == nullptr);
           }
 
-          args.push_back (rels.string ().c_str ());
+          args.push_back (src.path ().string ().c_str ());
           args.push_back (nullptr);
 
           // Note: only doing it here.
@@ -1628,7 +1635,7 @@ namespace build2
             //
             args[i]     = "-M";
             args[i + 1] = "-MG";
-            args[i + 2] = rels.string ().c_str ();
+            args[i + 2] = src.path ().string ().c_str ();
             args[i + 3] = nullptr;
 
             if (cid == compiler_id::gcc)
@@ -1703,7 +1710,7 @@ namespace build2
       auto add = [&trace, &pm,
                   act, &t, lo,
                   &dd, &updating, mt,
-                  &bs, &rels, this] (path f, bool cache) -> bool
+                  &bs, this] (path f, bool cache) -> bool
       {
         // Find or maybe insert the target.
         //
@@ -1787,6 +1794,10 @@ namespace build2
         // a relative ""-include (see init_args() for details). Reduce the
         // second case to absolute.
         //
+        // Note: we now always use absolute path to the translation unit so
+        // this no longer applies.
+        //
+#if 0
         if (f.relative () && rels.relative ())
         {
           // If the relative source path has a directory component, make sure
@@ -1810,6 +1821,7 @@ namespace build2
               f = move (t);
           }
         }
+#endif
 
         // If still relative then it does not exist.
         //
@@ -2101,7 +2113,7 @@ namespace build2
                     // this case the first line (and everything after it) is
                     // presumably diagnostics.
                     //
-                    if (l != rels.leaf ().string ())
+                    if (l != src.path ().leaf ().string ())
                     {
                       text << l;
                       bad_error = true;
@@ -2349,13 +2361,13 @@ namespace build2
       //
       environment env;
       cstrings args;
-      path rels;
+      const path* sp; // Source path.
 
       bool ps; // True if extracting from psrc.
       if (md.pp < preprocessed::modules)
       {
         ps = !psrc.path.empty ();
-        rels = relative (ps ? psrc.path : src.path ());
+        sp = &(ps ? psrc.path : src.path ());
 
         // VC's preprocessed output, if present, is fully preprocessed.
         //
@@ -2426,7 +2438,7 @@ namespace build2
             }
           }
 
-          args.push_back (rels.string ().c_str ());
+          args.push_back (sp->string ().c_str ());
           args.push_back (nullptr);
         }
 
@@ -2438,7 +2450,7 @@ namespace build2
         // Extracting directly from source.
         //
         ps = false;
-        rels = relative (src.path ());
+        sp = &src.path ();
       }
 
       // Preprocess and parse.
@@ -2459,7 +2471,7 @@ namespace build2
           if (args.empty ())
           {
             pr = process (process_exit (0)); // Successfully exited.
-            pr.in_ofd = fdopen (rels, fdopen_mode::in);
+            pr.in_ofd = fdopen (*sp, fdopen_mode::in);
           }
           else
           {
@@ -2482,7 +2494,7 @@ namespace build2
                         fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
-          translation_unit tu (p.parse (is, rels));
+          translation_unit tu (p.parse (is, *sp));
 
           is.close ();
 
@@ -3290,6 +3302,7 @@ namespace build2
           md.mods.copied)); // See search_modules() for details.
 
       const file& s (pr.second);
+      const path& sp (s.path ());
 
       if (pr.first)
       {
@@ -3320,11 +3333,6 @@ namespace build2
 
       environment env;
       cstrings args {cpath.recall_string ()};
-
-      // Translate paths to relative (to working directory) ones. This results
-      // in easier to read diagnostics.
-      //
-      path rels (relative (s.path ()));
 
       // If we are building a module, then the target is bmi*{} and its ad hoc
       // member is obj*{}.
@@ -3464,9 +3472,9 @@ namespace build2
 
         // Note: no way to indicate that the source if already preprocessed.
 
-        args.push_back ("/c");                    // Compile only.
-        args.push_back (langopt (md));            // Compile as.
-        args.push_back (rels.string ().c_str ()); // Note: rely on being last.
+        args.push_back ("/c");                  // Compile only.
+        args.push_back (langopt (md));          // Compile as.
+        args.push_back (sp.string ().c_str ()); // Note: rely on being last.
       }
       else
       {
@@ -3567,7 +3575,7 @@ namespace build2
           }
         }
 
-        args.push_back (rels.string ().c_str ());
+        args.push_back (sp.string ().c_str ());
       }
 
       args.push_back (nullptr);
@@ -3591,9 +3599,7 @@ namespace build2
       if (psrc)
       {
         args.pop_back (); // nullptr
-        args.pop_back (); // rels
-
-        rels = relative (md.psrc.path);
+        args.pop_back (); // sp
 
         // This should match with how we setup preprocessing.
         //
@@ -3625,7 +3631,7 @@ namespace build2
           assert (false);
         }
 
-        args.push_back (rels.string ().c_str ());
+        args.push_back (md.psrc.path.string ().c_str ());
         args.push_back (nullptr);
 
         // Let's keep the preprocessed file in case of an error but only at
@@ -3664,7 +3670,7 @@ namespace build2
             ifdstream is (
               move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
-            msvc_filter_cl (is, rels);
+            msvc_filter_cl (is, sp);
 
             // If anything remains in the stream, send it all to stderr. Note
             // that the eof check is important: if the stream is at eof, this

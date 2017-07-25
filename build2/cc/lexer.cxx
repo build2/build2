@@ -882,7 +882,16 @@ namespace build2
         // GCC sometimes adds what looks like working directory (has trailing
         // slash). So ignore that as well.
         //
+        // We now switched to using absolute translation unit paths (because
+        // of __FILE__/assert(); see compile.cxx for details). But we might
+        // still need this logic when we try to calculate location-independent
+        // hash for distributed compilation/caching. The idea is to only hash
+        // the part starting from the project root which is immutable. Plus
+        // we will need -ffile-prefix-map to deal with __FILE__.
+        //
         if (!log_file_.to_directory ())
+          cs_.append (log_file_.string ());
+#if 0
         {
           using tr = path::traits;
           const string& f (log_file_.string ());
@@ -927,6 +936,7 @@ namespace build2
             cs_.append (f.c_str () + fp);
           }
         }
+#endif
       }
       else
         unget (c);
