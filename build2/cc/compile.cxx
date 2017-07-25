@@ -3302,7 +3302,7 @@ namespace build2
           md.mods.copied)); // See search_modules() for details.
 
       const file& s (pr.second);
-      const path& sp (s.path ());
+      const path* sp (&s.path ());
 
       if (pr.first)
       {
@@ -3472,9 +3472,9 @@ namespace build2
 
         // Note: no way to indicate that the source if already preprocessed.
 
-        args.push_back ("/c");                  // Compile only.
-        args.push_back (langopt (md));          // Compile as.
-        args.push_back (sp.string ().c_str ()); // Note: rely on being last.
+        args.push_back ("/c");                   // Compile only.
+        args.push_back (langopt (md));           // Compile as.
+        args.push_back (sp->string ().c_str ()); // Note: relied on being last.
       }
       else
       {
@@ -3575,7 +3575,7 @@ namespace build2
           }
         }
 
-        args.push_back (sp.string ().c_str ());
+        args.push_back (sp->string ().c_str ());
       }
 
       args.push_back (nullptr);
@@ -3600,6 +3600,8 @@ namespace build2
       {
         args.pop_back (); // nullptr
         args.pop_back (); // sp
+
+        sp = &md.psrc.path;
 
         // This should match with how we setup preprocessing.
         //
@@ -3631,7 +3633,7 @@ namespace build2
           assert (false);
         }
 
-        args.push_back (md.psrc.path.string ().c_str ());
+        args.push_back (sp->string ().c_str ());
         args.push_back (nullptr);
 
         // Let's keep the preprocessed file in case of an error but only at
@@ -3670,7 +3672,7 @@ namespace build2
             ifdstream is (
               move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
-            msvc_filter_cl (is, sp);
+            msvc_filter_cl (is, *sp);
 
             // If anything remains in the stream, send it all to stderr. Note
             // that the eof check is important: if the stream is at eof, this
