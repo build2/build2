@@ -175,12 +175,15 @@ namespace build2
       //
       if (self && proc_lib)
       {
+        // Note that while normally the path is assigned, in case of an import
+        // stub the path to the DLL may not be known and so the path will be
+        // empty (but proc_lib() will use the import stub).
+        //
         const path& p (l.path ());
-        assert (!p.empty ()); // Must be assigned.
 
         bool s (t != nullptr // If cc library (matched or imported).
                 ? cast_false<bool> (l.vars[c_system])
-                : sys (top_sysd, p.string ()));
+                : !p.empty () && sys (top_sysd, p.string ()));
 
         proc_lib (&l, p.string (), s);
       }
