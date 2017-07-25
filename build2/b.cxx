@@ -1154,7 +1154,7 @@ main (int argc, char* argv[])
             if (d.relative ())
               d = work / d;
 
-            d.normalize ();
+            d.normalize (true); // Actualize since came from command line.
 
             // Figure out if this target is in the src tree.
             //
