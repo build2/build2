@@ -5,8 +5,6 @@
 #include <build2/cc/compile.hxx>
 
 #include <cstdlib>  // exit()
-#include <iostream> // cerr
-
 #include <build2/depdb.hxx>
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
@@ -2240,13 +2238,13 @@ namespace build2
               // we need to copy the diagnostics for the user to see.
               //
               // Note that the eof check is important: if the stream is at
-              // eof, this and all subsequent writes to cerr will fail (and
-              // you won't see a thing).
+              // eof, this and all subsequent writes to the diagnostics stream
+              // will fail (and you won't see a thing).
               //
               if (bad_error                                 &&
                   cid == compiler_id::msvc                  &&
                   is.peek () != ifdstream::traits_type::eof ())
-                cerr << is.rdbuf ();
+                diag_stream_lock () << is.rdbuf ();
 
               is.close ();
 
@@ -3721,11 +3719,11 @@ namespace build2
 
             // If anything remains in the stream, send it all to stderr. Note
             // that the eof check is important: if the stream is at eof, this
-            // and all subsequent writes to cerr will fail (and you won't see
-            // a thing).
+            // and all subsequent writes to the diagnostics stream will fail
+            // (and you won't see a thing).
             //
             if (is.peek () != ifdstream::traits_type::eof ())
-              cerr << is.rdbuf ();
+              diag_stream_lock () << is.rdbuf ();
 
             is.close ();
           }

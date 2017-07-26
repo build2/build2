@@ -111,7 +111,7 @@ namespace build2
 
   // Diagnostic facility, base infrastructure.
   //
-  using butl::diag_lock;
+  using butl::diag_stream_lock;
   using butl::diag_stream;
   using butl::diag_epilogue;
 

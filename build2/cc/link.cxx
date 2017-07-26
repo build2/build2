@@ -6,7 +6,6 @@
 
 #include <map>
 #include <cstdlib>  // exit()
-#include <iostream> // cerr
 
 #include <libbutl/path-map.hxx>
 #include <libbutl/filesystem.hxx> // file_exists()
@@ -1713,11 +1712,11 @@ namespace build2
 
             // If anything remains in the stream, send it all to stderr. Note
             // that the eof check is important: if the stream is at eof, this
-            // and all subsequent writes to cerr will fail (and you won't see
-            // a thing).
+            // and all subsequent writes to the diagnostics stream will fail
+            // (and you won't see a thing).
             //
             if (is.peek () != ifdstream::traits_type::eof ())
-              cerr << is.rdbuf ();
+              diag_stream_lock () << is.rdbuf ();
 
             is.close ();
           }

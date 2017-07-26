@@ -2,8 +2,6 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <iostream> // cerr
-
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/context.hxx>
@@ -54,7 +52,7 @@ namespace build2
       //
       string l;
       if (getline (is, l) && l != src.leaf ().string ())
-        cerr << l << endl;
+        diag_stream_lock () << l << endl;
     }
 
     void
@@ -80,7 +78,7 @@ namespace build2
         // can't quite reproduce it.
         //
 
-        cerr << l << endl;
+        diag_stream_lock () << l << endl;
         break;
       }
     }
