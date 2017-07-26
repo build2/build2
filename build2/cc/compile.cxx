@@ -755,6 +755,8 @@ namespace build2
         //
         timestamp mt;
         bool u (dd.writing () || dd.mtime () > (mt = file_mtime (tp)));
+        if (u)
+          mt = timestamp_nonexistent; // Treat as if it doesn't exist.
 
         // Update prerequisite targets (normally just the source file).
         //
@@ -827,11 +829,15 @@ namespace build2
               }
               else if (f) // Don't clear if it was forced.
               {
-                // Clear the update flag and set the touch flag. See also
-                // the md.mt logic below.
+                // Clear the update flag and set the touch flag. Unless there
+                // is no object file, of course. See also the md.mt logic
+                // below.
                 //
-                u = false;
-                md.touch = true;
+                if (mt != timestamp_nonexistent)
+                {
+                  u = false;
+                  md.touch = true;
+                }
               }
 
               tu = move (p.first);
