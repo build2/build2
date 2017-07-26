@@ -115,7 +115,7 @@ namespace build2
 
       module_positions
       search_modules (action, file&, lorder, const target_type&,
-                      const file&, module_imports&&, sha256&) const;
+                      const file&, module_imports&, sha256&) const;
 
       void
       append_modules (environment&, cstrings&, strings&,

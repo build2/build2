@@ -117,23 +117,32 @@ namespace build2
     bool
     touched () const {return touch_;}
 
-    // Write the next line. Note that this switches the database into the
-    // write mode and no further reading will be possible.
+    // Skip to the end of the database and return true if it is valid.
+    // Otherwise, return false, in which case the database must be
+    // overwritten. Note that this function expects the database to be in the
+    // read state.
+    //
+    bool
+    skip ();
+
+    // Write the next line. If nl is false then don't write the newline yet.
+    // Note that this switches the database into the write mode and no further
+    // reading will be possible.
     //
     void
-    write (const string& l) {write (l.c_str (), l.size ());}
+    write (const string& l, bool nl = true) {write (l.c_str (), l.size (), nl);}
 
     void
-    write (const path& p) {write (p.string ());}
+    write (const path& p, bool nl = true) {write (p.string (), nl);}
 
     void
-    write (const char* s) {write (s, std::strlen (s));}
+    write (const char* s, bool nl = true) {write (s, std::strlen (s), nl);}
 
     void
-    write (const char*, size_t);
+    write (const char*, size_t, bool nl = true);
 
     void
-    write (char);
+    write (char, bool nl = true);
 
     // Read the next line and compare it to the expected value. If it matches,
     // return NULL. Otherwise, overwrite it and return the old value (which

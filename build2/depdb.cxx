@@ -123,8 +123,41 @@ namespace build2
     return &line_;
   }
 
+  bool depdb::
+  skip ()
+  {
+    if (state_ == state::read_eof)
+      return true;
+
+    assert (state_ == state::read);
+
+    // The rest is pretty similar in logic to read_() above.
+    //
+    pos_ = fs_.tellg ();
+
+    // Keep reading lines checking for the end marker after each newline.
+    //
+    fstream::int_type c;
+    do
+    {
+      if ((c = fs_.get ()) == '\n')
+      {
+        if ((c = fs_.get ()) == '\0')
+        {
+          state_ = state::read_eof;
+          return true;
+        }
+      }
+    } while (c != fstream::traits_type::eof ());
+
+    // Invalid database so change over to writing.
+    //
+    change ();
+    return false;
+  }
+
   void depdb::
-  write (const char* s, size_t n)
+  write (const char* s, size_t n, bool nl)
   {
     // Switch to writing if we are still reading.
     //
@@ -132,11 +165,13 @@ namespace build2
       change ();
 
     fs_.write (s, static_cast<streamsize> (n));
-    fs_.put ('\n');
+
+    if (nl)
+      fs_.put ('\n');
   }
 
   void depdb::
-  write (char c)
+  write (char c, bool nl)
   {
     // Switch to writing if we are still reading.
     //
@@ -144,7 +179,9 @@ namespace build2
       change ();
 
     fs_.put (c);
-    fs_.put ('\n');
+
+    if (nl)
+      fs_.put ('\n');
   }
 
   void depdb::

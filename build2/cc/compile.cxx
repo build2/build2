@@ -681,6 +681,9 @@ namespace build2
           fsdir_rule::perform_update_direct (act, t);
         }
 
+        // Note: the leading '@' is reserved for the module map prefix (see
+        // extract_modules()) and no other line must start with it.
+        //
         md.dd = tp + ".d";
         depdb dd (md.dd);
 
@@ -2641,11 +2644,37 @@ namespace build2
       sha256 cs;
 
       if (!mi.imports.empty ())
-        md.mods = search_modules (
-          act, t, lo, tt.bmi, src, move (mi.imports), cs);
+        md.mods = search_modules (act, t, lo, tt.bmi, src, mi.imports, cs);
 
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
+
+      // Save the module map for compilers that use it.
+      //
+      if (cid == compiler_id::gcc && md.mods.start != 0)
+      {
+        // We don't need to redo this if the above hash hasn't changed and the
+        // database is valid.
+        //
+        if (dd.writing () || !dd.skip ())
+        {
+          const auto& pts (t.prerequisite_targets);
+
+          for (size_t i (md.mods.start); i != pts.size (); ++i)
+          {
+            if (const target* m = pts[i])
+            {
+              // Save a variable lookup by getting the module name from the
+              // import list (see search_modules()).
+              //
+              dd.write ('@', false);
+              dd.write (mi.imports[i - md.mods.start].name, false);
+              dd.write ('=', false);
+              dd.write (m->as<file> ().path ());
+            }
+          }
+        }
+      }
 
       // Set the cc.module_name variable if this is an interface unit. Note
       // that it may seem like a good idea to set it on the bmi{} group to
@@ -2678,7 +2707,7 @@ namespace build2
                     lorder lo,
                     const target_type& mtt,
                     const file& src,
-                    module_imports&& imports,
+                    module_imports& imports,
                     sha256& cs) const
     {
       tracer trace (x, "compile::search_modules");
@@ -3179,10 +3208,19 @@ namespace build2
       //
       switch (cid)
       {
-      case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
       case compiler_id::gcc:
-      case compiler_id::msvc: break; // All of them.
-      case compiler_id::icc:  assert (false);
+        {
+          // Use the module map stored in depdb.
+          //
+          string s (relative (md.dd).string ());
+          s.insert (0, "-fmodule-file-map=@=");
+          stor.push_back (move (s));
+          n = ms.start; // Don't add individual entries below.
+          break;
+        }
+      case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
+      case compiler_id::msvc:  break; // All of them.
+      case compiler_id::icc:   assert (false);
       }
 
       dir_path stdifc; // See the VC case below.
@@ -3204,9 +3242,10 @@ namespace build2
         {
         case compiler_id::gcc:
           {
-            s.insert (0, 1, '=');
-            s.insert (0, cast<string> (f.vars[c_module_name]));
-            s.insert (0, "-fmodule-file=");
+            //s.insert (0, 1, '=');
+            //s.insert (0, cast<string> (f.vars[c_module_name]));
+            //s.insert (0, "-fmodule-file=");
+            assert (false);
             break;
           }
         case compiler_id::clang:
