@@ -66,7 +66,7 @@ namespace build2
       otype type;
       bool  utility; // True for utility libraries.
 
-      bool executable ()     const {return type == otype::e || !utility;}
+      bool executable ()     const {return type == otype::e && !utility;}
       bool library ()        const {return type != otype::e ||  utility;}
       bool static_library () const {return type == otype::a ||  utility;}
       bool shared_library () const {return type == otype::s && !utility;}
