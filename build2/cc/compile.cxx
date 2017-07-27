@@ -256,7 +256,7 @@ namespace build2
                         cstrings& args,
                         const target& t,
                         action act,
-                        lorder lo) const
+                        linfo li) const
     {
       auto opt = [&args, this] (
         const file& l, const string& t, bool com, bool exp)
@@ -284,14 +284,16 @@ namespace build2
         //
         if (const target* pt = p.load ())
         {
-          bool a;
+          if (const libx* l = pt->is_a<libx> ())
+            pt = &link_member (*l, act, li);
 
-          if (const lib* l = pt->is_a<lib> ())
-            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          bool a;
+          if (!((a = pt->is_a<liba> ())  ||
+                (a = pt->is_a<libux> ()) ||
+                pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a,
                              nullptr, nullptr, optf);
         }
@@ -303,7 +305,7 @@ namespace build2
                       sha256& cs,
                       const target& t,
                       action act,
-                      lorder lo) const
+                      linfo li) const
     {
       auto opt = [&cs, this] (
         const file& l, const string& t, bool com, bool exp)
@@ -326,14 +328,16 @@ namespace build2
       {
         if (const target* pt = p.load ())
         {
-          bool a;
+          if (const libx* l = pt->is_a<libx> ())
+            pt = &link_member (*l, act, li);
 
-          if (const lib* l = pt->is_a<lib> ())
-            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          bool a;
+          if (!((a = pt->is_a<liba> ())  ||
+                (a = pt->is_a<libux> ()) ||
+                pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a,
                              nullptr, nullptr, optf);
         }
@@ -348,7 +352,7 @@ namespace build2
                          prefix_map& m,
                          target& t,
                          action act,
-                         lorder lo) const
+                         linfo li) const
     {
       auto opt = [&m, this] (
         const file& l, const string& t, bool com, bool exp)
@@ -371,14 +375,16 @@ namespace build2
       {
         if (const target* pt = p.load ())
         {
-          bool a;
+          if (const libx* l = pt->is_a<libx> ())
+            pt = &link_member (*l, act, li);
 
-          if (const lib* l = pt->is_a<lib> ())
-            a = (pt = &link_member (*l, act, lo))->is_a<liba> ();
-          else if (!(a = pt->is_a<liba> ()) && !pt->is_a<libs> ())
+          bool a;
+          if (!((a = pt->is_a<liba> ())  ||
+                (a = pt->is_a<libux> ()) ||
+                pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a,
                              nullptr, nullptr, optf);
         }
@@ -461,9 +467,9 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ct (compile_type (t, mod));
-      lorder lo (link_order (bs, ct));
-      compile_target_types tt (compile_types (ct));
+      otype ot (compile_type (t, mod));
+      linfo li (link_info (bs, ot)); // Link info for selecting libraries.
+      compile_target_types tt (compile_types (ot));
 
       // Derive file name from target name.
       //
@@ -473,7 +479,7 @@ namespace build2
 
         if (tsys == "win32-msvc")
         {
-          switch (ct)
+          switch (ot)
           {
           case otype::e: e = "exe."; break;
           case otype::a: e = "lib."; break;
@@ -483,7 +489,7 @@ namespace build2
         }
         else if (tsys == "mingw32")
         {
-          switch (ct)
+          switch (ot)
           {
           case otype::e: e = "exe."; break;
           case otype::a: e = "a.";   break;
@@ -492,7 +498,7 @@ namespace build2
         }
         else if (tsys == "darwin")
         {
-          switch (ct)
+          switch (ot)
           {
           case otype::e: e = "";       break;
           case otype::a: e = "a.";     break;
@@ -501,7 +507,7 @@ namespace build2
         }
         else
         {
-          switch (ct)
+          switch (ot)
           {
           case otype::e: e = "";    break;
           case otype::a: e = "a.";  break;
@@ -573,7 +579,10 @@ namespace build2
         // *.export.poptions, modules, etc. This is the "library
         // meta-information protocol". See also append_lib_options().
         //
-        if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+        if (p.is_a<libx> () ||
+            p.is_a<liba> () ||
+            p.is_a<libs> () ||
+            p.is_a<libux> ())
         {
           if (act.operation () == update_id)
           {
@@ -592,8 +601,8 @@ namespace build2
 
             pt = &p.search (t);
 
-            if (const lib* l = pt->is_a<lib> ())
-              pt = &link_member (*l, act, lo);
+            if (const libx* l = pt->is_a<libx> ())
+              pt = &link_member (*l, act, li);
           }
           else
             continue;
@@ -633,11 +642,12 @@ namespace build2
         // match in link::apply() it will be safe unless someone is building
         // an obj?{} target directory.
         //
-        if (build2::match (act,
-                           *pt,
-                           pt->is_a<liba> () || pt->is_a<libs> ()
-                           ? unmatch::safe
-                           : unmatch::none))
+        if (build2::match (
+              act,
+              *pt,
+              pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ()
+              ? unmatch::safe
+              : unmatch::none))
           pt = nullptr; // Ignore in execute.
       }
 
@@ -718,7 +728,7 @@ namespace build2
 
             // Hash *.export.poptions from prerequisite libraries.
             //
-            hash_lib_options (bs, cs, t, act, lo);
+            hash_lib_options (bs, cs, t, act, li);
 
             // Extra system header dirs (last).
             //
@@ -730,7 +740,7 @@ namespace build2
           hash_options (cs, t, x_coptions);
           hash_options (cs, tstd);
 
-          if (ct == otype::s)
+          if (ot == otype::s)
           {
             // On Darwin, Win32 -fPIC is the default.
             //
@@ -795,7 +805,7 @@ namespace build2
         //
         pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          psrc = extract_headers (act, t, lo, src, md, dd, u, mt);
+          psrc = extract_headers (act, t, li, src, md, dd, u, mt);
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -818,7 +828,7 @@ namespace build2
           {
             if (u)
             {
-              auto p (parse_unit (act, t, lo, src, psrc.first, md));
+              auto p (parse_unit (act, t, li, src, psrc.first, md));
 
               if (cs != p.second)
               {
@@ -875,7 +885,7 @@ namespace build2
           // NOTE: assumes that no further targets will be added into
           //       t.prerequisite_targets!
           //
-          extract_modules (act, t, lo, tt, src, md, move (tu.mod), dd, u);
+          extract_modules (act, t, li, tt, src, md, move (tu.mod), dd, u);
         }
 
         // If anything got updated, then we didn't rely on the cache. However,
@@ -1073,7 +1083,7 @@ namespace build2
     auto compile::
     build_prefix_map (const scope& bs,
                       target& t,
-                      action act, lorder lo) const -> prefix_map
+                      action act, linfo li) const -> prefix_map
     {
       prefix_map m;
 
@@ -1084,7 +1094,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (bs, m, t, act, lo);
+      append_lib_prefixes (bs, m, t, act, li);
 
       return m;
     }
@@ -1273,7 +1283,7 @@ namespace build2
     pair<auto_rmfile, bool> compile::
     extract_headers (action act,
                      file& t,
-                     lorder lo,
+                     linfo li,
                      const file& src,
                      const match_data& md,
                      depdb& dd,
@@ -1429,7 +1439,7 @@ namespace build2
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
       //
-      auto init_args = [&t, act, lo,
+      auto init_args = [&t, act, li,
                         &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm, this]
@@ -1477,7 +1487,7 @@ namespace build2
 
           // Add *.export.poptions from prerequisite libraries.
           //
-          append_lib_options (bs, args, t, act, lo);
+          append_lib_options (bs, args, t, act, li);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
@@ -1715,7 +1725,7 @@ namespace build2
       // extraction process should be restarted.
       //
       auto add = [&trace, &pm,
-                  act, &t, lo,
+                  act, &t, li,
                   &dd, &updating, mt,
                   &bs, this] (path f, bool cache) -> bool
       {
@@ -1845,7 +1855,7 @@ namespace build2
           // then we would have failed below.
           //
           if (pm.empty ())
-            pm = build_prefix_map (bs, t, act, lo);
+            pm = build_prefix_map (bs, t, act, li);
 
           // First try the whole file. Then just the directory.
           //
@@ -2340,7 +2350,7 @@ namespace build2
     pair<translation_unit, string> compile::
     parse_unit (action act,
                 file& t,
-                lorder lo,
+                linfo lo,
                 const file& src,
                 auto_rmfile& psrc,
                 const match_data& md) const
@@ -2592,7 +2602,7 @@ namespace build2
     void compile::
     extract_modules (action act,
                      file& t,
-                     lorder lo,
+                     linfo li,
                      const compile_target_types& tt,
                      const file& src,
                      match_data& md,
@@ -2648,7 +2658,7 @@ namespace build2
       sha256 cs;
 
       if (!mi.imports.empty ())
-        md.mods = search_modules (act, t, lo, tt.bmi, src, mi.imports, cs);
+        md.mods = search_modules (act, t, li, tt.bmi, src, mi.imports, cs);
 
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
@@ -2708,7 +2718,7 @@ namespace build2
     module_positions compile::
     search_modules (action act,
                     file& t,
-                    lorder lo,
+                    linfo li,
                     const target_type& mtt,
                     const file& src,
                     module_imports& imports,
@@ -2959,9 +2969,9 @@ namespace build2
         {
           const target* lt (nullptr);
 
-          if (const lib* l = pt->is_a<lib> ())
-            lt = &link_member (*l, act, lo);
-          else if (pt->is_a<liba> () || pt->is_a<libs> ())
+          if (const libx* l = pt->is_a<libx> ())
+            lt = &link_member (*l, act, li);
+          else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
             lt = pt;
 
           // If this is a library, check its bmi{}s.
@@ -3371,8 +3381,8 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ct (compile_type (t, mod));
-      lorder lo (link_order (bs, ct));
+      otype ot (compile_type (t, mod));
+      linfo li (link_info (bs, ot));
 
       environment env;
       cstrings args {cpath.recall_string ()};
@@ -3398,7 +3408,7 @@ namespace build2
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (bs, args, t, act, lo);
+        append_lib_options (bs, args, t, act, li);
 
         // Extra system header dirs (last).
         //
@@ -3521,7 +3531,7 @@ namespace build2
       }
       else
       {
-        if (ct == otype::s)
+        if (ot == otype::s)
         {
           // On Darwin, Win32 -fPIC is the default.
           //

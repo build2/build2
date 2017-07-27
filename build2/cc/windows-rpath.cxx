@@ -49,7 +49,7 @@ namespace build2
     windows_rpath_timestamp (const file& t,
                              const scope& bs,
                              action act,
-                             lorder lo) const
+                             linfo li) const
     {
       timestamp r (timestamp_nonexistent);
 
@@ -109,7 +109,7 @@ namespace build2
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
-          process_libraries (act, bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, li, sys_lib_dirs,
                              *f, a != nullptr,
                              imp, lib, nullptr, true);
       }
@@ -124,7 +124,7 @@ namespace build2
     windows_rpath_dlls (const file& t,
                         const scope& bs,
                         action act,
-                        lorder lo) const -> windows_dlls
+                        linfo li) const -> windows_dlls
     {
       windows_dlls r;
 
@@ -191,7 +191,7 @@ namespace build2
 
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
-          process_libraries (act, bs, lo, sys_lib_dirs,
+          process_libraries (act, bs, li, sys_lib_dirs,
                              *f, a != nullptr,
                              imp, lib, nullptr, true);
       }
@@ -214,7 +214,7 @@ namespace build2
     windows_rpath_assembly (const file& t,
                             const scope& bs,
                             action act,
-                            lorder lo,
+                            linfo li,
                             const string& tcpu,
                             timestamp ts,
                             bool scratch) const
@@ -251,7 +251,7 @@ namespace build2
 
       windows_dlls dlls;
       if (!empty)
-        dlls = windows_rpath_dlls (t, bs, act, lo);
+        dlls = windows_rpath_dlls (t, bs, act, li);
 
       // Clean the assembly directory and make sure it exists. Maybe it would
       // have been faster to overwrite the existing manifest rather than

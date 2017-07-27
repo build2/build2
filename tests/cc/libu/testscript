@@ -1,0 +1,54 @@
+# file      : tests/cc/libu/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+crosstest = false
+test.arguments = config.cxx="$recall($cxx.path)"
+
+.include ../../common.test
+
++cat <<EOI >=build/root.build
+cxx.std = latest
+
+using cxx
+
+hxx{*}: extension = hxx
+cxx{*}: extension = cxx
+EOI
+
+# Common source files that are symlinked in the test directories if used.
+#
++cat <<EOI >=foo.hxx
+  #ifndef LIBFOO_EXPORT
+  #  define LIBFOO_EXPORT
+  #endif
+
+  LIBFOO_EXPORT void f ();
+  EOI
+
++cat <<EOI >=foo.cxx
+  void f () {}
+  EOI
+
++cat <<EOI >=driver.cxx
+  #include <foo.hxx>
+  int main () {f ();}
+  EOI
+
+: members
+:
+: Test building individual libuX{} members.
+:
+ln -s ../foo.hxx ../foo.cxx ../driver.cxx ./;
+$* update clean <<EOI
+  cc.poptions += "-I$src_base"
+
+  # {exe liba libs}{foo}
+  ./: {exe}{foo}
+
+  exe{foo}:  cxx{driver} libue{foo}
+  liba{foo}: libua{foo}
+  libs{foo}: libus{foo}
+
+  libu{foo}: cxx{foo}
+  EOI

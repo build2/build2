@@ -29,7 +29,7 @@ namespace build2
 
     // Link output type.
     //
-    otype
+    ltype
     link_type (const target&);
 
     // Library link order.
@@ -44,10 +44,17 @@ namespace build2
     lorder
     link_order (const scope& base, otype);
 
-    // Given the link order return the library member (liba or libs) to link.
+    inline linfo
+    link_info (const scope& base, otype ot)
+    {
+      return linfo {ot, link_order (base, ot)};
+    }
+
+    // Given the link order return the library member to link. That is, liba{}
+    // or libs{} for lib{} and libue{}, libua{} or libus{} for libu{}.
     //
     const target&
-    link_member (const bin::lib&, action, lorder);
+    link_member (const bin::libx&, action, linfo);
   }
 }
 

@@ -117,6 +117,73 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
+    // Common base for lib{} and libu{} groups.
+    //
+    class libx: public target
+    {
+    public:
+      using target::target;
+
+    public:
+      static const target_type static_type;
+    };
+
+    // The libu{} target group (utility library).
+    //
+    // All the members are static libraries that differ base on the kind of
+    // object files they contains. Note that the group is more like obj{}
+    // rather than lib{} in that one does not build the group directly rather
+    // picking a suitable member.
+    //
+    class libux: public file // Common base of all libuX{} static libraries.
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+    };
+
+    class libue: public libux
+    {
+    public:
+      using libux::libux;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class libua: public libux
+    {
+    public:
+      using libux::libux;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class libus: public libux
+    {
+    public:
+      using libux::libux;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class libu: public libx
+    {
+    public:
+      using libx::libx;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
     // The lib{} target group.
     //
     class liba: public file
@@ -149,10 +216,10 @@ namespace build2
       const libs* s = nullptr;
     };
 
-    class lib: public target, public lib_members
+    class lib: public libx, public lib_members
     {
     public:
-      using target::target;
+      using libx::libx;
 
       virtual group_view
       group_members (action_type) const override;

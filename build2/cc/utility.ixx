@@ -17,15 +17,19 @@ namespace build2
         otype::s;
     }
 
-    inline otype
+    inline ltype
     link_type (const target& t)
     {
       using namespace bin;
 
-      return
-        t.is_a<exe> ()  ? otype::e :
-        t.is_a<liba> () ? otype::a :
-        otype::s;
+      bool u (false);
+      otype o (
+        t.is_a<exe>  () || (u = t.is_a<libue> ()) ? otype::e :
+        t.is_a<liba> () || (u = t.is_a<libua> ()) ? otype::a :
+        t.is_a<libs> () || (u = t.is_a<libus> ()) ? otype::s :
+        static_cast<otype> (0xFF));
+
+      return ltype {o, u};
     }
 
     inline compile_target_types

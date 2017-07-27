@@ -24,8 +24,7 @@ namespace build2
 {
   namespace bin
   {
-    static const obj_rule obj_;
-    static const bmi_rule bmi_;
+    static const fail_rule fail_;
     static const lib_rule lib_;
 
     // Default config.bin.*.lib values.
@@ -368,10 +367,17 @@ namespace build2
         t.insert<bmia> ();
         t.insert<bmis> ();
 
+        t.insert<libu>  ();
+        t.insert<libue> ();
+        t.insert<libua> ();
+        t.insert<libus> ();
+
         t.insert<lib>  ();
         t.insert<liba> ();
         t.insert<libs> ();
 
+        // Note: libu*{} are not installable.
+        //
         if (install_loaded)
         {
           install_path<liba> (bs, dir_path ("lib")); // Install in install.lib.
@@ -422,22 +428,25 @@ namespace build2
       {
         auto& r (bs.rules);
 
-        r.insert<obj> (perform_update_id, "bin.obj", obj_);
-        r.insert<obj> (perform_clean_id, "bin.obj", obj_);
+        r.insert<obj> (perform_update_id, "bin.obj", fail_);
+        r.insert<obj> (perform_clean_id,  "bin.obj", fail_);
 
-        r.insert<bmi> (perform_update_id, "bin.bmi", bmi_);
-        r.insert<bmi> (perform_clean_id, "bin.bmi", bmi_);
+        r.insert<bmi> (perform_update_id, "bin.bmi", fail_);
+        r.insert<bmi> (perform_clean_id,  "bin.bmi", fail_);
+
+        r.insert<libu> (perform_update_id, "bin.libu", fail_);
+        r.insert<libu> (perform_clean_id,  "bin.libu", fail_);
 
         r.insert<lib> (perform_update_id, "bin.lib", lib_);
-        r.insert<lib> (perform_clean_id, "bin.lib", lib_);
+        r.insert<lib> (perform_clean_id,  "bin.lib", lib_);
 
-        // Configure member.
+        // Configure members.
         //
         r.insert<lib> (configure_update_id, "bin.lib", lib_);
 
         if (install_loaded)
         {
-          r.insert<lib> (perform_install_id, "bin.lib", lib_);
+          r.insert<lib> (perform_install_id,   "bin.lib", lib_);
           r.insert<lib> (perform_uninstall_id, "bin.lib", lib_);
         }
       }

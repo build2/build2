@@ -194,7 +194,7 @@ namespace build2
       process_libraries (
         action,
         const scope&,
-        lorder,
+        linfo,
         const dir_paths&,
         const file&,
         bool,
@@ -232,7 +232,7 @@ namespace build2
       resolve_library (action,
                        const scope&,
                        name,
-                       lorder,
+                       linfo,
                        const dir_paths&,
                        optional<dir_paths>&) const;
 

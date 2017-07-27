@@ -56,15 +56,18 @@ namespace build2
       //   (i.e., a utility library).
       //
 
-      otype lt (link_type (t));
+      ltype lt (link_type (t));
+      otype ot (lt.type);
 
-      // If this is a library, link-up to our group (this is the lib{} target
-      // group protocol which means this can be done whether we match or not).
+      // If this is a library, link-up to our group (this is the target group
+      // protocol which means this can be done whether we match or not).
       //
-      if (lt == otype::a || lt == otype::s)
+      if (lt.library ())
       {
         if (t.group == nullptr)
-          t.group = targets.find<lib> (t.dir, t.out, t.name);
+          t.group = targets.find (
+            lt.utility ? libu::static_type : lib::static_type,
+            t.dir, t.out, t.name);
       }
 
       // Scan prerequisites and see if we can work with what we've got. Note
@@ -90,28 +93,29 @@ namespace build2
         }
         else if (p.is_a<obje> () || p.is_a<bmie> ())
         {
-          if (lt != otype::e)
+          if (ot != otype::e)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
         else if (p.is_a<obja> () || p.is_a<bmia> ())
         {
-          if (lt != otype::a)
+          if (ot != otype::a)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
         else if (p.is_a<objs> () || p.is_a<bmis> ())
         {
-          if (lt != otype::s)
+          if (ot != otype::s)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
           seen_obj = seen_obj || true;
         }
-        else if (p.is_a<lib> ()  ||
-                 p.is_a<liba> () ||
-                 p.is_a<libs> ())
+        else if (p.is_a<libx> ()  ||
+                 p.is_a<liba> ()  ||
+                 p.is_a<libs> ()  ||
+                 p.is_a<libux> ())
         {
           seen_lib = seen_lib || true;
         }
@@ -300,12 +304,13 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype lt (link_type (t));
-      lorder lo (link_order (bs, lt));
+      ltype lt (link_type (t));
+      otype ot (lt.type);
+      linfo li (link_info (bs, ot));
 
       // Set the library type (C, C++, etc).
       //
-      if (lt != otype::e)
+      if (lt.library ())
         t.vars.assign (c_type) = string (x);
 
       // Derive file name(s) and add ad hoc group members.
@@ -325,57 +330,119 @@ namespace build2
         const char* p (nullptr); // Prefix.
         const char* s (nullptr); // Suffix.
 
-        switch (lt)
+        if (lt.utility)
         {
-        case otype::e:
+          // These are all static libraries with names indicating the kind of
+          // object files they contain (similar to how we name object files
+          // themselves). We add the 'u' extension to avoid clashes with
+          // real libraries/import stubs.
+          //
+          // libue  libhello.u.a     hello.exe.u.lib
+          // libua  libhello.a.u.a   hello.lib.u.lib
+          // libus  libhello.so.u.a  hello.dll.u.lib  hello.dylib.u.lib
+          //
+          // Note that we currently don't add bin.lib.{prefix,suffix} since
+          // these are not installed.
+          //
+          if (tsys == "win32-msvc")
           {
-            if (tclass == "windows")
-              e = "exe";
-            else
-              e = "";
-
-            if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
-            if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
-
-            t.derive_path (e, p, s);
-            break;
+            switch (ot)
+            {
+            case otype::e: e = "exe.u.lib"; break;
+            case otype::a: e = "lib.u.lib"; break;
+            case otype::s: e = "dll.u.lib"; break;
+            }
           }
-        case otype::a:
+          else
           {
-            if (cid == compiler_id::msvc)
-              e = "lib";
+            p = "lib";
+
+            if (tsys == "mingw32")
+            {
+              switch (ot)
+              {
+              case otype::e: e = "exe.u.a"; break;
+              case otype::a: e = "a.u.a";   break;
+              case otype::s: e = "dll.u.a"; break;
+              }
+
+            }
+            else if (tsys == "darwin")
+            {
+              switch (ot)
+              {
+              case otype::e: e = "u.a";       break;
+              case otype::a: e = "a.u.a";     break;
+              case otype::s: e = "dylib.u.a"; break;
+              }
+            }
             else
             {
-              p = "lib";
-              e = "a";
+              switch (ot)
+              {
+              case otype::e: e = "u.a";    break;
+              case otype::a: e = "a.u.a";  break;
+              case otype::s: e = "so.u.a"; break;
+              }
             }
-
-            if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
-            if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
-
-            t.derive_path (e, p, s);
-            break;
           }
-        case otype::s:
+
+          t.derive_path (e, p, s);
+        }
+        else
+        {
+          switch (ot)
           {
-            // On Windows libs{} is an ad hoc group. The libs{} itself is the
-            // DLL and we add libi{} import library as its member.
-            //
-            if (tclass == "windows")
-              libi = add_adhoc (t, "libi");
+          case otype::e:
+            {
+              if (tclass == "windows")
+                e = "exe";
+              else
+                e = "";
 
-            t.data (derive_libs_paths (t)); // Cache in target.
+              if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
+              if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
 
-            if (libi)
-              match_recipe (libi, group_recipe); // Set recipe and unlock.
+              t.derive_path (e, p, s);
+              break;
+            }
+          case otype::a:
+            {
+              if (cid == compiler_id::msvc)
+                e = "lib";
+              else
+              {
+                p = "lib";
+                e = "a";
+              }
 
-            break;
+              if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
+              if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
+
+              t.derive_path (e, p, s);
+              break;
+            }
+          case otype::s:
+            {
+              // On Windows libs{} is an ad hoc group. The libs{} itself is
+              // the DLL and we add libi{} import library as its member.
+              //
+              if (tclass == "windows")
+                libi = add_adhoc (t, "libi");
+
+              t.data (derive_libs_paths (t)); // Cache in target.
+
+              if (libi)
+                match_recipe (libi, group_recipe); // Set recipe and unlock.
+
+              break;
+            }
           }
         }
 
         // PDB
         //
-        if (lt != otype::a                               &&
+        if (!lt.static_library ()                        &&
             cid == compiler_id::msvc                     &&
             (find_option ("/DEBUG", t, c_loptions, true) ||
              find_option ("/DEBUG", t, x_loptions, true)))
@@ -419,7 +486,7 @@ namespace build2
       // or a subdirectory of our project root.
       //
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
-      compile_target_types tt (compile_types (lt));
+      compile_target_types tt (compile_types (ot));
 
       auto skip = [&act, &rs] (const target*& pt)
       {
@@ -505,7 +572,10 @@ namespace build2
 
           m = mod ? 2 : 1;
         }
-        else if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> ())
+        else if (p.is_a<libx> () ||
+                 p.is_a<liba> () ||
+                 p.is_a<libs> () ||
+                 p.is_a<libux> ())
         {
           // Handle imported libraries.
           //
@@ -524,11 +594,11 @@ namespace build2
           if (skip (pt))
             continue;
 
-          // If this is the lib{} target group, then pick the appropriate
+          // If this is the lib{}/libu{} group, then pick the appropriate
           // member.
           //
-          if (const lib* l = pt->is_a<lib> ())
-            pt = &link_member (*l, act, lo);
+          if (const libx* l = pt->is_a<libx> ())
+            pt = &link_member (*l, act, li);
         }
         else
         {
@@ -622,8 +692,9 @@ namespace build2
             {
               const target* pt (t.prerequisite_targets[j++]);
 
-              if (p.is_a<lib> () || p.is_a<liba> () || p.is_a<libs> () ||
-                  p.is_a<bmi> () || p.is_a (tt.bmi))
+              if (p.is_a<libx> () ||
+                  p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
+                  p.is_a<bmi> ()  || p.is_a (tt.bmi))
               {
                 ps.emplace_back (p.as_prerequisite ());
               }
@@ -681,12 +752,12 @@ namespace build2
               // Ignore some known target types (fsdir, headers, libraries,
               // modules).
               //
-              if (p1.is_a<fsdir> ()                                        ||
-                  p1.is_a<lib>  ()                                         ||
-                  p1.is_a<liba> () || p1.is_a<libs> ()                     ||
-                  p1.is_a<bmi>  ()                                         ||
-                  p1.is_a<bmie> () || p1.is_a<bmia> () || p1.is_a<bmis> () ||
-                  (p.is_a (mod ? *x_mod : x_src) && x_header (p1))         ||
+              if (p1.is_a<fsdir> ()                                         ||
+                  p1.is_a<libx>  ()                                         ||
+                  p1.is_a<liba> () || p1.is_a<libs> () || p1.is_a<libux> () ||
+                  p1.is_a<bmi>  ()                                          ||
+                  p1.is_a<bmie> () || p1.is_a<bmia> () || p1.is_a<bmis> ()  ||
+                  (p.is_a (mod ? *x_mod : x_src) && x_header (p1))          ||
                   (p.is_a<c> () && p1.is_a<h> ()))
                 continue;
 
@@ -805,7 +876,7 @@ namespace build2
     void link::
     append_libraries (strings& args,
                       const file& l, bool la,
-                      const scope& bs, action act, lorder lo) const
+                      const scope& bs, action act, linfo li) const
     {
       // Note: lack of the "small function object" optimization will really
       // kill us here since we are called in a loop.
@@ -850,13 +921,13 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
+        act, bs, li, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
     hash_libraries (sha256& cs,
                     const file& l, bool la,
-                    const scope& bs, action act, lorder lo) const
+                    const scope& bs, action act, linfo li) const
     {
       bool win (tclass == "windows");
 
@@ -896,7 +967,7 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, lo, sys_lib_dirs, l, la, imp, lib, opt, true);
+        act, bs, li, sys_lib_dirs, l, la, imp, lib, opt, true);
     }
 
     void link::
@@ -904,7 +975,7 @@ namespace build2
                      const target& t,
                      const scope& bs,
                      action act,
-                     lorder lo,
+                     linfo li,
                      bool for_install) const
     {
       // Use -rpath-link on targets that support it (Linux, *BSD). Note
@@ -945,7 +1016,7 @@ namespace build2
       auto lib = [&d, this] (const file* l, const string& f, bool sys)
       {
         // We don't rpath system libraries. Why, you may ask? There are many
-        // good reasons and I have them written on an napkin somewhere...
+        // good reasons and I have them written on a napkin somewhere...
         //
         if (sys)
           return;
@@ -1001,13 +1072,14 @@ namespace build2
 
       for (const target* pt: t.prerequisite_targets)
       {
+        bool a;
         const file* f;
-        const liba* a;
 
-        if ((f = a = pt->is_a<liba> ()) ||
-            (f =     pt->is_a<libs> ()))
+        if ((a = (f = pt->is_a<liba>  ())) ||
+            (a = (f = pt->is_a<libux> ())) ||
+            (     f = pt->is_a<libs>  ()))
         {
-          if (!for_install && a == nullptr)
+          if (!for_install && !a)
           {
             // Top-level sharen library dependency. It is either matched or
             // imported so should be a cc library.
@@ -1017,8 +1089,8 @@ namespace build2
                 "-Wl,-rpath," + f->path ().directory ().string ());
           }
 
-          process_libraries (act, bs, lo, sys_lib_dirs,
-                             *f, a != nullptr,
+          process_libraries (act, bs, li, sys_lib_dirs,
+                             *f, a,
                              impf, libf, nullptr);
         }
       }
@@ -1048,8 +1120,9 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype lt (link_type (t));
-      lorder lo (link_order (bs, lt));
+      ltype lt (link_type (t));
+      otype ot (lt.type);
+      linfo li (link_info (bs, ot));
 
       // Update prerequisites. We determine if any relevant ones render us
       // out-of-date manually below.
@@ -1063,14 +1136,14 @@ namespace build2
       path manifest; // Manifest itself (msvc) or compiled object file.
       timestamp rpath_timestamp (timestamp_nonexistent); // DLLs timestamp.
 
-      if (lt == otype::e && tclass == "windows")
+      if (lt.executable () && tclass == "windows")
       {
         // First determine if we need to add our rpath emulating assembly. The
         // assembly itself is generated later, after updating the target. Omit
         // it if we are updating for install.
         //
         if (!for_install)
-          rpath_timestamp = windows_rpath_timestamp (t, bs, act, lo);
+          rpath_timestamp = windows_rpath_timestamp (t, bs, act, li);
 
         pair<path, bool> p (
           windows_manifest (t,
@@ -1182,7 +1255,7 @@ namespace build2
 
       // Then the linker checksum (ar/ranlib or the compiler).
       //
-      if (lt == otype::a)
+      if (lt.static_library ())
       {
         ranlib = rs["bin.ranlib.path"];
 
@@ -1232,7 +1305,7 @@ namespace build2
       string soname1, soname2;
       strings sargs;
 
-      if (lt == otype::a)
+      if (lt.static_library ())
       {
         if (cid == compiler_id::msvc) ;
         else
@@ -1277,7 +1350,7 @@ namespace build2
         {
           // Set soname.
           //
-          if (lt == otype::s)
+          if (lt.shared_library ())
           {
             const libs_paths& paths (t.data<libs_paths> ());
             const string& leaf (paths.effect_soname ().leaf ().string ());
@@ -1315,7 +1388,7 @@ namespace build2
           // rpath of the imported libraries (i.e., we assume they are also
           // installed). But we add -rpath-link for some platforms.
           //
-          rpath_libraries (sargs, t, bs, act, lo, for_install);
+          rpath_libraries (sargs, t, bs, act, li, for_install);
 
           if (auto l = t["bin.rpath"])
             for (const dir_path& p: cast<dir_paths> (l))
@@ -1350,10 +1423,6 @@ namespace build2
 
         for (const target* pt: t.prerequisite_targets)
         {
-          const file* f;
-          const liba* a (nullptr);
-          const libs* s (nullptr);
-
           // If this is bmi*{}, then obj*{} is its ad hoc member.
           //
           if (modules)
@@ -1362,18 +1431,22 @@ namespace build2
               pt = pt->member;
           }
 
+          const file* f;
+          bool a (false), s (false);
+
           if ((f = pt->is_a<obje> ()) ||
               (f = pt->is_a<obja> ()) ||
               (f = pt->is_a<objs> ()) ||
-              (lt != otype::a &&
-               ((f = a = pt->is_a<liba> ()) ||
-                (f = s = pt->is_a<libs> ()))))
+              (!lt.static_library () && // @@ UTL: TODO libua to liba link.
+               ((a = (f = pt->is_a<liba>  ())) ||
+                (a = (f = pt->is_a<libux> ())) ||
+                (s = (f = pt->is_a<libs>  ())))))
           {
             // Link all the dependent interface libraries (shared) or interface
             // and implementation (static), recursively.
             //
-            if (a != nullptr || s != nullptr)
-              hash_libraries (cs, *f, a != nullptr, bs, act, lo);
+            if (a || s)
+              hash_libraries (cs, *f, a, bs, act, li);
             else
               cs.append (f->path ().string ());
           }
@@ -1393,7 +1466,7 @@ namespace build2
 
         // Treat them as inputs, not options.
         //
-        if (lt != otype::a)
+        if (!lt.static_library ())
         {
           hash_options (cs, t, c_libs);
           hash_options (cs, t, x_libs);
@@ -1429,13 +1502,13 @@ namespace build2
       path relt (relative (tp));
 
       const process_path* ld (nullptr);
-      switch (lt)
+      if (lt.static_library ())
       {
-      case otype::a:
-        {
-          ld = &cast<process_path> (rs["bin.ar.path"]);
+        ld = &cast<process_path> (rs["bin.ar.path"]);
 
-          if (cid == compiler_id::msvc)
+        switch (cid)
+        {
+        case compiler_id::msvc:
           {
             // lib.exe has /LIBPATH but it's not clear/documented what it's
             // used for. Perhaps for link-time code generation (/LTCG)? If
@@ -1449,25 +1522,30 @@ namespace build2
 
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
+            break;
           }
-          else
+        default:
+          {
             args.push_back (relt.string ().c_str ());
-
-          break;
+            break;
+          }
         }
-        // The options are usually similar enough to handle them together.
+      }
+      else
+      {
+        // The options are usually similar enough to handle executables
+        // and shared libraries together.
         //
-      case otype::e:
-      case otype::s:
+        switch (cid)
         {
-          if (cid == compiler_id::msvc)
+        case compiler_id::msvc:
           {
             // Using link.exe directly.
             //
             ld = &cast<process_path> (rs["bin.ld.path"]);
             args.push_back ("/NOLOGO");
 
-            if (lt == otype::s)
+            if (ot == otype::s)
               args.push_back ("/DLL");
 
             // Add /MACHINE.
@@ -1519,7 +1597,7 @@ namespace build2
               args.push_back (out3.c_str ());
             }
 
-            if (lt == otype::s)
+            if (ot == otype::s)
             {
               // On Windows libs{} is the DLL and its first ad hoc group
               // member is the import library.
@@ -1539,7 +1617,7 @@ namespace build2
             if (find_option ("/DEBUG", args, true))
             {
               auto& pdb (
-                (lt == otype::e ? t.member : t.member->member)->as<file> ());
+                (ot == otype::e ? t.member : t.member->member)->as<file> ());
               out1 = "/PDB:" + relative (pdb.path ()).string ();
               args.push_back (out1.c_str ());
             }
@@ -1553,15 +1631,16 @@ namespace build2
             //
             out = "/OUT:" + relt.string ();
             args.push_back (out.c_str ());
+            break;
           }
-          else
+        default:
           {
             ld = &cpath;
 
             // Add the option that triggers building a shared library and take
             // care of any extras (e.g., import library).
             //
-            if (lt == otype::s)
+            if (ot == otype::s)
             {
               if (tclass == "macos")
                 args.push_back ("-dynamiclib");
@@ -1581,9 +1660,8 @@ namespace build2
 
             args.push_back ("-o");
             args.push_back (relt.string ().c_str ());
+            break;
           }
-
-          break;
         }
       }
 
@@ -1593,28 +1671,28 @@ namespace build2
       //
       for (const target* pt: t.prerequisite_targets)
       {
-        const file* f;
-        const liba* a (nullptr);
-        const libs* s (nullptr);
-
         if (modules)
         {
           if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
             pt = pt->member;
         }
 
+        const file* f;
+        bool a (false), s (false);
+
         if ((f = pt->is_a<obje> ()) ||
             (f = pt->is_a<obja> ()) ||
             (f = pt->is_a<objs> ()) ||
-            (lt != otype::a &&
-             ((f = a = pt->is_a<liba> ()) ||
-              (f = s = pt->is_a<libs> ()))))
+            (!lt.static_library () && // @@ UTL: TODO libua to liba link.
+             ((a = (f = pt->is_a<liba>  ())) ||
+              (a = (f = pt->is_a<libux> ())) ||
+              (s = (f = pt->is_a<libs>  ())))))
         {
           // Link all the dependent interface libraries (shared) or interface
           // and implementation (static), recursively.
           //
-          if (a != nullptr || s != nullptr)
-            append_libraries (sargs, *f, a != nullptr, bs, act, lo);
+          if (a || s)
+            append_libraries (sargs, *f, a, bs, act, li);
           else
             sargs.push_back (relative (f->path ()).string ()); // string()&&
         }
@@ -1631,7 +1709,7 @@ namespace build2
       for (const string& a: sargs)
         args.push_back (a.c_str ());
 
-      if (lt != otype::a)
+      if (!lt.static_library ())
       {
         append_options (args, t, c_libs);
         append_options (args, t, x_libs);
@@ -1641,7 +1719,7 @@ namespace build2
 
       // Cleanup old (versioned) libraries.
       //
-      if (lt == otype::s)
+      if (lt.shared_library ())
       {
         const libs_paths& paths (t.data<libs_paths> ());
         const path& p (paths.clean);
@@ -1697,7 +1775,7 @@ namespace build2
         // something like this) we are going to redirect stdout to stderr. For
         // sane compilers this should be harmless.
         //
-        bool filter (cid == compiler_id::msvc && lt != otype::a);
+        bool filter (cid == compiler_id::msvc && !lt.static_library ());
 
         process pr (*ld, args.data (), 0, (filter ? -1 : 2));
 
@@ -1708,7 +1786,7 @@ namespace build2
             ifdstream is (
               move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
-            msvc_filter_link (is, t, lt);
+            msvc_filter_link (is, t, ot);
 
             // If anything remains in the stream, send it all to stderr. Note
             // that the eof check is important: if the stream is at eof, this
@@ -1780,13 +1858,13 @@ namespace build2
         // For Windows generate rpath-emulating assembly (unless updaing for
         // install).
         //
-        if (lt == otype::e && !for_install)
-          windows_rpath_assembly (t, bs, act, lo,
+        if (lt.executable () && !for_install)
+          windows_rpath_assembly (t, bs, act, li,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);
       }
-      else if (lt == otype::s)
+      else if (lt.shared_library ())
       {
         // For shared libraries we may need to create a bunch of symlinks.
         //
@@ -1835,56 +1913,49 @@ namespace build2
     perform_clean (action act, const target& xt) const
     {
       const file& t (xt.as<file> ());
+      ltype lt (link_type (t));
 
-      switch (link_type (t))
+      if (lt.executable ())
       {
-      case otype::a:
-        break; // Default.
-      case otype::e:
+        if (tclass == "windows")
         {
-          if (tclass == "windows")
-          {
-            if (tsys == "mingw32")
-              return clean_extra (
-                act, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
-            else
-              // Assuming it's VC or alike. Clean up .ilk in case the user
-              // enabled incremental linking (note that .ilk replaces .exe).
-              //
-              return clean_extra (
-                act, t, {".d", ".dlls/", ".manifest", "-.ilk"});
-          }
-
-          break;
-        }
-      case otype::s:
-        {
-          if (tclass == "windows")
-          {
-            // Assuming it's VC or alike. Clean up .exp and .ilk.
-            //
-            // Note that .exp is based on the .lib, not .dll name. And with
-            // versioning their bases may not be the same.
-            //
-            if (tsys != "mingw32")
-              return clean_extra (act, t, {{".d", "-.ilk"}, {"-.exp"}});
-          }
+          if (tsys == "mingw32")
+            return clean_extra (
+              act, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
           else
-          {
-            // Here we can have a bunch of symlinks that we need to remove. If
-            // the paths are empty, then they will be ignored.
+            // Assuming it's VC or alike. Clean up .ilk in case the user
+            // enabled incremental linking (note that .ilk replaces .exe).
             //
-            const libs_paths& paths (t.data<libs_paths> ());
-
-            return clean_extra (act, t, {".d",
-                                       paths.link.string ().c_str (),
-                                       paths.soname.string ().c_str (),
-                                       paths.interm.string ().c_str ()});
-          }
-
-          break;
+            return clean_extra (
+              act, t, {".d", ".dlls/", ".manifest", "-.ilk"});
         }
       }
+      else if (lt.shared_library ())
+      {
+        if (tclass == "windows")
+        {
+          // Assuming it's VC or alike. Clean up .exp and .ilk.
+          //
+          // Note that .exp is based on the .lib, not .dll name. And with
+          // versioning their bases may not be the same.
+          //
+          if (tsys != "mingw32")
+            return clean_extra (act, t, {{".d", "-.ilk"}, {"-.exp"}});
+        }
+        else
+        {
+          // Here we can have a bunch of symlinks that we need to remove. If
+          // the paths are empty, then they will be ignored.
+          //
+          const libs_paths& paths (t.data<libs_paths> ());
+
+          return clean_extra (act, t, {".d",
+                paths.link.string ().c_str (),
+                paths.soname.string ().c_str (),
+                paths.interm.string ().c_str ()});
+        }
+      }
+      // For static library it's just the defaults.
 
       return clean_extra (act, t, {".d"});
     }

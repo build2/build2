@@ -17,35 +17,22 @@ namespace build2
 {
   namespace bin
   {
-    // obj
+    // fail_rule
     //
-    match_result obj_rule::
+    match_result fail_rule::
     match (action a, target& t, const string&) const
     {
-      fail << diag_doing (a, t) << " target group" <<
-        info << "explicitly select obje{}, obja{}, or objs{} member";
+      const char* n (t.dynamic_type ().name); // Ignore derived type.
 
-      return false;
+      fail << diag_doing (a, t) << " target group" <<
+        info << "explicitly select " << n << "e{}, " << n << "a{}, or "
+           << n << "s{} member" << endf;
     }
 
-    recipe obj_rule::
+    recipe fail_rule::
     apply (action, target&) const {return empty_recipe;}
 
-    // bmi
-    //
-    match_result bmi_rule::
-    match (action a, target& t, const string&) const
-    {
-      fail << diag_doing (a, t) << " target group" <<
-        info << "explicitly select bmie{}, bmia{}, or bmis{} member";
-
-      return false;
-    }
-
-    recipe bmi_rule::
-    apply (action, target&) const {return empty_recipe;}
-
-    // lib
+    // lib_rule
     //
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.

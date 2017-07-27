@@ -401,6 +401,18 @@ namespace build2
           r.insert<bmis> (configure_update_id, x_compile, cr);
         }
 
+        r.insert<libue> (perform_update_id,    x_link, lr);
+        r.insert<libue> (perform_clean_id,     x_link, lr);
+        r.insert<libue> (configure_update_id,  x_link, lr);
+
+        r.insert<libua> (perform_update_id,    x_link, lr);
+        r.insert<libua> (perform_clean_id,     x_link, lr);
+        r.insert<libua> (configure_update_id,  x_link, lr);
+
+        r.insert<libus> (perform_update_id,    x_link, lr);
+        r.insert<libus> (perform_clean_id,     x_link, lr);
+        r.insert<libus> (configure_update_id,  x_link, lr);
+
         r.insert<exe>  (perform_update_id,    x_link, lr);
         r.insert<exe>  (perform_clean_id,     x_link, lr);
         r.insert<exe>  (configure_update_id,  x_link, lr);
@@ -413,6 +425,8 @@ namespace build2
         r.insert<libs> (perform_clean_id,    x_link, lr);
         r.insert<libs> (configure_update_id, x_link, lr);
 
+        // Note that libu*{} are not installable.
+        //
         if (install_loaded)
         {
           const install& ir (*this);

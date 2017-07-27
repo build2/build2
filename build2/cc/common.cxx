@@ -48,7 +48,7 @@ namespace build2
     process_libraries (
       action act,
       const scope& top_bs,
-      lorder top_lo,
+      linfo top_li,
       const dir_paths& top_sysd,
       const file& l,
       bool la,
@@ -189,7 +189,7 @@ namespace build2
       }
 
       const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
-      optional<lorder> lo;                       // Calculate lazily.
+      optional<linfo> li;                        // Calculate lazily.
       const dir_paths* sysd (nullptr);           // Resolve lazily.
 
       // Find system search directories corresponding to this library, i.e.,
@@ -207,9 +207,11 @@ namespace build2
                                  : var_pool[*t + ".sys_lib_dirs"]]);
       };
 
-      auto find_lo = [top_lo, t, cc, &bs, &l, &lo] ()
+      auto find_linfo = [top_li, t, cc, &bs, &l, &li] ()
       {
-        lo = (t == nullptr || cc) ? top_lo : link_order (bs, link_type (l));
+        li = (t == nullptr || cc)
+        ? top_li
+        : link_info (bs, link_type (l).type);
       };
 
       // Only go into prerequisites (implementation) if instructed and we are
@@ -223,13 +225,14 @@ namespace build2
           bool a;
           const file* f;
 
-          if ((a = (f = p->is_a<liba> ()) != nullptr)
-              ||   (f = p->is_a<libs> ()) != nullptr)
+          if ((a = (f = p->is_a<liba>  ())) ||
+              (a = (f = p->is_a<libux> ())) ||
+              (     f = p->is_a<libs>  ()))
           {
             if (sysd == nullptr) find_sysd ();
-            if (!lo) find_lo ();
+            if (!li) find_linfo ();
 
-            process_libraries (act, bs, *lo, *sysd,
+            process_libraries (act, bs, *li, *sysd,
                                *f, a,
                                proc_impl, proc_lib, proc_opt, true);
           }
@@ -266,8 +269,8 @@ namespace build2
       auto proc_int = [&l,
                        &proc_impl, &proc_lib, &proc_opt,
                        &sysd, &usrd,
-                       &find_sysd, &find_lo, &sys_simple,
-                       &bs, act, &lo, this] (const lookup& lu)
+                       &find_sysd, &find_linfo, &sys_simple,
+                       &bs, act, &li, this] (const lookup& lu)
       {
         const vector<name>* ns (cast_null<vector<name>> (lu));
         if (ns == nullptr || ns->empty ())
@@ -290,9 +293,9 @@ namespace build2
             // This is a potentially project-qualified target.
             //
             if (sysd == nullptr) find_sysd ();
-            if (!lo) find_lo ();
+            if (!li) find_linfo ();
 
-            const file& t (resolve_library (act, bs, n, *lo, *sysd, usrd));
+            const file& t (resolve_library (act, bs, n, *li, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -313,8 +316,8 @@ namespace build2
 
             // Process it recursively.
             //
-            process_libraries (act, bs, *lo, *sysd,
-                               t, t.is_a<liba> (),
+            process_libraries (act, bs, *li, *sysd,
+                               t, t.is_a<liba> () || t.is_a<libux> (),
                                proc_impl, proc_lib, proc_opt, true);
           }
         }
@@ -394,7 +397,7 @@ namespace build2
     resolve_library (action act,
                      const scope& s,
                      name n,
-                     lorder lo,
+                     linfo li,
                      const dir_paths& sysd,
                      optional<dir_paths>& usrd) const
     {
@@ -440,10 +443,10 @@ namespace build2
           fail << "unable to find library " << pk;
       }
 
-      // If this is lib{}, pick appropriate member.
+      // If this is lib{}/libu{}, pick appropriate member.
       //
-      if (const lib* l = xt->is_a<lib> ())
-        xt = &link_member (*l, act, lo); // Pick liba{} or libs{}.
+      if (const libx* l = xt->is_a<libx> ())
+        xt = &link_member (*l, act, li); // Pick lib*{e,a,s}{}.
 
       return xt->as<file> ();
     }
@@ -488,6 +491,9 @@ namespace build2
 
       // @@ This is hairy enough to warrant a separate implementation for
       //    Windows.
+
+      // Note: since we are searching for a (presumably) installed library,
+      // utility libraries do not apply.
       //
       bool l (p.is_a<lib> ());
       const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.

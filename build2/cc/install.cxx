@@ -48,7 +48,7 @@ namespace build2
         //
         if (const lib* l = pt->is_a<lib> ())
           pt = &link_member (
-            *l, a, link_order (t.base_scope (), link_type (t)));
+            *l, a, link_info (t.base_scope (), link_type (t).type));
 
         if (pt->is_a<libs> ()) // Can be liba{}.
           return pt->in (t.weak_scope ()) ? pt : nullptr;

@@ -10,6 +10,30 @@ namespace build2
 {
   namespace bin
   {
+    const target_type libx::static_type
+    {
+      "libx",
+      &target::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
+    const target_type libux::static_type
+    {
+      "libux",
+      &file::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
     // Note that we link groups during the load phase since this is often
     // relied upon when setting target-specific variables (e.g., we may set a
     // common value for lib{} and then append liba/libs-specific values to
@@ -19,7 +43,7 @@ namespace build2
 
     extern const char ext_var[] = "extension"; // VC14 rejects constexpr.
 
-    // obj*{} and bmi*{} member factory.
+    // obj*{}, bmi*{}, libu*{} member factory.
     //
     template <typename M, typename G>
     static pair<target*, optional<string>>
@@ -61,6 +85,18 @@ namespace build2
       false
     };
 
+    const target_type libue::static_type
+    {
+      "libue",
+      &libux::static_type,
+      &m_factory<libue, libu>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
     const target_type obja::static_type
     {
       "obja",
@@ -78,6 +114,18 @@ namespace build2
       "bmia",
       &file::static_type,
       &m_factory<bmia, bmi>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    const target_type libua::static_type
+    {
+      "libua",
+      &libux::static_type,
+      &m_factory<libua, libu>,
       &target_extension_var<ext_var, nullptr>,
       &target_pattern_var<ext_var, nullptr>,
       nullptr,
@@ -109,7 +157,19 @@ namespace build2
       false
     };
 
-    // obj{} and bmi{} group factory.
+    const target_type libus::static_type
+    {
+      "libus",
+      &libux::static_type,
+      &m_factory<libus, libu>,
+      &target_extension_var<ext_var, nullptr>,
+      &target_pattern_var<ext_var, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    // obj{}, bmi{}, and libu{} group factory.
     //
     template <typename G, typename E, typename A, typename S>
     static pair<target*, optional<string>>
@@ -157,6 +217,18 @@ namespace build2
       "bmi",
       &target::static_type,
       &g_factory<bmi, bmie, bmia, bmis>,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
+    const target_type libu::static_type
+    {
+      "libu",
+      &libx::static_type,
+      &g_factory<libu, libue, libua, libus>,
       nullptr,
       nullptr,
       nullptr,
@@ -238,7 +310,7 @@ namespace build2
     const target_type lib::static_type
     {
       "lib",
-      &target::static_type,
+      &libx::static_type,
       &lib_factory,
       nullptr,
       nullptr,

@@ -61,6 +61,17 @@ namespace build2
     //
     enum class otype {e, a, s};
 
+    struct ltype
+    {
+      otype type;
+      bool  utility; // True for utility libraries.
+
+      bool executable ()     const {return type == otype::e || !utility;}
+      bool library ()        const {return type != otype::e ||  utility;}
+      bool static_library () const {return type == otype::a ||  utility;}
+      bool shared_library () const {return type == otype::s && !utility;}
+    };
+
     // Compile target types.
     //
     struct compile_target_types
@@ -72,6 +83,14 @@ namespace build2
     // Library link order.
     //
     enum class lorder {a, s, a_s, s_a};
+
+    // Link information: output type and link order.
+    //
+    struct linfo
+    {
+      otype  type;
+      lorder order;
+    };
   }
 }
 

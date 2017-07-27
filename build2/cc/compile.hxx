@@ -62,13 +62,13 @@ namespace build2
       append_lib_options (const scope&,
                           cstrings&,
                           const target&,
-                          action, lorder) const;
+                          action, linfo) const;
 
       void
       hash_lib_options (const scope&,
                         sha256&,
                         const target&,
-                        action, lorder) const;
+                        action, linfo) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -89,10 +89,10 @@ namespace build2
       append_lib_prefixes (const scope&,
                            prefix_map&,
                            target&,
-                           action, lorder) const;
+                           action, linfo) const;
 
       prefix_map
-      build_prefix_map (const scope&, target&, action, lorder) const;
+      build_prefix_map (const scope&, target&, action, linfo) const;
 
       // Reverse-lookup target type from extension.
       //
@@ -100,21 +100,21 @@ namespace build2
       map_extension (const scope&, const string&, const string&) const;
 
       pair<auto_rmfile, bool>
-      extract_headers (action, file&, lorder,
+      extract_headers (action, file&, linfo,
                        const file&, const match_data&,
                        depdb&, bool&, timestamp) const;
 
       pair<translation_unit, string>
-      parse_unit (action, file&, lorder,
+      parse_unit (action, file&, linfo,
                   const file&, auto_rmfile&, const match_data&) const;
 
       void
-      extract_modules (action, file&, lorder, const compile_target_types&,
+      extract_modules (action, file&, linfo, const compile_target_types&,
                        const file&, match_data&,
                        module_info&&, depdb&, bool&) const;
 
       module_positions
-      search_modules (action, file&, lorder, const target_type&,
+      search_modules (action, file&, linfo, const target_type&,
                       const file&, module_imports&, sha256&) const;
 
       void

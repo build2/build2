@@ -76,17 +76,17 @@ namespace build2
       void
       append_libraries (strings&,
                         const file&, bool,
-                        const scope&, action, lorder) const;
+                        const scope&, action, linfo) const;
 
       void
       hash_libraries (sha256&,
                       const file&, bool,
-                      const scope&, action, lorder) const;
+                      const scope&, action, linfo) const;
 
       void
       rpath_libraries (strings&,
                        const target&,
-                       const scope&, action, lorder,
+                       const scope&, action, linfo,
                        bool) const;
 
       // Windows rpath emulation (windows-rpath.cxx).
@@ -105,13 +105,13 @@ namespace build2
       timestamp
       windows_rpath_timestamp (const file&,
                                const scope&,
-                               action, lorder) const;
+                               action, linfo) const;
 
       windows_dlls
-      windows_rpath_dlls (const file&, const scope&, action, lorder) const;
+      windows_rpath_dlls (const file&, const scope&, action, linfo) const;
 
       void
-      windows_rpath_assembly (const file&, const scope&, action, lorder,
+      windows_rpath_assembly (const file&, const scope&, action, linfo,
                               const string&,
                               timestamp,
                               bool) const;
