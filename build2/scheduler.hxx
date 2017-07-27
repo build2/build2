@@ -25,7 +25,7 @@ namespace build2
   // done in parallel (e.g., update all the prerequisites or run all the
   // tests). To acomplish this, the master, via a call to async(), can ask the
   // scheduler to run a task in another thread (called "helper"). If a helper
-  // is available, then the task is executed asynchronously by such helper.
+  // is available, then the task is executed asynchronously by such a helper.
   // Otherwise, the task is (normally) executed synchronously as part of the
   // wait() call below. However, in certain cases (serial execution or full
   // queue), the task may be executed synchronously as part of the async()
@@ -226,6 +226,49 @@ namespace build2
     stat
     shutdown ();
 
+    // Progress monitoring.
+    //
+    // Setting and clearing of the monitor is not thread-safe. That is, it
+    // should be set before any tasks are queued and cleared after all of
+    // them have completed.
+    //
+    // The counter must go in one direction, either increasing or decreasing,
+    // and should contain the initial value during the call. Zero threshold
+    // value is reserved.
+    //
+    struct monitor_guard
+    {
+      explicit
+      monitor_guard (scheduler* s = nullptr): s_ (s) {}
+
+      ~monitor_guard ()
+      {
+        if (s_ != nullptr)
+        {
+          s_->monitor_count_ = nullptr;
+          s_->monitor_func_  = nullptr;
+        }
+      }
+
+      monitor_guard (monitor_guard&& x): s_ (x.s_) {x.s_ = nullptr;}
+
+      monitor_guard& operator= (monitor_guard&& x)
+      {
+        if (&x != this)
+        {
+          s_ = x.s_;
+          x.s_ = nullptr;
+        }
+        return *this;
+      }
+
+    private:
+      scheduler* s_;
+    };
+
+    monitor_guard
+    monitor (atomic_count&, size_t threshold, function<size_t (size_t)>);
+
     // If initially active thread(s) (besides the one that calls startup())
     // exist before the call to startup(), then they must call join() before
     // executing any tasks. The two common cases where you don't have to call
@@ -321,8 +364,14 @@ namespace build2
     decay_copy (T&& x) {return forward<T> (x);}
 
   private:
-    std::mutex mutex_;
+    // Monitor.
+    //
+    atomic_count*              monitor_count_ = nullptr;  // NULL if not used.
+    atomic_count               monitor_tshold_;           // 0 means locked.
+    size_t                     monitor_init_;             // Initial count.
+    function<size_t (size_t)>  monitor_func_;
 
+    std::mutex mutex_;
     bool shutdown_ = true;  // Shutdown flag.
 
     // The constraints that we must maintain:
@@ -502,13 +551,7 @@ namespace build2
       if (--s == 0 || a)
         m = h; // Reset or adjust the mark.
 
-      queued_task_count_.fetch_sub (1, std::memory_order_release);
-
-      // The thunk moves the task data to its stack, releases the lock,
-      // and continues to execute the task.
-      //
-      td.thunk (*this, ql, &td.data);
-      ql.lock ();
+      execute (ql, td);
     }
 
     bool
@@ -539,10 +582,7 @@ namespace build2
       t = s != 1 ? (t != 0 ? t - 1 : task_queue_depth_ - 1) : t;
       --s;
 
-      queued_task_count_.fetch_sub (1, std::memory_order_release);
-
-      td.thunk (*this, ql, &td.data);
-      ql.lock ();
+      execute (ql, td);
 
       // Restore the old mark (which we might have to adjust).
       //
@@ -567,6 +607,53 @@ namespace build2
         //   m  h  t
         //
         m = om;
+    }
+
+    void
+    execute (lock& ql, task_data& td)
+    {
+      queued_task_count_.fetch_sub (1, std::memory_order_release);
+
+      // The thunk moves the task data to its stack, releases the lock,
+      // and continues to execute the task.
+      //
+      td.thunk (*this, ql, &td.data);
+
+      // See if we need to call the monitor.
+      //
+      if (monitor_count_ != nullptr)
+      {
+        // Note that we don't care if we don't see the updated values right
+        // away.
+        //
+        if (size_t t = monitor_tshold_.load (memory_order_relaxed))
+        {
+          // "Lock" the monitor by setting threshold to 0.
+          //
+          if (monitor_tshold_.compare_exchange_strong (
+                t,
+                0,
+                memory_order_release,
+                memory_order_relaxed))
+          {
+            // Now we are the only ones messing with this.
+            //
+            size_t v (monitor_count_->load (memory_order_relaxed));
+
+            if (v != monitor_init_)
+            {
+              // See which direction we are going.
+              //
+              if (v > monitor_init_ ? (v >= t) : (v <= t))
+                t = monitor_func_ (v);
+            }
+
+            monitor_tshold_.store (t, memory_order_release);
+          }
+        }
+      }
+
+      ql.lock ();
     }
 
     // Each thread has its own queue which are stored in this list.

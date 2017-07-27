@@ -402,6 +402,9 @@ namespace build2
     V () const;
 
     const bool&
+    progress () const;
+
+    const bool&
     quiet () const;
 
     const uint16_t&
@@ -494,6 +497,7 @@ namespace build2
     public:
     bool v_;
     bool V_;
+    bool progress_;
     bool quiet_;
     uint16_t verbose_;
     bool verbose_specified_;

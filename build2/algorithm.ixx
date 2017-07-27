@@ -154,7 +154,7 @@ namespace build2
     if (fail && s == target_state::failed)
       throw failed ();
 
-    dependency_count.fetch_add (1, memory_order_release);
+    dependency_count.fetch_add (1, memory_order_relaxed);
     t.dependents.fetch_add (1, memory_order_release);
 
     return s;
@@ -192,7 +192,7 @@ namespace build2
       }
     }
 
-    dependency_count.fetch_add (1, memory_order_release);
+    dependency_count.fetch_add (1, memory_order_relaxed);
     t.dependents.fetch_add (1, memory_order_release);
 
     return false;

@@ -101,32 +101,63 @@ namespace build2
     {
       phase_lock l (run_phase::match);
 
+      // Setup progress reporting if requested.
+      //
+      scheduler::monitor_guard mg;
+      string what;
+      if (ops.progress ())
+      {
+        what = " targets to " + diag_do (a);
+
+        mg = sched.monitor (
+          target_count,
+          20,
+          [&what] (size_t c) -> size_t
+          {
+            diag_progress_lock pl;
+            diag_progress  = ' ';
+            diag_progress += to_string (c);
+            diag_progress += what;
+            return c + 20;
+          });
+      }
+
       // Start asynchronous matching of prerequisites keeping track of how
       // many we have started. Wait with unlocked phase to allow phase
       // switching.
       //
-      atomic_count task_count (0);
-      wait_guard wg (task_count, true);
-
       size_t i (0), n (ts.size ());
-      for (; i != n; ++i)
       {
-        const target& t (*static_cast<const target*> (ts[i]));
-        l5 ([&]{trace << diag_doing (a, t);});
+        atomic_count task_count (0);
+        wait_guard wg (task_count, true);
 
-        target_state s (match_async (a, t, 0, task_count, false));
-
-        // Bail out if the target has failed and we weren't instructed to
-        // keep going.
-        //
-        if (s == target_state::failed && !keep_going)
+        for (; i != n; ++i)
         {
-          ++i;
-          break;
+          const target& t (*static_cast<const target*> (ts[i]));
+          l5 ([&]{trace << diag_doing (a, t);});
+
+          target_state s (match_async (a, t, 0, task_count, false));
+
+          // Bail out if the target has failed and we weren't instructed to
+          // keep going.
+          //
+          if (s == target_state::failed && !keep_going)
+          {
+            ++i;
+            break;
+          }
         }
+
+        wg.wait ();
       }
 
-      wg.wait ();
+      // Clear the progress if present.
+      //
+      if (ops.progress ())
+      {
+        diag_progress_lock pl;
+        diag_progress.clear ();
+      }
 
       // We are now running serially. Re-examine targets that we have matched.
       //
@@ -213,28 +244,66 @@ namespace build2
 
     phase_lock pl (run_phase::execute); // Never switched.
 
+    // Setup progress reporting if requested.
+    //
+    scheduler::monitor_guard mg;
+    string what;
+    if (ops.progress ())
+    {
+      what = "% " + diag_did (a);
+
+      size_t init (target_count.load (memory_order_relaxed));
+      size_t incr (init / 100); // 1%.
+      if (incr == 0)
+        incr = 1;
+
+      mg = sched.monitor (
+        target_count,
+        init - incr,
+        [&what, init, incr] (size_t c) -> size_t
+        {
+          size_t p ((init - c) * 100 / init);
+          diag_progress_lock pl;
+          diag_progress  = ' ';
+          diag_progress += to_string (p);
+          diag_progress += what;
+          return c - incr;
+        });
+    }
+
     // Similar logic to execute_members(): first start asynchronous execution
     // of all the top-level targets.
     //
-    atomic_count task_count (0);
-    wait_guard wg (task_count);
-
-    for (const void* vt: ts)
     {
-      const target& t (*static_cast<const target*> (vt));
+      atomic_count task_count (0);
+      wait_guard wg (task_count);
 
-      l5 ([&]{trace << diag_doing (a, t);});
+      for (const void* vt: ts)
+      {
+        const target& t (*static_cast<const target*> (vt));
 
-      target_state s (execute_async (a, t, 0, task_count, false));
+        l5 ([&]{trace << diag_doing (a, t);});
 
-      // Bail out if the target has failed and we weren't instructed to keep
-      // going.
-      //
-      if (s == target_state::failed && !keep_going)
-        break;
+        target_state s (execute_async (a, t, 0, task_count, false));
+
+        // Bail out if the target has failed and we weren't instructed to keep
+        // going.
+        //
+        if (s == target_state::failed && !keep_going)
+          break;
+      }
+
+      wg.wait ();
     }
 
-    wg.wait ();
+    // Clear the progress if present.
+    //
+    if (ops.progress ())
+    {
+      diag_progress_lock pl;
+      diag_progress.clear ();
+    }
+
     sched.tune (0); // Restore original scheduler settings.
 
     // We are now running serially. Re-examine them all.
@@ -291,6 +360,7 @@ namespace build2
     // We should have executed every target that we matched, provided we
     // haven't failed (in which case we could have bailed out early).
     //
+    assert (target_count.load (memory_order_relaxed) == 0);
     assert (dependency_count.load (memory_order_relaxed) == 0);
   }
 

@@ -124,6 +124,8 @@ namespace build2
     return r;
   }
 
+  extern atomic_count target_count; // context.hxx
+
   inline void target::
   recipe (recipe_type r)
   {
@@ -135,16 +137,21 @@ namespace build2
     //
     if (state_ != target_state::failed)
     {
+      state_ = target_state::unknown;
+
       // If this is a noop recipe, then mark the target unchanged to allow for
       // some optimizations.
       //
-      state_ = target_state::unknown;
+      recipe_function** f (recipe_.target<recipe_function*> ());
 
-      if (recipe_function** f = recipe_.target<recipe_function*> ())
-      {
-        if (*f == &noop_action)
-          state_ = target_state::unchanged;
-      }
+      if (f != nullptr && *f == &noop_action)
+        state_ = target_state::unchanged;
+      else
+        // This gets tricky when we start considering overrides (which can
+        // only happen for noop recipes), direct execution, etc. So here seems
+        // like the best place to do this.
+        //
+        target_count.fetch_add (1, memory_order_relaxed);
     }
   }
 

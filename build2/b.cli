@@ -333,6 +333,12 @@ namespace build2
        \cb{--verbose 3}."
     }
 
+    bool --progress|-p
+    {
+      "Display build progress. Only usable when printing to a terminal but
+       can be combined with various verbosity levels."
+    }
+
     bool --quiet|-q
     {
       "Run quietly, only printing error messages. This is equivalent to

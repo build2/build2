@@ -197,6 +197,7 @@ namespace build2
   execution_mode current_mode;
 
   atomic_count dependency_count;
+  atomic_count target_count;
 
   bool keep_going = false;
 
@@ -576,81 +577,123 @@ namespace build2
 
   // diag_do(), etc.
   //
-  void
-  diag_do (ostream& os, const action&, const target& t)
+  string
+  diag_do (const action&)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
+
+    string r;
 
     // perform(update(x))   -> "update x"
     // configure(update(x)) -> "configure updating x"
     //
     if (m.name_do.empty ())
-      os << io.name_do << ' ';
+      r = io.name_do;
     else
     {
-      os << m.name_do << ' ';
+      r = m.name_do;
 
       if (!io.name_doing.empty ())
-        os << io.name_doing << ' ';
+      {
+        r += ' ';
+        r += io.name_doing;
+      }
     }
 
     if (oo != nullptr)
-      os << "(for " << oo->name << ") ";
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
 
-    os << t;
+    return r;
   }
 
   void
-  diag_doing (ostream& os, const action&, const target& t)
+  diag_do (ostream& os, const action& a, const target& t)
+  {
+    os << diag_do (a) << ' ' << t;
+  }
+
+  string
+  diag_doing (const action&)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
+
+    string r;
 
     // perform(update(x))   -> "updating x"
     // configure(update(x)) -> "configuring updating x"
     //
     if (!m.name_doing.empty ())
-      os << m.name_doing << ' ';
+      r = m.name_doing;
 
     if (!io.name_doing.empty ())
-      os << io.name_doing << ' ';
+    {
+      if (!r.empty ()) r += ' ';
+      r += io.name_doing;
+    }
 
     if (oo != nullptr)
-      os << "(for " << oo->name << ") ";
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
 
-    os << t;
+    return r;
   }
 
   void
-  diag_did (ostream& os, const action&, const target& t)
+  diag_doing (ostream& os, const action& a, const target& t)
+  {
+    os << diag_doing (a) << ' ' << t;
+  }
+
+  string
+  diag_did (const action&)
   {
     const meta_operation_info& m (*current_mif);
     const operation_info& io (*current_inner_oif);
     const operation_info* oo (current_outer_oif);
+
+    string r;
 
     // perform(update(x))   -> "updated x"
     // configure(update(x)) -> "configured updating x"
     //
     if (!m.name_did.empty ())
     {
-      os << m.name_did << ' ';
+      r = m.name_did;
 
       if (!io.name_doing.empty ())
-        os << io.name_doing << ' ';
+      {
+        r += ' ';
+        r += io.name_doing;
+      }
     }
     else
-    {
-      if (!io.name_did.empty ())
-        os << io.name_did << ' ';
-    }
+      r += io.name_did;
 
     if (oo != nullptr)
-      os << "(for " << oo->name << ") ";
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
 
-    os << t;
+    return r;
+  }
+
+  void
+  diag_did (ostream& os, const action& a, const target& t)
+  {
+    os << diag_did (a) << ' ' << t;
   }
 
   void

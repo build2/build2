@@ -269,12 +269,19 @@ namespace build2
 
   extern execution_mode current_mode;
 
-  // Total number of dependency relationships in the current action. Together
-  // with the target::dependents count it is incremented during the rule
-  // search & match phase and is decremented during execution with the
-  // expectation of it reaching 0. Used as a sanity check.
+  // Total number of dependency relationships and targets with non-noop
+  // recipe in the current action.
+  //
+  // Together with target::dependents the dependency count is incremented
+  // during the rule search & match phase and is decremented during execution
+  // with the expectation of it reaching 0. Used as a sanity check.
+  //
+  // The target count is incremented after a non-noop recipe is matched and
+  // decremented after such recipe has been executed. Used for progress
+  // monitoring.
   //
   extern atomic_count dependency_count;
+  extern atomic_count target_count;
 
   inline void
   set_current_mif (const meta_operation_info& mif)
@@ -293,7 +300,10 @@ namespace build2
     current_outer_oif = outer_oif;
     current_on++;
     current_mode = inner_oif.mode;
-    dependency_count.store (0, memory_order_relaxed); // Serial.
+
+    // Serial.
+    dependency_count.store (0, memory_order_relaxed);
+    target_count.store (0, memory_order_relaxed);
   }
 
   // Keep going flag.
@@ -357,6 +367,9 @@ namespace build2
     return os;
   }
 
+  string
+  diag_do (const action&);
+
   void
   diag_do (ostream&, const action&, const target&);
 
@@ -366,6 +379,9 @@ namespace build2
     return diag_phrase {a, t, &diag_do};
   }
 
+  string
+  diag_doing (const action&);
+
   void
   diag_doing (ostream&, const action&, const target&);
 
@@ -374,6 +390,9 @@ namespace build2
   {
     return diag_phrase {a, t, &diag_doing};
   }
+
+  string
+  diag_did (const action&);
 
   void
   diag_did (ostream&, const action&, const target&);
