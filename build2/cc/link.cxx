@@ -632,7 +632,8 @@ namespace build2
       size_t i (start), n (t.prerequisite_targets.size ());
       for (prerequisite_member p: group_prerequisite_members (act, t))
       {
-        const target*& pt (t.prerequisite_targets[i++]);
+        const target*& pt (t.prerequisite_targets[i].target);
+        uintptr_t&     pd (t.prerequisite_targets[i++].data);
 
         if (pt == nullptr)
           continue;
@@ -778,6 +779,38 @@ namespace build2
             m = 2; // Needs verification.
           }
         }
+        else // lib*{}
+        {
+          // If this is a static library, see if we need to link it whole.
+          // Note that we have to do it after match since we rely on the
+          // group link-up.
+          //
+          bool u;
+          if ((u = pt->is_a<libux> ()) || pt->is_a<liba> ())
+          {
+            const variable& var (var_pool["bin.whole"]); // @@ Cache.
+
+            // See the bin module for the lookup semantics discussion. Note
+            // that the variable is not overridable so we omit find_override()
+            // calls.
+            //
+            //@@ TODO: prerequisite-specific lookup.
+            //
+            lookup l (pt->find_original (var, true).first);
+            if (!l.defined ())
+            {
+              bool g (pt->group != nullptr);
+              l = bs.find_original (var,
+                                    &pt->type (),
+                                    &pt->name,
+                                    (g ? &pt->group->type () : nullptr),
+                                    (g ? &pt->group->name : nullptr)).first;
+            }
+
+            if (l ? cast<bool> (*l) : u)
+              pd |= lflag_whole;
+          }
+        }
 
         mark (pt, m);
       }
@@ -875,28 +908,47 @@ namespace build2
 
     void link::
     append_libraries (strings& args,
-                      const file& l, bool la,
+                      const file& l, bool la, lflags lf,
                       const scope& bs, action act, linfo li) const
     {
       // Note: lack of the "small function object" optimization will really
       // kill us here since we are called in a loop.
       //
-      bool win (tclass == "windows");
-
       auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&args, win] (const file* f, const string& p, bool)
+      auto lib = [&args, this] (const file* l, const string& p, lflags f, bool)
       {
-        if (f != nullptr)
+        if (l != nullptr)
         {
           // On Windows a shared library is a DLL with the import library as a
           // first ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
           //
-          if (win && f->member != nullptr && f->is_a<libs> ())
-            f = &f->member->as<file> ();
+          if (l->member != nullptr && l->is_a<libs> () && tclass == "windows")
+            l = &l->member->as<file> ();
 
-          args.push_back (relative (f->path ()).string ());
+          string p (relative (l->path ()).string ());
+
+          if (f & lflag_whole)
+          {
+            if (tsys == "win32-msvc")
+            {
+              p.insert (0, "/WHOLEARCHIVE:"); // Only available from VC14U2.
+            }
+            else if (tsys == "darwin")
+            {
+              p.insert (0, "-Wl,-force_load,");
+            }
+            else
+            {
+              args.push_back ("-Wl,--whole-archive");
+              args.push_back (move (p));
+              args.push_back ("-Wl,--no-whole-archive");
+              return;
+            }
+          }
+
+          args.push_back (move (p));
         }
         else
           args.push_back (p);
@@ -921,30 +973,29 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, li, sys_lib_dirs, l, la, imp, lib, opt, true);
+        act, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
     }
 
     void link::
     hash_libraries (sha256& cs,
-                    const file& l, bool la,
+                    const file& l, bool la, lflags lf,
                     const scope& bs, action act, linfo li) const
     {
-      bool win (tclass == "windows");
-
       auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&cs, win] (const file* f, const string& p, bool)
+      auto lib = [&cs, this] (const file* l, const string& p, lflags f, bool)
       {
-        if (f != nullptr)
+        if (l != nullptr)
         {
           // On Windows a shared library is a DLL with the import library as a
           // first ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
           //
-          if (win && f->member != nullptr && f->is_a<libs> ())
-            f = &f->member->as<file> ();
+          if (l->member != nullptr && l->is_a<libs> () && tclass == "windows")
+            l = &l->member->as<file> ();
 
-          cs.append (f->path ().string ());
+          cs.append (f);
+          cs.append (l->path ().string ());
         }
         else
           cs.append (p);
@@ -967,7 +1018,7 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, li, sys_lib_dirs, l, la, imp, lib, opt, true);
+        act, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
     }
 
     void link::
@@ -1013,7 +1064,7 @@ namespace build2
         bool for_install;
       } d {args, for_install};
 
-      auto lib = [&d, this] (const file* l, const string& f, bool sys)
+      auto lib = [&d, this] (const file* l, const string& f, lflags, bool sys)
       {
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
@@ -1068,9 +1119,9 @@ namespace build2
       // In case we don't have the "small function object" optimization.
       //
       const function<bool (const file&, bool)> impf (imp);
-      const function<void (const file*, const string&, bool)> libf (lib);
+      const function<void (const file*, const string&, lflags, bool)> libf (lib);
 
-      for (const target* pt: t.prerequisite_targets)
+      for (auto pt: t.prerequisite_targets)
       {
         bool a;
         const file* f;
@@ -1090,7 +1141,7 @@ namespace build2
           }
 
           process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a,
+                             *f, a, pt.data,
                              impf, libf, nullptr);
         }
       }
@@ -1421,8 +1472,10 @@ namespace build2
       {
         sha256 cs;
 
-        for (const target* pt: t.prerequisite_targets)
+        for (auto p: t.prerequisite_targets)
         {
+          const target* pt (p.target);
+
           // If this is bmi*{}, then obj*{} is its ad hoc member.
           //
           if (modules)
@@ -1446,7 +1499,7 @@ namespace build2
             // and implementation (static), recursively.
             //
             if (a || s)
-              hash_libraries (cs, *f, a, bs, act, li);
+              hash_libraries (cs, *f, a, p.data, bs, act, li);
             else
               cs.append (f->path ().string ());
           }
@@ -1669,8 +1722,10 @@ namespace build2
 
       // The same logic as during hashing above.
       //
-      for (const target* pt: t.prerequisite_targets)
+      for (auto p: t.prerequisite_targets)
       {
+        const target* pt (p.target);
+
         if (modules)
         {
           if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
@@ -1692,7 +1747,7 @@ namespace build2
           // and implementation (static), recursively.
           //
           if (a || s)
-            append_libraries (sargs, *f, a, bs, act, li);
+            append_libraries (sargs, *f, a, p.data, bs, act, li);
           else
             sargs.push_back (relative (f->path ()).string ()); // string()&&
         }

@@ -52,10 +52,12 @@ namespace build2
       const dir_paths& top_sysd,
       const file& l,
       bool la,
+      lflags lf,
       const function<bool (const file&,
                            bool la)>& proc_impl, // Implementation?
       const function<void (const file*,          // Can be NULL.
                            const string& path,   // Library path.
+                           lflags,               // Link flags.
                            bool sys)>& proc_lib, // True if system library.
       const function<void (const file&,
                            const string& type,   // cc.type
@@ -185,7 +187,7 @@ namespace build2
                 ? cast_false<bool> (l.vars[c_system])
                 : !p.empty () && sys (top_sysd, p.string ()));
 
-        proc_lib (&l, p.string (), s);
+        proc_lib (&l, p.string (), lf, s);
       }
 
       const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
@@ -220,20 +222,20 @@ namespace build2
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
-        for (const target* p: l.prerequisite_targets)
+        for (auto pt: l.prerequisite_targets)
         {
           bool a;
           const file* f;
 
-          if ((a = (f = p->is_a<liba>  ())) ||
-              (a = (f = p->is_a<libux> ())) ||
-              (     f = p->is_a<libs>  ()))
+          if ((a = (f = pt->is_a<liba>  ())) ||
+              (a = (f = pt->is_a<libux> ())) ||
+              (     f = pt->is_a<libs>  ()))
           {
             if (sysd == nullptr) find_sysd ();
             if (!li) find_linfo ();
 
             process_libraries (act, bs, *li, *sysd,
-                               *f, a,
+                               *f, a, pt.data,
                                proc_impl, proc_lib, proc_opt, true);
           }
         }
@@ -286,7 +288,7 @@ namespace build2
             // .pc files.
             //
             if (proc_lib)
-              proc_lib (nullptr, n.value, sys_simple (n.value));
+              proc_lib (nullptr, n.value, 0, sys_simple (n.value));
           }
           else
           {
@@ -316,8 +318,11 @@ namespace build2
 
             // Process it recursively.
             //
+            // @@ Where can we get the link flags? Should we try to find them
+            //    in the library's prerequisites? What about installed stuff?
+            //
             process_libraries (act, bs, *li, *sysd,
-                               t, t.is_a<liba> () || t.is_a<libux> (),
+                               t, t.is_a<liba> () || t.is_a<libux> (), 0,
                                proc_impl, proc_lib, proc_opt, true);
           }
         }
@@ -336,7 +341,7 @@ namespace build2
           // This is something like -lpthread or shell32.lib so should be a
           // valid path.
           //
-          proc_lib (nullptr, n, sys_simple (n));
+          proc_lib (nullptr, n, 0, sys_simple (n));
         }
       };
 

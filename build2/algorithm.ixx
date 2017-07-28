@@ -29,6 +29,31 @@ namespace build2
     return *r;
   }
 
+  inline const target*
+  search_existing (const prerequisite& p)
+  {
+    assert (phase == run_phase::match || phase == run_phase::execute);
+
+    const target* r (p.target.load (memory_order_consume));
+
+    if (r == nullptr)
+    {
+      r = search_existing (p.key ());
+
+      if (r != nullptr)
+      {
+        const target* e (nullptr);
+        if (!p.target.compare_exchange_strong (
+              e, r,
+              memory_order_release,
+              memory_order_consume))
+          assert (e == r);
+      }
+    }
+
+    return r;
+  }
+
   inline const target&
   search (const target& t, const target_type& tt, const prerequisite_key& k)
   {
@@ -54,9 +79,27 @@ namespace build2
         proj,
         {
           &type,
-          &dir,
-          &out,
-          &name,
+          &dir, &out, &name,
+          ext != nullptr ? optional<string> (*ext) : nullopt
+        },
+        scope});
+  }
+
+  inline const target*
+  search_existing (const target_type& type,
+                   const dir_path& dir,
+                   const dir_path& out,
+                   const string& name,
+                   const string* ext,
+                   const scope* scope,
+                   const optional<string>& proj)
+  {
+    return search_existing (
+      prerequisite_key {
+        proj,
+        {
+          &type,
+          &dir, &out, &name,
           ext != nullptr ? optional<string> (*ext) : nullopt
         },
         scope});

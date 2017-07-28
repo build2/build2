@@ -76,6 +76,24 @@ namespace build2
       vp.insert<strings>   ("bin.libs.lib");
       vp.insert<dir_paths> ("bin.rpath");
 
+      // Link whole archive. Note: non-overridable with target visibility.
+      //
+      // The lookup semantics is as follows: we first look for a prerequisite-
+      // specific value, then for a target-specific value in the library being
+      // linked, and then for target type/pattern-specific value starting from
+      // the scope of the target being linked-to. In that final lookup we do
+      // not look in the target being linked-to itself since that is used to
+      // indicate how this target should be linked to other targets. For
+      // example:
+      //
+      // exe{test}: liba{foo}
+      // liba{foo}: libu{foo1 foo2}
+      // liba{foo}: bin.whole = false # Affects test but not foo1 and foo2.
+      //
+      // If unspecified, defaults to false for liba{} and to true for libux{}.
+      //
+      vp.insert<bool>      ("bin.whole", false, variable_visibility::target);
+
       vp.insert<string>    ("bin.lib.prefix");
       vp.insert<string>    ("bin.lib.suffix");
       vp.insert<string>    ("bin.exe.prefix");

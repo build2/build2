@@ -91,6 +91,12 @@ namespace build2
       otype  type;
       lorder order;
     };
+
+    // Prerequisite link flags.
+    //
+    using lflags = uintptr_t; // To match prerequisite_target::data.
+
+    const lflags lflag_whole = 0x00000001U; // Link whole liba{}/libux{}.
   }
 }
 

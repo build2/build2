@@ -198,8 +198,9 @@ namespace build2
         const dir_paths&,
         const file&,
         bool,
+        lflags,
         const function<bool (const file&, bool)>&,
-        const function<void (const file*, const string&, bool)>&,
+        const function<void (const file*, const string&, lflags, bool)>&,
         const function<void (const file&, const string&, bool, bool)>&,
         bool = false) const;
 

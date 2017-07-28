@@ -75,12 +75,12 @@ namespace build2
       //
       void
       append_libraries (strings&,
-                        const file&, bool,
+                        const file&, bool, lflags,
                         const scope&, action, linfo) const;
 
       void
       hash_libraries (sha256&,
-                      const file&, bool,
+                      const file&, bool, lflags,
                       const scope&, action, linfo) const;
 
       void

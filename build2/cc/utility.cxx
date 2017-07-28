@@ -43,12 +43,15 @@ namespace build2
     {
       if (const libu* u = x.is_a<libu> ())
       {
-        otype ot (li.type);
-        return search (*u,
-                       ot == otype::e ? libue::static_type :
-                       ot == otype::a ? libua::static_type :
-                       libus::static_type,
-                       u->dir, u->out, u->name);
+        const target_type& tt (li.type == otype::e ? libue::static_type :
+                               li.type == otype::a ? libua::static_type :
+                               libus::static_type);
+
+        // Called by the compile rule during execute.
+        //
+        return phase == run_phase::match
+          ? search (*u, tt, u->dir, u->out, u->name)
+          : *search_existing (tt, u->dir, u->out, u->name);
       }
       else
       {

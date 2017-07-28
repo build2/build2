@@ -27,12 +27,15 @@ namespace build2
   // As above but only search for an already existing target.
   //
   const target*
-  search_existing (const target&, const prerequisite&);
+  search_existing (const prerequisite&);
 
   // As above but specify the prerequisite to search as a key.
   //
   const target&
   search (const target&, const prerequisite_key&);
+
+  const target*
+  search_existing (const prerequisite_key&);
 
   // Uniform search interface for prerequisite/prerequisite_member.
   //
@@ -58,6 +61,15 @@ namespace build2
           const string* ext = nullptr,  // NULL means unspecified.
           const scope* = nullptr,       // NULL means dir is absolute.
           const optional<string>& proj = nullopt);
+
+  const target*
+  search_existing (const target_type& type,
+                   const dir_path& dir,
+                   const dir_path& out,
+                   const string& name,
+                   const string* ext = nullptr,
+                   const scope* = nullptr,
+                   const optional<string>& proj = nullopt);
 
   // As above but specify the target type as template argument.
   //

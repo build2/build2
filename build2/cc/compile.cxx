@@ -294,7 +294,7 @@ namespace build2
             continue;
 
           process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a,
+                             pt->as<file> (), a, 0, // Hack: lflags unused.
                              nullptr, nullptr, optf);
         }
       }
@@ -338,7 +338,7 @@ namespace build2
             continue;
 
           process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a,
+                             pt->as<file> (), a, 0, // Hack: lflags unused.
                              nullptr, nullptr, optf);
         }
       }
@@ -385,7 +385,7 @@ namespace build2
             continue;
 
           process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a,
+                             pt->as<file> (), a, 0, // Hack: lflags unused.
                              nullptr, nullptr, optf);
         }
       }

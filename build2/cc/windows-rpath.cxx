@@ -58,7 +58,7 @@ namespace build2
       //
       auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (const file* l, const string& f, bool sys)
+      auto lib = [&r] (const file* l, const string& f, lflags, bool sys)
       {
         // We don't rpath system libraries.
         //
@@ -102,7 +102,7 @@ namespace build2
           r = t;
       };
 
-      for (const target* pt: t.prerequisite_targets)
+      for (auto pt: t.prerequisite_targets)
       {
         const file* f;
         const liba* a;
@@ -110,7 +110,7 @@ namespace build2
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
           process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a != nullptr,
+                             *f, a != nullptr, pt.data,
                              imp, lib, nullptr, true);
       }
 
@@ -130,7 +130,7 @@ namespace build2
 
       auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (const file* l, const string& f, bool sys)
+      auto lib = [&r] (const file* l, const string& f, lflags, bool sys)
       {
         if (sys)
           return;
@@ -184,7 +184,7 @@ namespace build2
         }
       };
 
-      for (const target* pt: t.prerequisite_targets)
+      for (auto pt: t.prerequisite_targets)
       {
         const file* f;
         const liba* a;
@@ -192,7 +192,7 @@ namespace build2
         if ((f = a = pt->is_a<liba> ()) ||
             (f =     pt->is_a<libs> ()))
           process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a != nullptr,
+                             *f, a != nullptr, pt.data,
                              imp, lib, nullptr, true);
       }
 
