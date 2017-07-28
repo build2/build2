@@ -240,6 +240,16 @@ namespace build2
     {
       explicit
       monitor_guard (scheduler* s = nullptr): s_ (s) {}
+      monitor_guard (monitor_guard&& x): s_ (x.s_) {x.s_ = nullptr;}
+      monitor_guard& operator= (monitor_guard&& x)
+      {
+        if (&x != this)
+        {
+          s_ = x.s_;
+          x.s_ = nullptr;
+        }
+        return *this;
+      }
 
       ~monitor_guard ()
       {
@@ -250,17 +260,7 @@ namespace build2
         }
       }
 
-      monitor_guard (monitor_guard&& x): s_ (x.s_) {x.s_ = nullptr;}
-
-      monitor_guard& operator= (monitor_guard&& x)
-      {
-        if (&x != this)
-        {
-          s_ = x.s_;
-          x.s_ = nullptr;
-        }
-        return *this;
-      }
+      explicit operator bool () const {return s_ != nullptr;}
 
     private:
       scheduler* s_;

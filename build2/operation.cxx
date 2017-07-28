@@ -107,18 +107,21 @@ namespace build2
       string what;
       if (ops.progress ())
       {
+        size_t init (target_count.load (memory_order_relaxed));
+        size_t incr (init > 100 ? 10 : 1);
+
         what = " targets to " + diag_do (a);
 
         mg = sched.monitor (
           target_count,
-          10,
-          [&what] (size_t c) -> size_t
+          incr,
+          [incr, &what] (size_t c) -> size_t
           {
             diag_progress_lock pl;
             diag_progress  = ' ';
             diag_progress += to_string (c);
             diag_progress += what;
-            return c + 10;
+            return c + incr;
           });
       }
 
@@ -153,7 +156,7 @@ namespace build2
 
       // Clear the progress if present.
       //
-      if (ops.progress ())
+      if (mg)
       {
         diag_progress_lock pl;
         diag_progress.clear ();
@@ -250,25 +253,28 @@ namespace build2
     string what;
     if (ops.progress ())
     {
-      what = "% of targets " + diag_did (a);
-
       size_t init (target_count.load (memory_order_relaxed));
       size_t incr (init / 100); // 1%.
       if (incr == 0)
         incr = 1;
 
-      mg = sched.monitor (
-        target_count,
-        init - incr,
-        [&what, init, incr] (size_t c) -> size_t
-        {
-          size_t p ((init - c) * 100 / init);
-          diag_progress_lock pl;
-          diag_progress  = ' ';
-          diag_progress += to_string (p);
-          diag_progress += what;
-          return c - incr;
-        });
+      if (init != incr)
+      {
+        what = "% of targets " + diag_did (a);
+
+        mg = sched.monitor (
+          target_count,
+          init - incr,
+          [init, incr, what] (size_t c) -> size_t
+          {
+            size_t p ((init - c) * 100 / init);
+            diag_progress_lock pl;
+            diag_progress  = ' ';
+            diag_progress += to_string (p);
+            diag_progress += what;
+            return c - incr;
+          });
+      }
     }
 
     // Similar logic to execute_members(): first start asynchronous execution
@@ -298,7 +304,7 @@ namespace build2
 
     // Clear the progress if present.
     //
-    if (ops.progress ())
+    if (mg)
     {
       diag_progress_lock pl;
       diag_progress.clear ();
