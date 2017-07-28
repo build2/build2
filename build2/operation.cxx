@@ -111,14 +111,14 @@ namespace build2
 
         mg = sched.monitor (
           target_count,
-          20,
+          10,
           [&what] (size_t c) -> size_t
           {
             diag_progress_lock pl;
             diag_progress  = ' ';
             diag_progress += to_string (c);
             diag_progress += what;
-            return c + 20;
+            return c + 10;
           });
       }
 
@@ -250,7 +250,7 @@ namespace build2
     string what;
     if (ops.progress ())
     {
-      what = "% " + diag_did (a);
+      what = "% of targets " + diag_did (a);
 
       size_t init (target_count.load (memory_order_relaxed));
       size_t incr (init / 100); // 1%.
