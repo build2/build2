@@ -25,6 +25,11 @@ namespace build2
     const target* install::
     filter (action a, const target& t, prerequisite_member p) const
     {
+      // Skip utility libraries.
+      //
+      if (p.is_a<libu> () || p.is_a<libux> ())
+        return nullptr;
+
       if (t.is_a<exe> ())
       {
         // Don't install executable's prerequisite headers.
