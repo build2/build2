@@ -1167,7 +1167,9 @@ namespace build2
         n += *tk.ext;
       }
 
-      process_path pp (process::try_path_search (n, true));
+      // Only search in PATH (or CWD).
+      //
+      process_path pp (process::try_path_search (n, true, dir_path (), true));
 
       if (!pp.empty ())
       {
