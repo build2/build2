@@ -208,8 +208,11 @@ namespace build2
   // dependencies. Similar in semantics to match_prerequisites(). Any marked
   // target pointers are skipped.
   //
+  // T can only be const target* or prerequisite_target.
+  //
+  template <typename T>
   void
-  match_members (action, target&, const target*[], size_t);
+  match_members (action, target&, T[], size_t);
 
   template <size_t N>
   inline void
@@ -219,7 +222,7 @@ namespace build2
   }
 
   inline void
-  match_members (action a, target& t, vector<const target*>& ts, size_t start)
+  match_members (action a, target& t, prerequisite_targets& ts, size_t start)
   {
     match_members (a, t, ts.data () + start, ts.size () - start);
   }
@@ -372,11 +375,15 @@ namespace build2
   // Execute members of a group or similar prerequisite-like dependencies.
   // Similar in semantics to execute_prerequisites().
   //
+  // T can only be const target* or prerequisite_target.
+  //
+  template <typename T>
   target_state
-  straight_execute_members (action, const target&, const target*[], size_t);
+  straight_execute_members (action, const target&, T[], size_t);
 
+  template <typename T>
   target_state
-  reverse_execute_members (action, const target&, const target*[], size_t);
+  reverse_execute_members (action, const target&, T[], size_t);
 
   // Call straight or reverse depending on the current mode.
   //

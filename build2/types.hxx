@@ -53,6 +53,7 @@ namespace build2
   using std::uint16_t;
   using std::uint32_t;
   using std::uint64_t;
+  using std::uintptr_t;
 
   using std::size_t;
   using std::nullptr_t;

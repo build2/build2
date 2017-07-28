@@ -9,7 +9,6 @@
 #include <regex>
 #include <locale>
 #include <string>        // basic_string
-#include <cstdint>       // uintptr_t
 #include <type_traits>   // make_unsigned, enable_if, is_*
 #include <unordered_set>
 

@@ -720,8 +720,9 @@ namespace build2
     match_prerequisite_range (a, t, group_prerequisite_members (a, t), s);
   }
 
+  template <typename T>
   void
-  match_members (action a, target& t, const target* ts[], size_t n)
+  match_members (action a, target& t, T ts[], size_t n)
   {
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
@@ -752,6 +753,15 @@ namespace build2
       match (a, *m);
     }
   }
+
+  // Instantiate only for what we need.
+  //
+  template void
+  match_members<const target*> (action, target&, const target*[], size_t);
+
+  template void
+  match_members<prerequisite_target> (
+    action, target&, prerequisite_target[], size_t);
 
   const fsdir*
   inject_fsdir (action a, target& t, bool parent)
@@ -1027,10 +1037,9 @@ namespace build2
   // but what the hell. Note that this means we have to always "harvest" all
   // the targets to clear the mark.
   //
+  template <typename T>
   target_state
-  straight_execute_members (action a,
-                            const target& t,
-                            const target* ts[], size_t n)
+  straight_execute_members (action a, const target& t, T ts[], size_t n)
   {
     target_state r (target_state::unchanged);
 
@@ -1082,10 +1091,9 @@ namespace build2
     return r;
   }
 
+  template <typename T>
   target_state
-  reverse_execute_members (action a,
-                           const target& t,
-                           const target* ts[], size_t n)
+  reverse_execute_members (action a, const target& t, T ts[], size_t n)
   {
     // Pretty much as straight_execute_members() but in reverse order.
     //
@@ -1131,6 +1139,24 @@ namespace build2
 
     return r;
   }
+
+  // Instantiate only for what we need.
+  //
+  template target_state
+  straight_execute_members<const target*> (
+    action, const target&, const target*[], size_t);
+
+  template target_state
+  reverse_execute_members<const target*> (
+    action, const target&, const target*[], size_t);
+
+  template target_state
+  straight_execute_members<prerequisite_target> (
+    action, const target&, prerequisite_target[], size_t);
+
+  template target_state
+  reverse_execute_members<prerequisite_target> (
+    action, const target&, prerequisite_target[], size_t);
 
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,

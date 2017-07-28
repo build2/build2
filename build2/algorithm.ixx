@@ -355,7 +355,9 @@ namespace build2
   execute_prerequisites (action a, const target& t)
   {
     auto& p (const_cast<target&> (t).prerequisite_targets); // MT-aware.
-    return execute_members (a, t, p.data (), p.size ());
+    return current_mode == execution_mode::first
+      ? straight_execute_members (a, t, p.data (), p.size ())
+      : reverse_execute_members (a, t, p.data (), p.size ());
   }
 
   // If the first argument is NULL, then the result is treated as a boolean

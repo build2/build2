@@ -115,6 +115,26 @@ namespace build2
     size_t count;
   };
 
+  // List of prerequisites resolved to targets. Unless additional storage is
+  // needed, it can be used as just vector<const target*> (which is what we
+  // used to have initially).
+  //
+  struct prerequisite_target
+  {
+    using target_type = build2::target;
+
+    prerequisite_target (const target_type* t, uintptr_t d = 0)
+        : target (t), data (d) {}
+
+    operator const target_type*&  ()       {return target;}
+    operator const target_type*   () const {return target;}
+    const target_type* operator-> () const {return target;}
+
+    const target_type* target;
+    uintptr_t          data;
+  };
+  using prerequisite_targets = vector<prerequisite_target>;
+
   // Target.
   //
   class target
@@ -552,8 +572,7 @@ namespace build2
     //
     // Note that the recipe may modify this list.
     //
-    using prerequisite_targets_type = vector<const target*>;
-    mutable prerequisite_targets_type prerequisite_targets;
+    mutable build2::prerequisite_targets prerequisite_targets;
 
     // Auxilary data storage.
     //

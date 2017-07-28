@@ -189,10 +189,10 @@ namespace build2
         // Save the prerequisite targets that we found since the
         // call to match_delegate() below will wipe them out.
         //
-        target::prerequisite_targets_type p;
+        prerequisite_targets pts;
 
         if (!t.prerequisite_targets.empty ())
-          p.swap (t.prerequisite_targets);
+          pts.swap (t.prerequisite_targets);
 
         // Find the "real" update rule, that is, the rule that would
         // have been found if we signalled that we do not match from
@@ -203,24 +203,24 @@ namespace build2
         // If we have no installable prerequisites, then simply redirect
         // to it.
         //
-        if (p.empty ())
+        if (pts.empty ())
           return d;
 
         // Ok, the worst case scenario: we need to cause update of
         // prerequisite targets and also delegate to the real update.
         //
-        return [pt = move (p), dr = move (d)] (
+        return [pts = move (pts), d = move (d)] (
           action a, const target& t) mutable -> target_state
         {
           // Do the target update first.
           //
-          target_state r (execute_delegate (dr, a, t));
+          target_state r (execute_delegate (d, a, t));
 
           // Swap our prerequisite targets back in and execute.
           //
-          t.prerequisite_targets.swap (pt);
+          t.prerequisite_targets.swap (pts);
           r |= straight_execute_prerequisites (a, t);
-          pt.swap (t.prerequisite_targets); // In case we get re-executed.
+          pts.swap (t.prerequisite_targets); // In case we get re-executed.
 
           return r;
         };
