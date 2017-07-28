@@ -4,18 +4,18 @@
 
 import libs = libbutl%lib{butl}
 
-exe{b}: {hxx ixx txx cxx}{** -b-options -version -dummy} \
-        {hxx ixx cxx}{b-options} {hxx}{version}          \
-        liba{b} $libs
+exe{b}:  cxx{b} libu{b}
+
+libu{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
+         {hxx ixx cxx}{b-options} {hxx}{version}      \
+         $libs
+
+cxx.poptions =+ "-I$out_root" "-I$src_root"
+libu{b}: cxx.export.poptions = "-I$out_root" "-I$src_root"
+libu{b}: cxx.export.libs = $libs
 
 hxx{version}: in{version} $src_root/file{manifest}
 hxx{version}: dist = true
-
-# Fake utility library (without it code generation does not work).
-#
-liba{b}: {cxx}{dummy}
-liba{b}: cxx.export.poptions = "-I$out_root" "-I$src_root"
-liba{b}: install = false
 
 # Pass our compiler target to be used as build2 host.
 #

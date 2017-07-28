@@ -2,18 +2,5 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-#@@ Temporary until we get utility library support.
-#
-import libs = libbutl%lib{butl}
-src = token lexer parser diagnostics utility variable name context target \
-scope prerequisite file module operation rule b-options algorithm search  \
-filesystem function functions-builtin functions-filesystem functions-path \
-functions-process-path functions-regex functions-string                   \
-functions-target-triplet config/{utility init operation module} dump      \
-types-parsers test/{target script/{token lexer parser regex script}}      \
-scheduler spec
-
-exe{driver}: {hxx cxx}{*} ../../../../build2/cxx{$src} \
-             ../../../../build2/liba{b} $libs test{*}
-
 include ../../../../build2/
+exe{driver}: {hxx cxx}{*} ../../../../build2/libu{b} test{*}
