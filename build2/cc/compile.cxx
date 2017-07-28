@@ -993,11 +993,18 @@ namespace build2
       // installed" library), then it can't possibly generate any headers for
       // us.
       //
-      const scope* rs (t.base_scope ().root_scope ());
+      const scope& bs (t.base_scope ());
+      const scope* rs (bs.root_scope ());
       if (rs == nullptr)
         return;
 
-      const dir_path& out_base (t.dir);
+      // We used to use the target's directory as out_base but that didn't
+      // work well for targets that are stashed in subdirectories. So as a
+      // heuristics we are using the path of the innermost scope (i.e., where
+      // the buildfile normally is).
+      //
+      //const dir_path& out_base (t.dir);
+      const dir_path& out_base (bs.out_path ());
       const dir_path& out_root (rs->out_path ());
 
       if (auto l = t[var])
@@ -1083,7 +1090,8 @@ namespace build2
     auto compile::
     build_prefix_map (const scope& bs,
                       target& t,
-                      action act, linfo li) const -> prefix_map
+                      action act,
+                      linfo li) const -> prefix_map
     {
       prefix_map m;
 
@@ -1907,7 +1915,12 @@ namespace build2
           }
 
           if (pt == nullptr)
-            fail << "header '" << f << "' not found and cannot be generated";
+          {
+            diag_record dr (fail);
+            dr << "header '" << f << "' not found and cannot be generated";
+            //for (const auto& p: pm)
+            //  dr << info << p.first.string () << " -> " << p.second.string ();
+          }
         }
         else
         {
