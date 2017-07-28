@@ -840,7 +840,13 @@ namespace build2
 
       ts = t.recipe_ (a, t);
 
-      target_count.fetch_sub (1, memory_order_relaxed);
+      // Decrement the target count (see target::recipe() for details).
+      //
+      {
+        recipe_function** f (t.recipe_.target<recipe_function*> ());
+        if (f == nullptr || *f != &group_action)
+          target_count.fetch_sub (1, memory_order_relaxed);
+      }
 
       // See the recipe documentation for details on what's going on here.
       // Note that if the result is group, then the group's state can be

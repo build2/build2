@@ -147,11 +147,18 @@ namespace build2
       if (f != nullptr && *f == &noop_action)
         state_ = target_state::unchanged;
       else
+      {
         // This gets tricky when we start considering overrides (which can
         // only happen for noop recipes), direct execution, etc. So here seems
         // like the best place to do this.
         //
-        target_count.fetch_add (1, memory_order_relaxed);
+        // We also ignore the group recipe since it is used for ad hoc
+        // groups (which are not executed). Plus, group action means real
+        // recipe is in the group so this also feels right conceptually.
+        //
+        if (f == nullptr || *f != &group_action)
+          target_count.fetch_add (1, memory_order_relaxed);
+      }
     }
   }
 
