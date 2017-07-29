@@ -104,6 +104,9 @@ namespace build2
 
       for (auto pt: t.prerequisite_targets)
       {
+        if (pt == nullptr)
+          continue;
+
         const file* f;
         const liba* a;
 
@@ -186,6 +189,9 @@ namespace build2
 
       for (auto pt: t.prerequisite_targets)
       {
+        if (pt == nullptr)
+          continue;
+
         const file* f;
         const liba* a;
 

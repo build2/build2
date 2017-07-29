@@ -329,11 +329,12 @@ namespace build2
           if (!exist)
           {
             if (l.owns_lock ())
+            {
               s->member = i;
+              l.unlock ();
+            }
             else
               assert (s->member == i);
-
-            l.unlock ();
 
             // Presumably there is a DLL somewhere, we just don't know where.
             //

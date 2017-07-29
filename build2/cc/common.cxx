@@ -224,6 +224,9 @@ namespace build2
       {
         for (auto pt: l.prerequisite_targets)
         {
+          if (pt == nullptr)
+            continue;
+
           bool a;
           const file* f;
 
@@ -622,11 +625,12 @@ namespace build2
               if (!exist)
               {
                 if (l.owns_lock ())
+                {
                   s->member = i;
+                  l.unlock ();
+                }
                 else
                   assert (s->member == i);
-
-                l.unlock ();
 
                 i->mtime (mt);
                 i->path (move (f));
