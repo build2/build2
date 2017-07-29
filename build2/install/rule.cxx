@@ -38,10 +38,18 @@ namespace build2
 
     // alias_rule
     //
+    const alias_rule alias_rule::instance;
+
     match_result alias_rule::
     match (action, target&, const string&) const
     {
       return true;
+    }
+
+    const target* alias_rule::
+    filter (action, const target& t, prerequisite_member p) const
+    {
+      return &p.search (t);
     }
 
     recipe alias_rule::
@@ -49,9 +57,13 @@ namespace build2
     {
       tracer trace ("install::alias_rule::apply");
 
-      for (const prerequisite& p: group_prerequisites (t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        const target& pt (search (t, p));
+        // Let a customized rule have its say.
+        //
+        const target* pt (filter (a, t, p));
+        if (pt == nullptr)
+          continue;
 
         // Check if this prerequisite is explicitly "not installable",
         // that is, there is the 'install' variable and its value is
@@ -65,16 +77,15 @@ namespace build2
         //
         // Note: not the same as lookup() above.
         //
-        auto l (pt["install"]);
-
+        auto l ((*pt)["install"]);
         if (l && cast<path> (l).string () == "false")
         {
-          l5 ([&]{trace << "ignoring " << pt;});
+          l5 ([&]{trace << "ignoring " << *pt;});
           continue;
         }
 
-        build2::match (a, pt);
-        t.prerequisite_targets.push_back (&pt);
+        build2::match (a, *pt);
+        t.prerequisite_targets.push_back (pt);
       }
 
       return default_recipe;
@@ -82,6 +93,8 @@ namespace build2
 
     // file_rule
     //
+    const file_rule file_rule::instance;
+
     struct match_data
     {
       bool install;

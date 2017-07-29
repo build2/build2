@@ -19,6 +19,8 @@ namespace build2
     class alias_rule: public rule
     {
     public:
+      static const alias_rule instance;
+
       alias_rule () {}
 
       virtual match_result
@@ -26,6 +28,12 @@ namespace build2
 
       virtual recipe
       apply (action, target&) const override;
+
+      // Return NULL if this prerequisite should be ignored and pointer to its
+      // target otherwise. The default implementation accepts all prerequsites.
+      //
+      virtual const target*
+      filter (action, const target&, prerequisite_member) const;
     };
 
     struct install_dir;
@@ -33,6 +41,8 @@ namespace build2
     class file_rule: public rule
     {
     public:
+      static const file_rule instance;
+
       file_rule () {}
 
       virtual match_result

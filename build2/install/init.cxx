@@ -124,9 +124,6 @@ namespace build2
         var_pool.rw (r).insert<bool> (string ("install.") + n + ".subdirs");
     }
 
-    static const alias_rule alias_;
-    static const file_rule file_;
-
     void
     boot (scope& r, const location&, unique_ptr<module_base>&)
     {
@@ -200,11 +197,16 @@ namespace build2
 
       // Register our alias and file rules.
       //
-      bs.rules.insert<alias> (perform_install_id,   "install.alias", alias_);
-      bs.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", alias_);
+      {
+        const auto& ar (alias_rule::instance);
+        const auto& fr (file_rule::instance);
 
-      bs.rules.insert<file> (perform_install_id,   "install.file", file_);
-      bs.rules.insert<file> (perform_uninstall_id, "uinstall.file", file_);
+        bs.rules.insert<alias> (perform_install_id,   "install.alias", ar);
+        bs.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
+
+        bs.rules.insert<file> (perform_install_id,   "install.file", fr);
+        bs.rules.insert<file> (perform_uninstall_id, "uinstall.file", fr);
+      }
 
       // Configuration.
       //

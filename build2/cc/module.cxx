@@ -425,20 +425,32 @@ namespace build2
         r.insert<libs> (perform_clean_id,    x_link, lr);
         r.insert<libs> (configure_update_id, x_link, lr);
 
-        // Note that libu*{} are not installable.
+        // Note that while libu*{} are not installable, we need to see through
+        // them in case they depend on stuff that we need to install (see the
+        // install rule implementations for details).
         //
         if (install_loaded)
         {
-          const install& ir (*this);
+          const file_install&  fr (*this);
+          const alias_install& ar (*this);
 
-          r.insert<exe>  (perform_install_id,   x_install, ir);
-          r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
+          r.insert<exe>  (perform_install_id,   x_install,   fr);
+          r.insert<exe>  (perform_uninstall_id, x_uninstall, fr);
 
-          r.insert<liba> (perform_install_id,   x_install, ir);
-          r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
+          r.insert<liba> (perform_install_id,   x_install,   fr);
+          r.insert<liba> (perform_uninstall_id, x_uninstall, fr);
 
-          r.insert<libs> (perform_install_id,   x_install, ir);
-          r.insert<libs> (perform_uninstall_id, x_uninstall, ir);
+          r.insert<libs> (perform_install_id,   x_install,   fr);
+          r.insert<libs> (perform_uninstall_id, x_uninstall, fr);
+
+          r.insert<libue> (perform_install_id,   x_install,   ar);
+          r.insert<libue> (perform_uninstall_id, x_uninstall, ar);
+
+          r.insert<libua> (perform_install_id,   x_install,   ar);
+          r.insert<libua> (perform_uninstall_id, x_uninstall, ar);
+
+          r.insert<libus> (perform_install_id,   x_install,   ar);
+          r.insert<libus> (perform_uninstall_id, x_uninstall, ar);
         }
       }
     }

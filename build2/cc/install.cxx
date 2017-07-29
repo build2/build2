@@ -19,16 +19,16 @@ namespace build2
   {
     using namespace bin;
 
-    install::
-    install (data&& d, const link& l): common (move (d)), link_ (l) {}
+    // file_install
+    //
+    file_install::
+    file_install (data&& d, const link& l): common (move (d)), link_ (l) {}
 
-    const target* install::
+    const target* file_install::
     filter (action a, const target& t, prerequisite_member p) const
     {
-      // Skip utility libraries.
-      //
-      if (p.is_a<libu> () || p.is_a<libux> ())
-        return nullptr;
+      // NOTE: see also alias_install::filter() below if changing anything
+      // here.
 
       if (t.is_a<exe> ())
       {
@@ -44,25 +44,32 @@ namespace build2
       // @@ Shouldn't we also install a static library prerequisite of a
       //    static library?
       //
-      if ((t.is_a<exe> () || t.is_a<libs> ()) &&
-          (p.is_a<lib> () || p.is_a<libs> ()))
+      if ((t.is_a<exe> ()  || t.is_a<libs> ()) &&
+          (p.is_a<libx> () || p.is_a<libs> ()))
       {
         const target* pt (&p.search (t));
 
-        // If this is the lib{} group, pick a member which we would link.
+        // If this is the lib{}/libu{} group, pick a member which we would
+        // link. For libu{} we want to the "see through" logic.
         //
-        if (const lib* l = pt->is_a<lib> ())
+        if (const libx* l = pt->is_a<libx> ())
           pt = &link_member (
             *l, a, link_info (t.base_scope (), link_type (t).type));
 
         if (pt->is_a<libs> ()) // Can be liba{}.
           return pt->in (t.weak_scope ()) ? pt : nullptr;
+
+        // See through libux{}. Note that we are always in the same project
+        // (and thus amalgamation).
+        //
+        if (pt->is_a<libux> ())
+          return pt;
       }
 
       return file_rule::filter (a, t, p);
     }
 
-    match_result install::
+    match_result file_install::
     match (action a, target& t, const string& hint) const
     {
       // @@ How do we split the hint between the two?
@@ -75,7 +82,7 @@ namespace build2
       return r ? file_rule::match (a, t, "") : r;
     }
 
-    recipe install::
+    recipe file_install::
     apply (action a, target& t) const
     {
       recipe r (file_rule::apply (a, t));
@@ -93,7 +100,7 @@ namespace build2
       return r;
     }
 
-    void install::
+    void file_install::
     install_extra (const file& t, const install_dir& id) const
     {
       if (t.is_a<libs> () && tclass != "windows")
@@ -119,7 +126,7 @@ namespace build2
       }
     }
 
-    bool install::
+    bool file_install::
     uninstall_extra (const file& t, const install_dir& id) const
     {
       bool r (false);
@@ -145,6 +152,53 @@ namespace build2
       }
 
       return r;
+    }
+
+    // alias_install
+    //
+    alias_install::
+    alias_install (data&& d, const link& l): common (move (d)), link_ (l) {}
+
+    const target* alias_install::
+    filter (action a, const target& t, prerequisite_member p) const
+    {
+      // The "see through" semantics that should be parallel to file_install
+      // above. In particular, here we use libue/libua/libus{} as proxies for
+      // exe/liba/libs{} there.
+      //
+      if (t.is_a<libue> ())
+      {
+        if (x_header (p))
+          return nullptr;
+      }
+
+      if ((t.is_a<libue> ()  || t.is_a<libus> ()) &&
+          (p.is_a<libx> ()   || p.is_a<libs> ()))
+      {
+        const target* pt (&p.search (t));
+
+        if (const libx* l = pt->is_a<libx> ())
+          pt = &link_member (
+            *l, a, link_info (t.base_scope (), link_type (t).type));
+
+        if (pt->is_a<libs> ())
+          return pt->in (t.weak_scope ()) ? pt : nullptr;
+
+        if (pt->is_a<libux> ())
+          return pt;
+      }
+
+      return alias_rule::filter (a, t, p);
+    }
+
+    match_result alias_install::
+    match (action a, target& t, const string& hint) const
+    {
+      // We only want to handle installation if we are also the ones building
+      // this target. So first run link's match().
+      //
+      match_result r (link_.match (a, t, hint));
+      return r ? alias_rule::match (a, t, "") : r;
     }
   }
 }

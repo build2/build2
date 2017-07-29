@@ -19,10 +19,12 @@ namespace build2
   {
     class link;
 
-    class install: public build2::install::file_rule, virtual common
+    // Installation rule for exe, liba{}, and libs{}.
+    //
+    class file_install: public install::file_rule, virtual common
     {
     public:
-      install (data&&, const link&);
+      file_install (data&&, const link&);
 
       virtual const target*
       filter (action, const target&, prerequisite_member) const override;
@@ -38,6 +40,23 @@ namespace build2
 
       virtual bool
       uninstall_extra (const file&, const install_dir&) const override;
+
+    private:
+      const link& link_;
+    };
+
+    // Installation rule for libux{}.
+    //
+    class alias_install: public install::alias_rule, virtual common
+    {
+    public:
+      alias_install (data&&, const link&);
+
+      virtual const target*
+      filter (action, const target&, prerequisite_member) const override;
+
+      virtual match_result
+      match (action, target&, const string&) const override;
 
     private:
       const link& link_;

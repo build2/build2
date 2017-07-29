@@ -52,7 +52,10 @@ namespace build2
     };
 
     class module: public module_base, protected virtual common,
-                  link, compile, install
+                  link,
+                  compile,
+                  file_install,
+                  alias_install
     {
     public:
       explicit
@@ -60,7 +63,8 @@ namespace build2
           : common (move (d)),
             link (move (d)),
             compile (move (d)),
-            install (move (d), *this) {}
+            file_install (move (d), *this),
+            alias_install (move (d), *this) {}
 
       void
       init (scope&, const location&, const variable_map&);

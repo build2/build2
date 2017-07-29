@@ -37,7 +37,8 @@ namespace build2
       perform_clean (action, const target&) const;
 
     private:
-      friend class install;
+      friend class file_install;
+      friend class alias_install;
 
       // Shared library paths.
       //
