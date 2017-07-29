@@ -1020,11 +1020,6 @@ namespace build2
     return t.executed_state ();
   }
 
-  // We use the target pointer mark mechanism to indicate whether the target
-  // was already busy. Probably not worth it (we are saving an atomic load),
-  // but what the hell. Note that this means we have to always "harvest" all
-  // the targets to clear the mark.
-  //
   template <typename T>
   target_state
   straight_execute_members (action a, const target& t, T ts[], size_t n)
@@ -1051,14 +1046,13 @@ namespace build2
         r |= s;
         mt = nullptr;
       }
-      else if (s == target_state::busy)
-        mark (mt);
     }
 
     wg.wait ();
 
-    // Now all the targets in prerequisite_targets must be executed and
-    // synchronized (and we have blanked out all the postponed ones).
+    // Now all the targets in prerequisite_targets must be either still busy
+    // or executed and synchronized (and we have blanked out all the postponed
+    // ones).
     //
     for (size_t i (0); i != n; ++i)
     {
@@ -1067,9 +1061,9 @@ namespace build2
       if (mt == nullptr)
         continue;
 
-      // If the target was already busy, wait for its completion.
+      // If the target is still busy, wait for its completion.
       //
-      if (unmark (mt))
+      if (mt->task_count.load (memory_order_acquire) >= target::count_busy ())
         sched.wait (
           target::count_executed (), mt->task_count, scheduler::work_none);
 
@@ -1105,8 +1099,6 @@ namespace build2
         r |= s;
         mt = nullptr;
       }
-      else if (s == target_state::busy)
-        mark (mt);
     }
 
     wg.wait ();
@@ -1118,7 +1110,7 @@ namespace build2
       if (mt == nullptr)
         continue;
 
-      if (unmark (mt))
+      if (mt->task_count.load (memory_order_acquire) >= target::count_busy ())
         sched.wait (
           target::count_executed (), mt->task_count, scheduler::work_none);
 
@@ -1181,8 +1173,6 @@ namespace build2
         rs |= s;
         pt = nullptr;
       }
-      else if (s == target_state::busy)
-        mark (pt);
     }
 
     wg.wait ();
@@ -1197,9 +1187,7 @@ namespace build2
       if (pt == nullptr)
         continue;
 
-      // If the target was already busy, wait for its completion.
-      //
-      if (unmark (pt))
+      if (pt->task_count.load (memory_order_acquire) >= target::count_busy ())
         sched.wait (
           target::count_executed (), pt->task_count, scheduler::work_none);
 

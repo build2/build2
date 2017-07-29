@@ -478,8 +478,8 @@ namespace build2
     mutable atomic_count task_count {0}; // Start offset_touched - 1.
 
     // This function should only be called during match if we have observed
-    // (synchronization-wise) that the this target has been matched (i.e.,
-    // the rule has been applied) for this action.
+    // (synchronization-wise) that this target has been matched (i.e., the
+    // rule has been applied) for this action.
     //
     target_state
     matched_state (action a, bool fail = true) const;
