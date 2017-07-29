@@ -1813,6 +1813,17 @@ namespace build2
         }
         catch (const system_error&) {} // Ignore errors.
       }
+      else if (lt.static_library ())
+      {
+        // We use relative paths to the object files which means we may end
+        // up with different ones depending on CWD and some implementation
+        // treat them as different archive members. So remote the file to
+        // be sure. Note that we ignore errors leaving it to the achiever
+        // to complain.
+        //
+        if (mt != timestamp_nonexistent)
+          try_rmfile (relt, true);
+      }
 
       if (verb >= 2)
         print_process (args);
