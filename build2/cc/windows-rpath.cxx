@@ -107,13 +107,14 @@ namespace build2
         if (pt == nullptr)
           continue;
 
+        bool a;
         const file* f;
-        const liba* a;
 
-        if ((f = a = pt->is_a<liba> ()) ||
-            (f =     pt->is_a<libs> ()))
+        if ((a = (f = pt->is_a<liba>  ())) ||
+            (a = (f = pt->is_a<libux> ())) || // See through.
+            (     f = pt->is_a<libs>  ()))
           process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a != nullptr, pt.data,
+                             *f, a, pt.data,
                              imp, lib, nullptr, true);
       }
 
@@ -192,13 +193,14 @@ namespace build2
         if (pt == nullptr)
           continue;
 
+        bool a;
         const file* f;
-        const liba* a;
 
-        if ((f = a = pt->is_a<liba> ()) ||
-            (f =     pt->is_a<libs> ()))
+        if ((a = (f = pt->is_a<liba>  ())) ||
+            (a = (f = pt->is_a<libux> ())) || // See through.
+            (     f = pt->is_a<libs>  ()))
           process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a != nullptr, pt.data,
+                             *f, a, pt.data,
                              imp, lib, nullptr, true);
       }
 
