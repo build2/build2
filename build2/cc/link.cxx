@@ -65,9 +65,9 @@ namespace build2
       if (lt.library ())
       {
         if (t.group == nullptr)
-          t.group = targets.find (
-            lt.utility ? libu::static_type : lib::static_type,
-            t.dir, t.out, t.name);
+          t.group = &search (t,
+                             lt.utility ? libu::static_type : lib::static_type,
+                             t.dir, t.out, t.name);
       }
 
       // Scan prerequisites and see if we can work with what we've got. Note

@@ -220,10 +220,9 @@ namespace build2
       // which means this can be done whether we match or not).
       //
       if (t.group == nullptr)
-      {
-        const target_type& tt (mod ? bmi::static_type : obj::static_type);
-        t.group = targets.find (tt, t.dir, t.out, t.name);
-      }
+        t.group = &search (t,
+                           mod ? bmi::static_type : obj::static_type,
+                           t.dir, t.out, t.name);
 
       // See if we have a source file. Iterate in reverse so that a source
       // file specified for a member overrides the one specified for the
