@@ -10,10 +10,6 @@ libu{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
          {hxx ixx cxx}{b-options} {hxx}{version}      \
          $libs
 
-cxx.poptions =+ "-I$out_root" "-I$src_root"
-libu{b}: cxx.export.poptions = "-I$out_root" "-I$src_root"
-libu{b}: cxx.export.libs = $libs
-
 hxx{version}: in{version} $src_root/file{manifest}
 hxx{version}: dist = true
 

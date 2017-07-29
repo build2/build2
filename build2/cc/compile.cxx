@@ -258,13 +258,18 @@ namespace build2
                         action act,
                         linfo li) const
     {
+      // See through utility libraries.
+      //
+      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
+
       auto opt = [&args, this] (
         const file& l, const string& t, bool com, bool exp)
       {
         // Note that in our model *.export.poptions are always "interface",
         // even if set on liba{}/libs{}, unlike loptions.
         //
-        assert (exp);
+        if (!exp) // Ignore libux.
+          return;
 
         const variable& var (
           com
@@ -276,6 +281,7 @@ namespace build2
 
       // In case we don't have the "small function object" optimization.
       //
+      const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
       for (prerequisite_member p: group_prerequisite_members (act, t))
@@ -295,7 +301,7 @@ namespace build2
 
           process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a, 0, // Hack: lflags unused.
-                             nullptr, nullptr, optf);
+                             impf, nullptr, optf);
         }
       }
     }
@@ -307,10 +313,13 @@ namespace build2
                       action act,
                       linfo li) const
     {
+      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
+
       auto opt = [&cs, this] (
         const file& l, const string& t, bool com, bool exp)
       {
-        assert (exp);
+        if (!exp)
+          return;
 
         const variable& var (
           com
@@ -322,6 +331,7 @@ namespace build2
 
       // The same logic as in append_lib_options().
       //
+      const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
       for (prerequisite_member p: group_prerequisite_members (act, t))
@@ -339,7 +349,7 @@ namespace build2
 
           process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a, 0, // Hack: lflags unused.
-                             nullptr, nullptr, optf);
+                             impf, nullptr, optf);
         }
       }
     }
@@ -354,10 +364,13 @@ namespace build2
                          action act,
                          linfo li) const
     {
+      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
+
       auto opt = [&m, this] (
         const file& l, const string& t, bool com, bool exp)
       {
-        assert (exp);
+        if (!exp)
+          return;
 
         const variable& var (
           com
@@ -369,6 +382,7 @@ namespace build2
 
       // The same logic as in append_lib_options().
       //
+      const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
       for (prerequisite_member p: group_prerequisite_members (act, t))
@@ -386,7 +400,7 @@ namespace build2
 
           process_libraries (act, bs, li, sys_lib_dirs,
                              pt->as<file> (), a, 0, // Hack: lflags unused.
-                             nullptr, nullptr, optf);
+                             impf, nullptr, optf);
         }
       }
     }

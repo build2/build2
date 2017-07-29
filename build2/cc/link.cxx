@@ -1038,11 +1038,12 @@ namespace build2
           return;
       }
 
-      auto imp = [for_install] (const file&, bool la)
+      auto imp = [for_install] (const file& l, bool la)
       {
         // If we are not installing, then we only need to rpath interface
-        // libraries (they will include rpath's for their implementations).
-        // Otherwise, we have to do this recursively.
+        // libraries (they will include rpath's for their implementations)
+        // Otherwise, we have to do this recursively. In both cases we also
+        // want to see through utility libraries.
         //
         // The rpath-link part is tricky: ideally we would like to get only
         // implementations and only of shared libraries. We are not interested
@@ -1052,7 +1053,8 @@ namespace build2
         // we are going to rpath-link all of them which should be harmless
         // except for some noise on the command line.
         //
-        return for_install ? !la : false;
+        //
+        return (for_install ? !la : false) || l.is_a<libux> ();
       };
 
       // Package the data to keep within the 2-pointer small std::function
