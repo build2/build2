@@ -24,6 +24,21 @@ namespace build2
     if (max_active_ == 1)
     {
       forward<F> (f) (forward<A> (a)...);
+
+      // See if we need to call the monitor (see the concurrent version in
+      // execute() for details).
+      //
+      if (monitor_count_ != nullptr)
+      {
+        size_t v (monitor_count_->load (memory_order_relaxed));
+        if (v != monitor_init_)
+        {
+          size_t t (monitor_tshold_.load (memory_order_relaxed));
+          if (v > monitor_init_ ? (v >= t) : (v <= t))
+            monitor_tshold_.store (monitor_func_ (v), memory_order_relaxed);
+        }
+      }
+
       return false;
     }
 

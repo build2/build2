@@ -619,7 +619,8 @@ namespace build2
       //
       td.thunk (*this, ql, &td.data);
 
-      // See if we need to call the monitor.
+      // See if we need to call the monitor (see also the serial version
+      // in async()).
       //
       if (monitor_count_ != nullptr)
       {
