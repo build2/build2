@@ -336,12 +336,17 @@ namespace build2
     const value_type* operator-> () const {return value;}
 
     // Return true if this value belongs to the specified scope or target.
-    // Note that it can also be a target type/pattern-specific value (in
-    // which case it won't belong to either).
+    // Note that it can also be a target type/pattern-specific value in which
+    // case it won't belong to either unless we pass true as a second argument
+    // to consider it belonging to a scope (note that this test is expensive).
     //
     template <typename T>
     bool
     belongs (const T& x) const {return vars == &x.vars;}
+
+    template <typename T>
+    bool
+    belongs (const T& x, bool target_type_pattern) const;
 
     lookup (): value (nullptr), vars (nullptr) {}
 

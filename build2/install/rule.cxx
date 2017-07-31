@@ -199,35 +199,30 @@ namespace build2
       //
       if (a.operation () == update_id)
       {
-        // Save the prerequisite targets that we found since the
-        // call to match_delegate() below will wipe them out.
+        // Save the prerequisite targets that we found since the call to
+        // match_delegate() below will wipe them out.
         //
         prerequisite_targets pts;
+        pts.swap (t.prerequisite_targets);
 
-        if (!t.prerequisite_targets.empty ())
-          pts.swap (t.prerequisite_targets);
-
-        // Find the "real" update rule, that is, the rule that would
-        // have been found if we signalled that we do not match from
-        // match() above.
+        // Find the "real" update rule, that is, the rule that would have been
+        // found if we signalled that we do not match from match() above.
         //
         recipe d (match_delegate (a, t, *this).first);
 
-        // If we have no installable prerequisites, then simply redirect
-        // to it.
-        //
-        if (pts.empty ())
-          return d;
-
-        // Ok, the worst case scenario: we need to cause update of
-        // prerequisite targets and also delegate to the real update.
-        //
-        return [pts = move (pts), d = move (d)] (
-          action a, const target& t) mutable -> target_state
+        return [pts = move (pts), d = move (d), this]
+          (action a, const target& t) mutable -> target_state
         {
-          // Do the target update first.
+          // Do the target update first (we cannot call noop_recipe).
           //
-          target_state r (execute_delegate (d, a, t));
+          recipe_function** f (d.target<recipe_function*> ());
+          target_state r (f != nullptr && *f == &noop_action
+                          ? target_state::unchanged
+                          : execute_delegate (d, a, t));
+
+          // Then the extra hook.
+          //
+          r |= update_extra (a, t);
 
           // Swap our prerequisite targets back in and execute.
           //
@@ -251,10 +246,21 @@ namespace build2
     }
 
     void file_rule::
-    install_extra (const file&, const install_dir&) const {}
+    install_extra (const file&, const install_dir&) const
+    {
+    }
 
     bool file_rule::
-    uninstall_extra (const file&, const install_dir&) const {return false;}
+    uninstall_extra (const file&, const install_dir&) const
+    {
+      return false;
+    }
+
+    target_state file_rule::
+    update_extra (action, const target&) const
+    {
+      return target_state::unchanged;
+    }
 
     struct install_dir
     {
@@ -296,7 +302,7 @@ namespace build2
       //
       for (const scope* p (&s); p != nullptr; p = p->parent_scope ())
       {
-        if (l.belongs (*p)) // Ok since no target/type in lookup.
+        if (l.belongs (*p, true)) // Include target type/pattern-specific.
         {
           // The target can be in out or src.
           //
@@ -386,6 +392,12 @@ namespace build2
         r->dir_mode = &cast<string> (s["config.install.dir_mode"]);
 
       return rs;
+    }
+
+    dir_path
+    resolve_dir (const target& t, dir_path d)
+    {
+      return move (resolve (t, move (d)).back ().dir);
     }
 
     // On Windows we use MSYS2 install.exe and MSYS2 by default ignores

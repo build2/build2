@@ -6,15 +6,20 @@
 #include <build2/target.hxx>
 #include <build2/context.hxx>
 #include <build2/variable.hxx>
+#include <build2/algorithm.hxx>
 #include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
+#include <build2/install/utility.hxx>
+
 #include <build2/bin/target.hxx>
+#include <build2/pkgconfig/target.hxx>
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/utility.hxx>
 
 #include <build2/cc/common.hxx>
+#include <build2/cc/install.hxx>
 
 using namespace std;
 using namespace butl;
@@ -27,7 +32,7 @@ namespace build2
 
     // Try to find a .pc file in the pkgconfig/ subdirectory of libd, trying
     // several names derived from stem. If not found, return false. If found,
-    // extract poptions, loptions, and libs, set the corresponding *.export.*
+    // load poptions, loptions, and libs, set the corresponding *.export.*
     // variables on targets, and return true.
     //
     // System library search paths (those extracted from the compiler) are
@@ -37,35 +42,36 @@ namespace build2
     // search_library() POV.
     //
     bool common::
-    pkgconfig_extract (action act,
-                       const scope& s,
-                       lib& lt,
-                       liba* at,
-                       libs* st,
-                       const optional<string>& proj,
-                       const string& stem,
-                       const dir_path& libd,
-                       const dir_paths& sysd) const
+    pkgconfig_load (action act,
+                    const scope& s,
+                    lib& lt,
+                    liba* at,
+                    libs* st,
+                    const optional<string>& proj,
+                    const string& stem,
+                    const dir_path& libd,
+                    const dir_paths& sysd) const
     {
-      tracer trace (x, "pkgconfig_extract");
+      tracer trace (x, "pkgconfig_load");
 
       assert (pkgconfig != nullptr);
       assert (at != nullptr || st != nullptr);
 
       // When it comes to looking for .pc files we have to decide where to
       // search (which directory(ies)) as well as what to search for (which
-      // names).
+      // names). Suffix is our ".shared" or ".static" extension.
       //
-      path f;
-      auto search = [&f, &proj, &stem, &libd] (const dir_path& dir) -> bool
+      auto search_dir = [&proj, &stem, &libd] (const dir_path& dir,
+                                               const string& sfx) -> path
       {
-        // Check if we have this directory inrelative to this library's
-        // directory.
+        // Check if we have this subdirectory in this library's directory.
         //
         dir_path pkgd (dir_path (libd) /= dir);
 
         if (!exists (pkgd))
-          return false;
+          return path ();
+
+        path f;
 
         // See if there is a corresponding .pc file. About half of them called
         // foo.pc and half libfoo.pc (and one of the pkg-config's authors
@@ -73,70 +79,90 @@ namespace build2
         // things interesting, you know).
         //
         // Given the (general) import in the form <proj>%lib{<stem>}, we will
-        // first try <stem>.pc, then lib<stem>.pc. Maybe it also makes sense
+        // first try lib<stem>.pc, then <stem>.pc. Maybe it also makes sense
         // to try <proj>.pc, just in case. Though, according to pkg-config
         // docs, the .pc file should correspond to a library, not project. But
         // then you get something like zlib which calls it zlib.pc. So let's
         // just do it.
         //
         f = pkgd;
-        f /= stem;
-        f += ".pc";
-
-        if (exists (f))
-          return true;
-
-        f = pkgd;
         f /= "lib";
         f += stem;
+        f += sfx;
         f += ".pc";
-
         if (exists (f))
-          return true;
+          return f;
+
+        f = pkgd;
+        f /= stem;
+        f += sfx;
+        f += ".pc";
+        if (exists (f))
+          return f;
 
         if (proj)
         {
           f = pkgd;
           f /= *proj;
+          f += sfx;
           f += ".pc";
-
           if (exists (f))
-            return true;
+            return f;
         }
 
-        return false;
+        return path ();
       };
 
-      // First always check the pkgconfig/ subdirectory in this library's
-      // directory. Even on platforms where this is not the canonical place,
-      // .pc files of autotools-based packages installed by the user often
-      // still end up there.
-      //
-      if (!search (dir_path ("pkgconfig")))
+      auto search = [&search_dir, this] () -> pair<path, path>
       {
-        // Platform-specific locations.
-        //
-        if (tsys == "freebsd")
-        {
-          // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
-          //
-          if (!search ((dir_path ("..") /= "libdata") /= "pkgconfig"))
-            return false;
-        }
-        else
-         return false;
-      }
+        pair<path, path> r;
 
-      // Ok, we are in business. Time to run pkg-config. To keep things
-      // simple, we run it multiple times, for --cflag/--libs and --static.
+        auto check = [&r, &search_dir] (const dir_path& d) -> bool
+        {
+          // First look for static/shared-specific files.
+          //
+          r.first  = search_dir (d, ".static");
+          r.second = search_dir (d, ".shared");
+
+          if (!r.first.empty () || !r.second.empty ())
+            return true;
+
+          // Then the common.
+          //
+          r.first = r.second = search_dir (d, string ());
+          return !r.first.empty ();
+        };
+
+        // First always check the pkgconfig/ subdirectory in this library's
+        // directory. Even on platforms where this is not the canonical place,
+        // .pc files of autotools-based packages installed by the user often
+        // still end up there.
+        //
+        if (!check (dir_path ("pkgconfig")))
+        {
+          // Platform-specific locations.
+          //
+          if (tsys == "freebsd")
+          {
+            // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
+            //
+            check ((dir_path ("..") /= "libdata") /= "pkgconfig");
+          }
+        }
+
+        return r;
+      };
+
+      // To keep things simple, we run pkg-config multiple times, for
+      // --cflag/--libs and --static.
       //
-      auto extract = [&f, this] (const char* op, bool impl) -> string
+      auto extract = [this] (const path& f, const char* o, bool a) -> string
       {
         const char* args[] = {
           pkgconfig->recall_string (),
-          op, // --cflags/--libs
-          (impl ? "--static" : f.string ().c_str ()),
-          (impl ? f.string ().c_str () : nullptr),
+          o, // --cflags/--libs
+          (a ? "--static" : f.string ().c_str ()),
+          (a ? f.string ().c_str () : nullptr),
           nullptr
         };
 
@@ -144,10 +170,9 @@ namespace build2
           *pkgconfig, args, [] (string& s) -> string {return move (s);});
       };
 
-      // On Windows pkg-config (at least the MSYS2 one which we are using)
-      // will escape backslahses in paths. In fact, it may escape things
-      // even on non-Windows platforms, for example, spaces. So we use a
-      // slightly modified version of next_word().
+      // On Windows pkg-config will escape backslahses in paths. In fact, it
+      // may escape things even on non-Windows platforms, for example,
+      // spaces. So we use a slightly modified version of next_word().
       //
       auto next = [] (const string& s, size_t& b, size_t& e) -> string
       {
@@ -184,12 +209,13 @@ namespace build2
         return r;
       };
 
-      // First extract --cflags and set them as lib{}:export.poptions (i.e.,
-      // they will be common for both liba{} and libs{}; later when we do
-      // split .pc files, we will have to run this twice).
+      // Extract --cflags and set them as lib?{}:export.poptions. Note that we
+      // still pass --static in case this is pkgconf which has Cflags.private.
       //
+      auto parse_cflags = [&trace, &extract, &next, this]
+        (target& t, const path& f, bool a)
       {
-        string cstr (extract ("--cflags", false));
+        string cstr (extract (f, "--cflags", a));
         strings pops;
 
         string o;
@@ -243,7 +269,7 @@ namespace build2
 
         if (!pops.empty ())
         {
-          auto p (lt.vars.insert (c_export_poptions));
+          auto p (t.vars.insert (c_export_poptions));
 
           // The only way we could already have this value is if this same
           // library was also imported as a project (as opposed to installed).
@@ -253,13 +279,15 @@ namespace build2
           if (p.second)
             p.first.get () = move (pops);
         }
-      }
+      };
 
-      // Now parse --libs into loptions/libs (interface and implementation).
+      // Parse --libs into loptions/libs (interface and implementation).
       //
-      auto parse_libs = [act, &s, &f, sysd, &next, this] (
-        const string& lstr, target& t)
+      auto parse_libs = [act, &s, sysd, &extract, &next, this]
+        (target& t, const path& f, bool a)
       {
+        string lstr (extract (f, "--libs", a));
+
         strings lops;
         vector<name> libs;
 
@@ -274,7 +302,6 @@ namespace build2
         // library. What we do at the moment is stop recognizing just
         // library names (without -l) after seeing an unknown option.
         //
-
         bool arg (false), first (true), known (true), have_L;
         string o;
         for (size_t b (0), e (0); !(o = next (lstr, b, e)).empty (); )
@@ -438,8 +465,9 @@ namespace build2
             all = false;
         }
 
-        // If all the -l's resolved and no other options, then drop all the
-        // -L's. If we have unknown options, then leave them in to be safe.
+        // If all the -l's resolved and there were no other options, then drop
+        // all the -L's. If we have unknown options, then leave them in to be
+        // safe.
         //
         if (all && known)
           lops.clear ();
@@ -487,20 +515,187 @@ namespace build2
         }
       };
 
+      pair<path, path> ps (search ());
+      const path& ap (ps.first);
+      const path& sp (ps.second);
+
+      if (ap.empty () && sp.empty ())
+        return false;
+
+      if (at != nullptr && !ap.empty ())
       {
-        string lstr_int (extract ("--libs", false));
-        string lstr_imp (extract ("--libs", true));
+        parse_cflags (*at, ap, true);
+        parse_libs (*at, ap, true);
+      }
 
-        parse_libs (lstr_int, lt);
-
-        // Currently, these will result in the same values but it will be
-        // different once we support split .pc files.
-        //
-        if (at != nullptr) parse_libs (lstr_imp, *at);
-        if (st != nullptr) parse_libs (lstr_imp, *st);
+      if (st != nullptr && !sp.empty ())
+      {
+        parse_cflags (*st, sp, false);
+        parse_libs (lt, sp, false); // Note: setting on lib{} (interface).
       }
 
       return true;
+    }
+
+    void file_install::
+    pkgconfig_save (action act, const file& l, bool la) const
+    {
+      tracer trace (x, "pkgconfig_save");
+
+      const scope& bs (l.base_scope ());
+      const scope& rs (*bs.root_scope ());
+
+      auto* pc (find_adhoc_member<pkgconfig::pc> (l));
+      assert (pc != nullptr);
+
+      const path& p (pc->path ());
+
+      if (verb >= 2)
+        text << "cat >" << p;
+
+      try
+      {
+        ofdstream os (p);
+        auto_rmfile arm (p);
+
+        // @@ version may not be string, need to reverse.
+        //
+        os << "Name: " << cast<string> (rs.vars[var_project]) << endl;
+        os << "Version: " << cast<string> (rs.vars["version"]) << endl;
+        os << "Description: @@ TODO" << endl;
+
+        // By default we assume things go into install.{include, lib}.
+        //
+        // @@ TODO: quoting/whitespace escaping.
+        // @@ TODO: support whole archive?
+        //
+        using install::resolve_dir;
+
+        dir_path id (resolve_dir (l, cast<dir_path> (l["install.include"])));
+
+        auto save_poptions = [&l, &os] (const variable& var)
+        {
+          if (const strings* v = cast_null<strings> (l[var]))
+          {
+            for (auto i (v->begin ()); i != v->end (); ++i)
+            {
+              const string& o (*i);
+              size_t n (o.size ());
+
+              // Filter out -I (both -I<dir> and -I <dir> forms).
+              //
+              if (n >= 2 && o[0] == '-' && o[1] == 'I')
+              {
+                if (n == 2)
+                  ++i;
+
+                continue;
+              }
+
+              os << ' ' << o;
+            }
+          }
+        };
+
+        // Given a library save its -l-style library name.
+        //
+        auto save_library = [&os] (const file& l)
+        {
+          // Use the .pc file name to derive the -l library name (in case of
+          // the shared library, l.path() may contain version).
+          //
+          auto* pc (find_adhoc_member<pkgconfig::pc> (l));
+          assert (pc != nullptr);
+
+          // We also want to strip the lib prefix unless it is part of the
+          // target name while keeping custom library prefix/suffix, if any.
+          //
+          string n (pc->path ().leaf ().base ().base ().string ());
+          if (n.size () > 3 &&
+              path::traits::compare (n.c_str (), 3, "lib", 3) == 0 &&
+              path::traits::compare (n.c_str (), n.size (),
+                                     l.name.c_str (), l.name.size ()) != 0)
+          n.erase (0, 3);
+
+          os << " -l" << n;
+        };
+
+        // Cflags.
+        //
+        os << "Cflags:";
+        os << " -I" << id;
+        save_poptions (c_export_poptions);
+        save_poptions (x_export_poptions);
+        os << endl;
+
+        // Libs.
+        //
+        dir_path ld (resolve_dir (l, cast<dir_path> (l["install.lib"])));
+
+        os << "Libs:";
+        os << " -L" << ld;
+
+        // Now process ourselves as if we were being linked to something (so
+        // pretty similar to link::append_libraries()).
+        //
+        auto imp = [] (const file&, bool la) {return la;};
+
+        auto lib = [&os, &save_library] (const file* l,
+                                         const string& p,
+                                         lflags,
+                                         bool)
+        {
+          if (l != nullptr)
+          {
+            if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
+              save_library (*l);
+          }
+          else
+            os << ' ' << p; // Something "system'y", pass as is.
+        };
+
+        auto opt = [&os] (const file&,
+                          const string&,
+                          bool, bool)
+        {
+          //@@ TODO: should we filter -L similar to -I?
+
+          /*
+          // If we need an interface value, then use the group (lib{}).
+          //
+          if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
+          {
+            const variable& var (
+              com
+              ? (exp ? c_export_loptions : c_loptions)
+              : (t == x
+                 ? (exp ? x_export_loptions : x_loptions)
+                 : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+
+            append_options (args, *g, var);
+          }
+          */
+        };
+
+        process_libraries (
+          act,
+          bs,
+          linfo {otype::e, la ? lorder::a_s : lorder::s_a}, // System-default.
+          sys_lib_dirs,
+          l, la,
+          0, // Link flags.
+          imp, lib, opt,
+          true);
+
+        os << endl;
+
+        os.close ();
+        arm.cancel ();
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to write " << p << ": " << e;
+      }
     }
   }
 }

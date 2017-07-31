@@ -700,26 +700,6 @@ namespace build2
     false
   };
 
-  template <typename T, const char* ext>
-  static pair<target*, optional<string>>
-  file_factory (const target_type& tt,
-                dir_path d,
-                dir_path o,
-                string n,
-                optional<string> e)
-  {
-    // A generic file target type doesn't imply any extension while a very
-    // specific one (say man1) may have a fixed extension. So if one wasn't
-    // specified and this is not a dynamically derived target type, then set
-    // it to fixed ext rather than unspecified. For file{} we make it empty
-    // which means we treat file{foo} as file{foo.}.
-    //
-    if (!e && ext != nullptr && tt.factory == &file_factory<T, ext>)
-      e = string (ext);
-
-    return make_pair (new T (move (d), move (o), move (n)), move (e));
-  }
-
   extern const char file_ext_var[] = "extension"; // VC14 rejects constexpr.
   extern const char file_ext_def[] = "";
 

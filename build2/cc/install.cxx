@@ -94,10 +94,41 @@ namespace build2
       {
         file* f;
         if ((f = t.is_a<libs> ()) != nullptr && tclass != "windows")
-          t.data (link_.derive_libs_paths (*f));
+        {
+          const string* p (cast_null<string> (t["bin.lib.prefix"]));
+          const string* s (cast_null<string> (t["bin.lib.suffix"]));
+          t.data (
+            link_.derive_libs_paths (*f,
+                                     p != nullptr ? p->c_str (): nullptr,
+                                     s != nullptr ? s->c_str (): nullptr));
+        }
       }
 
       return r;
+    }
+
+    target_state file_install::
+    update_extra (action act, const target& t) const
+    {
+      // (Re)generate pkg-config's .pc file. While the target itself might be
+      // up-to-date from a previous run, there is no guarantee that .pc exists
+      // or also up-to-date. So to keep things simple we just regenerate it
+      // unconditionally.
+      //
+      // Also, if you are wondering why don't we just always produce this .pc,
+      // install or no install, the reason is unless and until we are updating
+      // for install, we have no idea where to things will be installed.
+      //
+      bool a;
+      const file* f;
+
+      if ((a = (f = t.is_a<liba> ())) ||
+          (     f = t.is_a<libs> ()))
+      {
+        pkgconfig_save (act, *f, a);
+      }
+
+      return target_state::unchanged;
     }
 
     void file_install::

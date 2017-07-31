@@ -51,6 +51,12 @@ namespace build2
     {
       return install_mode (s, T::static_type, move (m));
     }
+
+    // Resolve relative installation directory path (e.g., include/libfoo) to
+    // its absolute directory path (e.g., /usr/include/libfoo).
+    //
+    dir_path
+    resolve_dir (const target&, dir_path); // rule.cxx
   }
 }
 

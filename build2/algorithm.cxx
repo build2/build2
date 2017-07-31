@@ -262,19 +262,20 @@ namespace build2
       n += s;
     }
 
-    const target& m (t.member != nullptr // Might already be there.
-                     ? *t.member
+    const_ptr<target>* mp (&t.member);
+    for (auto p (*mp); p != nullptr && !p->is_a (tt); mp = &p->member) ;
+
+    const target& m (*mp != nullptr // Might already be there.
+                     ? **mp
                      : search (t, tt, t.dir, t.out, n));
 
     target_lock l (lock (a, m));
     assert (l.target != nullptr); // Someone messing with ad hoc members?
 
-    if (t.member == nullptr)
-      t.member = l.target;
+    if (*mp == nullptr)
+      *mp = l.target;
     else
-      // Basic sanity check.
-      //
-      assert (t.member->type () == tt && t.member->name == n);
+      assert ((*mp)->name == n); // Basic sanity check.
 
     return l;
   };
@@ -513,7 +514,7 @@ namespace build2
     catch (const failed&)
     {
       // As a sanity measure clear the target data since it can be incomplete
-      // or invalid (mark()/unmark() should give you some for ideas).
+      // or invalid (mark()/unmark() should give you some ideas).
       //
       t.clear_data ();
       t.prerequisite_targets.clear ();
@@ -619,6 +620,10 @@ namespace build2
 
         // Fall through to apply.
       }
+      // @@ Doing match without execute messes up our target_count. Does
+      //    not seem like it will be easy to fix (we don't know whether
+      //    someone else will execute this target).
+      //
     case target::offset_matched:
       {
         // Apply (locked).
@@ -1234,7 +1239,7 @@ namespace build2
   noop_action (action a, const target& t)
   {
     text << "noop action triggered for " << diag_doing (a, t);
-    assert (false); // We shouldn't be called, see target::recipe().
+    assert (false); // We shouldn't be called (see target::recipe()).
     return target_state::unchanged;
   }
 

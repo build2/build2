@@ -266,15 +266,12 @@ namespace build2
       extract_library_dirs (const scope&) const;
 
       bool
-      pkgconfig_extract (action,
-                         const scope&,
-                         bin::lib&,
-                         bin::liba*,
-                         bin::libs*,
-                         const optional<string>&,
-                         const string&,
-                         const dir_path&,
-                         const dir_paths&) const; // pkgconfig.cxx
+      pkgconfig_load (action, const scope&,
+                      bin::lib&, bin::liba*, bin::libs*,
+                      const optional<string>&,
+                      const string&,
+                      const dir_path&,
+                      const dir_paths&) const; // pkgconfig.cxx
 
       // Alternative search logic for VC (msvc.cxx).
       //

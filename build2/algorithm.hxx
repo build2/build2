@@ -136,13 +136,36 @@ namespace build2
   target_lock
   lock (action, const target&);
 
-  // Add an ad hoc member. If the suffix is specified, it is added (as an
-  // extension) to the member's target name. Return the locked member target.
+  // Add an ad hoc member to the end of the chain assuming that an already
+  // existing member of this target type is the same.
+  //
+  // If the suffix is specified, it is added (as an extension) to the member's
+  // target name. Return the locked member target.
   //
   target_lock
   add_adhoc_member (action, target&,
                     const target_type&,
                     const char* suffix = nullptr);
+
+  template <typename T>
+  inline target_lock
+  add_adhoc_member (action a, target& t, const char* s = nullptr)
+  {
+    return add_adhoc_member (a, t, T::static_type, s);
+  }
+
+  // Find an ad hoc member of the specified target type returning NULL if not
+  // found.
+  //
+  const target*
+  find_adhoc_member (const target&, const target_type&);
+
+  template <typename T>
+  inline const T*
+  find_adhoc_member (const target& t)
+  {
+    return static_cast<const T*> (find_adhoc_member (t, T::static_type));
+  }
 
   // Match and apply a rule to the action/target with ambiguity detection.
   // Increment the target's dependents count, which means that you should call

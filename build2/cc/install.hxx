@@ -41,6 +41,15 @@ namespace build2
       virtual bool
       uninstall_extra (const file&, const install_dir&) const override;
 
+      virtual target_state
+      update_extra (action, const target&) const override;
+
+    private:
+      // pkg-config's .pc file generation (in pkgconfig.cxx).
+      //
+      void
+      pkgconfig_save (action, const file&, bool) const;
+
     private:
       const link& link_;
     };

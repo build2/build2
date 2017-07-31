@@ -10,6 +10,9 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/config/utility.hxx>
+#include <build2/install/utility.hxx>
+
+#include <build2/pkgconfig/target.hxx>
 
 using namespace std;
 using namespace butl;
@@ -128,7 +131,7 @@ namespace build2
 
     bool
     init (scope& rs,
-          scope& bs,
+          scope&,
           const location& loc,
           unique_ptr<module_base>&,
           bool,
@@ -136,14 +139,15 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("pkgconfig::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       // Load pkgconfig.config.
       //
+      bool conf (true);
       if (!cast_false<bool> (rs["pkgconfig.config.loaded"]))
       {
         if (!load_module (rs, rs, "pkgconfig.config", loc, optional, hints))
-          return false;
+          conf = false;
       }
       else if (!cast_false<bool> (rs["pkgconfig.config.configured"]))
       {
@@ -151,13 +155,21 @@ namespace build2
           fail << "pkgconfig module could not be configured" <<
             info << "re-run with -V option for more information";
 
-        return false;
+        conf = false;
       }
 
-      // For now pkgconfig and pkgconfig.config is pretty much the same.
+      // Register the target type and configure its default "installability".
       //
+      // Note that we do it whether we found pkg-config or not since these are
+      // used to produce .pc files which we do regardless.
+      //
+      rs.target_types.insert<pca> ();
+      rs.target_types.insert<pcs> ();
 
-      return true;
+      if (cast_false<bool> (rs["install.loaded"]))
+        install::install_path<pc> (rs, dir_path ("pkgconfig"));
+
+      return conf;
     }
   }
 }

@@ -6,6 +6,28 @@
 
 namespace build2
 {
+  template <typename T>
+  bool lookup::
+  belongs (const T& x, bool t) const
+  {
+    if (vars == &x.vars)
+      return true;
+
+    if (t)
+    {
+      for (const auto& p1: x.target_vars) // variable_type_map
+      {
+        for (const auto& p2: p1.second) // variable_pattern_map
+        {
+          if (vars == &p2.second)
+            return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   // This one will be SFINAE'd out unless T is a simple value.
   //
   template <typename T>

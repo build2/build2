@@ -19,6 +19,7 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
+#include <build2/pkgconfig/target.hxx>
 
 #include <build2/cc/target.hxx>  // c
 #include <build2/cc/utility.hxx>
@@ -142,34 +143,33 @@ namespace build2
     }
 
     auto link::
-    derive_libs_paths (file& ls) const -> libs_paths
+    derive_libs_paths (file& ls, const char* pfx, const char* sfx) const
+      -> libs_paths
     {
       const char* ext (nullptr);
-      const char* pfx (nullptr);
-      const char* sfx (nullptr);
 
       bool win (tclass == "windows");
 
       if (win)
       {
         if (tsys == "mingw32")
-          pfx = "lib";
+        {
+          if (pfx == nullptr)
+            pfx = "lib";
+        }
 
         ext = "dll";
       }
-      else if (tclass == "macos")
-      {
-        pfx = "lib";
-        ext = "dylib";
-      }
       else
       {
-        pfx = "lib";
-        ext = "so";
-      }
+        if (pfx == nullptr)
+          pfx = "lib";
 
-      if (auto l = ls["bin.lib.prefix"]) pfx = cast<string> (l).c_str ();
-      if (auto l = ls["bin.lib.suffix"]) sfx = cast<string> (l).c_str ();
+        if (tclass == "macos")
+          ext = "dylib";
+        else
+          ext = "so";
+      }
 
       // First sort out which extension we are using.
       //
@@ -315,14 +315,6 @@ namespace build2
 
       // Derive file name(s) and add ad hoc group members.
       //
-
-      // Add if necessary and lock an ad hoc group member.
-      //
-      auto add_adhoc = [act, &bs] (target& t, const char* type) -> target_lock
-      {
-        return add_adhoc_member (act, t, *bs.find_target_type (type));
-      };
-
       {
         target_lock libi; // Have to hold until after PDB member addition.
 
@@ -391,6 +383,11 @@ namespace build2
         }
         else
         {
+          if (auto l = t[ot == otype::e ? "bin.exe.prefix" : "bin.lib.prefix"])
+            p = cast<string> (l).c_str ();
+          if (auto l = t[ot == otype::e ? "bin.exe.suffix" : "bin.lib.suffix"])
+            s = cast<string> (l).c_str ();
+
           switch (ot)
           {
           case otype::e:
@@ -399,9 +396,6 @@ namespace build2
                 e = "exe";
               else
                 e = "";
-
-              if (auto l = t["bin.exe.prefix"]) p = cast<string> (l).c_str ();
-              if (auto l = t["bin.exe.suffix"]) s = cast<string> (l).c_str ();
 
               t.derive_path (e, p, s);
               break;
@@ -412,12 +406,9 @@ namespace build2
                 e = "lib";
               else
               {
-                p = "lib";
+                if (p == nullptr) p = "lib";
                 e = "a";
               }
-
-              if (auto l = t["bin.lib.prefix"]) p = cast<string> (l).c_str ();
-              if (auto l = t["bin.lib.suffix"]) s = cast<string> (l).c_str ();
 
               t.derive_path (e, p, s);
               break;
@@ -428,9 +419,9 @@ namespace build2
               // the DLL and we add libi{} import library as its member.
               //
               if (tclass == "windows")
-                libi = add_adhoc (t, "libi");
+                libi = add_adhoc_member<bin::libi> (act, t);
 
-              t.data (derive_libs_paths (t)); // Cache in target.
+              t.data (derive_libs_paths (t, p, s)); // Cache in target.
 
               if (libi)
                 match_recipe (libi, group_recipe); // Set recipe and unlock.
@@ -438,26 +429,57 @@ namespace build2
               break;
             }
           }
-        }
 
-        // PDB
-        //
-        if (!lt.static_library ()                        &&
-            cid == compiler_id::msvc                     &&
-            (find_option ("/DEBUG", t, c_loptions, true) ||
-             find_option ("/DEBUG", t, x_loptions, true)))
-        {
-          // Add after the import library if any.
+          // Add VC's .pdb.
           //
-          target_lock pdb (
-            add_adhoc (t.member == nullptr ? t : *t.member, "pdb"));
+          if (ot != otype::a                               &&
+              cid == compiler_id::msvc                     &&
+              (find_option ("/DEBUG", t, c_loptions, true) ||
+               find_option ("/DEBUG", t, x_loptions, true)))
+          {
+            // Note: add after the import library if any.
+            //
+            target_lock pdb (
+              add_adhoc_member (act, t, *bs.find_target_type ("pdb")));
 
-          // We call it foo.{exe,dll}.pdb rather than just foo.pdb because we
-          // can have both foo.exe and foo.dll in the same directory.
+            // We call it foo.{exe,dll}.pdb rather than just foo.pdb because
+            // we can have both foo.exe and foo.dll in the same directory.
+            //
+            pdb.target->as<file> ().derive_path (t.path (), "pdb");
+
+            match_recipe (pdb, group_recipe); // Set recipe and unlock.
+          }
+
+          // Add pkg-config's .pc file.
           //
-          pdb.target->as<file> ().derive_path (t.path (), "pdb");
+          // Note that we do it here regardless of whether we are installing
+          // or not for two reasons. Firstly, it is not easy to detect this
+          // situation in apply() since the action may (and is) overridden to
+          // unconditional install. Secondly, always having the member takes
+          // care of cleanup automagically. The actual generation happens in
+          // the install rule.
+          //
+          if (ot != otype::e)
+          {
+            target_lock pc (
+              add_adhoc_member (
+                act, t,
+                ot == otype::a
+                ? pkgconfig::pca::static_type
+                : pkgconfig::pcs::static_type));
 
-          match_recipe (pdb, group_recipe); // Set recipe and unlock.
+            // Note that here we always use the lib name prefix, even on
+            // Windows with VC. The reason is the user needs a consistent name
+            // across platforms by which they can refere to the library. This
+            // is also the reason why we use the static/shared suffixes rather
+            // that a./.lib/.so/.dylib/.dll.
+            //
+            pc.target->as<file> ().derive_path (nullptr,
+                                                (p == nullptr ? "lib" : p),
+                                                s);
+
+            match_recipe (pc, group_recipe); // Set recipe and unlock.
+          }
         }
       }
 
@@ -1164,11 +1186,11 @@ namespace build2
     {
       tracer trace (x, "link::perform_update");
 
-      const file& t (xt.as<file> ());
-      const path& tp (t.path ());
-
       auto oop (act.outer_operation ());
       bool for_install (oop == install_id || oop == uninstall_id);
+
+      const file& t (xt.as<file> ());
+      const path& tp (t.path ());
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());

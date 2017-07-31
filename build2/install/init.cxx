@@ -141,10 +141,11 @@ namespace build2
 
     static const dir_path dir_root ("root");
 
-    static const dir_path dir_sbin    (dir_path ("exec_root") /= "sbin");
-    static const dir_path dir_bin     (dir_path ("exec_root") /= "bin");
-    static const dir_path dir_lib     (dir_path ("exec_root") /= "lib");
-    static const dir_path dir_libexec (dir_path ("exec_root") /= "libexec");
+    static const dir_path dir_sbin      (dir_path ("exec_root") /= "sbin");
+    static const dir_path dir_bin       (dir_path ("exec_root") /= "bin");
+    static const dir_path dir_lib       (dir_path ("exec_root") /= "lib");
+    static const dir_path dir_libexec   (dir_path ("exec_root") /= "libexec");
+    static const dir_path dir_pkgconfig (dir_path ("lib") /= "pkgconfig");
 
     static const dir_path dir_data    (dir_path ("data_root") /= "share");
     static const dir_path dir_include (dir_path ("data_root") /= "include");
@@ -240,6 +241,7 @@ namespace build2
         set_dir (s, rs, "bin",       dir_bin);
         set_dir (s, rs, "lib",       dir_lib);
         set_dir (s, rs, "libexec",   dir_path (dir_libexec) /= n, true);
+        set_dir (s, rs, "pkgconfig", dir_pkgconfig, false, "644");
 
         set_dir (s, rs, "data",      dir_path (dir_data) /= n, true);
         set_dir (s, rs, "include",   dir_include);

@@ -70,7 +70,7 @@ namespace build2
       };
 
       libs_paths
-      derive_libs_paths (file&) const;
+      derive_libs_paths (file&, const char*, const char*) const;
 
       // Library handling.
       //

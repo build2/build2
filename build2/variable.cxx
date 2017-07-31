@@ -1359,7 +1359,7 @@ namespace build2
             vm.typify (const_cast<variable_map::value_data&> (*v), var);
           }
 
-          return lookup (v, &vm);
+          return lookup (*v, vm);
         }
       }
     }

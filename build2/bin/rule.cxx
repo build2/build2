@@ -38,7 +38,7 @@ namespace build2
     // our prerequisites.
     //
     match_result lib_rule::
-    match (action act, target& xt, const string&) const
+    match (action, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
@@ -57,15 +57,7 @@ namespace build2
       t.a = a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
       t.s = s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
 
-      match_result mr (true);
-
-      // If there is an outer operation, indicate that we match
-      // unconditionally so that we don't override ourselves.
-      //
-      if (act.outer_operation () != 0)
-        mr.recipe_action = action (act.meta_operation (), act.operation ());
-
-      return mr;
+      return true;
     }
 
     recipe lib_rule::

@@ -7,6 +7,14 @@
 
 namespace build2
 {
+  inline const target*
+  find_adhoc_member (const target& t, const target_type& tt)
+  {
+    const target* m (t.member);
+    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
+    return m;
+  }
+
   inline const target&
   search (const target& t, const prerequisite& p)
   {
