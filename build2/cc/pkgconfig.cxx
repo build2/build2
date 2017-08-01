@@ -564,16 +564,33 @@ namespace build2
         os << "Version: " << cast<string> (rs.vars["version"]) << endl;
         os << "Description: @@ TODO" << endl;
 
-        // By default we assume things go into install.{include, lib}.
+        // In pkg-config backslashes, spaces, etc are escaped with a
+        // backslash.
         //
-        // @@ TODO: quoting/whitespace escaping.
-        // @@ TODO: support whole archive?
-        //
-        using install::resolve_dir;
+        auto escape = [] (const string& s) -> string
+        {
+          string r;
+          for (size_t p (0);;)
+          {
+            size_t sp (s.find_first_of ("\\ ", p));
 
-        dir_path id (resolve_dir (l, cast<dir_path> (l["install.include"])));
+            if (sp != string::npos)
+            {
+              r.append (s, p, sp - p);
+              r += '\\';
+              r += s[sp];
+              p = sp + 1;
+            }
+            else
+            {
+              r.append (s, p, sp);
+              break;
+            }
+          }
+          return r;
+        };
 
-        auto save_poptions = [&l, &os] (const variable& var)
+        auto save_poptions = [&l, &os, &escape] (const variable& var)
         {
           if (const strings* v = cast_null<strings> (l[var]))
           {
@@ -592,7 +609,7 @@ namespace build2
                 continue;
               }
 
-              os << ' ' << o;
+              os << ' ' << escape (o);
             }
           }
         };
@@ -620,20 +637,27 @@ namespace build2
           os << " -l" << n;
         };
 
+        // By default we assume things go into install.{include, lib}.
+        //
+        // @@ TODO: support whole archive?
+        //
+        using install::resolve_dir;
+
+        dir_path id (resolve_dir (l, cast<dir_path> (l["install.include"])));
+        dir_path ld (resolve_dir (l, cast<dir_path> (l["install.lib"])));
+
         // Cflags.
         //
         os << "Cflags:";
-        os << " -I" << id;
+        os << " -I" << escape (id.string ());
         save_poptions (c_export_poptions);
         save_poptions (x_export_poptions);
         os << endl;
 
         // Libs.
         //
-        dir_path ld (resolve_dir (l, cast<dir_path> (l["install.lib"])));
-
         os << "Libs:";
-        os << " -L" << ld;
+        os << " -L" << escape (ld.string ());
 
         // Now process ourselves as if we were being linked to something (so
         // pretty similar to link::append_libraries()).
@@ -659,6 +683,7 @@ namespace build2
                           bool, bool)
         {
           //@@ TODO: should we filter -L similar to -I?
+          //@@ TODO: remember to use escape()
 
           /*
           // If we need an interface value, then use the group (lib{}).
