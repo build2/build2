@@ -274,15 +274,14 @@ namespace build2
     l.offset = target::offset_applied;
   }
 
-  inline pair<recipe, action>
+  inline recipe
   match_delegate (action a, target& t, const rule& r, bool fail)
   {
     assert (phase == run_phase::match);
     auto mr (match_impl (a, t, &r, fail));
-    return make_pair (mr.first != nullptr
-                      ? apply_impl (t, *mr.first, mr.second)
-                      : empty_recipe,
-                      mr.second);
+    return mr.first != nullptr
+      ? apply_impl (t, *mr.first, mr.second)
+      : empty_recipe;
   }
 
   group_view

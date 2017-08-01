@@ -70,12 +70,6 @@ namespace build2
       virtual bool
       uninstall_extra (const file&, const install_dir&) const;
 
-      // Extra update for install hooks. It is executed after the target has
-      // been updated but only for those that will actually be installed.
-      //
-      virtual target_state
-      update_extra (action, const target&) const;
-
       // Installation "commands".
       //
       // If verbose is false, then only print the command at verbosity level 2

@@ -1564,6 +1564,31 @@ namespace build2
 
       dd.close ();
 
+      // (Re)generate pkg-config's .pc file. While the target itself might be
+      // up-to-date from a previous run, there is no guarantee that .pc exists
+      // or also up-to-date. So to keep things simple we just regenerate it
+      // unconditionally.
+      //
+      // Also, if you are wondering why don't we just always produce this .pc,
+      // install or no install, the reason is unless and until we are updating
+      // for install, we have no idea where to things will be installed.
+      //
+      if (for_install)
+      {
+        bool a;
+        const file* f;
+
+        if ((a = (f = t.is_a<liba> ())) ||
+            (     f = t.is_a<libs> ()))
+        {
+          // @@ Hack: this should really be in install:update_extra() where we
+          // (should) what we are installing and what not.
+          //
+          if (rs["install.root"])
+            pkgconfig_save (act, *f, a);
+        }
+      }
+
       // If nothing changed, then we are done.
       //
       if (!update)
@@ -1945,7 +1970,7 @@ namespace build2
 
       if (tclass == "windows")
       {
-        // For Windows generate rpath-emulating assembly (unless updaing for
+        // For Windows generate rpath-emulating assembly (unless updating for
         // install).
         //
         if (lt.executable () && !for_install)

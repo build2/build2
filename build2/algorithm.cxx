@@ -179,7 +179,7 @@ namespace build2
       {
       case target::offset_executed:
         {
-          if (t.action == a || t.action > a)
+          if (t.action >= a)
           {
             // We don't lock already executed targets.
             //
@@ -210,7 +210,7 @@ namespace build2
           }
           else
           {
-            assert (t.action > a || a == t.action);
+            assert (t.action >= a);
 
             // Release the lock if already applied for this action. This is
             // necessary no to confuse execute since otherwise it might see

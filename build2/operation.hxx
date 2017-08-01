@@ -76,6 +76,15 @@ namespace build2
     action_id outer_id;
   };
 
+  inline bool
+  operator== (action x, action y)
+  {
+    return x.inner_id == y.inner_id && x.outer_id == y.outer_id;
+  }
+
+  inline bool
+  operator!= (action x, action y) {return !(x == y);}
+
   // This is an "overrides" comparison, i.e., it returns true if the recipe
   // for x overrides recipe for y. The idea is that for the same inner
   // operation, action with an outer operation is "weaker" than the one
@@ -89,13 +98,7 @@ namespace build2
   }
 
   inline bool
-  operator== (action x, action y)
-  {
-    return x.inner_id == y.inner_id && x.outer_id == y.outer_id;
-  }
-
-  inline bool
-  operator!= (action x, action y) {return !(x == y);}
+  operator>= (action x, action y) {return x == y || x > y;}
 
   ostream&
   operator<< (ostream&, action);

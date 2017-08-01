@@ -107,30 +107,6 @@ namespace build2
       return r;
     }
 
-    target_state file_install::
-    update_extra (action act, const target& t) const
-    {
-      // (Re)generate pkg-config's .pc file. While the target itself might be
-      // up-to-date from a previous run, there is no guarantee that .pc exists
-      // or also up-to-date. So to keep things simple we just regenerate it
-      // unconditionally.
-      //
-      // Also, if you are wondering why don't we just always produce this .pc,
-      // install or no install, the reason is unless and until we are updating
-      // for install, we have no idea where to things will be installed.
-      //
-      bool a;
-      const file* f;
-
-      if ((a = (f = t.is_a<liba> ())) ||
-          (     f = t.is_a<libs> ()))
-      {
-        pkgconfig_save (act, *f, a);
-      }
-
-      return target_state::unchanged;
-    }
-
     void file_install::
     install_extra (const file& t, const install_dir& id) const
     {

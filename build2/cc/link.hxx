@@ -122,6 +122,11 @@ namespace build2
       pair<path, bool>
       windows_manifest (const file&, bool rpath_assembly) const;
 
+      // pkg-config's .pc file generation (pkgconfig.cxx).
+      //
+      void
+      pkgconfig_save (action, const file&, bool) const;
+
     private:
       const string rule_id;
     };

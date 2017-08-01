@@ -208,13 +208,12 @@ namespace build2
   match_recipe (target_lock&, recipe);
 
   // Match a "delegate rule" from withing another rules' apply() function
-  // avoiding recursive matches (thus the third argument). Return recipe and
-  // recipe action (if any). Unless fail is false, fail if not rule is found.
-  // Otherwise return empty recipe. Note that unlike match(), this function
-  // does not increment the dependents count. See also the companion
-  // execute_delegate().
+  // avoiding recursive matches (thus the third argument). Unless fail is
+  // false, fail if not rule is found. Otherwise return empty recipe. Note
+  // that unlike match(), this function does not increment the dependents
+  // count. See also the companion execute_delegate().
   //
-  pair<recipe, action>
+  recipe
   match_delegate (action, target&, const rule&, bool fail = true);
 
   // The standard prerequisite search and match implementations. They call

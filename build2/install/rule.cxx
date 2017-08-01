@@ -199,36 +199,41 @@ namespace build2
       //
       if (a.operation () == update_id)
       {
-        // Save the prerequisite targets that we found since the call to
-        // match_delegate() below will wipe them out.
+        // Save the prerequisite targets that we found since the
+        // call to match_delegate() below will wipe them out.
         //
-        prerequisite_targets pts;
-        pts.swap (t.prerequisite_targets);
+        prerequisite_targets p;
 
-        // Find the "real" update rule, that is, the rule that would have been
-        // found if we signalled that we do not match from match() above.
+        if (!t.prerequisite_targets.empty ())
+          p.swap (t.prerequisite_targets);
+
+        // Find the "real" update rule, that is, the rule that would
+        // have been found if we signalled that we do not match from
+        // match() above.
         //
-        recipe d (match_delegate (a, t, *this).first);
+        recipe d (match_delegate (a, t, *this));
 
-        return [pts = move (pts), d = move (d), this]
-          (action a, const target& t) mutable -> target_state
+        // If we have no installable prerequisites, then simply redirect
+        // to it.
+        //
+        if (p.empty ())
+          return d;
+
+        // Ok, the worst case scenario: we need to cause update of
+        // prerequisite targets and also delegate to the real update.
+        //
+        return [pt = move (p), dr = move (d)] (
+          action a, const target& t) mutable -> target_state
         {
-          // Do the target update first (we cannot call noop_recipe).
+          // Do the target update first.
           //
-          recipe_function** f (d.target<recipe_function*> ());
-          target_state r (f != nullptr && *f == &noop_action
-                          ? target_state::unchanged
-                          : execute_delegate (d, a, t));
-
-          // Then the extra hook.
-          //
-          r |= update_extra (a, t);
+          target_state r (execute_delegate (dr, a, t));
 
           // Swap our prerequisite targets back in and execute.
           //
-          t.prerequisite_targets.swap (pts);
+          t.prerequisite_targets.swap (pt);
           r |= straight_execute_prerequisites (a, t);
-          pts.swap (t.prerequisite_targets); // In case we get re-executed.
+          pt.swap (t.prerequisite_targets); // In case we get re-executed.
 
           return r;
         };
@@ -254,12 +259,6 @@ namespace build2
     uninstall_extra (const file&, const install_dir&) const
     {
       return false;
-    }
-
-    target_state file_rule::
-    update_extra (action, const target&) const
-    {
-      return target_state::unchanged;
     }
 
     struct install_dir

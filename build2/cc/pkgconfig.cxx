@@ -19,7 +19,7 @@
 #include <build2/cc/utility.hxx>
 
 #include <build2/cc/common.hxx>
-#include <build2/cc/install.hxx>
+#include <build2/cc/link.hxx>
 
 using namespace std;
 using namespace butl;
@@ -537,7 +537,7 @@ namespace build2
       return true;
     }
 
-    void file_install::
+    void link::
     pkgconfig_save (action act, const file& l, bool la) const
     {
       tracer trace (x, "pkgconfig_save");

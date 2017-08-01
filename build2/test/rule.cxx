@@ -182,7 +182,7 @@ namespace build2
       // standard alias rule.
       //
       if (a.operation () == update_id)
-        return match_delegate (a, t, *this).first;
+        return match_delegate (a, t, *this);
 
       // For the test operation we have to implement our own search and match
       // because we need to ignore prerequisites that are outside of our
@@ -219,7 +219,7 @@ namespace build2
       if (md.script)
       {
         if (a.operation () == update_id)
-          return match_delegate (a, t, *this).first;
+          return match_delegate (a, t, *this);
 
         // Collect all the testscript targets in prerequisite_targets.
         //
@@ -320,7 +320,7 @@ namespace build2
           // been found if we signalled that we do not match from match()
           // above.
           //
-          recipe d (match_delegate (a, t, *this).first);
+          recipe d (match_delegate (a, t, *this));
 
           // If we have no input/output that needs updating, then simply
           // redirect to it.
