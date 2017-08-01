@@ -263,7 +263,7 @@ namespace build2
     }
 
     const_ptr<target>* mp (&t.member);
-    for (auto p (*mp); p != nullptr && !p->is_a (tt); mp = &p->member) ;
+    for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->member) ;
 
     const target& m (*mp != nullptr // Might already be there.
                      ? **mp
