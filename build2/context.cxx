@@ -184,6 +184,10 @@ namespace build2
   const variable* var_project;
   const variable* var_amalgamation;
   const variable* var_subprojects;
+  const variable* var_version;
+
+  const variable* var_project_url;
+  const variable* var_project_summary;
 
   const variable* var_import_target;
 
@@ -522,11 +526,19 @@ namespace build2
     // Note that subprojects is not typed since the value requires
     // pre-processing (see file.cxx).
     //
-    var_project      = &vp.insert<string>   ("project");
-    var_amalgamation = &vp.insert<dir_path> ("amalgamation");
-    var_subprojects  = &vp.insert           ("subprojects");
+    {
+      auto pv (variable_visibility::project);
 
-    var_import_target = &vp.insert<name> ("import.target");
+      var_project      = &vp.insert<string>   ("project",      pv);
+      var_amalgamation = &vp.insert<dir_path> ("amalgamation", pv);
+      var_subprojects  = &vp.insert           ("subprojects",  pv);
+      var_version      = &vp.insert<string>   ("version",      pv);
+
+      var_project_url     = &vp.insert<string> ("project.url",     pv);
+      var_project_summary = &vp.insert<string> ("project.summary", pv);
+
+      var_import_target = &vp.insert<name> ("import.target");
+    }
 
     // Register builtin rules.
     //

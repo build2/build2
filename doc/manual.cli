@@ -502,6 +502,16 @@ as the following build system variables (which can be used in the buildfiles):
 [uint64] version.revision            # 3
 \
 
+As a convenience, the \c{version} module also extract the \c{summary} and
+\c{url} manifest values and sets them as the following build system variables
+(this additional information is used, for example, when generating the
+\c{pkg-config} files):
+
+\
+[string] project.summary
+[string] project.url
+\
+
 If the version is the latest snapshot (that is, it's in the \c{.z} form), then
 the \c{version} module extracts the snapshot information from the version
 control system used by the project. Currently only \c{git} is supported with

@@ -558,11 +558,30 @@ namespace build2
         ofdstream os (p);
         auto_rmfile arm (p);
 
-        // @@ version may not be string, need to reverse.
-        //
-        os << "Name: " << cast<string> (rs.vars[var_project]) << endl;
-        os << "Version: " << cast<string> (rs.vars["version"]) << endl;
-        os << "Description: @@ TODO" << endl;
+        {
+          const string& n (cast<string> (rs.vars[var_project]));
+
+          lookup vl (rs.vars[var_version]);
+          if (!vl)
+            fail << "no version variable in project " << n <<
+              info << "while generating " << p;
+
+          const string& v (cast<string> (vl));
+
+          os << "Name: " << n << endl;
+          os << "Version: " << v << endl;
+
+          // This one is required so make something up if unspecified.
+          //
+          os << "Description: ";
+          if (const string* s = cast_null<string> (rs[var_project_summary]))
+            os << *s << endl;
+          else
+            os << n << ' ' << v << endl;
+
+          if (const string* u = cast_null<string> (rs[var_project_url]))
+            os << "URL: " << *u << endl;
+        }
 
         // In pkg-config backslashes, spaces, etc are escaped with a
         // backslash.

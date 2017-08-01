@@ -249,6 +249,10 @@ namespace build2
   extern const variable* var_project;
   extern const variable* var_amalgamation;
   extern const variable* var_subprojects;
+  extern const variable* var_version;
+
+  extern const variable* var_project_url;     // project.url
+  extern const variable* var_project_summary; // project.summary
 
   extern const variable* var_import_target; // import.target
 

@@ -36,8 +36,12 @@ namespace build2
       tracer trace ("version::boot");
       l5 ([&]{trace << "for " << rs.out_path ();});
 
-      // Extract the version from the manifest file.
+      // Extract the version from the manifest file. As well as summary and
+      // url while at it.
       //
+      string sum;
+      string url;
+
       standard_version v;
       dependency_constraints ds;
       {
@@ -57,7 +61,11 @@ namespace build2
 
           for (nv = p.next (); !nv.empty (); nv = p.next ())
           {
-            if (nv.name == "version")
+            if (nv.name == "summary")
+              sum = move (nv.value);
+            else if (nv.name == "url")
+              url = move (nv.value);
+            else if (nv.name == "version")
             {
               try
               {
@@ -180,7 +188,10 @@ namespace build2
         rs.assign (v) = move (val);
       };
 
-      set ("version", v.string ());         // Package version.
+      if (!sum.empty ()) rs.assign (var_project_summary) = move (sum);
+      if (!url.empty ()) rs.assign (var_project_url)     = move (url);
+
+      set ("version", v.string ());  // Project version (var_version).
 
       set ("version.project",        v.string_project ());
       set ("version.project_number", v.version);
