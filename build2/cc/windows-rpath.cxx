@@ -7,6 +7,7 @@
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
 #include <build2/variable.hxx>
+#include <build2/algorithm.hxx>
 #include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -134,7 +135,7 @@ namespace build2
 
       auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (const file* l, const string& f, lflags, bool sys)
+      auto lib = [&r, &bs] (const file* l, const string& f, lflags, bool sys)
       {
         if (sys)
           return;
@@ -143,14 +144,17 @@ namespace build2
         {
           if (l->is_a<libs> () && !l->path ().empty ())
           {
-            // Get .pdb if there is one (second member of the ad hoc group).
+            // Get .pdb if there is one.
             //
-            const string* pdb (
-              l->member != nullptr && l->member->member != nullptr
-              ? &l->member->member->as<file> ().path ().string ()
-              : nullptr);
+            const target* pdb (
+              find_adhoc_member (*l, *bs.find_target_type ("pdb")));
 
-            r.insert (windows_dll {f, pdb, string ()});
+            r.insert (
+              windows_dll {
+                f,
+                pdb != nullptr ? &pdb->as<file> ().path ().string () : nullptr,
+                string ()
+              });
           }
         }
         else
