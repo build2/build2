@@ -696,23 +696,42 @@ namespace build2
 
         // Given a library save its -l-style library name.
         //
-        auto save_library = [&os] (const file& l)
+        auto save_library = [&os, this] (const file& l)
         {
-          // Use the .pc file name to derive the -l library name (in case of
+          // If available (it may not, in case of import-installed libraris),
+          // use the .pc file name to derive the -l library name (in case of
           // the shared library, l.path() may contain version).
           //
-          auto* pc (find_adhoc_member<pkgconfig::pc> (l));
-          assert (pc != nullptr);
+          string n;
 
-          // We also want to strip the lib prefix unless it is part of the
-          // target name while keeping custom library prefix/suffix, if any.
-          //
-          string n (pc->path ().leaf ().base ().base ().string ());
-          if (n.size () > 3 &&
-              path::traits::compare (n.c_str (), 3, "lib", 3) == 0 &&
-              path::traits::compare (n.c_str (), n.size (),
-                                     l.name.c_str (), l.name.size ()) != 0)
-          n.erase (0, 3);
+          auto strip_lib = [&n] ()
+          {
+            if (n.size () > 3 &&
+                path::traits::compare (n.c_str (), 3, "lib", 3) == 0)
+              n.erase (0, 3);
+          };
+
+          if (auto* pc = find_adhoc_member<pkgconfig::pc> (l))
+          {
+            // We also want to strip the lib prefix unless it is part of the
+            // target name while keeping custom library prefix/suffix, if any.
+            //
+            n = pc->path ().leaf ().base ().base ().string ();
+
+            if (path::traits::compare (n.c_str (), n.size (),
+                                       l.name.c_str (), l.name.size ()) != 0)
+              strip_lib ();
+          }
+          else
+          {
+            // Derive -l-name from the file name in a fuzzy, platform-specific
+            // manner.
+            //
+            n = l.path ().leaf ().base ().string ();
+
+            if (cid != compiler_id::msvc)
+              strip_lib ();
+          }
 
           os << " -l" << n;
         };
@@ -749,6 +768,10 @@ namespace build2
                                          lflags,
                                          bool)
         {
+          //@@ TODO: would be nice to weed out duplicates. But is it always
+          // safe? Think linking archives: will have to keep duplicates in
+          // the second position, not first.
+
           if (l != nullptr)
           {
             if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
