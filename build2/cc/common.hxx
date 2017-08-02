@@ -68,7 +68,8 @@ namespace build2
       const variable& c_system;       // cc.system
       const variable& c_module_name;  // cc.module_name
       const variable& c_reprocess;    // cc.reprocess
-      const variable& c_preprocessed; // cc.preprocessed
+
+      const variable& x_preprocessed; // x.preprocessed
 
       const variable& x_std;
 

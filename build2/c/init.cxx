@@ -176,7 +176,8 @@ namespace build2
         v["cc.system"],
         v["cc.module_name"],
         v["cc.reprocess"],
-        v["cc.preprocessed"],
+
+        v.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
 
         v.insert<string>   ("c.std", variable_visibility::project),
 

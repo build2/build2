@@ -802,14 +802,14 @@ namespace build2
         // This determines which of the following steps we perform and on
         // what source (original or preprocessed).
         //
-        if (const string* v = cast_null<string> (t[c_preprocessed]))
+        if (const string* v = cast_null<string> (t[x_preprocessed]))
         try
         {
           md.pp = to_preprocessed (*v);
         }
         catch (const invalid_argument& e)
         {
-          fail << "invalid " << c_preprocessed.name << " variable value "
+          fail << "invalid " << x_preprocessed.name << " variable value "
                << "for target " << t << ": " << e;
         }
 

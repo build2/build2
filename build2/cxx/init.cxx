@@ -355,7 +355,17 @@ namespace build2
         v["cc.system"],
         v["cc.module_name"],
         v["cc.reprocess"],
-        v["cc.preprocessed"],
+
+        // Ability to indicate that source is already (partially)
+        // preprocessed. Valid values are 'none' (not preprocessed),
+        // 'includes' (no #include directives in source), 'modules' (as above
+        // plus no module declaration depends on preprocessor, e.g., #ifdef,
+        // etc), and 'all' (the source is fully preprocessed). Note that for
+        // 'all' the source can still contain comments and line
+        // continuations. Note also that for some compilers (e.g., VC) there
+        // is no way to signal that the source is already preprocessed.
+        //
+        v.insert<string>   ("cxx.preprocessed"),
 
         v.insert<string>   ("cxx.std", variable_visibility::project),
 

@@ -61,8 +61,8 @@ cat <<EOI >=test.cxx &!test.cxx;
   int main () {return TEST_VALUE;}
   EOI
 $* --verbose 5 &test* <<EOI 2>&1 | $filter >>EOO
-  cc.preprocessed = includes
-  cc.poptions += -DTEST_VALUE=0
+  cxx.preprocessed = includes
+  cxx.poptions += -DTEST_VALUE=0
   exe{test}: cxx{test}
   EOI
   modules test
@@ -76,8 +76,8 @@ cat <<EOI >=test.cxx &!test.cxx;
   int main () {return TEST_VALUE;}
   EOI
 $* --verbose 5 &test* <<EOI 2>&1 | $filter >>EOO
-  cc.preprocessed = modules
-  cc.poptions += -DTEST_VALUE=0
+  cxx.preprocessed = modules
+  cxx.poptions += -DTEST_VALUE=0
   exe{test}: cxx{test}
   EOI
   modules test
@@ -95,7 +95,7 @@ cat <<EOI >=test.cxx &!test.cxx;
   #endif
   EOI
 $* &test* <<EOI 2>>EOE != 0
-  cc.preprocessed = modules
+  cxx.preprocessed = modules
   exe{test}: cxx{test}
   EOI
   test.cxx: error: modules support not enabled/available
@@ -116,8 +116,8 @@ cat <<EOI >=test.cxx &!test.cxx;
   in () {}
   EOI
 $* --verbose &test* 5 <<EOI 2>&1 | $filter >>EOO
-  cc.preprocessed = all
-  cc.poptions += -Dmain=foo
+  cxx.preprocessed = all
+  cxx.poptions += -Dmain=foo
   exe{test}: cxx{test}
   EOI
   modules test
