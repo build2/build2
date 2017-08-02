@@ -32,8 +32,10 @@ namespace build2
 
     // Try to find a .pc file in the pkgconfig/ subdirectory of libd, trying
     // several names derived from stem. If not found, return false. If found,
-    // load poptions, loptions, and libs, set the corresponding *.export.*
-    // variables on targets, and return true.
+    // load poptions, loptions, libs, and modules, set the corresponding
+    // *.export.* variables and add prerequisites on targets, and return true.
+    // Note that we assume the targets are locked so that all of this is
+    // MT-safe.
     //
     // System library search paths (those extracted from the compiler) are
     // passed in sys_sp and should already be extracted.
@@ -154,13 +156,13 @@ namespace build2
       };
 
       // To keep things simple, we run pkg-config multiple times, for
-      // --cflag/--libs and --static.
+      // --cflag/--libs, with and without --static.
       //
       auto extract = [this] (const path& f, const char* o, bool a) -> string
       {
         const char* args[] = {
           pkgconfig->recall_string (),
-          o, // --cflags/--libs
+          o, // --cflags/--libs/--variable=<name>
           (a ? "--static" : f.string ().c_str ()),
           (a ? f.string ().c_str () : nullptr),
           nullptr
@@ -265,7 +267,7 @@ namespace build2
 
         if (arg != '\0')
           fail << "argument expected after " << pops.back () <<
-            info << "while parsing pkg-config --cflags output of " << f;
+            info << "while parsing pkg-config --cflags " << f;
 
         if (!pops.empty ())
         {
@@ -354,11 +356,11 @@ namespace build2
 
         if (arg)
           fail << "argument expected after " << lops.back () <<
-            info << "while parsing pkg-config --libs output of " << f;
+            info << "while parsing pkg-config --libs " << f;
 
         if (first)
           fail << "library expected in '" << lstr << "'" <<
-            info << "while parsing pkg-config --libs output of " << f;
+            info << "while parsing pkg-config --libs " << f;
 
         // Resolve -lfoo into the library file path using our import installed
         // machinery (i.e., we are going to call search_library() that will
@@ -433,7 +435,7 @@ namespace build2
 
                 if (d.relative ())
                   fail << "relative -L directory in '" << lstr << "'" <<
-                    info << "while parsing pkg-config --libs output of " << f;
+                    info << "while parsing pkg-config --libs " << f;
 
                 usrd->push_back (move (d));
               }
@@ -515,6 +517,57 @@ namespace build2
         }
       };
 
+      // Parse modules and add them as prerequisites of the library target.
+      //
+      auto parse_modules = [&trace, &extract, &next, this]
+        (target& t, const path& f)
+      {
+        string mstr (extract (f, "--variable=modules", false));
+
+        prerequisites ps;
+
+        string m;
+        for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
+        {
+          // The format is <name>=<path>.
+          //
+          size_t p (m.find ('='));
+          if (p == string::npos ||
+              p == 0            || // Empty name.
+              p == m.size () - 1)  // Empty path.
+            fail << "invalid module information in '" << mstr << "'" <<
+              info << "while parsing pkg-config --variable=modules " << f;
+
+          string mn (m, 0, p);
+          path mp (m, p + 1, string::npos);
+          path mf (mp.leaf ());
+
+          // For now we assume these are C++ modules. There aren't any other
+          // kind currently but if there were we would need to encode this
+          // information somehow (e.g., cxx_modules vs c_modules variable
+          // names).
+          //
+          target& mt (
+            targets.insert_locked (*x_mod,
+                                   mp.directory (),
+                                   dir_path (),
+                                   mf.base ().string (),
+                                   mf.extension (),
+                                   true, // Implied.
+                                   trace).first);
+
+          //@@ TODO: if target already exists, then setting its variable is
+          //   not MT-safe. Perhaps use prerequisite-specific value?
+          //
+          mt.vars.assign (c_module_name) = move (mn);
+
+          ps.push_back (prerequisite (mt));
+        }
+
+        assert (!t.has_prerequisites ());
+        t.prerequisites (move (ps));
+      };
+
       pair<path, path> ps (search ());
       const path& ap (ps.first);
       const path& sp (ps.second);
@@ -533,6 +586,14 @@ namespace build2
         parse_cflags (*st, sp, false);
         parse_libs (lt, sp, false); // Note: setting on lib{} (interface).
       }
+
+      // For now we assume static and shared variants export the same set of
+      // modules. While technically possible, having a different set will
+      // most likely lead to all sorts of trouble (at least for installed
+      // libraries) and life is short.
+      //
+      if (modules)
+        parse_modules (lt, sp.empty () ? ap : sp);
 
       return true;
     }
