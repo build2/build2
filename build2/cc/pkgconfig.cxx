@@ -1,4 +1,4 @@
-// file      : build2/cc/msvc.cxx -*- C++ -*-
+// file      : build2/cc/pkgconfig.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -548,13 +548,13 @@ namespace build2
           // names).
           //
           target& mt (
-            targets.insert_locked (*x_mod,
-                                   mp.directory (),
-                                   dir_path (),
-                                   mf.base ().string (),
-                                   mf.extension (),
-                                   true, // Implied.
-                                   trace).first);
+            targets.insert (*x_mod,
+                            mp.directory (),
+                            dir_path (),
+                            mf.base ().string (),
+                            mf.extension (),
+                            true, // Implied.
+                            trace).first);
 
           //@@ TODO: if target already exists, then setting its variable is
           //   not MT-safe. Perhaps use prerequisite-specific value?
