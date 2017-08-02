@@ -81,6 +81,7 @@ namespace build2
           }
         case compiler_id::gcc:
           {
+            //if    (mj >= 8)            o = "-std=c++2a"; // 20
             if      (mj >= 5)            o = "-std=c++1z"; // 17
             else if (mj == 4 && mi >= 8) o = "-std=c++1y"; // 14
             else if (mj == 4 && mi >= 4) o = "-std=c++0x"; // 11
@@ -105,7 +106,8 @@ namespace build2
               else                         {mj = 3; mi = 0;}
             }
 
-            if       (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z"; // 17
+            if       (mj >= 5)                         o = "-std=c++2a"; // 20
+            else if  (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z"; // 17
             else if  (mj == 3 && mi >= 4)              o = "-std=c++1y"; // 14
             else     /* ??? */                         o = "-std=c++0x"; // 11
 
@@ -253,8 +255,8 @@ namespace build2
         case compiler_id::clang:
         case compiler_id::icc:
           {
-            // Translate 11 to 0x, 14 to 1y, and 17 to 1z for compatibility
-            // with older versions of the compilers.
+            // Translate 11 to 0x, 14 to 1y, 17 to 1z, and 20 to 2a for
+            // compatibility with older versions of the compilers.
             //
             if (v == nullptr)
               ;
@@ -267,6 +269,7 @@ namespace build2
               else if (*v == "11") o += "c++0x";
               else if (*v == "14") o += "c++1y";
               else if (*v == "17") o += "c++1z";
+              else if (*v == "20") o += "c++2a";
               else o += *v; // In case the user specifies e.g., 'gnu++17'.
 
               r.push_back (move (o));
