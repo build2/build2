@@ -905,8 +905,8 @@ namespace build2
             // /LIBPATH:<dir> (case-insensitive).
             //
             if ((o[0] == '/' || o[0] == '-') &&
-                casecmp (i->c_str () + 1, "LIBPATH:", 8) == 0)
-              d = dir_path (*i, 9, string::npos);
+                casecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
+              d = dir_path (o, 9, string::npos);
             else
               continue;
           }
@@ -914,15 +914,15 @@ namespace build2
           {
             // -L can either be in the "-L<dir>" or "-L <dir>" form.
             //
-            if (*i == "-L")
+            if (o == "-L")
             {
               if (++i == e)
                 break; // Let the compiler complain.
 
               d = dir_path (*i);
             }
-            else if (i->compare (0, 2, "-L") == 0)
-              d = dir_path (*i, 2, string::npos);
+            else if (o.compare (0, 2, "-L") == 0)
+              d = dir_path (o, 2, string::npos);
             else
               continue;
           }
