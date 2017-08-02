@@ -733,6 +733,56 @@ namespace build2
 
         os << endl;
 
+        // If we have modules, list them in the modules variable. This code
+        // is pretty similar to compiler::search_modules().
+        //
+        if (modules)
+        {
+          os << endl
+             << "modules =";
+
+          for (const target* pt: l.prerequisite_targets)
+          {
+            // @@ UTL: we need to (recursively) see through libux{} (and
+            //    also in search_modules()).
+            //
+            if (pt != nullptr &&
+                (pt->is_a<bmis> () ||
+                 pt->is_a<bmia> () ||
+                 pt->is_a<bmie> ()))
+            {
+              // What we have is a binary module interface. What we need is
+              // a module interface source it was built from. We assume it's
+              // the first mxx{} target that we see.
+              //
+              const target* mt (nullptr);
+              for (const target* t: pt->prerequisite_targets)
+              {
+                if ((mt = t->is_a (*x_mod)))
+                  break;
+              }
+
+              // Can/should there be a bmi{} without mxx{}? Can't think of a
+              // reason.
+              //
+              assert (mt != nullptr);
+
+              path p (install::resolve_file (mt->as<file> ()));
+
+              if (p.empty ()) // Not installed.
+                continue;
+
+              const string& n (cast<string> (pt->vars[c_module_name]));
+
+              // Module name shouldn't require escaping.
+              //
+              os << ' ' << n << '=' << escape (p.string ());
+            }
+          }
+
+          os << endl;
+        }
+
         os.close ();
         arm.cancel ();
       }

@@ -9,6 +9,7 @@
 #include <build2/utility.hxx>
 
 #include <build2/scope.hxx>
+#include <build2/target.hxx>
 
 namespace build2
 {
@@ -57,6 +58,11 @@ namespace build2
     //
     dir_path
     resolve_dir (const target&, dir_path); // rule.cxx
+
+    // Resolve file installation path returning empty path if not installable.
+    //
+    path
+    resolve_file (const file&); // rule.cxx
   }
 }
 

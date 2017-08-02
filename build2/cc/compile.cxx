@@ -2766,8 +2766,8 @@ namespace build2
       // name for each mxx{} explicitly. This will be a major pain, however.
       // Another would be to require encoding of the module name in the
       // interface unit file name. For example, hello.core -> hello-core.mxx.
-      // This is better but will still too restrictive: some will want to call
-      // it hello_core.mxx or HelloCore.mxx (because that's their file naming
+      // This is better but still too restrictive: some will want to call it
+      // hello_core.mxx or HelloCore.mxx (because that's their file naming
       // convention) or place it in a subdirectory, say, hello/core.mxx.
       //
       // In the above examples one common theme about all the file names is
@@ -3010,6 +3010,8 @@ namespace build2
               // available.
               //
               // @@ MOD: BMI compatibility check.
+              // @@ UTL: we need to (recursively) see through libux{} (and
+              //    also in pkgconfig_save()).
               //
               if (bt != nullptr &&
                   (bt->is_a<bmis> () ||

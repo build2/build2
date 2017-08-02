@@ -640,8 +640,9 @@ namespace build2
     // Target type info and casting.
     //
   public:
-    bool
-    is_a (const target_type& tt) const {return type ().is_a (tt);}
+    const target*
+    is_a (const target_type& tt) const {
+      return type ().is_a (tt) ? this : nullptr;}
 
     template <typename T>
     T*
@@ -871,7 +872,9 @@ namespace build2
     bool
     is_a (const target_type_type& tt) const
     {
-      return target != nullptr ? target->is_a (tt) : prerequisite.is_a (tt);
+      return target != nullptr
+        ? target->is_a (tt) != nullptr
+        : prerequisite.is_a (tt);
     }
 
     prerequisite_key

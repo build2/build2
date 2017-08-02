@@ -399,6 +399,29 @@ namespace build2
       return move (resolve (t, move (d)).back ().dir);
     }
 
+    path
+    resolve_file (const file& f)
+    {
+      // Note: similar logic to perform_install().
+      //
+      const path* p (lookup_install<path> (f, "install"));
+
+      if (p == nullptr) // Not installable.
+        return path ();
+
+      bool n (!p->to_directory ());
+      dir_path d (n ? p->directory () : path_cast<dir_path> (*p));
+
+      install_dirs ids (resolve (f, d));
+      if (auto l = f["install.subdirs"])
+      {
+        if (cast<bool> (l))
+          resolve_subdir (ids, f, f.base_scope (), l);
+      }
+
+      return ids.back ().dir / (n ? p->leaf () : f.path ().leaf ());
+    }
+
     // On Windows we use MSYS2 install.exe and MSYS2 by default ignores
     // filesystem permissions (noacl mount option). And this means, for
     // example, that .exe that we install won't be runnable by Windows (MSYS2
@@ -631,6 +654,8 @@ namespace build2
 
       auto install_target = [this] (const file& t, const path& p, bool verbose)
       {
+        // Note: similar logic to resolve_file().
+        //
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
 
