@@ -173,6 +173,41 @@ namespace build2
     }
   }
 
+  static bool
+  fsdir_mkdir (const target& t, const dir_path& d)
+  {
+    // Even with the exists() check below this can still be racy so only print
+    // things if we actually did create it (similar to build2::mkdir()).
+    //
+    auto print = [&t, &d] ()
+    {
+      if (verb >= 2)
+        text << "mkdir " << d;
+      else if (verb)
+        text << "mkdir " << t;
+    };
+
+    mkdir_status ms;
+
+    try
+    {
+      ms = try_mkdir (d);
+    }
+    catch (const system_error& e)
+    {
+      print ();
+      fail << "unable to create directory " << d << ": " << e;
+    }
+
+    if (ms == mkdir_status::success)
+    {
+      print ();
+      return true;
+    }
+
+    return false;
+  }
+
   target_state fsdir_rule::
   perform_update (action a, const target& t)
   {
@@ -188,29 +223,13 @@ namespace build2
     //
     const dir_path& d (t.dir); // Everything is in t.dir.
 
-    // Generally, it is probably correct to assume that in the majority
-    // of cases the directory will already exist. If so, then we are
-    // going to get better performance by first checking if it indeed
-    // exists. See try_mkdir() for details.
+    // Generally, it is probably correct to assume that in the majority of
+    // cases the directory will already exist. If so, then we are going to get
+    // better performance by first checking if it indeed exists. See
+    // butl::try_mkdir() for details.
     //
-    if (!exists (d))
-    {
-      if (verb >= 2)
-        text << "mkdir " << d;
-      else if (verb)
-        text << "mkdir " << t;
-
-      try
-      {
-        try_mkdir (d);
-      }
-      catch (const system_error& e)
-      {
-        fail << "unable to create directory " << d << ": " << e;
-      }
-
+    if (!exists (d) && fsdir_mkdir (t, d))
       ts |= target_state::changed;
-    }
 
     return ts;
   }
@@ -232,21 +251,7 @@ namespace build2
     const dir_path& d (t.dir);
 
     if (!exists (d))
-    {
-      if (verb >= 2)
-        text << "mkdir " << d;
-      else if (verb)
-        text << "mkdir " << t;
-
-      try
-      {
-        try_mkdir (d);
-      }
-      catch (const system_error& e)
-      {
-        fail << "unable to create directory " << d << ": " << e;
-      }
-    }
+      fsdir_mkdir (t, d);
   }
 
   target_state fsdir_rule::

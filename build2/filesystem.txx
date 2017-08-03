@@ -37,8 +37,7 @@ namespace build2
     catch (const system_error& e)
     {
       print ();
-      error << "unable to remove file " << f << ": " << e;
-      throw failed ();
+      fail << "unable to remove file " << f << ": " << e << endf;
     }
 
     if (rs == rmfile_status::success)
@@ -78,8 +77,7 @@ namespace build2
     catch (const system_error& e)
     {
       print ();
-      error << "unable to remove directory " << d << ": " << e;
-      throw failed ();
+      fail << "unable to remove directory " << d << ": " << e << endf;
     }
 
     switch (rs)
