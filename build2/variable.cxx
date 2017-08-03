@@ -1004,13 +1004,15 @@ namespace build2
     bool ut (t != nullptr && var.type != t);
     bool uv (v != nullptr && var.visibility != *v);
 
-    // In the global pool existing variables can only be updated during
-    // the same load generation or during serial execution.
+    // In the global pool existing variables can only be updated during the
+    // same load generation or during serial execution.
     //
-    assert (!global_             ||
-            !(ut || uv)          ||
-            load_generation == 0 ||
-            var.generation == load_generation);
+    if (global_                           &&
+        load_generation != 0              &&
+        load_generation != var.generation &&
+        (ut || uv))
+      fail << "variable " << var.name << " already defined with different "
+           << (ut ? (uv ? "type and visibility" : "type") : "visibility");
 
     // Update type?
     //
