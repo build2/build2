@@ -34,60 +34,64 @@ namespace build2
     // for every action (because that's the condition for us matching),
     // for some actions this is clearly a waste. Say, perform_clean: we
     // are not doing anything for this action so not checking if the file
-    // exists seems harmless. So the overall guideline seems to be this:
-    // if we don't do anything for the action (other than performing it
-    // on the prerequisites), then we match.
+    // exists seems harmless.
     //
     switch (a)
     {
-    case perform_update_id:
+    case perform_clean_id:
+      return true;
+    default:
       {
         // While normally we shouldn't do any of this in match(), no other
         // rule should ever be ambiguous with the fallback one and path/mtime
         // access is atomic. In other words, we know what we are doing but
         // don't do this in normal rules.
 
-        path_target& pt (t.as<path_target> ());
-
         // First check the timestamp. This takes care of the special "trust
         // me, this file exists" situations (used, for example, for installed
         // stuff where we know it's there, just not exactly where).
         //
-        timestamp ts (pt.mtime ());
+        mtime_target& mt (t.as<mtime_target> ());
 
-        if (ts == timestamp_unknown)
-        {
-          const path* p (&pt.path ());
-
-          // Assign the path.
-          //
-          if (p->empty ())
-          {
-            // Since we cannot come up with an extension, ask the target's
-            // derivation function to treat this as prerequisite (just like
-            // in search_existing_file()).
-            //
-            if (pt.derive_extension (true) == nullptr)
-            {
-              l4 ([&]{trace << "no default extension for target " << pt;});
-              return false;
-            }
-
-            p = &pt.derive_path ();
-          }
-
-          ts = file_mtime (*p);
-          pt.mtime (ts);
-        }
+        timestamp ts (mt.mtime ());
 
         if (ts != timestamp_unknown && ts != timestamp_nonexistent)
           return true;
 
-        l4 ([&]{trace << "no existing file for target " << t;});
+        // Otherwise, if this is not a path_target, then we don't match.
+        //
+        path_target* pt (mt.is_a<path_target> ());
+        if (pt == nullptr)
+          return false;
+
+        const path* p (&pt->path ());
+
+        // Assign the path.
+        //
+        if (p->empty ())
+        {
+          // Since we cannot come up with an extension, ask the target's
+          // derivation function to treat this as prerequisite (just like in
+          // search_existing_file()).
+          //
+          if (pt->derive_extension (true) == nullptr)
+          {
+            l4 ([&]{trace << "no default extension for target " << *pt;});
+            return false;
+          }
+
+          p = &pt->derive_path ();
+        }
+
+        ts = file_mtime (*p);
+        pt->mtime (ts);
+
+        if (ts != timestamp_unknown && ts != timestamp_nonexistent)
+          return true;
+
+        l4 ([&]{trace << "no existing file for target " << *pt;});
         return false;
       }
-    default:
-      return true;
     }
   }
 

@@ -550,8 +550,8 @@ namespace build2
       r.insert<fsdir> (perform_update_id, "fsdir", fsdir_rule::instance);
       r.insert<fsdir> (perform_clean_id, "fsdir", fsdir_rule::instance);
 
-      r.insert<file> (perform_update_id, "file", file_rule::instance);
-      r.insert<file> (perform_clean_id, "file", file_rule::instance);
+      r.insert<mtime_target> (perform_update_id, "file", file_rule::instance);
+      r.insert<mtime_target> (perform_clean_id, "file", file_rule::instance);
     }
 
     return vos;

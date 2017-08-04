@@ -137,7 +137,7 @@ namespace build2
         // libraries imported from /usr/lib). Registring it on the global
         // scope smells a bit but seems harmless.
         //
-        rs.global ().rules.insert<file> (
+        rs.global ().rules.insert<mtime_target> (
           configure_id, 0, "config.file", file_rule::instance);
 
         auto& r (rs.rules);
