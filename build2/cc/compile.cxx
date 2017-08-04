@@ -802,7 +802,9 @@ namespace build2
         // This determines which of the following steps we perform and on
         // what source (original or preprocessed).
         //
-        if (const string* v = cast_null<string> (t[x_preprocessed]))
+        // Note: must be set of the src target.
+        //
+        if (const string* v = cast_null<string> (src[x_preprocessed]))
         try
         {
           md.pp = to_preprocessed (*v);
@@ -810,7 +812,7 @@ namespace build2
         catch (const invalid_argument& e)
         {
           fail << "invalid " << x_preprocessed.name << " variable value "
-               << "for target " << t << ": " << e;
+               << "for target " << src << ": " << e;
         }
 
         // If we have no #include directives, then skip header dependency
