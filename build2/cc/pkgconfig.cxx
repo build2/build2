@@ -283,10 +283,11 @@ namespace build2
         }
       };
 
-      // Parse --libs into loptions/libs (interface and implementation).
+      // Parse --libs into loptions/libs (interface and implementation). If
+      // ps is not NULL, add each resolves library target as a prerequisite.
       //
       auto parse_libs = [act, &s, sysd, &extract, &next, this]
-        (target& t, const path& f, bool a)
+        (target& t, const path& f, bool a, prerequisites* ps)
       {
         string lstr (extract (f, "--libs", a));
 
@@ -451,8 +452,7 @@ namespace build2
           prerequisite_key pk {
             nullopt, {&lib::static_type, &out, &out, &name, nullopt}, &s};
 
-          if (lib* lt = static_cast<lib*> (
-                search_library (act, sysd, usrd, pk)))
+          if (const target* lt = search_library (act, sysd, usrd, pk))
           {
             // We used to pick a member but that doesn't seem right since the
             // same target could be used with different link orders.
@@ -460,6 +460,9 @@ namespace build2
             n.dir = lt->dir;
             n.type = lib::static_type.name;
             n.value = lt->name;
+
+            if (ps != nullptr)
+              ps->push_back (prerequisite (*lt));
           }
           else
             // If we couldn't find the library, then leave it as -l.
@@ -517,14 +520,12 @@ namespace build2
         }
       };
 
-      // Parse modules and add them as prerequisites of the library target.
+      // Parse modules and add them to the prerequisites.
       //
       auto parse_modules = [&trace, &extract, &next, this]
-        (target& t, const path& f)
+        (const path& f, prerequisites& ps)
       {
         string mstr (extract (f, "--variable=modules", false));
-
-        prerequisites ps;
 
         string m;
         for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
@@ -563,29 +564,33 @@ namespace build2
 
           ps.push_back (prerequisite (mt));
         }
-
-        assert (!t.has_prerequisites ());
-        t.prerequisites (move (ps));
       };
 
-      pair<path, path> ps (search ());
-      const path& ap (ps.first);
-      const path& sp (ps.second);
+      pair<path, path> pp (search ());
+      const path& ap (pp.first);
+      const path& sp (pp.second);
 
       if (ap.empty () && sp.empty ())
         return false;
+
+      // For now we only populate prerequisites for lib{}. To do it for
+      // liba{} would require weeding out duplicates that are already in
+      // lib{}.
+      //
+      prerequisites ps;
 
       // First sort out the interface dependencies (which we are setting on
       // lib{}). If we have the shared .pc variant, then we use that.
       // Otherwise -- static but extract without the --static option (see also
       // the saving logic).
       //
-      parse_libs (lt, sp.empty () ? sp : ap, false);
+      const path& ip (sp.empty () ? ap : sp); // Interface path.
+      parse_libs (lt, ip, false, &ps);
 
       if (at != nullptr && !ap.empty ())
       {
         parse_cflags (*at, ap, true);
-        parse_libs (*at, ap, true);
+        parse_libs (*at, ap, true, nullptr);
       }
 
       if (st != nullptr && !sp.empty ())
@@ -597,7 +602,17 @@ namespace build2
       // libraries) and life is short.
       //
       if (modules)
-        parse_modules (lt, sp.empty () ? ap : sp);
+        parse_modules (ip, ps);
+
+      assert (!lt.has_prerequisites ());
+      if (!ps.empty ())
+        lt.prerequisites (move (ps));
+
+      // Bless the library group with a "trust me it exists" timestamp. Failed
+      // that, if we add it as a prerequisite (like we do above), the fallback
+      // file rule won't match.
+      //
+      lt.mtime (file_mtime (ip));
 
       return true;
     }

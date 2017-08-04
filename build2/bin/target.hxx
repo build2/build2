@@ -119,10 +119,14 @@ namespace build2
 
     // Common base for lib{} and libu{} groups.
     //
-    class libx: public target
+    // We use mtime_target as a base for the "trust me it exists" functionality
+    // which we use, for example, to have installed lib{} prerequisites that
+    // are matched by the fallback file rule.
+    //
+    class libx: public mtime_target
     {
     public:
-      using target::target;
+      using mtime_target::mtime_target;
 
     public:
       static const target_type static_type;
