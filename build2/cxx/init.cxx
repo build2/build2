@@ -367,6 +367,8 @@ namespace build2
         //
         v.insert<string>   ("cxx.preprocessed"),
 
+        nullptr, // cxx.features.symexport (set in init() below).
+
         v.insert<string>   ("cxx.std", variable_visibility::project),
 
         v.insert<string>   ("cxx.id"),
@@ -442,17 +444,20 @@ namespace build2
       if (!cast_false<bool> (rs["cxx.config.loaded"]))
         load_module (rs, rs, "cxx.config", loc, false, hints);
 
+      config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
+
       auto& vp (var_pool.rw (rs));
 
       bool modules (cast<bool> (rs["cxx.features.modules"]));
 
-      bool symexport (
-        modules &&
-        cast_false<bool> (
-          rs[vp.insert<bool> ("cxx.features.symexport",
-                              variable_visibility::project)]));
-
-      config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
+      bool symexport (false);
+      if (modules)
+      {
+        auto& var (vp.insert<bool> ("cxx.features.symexport",
+                                    variable_visibility::project));
+        symexport = cast_false<bool> (rs[var]);
+        cm.x_symexport = &var;
+      }
 
       cc::data d {
         cm,

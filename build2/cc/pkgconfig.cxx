@@ -19,6 +19,7 @@
 #include <build2/cc/utility.hxx>
 
 #include <build2/cc/common.hxx>
+#include <build2/cc/compile.hxx>
 #include <build2/cc/link.hxx>
 
 using namespace std;
@@ -158,7 +159,7 @@ namespace build2
       // To keep things simple, we run pkg-config multiple times, for
       // --cflag/--libs, with and without --static.
       //
-      auto extract = [this] (const path& f, const char* o, bool a) -> string
+      auto extract = [this] (const path& f, const char* o, bool a = false)
       {
         const char* args[] = {
           pkgconfig->recall_string (),
@@ -525,7 +526,7 @@ namespace build2
       auto parse_modules = [&trace, &extract, &next, this]
         (const path& f, prerequisites& ps)
       {
-        string mstr (extract (f, "--variable=modules", false));
+        string mstr (extract (f, "--variable=modules"));
 
         string m;
         for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
@@ -543,6 +544,13 @@ namespace build2
           path mp (m, p + 1, string::npos);
           path mf (mp.leaf ());
 
+          // Extract module properties, if any.
+          //
+          string pp (
+            extract (f, ("--variable=module_preprocessed." + mn).c_str ()));
+          string se (
+            extract (f, ("--variable=module_symexport." + mn).c_str ()));
+
           // For now we assume these are C++ modules. There aren't any other
           // kind currently but if there were we would need to encode this
           // information somehow (e.g., cxx_modules vs c_modules variable
@@ -557,10 +565,23 @@ namespace build2
                             true, // Implied.
                             trace).first);
 
-          //@@ TODO: if target already exists, then setting its variable is
+          //@@ TODO: if target already exists, then setting its variables is
           //   not MT-safe. Perhaps use prerequisite-specific value?
           //
           mt.vars.assign (c_module_name) = move (mn);
+
+          // Set module properties. Note that if unspecified we should still
+          // set them to their default values since the hosting project may
+          // have them set to incompatible value.
+          //
+          {
+            value& v (mt.vars.assign (x_preprocessed)); // NULL
+            if (!pp.empty ()) v = move (pp);
+          }
+
+          {
+            mt.vars.assign (*x_symexport) = (se == "true");
+          }
 
           ps.push_back (prerequisite (mt));
         }
@@ -854,13 +875,21 @@ namespace build2
           os << endl;
         }
 
-        // If we have modules, list them in the modules variable. This code
-        // is pretty similar to compiler::search_modules().
+        // If we have modules, list them in the modules variable. We also save
+        // some extra info about them (yes, the rabbit hole runs deep). This
+        // code is pretty similar to compiler::search_modules().
         //
         if (modules)
         {
-          os << endl
-             << "modules =";
+          struct module
+          {
+            string name;
+            path file;
+
+            string pp;
+            bool symexport;
+          };
+          vector<module> modules;
 
           for (const target* pt: l.prerequisite_targets)
           {
@@ -893,15 +922,46 @@ namespace build2
               if (p.empty ()) // Not installed.
                 continue;
 
-              const string& n (cast<string> (pt->vars[c_module_name]));
+              string pp;
+              if (const string* v = cast_null<string> ((*mt)[x_preprocessed]))
+                pp = *v;
 
-              // Module name shouldn't require escaping.
-              //
-              os << ' ' << n << '=' << escape (p.string ());
+              const string& n ();
+              modules.push_back (
+                module {
+                  cast<string> (pt->vars[c_module_name]),
+                  move (p),
+                  move (pp),
+                  symexport
+                });
             }
           }
 
-          os << endl;
+          if (!modules.empty ())
+          {
+            os << endl
+               << "modules =";
+
+            // Module names shouldn't require escaping.
+            //
+            for (const module& m: modules)
+              os << ' ' << m.name << '=' << escape (m.file.string ());
+
+            os << endl;
+
+            // Module-specific properties. The format is:
+            //
+            // module_<property>.<module> = <value>
+            //
+            for (const module& m: modules)
+            {
+              if (!m.pp.empty ())
+                os << "module_preprocessed." << m.name << " = " << m.pp << endl;
+
+              if (m.symexport)
+                os << "module_symexport." << m.name << " = true" << endl;
+            }
+          }
         }
 
         os.close ();

@@ -710,6 +710,8 @@ namespace build2
             // might depend on the imported one(s) which we will never "see"
             // unless we start with this library.
             //
+            // Note: have similar logic in make_module_sidebuild().
+            //
             size_t j (start);
             for (prerequisite_member p: group_prerequisite_members (act, t))
             {
@@ -719,7 +721,7 @@ namespace build2
                   p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
                   p.is_a<bmi> ()  || p.is_a (tt.bmi))
               {
-                ps.emplace_back (p.as_prerequisite ());
+                ps.push_back (p.as_prerequisite ());
               }
               else if (x_mod != nullptr && p.is_a (*x_mod)) // Chained module.
               {
@@ -734,7 +736,7 @@ namespace build2
                   bool group (j < i && !p.prerequisite.belongs (t));
 
                   unmark (pt);
-                  ps.emplace_back (prerequisite (group ? *pt->group : *pt));
+                  ps.push_back (prerequisite (group ? *pt->group : *pt));
                 }
               }
             }

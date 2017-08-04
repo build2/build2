@@ -51,7 +51,7 @@ namespace build2
       msvc_library_search_paths (process_path&, scope&) const; // msvc.cxx
     };
 
-    class module: public module_base, protected virtual common,
+    class module: public module_base, public virtual common,
                   link,
                   compile,
                   file_install,

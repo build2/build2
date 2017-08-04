@@ -100,7 +100,7 @@ namespace build2
       map_extension (const scope&, const string&, const string&) const;
 
       pair<auto_rmfile, bool>
-      extract_headers (action, file&, linfo,
+      extract_headers (action, const scope&, file&, linfo,
                        const file&, const match_data&,
                        depdb&, bool&, timestamp) const;
 
@@ -109,13 +109,19 @@ namespace build2
                   const file&, auto_rmfile&, const match_data&) const;
 
       void
-      extract_modules (action, file&, linfo, const compile_target_types&,
+      extract_modules (action, const scope&, file&, linfo,
+                       const compile_target_types&,
                        const file&, match_data&,
                        module_info&&, depdb&, bool&) const;
 
       module_positions
-      search_modules (action, file&, linfo, const target_type&,
+      search_modules (action, const scope&, file&, linfo,
+                      const target_type&,
                       const file&, module_imports&, sha256&) const;
+
+      const target&
+      make_module_sidebuild (action, const scope&, const target&,
+                             const target&, const string&) const;
 
       void
       append_modules (environment&, cstrings&, strings&,

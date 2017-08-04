@@ -178,6 +178,7 @@ namespace build2
         v["cc.reprocess"],
 
         v.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
+        nullptr,                               // No __symexport (no modules).
 
         v.insert<string>   ("c.std", variable_visibility::project),
 

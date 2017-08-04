@@ -70,6 +70,7 @@ namespace build2
       const variable& c_reprocess;    // cc.reprocess
 
       const variable& x_preprocessed; // x.preprocessed
+      const variable* x_symexport;    // x.features.symexport
 
       const variable& x_std;
 
@@ -183,7 +184,7 @@ namespace build2
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
 
-    class common: protected data
+    class common: public data
     {
     public:
       common (data&& d): data (move (d)) {}

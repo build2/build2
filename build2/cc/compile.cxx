@@ -16,6 +16,7 @@
 
 #include <build2/cc/parser.hxx>
 #include <build2/cc/target.hxx>  // h
+#include <build2/cc/module.hxx>
 #include <build2/cc/utility.hxx>
 
 using namespace std;
@@ -127,6 +128,7 @@ namespace build2
 
       translation_type type;
       preprocessed pp = preprocessed::none;
+      bool symexport = false;                // Target uses __symexport.
       bool touch = false;                    // Target needs to be touched.
       timestamp mt = timestamp_unknown;      // Target timestamp.
       prerequisite_member src;
@@ -676,6 +678,17 @@ namespace build2
         //
         const file& src (*md.src.search (t).is_a<file> ());
 
+        // Figure out if __symexport is used. While normally it is specified
+        // on the project root (which we cached), it can be overridden with
+        // a target-specific value for installed modules (which we sidebuild
+        // as part of our project).
+        //
+        if (modules && src.is_a (*x_mod))
+        {
+          lookup l (src.vars[x_symexport]);
+          md.symexport = l ? cast<bool> (l) : symexport;
+        }
+
         // Make sure the output directory exists.
         //
         // Is this the right thing to do? It does smell a bit, but then we do
@@ -732,7 +745,7 @@ namespace build2
           // depdb so factor them in.
           //
           cs.append (&md.pp, sizeof (md.pp));
-          cs.append (&symexport, sizeof (symexport));
+          cs.append (&md.symexport, sizeof (md.symexport));
 
           if (md.pp != preprocessed::all)
           {
@@ -820,7 +833,7 @@ namespace build2
         //
         pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          psrc = extract_headers (act, t, li, src, md, dd, u, mt);
+          psrc = extract_headers (act, bs, t, li, src, md, dd, u, mt);
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -900,7 +913,7 @@ namespace build2
           // NOTE: assumes that no further targets will be added into
           //       t.prerequisite_targets!
           //
-          extract_modules (act, t, li, tt, src, md, move (tu.mod), dd, u);
+          extract_modules (act, bs, t, li, tt, src, md, move (tu.mod), dd, u);
         }
 
         // If anything got updated, then we didn't rely on the cache. However,
@@ -1305,6 +1318,7 @@ namespace build2
     //
     pair<auto_rmfile, bool> compile::
     extract_headers (action act,
+                     const scope& bs,
                      file& t,
                      linfo li,
                      const file& src,
@@ -1330,7 +1344,6 @@ namespace build2
             dr << info << "while extracting header dependencies from " << src;
         });
 
-      const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
       // Preprocess mode that preserves as much information as possible while
@@ -1523,7 +1536,7 @@ namespace build2
             args.push_back (d.string ().c_str ());
           }
 
-          if (symexport && md.type == translation_type::module_iface)
+          if (md.symexport)
             append_symexport_options (args, t);
 
           // Some compile options (e.g., -std, -m) affect the preprocessor.
@@ -2434,7 +2447,7 @@ namespace build2
             args.push_back (d.string ().c_str ());
           }
 
-          if (symexport && md.type == translation_type::module_iface)
+          if (md.symexport)
             append_symexport_options (args, t);
 
           append_options (args, t, c_coptions);
@@ -2629,6 +2642,7 @@ namespace build2
     //
     void compile::
     extract_modules (action act,
+                     const scope& bs,
                      file& t,
                      linfo li,
                      const compile_target_types& tt,
@@ -2686,7 +2700,7 @@ namespace build2
       sha256 cs;
 
       if (!mi.imports.empty ())
-        md.mods = search_modules (act, t, li, tt.bmi, src, mi.imports, cs);
+        md.mods = search_modules (act, bs, t, li, tt.bmi, src, mi.imports, cs);
 
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
@@ -2745,6 +2759,7 @@ namespace build2
     //
     module_positions compile::
     search_modules (action act,
+                    const scope& bs,
                     file& t,
                     linfo li,
                     const target_type& mtt,
@@ -2941,38 +2956,34 @@ namespace build2
       // For our own bmi{} prerequisites, checking if each (better) matches
       // any of the imports.
 
-      // Check if a "name" (better) resolves any of our imports and if so make
-      // it the new selection. If fuzzy is true, then it is a file name,
-      // otherwise it is the actual module name.
+      // For fuzzy check if a file name (better) resolves any of our imports
+      // and if so make it the new selection. For exact the name is the actual
+      // module name and it can only resolve one import (there are no
+      // duplicates).
       //
-      // Return true if all the imports have now been resolved to actual
+      // Set done to true if all the imports have now been resolved to actual
       // module names (which means we can stop searching). This will happens
       // if all the modules come from libraries. Which will be fairly common
       // (think of all the tests) so it's worth optimizing for.
       //
-      auto check = [&trace, &imports, &pts, &match, start, n]
-        (const target* pt, const string& name, bool fuzzy) -> bool
-      {
-        bool done (true);
+      bool done (false);
 
+      auto check_fuzzy = [&trace, &imports, &pts, &match, start, n]
+        (const target* pt, const string& name)
+      {
         for (size_t i (0); i != n; ++i)
         {
           module_import& m (imports[i]);
 
-          if (fuzzy && std_module (m.name)) // No fuzzy std.* matches.
-          {
-            done = false;
+          if (std_module (m.name)) // No fuzzy std.* matches.
             continue;
-          }
 
           size_t n (m.name.size ());
 
-          if (m.score > n) // Resolved to module name (no effect on done).
+          if (m.score > n) // Resolved to module name.
             continue;
 
-          size_t s (fuzzy ?
-                    match (name, m.name) :
-                    (name == m.name ? n + 1 : 0));
+          size_t s (match (name, m.name));
 
           l5 ([&]{trace << name << " ~ " << m.name << ": " << s;});
 
@@ -2981,14 +2992,47 @@ namespace build2
             pts[start + i] = pt;
             m.score = s;
           }
-
-          done = done && s > n;
         }
-
-        return done;
       };
 
-      bool done (false);
+      // If resolved, return the "slot" in pts (we don't want to create a
+      // side build until we know we match; see below for details).
+      //
+      auto check_exact = [&trace, &imports, &pts, start, n, &done]
+        (const string& name) -> const target**
+      {
+        const target** r (nullptr);
+        done = true;
+
+        for (size_t i (0); i != n; ++i)
+        {
+          module_import& m (imports[i]);
+
+          size_t n (m.name.size ());
+
+          if (m.score > n) // Resolved to module name (no effect on done).
+            continue;
+
+          if (r == nullptr)
+          {
+            size_t s (name == m.name ? n + 1 : 0);
+
+            l5 ([&]{trace << name << " ~ " << m.name << ": " << s;});
+
+            if (s > m.score)
+            {
+              r = &pts[start + i].target;
+              m.score = s;
+              continue; // Scan the rest to detect if all done.
+            }
+          }
+
+          done = false;
+        }
+
+        return r;
+      };
+
       for (prerequisite_member p: group_prerequisite_members (act, t))
       {
         const target* pt (p.load ()); // Should be cached for libraries.
@@ -3002,12 +3046,15 @@ namespace build2
           else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
             lt = pt;
 
-          // If this is a library, check its bmi{}s.
+          // If this is a library, check its bmi{}s and mxx{}s.
           //
           if (lt != nullptr)
           {
             for (const target* bt: lt->prerequisite_targets)
             {
+              if (bt == nullptr)
+                continue;
+
               // Note that here we (try) to use whatever flavor of bmi*{} is
               // available.
               //
@@ -3015,16 +3062,36 @@ namespace build2
               // @@ UTL: we need to (recursively) see through libux{} (and
               //    also in pkgconfig_save()).
               //
-              if (bt != nullptr &&
-                  (bt->is_a<bmis> () ||
-                   bt->is_a<bmia> () ||
-                   bt->is_a<bmie> ()))
+              if (bt->is_a<bmis> () ||
+                  bt->is_a<bmia> () ||
+                  bt->is_a<bmie> ())
               {
                 const string& n (cast<string> (bt->vars[c_module_name]));
 
-                if ((done = check (bt, n, false)))
-                  break;
+                if (const target** p = check_exact (n))
+                  *p = bt;
               }
+              else if (bt->is_a (*x_mod))
+              {
+                // This is an installed library with a list of module sources
+                // (the source are specified as prerequisites but the fallback
+                // file rule puts them into prerequisite_targets for us).
+                //
+                // The module names should be specified but if not assume
+                // something else is going on and ignore.
+                //
+                const string* n (cast_null<string> (bt->vars[c_module_name]));
+                if (n == nullptr)
+                  continue;
+
+                if (const target** p = check_exact (*n))
+                  *p = &make_module_sidebuild (act, bs, *lt, *bt, *n);
+              }
+              else
+                continue;
+
+              if (done)
+                break;
             }
 
             if (done)
@@ -3066,7 +3133,10 @@ namespace build2
                              ? cast_null<string> (t->vars[c_module_name])
                              : nullptr);
             if (n != nullptr)
-              done = check (pt, *n, false);
+            {
+              if (const target** p = check_exact (*n))
+                *p = pt;
+            }
             else
             {
               // Fuzzy match.
@@ -3086,7 +3156,7 @@ namespace build2
                 f = d.representation (); // Includes trailing slash.
 
               f += p.name ();
-              done = check (pt, f, true);
+              check_fuzzy (pt, f);
             }
             break;
           }
@@ -3226,6 +3296,129 @@ namespace build2
         exported += start; // Rebase.
 
       return module_positions {start, exported, copied};
+    }
+
+    // Synthesize a dependency for building a module binary interface on
+    // the side.
+    //
+    const target& compile::
+    make_module_sidebuild (action act,
+                           const scope& bs,
+                           const target& lt,
+                           const target& mt,
+                           const string& mn) const
+    {
+      tracer trace (x, "compile::make_module_sidebuild");
+
+      // First figure out where we are going to build. We want to avoid
+      // multiple sidebuilds so the outermost scope that has loaded the module
+      // capable of compiling things and that is within our amalgmantion seems
+      // like a good place.
+      //
+      // @@ TODO: this is actually pretty restrictive: we need cxx and with
+      // modules enabled! Which means things like bpkg configurations won't
+      // work (only loads cc.config).
+      //
+      const scope* as (bs.root_scope ());
+      {
+        const scope* ws (as->weak_scope ());
+        if (as != ws)
+        {
+          const scope* s (as);
+          do
+          {
+            s = s->parent_scope ()->root_scope ();
+
+            const module* m (s->modules.lookup<module> ("cxx"));
+            if (m != nullptr && m->modules)
+              as = s;
+
+          } while (s != ws);
+        }
+      }
+
+      // Next we need to come up with a file/target name that will be unique
+      // enough not to conflict with other modules. If we assume that within
+      // an amalgamation there is only one "version" of each module, then the
+      // module name itself seems like a good fit. We just replace '.' with
+      // '-'.
+      //
+      string mf;
+      transform (mn.begin (), mn.end (),
+                 back_inserter (mf),
+                 [] (char c) {return c == '.' ? '-' : c;});
+
+      // Store the BMI target in the build/<mod>/modules/ subdirectory.
+      //
+      dir_path md (as->out_path ());
+      md /= "build";
+      md /= x;
+      md /= "modules";
+
+      // It seems natural to build a BMI type that corresponds to the library
+      // type. After all, this is where the object file part of the BMI is
+      // going to come from (though things will probably be different for
+      // module-only libraries).
+      //
+      const target_type* tt (nullptr);
+      switch (link_type (lt).type)
+      {
+      case otype::a: tt = &bmia::static_type; break;
+      case otype::s: tt = &bmis::static_type; break;
+      case otype::e: assert (false);
+      }
+
+      // If the target already exists then we assume all this is already done
+      // (otherwise why would someone have created such a target).
+      //
+      if (const target* bt = targets.find (
+            *tt,
+            move (md),
+            dir_path (), // Always in the out tree.
+            move (mf),
+            nullopt,     // Use default extension.
+            trace))
+        return *bt;
+
+      prerequisites ps;
+      ps.push_back (prerequisite (mt));
+
+      // We've added the mxx{} but it may import other modules from this
+      // library. Or from (direct) dependencies of this library. We add them
+      // all as prerequisites so that the standard module search logic can
+      // sort things out. This is pretty similar to what we do in link when
+      // synthesizing dependencies for bmi{}'s.
+      //
+      ps.push_back (prerequisite (lt));
+      for (prerequisite_member p: group_prerequisite_members (act, lt))
+      {
+        // @@ TODO: will probably need revision if using sidebuild for
+        //    non-installed libraries (e.g., direct BMI dependencies
+        //    will probably have to be translated to mxx{} or some such).
+        //
+        if (p.is_a<libx> () ||
+            p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
+        {
+          ps.push_back (p.as_prerequisite ());
+        }
+      }
+
+      auto p (targets.insert_locked (*tt,
+                                     move (md),
+                                     dir_path (), // Always in the out tree.
+                                     move (mf),
+                                     nullopt,     // Use default extension.
+                                     true,        // Implied.
+                                     trace));
+      const target& bt (p.first);
+
+      // Note that this racy and someone might have created this target
+      // while we were preparing the prerequisite list.
+      //
+      if (p.second.owns_lock ())
+        bt.prerequisites (move (ps));
+
+      return bt;
     }
 
     // Filter cl.exe noise (msvc.cxx).
@@ -3448,7 +3641,7 @@ namespace build2
           args.push_back (d.string ().c_str ());
         }
 
-        if (symexport && md.type == translation_type::module_iface)
+        if (md.symexport)
           append_symexport_options (args, t);
       }
 
