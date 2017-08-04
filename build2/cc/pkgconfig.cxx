@@ -926,7 +926,6 @@ namespace build2
               if (const string* v = cast_null<string> ((*mt)[x_preprocessed]))
                 pp = *v;
 
-              const string& n ();
               modules.push_back (
                 module {
                   cast<string> (pt->vars[c_module_name]),
