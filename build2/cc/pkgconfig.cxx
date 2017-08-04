@@ -575,6 +575,13 @@ namespace build2
       if (ap.empty () && sp.empty ())
         return false;
 
+      // First sort out the interface dependencies (which we are setting on
+      // lib{}). If we have the shared .pc variant, then we use that.
+      // Otherwise -- static but extract without the --static option (see also
+      // the saving logic).
+      //
+      parse_libs (lt, sp.empty () ? sp : ap, false);
+
       if (at != nullptr && !ap.empty ())
       {
         parse_cflags (*at, ap, true);
@@ -582,10 +589,7 @@ namespace build2
       }
 
       if (st != nullptr && !sp.empty ())
-      {
         parse_cflags (*st, sp, false);
-        parse_libs (lt, sp, false); // Note: setting on lib{} (interface).
-      }
 
       // For now we assume static and shared variants export the same set of
       // modules. While technically possible, having a different set will
@@ -755,23 +759,31 @@ namespace build2
 
         // Libs.
         //
+        // While we generate split shared/static .pc files, in case of static
+        // we still want to sort things out into Libs/Libs.private. This is
+        // necessary to distinguish between interface and implementation
+        // dependencies if we don't have the shared variant (see the load
+        // logic for details).
+        //
+        //@@ TODO: would be nice to weed out duplicates. But is it always
+        //   safe? Think linking archives: will have to keep duplicates in
+        //   the second position, not first. Gets even trickier with
+        //   Libs.private split.
+        //
         os << "Libs:";
         os << " -L" << escape (ld.string ());
 
         // Now process ourselves as if we were being linked to something (so
         // pretty similar to link::append_libraries()).
         //
-        auto imp = [] (const file&, bool la) {return la;};
+        bool priv (false);
+        auto imp = [&priv] (const file&, bool la) {return priv && la;};
 
         auto lib = [&os, &save_library] (const file* l,
                                          const string& p,
                                          lflags,
                                          bool)
         {
-          //@@ TODO: would be nice to weed out duplicates. But is it always
-          // safe? Think linking archives: will have to keep duplicates in
-          // the second position, not first.
-
           if (l != nullptr)
           {
             if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
@@ -786,6 +798,7 @@ namespace build2
                           bool, bool)
         {
           //@@ TODO: should we filter -L similar to -I?
+          //@@ TODO: how will the Libs/Libs.private work?
           //@@ TODO: remember to use escape()
 
           /*
@@ -805,17 +818,26 @@ namespace build2
           */
         };
 
-        process_libraries (
-          act,
-          bs,
-          linfo {otype::e, la ? lorder::a_s : lorder::s_a}, // System-default.
-          sys_lib_dirs,
-          l, la,
-          0, // Link flags.
-          imp, lib, opt,
-          true);
+        // Pretend we are linking an executable using what would be normal,
+        // system-default link order.
+        //
+        linfo li {otype::e, la ? lorder::a_s : lorder::s_a};
 
+        process_libraries (act, bs, li, sys_lib_dirs,
+                           l, la, 0, // Link flags.
+                           imp, lib, opt, true);
         os << endl;
+
+        if (la)
+        {
+          os << "Libs.private:";
+
+          priv = true;
+          process_libraries (act, bs, li, sys_lib_dirs,
+                             l, la, 0, // Link flags.
+                             imp, lib, opt, false);
+          os << endl;
+        }
 
         // If we have modules, list them in the modules variable. This code
         // is pretty similar to compiler::search_modules().
