@@ -111,8 +111,8 @@ namespace build2
 
         if (rs != t.base_scope ().root_scope ())
           fail << "target " << t << " is from a different project" <<
-            info << "one dist() meta-operation can handle one project" <<
-            info << "consider using several dist() meta-operations";
+            info << "one dist meta-operation can handle one project" <<
+            info << "consider using several dist meta-operations";
       }
 
       // Match a rule for every operation supported by this project. Skip
