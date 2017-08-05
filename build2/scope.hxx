@@ -336,6 +336,11 @@ namespace build2
       // directory (i.e., the calling code does not know what it is dealing
       // with), so let's use the whole path.
       //
+      // In fact, ideally, we should have used path_map instead of
+      // dir_path_map to be able to search for both paths without any casting
+      // (and copies). But currently we have too much stuff pointing to the
+      // key.
+      //
       return find (path_cast<dir_path> (p));
     }
 

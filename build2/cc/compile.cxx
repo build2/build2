@@ -2052,7 +2052,7 @@ namespace build2
           if (!pfx_map->empty ())
           {
             dir_path d (f.directory ());
-            auto i (pfx_map->find_sub (d));
+            auto i (pfx_map->find_sup (d));
 
             if (i != pfx_map->end ())
             {
@@ -2097,7 +2097,7 @@ namespace build2
             {
               // Find the most qualified prefix of which we are a sub-path.
               //
-              auto i (so_map.find_sub (f));
+              auto i (so_map.find_sup (f));
               if (i != so_map.end ())
               {
                 // Ok, there is an out tree for this headers. Remap to a path

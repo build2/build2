@@ -788,29 +788,35 @@ namespace build2
     return er.first;
   }
 
-  // Find the most qualified scope that encompasses this path.
-  //
   scope& scope_map::
   find (const dir_path& k)
   {
     scope_map_base& m (*this);
 
-    // Normally we would have a scope for the full path so try that before
-    // making any copies.
+    // Better implementation that should work but doesn't.
     //
-    auto i (m.find (k)), e (m.end ());
+#if 0
+    assert (k.normalized (false)); // Allow non-canonical dir separators.
+    auto i (m.find_sup (k));
+    return i != m.end () ? i->second : const_cast<scope&> (*global_scope);
+#else
+   // Normally we would have a scope for the full path so try that before
+   // making any copies.
+   //
+   auto i (m.find (k)), e (m.end ());
 
-    if (i != e)
-      return i->second;
+   if (i != e)
+     return i->second;
 
-    for (dir_path d (k.directory ());; d = d.directory ())
-    {
-      auto i (m.find (d));
+   for (dir_path d (k.directory ());; d = d.directory ())
+   {
+     auto i (m.find (d));
 
-      if (i != e)
-        return i->second;
+     if (i != e)
+       return i->second;
 
-      assert (!d.empty ()); // We should have the global scope.
-    }
+     assert (!d.empty ()); // We should have the global scope.
+   }
+#endif
   }
 }
