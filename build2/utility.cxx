@@ -110,6 +110,7 @@ namespace build2
 
   options ops;
   process_path argv0;
+  bool stderr_term;
 
   const standard_version build_version (BUILD2_VERSION_STR);
 

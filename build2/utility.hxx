@@ -96,6 +96,8 @@ namespace build2
   next_word (const string&, size_t n, size_t& b, size_t& e,
              char d1 = ' ', char d2 = '\0');
 
+  extern bool stderr_term; // True if stderr is a terminal.
+
   // Command line options.
   //
   extern options ops;

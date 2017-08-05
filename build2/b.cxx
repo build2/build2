@@ -14,6 +14,7 @@
 #include <iostream>    // cout
 
 #include <libbutl/pager.hxx>
+#include <libbutl/fdstream.hxx> // stderr_fd(), fdterm()
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
@@ -238,8 +239,14 @@ main (int argc, char* argv[])
       fail << e;
     }
 
+    // Validate options.
+    //
+    if (ops.progress () && ops.no_progress ())
+      fail << "inconsistent progress display options";
+
     // Global initializations.
     //
+    stderr_term = fdterm (stderr_fd ());
     init (argv[0],
           ops.verbose_specified ()
           ? ops.verbose ()

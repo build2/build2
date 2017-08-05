@@ -235,6 +235,12 @@ namespace build2
   }
 
   inline const bool& options::
+  no_progress () const
+  {
+    return this->no_progress_;
+  }
+
+  inline const bool& options::
   quiet () const
   {
     return this->quiet_;

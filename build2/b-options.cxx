@@ -572,6 +572,7 @@ namespace build2
   : v_ (),
     V_ (),
     progress_ (),
+    no_progress_ (),
     quiet_ (),
     verbose_ (1),
     verbose_specified_ (false),
@@ -677,9 +678,12 @@ namespace build2
        << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--progress\033[0m|\033[1m-p\033[0m        Display build progress. Only usable when printing to a" << ::std::endl
-       << "                     terminal but can be combined with various verbosity" << ::std::endl
-       << "                     levels." << ::std::endl;
+       << "\033[1m--progress\033[0m|\033[1m-p\033[0m        Display build progress. If printing to a terminal the" << ::std::endl
+       << "                     progress is displayed by default for low verbosity levels." << ::std::endl
+       << "                     Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-progress\033[0m        Don't display build progress." << ::std::endl;
 
     os << std::endl
        << "\033[1m--quiet\033[0m|\033[1m-q\033[0m           Run quietly, only printing error messages. This is" << ::std::endl
@@ -806,6 +810,8 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::progress_ >;
       _cli_options_map_["-p"] = 
       &::build2::cl::thunk< options, bool, &options::progress_ >;
+      _cli_options_map_["--no-progress"] = 
+      &::build2::cl::thunk< options, bool, &options::no_progress_ >;
       _cli_options_map_["--quiet"] = 
       &::build2::cl::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["-q"] = 

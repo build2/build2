@@ -405,6 +405,9 @@ namespace build2
     progress () const;
 
     const bool&
+    no_progress () const;
+
+    const bool&
     quiet () const;
 
     const uint16_t&
@@ -501,6 +504,7 @@ namespace build2
     bool v_;
     bool V_;
     bool progress_;
+    bool no_progress_;
     bool quiet_;
     uint16_t verbose_;
     bool verbose_specified_;

@@ -335,8 +335,14 @@ namespace build2
 
     bool --progress|-p
     {
-      "Display build progress. Only usable when printing to a terminal but
-       can be combined with various verbosity levels."
+      "Display build progress. If printing to a terminal the progress is
+       displayed by default for low verbosity levels. Use \cb{--no-progress}
+       to suppress."
+    }
+
+    bool --no-progress
+    {
+      "Don't display build progress."
     }
 
     bool --quiet|-q
