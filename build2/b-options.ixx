@@ -295,6 +295,12 @@ namespace build2
   }
 
   inline const bool& options::
+  match_only () const
+  {
+    return this->match_only_;
+  }
+
+  inline const bool& options::
   no_column () const
   {
     return this->no_column_;

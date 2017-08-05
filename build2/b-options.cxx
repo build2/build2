@@ -582,6 +582,7 @@ namespace build2
     queue_depth_ (4),
     queue_depth_specified_ (false),
     serial_stop_ (),
+    match_only_ (),
     no_column_ (),
     no_line_ (),
     buildfile_ ("buildfile"),
@@ -729,6 +730,10 @@ namespace build2
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
+       << "                     mode is primarily useful for profiling." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
 
     os << std::endl
@@ -830,6 +835,8 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      _cli_options_map_["--match-only"] = 
+      &::build2::cl::thunk< options, bool, &options::match_only_ >;
       _cli_options_map_["--no-column"] = 
       &::build2::cl::thunk< options, bool, &options::no_column_ >;
       _cli_options_map_["--no-line"] = 

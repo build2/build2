@@ -435,6 +435,9 @@ namespace build2
     serial_stop () const;
 
     const bool&
+    match_only () const;
+
+    const bool&
     no_column () const;
 
     const bool&
@@ -508,6 +511,7 @@ namespace build2
     size_t queue_depth_;
     bool queue_depth_specified_;
     bool serial_stop_;
+    bool match_only_;
     bool no_column_;
     bool no_line_;
     path buildfile_;

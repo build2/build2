@@ -1186,8 +1186,11 @@ main (int argc, char* argv[])
 
           // Run quiet.
           //
-          if (mif->match != nullptr)   mif->match (mparams, a, tgs);
-          if (mif->execute != nullptr) mif->execute (mparams, a, tgs, true);
+          if (mif->match != nullptr)
+            mif->match (mparams, a, tgs);
+
+          if (mif->execute != nullptr && !ops.match_only ())
+            mif->execute (mparams, a, tgs, true);
 
           if (mif->operation_post != nullptr)
             mif->operation_post (mparams, pre_oid);
@@ -1200,8 +1203,11 @@ main (int argc, char* argv[])
 
         action a (mid, oid, 0);
 
-        if (mif->match != nullptr)   mif->match (mparams, a, tgs);
-        if (mif->execute != nullptr) mif->execute (mparams, a, tgs, verb == 0);
+        if (mif->match != nullptr)
+          mif->match (mparams, a, tgs);
+
+        if (mif->execute != nullptr && !ops.match_only ())
+          mif->execute (mparams, a, tgs, verb == 0);
 
         if (post_oid != 0)
         {
@@ -1217,8 +1223,11 @@ main (int argc, char* argv[])
 
           // Run quiet.
           //
-          if (mif->match != nullptr)   mif->match (mparams, a, tgs);
-          if (mif->execute != nullptr) mif->execute (mparams, a, tgs, true);
+          if (mif->match != nullptr)
+            mif->match (mparams, a, tgs);
+
+          if (mif->execute != nullptr && !ops.match_only ())
+            mif->execute (mparams, a, tgs, true);
 
           if (mif->operation_post != nullptr)
             mif->operation_post (mparams, post_oid);

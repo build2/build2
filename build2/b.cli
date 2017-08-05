@@ -405,6 +405,12 @@ namespace build2
        \c{-j 0} for default concurrency)."
     }
 
+    bool --match-only
+    {
+      "Match the rules but do not execute the operation. This mode is primarily
+       useful for profiling."
+    }
+
     bool --no-column
     {
       "Don't print column numbers in diagnostics."
