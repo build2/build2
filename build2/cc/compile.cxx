@@ -5,6 +5,8 @@
 #include <build2/cc/compile.hxx>
 
 #include <cstdlib>  // exit()
+#include <cstring>  // strlen()
+
 #include <build2/depdb.hxx>
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
@@ -1467,6 +1469,49 @@ namespace build2
       //
       bool sense_diag (false);
 
+      // And here is another problem: if we have an already generated header
+      // in src and the one in out does not yet exist, then the compiler will
+      // pick the one in src and we won't even notice. Note that this is not
+      // only an issue with mixing in- and out-of-tree builds (which does feel
+      // wrong but is oh so convenient): this is also a problem with
+      // pre-generated headers, a technique we use to make installing the
+      // generator by end-users optional by shipping pre-generated headers.
+      //
+      // This is a nasty problem that doesn't seem to have a perfect solution
+      // (except, perhaps, C++ modules). So what we are going to do is try to
+      // rectify the situation by detecting and automatically re-mapping such
+      // mis-inclusions. It works as follows.
+      //
+      // First we will build a map of src/out pairs that were specified with
+      // -I. Here, for performance and simplicity, we will assume that they
+      // always come in pairs with out first and src second. We build this
+      // map lazily only if we are running the preprocessor and reuse it
+      // between restarts.
+      //
+      // With the map in hand we can then check each included header for
+      // potentially having a doppelganger in the out tree. If this is the
+      // case, then we calculate a corresponding header in the out tree and,
+      // (this is the most important part), check if there is a target for
+      // this header in the out tree. This should be fairly accurate and not
+      // require anything explicit from the user except perhaps for a case
+      // where the header is generated out of nothing (so there is no need to
+      // explicitly mention its target in the buildfile). But this probably
+      // won't be very common.
+      //
+      // One tricky area in this setup are target groups: if the generated
+      // sources are mentioned in the buildfile as a group, then there might
+      // be no header target (yet). The way we solve this is by requiring code
+      // generator rules to cooperate and create at least the header target as
+      // part of the group creation. While not all members of the group may be
+      // generated depending on the options (e.g., inline files might be
+      // suppressed), headers are usually non-optional.
+      //
+      // Note that we use path_map instead of dir_path_map to allow searching
+      // using path (file path).
+      //
+      using srcout_map = path_map<dir_path>;
+      srcout_map so_map;
+
       // The gen argument to init_args() is in/out. The caller signals whether
       // to force the generated header support and on return it signals
       // whether this support is enabled. The first call to init_args is
@@ -1478,12 +1523,13 @@ namespace build2
       auto init_args = [&t, act, li,
                         &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
-                        pp, &env, &args, &args_gen, &args_i, &out, &drm, this]
+                        pp, &env, &args, &args_gen, &args_i, &out, &drm,
+                        &so_map, this]
         (bool& gen) -> const path*
       {
         const path* r (nullptr);
 
-        if (args.empty ())
+        if (args.empty ()) // First call.
         {
           assert (!gen);
 
@@ -1527,6 +1573,107 @@ namespace build2
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
+
+          // Populate the src-out with the -I$out_base -I$src_base pairs.
+          //
+          {
+            // Try to be fast and efficient by reusing buffers as much as
+            // possible.
+            //
+            string ds;
+
+            // Previous -I innermost scope if out_base plus the difference
+            // between the scope path and the -I path (normally empty).
+            //
+            const scope* s (nullptr);
+            dir_path p;
+
+            for (auto i (args.begin ()), e (args.end ()); i != e; ++i)
+            {
+              // -I can either be in the "-Ifoo" or "-I foo" form. For VC it
+              // can also be /I.
+              //
+              const char* o (*i);
+              size_t n (strlen (o));
+
+              if (n < 2 || (o[0] != '-' && o[0] != '/') || o[1] != 'I')
+              {
+                s = nullptr;
+                continue;
+              }
+
+              if (n == 2)
+              {
+                if (++i == e)
+                  break; // Let the compiler complain.
+
+                ds = *i;
+              }
+              else
+                ds.assign (o + 2, n - 2);
+
+              // Note that we don't normalize the paths since it would be
+              // quite expensive and normally the pairs we are inerested in
+              // are already normalized (since usually specified as
+              // -I$src/out_*).
+              //
+              // @@ Maybe we should ignore any paths containing '.', '..'
+              // components for safety.
+              //
+              dir_path d (move (ds)); // Move the buffer in.
+
+              if (d.absolute ())
+              {
+                // If we have a candidate out_base, see if this is its
+                // src_base.
+                //
+                if (s != nullptr)
+                {
+                  const dir_path& bp (s->src_path ());
+
+                  if (d.sub (bp))
+                  {
+                    if (p.empty () || d.leaf (bp) == p)
+                    {
+                      // We've got a pair.
+                      //
+                      so_map.emplace (move (d), s->out_path () / p);
+                      continue;
+                    }
+                  }
+
+                  // Not a pair. Fall through to consider as out_base.
+                  //
+                  s = nullptr;
+                }
+
+                // See if this path is inside a project with an out-of-tree
+                // build and is in the out directory tree.
+                //
+                const scope& bs (scopes.find (d));
+                if (bs.root_scope () != nullptr)
+                {
+                  const dir_path& bp (bs.out_path ());
+                  if (bp != bs.src_path ())
+                  {
+                    bool e;
+                    if ((e = (d == bp)) || d.sub (bp))
+                    {
+                      s = &bs;
+                      if (e)
+                        p.clear ();
+                      else
+                        p = d.leaf (bp);
+                    }
+                  }
+                }
+              }
+              else
+                s = nullptr;
+
+              ds = move (d).string (); // Move the buffer out.
+            }
+          }
 
           // Extra system header dirs (last).
           //
@@ -1721,7 +1868,7 @@ namespace build2
       // Build the prefix map lazily only if we have non-existent files.
       // Also reuse it over restarts since it doesn't change.
       //
-      prefix_map pm;
+      optional<prefix_map> pfx_map;
 
       // If any prerequisites that we have extracted changed, then we have to
       // redo the whole thing. The reason for this is auto-generated headers:
@@ -1760,27 +1907,30 @@ namespace build2
       // from the depdb cache or from the compiler run. Return whether the
       // extraction process should be restarted.
       //
-      auto add = [&trace, &pm,
+      auto add = [&trace, &pfx_map, &so_map,
                   act, &t, li,
                   &dd, &updating, mt,
-                  &bs, this] (path f, bool cache) -> bool
+                  &bs, this]
+        (path f, bool cache) -> bool
       {
-        // Find or maybe insert the target.
+        // Find or maybe insert the target. The directory is only moved
+        // from if insert is true.
         //
-        auto find = [&trace, &t, this] (
-          const path& f, bool insert) -> const path_target*
+        auto find = [&trace, &t, this]
+          (dir_path&& d, path&& f, bool insert) -> const path_target*
         {
-          // Split the name into its directory part, the name part, and
-          // extension. Here we can assume the name part is a valid filesystem
-          // name.
+          // Split the file into its name part and extension. Here we can
+          // assume the name part is a valid filesystem name.
           //
           // Note that if the file has no extension, we record an empty
           // extension rather than NULL (which would signify that the default
           // extension should be added).
           //
-          dir_path d (f.directory ());
-          string n (f.leaf ().base ().string ());
           string e (f.extension ());
+          string n (move (f).string ());
+
+          if (!e.empty ())
+            n.resize (n.size () - e.size () - 1); // One for the dot.
 
           // Determine the target type.
           //
@@ -1841,8 +1991,6 @@ namespace build2
           return static_cast<const path_target*> (r);
         };
 
-        const path_target* pt (nullptr);
-
         // If it's not absolute then it either does not (yet) exist or is
         // a relative ""-include (see init_args() for details). Reduce the
         // second case to absolute.
@@ -1876,6 +2024,8 @@ namespace build2
         }
 #endif
 
+        const path_target* pt (nullptr);
+
         // If still relative then it does not exist.
         //
         if (f.relative ())
@@ -1887,58 +2037,38 @@ namespace build2
           //
           l4 ([&]{trace << "non-existent header '" << f << "'";});
 
-          // If we already did this and build_prefix_map() returned empty,
-          // then we would have failed below.
-          //
-          if (pm.empty ())
-            pm = build_prefix_map (bs, t, act, li);
+          if (!pfx_map)
+            pfx_map = build_prefix_map (bs, t, act, li);
 
           // First try the whole file. Then just the directory.
           //
           // @@ Has to be a separate map since the prefix can be
           //    the same as the file name.
           //
-          // auto i (pm.find (f));
+          // auto i (pfx_map->find (f));
 
           // Find the most qualified prefix of which we are a sub-path.
           //
-          auto i (pm.end ());
-
-          if (!pm.empty ())
+          if (!pfx_map->empty ())
           {
-            const dir_path& d (f.directory ());
-            i = pm.upper_bound (d);
+            dir_path d (f.directory ());
+            auto i (pfx_map->find_sub (d));
 
-            // Get the greatest less than, if any. We might still not be a
-            // sub. Note also that we still have to check the last element if
-            // upper_bound() returned end().
-            //
-            if (i == pm.begin () || !d.sub ((--i)->first))
-              i = pm.end ();
-          }
-
-          if (i != pm.end ())
-          {
-            // If this is a prefixless mapping, then only use it if we can
-            // resolve it to an existing target (i.e., it is explicitly
-            // spelled out in a buildfile).
-            //
-            // Note that at some point we will probably have a list of
-            // directories.
-            //
-            if (i->first.empty ())
+            if (i != pfx_map->end ())
             {
-              path p (i->second / f);
-              l4 ([&]{trace << "trying as auto-generated " << p;});
-              pt = find (p, false);
+              // If this is a prefixless mapping, then only use it if we can
+              // resolve it to an existing target (i.e., it is explicitly
+              // spelled out in a buildfile).
+              //
+              // Note that at some point we will probably have a list of
+              // directories.
+              //
+              pt = find (i->second / d, f.leaf (), !i->first.empty ());
               if (pt != nullptr)
-                f = move (p);
-            }
-            else
-            {
-              f = i->second / f;
-              l4 ([&]{trace << "mapped as auto-generated " << f;});
-              pt = find (f, true);
+              {
+                f = i->second / f;
+                l4 ([&]{trace << "mapped as auto-generated " << f;});
+              }
             }
           }
 
@@ -1954,14 +2084,44 @@ namespace build2
         {
           // We used to just normalize the path but that could result in an
           // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
-          // symlinks. So now we realize (i.e., realpath(3)) it instead. If
-          // it comes from the depdb, in which case we've already done that.
+          // symlinks. So now we realize (i.e., realpath(3)) it instead.
+          // Unless it comes from the depdb, in which case we've already done
+          // that. This is also where we handle src-out remap (again, not
+          // needed if cached)
           //
           if (!cache)
+          {
             f.realize ();
 
-          l6 ([&]{trace << "injecting " << f;});
-          pt = find (f, true);
+            if (!so_map.empty ())
+            {
+              // Find the most qualified prefix of which we are a sub-path.
+              //
+              auto i (so_map.find_sub (f));
+              if (i != so_map.end ())
+              {
+                // Ok, there is an out tree for this headers. Remap to a path
+                // from the out tree and see if there is a target for it.
+                //
+                dir_path d (i->second);
+                d /= f.leaf (i->first).directory ();
+                pt = find (move (d), f.leaf (), false); // d is not moved from.
+
+                if (pt != nullptr)
+                {
+                  path p (d / f.leaf ());
+                  l4 ([&]{trace << "re-mapping " << f << " to " << p;});
+                  f = move (p);
+                }
+              }
+            }
+          }
+
+          if (pt == nullptr)
+          {
+            l6 ([&]{trace << "injecting " << f;});
+            pt = find (f.directory (), f.leaf (), true);
+          }
         }
 
         // Cache the path.
