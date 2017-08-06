@@ -1861,20 +1861,13 @@ namespace build2
             //
             args[i++] = "-M";
             args[i++] = "-MG";
+            args[i++] = src.path ().string ().c_str ();
+            args[i]   = nullptr;
 
             if (cid == compiler_id::gcc)
             {
               sense_diag = false;
-
-              // While GCC implies -w in case of -M, it seems to be possible
-              // to re-enable it with -W or -Werror. So we explicitly disable
-              // it, for good measure.
-              //
-              args[i++] = "-w";
             }
-
-            args[i++] = src.path ().string ().c_str ();
-            args[i]   = nullptr;
           }
           else
           {
