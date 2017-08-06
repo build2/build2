@@ -1412,10 +1412,29 @@ namespace build2
       // So this is how we are going to work around this problem: we first run
       // with -E but without -MG. If there are any errors (maybe because of
       // generated headers maybe not), we restart with -MG and without -E. If
-      // this fixes the error (so it was a generate header after all), then we
-      // have to restart at which point we go back to -E and no -MG. And we
+      // this fixes the error (so it was a generated header after all), then
+      // we have to restart at which point we go back to -E and no -MG. And we
       // keep yo-yoing like this. Missing generated headers will probably be
       // fairly rare occurrence so this shouldn't be too expensive.
+      //
+      // Actually, there is another error case we would like to handle: an
+      // outdated generated header that is now causing an error (e.g., because
+      // of a check that is now triggering #error or some such). So there are
+      // actually three error cases: outdated generated header, missing
+      // generated header, and some other error. To handle the outdated case
+      // we need the compiler to produce the dependency information even in
+      // case of an error. Clang does it, for VC we parse diagnostics
+      // ourselves, but GCC does not (but a patch has been submitted).
+      //
+      // So the final plan is then as follows:
+      //
+      // 1. Start wothout -MG and with suppressed diagnostics.
+      // 2. If error but we've updated a header, then repeat step 1.
+      // 3. Otherwise, restart with -MG and diagnostics.
+      //
+      // Note that below we don't even check if the compiler supports the
+      // dependency info on error. We just try to use it and if it's not
+      // there we ignore the io error since the compiler has failed.
       //
       bool args_gen; // Current state of args.
       size_t args_i; // Start of the -M/-MD "tail".
@@ -2304,9 +2323,9 @@ namespace build2
               bool good_error (false), bad_error (false);
 
               size_t skip (skip_count);
+              string l; // Reuse.
               for (bool first (true), second (false); !(restart || is.eof ());)
               {
-                string l;
                 getline (is, l);
 
                 if (is.fail ())
@@ -2505,18 +2524,36 @@ namespace build2
             //
             if (e.normal ())
             {
-              // If this run was without the generated header support, force
-              // it and restart.
+              // If this run was with the generated header support then we
+              // have issued diagnostics and it's time to give up.
               //
-              if (!gen)
+              if (gen)
+                throw failed ();
+
+              // Just to recap, being here means something is wrong with the
+              // source: it can be a missing generated header, it can be an
+              // outdated generated header (e.g., some check triggered #error
+              // which will go away if only we updated the generated header),
+              // or it can be a real error that is not going away.
+              //
+              // So this is what we are going to do here: if anything got
+              // updated on this run (i.e., the compiler has produced valid
+              // dependency information even though there were errors and we
+              // managed to find and update a header based on this
+              // informaion), then we restart in the same mode hoping that
+              // this fixes things. Otherwise, we force the generated header
+              // support which will either uncover a missing generated header
+              // or will issue diagnostics.
+              //
+              if (restart)
+                l6 ([&]{trace << "trying again without generated headers";});
+              else
               {
                 restart = true;
                 force_gen = true;
                 l6 ([&]{trace << "restarting with forced generated headers";});
-                continue;
               }
-
-              throw failed ();
+              continue;
             }
             else
               fail << args[0] << " terminated abnormally: " << e.description ();
