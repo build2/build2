@@ -843,9 +843,9 @@ namespace build2
             os << ' ' << p; // Something "system'y", pass as is.
         };
 
-        auto opt = [&os] (const file&,
-                          const string&,
-                          bool, bool)
+        auto opt = [] (const file&,
+                       const string&,
+                       bool, bool)
         {
           //@@ TODO: should we filter -L similar to -I?
           //@@ TODO: how will the Libs/Libs.private work?
