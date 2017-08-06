@@ -556,31 +556,45 @@ namespace build2
           // information somehow (e.g., cxx_modules vs c_modules variable
           // names).
           //
-          target& mt (
-            targets.insert (*x_mod,
-                            mp.directory (),
-                            dir_path (),
-                            mf.base ().string (),
-                            mf.extension (),
-                            true, // Implied.
-                            trace).first);
+          auto tl (
+            targets.insert_locked (
+              *x_mod,
+              mp.directory (),
+              dir_path (),
+              mf.base ().string (),
+              mf.extension (),
+              true, // Implied.
+              trace));
 
-          //@@ TODO: if target already exists, then setting its variables is
-          //   not MT-safe. Perhaps use prerequisite-specific value?
+          target& mt (tl.first);
+
+          // If the target already exists, then setting its variables is not
+          // MT-safe. So currently we only do it if we have the lock (and thus
+          // nobody can see this target yet) assuming that this has already
+          // been done otherwise.
           //
-          mt.vars.assign (c_module_name) = move (mn);
-
-          // Set module properties. Note that if unspecified we should still
-          // set them to their default values since the hosting project may
-          // have them set to incompatible value.
+          // @@ This is not quite correct, though: this target could already
+          //    exist but for a "different purpose" (e.g., it could be used as
+          //    a header).
           //
+          if (tl.second.owns_lock ())
           {
-            value& v (mt.vars.assign (x_preprocessed)); // NULL
-            if (!pp.empty ()) v = move (pp);
-          }
+            mt.vars.assign (c_module_name) = move (mn);
 
-          {
-            mt.vars.assign (*x_symexport) = (se == "true");
+            // Set module properties. Note that if unspecified we should still
+            // set them to their default values since the hosting project may
+            // have them set to incompatible value.
+            //
+            {
+              value& v (mt.vars.assign (x_preprocessed)); // NULL
+              if (!pp.empty ()) v = move (pp);
+            }
+
+            {
+              mt.vars.assign (*x_symexport) = (se == "true");
+            }
+
+            tl.second.unlock ();
           }
 
           ps.push_back (prerequisite (mt));
