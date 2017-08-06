@@ -200,7 +200,7 @@ namespace build2
     catch (const system_error& e)
     {
       print ();
-      fail << "unable to create directory " << d << ": " << e;
+      fail << "unable to create directory " << d << ": " << e << endf;
     }
 
     if (ms == mkdir_status::success)
