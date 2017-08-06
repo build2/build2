@@ -1933,9 +1933,9 @@ namespace build2
       //
       auto add = [&trace, &pfx_map, &so_map,
                   act, &t, li,
-                  &dd, &updating, mt,
+                  &dd, &updating,
                   &bs, this]
-        (path f, bool cache) -> bool
+        (path f, bool cache, timestamp mt) -> bool
       {
         // Find or maybe insert the target. The directory is only moved
         // from if insert is true.
@@ -2158,12 +2158,7 @@ namespace build2
 
         // Update.
         //
-        // If this header came from the depdb, make sure it is no older than
-        // the target (if it has changed since the target was updated, then
-        // the cached data is stale).
-        //
-        bool restart (
-          update (trace, act, *pt, cache ? mt : timestamp_unknown));
+        bool restart (update (trace, act, *pt, mt));
 
         updating = updating || restart;
 
@@ -2228,7 +2223,11 @@ namespace build2
                 : make_pair (auto_rmfile (), false);
             }
 
-            restart = add (path (move (*l)), true);
+            // If this header came from the depdb, make sure it is no older
+            // than the target (if it has changed since the target was
+            // updated, then the cached data is stale).
+            //
+            restart = add (path (move (*l)), true, mt);
             skip_count++;
 
             if (restart)
@@ -2259,6 +2258,12 @@ namespace build2
               // until proven otherwise.
               //
               puse = true;
+
+              // Save the timestamp just before we start preprocessing. If
+              // we depend on any header that has been updated since, then
+              // we should assume we've "seen" the old copy and re-process.
+              //
+              timestamp pmt (system_clock::now ());
 
               // If we have no generated header support, then suppress all
               // diagnostics (if things go badly we will restart with this
@@ -2386,7 +2391,7 @@ namespace build2
                   }
                   else
                   {
-                    restart = add (path (move (f)), false);
+                    restart = add (path (move (f)), false, pmt);
                     skip_count++;
 
                     // If the header does not exist (good_error) then restart
@@ -2457,7 +2462,7 @@ namespace build2
                       continue;
                     }
 
-                    restart = add (path (move (f)), false);
+                    restart = add (path (move (f)), false, pmt);
                     skip_count++;
 
                     if (restart)
