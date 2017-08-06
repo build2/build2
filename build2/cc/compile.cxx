@@ -1775,8 +1775,15 @@ namespace build2
             // Clang's -M does not imply -w (disable warnings). We also don't
             // need them in the -MD case (see above) so disable for both.
             //
-            if (cid == compiler_id::clang)
-              args.push_back ("-w");
+            // For GCC we want warnings in -MD (see sense_diag) but we don't
+            // want then to be treated as errors.
+            //
+            switch (cid)
+            {
+            case compiler_id::clang: args.push_back ("-w");         break;
+            case compiler_id::gcc:   args.push_back ("-Wno-error"); break;
+            default:                                                break;
+            }
 
             // Previously we used '*' as a target name but it gets expanded to
             // the current directory file names by GCC (4.9) that comes with
