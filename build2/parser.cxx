@@ -1396,13 +1396,17 @@ namespace build2
         fail (t) << "expected newline instead of " << t << " after " << k
                  << (k != "else" ? "-expression" : "");
 
-      // This can be a block or a single line.
+      // This can be a block or a single line. The block part is a bit
+      // tricky, consider:
       //
-      if (next (t, tt) == type::lcbrace)
+      // else
+      //   {hxx cxx}{options}: install = false
+      //
+      // So we treat it as a block if it's followed immediately by newline.
+      //
+      if (next (t, tt) == type::lcbrace && peek () == type::newline)
       {
-        if (next (t, tt) != type::newline)
-          fail (t) << "expected newline after {";
-
+        next (t, tt); // Get newline.
         next (t, tt);
 
         if (take)

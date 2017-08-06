@@ -148,6 +148,15 @@ if true
   else
     print 1
 
+# Brace ambiguity.
+#
+if false
+  {dir}{.}: x = 0
+else
+  {dir}{.}: x = 1
+
+print $(dir{.}:x)
+
 # EOF test.
 #
 ./:
