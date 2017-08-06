@@ -108,8 +108,7 @@ namespace build2
       if (ops.progress () ||
           (stderr_term && verb >= 1 && verb <= 2 && !ops.no_progress ()))
       {
-        size_t init (target_count.load (memory_order_relaxed));
-        size_t incr (init > 100 ? 10 : 1);
+        size_t incr (stderr_term ? 1 : 10); // Scale depending on output type.
 
         what = " targets to " + diag_do (a);
 
