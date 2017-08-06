@@ -1714,8 +1714,13 @@ namespace build2
           // is to remove the -fmodules-ts option when preprocessing. Hopefully
           // there will be a "pure modules" mode at some point.
           //
-          append_options (args, t, c_coptions);
-          append_options (args, t, x_coptions);
+
+          // Don't treat warnings as errors.
+          //
+          const char* werror (cid == compiler_id::msvc ? "/WX" : "-Werror");
+
+          append_options (args, t, c_coptions, werror);
+          append_options (args, t, x_coptions, werror);
           append_options (args, tstd,
                           tstd.size () -
                           (modules && cid == compiler_id::clang ? 1 : 0));
@@ -1775,15 +1780,8 @@ namespace build2
             // Clang's -M does not imply -w (disable warnings). We also don't
             // need them in the -MD case (see above) so disable for both.
             //
-            // For GCC we want warnings in -MD (see sense_diag) but we don't
-            // want then to be treated as errors.
-            //
-            switch (cid)
-            {
-            case compiler_id::clang: args.push_back ("-w");         break;
-            case compiler_id::gcc:   args.push_back ("-Wno-error"); break;
-            default:                                                break;
-            }
+            if (cid == compiler_id::clang)
+              args.push_back ("-w");
 
             // Previously we used '*' as a target name but it gets expanded to
             // the current directory file names by GCC (4.9) that comes with
@@ -2654,8 +2652,14 @@ namespace build2
           if (md.symexport)
             append_symexport_options (args, t);
 
-          append_options (args, t, c_coptions);
-          append_options (args, t, x_coptions);
+          // Make sure we don't fail because of warnings.
+          //
+          // @@ Can be both -WX and /WX.
+          //
+          const char* werror (cid == compiler_id::msvc ? "/WX" : "-Werror");
+
+          append_options (args, t, c_coptions, werror);
+          append_options (args, t, x_coptions, werror);
           append_options (args, tstd,
                           tstd.size () -
                           (modules && cid == compiler_id::clang ? 1 : 0));

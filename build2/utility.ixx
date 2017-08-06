@@ -35,16 +35,16 @@ namespace build2
 
   template <typename T>
   inline void
-  append_options (cstrings& args, T& s, const variable& var)
+  append_options (cstrings& args, T& s, const variable& var, const char* e)
   {
-    append_options (args, s[var]);
+    append_options (args, s[var], e);
   }
 
   template <typename T>
   inline void
-  append_options (strings& args, T& s, const variable& var)
+  append_options (strings& args, T& s, const variable& var, const char* e)
   {
-    append_options (args, s[var]);
+    append_options (args, s[var], e);
   }
 
   template <typename T>
@@ -56,16 +56,16 @@ namespace build2
 
   template <typename T>
   inline void
-  append_options (cstrings& args, T& s, const char* var)
+  append_options (cstrings& args, T& s, const char* var, const char* e)
   {
-    append_options (args, s[var]);
+    append_options (args, s[var], e);
   }
 
   template <typename T>
   inline void
-  append_options (strings& args, T& s, const char* var)
+  append_options (strings& args, T& s, const char* var, const char* e)
   {
-    append_options (args, s[var]);
+    append_options (args, s[var], e);
   }
 
   template <typename T>
@@ -76,17 +76,17 @@ namespace build2
   }
 
   inline void
-  append_options (cstrings& args, const strings& sv)
+  append_options (cstrings& args, const strings& sv, const char* e)
   {
     if (size_t n = sv.size ())
-      append_options (args, sv, n);
+      append_options (args, sv, n, e);
   }
 
   inline void
-  append_options (strings& args, const strings& sv)
+  append_options (strings& args, const strings& sv, const char* e)
   {
     if (size_t n = sv.size ())
-      append_options (args, sv, n);
+      append_options (args, sv, n, e);
   }
 
   inline void

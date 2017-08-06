@@ -277,23 +277,25 @@ namespace build2
   // Append all the values from a variable to the C-string list. T is either
   // target or scope. The variable is expected to be of type strings.
   //
+  // If excl is not NULL, then filter this option out (note: case sensitive).
+  //
   struct variable;
 
   template <typename T>
   void
-  append_options (cstrings&, T&, const variable&);
+  append_options (cstrings&, T&, const variable&, const char* excl = nullptr);
 
   template <typename T>
   void
-  append_options (cstrings&, T&, const char*);
+  append_options (cstrings&, T&, const char*, const char* excl = nullptr);
 
   template <typename T>
   void
-  append_options (strings&, T&, const variable&);
+  append_options (strings&, T&, const variable&, const char* excl = nullptr);
 
   template <typename T>
   void
-  append_options (strings&, T&, const char*);
+  append_options (strings&, T&, const char*, const char* excl = nullptr);
 
   template <typename T>
   void
@@ -309,28 +311,32 @@ namespace build2
   struct lookup;
 
   void
-  append_options (cstrings&, const lookup&);
+  append_options (cstrings&, const lookup&, const char* excl = nullptr);
 
   void
-  append_options (strings&, const lookup&);
+  append_options (strings&, const lookup&, const char* excl = nullptr);
 
   void
   hash_options (sha256&, const lookup&);
 
   void
-  append_options (cstrings&, const strings&);
+  append_options (cstrings&, const strings&, const char* excl = nullptr);
 
   void
-  append_options (strings&, const strings&);
+  append_options (strings&, const strings&, const char* excl = nullptr);
 
   void
   hash_options (sha256&, const strings&);
 
   void
-  append_options (cstrings&, const strings&, size_t);
+  append_options (cstrings&,
+                  const strings&, size_t,
+                  const char* excl = nullptr);
 
   void
-  append_options (strings&, const strings&, size_t);
+  append_options (strings&,
+                  const strings&, size_t,
+                  const char* excl = nullptr);
 
   void
   hash_options (sha256&, const strings&, size_t);

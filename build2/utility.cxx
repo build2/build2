@@ -266,17 +266,17 @@ namespace build2
   const dir_path empty_dir_path;
 
   void
-  append_options (cstrings& args, const lookup& l)
+  append_options (cstrings& args, const lookup& l, const char* e)
   {
     if (l)
-      append_options (args, cast<strings> (l));
+      append_options (args, cast<strings> (l), e);
   }
 
   void
-  append_options (strings& args, const lookup& l)
+  append_options (strings& args, const lookup& l, const char* e)
   {
     if (l)
-      append_options (args, cast<strings> (l));
+      append_options (args, cast<strings> (l), e);
   }
 
   void
@@ -287,26 +287,32 @@ namespace build2
   }
 
   void
-  append_options (cstrings& args, const strings& sv, size_t n)
+  append_options (cstrings& args, const strings& sv, size_t n, const char* e)
   {
     if (n != 0)
     {
       args.reserve (args.size () + n);
 
       for (size_t i (0); i != n; ++i)
-        args.push_back (sv[i].c_str ());
+      {
+        if (e == nullptr || e != sv[i])
+          args.push_back (sv[i].c_str ());
+      }
     }
   }
 
   void
-  append_options (strings& args, const strings& sv, size_t n)
+  append_options (strings& args, const strings& sv, size_t n, const char* e)
   {
     if (n != 0)
     {
       args.reserve (args.size () + n);
 
       for (size_t i (0); i != n; ++i)
-        args.push_back (sv[i]);
+      {
+        if (e == nullptr || e != sv[i])
+          args.push_back (sv[i]);
+      }
     }
   }
 
