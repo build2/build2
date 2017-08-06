@@ -3570,12 +3570,21 @@ namespace build2
       //
       if (const target* bt = targets.find (
             *tt,
-            move (md),
+            md,
             dir_path (), // Always in the out tree.
-            move (mf),
+            mf,
             nullopt,     // Use default extension.
             trace))
         return *bt;
+
+      // Make sure the output directory exists. This is not strictly necessary
+      // if out != src since inject_fsdir() will take case of it. For out ==
+      // src we initially tried to add an explicit fsdir{} preprequisite but
+      // that didn't work out since this is a nested directory. So now we keep
+      // it simple and just create it. The proper way to handle this as well
+      // as cleanup is probably at the cxx module level, which is @@ TODO.
+      //
+      mkdir_p (md, 3);
 
       prerequisites ps;
       ps.push_back (prerequisite (mt));
@@ -3609,8 +3618,8 @@ namespace build2
                                      trace));
       const target& bt (p.first);
 
-      // Note that this racy and someone might have created this target
-      // while we were preparing the prerequisite list.
+      // Note that this racy and someone might have created this target while
+      // we were preparing the prerequisite list.
       //
       if (p.second.owns_lock ())
         bt.prerequisites (move (ps));
