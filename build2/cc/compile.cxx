@@ -1852,24 +1852,31 @@ namespace build2
           {
             // Overwrite.
             //
-            args[i]     = "-M";
-            args[i + 1] = "-MG";
-            args[i + 2] = src.path ().string ().c_str ();
-            args[i + 3] = nullptr;
+            args[i++] = "-M";
+            args[i++] = "-MG";
 
             if (cid == compiler_id::gcc)
             {
               sense_diag = false;
+
+              // While GCC implies -w in case of -M, it seems to be possible
+              // to re-enable it with -W or -Werror. So we explicitly disable
+              // it, for good measure.
+              //
+              args[i++] = "-w";
             }
+
+            args[i++] = src.path ().string ().c_str ();
+            args[i]   = nullptr;
           }
           else
           {
             // Restore.
             //
-            args[i]     = "-MD";
-            args[i + 1] = "-E";
-            args[i + 2] = pp;
-            args[i + 3] = "-MF";
+            args[i++] = "-MD";
+            args[i++] = "-E";
+            args[i++] = pp;
+            args[i]   = "-MF";
 
             if (cid == compiler_id::gcc)
             {
