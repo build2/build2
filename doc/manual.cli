@@ -726,7 +726,7 @@ depends: libprint [3.0.0-b.2.1 3.0.0-b.3)
 
 \h1#module-cxx|\c{cxx} (C++) Module|
 
-This chapter describes the \c{cxx} build system module which provide the C++
+This chapter describes the \c{cxx} build system module which provides the C++
 compilation and linking support. Most of its functionality, however, is
 provided by the \c{cc} module, a common implementation for the C-family
 languages.
@@ -758,11 +758,11 @@ example, a namespace. We often talk about a symbol having to be satisfied by
 linking an object file or a library that provides it.
 
 What is a C++ module? It is hard to give a single but intuitive answer to this
-question.  So we will try to answer it from three different perspective: that
+question.  So we will try to answer it from three different perspectives: that
 of a module consumer, a module producer, and a build system that tries to make
-the two play nice. But we can make one thing clear at the outset: modules are
-a \i{language-level} not a preprocessor-level mechanism; it is \c{import}, not
-\c{#import}.
+those two play nice. But we can make one thing clear at the outset: modules
+are a \i{language-level} not a preprocessor-level mechanism; it is \c{import},
+not \c{#import}.
 
 One may also wonder why C++ modules, what are the benefits? Modules offer
 isolation, both from preprocessor macros and other module's symbols. Unlike
@@ -770,11 +770,11 @@ headers, modules require explicit exportation of entities that will be visible
 to the consumers. In this sense they are a \i{physical design mechanism} that
 forces us to think how we structure our code. Modules promise significant
 build speedups since importing a module, unlike including a header, should be
-essentially free. Modules are also a first step to not needed the preprocessor
-in most translation units. Finally, modules have a chance of bringing
-to mainstream reliable and easy to setup distributed C++ compilation since
-now build systems can make sure compilers on the local and remote hosts are
-provided with identical inputs.
+essentially free. Modules are also the first step to not needing the
+preprocessor in most translation units. Finally, modules have a chance of
+bringing to mainstream reliable and easy to setup distributed C++ compilation,
+since now build systems can make sure compilers on the local and remote hosts
+are provided with identical inputs.
 
 To refer to a module we use a \i{module name}, a sequence of dot-separated
 identifiers, for example \c{hello.core}. While the specification does not
@@ -843,9 +843,9 @@ files, we recommend that a different extension be used to distinguish them as
 such, similar to header files. While the compiler vendors suggest various (and
 predictably different) extensions, our recommendation is \c{.mxx} for the
 \c{.hxx/.cxx} source file naming and \c{.mpp} for \c{.hpp/.cpp}. And if you
-are using some other naming scheme, then perhaps now is a good opportunity to
+are using some other naming scheme, perhaps now is a good opportunity to
 switch to one of the above. Using the source file extension for module
-implementation units appears reasonable and that's our recommendation.
+implementation units appears reasonable and that's what we recommend.
 
 A module declaration (exporting or non-exporting) starts a \i{module purview}
 that extends until the end of the module translation unit. Any name declared
@@ -1005,9 +1005,9 @@ export void
 say_hello (const std::string&);
 \
 
-One way to think of re-export is as if an import of a module also \"injecting\"
-all the imports said module re-exported, recursively. That's essentially how
-most compilers implement it.
+One way to think of a re-export is \i{as-if} an import of a module also
+\"injects\" all the imports said module re-exports, recursively. That's
+essentially how most compilers implement it.
 
 Module re-export is the mechanism of assembling bigger modules out of
 submodules. As an example, let's say we had the \c{hello.core},
@@ -1030,7 +1030,7 @@ The final perspective that we consider is that of the build system. From its
 point of view the central piece of the module infrastructure is the \i{binary
 module interface}: a binary file that is produced by compiling the module
 interface unit and that is required when compiling any translation unit that
-imports this module (as well as module's implementation units).
+imports this module (as well as the module's implementation units).
 
 So, in a nutshell, the main functionality of a build system when it comes to
 modules support is figuring out the order in which all the units should be
@@ -1042,7 +1042,7 @@ produces two outputs: the binary module interface and the object file. Also,
 all the compilers currently implement module re-export as a shallow reference
 to the re-exported module name which means that their binary interfaces must
 be discoverable as well, recursively. In fact, currently, all the imports are
-handled like this though a different implementation is at least plausible if
+handled like this, though a different implementation is at least plausible, if
 unlikely.
 
 While the details vary between compilers, the contents of the binary
@@ -1052,9 +1052,9 @@ sufficiently different compared to the ones used when compiling the module
 consumers, the binary interface may be unusable. So while a build system
 should strive to reuse existing binary interfaces, it should also be prepared
 to compile its own versions \"on the side\". This suggests that modules are
-not a distribution mechanism and binary module interfaces should probably not
-be installed (for example, into \c{/usr/include}), instead distributing and
-installing module interface units.
+not a distribution mechanism, that binary module interfaces should probably
+not be installed, and that instead we should install and distribute module
+interface sources.
 
 \h2#cxx-modules-build|Building Modules|
 
@@ -1161,7 +1161,7 @@ As you might have surmised from the above, the modules support implementation
 automatically resolves imports to module interface units that are specified
 either as direct prerequisites or as prerequisites of library prerequisites.
 
-To perform this resolution without a significant overhead the implementation
+To perform this resolution without a significant overhead, the implementation
 delays the extraction of the actual module name from module interface units
 (since not all available module interfaces are necessarily imported by all the
 translation units). Instead, the implementation tries to guess which interface
@@ -1225,7 +1225,7 @@ exe{hello}: cxx{driver} {mxx cxx}{hello} mxx{std-core}
 mxx{std-core}@./: cc.module_name = std.core
 \
 
-When C++ modules are enable and available, the build system makes sure the
+When C++ modules are enabled and available, the build system makes sure the
 \c{__cpp_modules} feature test macro is defined. Currently, its value is
 201703 for VC and 201704 for GCC and Clang but this will most likely change in
 the future.
@@ -1280,7 +1280,7 @@ library can be included while building another library.
 
 We can continue using the same export macro and header with modules and, in
 fact, that's the recommended approach when maintaining dual, header/module
-arrangement for backwards compatibility (discussed below). However, for
+arrangements for backwards compatibility (discussed below). However, for
 module-only codebases, we have an opportunity to improve the situation in two
 ways: we can use a single, keyword-like macro instead of a library-specific
 one and we can make the build system manage it for us thus getting rid of the
@@ -1300,7 +1300,7 @@ using cxx
 ...
 \
 
-Once enable, \c{build2} automatically defines the \c{__symexport} macro to the
+Once enabled, \c{build2} automatically defines the \c{__symexport} macro to the
 appropriate value depending on the platform and the type of library being
 built. As library authors all we have to do is use it in appropriate places in
 our module interface units, for example:
@@ -1335,7 +1335,7 @@ f ()
 Furthermore, symbol exporting is a murky area with many limitations and
 pitfalls (such as auto-exporting of base classes). As a result, it would not
 be unreasonable to expect such an automatic module exporting to only further
-muddy the matters.
+muddy matters.
 
 
 \h2#cxx-modules-install|Module Installation|
@@ -1352,7 +1352,7 @@ file.
 
 Specifically, the library's \c{.pc} file contains the \c{modules} variable
 that lists all the exported modules in the \c{<name>=<path>} form with
-\c{<name>} being the module's C++ name and \c{<path>} \- module interface
+\c{<name>} being the module's C++ name and \c{<path>} \- the module interface
 file's absolute path. For example:
 
 \
@@ -1372,7 +1372,7 @@ module_symexport.hello.core = true
 module_preprocessed.hello.core = all
 \
 
-Currently two properties are defined. The \c{symexport} property with the
+Currently, two properties are defined. The \c{symexport} property with the
 boolean value signals whether the module uses the \c{__symexport} support
 discussed above.
 
