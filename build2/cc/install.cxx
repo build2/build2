@@ -41,11 +41,14 @@ namespace build2
       // If this is a shared library prerequisite, install it as long as it
       // is in the same amalgamation as we are.
       //
-      // @@ Shouldn't we also install a static library prerequisite of a
-      //    static library?
+      // Less obvious: we also want to install a static library prerequisite
+      // of a library (since it could be referenced from its .pc file, etc).
       //
-      if ((t.is_a<exe> ()  || t.is_a<libs> ()) &&
-          (p.is_a<libx> () || p.is_a<libs> ()))
+      bool st (t.is_a<exe>  () || t.is_a<libs> ()); // Target needs shared.
+      bool at (t.is_a<liba> () || t.is_a<libs> ()); // Target needs static.
+
+      if ((st && (p.is_a<libx> () || p.is_a<libs> ())) ||
+          (at && (p.is_a<libx> () || p.is_a<liba> ())))
       {
         const target* pt (&p.search (t));
 
@@ -56,7 +59,7 @@ namespace build2
           pt = &link_member (
             *l, a, link_info (t.base_scope (), link_type (t).type));
 
-        if (pt->is_a<libs> ()) // Can be liba{}.
+        if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
 
         // See through libux{}. Note that we are always in the same project
@@ -179,8 +182,11 @@ namespace build2
           return nullptr;
       }
 
-      if ((t.is_a<libue> ()  || t.is_a<libus> ()) &&
-          (p.is_a<libx> ()   || p.is_a<libs> ()))
+      bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
+      bool at (t.is_a<libua> () || t.is_a<libus> ()); // Target needs static.
+
+      if ((st && (p.is_a<libx> () || p.is_a<libs> ())) ||
+          (at && (p.is_a<libx> () || p.is_a<liba> ())))
       {
         const target* pt (&p.search (t));
 
@@ -188,7 +194,7 @@ namespace build2
           pt = &link_member (
             *l, a, link_info (t.base_scope (), link_type (t).type));
 
-        if (pt->is_a<libs> ())
+        if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
 
         if (pt->is_a<libux> ())
