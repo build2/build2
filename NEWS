@@ -25,7 +25,7 @@ Version 0.6.0
     archive" mode. For example:
 
     exe{prog}: cxx{prog} libu{prog}
-    libu{prog}: cxx{* -prog} libu{prog}
+    libu{prog}: cxx{* -prog}
 
     # Unit tests.
     #
