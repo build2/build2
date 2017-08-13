@@ -178,11 +178,11 @@ namespace build2
 
       // Enter module variables.
       //
+      auto& vp (var_pool.rw (rs));
+
       // Note that the set_dir() calls below enter some more.
       //
       {
-        auto& v (var_pool.rw (rs));
-
         // Note: not overridable.
         //
         // The install variable is a path, not dir_path, since it can be used
@@ -191,9 +191,9 @@ namespace build2
         // way we distinguish between the two is via the presence/absence of
         // the trailing directory separator.
         //
-        v.insert<path>   ("install",         variable_visibility::target);
-        v.insert<string> ("install.mode",    variable_visibility::project);
-        v.insert<bool>   ("install.subdirs", variable_visibility::project);
+        vp.insert<path>   ("install",         variable_visibility::target);
+        vp.insert<string> ("install.mode",    variable_visibility::project);
+        vp.insert<bool>   ("install.subdirs", variable_visibility::project);
       }
 
       // Register our alias and file rules.
@@ -249,6 +249,21 @@ namespace build2
         set_dir (s, rs, "doc",       dir_path (dir_doc) /= n, true);
         set_dir (s, rs, "man",       dir_man);
         set_dir (s, rs, "man1",      dir_man1);
+
+        // Support for chroot'ed install (aka DESTDIR).
+        //
+        {
+          auto& var  (vp.insert<dir_path>     (       "install.chroot"));
+          auto& cvar (vp.insert<abs_dir_path> ("config.install.chroot", true));
+
+          value& v (rs.assign (var));
+
+          if (s)
+          {
+            if (lookup l = config::optional (rs, cvar))
+              v = cast<dir_path> (l); // Strip abs_dir_path.
+          }
+        }
       }
 
       // Configure "installability" for built-in target types.

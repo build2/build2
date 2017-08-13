@@ -455,42 +455,68 @@ namespace build2
       return s;
     }
 
+    // Given an abolute path return its chroot'ed version, if any, accoring to
+    // install.chroot.
+    //
+    template <typename P>
+    static inline P
+    chroot_path (const scope& rs, const P& p)
+    {
+      if (const dir_path* d = cast_null<dir_path> (rs["install.chroot"]))
+      {
+        dir_path r (p.root_directory ());
+        assert (!r.empty ()); // Must be absolute.
+
+        return *d / p.leaf (r);
+      }
+
+      return p;
+    }
+
     // install -d <dir>
     //
     // If verbose is false, then only print the command at verbosity level 2
     // or higher.
     //
     static void
-    install_d (const install_dir& base, const dir_path& d, bool verbose = true)
+    install_d (const scope& rs,
+               const install_dir& base,
+               const dir_path& d,
+               bool verbose = true)
     {
+      dir_path chd (chroot_path (rs, d));
+
       try
       {
-        if (dir_exists (d)) // May throw (e.g., EACCES).
+        if (dir_exists (chd)) // May throw (e.g., EACCES).
           return;
       }
       catch (const system_error& e)
       {
-        fail << "invalid installation directory " << d << ": " << e;
+        fail << "invalid installation directory " << chd << ": " << e;
       }
 
       // While install -d will create all the intermediate components between
       // base and dir, we do it explicitly, one at a time. This way the output
       // is symmetrical to uninstall() below.
       //
+      // Note that if the chroot directory does not exist, then install -d
+      // will create it and we don't bother removing it.
+      //
       if (d != base.dir)
       {
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          install_d (base, pd, verbose);
+          install_d (rs, base, pd, verbose);
       }
 
       cstrings args;
 
       string reld (
         cast<string> ((*global_scope)["build.host.class"]) == "windows"
-        ? msys_path (d)
-        : relative (d).string ());
+        ? msys_path (chd)
+        : relative (chd).string ());
 
       if (base.sudo != nullptr)
         args.push_back (base.sudo->c_str ());
@@ -513,7 +539,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
         else if (verb && verbose)
-          text << "install " << d;
+          text << "install " << chd;
 
         process pr (pp, args.data ());
 
@@ -538,17 +564,20 @@ namespace build2
     // or higher.
     //
     static void
-    install_f (const install_dir& base,
+    install_f (const scope& rs,
+               const install_dir& base,
                const path& name,
                const file& t,
                bool verbose)
     {
       path relf (relative (t.path ()));
 
+      dir_path chd (chroot_path (rs, base.dir));
+
       string reld (
         cast<string> ((*global_scope)["build.host.class"]) == "windows"
-        ? msys_path (base.dir)
-        : relative (base.dir).string ());
+        ? msys_path (chd)
+        : relative (chd).string ());
 
       if (!name.empty ())
       {
@@ -598,12 +627,13 @@ namespace build2
     }
 
     void file_rule::
-    install_l (const install_dir& base,
+    install_l (const scope& rs,
+               const install_dir& base,
                const path& target,
                const path& link,
                bool verbose)
     {
-      path rell (relative (base.dir));
+      path rell (relative (chroot_path (rs, base.dir)));
       rell /= link;
 
       // We can create a symlink directly without calling ln. This, however,
@@ -652,7 +682,11 @@ namespace build2
       const file& t (xt.as<file> ());
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto install_target = [this] (const file& t, const path& p, bool verbose)
+      const scope& rs (t.root_scope ());
+
+      auto install_target = [&rs, this] (const file& t,
+                                         const path& p,
+                                         bool verbose)
       {
         // Note: similar logic to resolve_file().
         //
@@ -676,7 +710,7 @@ namespace build2
         // sudo, etc).
         //
         for (auto i (ids.begin ()), j (i); i != ids.end (); j = i++)
-          install_d (*j, i->dir, verbose); // install -d
+          install_d (rs, *j, i->dir, verbose); // install -d
 
         install_dir& id (ids.back ());
 
@@ -687,7 +721,7 @@ namespace build2
 
         // Install the target and extras.
         //
-        install_f (id, n ? p.leaf () : path (), t, verbose);
+        install_f (rs, id, n ? p.leaf () : path (), t, verbose);
         install_extra (t, id);
       };
 
@@ -713,7 +747,7 @@ namespace build2
 
     // uninstall -d <dir>
     //
-    // We try remove all the directories between base and dir but not base
+    // We try to remove all the directories between base and dir but not base
     // itself unless base == dir. Return false if nothing has been removed
     // (i.e., the directories do not exist or are not empty).
     //
@@ -721,28 +755,33 @@ namespace build2
     // or higher.
     //
     static bool
-    uninstall_d (const install_dir& base, const dir_path& d, bool verbose)
+    uninstall_d (const scope& rs,
+                 const install_dir& base,
+                 const dir_path& d,
+                 bool verbose)
     {
+      dir_path chd (chroot_path (rs, d));
+
       // Figure out if we should try to remove this directory. Note that if
       // it doesn't exist, then we may still need to remove outer ones.
       //
       bool r (false);
       try
       {
-        if ((r = dir_exists (d))) // May throw (e.g., EACCES).
+        if ((r = dir_exists (chd))) // May throw (e.g., EACCES).
         {
-          if (!dir_empty (d)) // May also throw.
+          if (!dir_empty (chd)) // May also throw.
             return false; // Won't be able to remove any outer directories.
         }
       }
       catch (const system_error& e)
       {
-        fail << "invalid installation directory " << d << ": " << e;
+        fail << "invalid installation directory " << chd << ": " << e;
       }
 
       if (r)
       {
-        dir_path reld (relative (d));
+        dir_path reld (relative (chd));
 
         // Normally when we need to remove a file or directory we do it
         // directly without calling rm/rmdir. This however, won't work if we
@@ -761,11 +800,11 @@ namespace build2
 
           try
           {
-            try_rmdir (d);
+            try_rmdir (chd);
           }
           catch (const system_error& e)
           {
-            fail << "unable to remove directory " << d << ": " << e;
+            fail << "unable to remove directory " << chd << ": " << e;
           }
         }
         else
@@ -813,20 +852,22 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          r = uninstall_d (base, pd, verbose) || r;
+          r = uninstall_d (rs, base, pd, verbose) || r;
       }
 
       return r;
     }
 
     bool file_rule::
-    uninstall_f (const install_dir& base,
+    uninstall_f (const scope& rs,
+                 const install_dir& base,
                  const file* t,
                  const path& name,
                  bool verbose)
     {
       assert (t != nullptr || !name.empty ());
-      path f (base.dir / (name.empty () ? t->path ().leaf () : name));
+      path f (chroot_path (rs, base.dir) /
+              (name.empty () ? t->path ().leaf () : name));
 
       try
       {
@@ -912,8 +953,11 @@ namespace build2
       const file& t (xt.as<file> ());
       assert (!t.path ().empty ()); // Should have been assigned by update.
 
-      auto uninstall_target = [this] (
-        const file& t, const path& p, bool verbose) -> target_state
+      const scope& rs (t.root_scope ());
+
+      auto uninstall_target = [&rs, this] (const file& t,
+                                           const path& p,
+                                           bool verbose) -> target_state
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
@@ -938,7 +982,7 @@ namespace build2
                         ? target_state::changed
                         : target_state::unchanged);
 
-        if (uninstall_f (id, &t, n ? p.leaf () : path (), verbose))
+        if (uninstall_f (rs, id, &t, n ? p.leaf () : path (), verbose))
           r |= target_state::changed;
 
         // Clean up empty leading directories (in reverse).
@@ -948,7 +992,7 @@ namespace build2
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
-          if (install::uninstall_d (++j != e ? *j : *i, i->dir, verbose))
+          if (install::uninstall_d (rs, ++j != e ? *j : *i, i->dir, verbose))
             r |= target_state::changed;
         }
 

@@ -117,11 +117,12 @@ namespace build2
       {
         // Here we may have a bunch of symlinks that we need to install.
         //
+        const scope& rs (t.root_scope ());
         auto& lp (t.data<link::libs_paths> ());
 
-        auto ln = [&id] (const path& f, const path& l)
+        auto ln = [&rs, &id] (const path& f, const path& l)
         {
-          install_l (id, f.leaf (), l.leaf (), false);
+          install_l (rs, id, f.leaf (), l.leaf (), false);
         };
 
         const path& lk (lp.link);
@@ -145,11 +146,12 @@ namespace build2
       {
         // Here we may have a bunch of symlinks that we need to uninstall.
         //
+        const scope& rs (t.root_scope ());
         auto& lp (t.data<link::libs_paths> ());
 
-        auto rm = [&id] (const path& l)
+        auto rm = [&rs, &id] (const path& l)
         {
-          return uninstall_f (id, nullptr, l.leaf (), false);
+          return uninstall_f (rs, id, nullptr, l.leaf (), false);
         };
 
         const path& lk (lp.link);

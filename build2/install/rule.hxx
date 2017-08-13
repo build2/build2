@@ -79,7 +79,8 @@ namespace build2
       // Install a symlink: base/link -> target.
       //
       static void
-      install_l (const install_dir& base,
+      install_l (const scope& rs,
+                 const install_dir& base,
                  const path& target,
                  const path& link,
                  bool verbose);
@@ -93,7 +94,8 @@ namespace build2
       // exist).
       //
       static bool
-      uninstall_f (const install_dir& base,
+      uninstall_f (const scope& rs,
+                   const install_dir& base,
                    const file* t,
                    const path& name,
                    bool verbose);
