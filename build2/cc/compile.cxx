@@ -1631,66 +1631,78 @@ namespace build2
               else
                 ds.assign (o + 2, n - 2);
 
-              // Note that we don't normalize the paths since it would be
-              // quite expensive and normally the pairs we are inerested in
-              // are already normalized (since usually specified as
-              // -I$src/out_*).
-              //
-              // @@ Maybe we should ignore any paths containing '.', '..'
-              // components for safety.
-              //
-              dir_path d (move (ds)); // Move the buffer in.
-
-              if (d.absolute ())
+              if (!ds.empty ())
               {
-                // If we have a candidate out_base, see if this is its
-                // src_base.
+                // Note that we don't normalize the paths since it would be
+                // quite expensive and normally the pairs we are inerested in
+                // are already normalized (since usually specified as
+                // -I$src/out_*).
                 //
-                if (s != nullptr)
+                dir_path d (move (ds), dir_path::exact); // Move the buffer in.
+
+                // Ignore invalid paths (buffer is not moved).
+                //
+                if (!d.empty ())
                 {
-                  const dir_path& bp (s->src_path ());
-
-                  if (d.sub (bp))
-                  {
-                    if (p.empty () || d.leaf (bp) == p)
-                    {
-                      // We've got a pair.
-                      //
-                      so_map.emplace (move (d), s->out_path () / p);
-                      continue;
-                    }
-                  }
-
-                  // Not a pair. Fall through to consider as out_base.
+                  // Ignore any paths containing '.', '..' components wrong
+                  // separators, etc.
                   //
-                  s = nullptr;
-                }
-
-                // See if this path is inside a project with an out-of-tree
-                // build and is in the out directory tree.
-                //
-                const scope& bs (scopes.find (d));
-                if (bs.root_scope () != nullptr)
-                {
-                  const dir_path& bp (bs.out_path ());
-                  if (bp != bs.src_path ())
+                  if (d.absolute () && d.normalized ())
                   {
-                    bool e;
-                    if ((e = (d == bp)) || d.sub (bp))
+                    // If we have a candidate out_base, see if this is its
+                    // src_base.
+                    //
+                    if (s != nullptr)
                     {
-                      s = &bs;
-                      if (e)
-                        p.clear ();
-                      else
-                        p = d.leaf (bp);
+                      const dir_path& bp (s->src_path ());
+
+                      if (d.sub (bp))
+                      {
+                        if (p.empty () || d.leaf (bp) == p)
+                        {
+                          // We've got a pair.
+                          //
+                          so_map.emplace (move (d), s->out_path () / p);
+                          continue;
+                        }
+                      }
+
+                      // Not a pair. Fall through to consider as out_base.
+                      //
+                      s = nullptr;
+                    }
+
+                    // See if this path is inside a project with an out-of-
+                    // tree build and is in the out directory tree.
+                    //
+                    const scope& bs (scopes.find (d));
+                    if (bs.root_scope () != nullptr)
+                    {
+                      const dir_path& bp (bs.out_path ());
+                      if (bp != bs.src_path ())
+                      {
+                        bool e;
+                        if ((e = (d == bp)) || d.sub (bp))
+                        {
+                          s = &bs;
+                          if (e)
+                            p.clear ();
+                          else
+                            p = d.leaf (bp);
+                        }
+                      }
                     }
                   }
+                  else
+                    s = nullptr;
+
+                  ds = move (d).string (); // Move the buffer out.
                 }
+                else
+                  s = nullptr;
               }
               else
                 s = nullptr;
-
-              ds = move (d).string (); // Move the buffer out.
             }
           }
 
