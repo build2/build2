@@ -1,0 +1,163 @@
+# file      : bootstrap.gmake -*- Makefile -*-
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# This makefile requires GNU make 3.81 or later and can be used to bootstrap
+# the build system similar to the bootstrap.sh script. Its main advantage over
+# the script is support for building in parallel.
+#
+# Similar to the script, the makefile expects to find the libbutl/ or
+# libbutl-*/ directory either in the current directory (build2 root) or one
+# level up. Both in-tree and out-of-tree builds as well as the 'clean' target
+# are supported. The result is saved as build2/b-boot.
+#
+# Typical in-tree build:
+#
+# cd build2-X.Y.Z
+# make -f bootstrap.gmake -j 8 CXX=g++-7
+#
+# Typical out-of-tree build:
+#
+# mkdir build2-boot
+# cd build2-boot
+# make -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++-7
+#
+# The following standard make variables can be used to customize the build:
+#
+# CXX
+# CPPFLAGS
+# CXXFLAGS
+# LDFLAGS
+# LIBS
+
+# Remove all the built-in rules, enable second expansion, etc.
+#
+.SUFFIXES:
+ifeq ($(filter -r,$(MAKEFLAGS)),)
+MAKEFLAGS += -r
+endif
+
+.DELETE_ON_ERROR:
+.SECONDEXPANSION:
+
+# We build in CWD and figure out the source directory based on the makefile
+# path.
+#
+out_root := .
+src_root := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+
+ifeq ($(realpath $(out_root)),$(realpath $(src_root)))
+  in_tree := true
+else
+  in_tree := false
+endif
+
+# See if there is libbutl or libbutl-* in src_root or one directory up.
+#
+libbutl :=
+ifeq ($(libbutl),)
+  libbutl := $(filter %/,$(wildcard $(src_root)/libbutl/))
+  ifeq ($(libbutl),)
+    libbutl := $(filter %/,$(wildcard $(src_root)/libbutl-*/))
+  endif
+endif
+
+ifeq ($(libbutl),)
+  libbutl := $(filter %/,$(wildcard $(src_root)/../libbutl/))
+  ifeq ($(libbutl),)
+    libbutl := $(filter %/,$(wildcard $(src_root)/../libbutl-*/))
+  endif
+endif
+
+ifeq ($(libbutl),)
+  $(error unable to find libbutl, use libbutl=<dir> to specify its location)
+endif
+
+ifneq ($(words $(libbutl)),1)
+  $(error found multiple libbutl, use libbutl=<dir> to specify its location)
+endif
+
+libbutl := $(patsubst %/,%,$(libbutl))
+
+# Figure out libbutl output directory. If we are building in-tree, then build
+# libbutl in-tree as well, whether inside or level up. Otherwise -- in the
+# libbutl subdirectory.
+#
+ifeq ($(in_tree),true)
+  libbutl_out := $(libbutl)/libbutl
+else
+  libbutl_out := $(out_root)/libbutl
+endif
+
+# Obtain the host triplet.
+#
+host  :=
+chost :=
+ifeq ($(host),)
+  host := $(shell $(src_root)/config.guess)
+
+  ifeq ($(host),)
+    $(error unable to guess host triplet, use host=<triplet> to specify)
+  endif
+
+  chost := $(host)
+else
+  ifeq ($(chost),)
+    chost := $(shell $(src_root)/config.sub $(host))
+
+    ifeq ($(chost),)
+      $(error unable to canonicalize host triplet, use chost=<triplet> to specify)
+    endif
+  endif
+endif
+
+# Figure out the list of source/object files.
+#
+# Note: list nested subdirectories first (used in clean).
+#
+sub_dirs := \
+config      \
+dist        \
+bin         \
+c           \
+cc          \
+cxx         \
+cli         \
+test/script \
+test        \
+version     \
+install     \
+pkgconfig
+
+build2_src  := $(wildcard $(src_root)/build2/*.cxx)
+build2_src  += $(foreach d,$(sub_dirs),$(wildcard $(src_root)/build2/$d/*.cxx))
+libbutl_src := $(wildcard $(libbutl)/libbutl/*.cxx)
+
+build2_obj  := $(patsubst $(src_root)/%.cxx,$(out_root)/%.o,$(build2_src))
+libbutl_obj := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.o,$(libbutl_src))
+
+# Build.
+#
+$(out_root)/build2/b-boot: $(build2_obj) $(libbutl_obj)
+	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ -lpthread $(LIBS)
+
+$(out_root)/build2/%.o: $(src_root)/build2/%.cxx | $$(dir $$@).
+	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
+
+$(libbutl_out)/%.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
+	$(CXX) -I$(libbutl) $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
+
+.PRECIOUS: %/.
+%/. :
+	mkdir -p $*
+
+# Clean.
+#
+.PHONY: clean
+clean:
+	rm -f $(out_root)/build2/b-boot
+	rm -f $(build2_obj)
+	rm -f $(libbutl_obj)
+ifeq ($(in_tree),false)
+	rm -fd $(foreach d,$(sub_dirs),$(out_root)/build2/$d) $(out_root)/build2 $(libbutl_out)
+endif
