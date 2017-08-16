@@ -4,7 +4,7 @@
 
 # This makefile requires GNU make 3.81 or later and can be used to bootstrap
 # the build system similar to the bootstrap.sh script. Its main advantage over
-# the script is support for building in parallel.
+# the script is support for parallel bootstrap.
 #
 # Similar to the script, the makefile expects to find the libbutl/ or
 # libbutl-*/ directory either in the current directory (build2 root) or one

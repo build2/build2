@@ -8,8 +8,10 @@ complete \c{build2} toolchain, you should use the \c{build2-toolchain}
 distribution instead.
 
 The instructions outlined below are essentially a summary of the first three
-steps of the manual bootstrap process described in \c{build2-toolchain}. Also,
-below we only show commands for UNIX-like operating systems. For other
+steps of the manual bootstrap process described in \c{build2-toolchain} with a
+few extra examples that would primarily be useful for distribution packaging.
+
+Also, below we only show commands for UNIX-like operating systems. For other
 operating systems and for more details on each step, refer to the
 \c{build2-toolchain} documentation.
 
@@ -18,8 +20,12 @@ Update 3 or any later versions of these compilers are known to work. The build
 system is self-hosted, which means that unless you have obtained a pre-built
 binary from somewhere else, you will need to bootstrap it. To accomplish this,
 we use the \c{bootstrap.sh} shell script (or equivalent batch files for
-Windows) found in the root directory of the \c{build2} distribution. The
-following is the recommended sequence of steps:
+Windows) found in the root directory of the \c{build2} distribution. On
+UNIX-like operating systems a GNU \c{make} makefile called \c{bootstrap.gmake}
+can also be used with the major advanage over the script being support for
+parallel bootstrap (see comments inside the makefile for more information).
+
+The following is the recommended sequence of steps:
 
 
 \dl|
@@ -49,6 +55,27 @@ $ ./bootstrap.sh g++
 $ build2/b-boot --version
 \
 
+Alternatively, we can use the \c{bootstrap.gmake} makefile:
+
+\
+$ cd build2-X.Y.Z
+$ make -f bootstrap.gmake CXX=g++ -j 8
+
+$ build2/b-boot --version
+\
+
+If you would prefer to bootstrap out of source tree, this is supported by the
+makefile (but not the script):
+
+\
+$ mkdir build2-boot
+$ cd build2-boot
+$ make -f ../build2-X.Y.Z/bootstrap.gmake CXX=g++ -j 8
+$ cd ..
+
+$ build2-boot/build2/b-boot --version
+\
+
 |
 
 \li|\n\b{2. Bootstrap, Phase 2}\n
@@ -61,6 +88,15 @@ $ build2/b-boot config.cxx=g++ config.bin.lib=static
 $ mv build2/b build2/b-boot
 
 $ build2/b-boot --version
+\
+
+Or, alternatively, for an out of tree build:
+
+\
+$ build2-boot/build2/b-boot config.cxx=g++ config.bin.lib=static \
+  build2-X.Y.Z/@build2-static/
+
+$ build2-static/build2/b --version
 \
 
 |
@@ -98,6 +134,37 @@ To uninstall:
 \
 $ b uninstall
 $ which b
+\
+
+Or, alternatively, for an out of tree build:
+
+\
+$ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+  config.cxx=g++                  \
+  config.cc.coptions=-O3          \
+  config.bin.rpath=/usr/local/lib \
+  config.install.root=/usr/local  \
+  config.install.sudo=sudo
+
+$ build2-static/build2/b build2-shared/
+
+$ build2-static/build2/b install: build2-shared/
+
+$ b uninstall: build2-shared/
+\
+
+For distribution packaging it is often required to install \"as if\" into the
+system directory (for example, \c{/usr}) but to copy the files somewhere else
+(for example, \c{/tmp/install/usr}; aka the \c{DESTDIR} functionality). In
+\c{build2} this can be achieved with the \c{config.install.chroot}
+configuration variable, for example:
+
+\
+$ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+  config.cxx=g++                     \
+  config.cc.coptions=-O3             \
+  config.install.root=/usr           \
+  config.install.chroot=/tmp/install
 \
 
 ||
