@@ -133,31 +133,40 @@ build2_src  := $(wildcard $(src_root)/build2/*.cxx)
 build2_src  += $(foreach d,$(sub_dirs),$(wildcard $(src_root)/build2/$d/*.cxx))
 libbutl_src := $(wildcard $(libbutl)/libbutl/*.cxx)
 
-build2_obj  := $(patsubst $(src_root)/%.cxx,$(out_root)/%.o,$(build2_src))
-libbutl_obj := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.o,$(libbutl_src))
+# Note that we use the .b.o object file extension to avoid clashing with the
+# build2 builds.
+#
+build2_obj  := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(build2_src))
+libbutl_obj := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.b.o,$(libbutl_src))
 
 # Build.
 #
 $(out_root)/build2/b-boot: $(build2_obj) $(libbutl_obj)
 	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ -lpthread $(LIBS)
 
-$(out_root)/build2/%.o: $(src_root)/build2/%.cxx | $$(dir $$@).
+$(out_root)/build2/%.b.o: $(src_root)/build2/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
-$(libbutl_out)/%.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
+$(libbutl_out)/%.b.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
 .PRECIOUS: %/.
 %/. :
 	mkdir -p $*
 
+.PHONY: all
+all: $(out_root)/build2/b-boot
+
 # Clean.
 #
-.PHONY: clean
-clean:
-	rm -f $(out_root)/build2/b-boot
+.PHONY: clean cleano
+
+cleano:
 	rm -f $(build2_obj)
 	rm -f $(libbutl_obj)
+
+clean: cleano
+	rm -f $(out_root)/build2/b-boot
 ifeq ($(in_tree),false)
 	rm -fd $(foreach d,$(sub_dirs),$(out_root)/build2/$d) $(out_root)/build2 $(libbutl_out)
 endif
