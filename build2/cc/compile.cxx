@@ -1644,10 +1644,11 @@ namespace build2
                 //
                 if (!d.empty ())
                 {
-                  // Ignore any paths containing '.', '..' components wrong
-                  // separators, etc.
+                  // Ignore any paths containing '.', '..' components. Allow
+                  // any directory separators thought (think -I$src_root/foo
+                  // on Windows).
                   //
-                  if (d.absolute () && d.normalized ())
+                  if (d.absolute () && d.normalized (false))
                   {
                     // If we have a candidate out_base, see if this is its
                     // src_base.
