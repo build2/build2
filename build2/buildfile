@@ -11,7 +11,6 @@ libu{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
          $libs
 
 hxx{version}: in{version} $src_root/file{manifest}
-hxx{version}: dist = true
 
 # Pass our compiler target to be used as build2 host.
 #
