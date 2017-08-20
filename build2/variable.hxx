@@ -283,12 +283,16 @@ namespace build2
   template <typename T> const T* cast_null (const value&);
   template <typename T> const T* cast_null (const lookup&);
 
-  // As above but returns false if the value is NULL (or not defined, in case
-  // of lookup). Note that the template argument is only for documentation and
-  // should be bool (or semantically compatible).
+  // As above but returns false/true if the value is NULL (or not defined,
+  // in case of lookup). Note that the template argument is only for
+  // documentation and should be bool (or semantically compatible).
   //
-  template <typename T> T cast_false (const value& v);
-  template <typename T> T cast_false (const lookup& l);
+  template <typename T> T cast_false (const value&);
+  template <typename T> T cast_false (const lookup&);
+
+  template <typename T> T cast_true (const value&);
+  template <typename T> T cast_true (const lookup&);
+
 
   // Assign value type to the value. In the second version the variable is
   // optional and is only used for diagnostics.

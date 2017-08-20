@@ -193,6 +193,15 @@ namespace build2
   cast_false (const lookup& l) {return l && cast<T> (l);}
 
   template <typename T>
+  inline T
+  cast_true (const value& v) {return !v || cast<T> (v);}
+
+  template <typename T>
+  inline T
+  cast_true (const lookup& l) {return !l || cast<T> (l);}
+
+
+  template <typename T>
   inline void
   typify (value& v, const variable& var)
   {

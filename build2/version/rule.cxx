@@ -81,6 +81,11 @@ namespace build2
     {
       doc& t (static_cast<doc&> (xt));
 
+      // If this is clean check if we were asked not to remove it.
+      //
+      if (a == perform_clean_id && !cast_true<bool> (t[var_clean]))
+        return noop_recipe;
+
       // Derive the file name.
       //
       t.derive_path ();

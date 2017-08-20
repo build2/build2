@@ -254,7 +254,9 @@ namespace build2
   extern const variable* var_project_url;     // project.url
   extern const variable* var_project_summary; // project.summary
 
-  extern const variable* var_import_target; // import.target
+  extern const variable* var_import_target;   // import.target
+
+  extern const variable* var_clean;           // [bool] target visibility
 
   // Current action (meta/operation).
   //

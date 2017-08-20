@@ -191,6 +191,8 @@ namespace build2
 
   const variable* var_import_target;
 
+  const variable* var_clean;
+
   const string* current_mname;
   const string* current_oname;
 
@@ -538,6 +540,8 @@ namespace build2
       var_project_summary = &vp.insert<string> ("project.summary", pv);
 
       var_import_target = &vp.insert<name> ("import.target");
+
+      var_clean = &vp.insert<bool> ("clean", variable_visibility::target);
     }
 
     // Register builtin rules.
