@@ -135,4 +135,4 @@ src="$src $libbutl/libbutl/*.cxx"
 # mode since 4.9 doesn't recognize c++1z.
 #
 set -x
-"$cxx" "-I$libbutl" -I. '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src -lpthread
+"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src -lpthread

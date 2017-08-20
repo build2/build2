@@ -23,7 +23,18 @@
 
 #include <build2/types.hxx>
 #include <build2/b-options.hxx>
-#include <build2/version.hxx>
+
+// "Fake" version values used during bootstrap.
+//
+#ifdef BUILD2_BOOTSTRAP
+#  define BUILD2_VERSION      9999999990000ULL
+#  define BUILD2_VERSION_STR  "999.999.999"
+#  define BUILD2_VERSION_ID   "999.999.999"
+#  define LIBBUTL_VERSION_STR "999.999.999"
+#  define LIBBUTL_VERSION_ID  "999.999.999"
+#else
+#  include <build2/version.hxx>
+#endif
 
 namespace build2
 {

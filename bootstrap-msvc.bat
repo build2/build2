@@ -40,7 +40,7 @@ goto :eof
   rem Note that echo does not override errorlevel.
   rem
   echo on
-  %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP %*
+  %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_BOOTSTRAP /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP %*
   @echo off
   if errorlevel 1 goto error
 goto :eof

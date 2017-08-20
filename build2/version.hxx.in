@@ -23,7 +23,10 @@
 // 2.2.0-a.1    0020019990010
 // 3.0.0-b.2    0029999995020
 // 2.2.0-a.1.z  0020019990011
-//
+
+// NOTE: remember to also update "fake" bootstrap values in utility.hxx if
+// changing anything here.
+
 #define BUILD2_VERSION       $build2.version.project_number$ULL
 #define BUILD2_VERSION_STR   "$build2.version.project$"
 #define BUILD2_VERSION_ID    "$build2.version.project_id$"
