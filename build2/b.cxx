@@ -4,6 +4,8 @@
 
 #ifndef _WIN32
 #  include <signal.h> // signal()
+#else
+#  include <libbutl/win32-utility.hxx>
 #endif
 
 #include <stdlib.h>    // getenv() _putenv()(_WIN32)
@@ -102,10 +104,18 @@ main (int argc, char* argv[])
     // terminates a process. Also note that there is no way to disable this
     // behavior on a file descriptor basis or for the write() function call.
     //
+    // On Windows disable displaying error reporting dialog box for the current
+    // and child processes unless we run serially. This way we avoid multiple
+    // dialog boxes to potentially pop up.
+    //
 #ifndef _WIN32
     if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
       fail << "unable to ignore broken pipe (SIGPIPE) signal: "
            << system_error (errno, generic_category ()); // Sanitize.
+#else
+    if (!ops.serial_stop ())
+      SetErrorMode (SetErrorMode (0) | // Returns the current mode.
+                    SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
 
     // Parse the command line. We want to be able to specify options, vars,
