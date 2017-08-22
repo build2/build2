@@ -112,10 +112,6 @@ main (int argc, char* argv[])
     if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
       fail << "unable to ignore broken pipe (SIGPIPE) signal: "
            << system_error (errno, generic_category ()); // Sanitize.
-#else
-    if (!ops.serial_stop ())
-      SetErrorMode (SetErrorMode (0) | // Returns the current mode.
-                    SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
 
     // Parse the command line. We want to be able to specify options, vars,
@@ -299,6 +295,12 @@ main (int argc, char* argv[])
         fail << "pager failed: " << e;
       }
     }
+
+#ifdef _WIN32
+    if (!ops.serial_stop ())
+      SetErrorMode (SetErrorMode (0) | // Returns the current mode.
+                    SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+#endif
 
     // Register builtin modules.
     //
