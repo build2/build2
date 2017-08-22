@@ -9,8 +9,3 @@ git clone --recursive https://git.build2.org/build2.git
 Alternatively, if you have already cloned without --recursive, run:
 
 git submodule update --init
-
-The checked out build2/version.hxx will be overwritten during the build process
-but these changes should be ignored. To do this automatically, run:
-
-git update-index --assume-unchanged build2/version.hxx
