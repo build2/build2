@@ -29,9 +29,6 @@ namespace build2
 
       static target_state
       perform_update (action, const target&);
-
-      static target_state
-      perform_clean (action, const target&);
     };
   }
 }

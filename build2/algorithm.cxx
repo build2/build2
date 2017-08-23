@@ -1425,12 +1425,36 @@ namespace build2
   target_state
   perform_clean (action a, const target& t)
   {
-    return clean_extra (a, dynamic_cast<const file&> (t), {nullptr});
+    return clean_extra (a, t.as<file> (), {nullptr});
   }
 
   target_state
   perform_clean_depdb (action a, const target& t)
   {
-    return clean_extra (a, dynamic_cast<const file&> (t), {".d"});
+    return clean_extra (a, t.as<file> (), {".d"});
+  }
+
+  target_state
+  perform_clean_group (action a, const target& xg)
+  {
+    const mtime_target& g (xg.as<mtime_target> ());
+    const group_view& gv (g.group_members (a));
+
+    // Similar logic to clean_extra() above.
+    //
+    target_state r (target_state::unchanged);
+    for (size_t i (0); i != gv.count; ++i)
+    {
+      if (const target* m = gv.members[i])
+      {
+        if (rmfile (m->as<file> ().path (), *m))
+          r |= target_state::changed;
+      }
+    }
+
+    g.mtime (timestamp_nonexistent);
+
+    r |= reverse_execute_prerequisites (a, g);
+    return r;
   }
 }

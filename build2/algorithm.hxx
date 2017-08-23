@@ -467,6 +467,12 @@ namespace build2
   target_state
   perform_clean_depdb (action, const target&);
 
+  // As above but clean the target group. The group should be an mtime_target
+  // and members should be files.
+  //
+  target_state
+  perform_clean_group (action, const target&);
+
   // Helper for custom perform(clean) implementations that cleans extra files
   // and directories (recursively) specified as a list of either absolute
   // paths or "path derivation directives". The directive string can be NULL,

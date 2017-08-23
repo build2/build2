@@ -174,7 +174,7 @@ namespace build2
         switch (a)
         {
         case perform_update_id: return &perform_update;
-        case perform_clean_id: return &perform_clean;
+        case perform_clean_id: return &perform_clean_group; // Standard impl.
         default: return noop_recipe; // Configure update.
         }
       }
@@ -303,35 +303,6 @@ namespace build2
       }
 
       return target_state::changed;
-    }
-
-    target_state compile::
-    perform_clean (action a, const target& xt)
-    {
-      const cli_cxx& t (xt.as<cli_cxx> ());
-
-      // The reverse order of update: first delete the files, then clean
-      // prerequisites. Also update timestamp in case there are operations
-      // after us that could use the information.
-      //
-      // @@ Can't we use clean_extra() for this?
-      //
-      bool r (false);
-
-      if (t.i != nullptr)
-        r = rmfile (t.i->path (), *t.i) || r;
-      r = rmfile (t.c->path (), *t.c) || r;
-      r = rmfile (t.h->path (), *t.h) || r;
-
-      t.mtime (timestamp_nonexistent);
-
-      target_state ts (r ? target_state::changed : target_state::unchanged);
-
-      // Clean prerequisites.
-      //
-      ts |= reverse_execute_prerequisites (a, t);
-
-      return ts;
     }
   }
 }
