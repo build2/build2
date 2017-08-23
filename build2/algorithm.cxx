@@ -1279,9 +1279,9 @@ namespace build2
     bool ed (false);
     path ep;
 
-    auto clean = [&er, &ed, &ep] (const file& f,
-                                  const path* fp,
-                                  initializer_list<const char*> es)
+    auto clean_extra = [&er, &ed, &ep] (const file& f,
+                                        const path* fp,
+                                        initializer_list<const char*> es)
     {
       for (const char* e: es)
       {
@@ -1357,7 +1357,16 @@ namespace build2
     auto ei (extra.begin ()), ee (extra.end ());
 
     if (ei != ee)
-      clean (ft, nullptr, *ei++);
+      clean_extra (ft, nullptr, *ei++);
+
+    // Check if we were asked not to actually remove the files. The extras are
+    // tricky: some of them, like depdb should definitely be removed. But
+    // there could also be those that shouldn't. Currently we only use this
+    // for auto-generated source code where the only extra file, if any, is
+    // depdb so for now we treat them as "to remove" but in the future we may
+    // need to have two lists.
+    //
+    bool clean (cast_true<bool> (ft[var_clean]));
 
     // Now clean the ad hoc group file members, if any.
     //
@@ -1370,9 +1379,9 @@ namespace build2
         continue;
 
       if (ei != ee)
-        clean (*fm, fp, *ei++);
+        clean_extra (*fm, fp, *ei++);
 
-      target_state r (rmfile (*fp, 3)
+      target_state r (clean && rmfile (*fp, 3)
                       ? target_state::changed
                       : target_state::unchanged);
 
@@ -1385,7 +1394,7 @@ namespace build2
     // Now clean the primary target and its prerequisited in the reverse order
     // of update: first remove the file, then clean the prerequisites.
     //
-    target_state tr (rmfile (ft.path (), ft) // Path must be assigned.
+    target_state tr (clean && rmfile (ft.path (), ft) // Path must be assigned.
                      ? target_state::changed
                      : target_state::unchanged);
 
@@ -1443,12 +1452,15 @@ namespace build2
     // Similar logic to clean_extra() above.
     //
     target_state r (target_state::unchanged);
-    for (size_t i (0); i != gv.count; ++i)
+    if (cast_true<bool> (g[var_clean]))
     {
-      if (const target* m = gv.members[i])
+      for (size_t i (0); i != gv.count; ++i)
       {
-        if (rmfile (m->as<file> ().path (), *m))
-          r |= target_state::changed;
+        if (const target* m = gv.members[i])
+        {
+          if (rmfile (m->as<file> ().path (), *m))
+            r |= target_state::changed;
+        }
       }
     }
 
