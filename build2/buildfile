@@ -35,7 +35,10 @@ if $cli.configured
   cli.options += --suppress-undocumented --long-usage --ansi-color \
 --page-usage 'build2::print_$name$_' --option-length 20
 
-  # Include generated cli files into the distribution.
+  # Include the generated cli files into the distribution and don't remove
+  # them when cleaning in src (so that clean results in a state identical to
+  # distributed).
   #
-  cli.cxx{*}: dist = true
+  cli.cxx{*}: dist  = true
+  cli.cxx{*}: clean = ($src_root != $out_root)
 }
