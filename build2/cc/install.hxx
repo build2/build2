@@ -19,7 +19,7 @@ namespace build2
   {
     class link;
 
-    // Installation rule for exe, liba{}, and libs{}.
+    // Installation rule for exe{}, lib*{}, etc.
     //
     class file_install: public install::file_rule, virtual common
     {
