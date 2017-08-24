@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-version=0.6.0
+version=0.6.1
 date="$(date +"%B %Y")"
 
 trap 'exit 1' ERR
