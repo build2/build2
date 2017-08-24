@@ -30,12 +30,31 @@ namespace build2
       // NOTE: see also alias_install::filter() below if changing anything
       // here.
 
-      if (t.is_a<exe> ())
+      otype ot (link_type (t).type);
+
+      // Don't install executable's prerequisite headers.
+      //
+      if (t.is_a<exe> () && x_header (p))
+        return nullptr;
+
+      // Here is a problem: if the user spells the obj*/bmi*{} targets
+      // explicitly, then the source files, including headers/modules may be
+      // specified as preprequisites of those targets and not of this target.
+      // While this can be worked around for headers by also listing them as
+      // prerequisites of this target, this won't work for modules (since they
+      // are compiled). So what we are going to do here is detect bmi*{} and
+      // translate them to their mxx{} (this doesn't quite work for headers
+      // since there would normally be several of them).
+      //
+      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
       {
-        // Don't install executable's prerequisite headers.
-        //
-        if (x_header (p))
-          return nullptr;
+        const target& mt (p.search (t));
+
+        for (prerequisite_member mp: group_prerequisite_members (a, mt))
+        {
+          if (mp.is_a (*x_mod))
+            return t.is_a<exe> () ? nullptr : file_rule::filter (a, mt, mp);
+        }
       }
 
       // If this is a shared library prerequisite, install it as long as it
@@ -56,8 +75,7 @@ namespace build2
         // link. For libu{} we want to the "see through" logic.
         //
         if (const libx* l = pt->is_a<libx> ())
-          pt = &link_member (
-            *l, a, link_info (t.base_scope (), link_type (t).type));
+          pt = &link_member (*l, a, link_info (t.base_scope (), ot));
 
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
@@ -175,11 +193,21 @@ namespace build2
       // The "see through" semantics that should be parallel to file_install
       // above. In particular, here we use libue/libua/libus{} as proxies for
       // exe/liba/libs{} there.
-      //
-      if (t.is_a<libue> ())
+
+      otype ot (link_type (t).type);
+
+      if (t.is_a<libue> () && x_header (p))
+        return nullptr;
+
+      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
       {
-        if (x_header (p))
-          return nullptr;
+        const target& mt (p.search (t));
+
+        for (prerequisite_member mp: group_prerequisite_members (a, mt))
+        {
+          if (mp.is_a (*x_mod))
+            return t.is_a<libue> () ? nullptr : alias_rule::filter (a, mt, mp);
+        }
       }
 
       bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
@@ -191,8 +219,7 @@ namespace build2
         const target* pt (&p.search (t));
 
         if (const libx* l = pt->is_a<libx> ())
-          pt = &link_member (
-            *l, a, link_info (t.base_scope (), link_type (t).type));
+          pt = &link_member (*l, a, link_info (t.base_scope (), ot));
 
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
