@@ -1447,16 +1447,16 @@ namespace build2
   perform_clean_group (action a, const target& xg)
   {
     const mtime_target& g (xg.as<mtime_target> ());
-    const group_view& gv (g.group_members (a));
 
     // Similar logic to clean_extra() above.
     //
     target_state r (target_state::unchanged);
+
     if (cast_true<bool> (g[var_clean]))
     {
-      for (size_t i (0); i != gv.count; ++i)
+      for (group_view gv (g.group_members (a)); gv.count != 0; --gv.count)
       {
-        if (const target* m = gv.members[i])
+        if (const target* m = gv.members[gv.count - 1])
         {
           if (rmfile (m->as<file> ().path (), *m))
             r |= target_state::changed;
