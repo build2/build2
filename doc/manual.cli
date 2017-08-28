@@ -314,10 +314,10 @@ For example:
 1~1.2.3-a.1+2
 \
 
-The \i{major}, \i{minor}, and \i{patch} should be numeric values between 0 and
-999 and all three cannot be zero at the same time. For initial development it
-is recommended to use 0 for \i{major}, start with version \c{0.1.0}, and change
-to \c{1.0.0} once things stabilize.
+The \i{major}, \i{minor}, and \i{patch} should be numeric values between \c{0}
+and \c{999} and all three cannot be zero at the same time. For initial
+development it is recommended to use \c{0} for \i{major}, start with version
+\c{0.1.0}, and change to \c{1.0.0} once things stabilize.
 
 In the context of C and C++ (or other compiled languages), you should
 increment \i{patch} when making binary-compatible changes, \i{minor} when
@@ -381,13 +381,13 @@ is uniquely identified by the snapshot sequence number (\i{snapsn}) and
 snapshot id (\i{snapid}).
 
 The \i{num} component has the same semantics as in the final pre-releases
-except that it can be 0. The \i{snapsn} component should be either the special
-value '\c{z}' or a numeric, non-zero value that increases for each subsequent
-snapshot. It must fit into an unsigned 64-bit integer. The \i{snapid}
-component, if present, should be an alpha-numeric value that uniquely
-identifies the snapshot. It is not required for version comparison (\i{snapsn}
-should be sufficient) and is included for reference. It must not be longer
-than 16 characters.
+except that it can be \c{0}. The \i{snapsn} component should be either the
+special value '\c{z}' or a numeric, non-zero value that increases for each
+subsequent snapshot. It must fit into an unsigned 64-bit integer. The
+\i{snapid} component, if present, should be an alpha-numeric value that
+uniquely identifies the snapshot. It is not required for version comparison
+(\i{snapsn} should be sufficient) and is included for reference. It must not
+be longer than 16 characters.
 
 Where do the snapshot sn and id come from? Normally from the version control
 system. For example, for \c{git}, \i{snapsn} is the commit date (as UNIX
@@ -447,8 +447,8 @@ E   - final (0) / snapshot (1)
 
 If the \i{DDDE} value is not zero, then it signifies a pre-release. In this
 case one is subtracted from the \i{AAABBBCCC} value. An alpha number is stored
-in \i{DDD} as is while beta \- incremented by 500. If \i{E} is 1, then this is
-a snapshot after \i{DDD}.
+in \i{DDD} as is while beta \- incremented by \c{500}. If \i{E} is \c{1}, then
+this is a snapshot after \i{DDD}.
 
 For example:
 
@@ -1227,8 +1227,8 @@ mxx{std-core}@./: cc.module_name = std.core
 
 When C++ modules are enabled and available, the build system makes sure the
 \c{__cpp_modules} feature test macro is defined. Currently, its value is
-201703 for VC and 201704 for GCC and Clang but this will most likely change in
-the future.
+\c{201703} for VC and \c{201704} for GCC and Clang but this will most likely
+change in the future.
 
 One major difference between the current C++ modules implementation in VC and
 the other two compilers is the use of the \c{export module} syntax to identify
