@@ -171,14 +171,14 @@ namespace build2
               }
             case compiler_id::clang:
               {
-                // Enable starting with Clang 5.0.0.
+                // Enable starting with Clang 6.0.0.
                 //
                 // Note that we are using Apple to vanilla Clang version re-
                 // map from above so may need to update things there as well.
                 //
                 // Also see Clang modules support hack in cc::compile.
                 //
-                if (mj >= 5)
+                if (mj >= 6)
                 {
                   r.push_back ("-D__cpp_modules=201704"); // p0629r0
                   r.push_back ("-fmodules-ts");

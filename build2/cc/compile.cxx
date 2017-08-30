@@ -3725,14 +3725,14 @@ namespace build2
             // In Clang the module implementation's unit .pcm is special and
             // must be "loaded".
             //
-            //if (md.type == translation_type::module_impl && i == ms.start)
+            if (md.type == translation_type::module_impl && i == ms.start)
               s.insert (0, "-fmodule-file=");
-            //else
-            //{
-            //  s.insert (0, 1, '=');
-            //  s.insert (0, cast<string> (f.vars[c_module_name]));
-            //  s.insert (0, "-fmodule-file=");
-            //}
+            else
+            {
+              s.insert (0, 1, '=');
+              s.insert (0, cast<string> (f.vars[c_module_name]));
+              s.insert (0, "-fmodule-file=");
+            }
             break;
           }
         case compiler_id::msvc:
