@@ -11,13 +11,20 @@ using namespace std;
 
 namespace build2
 {
-  // Return NULL value if an environment variable is not set.
+  // Return NULL value if an environment variable is not set, untyped value
+  // otherwise.
   //
   static inline value
   getenv (const string& name)
   {
     const char* v (::getenv (name.c_str ()));
-    return v != nullptr ? value (v) : value ();
+
+    if (v == nullptr)
+      return value ();
+
+    names r;
+    r.emplace_back (to_name (v));
+    return value (move (r));
   }
 
   void

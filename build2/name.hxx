@@ -104,6 +104,13 @@ namespace build2
   string
   to_string (const name&);
 
+  // Store a string in a name in a reversible way. If the string ends with a
+  // trailing directory separator then it is stored as a directory, otherwise
+  // as a simple name.
+  //
+  name
+  to_name (string);
+
   // Serialize the name to the stream. If requested, the name components
   // containing special characters are quoted. The special characters are:
   //

@@ -23,4 +23,18 @@ namespace build2
 
     return r;
   }
+
+  inline name
+  to_name (string s)
+  {
+    if (!s.empty () && path::traits::is_separator (s.back ()))
+    {
+      dir_path d (move (s), dir_path::exact);
+
+      if (!d.empty ())
+        return name (move (d));
+    }
+
+    return name (move (s));
+  }
 }
