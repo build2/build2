@@ -253,3 +253,99 @@
     }
   }
 }
+
+: split
+:
+{
+  : all-parts
+  :
+  : Note that 3 parts a printed here ('|abc|', ' ' and '|def|'), separated by
+  : the space character.
+  :
+  $* <<EOI >'|abc|   |def|'
+  print $regex.split('abc def', '(\S+)', '|\1|')
+  EOI
+
+  : no-copy
+  :
+  : Note that 2 parts a printed here ('|abc|' and '|def|'), separated by the
+  : space character.
+  :
+  $* <<EOI >'|abc| |def|'
+  print $regex.split('abc   def', '(\S+)', '|\1|', format_no_copy)
+  EOI
+
+  : unmatched
+  :
+  : Note that only unmatched part is printed here (' '). Empty replacements are
+  : omitted.
+  :
+  $* <<EOI >' '
+  print $regex.split('abc def', '(\S+)', '')
+  EOI
+
+  : include-options
+  :
+  {
+    : quoted
+    :
+    $* <<EOI >'|-Ic:/dir 1| |-IC:/dir2| |-IC:/dir3| |-IC:/dir4| ||'
+    opts = '"-Ic:/dir 1"   "-IC:/dir2"   "-IC:/dir3"   "-IC:/dir4" ""'
+    print $regex.split($opts, ' *"([^"]*)" *', '|\1|')
+    EOI
+
+    : quoted-unquoted
+    :
+    : Note that one of the two captures (\1\2) is always empty as they are
+    : alternative ones.
+    :
+    $* <<EOI >'|-Ic:/dir 1| |-IC:/dir2| |-IC:/dir3| |-IC:/dir4| ||'
+    opts = '"-Ic:/dir 1"   -IC:/dir2  "-IC:/dir3"   "-IC:/dir4" ""'
+    print $regex.split($opts, '"([^"]*)"|([^" ]+)', '|\1\2|', format_no_copy)
+    EOI
+  }
+}
+
+: apply
+:
+{
+  : all-parts
+  :
+  $* <<EOI >'xbc cbx'
+  print $regex.apply(abc cba, 'a', 'x')
+  EOI
+
+  : omit-empty
+  :
+  $* <<EOI >'bc cb'
+  print $regex.apply(abc a cba, 'a', '')
+  EOI
+}
+
+: merge
+:
+{
+  : all-parts
+  :
+  $* <<EOI >'xbccbx'
+  print $regex.merge(abc cba, 'a', 'x')
+  EOI
+
+  : omit-empty
+  :
+  $* <<EOI >'bccb'
+  print $regex.merge(abc a cba, 'a', '')
+  EOI
+
+  : delim
+  :
+  $* <<EOI >'xbc-cbx'
+  print $regex.merge(abc cba, 'a', 'x', '-')
+  EOI
+
+  : string-delim
+  :
+  $* <<EOI >'xbc-cbx'
+  print $regex.merge(abc cba, 'a', 'x', [string] '-')
+  EOI
+}
