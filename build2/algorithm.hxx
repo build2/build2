@@ -173,6 +173,11 @@ namespace build2
   // state translating target_state::failed to the failed exception unless
   // instructed otherwise.
   //
+  // The try_match() version doesn't issue diagnostics if there is no rule
+  // match (but fails as match() for all other errors, like rule ambiguity,
+  // inability to apply, etc). The first half of the result indicated whether
+  // there was a rule match.
+  //
   // The unmatch argument allows optimizations that avoid calling execute().
   // If it is unmatch::unchanged then only unmatch the target if it is known
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
@@ -184,6 +189,9 @@ namespace build2
 
   target_state
   match (action, const target&, bool fail = true);
+
+  pair<bool, target_state>
+  try_match (action, const target&, bool fail = true);
 
   bool
   match (action, const target&, unmatch);
@@ -208,13 +216,13 @@ namespace build2
   match_recipe (target_lock&, recipe);
 
   // Match a "delegate rule" from withing another rules' apply() function
-  // avoiding recursive matches (thus the third argument). Unless fail is
-  // false, fail if not rule is found. Otherwise return empty recipe. Note
-  // that unlike match(), this function does not increment the dependents
+  // avoiding recursive matches (thus the third argument). Unless try_match is
+  // true, fail if not rule is found. Otherwise return empty recipe. Note that
+  // unlike match(), this function does not increment the dependents
   // count. See also the companion execute_delegate().
   //
   recipe
-  match_delegate (action, target&, const rule&, bool fail = true);
+  match_delegate (action, target&, const rule&, bool try_match = false);
 
   // The standard prerequisite search and match implementations. They call
   // search() and then match() for each prerequisite in a loop omitting out of

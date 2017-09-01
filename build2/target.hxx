@@ -460,16 +460,18 @@ namespace build2
     // the target is synchronized, then we can access and modify (second case)
     // its state etc.
     //
-    static const size_t offset_touched  = 1; // Has been locked.
-    static const size_t offset_matched  = 2; // Rule has been matched.
-    static const size_t offset_applied  = 3; // Rule has been applied.
-    static const size_t offset_executed = 4; // Recipe has been executed.
-    static const size_t offset_locked   = 5; // Fast (spin) lock.
-    static const size_t offset_busy     = 6; // Slow (wait) lock.
+    static const size_t offset_touched  = 1; // Target has been locked.
+    static const size_t offset_tried    = 2; // Rule match has been tried.
+    static const size_t offset_matched  = 3; // Rule has been matched.
+    static const size_t offset_applied  = 4; // Rule has been applied.
+    static const size_t offset_executed = 5; // Recipe has been executed.
+    static const size_t offset_locked   = 6; // Fast (spin) lock.
+    static const size_t offset_busy     = 7; // Slow (wait) lock.
 
-    static size_t count_base     () {return 4 * (current_on - 1);}
+    static size_t count_base     () {return 5 * (current_on - 1);}
 
     static size_t count_touched  () {return offset_touched  + count_base ();}
+    static size_t count_tried    () {return offset_tried    + count_base ();}
     static size_t count_matched  () {return offset_matched  + count_base ();}
     static size_t count_applied  () {return offset_applied  + count_base ();}
     static size_t count_executed () {return offset_executed + count_base ();}
@@ -484,6 +486,11 @@ namespace build2
     //
     target_state
     matched_state (action a, bool fail = true) const;
+
+    // See try_match().
+    //
+    pair<bool, target_state>
+    try_matched_state (action a, bool fail = true) const;
 
     // This function should only be called during execution if we have
     // observed (synchronization-wise) that this target has been executed.
@@ -516,7 +523,10 @@ namespace build2
     // Version that should be used during match after the target has been
     // matched for this action (see the recipe override).
     //
-    target_state
+    // Indicate whether there is a rule match with the first half of the
+    // result (see try_match()).
+    //
+    pair<bool, target_state>
     state (action a) const;
 
     // Return true if the state comes from the group. Target must be at least
@@ -558,7 +568,7 @@ namespace build2
     bool
     unchanged (action_type a) const
     {
-      return state (a) == target_state::unchanged;
+      return state (a).second == target_state::unchanged;
     }
 
     // Targets to which prerequisites resolve for this recipe. Note that

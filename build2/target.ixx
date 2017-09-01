@@ -92,9 +92,20 @@ namespace build2
   {
     // Note that the target could be being asynchronously re-matched.
     //
-    target_state r (state (a));
+    pair<bool, target_state> r (state (a));
 
-    if (fail && r == target_state::failed)
+    if (fail && (!r.first || r.second == target_state::failed))
+      throw failed ();
+
+    return r.second;
+  }
+
+  inline pair<bool, target_state> target::
+  try_matched_state (action_type a, bool fail) const
+  {
+    pair<bool, target_state> r (state (a));
+
+    if (fail && r.first && r.second == target_state::failed)
       throw failed ();
 
     return r;

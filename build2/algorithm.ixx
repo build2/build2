@@ -180,43 +180,69 @@ namespace build2
     // We don't allow locking a target that has already been matched.
     //
     target_lock r (lock_impl (a, t, scheduler::work_none));
-    assert (!r || r.offset == target::offset_touched);
+    assert (!r                                 ||
+            r.offset == target::offset_touched ||
+            r.offset == target::offset_tried);
     return r;
   }
 
   pair<const pair<const string, reference_wrapper<const rule>>*, action>
-  match_impl (action, target&, const rule* skip, bool fail = true);
+  match_impl (action, target&, const rule* skip, bool try_match = false);
 
   recipe
   apply_impl (target&,
               const pair<const string, reference_wrapper<const rule>>&,
               action);
 
-  target_state
-  match (action, const target&, size_t, atomic_count*);
+  pair<bool, target_state>
+  match (action, const target&, size_t, atomic_count*, bool try_match = false);
 
   inline target_state
   match (action a, const target& t, bool fail)
   {
     assert (phase == run_phase::match);
 
-    target_state s (match (a, t, 0, nullptr));
+    target_state r (match (a, t, 0, nullptr).second);
 
-    if (fail && s == target_state::failed)
+    if (r != target_state::failed)
+    {
+      dependency_count.fetch_add (1, memory_order_relaxed);
+      t.dependents.fetch_add (1, memory_order_release);
+    }
+    else if (fail)
       throw failed ();
 
-    dependency_count.fetch_add (1, memory_order_relaxed);
-    t.dependents.fetch_add (1, memory_order_release);
-
-    return s;
+    return r;
   }
+
+  inline pair<bool, target_state>
+  try_match (action a, const target& t, bool fail)
+  {
+    assert (phase == run_phase::match);
+
+    pair<bool, target_state> r (match (a, t, 0, nullptr, /*try_match*/ true));
+
+    if (r.first)
+    {
+      if (r.second != target_state::failed)
+      {
+        dependency_count.fetch_add (1, memory_order_relaxed);
+        t.dependents.fetch_add (1, memory_order_release);
+      }
+      else if (fail)
+        throw failed ();
+    }
+
+    return r;
+  }
+
 
   inline bool
   match (action a, const target& t, unmatch um)
   {
     assert (phase == run_phase::match);
 
-    target_state s (match (a, t, 0, nullptr));
+    target_state s (match (a, t, 0, nullptr).second);
 
     if (s == target_state::failed)
       throw failed ();
@@ -255,7 +281,7 @@ namespace build2
                bool fail)
   {
     assert (phase == run_phase::match);
-    target_state r (match (a, t, sc, &tc));
+    target_state r (match (a, t, sc, &tc).second);
 
     if (fail && !keep_going && r == target_state::failed)
       throw failed ();
@@ -275,10 +301,10 @@ namespace build2
   }
 
   inline recipe
-  match_delegate (action a, target& t, const rule& r, bool fail)
+  match_delegate (action a, target& t, const rule& r, bool try_match)
   {
     assert (phase == run_phase::match);
-    auto mr (match_impl (a, t, &r, fail));
+    auto mr (match_impl (a, t, &r, try_match));
     return mr.first != nullptr
       ? apply_impl (t, *mr.first, mr.second)
       : empty_recipe;

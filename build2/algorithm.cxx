@@ -168,6 +168,7 @@ namespace build2
       // First lock for this operation.
       //
       t.action = a;
+      t.rule = nullptr;
       t.dependents.store (0, memory_order_release);
       offset = target::offset_touched;
     }
@@ -192,6 +193,7 @@ namespace build2
           assert (a > t.action);
         }
       case target::offset_touched:
+      case target::offset_tried:
       case target::offset_matched:
       case target::offset_applied:
         {
@@ -206,6 +208,7 @@ namespace build2
             }
 
             t.action = a;
+            t.rule = nullptr;
             offset = target::offset_touched; // Back to just touched.
           }
           else
@@ -283,7 +286,7 @@ namespace build2
   // Return the matching rule and the recipe action.
   //
   pair<const pair<const string, reference_wrapper<const rule>>*, action>
-  match_impl (action a, target& t, const rule* skip, bool f)
+  match_impl (action a, target& t, const rule* skip, bool try_match)
   {
     // Clear the resolved targets list before calling match(). The rule is
     // free to modify this list in match() (provided that it matches) in order
@@ -439,7 +442,7 @@ namespace build2
       }
     }
 
-    if (f)
+    if (!try_match)
     {
       diag_record dr;
       dr << fail << "no rule to " << diag_do (a, t);
@@ -473,8 +476,14 @@ namespace build2
 
   // If step is true then perform only one step of the match/apply sequence.
   //
-  static target_state
-  match_impl (action a, target_lock& l, bool step = false)
+  // If try_match is true, then indicate whether there is a rule match with
+  // the first half of the result.
+  //
+  static pair<bool, target_state>
+  match_impl (action a,
+              target_lock& l,
+              bool step = false,
+              bool try_match = false)
   {
     assert (l.target != nullptr);
     target& t (*l.target);
@@ -485,17 +494,33 @@ namespace build2
       //
       switch (l.offset)
       {
+      case target::offset_tried:
+        {
+          if (try_match)
+            return make_pair (false, target_state::unknown);
+
+          // Fall through (to issue diagnostics).
+        }
       case target::offset_touched:
         {
           // Match.
           //
-          auto mr (match_impl (a, t, nullptr));
+          auto mr (match_impl (a, t, nullptr, try_match));
+
+          if (mr.first == nullptr) // Not found (try_match == true).
+          {
+            l.offset = target::offset_tried;
+            return make_pair (false, target_state::unknown);
+          }
+
           t.rule = mr.first;
           t.action = mr.second; // In case overriden.
           l.offset = target::offset_matched;
 
           if (step)
-            return target_state::unknown; // t.state_ not set yet.
+            // t.state_ is not yet set.
+            //
+            return make_pair (true, target_state::unknown);
 
           // Fall through.
         }
@@ -523,14 +548,18 @@ namespace build2
       l.offset = target::offset_applied;
     }
 
-    return t.state_;
+    return make_pair (true, t.state_);
   }
 
-  target_state
+  // If try_match is true, then indicate whether there is a rule match with
+  // the first half of the result.
+  //
+  pair<bool, target_state>
   match (action a,
          const target& ct,
          size_t start_count,
-         atomic_count* task_count)
+         atomic_count* task_count,
+         bool try_match)
   {
     // If we are blocking then work our own queue one task at a time. The
     // logic here is that we may have already queued other tasks before this
@@ -555,17 +584,22 @@ namespace build2
 
     if (l.target == nullptr)
     {
-      // Already matched, executed, or busy.
+      // Already applied, executed, or busy.
       //
       if (l.offset >= target::offset_busy)
-        return target_state::busy;
+        return make_pair (true, target_state::busy);
 
       // Fall through.
     }
-    else if (l.offset != target::offset_applied) // Nothing to do if applied.
+    else
     {
+      assert (l.offset < target::offset_applied); // Shouldn't lock otherwise.
+
+      if (try_match && l.offset == target::offset_tried)
+        return make_pair (false, target_state::unknown);
+
       if (task_count == nullptr)
-        return match_impl (a, l);
+        return match_impl (a, l, /*step*/ false, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction. Also pass our diagnostics stack (this is safe since
@@ -574,27 +608,27 @@ namespace build2
       //
       if (sched.async (start_count,
                        *task_count,
-                       [a] (target& t,
-                            size_t offset,
-                            const diag_frame* ds)
+                       [a, try_match] (target& t,
+                                       size_t offset,
+                                       const diag_frame* ds)
                        {
                          diag_frame df (ds);
                          phase_lock pl (run_phase::match);
                          {
                            target_lock l {&t, offset}; // Reassemble.
-                           match_impl (a, l);
+                           match_impl (a, l, /*step*/ false, try_match);
                            // Unlock withing the match phase.
                          }
                        },
                        ref (*l.release ()),
                        l.offset,
                        diag_frame::stack))
-        return target_state::postponed; // Queued.
+        return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
     }
 
-    return ct.matched_state (a, false);
+    return ct.try_matched_state (a, false);
   }
 
   group_view
@@ -609,10 +643,11 @@ namespace build2
     switch (l.offset)
     {
     case target::offset_touched:
+    case target::offset_tried:
       {
         // Match (locked).
         //
-        if (match_impl (a, l, true) == target_state::failed)
+        if (match_impl (a, l, true).second == target_state::failed)
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
@@ -628,7 +663,7 @@ namespace build2
       {
         // Apply (locked).
         //
-        if (match_impl (a, l, true) == target_state::failed)
+        if (match_impl (a, l, true).second == target_state::failed)
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
@@ -926,9 +961,9 @@ namespace build2
             memory_order_acq_rel,  // Synchronize on success.
             memory_order_acquire)) // Synchronize on failure.
       {
-        // Overriden touch/match-only or noop recipe.
+        // Overriden touch/tried/match-only or noop recipe.
         //
-        if (tc == touc || tc == matc || t.state_ == target_state::unchanged)
+        if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
         {
           t.state_ = target_state::unchanged;
           t.task_count.store (exec, memory_order_release);
@@ -963,11 +998,11 @@ namespace build2
         if (tc >= busy) return target_state::busy;
         else if (tc != exec)
         {
-          // This can happen if we touched/matched (a noop) recipe which then
-          // got overridden as part of group resolution but not all the way to
-          // applied. In this case we treat it as noop.
+          // This can happen if we touched/tried/matched (a noop) recipe which
+          // then got overridden as part of group resolution but not all the
+          // way to applied. In this case we treat it as noop.
           //
-          assert ((tc == touc || tc == matc) && t.action > a);
+          assert ((tc >= touc && tc <= matc) && t.action > a);
           continue;
         }
       }
@@ -998,7 +1033,7 @@ namespace build2
             memory_order_acq_rel,  // Synchronize on success.
             memory_order_acquire)) // Synchronize on failure.
       {
-        if (tc == touc || tc == matc || t.state_ == target_state::unchanged)
+        if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
         {
           t.state_ = target_state::unchanged;
           t.task_count.store (exec, memory_order_release);
@@ -1014,7 +1049,7 @@ namespace build2
         if (tc >= busy) sched.wait (exec, t.task_count, scheduler::work_none);
         else if (tc != exec)
         {
-          assert ((tc == touc || tc == matc) && t.action > a);
+          assert ((tc >= touc && tc <= matc) && t.action > a);
           continue;
         }
       }

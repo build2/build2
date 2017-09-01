@@ -1938,6 +1938,7 @@ namespace build2
       // date then we use the same restart and skip logic to switch to the
       // compiler run.
       //
+      size_t skip_count (0);
 
       // Update and add a header file to the list of prerequisite targets.
       // Depending on the cache flag, the file is assumed to either have come
@@ -1946,7 +1947,7 @@ namespace build2
       //
       auto add = [&trace, &pfx_map, &so_map,
                   act, &t, li,
-                  &dd, &updating,
+                  &dd, &updating, &skip_count,
                   &bs, this]
         (path f, bool cache, timestamp mt) -> bool
       {
@@ -2167,13 +2168,23 @@ namespace build2
 
         // Match to a rule.
         //
-        build2::match (act, *pt);
+        // If we are reading the cache, then it is possible the file has since
+        // been removed (think of a header in /usr/local/include that has been
+        // uninstalled and now we need to use one from /usr/include). This
+        // will lead to the match failure which we translate to a restart.
+        //
+        if (!cache)
+          build2::match (act, *pt);
+        else if (!build2::try_match (act, *pt).first)
+        {
+          dd.write (); // Invalidate this line.
+          updating = true;
+          return true;
+        }
 
         // Update.
         //
         bool restart (update (trace, act, *pt, mt));
-
-        updating = updating || restart;
 
         // Verify/add it to the dependency database. We do it after update in
         // order not to add bogus files (non-existent and without a way to
@@ -2185,7 +2196,9 @@ namespace build2
         // Add to our prerequisite target list.
         //
         t.prerequisite_targets.push_back (pt);
+        skip_count++;
 
+        updating = updating || restart;
         return restart;
       };
 
@@ -2201,7 +2214,6 @@ namespace build2
 
       const path* drmp (nullptr); // Points to drm.path () if active.
 
-      size_t skip_count (0);
       for (bool restart (true); restart; cache = false)
       {
         restart = false;
@@ -2241,7 +2253,6 @@ namespace build2
             // updated, then the cached data is stale).
             //
             restart = add (path (move (*l)), true, mt);
-            skip_count++;
 
             if (restart)
             {
@@ -2405,7 +2416,6 @@ namespace build2
                   else
                   {
                     restart = add (path (move (f)), false, pmt);
-                    skip_count++;
 
                     // If the header does not exist (good_error) then restart
                     // must be true. Except that it is possible that someone
@@ -2476,7 +2486,6 @@ namespace build2
                     }
 
                     restart = add (path (move (f)), false, pmt);
-                    skip_count++;
 
                     if (restart)
                     {

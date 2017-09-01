@@ -144,6 +144,11 @@ namespace build2
     void
     write (char, bool nl = true);
 
+    // Mark the previously read line as to be overwritte.
+    //
+    void
+    write () {if (state_ != state::write) change ();}
+
     // Read the next line and compare it to the expected value. If it matches,
     // return NULL. Otherwise, overwrite it and return the old value (which
     // could also be NULL). This strange-sounding result semantics is used to

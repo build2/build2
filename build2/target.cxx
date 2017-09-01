@@ -117,7 +117,7 @@ namespace build2
     return *r;
   }
 
-  target_state target::
+  pair<bool, target_state> target::
   state (action_type a) const
   {
     assert (phase == run_phase::match);
@@ -147,15 +147,15 @@ namespace build2
       for (; e == lock; e = task_count.load (memory_order_acquire))
         this_thread::yield ();
 
-      if (e >= busy)
-        return target_state::unchanged; // Override in progress.
+      if (e >= busy) // Override in progress.
+        return make_pair (true, target_state::unchanged);
 
       // Unlike lock_impl(), we are only called after being matched for this
       // action so if we see executed, then it means executed for this action
       // (or noop).
       //
       if (e == exec)
-        return group_state () ? group->state_ : state_;
+        return make_pair (true, group_state () ? group->state_ : state_);
 
       // Try to grab the spin-lock.
       //
@@ -174,17 +174,24 @@ namespace build2
     // We have the spin-lock. Quickly get the matched action and unlock.
     //
     action_type ma (action);
-    bool failed (state_ == target_state::failed);
+    bool mf (state_ == target_state::failed);
     task_count.store (e, memory_order_release);
 
     if (ma > a) // Overriden.
-      return failed ? target_state::failed: target_state::unchanged;
+      return make_pair (true, // Override may have failed but we had the rule.
+                        mf ? target_state::failed: target_state::unchanged);
 
     // Otherwise we should have a matched target.
     //
-    assert (ma == a && (e == b + target::offset_applied || e == exec));
+    assert (ma == a);
 
-    return group_state () ? group->state_ : state_;
+    if (e == b + target::offset_tried)
+      return make_pair (false, target_state::unknown);
+    else
+    {
+      assert (e == b + target::offset_applied || e == exec);
+      return make_pair (true, group_state () ? group->state_ : state_);
+    }
   }
 
   pair<lookup, size_t> target::
