@@ -45,13 +45,12 @@ namespace build2
   find_src_root (const dir_path&);
 
   // The same as above but for project's out. Note that we also check whether
-  // a directory happens to be src_root, in case this is an in-tree build. The
-  // second argument is the out flag that is set to true if this is src_root.
-  // Note that if the input is normalized/actualized, then the output will be
-  // as well.
+  // a directory happens to be src_root, in case this is an in-tree build with
+  // the result returned as the second half of the pair. Note also that if the
+  // input is normalized/actualized, then the output will be as well.
   //
-  dir_path
-  find_out_root (const dir_path&, bool* src = nullptr);
+  pair<dir_path, bool>
+  find_out_root (const dir_path&);
 
   // If buildfile is '-', then read from STDIN.
   //

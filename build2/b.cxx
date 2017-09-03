@@ -420,6 +420,22 @@ main (int argc, char* argv[])
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
 
+    // Check for a buildfile in the specified directory returning empty path
+    // if it does not exist.
+    //
+    auto find_buildfile = [] (const dir_path& d)
+    {
+      const path& n (ops.buildfile ());
+
+      if (n.string () != "-")
+      {
+        path f (d / n);
+        return exists (f) ? f : path ();
+      }
+      else
+        return n;
+    };
+
     // If not NULL, then lifted points to the operation that has been "lifted"
     // to the meta-operaion (see the logic below for details). Skip is the
     // position of the next operation.
@@ -612,12 +628,8 @@ main (int argc, char* argv[])
           out_base.normalize (true);
 
           // The order in which we determine the roots depends on whether
-          // src_base was specified explicitly. There will also be a few
-          // cases where we are guessing things that can turn out wrong.
-          // Keep track of that so that we can issue more extensive
-          // diagnostics for such cases.
+          // src_base was specified explicitly.
           //
-          bool guessing (false);
           dir_path src_root;
           dir_path out_root;
 
@@ -625,9 +637,9 @@ main (int argc, char* argv[])
 
           if (!src_base.empty ())
           {
-            // Make sure it exists. While we will fail further down
-            // if it doesn't, the diagnostics could be confusing (e.g.,
-            // unknown operation because we don't load bootstrap.build).
+            // Make sure it exists. While we will fail further down if it
+            // doesn't, the diagnostics could be confusing (e.g., unknown
+            // operation because we didn't load bootstrap.build).
             //
             if (!exists (src_base))
               fail << "src_base directory " << src_base << " does not exist";
@@ -652,6 +664,7 @@ main (int argc, char* argv[])
               out_root = out_base;
             }
             else
+            {
               // Calculate out_root based on src_root/src_base.
               //
               try
@@ -664,53 +677,30 @@ main (int argc, char* argv[])
                   info << "src_root: " << src_root <<
                   info << "out_base: " << out_base;
               }
+            }
           }
           else
           {
             // If no src_base was explicitly specified, search for out_root.
             //
-            bool src;
-            out_root = find_out_root (out_base, &src);
+            auto p (find_out_root (out_base));
+            out_root = move (p.first);
 
-            // If not found (i.e., we have no idea where the roots are),
-            // then this can mean two things: an in-tree build of a
-            // simple project or a fresh out-of-tree build. To test for
-            // the latter, try to find src_root starting from work. If
-            // we can't, then assume it is the former case.
+            // If not found (i.e., we have no idea where the roots are), then
+            // this can only mean a simple project. Which in turn means there
+            // should be a buildfile in out_base.
             //
             if (out_root.empty ())
             {
-              src_root = find_src_root (work); // Work is actualized.
-
-              if (!src_root.empty ())
+              if (find_buildfile (out_base).empty ())
               {
-                src_base = work;
-
-                if (src_root != src_base)
-                {
-                  try
-                  {
-                    out_root = out_base.directory (src_base.leaf (src_root));
-                  }
-                  catch (const invalid_path&)
-                  {
-                    fail << "out_base directory suffix does not match src_base"
-                         << info << "src_base is " << src_base
-                         << info << "src_root is " << src_root
-                         << info << "out_base is " << out_base
-                         << info << "consider explicitly specifying src_base "
-                         << "for " << tn;
-                  }
-                }
-                else
-                  out_root = out_base;
+                fail << "no buildfile in " << out_base <<
+                  info << "consider explicitly specifying src_base for " << tn;
               }
-              else
-                src_root = src_base = out_root = out_base;
 
-              guessing = true;
+              src_root = src_base = out_root = out_base;
             }
-            else if (src)
+            else if (p.second)
               src_root = out_root;
           }
 
@@ -738,16 +728,18 @@ main (int argc, char* argv[])
 
             if (v)
             {
-              // If we also have src_root specified by the user, make
-              // sure they match.
+              // If we also have src_root specified by the user, make sure
+              // they match.
               //
               const dir_path& p (cast<dir_path> (v));
 
               if (src_root.empty ())
                 src_root = p;
               else if (src_root != p)
+              {
                 fail << "bootstrapped src_root " << p << " does not match "
                      << "specified " << src_root;
+              }
             }
             else
             {
@@ -755,20 +747,8 @@ main (int argc, char* argv[])
               //
               if (src_root.empty ())
               {
-                // If it also wasn't explicitly specified, see if it is
-                // the same as out_root.
-                //
-                if (is_src_root (out_root))
-                  src_root = out_root;
-                else
-                {
-                  // If not, then assume we are running from src_base
-                  // and calculate src_root based on out_root/out_base.
-                  //
-                  src_base = work; // Work is actualized.
-                  src_root = src_base.directory (out_base.leaf (out_root));
-                  guessing = true;
-                }
+                fail << "no bootstrapped src_root for " << out_root <<
+                  info << "consider reconfiguring this out_root";
               }
 
               v = src_root;
@@ -793,13 +773,8 @@ main (int argc, char* argv[])
 
             if (!exists (src_base))
             {
-              diag_record dr;
-              dr << fail << "src_base directory " << src_base
-                 << " does not exist";
-
-              if (guessing)
-                dr << info << "consider explicitly specifying src_base "
-                   << "for " << tn;
+              fail << src_base << " does not exist" <<
+                info << "consider explicitly specifying src_base for " << tn;
             }
           }
 
@@ -837,11 +812,10 @@ main (int argc, char* argv[])
           assert (meta_operation_table.size () <= 128);
 
           // Since we now know all the names of meta-operations and
-          // operations, "lift" names that we assumed (from buildspec
-          // syntax) were operations but are actually meta-operations.
-          // Also convert empty names (which means they weren't explicitly
-          // specified) to the defaults and verify that all the names are
-          // known.
+          // operations, "lift" names that we assumed (from buildspec syntax)
+          // were operations but are actually meta-operations.  Also convert
+          // empty names (which means they weren't explicitly specified) to
+          // the defaults and verify that all the names are known.
           //
           {
             if (!oname.empty () && lift ())
@@ -855,16 +829,7 @@ main (int argc, char* argv[])
               m = meta_operation_table.find (mname);
 
               if (m == 0)
-              {
-                diag_record dr;
-                dr << fail (l) << "unknown meta-operation " << mname;
-
-                // Same idea as for the operation case above.
-                //
-                if (guessing && !bootstrapped)
-                  dr << info << "consider explicitly specifying src_base "
-                     << "for " << tn;
-              }
+                fail (l) << "unknown meta-operation " << mname;
             }
 
             if (!oname.empty ())
@@ -872,19 +837,7 @@ main (int argc, char* argv[])
               o = operation_table.find (oname);
 
               if (o == 0)
-              {
-                diag_record dr;
-                dr << fail (l) << "unknown operation " << oname;
-
-                // If we guessed src_root and didn't load anything during
-                // bootstrap, then this is probably a meta-operation that
-                // would have been added by the module if src_root was
-                // correct.
-                //
-                if (guessing && !bootstrapped)
-                  dr << info << "consider explicitly specifying src_base "
-                     << "for " << tn;
-              }
+                fail (l) << "unknown operation " << oname;
             }
 
             // The default meta-operation is perform. The default operation is
@@ -1037,31 +990,16 @@ main (int argc, char* argv[])
               trace << "  amalgamat: " << cast<dir_path> (l);
           }
 
-          path bf;
-          const path& bfn (ops.buildfile ());
-
-          if (bfn.string () != "-")
+          path bf (find_buildfile (src_base));
+          if (bf.empty ())
           {
-            bf = src_base / bfn;
-
-            if (!exists (bf))
-            {
-              // If we were guessing src_base then don't try any implied
-              // buildfile tricks.
-              //
-              if (guessing)
-                fail << bf << " does not exist" <<
-                  info << "consider explicitly specifying src_base for " << tn;
-
-              // If the target is a directory and src_base exists, then assume
-              // implied buildfile; see dir::search_implied().
-              //
-              if ((tn.directory () || tn.type == "dir") && exists (src_base))
-                bf.clear ();
-            }
+            // If the target is a directory and src_base exists, then assume
+            // implied buildfile; see dir::search_implied().
+            //
+            if (!((tn.directory () || tn.type == "dir") && exists (src_base)))
+              fail << "no buildfile in " << src_base <<
+                info << "consider explicitly specifying src_base for " << tn;
           }
-          else
-            bf = bfn;
 
           // Enter project-wide (as opposed to global) variable overrides.
           //

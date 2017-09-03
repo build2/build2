@@ -41,9 +41,9 @@ namespace build2
   bool
   is_src_root (const dir_path& d)
   {
-    // @@ Can we have root without bootstrap? I don't think so.
+    // We can't have root without bootstrap.
     //
-    return exists (d / bootstrap_file) || exists (d / root_file);
+    return exists (d / bootstrap_file);
   }
 
   bool
@@ -64,22 +64,17 @@ namespace build2
     return dir_path ();
   }
 
-  dir_path
-  find_out_root (const dir_path& b, bool* src)
+  pair<dir_path, bool>
+  find_out_root (const dir_path& b)
   {
     for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
-      bool s (false);
-      if ((s = is_src_root (d)) || is_out_root (d)) // Order is important!
-      {
-        if (src != nullptr)
-          *src = s;
-
-        return d;
-      }
+      bool s;
+      if ((s = is_src_root (d)) || is_out_root (d))
+        return make_pair (move (d), s);
     }
 
-    return dir_path ();
+    return make_pair (dir_path (), false);
   }
 
   static void
@@ -581,7 +576,7 @@ namespace build2
         // outer directories is a project's out_root. If so, then
         // that's our amalgamation.
         //
-        const dir_path& ad (find_out_root (out_root.directory ()));
+        const dir_path& ad (find_out_root (out_root.directory ()).first);
 
         if (!ad.empty ())
         {
