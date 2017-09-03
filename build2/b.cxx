@@ -695,7 +695,7 @@ main (int argc, char* argv[])
               if (find_buildfile (out_base).empty ())
               {
                 fail << "no buildfile in " << out_base <<
-                  info << "consider explicitly specifying src_base for " << tn;
+                  info << "consider explicitly specifying its src_base";
               }
 
               src_root = src_base = out_root = out_base;
@@ -774,7 +774,8 @@ main (int argc, char* argv[])
             if (!exists (src_base))
             {
               fail << src_base << " does not exist" <<
-                info << "consider explicitly specifying src_base for " << tn;
+                info << "consider explicitly specifying src_base for "
+                   << out_base;
             }
           }
 
@@ -813,7 +814,7 @@ main (int argc, char* argv[])
 
           // Since we now know all the names of meta-operations and
           // operations, "lift" names that we assumed (from buildspec syntax)
-          // were operations but are actually meta-operations.  Also convert
+          // were operations but are actually meta-operations. Also convert
           // empty names (which means they weren't explicitly specified) to
           // the defaults and verify that all the names are known.
           //
@@ -998,7 +999,8 @@ main (int argc, char* argv[])
             //
             if (!((tn.directory () || tn.type == "dir") && exists (src_base)))
               fail << "no buildfile in " << src_base <<
-                info << "consider explicitly specifying src_base for " << tn;
+                info << "consider explicitly specifying src_base for "
+                   << out_base;
           }
 
           // Enter project-wide (as opposed to global) variable overrides.
