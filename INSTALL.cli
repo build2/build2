@@ -69,9 +69,7 @@ makefile (but not the script):
 
 \
 $ mkdir build2-boot
-$ cd build2-boot
-$ make -f ../build2-X.Y.Z/bootstrap.gmake CXX=g++ -j 8
-$ cd ..
+$ make -C build2-boot -f ../build2-X.Y.Z/bootstrap.gmake CXX=g++ -j 8
 
 $ build2-boot/build2/b-boot --version
 \
