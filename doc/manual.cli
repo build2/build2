@@ -801,16 +801,32 @@ redeclared.
 
 This visibility semantics suggests that modules are not a name scoping
 mechanism and are orthogonal to namespaces. Specifically, a module can export
-names from any number of namespaces, including the global namespace. While
-the module name and its namespace names need not be related, it usually makes
-sense to have a parallel naming scheme, as discussed below.
+names from any number of namespaces, including the global namespace. While the
+module name and its namespace names need not be related, it usually makes
+sense to have a parallel naming scheme, as discussed below. Finally, the
+\c{import} declaration does not imply any additional visibility for names
+declared inside namespaces and to access such names we must continue using the
+standard mechanisms, such as qualification or using declaration/directive.
+For example:
+
+\
+import hello.core;        // Exports hello::say().
+
+say ();                   // Error.
+hello::say ();            // Ok.
+
+using namespace hello;
+say ();                   // Ok.
+\
 
 Note also that from the consumer's perspective a module does not provide
 any symbols, only C++ entity names. If we use a name from a module, then we
 may have to satisfy the corresponding symbol(s) using the usual mechanisms:
 link an object file or a library that provides them. In this respect, modules
 are similar to headers and as with headers module's use is not limited to
-libraries; they make perfect sense when structuring programs.
+libraries; they make perfect sense when structuring programs. Furthermore,
+a library may also have private or implementation modules that are not
+meant to be used by the library's users.
 
 The producer perspective on modules is predictably more complex. In
 pre-modules C++ we only had one kind of translation unit (or source
@@ -1347,7 +1363,7 @@ the preferred approach.
 Module interface units are by default installed in the same location as
 headers (for example, \c{/usr/include}). However, instead of relying on a
 header-like search mechanism (\c{-I} paths, etc.), an explicit list of
-exported modules is listed for each library in its  \c{.pc} (\c{pkg-config})
+exported modules is provided for each library in its \c{.pc} (\c{pkg-config})
 file.
 
 Specifically, the library's \c{.pc} file contains the \c{modules} variable
