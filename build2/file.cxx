@@ -407,7 +407,6 @@ namespace build2
 
   // Scan the specified directory for any subprojects. If a subdirectory
   // is a subproject, then enter it into the map, handling the duplicates.
-  // Otherwise, scan the subdirectory recursively.
   //
   static void
   find_subprojects (scope& s,

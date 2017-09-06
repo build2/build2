@@ -303,18 +303,39 @@ namespace build2
         // Figure out where this file is inside the target directory.
         //
         bool src (t.dir.sub (src_root));
+        dir_path dl (src ? t.dir.leaf (src_root) : t.dir.leaf (out_root));
 
-        dir_path d (td);
-        d /= src
-          ? t.dir.leaf (src_root)
-          : t.dir.leaf (out_root);
-
+        dir_path d (td / dl);
         if (!exists (d))
           install (dist_cmd, d);
 
         path r (install (dist_cmd, t, d));
 
-        for (module::callback cb: mod.callbacks_)
+        // See if this file is in a subproject.
+        //
+        const scope* srs (rs);
+        const module::callbacks* cbs (&mod.callbacks_);
+
+        if (auto l = rs->vars[var_subprojects])
+        {
+          for (auto p: cast<subprojects> (l))
+          {
+            const dir_path& pd (p.second);
+            if (dl.sub (pd))
+            {
+              srs = &scopes.find (out_root / pd);
+
+              if (auto* m = srs->modules.lookup<module> (module::name))
+                cbs = &m->callbacks_;
+              else
+                fail << "dist module not loaded in subproject " << pd;
+
+              break;
+            }
+          }
+        }
+
+        for (module::callback cb: *cbs)
         {
           const path& pat (cb.pattern);
 
@@ -325,7 +346,8 @@ namespace build2
           {
             assert (pat.relative ());
 
-            dir_path d ((src ? src_root : out_root) / pat.directory ());
+            dir_path d ((src ? srs->src_path () : srs->out_path ()) /
+                        pat.directory ());
             d.normalize ();
 
             if (d != t.dir)
@@ -333,7 +355,7 @@ namespace build2
           }
 
           if (path_match (pat.leaf ().string (), t.path ().leaf ().string ()))
-            cb.function (r, *rs, cb.data);
+            cb.function (r, *srs, cb.data);
         }
       }
 

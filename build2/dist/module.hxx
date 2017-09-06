@@ -36,6 +36,9 @@ namespace build2
       // after it has been copied to the distribution directory. The project's
       // root scope and callback-specific data are passed along.
       //
+      // Note that if registered, the callbacks are also called (recursively)
+      // in subprojects.
+      //
       using callback_func = void (const path&, const scope&, void*);
 
       void
@@ -56,8 +59,9 @@ namespace build2
         callback_func* function;
         void*          data;
       };
+      using callbacks = vector<callback>;
 
-      vector<callback> callbacks_;
+      callbacks callbacks_;
     };
   }
 }
