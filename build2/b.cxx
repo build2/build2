@@ -333,9 +333,11 @@ main (int argc, char* argv[])
       bm["cc.config"] = mf {nullptr, &cc::config_init};
       bm["cc"] = mf {nullptr, &cc::init};
 
+      bm["c.guess"] = mf {nullptr, &c::guess_init};
       bm["c.config"] = mf {nullptr, &c::config_init};
       bm["c"] = mf {nullptr, &c::init};
 
+      bm["cxx.guess"] = mf {nullptr, &cxx::guess_init};
       bm["cxx.config"] = mf {nullptr, &cxx::config_init};
       bm["cxx"] = mf {nullptr, &cxx::init};
 

@@ -30,7 +30,7 @@ namespace build2
       config_module (config_data&& d)
           : config_data (move (d)), cc::config_module (move (d)) {}
 
-      strings
+      virtual strings
       translate_std (const compiler_info&,
                      scope&,
                      const string*) const override;
@@ -285,22 +285,24 @@ namespace build2
       return r;
     }
 
+    // See cc::module for details on guess_init vs config_init.
+    //
     bool
-    config_init (scope& rs,
-                 scope& bs,
-                 const location& loc,
-                 unique_ptr<module_base>& mod,
-                 bool,
-                 bool,
-                 const variable_map& hints)
+    guess_init (scope& rs,
+                scope& bs,
+                const location& loc,
+                unique_ptr<module_base>& mod,
+                bool,
+                bool,
+                const variable_map& hints)
     {
-      tracer trace ("cxx::config_init");
+      tracer trace ("cxx::guess_init");
       l5 ([&]{trace << "for " << bs.out_path ();});
 
       // We only support root loading (which means there can only be one).
       //
       if (&rs != &bs)
-        fail (loc) << "cxx.config module must be loaded in project root";
+        fail (loc) << "cxx.guess module must be loaded in project root";
 
       // Load cc.core.vars so that we can cache all the cc.* variables.
       //
@@ -396,7 +398,34 @@ namespace build2
       assert (mod == nullptr);
       config_module* m (new config_module (move (d)));
       mod.reset (m);
-      m->init (rs, loc, hints);
+      m->guess (rs, loc, hints);
+      return true;
+    }
+
+    bool
+    config_init (scope& rs,
+                 scope& bs,
+                 const location& loc,
+                 unique_ptr<module_base>&,
+                 bool,
+                 bool,
+                 const variable_map& hints)
+    {
+      tracer trace ("cxx::config_init");
+      l5 ([&]{trace << "for " << bs.out_path ();});
+
+      // We only support root loading (which means there can only be one).
+      //
+      if (&rs != &bs)
+        fail (loc) << "cxx.config module must be loaded in project root";
+
+      // Load cxx.guess.
+      //
+      if (!cast_false<bool> (rs["cxx.guess.loaded"]))
+        load_module (rs, rs, "cxx.guess", loc, false, hints);
+
+      config_module& cm (*rs.modules.lookup<config_module> ("cxx.guess"));
+      cm.init (rs, loc, hints);
       return true;
     }
 
@@ -444,7 +473,7 @@ namespace build2
       if (!cast_false<bool> (rs["cxx.config.loaded"]))
         load_module (rs, rs, "cxx.config", loc, false, hints);
 
-      config_module& cm (*rs.modules.lookup<config_module> ("cxx.config"));
+      config_module& cm (*rs.modules.lookup<config_module> ("cxx.guess"));
 
       auto& vp (var_pool.rw (rs));
 
@@ -467,10 +496,10 @@ namespace build2
         "cxx.install",
         "cxx.uninstall",
 
-        cm.cid,
-        cast<string>         (rs[cm.x_id_variant]),
-        cast<uint64_t>       (rs[cm.x_version_major]),
-        cast<uint64_t>       (rs[cm.x_version_minor]),
+        cm.ci.id.value (),
+        cm.ci.id.variant,
+        cm.ci.version.major,
+        cm.ci.version.minor,
         cast<process_path>   (rs[cm.x_path]),
         cast<target_triplet> (rs[cm.x_target]),
 

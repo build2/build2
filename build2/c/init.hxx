@@ -15,6 +15,15 @@ namespace build2
   namespace c
   {
     bool
+    guess_init (scope&,
+                scope&,
+                const location&,
+                unique_ptr<module_base>&,
+                bool,
+                bool,
+                const variable_map&);
+
+    bool
     config_init (scope&,
                  scope&,
                  const location&,

@@ -25,15 +25,11 @@ namespace build2
   namespace cc
   {
     void config_module::
-    init (scope& rs, const location& loc, const variable_map&)
+    guess (scope& rs, const location&, const variable_map&)
     {
-      tracer trace (x, "config_init");
+      tracer trace (x, "guess_init");
 
       bool cc_loaded (cast_false<bool> (rs["cc.core.config.loaded"]));
-
-      // Configure.
-      //
-      compiler_info ci; // For program patterns.
 
       // Adjust module priority (compiler). Also order cc module before us
       // (we don't want to use priorities for that in case someone manages
@@ -81,10 +77,10 @@ namespace build2
       // Figure out which compiler we are dealing with, its target, etc.
       //
       const path& xc (cast<path> (*p.first));
-      ci = guess (x_lang,
-                  xc,
-                  cast_null<strings> (rs[config_c_coptions]),
-                  cast_null<strings> (rs[config_x_coptions]));
+      ci = cc::guess (x_lang,
+                      xc,
+                      cast_null<strings> (rs[config_c_coptions]),
+                      cast_null<strings> (rs[config_x_coptions]));
 
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
@@ -117,6 +113,39 @@ namespace build2
             info << "consider using the --config-sub option";
         }
       }
+
+      // Assign value to variables that describe the compile.
+      //
+      rs.assign (x_id) = ci.id.string ();
+      rs.assign (x_id_type) = ci.id.type;
+      rs.assign (x_id_variant) = ci.id.variant;
+
+      rs.assign (x_version) = ci.version.string;
+      rs.assign (x_version_major) = ci.version.major;
+      rs.assign (x_version_minor) = ci.version.minor;
+      rs.assign (x_version_patch) = ci.version.patch;
+      rs.assign (x_version_build) = ci.version.build;
+
+      // Also enter as x.target.{cpu,vendor,system,version,class} for
+      // convenience of access.
+      //
+      rs.assign (x_target_cpu)     = tt.cpu;
+      rs.assign (x_target_vendor)  = tt.vendor;
+      rs.assign (x_target_system)  = tt.system;
+      rs.assign (x_target_version) = tt.version;
+      rs.assign (x_target_class)   = tt.class_;
+
+      rs.assign (x_target) = move (tt);
+
+      new_ = p.second;
+    }
+
+    void config_module::
+    init (scope& rs, const location& loc, const variable_map&)
+    {
+      tracer trace (x, "config_init");
+
+      const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
       // Translate x_std value (if any) to the compiler option(s) (if any).
       //
@@ -154,7 +183,7 @@ namespace build2
       // If this is a new value (e.g., we are configuring), then print the
       // report at verbosity level 2 and up (-v).
       //
-      if (verb >= (p.second ? 2 : 3))
+      if (verb >= (new_ ? 2 : 3))
       {
         diag_record dr (text);
 
@@ -220,30 +249,8 @@ namespace build2
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs);
 
-      cid = ci.id.value ();
-      rs.assign (x_id) = ci.id.string ();
-      rs.assign (x_id_type) = move (ci.id.type);
-      rs.assign (x_id_variant) = move (ci.id.variant);
-
-      rs.assign (x_version) = move (ci.version.string);
-      rs.assign (x_version_major) = ci.version.major;
-      rs.assign (x_version_minor) = ci.version.minor;
-      rs.assign (x_version_patch) = ci.version.patch;
-      rs.assign (x_version_build) = move (ci.version.build);
-
       rs.assign (x_signature) = move (ci.signature);
       rs.assign (x_checksum) = move (ci.checksum);
-
-      // Also enter as x.target.{cpu,vendor,system,version,class} for
-      // convenience of access.
-      //
-      rs.assign (x_target_cpu)     = tt.cpu;
-      rs.assign (x_target_vendor)  = tt.vendor;
-      rs.assign (x_target_system)  = tt.system;
-      rs.assign (x_target_version) = tt.version;
-      rs.assign (x_target_class)   = tt.class_;
-
-      rs.assign (x_target) = move (tt);
 
       // config.x.{p,c,l}options
       // config.x.libs
@@ -275,7 +282,7 @@ namespace build2
 
       // Load cc.core.config.
       //
-      if (!cc_loaded)
+      if (!cast_false<bool> (rs["cc.core.config.loaded"]))
       {
         // Prepare configuration hints.
         //

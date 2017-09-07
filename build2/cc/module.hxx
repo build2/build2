@@ -29,6 +29,15 @@ namespace build2
       explicit
       config_module (config_data&& d) : config_data (move (d)) {}
 
+      // We split the configuration process into into two parts: guessing the
+      // compiler information and the actual configuration. This allows one to
+      // adjust configuration (say the standard or enabled experimental
+      // features) base on the compiler information by first loading the
+      // guess module.
+      //
+      void
+      guess (scope&, const location&, const variable_map&);
+
       void
       init (scope&, const location&, const variable_map&);
 
@@ -40,8 +49,7 @@ namespace build2
       translate_std (const compiler_info&, scope&, const string*) const = 0;
 
       strings tstd;
-
-      compiler_id::value_type cid;
+      compiler_info ci; // Note: some members are moved from.
 
     private:
       dir_paths
@@ -49,6 +57,9 @@ namespace build2
 
       dir_paths
       msvc_library_search_paths (process_path&, scope&) const; // msvc.cxx
+
+    private:
+      bool new_; // See guess() and init() for details.
     };
 
     class module: public module_base, public virtual common,
