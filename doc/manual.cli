@@ -870,7 +870,7 @@ in a module's purview \i{belongs} to said module. For example:
 \
 #include <string>                // Not in purview.
 
-export module hello.core;
+export module hello.core;        // Start of purview.
 
 void
 say_hello (const std::string&);  // In purview.
@@ -938,19 +938,8 @@ decorating the non-exported symbols with a module name.
 
 This ownership model has one important backwards-compatibility implication: a
 library built with modules enabled can be linked to a program that still uses
-headers. And vice versa: we can build a module for a library that only uses
-headers. For example, if our compiler does not provide a module for the
-standard library, we should be able to build our own:
-
-\
-export module std.core;
-
-export
-{
-  #include <string>
-  //...
-}
-\
+headers. And vice versa: we can build and use a module for a library that was
+built with headers.
 
 What about the preprocessor? Modules do not export preprocessor macros,
 only C++ names. A macro defined in the module interface unit cannot affect
@@ -1025,7 +1014,7 @@ One way to think of a re-export is \i{as-if} an import of a module also
 \"injects\" all the imports said module re-exports, recursively. That's
 essentially how most compilers implement it.
 
-Module re-export is the mechanism of assembling bigger modules out of
+Module re-export is the mechanism for assembling bigger modules out of
 submodules. As an example, let's say we had the \c{hello.core},
 \c{hello.basic}, and \c{hello.extra} modules. To make life easier for users
 that want to import all of them we can create the \c{hello} module that
