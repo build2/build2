@@ -281,7 +281,7 @@ namespace build2
       // Perform substitutions for the project itself (normally the version.*
       // variables but we allow anything set on the root scope).
       //
-      auto subst_self = [&rs] (const location& l, const string& s)
+      auto subst_self = [&rs, &t] (const location& l, const string& s)
       {
         if (lookup x = rs.vars[s])
         {
@@ -291,7 +291,7 @@ namespace build2
 
           return convert<string> (
             functions.call (
-              "string", vector_view<value> (&v, 1), l));
+              t.base_scope (), "string", vector_view<value> (&v, 1), l));
         }
         else
           fail (l) << "undefined project variable '" << s << "'" << endf;

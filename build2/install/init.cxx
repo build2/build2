@@ -7,6 +7,7 @@
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/rule.hxx>
+#include <build2/function.hxx>
 #include <build2/operation.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -125,11 +126,19 @@ namespace build2
     }
 
     void
+    functions (); // functions.cxx
+
+    void
     boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
-
       l5 ([&]{trace << "for " << r.out_path ();});
+
+      // Register install function family if this is the first instance of the
+      // install modules.
+      //
+      if (!function_family::defined ("install"))
+        functions ();
 
       // Register the install and uninstall operations.
       //

@@ -5,9 +5,9 @@
 #ifndef BUILD2_FUNCTION_HXX
 #define BUILD2_FUNCTION_HXX
 
+#include <map>
 #include <utility>       // index_sequence
 #include <type_traits>   // aligned_storage
-#include <unordered_map>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
@@ -45,6 +45,9 @@ namespace build2
   // expected to issue diagnostics and throw failed. Note that the arguments
   // are conceptually "moved" and can be reused by the implementation.
   //
+  // A function can also optionally receive the current scope by having the
+  // first argument of the const scope& type.
+  //
   // Normally functions come in families that share a common qualification
   // (e.g., string. or path.). The function_family class is a "registrar"
   // that simplifies handling of function families. For example:
@@ -64,7 +67,9 @@ namespace build2
   //
   struct function_overload;
 
-  using function_impl = value (vector_view<value>, const function_overload&);
+  using function_impl = value (const scope&,
+                               vector_view<value>,
+                               const function_overload&);
 
   struct function_overload
   {
@@ -134,7 +139,7 @@ namespace build2
   class function_map
   {
   public:
-    using map_type = std::unordered_multimap<string, function_overload>;
+    using map_type = std::multimap<string, function_overload>;
     using iterator = map_type::iterator;
     using const_iterator = map_type::const_iterator;
 
@@ -145,9 +150,12 @@ namespace build2
     erase (iterator i) {map_.erase (i);}
 
     value
-    call (const string& name, vector_view<value> args, const location& l) const
+    call (const scope& base,
+          const string& name,
+          vector_view<value> args,
+          const location& l) const
     {
-      return call (name, args, l, true).first;
+      return call (base, name, args, l, true).first;
     }
 
     // As above but do not fail if no match was found (but still do if the
@@ -156,11 +164,12 @@ namespace build2
     // functions.
     //
     pair<value, bool>
-    try_call (const string& name,
+    try_call (const scope& base,
+              const string& name,
               vector_view<value> args,
               const location& l) const
     {
-      return call (name, args, l, false);
+      return call (base, name, args, l, false);
     }
 
     iterator
@@ -175,9 +184,20 @@ namespace build2
     const_iterator
     end () const {return map_.end ();}
 
+    // Return true if the function with this name is already defined. If the
+    // name ends with '.', then instead check if any function with this prefix
+    // (which we call a family) is already defined.
+    //
+    bool
+    defined (const string&) const;
+
   private:
     pair<value, bool>
-    call (const string&, vector_view<value>, const location&, bool fail) const;
+    call (const scope&,
+          const string&,
+          vector_view<value>,
+          const location&,
+          bool fail) const;
 
     map_type map_;
   };
@@ -195,7 +215,7 @@ namespace build2
     // exceptions), you would normally call the default implementation.
     //
     static value
-    default_thunk (vector_view<value>, const function_overload&);
+    default_thunk (const scope&, vector_view<value>, const function_overload&);
 
     // A function family uses a common qualification (though you can pass
     // empty string to supress it). For an unqualified name (doesn't not
@@ -211,6 +231,13 @@ namespace build2
 
     entry
     operator[] (string name) const;
+
+    static bool
+    defined (string qual)
+    {
+      qual += '.';
+      return functions.defined (qual);
+    }
 
   private:
     const string qual_;
@@ -392,12 +419,12 @@ namespace build2
     //
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       R (*const impl) (A...);
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       return thunk (move (args),
                     static_cast<const data*> (d)->impl,
@@ -417,6 +444,39 @@ namespace build2
     }
   };
 
+  // Specialization for functions that expect the current scope as a first
+  // argument.
+  //
+  template <typename R, typename... A>
+  struct function_cast<R, const scope&, A...>
+  {
+    struct data
+    {
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      R (*const impl) (const scope&, A...);
+    };
+
+    static value
+    thunk (const scope& base, vector_view<value> args, const void* d)
+    {
+      return thunk (base, move (args),
+                    static_cast<const data*> (d)->impl,
+                    std::index_sequence_for<A...> ());
+    }
+
+    template <size_t... i>
+    static value
+    thunk (const scope& base, vector_view<value> args,
+           R (*impl) (const scope&, A...),
+           std::index_sequence<i...>)
+    {
+      return value (
+        impl (base,
+              function_arg<A>::cast (
+                i < args.size () ? &args[i] : nullptr)...));
+    }
+  };
+
   // Specialization for void return type. In this case we return NULL value.
   //
   template <typename... A>
@@ -424,12 +484,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       void (*const impl) (A...);
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       thunk (move (args),
              static_cast<const data*> (d)->impl,
@@ -447,6 +507,35 @@ namespace build2
     }
   };
 
+  template <typename... A>
+  struct function_cast<void, const scope&, A...>
+  {
+    struct data
+    {
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      void (*const impl) (const scope&, A...);
+    };
+
+    static value
+    thunk (const scope& base, vector_view<value> args, const void* d)
+    {
+      thunk (base, move (args),
+             static_cast<const data*> (d)->impl,
+             std::index_sequence_for<A...> ());
+      return value (nullptr);
+    }
+
+    template <size_t... i>
+    static void
+    thunk (const scope& base, vector_view<value> args,
+           void (*impl) (const scope&, A...),
+           std::index_sequence<i...>)
+    {
+      impl (base,
+            function_arg<A>::cast (i < args.size () ? &args[i] : nullptr)...);
+    }
+  };
+
   // Customization for coerced lambdas (see below).
   //
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 6
@@ -455,12 +544,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       R (L::*const impl) (A...) const;
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       return thunk (move (args),
                     static_cast<const data*> (d)->impl,
@@ -482,17 +571,49 @@ namespace build2
     }
   };
 
+  template <typename L, typename R, typename... A>
+  struct function_cast_lamb<L, R, const scope&, A...>
+  {
+    struct data
+    {
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      R (L::*const impl) (const scope&, A...) const;
+    };
+
+    static value
+    thunk (const scope& base, vector_view<value> args, const void* d)
+    {
+      return thunk (base, move (args),
+                    static_cast<const data*> (d)->impl,
+                    std::index_sequence_for<A...> ());
+    }
+
+    template <size_t... i>
+    static value
+    thunk (const scope& base, vector_view<value> args,
+           R (L::*impl) (const scope&, A...) const,
+           std::index_sequence<i...>)
+    {
+      const L* l (nullptr); // Undefined behavior.
+
+      return value (
+        (l->*impl) (base,
+                    function_arg<A>::cast (
+                      i < args.size () ? &args[i] : nullptr)...));
+    }
+  };
+
   template <typename L, typename... A>
   struct function_cast_lamb<L, void, A...>
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       void (L::*const impl) (A...) const;
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       thunk (move (args),
              static_cast<const data*> (d)->impl,
@@ -512,6 +633,37 @@ namespace build2
           i < args.size () ? &args[i] : nullptr)...);
     }
   };
+
+  template <typename L, typename... A>
+  struct function_cast_lamb<L, void, const scope&, A...>
+  {
+    struct data
+    {
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      void (L::*const impl) (const scope&, A...) const;
+    };
+
+    static value
+    thunk (const scope& base, vector_view<value> args, const void* d)
+    {
+      thunk (base, move (args),
+             static_cast<const data*> (d)->impl,
+             std::index_sequence_for<A...> ());
+      return value (nullptr);
+    }
+
+    template <size_t... i>
+    static void
+    thunk (const scope& base, vector_view<value> args,
+           void (L::*impl) (const scope&, A...) const,
+           std::index_sequence<i...>)
+    {
+      const L* l (nullptr);
+      (l->*impl) (base,
+                  function_arg<A>::cast (
+                    i < args.size () ? &args[i] : nullptr)...);
+    }
+  };
 #endif
 
   // Customization for member functions.
@@ -521,12 +673,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       R (T::*const impl) () const;
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       auto mf (static_cast<const data*> (d)->impl);
       return value ((function_arg<T>::cast (&args[0]).*mf) ());
@@ -538,12 +690,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       void (T::*const impl) () const;
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       auto mf (static_cast<const data*> (d)->impl);
       (function_arg<T>::cast (args[0]).*mf) ();
@@ -558,12 +710,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
       R T::*const impl;
     };
 
     static value
-    thunk (vector_view<value> args, const void* d)
+    thunk (const scope&, vector_view<value> args, const void* d)
     {
       auto dm (static_cast<const data*> (d)->impl);
       return value (move (function_arg<T>::cast (&args[0]).*dm));
@@ -582,6 +734,23 @@ namespace build2
     {
       using args = function_args<A...>;
       using cast = function_cast<R, A...>;
+
+      insert (move (name),
+              function_overload (
+                nullptr,
+                args::min,
+                args::max,
+                function_overload::types (args::types, args::max),
+                thunk,
+                typename cast::data {&cast::thunk, impl}));
+    }
+
+    template <typename R, typename... A>
+    void
+    operator= (R (*impl) (const scope&, A...)) &&
+    {
+      using args = function_args<A...>;
+      using cast = function_cast<R, const scope&, A...>;
 
       insert (move (name),
               function_overload (
@@ -615,6 +784,23 @@ namespace build2
     {
       using args = function_args<A...>;
       using cast = function_cast_lamb<L, R, A...>;
+
+      insert (move (name),
+              function_overload (
+                nullptr,
+                args::min,
+                args::max,
+                function_overload::types (args::types, args::max),
+                thunk,
+                typename cast::data {&cast::thunk, op}));
+    }
+
+    template <typename L, typename R, typename... A>
+    void
+    coerce_lambda (R (L::*op) (const scope&, A...) const) &&
+    {
+      using args = function_args<A...>;
+      using cast = function_cast_lamb<L, R, const scope&, A...>;
 
       insert (move (name),
               function_overload (

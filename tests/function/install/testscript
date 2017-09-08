@@ -1,0 +1,33 @@
+# file      : tests/function/install/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
++cat <<EOI >+build/bootstrap.build
+using config
+using install
+EOI
+
+root = ($cxx.target.class != 'windows' ? '/usr/' : 'C:\')
+
++cat <<"EOI" >=build/config.build
+config.version = 1
+config.install.root = $root
+EOI
+
+: realize
+:
+{
+  : existing
+  :
+  a = ($cxx.target.class != 'windows' ? '/usr/lib/a/' : 'C:\lib\a\');
+  $* <'print $install.resolve([dir_path] lib/a)' >$a
+
+  : non-existing
+  :
+  $* <'print $install.resolve([dir_path] foo/a)' 2>>EOE != 0
+  error: unknown installation directory name 'foo'
+    info: did you forget to specify config.install.foo?
+  EOE
+}

@@ -58,6 +58,29 @@ namespace build2
     return os;
   }
 
+  bool function_map::
+  defined (const string& name) const
+  {
+    assert (!name.empty ());
+
+    // If this is a qualified function name then check if it is already
+    // defined.
+    //
+    if (name.back () != '.')
+      return map_.find (name) != map_.end ();
+
+    // If any function of the specified family is already defined, then one of
+    // them should be the first element that is greater than the dot-terminated
+    // family name. Here we rely on the fact that the dot character is less
+    // than any character of unqualified function and family names.
+    //
+    size_t n (name.size ());
+    assert (n > 1);
+
+    auto i (map_.upper_bound (name));
+    return i != map_.end () && i->first.compare (0, n, name) == 0;
+  }
+
   auto function_map::
   insert (string name, function_overload f) -> iterator
   {
@@ -74,7 +97,8 @@ namespace build2
   }
 
   pair<value, bool> function_map::
-  call (const string& name,
+  call (const scope& base,
+        const string& name,
         vector_view<value> args,
         const location& loc,
         bool fa) const
@@ -174,7 +198,7 @@ namespace build2
             }));
 
         auto f (r.back ());
-        return make_pair (f->impl (move (args), *f), true);
+        return make_pair (f->impl (base, move (args), *f), true);
       }
     case 0:
       {
@@ -231,18 +255,20 @@ namespace build2
   }
 
   value function_family::
-  default_thunk (vector_view<value> args, const function_overload& f)
+  default_thunk (const scope& base,
+                 vector_view<value> args,
+                 const function_overload& f)
   try
   {
     // Call the cast thunk.
     //
     struct cast_data // Prefix of function_cast::data.
     {
-      value (*const thunk) (vector_view<value>, const void*);
+      value (*const thunk) (const scope&, vector_view<value>, const void*);
     };
 
     auto d (reinterpret_cast<const cast_data*> (&f.data));
-    return d->thunk (move (args), d);
+    return d->thunk (base, move (args), d);
   }
   catch (const invalid_argument& e)
   {

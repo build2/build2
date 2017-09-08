@@ -10,10 +10,12 @@ using namespace std;
 namespace build2
 {
   static value
-  path_thunk (vector_view<value> args, const function_overload& f)
+  path_thunk (const scope& base,
+              vector_view<value> args,
+              const function_overload& f)
   try
   {
-    return function_family::default_thunk (move (args), f);
+    return function_family::default_thunk (base, move (args), f);
   }
   catch (const invalid_path& e)
   {
