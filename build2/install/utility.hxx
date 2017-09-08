@@ -59,6 +59,9 @@ namespace build2
     dir_path
     resolve_dir (const target&, dir_path); // rule.cxx
 
+    dir_path
+    resolve_dir (const scope&, dir_path); // rule.cxx
+
     // Resolve file installation path returning empty path if not installable.
     //
     path

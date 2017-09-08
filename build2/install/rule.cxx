@@ -322,8 +322,13 @@ namespace build2
     // Resolve installation directory name to absolute directory path. Return
     // all the super-directories leading up to the destination (last).
     //
+    // If target is not NULL, then also handle the subdirs logic.
+    //
     static install_dirs
-    resolve (const target& t, dir_path d, const string* var = nullptr)
+    resolve (const scope& s,
+             const target* t,
+             dir_path d,
+             const string* var = nullptr)
     {
       install_dirs rs;
 
@@ -337,14 +342,13 @@ namespace build2
         //
         const string& sn (*d.begin ());
         const string var ("install." + sn);
-        if (const dir_path* dn =
-            lookup_install<dir_path> (t.base_scope (), var))
+        if (const dir_path* dn = lookup_install<dir_path> (s, var))
         {
           if (dn->empty ())
             fail << "empty installation directory for name " << sn <<
               info << "did you specified empty config." << var << "?";
 
-          rs = resolve (t, *dn, &var);
+          rs = resolve (s, t, *dn, &var);
           d = rs.back ().dir / dir_path (++d.begin (), d.end ());
           rs.emplace_back (move (d.normalize ()), rs.back ());
         }
@@ -354,7 +358,6 @@ namespace build2
       }
 
       install_dir* r (&rs.back ());
-      const scope& s (t.base_scope ());
 
       // Override components in install_dir if we have our own.
       //
@@ -366,10 +369,13 @@ namespace build2
         if (auto l = s[*var + ".dir_mode"]) r->dir_mode = &cast<string> (l);
         if (auto l = s[*var + ".options"])  r->options  = &cast<strings> (l);
 
-        if (auto l = s[*var + ".subdirs"])
+        if (t != nullptr)
         {
-          if (cast<bool> (l))
-            r = &resolve_subdir (rs, t, s, l);
+          if (auto l = s[*var + ".subdirs"])
+          {
+            if (cast<bool> (l))
+              r = &resolve_subdir (rs, *t, s, l);
+          }
         }
       }
 
@@ -393,10 +399,22 @@ namespace build2
       return rs;
     }
 
+    static inline install_dirs
+    resolve (const target& t, dir_path d, const string* var = nullptr)
+    {
+      return resolve (t.base_scope (), &t, d, var);
+    }
+
     dir_path
     resolve_dir (const target& t, dir_path d)
     {
       return move (resolve (t, move (d)).back ().dir);
+    }
+
+    dir_path
+    resolve_dir (const scope& s, dir_path d)
+    {
+      return move (resolve (s, nullptr, move (d)).back ().dir);
     }
 
     path
