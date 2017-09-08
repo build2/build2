@@ -980,9 +980,9 @@ This example will result in a compile error and the diagnostics may
 confusingly indicate that there is no known conversion from a C string to
 \"something\" called \c{std::string}. But with the understanding of the
 difference between \c{import} and \c{#include} the reason should be clear:
-while the module interface \"sees\" \c{std::string} (because it imported
-its module), we do not (since we did not). So the fix is to explicitly
-import \c{std.core}:
+while the module interface \"sees\" \c{std::string} (because it imported its
+module), we do not (since we did not). So the fix is to explicitly import
+\c{std.core}:
 
 \
 import std.core;
@@ -1030,6 +1030,48 @@ export
   import hello.extra;
 }
 \
+
+Besides starting a module purview, a non-exporting module declaration in the
+implemenation unit also makes non-internal linkage names declared or made
+visible in the \i{interface purview} visible in the \i{implementation
+purview}. In this sense non-exporting module declaration acts as an extended
+\c{import}. For example:
+
+\
+import hello.impl;          // Not visible (exports impl()).
+
+void
+extra_impl ();              // Not visible.
+
+export module hello.extra;  // Start of interface purview.
+
+import hello.core;          // Visible (exports core()).
+
+void
+extra ();                   // visible.
+
+static void
+extra2 ();                  // Not visible (internal linkage).
+\
+
+And this is the implementation unit:
+
+\
+module hello.extra;         // Start of implementation purview.
+
+void
+f ()
+{
+  impl ();        // Error.
+  extra_impl ();  // Error.
+  core ();        // Ok.
+  extra ();       // Ok.
+}
+\
+
+In particular, this means that while the relative order of imports is not
+significant, the placement of imports in the module interface unit relative
+to the module declaration can be.
 
 The final perspective that we consider is that of the build system. From its
 point of view the central piece of the module infrastructure is the \i{binary
