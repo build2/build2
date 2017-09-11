@@ -1303,7 +1303,7 @@ module hello;
 Note, however, that the modules support in \c{build2} provides temporary
 \"magic\" that allows us to use the new syntax even with VC.
 
-\h2#cxx-modules-symexport|Symbol Exporting|
+\h2#cxx-modules-symexport|Module Symbols Exporting|
 
 When building a shared library, some platforms (notably Windows) require that
 we explicitly export symbols that must be accessible to the library users.
@@ -1395,7 +1395,7 @@ be unreasonable to expect such an automatic module exporting to only further
 muddy matters.
 
 
-\h2#cxx-modules-install|Module Installation|
+\h2#cxx-modules-install|Modules Installation|
 
 As discussed in the introduction, binary module interfaces are not a
 distribution mechanism and installing module interface sources appears to be
@@ -1440,7 +1440,73 @@ source), \c{modules} (as above plus no module declarations depend on the
 preprocessor, for example, \c{#ifdef}, etc.), and \c{all} (the source is fully
 preprocessed). Note that for \c{all} the source may still contain comments and
 line continuations.
-"
 
-// Guidelines
-// @@ Why to have (multiple) implementation units.
+
+\h2#cxx-modules-guidelines|Modules Design Guidelines|
+
+Modules are a physical design mechanism for structuring and organizing our
+code. Their explicit exportation semantics combined with the way modules are
+built makes many aspects of creating and consuming modules significantly
+different compared to headers. This section provides basic guidelines for
+designing modules. We start with the overall considerations such as module
+granularity and partitioning into translation units, then continue with the
+structure of typical module interface and implementation units, and finish
+with practical approaches to modularizing existing code and providing the
+dual, header/module interface for backwards-compatibility.
+
+Unlike headers, the cost of importing modules should be negligible. As a
+result, it may be tempting to create \"mega-modules\", for example, one per
+library. After all, this is how the standard library is modularized with its
+fairly large \c{std.core} and \c{std.io} modules.
+
+There is, however, a significant drawback to going this route: every time we
+make a change, all consumers of such a mega-module will have to be recompiled,
+whether the change affects them or not. And the bigger the module the higher
+the chance that the change does not affect a large portion of the consumers.
+Note that this is not an issue for the standard library modules since they are
+not expected to change often.
+
+Another, more subtle, issue with mega-modules (which does affect the standard
+library) is the inability to re-export only specific interfaces, as will be
+discussed below.
+
+The other extreme in choosing module granularity is a large number of
+\"mini-modules\". Their main drawback is the tediousness of importation by the
+consumers.
+
+The sensible approach is then to create modules of conceptually-related and
+commonly-used entities possibly together with aggregate modules for ease of
+importation. Which also happens to be generally good design.
+
+As an example, let's consider an XML library that provides support for both
+parsing and serialization. Since it is common for applications to only use one
+of the functionalities, it probably makes sense to provide the \c{xml.parser}
+and \c{xml.serializer} modules. While it is not too tedious to import both,
+for convenience we could also provide the \c{xml} module that re-exports the
+other two.
+
+Once we are past selecting an appropriate granularity for our modules, the
+next question is how to partition them into translation units. A module can
+consist of just the interface unit and, as discussed above, such a unit can
+contain anything an implementation unit can, including non-inline function
+definitions. Some then view this as an opportunity to get rid of the
+header/source separation and have everything in a single file.
+
+There are a number of drawbacks with this approach: Every time we change
+anything in the module interface unit, all its consumers have to be
+recompiled. If we keep everything in a single file, then every time we change
+the implementation we will trigger a recompliations that would have been
+avoided had the implementation been factored out into a separate unit.
+
+Another issues is the readability of the interface which could be
+significantly reduced if littered with implementation details. We could keep
+the interface separate by moving the implementation to the bottom of the
+interface file but then we might as well move it to a separate file and avoid
+unnecessary recompilations.
+
+The sensible guideline is then to have a separate module implementation unit
+exept perhaps for modules with a simple implementation that is mostly
+inline/template. Note that more complex modules may have sevaral
+implementation units, however, based on our granularity guideline, those
+should be fairly uncommon.
+"
