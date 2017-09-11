@@ -1066,6 +1066,7 @@ f ()
   extra_impl ();  // Error.
   core ();        // Ok.
   extra ();       // Ok.
+  extra2 ();      // Error.
 }
 \
 
@@ -1080,28 +1081,37 @@ interface unit and that is required when compiling any translation unit that
 imports this module (as well as the module's implementation units).
 
 So, in a nutshell, the main functionality of a build system when it comes to
-modules support is figuring out the order in which all the units should be
-compiled and making sure that every compilation is able to find the binary
-module interfaces it needs.
+modules support is figuring out the order in which all the translation units
+should be compiled and making sure that every compilation is able to find the
+binary module interfaces it needs.
 
 Predictably, the details are more complex. Compiling a module interface unit
-produces two outputs: the binary module interface and the object file. Also,
-all the compilers currently implement module re-export as a shallow reference
-to the re-exported module name which means that their binary interfaces must
-be discoverable as well, recursively. In fact, currently, all the imports are
-handled like this, though a different implementation is at least plausible, if
-unlikely.
+produces two outputs: the binary module interface and the object file. The
+latter contains object code for non-inline functions, global variables, etc.,
+that the interface unit may define. This object file has to be linked when
+producing any binary (program or library) that uses this module.
 
-While the details vary between compilers, the contents of the binary
-interfaces are generally sensible to the compiler options. If the options used
-to produce the binary interface (for example, when building a library) are
-sufficiently different compared to the ones used when compiling the module
-consumers, the binary interface may be unusable. So while a build system
-should strive to reuse existing binary interfaces, it should also be prepared
-to compile its own versions \"on the side\". This suggests that modules are
-not a distribution mechanism, that binary module interfaces should probably
-not be installed, and that instead we should install and distribute module
-interface sources.
+Also, all the compilers currently implement module re-export as a shallow
+reference to the re-exported module name which means that their binary
+interfaces must be discoverable as well, recursively. In fact, currently, all
+the imports are handled like this, though a different implementation is at
+least plausible, if unlikely.
+
+While the details vary between compilers, the contents of the module binary
+interface can range from a stream of preprocessed tokens to something fairly
+close to object code. As a result, binary interfaces can be sensitive to the
+compiler options and if the options used to produce the binary interface (for
+example, when building a library) are sufficiently different compared to the
+ones used when compiling the module consumers, the binary interface may be
+unusable. So while a build system should strive to reuse existing binary
+interfaces, it should also be prepared to compile its own versions \"on the
+side\".
+
+This also suggests that binary module interfaces are not a distribution
+mechanism and should probably not be installed. Instead, we should install and
+distribute module interface sources and build systems should be prepared to
+compile them, again, on the side.
+
 
 \h2#cxx-modules-build|Building Modules|
 
