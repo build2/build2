@@ -56,7 +56,7 @@ namespace build2
 
     f["scoped"]      = [](const scope&, names a) {return a;};
     f["scoped_void"] = [](const scope&, names) {};
-    f["scoped"] = &scoped;
+    f["scoped"]      = &scoped;
     f["scoped_void"] = &scoped_void;
 
     f[".qual"] = []() {return "abc";};

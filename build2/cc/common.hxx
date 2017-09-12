@@ -273,6 +273,7 @@ namespace build2
                       const optional<string>&,
                       const string&,
                       const dir_path&,
+                      const dir_paths&,
                       const dir_paths&) const; // pkgconfig.cxx
 
       // Alternative search logic for VC (msvc.cxx).

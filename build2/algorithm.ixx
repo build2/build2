@@ -220,7 +220,8 @@ namespace build2
   {
     assert (phase == run_phase::match);
 
-    pair<bool, target_state> r (match (a, t, 0, nullptr, /*try_match*/ true));
+    pair<bool, target_state> r (
+      match (a, t, 0, nullptr, true /* try_match */));
 
     if (r.first)
     {

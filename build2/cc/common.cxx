@@ -873,7 +873,7 @@ namespace build2
             !pkgconfig_load (act, *p.scope,
                              *lt, a, s,
                              p.proj, name,
-                             *pd, sysd))
+                             *pd, sysd, *usrd))
         {
           if (a != nullptr) add_macro (*a, "STATIC");
           if (s != nullptr) add_macro (*s, "SHARED");

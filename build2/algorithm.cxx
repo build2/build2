@@ -599,7 +599,7 @@ namespace build2
         return make_pair (false, target_state::unknown);
 
       if (task_count == nullptr)
-        return match_impl (a, l, /*step*/ false, try_match);
+        return match_impl (a, l, false /* step */, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction. Also pass our diagnostics stack (this is safe since
@@ -616,7 +616,7 @@ namespace build2
                          phase_lock pl (run_phase::match);
                          {
                            target_lock l {&t, offset}; // Reassemble.
-                           match_impl (a, l, /*step*/ false, try_match);
+                           match_impl (a, l, false /* step */, try_match);
                            // Unlock withing the match phase.
                          }
                        },

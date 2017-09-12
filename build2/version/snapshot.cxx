@@ -24,7 +24,7 @@ namespace build2
 
       // .git can be either a directory or a file in case of a submodule.
       //
-      if (build2::entry_exists (src_root / git, /* follow_symlinks */ true))
+      if (build2::entry_exists (src_root / git, true /* follow_symlinks */))
         return extract_snapshot_git (src_root);
 
       return snapshot ();
