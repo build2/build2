@@ -1449,10 +1449,10 @@ code. Their explicit exportation semantics combined with the way modules are
 built makes many aspects of creating and consuming modules significantly
 different compared to headers. This section provides basic guidelines for
 designing modules. We start with the overall considerations such as module
-granularity and partitioning into translation units, then continue with the
-structure of typical module interface and implementation units, and finish
-with practical approaches to modularizing existing code and providing the
-dual, header/module interface for backwards-compatibility.
+granularity and partitioning into translation units then continue with the
+structure of typical module interface and implementation units. The follwing
+section disscusses practical approaches to modularizing existing code and
+providing the dual, header/module interface for backwards-compatibility.
 
 Unlike headers, the cost of importing modules should be negligible. As a
 result, it may be tempting to create \"mega-modules\", for example, one per
@@ -1508,5 +1508,721 @@ The sensible guideline is then to have a separate module implementation unit
 exept perhaps for modules with a simple implementation that is mostly
 inline/template. Note that more complex modules may have sevaral
 implementation units, however, based on our granularity guideline, those
-should be fairly uncommon.
+should be fairly rare.
+
+Once we start writing our first real module the immediate question that
+ususally comes up is where to put \c{#include} directives and \c{import}
+declarations and in what order. To recap, a module unit, both interface and
+implementation, is split into two parts: before the module declaration which
+obeys the usual or \"old\" translation unit rules and after the module
+declaration which is the module purview. Inside the module purview all
+non-exported declarations have module linkage which means their symbols are
+invisible to any other module (including the global module). With this
+understandig, consider the following module interface:
+
+\
+export module hello;
+
+#include <string>
+\
+
+Do you see the problem? We have included \c{<string>} in the module purview
+which means all its names (as well as all the names in any headers it might
+include, recursively) are now declared as having the \c{hello} module linkage.
+The result of doing this can range from silent code blot to strange-looking
+unresolved symbols.
+
+The guideline this leads to should be clear: including a header in module
+purview is almost always a bad idea. There are, however, a few types of
+headers that may make sense to include in the module purview. The first are
+headers that only define preprocessor macros, for example, configuration or
+export headers. There are also cases where we do want the included
+declarations to end up in the module purview. The most common example is files
+that contain inline/template function implementations that have been factored
+out for code organization reasons. As an example, consider the following
+module interface that uses an export headers (which sets up symbols exporting
+macros) as well as an inline file:
+
+\
+#include <string>
+
+export module hello;
+
+#include <libhello/export.hxx>
+
+export namespace hello
+{
+  ...
+}
+
+#include <libhello/hello.ixx>
+\
+
+A note on inline/template files: in header-based projects we could include
+additional headers in those files, for example, if the included declarations
+are only needed in the implementation. For the reason just discussed, this
+won't work with modules and we have to move all the includes into the
+interface file, before the module purview. On the other hand, with modules, it
+is safe to use using-directives (for example, \c{using namespace std;}) in
+inline/template files (and, with care, even in the interface file).
+
+What about imports, where should we import other modules. Again, to recap,
+unlike a header inclusing, an \c{import} declaration only makes exported names
+visible without (re)declaring them. As result, in a module implementation
+units, it doesn't really matter where we place imports, in or out of the
+module purview. There are, however, two differences when it comes to module
+interface units: only imports in the purview are visible to implementation
+units and we can only re-export an imported module from the purview.
+
+The guideline is then for interface units to import in the module purview
+unless there is a good reason not to make the import visible to the
+implementation units. And for implementation units is to always import in the
+purview for consistency. For example:
+
+\
+#include <cassert>
+
+export module hello;
+
+import std.core;
+
+#include <libhello/export.hxx>
+
+export namespace hello
+{
+  ...
+}
+
+#include <libhello/hello.ixx>
+\
+
+Based on these guidelines we can also create a module interface unit template:
+
+\
+// Module interface unit.
+
+<header includes>
+
+export module <name>;      // Start of module purview.
+
+<module imports>
+
+<special header includes>  // Configuration, export, etc.
+
+<module interface>
+
+<inline/template includes>
+\
+
+As well as the module implementation unit template:
+
+\
+// Module implementation unit.
+
+<header includes>
+
+module <name>;             // Start of module purview.
+
+<extra module imports>     // Only additional to interface.
+
+<module implementation>
+\
+
+Let's also discuss module naming. Module names are in a separate \"name
+plane\" and do not collide with namespace, type, or function names. Also, as
+mentioned earlier, the standard does not assign a hierarchical meaning to
+module names though it is customary to assume that module \c{hello.core}
+is a submodule of \c{hello} and importing the latter also imports the
+former.
+
+It is important to choose good names for public modules (that is, modules
+packaged into libraries and used by a wide range of consumers) since changing
+them later can be costly. We have more leeway with naming private modules
+(that is, the ones used by programs or internal to the libraries) though it's
+worth it to come up with a consistent naming scheme here as well.
+
+The general guideline is to start names of public modules with the library's
+namespace name followed by a name describing the module's functionality. In
+particular, if a module is dedicated to housing a single class (or, more
+generally, has a single primary entiry), then it makes sense to use its name
+as the module name's last component.
+
+As a concrete example, consider \c{libbutl} (the \c{build2} utility library):
+All its components are in the \c{butl} namespace so all its module names start
+with \c{butl.}. One of its components is the \c{small_vector} class template
+which resides in its own module called \c{butl.small_vector}. Another
+component is a collection of string parsing utilities that are grouped into
+the \c{butl::string_parser} namespace with the corresponding module name
+called \c{butl.string_parser}.
+
+When is it a good idea to re-export a module? The two straightfowards cases
+are when we are building an aggregate module out of submodules, for example,
+\c{xml} out of \c{xml.parser} and \c{xml.serializer}, or when one module
+extends or superceeds another, for example, as \c{std.core} extends
+\c{std.fundamental}. It is also clear that there is no need to re-export a
+module that we only use in the implementation of our module. The case when we
+use a module in our interface is, however, a lot less clear cut.
+
+But before considering the last case in more detail, let's understand the
+issue with re-export. In other words, why not simply re-export any module we
+import in our interface? In essence, re-export implictly injects another
+module import anywhere our module is imported. If we re-export \c{std.core}
+then any consumer of our module will also automatically \"see\" all the names
+exported by \c{std.core}. They can then start using names from \c{std} without
+explicitly importing \c{std.core} and everthing will compile until one day
+they may no longer need to import our module or we no longer need to import
+\c{std.core}. In a sense, re-export becomes part of our interface and it is
+generally good design to keep interfaces minimal.
+
+And so, at the outset, the guideline is then to only re-export the minimum
+necessary (and which is the reason why it may make sense to divide
+\c{std.core} into submodules such as \c{std.core.string}, \c{std.core.vector},
+etc).
+
+Let's now discuss a few concere examples to get a sense of when re-export
+might or might not be appropriate. Unfortunately, there does not seem to be a
+hard and fast rule and instead one has to rely on a good sense of design.
+
+To start, let's consider a simple module that uses \c{std::string} in its
+inteface:
+
+\
+export module hello;
+
+import std.core;
+
+export namespace hello
+{
+  void say (const std::string&);
+}
+\
+
+Should we re-export \c{std.core} (or, \c{std.core.string}) in this case? Most
+likely not. If consumers of our module want to use \c{std::string} in order to
+pass an argument to our function, then it is natural to expect them to
+explicitly import the necessary module. In a sense, this is analogous to
+scoping: nobody expects to be able to use just \c{string} (without \c{std::})
+because of \c{using namespace hello;}.
+
+So it seems that a mere usage of a name in an interface does not generally
+warrant a re-export. The fact that a consumer may not even use this part of
+our interface further supports this conclusion.
+
+Let's now consider a more interesting case (inspired by real events):
+
+\
+export module small_vector;
+
+import std.core;
+
+template <typename T, std::size_t N>
+export class small_vector: public std::vector<T, ...>
+{
+  ...
+};
+\
+
+Here we have the \c{small_vector} container implemented in terms of
+\c{std::vector} by providing a custom allocator and with most of the functions
+derived as is. Consider now this innocent-looking consumer code:
+
+\
+import small_vector;
+
+small_vector<int, 1> a, b;
+
+if (a == b) // Error.
+  ...
+\
+
+We don't reference \c{std::vector} directly so presumably we shouldn't need to
+import its module. However, the comparion won't compile: our \c{small_vector}
+implementation re-uses the comparion operators provided by \c{std::vector}
+(via implicit to-base conversion) but they aren't visible.
+
+There is palpable difference between the two cases: the first merely uses
+\c{std.core} interface while the second is \i{based on} and, in a sense,
+\i{extends} it which feels like a stronger relationship. Re-exporting
+\c{std.core} (or, better yet, \c{std.core.version}, should it become
+available) does not seem unreasonable.
+
+Note also that there is no re-export of headers. In the previous example, if
+the standard library is not modularized and we have to use it via headers,
+then the consumers of our \c{small_vector} will always have to explicitly
+include \c{<vector>}. This suggest that modularizing a codebase that still
+consumes substantial components (like the standard library) via headers can
+incur some development overhead compared to the old, headers-only approach.
+
+
+\h2#cxx-modules-existing|Modularizing Existing Code|
+
+The aim of this section is to provide practical guideliness to modularizing
+existing codebases as well as supporting the dual, header/module interface for
+backwards-compatibility.
+
+Predictably, a well modularized (in the general sense) set of headers makes
+conversion to C++ modules easier. As a result, it may make sense to spend some
+time cleaning and re-organizing your headers prior to attempting
+modularization. Inclusion cycles will be particularly hard to deal with (C++
+modules do not allow circular interface dependencies).
+
+Let's first discuss why the modularization approach illustrated by the
+following example does not generally work:
+
+\
+export module hello;
+
+export
+{
+#include \"hello.hxx\"
+}
+\
+
+There are several issue that usually make this unworkable. Firstly, the header
+we are trying to export most likely includes other headers. For example, our
+\c{hello.hxx} may include \c{<string>} and we have already discussed why
+including it in the module purview is a bad idea. Secondly, the included
+header may declare more names than what should be exported, for example, some
+implementation details. In fact, it may declare names with local linkage
+(uncommon for headers but not impossible) which is illegal to export. Finally,
+the header may define macros which will no longer be visible to the consumer.
+
+Sometimes, however, this can be the only approach available (for example, if
+trying to non-intrusively modularize a third-party library). It is possible to
+work around the first issue by \i{pre-including} outside of the module purview
+headers that should not be exported. Here we rely on the fact that the second
+inclusion of the same header will be ignored. For example:
+
+\
+#include <string> // Pre-include to suppress inclusion in hello.hxx.
+
+export module hello;
+
+export
+{
+#include \"hello.hxx\"
+}
+\
+
+Needless to say this approach is very brittle and usually requires that you
+place all the inter-related headers into a single module.
+
+When starting modularization of a codebase there are two decisions we have to
+make at the outset: the level of the modules support we can rely upon and the
+level of backwards compatibility we need to provide.
+
+The two modules support levels we distinguish are just modules and modules
+with the modularized standard library. The choice we have to make then is
+whether to support the standard library only as headers, only as modules, or
+both. Note that some compiler/standard library combinations may not be usable
+in some of these modes.
+
+The possible backwards compatibility levels are \i{modules-only} (consumption
+via headers is no longer supported), \i{modules-or-headers} (consumption
+either via headers or modules), and \i{modules-and-headers} (as the previous
+case but with support for consuming a library built with modules via headers
+and vice versa).
+
+What kind of situations call for the last level? We may need to continue
+offering the library as headers if we have a large number of existing
+consumers that cannot possibly be all modularized at once (or even ever). So
+the situation we may end up in is a mixture of consumers trying to use the
+same build of our library with some of them using modules and some \-
+headers. The situation where we may want to consume a library built with
+headers via modules is also not far fetched: the library might have been built
+with an older version of the compiler (for example, it was installed from a
+distribution's package) while the consumer is being built with a compiler
+version that supports modules. Note that as discussed earlier the modules
+ownership semantics supports both kinds of \"cross-usage\".
+
+When it comes to the standard library consumption, implementations generally
+do not support mixing inclusion and importation in the same translation unit.
+As a result, if you plan to use the modularized standard library, there are
+two plausible strategies to handling this aspect of migration: If you are
+planning to consume the standard library exclusively as modules, then it may
+make sense to first change your entire codebase to do that. Simply replace
+all the standard library header inclusions with importation of the relevant
+\c{std.*} modules.
+
+The alternative strategy is to first complete the modularization of your
+entire project (as discussed next) while continuing consuming the standard
+library as headers. Once this is done, we can normally switch to using the
+modularized standard library quite easily. The reason for waiting until the
+complete modularization is to eliminate header inclusion between components in
+our project which would often result in conflicting styles of the standard
+library consumption.
+
+Note also that due to the lack of header re-export support discussed earlier,
+it may make perfect sense to only support the modularized standard library
+when modules are enabled even when providing backwards compatibility with
+headers. In fact, if all the compiler/standard library implementations that
+your project caters to support the modularize standard library, then there is
+little sense not to impose such as restriction.
+
+The overall strategy for modularizing our own componets is to identify and
+modularize inter-dependent sets of headers one at a time starting from the
+lower-level components (so that any newly modularized set only depends on the
+already modularized ones). After converting each set we can switch its
+consumers to using imports keeping our entire project buildable and usable.
+
+While it would have been even better to be able modularize just a single
+component at a time, this does not seem to work in practice because we will
+have to continue consuming some of the components as headers. Since such
+headers can only be imported out of module purview it becomes hard to reason
+(both for us and the compiler) what is imported/included and where. For
+example, it's not uncommon to end up importing the module in its
+implementation unit which not something that all implementations handle
+garcefully.
+
+Let's now explore how we can provide the various levels of backwards
+compatibility discussed above. Here we rely on two feature test macros to
+determine the available modules support level: \c{__cpp_modules} (modules are
+available) and \c{__cpp_lib_modules} (standard library modules are available,
+assumes \c{__cpp_modules} is also defined).
+
+If backwards compatibility is not necessary (the \i{modules-only} level), then
+we can use the module interface and implementation unit templates presented
+earlier and follow the above guidelines. If we continue consuming the standard
+library as headers, then we don't need to change anything in this area. If we
+only want to support the modularized standard library, then we simply replace
+the standard library header inclusions with the corresponing module
+imports. If we want to support both ways, then we can use the following
+templates. The module interface unit template:
+
+\
+// C includes, if any.
+
+#ifndef __cpp_lib_modules
+<std-includes>
+#endif
+
+// Other includes, if any.
+
+export module <name>;
+
+#ifdef __cpp_lib_modules
+<std-imports>
+#endif
+\
+
+The module implementation unit template:
+
+\
+// C includes, if any.
+
+#ifndef __cpp_lib_modules
+<std-includes>
+
+<extra-std-includes>
+#endif
+
+// Other includes, if any.
+
+module <name>;
+
+#ifdef __cpp_lib_modules
+<extra-std-imports>        // Only imports additional to interface.
+#endif
+\
+
+For example:
+
+\
+// hello.mxx (module interface)
+
+#ifndef __cpp_lib_modules
+#include <string>
+#endif
+
+export module hello;
+
+#ifdef __cpp_lib_modules
+import std.core;
+#endif
+
+export void say_hello (const std::string& name);
+\
+
+\
+// hello.cxx (module implementation)
+
+#ifndef __cpp_lib_modules
+#include <string>
+
+#include <iostream>
+#endif
+
+module hello;
+
+#ifdef __cpp_lib_modules
+import std.io;
+#endif
+
+using namespace std;
+
+void say_hello (const string& n)
+{
+  cout << \"Hello, \" << n << '!' << endl;
+}
+\
+
+If we need support for symbol exporting in this setup (that is, we are
+building a library and need to support Windows), then we can use the
+\c{__symexport} mechanism discussed earlier, for example:
+
+\
+// hello.mxx (module interface)
+
+...
+
+export __symexport void say_hello (const std::string& name);
+\
+
+To support consumption via headers when modules are unavailable (the
+\i{modules-or-headers} level) we can use the following setup. Here we also
+support the dual header/modules consumption for the standard library (if this
+is not required, replace \c{#ifndef __cpp_lib_modules} with \c{#ifndef
+__cpp_modules} and remove \c{#ifdef __cpp_lib_modules}). The module interface
+unit template:
+
+\
+#ifndef __cpp_modules
+#pragma once
+#endif
+
+// C includes, if any.
+
+#ifndef __cpp_lib_modules
+<std-includes>
+#endif
+
+// Other includes, if any.
+
+#ifdef __cpp_modules
+export module <name>;
+
+#ifdef __cpp_lib_modules
+<std-imports>
+#endif
+#endif
+\
+
+The module implementation unit template:
+
+\
+#ifndef __cpp_modules
+#include <module-interface-file>
+#endif
+
+// C includes, if any.
+
+#ifndef __cpp_lib_modules
+<std-includes>
+
+<extra-std-includes>
+#endif
+
+// Other includes, if any
+
+#ifdef __cpp_modules
+module <name>;
+
+#ifdef __cpp_lib_modules
+<extra-std-imports>        // Only imports additional to interface.
+#endif
+#endif
+\
+
+Besides these templates we will most likely also need an export header that
+appropriately defines a module export macro depending on whether modules are
+used or not. This is also the place where we can handle symbol exporting. For
+example, here is what it can look like for our \c{libhello} library:
+
+\
+// export.hxx (module and symbol export)
+
+#pragma once
+
+#ifdef __cpp_modules
+#  define LIBHELLO_MODEXPORT export
+#else
+#  define LIBHELLO_MODEXPORT
+#endif
+
+#if   defined(LIBHELLO_SHARED_BUILD)
+#  ifdef _WIN32
+#    define LIBHELLO_SYMEXPORT __declspec(dllexport)
+#  else
+#    define LIBHELLO_SYMEXPORT
+#  endif
+#elif defined(LIBHELLO_SHARED)
+#  ifdef _WIN32
+#    define LIBHELLO_SYMEXPORT __declspec(dllimport)
+#  else
+#    define LIBHELLO_SYMEXPORT
+#  endif
+#else
+#  define LIBHELLO_SYMEXPORT
+#endif
+\
+
+And this is the module that uses it and provides the dual header/module
+support:
+
+\
+// hello.mxx (module interface)
+
+#ifndef __cpp_modules
+#pragma once
+#endif
+
+#ifndef __cpp_lib_modules
+#include <string>
+#endif
+
+#ifdef __cpp_modules
+export module hello;
+
+#ifdef __cpp_lib_modules
+import std.core;
+#endif
+#endif
+
+#include <libhello/export.hxx>
+
+LIBHELLO_MODEXPORT namespace hello
+{
+  LIBHELLO_SYMEXPORT void say (const std::string& name);
+}
+\
+
+\
+// hello.cxx (module implementation)
+
+#ifndef __cpp_modules
+#include <libhello/hello.mxx>
+#endif
+
+#ifndef __cpp_lib_modules
+#include <string>
+
+#include <iostream>
+#endif
+
+#ifdef __cpp_modules
+module hello;
+
+#ifdef __cpp_lib_modules
+import std.io;
+#endif
+#endif
+
+using namespace std;
+
+namespace hello
+{
+  void say (const string& n)
+  {
+    cout << \"Hello, \" << n << '!' << endl;
+  }
+}
+\
+
+Predictably, the final backwards compatibility level (\c{modules-and-headers})
+is the most onerous to support. Here existing consumers have to continue
+working with the modularized version of our library which means we have to
+retain all the existing headers. We also cannot assume that just because
+modules are available they are used (a consumer may still prefer headers),
+which means we cannot rely on (only) the \c{__cpp_modules} and
+\c{__cpp_lib_modules} macros to make the decisions.
+
+One way to arrange this is to retain the header and adjust it according to the
+previous level template but with one important difference: instead of using
+the standard modules macro we use our custom ones. For example:
+
+\
+// hello.hxx (module header)
+
+#ifndef LIBHELLO_MODULES
+#pragma once
+#endif
+
+#ifndef LIBHELLO_LIB_MODULES
+#include <string>
+#endif
+
+#ifdef LIBHELLO_MODULES
+export module hello;
+
+#ifdef LIBHELLO_LIB_MODULES
+import std.core;
+#endif
+#endif
+
+#include <libhello/export.hxx>
+
+LIBHELLO_MODEXPORT namespace hello
+{
+  LIBHELLO_SYMEXPORT void say (const std::string& name);
+}
+\
+
+Now if this header is included (for example, by an existing consumer) then
+none of these macros will be defined and the header will act as, well, a plain
+old header.
+
+We also provide the module interface unit which appropriately defines the
+two custom macros and then simply includes the header:
+
+\
+// hello.mxx (module interface)
+
+#ifdef __cpp_modules
+#define LIBHELLO_MODULES
+#endif
+
+#ifdef __cpp_lib_modules
+#define LIBHELLO_LIB_MODULES
+#endif
+
+#include <libhello/hello.hxx>
+\
+
+The module implementation unit can remain unchanged. In particular, we
+continue including \c{hello.mxx} on its second line. However, if you find the
+use of different macros in the header and source file confusing, then instead
+it can be adjusted as follows (note that now we are including \c{hello.hxx}):
+
+\
+// hello.cxx (module implementation)
+
+#ifdef __cpp_modules
+#define LIBHELLO_MODULES
+#endif
+
+#ifdef __cpp_lib_modules
+#define LIBHELLO_LIB_MODULES
+#endif
+
+#ifndef LIBHELLO_MODULES
+#include <libhello/hello.hxx>
+#endif
+
+#ifndef LIBHELLO_LIB_MODULES
+#include <string>
+
+#include <iostream>
+#endif
+
+#ifdef LIBHELLO_MODULES
+module hello;
+
+#ifdef LIBHELLO_LIB_MODULES
+import std.io;
+#endif
+#endif
+
+...
+\
+
 "
