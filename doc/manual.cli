@@ -1332,8 +1332,8 @@ such explicitly exported symbols (note: symbols, not names) as imported.
 One notable aspect of this new model is the locality of the export macro: it
 is only defined when compiling the module interface unit and is not visible to
 the consumers of the module. This is unlike headers where the macro has to
-be unique per-library (that \c{LIBHELLO_} prefix) because a header from one
-library can be included while building another library.
+have a unique per-library name (that \c{LIBHELLO_} prefix) because a header
+from one library can be included while building another library.
 
 We can continue using the same export macro and header with modules and, in
 fact, that's the recommended approach when maintaining dual, header/module
@@ -1357,10 +1357,10 @@ using cxx
 ...
 \
 
-Once enabled, \c{build2} automatically defines the \c{__symexport} macro to the
-appropriate value depending on the platform and the type of library being
-built. As library authors all we have to do is use it in appropriate places in
-our module interface units, for example:
+Once enabled, \c{build2} automatically defines the \c{__symexport} macro to
+the appropriate value depending on the platform and the type of library being
+built. As library authors, all we have to do is use it in appropriate places
+in our module interface units, for example:
 
 \
 export module hello;
@@ -1392,7 +1392,7 @@ f ()
 Furthermore, symbol exporting is a murky area with many limitations and
 pitfalls (such as auto-exporting of base classes). As a result, it would not
 be unreasonable to expect such an automatic module exporting to only further
-muddy matters.
+muddy the matter.
 
 
 \h2#cxx-modules-install|Modules Installation|
@@ -1450,7 +1450,7 @@ built makes many aspects of creating and consuming modules significantly
 different compared to headers. This section provides basic guidelines for
 designing modules. We start with the overall considerations such as module
 granularity and partitioning into translation units then continue with the
-structure of typical module interface and implementation units. The follwing
+structure of typical module interface and implementation units. The following
 section disscusses practical approaches to modularizing existing code and
 providing the dual, header/module interface for backwards-compatibility.
 
@@ -1835,14 +1835,14 @@ distribution's package) while the consumer is being built with a compiler
 version that supports modules. Note that as discussed earlier the modules
 ownership semantics supports both kinds of \"cross-usage\".
 
-When it comes to the standard library consumption, implementations generally
-do not support mixing inclusion and importation in the same translation unit.
-As a result, if you plan to use the modularized standard library, there are
-two plausible strategies to handling this aspect of migration: If you are
-planning to consume the standard library exclusively as modules, then it may
-make sense to first change your entire codebase to do that. Simply replace
-all the standard library header inclusions with importation of the relevant
-\c{std.*} modules.
+Generally, compiler implementations do not support mixing inclusion and
+importation of the same entities in the same translation unit. This makes
+migration tricky if you plan to use the modularized standard library because
+of its parvasive use. There are two plausible strategies to handling this
+aspect of migration: If you are planning to consume the standard library
+exclusively as modules, then it may make sense to first change your entire
+codebase to do that. Simply replace all the standard library header inclusions
+with importation of the relevant \c{std.*} modules.
 
 The alternative strategy is to first complete the modularization of your
 entire project (as discussed next) while continuing consuming the standard
@@ -1977,6 +1977,9 @@ building a library and need to support Windows), then we can use the
 
 export __symexport void say_hello (const std::string& name);
 \
+
+The consumer code in the \i{modules-only} setup is straightforward: they
+simply import the desired modules.
 
 To support consumption via headers when modules are unavailable (the
 \i{modules-or-headers} level) we can use the following setup. Here we also
@@ -2128,6 +2131,18 @@ namespace hello
 }
 \
 
+The consumer code in the \i{modules-or-headers} setup has to use either
+inclusion or importation depending on the modules support availability, for
+example:
+
+\
+#ifndef __cpp_modules
+#include <libhello/hello.mxx>
+#else
+import hello;
+#endif
+\
+
 Predictably, the final backwards compatibility level (\c{modules-and-headers})
 is the most onerous to support. Here existing consumers have to continue
 working with the modularized version of our library which means we have to
@@ -2138,14 +2153,13 @@ which means we cannot rely on (only) the \c{__cpp_modules} and
 
 One way to arrange this is to retain the header and adjust it according to the
 previous level template but with one important difference: instead of using
-the standard modules macro we use our custom ones. For example:
+the standard modules macro we use our custom ones (we can also have
+unconditional \c{#pragma once}). For example:
 
 \
 // hello.hxx (module header)
 
-#ifndef LIBHELLO_MODULES
 #pragma once
-#endif
 
 #ifndef LIBHELLO_LIB_MODULES
 #include <string>
@@ -2169,10 +2183,11 @@ LIBHELLO_MODEXPORT namespace hello
 
 Now if this header is included (for example, by an existing consumer) then
 none of these macros will be defined and the header will act as, well, a plain
-old header.
+old header. Note that we will also need to make the equivalent change in the
+export header.
 
-We also provide the module interface unit which appropriately defines the
-two custom macros and then simply includes the header:
+We also provide the module interface unit which appropriately defines the two
+custom macros and then simply includes the header:
 
 \
 // hello.mxx (module interface)
@@ -2189,9 +2204,10 @@ two custom macros and then simply includes the header:
 \
 
 The module implementation unit can remain unchanged. In particular, we
-continue including \c{hello.mxx} on its second line. However, if you find the
-use of different macros in the header and source file confusing, then instead
-it can be adjusted as follows (note that now we are including \c{hello.hxx}):
+continue including \c{hello.mxx} if modules support is unavailable. However,
+if you find the use of different macros in the header and source files
+confusing, then instead it can be adjusted as follows (note that now we are
+including \c{hello.hxx}):
 
 \
 // hello.cxx (module implementation)
@@ -2225,4 +2241,19 @@ import std.io;
 ...
 \
 
+In this case it may also make sense to factor the \c{*_MODULES} macro
+defintions into a common header.
+
+In the \i{modules-and-headers} setup the existing consumers that would like to
+continue using headers don't require any changes. And for those that would
+like to use module if available the arrangement is the same as for the
+previous compatibility level.
+
+If our module needs to \"export\" macros then the recommended approach is to
+simply provide an additional header that the consumer includes. While it might
+be tempting to also wrap the module import into this header, some may prefer
+to explicitly import the module and include the header, especially if the
+macros may not be needed by all consumers. This way we can also keep the
+header macro-only which means it can be included freely, in or out of module
+purviews.
 "
