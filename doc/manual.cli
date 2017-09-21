@@ -1467,9 +1467,9 @@ fairly large \c{std.core} and \c{std.io} modules.
 There is, however, a significant drawback to this choice: every time we make a
 change, all consumers of such a mega-module will have to be recompiled,
 whether the change affects them or not. And the bigger the module the higher
-the chance that any given change does not affect a large portion of the
-module's consumers. Note also that this is not an issue for the standard
-library modules since they are not expected to change often.
+the chance that any given change does not (semantically) affect a large
+portion of the module's consumers. Note also that this is not an issue for the
+standard library modules since they are not expected to change often.
 
 Another, more subtle, issue with mega-modules (which does affect the standard
 library) is the inability to re-export only specific interfaces, as will be
