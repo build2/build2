@@ -1748,8 +1748,8 @@ implementation re-uses the comparison operators provided by \c{std::vector}
 There is palpable difference between the two cases: the first merely uses
 \c{std.core} interface while the second is \i{based on} and, in a sense,
 \i{extends} it which feels like a stronger relationship. Re-exporting
-\c{std.core} (or, better yet, \c{std.core.version}, should it become
-available) does not seem unreasonable.
+\c{std.core} (or, better yet, \c{std.core.vector}, should it become available)
+does not seem unreasonable.
 
 Note also that there is no re-export of headers nor header inclusion
 visibility in the implementation units. Specifically, in the previous example,
