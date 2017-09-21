@@ -1751,8 +1751,9 @@ There is palpable difference between the two cases: the first merely uses
 \c{std.core} (or, better yet, \c{std.core.version}, should it become
 available) does not seem unreasonable.
 
-Note also that there is no re-export of headers. In the previous example, if
-the standard library is not modularized and we have to use it via headers,
+Note also that there is no re-export of headers nor header inclusion
+visibility in the implementation units. Specifically, in the previous example,
+if the standard library is not modularized and we have to use it via headers,
 then the consumers of our \c{small_vector} will always have to explicitly
 include \c{<vector>}. This suggest that modularizing a codebase that still
 consumes substantial components (like the standard library) via headers can
@@ -1858,12 +1859,12 @@ standard library quite easily. The reason for waiting until the complete
 modularization is to eliminate header inclusions between components which
 would often result in conflicting styles of the standard library consumption.
 
-Note also that due to the lack of header re-export support discussed earlier,
-it may make perfect sense to only support the modularized standard library
-when modules are enabled even when providing backwards compatibility with
-headers. In fact, if all the compiler/standard library implementations that
-your project caters to support the modularize standard library, then there is
-little sense not to impose such a restriction.
+Note also that due to the lack of header re-export and include visibility
+support discussed earlier, it may make perfect sense to only support the
+modularized standard library when modules are enabled even when providing
+backwards compatibility with headers. In fact, if all the compiler/standard
+library implementations that your project caters to support the modularize
+standard library, then there is little sense not to impose such a restriction.
 
 The overall strategy for modularizing our own components is to identify and
 modularize inter-dependent sets of headers one at a time starting from the
@@ -2048,6 +2049,11 @@ module <name>;
 
 <module implementation>
 \
+
+Notice the need to repeat \c{<std includes>} in the implementation file due to
+the lack of include visibility discussed above. This is necessary when modules
+are enabled but the standard library is not modularized since in this case the
+implementation does not \"see\" any of the headers included in the interface.
 
 Besides these templates we will most likely also need an export header that
 appropriately defines a module export macro depending on whether modules are
