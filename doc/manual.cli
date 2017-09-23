@@ -949,9 +949,33 @@ only C++ names. A macro defined in the module interface unit cannot affect
 the module's consumers. And macros defined by the module's consumers cannot
 affect the module interface they are importing. In other words, module
 producers and consumers are isolated from each other when the preprocessor
-is concerned. This is not to say that the preprocessor cannot be used by
-either, it just doesn't \"leak\" through the module interface. One practical
-implication of this model is the insignificance of the import order.
+is concerned. For example, consider this module interface:
+
+\
+export module hello;
+
+#ifndef SMALL
+#define HELLO
+export void say_hello (const char*);
+#endif
+\
+
+And its consumer:
+
+\
+// module consumer
+//
+#define SMALL       // No effect.
+import hello;
+
+#ifdef HELLO        // Not defined.
+...
+#endif
+\
+
+This is not to say that the preprocessor cannot be used by either, it just
+doesn't \"leak\" through the module interface. One practical implication of
+this model is the insignificance of the import order.
 
 If a module imports another module in its purview, the imported module's
 names are not made automatically visible to the consumers of the importing
@@ -967,7 +991,7 @@ export void
 say_hello (const std::string&);
 \
 
-And this module consumer:
+And its consumer:
 
 \
 import hello;
@@ -1877,8 +1901,8 @@ time, this does not seem to work in practice because we will have to continue
 consuming some of the components as headers. Since such headers can only be
 imported out of the module purview, it becomes hard to reason (both for us and
 often the compiler) what is imported/included and where. For example, it's not
-uncommon to end up importing the module in its implementation unit which not
-something that all the compilers can handle gracefully.
+uncommon to end up importing the module in its implementation unit which is
+not something that all the compilers can handle gracefully.
 
 Let's now explore how we can provide the various levels of backwards
 compatibility discussed above. Here we rely on two feature test macros to
