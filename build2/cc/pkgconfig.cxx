@@ -20,9 +20,9 @@
 #include <build2/install/utility.hxx>
 
 #include <build2/bin/target.hxx>
-#include <build2/pkgconfig/target.hxx>
 
 #include <build2/cc/types.hxx>
+#include <build2/cc/target.hxx>  // pc
 #include <build2/cc/utility.hxx>
 
 #include <build2/cc/common.hxx>
@@ -464,7 +464,6 @@ namespace build2
     {
       tracer trace (x, "pkgconfig_load");
 
-      assert (pkgconfig != nullptr);
       assert (at != nullptr || st != nullptr);
 
       // Iterate over pkgconf directories that correspond to the specified
@@ -1128,10 +1127,10 @@ namespace build2
       const scope& bs (l.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      auto* pc (find_adhoc_member<pkgconfig::pc> (l));
-      assert (pc != nullptr);
+      auto* t (find_adhoc_member<pc> (l));
+      assert (t != nullptr);
 
-      const path& p (pc->path ());
+      const path& p (t->path ());
 
       if (verb >= 2)
         text << "cat >" << p;
@@ -1207,12 +1206,12 @@ namespace build2
               n.erase (0, 3);
           };
 
-          if (auto* pc = find_adhoc_member<pkgconfig::pc> (l))
+          if (auto* t = find_adhoc_member<pc> (l))
           {
             // We also want to strip the lib prefix unless it is part of the
             // target name while keeping custom library prefix/suffix, if any.
             //
-            n = pc->path ().leaf ().base ().base ().string ();
+            n = t->path ().leaf ().base ().base ().string ();
 
             if (path::traits::compare (n.c_str (), n.size (),
                                        l.name.c_str (), l.name.size ()) != 0)

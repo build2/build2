@@ -105,8 +105,6 @@ namespace build2
 
       assert (first);
 
-      auto& vp (var_pool.rw (rs));
-
       // Load cc.core.vars.
       //
       if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
@@ -235,28 +233,6 @@ namespace build2
       {
         if (!cast_false<bool> (rs["bin.rc.config.loaded"]))
           load_module (rs, rs, "bin.rc.config", loc);
-      }
-
-      // Load (optionally) the pkgconfig module. Note that it registers the
-      // pc{} target whether the pkg-config utility is found or not.
-      //
-      // @@ At some point we may also want to verify that targets matched
-      //    if it has already been loaded (by someone) else. Currently it
-      //    doesn't set pkgconfig.target. Perhaps only set if it was used
-      //    to derive the program name?
-      //
-      if (!cast_false<bool> (rs["pkgconfig.loaded"]))
-      {
-        // Prepare configuration hints.
-        //
-        variable_map h;
-
-        // Note that this variable has not yet been registered.
-        //
-        const variable& t (vp.insert ("config.pkgconfig.target"));
-        h.assign (t) = cast<target_triplet> (rs["cc.target"]);
-
-        load_module (rs, rs, "pkgconfig", loc, true, h);
       }
 
       return true;

@@ -57,6 +57,37 @@ namespace build2
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
+
+    // pkg-config file targets.
+    //
+    class pc: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+    };
+
+    class pca: public pc // .static.pc
+    {
+    public:
+      using pc::pc;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class pcs: public pc // .shared.pc
+    {
+    public:
+      using pc::pc;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
   }
 }
 

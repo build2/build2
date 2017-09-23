@@ -120,7 +120,6 @@ namespace build2
       bool modules;                // x.features.modules
       bool symexport;              // x.features.symexport
 
-      const process_path* pkgconfig; // pkgconfig.path (can be NULL).
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
 
@@ -163,7 +162,6 @@ namespace build2
             const strings& std,
             bool fm,
             bool fs,
-            const process_path* pkgc,
             const dir_paths& sld,
             const dir_paths& sid,
             const target_type& src,
@@ -180,7 +178,7 @@ namespace build2
             tstd (std),
             modules (fm),
             symexport (fs),
-            pkgconfig (pkgc), sys_lib_dirs (sld), sys_inc_dirs (sid),
+            sys_lib_dirs (sld), sys_inc_dirs (sid),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
 

@@ -51,7 +51,6 @@ using namespace std;
 #include <build2/cli/init.hxx>
 #include <build2/test/init.hxx>
 #include <build2/install/init.hxx>
-#include <build2/pkgconfig/init.hxx>
 #include <build2/version/init.hxx>
 
 namespace build2
@@ -323,9 +322,6 @@ main (int argc, char* argv[])
       bm["bin.ld"] = mf {nullptr, &bin::ld_init};
       bm["bin.rc.config"] = mf {nullptr, &bin::rc_config_init};
       bm["bin.rc"] = mf {nullptr, &bin::rc_init};
-
-      bm["pkgconfig.config"] = mf {nullptr, &pkgconfig::config_init};
-      bm["pkgconfig"] = mf {nullptr, &pkgconfig::init};
 
       bm["cc.core.vars"] = mf {nullptr, &cc::core_vars_init};
       bm["cc.core.config"] = mf {nullptr, &cc::core_config_init};

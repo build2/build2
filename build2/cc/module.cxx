@@ -12,6 +12,8 @@
 
 #include <build2/bin/target.hxx>
 
+#include <build2/cc/target.hxx> // pc*
+
 #include <build2/config/utility.hxx>
 #include <build2/install/utility.hxx>
 
@@ -77,10 +79,10 @@ namespace build2
       // Figure out which compiler we are dealing with, its target, etc.
       //
       const path& xc (cast<path> (*p.first));
-      ci = cc::guess (x_lang,
-                      xc,
-                      cast_null<strings> (rs[config_c_coptions]),
-                      cast_null<strings> (rs[config_x_coptions]));
+      ci = build2::cc::guess (x_lang,
+                              xc,
+                              cast_null<strings> (rs[config_c_coptions]),
+                              cast_null<strings> (rs[config_x_coptions]));
 
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
@@ -366,6 +368,12 @@ namespace build2
           if (install_loaded)
             install_path (rs, **ht, dir_path ("include"));
         }
+
+        t.insert<pca> ();
+        t.insert<pcs> ();
+
+        if (install_loaded)
+          install_path<pc> (rs, dir_path ("pkgconfig"));
       }
 
       // Register rules.

@@ -103,7 +103,6 @@ set "src=%src% build2\test"
 set "src=%src% build2\test\script"
 set "src=%src% build2\version"
 set "src=%src% build2\install"
-set "src=%src% build2\pkgconfig"
 set "src=%src% %libbutl%\libbutl"
 
 rem Get the compile options.

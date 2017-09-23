@@ -869,8 +869,7 @@ namespace build2
         // information. The idea is that when we auto-generate .pc files, we
         // will copy those macros (or custom ones) from *.export.poptions.
         //
-        if (pkgconfig == nullptr ||
-            !pkgconfig_load (act, *p.scope,
+        if (!pkgconfig_load (act, *p.scope,
                              *lt, a, s,
                              p.proj, name,
                              *pd, sysd, *usrd))

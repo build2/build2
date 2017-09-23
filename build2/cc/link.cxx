@@ -19,9 +19,8 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
-#include <build2/pkgconfig/target.hxx>
 
-#include <build2/cc/target.hxx>  // c
+#include <build2/cc/target.hxx>  // c, pc*
 #include <build2/cc/utility.hxx>
 
 using namespace std;
@@ -464,9 +463,7 @@ namespace build2
             target_lock pc (
               add_adhoc_member (
                 act, t,
-                ot == otype::a
-                ? pkgconfig::pca::static_type
-                : pkgconfig::pcs::static_type));
+                ot == otype::a ? pca::static_type : pcs::static_type));
 
             // Note that here we always use the lib name prefix, even on
             // Windows with VC. The reason is the user needs a consistent name
