@@ -1791,10 +1791,12 @@ existing codebases as well as supporting the dual, header/module interface for
 backwards-compatibility.
 
 Predictably, a well modularized (in the general sense) set of headers makes
-conversion to C++ modules easier. As a result, it may make sense to spend some
-time cleaning and re-organizing your headers prior to attempting
-modularization. Inclusion cycles will be particularly hard to deal with (C++
-modules do not allow circular interface dependencies).
+conversion to C++ modules easier. Inclusion cycles will be particularly hard
+to deal with (C++ modules do not allow circular interface dependencies).
+Furthermore, as we will see below, if you plan to provide the dual
+header/module interface, then having a one-to-one header to module mapping
+will simplify this task. As a result, it may make sense to spend some time
+cleaning and re-organizing your headers prior to attempting modularization.
 
 Let's first discuss why the modularization approach illustrated by the
 following example does not generally work:
