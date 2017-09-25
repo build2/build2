@@ -2549,12 +2549,20 @@ namespace build2
 
       // Reduce inclusions/exclusions group (-/+{foo bar}) to simple name/dir.
       //
-      if (!first && n.typed () && n.type.size () == 1)
+      if (n.typed () && n.type.size () == 1)
       {
-        s = n.type[0];
+        if (!first)
+        {
+          s = n.type[0];
 
-        if (s == '-' || s == '+')
+          if (s == '-' || s == '+')
+            n.type.clear ();
+        }
+        else
+        {
+          assert (n.type[0] == '+'); // Can only belong to inclusion group.
           n.type.clear ();
+        }
       }
 
       if (n.empty () || !(n.simple () || n.directory ()))
@@ -2570,10 +2578,7 @@ namespace build2
       {
         s = v[0];
 
-        if (s != '-' && s != '+')
-          fail (l) << "missing leading +/- in '" << v << "' " << what
-                   << " pattern";
-
+        assert (s == '-' || s == '+'); // Validated at the token level.
         v.erase (0, 1);
 
         if (v.empty ())
@@ -2920,6 +2925,65 @@ namespace build2
       }
     };
 
+    // Set the result pattern target type and switch to the ignore mode.
+    //
+    // The goal of the detect mode is to assemble the "raw" list (the pattern
+    // itself plus inclusions/exclusions) that will then be passed to
+    // parse_names_pattern(). So clear pair, directory, and type (they will be
+    // added during pattern expansion) and change the mode to ignore (to
+    // prevent any expansions in inclusions/exclusions).
+    //
+    auto pattern_detected =
+      [&pairn, &dp, &tp, &rpat, &pmode] (const target_type* ttp)
+    {
+      assert (pmode == pattern_mode::detect);
+
+      pairn = 0;
+      dp = nullptr;
+      tp = nullptr;
+      pmode = pattern_mode::ignore;
+      rpat = ttp;
+    };
+
+    // Return '+' or '-' if a token can start an inclusion or exclusion
+    // (pattern or group), '\0' otherwise. The result can be used as bool.
+    //
+    // @@ Note that we only need to make sure that the leading '+' or '-'
+    //    characters are unquoted. We could consider some partially quoted
+    //    tokens as starting inclusion or exclusion as well, for example
+    //    +'foo*'. However, currently we can not determine which part of a
+    //    token is quoted, and so can't distinguish the above token from
+    //    '+'foo*. This is why we end up with a criteria that is stricter than
+    //    is really required.
+    //
+    auto pattern_prefix = [] (const token& t) -> char
+    {
+      char c;
+      return t.type == type::word && ((c = t.value[0]) == '+' || c == '-') &&
+             t.qtype == quote_type::unquoted
+             ? c
+             : '\0';
+    };
+
+    // A name sequence potentially starts with a pattern if it starts with a
+    // literal unquoted plus character.
+    //
+    bool ppat (pmode == pattern_mode::detect && pattern_prefix (t) == '+');
+
+    // Potential pattern inclusion group. To be recognized as such it should
+    // start with the literal unquoted '+{' string and expand into a non-empty
+    // name sequence.
+    //
+    // The first name in such a group is a pattern, regardless of whether it
+    // contains wildcard characters or not. The trailing names are inclusions.
+    // For example the following pattern groups are equivalent:
+    //
+    // cxx{+{f* *oo}}
+    // cxx{f* +*oo}
+    //
+    bool pinc (ppat && t.value == "+" &&
+               peek () == type::lcbrace && !peeked ().separated);
+
     // Number of names in the last group. This is used to detect when
     // we need to add an empty first pair element (e.g., @y) or when
     // we have a (for now unsupported) multi-name LHS (e.g., {x y}@z).
@@ -3057,6 +3121,12 @@ namespace build2
 
         if (chunk && t.separated)
           break;
+
+        // If we are parsing the pattern group, then space-separated tokens
+        // must start inclusions or exclusions (see above).
+        //
+        if (rpat && t.separated && tt != type::rcbrace && !pattern_prefix (t))
+          fail (t) << "name pattern inclusion or exclusion expected";
       }
 
       // Name.
@@ -3152,7 +3222,25 @@ namespace build2
         {
           next (t, tt);
 
-          if (p != n && tp != nullptr)
+          // Resolve the target, if there is one, for the potential pattern
+          // inclusion group. If we fail, then this is not an inclusion group.
+          //
+          const target_type* ttp (nullptr);
+
+          if (pinc)
+          {
+            assert (val == "+");
+
+            if (tp != nullptr && scope_ != nullptr)
+            {
+              ttp = scope_->find_target_type (*tp);
+
+              if (ttp == nullptr)
+                ppat = pinc = false;
+            }
+          }
+
+          if (p != n && tp != nullptr && !pinc)
             fail (t) << "nested type name " << val;
 
           dir_path d1;
@@ -3187,6 +3275,18 @@ namespace build2
 
           count = parse_names_trailer (
             t, tt, ns, pmode, what, separators, pairn, *pp1, dp1, tp1, cross);
+
+          // If empty group or empty name, then this is not a pattern inclusion
+          // group (see above).
+          //
+          if (pinc)
+          {
+            if (count != 0 && (count > 1 || !ns.back ().empty ()))
+              pattern_detected (ttp);
+
+            ppat = pinc = false;
+          }
+
           tt = peek ();
           continue;
         }
@@ -3208,16 +3308,27 @@ namespace build2
 
           if (tp == nullptr || ttp != nullptr)
           {
-            // Reset the detect pattern mode to expand if the pattern is not
-            // followed by the inclusion/exclusion pattern/match. Note that
-            // if it is '}' (i.e., the end of the group), then it is a single
-            // pattern and the expansion is what we want.
-            //
-            char c;
-            if (pmode == pattern_mode::detect &&
-                (tt != type::word ||
-                 ((c = peeked ().value[0]) != '+' && c != '-')))
-              pmode = pattern_mode::expand;
+            if (pmode == pattern_mode::detect)
+            {
+              // Strip the literal unquoted plus character for the first
+              // pattern in the group.
+              //
+              if (ppat)
+              {
+                assert (val[0] == '+');
+
+                val.erase (0, 1);
+                ppat = pinc = false;
+              }
+
+              // Reset the detect pattern mode to expand if the pattern is not
+              // followed by the inclusion/exclusion pattern/match. Note that
+              // if it is '}' (i.e., the end of the group), then it is a single
+              // pattern and the expansion is what we want.
+              //
+              if (!pattern_prefix (peeked ()))
+                pmode = pattern_mode::expand;
+            }
 
             if (pmode == pattern_mode::expand)
             {
@@ -3230,18 +3341,7 @@ namespace build2
               continue;
             }
 
-            // The goal of the detect mode is to assemble the "raw" list (the
-            // pattern itself plus inclusions/exclusions) that will be passed
-            // to parse_names_pattern(). So clear pair, directory, and type
-            // (they will be added during pattern expansion) and change the
-            // mode to ignore (to prevent any expansions in
-            // inclusions/exclusions).
-            //
-            pairn = 0;
-            dp = nullptr;
-            tp = nullptr;
-            pmode = pattern_mode::ignore;
-            rpat = ttp;
+            pattern_detected (ttp);
 
             // Fall through.
           }

@@ -45,13 +45,19 @@ EOI
   : simple
   :
   $* <'print {*.txt +foo file{bar}}' 2>>EOE != 0
-  <stdin>:1:8: error: invalid 'file{bar}' in name pattern
+  <stdin>:1:19: error: name pattern inclusion or exclusion expected
   EOE
 
   : inclusion-exclusion-sign
   :
   $* <'print {*.txt -foo bar}' 2>>EOE != 0
-  <stdin>:1:8: error: missing leading +/- in 'bar' name pattern
+  <stdin>:1:19: error: name pattern inclusion or exclusion expected
+  EOE
+
+  : inclusion-quoted
+  :
+  $* <'print {*.txt -foo "+bar"}' 2>>EOE != 0
+  <stdin>:1:19: error: name pattern inclusion or exclusion expected
   EOE
 
   : empty-inclusion-exclusion
@@ -78,6 +84,9 @@ EOI
 
   touch foo.txt;
   $* <'print {*.txt}' >'foo.txt'                   : group
+
+  touch foo.txt;
+  $* <'print {+*.txt}' >'foo.txt'                  : plus-prefixed
 
   mkdir dir && touch dir/foo.txt;
   $* <'print dir/{*.txt}' >'dir/foo.txt'           : dir
@@ -190,38 +199,85 @@ EOI
   # print dir1/{$pat}
   # print dir2/{$pat}
   #
+  # Instead, he should write it as follows:
+  #
+  # pat = '*.txt'
+  # print dir1/{+$pat}
+  # print dir2/{+$pat}
+  #
   # Note that if we make it work, escaping this case will be pretty hairy:
   #
   # filters = --include '*.txt' --exclude '*.obj'
   # options += $filters
 
-  #: pattern-via-expansion
-  #:
-  #$* <<EOI >'<*.txt>'
-  #pat = '*.txt'
-  #print $pat
-  #EOI
+  : prefixed-pattern-via-expansion
+  :
+  : Pattern is prefixed with the literal unquoted plus character, that is
+  : stripped.
+  :
+  touch foo.txt;
+  $* <<EOI >foo.txt
+    pat = '*.txt'
+    print {+$pat}
+    EOI
 
-  #: pattern-via-expansion-list
-  #:
-  #$* <<EOI >'<*.hxx+*.txt>'
-  #pats = '*.hxx' '+*.txt'
-  #print {$pats}
-  #EOI
+  : non-prefixed-pattern-via-concat-expansion
+  :
+  : Plus character is a part of the pattern and so is not stripped.
+  :
+  touch +foo.txt;
+  $* <<EOI >'+foo.txt'
+    pat = '+*'
+    ext = 'txt'
+    print {$pat.$ext}
+    EOI
 
-  #: pattern-via-expansion-type
-  #:
-  #$* <<EOI >'<*.txt>'
-  #pat = '*.txt'
-  #print txt{$pat}
-  #EOI
+  : not-pattern-expansion
+  :
+  $* <<EOI >'+*.txt'
+    pat = '+*.txt'
+    print {$pat}
+    EOI
 
-  #: pattern-via-expansion-dir
-  #:
-  #$* <<EOI >'<*.txt>'
-  #pat = '*.txt'
-  #print dir/{$pat}
-  #EOI
+  : not-pattern-quoted
+  :
+  $* <<EOI >'+*.txt'
+    print {'+*.txt'}
+    EOI
+
+  : pattern-via-expansion-list
+  :
+  touch foo.txt bar.hxx;
+  $* <<EOI >'bar.hxx foo.txt'
+    pats = '*.hxx' '*.txt'
+    print {+{$pats}}
+    EOI
+
+  : pattern-via-expansion-type
+  :
+  touch foo.txt;
+  $* <<EOI >'txt{foo}'
+    pat = '*'
+    print txt{+$pat}
+    EOI
+
+  : pattern-via-expansion-dir
+  :
+  mkdir dir;
+  touch dir/foo.txt;
+  $* <<EOI >dir/foo.txt
+    pat = '*.txt'
+    print dir/{+$pat}
+    EOI
+
+  : pattern-via-expansion-dir-type
+  :
+  mkdir dir;
+  touch dir/foo.txt;
+  $* <<EOI >dir/txt{foo}
+    pat = '*'
+    print dir/txt{+$pat}
+    EOI
 
   : pattern-via-concat
   :

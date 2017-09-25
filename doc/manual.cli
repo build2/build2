@@ -75,14 +75,16 @@ inclusion or exclusion if it starts with a literal, unquoted plus (\c{+}) or
 minus (\c{-}) sign, respectively. In this case the remaining group values, if
 any, must all be inclusions or exclusions. If the second value doesn't start
 with a plus or minus, then all the group values are considered independent
-with leading pluses and minuses not having any special meaning. For example:
+with leading pluses and minuses not having any special meaning. For
+regularity, the first pattern can also start with the plus sign. For example:
 
 \
-exe{hello}: cxx{f* -foo}           # Exclude foo if present.
-exe{hello}: cxx{f* +foo}           # Include foo if not present.
-exe{hello}: cxx{f* -fo?}           # Exclude foo and fox if present.
-exe{hello}: cxx{f* +b* -foo -bar}  # Exclude foo and bar if present.
-exe{hello}: cxx{f* b* -z*}         # Names matching three patterns.
+exe{hello}: cxx{f* -foo}            # Exclude foo if present.
+exe{hello}: cxx{f* +foo}            # Include foo if not present.
+exe{hello}: cxx{f* -fo?}            # Exclude foo and fox if present.
+exe{hello}: cxx{f* +b* -foo -bar}   # Exclude foo and bar if present.
+exe{hello}: cxx{+f* +b* -foo -bar}  # Same as above.
+exe{hello}: cxx{f* b* -z*}          # Names matching three patterns.
 \
 
 Inclusions and exclusions are applied in the order specified and only to the
@@ -99,8 +101,8 @@ exe{hello}: cxx{f* +*oo}       # Ok, no duplicates.
 \
 
 As a more realistic example, let's say we want to exclude source files that
-reside in the \c{test/} directories (and their subdirectories) anywhere in
-the tree. This can be achieved with the following pattern:
+reside in the \c{test/} directories (and their subdirectories) anywhere in the
+tree. This can be achieved with the following pattern:
 
 \
 exe{hello}: cxx{** -***/test/**}
@@ -124,17 +126,34 @@ If many inclusions or exclusions need to be specified, then an
 inclusion/exclusion group can be used. For example:
 
 \
-exe{hello}: cxx{f* -{foo bar}}  # Exclude foo and bar if present.
+exe{hello}: cxx{f* -{foo bar}}
+exe{hello}: cxx{+{f* b*} -{foo bar}}
 \
 
-This is particularly useful if you would like to list the names to exclude
-in a variable. For example, this is how we can exclude certain files from
-compilation but still include them as ordinary file prerequisites (so that
-they are still included into the distribution):
+This is particularly useful if you would like to list the names to include or
+exclude in a variable. For example, this is how we can exclude certain files
+from compilation but still include them as ordinary file prerequisites (so
+that they are still included into the distribution):
 
 \
 exc = foo.cxx bar.cxx
-exe{hello}: cxx{f* -{$exc}} file{$exc}
+exe{hello}: cxx{+{f* b*} -{$exc}} file{$exc}
+\
+
+If we want to specify our pattern in a variable, then we have to use the
+explicit inclusion syntax, for example:
+
+\
+pat = 'f*'
+exe{hello}: cxx{+$pat} # Pattern match.
+exe{hello}: cxx{$pat}  # Literal 'f*'.
+
+pat = '+f*'
+exe{hello}: cxx{$pat}  # Literal '+f*'.
+
+inc = 'f*'  'b*'
+exc = 'f*o' 'b*r'
+exe{hello}: cxx{+{$inc} -{$exc}}
 \
 
 One common situation that calls for exclusions is auto-generated source
