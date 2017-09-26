@@ -756,7 +756,7 @@ separately-compiled translation units. Not all external names end up becoming
 symbols and symbols are often \i{decorated} with additional information, for
 example, a namespace. We often talk about a symbol having to be satisfied by
 linking an object file or a library that provides it. Similarly, duplicate
-symbols issues may arise if more than one object file or library provides
+symbol issues may arise if more than one object file or library provides
 the same symbol.
 
 What is a C++ module? It is hard to give a single but intuitive answer to this
@@ -767,7 +767,7 @@ are a \i{language-level} not a preprocessor-level mechanism; it is \c{import},
 not \c{#import}.
 
 One may also wonder why C++ modules, what are the benefits? Modules offer
-isolation, both from preprocessor macros and other module's symbols. Unlike
+isolation, both from preprocessor macros and other modules' symbols. Unlike
 headers, modules require explicit exportation of entities that will be visible
 to the consumers. In this sense they are a \i{physical design mechanism} that
 forces us to think how we structure our code. Modules promise significant
@@ -797,7 +797,7 @@ import-declaration makes exported declarations [...] visible to name lookup in
 the current translation unit, in the same namespaces and contexts [...]. [
 Note: The entities are not redeclared in the translation unit containing the
 module import declaration. -- end note ]} One intuitive way to think about
-this visibility is \i{as-if} there were only a single translation unit for the
+this visibility is \i{as if} there were only a single translation unit for the
 entire program that contained all the modules as well as all their
 consumers. In such a translation unit all the names would be visible to
 everyone in exactly the same way and no entity would be redeclared.
@@ -826,7 +826,7 @@ Note also that from the consumer's perspective a module does not provide
 any symbols, only C++ entity names. If we use names from a module, then we
 may have to satisfy the corresponding symbols using the usual mechanisms:
 link an object file or a library that provides them. In this respect, modules
-are similar to headers and as with headers module's use is not limited to
+are similar to headers and as with headers, module's use is not limited to
 libraries; they make perfect sense when structuring programs. Furthermore,
 a library may also have private or implementation modules that are not
 meant to be consumed by the library's users.
@@ -930,14 +930,14 @@ namespace hello
 }
 \
 
-Up until now we've only been talking about module's names. What about module's
-symbols? For exported names, the resulting symbols would be the same as if
-those names were declared outside of a module's purview (or as if no modules
-were used at all). Non-exported names, on the other hand, have \i{module
-linkage}: their symbols can be resolved from this module's units but not from
-other translation units. They also cannot clash with symbols for identical
-names from other modules (and non-modules). This is usually achieved by
-decorating the non-exported symbols with the module name.
+Up until now we've only been talking about names belonding to a module. What
+about the corresponding symbols? For exported names, the resulting symbols
+would be the same as if those names were declared outside of a module's
+purview (or as if no modules were used at all). Non-exported names, on the
+other hand, have \i{module linkage}: their symbols can be resolved from this
+module's units but not from other translation units. They also cannot clash
+with symbols for identical names from other modules (and non-modules). This is
+usually achieved by decorating the non-exported symbols with the module name.
 
 This ownership model has an important backwards compatibility implication: a
 library built with modules enabled can be linked to a program that still uses
@@ -1037,7 +1037,7 @@ export void
 say_hello (const std::string&);
 \
 
-One way to think of a re-export is \i{as-if} an import of a module also
+One way to think of a re-export is \i{as if} an import of a module also
 \"injects\" all the imports said module re-exports, recursively. That's
 essentially how most compilers implement it.
 
@@ -1059,9 +1059,9 @@ export
 \
 
 Besides starting a module purview, a non-exporting module declaration in the
-implementation unit also makes non-internal linkage names declared or made
-visible in the \i{interface purview} visible in the \i{implementation
-purview}. In this sense non-exporting module declaration acts as an extended
+implementation unit makes non-internal linkage names declared or made visible
+in the \i{interface purview} also visible in the \i{implementation purview}.
+In this sense non-exporting module declaration acts as an extended
 \c{import}. For example:
 
 \
@@ -1351,7 +1351,7 @@ This macro is then appropriately defined (often in a separate \"export
 header\") to export symbols when building the shared library and to import
 them when building the library's users.
 
-Introduction of modules changes this in a number of ways, at least as
+The introduction of modules changes this in a number of ways, at least as
 implemented by VC (hopefully other compilers will follow suit). While we
 still have to explicitly mark exported symbols in our module interface
 unit, there is no need (and, in fact, no way) to do the same when said
@@ -1474,7 +1474,7 @@ line continuations.
 \h2#cxx-modules-guidelines|Modules Design Guidelines|
 
 Modules are a physical design mechanism for structuring and organizing our
-code. Their explicit exportation semantics combined with the way modules are
+code. Their explicit exportation semantics combined with the way they are
 built make many aspects of creating and consuming modules significantly
 different compared to headers. This section provides basic guidelines for
 designing modules. We start with the overall considerations such as module
@@ -1523,7 +1523,7 @@ header/source separation and have everything in a single file.
 There are a number of drawbacks with this approach: Every time we change
 anything in the module interface unit, all its consumers have to be
 recompiled. If we keep everything in a single file, then every time we change
-the implementation we trigger a recompilations that would have been avoided
+the implementation we trigger recompilations that would have been avoided
 had the implementation been factored out into a separate unit.
 
 Another issues is the readability of the interface which could be
@@ -1568,7 +1568,7 @@ export headers. There are also cases where we do want the included
 declarations to end up in the module purview. The most common example is
 inline/template function implementations that have been factored out into
 separate files for code organization reasons. As an example, consider the
-following module interface that uses an export headers (which presumably sets
+following module interface that uses an export header (which presumably sets
 up symbols exporting macros) as well as an inline file:
 
 \
@@ -1769,7 +1769,7 @@ import its module. However, the comparison won't compile: our \c{small_vector}
 implementation re-uses the comparison operators provided by \c{std::vector}
 (via implicit to-base conversion) but they aren't visible.
 
-There is palpable difference between the two cases: the first merely uses
+There is a palpable difference between the two cases: the first merely uses
 \c{std.core} interface while the second is \i{based on} and, in a sense,
 \i{extends} it which feels like a stronger relationship. Re-exporting
 \c{std.core} (or, better yet, \c{std.core.vector}, should it become available)
@@ -1889,7 +1889,7 @@ Note also that due to the lack of header re-export and include visibility
 support discussed earlier, it may make perfect sense to only support the
 modularized standard library when modules are enabled even when providing
 backwards compatibility with headers. In fact, if all the compiler/standard
-library implementations that your project caters to support the modularize
+library implementations that your project caters to support the modularized
 standard library, then there is little sense not to impose such a restriction.
 
 The overall strategy for modularizing our own components is to identify and
@@ -1898,13 +1898,14 @@ lower-level components. This way any newly modularized set will only depend on
 the already modularized ones. After converting each set we can switch its
 consumers to using imports keeping our entire project buildable and usable.
 
-While ideally we would want to be able modularize just a single component at a
-time, this does not seem to work in practice because we will have to continue
-consuming some of the components as headers. Since such headers can only be
-imported out of the module purview, it becomes hard to reason (both for us and
-often the compiler) what is imported/included and where. For example, it's not
-uncommon to end up importing the module in its implementation unit which is
-not something that all the compilers can handle gracefully.
+While ideally we would want to be able to modularize just a single component
+at a time, this does not seem to work in practice because we will have to
+continue consuming some of the components as headers. Since such headers can
+only be imported out of the module purview, it becomes hard to reason (both
+for us and often the compiler) what is imported/included and where. For
+example, it's not uncommon to end up importing the module in its
+implementation unit which is not something that all the compilers can handle
+gracefully.
 
 Let's now explore how we can provide the various levels of backwards
 compatibility discussed above. Here we rely on two feature test macros to
@@ -2291,7 +2292,7 @@ definitions into a common header.
 
 In the \i{modules-and-headers} setup the existing consumers that would like to
 continue using headers don't require any changes. And for those that would
-like to use module if available the arrangement is the same as for the
+like to use modules if available the arrangement is the same as for the
 \i{modules-or-headers} compatibility level.
 
 If our module needs to \"export\" macros then the recommended approach is to
