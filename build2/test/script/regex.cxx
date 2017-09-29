@@ -4,8 +4,6 @@
 
 #include <build2/test/script/regex.hxx>
 
-#include <algorithm> // copy(), copy_backward()
-
 using namespace std;
 
 namespace build2

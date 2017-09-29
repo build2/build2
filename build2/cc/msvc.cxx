@@ -83,6 +83,25 @@ namespace build2
       }
     }
 
+    // Extract system header search paths from MSVC.
+    //
+    dir_paths config_module::
+    msvc_header_search_paths (process_path&, scope&) const
+    {
+      // The compiler doesn't seem to have any built-in paths and all of them
+      // come from the INCLUDE environment variable.
+
+      // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
+      //    cl.exe /Be prints INCLUDE.
+      //
+      //    Should we actually bother? INCLUDE is normally used for system
+      //    headers and its highly unlikely we will see an imported library
+      //    that lists one of those directories in pkg-config Cflags value.
+      //    Let's wait and see.
+      //
+      return dir_paths ();
+     }
+
     // Extract system library search paths from MSVC.
     //
     dir_paths config_module::

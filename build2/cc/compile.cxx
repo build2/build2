@@ -760,8 +760,10 @@ namespace build2
 
             // Extra system header dirs (last).
             //
-            for (const dir_path& d: sys_inc_dirs)
-              cs.append (d.string ());
+            assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+            for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
+                   i != sys_inc_dirs.end (); ++i)
+              cs.append (i->string ());
           }
 
           hash_options (cs, t, c_coptions);
@@ -1709,10 +1711,12 @@ namespace build2
 
           // Extra system header dirs (last).
           //
-          for (const dir_path& d: sys_inc_dirs)
+          assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+          for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
+               i != sys_inc_dirs.end (); ++i)
           {
             args.push_back ("-I");
-            args.push_back (d.string ().c_str ());
+            args.push_back (i->string ().c_str ());
           }
 
           if (md.symexport)
@@ -2670,10 +2674,12 @@ namespace build2
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
 
-          for (const dir_path& d: sys_inc_dirs)
+          assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+          for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
+               i != sys_inc_dirs.end (); ++i)
           {
             args.push_back ("-I");
-            args.push_back (d.string ().c_str ());
+            args.push_back (i->string ().c_str ());
           }
 
           if (md.symexport)
@@ -3879,10 +3885,12 @@ namespace build2
 
         // Extra system header dirs (last).
         //
-        for (const dir_path& d: sys_inc_dirs)
+        assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+        for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
+             i != sys_inc_dirs.end (); ++i)
         {
           args.push_back ("-I");
-          args.push_back (d.string ().c_str ());
+          args.push_back (i->string ().c_str ());
         }
 
         if (md.symexport)

@@ -6,7 +6,6 @@
 #define BUILD2_CONFIG_MODULE_HXX
 
 #include <map>
-#include <algorithm> // find_if()
 
 #include <libbutl/prefix-map.hxx>
 

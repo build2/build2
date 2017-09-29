@@ -49,11 +49,20 @@ namespace build2
       translate_std (const compiler_info&, scope&, const string*) const = 0;
 
       strings tstd;
+      size_t sys_lib_dirs_extra; // First extra path (size if none).
+      size_t sys_inc_dirs_extra; // First extra path (size if none).
+
       compiler_info ci; // Note: some members are moved from.
 
     private:
       dir_paths
+      gcc_header_search_paths (process_path&, scope&) const; // gcc.cxx
+
+      dir_paths
       gcc_library_search_paths (process_path&, scope&) const; // gcc.cxx
+
+      dir_paths
+      msvc_header_search_paths (process_path&, scope&) const; // msvc.cxx
 
       dir_paths
       msvc_library_search_paths (process_path&, scope&) const; // msvc.cxx

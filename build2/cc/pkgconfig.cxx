@@ -1057,9 +1057,6 @@ namespace build2
       //
       pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
 
-      // @@ Currently sys_inc_dirs doesn't contain the compiler-extracted
-      //    paths.
-      //
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
         apc = pkgconf (ap, pc_dirs, sys_lib_dirs, sys_inc_dirs);

@@ -24,6 +24,133 @@ namespace build2
   {
     using namespace bin;
 
+    // Extract system header search paths from GCC (gcc/g++) or compatible
+    // (Clang, Intel) using the -v -E </dev/null method.
+    //
+    dir_paths config_module::
+    gcc_header_search_paths (process_path& xc, scope& rs) const
+    {
+      dir_paths r;
+
+      cstrings args;
+      string std; // Storage.
+
+      args.push_back (xc.recall_string ());
+      append_options (args, rs, c_coptions);
+      append_options (args, rs, x_coptions);
+      append_options (args, tstd);
+
+      // Compile as.
+      //
+      auto langopt = [this] () -> const char*
+      {
+        switch (x_lang)
+        {
+        case lang::c:   return "c";
+        case lang::cxx: return "c++";
+        }
+
+        assert (false); // Can't get here.
+        return nullptr;
+      };
+
+      args.push_back ("-x");
+      args.push_back (langopt ());
+      args.push_back ("-v");
+      args.push_back ("-E");
+      args.push_back ("-");
+      args.push_back (nullptr);
+
+      if (verb >= 3)
+        print_process (args);
+
+      try
+      {
+        // Open pipe to stderr, redirect stdin and stdout to /dev/null.
+        //
+        process pr (xc, args.data (), -2, -2, -1);
+
+        try
+        {
+          ifdstream is (
+            move (pr.in_efd), fdstream_mode::skip, ifdstream::badbit);
+
+          // Normally the system header paths appear between the following
+          // lines:
+          //
+          // #include <...> search starts here:
+          // End of search list.
+          //
+          // The exact text depends on the current locale. What we can rely on
+          // is the unique "#include <" prefix of the "opening" line and the
+          // fact that the paths are indented with a single space character,
+          // unlike the "closing" line.
+          //
+          // Note that on Mac OS we will also see some framework paths among
+          // system header paths, followed with a comment. For example:
+          //
+          //  /Library/Frameworks (framework directory)
+          //
+          // For now we ignore framework paths and to filter them out we will
+          // only consider valid paths to existing directories, skipping those
+          // which we fail to stat or normalize.
+          //
+          string s;
+          for (bool found (false); getline (is, s); )
+          {
+            if (!found)
+              found = s.compare (0, 10, "#include <") == 0;
+            else
+            {
+              if (s[0] != ' ')
+                break;
+
+              try
+              {
+                dir_path d (s, 1, s.size () - 1);
+
+                // @@ Pass true as the ignore_error argument for exists(), when
+                //    supported.
+                //
+                if (d.absolute () && exists (d) &&
+                    find (r.begin (), r.end (), d.normalize ()) == r.end ())
+                  r.emplace_back (move (d));
+              }
+              catch (const invalid_path&) {}
+            }
+          }
+
+          is.close (); // Don't block.
+
+          if (!pr.wait ())
+            throw failed ();
+        }
+        catch (const io_error&)
+        {
+          pr.wait ();
+          fail << "error reading " << x_lang << " compiler -v -E output";
+        }
+      }
+      catch (const process_error& e)
+      {
+        error << "unable to execute " << args[0] << ": " << e;
+
+        if (e.child)
+          exit (1);
+
+        throw failed ();
+      }
+
+      // It's highly unlikely not to have any system directories. More likely
+      // we misinterpreted the compiler output.
+      //
+      if (r.empty ())
+        fail << "unable to extract " << x_lang << " compiler system header "
+             << "search paths";
+
+      return r;
+    }
+
     // Extract system library search paths from GCC (gcc/g++) or compatible
     // (Clang, Intel) using the -print-search-dirs option.
     //
@@ -125,8 +252,10 @@ namespace build2
       //
       for (string::size_type b (0);; e = l.find (d, (b = e + 1)))
       {
-        r.emplace_back (l, b, (e != string::npos ? e - b : e));
-        r.back ().normalize ();
+        dir_path d (l, b, (e != string::npos ? e - b : e));
+
+        if (find (r.begin (), r.end (), d.normalize ()) == r.end ())
+          r.emplace_back (move (d));
 
         if (e == string::npos)
           break;

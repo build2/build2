@@ -160,27 +160,39 @@ namespace build2
       dir_paths inc_dirs;
 
       if (ci.id.value () == compiler_id::msvc)
+      {
         lib_dirs = msvc_library_search_paths (ci.path, rs);
+        inc_dirs = msvc_header_search_paths (ci.path, rs);
+      }
       else
       {
         lib_dirs = gcc_library_search_paths (ci.path, rs);
+        inc_dirs = gcc_header_search_paths (ci.path, rs);
+      }
+
+      sys_lib_dirs_extra = lib_dirs.size ();
+      sys_inc_dirs_extra = inc_dirs.size ();
 
 #ifndef _WIN32
-        // Many platforms don't search in /usr/local/lib by default (but do
-        // for headers in /usr/local/include). So add it as the last option.
-        //
-        lib_dirs.push_back (dir_path ("/usr/local/lib"));
-
-        // FreeBSD is at least consistent: it searches in neither. Quoting its
-        // wiki: "FreeBSD can't even find libraries that it installed." So
-        // let's help it a bit. Note that we don't add it for all the
-        // platforms for good measure because this will actually appear as
-        // usually unnecessary noise on the command line.
-        //
-        if (tt.system == "freebsd")
-          inc_dirs.push_back (dir_path ("/usr/local/include"));
-#endif
+      // Many platforms don't search in /usr/local/lib by default (but do
+      // for headers in /usr/local/include). So add it as the last option.
+      //
+      {
+        dir_path d ("/usr/local/lib");
+        if (find (lib_dirs.begin (), lib_dirs.end (), d) == lib_dirs.end ())
+          lib_dirs.emplace_back (move (d));
       }
+
+      // FreeBSD is at least consistent: it searches in neither. Quoting its
+      // wiki: "FreeBSD can't even find libraries that it installed." So let's
+      // help it a bit.
+      //
+      {
+        dir_path d ("/usr/local/include");
+        if (find (inc_dirs.begin (), inc_dirs.end (), d) == inc_dirs.end ())
+          inc_dirs.emplace_back (move (d));
+      }
+#endif
 
       // If this is a new value (e.g., we are configuring), then print the
       // report at verbosity level 2 and up (-v).

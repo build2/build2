@@ -42,7 +42,7 @@ namespace build2
 
       const variable& x_path;         // Compiler process path.
       const variable& x_sys_lib_dirs; // System library search directories.
-      const variable& x_sys_inc_dirs; // Extra header search directories.
+      const variable& x_sys_inc_dirs; // System header search directories.
 
       const variable& x_poptions;
       const variable& x_coptions;
@@ -123,6 +123,9 @@ namespace build2
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
 
+      size_t sys_lib_dirs_extra;     // First extra path (size if none).
+      size_t sys_inc_dirs_extra;     // First extra path (size if none).
+
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
 
@@ -164,6 +167,8 @@ namespace build2
             bool fs,
             const dir_paths& sld,
             const dir_paths& sid,
+            size_t sle,
+            size_t sie,
             const target_type& src,
             const target_type* mod,
             const target_type* const* hdr,
@@ -179,6 +184,7 @@ namespace build2
             modules (fm),
             symexport (fs),
             sys_lib_dirs (sld), sys_inc_dirs (sid),
+            sys_lib_dirs_extra (sle), sys_inc_dirs_extra (sie),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
 

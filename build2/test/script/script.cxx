@@ -5,7 +5,6 @@
 #include <build2/test/script/script.hxx>
 
 #include <sstream>
-#include <algorithm> // find()
 
 #include <build2/target.hxx>
 #include <build2/algorithm.hxx>
