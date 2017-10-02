@@ -1542,14 +1542,27 @@ header/source separation and have everything in a single file.
 There are a number of drawbacks with this approach: Every time we change
 anything in the module interface unit, all its consumers have to be
 recompiled. If we keep everything in a single file, then every time we change
-the implementation we trigger recompilations that would have been avoided
-had the implementation been factored out into a separate unit.
+the implementation we trigger recompilations that would have been avoided had
+the implementation been factored out into a separate unit. Note that a build
+system in cooperation with the compiler could theoretically avoid such
+unnecessary recompilations: if the compiler produces identical binary
+interface files when the module interface is unchanged, then the build system
+could detect this and skip recompiling the module's consumers.
 
-Another issues is the readability of the interface which could be
-significantly reduced if littered with implementation details. We could keep
-the interface separate by moving the implementation to the bottom of the
-interface file but then we might as well move it into a separate file and
-avoid the unnecessary recompilations.
+A related issue with single-file modules is the reduction in the build
+parallelization opportunities. If the implementation is part of the interface
+unit, then the build system cannot start compiling the module's consumers
+until both the interface and the implementation are compiled. On the other
+hand, had the implementation been split into a separate file, the build system
+could start compiling the module's consumers (as well as the implementation
+unit) as soon as the module interface is compiled.
+
+Another issues with combining the interface with the implementation is the
+readability of the interface which could be significantly reduced if littered
+with implementation details. We could keep the interface separate by moving
+the implementation to the bottom of the interface file but then we might as
+well move it into a separate file and avoid the unnecessary recompilations or
+parallelization issues.
 
 The sensible guideline is then to have a separate module implementation unit
 except perhaps for modules with a simple implementation that is mostly
