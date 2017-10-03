@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbutl/filesystem.hxx> // dir_iterator
+#include <libbutl/filesystem.mxx> // dir_iterator
 
 #include <build2/scope.hxx>
 #include <build2/diagnostics.hxx>

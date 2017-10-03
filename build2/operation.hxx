@@ -5,7 +5,7 @@
 #ifndef BUILD2_OPERATION_HXX
 #define BUILD2_OPERATION_HXX
 
-#include <libbutl/string-table.hxx>
+#include <libbutl/string-table.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

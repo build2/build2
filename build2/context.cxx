@@ -247,7 +247,7 @@ namespace build2
     operation_table.insert ("uninstall");
 
     // Create global scope. Note that the empty path is a prefix for any other
-    // path. See the comment in <libbutl/prefix-map.hxx> for details.
+    // path. See the comment in <libbutl/prefix-map.mxx> for details.
     //
     auto make_global_scope = [&sm] () -> scope&
     {

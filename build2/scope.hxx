@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include <libbutl/path-map.hxx>
+#include <libbutl/path-map.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

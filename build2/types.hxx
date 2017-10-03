@@ -33,17 +33,17 @@
 #include <stdexcept>     // logic_error, invalid_argument, runtime_error
 #include <system_error>
 
-#include <libbutl/path.hxx>
-#include <libbutl/sha256.hxx>
-#include <libbutl/process.hxx>
-#include <libbutl/fdstream.hxx>
-#include <libbutl/optional.hxx>
-#include <libbutl/const-ptr.hxx>
-#include <libbutl/timestamp.hxx>
-#include <libbutl/vector-view.hxx>
-#include <libbutl/small-vector.hxx>
-#include <libbutl/target-triplet.hxx>
-#include <libbutl/standard-version.hxx>
+#include <libbutl/path.mxx>
+#include <libbutl/sha256.mxx>
+#include <libbutl/process.mxx>
+#include <libbutl/fdstream.mxx>
+#include <libbutl/optional.mxx>
+#include <libbutl/const-ptr.mxx>
+#include <libbutl/timestamp.mxx>
+#include <libbutl/vector-view.mxx>
+#include <libbutl/small-vector.mxx>
+#include <libbutl/target-triplet.mxx>
+#include <libbutl/standard-version.mxx>
 
 namespace build2
 {
@@ -74,8 +74,8 @@ namespace build2
 
   using std::array;
   using std::vector;
-  using butl::vector_view;  // <libbutl/vector-view.hxx>
-  using butl::small_vector; // <libbutl/small-vector.hxx>
+  using butl::vector_view;  // <libbutl/vector-view.mxx>
+  using butl::small_vector; // <libbutl/small-vector.mxx>
 
   using strings = vector<string>;
   using cstrings = vector<const char*>;
@@ -143,16 +143,16 @@ namespace build2
   using std::system_error;
   using io_error = std::ios_base::failure;
 
-  // <libbutl/optional.hxx>
+  // <libbutl/optional.mxx>
   //
   using butl::optional;
   using butl::nullopt;
 
-  // <libbutl/const-ptr.hxx>
+  // <libbutl/const-ptr.mxx>
   //
   using butl::const_ptr;
 
-  // <libbutl/path.hxx>
+  // <libbutl/path.mxx>
   //
   using butl::path;
   using butl::dir_path;
@@ -182,7 +182,7 @@ namespace build2
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
-  // <libbutl/timestamp.hxx>
+  // <libbutl/timestamp.mxx>
   //
   using butl::system_clock;
   using butl::timestamp;
@@ -192,12 +192,12 @@ namespace build2
   using butl::timestamp_nonexistent;
   using butl::operator<<;
 
-  // <libbutl/sha256.hxx>
+  // <libbutl/sha256.mxx>
   //
   using butl::sha256;
 
-  // <libbutl/process.hxx>
-  // <libbutl/fdstream.hxx>
+  // <libbutl/process.mxx>
+  // <libbutl/fdstream.mxx>
   //
   using butl::process;
   using butl::process_path;
@@ -207,11 +207,11 @@ namespace build2
   using butl::ifdstream;
   using butl::ofdstream;
 
-  // <libbutl/target-triplet.hxx>
+  // <libbutl/target-triplet.mxx>
   //
   using butl::target_triplet;
 
-  // <libbutl/standard-version.hxx>
+  // <libbutl/standard-version.mxx>
   //
   using butl::standard_version;
   using butl::standard_version_constraint;

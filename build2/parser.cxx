@@ -6,7 +6,7 @@
 
 #include <iostream> // cout
 
-#include <libbutl/filesystem.hxx> // path_search(), path_match()
+#include <libbutl/filesystem.mxx> // path_search(), path_match()
 
 #include <build2/file.hxx>
 #include <build2/scope.hxx>

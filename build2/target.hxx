@@ -9,7 +9,7 @@
 #include <type_traits>  // aligned_storage
 #include <unordered_map>
 
-#include <libbutl/multi-index.hxx> // map_iterator_adapter
+#include <libbutl/multi-index.mxx> // map_iterator_adapter
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

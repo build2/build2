@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-#include <libbutl/filesystem.hxx>
+#include <libbutl/filesystem.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

@@ -4,7 +4,7 @@
 
 #include <build2/depdb.hxx>
 
-#include <libbutl/filesystem.hxx> // file_mtime()
+#include <libbutl/filesystem.mxx> // file_mtime()
 
 using namespace std;
 using namespace butl;

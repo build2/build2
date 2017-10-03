@@ -7,7 +7,7 @@
 
 #include <map>
 
-#include <libbutl/utility.hxx> // compare_c_string
+#include <libbutl/utility.mxx> // compare_c_string
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

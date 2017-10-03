@@ -4,7 +4,7 @@
 
 #include <sstream>
 
-#include <libbutl/regex.hxx>
+#include <libbutl/regex.mxx>
 
 #include <build2/function.hxx>
 #include <build2/variable.hxx>

@@ -7,7 +7,7 @@
 
 #include <stack>
 
-#include <libbutl/char-scanner.hxx>
+#include <libbutl/char-scanner.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

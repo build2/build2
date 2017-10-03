@@ -4,7 +4,7 @@
 
 #include <build2/dist/operation.hxx>
 
-#include <libbutl/filesystem.hxx> // path_match()
+#include <libbutl/filesystem.mxx> // path_match()
 
 #include <build2/file.hxx>
 #include <build2/dump.hxx>

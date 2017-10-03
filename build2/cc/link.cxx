@@ -7,8 +7,8 @@
 #include <map>
 #include <cstdlib>  // exit()
 
-#include <libbutl/path-map.hxx>
-#include <libbutl/filesystem.hxx> // file_exists()
+#include <libbutl/path-map.mxx>
+#include <libbutl/filesystem.mxx> // file_exists()
 
 #include <build2/depdb.hxx>
 #include <build2/scope.hxx>

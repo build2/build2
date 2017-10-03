@@ -7,7 +7,7 @@
 
 #include <map>
 
-#include <libbutl/prefix-map.hxx>
+#include <libbutl/prefix-map.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

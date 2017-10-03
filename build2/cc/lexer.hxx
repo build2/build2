@@ -5,8 +5,8 @@
 #ifndef BUILD2_CC_LEXER_HXX
 #define BUILD2_CC_LEXER_HXX
 
-#include <libbutl/sha256.hxx>
-#include <libbutl/char-scanner.hxx>
+#include <libbutl/sha256.mxx>
+#include <libbutl/char-scanner.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

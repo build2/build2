@@ -15,8 +15,8 @@
 #include <typeinfo>
 #include <iostream>    // cout
 
-#include <libbutl/pager.hxx>
-#include <libbutl/fdstream.hxx> // stderr_fd(), fdterm()
+#include <libbutl/pager.mxx>
+#include <libbutl/fdstream.mxx> // stderr_fd(), fdterm()
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

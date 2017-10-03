@@ -5,7 +5,7 @@
 #ifndef BUILD2_DIAGNOSTICS_HXX
 #define BUILD2_DIAGNOSTICS_HXX
 
-#include <libbutl/diagnostics.hxx>
+#include <libbutl/diagnostics.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

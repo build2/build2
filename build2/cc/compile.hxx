@@ -5,7 +5,7 @@
 #ifndef BUILD2_CC_COMPILE_HXX
 #define BUILD2_CC_COMPILE_HXX
 
-#include <libbutl/path-map.hxx>
+#include <libbutl/path-map.mxx>
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>

@@ -8,10 +8,10 @@
 #include <ostream>
 #include <sstream>
 
-#include <libbutl/regex.hxx>
-#include <libbutl/path-io.hxx>    // use default operator<< implementation
-#include <libbutl/fdstream.hxx>   // fdopen_mode, fdstream_mode
-#include <libbutl/filesystem.hxx> // mkdir_status
+#include <libbutl/regex.mxx>
+#include <libbutl/path-io.mxx>    // use default operator<< implementation
+#include <libbutl/fdstream.mxx>   // fdopen_mode, fdstream_mode
+#include <libbutl/filesystem.mxx> // mkdir_status
 
 #include <build2/test/script/script.hxx>
 

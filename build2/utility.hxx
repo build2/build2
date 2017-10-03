@@ -16,7 +16,7 @@
 
 #include <libbutl/ft/lang.hxx>
 
-#include <libbutl/utility.hxx> // combine_hash(), reverse_iterate(), case*(),
+#include <libbutl/utility.mxx> // combine_hash(), reverse_iterate(), case*(),
                                // etc
 
 #include <unordered_set>
@@ -53,7 +53,7 @@ namespace build2
   using std::stoul;
   using std::stoull;
 
-  // <libbutl/utility.hxx>
+  // <libbutl/utility.mxx>
   //
   using butl::reverse_iterate;
   using butl::compare_c_string;

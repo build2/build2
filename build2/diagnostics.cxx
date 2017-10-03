@@ -6,7 +6,7 @@
 
 #include <cstring>  // strchr()
 
-#include <libbutl/process-io.hxx>
+#include <libbutl/process-io.mxx>
 
 using namespace std;
 
