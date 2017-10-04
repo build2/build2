@@ -112,11 +112,11 @@ namespace build2
   }
 
   bool
-  exists (const path& f, bool fs)
+  exists (const path& f, bool fs, bool ie)
   {
     try
     {
-      return file_exists (f, fs);
+      return file_exists (f, fs, ie);
     }
     catch (const system_error& e)
     {
@@ -125,11 +125,11 @@ namespace build2
   }
 
   bool
-  exists (const dir_path& d)
+  exists (const dir_path& d, bool ie)
   {
     try
     {
-      return dir_exists (d);
+      return dir_exists (d, ie);
     }
     catch (const system_error& e)
     {
@@ -138,11 +138,11 @@ namespace build2
   }
 
   bool
-  entry_exists (const path& p, bool fs)
+  entry_exists (const path& p, bool fs, bool ie)
   {
     try
     {
-      return butl::entry_exists (p, fs);
+      return butl::entry_exists (p, fs, ie);
     }
     catch (const system_error& e)
     {

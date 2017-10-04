@@ -95,16 +95,18 @@ namespace build2
   rmdir_r (const dir_path&, bool dir = true, uint16_t verbosity = 1);
 
   // Check for a file, directory or filesystem entry existence. Print the
-  // diagnostics and fail on system error.
+  // diagnostics and fail on system error, unless ignore_error is true.
   //
   bool
-  exists (const path&, bool follow_symlinks = true);
+  exists (const path&, bool follow_symlinks = true, bool ignore_error = false);
 
   bool
-  exists (const dir_path&);
+  exists (const dir_path&, bool ignore_error = false);
 
   bool
-  entry_exists (const path&, bool follow_symlinks = false);
+  entry_exists (const path&,
+                bool follow_symlinks = false,
+                bool ignore_error = false);
 
   // Check for a directory emptiness. Print the diagnostics and fail on system
   // error.

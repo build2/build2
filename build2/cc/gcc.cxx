@@ -109,10 +109,7 @@ namespace build2
               {
                 dir_path d (s, 1, s.size () - 1);
 
-                // @@ Pass true as the ignore_error argument for exists(), when
-                //    supported.
-                //
-                if (d.absolute () && exists (d) &&
+                if (d.absolute () && exists (d, true) &&
                     find (r.begin (), r.end (), d.normalize ()) == r.end ())
                   r.emplace_back (move (d));
               }
