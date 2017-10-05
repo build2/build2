@@ -257,7 +257,6 @@ namespace build2
       }
 
       append_ext (cp);
-      cp += "*"; // For .d, .pdb, etc. A bit dangerous though.
 
       // On Windows the real path is to libs{} and the link path is to the
       // import library.
@@ -1833,7 +1832,7 @@ namespace build2
           if (verb >= 4) // Seeing this with -V doesn't really add any value.
             text << "rm " << p;
 
-          auto rm = [&paths] (path&& m, const string&, bool interm)
+          auto rm = [&paths, this] (path&& m, const string&, bool interm)
           {
             if (!interm)
             {
@@ -1852,6 +1851,13 @@ namespace build2
                   test (paths.link))
               {
                 try_rmfile (m);
+                try_rmfile (m + ".d");
+
+                if (tsys == "win32-msvc")
+                {
+                  try_rmfile (m + ".pdb");
+                  try_rmfile (m + ".ilk");
+                }
               }
             }
             return true;
