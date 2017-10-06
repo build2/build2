@@ -1855,8 +1855,8 @@ namespace build2
 
                 if (tsys == "win32-msvc")
                 {
-                  try_rmfile (m + ".pdb");
-                  try_rmfile (m + ".ilk");
+                  try_rmfile (m.base () += ".ilk");
+                  try_rmfile (m += ".pdb");
                 }
               }
             }
