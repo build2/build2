@@ -340,6 +340,9 @@ namespace build2
         // installation directory name, e.g., bin, sbin, lib, etc. Look it
         // up and recurse.
         //
+        if (d.empty ())
+          fail << "empty installation directory name";
+
         const string& sn (*d.begin ());
         const string var ("install." + sn);
         if (const dir_path* dn = lookup_install<dir_path> (s, var))
