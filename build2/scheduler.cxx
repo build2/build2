@@ -479,12 +479,18 @@ namespace build2
           size_t n (s.task_queues_.size ()); // Different to end().
           l.unlock ();
 
-          for (size_t i (0); i != n; ++i)
+          // Note: we have to be careful not to advance the iterator past the
+          // last element (since what's past could be changing).
+          //
+          for (size_t i (0);; ++it)
           {
-            task_queue& tq (*it++);
+            task_queue& tq (*it);
 
             for (lock ql (tq.mutex); !tq.shutdown && !s.empty_front (tq); )
               s.pop_front (tq, ql);
+
+            if (++i == n)
+              break;
           }
 
           l.lock ();
