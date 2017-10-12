@@ -4,6 +4,10 @@
 
 #include <build2/scheduler.hxx>
 
+#ifdef __APPLE__
+#include <pthread.h>
+#endif
+
 #include <cerrno>
 
 using namespace std;
@@ -441,13 +445,65 @@ namespace build2
 
     } g {&l, helpers_, starting_};
 
+    // On Mac OS (as of 10.12) the default stack size is 512K for threads
+    // other than the main one, and there is no way to change this once and
+    // for all newly created threads. For the main thread it is by default 8M.
+    //
+    // For Mac OS we will use pthreads, creating threads with the stack size
+    // of the current thread. This way all threads will inherit the main
+    // thread's stack size (since the first helper is always created by the
+    // main thread).
+    //
+#ifndef __APPLE__
     thread t (helper, this);
-    g.l = nullptr; // Disarm.
-
     t.detach ();
+#else
+    pthread_attr_t attr;
+    int r (pthread_attr_init (&attr));
+
+    if (r != 0)
+      throw_system_error (r);
+
+    // Auto-deleter.
+    //
+    unique_ptr<pthread_attr_t, void (*)(pthread_attr_t*)> ad (
+      &attr,
+      [] (pthread_attr_t* a)
+      {
+        int r (pthread_attr_destroy (a));
+
+        // We should be able to destroy the valid attributes object, unless
+        // something is severely damaged.
+        //
+        assert (r == 0);
+      });
+
+    // Create the thread already detached.
+    //
+    r = pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+
+    if (r != 0)
+      throw_system_error (r);
+
+    // Inherit the stack size from the current thread.
+    //
+    r = pthread_attr_setstacksize (&attr,
+                                   pthread_get_stacksize_np (pthread_self ()));
+
+    if (r != 0)
+      throw_system_error (r);
+
+    pthread_t t;
+    r = pthread_create (&t, &attr, helper, this);
+
+    if (r != 0)
+      throw_system_error (r);
+#endif
+
+    g.l = nullptr; // Disarm.
   }
 
-  void scheduler::
+  void* scheduler::
   helper (void* d)
   {
     scheduler& s (*static_cast<scheduler*> (d));
@@ -513,6 +569,7 @@ namespace build2
     }
 
     s.helpers_--;
+    return nullptr;
   }
 
 #ifdef __cpp_thread_local

@@ -326,9 +326,12 @@ namespace build2
     create_helper (lock&);
 
     // We restrict ourselves to a single pointer as an argument in hope of
-    // a small object optimization.
+    // a small object optimization. Return NULL.
     //
-    static void
+    // Note that the return type is void* to make the function usable with
+    // pthreads (see scheduler.cxx for details).
+    //
+    static void*
     helper (void*);
 
     size_t
