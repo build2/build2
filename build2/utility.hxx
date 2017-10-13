@@ -72,6 +72,7 @@ namespace build2
   using butl::make_exception_guard;
 
   using butl::throw_generic_error;
+  using butl::throw_system_error;
 
   // Basic string utilities.
   //
