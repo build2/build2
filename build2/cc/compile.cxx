@@ -2214,7 +2214,8 @@ namespace build2
       // See init_args() above for details on generated header support.
       //
       bool gen (false);
-      optional<bool> force_gen;
+      optional<bool>   force_gen;
+      optional<size_t> force_gen_skip; // Skip count at last force_gen run.
 
       const path* drmp (nullptr); // Points to drm.path () if active.
 
@@ -2445,16 +2446,18 @@ namespace build2
 
                   if (first)
                   {
-                    // Empty output should mean the wait() call below will
-                    // return false.
+                    // Empty/invalid output should mean the wait() call below
+                    // will return false.
                     //
-                    if (l.empty ())
+                    if (l.empty () ||
+                        l[0] != '^' || l[1] != ':' || l[2] != ' ')
                     {
+                      if (!l.empty ())
+                        text << l;
+
                       bad_error = true;
                       break;
                     }
-
-                    assert (l[0] == '^' && l[1] == ':' && l[2] == ' ');
 
                     first = false;
                     second = true;
@@ -2585,8 +2588,18 @@ namespace build2
                 l6 ([&]{trace << "trying again without generated headers";});
               else
               {
+                // In some pathological situations (e.g., we are out of disk
+                // space) we may end up switching back and forth indefinitely
+                // without making any headway. So we use skip_count to track
+                // our progress.
+                //
+                if (force_gen_skip && *force_gen_skip == skip_count)
+                  fail << "inconsistent " << x_lang << " compiler behavior" <<
+                    info << "perhaps you are running out of disk space";
+
                 restart = true;
                 force_gen = true;
+                force_gen_skip = skip_count;
                 l6 ([&]{trace << "restarting with forced generated headers";});
               }
               continue;
