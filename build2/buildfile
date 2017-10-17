@@ -19,6 +19,20 @@ obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
 if ($cxx.target.class != "windows")
   cxx.libs += -lpthread
+else
+{
+  # Adjust stack size (affects all threads).
+  #
+  if ($cxx.target.cpu == "x86_64")
+    stack_size = 8388608 # 8M
+  else
+    stack_size = 4194304 # 4M
+
+  if ($cxx.id == 'msvc')
+    cxx.loptions += "/STACK:$stack_size"
+  else
+    cxx.loptions += "-Wl,--stack,$stack_size"
+}
 
 # Generated options parser.
 #
