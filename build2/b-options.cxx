@@ -714,7 +714,7 @@ namespace build2
 
     os << std::endl
        << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m    Maximum number of jobs (threads) to create. The default is" << ::std::endl
-       << "                     16x the number of active jobs (--jobs|j\033[0m) on 32-bit" << ::std::endl
+       << "                     8x the number of active jobs (--jobs|j\033[0m) on 32-bit" << ::std::endl
        << "                     architectures and 32x on 64-bit. See the build system" << ::std::endl
        << "                     scheduler implementation for details." << ::std::endl;
 

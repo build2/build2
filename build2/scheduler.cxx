@@ -243,11 +243,12 @@ namespace build2
     //
     lock l (mutex_);
 
-    // Use 16x max_active on 32-bit and 32x max_active on 64-bit. Unless we
+    // Use 8x max_active on 32-bit and 32x max_active on 64-bit. Unless we
     // were asked to run serially.
     //
     if (max_threads == 0)
-      max_threads = max_active * (max_active == 1 ? 1 : sizeof (void*) * 4);
+      max_threads = (max_active == 1    ? 1 :
+                     sizeof (void*) < 8 ? 8 : 32) * max_active;
 
     assert (shutdown_ &&
             init_active != 0 &&
