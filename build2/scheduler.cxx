@@ -6,10 +6,9 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
 #  include <pthread.h>
-#endif
-
-#ifdef __FreeBSD__
-#  include <pthread_np.h> // pthread_attr_get_np()
+#  ifdef __FreeBSD__
+#    include <pthread_np.h> // pthread_attr_get_np()
+#  endif
 #endif
 
 #include <cerrno>
@@ -450,10 +449,9 @@ namespace build2
 
     } g {&l, helpers_, starting_};
 
-    // For some OSes/compilers the default stack size for newly created threads
-    // may differ from that one of the main thread.
-    //
-    // Here are the default main/new thread sizes (in KB) for some of them:
+    // For some platforms/compilers the default stack size for newly created
+    // threads may differ from that of the main thread. Here are the default
+    // main/new thread sizes (in KB) for some of them:
     //
     // Linux   :   8192 / 8196
     // FreeBSD : 524288 / 2048
@@ -491,15 +489,14 @@ namespace build2
     };
 
     // Calculate the current thread stack size. Don't forget to update #if
-    // conditions above when add the stack size customization for a new
-    // OS/compiler.
+    // conditions above when adding the stack size customization for a new
+    // platforms/compilers.
     //
     size_t stack_size;
     {
 #ifdef __linux__
-      /*
-       * Note that the attributes must not be initialized.
-       */
+      // Note that the attributes must not be initialized.
+      //
       pthread_attr_t attr;
       int r (pthread_getattr_np (pthread_self (), &attr));
 
@@ -555,8 +552,6 @@ namespace build2
     if (r != 0)
       throw_system_error (r);
 
-    // Inherit the stack size from the current thread.
-    //
     r = pthread_attr_setstacksize (&attr, stack_size);
 
     if (r != 0)
