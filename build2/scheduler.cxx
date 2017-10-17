@@ -4,8 +4,12 @@
 
 #include <build2/scheduler.hxx>
 
-#ifdef __APPLE__
-#include <pthread.h>
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#  include <pthread.h>
+#endif
+
+#ifdef __FreeBSD__
+#  include <pthread_np.h> // pthread_attr_get_np()
 #endif
 
 #include <cerrno>
@@ -446,30 +450,36 @@ namespace build2
 
     } g {&l, helpers_, starting_};
 
-    // On Mac OS (as of 10.12) the default stack size is 512K for threads
-    // other than the main one, and there is no way to change this once and
-    // for all newly created threads. For the main thread it is by default 8M.
+    // For some OSes/compilers the default stack size for newly created threads
+    // may differ from that one of the main thread.
     //
-    // For Mac OS we will use pthreads, creating threads with the stack size
-    // of the current thread. This way all threads will inherit the main
-    // thread's stack size (since the first helper is always created by the
-    // main thread).
+    // Here are the default main/new thread sizes (in KB) for some of them:
     //
-#ifndef __APPLE__
-    thread t (helper, this);
-    t.detach ();
-#else
-    pthread_attr_t attr;
-    int r (pthread_attr_init (&attr));
-
-    if (r != 0)
-      throw_system_error (r);
-
+    // Linux   :   8192 / 8196
+    // FreeBSD : 524288 / 2048
+    // MacOS   :   8192 /  512
+    // MinGW   :   2048 / 2048
+    // VC      :   1024 / 1024
+    //
+    // We will make sure that the new thread stack size is the same as for the
+    // main thread. For FreeBSD we will also cap it at 8MB.
+    //
+    // On Windows the stack size is the same for all threads and is customized
+    // at the linking stage (see build2/buildfile).
+    //
+    // On Linux, FreeBSD and MacOS there is no way to change it once and for
+    // all newly created threads. Thus we will use pthreads, creating threads
+    // with the stack size of the current thread. This way all threads will
+    // inherit the main thread's stack size (since the first helper is always
+    // created by the main thread).
+    //
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
     // Auto-deleter.
     //
-    unique_ptr<pthread_attr_t, void (*)(pthread_attr_t*)> ad (
-      &attr,
-      [] (pthread_attr_t* a)
+    struct attr_deleter
+    {
+      void
+      operator() (pthread_attr_t* a) const
       {
         int r (pthread_attr_destroy (a));
 
@@ -477,7 +487,66 @@ namespace build2
         // something is severely damaged.
         //
         assert (r == 0);
-      });
+      }
+    };
+
+    // Calculate the current thread stack size. Don't forget to update #if
+    // conditions above when add the stack size customization for a new
+    // OS/compiler.
+    //
+    size_t stack_size;
+    {
+#ifdef __linux__
+      /*
+       * Note that the attributes must not be initialized.
+       */
+      pthread_attr_t attr;
+      int r (pthread_getattr_np (pthread_self (), &attr));
+
+      if (r != 0)
+        throw_system_error (r);
+
+      unique_ptr<pthread_attr_t, attr_deleter> ad (&attr);
+      r = pthread_attr_getstacksize (&attr, &stack_size);
+
+      if (r != 0)
+        throw_system_error (r);
+
+#elif defined(__FreeBSD__)
+      pthread_attr_t attr;
+      int r (pthread_attr_init (&attr));
+
+      if (r != 0)
+        throw_system_error (r);
+
+      unique_ptr<pthread_attr_t, attr_deleter> ad (&attr);
+      r = pthread_attr_get_np (pthread_self (), &attr);
+
+      if (r != 0)
+        throw_system_error (r);
+
+      r = pthread_attr_getstacksize (&attr, &stack_size);
+
+      if (r != 0)
+        throw_system_error (r);
+
+      // Cap at 8MB.
+      //
+      if (stack_size > 8388608)
+        stack_size = 8388608;
+
+#else // defined(__APPLE__)
+      stack_size = pthread_get_stacksize_np (pthread_self ());
+#endif
+    }
+
+    pthread_attr_t attr;
+    int r (pthread_attr_init (&attr));
+
+    if (r != 0)
+      throw_system_error (r);
+
+    unique_ptr<pthread_attr_t, attr_deleter> ad (&attr);
 
     // Create the thread already detached.
     //
@@ -488,8 +557,7 @@ namespace build2
 
     // Inherit the stack size from the current thread.
     //
-    r = pthread_attr_setstacksize (&attr,
-                                   pthread_get_stacksize_np (pthread_self ()));
+    r = pthread_attr_setstacksize (&attr, stack_size);
 
     if (r != 0)
       throw_system_error (r);
@@ -499,6 +567,9 @@ namespace build2
 
     if (r != 0)
       throw_system_error (r);
+#else
+    thread t (helper, this);
+    t.detach ();
 #endif
 
     g.l = nullptr; // Disarm.
