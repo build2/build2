@@ -22,6 +22,9 @@
 # cd build2-boot
 # make -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++-7
 #
+# If used on Windows, then this makefile assumes you are building in the
+# MinGW environment and sets things up similar to bootstrap-mingw.bat.
+#
 # The following standard make variables can be used to customize the build:
 #
 # CXX
@@ -29,6 +32,19 @@
 # CXXFLAGS
 # LDFLAGS
 # LIBS
+
+exe   :=
+host  :=
+chost :=
+
+ifeq ($(OS),Windows_NT)
+  exe   := .exe
+  host  := i686-w64-mingw32
+  chost := i686-w64-mingw32
+  override LIBS += -limagehlp
+else
+  override LIBS += -lpthread
+endif
 
 # Remove all the built-in rules, enable second expansion, etc.
 #
@@ -91,8 +107,6 @@ endif
 
 # Obtain the host triplet.
 #
-host  :=
-chost :=
 ifeq ($(host),)
   host := $(shell $(src_root)/config.guess)
 
@@ -140,8 +154,8 @@ libbutl_obj := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.b.o,$(libbut
 
 # Build.
 #
-$(out_root)/build2/b-boot: $(build2_obj) $(libbutl_obj)
-	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ -lpthread $(LIBS)
+$(out_root)/build2/b-boot$(exe): $(build2_obj) $(libbutl_obj)
+	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(out_root)/build2/%.b.o: $(src_root)/build2/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
@@ -154,7 +168,7 @@ $(libbutl_out)/%.b.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
 	mkdir -p $*
 
 .PHONY: all
-all: $(out_root)/build2/b-boot
+all: $(out_root)/build2/b-boot$(exe)
 
 # Clean.
 #
@@ -165,7 +179,7 @@ cleano:
 	rm -f $(libbutl_obj)
 
 clean: cleano
-	rm -f $(out_root)/build2/b-boot
+	rm -f $(out_root)/build2/b-boot$(exe)
 ifeq ($(in_tree),false)
 	rm -fd $(foreach d,$(sub_dirs),$(out_root)/build2/$d) $(out_root)/build2 $(libbutl_out)
 endif
