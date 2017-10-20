@@ -21,9 +21,10 @@ system is self-hosted, which means that unless you have obtained a pre-built
 binary from somewhere else, you will need to bootstrap it. To accomplish this,
 we use the \c{bootstrap.sh} shell script (or equivalent batch files for
 Windows) found in the root directory of the \c{build2} distribution. On
-UNIX-like operating systems a GNU \c{make} makefile called \c{bootstrap.gmake}
-can also be used with the major advanage over the script being support for
-parallel bootstrap (see comments inside the makefile for more information).
+UNIX-like operating systems as well as MinGW a GNU \c{make} makefile called
+\c{bootstrap.gmake} can also be used with the major advanage over the script
+being support for parallel compilation and an out of tree build (see comments
+inside the makefile for more information).
 
 The following is the recommended sequence of steps:
 
@@ -59,7 +60,7 @@ Alternatively, we can use the \c{bootstrap.gmake} makefile:
 
 \
 $ cd build2-X.Y.Z
-$ make -f bootstrap.gmake CXX=g++ -j 8
+$ make -f bootstrap.gmake -j 8 CXX=g++
 
 $ build2/b-boot --version
 \
@@ -69,7 +70,7 @@ makefile (but not the script):
 
 \
 $ mkdir build2-boot
-$ make -C build2-boot -f ../build2-X.Y.Z/bootstrap.gmake CXX=g++ -j 8
+$ make -C build2-boot -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++
 
 $ build2-boot/build2/b-boot --version
 \
