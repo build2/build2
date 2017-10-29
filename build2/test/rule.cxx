@@ -774,6 +774,14 @@ namespace build2
         args.push_back (dpp.recall_string ());
         args.push_back ("-u");
 
+        // Note that MinGW-built diff utility (as of 3.3) fails trying to
+        // detect if STDIN contains text or binary data. We will help it a bit
+        // to workaround the issue.
+        //
+#ifdef _WIN32
+        args.push_back ("--text");
+#endif
+
         // Ignore Windows newline fluff if that's what we are running on.
         //
         if (cast<target_triplet> (tt["test.target"]).class_ == "windows")
