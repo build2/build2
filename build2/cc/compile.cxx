@@ -2959,32 +2959,44 @@ namespace build2
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
 
+#if 0
       // Save the module map for compilers that use it.
       //
-      if (cid == compiler_id::gcc && md.mods.start != 0)
+      if (md.mods.start != 0)
       {
-        // We don't need to redo this if the above hash hasn't changed and the
-        // database is valid.
-        //
-        if (dd.writing () || !dd.skip ())
+        switch (cid)
         {
-          const auto& pts (t.prerequisite_targets);
-
-          for (size_t i (md.mods.start); i != pts.size (); ++i)
+        case compiler_id::gcc:
+        case compiler_id::clang:
           {
-            if (const target* m = pts[i])
+            // We don't need to redo this if the above hash hasn't changed and
+            // the database is valid.
+            //
+            if (dd.writing () || !dd.skip ())
             {
-              // Save a variable lookup by getting the module name from the
-              // import list (see search_modules()).
-              //
-              dd.write ('@', false);
-              dd.write (mi.imports[i - md.mods.start].name, false);
-              dd.write ('=', false);
-              dd.write (m->as<file> ().path ());
+              const auto& pts (t.prerequisite_targets);
+
+              for (size_t i (md.mods.start); i != pts.size (); ++i)
+              {
+                if (const target* m = pts[i])
+                {
+                  // Save a variable lookup by getting the module name from
+                  // the import list (see search_modules()).
+                  //
+                  dd.write ('@', false);
+                  dd.write (mi.imports[i - md.mods.start].name, false);
+                  dd.write ('=', false);
+                  dd.write (m->as<file> ().path ());
+                }
+              }
             }
+            break;
           }
+        default:
+          break;
         }
       }
+#endif
 
       // Set the cc.module_name variable if this is an interface unit. Note
       // that it may seem like a good idea to set it on the bmi{} group to
@@ -3181,9 +3193,9 @@ namespace build2
       // And after implementing this came the reality check: all the current
       // implementations require access to all the imported BMIs, not only
       // re-exported. Some (like Clang) store references to imported BMI files
-      // so we actually don't need to pass any extra options but they still
-      // need access to the BMIs (and things will most likely have to be done
-      // differenly for distributed compilation).
+      // so we actually don't need to pass any extra options (unless things
+      // get moved) but they still need access to the BMIs (and things will
+      // most likely have to be done differenly for distributed compilation).
       //
       // So the revised plan: on the off chance that some implementation will
       // do it differently we will continue maintaing the imported/re-exported
@@ -3199,7 +3211,6 @@ namespace build2
             {
               return !x.exported && y.exported;
             });
-
 
       // Go over the prerequisites once.
       //
@@ -3697,7 +3708,91 @@ namespace build2
                     const match_data& md) const
     {
       const module_positions& ms (md.mods);
+      assert (ms.start != 0);
 
+      dir_path stdifc; // See the VC case below.
+
+#if 0
+      switch (cid)
+      {
+      case compiler_id::gcc:
+        {
+          // Use the module map stored in depdb.
+          //
+          string s (relative (md.dd).string ());
+          s.insert (0, "-fmodule-file-map=@=");
+          stor.push_back (move (s));
+          break;
+        }
+      case compiler_id::clang:
+        {
+          // In Clang the module implementation's unit .pcm is special and
+          // must be "loaded".
+          //
+          if (md.type == translation_type::module_impl)
+          {
+            const file& f (t.prerequisite_targets[ms.start]->as<file> ());
+            string s (relative (f.path ()).string ());
+            s.insert (0, "-fmodule-file=");
+            stor.push_back (move (s));
+          }
+
+          // Use the module map stored in depdb for others.
+          //
+          string s (relative (md.dd).string ());
+          s.insert (0, "-fmodule-file-map=@=");
+          stor.push_back (move (s));
+          break;
+        }
+      case compiler_id::msvc:
+        {
+          for (size_t i (ms.start), n (t.prerequisite_targets.size ());
+               i != n;
+               ++i)
+          {
+            const target* pt (t.prerequisite_targets[i]);
+
+            if (pt == nullptr)
+              continue;
+
+            // Here we use whatever bmi type has been added. And we know all
+            // of these are bmi's.
+            //
+            const file& f (pt->as<file> ());
+
+            // In VC std.* modules can only come from a single directory
+            // specified with the IFCPATH environment variable or the
+            // /module:stdIfcDir option.
+            //
+            if (std_module (cast<string> (f.vars[c_module_name])))
+            {
+              dir_path d (f.path ().directory ());
+
+              if (stdifc.empty ())
+              {
+                // Go one directory up since /module:stdIfcDir will look in
+                // either Release or Debug subdirectories. Keeping the result
+                // absolute feels right.
+                //
+                stor.push_back ("/module:stdIfcDir");
+                stor.push_back (d.directory ().string ());
+                stdifc = move (d);
+              }
+              else if (d != stdifc) // Absolute and normalized.
+                fail << "multiple std.* modules in different directories";
+            }
+            else
+            {
+              stor.push_back ("/module:reference");
+              stor.push_back (relative (f.path ()).string ());
+            }
+          }
+          break;
+        }
+      case compiler_id::icc:
+        assert (false);
+      }
+#else
       size_t n (t.prerequisite_targets.size ());
 
       // Clang embeds module file references so we only need to specify
@@ -3708,22 +3803,11 @@ namespace build2
       //
       switch (cid)
       {
-      case compiler_id::gcc:
-        {
-          // Use the module map stored in depdb.
-          //
-          string s (relative (md.dd).string ());
-          s.insert (0, "-fmodule-file-map=@=");
-          stor.push_back (move (s));
-          n = ms.start; // Don't add individual entries below.
-          break;
-        }
+      case compiler_id::gcc:   break; // All of them.
       case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
       case compiler_id::msvc:  break; // All of them.
       case compiler_id::icc:   assert (false);
       }
-
-      dir_path stdifc; // See the VC case below.
 
       for (size_t i (ms.start); i != n; ++i)
       {
@@ -3742,10 +3826,9 @@ namespace build2
         {
         case compiler_id::gcc:
           {
-            //s.insert (0, 1, '=');
-            //s.insert (0, cast<string> (f.vars[c_module_name]));
-            //s.insert (0, "-fmodule-file=");
-            assert (false);
+            s.insert (0, 1, '=');
+            s.insert (0, cast<string> (f.vars[c_module_name]));
+            s.insert (0, "-fmodule-file=");
             break;
           }
         case compiler_id::clang:
@@ -3802,9 +3885,10 @@ namespace build2
 
         stor.push_back (move (s));
       }
+#endif
 
       // Shallow-copy storage to args. Why not do it as we go along pushing
-      // into storage?  Because of potential reallocations.
+      // into storage? Because of potential reallocations.
       //
       for (const string& a: stor)
         args.push_back (a.c_str ());
