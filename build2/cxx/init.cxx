@@ -81,8 +81,8 @@ namespace build2
           }
         case compiler_id::gcc:
           {
-            //if    (mj >= 8)            o = "-std=c++2a"; // 20
-            if      (mj >= 5)            o = "-std=c++1z"; // 17
+            if      (mj >= 8)            o = "-std=c++2a"; // 20
+            else if (mj >= 5)            o = "-std=c++1z"; // 17
             else if (mj == 4 && mi >= 8) o = "-std=c++1y"; // 14
             else if (mj == 4 && mi >= 4) o = "-std=c++0x"; // 11
 
